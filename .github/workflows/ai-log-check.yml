@@ -1,0 +1,23 @@
+name: ai-log-check
+
+# Enforces Hard Gate G3 (Rubric TC2.3 Level 5).
+# Ensures that every pull request modifying application source code also
+# includes a corresponding entry in docs/ai-usage/log.md.
+
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - "apps/**"
+      - "packages/**"
+      - "docs/ai-usage/log.md"
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify AI Usage Log entry
+        run: bash scripts/verify-ai-log.sh --pr

@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# .githooks/pre-commit — Local pre-commit hook enforcing Hard Gates and Map Integrity
+
+set -euo pipefail
+
+echo "🔍 Running pre-commit verification..."
+
+# 1. Verify Agent Map Integrity (Zero broken markdown links)
+echo "1️⃣ Checking agent map and documentation link integrity..."
+bash scripts/check-agent-map.sh
+
+# 2. Verify AI Usage Logging (Hard Gate G3 / Rubric TC2.3 Level 5)
+echo "2️⃣ Checking AI usage log adherence..."
+bash scripts/verify-ai-log.sh --staged
+
+echo "🎉 All local pre-commit checks passed successfully!"
+exit 0
