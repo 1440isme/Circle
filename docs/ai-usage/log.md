@@ -750,3 +750,37 @@
   - **Resolution / Fix:** N/A
 - **Commit:** `9049a4e`
 - **PR:** #37 (https://github.com/1440isme/Circle/pull/37)
+
+---
+
+## AI-0022: Thiết lập Bảng Phân công Nhiệm vụ Chi tiết (Hạnh - Bình) theo Kế hoạch 15 Tuần
+
+- **Date:** 2026-09-26 23:05:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (Medium)
+- **Related Issue:** #38 ([SUB-TASK]: Thiết lập Bảng Phân công Nhiệm vụ Chi tiết (Hạnh - Bình) theo Kế hoạch 15 Tuần)
+- **Purpose:** Biên soạn và xuất bản tài liệu phân công nhiệm vụ chi tiết `docs/phan-cong-nhiem-vu.md` cho hai kỹ sư:
+  (1) Module 0, 1, 2 giữ nguyên phân định theo thế mạnh (Hạnh: Business Specs / Profile; Bình: C4 Model / Docker Infra / JWT Auth Engine).
+  (2) Từ Module 3 trở đi chuyển đổi sang mô hình **Full-stack Module Ownership** trọn gói từ DB, API đến Web & Mobile UI để tối đa hóa tính tự chủ và tránh xung đột mã nguồn.
+  (3) Tuân thủ nghiêm ngặt nguyên tắc Circle-Centric: Loại bỏ hoàn toàn chat 1-1, mọi tương tác nhắn tin và gọi điện chỉ diễn ra trong không gian nhóm.
+  (4) Phân chia cân đối 50-50 Module 7 (Bình: Planning Sheet, Map Live Location, Poll | Hạnh: Album, Calendar, Vòng xoay, Điều muốn nói).
+  (5) Phân chia cân đối 50-50 Module 9 (Bình: Admin Portal, Metrics Dashboard, User/Circle Management | Hạnh: Reporting System, Moderation Queue, Audit Log).
+  (6) Cập nhật liên kết mục lục tại `docs/README.md`.
+- **Prompt Summary:** Yêu cầu: "oke hợp lý rồi. Xuất thành file chia việc vẫn tạo issue".
+- **Files Affected:**
+  - `docs/phan-cong-nhiem-vu.md` (Tạo mới tài liệu phân công chi tiết 12 module và tiến độ 15 tuần)
+  - `docs/README.md` (Bổ sung liên kết đến `phan-cong-nhiem-vu.md`)
+  - `docs/ai-usage/log.md` (Ghi nhận bản ghi AI-0022)
+- **AI-Generated Portion:** 100% cấu trúc tài liệu, ma trận phân chia trách nhiệm và sơ đồ tiến độ gối đầu.
+- **Human Modifications:** Ninh Thị Mỹ Hạnh định hướng phân vai, yêu cầu loại bỏ chat 1-1 theo SRS và chia đôi Module 7, Module 9.
+- **Verification Method:** Chạy `./scripts/check-agent-map.sh` xác nhận 100% (94/94 tệp tham chiếu markdown đạt chuẩn 0 broken links).
+- **Official Source Checked:** `docs/Ke hoach thuc hien TLCN .md`, `docs/requirements/SRS.md`, `PROJECT_GOD.md`.
+- **Security & License Check:** An toàn, không chứa bí mật hay thông tin nhạy cảm.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A
+  - **Resolution / Fix:** N/A
+- **Commit:** Pending
+- **PR:** Pending
+
