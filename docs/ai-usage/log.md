@@ -623,7 +623,6 @@
 - **Security & License Check:** An toàn, không chứa credentials nhạy cảm, sử dụng biến môi trường chuẩn.
 - **AI Errors / Hallucinations Found:**
   - **Error Description:** Xung đột cấu hình `module: commonjs` và `moduleResolution: NodeNext` khi kế thừa từ base tsconfig trong `apps/backend/tsconfig.json`.
-  - **Root Cause:** Cấu hình base tsconfig đặt `NodeNext` cho ESM, trong khi NestJS mặc định dùng CommonJS với moduleResolution `node`.
   - **Resolution / Fix:** Ghi đè `"moduleResolution": "node"` trong `apps/backend/tsconfig.json`.
 - **Commit:** `1e35c41` (Merged: `857cb6d`)
 - **PR:** #33 (https://github.com/1440isme/Circle/pull/33)
@@ -659,5 +658,68 @@
   - **Error Description:** Đường dẫn tương đối từ `docs/architecture/diagrams/` trỏ về `PROJECT_GOD.md` ban đầu để `../../` thay vì `../../../` (bị lệch 1 cấp thư mục).
   - **Root Cause:** Nhầm lẫn độ sâu thư mục (3 cấp thay vì 2 cấp).
   - **Resolution / Fix:** `./scripts/check-agent-map.sh` phát hiện và đã được sửa lại ngay lập tức thành `../../../PROJECT_GOD.md`.
+- **Commit:** `d39b7fa` (Merged: `a63832c`)
+- **PR:** #34 (https://github.com/1440isme/Circle/pull/34)
+
+---
+
+## AI-0020: Xây dựng Module Xác thực Authentication API, Dual-Token JWT và Refresh Token Rotation
+
+- **Date:** 2026-09-26 22:05:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (Medium)
+- **Related Issue:** #2 ([SUB-FEAT]: US-AUTH-001 — User Registration, Password Hashing & Account Activation) & #3 ([SUB-FEAT]: US-AUTH-002 — Dual-token JWT Authentication & Refresh Token Rotation)
+- **Purpose:** Xây dựng hoàn chỉnh module xác thực Authentication / Authorization cho Backend NestJS:
+  (1) Khởi tạo cấu trúc `apps/backend/src`: `main.ts`, `app.module.ts`, `database/prisma.service.ts`, `database/database.module.ts`.
+  (2) Cài đặt hệ thống bảo mật & phân quyền dùng chung:
+    - `@Public()` decorator và `JwtAuthGuard` (tự động bypass các public routes).
+    - `@Roles()` decorator và `RolesGuard` (kiểm tra quyền RBAC `USER`, `ADMIN`).
+    - `@CurrentUser()` param decorator trích xuất thông tin người dùng từ token payload.
+  (3) Xây dựng `AuthModule`:
+    - `RegisterDto`, `LoginDto`, `RefreshTokenDto` với validation constraints (`class-validator`).
+    - `JwtStrategy` kế thừa `passport-jwt` xác thực Bearer Token và trạng thái tài khoản `isActivated`.
+    - `AuthService`:
+      - `register()`: Kiểm tra trùng email (trả về 409 Conflict), hash mật khẩu bằng `bcryptjs` salt rounds cost 12, tạo `User` và `UserProfile` trong transaction, sinh cặp token và lưu hashed refresh token.
+      - `login()`: Kiểm tra email/password, so khớp hash, phát hành Dual-token (Access Token 15 phút, Refresh Token 7 ngày).
+      - `refreshTokens()`: Xác thực refresh token, cơ chế **Token Reuse Detection** (phát hiện tái sử dụng token đã thu hồi để tự động vô hiệu hóa toàn bộ session của tài khoản đó), thu hồi token cũ và xoay vòng token mới (Refresh Token Rotation).
+      - `logout()`: Thu hồi refresh token trong cơ sở dữ liệu.
+    - `AuthController`: Các endpoints `POST /register`, `POST /login`, `POST /refresh`, `POST /logout`, `GET /me`.
+  (4) Viết và chạy bộ kiểm thử đơn vị tự động `apps/backend/src/modules/auth/auth.service.spec.ts` (TC-AUTH-001 & TC-AUTH-002) đạt pass 100% (7/7 test cases).
+- **Prompt Summary:** Yêu cầu: "ok" (tiến hành thực hiện module Auth theo định hướng tự build đã thống nhất).
+- **Files Affected:**
+  - `apps/backend/package.json`
+  - `apps/backend/tsconfig.json`
+  - `apps/backend/src/main.ts`
+  - `apps/backend/src/app.module.ts`
+  - `apps/backend/src/database/prisma.service.ts`
+  - `apps/backend/src/database/database.module.ts`
+  - `apps/backend/src/common/decorators/public.decorator.ts`
+  - `apps/backend/src/common/decorators/roles.decorator.ts`
+  - `apps/backend/src/common/decorators/current-user.decorator.ts`
+  - `apps/backend/src/common/guards/jwt-auth.guard.ts`
+  - `apps/backend/src/common/guards/roles.guard.ts`
+  - `apps/backend/src/modules/auth/dto/register.dto.ts`
+  - `apps/backend/src/modules/auth/dto/login.dto.ts`
+  - `apps/backend/src/modules/auth/dto/refresh-token.dto.ts`
+  - `apps/backend/src/modules/auth/strategies/jwt.strategy.ts`
+  - `apps/backend/src/modules/auth/auth.service.ts`
+  - `apps/backend/src/modules/auth/auth.controller.ts`
+  - `apps/backend/src/modules/auth/auth.module.ts`
+  - `apps/backend/src/modules/auth/auth.service.spec.ts`
+  - `package-lock.json`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% mã nguồn backend, DTOs, strategies, services, controllers và test suites.
+- **Human Modifications:** Trương Công Bình duyệt phương án tự build qua NestJS Passport + JWT + bcrypt, phê duyệt triển khai chi tiết.
+- **Verification Method:**
+  - `npm run test --workspace=@circle/backend` pass 7/7 test cases (TC-AUTH-001 & TC-AUTH-002).
+  - `npm run build --workspace=@circle/backend` biên dịch NestJS thành công 0 lỗi.
+  - `./scripts/check-agent-map.sh` pass 100% (91/91 tệp tham chiếu).
+- **Official Source Checked:** `PROJECT_GOD.md` (DoD, G1 Working Product, G4 Understandability, G5 Automated Testing, G8 Security), `apps/backend/docs/authentication.md`.
+- **Security & License Check:** Mật khẩu băm an toàn bcrypt cost 12; Refresh Token lưu hash SHA-256; Token Reuse Detection thu hồi toàn bộ session khi phát hiện xâm nhập; không rò rỉ secret key.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** Gói `bcrypt` native bị npm 12 chặn build script native module dẫn đến lỗi thiếu `bcrypt_lib.node` khi chạy Jest.
+  - **Root Cause:** npm 12 mặc định bật cơ chế bảo vệ allowScripts chặn preinstall/install binary build script của các gói native C++.
+  - **Resolution / Fix:** Thay thế sang `bcryptjs` (thuần JavaScript, không phụ thuộc C++ build tools, tương thích 100% API và an toàn đa nền tảng cho Docker/CI).
 - **Commit:** Pending
 - **PR:** Pending
