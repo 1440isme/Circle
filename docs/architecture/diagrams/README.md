@@ -7,8 +7,8 @@ Visual models for CIRCLE software architecture, data design, interaction flows, 
 ## 1. Static Architecture & Data Design
 
 - [`class-diagram.md`](./class-diagram.md) — Domain Class Model Specification ([`classdiagram.puml`](./classdiagram.puml))
-- `erd.md` — Entity Relationship Diagram (PostgreSQL & Prisma)
-- `system-context.md` — C4 Context Diagram & System Boundaries
+- [`erd.md`](./erd.md) — Entity Relationship Diagram (PostgreSQL 16 & Prisma)
+- [`c4-model.md`](./c4-model.md) — C4 Architecture Model (Context, Container, Component Diagrams)
 
 ---
 
