@@ -1,11 +1,26 @@
-# Architecture Diagrams
+# Architecture & Design Diagrams
 
-Mermaid diagrams visualizing ERD, component relationships, sequence flows, and deployment topology.
+Visual models for CIRCLE software architecture, data design, interaction flows, and deployment topology.
 
 ---
 
-- `erd.md` — Entity Relationship Diagram (PostgreSQL)
-- `system-context.md` — C4 Context Diagram
+## 1. Static Architecture & Data Design
+
+- [`class-diagram.md`](./class-diagram.md) — Domain Class Model Specification ([`classdiagram.puml`](./classdiagram.puml))
+- `erd.md` — Entity Relationship Diagram (PostgreSQL & Prisma)
+- `system-context.md` — C4 Context Diagram & System Boundaries
+
+---
+
+## 2. Dynamic Interaction Flows
+
 - `chat-sequence.md` — Socket.IO Realtime Chat Message Flow
 - `webrtc-signaling.md` — WebRTC Audio/Video Call Signaling Sequence
 - `deployment-topology.md` — VPS, Docker, Traefik, Cloudflare Topology
+
+---
+
+## 3. Related Requirements Diagrams
+
+- **Use Case Diagram (Draw.io / XML):** Đã được chuyển về thư mục Phân tích yêu cầu tại [`docs/requirements/diagrams/usecase.xml`](../../requirements/diagrams/usecase.xml).  
+  Xem tài liệu đặc tả 26 Use Case chi tiết tại [`docs/requirements/use-cases.md`](../../requirements/use-cases.md).

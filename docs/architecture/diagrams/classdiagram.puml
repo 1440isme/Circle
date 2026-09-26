@@ -1,0 +1,252 @@
+@startuml
+skinparam linetype ortho
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam roundcorner 6
+skinparam nodesep 45
+skinparam ranksep 55
+skinparam classAttributeIconSize 0
+
+' ==========================================
+' 1. ACCOUNT & FRIENDSHIP
+' ==========================================
+package "Account & Social Connections" {
+    class User {
+        - String email
+        - String password
+        - Boolean isActivated
+        + void updateProfile()
+        + void sendFriendRequest()
+    }
+
+    class UserProfile <<Value Object>> {
+        - String displayName
+        - String avatarUrl
+        - String coverUrl
+        - String bio
+        - Date dateOfBirth
+    }
+
+    class Friendship {
+        - FriendshipStatus status
+        + void accept()
+        + void reject()
+        + void unfriend()
+    }
+
+    class Notification {
+        - String title
+        - String content
+        - Boolean isRead
+        + void markAsRead()
+    }
+
+    User "1" *-- "1" UserProfile : owns
+    User "1" --> "0..*" Notification : receives
+    User "1" <-- "*" Friendship : sender
+    User "1" <-- "*" Friendship : receiver
+}
+
+' ==========================================
+' 2. CIRCLE CORE
+' ==========================================
+package "Circle Core Domain" {
+    class Circle {
+        - String name
+        - String avatarUrl
+        - String coverUrl
+        - String description
+        - String inviteCode
+        + String generateInviteCode()
+        + void updateMetadata()
+        + void dissolve()
+    }
+
+    class CircleMember {
+        - MemberRole role
+        - String nickname
+        - DateTime joinedAt
+        + Boolean checkPermission()
+        + void leaveCircle()
+    }
+
+    Circle "1" *-- "1..*" CircleMember : has_members
+    CircleMember "*" --> "1" User : account
+}
+
+' ==========================================
+' 3. MESSAGING & MOMENTS
+' ==========================================
+package "Messaging & Moments" {
+    abstract class Message {
+        - DateTime sentAt
+        + void reply()
+    }
+
+    class TextMessage {
+        - String content
+    }
+
+    class FileMessage {
+        - Attachment fileAttachment
+    }
+
+    class VoiceMessage {
+        - Attachment audioFile
+        - Integer duration
+    }
+
+    class Reaction {
+        - Emoji emoji
+    }
+
+    class Moment {
+        - DateTime capturedAt
+        - String caption
+        + void captureRealTime()
+    }
+
+    class Photo {
+        - String fileUrl
+    }
+
+    Message <|-- TextMessage
+    Message <|-- FileMessage
+    Message <|-- VoiceMessage
+
+    Circle "1" --> "0..*" Message : contains_messages
+    CircleMember "1" --> "0..*" Message : sends
+    Message "1" *-- "0..*" Reaction : receives_reactions
+
+    Circle "1" --> "0..*" Moment : stores_moments
+    Moment "*" --> "1" CircleMember : posted_by
+    Moment "1" *-- "1" Photo : contains_photo
+    Moment "1" *-- "0..*" Reaction : receives_reactions
+    Message "0..*" ..> "0..1" Moment : quotes_moment
+}
+
+' ==========================================
+' 4. COLLABORATIVE PLANNING SHEET (GRID MATRIX)
+' ==========================================
+package "Collaborative Planning Sheet" {
+    class PlanningSheet {
+        - String title
+        - DateTime createdAt
+        + void addColumn()
+        + void addRow()
+        + void deleteSheet()
+    }
+
+    class SheetColumn {
+        - Integer columnIndex
+        - String columnTitle
+        + void updateTitle()
+    }
+
+    class SheetRow {
+        - Integer rowIndex
+        + void deleteRow()
+    }
+
+    class SheetCell {
+        - String cellValue
+        - DateTime updatedAt
+        + void updateValue()
+    }
+
+    Circle "1" --> "0..*" PlanningSheet : has_planning_sheets
+    CircleMember "1" --> "0..*" PlanningSheet : creates
+    PlanningSheet "1" *-- "1..*" SheetColumn : has_columns
+    PlanningSheet "1" *-- "0..*" SheetRow : has_rows
+    SheetRow "1" *-- "1..*" SheetCell : contains_cells
+    SheetColumn "1" -- "0..*" SheetCell : locates_column
+    SheetCell "*" --> "0..1" CircleMember : last_edited_by
+}
+
+' ==========================================
+' 5. CIRCLE UTILITIES
+' ==========================================
+package "Circle Utilities" {
+    class SharedAlbum {
+        - String albumTitle
+        + void addPhoto()
+    }
+    SharedAlbum "1" *-- "0..*" Photo : contains_photos
+    Circle "1" --> "0..*" SharedAlbum : has_albums
+
+    class PinnedRecord {
+        - DateTime pinnedAt
+        + void unpin()
+    }
+    Circle "1" --> "0..*" PinnedRecord : has_pins
+    PinnedRecord "*" --> "1" Message : pinned_message
+
+    class GroupPoll {
+        - String question
+        - DateTime deadline
+    }
+    class PollOption {
+        - String optionText
+    }
+    class PollVote {
+        - DateTime votedAt
+    }
+    Circle "1" --> "0..*" GroupPoll : has_polls
+    GroupPoll "1" *-- "2..*" PollOption : has_options
+    GroupPoll "1" *-- "0..*" PollVote : has_votes
+    PollVote "*" --> "1" CircleMember : voted_by
+    PollVote "*" --> "1" PollOption : selected_option
+
+    class DecisionWheel {
+        - String title
+        + String spinRandomly()
+    }
+    class WheelOption {
+        - String optionLabel
+    }
+    Circle "1" --> "0..*" DecisionWheel : has_decision_wheel
+    DecisionWheel "1" *-- "2..*" WheelOption : has_options
+
+    class AnonymousPost {
+        - String content
+        - DateTime postedAt
+    }
+    Circle "1" --> "0..*" AnonymousPost : has_anonymous_posts
+
+    class CalendarEvent {
+        - String eventTitle
+        - DateTime startTime
+        - DateTime reminderTime
+    }
+    Circle "1" --> "0..*" CalendarEvent : has_calendar_events
+    CircleMember "1" --> "0..*" CalendarEvent : creates_event
+
+    class LiveLocationShare {
+        - Duration shareDuration
+        + void stopSharing()
+    }
+    class GeoCoordinate <<Value Object>> {
+        - Double latitude
+        - Double longitude
+    }
+    Circle "1" --> "0..*" LiveLocationShare : has_live_locations
+    CircleMember "1" --> "0..*" LiveLocationShare : shares_location
+    LiveLocationShare "1" *-- "1" GeoCoordinate : coordinate
+
+    class CallSession {
+        - CallType callType
+        - DateTime startedAt
+        + Duration calculateDuration()
+    }
+
+    class CallParticipant {
+        - DateTime joinedAt
+        - DateTime leftAt
+    }
+
+    Circle "1" --> "0..*" CallSession : has_calls
+    CallSession "1" *-- "1..*" CallParticipant : participants
+    CallParticipant "*" --> "1" CircleMember : member
+}
+
+@enduml

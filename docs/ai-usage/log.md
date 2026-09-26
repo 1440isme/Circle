@@ -430,3 +430,74 @@
   - **Resolution / Fix:** Viết script Node.js gọi trực tiếp API `POST /repos/1440isme/Circle/issues/{parent_id}/sub_issues` để liên kết chính thức.
 - **Commit:** Pending
 - **PR:** #14 (https://github.com/1440isme/Circle/pull/14)
+
+---
+
+## AI-0014: Phân bổ và Chuẩn hóa Tài liệu Báo cáo TLCN, Đặc tả Use Case và Sơ đồ Kiến trúc vào Bố cục docs/
+
+- **Date:** 2026-09-26 19:55:00 +07:00
+- **Developer:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #26 ([SUB-TASK]: Hoàn thiện Bản thảo Báo cáo TLCN, Đặc tả 26 Use Case và Sơ đồ Kiến trúc / Yêu cầu)
+- **Purpose:** Đọc toàn diện tài liệu bản thảo Báo cáo TLCN (`BCTLCNmd.md` 700 dòng), phân bổ nội dung một cách khoa học vào đúng các thư mục tương ứng trong `docs/`:
+  (1) Di chuyển toàn văn bản thảo hoàn chỉnh vào `docs/thesis/Bao-cao-TLCN.md`, cập nhật mục lục và tóm tắt các chương tại `docs/thesis/README.md`.
+  (2) Trích xuất toàn bộ bảng nhận diện tác nhân & 26 Use Case Specifications chi tiết (UC01 - UC26) vào tài liệu phân tích yêu cầu `docs/requirements/use-cases.md`.
+  (3) Kiểm tra vị trí của `classdiagram.puml` (xác nhận nằm đúng thư mục kiến trúc `docs/architecture/diagrams/`), viết thêm tài liệu giải thích `class-diagram.md` và cập nhật `docs/architecture/diagrams/README.md`.
+  (4) Kiểm tra vị trí của `usecase.xml`, xác định đây là sơ đồ mô hình hóa yêu cầu (Requirements) chứ không phải kiến trúc, chuyển về đúng nơi tại `docs/requirements/diagrams/usecase.xml`, đồng thời liên kết chéo giữa Requirements và Architecture.
+  (5) Dọn dẹp tệp `BCTLCNmd.md` ở thư mục gốc để duy trì tính vệ sinh kho lưu trữ (Repository Hygiene - Gate 8).
+- **Prompt Summary:** Yêu cầu đọc file `BCTLCNmd.md`, phân bổ nội dung tương ứng vào từng folder trong `docs/`, kiểm tra 2 file `classdiagram.puml` và `usecase.xml` đã để đúng nơi chưa và sắp xếp lại cho chuẩn.
+- **Files Affected:**
+  - `docs/thesis/Bao-cao-TLCN.md` (Toàn văn bản thảo Báo cáo TLCN)
+  - `docs/thesis/README.md` (Mục lục và tóm tắt 3 chương lớn của bản thảo)
+  - `docs/requirements/use-cases.md` (Đặc tả 26 Use Case chi tiết UC01 - UC26 & Bảng tác nhân)
+  - `docs/requirements/README.md` (Cập nhật liên kết tài liệu Use Case và ma trận ánh xạ Epics)
+  - `docs/requirements/diagrams/usecase.xml` (Chuyển sơ đồ Use Case XML về đúng thư mục requirements)
+  - `docs/architecture/diagrams/class-diagram.md` (Tài liệu giải thích mô hình lớp miền nghiệp vụ)
+  - `docs/architecture/diagrams/README.md` (Cập nhật mục lục sơ đồ kiến trúc & liên kết sơ đồ Use Case)
+  - `docs/ai-usage/log.md` (Ghi nhận bản ghi AI-0014)
+- **AI-Generated Portion:** 100% cấu trúc trích xuất, phân bổ và tài liệu hóa chuẩn kỹ nghệ phần mềm.
+- **Human Modifications:** Người dùng cung cấp bản thảo gốc và định hướng kiểm tra, tái cấu trúc vị trí tài liệu và sơ đồ cho chuẩn xác.
+- **Verification Method:** Kiểm tra tính toàn vẹn 26 Use Cases, kiểm tra đường dẫn liên kết tương đối giữa các file markdown, kiểm tra `git status`.
+- **Official Source Checked:** `PROJECT_GOD.md` (DoD, Rubric Level 5), Chuẩn tài liệu kỹ nghệ phần mềm (IEEE SRS & UML).
+- **Security & License Check:** An toàn, không chứa mật khẩu hay thông tin nhạy cảm.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A
+  - **Resolution / Fix:** N/A
+- **Commit:** `316120e`
+- **PR:** #27 (https://github.com/1440isme/Circle/pull/27)
+
+---
+
+## AI-0015: Tiếp thu Peer Review PR #27 — Tối ưu Hóa Sơ đồ Use Case, Xóa Câu dẫn AI và Đồng bộ Sơ đồ Lớp
+
+- **Date:** 2026-09-26 20:38:00 +07:00
+- **Developer:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #26 ([SUB-TASK]: Hoàn thiện Bản thảo Báo cáo TLCN, Đặc tả 26 Use Case và Sơ đồ Kiến trúc / Yêu cầu)
+- **Purpose:** Tiếp thu và xử lý 100% phản hồi từ báo cáo Peer Review của Trương Công Bình (@1440isme) trên PR #27:
+  (1) Xóa bỏ câu dẫn hội thoại thừa của AI ở dòng 210 trong `docs/thesis/Bao-cao-TLCN.md` để giữ vững văn phong học thuật chuẩn mực cho báo cáo tốt nghiệp.
+  (2) Giải nén chuỗi Base64 hình ảnh sơ đồ Use Case (dài gần 400KB) thành tệp ảnh rời `docs/requirements/diagrams/usecase.png` (234KB), nhúng đường dẫn hình ảnh tương đối sạch sẽ vào cả `docs/thesis/Bao-cao-TLCN.md` và `docs/requirements/use-cases.md`, giảm kích thước file báo cáo từ 401KB xuống còn 89KB giúp tối ưu hiệu năng preview markdown.
+  (3) Đồng bộ hóa 100% danh mục lớp và các gói miền nghiệp vụ trong `docs/architecture/diagrams/class-diagram.md` khớp với tệp nguồn PlantUML `classdiagram.puml` (`PlanningSheet`, `SheetColumn`, `SheetRow`, `SheetCell`, `SharedAlbum`, `PinnedRecord`, `GroupPoll`, `PollOption`, `PollVote`, `DecisionWheel`, `WheelOption`, `AnonymousPost`, `CalendarEvent`, `LiveLocationShare`, `GeoCoordinate`, `CallSession`, `CallParticipant`).
+- **Prompt Summary:** Yêu cầu xử lý các góp ý trong peer review của Bình trên PR #27.
+- **Files Affected:**
+  - `docs/thesis/Bao-cao-TLCN.md` (Xóa câu dẫn AI, chuyển base64 thành link ảnh rời `usecase.png`)
+  - `docs/requirements/use-cases.md` (Nhúng ảnh trực quan `diagrams/usecase.png`)
+  - `docs/requirements/diagrams/usecase.png` (Tạo mới tệp hình ảnh sơ đồ Use Case chất lượng cao)
+  - `docs/architecture/diagrams/class-diagram.md` (Chuẩn hóa tên thực thể và 5 packages khớp với `classdiagram.puml`)
+  - `docs/ai-usage/log.md` (Ghi nhận bản ghi AI-0015)
+- **AI-Generated Portion:** 100% mã giải nén base64, tinh chỉnh văn bản học thuật và cập nhật tài liệu giải thích.
+- **Human Modifications:** Trương Công Bình review chi tiết từng dòng, phát hiện câu dẫn sót của AI, chuỗi base64 phình to và sự lệch tên thực thể giữa tài liệu md và puml.
+- **Verification Method:** Chạy `./scripts/check-agent-map.sh` xác nhận toàn bộ 91 tệp tham chiếu markdown pass 100% (0 broken links), kiểm tra độ phân giải của `usecase.png` và cấu trúc các gói trong `class-diagram.md`.
+- **Official Source Checked:** `PROJECT_GOD.md` (Peer Review Policy, Definition of Done), `classdiagram.puml`.
+- **Security & License Check:** An toàn, không chứa dữ liệu nhạy cảm hay thông tin định danh cá nhân.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** AI để sót câu dẫn sinh nội dung trong file báo cáo, nhúng trực tiếp chuỗi base64 thay vì tách file asset rời, và tóm tắt tên lớp trong `class-diagram.md` chưa khớp 100% với tên lớp trong `classdiagram.puml`.
+  - **Root Cause:** Quá trình tổng hợp nội dung tự động từ nhiều nguồn trước đó có câu dẫn chuyển tiếp chưa được lọc sạch; nhúng inline base64 theo bản gốc `BCTLCNmd.md`.
+  - **Resolution / Fix:** Lọc bỏ câu dẫn hội thoại; xuất ảnh ra tệp PNG rời tại `docs/requirements/diagrams/usecase.png`; đối chiếu từng dòng trong `classdiagram.puml` để cập nhật lại `class-diagram.md`.
+- **Commit:** `d5f3936`
+- **PR:** #27 (https://github.com/1440isme/Circle/pull/27)
+
+
