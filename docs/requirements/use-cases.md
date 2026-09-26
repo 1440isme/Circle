@@ -32,8 +32,11 @@ Bảng 2.1. Các tác nhân và chức năng trong sơ đồ Use case
 
 ## 2. Sơ đồ Use Case tổng quát
 
+![Sơ đồ Use Case tổng thể hệ thống CIRCLE](diagrams/usecase.png)
+
 Mô hình sơ đồ Use Case đầy đủ của hệ thống CIRCLE được thiết kế bằng chuẩn draw.io / XML và lưu trữ tại:
-- **Tệp nguồn sơ đồ:** [diagrams/usecase.xml](diagrams/usecase.xml)
+- **Tệp nguồn sơ đồ:** [`diagrams/usecase.xml`](diagrams/usecase.xml)
+- **Tệp hình ảnh kết xuất:** [`diagrams/usecase.png`](diagrams/usecase.png)
 - **Cấu trúc phân vùng:** Swimlane bao gồm 4 nhóm tác nhân người dùng (Guest, User, Circle Member, Circle Owner), 3 hệ thống/dịch vụ ngoài (Email Service, WebSocket/WebRTC, Cloud Storage), và 26 Use Case chính (UC01 đến UC26).
 
 ---

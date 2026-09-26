@@ -15,37 +15,42 @@ Tệp nguồn PlantUML: [`classdiagram.puml`](classdiagram.puml)
 
 ## 2. Các gói miền nghiệp vụ (Domain Packages)
 
-### 2.1. Account & Social Connections
-- **`User`**: Thực thể tài khoản trung tâm (`email`, `password`, `isActivated`), quản lý cập nhật hồ sơ và gửi yêu cầu kết bạn.
-- **`UserProfile`** (`<<Value Object>>`): Lưu trữ thông tin cá nhân (`displayName`, `avatarUrl`, `coverUrl`, `bio`, `dateOfBirth`).
-- **`Friendship`**: Quản lý mối quan hệ bạn bè 1-1 (`status`: PENDING, ACCEPTED, BLOCKED).
-- **`Notification`**: Thông báo sự kiện cho người dùng (`title`, `content`, `isRead`).
+Sơ đồ được tổ chức thành 5 gói nghiệp vụ chính khớp 100% với tệp mô hình `classdiagram.puml`:
 
-### 2.2. Circle Core Domain
-- **`Circle`**: Thực thể vòng tròn kết nối (`name`, `avatarUrl`, `coverUrl`, `description`, `inviteCode`), hỗ trợ sinh mã mời, cập nhật metadata và giải tán nhóm.
-- **`CircleMember`**: Thành viên trong nhóm kèm vai trò (`role`: OWNER, ADMIN, MEMBER, `nickname`, `joinedAt`), kiểm tra phân quyền truy cập trong Circle.
+### 2.1. Account & Social Connections (Tài khoản & Quan hệ xã hội)
+- **`User`**: Thực thể tài khoản trung tâm (`email`, `password`, `isActivated`), cung cấp các hành vi cập nhật hồ sơ (`updateProfile()`) và gửi lời mời kết bạn (`sendFriendRequest()`).
+- **`UserProfile`** (`<<Value Object>>`): Lưu trữ thông tin định danh cá nhân (`displayName`, `avatarUrl`, `coverUrl`, `bio`, `dateOfBirth`).
+- **`Friendship`**: Quản lý mối quan hệ bạn bè 1-1 (`status`: FriendshipStatus), cung cấp các phương thức chấp nhận (`accept()`), từ chối (`reject()`) và hủy kết bạn (`unfriend()`).
+- **`Notification`**: Quản lý thông báo sự kiện cho người dùng (`title`, `content`, `isRead`, `markAsRead()`).
 
-### 2.3. Messaging & Moments
-- **`Message`** (Lớp trừu tượng): Đại diện cho thông điệp trao đổi trong kênh (`sentAt`, `reply()`).
-  - **`TextMessage`**: Tin nhắn văn bản (`content`).
-  - **`FileMessage`**: Tin nhắn tệp tin đính kèm (`fileAttachment`).
-  - **`VoiceMessage`**: Tin nhắn giọng nói ghi âm (`audioFile`, `duration`).
-- **`Reaction`**: Thả biểu cảm cảm xúc trên tin nhắn (`emoji`).
-- **`Moment`**: Khoảnh khắc chụp trực tiếp theo thời gian thực (`capturedAt`, `caption`, `captureRealTime()`).
-- **`Photo`**: Ảnh chụp khoảnh khắc (`fileUrl`).
+### 2.2. Circle Core Domain (Lõi không gian nhóm)
+- **`Circle`**: Thực thể không gian nhóm hạt nhân (`name`, `avatarUrl`, `coverUrl`, `description`, `inviteCode`), hỗ trợ sinh mã mời (`generateInviteCode()`), cập nhật thông tin (`updateMetadata()`) và giải tán nhóm (`dissolve()`).
+- **`CircleMember`**: Quản lý thành viên trong nhóm kèm vai trò (`role`: MemberRole, `nickname`, `joinedAt`), kiểm tra quyền truy cập (`checkPermission()`) và hỗ trợ rời nhóm (`leaveCircle()`).
 
-### 2.4. Interactive Utilities (Tiện ích sinh hoạt nhóm)
-- **`Album`**: Bộ sưu tập hình ảnh lưu giữ kỷ niệm theo chủ đề của Circle.
-- **`Poll` & `PollOption` & `Vote`**: Hệ thống bình chọn và kiểm phiếu thời gian thực trong nhóm.
-- **`CalendarEvent`**: Lập lịch hoạt động và sự kiện tập thể kèm cơ chế nhắc hẹn.
-- **`PlanSheet`**: Bảng kế hoạch cộng tác trực tuyến của Circle.
-- **`LocationShare`**: Chia sẻ tọa độ vị trí thời gian thực giữa các thành viên.
-- **`AnonymousPost`**: Không gian gửi tâm tư ẩn danh ("Điều muốn nói"), loại bỏ hoàn toàn siêu dữ liệu danh tính.
+### 2.3. Messaging & Moments (Nhắn tin & Khoảnh khắc Realtime)
+- **`Message`** (Lớp trừu tượng): Đại diện thông điệp trao đổi trong kênh (`sentAt`, `reply()`).
+  - **`TextMessage`**: Tin nhắn văn bản thuần (`content`).
+  - **`FileMessage`**: Tin nhắn đính kèm tệp tin tài liệu (`fileAttachment`).
+  - **`VoiceMessage`**: Tin nhắn thoại ghi âm (`audioFile`, `duration`).
+- **`Reaction`**: Thả biểu cảm cảm xúc trên tin nhắn (`emoji`: Emoji).
+- **`Moment`**: Khoảnh khắc chụp trực tiếp từ camera theo thời gian thực (`capturedAt`, `caption`, `captureRealTime()`).
+- **`Photo`**: Đối tượng hình ảnh khoảnh khắc (`fileUrl`).
 
-### 2.5. Administration & Security
-- **`Report`**: Tiếp nhận và quản lý các phản ánh vi phạm nội dung / tài khoản.
-- **`AuditLog`**: Lưu vết nhật ký kiểm toán hoạt động hệ thống.
-- **`AdminAction`**: Hành động xử lý vi phạm của Quản trị viên (cảnh cáo, khóa tài khoản, gỡ nội dung).
+### 2.4. Collaborative Planning Sheet (Bảng kế hoạch cộng tác Grid Matrix)
+- **`PlanningSheet`**: Bảng kế hoạch cộng tác dạng bảng tính ma trận trong Circle (`title`, `createdAt`, `addColumn()`, `addRow()`, `deleteSheet()`).
+- **`SheetColumn`**: Cột của bảng kế hoạch (`columnIndex`, `columnTitle`, `updateTitle()`).
+- **`SheetRow`**: Dòng của bảng kế hoạch (`rowIndex`, `deleteRow()`).
+- **`SheetCell`**: Ô dữ liệu tại giao điểm dòng/cột (`cellValue`, `updatedAt`, `updateValue()`, liên kết người sửa cuối `last_edited_by`).
+
+### 2.5. Circle Utilities (Bộ tiện ích sinh hoạt nhóm)
+- **`SharedAlbum`**: Album ảnh lưu giữ kỷ niệm chung theo chủ đề của Circle (`albumTitle`, `addPhoto()`).
+- **`PinnedRecord`**: Lưu vết tin nhắn được ghim trong hội thoại (`pinnedAt`, `unpin()`).
+- **`GroupPoll`**, **`PollOption`** & **`PollVote`**: Hệ thống tạo câu hỏi bình chọn, các lựa chọn (`optionText`) và quản lý lượt bỏ phiếu của thành viên (`votedAt`, `selected_option`).
+- **`DecisionWheel`** & **`WheelOption`**: Vòng xoay may mắn đưa ra quyết định ngẫu nhiên trong nhóm (`title`, `optionLabel`, `spinRandomly()`).
+- **`AnonymousPost`**: Không gian gửi tâm tư ẩn danh ("Điều muốn nói"), loại bỏ hoàn toàn siêu dữ liệu người gửi (`content`, `postedAt`).
+- **`CalendarEvent`**: Quản lý lịch sự kiện hoạt động của nhóm kèm nhắc hẹn tự động (`eventTitle`, `startTime`, `reminderTime`).
+- **`LiveLocationShare`** & **`GeoCoordinate`** (`<<Value Object>>`): Chia sẻ tọa độ địa lý thời gian thực giữa các thành viên (`shareDuration`, `latitude`, `longitude`, `stopSharing()`).
+- **`CallSession`** & **`CallParticipant`**: Phiên cuộc gọi thoại/video WebRTC trực tiếp trong Circle (`callType`, `startedAt`, `joinedAt`, `leftAt`, `calculateDuration()`).
 
 ---
 
