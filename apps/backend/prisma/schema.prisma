@@ -1,0 +1,519 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =============================================================================
+// ENUMS
+// =============================================================================
+
+enum GlobalRole {
+  USER
+  ADMIN
+}
+
+enum FriendshipStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  BLOCKED
+}
+
+enum MemberRole {
+  OWNER
+  ADMIN
+  MODERATOR
+  MEMBER
+}
+
+enum ChannelType {
+  TEXT
+  VOICE
+}
+
+enum MessageType {
+  TEXT
+  FILE
+  VOICE
+}
+
+enum CallType {
+  AUDIO
+  VIDEO
+}
+
+enum CallStatus {
+  ACTIVE
+  ENDED
+}
+
+// =============================================================================
+// 1. ACCOUNT & SOCIAL CONNECTIONS
+// =============================================================================
+
+model User {
+  id           String      @id @default(cuid())
+  email        String      @unique
+  passwordHash String
+  isActivated  Boolean     @default(true)
+  globalRole   GlobalRole  @default(USER)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  deletedAt    DateTime?
+
+  profile              UserProfile?
+  refreshTokens        RefreshToken[]
+  sentFriendships      Friendship[]       @relation("FriendshipSender")
+  receivedFriendships  Friendship[]       @relation("FriendshipReceiver")
+  notifications        Notification[]
+  memberships          CircleMember[]
+
+  @@index([email])
+}
+
+model UserProfile {
+  id          String    @id @default(cuid())
+  userId      String    @unique
+  displayName String
+  avatarUrl   String?
+  coverUrl    String?
+  bio         String?
+  dateOfBirth DateTime?
+  updatedAt   DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  isRevoked Boolean  @default(false)
+  expiresAt DateTime
+  userAgent String?
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenHash])
+}
+
+model Friendship {
+  id         String           @id @default(cuid())
+  senderId   String
+  receiverId String
+  status     FriendshipStatus @default(PENDING)
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  sender   User @relation("FriendshipSender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver User @relation("FriendshipReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@unique([senderId, receiverId])
+  @@index([senderId])
+  @@index([receiverId])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  content   String
+  isRead    Boolean  @default(false)
+  type      String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+}
+
+// =============================================================================
+// 2. CIRCLE CORE DOMAIN
+// =============================================================================
+
+model Circle {
+  id          String    @id @default(cuid())
+  name        String
+  avatarUrl   String?
+  coverUrl    String?
+  description String?
+  inviteCode  String    @unique
+  isPrivate   Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  members         CircleMember[]
+  channels        Channel[]
+  planningSheets  PlanningSheet[]
+  sharedAlbums    SharedAlbum[]
+  pinnedRecords   PinnedRecord[]
+  polls           GroupPoll[]
+  decisionWheels  DecisionWheel[]
+  anonymousPosts  AnonymousPost[]
+  calendarEvents  CalendarEvent[]
+  liveLocations   LiveLocationShare[]
+  callSessions    CallSession[]
+  moments         Moment[]
+
+  @@index([inviteCode])
+}
+
+model CircleMember {
+  id        String     @id @default(cuid())
+  circleId  String
+  userId    String
+  role      MemberRole @default(MEMBER)
+  nickname  String?
+  joinedAt  DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  circle Circle @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  messages         Message[]
+  reactions        Reaction[]
+  moments          Moment[]
+  pollVotes        PollVote[]
+  createdEvents    CalendarEvent[]
+  createdSheets    PlanningSheet[]
+  editedCells      SheetCell[]
+  liveLocations    LiveLocationShare[]
+  callParticipants CallParticipant[]
+
+  @@unique([circleId, userId])
+  @@index([circleId])
+  @@index([userId])
+}
+
+// =============================================================================
+// 3. MESSAGING & CHANNELS
+// =============================================================================
+
+model Channel {
+  id        String      @id @default(cuid())
+  circleId  String
+  name      String
+  type      ChannelType @default(TEXT)
+  topic     String?
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  circle   Circle    @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  messages Message[]
+
+  @@index([circleId])
+}
+
+model Message {
+  id            String      @id @default(cuid())
+  channelId     String
+  memberId      String
+  type          MessageType @default(TEXT)
+  content       String?
+  fileUrl       String?
+  fileName      String?
+  fileSize      Int?
+  audioDuration Int?
+  replyToId     String?
+  sentAt        DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  deletedAt     DateTime?
+
+  channel      Channel       @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  sender       CircleMember  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  replyTo      Message?      @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies      Message[]     @relation("MessageReplies")
+  reactions    Reaction[]
+  pinnedRecord PinnedRecord?
+
+  @@index([channelId, sentAt(sort: Desc)])
+  @@index([memberId])
+}
+
+model Reaction {
+  id        String   @id @default(cuid())
+  messageId String?
+  momentId  String?
+  memberId  String
+  emoji     String
+  createdAt DateTime @default(now())
+
+  message Message?      @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  moment  Moment?       @relation(fields: [momentId], references: [id], onDelete: Cascade)
+  member  CircleMember  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+  @@index([momentId])
+  @@index([memberId])
+}
+
+// =============================================================================
+// 4. MOMENTS & SHARED ALBUMS
+// =============================================================================
+
+model Moment {
+  id         String   @id @default(cuid())
+  circleId   String
+  memberId   String
+  caption    String?
+  capturedAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  circle    Circle       @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  author    CircleMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  photo     Photo?
+  reactions Reaction[]
+
+  @@index([circleId, capturedAt(sort: Desc)])
+}
+
+model Photo {
+  id            String   @id @default(cuid())
+  momentId      String?  @unique
+  sharedAlbumId String?
+  fileUrl       String
+  width         Int?
+  height        Int?
+  createdAt     DateTime @default(now())
+
+  moment      Moment?      @relation(fields: [momentId], references: [id], onDelete: Cascade)
+  sharedAlbum SharedAlbum? @relation(fields: [sharedAlbumId], references: [id], onDelete: Cascade)
+
+  @@index([sharedAlbumId])
+}
+
+model SharedAlbum {
+  id         String   @id @default(cuid())
+  circleId   String
+  albumTitle String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  circle Circle  @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  photos Photo[]
+
+  @@index([circleId])
+}
+
+// =============================================================================
+// 5. COLLABORATIVE PLANNING SHEET (GRID MATRIX)
+// =============================================================================
+
+model PlanningSheet {
+  id          String   @id @default(cuid())
+  circleId    String
+  createdById String
+  title       String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  circle  Circle        @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  creator CircleMember  @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  columns SheetColumn[]
+  rows    SheetRow[]
+
+  @@index([circleId])
+}
+
+model SheetColumn {
+  id          String   @id @default(cuid())
+  sheetId     String
+  columnIndex Int
+  columnTitle String
+  createdAt   DateTime @default(now())
+
+  sheet PlanningSheet @relation(fields: [sheetId], references: [id], onDelete: Cascade)
+  cells SheetCell[]
+
+  @@unique([sheetId, columnIndex])
+}
+
+model SheetRow {
+  id        String   @id @default(cuid())
+  sheetId   String
+  rowIndex  Int
+  createdAt DateTime @default(now())
+
+  sheet PlanningSheet @relation(fields: [sheetId], references: [id], onDelete: Cascade)
+  cells SheetCell[]
+
+  @@unique([sheetId, rowIndex])
+}
+
+model SheetCell {
+  id             String   @id @default(cuid())
+  rowId          String
+  columnId       String
+  cellValue      String   @default("")
+  lastEditedById String?
+  updatedAt      DateTime @updatedAt
+
+  row          SheetRow      @relation(fields: [rowId], references: [id], onDelete: Cascade)
+  column       SheetColumn   @relation(fields: [columnId], references: [id], onDelete: Cascade)
+  lastEditedBy CircleMember? @relation(fields: [lastEditedById], references: [id], onDelete: SetNull)
+
+  @@unique([rowId, columnId])
+}
+
+// =============================================================================
+// 6. CIRCLE UTILITIES
+// =============================================================================
+
+model PinnedRecord {
+  id        String   @id @default(cuid())
+  circleId  String
+  messageId String   @unique
+  pinnedAt  DateTime @default(now())
+
+  circle  Circle  @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([circleId])
+}
+
+model GroupPoll {
+  id        String    @id @default(cuid())
+  circleId  String
+  question  String
+  deadline  DateTime?
+  isClosed  Boolean   @default(false)
+  createdAt DateTime  @default(now())
+
+  circle  Circle       @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  options PollOption[]
+  votes   PollVote[]
+
+  @@index([circleId])
+}
+
+model PollOption {
+  id         String @id @default(cuid())
+  pollId     String
+  optionText String
+  orderIndex Int    @default(0)
+
+  poll  GroupPoll  @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  votes PollVote[]
+
+  @@index([pollId])
+}
+
+model PollVote {
+  id       String   @id @default(cuid())
+  pollId   String
+  optionId String
+  memberId String
+  votedAt  DateTime @default(now())
+
+  poll   GroupPoll    @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  option PollOption   @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  member CircleMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([pollId, memberId])
+  @@index([pollId])
+  @@index([memberId])
+}
+
+model DecisionWheel {
+  id        String   @id @default(cuid())
+  circleId  String
+  title     String
+  createdAt DateTime @default(now())
+
+  circle  Circle        @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  options WheelOption[]
+
+  @@index([circleId])
+}
+
+model WheelOption {
+  id          String  @id @default(cuid())
+  wheelId     String
+  optionLabel String
+  color       String?
+
+  wheel DecisionWheel @relation(fields: [wheelId], references: [id], onDelete: Cascade)
+
+  @@index([wheelId])
+}
+
+model AnonymousPost {
+  id        String   @id @default(cuid())
+  circleId  String
+  content   String
+  postedAt  DateTime @default(now())
+
+  circle Circle @relation(fields: [circleId], references: [id], onDelete: Cascade)
+
+  @@index([circleId, postedAt(sort: Desc)])
+}
+
+model CalendarEvent {
+  id           String    @id @default(cuid())
+  circleId     String
+  createdById  String
+  eventTitle   String
+  description  String?
+  startTime    DateTime
+  endTime      DateTime?
+  reminderTime DateTime?
+  createdAt    DateTime  @default(now())
+
+  circle  Circle       @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  creator CircleMember @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([circleId, startTime])
+}
+
+model LiveLocationShare {
+  id            String   @id @default(cuid())
+  circleId      String
+  memberId      String
+  latitude      Float
+  longitude     Float
+  shareDuration Int      // in minutes
+  expiresAt     DateTime
+  isActive      Boolean  @default(true)
+  updatedAt     DateTime @updatedAt
+
+  circle Circle       @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  member CircleMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([circleId, isActive])
+}
+
+model CallSession {
+  id        String     @id @default(cuid())
+  circleId  String
+  callType  CallType   @default(AUDIO)
+  status    CallStatus @default(ACTIVE)
+  startedAt DateTime   @default(now())
+  endedAt   DateTime?
+
+  circle       Circle            @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  participants CallParticipant[]
+
+  @@index([circleId, status])
+}
+
+model CallParticipant {
+  id            String    @id @default(cuid())
+  callSessionId String
+  memberId      String
+  joinedAt      DateTime  @default(now())
+  leftAt        DateTime?
+
+  callSession CallSession  @relation(fields: [callSessionId], references: [id], onDelete: Cascade)
+  member      CircleMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([callSessionId])
+  @@index([memberId])
+}
