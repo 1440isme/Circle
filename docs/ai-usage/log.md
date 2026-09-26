@@ -625,10 +625,39 @@
   - **Error Description:** Xung đột cấu hình `module: commonjs` và `moduleResolution: NodeNext` khi kế thừa từ base tsconfig trong `apps/backend/tsconfig.json`.
   - **Root Cause:** Cấu hình base tsconfig đặt `NodeNext` cho ESM, trong khi NestJS mặc định dùng CommonJS với moduleResolution `node`.
   - **Resolution / Fix:** Ghi đè `"moduleResolution": "node"` trong `apps/backend/tsconfig.json`.
+- **Commit:** `1e35c41` (Merged: `857cb6d`)
+- **PR:** #33 (https://github.com/1440isme/Circle/pull/33)
+
+---
+
+## AI-0019: Thiết kế Mô hình Kiến trúc C4 (Context, Container, Component) và Sơ đồ Thực thể Quan hệ ERD
+
+- **Date:** 2026-09-26 21:42:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (Medium)
+- **Related Issue:** #12 ([SUB-TASK]: TASK-DOCS-001 — Complete SRS, Traceability Matrix & Architecture Diagram Set)
+- **Purpose:** Xây dựng bộ sơ đồ kiến trúc chuẩn mực C4 Model (Context, Container, Component) và Sơ đồ Thực thể Quan hệ ERD cho toàn bộ hệ thống CIRCLE:
+  (1) Tạo `docs/architecture/diagrams/c4-model.md` bao gồm:
+    - C4 Level 1 (System Context): Ranh giới hệ thống CIRCLE, tương tác giữa Thành viên, Trưởng nhóm, Quản trị viên và các hệ thống bên thứ ba (Cloudflare R2, WebRTC STUN/TURN, SMTP Server).
+    - C4 Level 2 (Container Diagram): Tương tác giữa Web Next.js App & Admin (/admin), Mobile Expo App, Traefik Reverse Proxy, Backend NestJS Modular Monolith API, PostgreSQL 16 Database, Redis 7 Cache & Pub/Sub và Cloudflare R2 Storage.
+    - C4 Level 3 (Component Diagram): Bóc tách chi tiết cấu trúc bên trong Backend NestJS (REST Controllers, Socket.IO Gateway, JwtAuthGuard, RolesGuard, ValidationPipe, các Domain Services nghiệp vụ, PrismaService và RedisService).
+  (2) Tạo `docs/architecture/diagrams/erd.md` thể hiện toàn văn Mermaid ERD cho hơn 20 thực thể cơ sở dữ liệu quan hệ đồng bộ với Prisma schema.
+  (3) Cập nhật `docs/architecture/diagrams/README.md` liên kết trực tiếp tới `c4-model.md` và `erd.md`.
+- **Prompt Summary:** Yêu cầu: "các báo cáo tuần có thể tạm skip để hết sprint tuần 4 rồi làm bổ sung, sơ đồ c4 giờ làm nhé, sequence tạm skip vì phải có các module rồi mới vẽ sequence được".
+- **Files Affected:**
+  - `docs/architecture/diagrams/c4-model.md`
+  - `docs/architecture/diagrams/erd.md`
+  - `docs/architecture/diagrams/README.md`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% cấu trúc mô hình C4, sơ đồ Mermaid và tài liệu thuyết minh kiến trúc.
+- **Human Modifications:** Trương Công Bình định hướng triển khai ngay bộ sơ đồ C4 và ERD để hoàn tất đặc tả kiến trúc Tuần 2–3, tạm hoãn sequence diagrams và báo cáo tuần cho tới khi có module cụ thể.
+- **Verification Method:** Chạy `./scripts/check-agent-map.sh` xác nhận toàn bộ 93 tệp tham chiếu markdown đạt chuẩn 100% (0 broken links).
+- **Official Source Checked:** `PROJECT_GOD.md` (DoD, Rubric Level 5 TC2.1 Requirements & Design), Chuẩn kiến trúc C4 Model của Simon Brown.
+- **Security & License Check:** An toàn, không chứa credentials hay API keys.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** Đường dẫn tương đối từ `docs/architecture/diagrams/` trỏ về `PROJECT_GOD.md` ban đầu để `../../` thay vì `../../../` (bị lệch 1 cấp thư mục).
+  - **Root Cause:** Nhầm lẫn độ sâu thư mục (3 cấp thay vì 2 cấp).
+  - **Resolution / Fix:** `./scripts/check-agent-map.sh` phát hiện và đã được sửa lại ngay lập tức thành `../../../PROJECT_GOD.md`.
 - **Commit:** Pending
 - **PR:** Pending
-
-
-
-
-
