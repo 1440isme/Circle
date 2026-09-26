@@ -49,6 +49,12 @@ Every artifact in CIRCLE must be connected across the traceability chain:
   2. **Why:** Technical/business justification and value for group activity.
   3. **Done When:** Objective Acceptance Criteria (DoD) or verification evidence (test outputs, screenshots).
 - **Mandatory Peer Review:** Ping the peer developer (**Bình ⇄ Hạnh**). Self-merging is strictly prohibited. At least 1 review approval with technical comments is mandatory before merge.
+- **Automated Peer Review & Auto-Merge Lifecycle (Pair-Programming với AI Agent):** Khi kỹ sư (**Bình** hoặc **Hạnh**) yêu cầu AI Agent review một Pull Request:
+  1. *Tự động đối soát & kiểm tra:* Agent tự động đọc git diff của PR, đối chiếu với Acceptance Criteria trong Issue liên kết, kiểm tra 10 Hard Gates, chạy `./scripts/check-agent-map.sh` và các bộ kiểm thử tự động.
+  2. *Tự động đăng nhận xét (Review Comment):* Đăng tải chi tiết báo cáo Peer Review lên PR qua `gh pr review <number> --comment -F <file>`.
+  3. *Theo dõi phản hồi & tái kiểm tra:* Rà soát các commit sửa đổi mới nhất của tác giả khi có comment phản hồi.
+  4. *Tự động phê duyệt (Formal Approve):* Khi toàn bộ các điểm góp ý được hoàn thiện và thỏa mãn 100% Definition of Done (DoD), Agent tự động thực hiện `gh pr review <number> --approve -F <file>`.
+  5. *Tự động Merge PR (Auto-Merge):* Ngay sau khi PR đã được phê duyệt hợp lệ (Approved), Agent tự động thực thi lệnh merge PR vào nhánh `develop` (`gh pr merge <number> --merge --delete-branch`), sau đó đồng bộ kéo mã nguồn mới về môi trường local (`git pull origin develop`).
 
 ---
 

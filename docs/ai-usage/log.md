@@ -500,4 +500,38 @@
 - **Commit:** `d5f3936`
 - **PR:** #27 (https://github.com/1440isme/Circle/pull/27)
 
+---
+
+## AI-0016: Chuẩn hóa Quy trình Tự động hóa Peer Review và Auto-Merge trên GitHub cho AI Agent
+
+- **Date:** 2026-09-26 20:48:00 +07:00
+- **Developer:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #28 ([SUB-TASK]: Chuẩn hóa Quy trình Tự động hóa Peer Review và Auto-Merge cho AI Agent)
+- **Purpose:** Thiết lập và văn bản hóa quy ước làm việc giữa kỹ sư và AI Agent:
+  (1) Tự động hóa chu trình Peer Review qua công cụ GitHub CLI (`gh`): Tự động đối soát git diff, kiểm tra tiêu chí DoD và Hard Gates, soạn và đăng báo cáo nhận xét review lên GitHub PR.
+  (2) Theo dõi phản hồi từ kỹ sư đối tác, kiểm chứng các commit cập nhật sửa đổi.
+  (3) Tự động phê duyệt (Formal Approve) khi mọi tiêu chí chất lượng được thỏa mãn 100%.
+  (4) Tự động thực thi lệnh merge PR vào nhánh tích hợp `develop` (`gh pr merge <number> --merge --delete-branch`) và kéo mã nguồn mới nhất về nhánh `develop` cục bộ.
+  (5) Cập nhật quy ước vào `agentic/CONVENTIONS.md`, kỹ năng `agentic/skills/code-review.md` và bộ nhớ thực tế `agentic/memory/verified-facts.md`.
+- **Prompt Summary:** Yêu cầu: "bổ sung cách làm việc của tôi với bạn về việc này luôn, sau khi luồng comment và pr đã được approve thì bạn merge pr giúp tôi luôn nhé".
+- **Files Affected:**
+  - `agentic/CONVENTIONS.md` (Thêm quy định chu trình Automated Peer Review & Auto-Merge)
+  - `agentic/skills/code-review.md` (Bổ sung giao thức 5 bước tự động hóa cho AI Agent)
+  - `agentic/memory/verified-facts.md` (Ghi nhận năng lực gh CLI và quy trình auto-merge)
+  - `docs/ai-usage/log.md` (Ghi nhận bản ghi AI-0016)
+- **AI-Generated Portion:** 100% tài liệu hóa quy trình chuẩn mực và cập nhật các tệp framework.
+- **Human Modifications:** Trương Công Bình đề xuất và yêu cầu thiết lập cơ chế tự động hóa khép kín từ review, comment, approve đến merge PR.
+- **Verification Method:** Đã thực nghiệm thành công trực tiếp trên PR #27 (Review comment, Approve, Merge commit và xóa nhánh remote qua `gh`), chạy `./scripts/check-agent-map.sh` xác nhận 91/91 tệp tham chiếu markdown đạt chuẩn 100% (0 broken link).
+- **Official Source Checked:** `PROJECT_GOD.md` (Peer Review Policy, Definition of Done, Git Flow).
+- **Security & License Check:** An toàn, không chứa mật khẩu hay token bảo mật trong mã nguồn.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A
+  - **Resolution / Fix:** N/A
+- **Commit:** Pending
+- **PR:** Pending
+
+
 
