@@ -1,37 +1,45 @@
-## 1. What problem does this PR solve?
-Closes # (nhập số issue liên quan, e.g. Closes #42)
+## 1. What — Nội dung thay đổi là gì?
+- **Related Issue:** Closes #<issue_id> *(Bắt buộc đi kèm Issue, e.g. Closes #12)*
+- **Tóm tắt thay đổi:**
+  - 
+  - 
+  - 
 
-## 2. What changed?
-- 
-- 
-- 
+---
 
-## 3. Why this approach?
-Giải thích lý do kỹ thuật chọn cách tiếp cận này.
+## 2. Why — Tại sao thực hiện thay đổi này?
+- Giải thích lý do kỹ thuật, nghiệp vụ hoặc căn cứ lựa chọn giải pháp này thay vì các phương án khác.
 
-## 4. What alternatives were considered?
-Các phương án khác đã được cân nhắc và lý do loại bỏ.
+---
 
-## 5. How was it tested?
-- [ ] Unit tests pass (`npm test`)
-- [ ] Integration / API tests pass
-- [ ] E2E / UI verified manually
-*(Dán câu lệnh kiểm thử và output / ảnh chụp màn hình tại đây)*
+## 3. Done When — Tiêu chí hoàn thành & Kiểm chứng (Verification)
+- [ ] Mã nguồn đáp ứng đúng Acceptance Criteria / DoD trong Issue #<issue_id>.
+- [ ] Unit tests pass 100% (`npm test`).
+- [ ] Integration / API tests pass.
+- [ ] Kiểm tra giao diện / luồng nghiệp vụ thủ công đã hoạt động đúng.
+*(Dán câu lệnh kiểm thử, kết quả terminal hoặc hình ảnh/video demo minh chứng tại đây)*
 
-## 6. What risks remain?
-Những rủi ro hoặc technical debt còn tồn đọng cần theo dõi.
+---
 
-## 7. Did architecture / docs change?
-- [ ] Cập nhật diagram hoặc spec trong `docs/architecture/`
-- [ ] Cập nhật `docs/capabilities/` (nếu có thay đổi API/tính năng)
-- [ ] Cập nhật `.agents/SITEMAP.md`
+## 4. Target Environment Check
+- [ ] Nhánh đích (Base branch) là **`dev`** (Staging/Integration), **TUYỆT ĐỐI KHÔNG merge trực tiếp vào `main`**.
 
-## 8. Was AI used? (Mandatory Gate G3)
-- [ ] **Có sử dụng AI** — Đã liên kết bản ghi `AI-XXXX` tại [`docs/ai-usage/log.md`](../docs/ai-usage/log.md)
+---
+
+## 5. Architectural & Documentation Impact
+- [ ] Có cập nhật sơ đồ hoặc tài liệu đặc tả trong `docs/` không?
+- [ ] Có thêm route mới cần cập nhật [`.agents/SITEMAP.md`](.agents/SITEMAP.md) không?
+
+---
+
+## 6. AI Usage Declaration (Hard Gate G3)
+- [ ] **Có sử dụng AI** — Đã liên kết bản ghi `AI-XXXX` tại [`docs/ai-usage/log.md`](docs/ai-usage/log.md)
 - [ ] **Không sử dụng AI**
 
 ---
 
-### 🛡️ Mandatory Peer Review Check (Rubric Level 5)
-- [ ] Tác giả không được tự merge PR của mình.
-- [ ] Người review (Bình ↔ Hạnh) đã kiểm tra AC, test cases, và xác nhận không có credential/secret bị leak.
+## 7. 🛡️ Mandatory Peer Review Check (Rubric Level 5 — Inviolable)
+> [!CAUTION]
+> **LUẬT BẤT BIẾN:** Tuyệt đối cấm tự merge (No Self-Merge). PR phải được thành viên còn lại review và comment/approve mới được merge.
+- [ ] Tác giả PR không tự bấm merge.
+- [ ] Người review (**Bình ↔ Hạnh**) đã kiểm tra code, xác nhận pass test, không có secret/credential và chính thức **Approve**.
