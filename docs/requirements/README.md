@@ -4,8 +4,9 @@ Formal software requirements, user stories, use case models, and business rules 
 
 ---
 
-## 1. Use Case Model & Specifications
+## 1. Requirements & Use Case Specifications
 
+- [**Tài liệu Xác định & Đặc tả Yêu cầu Hệ thống (SRS)**](./SRS.md) — Chi tiết yêu cầu chức năng (nghiệp vụ, hệ thống), yêu cầu phi chức năng và chất lượng.
 - [**Tài liệu Đặc tả 26 Use Case chi tiết (Use Case Specifications)**](./use-cases.md) — Chi tiết 26 use case (UC01 đến UC26) gồm mô tả, tác nhân, tiền/hậu điều kiện, luồng chính và luồng thay thế.
 - [**Sơ đồ Use Case tổng quát (draw.io / XML)**](./diagrams/usecase.xml) — Mô hình trực quan các tác nhân và chức năng hệ thống theo chuẩn mxGraphModel.
 
