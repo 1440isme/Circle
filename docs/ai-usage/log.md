@@ -576,7 +576,7 @@
   - **Error Description:** None.
   - **Root Cause:** N/A
   - **Resolution / Fix:** N/A
-- **Commit:** `12d6f8b`
+- **Commit:** `12d6f8b` (Merged: `b2134bb`)
 - **PR:** #31 (https://github.com/1440isme/Circle/pull/31)
 
 ---
@@ -721,5 +721,32 @@
   - **Error Description:** Gói `bcrypt` native bị npm 12 chặn build script native module dẫn đến lỗi thiếu `bcrypt_lib.node` khi chạy Jest.
   - **Root Cause:** npm 12 mặc định bật cơ chế bảo vệ allowScripts chặn preinstall/install binary build script của các gói native C++.
   - **Resolution / Fix:** Thay thế sang `bcryptjs` (thuần JavaScript, không phụ thuộc C++ build tools, tương thích 100% API và an toàn đa nền tảng cho Docker/CI).
-- **Commit:** Pending
-- **PR:** Pending
+- **Commit:** `68caff9` (Merged: `8b410af`)
+- **PR:** #35 (https://github.com/1440isme/Circle/pull/35)
+
+---
+
+## AI-0021: Phân bổ và Chuẩn hóa Tài liệu Xác định & Đặc tả Yêu cầu Hệ thống (SRS)
+
+- **Date:** 2026-09-26 21:40:00 +07:00
+- **Developer:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #36 ([SUB-TASK]: Tiếp nhận và Chuẩn hóa Đặc tả Yêu cầu Hệ thống (SRS.md) theo Kiến trúc Chuẩn)
+- **Purpose:** Tiếp nhận tài liệu `Xác định yêu cầu.md` (chứa yêu cầu nghiệp vụ lưu trữ/tra cứu/tính toán/kết xuất, bảng yêu cầu theo tác nhân GUEST, USER, MEMBER, OWNER cho 26 use case, yêu cầu hệ thống và phi chức năng), di chuyển và chuẩn hóa cấu trúc vào thư mục chuẩn `docs/requirements/SRS.md` theo đúng quy định tại `PROJECT_GOD.md` (dòng 428). Đồng thời cập nhật liên kết mục lục tại `docs/requirements/README.md`.
+- **Prompt Summary:** Yêu cầu: "tôi mới thêm @[Xác định yêu cầu.md] bạn hãy phân bổ lại cho đúng folder".
+- **Files Affected:**
+  - `docs/requirements/SRS.md` (Tạo từ `Xác định yêu cầu.md`)
+  - `docs/requirements/README.md` (Cập nhật liên kết đến `SRS.md`)
+  - `docs/ai-usage/log.md` (Ghi nhận bản ghi AI-0021)
+- **AI-Generated Portion:** Tự động phát hiện cấu trúc chuẩn của repository, ánh xạ đến `PROJECT_GOD.md:428`, thực thi di chuyển và cập nhật tham chiếu mục lục.
+- **Human Modifications:** Người dùng cung cấp tệp nội dung yêu cầu nghiệp vụ và yêu cầu phân bổ vào đúng thư mục.
+- **Verification Method:** Kiểm tra đường dẫn `docs/requirements/SRS.md`, xác nhận tệp đã tồn tại đầy đủ 214 dòng nội dung, kiểm tra tính toàn vẹn mục lục `docs/requirements/README.md`.
+- **Official Source Checked:** `PROJECT_GOD.md` (Mục TC2.1 / Evidence đường dẫn `docs/requirements/SRS.md`).
+- **Security & License Check:** An toàn, không chứa mật khẩu hay thông tin nhạy cảm.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A
+  - **Resolution / Fix:** N/A
+- **Commit:** `9049a4e`
+- **PR:** #37 (https://github.com/1440isme/Circle/pull/37)
