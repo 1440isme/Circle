@@ -11,9 +11,10 @@
 
 ## 1. NGUYÊN TẮC XÁC ĐỊNH PHẠM VI (SCOPE PRINCIPLES)
 
-1. **Bám sát 100% Phiếu nhiệm vụ chính thức:** Mọi yêu cầu nghiệp vụ được Khoa phê duyệt trong phiếu nhiệm vụ đều được bảo đảm hiện thực hóa đầy đủ ở mức độ hoàn thiện cao (Production-ready).
-2. **Ngăn chặn bành trướng tính năng (Scope Creep):** Tuyên bố minh bạch các ranh giới công nghệ để bảo vệ nhóm trước các câu hỏi vượt ngoài năng lực hạ tầng máy chủ sinh viên (kinh phí tự túc) và giới hạn thời gian đồ án.
-3. **Ưu tiên chiều sâu kỹ thuật hơn chiều rộng:** Tập trung tối ưu kiến trúc Modular Monolith, đồng bộ thời gian thực (WebSocket), cuộc gọi WebRTC P2P ổn định và trải nghiệm mượt mà trên cả 3 nền tảng: Backend, Web và Mobile.
+1. **Triết lý "Nhóm là trung tâm" (Circle-Centric / Group-First):** Mọi tính năng thuộc phạm vi thực hiện đều sinh ra vì nhóm và lý do tồn tại duy nhất là phục vụ hoạt động nhóm. Nhóm là đơn vị hạt nhân tổ chức dữ liệu, quyền hạn và tương tác.
+2. **Bám sát 100% Phiếu nhiệm vụ chính thức:** Mọi yêu cầu nghiệp vụ được Khoa phê duyệt trong phiếu nhiệm vụ đều được bảo đảm hiện thực hóa đầy đủ ở mức độ hoàn thiện cao (Production-ready).
+3. **Ngăn chặn bành trướng tính năng (Scope Creep):** Tuyên bố minh bạch các ranh giới công nghệ để bảo vệ nhóm trước các câu hỏi vượt ngoài năng lực hạ tầng máy chủ sinh viên (kinh phí tự túc) và giới hạn thời gian đồ án.
+4. **Ưu tiên chiều sâu kỹ thuật hơn chiều rộng:** Tập trung tối ưu kiến trúc Modular Monolith, đồng bộ thời gian thực (WebSocket), cuộc gọi WebRTC P2P ổn định và trải nghiệm mượt mà trên cả 3 nền tảng: Backend, Web và Mobile.
 
 ---
 

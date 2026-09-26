@@ -26,29 +26,29 @@ Every artifact in CIRCLE must be connected across the traceability chain:
 
 ## 2. Git & Conventional Commits
 
+- **Environment Discipline:**
+  - `main`: Production (releases only).
+  - `dev` (`develop`): Staging / Integration. All feature and fix branches MUST branch from `dev` and **merge into `dev`**.
 - **Branch format:** `<type>/<issue-id>-<slug>`
-  - Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `perf`, `security`, `ci`.
+  - Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `perf`, `security`, `ci`, `infra`, `spike`.
   - Example: `feat/42-refresh-token-rotation`, `fix/87-chat-duplicate-message`.
 - **Commit message format:** `<type>(<scope>): <description> (#<issue-id>)`
+  - All commits must include the `-s` sign-off flag.
   - Example: `feat(auth): implement refresh token rotation mechanism (#42)`
   - Example: `fix(chat): eliminate duplicate socket message delivery on reconnect (#87)`
   - Example: `test(circle): add authorization test cases for private circles (#91)`
 
 ---
 
-## 3. Pull Request Template & Review Policy
+## 3. Issue & Pull Request Governance
 
-Every PR targeting `develop` or `main` must use the standard 8-question PR template:
-1. **What problem does this solve?** (Closes #...)
-2. **What changed?** (Bullet points)
-3. **Why this approach?** (Technical rationale)
-4. **What alternatives were considered?**
-5. **How was it tested?** (Test logs / screenshots)
-6. **What risks remain?**
-7. **Did architecture / docs change?** (Diagram updates, ADRs)
-8. **Was AI used?** (Must link `AI-XXXX` in `docs/ai-usage/log.md`)
-
-> **Mandatory Peer Review:** Ping the peer developer (Bình ↔ Hạnh). At least 1 human approval required before merge.
+- **1 Issue = 1 PR:** Every change, feature, bug fix, or task must have an Issue and a corresponding PR targeting `dev`.
+- **Hierarchy:** Weekly Goal Issues (`[GOAL-WXX]: ...`) track weekly milestones; sub-issues track granular tasks.
+- **Description Standard (What — Why — Done When):** Both Issues and PRs must explicitly define:
+  1. **What:** Exact problem or change description.
+  2. **Why:** Technical/business justification and value for group activity.
+  3. **Done When:** Objective Acceptance Criteria (DoD) or verification evidence (test outputs, screenshots).
+- **Mandatory Peer Review:** Ping the peer developer (**Bình ⇄ Hạnh**). Self-merging is strictly prohibited. At least 1 review approval with technical comments is mandatory before merge.
 
 ---
 

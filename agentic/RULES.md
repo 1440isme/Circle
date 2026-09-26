@@ -39,12 +39,17 @@ When conflicts or ambiguities arise, you must strictly follow this priority orde
 
 ## 3. Git, Branching & Peer Review Rules
 
+- **Issue-First Rule:** Every single task, bug fix, feature, or refactor **MUST be tracked by a GitHub Issue** before any work begins.
+- **Issue Hierarchy:** Weekly Goal Issues (`[GOAL-WXX]: ...`) track sprint milestones; child task issues track concrete deliverables.
+- **1 Issue = 1 PR:** Every issue has a corresponding PR targeting the **`dev`** branch (Staging/Integration).
+- **Environment Discipline:** `main` is production (releases only). `dev` (`develop`) is integration. All feature/fix branches branch from `dev` and **MUST merge into `dev`**.
+- **Description Standard:** Both Issues and PRs must explicitly answer: **What** (what changed), **Why** (reason/value), and **Done When** (acceptance criteria / verification proof).
 - **Never commit directly to `main` or `develop`.**
 - **Branch naming convention:** `<type>/<issue-id>-<slug>` (e.g. `feat/42-refresh-token-rotation`, `fix/87-chat-duplicate-message`).
 - **Strict Peer Review Policy:**
   - Self-merging PRs is **STRICTLY PROHIBITED**.
-  - Every PR created by Bình **must be reviewed and approved by Hạnh**.
-  - Every PR created by Hạnh **must be reviewed and approved by Bình**.
+  - Every PR created by Bình **must be reviewed and approved with comments by Hạnh**.
+  - Every PR created by Hạnh **must be reviewed and approved with comments by Bình**.
   - Review comments must verify Acceptance Criteria, negative test cases, security checks, and AI usage accuracy.
 - **Signed commits:** All commits must adhere to Conventional Commits and include issue references (`#<issue-id>`).
 - **Never force-push to shared branches.**
@@ -53,6 +58,7 @@ When conflicts or ambiguities arise, you must strictly follow this priority orde
 
 ## 4. Code Changes & Architecture Discipline
 
+- **Circle-Centric (Group-First) Priority:** Every feature must serve group activities and collaboration. The Circle is the core atom of data, state, and interaction. Never introduce isolated features that diverge from the group-first mission.
 - **Do not push or deploy unless explicitly instructed.**
 - **Prefer existing abstractions:** Before creating a new service, helper, hook, or component, inspect the codebase to reuse existing utilities.
 - **Backend layering (`apps/api`):** Modular monolith; controllers must be thin; business logic belongs in services; database queries through Prisma; domain modules must encapsulate their internals.

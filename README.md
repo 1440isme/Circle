@@ -12,6 +12,14 @@
 
 **CIRCLE** là nền tảng mạng xã hội hiện đại tập trung vào kết nối cộng đồng và tương tác nhóm thời gian thực. Hệ thống hỗ trợ đa nền tảng gồm ứng dụng Web (Next.js), Ứng dụng Di động (React Native + Expo), Backend dịch vụ Modular Monolith (NestJS + Prisma + PostgreSQL + Redis), và hệ thống giao tiếp đa phương tiện thời gian thực (Socket.IO + WebRTC).
 
+### 🎯 Tầm Nhìn & Sứ Mệnh (Vision & Mission)
+> **"Khi người ta nghĩ đến việc CẦN CHIA SẺ hay HOẠT ĐỘNG NHÓM, người ta sẽ NGHĨ NGAY ĐẾN CIRCLE."**
+
+### ⭕ Triết Lý Cốt Lõi: "Nhóm Là Trung Tâm" (Circle-Centric / Group-First)
+Trong CIRCLE, **nhóm (Circle) là trung tâm của mọi trải nghiệm**. Mọi chức năng trong sản phẩm đều sinh ra vì nhóm và lý do tồn tại duy nhất là phục vụ hoạt động nhóm:
+- **Không có feed tin vô tận gây phân tâm:** Toàn bộ dữ liệu, kênh thảo luận, lịch hẹn và media đều neo theo ngữ cảnh của từng Circle cụ thể.
+- **Tương tác nhóm toàn diện trong 1 không gian:** Chat đa phương tiện, phòng gọi nhóm WebRTC Mesh, lập kế hoạch hoạt động, lịch sự kiện, bình chọn (Poll) và chia sẻ khoảnh khắc giới hạn theo Circle.
+
 ---
 
 ## 🏗️ Kiến Trúc Công Nghệ

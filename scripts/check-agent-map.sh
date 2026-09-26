@@ -13,7 +13,7 @@ if [ ! -f AGENTS.md ]; then
 fi
 
 python3 - <<'PY'
-import os, re, sys
+import os, re, sys, urllib.parse
 
 ROOT = os.getcwd()
 broken = []
@@ -59,8 +59,8 @@ def check_link(target, src):
     """Markdown link targets are source-relative (web semantics)."""
     if skip(target):
         return
-    # Strip anchor and query if any
-    target = target.split("#", 1)[0].split("?", 1)[0]
+    # Strip anchor and query if any, then unquote URL encoding
+    target = urllib.parse.unquote(target.split("#", 1)[0].split("?", 1)[0])
     if not target:
         return
     base = os.path.dirname(src)

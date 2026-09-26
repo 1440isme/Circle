@@ -8,44 +8,52 @@
 
 ```mermaid
 flowchart TD
-    A["1. GitHub Project Board\n(Nhận Issue #ID)"] --> B["2. Tạo Branch\nfeat/<id>-<slug>"]
-    B --> C["3. Implementation\nCode + Unit Test + AI Logging"]
-    C --> D["4. Pre-commit Verification\nMap Check + AI Log Check"]
-    D --> E["5. Conventional Commit\ngit commit -s -m 'feat(...): ... (#id)'"]
-    E --> F["6. Mở Pull Request\nTarget: develop | Closes #id"]
-    F --> G["7. Automated CI Gates\nLint + Test + Map + Log"]
-    G --> H["8. Mandatory Peer Review\nBình ⇄ Hạnh (No Self-Merge)"]
-    H --> I["9. Merge vào develop"]
-    I --> J["10. GitHub Project Trigger\nIssue Auto-Closed ➔ Moved to DONE"]
+    G["0. Weekly Goal / Epic Issue\n(Mục tiêu tuần theo kế hoạch)"] --> A
+    A["1. Tạo Sub-Issue trên GitHub\n(What - Why - Done When)"] --> B["2. Tự động hiện trên GitHub Project #3\n(Cột Todo ➔ In Progress)"]
+    B --> C["3. Rẽ Branch từ develop (Git Flow)\nfeat/<id>-<slug>"]
+    C --> D["4. Implementation\nCode + Test + AI Logging"]
+    D --> E["5. Pre-commit Verification\nMap Check + AI Log Check"]
+    E --> F["6. Conventional Commit (-s)\ngit commit -s -m 'feat(...): ... (#id)'"]
+    F --> G1["7. Mở Pull Request vào develop\nWhat - Why - Done When | Closes #id"]
+    G1 --> H["8. Automated CI Gates\nLint + Test + Map + Log Pass"]
+    H --> I["9. Mandatory Peer Review\nBình ⇄ Hạnh (Approve required, No Self-Merge)"]
+    I --> J["10. Merge vào develop (Staging)\nIssue Auto-Closed ➔ Moved to DONE"]
+    J --> K["11. Release Milestone (Định kỳ)\nMerge develop ➔ main (Production)"]
 ```
 
 ---
 
-## 2. Giai đoạn 1: Trước khi bắt tay vào Code (Pre-flight Phase)
+## 2. Giai đoạn 1: Quản trị Issue & Chuẩn bị (Issue Governance & Pre-flight)
 
-### Bước 1.1: Nhận Task trên GitHub Project
-1. Truy cập bảng quản trị dự án: **[CIRCLE — Project OS (#3)](https://github.com/users/1440isme/projects/3)**.
-2. Chọn task được phân công cho mình (hoặc tự chọn theo độ ưu tiên: `P0-Critical` ➔ `P1-High`).
-3. Gán bản thân vào mục **Assignees** của Issue.
-4. Chuyển trạng thái thẻ từ cột **Todo** sang **In Progress**.
+### Bước 1.1: Quy tắc "Mọi thay đổi đều bắt buộc đi kèm Issue"
+> [!IMPORTANT]
+> **LUẬT BẤT BIẾN:** Tuyệt đối không viết code, không commit, và không mở PR nếu chưa có Issue tương ứng. Mọi lỗi (bug), tính năng mới (feat), công việc kỹ thuật (task) hay tài liệu (docs) đều phải được định danh bằng một Issue cụ thể.
 
-### Bước 1.2: Đọc kỹ Yêu cầu & Ma trận Truy vết (Traceability)
-Trước khi viết bất kỳ dòng code nào, kỹ sư phải nắm rõ 4 thông tin trong Issue:
-- **User Story Key:** (Ví dụ: `US-AUTH-001`, `US-CIRCLE-001`)
-- **Capability ID:** (Ví dụ: `CAP-AUTH-01`, `CAP-CHAT-01` trong `docs/capabilities/`)
-- **Acceptance Criteria (DoD):** Danh sách các tiêu chí chấp nhận (`AC-xxx-01`, `AC-xxx-02`)
-- **Rubric Criterion:** Tiêu chí đánh giá của giảng viên (Ví dụ: `TC2.4 Security`, `TC2.5 Automated Testing`)
+1. **Phân cấp 2 tầng Issue (Issue Hierarchy):**
+   - **Tầng 1 — Weekly Goal / Epic Issue (`[GOAL-WXX]: ...`):** Đại diện cho mục tiêu lớn của từng tuần theo Kế hoạch thực hiện TLCN ([`docs/Ke hoach thuc hien TLCN .md`](../Ke%20hoach%20thuc%20hien%20TLCN%20.md)). Issue này quản lý danh sách các việc con trong tuần.
+   - **Tầng 2 — Sub-issues / Task Issues (`[FEAT]`, `[BUG]`, `[TASK]`):** Các thay đổi cụ thể để hoàn thành mục tiêu tuần. Mỗi sub-issue liên kết trực tiếp với Weekly Goal cha (`Parent: #<epic_id>`).
+2. **Tự động đồng bộ với GitHub Project:**
+   - Mỗi khi một Issue được mở trên GitHub, nó sẽ tự động xuất hiện trên bảng quản trị dự án: **[CIRCLE — Project OS (#3)](https://github.com/users/1440isme/projects/3)** ở cột **Todo**.
+   - Khi kỹ sư bắt đầu làm việc: Gán bản thân vào **Assignees** và kéo thẻ sang cột **In Progress**.
 
-### Bước 1.3: Cập nhật mã nguồn và tạo Nhánh (Branching Strategy)
-- **Quy tắc vàng:** **TUYỆT ĐỐI KHÔNG CODE TRỰC TIẾP TRÊN `main` HOẶC `develop`**.
-- Nhánh gốc để rẽ nhánh luôn là `develop` (nhánh tích hợp chính).
+### Bước 1.2: Cấu trúc mô tả bắt buộc của Issue (What — Why — Done When)
+Mọi Issue tạo ra phải có phần Description rõ ràng theo 3 câu hỏi chuẩn:
+- **1. What:** Mô tả cụ thể tính năng, lỗi hoặc công việc kỹ thuật cần làm là gì?
+- **2. Why:** Tại sao cần làm việc này? Giá trị mang lại cho người dùng / nhóm Circle là gì?
+- **3. Done When (Acceptance Criteria):** Điều kiện hoàn thành cụ thể là gì? (Liệt kê các tiêu chí kiểm chứng rõ ràng `[ ] AC-xxx-01`, `[ ] AC-xxx-02`).
+
+### Bước 1.3: Mô hình Môi trường & Chiến lược Nhánh (Git Flow Branching)
+Dự án áp dụng mô hình phân tách môi trường nghiêm ngặt:
+- **`main` (Production):** Môi trường sản phẩm thực tế, chạy ổn định, chỉ nhận merge từ `dev` khi kết thúc milestone/release và đã qua kiểm thử toàn diện.
+- **`dev` (`develop` - Staging / Integration):** Môi trường tích hợp chính. **Mọi nhánh tính năng khi hoàn thành đều bắt buộc MERGE VÀO NHÁNH `dev`**.
+- **Quy tắc rẽ nhánh:** Tuyệt đối không code trực tiếp trên `main` hoặc `dev`. Luôn kéo mã nguồn mới nhất từ `dev` trước khi tạo nhánh:
 
 ```bash
 # 1. Chuyển về nhánh develop và kéo code mới nhất
 git checkout develop
 git pull origin develop
 
-# 2. Tạo nhánh mới theo chuẩn quy ước
+# 2. Tạo nhánh mới theo chuẩn quy ước (rẽ từ develop)
 git checkout -b <type>/<issue_id>-<slug>
 ```
 
@@ -139,7 +147,10 @@ Khi bạn gõ lệnh `git commit`, pre-commit hook (`.githooks/pre-commit`) sẽ
 
 ---
 
-## 5. Giai đoạn 4: Mở Pull Request & Kiểm thử CI
+## 5. Giai đoạn 4: Mở Pull Request (1 Issue = 1 PR tương ứng)
+
+> [!IMPORTANT]
+> **Quy tắc ánh xạ 1:1:** Tương ứng với mỗi Issue trên GitHub, kỹ sư phải mở **đúng 1 Pull Request tương ứng**. Không gộp nhiều Issue không liên quan vào chung một PR khổng lồ để đảm bảo tính truy vết (Traceability) và dễ review.
 
 ### Bước 4.1: Đẩy nhánh lên Remote
 ```bash
@@ -149,22 +160,25 @@ git push -u origin <ten-nhanh-cua-ban>
 ### Bước 4.2: Mở Pull Request trên GitHub
 1. Truy cập: [https://github.com/1440isme/Circle/pulls](https://github.com/1440isme/Circle/pulls).
 2. Bấm **New Pull Request**.
-3. **Base:** `develop` ⟵ **Compare:** `<ten-nhanh-cua-ban>`.
-4. GitHub sẽ tự động điền sẵn mẫu [`.github/PULL_REQUEST_TEMPLATE.md`](../../.github/PULL_REQUEST_TEMPLATE.md).
+3. **Base (Nhánh đích):** **`dev`** (hoặc `develop`) ⟵ **Compare (Nhánh nguồn):** `<ten-nhanh-cua-ban>`.
+   *(Cảnh báo: Tuyệt đối không chọn base là `main`! Toàn bộ tính năng trong quá trình phát triển đều tích hợp vào `dev`).*
+4. GitHub sẽ tự động nạp mẫu [`.github/PULL_REQUEST_TEMPLATE.md`](../../.github/PULL_REQUEST_TEMPLATE.md).
 
-### Bước 4.3: Điền PR Template (Tất cả 8 mục bắt buộc)
-Đặc biệt lưu ý 3 mục sau để kích hoạt tự động hóa:
-- **Related Issue / User Story:** Ghi rõ `Closes #<issue_id>` (hoặc `Resolves #<issue_id>`).
-  *(Đây chính là câu thần chú để GitHub tự đóng task khi merge).*
-- **AI Usage Declaration:** Điền mã `AI-XXXX` đã log trong `docs/ai-usage/log.md`.
-- **Peer Review Check:** Đánh dấu kiểm cam kết không tự merge.
+### Bước 4.3: Điền PR Description chuẩn (What — Why — Done When)
+Mọi PR bắt buộc phải mô tả đầy đủ 3 thành phần cốt lõi:
+- **1. What:** Thay đổi những gì? Nêu rõ các file chính và liên kết issue đóng tự động (`Closes #<issue_id>`).
+- **2. Why:** Tại sao chọn cách làm này? Nêu rõ lý do kiến trúc / nghiệp vụ.
+- **3. Done When / Verification:** Chứng minh tính năng đã hoạt động ra sao (dán kết quả chạy `npm test`, log terminal, hoặc ảnh chụp màn hình UI thực tế).
+- **4. AI Usage:** Khai báo mã `AI-XXXX` đã log tự động trong [`docs/ai-usage/log.md`](../ai-usage/log.md).
 
 ---
 
 ## 6. Giai đoạn 5: Quy trình Bắt buộc Peer Review Chéo (Hard Gate G4)
 
 > [!CAUTION]
-> **LUẬT THÉP:** Tuyệt đối cấm Self-Merge. Người tạo PR không được quyền tự bấm nút Merge.
+> **LUẬT THÉP BẤT BIẾN:**
+> - **Tuyệt đối cấm tự merge (No Self-Merge):** Người tạo PR không được quyền tự bấm nút Merge.
+> - **Bắt buộc có Review / Comment:** Một PR **chỉ được phép merge vào `dev` khi và chỉ khi đã được thành viên còn lại (Bình ⇄ Hạnh) review và Approve chính thức** kèm comment nhận xét đánh giá kỹ thuật.
 
 ```mermaid
 flowchart LR
