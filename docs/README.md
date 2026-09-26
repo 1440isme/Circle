@@ -45,6 +45,7 @@ Comprehensive, code-verified deep-dive into how CIRCLE is built. Start with the 
 
 The philosophy and conventions behind the code.
 
+- [UI/UX Design Language Specification](./design.md) — Single Source of Truth for visual design tokens, components, and Apple HIG layout
 - [Platform Concepts](./principles/concept.md) — how the architectural pillars fit together
 - [Design Principles](./principles/principle.md) — the rules all backend, web, and mobile code follows
 - [Core vs. Domain Modules](./principles/core-vs-modules.md) — what belongs in core, what belongs in domain modules

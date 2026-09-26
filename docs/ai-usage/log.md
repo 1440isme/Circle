@@ -784,4 +784,36 @@
 - **Commit:** `70710fb`
 - **PR:** #39 (https://github.com/1440isme/Circle/pull/39)
 
+---
+
+## AI-0024: Xây dựng Tài liệu Đặc tả Ngôn ngữ Thiết kế UI/UX CIRCLE
+
+- **Date:** 2026-09-26 23:42:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (Medium)
+- **Related Issue:** #42 ([DOCS]: Xây dựng Đặc tả Ngôn ngữ Thiết kế UI/UX CIRCLE (Apple HIG + Stitch + Anthropic))
+- **Purpose:** Xây dựng tài liệu đặc tả toàn diện về ngôn ngữ thiết kế UI/UX cho nền tảng CIRCLE (`docs/design.md`) dựa trên sự kết hợp giữa:
+  1. Triết lý thiết kế Apple Human Interface Guidelines (Clarity, Deference, Depth, Translucent Materials, Continuous Squircle Radii, Tactile Fluidity).
+  2. Hệ thống thiết kế Intimate Circles tạo trên Google Stitch (`CIRCLE UI Design System` - project 11855010937414066795).
+  3. Kỷ luật thiết kế chống AI Clichés từ Anthropic Frontend Design skill (tiết chế thẩm mỹ, subject-matter grounding, micro-copywriting chuẩn mực).
+  Tài liệu chuẩn hóa toàn bộ Design Tokens (Color Palette, Typography Plus Jakarta Sans, Elevation, Spacing), Layout 3 cột Desktop và 1 cột Mobile Expo, và các component cốt lõi của CIRCLE (Breathing presence dot, Anonymous reflection card, FaceTime-style Call HUD).
+- **Prompt Summary:** Yêu cầu: "dựa vào skill mới từ anthropic và tham khảo thêm về ngôn ngữ thiết kế quy chuẩn quy tắc của Apple, stitch và bản design đó thì bạn hãy làm 1 file design.md để trình bày và mô tả về ngôn ngữ thiết cho toàn bộ ui/ux của circle tôi thiên về triết lý của apple".
+- **Files Affected:**
+  - `docs/design.md` (Tạo mới tài liệu đặc tả UI/UX toàn diện)
+  - `docs/README.md` (Cập nhật mục lục tài liệu liên kết đến `design.md`)
+  - `docs/ai-usage/log.md` (Ghi nhận bản ghi AI-0024)
+- **AI-Generated Portion:** 100% cấu trúc đặc tả ngôn ngữ thiết kế, bảng token, quy chuẩn giao diện và sơ đồ Mermaid.
+- **Human Modifications:** Trương Công Bình định hướng triết lý Apple HIG, yêu cầu tích hợp thiết kế từ Stitch và kỷ luật thẩm mỹ từ Anthropic.
+- **Verification Method:** Chạy `./scripts/check-agent-map.sh` (xác nhận 100% 0 broken links), kiểm tra tính tương phản màu sắc và tỷ lệ typography.
+- **Official Source Checked:** Apple Human Interface Guidelines, `anthropics/skills@frontend-design`, Google Stitch Project `11855010937414066795`.
+- **Security & License Check:** An toàn, không chứa mật khẩu hay thông tin nhạy cảm.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A
+  - **Resolution / Fix:** N/A
+- **Commit:** Pending
+- **PR:** Pending
+
+
 
