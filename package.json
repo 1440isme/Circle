@@ -1,0 +1,29 @@
+{
+  "name": "circle-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CIRCLE — Social Platform for Group Connectivity & Collaboration",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f",
+    "docker:ps": "docker compose ps",
+    "check:integrity": "./scripts/check-agent-map.sh",
+    "dev:backend": "npm run start:dev --workspace=@circle/backend",
+    "dev:web": "npm run dev --workspace=@circle/web",
+    "dev:mobile": "npm run start --workspace=@circle/mobile",
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

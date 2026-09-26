@@ -535,6 +535,101 @@
 
 ---
 
+## AI-0017: Thiết lập Hạ tầng Monorepo Workspace và Môi trường Docker Dev (PostgreSQL 16 & Redis 7)
+
+- **Date:** 2026-09-26 21:12:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (Medium)
+- **Related Issue:** #30 ([SUB-TASK]: TASK-INFRA-001 — Monorepo Workspace Setup & Local Docker Dev Environment)
+- **Purpose:** Khởi tạo hạ tầng Monorepo Workspace (pnpm/npm workspaces) và môi trường dịch vụ cục bộ bằng Docker Compose:
+  (1) Thiết lập `docker-compose.yml` định nghĩa 2 dịch vụ nền tảng: PostgreSQL 16 Alpine (`circle-postgres`) và Redis 7 Alpine (`circle-redis`) với cấu hình healthcheck, volume lưu trữ bền vững và network riêng biệt `circle-network`. Đã kiểm chứng khởi động thực tế và đạt trạng thái `healthy`.
+  (2) Khởi tạo cấu hình root `package.json` và `pnpm-workspace.yaml` quản lý các workspace `apps/*` và `packages/*`, bổ sung scripts điều phối môi trường (`docker:up`, `docker:down`, `dev:*`, `lint`, `test`, `check:integrity`).
+  (3) Khởi tạo gói `@circle/config` chứa cấu hình biên dịch TypeScript dùng chung (`tsconfig.base.json`).
+  (4) Khởi tạo khung mã nguồn và cấu hình gói `@circle/types` (Shared contracts, BaseEntity, ApiResponse, PaginatedResponse, AuthTokens) và `@circle/shared` (Shared utilities). Cả 2 gói đã được biên dịch thành công qua `npm run build`.
+  (5) Cập nhật `.env.example` đồng bộ các tham số Docker cục bộ (`POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `POSTGRES_PORT`, `REDIS_PORT`).
+- **Prompt Summary:** Yêu cầu: "thiết lập hạ tầng trước nhé, rồi đến khởi tạo db".
+- **Files Affected:**
+  - `docker-compose.yml`
+  - `.env.example`
+  - `package.json`
+  - `package-lock.json`
+  - `pnpm-workspace.yaml`
+  - `packages/config/package.json`
+  - `packages/config/tsconfig.base.json`
+  - `packages/types/package.json`
+  - `packages/types/tsconfig.json`
+  - `packages/types/src/index.ts`
+  - `packages/shared/package.json`
+  - `packages/shared/tsconfig.json`
+  - `packages/shared/src/index.ts`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% cấu hình Docker Compose, root workspace và các cấu hình TypeScript dùng chung.
+- **Human Modifications:** Trương Công Bình định hướng ưu tiên thiết lập hạ tầng trước, tạo tiền đề để triển khai cơ sở dữ liệu.
+- **Verification Method:**
+  - `docker compose up -d` khởi động thành công, kiểm tra `docker compose ps` xác nhận cả hai container `circle-postgres` và `circle-redis` đều `healthy`.
+  - `npm install` và `npm run build` thành công xuất các tệp dist `.d.ts` và `.js` cho `@circle/types` và `@circle/shared`.
+  - Chạy `./scripts/check-agent-map.sh` xác nhận 100% tài liệu liên kết hợp lệ (0 broken links).
+- **Official Source Checked:** `PROJECT_GOD.md` (DoD, G1 Working Product, G8 Security & Hygiene), `docs/getting-started/local-development.md`.
+- **Security & License Check:** An toàn, không chứa secret thật, mọi cấu hình mặc định đều tuân theo `.env.example`.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A
+  - **Resolution / Fix:** N/A
+- **Commit:** `12d6f8b`
+- **PR:** #31 (https://github.com/1440isme/Circle/pull/31)
+
+---
+
+## AI-0018: Khởi tạo Cấu hình Backend NestJS, Mô hình Hóa Prisma Schema và Thực thi Migration Ban đầu
+
+- **Date:** 2026-09-26 21:24:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (Medium)
+- **Related Issue:** #32 ([SUB-TASK]: TASK-DB-001 — Domain Data Modeling & Prisma Schema Initialization with Initial Migration)
+- **Purpose:** Khởi tạo cấu hình backend NestJS (`apps/backend`), thiết kế toàn diện mô hình cơ sở dữ liệu quan hệ trên `apps/backend/prisma/schema.prisma` và thực thi migration ban đầu lên PostgreSQL 16:
+  (1) Thiết lập `apps/backend/package.json`, `tsconfig.json` và `nest-cli.json` tích hợp Prisma ORM và liên kết các gói nội bộ monorepo (`@circle/types`, `@circle/shared`).
+  (2) Xây dựng `schema.prisma` bao quát đầy đủ 5 packages miền nghiệp vụ (khớp 100% với `class-diagram.md`, `classdiagram.puml` và 26 Use Cases):
+    - Account & Social: `User`, `UserProfile`, `RefreshToken`, `Friendship`, `Notification`.
+    - Circle Core: `Circle`, `CircleMember` với các roles (`OWNER`, `ADMIN`, `MODERATOR`, `MEMBER`).
+    - Chat & Channels: `Channel`, `Message` (hỗ trợ text, file, voice, reply tree), `Reaction`.
+    - Moments & Shared Albums: `Moment`, `Photo`, `SharedAlbum`.
+    - Collaborative Planning Sheet: `PlanningSheet`, `SheetColumn`, `SheetRow`, `SheetCell` với composite keys và audit `lastEditedBy`.
+    - Circle Utilities: `PinnedRecord`, `GroupPoll`, `PollOption`, `PollVote`, `DecisionWheel`, `WheelOption`, `AnonymousPost`, `CalendarEvent`, `LiveLocationShare`, `CallSession`, `CallParticipant`.
+  (3) Kiểm chứng cú pháp `npx prisma validate` đạt chuẩn, sinh Prisma Client thành công (`npx prisma generate`).
+  (4) Thực thi thành công migration ban đầu `20260926142208_init` lên database PostgreSQL 16 container (`circle-postgres` trên port 5432). Toàn bộ hơn 20 bảng cơ sở dữ liệu đã được tạo lập với foreign keys, indexes và constraints đầy đủ.
+  (5) Đồng bộ hóa toàn bộ domain enums và entity interfaces vào `packages/types/src/index.ts`, biên dịch thành công qua `npm run build`.
+- **Prompt Summary:** Yêu cầu: "trong lúc chờ hạnh review thì cứ tiếp tục thực hiện nhé".
+- **Files Affected:**
+  - `apps/backend/package.json`
+  - `apps/backend/tsconfig.json`
+  - `apps/backend/nest-cli.json`
+  - `apps/backend/prisma/schema.prisma`
+  - `apps/backend/prisma/migrations/20260926142208_init/migration.sql`
+  - `apps/backend/prisma/migrations/migration_lock.toml`
+  - `packages/types/src/index.ts`
+  - `package-lock.json`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% cấu hình Prisma schema, thiết kế quan hệ bảng, migration SQL và các kiểu dữ liệu dùng chung.
+- **Human Modifications:** Trương Công Bình chỉ đạo tiếp tục triển khai khởi tạo cơ sở dữ liệu trong khi chờ review PR hạ tầng.
+- **Verification Method:**
+  - `npx prisma validate` pass.
+  - `npx prisma migrate dev --name init` hoàn tất với mã thoát 0, migration SQL được áp dụng thành công.
+  - Kiểm tra trực tiếp trong PostgreSQL qua `psql` xác nhận toàn bộ các bảng đã tồn tại và sẵn sàng phục vụ.
+  - `npm run build --workspace=@circle/types` biên dịch không có lỗi.
+  - `./scripts/check-agent-map.sh` pass 100% (91/91 tệp tham chiếu).
+- **Official Source Checked:** `PROJECT_GOD.md` (DoD, G1 Working Product, G5 Automated Testing Foundation, G8 Security & Hygiene), `docs/architecture/diagrams/class-diagram.md`, `classdiagram.puml`.
+- **Security & License Check:** An toàn, không chứa credentials nhạy cảm, sử dụng biến môi trường chuẩn.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** Xung đột cấu hình `module: commonjs` và `moduleResolution: NodeNext` khi kế thừa từ base tsconfig trong `apps/backend/tsconfig.json`.
+  - **Root Cause:** Cấu hình base tsconfig đặt `NodeNext` cho ESM, trong khi NestJS mặc định dùng CommonJS với moduleResolution `node`.
+  - **Resolution / Fix:** Ghi đè `"moduleResolution": "node"` trong `apps/backend/tsconfig.json`.
+- **Commit:** `1e35c41` (Merged: `857cb6d`)
+- **PR:** #33 (https://github.com/1440isme/Circle/pull/33)
+
+---
+
 ## AI-0019: Thiết kế Mô hình Kiến trúc C4 (Context, Container, Component) và Sơ đồ Thực thể Quan hệ ERD
 
 - **Date:** 2026-09-26 21:42:00 +07:00
@@ -566,7 +661,3 @@
   - **Resolution / Fix:** `./scripts/check-agent-map.sh` phát hiện và đã được sửa lại ngay lập tức thành `../../../PROJECT_GOD.md`.
 - **Commit:** Pending
 - **PR:** Pending
-
-
-
-
