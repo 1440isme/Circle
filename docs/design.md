@@ -257,29 +257,197 @@ Một tính năng văn hóa độc đáo của CIRCLE giúp các thành viên ch
 
 ---
 
-## 5. Quy chuẩn Thiết kế Đa nền tảng (Web vs. Mobile)
+## 5. Kiến trúc Trải nghiệm Mobile Native (Apple iOS & Liquid Glass Specification)
 
-| Tiêu chí | Next.js Web (`apps/web`) | React Native Expo Mobile (`apps/mobile`) |
-|---|---|---|
-| **Điều hướng chính** | Left Sidebar + Header cố định kính mờ | Floating Bottom Pill Tab Bar |
-| **Touch / Click Target** | Tối thiểu 36px | Tối thiểu 44px $\times$ 44px (chuẩn Apple HIG) |
-| **Phản hồi xúc giác** | CSS micro-scaling (`scale-98`) khi bấm | Expo Haptics (`Haptics.impactAsync(Light)`) |
-| **Modal & Form** | Centered Dialog với backdrop mờ 4px | Apple-style Bottom Sheet kéo vuốt cử chỉ |
-| **Typography Engine** | `next/font/google` (Plus Jakarta Sans) | Expo Font / Google Fonts nạp sẵn |
-| **Cuộn trang** | Smooth subtle scrollbar (ẩn khi không cuộn) | Native iOS Inertial Bounce Scroll |
+> **Mục tiêu chiến lược:** Mang đến trải nghiệm cầm nắm và tương tác trên thiết bị di động đạt độ hoàn thiện cao cấp nhất của hệ sinh thái **Apple iOS**, nổi bật với vật liệu **Liquid Glass (Kính Thủy Tinh Lỏng)** và phản hồi xúc giác chân thực, nhưng **tuyệt đối không làm đứt gãy ngôn ngữ thiết kế chung** của CIRCLE giữa Web và Mobile.
+
+```mermaid
+flowchart LR
+    A["CIRCLE Brand Core"] --> C["Cohesive Cross-Platform"]
+    B["Apple iOS Hardware"] --> C
+
+    subgraph "Ngôn ngữ Thiết kế Đồng nhất (Shared Identity)"
+        D1["Bảng màu Thảo mộc: Mint #78C6A3, Sage #4FA982, Peach #F4C7A1"]
+        D2["Typography: Plus Jakarta Sans xuyên suốt Web & Mobile"]
+        D3["Circle-Centric Architecture: Không gian nhóm, nhịp thở trực tuyến"]
+    end
+
+    subgraph "Nâng tầm Trải nghiệm Mobile Native (iOS Acceleration)"
+        E1["Liquid Glass: expo-blur + Specular Highlight mép kính"]
+        E2["Apple Haptics: Phản hồi rung tinh tế theo từng cử chỉ"]
+        E3["Native Sheets: Kéo vuốt đa điểm, lùi màn hình chính"]
+        E4["Spring Physics: Chuyển động quán tính tự nhiên chuẩn HIG"]
+    end
+
+    C --> D1
+    C --> D2
+    C --> D3
+    C --> E1
+    C --> E2
+    C --> E3
+    C --> E4
+```
 
 ---
 
-## 6. Danh mục Kiểm tra Thực thi (DoD for UI Implementation)
+### 5.1. Bí quyết Giữ vững Bản sắc Chung khi áp dụng Liquid Glass
+Để ứng dụng di động vừa "chuẩn iOS" vừa không bị tách rời khỏi phiên bản Web, CIRCLE tuân theo nguyên tắc: **Đồng nhất về Linh hồn, Tối ưu theo Phần cứng**.
+
+1. **Về Màu sắc & Nhận diện (Brand Cohesion):**
+   - Lớp kính Liquid Glass trên Mobile không phải là kính xám lạnh công nghiệp, mà là **Kính hữu cơ tán xạ sắc xanh Canvas (`#F7FAF8` / `#EDFDF3`)**. Khi người dùng cuộn nội dung, các màu sắc thảo mộc ấm áp của CIRCLE lướt dưới mặt kính mờ tạo nên hiệu ứng thị giác mê hoặc nhưng thân thuộc.
+   - Các biểu tượng (Lucide / SF Symbols) và chữ trên mặt kính vẫn trung thành 100% với màu **Charcoal Forest (`#24332C`)** và **Forest Sage (`#4FA982`)**.
+2. **Về Hình khối (Geometry Cohesion):**
+   - Cả Web và Mobile đều dùng chung hệ thống bo góc hữu cơ Squircle (`rounded-2xl`, `rounded-3xl`, `rounded-full`). Mobile chỉ thừa hưởng thêm độ cong liên tục mượt mà của phần cứng màn hình iPhone (OLED Super Retina).
+3. **Về Nội dung (Content Cohesion):**
+   - Vòng tròn kết nối, nhịp thở thành viên, thẻ "Điều muốn nói" đều có cấu trúc hiển thị tương đồng, giúp người dùng chuyển đổi qua lại giữa máy tính và điện thoại không hề bị bỡ ngỡ.
+
+---
+
+### 5.2. Công thức Kỹ thuật Chế tác Liquid Glass trên Mobile
+
+Liquid Glass là sự phối hợp giữa hiệu ứng khúc xạ kính mờ (**Blur Vibrancy**) và đường phản quang mép kính (**Specular Highlight Edge**):
+
+```tsx
+/* Component LiquidGlassContainer.tsx (React Native + Expo) */
+import React from 'react';
+import { View, StyleSheet, Platform } from 'react-native';
+import { BlurView } from 'expo-blur';
+
+export const LiquidGlassPill: React.FC<{ children: React.ReactNode; style?: any }> = ({ children, style }) => {
+  return (
+    <View style={[styles.outerContainer, style]}>
+      <BlurView
+        intensity={Platform.OS === 'ios' ? 75 : 100}
+        tint="systemUltraThinMaterialLight"
+        style={styles.blurView}
+      >
+        {/* Lớp phản quang ánh sáng mép kính (Specular Highlight) */}
+        <View style={styles.specularTopLine} />
+        {children}
+      </BlurView>
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  outerContainer: {
+    borderRadius: 9999, // Squircle Pill
+    overflow: 'hidden',
+    backgroundColor: 'rgba(247, 250, 248, 0.65)', // Tint nền thảo mộc CIRCLE
+    borderWidth: 1,
+    borderColor: 'rgba(229, 236, 232, 0.7)', // Hairline tinh tế
+    shadowColor: '#24332C',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 20,
+    elevation: 8,
+  },
+  blurView: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+  },
+  specularTopLine: {
+    position: 'absolute',
+    top: 0,
+    left: 24,
+    right: 24,
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.85)', // Vệt sáng thủy tinh phản chiếu ánh đèn
+  },
+});
+```
+
+---
+
+### 5.3. Floating Liquid Glass Tab Bar (Thanh Điều hướng Viên thuốc Nổi)
+- **Vị trí:** Không dán sát đáy màn hình như thanh bar truyền thống. Nổi cách mép dưới màn hình **`20px`** (trên Home Indicator), cách hai biên lề **`24px`**.
+- **Hình dáng:** Dạng viên thuốc nguyên khối bo tròn tuyệt đối (`rounded-full`).
+- **Hiệu ứng Capsule trượt (Sliding Pill Indicator):**
+  - Khi người dùng chạm chuyển tab (ví dụ từ *Kênh trò chuyện* sang *Album ảnh*), một viên thuốc con màu xanh **Mint Wash (`#DDF3E8`)** với icon đổi sang **Sage (`#4FA982`)** sẽ trượt mượt mà theo quán tính lò xo sang tab mới, đi kèm phản hồi rung nhẹ `Haptics.selectionAsync()`.
+- **Cơ chế lặn thông minh (Scroll-to-hide):**
+  - Khi người dùng cuộn xem nội dung tin nhắn hoặc duyệt album ảnh xuống dưới, thanh bar tự động lặn nhẹ nhàng xuống đáy `translateY(100)` để giải phóng 100% diện tích màn hình. Khi cuộn nhẹ ngược lên, thanh bar nổi trở lại.
+
+---
+
+### 5.4. Header iOS: Large Title co giãn Liquid Glass
+- Tuân thủ phong cách Apple kinh điển của ứng dụng *Messages* và *Settings*:
+  - **Trạng thái tĩnh ở đầu trang:** Thanh Header trong suốt hoàn toàn, tiêu đề trang hiển thị ở dạng **Large Title (28px Semibold Plus Jakarta Sans)** nằm trang nhã ngay trên danh sách.
+  - **Trạng thái khi cuộn trang:** Khi danh sách cuộn lên trên, thanh Header lập tức kích hoạt lớp kính **Liquid Glass** mờ ảo, Large Title co lại mượt mà thành **Inline Title (17px Semibold)** nằm chính giữa thanh bar, tạo sự liền mạch thị giác tuyệt đối.
+
+---
+
+### 5.5. Apple Native Sheets & Kéo vuốt Cử chỉ (Gestures)
+- Tất cả các tác vụ khởi tạo nhanh (Gửi thẻ "Điều muốn nói", Tạo cuộc bình chọn, Thêm lịch hẹn nhóm, Xem danh sách thành viên online) đều kích hoạt dưới dạng **Apple Sheet (`presentation: 'formSheet'`)**:
+  - **Detents:** Hỗ trợ 2 nấc dừng tự nhiên `[0.55, 0.92]` (Nửa màn hình cho tác vụ nhanh, toàn màn hình khi cần tập trung).
+  - **Visual Indicator:** Thanh gạt mờ (*Sheet Grabber*) bo tròn nhỏ `36px × 5px` màu `#BEC9C1`.
+  - **Hiệu ứng lùi màn hình chính (*Parent Scaling*):** Màn hình chính phía sau tự động thu nhỏ nhẹ về tỉ lệ `scale(0.94)` và bo góc cong, tạo chiều sâu 3D chân thực của iOS.
+
+---
+
+### 5.6. Bảng Phân loại Xúc giác Chuyên sâu (Apple Haptics Taxonomy)
+
+Ứng dụng `expo-haptics` để mang lại cảm giác "sờ thấy được" cho các tương tác vô hình trên màn hình kính:
+
+| Tương tác Người dùng | Kiểu Haptics (API) | Cảm giác Mang lại |
+|---|---|---|
+| Chuyển tab trên Floating Tab Bar | `Haptics.selectionAsync()` | Tiếng "click" nhẹ ở đầu ngón tay như bấm bánh xe cơ học |
+| Thả cảm xúc / Reaction tin nhắn | `Haptics.impactAsync(Light)` | Cảm giác búng nhẹ, vui vẻ và tinh tế |
+| Nhấn giữ tin nhắn để xem Context Menu | `Haptics.impactAsync(Medium)` | Báo hiệu lớp kính nội dung đã được nhấc bổng lên |
+| Gửi thành công lời tâm sự ẩn danh | `Haptics.notificationAsync(Success)` | Nhịp rung kép khẳng định thông điệp đã bay vào vòng tròn |
+| Xóa tin nhắn hoặc Rời khỏi Circle | `Haptics.notificationAsync(Warning)` | Nhịp rung cảnh báo giúp người dùng ý thức được hành động |
+| Bật / Tắt Mic & Camera trong WebRTC | `Haptics.impactAsync(Light)` | Cảm giác như bật công tắc vật lý an toàn |
+
+---
+
+### 5.7. Thông số Cơ học Lò xo Apple (Spring Physics)
+
+Mọi chuyển động đóng mở, co giãn và trượt kéo trong ứng dụng di động đều sử dụng bộ cấu hình vật lý mô phỏng chính xác chuyển động hữu cơ của tự nhiên:
+
+```typescript
+// Config chuẩn Apple Spring cho react-native-reanimated
+export const AppleSpringConfig = {
+  // Dành cho tương tác chạm nút (Bouncy & Responsive)
+  interactiveButton: {
+    damping: 18,
+    stiffness: 160,
+    mass: 0.8,
+  },
+  // Dành cho kéo mở Sheet & Trượt Tab Bar (Smooth & Elegant)
+  fluidPresentation: {
+    damping: 24,
+    stiffness: 140,
+    mass: 1.0,
+  },
+};
+```
+
+---
+
+## 6. Quy chuẩn Đối sánh Đa nền tảng (Web vs. Mobile Cohesion)
+
+| Tiêu chí | Next.js Web (`apps/web`) | React Native Expo Mobile (`apps/mobile`) | Điểm giao thoa giữ vững Nhận diện |
+|---|---|---|---|
+| **Điều hướng chính** | Left Navigation Rail (280px) + Header cố định kính mờ | Floating Bottom Pill Tab Bar (Liquid Glass) | Đều dùng bo góc viên thuốc `rounded-full` và tone Mint `#78C6A3` |
+| **Chất liệu Kính** | CSS `backdrop-filter: blur(16px)` + Border Hairline `1px` | `expo-blur` (Vibrancy) + Specular Top Highlight mép kính | Đều có nền Canvas `#F7FAF8` tán xạ qua kính mờ |
+| **Touch / Click Target** | Tối thiểu 36px | Tối thiểu 44px $\times$ 44px (Chuẩn Apple HIG) | Đều có hiệu ứng thu nhỏ nhẹ `scale(0.98)` khi kích hoạt |
+| **Phản hồi tương tác** | Con trỏ chuột chuyển động + Hover đổi màu Sage `#4FA982` | `expo-haptics` (Rung cơ học theo từng nấc thao tác) | Đều mang lại cảm giác kiểm soát tin cậy |
+| **Modal & Form** | Centered Dialog với backdrop mờ 4px | Apple-style Bottom Sheet (Kéo vuốt đa điểm, lùi màn hình chính) | Đều ưu tiên không gian đọc ấm cúng, không che khuất ngữ cảnh |
+| **Typography Engine** | `next/font/google` (`Plus Jakarta Sans`) | Expo Google Fonts (`Plus Jakarta Sans`) | 100% cùng một font chữ, cùng tỷ lệ tracking và line-height |
+
+---
+
+## 7. Danh mục Kiểm tra Thực thi (DoD for UI Implementation)
 
 Trước khi gửi bất kỳ Pull Request nào liên quan đến UI/UX, kỹ sư và AI Agent phải đối chiếu danh sách sau:
-- [ ] **Bảng màu:** Đã dùng đúng tokens (`circle.primary`, `circle.charcoal`, `circle.canvas`), không hardcode mã màu lạ.
+- [ ] **Bảng màu:** Đã dùng đúng tokens (`circle.primary`, `circle.charcoal`, `circle.canvas`, `circle.peach`), không hardcode mã màu lạ.
 - [ ] **Contrast Check:** Chữ trên nền đạt tối thiểu tỉ lệ 4.5:1 (đã kiểm tra WCAG AA).
 - [ ] **Typography:** Dùng đúng font `Plus Jakarta Sans`, không dùng ALL-CAPS cho câu dài, cỡ chữ không nhỏ hơn 11px.
 - [ ] **Tránh AI Clichés:** Không dùng card rập khuôn với shadow đen, không animation nhảy múa thừa thãi.
+- [ ] **Mobile Liquid Glass:** Các thanh Header và Floating Tab Bar sử dụng `BlurView` kết hợp viền phản quang mỏng `1px`, không dùng màu xám bệt.
+- [ ] **Apple Haptics:** Các nút bấm chính, chuyển tab và tương tác cảm xúc đã được tích hợp đúng mã `expo-haptics`.
 - [ ] **Khoảng trống ngón tay (Mobile):** Mọi nút bấm và icon có thể chạm đều có diện tích tối thiểu $44 \times 44$ pt.
 - [ ] **Micro-copy:** Nút bấm dùng động từ hành động cụ thể, thông điệp lỗi rõ ràng hướng dẫn cách khắc phục.
-- [ ] **Vật liệu:** Các thanh cố định nổi (Header/Tab bar) có hiệu ứng kính mờ `backdrop-blur`.
 
 ---
 *Tài liệu này là chuẩn mực thiết kế bắt buộc cho đề tài tốt nghiệp CIRCLE. Mọi đề xuất thay đổi cần thông qua thảo luận và cập nhật theo quy trình PR Peer Review.*
+
