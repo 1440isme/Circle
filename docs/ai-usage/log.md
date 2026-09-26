@@ -377,7 +377,7 @@
 - **Developer:** Trương Công Bình & Ninh Thị Mỹ Hạnh
 - **Tool:** Antigravity IDE
 - **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** Vision, Core Philosophy & Workflow Governance Enhancement
+- **Related Issue:** #15 (https://github.com/1440isme/Circle/issues/15)
 - **Purpose:** Tiếp thu định hướng chiến lược từ người dùng để cập nhật 2 trụ cột cốt lõi của đề tài: (1) Mục tiêu & Tầm nhìn: Khẳng định CIRCLE là nền tảng sinh ra vì nhóm, lấy nhóm làm trung tâm (Circle-Centric / Group-First). Khi người dùng nghĩ đến chia sẻ hay hoạt động nhóm, họ nghĩ ngay đến Circle. Mọi chức năng xoay quanh hoạt động nhóm. (2) Quy trình kỹ thuật trên GitHub: Bắt buộc mọi thay đổi/lỗi/tính năng đều có Issue tương ứng xuất hiện trên GitHub Project OS (#3); phân cấp Weekly Goal Issue -> Sub-issues; quy định 1 Issue = 1 PR target vào `dev`; mô hình Git Flow tách biệt `main` (prod) và `dev` (staging); chuẩn hóa Description của Issue & PR theo What — Why — Done When; bắt buộc Peer Review chéo (Bình ⇄ Hạnh) có comment/review approve mới được merge.
 - **Prompt Summary:** Bổ sung mục tiêu tầm nhìn: nhóm là trung tâm; chuẩn hóa quy trình GitHub issue, sub-issue, PR, review, mô hình git flow dev/main, description what why done when.
 - **Files Affected:**
@@ -395,14 +395,14 @@
   - `scripts/check-agent-map.sh` (Hỗ trợ unquote URL percent-encoding tránh gãy link có dấu cách)
   - `docs/ai-usage/log.md` (Ghi nhận bản ghi AI-0012)
 - **AI-Generated Portion:** 100% nội dung tài liệu, templates và cập nhật quy trình.
-- **Human Modifications:** Người dùng định hình tầm nhìn "Circle là trung tâm" và quy chuẩn hóa quy trình làm việc chuyên nghiệp trên GitHub.
+- **Human Modifications:** Người dùng định hình tầm nhìn "Circle là trung tâm" và quy chuẩn hóa quy trình làm việc chuyên nghiệp trên GitHub. Nhắc nhở nghiêm khắc việc tuân thủ quy tắc Issue-First.
 - **Verification Method:** Chạy `bash scripts/check-agent-map.sh` xác nhận 90/90 framework files pass 100%, 0 broken references.
 - **Official Source Checked:** `PROJECT_GOD.md`, GitHub Flow & GitFlow Industry Standards, Rubric Level 5 (TC1 - TC5).
 - **Security & License Check:** An toàn, không chứa credentials.
 - **AI Errors / Hallucinations Found:**
-  - **Error Description:** None.
-  - **Root Cause:** N/A.
-  - **Resolution / Fix:** N/A.
+  - **Error Description:** AI vội vàng mở PR #14 mà quên bước khởi tạo GitHub Issue trước đó, vi phạm quy tắc "Issue-First" của dự án.
+  - **Root Cause:** Trình tự thực thi bị nhảy cóc, tạo PR trực tiếp từ nhánh mà chưa kiểm tra trạng thái Issue trên GitHub Project.
+  - **Resolution / Fix:** Khởi tạo ngay Issue #15 (`[DOCS]: Establish Circle-Centric Vision...`), gán vào GitHub Project #3, và cập nhật PR #14 liên kết chính thức `Closes #15`.
 - **Commit:** `3e521e7`
 - **PR:** #14 (https://github.com/1440isme/Circle/pull/14)
 
