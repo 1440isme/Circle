@@ -784,4 +784,43 @@
 - **Commit:** `70710fb`
 - **PR:** #39 (https://github.com/1440isme/Circle/pull/39)
 
+---
+
+## AI-0025: Khởi tạo Nền tảng Next.js Web (apps/web) & Triển khai Giao diện UI Tổng quan CIRCLE
+
+- **Date:** 2026-09-27 00:10:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (Medium)
+- **Related Issue:** #44 ([FEAT]: Khởi tạo Nền tảng Next.js Web (apps/web) & Triển khai Giao diện UI Tổng quan CIRCLE)
+- **Purpose:** Khởi tạo cấu trúc dự án Next.js (App Router) cho `apps/web` (@circle/web), cấu hình TypeScript, Tailwind CSS theo hệ thống Design Tokens từ `docs/design.md` (màu thảo mộc, font Plus Jakarta Sans, squircle radii, hiệu ứng kính mờ frosted/liquid glass). Triển khai màn hình Desktop Web Hub (3 cột: Left Navigation, Central Feed với thẻ "Điều muốn nói" và composer pill, Right Presence Rail với nhịp thở online). Đóng gói toàn bộ 6 tệp prototype HTML tương tác từ Google Stitch vào `docs/ui-prototypes/` để xem trước trực tiếp trên trình duyệt.
+- **Prompt Summary:** Yêu cầu: "đấy tôi bảo bạn là hãy triển khai ui đó vào dự án luôn đó, hiện tại cứ làm những gì đang có nhé".
+- **Files Affected:**
+  - `apps/web/package.json` (Cấu hình Next.js 14, React 18, Tailwind, Lucide)
+  - `apps/web/tsconfig.json` (TypeScript cấu hình App Router)
+  - `apps/web/next.config.mjs` (Next.js config)
+  - `apps/web/postcss.config.mjs` (PostCSS config)
+  - `apps/web/tailwind.config.ts` (Design Tokens CIRCLE)
+  - `apps/web/src/app/globals.css` (Font, frosted glass, scrollbar)
+  - `apps/web/src/app/layout.tsx` (RootLayout với metadata)
+  - `apps/web/src/app/page.tsx` (Trang chủ Desktop Web Hub)
+  - `apps/web/src/components/header/Header.tsx` (Header kính mờ & tìm kiếm)
+  - `apps/web/src/components/navigation/Sidebar.tsx` (Thanh điều hướng nhóm & công cụ)
+  - `apps/web/src/components/stream/FeedStream.tsx` (Dòng sự kiện, thẻ tâm sự & composer)
+  - `apps/web/src/components/presence/PresenceRail.tsx` (Thành viên trực tuyến nhịp thở & call stage launcher)
+  - `docs/ui-prototypes/` (Bộ 6 file HTML prototypes từ Google Stitch và README)
+  - `docs/ai-usage/log.md` (Ghi nhận bản ghi AI-0025)
+- **AI-Generated Portion:** 100% mã nguồn cấu hình, cấu trúc component Next.js và chuyển thể mã Tailwind từ Stitch sang React App Router.
+- **Human Modifications:** Trương Công Bình yêu cầu triển khai ngay UI vào dự án, bám sát các thiết kế hiện có trên Stitch và tài liệu `docs/design.md`.
+- **Verification Method:** Chạy `./scripts/check-agent-map.sh` (xác nhận 100% 0 broken links), kiểm tra cấu trúc mã nguồn TypeScript và component layout.
+- **Official Source Checked:** Google Stitch Project `11855010937414066795`, `docs/design.md`, Next.js 14 App Router Docs.
+- **Security & License Check:** An toàn, không chứa mật khẩu hay thông tin nhạy cảm.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A
+  - **Resolution / Fix:** N/A
+- **Commit:** Pending
+- **PR:** Pending
+
+
 

@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+
+<html class="light" lang="vi"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>CIRCLE - Sanctuary for Trust</title>
+<!-- Google Fonts: Plus Jakarta Sans -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols Outlined -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "surface-container-lowest": "#ffffff",
+            "on-background": "#111e19",
+            "tertiary": "#795739",
+            "primary-fixed": "#a3f3ce",
+            "on-primary-container": "#00523a",
+            "primary-fixed-dim": "#88d6b2",
+            "on-secondary-fixed-variant": "#005137",
+            "surface-container-low": "#e7f7ee",
+            "inverse-primary": "#88d6b2",
+            "on-secondary-fixed": "#002114",
+            "tertiary-container": "#d9ae8a",
+            "secondary": "#006c4b",
+            "background": "#edfdf3",
+            "secondary-fixed": "#9af5c9",
+            "inverse-on-surface": "#e5f5eb",
+            "on-error-container": "#93000a",
+            "tertiary-fixed": "#ffdcc0",
+            "surface-variant": "#d6e6dd",
+            "error": "#ba1a1a",
+            "on-error": "#ffffff",
+            "on-primary-fixed-variant": "#005139",
+            "on-secondary-container": "#047350",
+            "outline-variant": "#bec9c1",
+            "tertiary-fixed-dim": "#eabe99",
+            "surface-bright": "#edfdf3",
+            "secondary-container": "#9af5c9",
+            "surface-container": "#e2f2e8",
+            "on-surface": "#111e19",
+            "inverse-surface": "#26332d",
+            "primary": "#156b4e",
+            "surface-dim": "#ceded4",
+            "surface": "#edfdf3",
+            "outline": "#6f7a73",
+            "on-primary-fixed": "#002115",
+            "on-primary": "#ffffff",
+            "on-secondary": "#ffffff",
+            "on-tertiary-container": "#5f4124",
+            "surface-container-high": "#dcece2",
+            "on-tertiary-fixed": "#2d1601",
+            "on-tertiary": "#ffffff",
+            "secondary-fixed-dim": "#7ed8ae",
+            "primary-container": "#78c6a3",
+            "on-surface-variant": "#3f4943",
+            "error-container": "#ffdad6",
+            "on-tertiary-fixed-variant": "#5f4024",
+            "surface-container-highest": "#d6e6dd",
+            "surface-tint": "#156b4e"
+          },
+          "borderRadius": {
+            "DEFAULT": "1rem",
+            "lg": "2rem",
+            "xl": "3rem",
+            "full": "9999px"
+          },
+          "spacing": {
+            "margin-mobile": "1rem",
+            "space-md": "1rem",
+            "gutter-mobile": "1rem",
+            "space-lg": "1.5rem",
+            "gutter": "1.5rem",
+            "space-sm": "0.5rem",
+            "margin": "2.5rem",
+            "space-xl": "2.5rem",
+            "space-xs": "0.25rem"
+          },
+          "fontFamily": {
+            "label-md": ["Plus Jakarta Sans"],
+            "label-lg": ["Plus Jakarta Sans"],
+            "body-lg": ["Plus Jakarta Sans"],
+            "headline-md": ["Plus Jakarta Sans"],
+            "headline-sm": ["Plus Jakarta Sans"],
+            "label-sm": ["Plus Jakarta Sans"],
+            "headline-lg-mobile": ["Plus Jakarta Sans"],
+            "title-md": ["Plus Jakarta Sans"],
+            "display": ["Plus Jakarta Sans"],
+            "body-sm": ["Plus Jakarta Sans"],
+            "body-md": ["Plus Jakarta Sans"],
+            "headline-lg": ["Plus Jakarta Sans"]
+          },
+          "fontSize": {
+            "label-md": ["0.75rem", { "lineHeight": "1rem", "letterSpacing": "0.03em", "fontWeight": "600" }],
+            "label-lg": ["0.875rem", { "lineHeight": "1.25rem", "letterSpacing": "0.02em", "fontWeight": "600" }],
+            "body-lg": ["1.0625rem", { "lineHeight": "1.6875rem", "letterSpacing": "0.01em", "fontWeight": "400" }],
+            "headline-md": ["1.5rem", { "lineHeight": "2rem", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+            "headline-sm": ["1.25rem", { "lineHeight": "1.75rem", "letterSpacing": "0em", "fontWeight": "600" }],
+            "label-sm": ["0.6875rem", { "lineHeight": "0.875rem", "letterSpacing": "0.04em", "fontWeight": "500" }],
+            "headline-lg-mobile": ["1.625rem", { "lineHeight": "2.125rem", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+            "title-md": ["1.125rem", { "lineHeight": "1.625rem", "letterSpacing": "0.005em", "fontWeight": "600" }],
+            "display": ["2.5rem", { "lineHeight": "3rem", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+            "body-sm": ["0.8125rem", { "lineHeight": "1.25rem", "letterSpacing": "0.015em", "fontWeight": "400" }],
+            "body-md": ["0.9375rem", { "lineHeight": "1.5rem", "letterSpacing": "0.01em", "fontWeight": "400" }],
+            "headline-lg": ["2rem", { "lineHeight": "2.5rem", "letterSpacing": "-0.015em", "fontWeight": "600" }]
+          }
+        },
+      },
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-family: 'Material Symbols Outlined';
+      font-weight: normal;
+      font-style: normal;
+      font-size: 20px;
+      line-height: 1;
+      display: inline-block;
+      white-space: nowrap;
+      word-wrap: normal;
+      direction: ltr;
+      -webkit-font-smoothing: antialiased;
+    }
+    .presence-pulse {
+      box-shadow: 0 0 0 3px rgba(120, 198, 163, 0.45);
+      animation: pulse-ring 2.2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+    }
+    @keyframes pulse-ring {
+      0% { box-shadow: 0 0 0 0 rgba(120, 198, 163, 0.6); }
+      70% { box-shadow: 0 0 0 6px rgba(120, 198, 163, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(120, 198, 163, 0); }
+    }
+    /* Hide scrollbar for clean horizontal flows */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</head>
+<body class="bg-[#F7FAF8] text-on-surface antialiased selection:bg-primary-container selection:text-on-primary-container pb-28 min-h-screen">
+<!-- Top App Bar (Shared Component faithfully mapped) -->
+<header class="sticky top-0 z-40 flex justify-between items-center w-full px-4 h-14 bg-surface-container-lowest/80 backdrop-blur-md shadow-sm">
+<div class="flex items-center gap-2">
+<!-- Circular C Mark Logo -->
+<img alt="CIRCLE" class="w-8 h-8 rounded-full object-cover shadow-sm ring-1 ring-outline-variant/30" src="https://lh3.googleusercontent.com/aida/AEtjO1XoRy185WP1p4vkNqfbiOSKa2P0Bt2ApvqgHZoK-yAGsh4MggvtzNrCTpO3k3kh-hGnf8PGRJkYI6rFdV4h2FLy6BK0LsiRMGkHyUD4a0W1KMX3FmPUbO1ZiYorF_7TvAxosNa10Q_0-JgEeka8OmFjNGKBI5hYyjWIrl-XXHaBay-_YTHPnQRNhC3aVLqsZ3uVNJ3nUOskx0E0PdY4gEOzDZ7gFx7krFDSdUchvx1cMlDpMT7Lro-rfVA"/>
+<div class="flex flex-col">
+<span class="text-headline-sm font-headline-sm tracking-wide text-primary leading-none font-bold">CIRCLE</span>
+<span class="text-[9px] font-label-sm tracking-widest text-on-surface-variant/80 uppercase mt-0.5">Sanctuary for Trust</span>
+</div>
+</div>
+<!-- Actions & Profile -->
+<div class="flex items-center gap-2.5">
+<!-- Notification Icon with Badge 3 -->
+<button aria-label="Thông báo" class="relative w-9 h-9 flex items-center justify-center rounded-full hover:bg-surface-container-low transition-colors duration-200 active:scale-95">
+<span class="material-symbols-outlined text-on-surface-variant">notifications</span>
+<span class="absolute top-1 right-1 w-4 h-4 bg-error text-on-error text-[10px] font-bold rounded-full flex items-center justify-center ring-2 ring-surface-container-lowest">3</span>
+</button>
+<!-- User Avatar 'Bình Nguyễn' -->
+<div class="relative flex items-center pl-1">
+<div class="w-8 h-8 rounded-full bg-secondary-container ring-1 ring-outline-variant/40 flex items-center justify-center text-on-secondary-container font-semibold text-xs overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A gentle, warmly lit modern portrait of a smiling young Vietnamese professional in a crisp natural linen shirt, set in an airy studio with soft green indoor plants and organic morning sunlight." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCJGVQ9hIfqQ3pafkHRGpj3YhZiaHXmxUpu1tUFw7WlMilyvZu61b0sp0pNBDNSRvvU9PH-lh8DNWkpS-CihwYivhs27OkD2pnlMyBZa3KvCyo-ewAP5ckNbkJkaHL4c_2YMlw5OCn7ATdg8ANnbBhHZGCTyffEpuwV33kHaXKAiu4cQRZS38DD77NHZiSmMOtR7091AVyNVQbUoE89Cm-GvDinecqW40MXZhJy9NutTt-kYnqbadX0lw"/>
+</div>
+<!-- Online Presence dot -->
+<span class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-primary-container rounded-full ring-2 ring-surface-container-lowest presence-pulse"></span>
+</div>
+</div>
+</header>
+<!-- Main Stream Canvas (Mobile First, max width bound) -->
+<main class="max-w-md mx-auto px-4 pt-3.5 space-y-4">
+<!-- 2. Friendly Greeting Banner -->
+<section class="bg-surface-container-lowest rounded-3xl p-4 border border-[#E5ECE8] shadow-[0_2px_8px_-2px_rgba(36,51,44,0.04)] relative overflow-hidden">
+<div class="absolute -right-6 -bottom-6 w-24 h-24 bg-surface-container-low rounded-full blur-xl pointer-events-none"></div>
+<div class="relative z-10 space-y-2">
+<div class="flex items-center justify-between">
+<h1 class="text-headline-sm font-headline-sm text-on-background font-bold tracking-tight">Chào buổi chiều, Bình 👋</h1>
+</div>
+<!-- Mood pill -->
+<div class="inline-flex items-center gap-1.5 px-3 py-1 bg-surface-container-low border border-outline-variant/20 rounded-full">
+<span class="text-xs font-label-md text-primary">Tâm trạng: Bình yên 🍵</span>
+</div>
+<p class="text-body-sm font-body-sm text-on-surface-variant leading-relaxed pt-0.5">
+          Không gian riêng tư của 4 vòng tròn thân thiết. Không có thuật toán hay tin rác.
+        </p>
+</div>
+</section>
+<!-- 3. Quick Filter Pill Tabs (Horizontal Scrollable) -->
+<nav aria-label="Bộ lọc vòng tròn" class="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 -mx-4 px-4">
+<button class="flex-shrink-0 px-4 py-1.5 rounded-full bg-[#DDF3E8] text-[#047350] font-label-md text-label-md font-semibold transition-all">
+        Tất cả
+      </button>
+<button class="flex-shrink-0 px-3.5 py-1.5 rounded-full bg-surface-container-lowest border border-[#E5ECE8] text-on-surface-variant font-label-md text-label-md hover:bg-surface-container-low transition-colors duration-200">
+        Đại học KHTN '21
+      </button>
+<button class="flex-shrink-0 px-3.5 py-1.5 rounded-full bg-surface-container-lowest border border-[#E5ECE8] text-on-surface-variant font-label-md text-label-md hover:bg-surface-container-low transition-colors duration-200">
+        Gia đình nhỏ 🌿
+      </button>
+<button class="flex-shrink-0 px-3.5 py-1.5 rounded-full bg-surface-container-lowest border border-[#E5ECE8] text-on-surface-variant font-label-md text-label-md hover:bg-surface-container-low transition-colors duration-200">
+        Điều muốn nói
+      </button>
+<button class="flex-shrink-0 px-3.5 py-1.5 rounded-full bg-surface-container-lowest border border-[#E5ECE8] text-on-surface-variant font-label-md text-label-md hover:bg-surface-container-low transition-colors duration-200">
+        Khoảnh khắc mới
+      </button>
+</nav>
+<!-- 4. Signature Section: 'Vòng tròn của bạn' (Your Circles) -->
+<section class="space-y-2.5">
+<div class="flex items-center justify-between px-0.5">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-primary text-[18px]">group_work</span>
+<h2 class="text-title-md font-title-md text-on-background font-bold">Vòng tròn của bạn</h2>
+</div>
+<button class="text-label-md font-label-md text-primary hover:underline">Quản lý</button>
+</div>
+<!-- Horizontal scrolling circle cards -->
+<div class="flex gap-3 overflow-x-auto no-scrollbar -mx-4 px-4 pb-1">
+<!-- Circle 1: Đại học KHTN '21 (Active voice call) -->
+<div class="flex-shrink-0 w-64 bg-surface-container-lowest rounded-3xl p-3.5 border border-[#E5ECE8] shadow-[0_2px_8px_-2px_rgba(36,51,44,0.04)] hover:shadow-md transition-all relative">
+<div class="flex items-start justify-between mb-2">
+<div class="w-10 h-10 rounded-2xl bg-secondary-container/40 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">school</span>
+</div>
+<!-- Live voice indicator badge -->
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#DDF3E8] text-[#006c4b] text-[10px] font-label-sm font-semibold animate-pulse">
+<span class="w-1.5 h-1.5 rounded-full bg-primary-container"></span>
+              3 bạn đang nói
+            </span>
+</div>
+<h3 class="text-label-lg font-label-lg font-bold text-on-background">Đại học KHTN '21</h3>
+<p class="text-body-sm font-body-sm text-on-surface-variant mt-0.5">8 thành viên • <span class="text-primary font-medium">3 tin mới</span></p>
+<div class="mt-3 pt-2.5 border-t border-[#E5ECE8] flex items-center justify-between">
+<div class="flex -space-x-1.5">
+<div class="w-5 h-5 rounded-full bg-primary-container text-[9px] flex items-center justify-center font-bold text-on-primary ring-1 ring-surface-container-lowest">L</div>
+<div class="w-5 h-5 rounded-full bg-tertiary-container text-[9px] flex items-center justify-center font-bold text-on-tertiary ring-1 ring-surface-container-lowest">T</div>
+<div class="w-5 h-5 rounded-full bg-secondary text-[9px] flex items-center justify-center font-bold text-on-secondary ring-1 ring-surface-container-lowest">+1</div>
+</div>
+<button class="text-[11px] font-label-md px-2.5 py-1 rounded-full bg-surface-container-low text-primary hover:bg-primary hover:text-on-primary transition-colors flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">volume_up</span> Vào nghe
+            </button>
+</div>
+</div>
+<!-- Circle 2: Gia đình nhỏ 🌿 -->
+<div class="flex-shrink-0 w-64 bg-surface-container-lowest rounded-3xl p-3.5 border border-[#E5ECE8] shadow-[0_2px_8px_-2px_rgba(36,51,44,0.04)] hover:shadow-md transition-all">
+<div class="flex items-start justify-between mb-2">
+<div class="w-10 h-10 rounded-2xl bg-[#FFF9F4] text-tertiary border border-tertiary-fixed flex items-center justify-center">
+<span class="material-symbols-outlined">yard</span>
+</div>
+<span class="text-[10px] font-label-sm text-on-surface-variant/70">12 phút trước</span>
+</div>
+<h3 class="text-label-lg font-label-lg font-bold text-on-background">Gia đình nhỏ 🌿</h3>
+<p class="text-body-sm font-body-sm text-on-surface-variant mt-0.5">5 thành viên • Mẹ vừa gửi ảnh trưa</p>
+<div class="mt-3 pt-2.5 border-t border-[#E5ECE8] flex items-center justify-between text-[11px] text-on-surface-variant">
+<span>Yêu thương sum vầy</span>
+<span class="material-symbols-outlined text-tertiary text-[16px]">favorite</span>
+</div>
+</div>
+<!-- Circle 3: Project CIRCLE Core -->
+<div class="flex-shrink-0 w-56 bg-surface-container-lowest rounded-3xl p-3.5 border border-[#E5ECE8] shadow-[0_2px_8px_-2px_rgba(36,51,44,0.04)]">
+<div class="flex items-start justify-between mb-2">
+<div class="w-10 h-10 rounded-2xl bg-surface-container text-primary flex items-center justify-center">
+<span class="material-symbols-outlined">hub</span>
+</div>
+<span class="text-[10px] font-label-sm text-on-surface-variant/70">Hôm qua</span>
+</div>
+<h3 class="text-label-lg font-label-lg font-bold text-on-background">Project CIRCLE Core</h3>
+<p class="text-body-sm font-body-sm text-on-surface-variant mt-0.5">4 thành viên • Sprint 12</p>
+<div class="mt-3 pt-2.5 border-t border-[#E5ECE8] flex items-center justify-between text-[11px] text-on-surface-variant">
+<span>Thiết kế &amp; Prototype</span>
+<span class="material-symbols-outlined text-[16px]">task_alt</span>
+</div>
+</div>
+<!-- Circle 4: CLB Đọc Sách Sài Gòn -->
+<div class="flex-shrink-0 w-56 bg-surface-container-lowest rounded-3xl p-3.5 border border-[#E5ECE8] shadow-[0_2px_8px_-2px_rgba(36,51,44,0.04)]">
+<div class="flex items-start justify-between mb-2">
+<div class="w-10 h-10 rounded-2xl bg-surface-container-high text-primary flex items-center justify-center">
+<span class="material-symbols-outlined">menu_book</span>
+</div>
+</div>
+<h3 class="text-label-lg font-label-lg font-bold text-on-background">CLB Đọc Sách Sài Gòn</h3>
+<p class="text-body-sm font-body-sm text-on-surface-variant mt-0.5">12 thành viên • Sách tháng 4</p>
+<div class="mt-3 pt-2.5 border-t border-[#E5ECE8] flex items-center justify-between text-[11px] text-on-surface-variant">
+<span>Chủ đề: Tĩnh lặng</span>
+<span class="material-symbols-outlined text-[16px]">import_contacts</span>
+</div>
+</div>
+</div>
+</section>
+<!-- 5. 'Khoảnh khắc vừa lưu lại' (Recent Moments) -->
+<section class="space-y-2.5">
+<div class="flex items-center justify-between px-0.5">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-primary text-[18px]">photo_camera</span>
+<h2 class="text-title-md font-title-md text-on-background font-bold">Khoảnh khắc vừa lưu lại</h2>
+</div>
+<span class="text-label-sm font-label-sm text-on-surface-variant">Không bộ lọc</span>
+</div>
+<!-- Candid Moments Grid/Scroll -->
+<div class="grid grid-cols-3 gap-2.5">
+<!-- Moment 1: Cà phê sáng -->
+<div class="group relative bg-surface-container-lowest rounded-2xl overflow-hidden border border-[#E5ECE8] shadow-sm flex flex-col">
+<div class="aspect-square relative overflow-hidden bg-surface-container">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" data-alt="An authentic, candid close-up photograph of an iced artisanal Vietnamese drip coffee sitting on a warm wooden work desk with open project notebooks and soft morning daylight streaming through tranquil sheer linen curtains. The palette is soft natural sage green, warm wood amber, and ivory." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCMgE2l_mWyjmDUtAXTVvbYUDzOccRoU0W6mDeCGrX4AgI2941oEn5qv_YwRyIznKyeU4P0VWA11pAcfWIXJ-sal8aShcAvNObzoQ3Ns9vRLwqQZXH9TfV0FgcxUqC5_suM6ayBBCjXklnaVrT_xA13uagOr5AFKujwYlF3QIVVnENn5bME9SCHQaVquPvByH22ghXLi6uARY8-ody0RyronspXdVui-rbW7-P0lQkNA43seL8rXWFGOQ"/>
+<span class="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 rounded-md bg-inverse-surface/75 text-inverse-on-surface text-[9px] font-label-sm">
+              08:45
+            </span>
+</div>
+<div class="p-2 flex flex-col justify-between flex-grow">
+<p class="text-[11px] font-label-md font-medium text-on-surface line-clamp-1 leading-tight">Cà phê sáng đồ án</p>
+<p class="text-[9px] font-body-sm text-on-surface-variant mt-1 truncate">Linh Trần • KHTN</p>
+</div>
+</div>
+<!-- Moment 2: Cơm trưa ấm cúng mẹ nấu -->
+<div class="group relative bg-surface-container-lowest rounded-2xl overflow-hidden border border-[#E5ECE8] shadow-sm flex flex-col">
+<div class="aspect-square relative overflow-hidden bg-surface-container">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" data-alt="A cozy, unposed home-cooked Vietnamese family meal centered around fresh steamed rice, braised dishes in a rustic earthenware pot, and fresh garden herbs, resting on an honest wooden dining table illuminated by soft, natural warm afternoon window glow. Calm domestic harmony and natural colors." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAYTL_M2V8eYPKNN-HPUSc29lrH8T06hH8OalN0CjTJiV4IUtKBOxnYnn0lopll146i2Eh5v0anEatkk7q2_7HutdxHPAe4LuvrorfJNF7jKqDdwuF4JUZM6Qj202aLv1bz9LpiGoheQcYPfxetgIVuXbvsagsD-aPvDrGBbmNirejXpPShFSP6YhjDNPmUEHpWM2_K3yzVt_omNVGrtAkkdLPTY60AMEPToacDyFV-HsGz3mbgQu3HuQ"/>
+<span class="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 rounded-md bg-inverse-surface/75 text-inverse-on-surface text-[9px] font-label-sm">
+              11:30
+            </span>
+</div>
+<div class="p-2 flex flex-col justify-between flex-grow">
+<p class="text-[11px] font-label-md font-medium text-on-surface line-clamp-1 leading-tight">Cơm trưa mẹ nấu</p>
+<p class="text-[9px] font-body-sm text-on-surface-variant mt-1 truncate">Mẹ • Gia đình nhỏ</p>
+</div>
+</div>
+<!-- Moment 3: Hoàng hôn sông Sài Gòn -->
+<div class="group relative bg-surface-container-lowest rounded-2xl overflow-hidden border border-[#E5ECE8] shadow-sm flex flex-col">
+<div class="aspect-square relative overflow-hidden bg-surface-container">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" data-alt="A tranquil, candid photograph of the calm Saigon river reflections during peaceful golden hour twilight, gentle water ripples, quiet distant skyline silhouettes bathed in warm peach, subtle mint-blue and soft dusky amber hues without saturated filters." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAZ8OJ9V9FX5vJsIY3ZN6xiaO0edNwX9loT__duKnhe0gprNtYCII__4fnVfenUMyLBULY8W8vr7E9bKNdZUtV9OWP0_k3d8DLcvwtMt9wz9gJw8lMhCZq8h9EW0wOXBy0FtXjofyapO-RG_szldSpIcOIRgt1lUWEboSEziZxGnt7GpQVtAjXBk6ZNU8fJ5IzwXnhSMhn44vV0yqD78s57Xo0E9sVR345T-kOyiUeoC7O0maHrgcjYxA"/>
+<span class="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 rounded-md bg-inverse-surface/75 text-inverse-on-surface text-[9px] font-label-sm">
+              17:15
+            </span>
+</div>
+<div class="p-2 flex flex-col justify-between flex-grow">
+<p class="text-[11px] font-label-md font-medium text-on-surface line-clamp-1 leading-tight">Hoàng hôn sông SG</p>
+<p class="text-[9px] font-body-sm text-on-surface-variant mt-1 truncate">Tuấn Anh • Bạn bè</p>
+</div>
+</div>
+</div>
+</section>
+<!-- 6. 'Điều muốn nói' Anonymous Highlight Card -->
+<section class="bg-[#FFF9F4] rounded-3xl p-4 border border-[#F4C7A1] shadow-[0_2px_8px_-2px_rgba(36,51,44,0.04)] relative">
+<div class="flex items-center justify-between mb-2.5">
+<div class="flex items-center gap-1.5 text-tertiary">
+<span class="material-symbols-outlined text-[18px]">switch_left</span>
+<span class="text-label-md font-label-md font-bold uppercase tracking-wider">Điều muốn nói • Ẩn danh</span>
+</div>
+<span class="text-[10px] font-label-sm px-2 py-0.5 rounded-full bg-white/80 text-tertiary border border-[#F4C7A1]/50">Từ Vòng tròn KHTN</span>
+</div>
+<!-- Content Quote -->
+<blockquote class="text-body-md font-body-md text-[#24332C] leading-relaxed italic relative pl-3 border-l-2 border-[#F4C7A1]">
+        “Cảm ơn mọi người vì đã luôn kiên nhẫn cùng mình qua kỳ đồ án vừa rồi. Nếu không có những buổi tối cùng ngồi gõ phím bên nhau, chắc mình đã bỏ cuộc từ tuần trước…”
+      </blockquote>
+<!-- Reactions and Quick Reply Trigger -->
+<div class="mt-3.5 pt-3 border-t border-[#F4C7A1]/40 flex items-center justify-between">
+<div class="flex items-center gap-1.5">
+<button class="px-2.5 py-1 rounded-full bg-white/90 text-[11px] font-label-md text-on-surface flex items-center gap-1 hover:scale-105 transition-transform shadow-xs">
+<span>❤️</span> <span>6</span>
+</button>
+<button class="px-2.5 py-1 rounded-full bg-white/90 text-[11px] font-label-md text-on-surface flex items-center gap-1 hover:scale-105 transition-transform shadow-xs">
+<span>🫂</span> <span>4</span>
+</button>
+<button class="px-2.5 py-1 rounded-full bg-white/90 text-[11px] font-label-md text-on-surface flex items-center gap-1 hover:scale-105 transition-transform shadow-xs">
+<span>☕</span> <span>2</span>
+</button>
+</div>
+<button class="px-3 py-1 rounded-full bg-[#F4C7A1] text-[#24332C] font-label-sm text-xs font-semibold hover:bg-[#eabe99] transition-colors flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">send</span> Gửi lời an ủi
+        </button>
+</div>
+</section>
+<!-- 7. 'Sự kiện sắp tới' (Upcoming Event Card) -->
+<section class="bg-surface-container-lowest rounded-3xl p-4 border border-[#E5ECE8] shadow-[0_2px_8px_-2px_rgba(36,51,44,0.04)] space-y-3">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1.5 text-primary">
+<span class="material-symbols-outlined text-[18px]">calendar_today</span>
+<span class="text-label-md font-label-md font-bold uppercase tracking-wider text-on-surface-variant">Sự kiện sắp tới</span>
+</div>
+<span class="px-2 py-0.5 rounded-full bg-surface-container-low text-primary text-[10px] font-label-sm font-semibold">Tuần này</span>
+</div>
+<div>
+<h3 class="text-title-md font-title-md font-bold text-on-background">Lẩu bò &amp; Boardgame cuối tuần</h3>
+<div class="mt-1 space-y-1 text-body-sm font-body-sm text-on-surface-variant">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-primary">schedule</span>
+<span>Thứ Bảy, 19:30 • 20 Tháng 4</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-primary">location_on</span>
+<span>Quán Lẩu A Béo, Quận 10</span>
+</div>
+</div>
+</div>
+<!-- Attendees and CTAs -->
+<div class="pt-2 flex items-center justify-between">
+<div class="flex items-center gap-1.5">
+<div class="flex -space-x-2">
+<span class="w-6 h-6 rounded-full bg-primary-container text-on-primary-container text-[10px] flex items-center justify-center font-bold ring-2 ring-surface-container-lowest">B</span>
+<span class="w-6 h-6 rounded-full bg-secondary-fixed text-on-secondary-fixed text-[10px] flex items-center justify-center font-bold ring-2 ring-surface-container-lowest">N</span>
+<span class="w-6 h-6 rounded-full bg-tertiary-fixed text-on-tertiary-fixed text-[10px] flex items-center justify-center font-bold ring-2 ring-surface-container-lowest">H</span>
+</div>
+<span class="text-label-sm font-label-sm text-on-surface-variant">6 bạn tham gia</span>
+</div>
+<div class="flex items-center gap-1.5">
+<button class="px-3 py-1.5 rounded-full bg-surface-container-low text-primary font-label-md text-label-md font-semibold hover:bg-surface-container transition-colors">
+            Có thể
+          </button>
+<button class="px-3.5 py-1.5 rounded-full bg-primary text-on-primary font-label-md text-label-md font-semibold hover:bg-secondary transition-colors shadow-sm">
+            Tham gia ngay
+          </button>
+</div>
+</div>
+</section>
+<!-- 8. 'Thăm dò ý kiến' (Poll Card) -->
+<section class="bg-surface-container-lowest rounded-3xl p-4 border border-[#E5ECE8] shadow-[0_2px_8px_-2px_rgba(36,51,44,0.04)] space-y-3">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-primary text-[18px]">ballot</span>
+<span class="text-label-md font-label-md font-bold uppercase tracking-wider text-on-surface-variant">Thăm dò ý kiến</span>
+</div>
+<span class="text-label-sm font-label-sm text-on-surface-variant/80">KHTN '21 • 14 phiếu</span>
+</div>
+<p class="text-body-md font-body-md font-semibold text-on-background">
+        Tối nay ăn gì trước khi họp nhóm?
+      </p>
+<!-- Poll Bars -->
+<div class="space-y-2">
+<!-- Option 1: Cơm tấm Ba Ghiền (45%) -->
+<button class="w-full relative overflow-hidden rounded-2xl p-2.5 border border-[#E5ECE8] bg-surface-container-lowest text-left flex items-center justify-between group">
+<div class="absolute left-0 top-0 bottom-0 bg-[#DDF3E8] transition-all rounded-r-xl" style="width: 45%;"></div>
+<span class="relative z-10 text-label-md font-label-md text-on-surface font-medium flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-primary">check_circle</span>
+            Cơm tấm Ba Ghiền
+          </span>
+<span class="relative z-10 text-label-md font-label-md text-primary font-bold">45%</span>
+</button>
+<!-- Option 2: Bún bò Huế (35%) -->
+<button class="w-full relative overflow-hidden rounded-2xl p-2.5 border border-[#E5ECE8] bg-surface-container-lowest text-left flex items-center justify-between group">
+<div class="absolute left-0 top-0 bottom-0 bg-surface-container-low transition-all rounded-r-xl" style="width: 35%;"></div>
+<span class="relative z-10 text-label-md font-label-md text-on-surface font-medium flex items-center gap-1.5">
+<span class="w-4 h-4 rounded-full border border-outline-variant/60 inline-block"></span>
+            Bún bò Huế
+          </span>
+<span class="relative z-10 text-label-md font-label-md text-on-surface-variant font-semibold">35%</span>
+</button>
+<!-- Option 3: Trà sữa & Pizza (20%) -->
+<button class="w-full relative overflow-hidden rounded-2xl p-2.5 border border-[#E5ECE8] bg-surface-container-lowest text-left flex items-center justify-between group">
+<div class="absolute left-0 top-0 bottom-0 bg-surface-container-low transition-all rounded-r-xl" style="width: 20%;"></div>
+<span class="relative z-10 text-label-md font-label-md text-on-surface font-medium flex items-center gap-1.5">
+<span class="w-4 h-4 rounded-full border border-outline-variant/60 inline-block"></span>
+            Trà sữa &amp; Pizza
+          </span>
+<span class="relative z-10 text-label-md font-label-md text-on-surface-variant font-semibold">20%</span>
+</button>
+</div>
+</section>
+<!-- Quiet Reassurance Footer Note -->
+<div class="py-3 text-center space-y-1">
+<p class="text-[11px] font-body-sm text-on-surface-variant/70">Tất cả dữ liệu được bảo vệ hai chiều • Không quảng cáo</p>
+<div class="flex items-center justify-center gap-1 text-[10px] text-primary font-medium">
+<span class="material-symbols-outlined text-[13px]">shield</span> Vùng an toàn của bạn
+      </div>
+</div>
+</main>
+<!-- 9. 5-Tab Mobile Bottom Navigation Bar (Faithfully mapped from Shared Components JSON) -->
+<nav aria-label="Điều hướng chính" class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-3 py-2 pb-safe bg-surface-container-lowest/95 backdrop-blur-lg shadow-md md:hidden">
+<!-- Tab 1: Trang chủ (Active Tab) -->
+<a class="flex flex-col items-center justify-center bg-secondary-container text-on-secondary-container rounded-full px-3 py-1.5 transition-transform duration-150 active:scale-98" href="#">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">home</span>
+<span class="text-label-sm font-label-sm">Trang chủ</span>
+</a>
+<!-- Tab 2: Vòng tròn -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant px-3 py-1.5 hover:bg-surface-container-low transition-colors duration-200 active:scale-98" href="#">
+<span class="material-symbols-outlined text-[20px]">group_work</span>
+<span class="text-label-sm font-label-sm">Vòng tròn</span>
+</a>
+<!-- Tab 3: Tạo mới (Prominent central pill floating button in brand mint #78C6A3) -->
+<button aria-label="Tạo mới" class="flex flex-col items-center justify-center -mt-3 bg-primary-container text-on-primary-container rounded-full w-12 h-12 shadow-[0_8px_20px_-4px_rgba(120,198,163,0.6)] hover:bg-[#4FA982] hover:text-white transition-all duration-200 active:scale-95 ring-4 ring-surface-container-lowest">
+<span class="material-symbols-outlined text-[26px]">add</span>
+</button>
+<!-- Tab 4: Trò chuyện (with unread badge 2) -->
+<a class="relative flex flex-col items-center justify-center text-on-surface-variant px-3 py-1.5 hover:bg-surface-container-low transition-colors duration-200 active:scale-98" href="#">
+<div class="relative">
+<span class="material-symbols-outlined text-[20px]">chat_bubble</span>
+<span class="absolute -top-1 -right-1.5 w-3.5 h-3.5 bg-primary text-on-primary text-[9px] font-bold rounded-full flex items-center justify-center ring-1 ring-surface-container-lowest">2</span>
+</div>
+<span class="text-label-sm font-label-sm">Trò chuyện</span>
+</a>
+<!-- Tab 5: Tôi (Profile) -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant px-3 py-1.5 hover:bg-surface-container-low transition-colors duration-200 active:scale-98" href="#">
+<span class="material-symbols-outlined text-[20px]">person</span>
+<span class="text-label-sm font-label-sm">Tôi</span>
+</a>
+</nav>
+<!-- Safe area spacer for modern iOS home bar -->
+<div class="h-6"></div>
+</body></html>
