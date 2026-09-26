@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+
+<html class="light" lang="vi"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/>
+<title>CIRCLE - Mobile Group Voice and Video Room Call Stage</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols Outlined -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "tertiary": "#795739",
+            "primary-fixed": "#a3f3ce",
+            "tertiary-container": "#d9ae8a",
+            "on-surface-variant": "#3f4943",
+            "error-container": "#ffdad6",
+            "primary-fixed-dim": "#88d6b2",
+            "surface-container-highest": "#d6e6dd",
+            "on-primary-fixed": "#002115",
+            "on-primary": "#ffffff",
+            "surface-container-lowest": "#ffffff",
+            "primary-container": "#78c6a3",
+            "outline": "#6f7a73",
+            "inverse-surface": "#26332d",
+            "surface-tint": "#156b4e",
+            "on-tertiary-container": "#5f4124",
+            "secondary-fixed-dim": "#7ed8ae",
+            "secondary-fixed": "#9af5c9",
+            "on-primary-fixed-variant": "#005139",
+            "on-background": "#111e19",
+            "error": "#ba1a1a",
+            "surface": "#edfdf3",
+            "on-error": "#ffffff",
+            "background": "#edfdf3",
+            "surface-bright": "#edfdf3",
+            "on-tertiary-fixed-variant": "#5f4024",
+            "surface-variant": "#d6e6dd",
+            "on-secondary": "#ffffff",
+            "secondary": "#006c4b",
+            "on-secondary-fixed": "#002114",
+            "inverse-on-surface": "#e5f5eb",
+            "tertiary-fixed-dim": "#eabe99",
+            "on-error-container": "#93000a",
+            "primary": "#156b4e",
+            "inverse-primary": "#88d6b2",
+            "surface-dim": "#ceded4",
+            "on-tertiary": "#ffffff",
+            "tertiary-fixed": "#ffdcc0",
+            "surface-container-low": "#e7f7ee",
+            "on-secondary-fixed-variant": "#005137",
+            "surface-container-high": "#dcece2",
+            "outline-variant": "#bec9c1",
+            "secondary-container": "#9af5c9",
+            "on-surface": "#111e19",
+            "on-primary-container": "#00523a",
+            "surface-container": "#e2f2e8",
+            "on-tertiary-fixed": "#2d1601",
+            "on-secondary-container": "#047350"
+          },
+          "borderRadius": {
+            "DEFAULT": "1rem",
+            "lg": "2rem",
+            "xl": "3rem",
+            "full": "9999px"
+          },
+          "spacing": {
+            "space-xs": "0.25rem",
+            "space-sm": "0.5rem",
+            "space-lg": "1.5rem",
+            "margin-mobile": "1rem",
+            "margin": "2.5rem",
+            "space-xl": "2.5rem",
+            "gutter": "1.5rem",
+            "gutter-mobile": "1rem",
+            "space-md": "1rem"
+          },
+          "fontFamily": {
+            "body-sm": ["Plus Jakarta Sans"],
+            "display": ["Plus Jakarta Sans"],
+            "title-md": ["Plus Jakarta Sans"],
+            "label-lg": ["Plus Jakarta Sans"],
+            "headline-md": ["Plus Jakarta Sans"],
+            "headline-lg-mobile": ["Plus Jakarta Sans"],
+            "body-md": ["Plus Jakarta Sans"],
+            "body-lg": ["Plus Jakarta Sans"],
+            "headline-lg": ["Plus Jakarta Sans"],
+            "label-sm": ["Plus Jakarta Sans"],
+            "headline-sm": ["Plus Jakarta Sans"],
+            "label-md": ["Plus Jakarta Sans"]
+          },
+          "fontSize": {
+            "body-sm": ["0.8125rem", { "lineHeight": "1.25rem", "letterSpacing": "0.015em", "fontWeight": "400" }],
+            "display": ["2.5rem", { "lineHeight": "3rem", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+            "title-md": ["1.125rem", { "lineHeight": "1.625rem", "letterSpacing": "0.005em", "fontWeight": "600" }],
+            "label-lg": ["0.875rem", { "lineHeight": "1.25rem", "letterSpacing": "0.02em", "fontWeight": "600" }],
+            "headline-md": ["1.5rem", { "lineHeight": "2rem", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+            "headline-lg-mobile": ["1.625rem", { "lineHeight": "2.125rem", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+            "body-md": ["0.9375rem", { "lineHeight": "1.5rem", "letterSpacing": "0.01em", "fontWeight": "400" }],
+            "body-lg": ["1.0625rem", { "lineHeight": "1.6875rem", "letterSpacing": "0.01em", "fontWeight": "400" }],
+            "headline-lg": ["2rem", { "lineHeight": "2.5rem", "letterSpacing": "-0.015em", "fontWeight": "600" }],
+            "label-sm": ["0.6875rem", { "lineHeight": "0.875rem", "letterSpacing": "0.04em", "fontWeight": "500" }],
+            "headline-sm": ["1.25rem", { "lineHeight": "1.75rem", "letterSpacing": "0em", "fontWeight": "600" }],
+            "label-md": ["0.75rem", { "lineHeight": "1rem", "letterSpacing": "0.03em", "fontWeight": "600" }]
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      display: inline-block;
+      vertical-align: middle;
+      line-height: 1;
+    }
+    
+    /* Liquid Glass Sheen Effect */
+    .liquid-glass {
+      background: rgba(255, 255, 255, 0.12);
+      backdrop-filter: blur(24px) saturate(180%);
+      -webkit-backdrop-filter: blur(24px) saturate(180%);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      box-shadow: 0 8px 32px 0 rgba(10, 25, 18, 0.37), inset 0 1px 1px 0 rgba(255, 255, 255, 0.35);
+    }
+
+    .liquid-glass-dark {
+      background: rgba(18, 30, 24, 0.65);
+      backdrop-filter: blur(28px) saturate(190%);
+      -webkit-backdrop-filter: blur(28px) saturate(190%);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      box-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.5), inset 0 1px 1px 0 rgba(255, 255, 255, 0.2);
+    }
+
+    .liquid-pill-chip {
+      background: rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 0.5px solid rgba(255, 255, 255, 0.3);
+    }
+
+    /* Active Speaker Breathing Mint Halo */
+    @keyframes breathingHalo {
+      0%, 100% {
+        box-shadow: 0 0 0 2px rgba(120, 198, 163, 0.8), 0 0 20px 4px rgba(120, 198, 163, 0.45);
+      }
+      50% {
+        box-shadow: 0 0 0 3.5px rgba(120, 198, 163, 1), 0 0 32px 8px rgba(120, 198, 163, 0.6);
+      }
+    }
+    .speaker-halo {
+      animation: breathingHalo 3s infinite ease-in-out;
+    }
+
+    /* Sound Visualizer Wave Bars */
+    @keyframes wave-bounce-1 { 0%, 100% { height: 6px; } 50% { height: 18px; } }
+    @keyframes wave-bounce-2 { 0%, 100% { height: 16px; } 50% { height: 8px; } }
+    @keyframes wave-bounce-3 { 0%, 100% { height: 8px; } 50% { height: 22px; } }
+    @keyframes wave-bounce-4 { 0%, 100% { height: 14px; } 50% { height: 10px; } }
+    .wave-bar-1 { animation: wave-bounce-1 0.75s ease-in-out infinite; }
+    .wave-bar-2 { animation: wave-bounce-2 0.65s ease-in-out infinite 0.15s; }
+    .wave-bar-3 { animation: wave-bounce-3 0.85s ease-in-out infinite 0.05s; }
+    .wave-bar-4 { animation: wave-bounce-4 0.7s ease-in-out infinite 0.2s; }
+
+    /* Floating Reactions Path */
+    @keyframes floatUpFade {
+      0% {
+        opacity: 0;
+        transform: translateY(12px) scale(0.65);
+      }
+      20% {
+        opacity: 0.95;
+        transform: translateY(-8px) scale(1.05);
+      }
+      80% {
+        opacity: 0.85;
+      }
+      100% {
+        opacity: 0;
+        transform: translateY(-90px) scale(0.9) translateX(-6px);
+      }
+    }
+    .floating-reaction-1 { animation: floatUpFade 4.2s infinite ease-in-out; }
+    .floating-reaction-2 { animation: floatUpFade 3.6s infinite ease-in-out 1.2s; }
+    .floating-reaction-3 { animation: floatUpFade 4.8s infinite ease-in-out 2.1s; }
+
+    /* Live red dot blink */
+    @keyframes pulseLive {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.35; transform: scale(0.85); }
+    }
+    .pulse-live { animation: pulseLive 1.8s ease-in-out infinite; }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-[#0b1410] font-body-md text-white antialiased min-h-screen flex justify-center items-center p-0 md:p-6 overflow-x-hidden selection:bg-primary-container selection:text-on-primary-container">
+<!-- Mobile Frame (iOS 390px Canvas container) -->
+<main class="w-full max-w-[390px] h-[844px] bg-[#0c1813] relative overflow-hidden flex flex-col justify-between shadow-[0_24px_70px_rgba(0,0,0,0.85)] md:rounded-[48px] md:border-[7px] md:border-[#1e2e26]/60">
+<!-- Atmospheric Ambient Forest Gradient Mesh -->
+<div class="absolute inset-0 pointer-events-none">
+<div class="absolute -top-32 -left-20 w-80 h-80 rounded-full bg-[#156b4e]/30 blur-[90px]"></div>
+<div class="absolute top-1/3 -right-24 w-88 h-88 rounded-full bg-[#78c6a3]/20 blur-[100px]"></div>
+<div class="absolute -bottom-24 left-10 w-96 h-96 rounded-full bg-[#004f37]/40 blur-[110px]"></div>
+<!-- Subtle organic texture vignette -->
+<div class="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_transparent_30%,_rgba(6,12,9,0.7)_100%)]"></div>
+</div>
+<!-- 1. iOS Status Bar -->
+<div class="relative z-30 pt-3 px-7 flex justify-between items-center text-xs tracking-tight text-white/90 select-none">
+<span class="font-semibold text-[15px] tracking-tight">9:41</span>
+<!-- Dynamic Island Mock for iPhone -->
+<div class="w-28 h-6 bg-black/85 rounded-full border border-white/10 shadow-inner flex items-center justify-center space-x-1.5 px-2">
+<span class="w-2.5 h-2.5 rounded-full bg-primary-container pulse-live"></span>
+<span class="text-[10px] text-white/70 font-medium tracking-wider">CIRCLE HD</span>
+</div>
+<div class="flex items-center space-x-1.5">
+<span class="material-symbols-outlined text-[15px]" data-icon="signal_cellular_alt">signal_cellular_alt</span>
+<span class="material-symbols-outlined text-[15px]" data-icon="wifi">wifi</span>
+<span class="material-symbols-outlined text-[18px]" data-icon="battery_full">battery_full</span>
+</div>
+</div>
+<!-- 2. Floating Liquid Glass Top Bar (Header) -->
+<header class="relative z-30 px-4 mt-2">
+<div class="liquid-glass rounded-full px-3 py-2 flex items-center justify-between shadow-xl">
+<!-- Left: Minimize Action & Circle Group Identity -->
+<div class="flex items-center gap-2">
+<button aria-label="Thu nhỏ phòng trò chuyện" class="w-8 h-8 rounded-full bg-white/15 hover:bg-white/25 active:scale-95 transition-all flex items-center justify-center text-white border border-white/20" type="button">
+<span class="material-symbols-outlined text-[20px]" data-icon="expand_more">expand_more</span>
+</button>
+<div class="flex flex-col">
+<div class="flex items-center gap-1.5">
+<span class="font-headline-sm text-[13px] font-semibold text-white tracking-tight leading-tight">Kỷ Niệm Mùa Thu 🍂</span>
+<span class="material-symbols-outlined text-[12px] text-primary-fixed" data-icon="lock" data-weight="fill" style="font-variation-settings: 'FILL' 1;">lock</span>
+</div>
+<div class="flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-primary-container pulse-live"></span>
+<span class="text-[10px] font-medium text-white/75">4 đang kết nối</span>
+</div>
+</div>
+</div>
+<!-- Right: Call Duration Pill & Room Settings -->
+<div class="flex items-center gap-1.5">
+<div class="liquid-pill-chip rounded-full px-2.5 py-1 flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-red-400 pulse-live"></span>
+<span class="text-[11px] font-medium tracking-wider text-white">14:28</span>
+</div>
+<button aria-label="Thành viên và quyền riêng tư" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 transition-all flex items-center justify-center text-white/90 border border-white/15" type="button">
+<span class="material-symbols-outlined text-[18px]" data-icon="people">people</span>
+</button>
+</div>
+</div>
+<!-- Pinned Discussion Topic Banner -->
+<div class="mt-2.5 flex justify-center">
+<div class="liquid-pill-chip rounded-full py-1 px-3.5 flex items-center gap-1.5 text-center max-w-[94%] shadow-sm">
+<span class="material-symbols-outlined text-[14px] text-tertiary-fixed" data-icon="school">school</span>
+<p class="font-body-sm text-[11px] text-white/90 truncate font-medium">
+<span class="text-white/60">Chủ đề:</span> Ôn tập kỳ thi tốt nghiệp &amp; chia sẻ đồ án 🎓
+          </p>
+</div>
+</div>
+</header>
+<!-- 3. Video Stage (4-Person Dynamic Asymmetric Grid) -->
+<section class="relative z-20 flex-1 px-4 py-2.5 flex flex-col justify-center">
+<div class="grid grid-cols-2 gap-2.5 h-full max-h-[515px]">
+<!-- Participant 1: Active Speaker (Linh Trần) - Focal Tile -->
+<div class="relative rounded-3xl overflow-hidden speaker-halo border border-white/30 bg-[#162720] shadow-lg flex flex-col justify-between group">
+<img class="absolute inset-0 w-full h-full object-cover object-center filter brightness-[1.02]" data-alt="A candid portrait of a smiling young Vietnamese woman sitting in an intimate cozy room with soft ambient warm lighting, wearing a mint pastel cardigan, speaking naturally to a video camera in an authentic aesthetic video call feed with gentle green domestic houseplants in the blurred background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBGlm4iAN-Aeleo1GRmURAFjPMWMPpWc37oSzDi_Qrf_ZXpdl8P6_qkmwqyCifR-WvhpbRNiRwtWCIyrn6-ZhUZNrG3sRi9TrEQw_C4_vt8_nUhZF7XJYNkZfRxhwQhgDSsN7PtwPBXjSTevtEmRIcidxKFGdPnx5xmTQoCe4kD7GrJxPDuw8R9gN6EH4cBMl9DBCGg3RwZtDqDB45GSYw0tqYJJqJxaef2NcljfJUZBGU0btN_CHfBx8PPDTUhbWLpSagZ1MNS4M11"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-black/35 pointer-events-none"></div>
+<!-- Top-Right: Sound Visualizer Wave Active Indicator -->
+<div class="relative z-10 m-2.5 flex justify-end">
+<div class="liquid-glass rounded-full px-2 py-1 flex items-center gap-0.5 border border-primary-container/40">
+<span class="w-[2.5px] bg-primary-container rounded-full wave-bar-1 inline-block"></span>
+<span class="w-[2.5px] bg-primary-container rounded-full wave-bar-2 inline-block"></span>
+<span class="w-[2.5px] bg-primary-container rounded-full wave-bar-3 inline-block"></span>
+<span class="w-[2.5px] bg-primary-container rounded-full wave-bar-4 inline-block"></span>
+</div>
+</div>
+<!-- Bottom: Participant Meta Pill -->
+<div class="relative z-10 m-2.5 flex items-center justify-between">
+<div class="liquid-glass rounded-full px-2.5 py-1 flex items-center gap-1.5 shadow-md">
+<span class="material-symbols-outlined text-[13px] text-primary-container" data-icon="mic" data-weight="fill" style="font-variation-settings: 'FILL' 1;">mic</span>
+<span class="text-[11px] font-semibold text-white tracking-tight">Linh Trần</span>
+</div>
+<!-- Active Speaker Pulse Tag -->
+<span class="bg-primary-container/90 text-on-primary-container text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider backdrop-blur-sm">Nói</span>
+</div>
+</div>
+<!-- Participant 2: Tuấn Anh -->
+<div class="relative rounded-3xl overflow-hidden border border-white/20 bg-[#15231c] shadow-md flex flex-col justify-between">
+<img class="absolute inset-0 w-full h-full object-cover object-center" data-alt="A warm and relaxed young Asian man at a quiet desk studying under a soft tungsten desk lamp with study books and headphones around his neck, looking calmly at the screen during an evening study session call with deep shadow accents and organic sanctuary mood." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCpaVj3Sv_ac68X1H4_6qH6HdEvglYL840pblaNPcB2E7zil5JZJgMogLz-_9Tpx9iqG-wHatwPsVUqfhtaC4ezv1s0HXvoasMfG7lBZqTbj7KzLZYVzIzy1cOSjTbpjQSkRpX24ZEVJd49TcL1kiwqd3TLQoXkeuLUlnN0FXnHSnxhJgOytIyRAA31HjCe3mTY4gHC507xrDCNFZ_svuGZZ_ChTBx9Mu1GHg5c584utJGYqndXWbeGyRu-MT_wWfxBZRrnqDpQ-0te"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-black/30 pointer-events-none"></div>
+<!-- Top right status badge -->
+<div class="relative z-10 m-2.5 flex justify-end">
+<div class="liquid-glass rounded-full p-1 border border-white/10 text-white/70">
+<span class="material-symbols-outlined text-[13px]" data-icon="signal_cellular_4_bar">signal_cellular_4_bar</span>
+</div>
+</div>
+<!-- Bottom: Name & Muted State Pill -->
+<div class="relative z-10 m-2.5 flex items-center justify-between">
+<div class="liquid-glass rounded-full px-2.5 py-1 flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[13px] text-white/50" data-icon="mic_off">mic_off</span>
+<span class="text-[11px] font-medium text-white/95 tracking-tight">Tuấn Anh</span>
+</div>
+</div>
+</div>
+<!-- Participant 3: Vy Nguyễn -->
+<div class="relative rounded-3xl overflow-hidden border border-white/20 bg-[#182721] shadow-md flex flex-col justify-between">
+<img class="absolute inset-0 w-full h-full object-cover object-center" data-alt="A cheerful young Vietnamese woman seated at a bright daylight cafe window surrounded by lush green monstera plants, holding a warm matcha latte, smiling affectionately during a group video call in tranquil natural lighting and earthy tones." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC8sAU-Wmq5b0LSVDO1PVGgnfhrm6HP2Rbhvy3l0e2AhO2PVoeMXzLi9Yk4XftIw4e__ePittHYPLygmeUxFdkUmRjDkKRqduMgWIrC5JCsXD-rNyrN3oCPtNpt1wowpz2fuZoCtu2qvtvNBE6xAT2E7fFVf5yQfaTnMk9e8gpAv94mP1-Qqw0Q-8HrIe_KDmWLzHOBPYquFJeMk8Phvqy8bXdjds96qvwX-5qZ7BFY-77dliBq-TMzPOCFWHRS8wOKDPXn0s8VFylx"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-black/30 pointer-events-none"></div>
+<!-- Top right connection quality -->
+<div class="relative z-10 m-2.5 flex justify-end">
+<div class="liquid-pill-chip rounded-full px-1.5 py-0.5 text-[9px] font-semibold text-primary-container tracking-wider flex items-center gap-0.5">
+<span>HD</span>
+</div>
+</div>
+<!-- Bottom: Name & Audio Status -->
+<div class="relative z-10 m-2.5 flex items-center justify-between">
+<div class="liquid-glass rounded-full px-2.5 py-1 flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[13px] text-primary-container" data-icon="mic">mic</span>
+<span class="text-[11px] font-medium text-white tracking-tight">Vy Nguyễn</span>
+</div>
+</div>
+</div>
+<!-- Participant 4: User Self-View (Bạn - Bình) -->
+<div class="relative rounded-3xl overflow-hidden border border-white/25 bg-[#12221b] shadow-md flex flex-col justify-between">
+<img class="absolute inset-0 w-full h-full object-cover object-center" data-alt="A portrait point of view front camera perspective of a young person in a calm domestic room at twilight with soft mint and creamy interior accents, looking pleasantly into the smartphone camera lens with genuine intimate friendship expressions." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDq1lM3UwWaQ1hj9UTgzqSD87IwmJAzzR_-UUeQQzx9OTAPD1JhxNLaOBZ84exOwkOeGzL8f6GRxCf2HvWVkU6H7cejXEhj8y4wx6CkfWuz6TkpCHrRghd4Zjs2XiQJUkFIrgYtlrJTSZ0bJ4UsaH_vIgRZ2PC9CxSA0lkDOy6vdcL-n108e0iZDzFmyEEwhtTJeQutI1tJg4QaezMNUr0YK9vDkjzuQv3vl6V_YQTqWFib3WdGOs4Hu_BmCRza3fuQF8M7xZAWAS_1"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/30 pointer-events-none"></div>
+<!-- Top Right: Flip Camera Quick Control -->
+<div class="relative z-10 m-2.5 flex justify-end">
+<button aria-label="Lật camera" class="w-7 h-7 rounded-full liquid-glass hover:bg-white/25 active:scale-90 transition-all flex items-center justify-center text-white border border-white/30 shadow" type="button">
+<span class="material-symbols-outlined text-[14px]" data-icon="flip_camera_ios">flip_camera_ios</span>
+</button>
+</div>
+<!-- Bottom: Self Label -->
+<div class="relative z-10 m-2.5 flex items-center justify-between">
+<div class="liquid-glass rounded-full px-2.5 py-1 flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[13px] text-primary-container" data-icon="mic" data-weight="fill" style="font-variation-settings: 'FILL' 1;">mic</span>
+<span class="text-[11px] font-semibold text-white tracking-tight">Bạn (Bình)</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- 4. Floating Reactions & Emotional Whispers Stream Overlay -->
+<div class="relative z-30 px-6 -mb-1 pointer-events-none flex justify-between items-end">
+<!-- Ambient Gentle Floating Reactions -->
+<div class="flex flex-col gap-2 relative h-16 w-24">
+<div class="floating-reaction-1 absolute bottom-1 left-2 liquid-pill-chip rounded-full px-2 py-1 flex items-center gap-1 shadow-lg">
+<span class="text-sm">🍃</span>
+<span class="text-[10px] text-white/90 font-medium">Bình yên</span>
+</div>
+<div class="floating-reaction-2 absolute bottom-2 left-10 liquid-pill-chip rounded-full px-2 py-0.5 flex items-center gap-1 shadow-lg">
+<span class="text-sm">✨</span>
+<span class="text-[10px] text-tertiary-fixed font-medium">+1</span>
+</div>
+<div class="floating-reaction-3 absolute bottom-0 left-1 liquid-pill-chip rounded-full px-2 py-0.5 flex items-center gap-1 shadow-lg">
+<span class="text-sm">☕</span>
+</div>
+</div>
+<!-- Quick Reaction Trigger Buttons (Pointer Active) -->
+<div class="pointer-events-auto flex items-center gap-1.5 bg-black/40 backdrop-blur-xl p-1 rounded-full border border-white/20 shadow-md">
+<button aria-label="Thả tim" class="w-8 h-8 rounded-full hover:bg-white/20 active:scale-90 transition-transform flex items-center justify-center text-sm" type="button">
+          💚
+        </button>
+<button aria-label="Vỗ tay" class="w-8 h-8 rounded-full hover:bg-white/20 active:scale-90 transition-transform flex items-center justify-center text-sm" type="button">
+          👏
+        </button>
+<button aria-label="Tách trà" class="w-8 h-8 rounded-full hover:bg-white/20 active:scale-90 transition-transform flex items-center justify-center text-sm" type="button">
+          🍵
+        </button>
+<button aria-label="Gửi biểu cảm khác" class="w-7 h-7 rounded-full bg-white/10 hover:bg-white/25 active:scale-90 transition-transform flex items-center justify-center text-white/80" type="button">
+<span class="material-symbols-outlined text-[15px]" data-icon="add">add</span>
+</button>
+</div>
+</div>
+<!-- 5. Bottom Floating Apple Liquid Glass Toolbar Dock -->
+<footer class="relative z-30 px-3 pb-7 pt-2">
+<div class="liquid-glass-dark rounded-full px-3.5 py-3 flex items-center justify-between gap-1 shadow-2xl">
+<!-- Microphone Toggle (Active Mint State) -->
+<button class="group flex flex-col items-center justify-center focus:outline-none" type="button">
+<div class="w-11 h-11 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center shadow-[0_4px_16px_rgba(120,198,163,0.4)] group-active:scale-95 transition-all">
+<span class="material-symbols-outlined text-[22px]" data-icon="mic" data-weight="fill" style="font-variation-settings: 'FILL' 1;">mic</span>
+</div>
+<span class="text-[10px] font-medium text-primary-fixed mt-1">Bật mic</span>
+</button>
+<!-- Camera Video Toggle -->
+<button class="group flex flex-col items-center justify-center focus:outline-none" type="button">
+<div class="w-11 h-11 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center border border-white/20 group-active:scale-95 transition-all">
+<span class="material-symbols-outlined text-[21px]" data-icon="videocam">videocam</span>
+</div>
+<span class="text-[10px] font-medium text-white/70 mt-1">Camera</span>
+</button>
+<!-- Anonymous Reflection Note Trigger ("Điều muốn nói" Emotional Shelter) -->
+<button class="group flex flex-col items-center justify-center focus:outline-none" type="button">
+<div class="w-11 h-11 rounded-full bg-gradient-to-br from-[#ffdcc0] to-[#f4c7a1] text-[#422915] flex items-center justify-center shadow-[0_4px_16px_rgba(244,199,161,0.35)] group-active:scale-95 transition-all border border-white/40">
+<span class="material-symbols-outlined text-[20px]" data-icon="spa" data-weight="fill" style="font-variation-settings: 'FILL' 1;">spa</span>
+</div>
+<span class="text-[10px] font-semibold text-tertiary-fixed mt-1">Tâm sự</span>
+</button>
+<!-- Speaker / Audio Output Switcher -->
+<button class="group flex flex-col items-center justify-center focus:outline-none" type="button">
+<div class="w-11 h-11 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center border border-white/20 group-active:scale-95 transition-all">
+<span class="material-symbols-outlined text-[20px]" data-icon="volume_up">volume_up</span>
+</div>
+<span class="text-[10px] font-medium text-white/70 mt-1">Loa ngoài</span>
+</button>
+<!-- End Call / Leave Room Button -->
+<button class="group flex flex-col items-center justify-center focus:outline-none" type="button">
+<div class="w-11 h-11 rounded-full bg-[#e35d5d] hover:bg-[#d64747] text-white flex items-center justify-center shadow-[0_4px_18px_rgba(227,93,93,0.45)] group-active:scale-95 transition-all">
+<span class="material-symbols-outlined text-[22px]" data-icon="call_end" data-weight="fill" style="font-variation-settings: 'FILL' 1;">call_end</span>
+</div>
+<span class="text-[10px] font-medium text-red-300 mt-1">Rời phòng</span>
+</button>
+</div>
+<!-- iOS Home Indicator Pill -->
+<div class="mt-3 flex justify-center">
+<div class="w-32 h-1 bg-white/40 rounded-full"></div>
+</div>
+</footer>
+<!-- Interactive Drawer / Anonymous Whisper Floating Card Preview (Optional Tranquil Layer) -->
+<div class="absolute top-24 left-1/2 -translate-x-1/2 z-40 w-[90%] pointer-events-auto transition-all duration-300 transform -translate-y-2 opacity-0 hover:opacity-100 focus-within:opacity-100" id="whisper-hint">
+<div class="bg-[#fff9f4]/95 text-[#24332c] backdrop-blur-2xl rounded-2xl p-3 border border-[#f4c7a1] shadow-2xl flex items-start gap-2.5">
+<span class="material-symbols-outlined text-[#795739] text-[20px] mt-0.5" data-icon="edit_note">edit_note</span>
+<div class="flex-1">
+<div class="flex justify-between items-center">
+<p class="font-headline-sm text-xs font-semibold text-[#795739]">Điều muốn nói (Ẩn danh)</p>
+<span class="text-[10px] text-gray-500">Chạm để chia sẻ</span>
+</div>
+<p class="font-body-sm text-[11px] text-[#3f4943] leading-snug mt-0.5">Không gian lắng đọng: Gửi suy nghĩ chân thành không hiện danh tính đến vòng tròn.</p>
+</div>
+</div>
+</div>
+</main>
+<script>
+    // Lightweight micro-interaction script for demonstration
+    document.addEventListener('DOMContentLoaded', () => {
+      const whisperHint = document.getElementById('whisper-hint');
+      const whisperBtn = document.querySelector('button .material-symbols-outlined[data-icon="spa"]')?.closest('button');
+
+      if (whisperBtn && whisperHint) {
+        whisperBtn.addEventListener('click', () => {
+          const isVisible = whisperHint.classList.contains('opacity-100');
+          if (isVisible) {
+            whisperHint.classList.remove('opacity-100', 'translate-y-0');
+            whisperHint.classList.add('opacity-0', '-translate-y-2');
+          } else {
+            whisperHint.classList.remove('opacity-0', '-translate-y-2');
+            whisperHint.classList.add('opacity-100', 'translate-y-0');
+            setTimeout(() => {
+              whisperHint.classList.remove('opacity-100', 'translate-y-0');
+              whisperHint.classList.add('opacity-0', '-translate-y-2');
+            }, 4500);
+          }
+        });
+      }
+    });
+  </script>
+</body></html>
