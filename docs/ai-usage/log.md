@@ -786,6 +786,33 @@
 
 ---
 
+## AI-0023: Tích hợp Anthropic Frontend Design Skill vào Workspace Project
+
+- **Date:** 2026-09-26 23:25:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (Medium)
+- **Related Issue:** #40 ([CHORE]: Tích hợp Anthropic Frontend Design Skill vào Workspace (.agents/skills))
+- **Purpose:** Đưa bộ kỹ năng thiết kế giao diện cao cấp `anthropics/skills@frontend-design` vào cấu hình workspace của dự án tại `.agents/skills/frontend-design/`. Giúp cả hai kỹ sư (Bình & Hạnh) và AI agent trong repo Circle tự động thừa hưởng nguyên tắc thiết kế UI/UX (chống AI boilerplate/clichés, tối ưu typography, subject-matter grounding, micro-copywriting chuẩn mực).
+- **Prompt Summary:** Thảo luận, đánh giá chất lượng skill và đưa skill vào repo dưới dạng Issue / GitFlow chuẩn để Hạnh và Agent của Hạnh có thể sử dụng.
+- **Files Affected:**
+  - `.agents/skills/frontend-design/SKILL.md` (Tạo mới chỉ dẫn thiết kế UI/UX)
+  - `.agents/skills/frontend-design/LICENSE.txt` (Bản quyền skill từ Anthropic)
+  - `docs/ai-usage/log.md` (Ghi nhận bản ghi AI-0023)
+- **AI-Generated Portion:** Tự động đồng bộ file từ global skills vào workspace project `.agents/skills`, cấu hình tài liệu và nhật ký AI.
+- **Human Modifications:** Trương Công Bình định hướng đưa skill vào repo qua Issue và GitFlow chuẩn để chia sẻ với đồng đội (Hạnh).
+- **Verification Method:** Chạy `./scripts/check-agent-map.sh` (xác nhận 100% 0 broken links), kiểm tra cấu trúc `.agents/skills/frontend-design/SKILL.md`.
+- **Official Source Checked:** `anthropics/skills@frontend-design`, `PROJECT_GOD.md` (DoD, GitFlow, Peer Review rule).
+- **Security & License Check:** Skill có file `LICENSE.txt` hợp lệ, không chứa secret hay dữ liệu nhạy cảm.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A
+  - **Resolution / Fix:** N/A
+- **Commit:** `f2624ad` (Merged: `7b9b8d7`)
+- **PR:** #41 (https://github.com/1440isme/Circle/pull/41)
+
+---
+
 ## AI-0024: Xây dựng Tài liệu Đặc tả Ngôn ngữ Thiết kế UI/UX CIRCLE
 
 - **Date:** 2026-09-26 23:42:00 +07:00
