@@ -530,8 +530,55 @@
   - **Error Description:** None.
   - **Root Cause:** N/A
   - **Resolution / Fix:** N/A
+- **Commit:** `b97fc8c`
+- **PR:** #29 (https://github.com/1440isme/Circle/pull/29)
+
+---
+
+## AI-0017: Thiết lập Hạ tầng Monorepo Workspace và Môi trường Docker Dev (PostgreSQL 16 & Redis 7)
+
+- **Date:** 2026-09-26 21:12:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (Medium)
+- **Related Issue:** #30 ([SUB-TASK]: TASK-INFRA-001 — Monorepo Workspace Setup & Local Docker Dev Environment)
+- **Purpose:** Khởi tạo hạ tầng Monorepo Workspace (pnpm/npm workspaces) và môi trường dịch vụ cục bộ bằng Docker Compose:
+  (1) Thiết lập `docker-compose.yml` định nghĩa 2 dịch vụ nền tảng: PostgreSQL 16 Alpine (`circle-postgres`) và Redis 7 Alpine (`circle-redis`) với cấu hình healthcheck, volume lưu trữ bền vững và network riêng biệt `circle-network`. Đã kiểm chứng khởi động thực tế và đạt trạng thái `healthy`.
+  (2) Khởi tạo cấu hình root `package.json` và `pnpm-workspace.yaml` quản lý các workspace `apps/*` và `packages/*`, bổ sung scripts điều phối môi trường (`docker:up`, `docker:down`, `dev:*`, `lint`, `test`, `check:integrity`).
+  (3) Khởi tạo gói `@circle/config` chứa cấu hình biên dịch TypeScript dùng chung (`tsconfig.base.json`).
+  (4) Khởi tạo khung mã nguồn và cấu hình gói `@circle/types` (Shared contracts, BaseEntity, ApiResponse, PaginatedResponse, AuthTokens) và `@circle/shared` (Shared utilities). Cả 2 gói đã được biên dịch thành công qua `npm run build`.
+  (5) Cập nhật `.env.example` đồng bộ các tham số Docker cục bộ (`POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `POSTGRES_PORT`, `REDIS_PORT`).
+- **Prompt Summary:** Yêu cầu: "thiết lập hạ tầng trước nhé, rồi đến khởi tạo db".
+- **Files Affected:**
+  - `docker-compose.yml`
+  - `.env.example`
+  - `package.json`
+  - `package-lock.json`
+  - `pnpm-workspace.yaml`
+  - `packages/config/package.json`
+  - `packages/config/tsconfig.base.json`
+  - `packages/types/package.json`
+  - `packages/types/tsconfig.json`
+  - `packages/types/src/index.ts`
+  - `packages/shared/package.json`
+  - `packages/shared/tsconfig.json`
+  - `packages/shared/src/index.ts`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% cấu hình Docker Compose, root workspace và các cấu hình TypeScript dùng chung.
+- **Human Modifications:** Trương Công Bình định hướng ưu tiên thiết lập hạ tầng trước, tạo tiền đề để triển khai cơ sở dữ liệu.
+- **Verification Method:**
+  - `docker compose up -d` khởi động thành công, kiểm tra `docker compose ps` xác nhận cả hai container `circle-postgres` và `circle-redis` đều `healthy`.
+  - `npm install` và `npm run build` thành công xuất các tệp dist `.d.ts` và `.js` cho `@circle/types` và `@circle/shared`.
+  - Chạy `./scripts/check-agent-map.sh` xác nhận 100% tài liệu liên kết hợp lệ (0 broken links).
+- **Official Source Checked:** `PROJECT_GOD.md` (DoD, G1 Working Product, G8 Security & Hygiene), `docs/getting-started/local-development.md`.
+- **Security & License Check:** An toàn, không chứa secret thật, mọi cấu hình mặc định đều tuân theo `.env.example`.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A
+  - **Resolution / Fix:** N/A
 - **Commit:** Pending
 - **PR:** Pending
+
 
 
 

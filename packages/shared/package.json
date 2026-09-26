@@ -1,0 +1,11 @@
+{
+  "name": "@circle/shared",
+  "version": "0.1.0",
+  "description": "Shared utilities and helpers for CIRCLE",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist"
+  }
+}
