@@ -112,6 +112,9 @@ Repo-resident AI coding framework modeled after Bosch AutoWRX.
 
 Required folders and documentation serving the graduation thesis and Rubric Level 5 evaluation.
 
+- [**Bảng Phân công Nhiệm vụ (Hạnh - Bình)**](./phan-cong-nhiem-vu.md) — Ma trận phân chia trách nhiệm Full-stack và lộ trình 15 tuần
+- [Kế hoạch thực hiện TLCN (15 tuần)](./Ke%20hoach%20thuc%20hien%20TLCN%20.md) — Kế hoạch tiến độ chính thức được phê duyệt
+- [Nhiệm vụ thực hiện TLCN](./Nhiem%20vu%20thuc%20hien%20TLCN.md) — Bản giao nhiệm vụ của Khoa CNTT
 - [**Automated AI Usage Log**](./ai-usage/log.md) — Continuous logging of AI assistance (TC2.3)
 - [Weekly Progress Reports](./evidence/weekly-reports/README.md) — W01–W19 progress reports (G2, TC1)
 - [Rubric Audit Records](./evidence/rubric-audits/README.md) — Self-evaluations against 12 rubric criteria
