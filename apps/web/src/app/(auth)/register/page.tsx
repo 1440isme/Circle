@@ -6,10 +6,12 @@ import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, Lock, Mail, User, AlertCircle, ArrowRight, Loader2, CheckCircle2 } from 'lucide-react';
 import { registerSchema } from '@circle/shared';
 import { useRegisterMutation } from '../../../hooks/use-auth-mutations';
+import { useLanguageStore } from '../../../stores/language.store';
 import { AuthGuard } from '../../../components/auth/AuthGuard';
 
 export default function RegisterPage() {
   const router = useRouter();
+  const t = useLanguageStore((s) => s.t);
   const registerMutation = useRegisterMutation();
 
   const [displayName, setDisplayName] = useState('');
@@ -37,7 +39,7 @@ export default function RegisterPage() {
     setFieldErrors({});
 
     if (!agreeTerms) {
-      setApiError('Bạn cần đồng ý với Quy chuẩn Cộng đồng của CIRCLE để tiếp tục');
+      setApiError(t.auth.termsRequiredError);
       return;
     }
 
@@ -68,7 +70,7 @@ export default function RegisterPage() {
       });
       router.push('/');
     } catch (err: any) {
-      setApiError(err?.message || 'Đăng ký không thành công. Vui lòng thử lại sau.');
+      setApiError(err?.message || t.auth.registerFailed);
     }
   };
 
@@ -79,13 +81,13 @@ export default function RegisterPage() {
         <div className="mb-6 text-center sm:text-left">
           <div className="inline-flex items-center gap-2 rounded-full border border-circle-hairline bg-circle-canvas px-3 py-1 text-xs font-semibold text-circle-sage mb-3">
             <span className="h-1.5 w-1.5 rounded-full bg-circle-primary animate-presence-breathe" />
-            <span>Gia nhập cộng đồng</span>
+            <span>{t.auth.communityBadge}</span>
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-circle-charcoal sm:text-3xl">
-            Tạo tài khoản CIRCLE
+            {t.auth.createAccount}
           </h1>
           <p className="mt-1 text-sm text-circle-slate">
-            Mở ra không gian riêng tư, ấm cúng và an toàn cùng bạn bè thân thiết.
+            {t.auth.registerSubtitle}
           </p>
         </div>
 
@@ -102,7 +104,7 @@ export default function RegisterPage() {
           {/* Display Name */}
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-circle-slate mb-1.5">
-              Họ tên hoặc Biệt danh
+              {t.auth.displayName}
             </label>
             <div className="relative">
               <User className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-circle-slate" />
@@ -114,7 +116,7 @@ export default function RegisterPage() {
                   setDisplayName(e.target.value);
                   if (fieldErrors.displayName) setFieldErrors((p) => ({ ...p, displayName: undefined }));
                 }}
-                placeholder="VD: Trương Công Bình"
+                placeholder={t.auth.displayNamePlaceholder}
                 className={`w-full rounded-2xl border bg-circle-canvas/80 py-3 pl-10 pr-4 text-sm text-circle-charcoal placeholder:text-circle-slate/60 focus:bg-white focus:outline-none focus:ring-4 transition-all ${
                   fieldErrors.displayName
                     ? 'border-circle-coral focus:border-circle-coral focus:ring-circle-coral/20'
@@ -130,7 +132,7 @@ export default function RegisterPage() {
           {/* Email Field */}
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-circle-slate mb-1.5">
-              Địa chỉ Email
+              {t.auth.email}
             </label>
             <div className="relative">
               <Mail className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-circle-slate" />
@@ -142,7 +144,7 @@ export default function RegisterPage() {
                   setEmail(e.target.value);
                   if (fieldErrors.email) setFieldErrors((p) => ({ ...p, email: undefined }));
                 }}
-                placeholder="tenban@domain.com"
+                placeholder={t.auth.emailPlaceholder}
                 className={`w-full rounded-2xl border bg-circle-canvas/80 py-3 pl-10 pr-4 text-sm text-circle-charcoal placeholder:text-circle-slate/60 focus:bg-white focus:outline-none focus:ring-4 transition-all ${
                   fieldErrors.email
                     ? 'border-circle-coral focus:border-circle-coral focus:ring-circle-coral/20'
@@ -158,7 +160,7 @@ export default function RegisterPage() {
           {/* Password Field */}
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-circle-slate mb-1.5">
-              Mật khẩu (Tối thiểu 8 ký tự)
+              {t.auth.password} ({t.auth.min8Chars})
             </label>
             <div className="relative">
               <Lock className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-circle-slate" />
@@ -170,7 +172,7 @@ export default function RegisterPage() {
                   setPassword(e.target.value);
                   if (fieldErrors.password) setFieldErrors((p) => ({ ...p, password: undefined }));
                 }}
-                placeholder="Nhập mật khẩu an toàn"
+                placeholder={t.auth.passwordPlaceholder}
                 className={`w-full rounded-2xl border bg-circle-canvas/80 py-3 pl-10 pr-11 text-sm text-circle-charcoal placeholder:text-circle-slate/60 focus:bg-white focus:outline-none focus:ring-4 transition-all ${
                   fieldErrors.password
                     ? 'border-circle-coral focus:border-circle-coral focus:ring-circle-coral/20'
@@ -181,6 +183,7 @@ export default function RegisterPage() {
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-3.5 top-1/2 -translate-y-1/2 text-circle-slate hover:text-circle-charcoal transition-colors"
+                title={showPassword ? 'Hide password' : 'Show password'}
               >
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
@@ -195,7 +198,7 @@ export default function RegisterPage() {
                   }`}
                 />
                 <span className={isLengthValid ? 'text-circle-sage font-medium' : 'text-circle-slate'}>
-                  Tối thiểu 8 ký tự ({password.length}/8)
+                  {t.auth.min8Chars} ({password.length}/8)
                 </span>
               </div>
             ) : null}
@@ -204,7 +207,7 @@ export default function RegisterPage() {
           {/* Confirm Password Field */}
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-circle-slate mb-1.5">
-              Xác nhận mật khẩu
+              {t.auth.confirmPassword}
             </label>
             <div className="relative">
               <Lock className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-circle-slate" />
@@ -216,7 +219,7 @@ export default function RegisterPage() {
                   setConfirmPassword(e.target.value);
                   if (fieldErrors.confirmPassword) setFieldErrors((p) => ({ ...p, confirmPassword: undefined }));
                 }}
-                placeholder="Nhập lại mật khẩu"
+                placeholder={t.auth.confirmPasswordPlaceholder}
                 className={`w-full rounded-2xl border bg-circle-canvas/80 py-3 pl-10 pr-4 text-sm text-circle-charcoal placeholder:text-circle-slate/60 focus:bg-white focus:outline-none focus:ring-4 transition-all ${
                   fieldErrors.confirmPassword
                     ? 'border-circle-coral focus:border-circle-coral focus:ring-circle-coral/20'
@@ -234,7 +237,7 @@ export default function RegisterPage() {
                   }`}
                 />
                 <span className={isMatchValid ? 'text-circle-sage font-medium' : 'text-circle-coral'}>
-                  {isMatchValid ? 'Mật khẩu trùng khớp' : 'Mật khẩu chưa khớp'}
+                  {isMatchValid ? t.auth.passwordMatch : t.auth.passwordMismatch}
                 </span>
               </div>
             ) : null}
@@ -250,7 +253,7 @@ export default function RegisterPage() {
               className="mt-0.5 h-4 w-4 rounded-md border-circle-hairline text-circle-sage focus:ring-circle-wash"
             />
             <label htmlFor="agreeTerms" className="text-xs text-circle-slate cursor-pointer select-none leading-relaxed">
-              Tôi cam kết tuân thủ Quy chuẩn Cộng đồng và tôn trọng không gian an toàn tâm lý của các nhóm bạn CIRCLE.
+              {t.auth.termsAgreement}
             </label>
           </div>
 
@@ -264,11 +267,11 @@ export default function RegisterPage() {
               {registerMutation.isPending ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin text-circle-primary" />
-                  <span>Đang khởi tạo tài khoản...</span>
+                  <span>{t.auth.creatingAccount}</span>
                 </>
               ) : (
                 <>
-                  <span>Hoàn tất đăng ký</span>
+                  <span>{t.auth.register}</span>
                   <ArrowRight className="h-4 w-4 text-circle-primary" />
                 </>
               )}
@@ -279,12 +282,12 @@ export default function RegisterPage() {
         {/* Switch to Login */}
         <div className="mt-6 text-center border-t border-circle-hairline pt-5">
           <p className="text-xs text-circle-slate">
-            Đã có tài khoản CIRCLE?{' '}
+            {t.auth.hasAccount}{' '}
             <Link
               href="/login"
               className="font-semibold text-circle-sage hover:underline hover:text-circle-charcoal transition-colors ml-1"
             >
-              Đăng nhập tại đây
+              {t.auth.signInHere}
             </Link>
           </p>
         </div>

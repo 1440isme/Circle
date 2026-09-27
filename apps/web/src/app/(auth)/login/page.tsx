@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Eye, EyeOff, Lock, Mail, AlertCircle, ArrowRight, Loader2 } from 'lucide-react';
 import { loginSchema } from '@circle/shared';
 import { useLoginMutation } from '../../../hooks/use-auth-mutations';
+import { useLanguageStore } from '../../../stores/language.store';
 import { AuthGuard } from '../../../components/auth/AuthGuard';
 
 function LoginForm() {
@@ -13,6 +14,7 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const redirectUrl = searchParams.get('redirect') || '/';
 
+  const t = useLanguageStore((s) => s.t);
   const loginMutation = useLoginMutation();
 
   const [email, setEmail] = useState('');
@@ -46,7 +48,7 @@ function LoginForm() {
       await loginMutation.mutateAsync(validationResult.data);
       router.push(redirectUrl);
     } catch (err: any) {
-      setApiError(err?.message || 'Đăng nhập không thành công. Vui lòng kiểm tra lại thông tin.');
+      setApiError(err?.message || t.auth.loginFailed);
     }
   };
 
@@ -56,13 +58,13 @@ function LoginForm() {
       <div className="mb-8 text-center sm:text-left">
         <div className="inline-flex items-center gap-2 rounded-full border border-circle-hairline bg-circle-canvas px-3 py-1 text-xs font-semibold text-circle-sage mb-3">
           <span className="h-1.5 w-1.5 rounded-full bg-circle-primary animate-presence-breathe" />
-          <span>Xác thực người dùng</span>
+          <span>{t.auth.userBadge}</span>
         </div>
         <h1 className="text-2xl font-bold tracking-tight text-circle-charcoal sm:text-3xl">
-          Chào mừng trở lại
+          {t.auth.welcomeBack}
         </h1>
         <p className="mt-1 text-sm text-circle-slate">
-          Đăng nhập để vào không gian kết nối và trò chuyện nhóm thân mật.
+          {t.auth.loginSubtitle}
         </p>
       </div>
 
@@ -79,7 +81,7 @@ function LoginForm() {
         {/* Email Field */}
         <div>
           <label className="block text-xs font-semibold uppercase tracking-wider text-circle-slate mb-1.5">
-            Địa chỉ Email
+            {t.auth.email}
           </label>
           <div className="relative">
             <Mail className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-circle-slate" />
@@ -91,7 +93,7 @@ function LoginForm() {
                 setEmail(e.target.value);
                 if (fieldErrors.email) setFieldErrors((prev) => ({ ...prev, email: undefined }));
               }}
-              placeholder="tenban@domain.com"
+              placeholder={t.auth.emailPlaceholder}
               className={`w-full rounded-2xl border bg-circle-canvas/80 py-3 pl-10 pr-4 text-sm text-circle-charcoal placeholder:text-circle-slate/60 focus:bg-white focus:outline-none focus:ring-4 transition-all ${
                 fieldErrors.email
                   ? 'border-circle-coral focus:border-circle-coral focus:ring-circle-coral/20'
@@ -108,14 +110,14 @@ function LoginForm() {
         <div>
           <div className="flex items-center justify-between mb-1.5">
             <label className="block text-xs font-semibold uppercase tracking-wider text-circle-slate">
-              Mật khẩu
+              {t.auth.password}
             </label>
             <button
               type="button"
               className="text-xs font-medium text-circle-sage hover:underline"
-              onClick={() => alert('Vui lòng liên hệ quản trị viên để khôi phục mật khẩu trong giai đoạn thử nghiệm.')}
+              onClick={() => alert(t.auth.forgotPasswordNotice)}
             >
-              Quên mật khẩu?
+              {t.auth.forgotPassword}
             </button>
           </div>
           <div className="relative">
@@ -128,7 +130,7 @@ function LoginForm() {
                 setPassword(e.target.value);
                 if (fieldErrors.password) setFieldErrors((prev) => ({ ...prev, password: undefined }));
               }}
-              placeholder="Nhập mật khẩu của bạn"
+              placeholder={t.auth.passwordPlaceholder}
               className={`w-full rounded-2xl border bg-circle-canvas/80 py-3 pl-10 pr-11 text-sm text-circle-charcoal placeholder:text-circle-slate/60 focus:bg-white focus:outline-none focus:ring-4 transition-all ${
                 fieldErrors.password
                   ? 'border-circle-coral focus:border-circle-coral focus:ring-circle-coral/20'
@@ -139,7 +141,7 @@ function LoginForm() {
               type="button"
               onClick={() => setShowPassword(!showPassword)}
               className="absolute right-3.5 top-1/2 -translate-y-1/2 text-circle-slate hover:text-circle-charcoal transition-colors"
-              title={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+              title={showPassword ? 'Hide password' : 'Show password'}
             >
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
@@ -159,7 +161,7 @@ function LoginForm() {
             className="h-4 w-4 rounded-md border-circle-hairline text-circle-sage focus:ring-circle-wash"
           />
           <label htmlFor="rememberMe" className="text-xs text-circle-slate cursor-pointer select-none">
-            Duy trì trạng thái đăng nhập trên thiết bị này (7 ngày)
+            {t.auth.rememberMe}
           </label>
         </div>
 
@@ -173,11 +175,11 @@ function LoginForm() {
             {loginMutation.isPending ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin text-circle-primary" />
-                <span>Đang xác thực...</span>
+                <span>{t.auth.authenticating}</span>
               </>
             ) : (
               <>
-                <span>Đăng nhập</span>
+                <span>{t.auth.login}</span>
                 <ArrowRight className="h-4 w-4 text-circle-primary" />
               </>
             )}
@@ -188,12 +190,12 @@ function LoginForm() {
       {/* Switch to Register */}
       <div className="mt-8 text-center border-t border-circle-hairline pt-6">
         <p className="text-xs text-circle-slate">
-          Chưa có tài khoản CIRCLE?{' '}
+          {t.auth.noAccount}{' '}
           <Link
             href="/register"
             className="font-semibold text-circle-sage hover:underline hover:text-circle-charcoal transition-colors ml-1"
           >
-            Đăng ký tham gia ngay
+            {t.auth.signUpNow}
           </Link>
         </p>
       </div>
@@ -202,6 +204,8 @@ function LoginForm() {
 }
 
 export default function LoginPage() {
+  const t = useLanguageStore((s) => s.t);
+
   return (
     <AuthGuard mode="guest-only">
       <Suspense
@@ -209,7 +213,7 @@ export default function LoginPage() {
           <div className="flex min-h-[400px] w-full items-center justify-center rounded-3xl border border-white/80 bg-white/70 p-8 shadow-xl backdrop-blur-xl">
             <div className="flex items-center gap-2 text-sm text-circle-slate">
               <Loader2 className="h-5 w-5 animate-spin text-circle-primary" />
-              <span>Đang tải form đăng nhập...</span>
+              <span>{t.common.loading}</span>
             </div>
           </div>
         }

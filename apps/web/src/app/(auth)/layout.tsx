@@ -1,6 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { Shield } from 'lucide-react';
+import { LanguageSwitcher } from '../../components/common/LanguageSwitcher';
 
 export default function AuthLayout({
   children,
@@ -28,9 +29,12 @@ export default function AuthLayout({
           </div>
         </Link>
 
-        <div className="hidden sm:flex items-center gap-2 rounded-full border border-circle-hairline bg-white/70 px-3.5 py-1.5 text-xs font-medium text-circle-charcoal backdrop-blur-md">
-          <Shield className="h-3.5 w-3.5 text-circle-sage" />
-          <span>Bảo mật kép Dual-Token & Mã hóa bcrypt</span>
+        <div className="flex items-center gap-3">
+          <div className="hidden md:flex items-center gap-2 rounded-full border border-circle-hairline bg-white/70 px-3.5 py-1.5 text-xs font-medium text-circle-charcoal backdrop-blur-md">
+            <Shield className="h-3.5 w-3.5 text-circle-sage" />
+            <span>Bảo mật kép Dual-Token & bcrypt</span>
+          </div>
+          <LanguageSwitcher />
         </div>
       </header>
 

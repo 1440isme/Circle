@@ -969,6 +969,47 @@
   - **Error Description:** AI triển khai form xác thực ở phiên trước chỉ dùng state thủ công thuần túy, chưa tích hợp ngay bộ công nghệ định hướng đã ghi trong tài liệu kiến trúc (Zod validation schemas chia sẻ ở `packages/shared`, Zustand auth store, TanStack Query cho mutations).
   - **Root Cause:** AI có xu hướng tối giản hóa bước đầu (minimalist implementation) mà bỏ quên cam kết quy chuẩn kiến trúc dài hạn của dự án.
   - **Resolution / Fix:** Tiếp thu ngay chấn chỉnh của kỹ sư, cài đặt và đưa Zod vào `packages/shared`, xây dựng `useAuthStore` với Zustand, `QueryProvider` và hooks TanStack Query, refactor toàn bộ form sang Zod safeParse với field-level errors chuẩn mực.
-- **Commit:** `7269931`
-- **PR:** #47
+- **Commit:** `7fa21c1`
+- **PR:** #47 (https://github.com/1440isme/Circle/pull/47)
+
+---
+
+## AI-0028: Thiết lập Hệ thống Song ngữ (Anh - Việt / Bilingual i18n) Toàn diện cho Monorepo
+
+- **Date:** 2026-09-27 11:08:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (Medium)
+- **Related Issue:** #46 ([SUB-FEAT]: US-AUTH-003 — Web Authentication Flow, AuthContext & Session Management (Parent: #18))
+- **Purpose:** Thiết lập hệ thống hỗ trợ Song ngữ (Anh - Việt / Bilingual i18n) dùng chung trong Monorepo theo định hướng phát triển lâu dài:
+  1. Xây dựng từ điển ngôn ngữ chuẩn mực tại `packages/shared/src/locales/` (`vi.ts` tiếng Việt làm mặc định, `en.ts` tiếng Anh đối ứng 1:1), cùng kiểu dữ liệu `TranslationDictionary` và danh mục `LOCALES`.
+  2. Xây dựng Zustand store `useLanguageStore` (`apps/web/src/stores/language.store.ts`) quản lý `locale` và `t`, tự động lưu lựa chọn ngôn ngữ vào `localStorage` và `cookies` (`circle_locale`).
+  3. Tạo component `LanguageSwitcher` (`apps/web/src/components/common/LanguageSwitcher.tsx`) cho phép chuyển đổi ngôn ngữ linh hoạt kèm cờ quốc gia và nhãn rõ ràng theo phong cách Apple HIG.
+  4. Tích hợp `LanguageSwitcher` vào `Header.tsx` và `AuthLayout.tsx`, quốc tế hóa toàn bộ giao diện Đăng nhập, Đăng ký và thanh điều hướng.
+  5. Đối soát và tổng hợp bảng ma trận công nghệ toàn diện của dự án CIRCLE.
+  6. Kiểm thử `npm run build -w @circle/web` thành công 100%, `npm run lint` đạt 0 lỗi 0 cảnh báo, `npm test` 7/7 backend unit tests pass.
+- **Prompt Summary:** Yêu cầu: "nhớ nhé, kiểm tra lại cho tôi xem những công nghệ mà sử dụng trong sản phẩm, đồng thời bổ sung dự án này hỗ trợ song ngữ anh việt nhé, ngay từ đầu chưa có gì nhiều nên khỏe cho sau này đỡ phải sửa".
+- **Files Affected:**
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `packages/shared/src/locales/index.ts`
+  - `packages/shared/src/index.ts`
+  - `apps/web/src/stores/language.store.ts`
+  - `apps/web/src/components/common/LanguageSwitcher.tsx`
+  - `apps/web/src/app/(auth)/layout.tsx`
+  - `apps/web/src/app/(auth)/login/page.tsx`
+  - `apps/web/src/app/(auth)/register/page.tsx`
+  - `apps/web/src/components/header/Header.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% từ điển song ngữ, Zustand language store, component chuyển ngữ và cập nhật view.
+- **Human Modifications:** Trương Công Bình yêu cầu kiểm tra danh mục công nghệ và triển khai ngay giải pháp song ngữ Anh - Việt cho toàn hệ thống từ đầu.
+- **Verification Method:** Chạy `npm run build -w @circle/web` pass 100%, `npm run lint -w @circle/web` pass 100%, `npm test` 7/7 pass, `./scripts/check-agent-map.sh` pass 100%.
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/CONVENTIONS.md`, `docs/design.md`.
+- **Security & License Check:** An toàn, không chứa dữ liệu nhạy cảm.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A
+  - **Resolution / Fix:** N/A
+- **Commit:** `a4fc139`
+- **PR:** #47 (https://github.com/1440isme/Circle/pull/47)
 
