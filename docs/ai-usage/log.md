@@ -1074,7 +1074,7 @@
   - **Error Description:** Ở phiên trước, `globals.css` vẫn còn giữ dòng `body { font-family: var(--font-plus-jakarta) }`, khiến việc khai báo font Inter ở `layout.tsx` bị ghi đè cục bộ. Ngoài ra `docs/design.md` chưa được cập nhật đồng bộ sau khi người dùng chọn đổi font.
   - **Root Cause:** Sót khai báo trong CSS tĩnh và tài liệu thiết kế chuẩn.
   - **Resolution / Fix:** Đồng bộ toàn diện `docs/design.md` và sửa `globals.css` sang `var(--font-inter)`.
-- **Commit:** Pending
+- **Commit:** `935ebdc`
 - **PR:** #47 (https://github.com/1440isme/Circle/pull/47)
 
 
