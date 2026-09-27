@@ -13,7 +13,7 @@ import { useThemeStore } from '../../stores/theme.store';
 interface InputProps extends TextInputProps {
   label?: string;
   error?: string;
-  icon?: React.ReactNode;
+  icon?: React.ReactElement | null;
   isPassword?: boolean;
 }
 
@@ -33,9 +33,9 @@ export const Input: React.FC<InputProps> = ({
 
   return (
     <View style={styles.container}>
-      {label && (
+      {label ? (
         <Text style={[styles.label, { color: colors.text }]}>{label}</Text>
-      )}
+      ) : null}
 
       <View
         style={[
@@ -51,7 +51,7 @@ export const Input: React.FC<InputProps> = ({
           },
         ]}
       >
-        {icon && <View style={styles.iconContainer}>{icon}</View>}
+        {icon ? <View style={styles.iconContainer}>{icon as any}</View> : null}
 
         <TextInput
           placeholderTextColor={colors.subtle}

@@ -1459,8 +1459,41 @@
   - **Error Description:** None.
   - **Root Cause:** N/A
   - **Resolution / Fix:** N/A
+- **Commit:** `57b7d18`
+- **PR:** #58 (https://github.com/1440isme/Circle/pull/58)
+
+---
+
+## AI-0039: Upgrade Mobile App to Expo SDK 57 for iOS Expo Go Compatibility
+
+- **Date:** 2026-09-27 21:02:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #10 (US-MOBILE-001: Mobile Application Shell & Auth Flow)
+- **Purpose:** Nâng cấp toàn bộ hệ thống dependency của `apps/mobile` lên **Expo SDK 57 (v57.0.25)**, React 19.2.3 và React Native 0.86.3 nhằm khắc phục lỗi không tương thích phiên bản (`Project is incompatible, installed version of Expo Go is for SDK 57.0.0, the project opened uses SDK 51`) khi người dùng quét mã QR bằng Expo Go trên iPhone.
+- **Prompt Summary:** "prj is incompatrible, installed ver expo go for sdk 57.0.0, the prj opened use sdk 51, how to fix: upgrapde pej to sdk 57.0.0 orr luach ios simmulator"
+- **Files Affected:**
+  - `apps/mobile/package.json`
+  - `apps/mobile/src/components/common/Input.tsx`
+  - `package-lock.json`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% cấu hình các package đồng bộ chuẩn Expo SDK 57 (`expo-router ~57.0.23`, `expo-secure-store ~57.0.4`, `expo-status-bar ~57.0.1`, `expo-constants ~57.0.19`, `expo-linking ~57.0.11`, `react-native-safe-area-context ~5.7.0`, `react-native-screens ~4.26.0`, `react-native-svg 15.15.4`) và xử lý type assertion React 19 trong `Input.tsx`.
+- **Human Modifications:** Trương Công Bình báo lỗi Expo Go trên iPhone từ chối mở do yêu cầu SDK 57.0.0.
+- **Verification Method:**
+  - `npx tsc --noEmit` trong `apps/mobile`: 0 errors.
+  - `npm test -w @circle/backend`: 14/14 unit tests pass 100%.
+  - `npm run build -w @circle/web`: Next.js 14 biên dịch thành công 9/9 trang.
+  - `./scripts/check-agent-map.sh`: 93 file framework markdown liên kết hợp lệ 100%.
+- **Official Source Checked:** Expo SDK 57 Bundled Native Modules Specification (`github:expo/expo@sdk-57`).
+- **Security & License Check:** An toàn, không chứa secrets.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A
+  - **Resolution / Fix:** N/A
 - **Commit:** Pending
 - **PR:** #58 (https://github.com/1440isme/Circle/pull/58)
+
 
 
 
