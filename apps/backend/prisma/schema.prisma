@@ -141,6 +141,7 @@ model Notification {
 model Circle {
   id          String    @id @default(cuid())
   name        String
+  handle      String    @unique
   avatarUrl   String?
   coverUrl    String?
   description String?
@@ -163,6 +164,7 @@ model Circle {
   callSessions    CallSession[]
   moments         Moment[]
 
+  @@index([handle])
   @@index([inviteCode])
 }
 

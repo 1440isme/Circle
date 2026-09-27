@@ -122,11 +122,19 @@ export interface UserEntity extends BaseEntity {
 
 export interface CircleEntity extends BaseEntity {
   name: string;
+  handle: string;
   avatarUrl?: string | null;
   coverUrl?: string | null;
   description?: string | null;
   inviteCode: string;
   isPrivate: boolean;
+}
+
+export interface CircleDetailResponse extends CircleEntity {
+  role?: MemberRole;
+  memberCount: number;
+  channels: ChannelEntity[];
+  members?: CircleMemberEntity[];
 }
 
 export interface CircleMemberEntity {

@@ -1373,6 +1373,7 @@
 
 ---
 
+<<<<<<< HEAD
 ## AI-0037: Initialize Mobile App Shell with Full Auth Flow, SecureStore and Bilingual Themes
 
 - **Date:** 2026-09-27 20:40:00 +07:00
@@ -1926,14 +1927,56 @@
 - **Commit:** `b752f1e`
 - **PR:** #58 (https://github.com/1440isme/Circle/pull/58)
 
+---
 
+## AI-0050: Triển khai Module 3 — US-CIRCLE-001: Circle Creation, Handle Reservation & Channel Hierarchy
 
-
-
-
-
-
-
-
-
+- **Date:** 2026-09-28 14:15:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #4 ([SUB-FEAT]: US-CIRCLE-001 — Circle Creation, Handle Reservation & Channel Hierarchy (Parent: #19))
+- **Purpose:**
+  1. Định nghĩa Zod validation schemas tập trung tại `packages/shared/src/validators/circle.validator.ts` (`createCircleSchemas`, `createCircleSchema`, `updateCircleSchema`) làm Single Source of Truth cho toàn bộ Web/Mobile client và Backend DTOs theo đúng quy chuẩn kiến trúc PR 58.
+  2. Bổ sung trường `handle` (unique slug, indexed) vào model `Circle` trong Prisma (`schema.prisma`), tạo và áp dụng migration `20260927101500_add_circle_handle` lên PostgreSQL database.
+  3. Kế thừa và tương thích 100% với `ZodValidationPipe` song ngữ (`Scope.REQUEST`, `SchemaFactory`) của PR 58 tại `apps/backend/src/common/pipes/zod-validation.pipe.ts`, hỗ trợ tự động bóc tách ngôn ngữ từ request header (`x-circle-locale` / `accept-language`).
+  4. Triển khai `CirclesModule` (`CirclesController`, `CirclesService`, DTOs) trong NestJS: thực hiện tạo nhóm theo atomic transaction (tạo Circle, gán người tạo làm `OWNER`, tạo kênh mặc định `#general`), truy vấn danh sách Circle của người dùng, lấy chi tiết Circle, kiểm tra trùng lặp handle trả về `409 Conflict`.
+  5. Xây dựng bộ Unit Test `circles.service.spec.ts` đạt 100% độ bao phủ cho `US-CIRCLE-001` (TC-CIRCLE-001 đến TC-CIRCLE-004).
+  6. Xây dựng Zustand store `useCircleStore` (`apps/web/src/stores/circle.store.ts`) và bộ TanStack Query hooks (`apps/web/src/hooks/use-circle-queries.ts`: `useMyCirclesQuery`, `useCircleDetailQuery`, `useCreateCircleMutation`).
+  7. Triển khai component `CreateCircleModal` với giao diện Apple HIG, kiểm thực form trực tiếp bằng `createCircleSchema` từ `@circle/shared`, tích hợp vào `Sidebar.tsx` cùng bộ hiển thị danh sách Circle động và auto-selection.
+- **Prompt Summary:** "oke giờ hãy bắt đầu làm module 3 nhé", "validation dùng zod theo quy chuẩn không được tự tiện dùng các công cụ không được thiết kế từ trước. vui lòng đọc kỹ các yêu cầu", "frontend thì dùng tanstack và zustan", "Invalid input: expected string, received undefined tôi đang mắc phải lỗi này khi tạo circle", "à tôi nhắc lại là bạn phải tuân thủ PR 58 nhé"
+- **Files Affected:**
+  - `packages/shared/src/validators/circle.validator.ts`
+  - `packages/shared/src/index.ts`
+  - `packages/types/src/index.ts`
+  - `apps/backend/prisma/schema.prisma`
+  - `apps/backend/prisma/migrations/20260927101500_add_circle_handle/migration.sql`
+  - `apps/backend/src/common/pipes/zod-validation.pipe.ts`
+  - `apps/backend/src/modules/circles/dto/create-circle.dto.ts`
+  - `apps/backend/src/modules/circles/dto/update-circle.dto.ts`
+  - `apps/backend/src/modules/circles/circles.service.ts`
+  - `apps/backend/src/modules/circles/circles.controller.ts`
+  - `apps/backend/src/modules/circles/circles.module.ts`
+  - `apps/backend/src/modules/circles/circles.service.spec.ts`
+  - `apps/backend/src/app.module.ts`
+  - `apps/web/src/stores/circle.store.ts`
+  - `apps/web/src/hooks/use-circle-queries.ts`
+  - `apps/web/src/components/circle/CreateCircleModal.tsx`
+  - `apps/web/src/components/navigation/Sidebar.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% mã nguồn Zod schemas, backend module, unit test suites, Zustand store, TanStack Query hooks và modal giao diện.
+- **Human Modifications:** Kỹ sư Ninh Thị Mỹ Hạnh trực tiếp chấn chỉnh và yêu cầu tuân thủ nghiêm ngặt Single Source of Truth cho validation bằng Zod, bắt buộc dùng TanStack Query cùng Zustand cho Frontend, và tuân thủ tuyệt đối quy chuẩn kỹ thuật của PR 58.
+- **Verification Method:**
+  - `npm test -w @circle/backend`: 26/26 tests passed (100% pass rate).
+  - `npm run build -w @circle/backend`: NestJS build thành công với 0 lỗi TypeScript.
+  - `npm run build -w @circle/web`: Next.js 14 production build hoàn tất thành công 9/9 trang tĩnh với 0 lỗi.
+  - `npx tsc --noEmit` trong `apps/mobile`: 0 errors.
+- **Official Source Checked:** SRS (UC07: Create Circle), Capability `CAP-CIRCLE-01`, PR 58, `PROJECT_GOD.md`.
+- **Security & License Check:** An toàn, không chứa secrets, bảo vệ truy cập Circle riêng tư qua role check.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** Khi tạo Circle, request gặp lỗi `400 Bad Request: Invalid input: expected string, received undefined` do pipe validation ở backend trước đó chưa lọc `metadata.type !== 'body'`, dẫn đến custom decorator `@CurrentUser()` bị pipe parse `undefined` trước khi body được nạp.
+  - **Root Cause:** Cần cô lập pipe vào `@Body()` hoặc lọc `metadata.type !== 'body'`.
+  - **Resolution / Fix:** Khắc phục triệt để trong `zod-validation.pipe.ts` và gán pipe vào `@Body(new ZodValidationPipe(...))` tại `CirclesController`.
+- **Commit:** Pending
+- **PR:** Pending
 
