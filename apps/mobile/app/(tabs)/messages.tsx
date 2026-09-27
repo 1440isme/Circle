@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Platform } from 'react-native';
 import { MessageSquare, ShieldCheck } from 'lucide-react-native';
 import { useThemeStore } from '../../src/stores/theme.store';
 import { useLanguageStore } from '../../src/stores/language.store';
@@ -12,15 +12,7 @@ export default function MessagesTab() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.canvas }]}>
-      <View
-        style={[
-          styles.headerBar,
-          {
-            backgroundColor: isDark ? colors.surface : '#FFFFFF',
-            borderBottomColor: colors.hairline,
-          },
-        ]}
-      >
+      <View style={[styles.headerBar, { backgroundColor: colors.canvas }]}>
         <Text style={[styles.headerTitle, { color: colors.text }]}>
           {t.nav.chatChannels}
         </Text>
@@ -67,14 +59,13 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   headerBar: {
     paddingHorizontal: 20,
-    paddingTop: 50,
-    paddingBottom: 14,
+    paddingTop: Platform.OS === 'ios' ? 56 : 40,
+    paddingBottom: 10,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderBottomWidth: 1,
   },
-  headerTitle: { fontSize: 18, fontWeight: '800' },
+  headerTitle: { fontSize: 22, fontWeight: '800', letterSpacing: -0.4 },
   content: { flex: 1, padding: 20, paddingBottom: 80, justifyContent: 'center' },
   emptyBox: {
     borderRadius: 28,

@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { User, Mail, Shield, LogOut, CheckCircle2 } from 'lucide-react-native';
@@ -52,15 +53,7 @@ export default function ProfileTab() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.canvas }]}>
-      <View
-        style={[
-          styles.headerBar,
-          {
-            backgroundColor: isDark ? colors.surface : '#FFFFFF',
-            borderBottomColor: colors.hairline,
-          },
-        ]}
-      >
+      <View style={[styles.headerBar, { backgroundColor: colors.canvas }]}>
         <Text style={[styles.headerTitle, { color: colors.text }]}>
           {t.auth.profile}
         </Text>
@@ -156,14 +149,13 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   headerBar: {
     paddingHorizontal: 20,
-    paddingTop: 50,
-    paddingBottom: 14,
+    paddingTop: Platform.OS === 'ios' ? 56 : 40,
+    paddingBottom: 10,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderBottomWidth: 1,
   },
-  headerTitle: { fontSize: 18, fontWeight: '800' },
+  headerTitle: { fontSize: 22, fontWeight: '800', letterSpacing: -0.4 },
   scrollContent: { padding: 20, paddingBottom: 110, gap: 16 },
   card: {
     borderRadius: 28,

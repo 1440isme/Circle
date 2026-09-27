@@ -8,6 +8,8 @@ export const HeaderControls: React.FC = () => {
   const { colors, theme, resolvedTheme, setTheme } = useThemeStore();
   const { locale, setLocale } = useLanguageStore();
 
+  const isDark = resolvedTheme === 'dark';
+
   const cycleTheme = () => {
     if (theme === 'light') setTheme('dark');
     else if (theme === 'dark') setTheme('system');
@@ -20,12 +22,12 @@ export const HeaderControls: React.FC = () => {
 
   const renderThemeIcon = () => {
     if (theme === 'system') {
-      return <Laptop size={15} color={colors.subtle} />;
+      return <Laptop size={16} color={colors.subtle} />;
     }
-    return resolvedTheme === 'dark' ? (
-      <Moon size={15} color={colors.primary} />
+    return isDark ? (
+      <Moon size={16} color={colors.primary} />
     ) : (
-      <Sun size={15} color="#E89D71" />
+      <Sun size={16} color="#E89D71" />
     );
   };
 
@@ -34,11 +36,16 @@ export const HeaderControls: React.FC = () => {
       {/* Theme cycle button */}
       <TouchableOpacity
         onPress={cycleTheme}
+        activeOpacity={0.7}
         style={[
-          styles.pillButton,
+          styles.circleBtn,
           {
-            backgroundColor: colors.surface,
-            borderColor: colors.hairline,
+            backgroundColor: isDark
+              ? 'rgba(255, 255, 255, 0.08)'
+              : 'rgba(0, 0, 0, 0.04)',
+            borderColor: isDark
+              ? 'rgba(255, 255, 255, 0.12)'
+              : 'rgba(0, 0, 0, 0.06)',
           },
         ]}
       >
@@ -48,15 +55,19 @@ export const HeaderControls: React.FC = () => {
       {/* Language toggle button */}
       <TouchableOpacity
         onPress={toggleLocale}
+        activeOpacity={0.7}
         style={[
-          styles.pillButton,
+          styles.circleBtn,
           {
-            backgroundColor: colors.surface,
-            borderColor: colors.hairline,
+            backgroundColor: isDark
+              ? 'rgba(255, 255, 255, 0.08)'
+              : 'rgba(0, 0, 0, 0.04)',
+            borderColor: isDark
+              ? 'rgba(255, 255, 255, 0.12)'
+              : 'rgba(0, 0, 0, 0.06)',
           },
         ]}
       >
-        <Globe size={13} color={colors.subtle} />
         <Text style={[styles.langText, { color: colors.text }]}>
           {locale.toUpperCase()}
         </Text>
@@ -71,23 +82,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  pillButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 20,
+  circleBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    elevation: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   langText: {
     fontSize: 11,
     fontWeight: '700',
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
   },
 });
