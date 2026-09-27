@@ -1567,6 +1567,41 @@
 - **Commit:** `62ddd78`
 - **PR:** #58 (https://github.com/1440isme/Circle/pull/58)
 
+---
+
+## AI-0042: Refine Tab Slot Highlight and Add Central Plus Action Button with Liquid Glass Composer Sheet
+
+- **Date:** 2026-09-27 21:25:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #10 (US-MOBILE-001: Mobile Application Shell & Auth Flow)
+- **Purpose:** Tinh chỉnh thiết kế thanh điều hướng theo phản hồi của kỹ sư:
+  1. Thay thế vùng highlight active nhỏ xung quanh icon thành viên con nhộng (Pill Capsule) bao trọn toàn bộ chiều cao tab item (`height: 54px`, `borderRadius: 27px`, viền kính bán trong suốt), ôm gọn cả icon và label đồng bộ với viền thanh dock.
+  2. Bổ sung nút hành động chính giữa hình tròn nổi bật với biểu tượng dấu cộng `+` (`width: 48px`, `height: 48px`, màu chủ đạo `colors.primary` với đổ bóng cao cấp), phục vụ mục đích đăng khoảnh khắc và chia sẻ thông tin.
+  3. Xây dựng Bottom Sheet Modal kính lỏng (Liquid Glass Creation Sheet) mở ra ngay khi bấm nút `+`, hiển thị 4 tùy chọn: Đăng khoảnh khắc nhanh (Moment), Hộp thư Điều muốn nói (Reflection), Tạo Vòng tròn mới (New Circle), và Lịch hẹn nhóm (Events).
+  4. Tạo file route `app/(tabs)/create.tsx` nhằm đảm bảo tính tương thích và toàn vẹn của Expo Router v3.
+- **Prompt Summary:** "phần chọn các tab đó chưa đẹp, nó phải to bằng icon hoặc bằng với viền, mà như thanh tab cũng thiếu icon + như thiết kế, nút này để up các khoảnh khắc hoặc các thông tin,"
+- **Files Affected:**
+  - `apps/mobile/app/(tabs)/_layout.tsx`
+  - `apps/mobile/app/(tabs)/create.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% logic cấu hình tab button, component ActionSheet modal và styling.
+- **Human Modifications:** Trương Công Bình yêu cầu vùng chọn tab phải vừa khít viền/chiều cao và bổ sung nút trung tâm `+` để chia sẻ thông tin/khoảnh khắc.
+- **Verification Method:**
+  - `npx tsc --noEmit` trong `apps/mobile`: 0 errors.
+  - `npm test -w @circle/backend`: 14/14 unit tests pass 100%.
+  - `./scripts/check-agent-map.sh`: 93 file framework markdown liên kết hợp lệ 100%.
+- **Official Source Checked:** Apple Human Interface Guidelines (Tab Bars & Modals).
+- **Security & License Check:** An toàn, không chứa secrets.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A
+  - **Resolution / Fix:** N/A
+- **Commit:** Pending
+- **PR:** #58 (https://github.com/1440isme/Circle/pull/58)
+
+
 
 
 
