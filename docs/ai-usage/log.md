@@ -1436,4 +1436,31 @@
 - **Commit:** `b20d4b5`
 - **PR:** #58 (https://github.com/1440isme/Circle/pull/58)
 
+---
+
+## AI-0038: Support EXPO_PUBLIC_API_URL for Dynamic Mobile Testing
+
+- **Date:** 2026-09-27 20:43:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #10 (US-MOBILE-001: Mobile Application Shell & Auth Flow)
+- **Purpose:** Bổ sung hỗ trợ biến môi trường `EXPO_PUBLIC_API_URL` trong hàm `getDefaultApiUrl()` tại `apps/mobile/src/services/api.ts` nhằm cho phép lập trình viên chạy thử nghiệm ứng dụng di động trên thiết bị thật (qua Expo Go với mạng LAN Wi-Fi `http://<LAN_IP>:4000`) mà không cần hardcode địa chỉ backend.
+- **Prompt Summary:** "làm sao dể tôi chạy thử"
+- **Files Affected:**
+  - `apps/mobile/src/services/api.ts`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% logic trích xuất biến môi trường `process.env.EXPO_PUBLIC_API_URL`.
+- **Human Modifications:** Trương Công Bình hỏi cách chạy thử ứng dụng di động.
+- **Verification Method:** `npx tsc --noEmit` trong `apps/mobile` pass 100%.
+- **Official Source Checked:** Expo Environment Variables Documentation.
+- **Security & License Check:** An toàn, không chứa secrets.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A
+  - **Resolution / Fix:** N/A
+- **Commit:** Pending
+- **PR:** #58 (https://github.com/1440isme/Circle/pull/58)
+
+
 

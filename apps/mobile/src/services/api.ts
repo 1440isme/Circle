@@ -4,6 +4,10 @@ import { ApiResponse, AuthResponseData, AuthTokens } from '@circle/types';
 import { getAuthTokens, saveAuthTokens, clearAuthTokens } from './storage';
 
 function getDefaultApiUrl(): string {
+  if (process.env.EXPO_PUBLIC_API_URL) {
+    return process.env.EXPO_PUBLIC_API_URL;
+  }
+
   // Configured in app.json extra or dev defaults
   const extraUrl = Constants.expoConfig?.extra?.apiUrl;
   if (extraUrl) return extraUrl;
