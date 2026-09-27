@@ -926,5 +926,5 @@
   - **Error Description:** Khi build Next.js lần đầu, trang `/login` báo lỗi thiếu `<Suspense>` boundary bao bọc hook `useSearchParams()`. Ngoài ra `FeedStream.tsx` có chứa dấu nháy kép chưa escape chuẩn React.
   - **Root Cause:** Next.js 14 App Router yêu cầu mọi trang tĩnh sử dụng `useSearchParams()` phải có Suspense boundary để phục vụ prerendering; `FeedStream.tsx` chứa trích dẫn lời nhắn mẫu bằng dấu ngoặc kép trần.
   - **Resolution / Fix:** Tách `LoginForm` và bọc trong `<Suspense fallback={...}>` trong `LoginPage`; thay thế dấu nháy kép bằng `&ldquo;` và `&rdquo;` trong `FeedStream.tsx`.
-- **Commit:** `2f7ef44`
-- **PR:** Pending
+- **Commit:** `a2c9549`
+- **PR:** #47 (https://github.com/1440isme/Circle/pull/47)
