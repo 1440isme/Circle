@@ -1,16 +1,10 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect } from 'react';
 import { AuthResponseData, AuthUserData } from '@circle/types';
-import {
-  getCurrentUserApi,
-  loginApi,
-  LoginPayload,
-  logoutApi,
-  registerApi,
-  RegisterPayload,
-} from '../lib/auth';
-import { clearAuthStorage, getStoredTokens, getStoredUser } from '../lib/auth-storage';
+import { useAuthStore } from '../stores/auth.store';
+import { useLoginMutation, useRegisterMutation, useLogoutMutation } from '../hooks/use-auth-mutations';
+import { LoginPayload, RegisterPayload } from '../lib/auth';
 
 interface AuthContextType {
   user: AuthUserData | null;
@@ -25,107 +19,50 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<AuthUserData | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const user = useAuthStore((s) => s.user);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const isLoading = useAuthStore((s) => s.isLoading);
+  const initAuth = useAuthStore((s) => s.initAuth);
 
-  // Initialize auth state on mount
+  const loginMutation = useLoginMutation();
+  const registerMutation = useRegisterMutation();
+  const logoutMutation = useLogoutMutation();
+
   useEffect(() => {
-    let isMounted = true;
-
-    async function initAuth() {
-      const cachedUser = getStoredUser();
-      const { accessToken, refreshToken } = getStoredTokens();
-
-      if (cachedUser) {
-        setUser(cachedUser);
-      }
-
-      if (accessToken || refreshToken) {
-        try {
-          const freshUser = await getCurrentUserApi();
-          if (isMounted) {
-            setUser(freshUser);
-          }
-        } catch (err) {
-          // Token invalid or expired
-          if (isMounted) {
-            setUser(null);
-            clearAuthStorage();
-          }
-        }
-      } else {
-        if (isMounted) {
-          setUser(null);
-        }
-      }
-
-      if (isMounted) {
-        setIsLoading(false);
-      }
-    }
-
     initAuth();
 
-    // Listen to global unauthorized broadcast
     const handleUnauthorized = () => {
-      setUser(null);
-      clearAuthStorage();
+      useAuthStore.getState().setUser(null);
     };
 
     window.addEventListener('circle:unauthorized', handleUnauthorized);
     return () => {
-      isMounted = false;
       window.removeEventListener('circle:unauthorized', handleUnauthorized);
     };
-  }, []);
+  }, [initAuth]);
 
-  const login = useCallback(async (payload: LoginPayload) => {
-    setIsLoading(true);
-    try {
-      const data = await loginApi(payload);
-      setUser(data.user);
-      return data;
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  const login = async (payload: LoginPayload) => {
+    return loginMutation.mutateAsync(payload);
+  };
 
-  const register = useCallback(async (payload: RegisterPayload) => {
-    setIsLoading(true);
-    try {
-      const data = await registerApi(payload);
-      setUser(data.user);
-      return data;
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  const register = async (payload: RegisterPayload) => {
+    return registerMutation.mutateAsync(payload);
+  };
 
-  const logout = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      await logoutApi();
-      setUser(null);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  const logout = async () => {
+    return logoutMutation.mutateAsync();
+  };
 
-  const refreshUser = useCallback(async () => {
-    try {
-      const freshUser = await getCurrentUserApi();
-      setUser(freshUser);
-    } catch {
-      setUser(null);
-    }
-  }, []);
+  const refreshUser = async () => {
+    await initAuth();
+  };
 
   return (
     <AuthContext.Provider
       value={{
         user,
-        isAuthenticated: !!user,
-        isLoading,
+        isAuthenticated,
+        isLoading: isLoading || loginMutation.isPending || registerMutation.isPending || logoutMutation.isPending,
         login,
         register,
         logout,

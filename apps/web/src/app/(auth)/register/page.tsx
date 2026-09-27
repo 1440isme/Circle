@@ -4,12 +4,13 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, Lock, Mail, User, AlertCircle, ArrowRight, Loader2, CheckCircle2 } from 'lucide-react';
-import { useAuth } from '../../../context/AuthContext';
+import { registerSchema } from '@circle/shared';
+import { useRegisterMutation } from '../../../hooks/use-auth-mutations';
 import { AuthGuard } from '../../../components/auth/AuthGuard';
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { register } = useAuth();
+  const registerMutation = useRegisterMutation();
 
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
@@ -17,54 +18,57 @@ export default function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [agreeTerms, setAgreeTerms] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Live password validation checks
+  const [fieldErrors, setFieldErrors] = useState<{
+    displayName?: string[];
+    email?: string[];
+    password?: string[];
+    confirmPassword?: string[];
+  }>({});
+  const [apiError, setApiError] = useState<string | null>(null);
+
+  // Live validation helpers
   const isLengthValid = password.length >= 8;
   const isMatchValid = password.length > 0 && password === confirmPassword;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
-
-    if (!displayName.trim()) {
-      setError('Vui lòng nhập tên hiển thị của bạn');
-      return;
-    }
-
-    if (!email.trim()) {
-      setError('Vui lòng nhập địa chỉ email hợp lệ');
-      return;
-    }
-
-    if (!isLengthValid) {
-      setError('Mật khẩu phải có độ dài tối thiểu 8 ký tự');
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      setError('Mật khẩu xác nhận không khớp');
-      return;
-    }
+    setApiError(null);
+    setFieldErrors({});
 
     if (!agreeTerms) {
-      setError('Bạn cần đồng ý với Quy chuẩn Cộng đồng của CIRCLE để tiếp tục');
+      setApiError('Bạn cần đồng ý với Quy chuẩn Cộng đồng của CIRCLE để tiếp tục');
       return;
     }
 
-    setIsSubmitting(true);
+    // Zod validation (Single Source of Truth from @circle/shared)
+    const validationResult = registerSchema.safeParse({
+      displayName,
+      email,
+      password,
+      confirmPassword,
+    });
+
+    if (!validationResult.success) {
+      const flattened = validationResult.error.flatten().fieldErrors;
+      setFieldErrors({
+        displayName: flattened.displayName,
+        email: flattened.email,
+        password: flattened.password,
+        confirmPassword: flattened.confirmPassword,
+      });
+      return;
+    }
+
     try {
-      await register({
-        displayName: displayName.trim(),
-        email: email.trim().toLowerCase(),
-        password,
+      await registerMutation.mutateAsync({
+        displayName: validationResult.data.displayName,
+        email: validationResult.data.email,
+        password: validationResult.data.password,
       });
       router.push('/');
     } catch (err: any) {
-      setError(err?.message || 'Đăng ký không thành công. Vui lòng thử lại sau.');
-    } finally {
-      setIsSubmitting(false);
+      setApiError(err?.message || 'Đăng ký không thành công. Vui lòng thử lại sau.');
     }
   };
 
@@ -85,11 +89,11 @@ export default function RegisterPage() {
           </p>
         </div>
 
-        {/* Error Banner */}
-        {error && (
+        {/* API Error Banner */}
+        {apiError && (
           <div className="mb-6 flex items-start gap-3 rounded-2xl border border-circle-coral/30 bg-circle-coral/10 p-3.5 text-xs text-circle-charcoal animate-fadeIn">
             <AlertCircle className="h-4 w-4 shrink-0 text-circle-coral mt-0.5" />
-            <div className="flex-1 font-medium">{error}</div>
+            <div className="flex-1 font-medium">{apiError}</div>
           </div>
         )}
 
@@ -104,14 +108,23 @@ export default function RegisterPage() {
               <User className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-circle-slate" />
               <input
                 type="text"
-                required
                 autoComplete="name"
                 value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
+                onChange={(e) => {
+                  setDisplayName(e.target.value);
+                  if (fieldErrors.displayName) setFieldErrors((p) => ({ ...p, displayName: undefined }));
+                }}
                 placeholder="VD: Trương Công Bình"
-                className="w-full rounded-2xl border border-circle-hairline bg-circle-canvas/80 py-3 pl-10 pr-4 text-sm text-circle-charcoal placeholder:text-circle-slate/60 focus:border-circle-sage focus:bg-white focus:outline-none focus:ring-4 focus:ring-circle-wash/60 transition-all"
+                className={`w-full rounded-2xl border bg-circle-canvas/80 py-3 pl-10 pr-4 text-sm text-circle-charcoal placeholder:text-circle-slate/60 focus:bg-white focus:outline-none focus:ring-4 transition-all ${
+                  fieldErrors.displayName
+                    ? 'border-circle-coral focus:border-circle-coral focus:ring-circle-coral/20'
+                    : 'border-circle-hairline focus:border-circle-sage focus:ring-circle-wash/60'
+                }`}
               />
             </div>
+            {fieldErrors.displayName?.[0] && (
+              <p className="mt-1 text-xs text-circle-coral font-medium">{fieldErrors.displayName[0]}</p>
+            )}
           </div>
 
           {/* Email Field */}
@@ -123,14 +136,23 @@ export default function RegisterPage() {
               <Mail className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-circle-slate" />
               <input
                 type="email"
-                required
                 autoComplete="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (fieldErrors.email) setFieldErrors((p) => ({ ...p, email: undefined }));
+                }}
                 placeholder="tenban@domain.com"
-                className="w-full rounded-2xl border border-circle-hairline bg-circle-canvas/80 py-3 pl-10 pr-4 text-sm text-circle-charcoal placeholder:text-circle-slate/60 focus:border-circle-sage focus:bg-white focus:outline-none focus:ring-4 focus:ring-circle-wash/60 transition-all"
+                className={`w-full rounded-2xl border bg-circle-canvas/80 py-3 pl-10 pr-4 text-sm text-circle-charcoal placeholder:text-circle-slate/60 focus:bg-white focus:outline-none focus:ring-4 transition-all ${
+                  fieldErrors.email
+                    ? 'border-circle-coral focus:border-circle-coral focus:ring-circle-coral/20'
+                    : 'border-circle-hairline focus:border-circle-sage focus:ring-circle-wash/60'
+                }`}
               />
             </div>
+            {fieldErrors.email?.[0] && (
+              <p className="mt-1 text-xs text-circle-coral font-medium">{fieldErrors.email[0]}</p>
+            )}
           </div>
 
           {/* Password Field */}
@@ -142,12 +164,18 @@ export default function RegisterPage() {
               <Lock className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-circle-slate" />
               <input
                 type={showPassword ? 'text' : 'password'}
-                required
                 autoComplete="new-password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  if (fieldErrors.password) setFieldErrors((p) => ({ ...p, password: undefined }));
+                }}
                 placeholder="Nhập mật khẩu an toàn"
-                className="w-full rounded-2xl border border-circle-hairline bg-circle-canvas/80 py-3 pl-10 pr-11 text-sm text-circle-charcoal placeholder:text-circle-slate/60 focus:border-circle-sage focus:bg-white focus:outline-none focus:ring-4 focus:ring-circle-wash/60 transition-all"
+                className={`w-full rounded-2xl border bg-circle-canvas/80 py-3 pl-10 pr-11 text-sm text-circle-charcoal placeholder:text-circle-slate/60 focus:bg-white focus:outline-none focus:ring-4 transition-all ${
+                  fieldErrors.password
+                    ? 'border-circle-coral focus:border-circle-coral focus:ring-circle-coral/20'
+                    : 'border-circle-hairline focus:border-circle-sage focus:ring-circle-wash/60'
+                }`}
               />
               <button
                 type="button"
@@ -157,8 +185,9 @@ export default function RegisterPage() {
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
-            {/* Visual Indicator */}
-            {password.length > 0 && (
+            {fieldErrors.password?.[0] ? (
+              <p className="mt-1 text-xs text-circle-coral font-medium">{fieldErrors.password[0]}</p>
+            ) : password.length > 0 ? (
               <div className="mt-1.5 flex items-center gap-1.5 text-[11px]">
                 <CheckCircle2
                   className={`h-3.5 w-3.5 ${
@@ -169,7 +198,7 @@ export default function RegisterPage() {
                   Tối thiểu 8 ký tự ({password.length}/8)
                 </span>
               </div>
-            )}
+            ) : null}
           </div>
 
           {/* Confirm Password Field */}
@@ -181,15 +210,23 @@ export default function RegisterPage() {
               <Lock className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-circle-slate" />
               <input
                 type={showPassword ? 'text' : 'password'}
-                required
                 autoComplete="new-password"
                 value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
+                onChange={(e) => {
+                  setConfirmPassword(e.target.value);
+                  if (fieldErrors.confirmPassword) setFieldErrors((p) => ({ ...p, confirmPassword: undefined }));
+                }}
                 placeholder="Nhập lại mật khẩu"
-                className="w-full rounded-2xl border border-circle-hairline bg-circle-canvas/80 py-3 pl-10 pr-4 text-sm text-circle-charcoal placeholder:text-circle-slate/60 focus:border-circle-sage focus:bg-white focus:outline-none focus:ring-4 focus:ring-circle-wash/60 transition-all"
+                className={`w-full rounded-2xl border bg-circle-canvas/80 py-3 pl-10 pr-4 text-sm text-circle-charcoal placeholder:text-circle-slate/60 focus:bg-white focus:outline-none focus:ring-4 transition-all ${
+                  fieldErrors.confirmPassword
+                    ? 'border-circle-coral focus:border-circle-coral focus:ring-circle-coral/20'
+                    : 'border-circle-hairline focus:border-circle-sage focus:ring-circle-wash/60'
+                }`}
               />
             </div>
-            {confirmPassword.length > 0 && (
+            {fieldErrors.confirmPassword?.[0] ? (
+              <p className="mt-1 text-xs text-circle-coral font-medium">{fieldErrors.confirmPassword[0]}</p>
+            ) : confirmPassword.length > 0 ? (
               <div className="mt-1.5 flex items-center gap-1.5 text-[11px]">
                 <CheckCircle2
                   className={`h-3.5 w-3.5 ${
@@ -200,7 +237,7 @@ export default function RegisterPage() {
                   {isMatchValid ? 'Mật khẩu trùng khớp' : 'Mật khẩu chưa khớp'}
                 </span>
               </div>
-            )}
+            ) : null}
           </div>
 
           {/* Terms checkbox */}
@@ -221,10 +258,10 @@ export default function RegisterPage() {
           <div className="pt-2">
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={registerMutation.isPending}
               className="w-full flex items-center justify-center gap-2 rounded-2xl bg-circle-charcoal py-3.5 text-sm font-semibold text-white shadow-sm hover:bg-circle-charcoal/90 active:scale-[0.99] disabled:opacity-70 disabled:cursor-not-allowed transition-all"
             >
-              {isSubmitting ? (
+              {registerMutation.isPending ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin text-circle-primary" />
                   <span>Đang khởi tạo tài khoản...</span>

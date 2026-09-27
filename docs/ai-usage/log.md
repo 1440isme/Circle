@@ -928,3 +928,47 @@
   - **Resolution / Fix:** Tách `LoginForm` và bọc trong `<Suspense fallback={...}>` trong `LoginPage`; thay thế dấu nháy kép bằng `&ldquo;` và `&rdquo;` trong `FeedStream.tsx`.
 - **Commit:** `a2c9549`
 - **PR:** #47 (https://github.com/1440isme/Circle/pull/47)
+
+---
+
+## AI-0027: Chuẩn hóa Kiến trúc Frontend — Tích hợp Zod Schemas Chia sẻ, Zustand Store & TanStack Query
+
+- **Date:** 2026-09-27 11:01:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (Medium)
+- **Related Issue:** #46 ([SUB-FEAT]: US-AUTH-003 — Web Authentication Flow, AuthContext & Session Management (Parent: #18))
+- **Purpose:** Tiếp thu ngay chấn chỉnh xác đáng từ người dùng, đồng bộ hóa 100% stack kiến trúc Frontend theo quy hoạch chuẩn mực của CIRCLE (`agentic/CONVENTIONS.md`, `agentic/memory/architecture.md`, `packages/shared/README.md`):
+  1. Tích hợp thư viện Zod vào `packages/shared`, xây dựng bộ schemas xác thực dùng chung (`packages/shared/src/validators/auth.validator.ts`: `loginSchema`, `registerSchema`, `refreshTokenSchema`), xuất khẩu kiểu dữ liệu tự động `LoginInput`, `RegisterInput`.
+  2. Thiết lập Zustand Store quản lý trạng thái máy khách (`apps/web/src/stores/auth.store.ts`: `useAuthStore`) quản lý `user`, `isAuthenticated`, `isLoading`, `setAuth`, `setUser`, `logout`, `initAuth`.
+  3. Cài đặt và cấu hình TanStack Query v5 (`apps/web/src/providers/QueryProvider.tsx`), xây dựng bộ hooks React Query chuyên dụng (`apps/web/src/hooks/use-auth-mutations.ts`: `useLoginMutation`, `useRegisterMutation`, `useLogoutMutation`, `useCurrentUserQuery`).
+  4. Cầu nối `AuthContext.tsx` kế thừa trực tiếp từ `useAuthStore` và các mutation của TanStack Query, đảm bảo tính nhất quán trên toàn ứng dụng.
+  5. Refactor toàn bộ form Đăng nhập (`/login`) và Đăng ký (`/register`) sử dụng `loginSchema.safeParse` và `registerSchema.safeParse`, hiển thị thông báo lỗi chi tiết theo từng trường (`fieldErrors.email`, `fieldErrors.password`, `fieldErrors.displayName`, `fieldErrors.confirmPassword`).
+  6. Kiểm thử `npm run build -w @circle/web` thành công 100%, `npm run lint` đạt 0 lỗi 0 cảnh báo, `./scripts/check-agent-map.sh` đạt 100% 0 broken references.
+- **Prompt Summary:** Nhắc nhở nghiêm khắc từ người dùng: "đã có trong định hướng thì phải xây ngay từ đầu tránh sau này phải refactor, frontend cũng tương tự dùng zustand. tanstack cacthu, cứ bám theo định hướng mà làm nhé, sao bạn lại làm khác vậy".
+- **Files Affected:**
+  - `packages/shared/package.json`
+  - `packages/shared/src/index.ts`
+  - `packages/shared/src/validators/auth.validator.ts`
+  - `apps/web/package.json`
+  - `apps/web/src/stores/auth.store.ts`
+  - `apps/web/src/providers/QueryProvider.tsx`
+  - `apps/web/src/hooks/use-auth-mutations.ts`
+  - `apps/web/src/context/AuthContext.tsx`
+  - `apps/web/src/app/layout.tsx`
+  - `apps/web/src/app/(auth)/login/page.tsx`
+  - `apps/web/src/app/(auth)/register/page.tsx`
+  - `package-lock.json`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% mã nguồn Zod schemas, Zustand store, TanStack Query hooks và refactor giao diện.
+- **Human Modifications:** Người dùng phát hiện và chấn chỉnh kịp thời việc chưa áp dụng các công nghệ đã quy hoạch (Zod, Zustand, TanStack Query) ngay từ đầu.
+- **Verification Method:** Chạy `npm run build -w @circle/web` pass 100%, `npm run lint -w @circle/web` pass 100%, `npm test` 7/7 pass, `./scripts/check-agent-map.sh` pass 100%.
+- **Official Source Checked:** `agentic/CONVENTIONS.md`, `agentic/memory/architecture.md`, `docs/architecture/frontend.md`, `packages/shared/README.md`.
+- **Security & License Check:** An toàn, không chứa credentials, xác thực đầu vào chặt chẽ qua Zod.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** AI triển khai form xác thực ở phiên trước chỉ dùng state thủ công thuần túy, chưa tích hợp ngay bộ công nghệ định hướng đã ghi trong tài liệu kiến trúc (Zod validation schemas chia sẻ ở `packages/shared`, Zustand auth store, TanStack Query cho mutations).
+  - **Root Cause:** AI có xu hướng tối giản hóa bước đầu (minimalist implementation) mà bỏ quên cam kết quy chuẩn kiến trúc dài hạn của dự án.
+  - **Resolution / Fix:** Tiếp thu ngay chấn chỉnh của kỹ sư, cài đặt và đưa Zod vào `packages/shared`, xây dựng `useAuthStore` với Zustand, `QueryProvider` và hooks TanStack Query, refactor toàn bộ form sang Zod safeParse với field-level errors chuẩn mực.
+- **Commit:** `7269931`
+- **PR:** #47
+

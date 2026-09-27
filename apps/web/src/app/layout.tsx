@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Plus_Jakarta_Sans } from 'next/font/google';
 import './globals.css';
+import { QueryProvider } from '../providers/QueryProvider';
 import { AuthProvider } from '../context/AuthContext';
 
 const plusJakartaSans = Plus_Jakarta_Sans({
@@ -31,7 +32,9 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-screen bg-circle-canvas text-circle-charcoal antialiased selection:bg-circle-wash selection:text-circle-sage">
-        <AuthProvider>{children}</AuthProvider>
+        <QueryProvider>
+          <AuthProvider>{children}</AuthProvider>
+        </QueryProvider>
       </body>
     </html>
   );

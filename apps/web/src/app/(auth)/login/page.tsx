@@ -4,7 +4,8 @@ import React, { useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Eye, EyeOff, Lock, Mail, AlertCircle, ArrowRight, Loader2 } from 'lucide-react';
-import { useAuth } from '../../../context/AuthContext';
+import { loginSchema } from '@circle/shared';
+import { useLoginMutation } from '../../../hooks/use-auth-mutations';
 import { AuthGuard } from '../../../components/auth/AuthGuard';
 
 function LoginForm() {
@@ -12,35 +13,40 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const redirectUrl = searchParams.get('redirect') || '/';
 
-  const { login } = useAuth();
+  const loginMutation = useLoginMutation();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<{ email?: string[]; password?: string[] }>({});
+  const [apiError, setApiError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
+    setApiError(null);
+    setFieldErrors({});
 
-    if (!email.trim() || !password) {
-      setError('Vui lòng nhập đầy đủ email và mật khẩu');
+    // Zod validation (Single Source of Truth from @circle/shared)
+    const validationResult = loginSchema.safeParse({
+      email,
+      password,
+    });
+
+    if (!validationResult.success) {
+      const flattened = validationResult.error.flatten().fieldErrors;
+      setFieldErrors({
+        email: flattened.email,
+        password: flattened.password,
+      });
       return;
     }
 
-    setIsSubmitting(true);
     try {
-      await login({
-        email: email.trim(),
-        password,
-      });
+      await loginMutation.mutateAsync(validationResult.data);
       router.push(redirectUrl);
     } catch (err: any) {
-      setError(err?.message || 'Đăng nhập không thành công. Vui lòng kiểm tra lại thông tin.');
-    } finally {
-      setIsSubmitting(false);
+      setApiError(err?.message || 'Đăng nhập không thành công. Vui lòng kiểm tra lại thông tin.');
     }
   };
 
@@ -60,11 +66,11 @@ function LoginForm() {
         </p>
       </div>
 
-      {/* Error Banner */}
-      {error && (
+      {/* API Error Banner */}
+      {apiError && (
         <div className="mb-6 flex items-start gap-3 rounded-2xl border border-circle-coral/30 bg-circle-coral/10 p-3.5 text-xs text-circle-charcoal animate-fadeIn">
           <AlertCircle className="h-4 w-4 shrink-0 text-circle-coral mt-0.5" />
-          <div className="flex-1 font-medium">{error}</div>
+          <div className="flex-1 font-medium">{apiError}</div>
         </div>
       )}
 
@@ -79,14 +85,23 @@ function LoginForm() {
             <Mail className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-circle-slate" />
             <input
               type="email"
-              required
               autoComplete="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                if (fieldErrors.email) setFieldErrors((prev) => ({ ...prev, email: undefined }));
+              }}
               placeholder="tenban@domain.com"
-              className="w-full rounded-2xl border border-circle-hairline bg-circle-canvas/80 py-3 pl-10 pr-4 text-sm text-circle-charcoal placeholder:text-circle-slate/60 focus:border-circle-sage focus:bg-white focus:outline-none focus:ring-4 focus:ring-circle-wash/60 transition-all"
+              className={`w-full rounded-2xl border bg-circle-canvas/80 py-3 pl-10 pr-4 text-sm text-circle-charcoal placeholder:text-circle-slate/60 focus:bg-white focus:outline-none focus:ring-4 transition-all ${
+                fieldErrors.email
+                  ? 'border-circle-coral focus:border-circle-coral focus:ring-circle-coral/20'
+                  : 'border-circle-hairline focus:border-circle-sage focus:ring-circle-wash/60'
+              }`}
             />
           </div>
+          {fieldErrors.email?.[0] && (
+            <p className="mt-1 text-xs text-circle-coral font-medium">{fieldErrors.email[0]}</p>
+          )}
         </div>
 
         {/* Password Field */}
@@ -107,12 +122,18 @@ function LoginForm() {
             <Lock className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-circle-slate" />
             <input
               type={showPassword ? 'text' : 'password'}
-              required
               autoComplete="current-password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                if (fieldErrors.password) setFieldErrors((prev) => ({ ...prev, password: undefined }));
+              }}
               placeholder="Nhập mật khẩu của bạn"
-              className="w-full rounded-2xl border border-circle-hairline bg-circle-canvas/80 py-3 pl-10 pr-11 text-sm text-circle-charcoal placeholder:text-circle-slate/60 focus:border-circle-sage focus:bg-white focus:outline-none focus:ring-4 focus:ring-circle-wash/60 transition-all"
+              className={`w-full rounded-2xl border bg-circle-canvas/80 py-3 pl-10 pr-11 text-sm text-circle-charcoal placeholder:text-circle-slate/60 focus:bg-white focus:outline-none focus:ring-4 transition-all ${
+                fieldErrors.password
+                  ? 'border-circle-coral focus:border-circle-coral focus:ring-circle-coral/20'
+                  : 'border-circle-hairline focus:border-circle-sage focus:ring-circle-wash/60'
+              }`}
             />
             <button
               type="button"
@@ -123,6 +144,9 @@ function LoginForm() {
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
           </div>
+          {fieldErrors.password?.[0] && (
+            <p className="mt-1 text-xs text-circle-coral font-medium">{fieldErrors.password[0]}</p>
+          )}
         </div>
 
         {/* Remember me */}
@@ -143,10 +167,10 @@ function LoginForm() {
         <div className="pt-2">
           <button
             type="submit"
-            disabled={isSubmitting}
+            disabled={loginMutation.isPending}
             className="w-full flex items-center justify-center gap-2 rounded-2xl bg-circle-charcoal py-3.5 text-sm font-semibold text-white shadow-sm hover:bg-circle-charcoal/90 active:scale-[0.99] disabled:opacity-70 disabled:cursor-not-allowed transition-all"
           >
-            {isSubmitting ? (
+            {loginMutation.isPending ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin text-circle-primary" />
                 <span>Đang xác thực...</span>
@@ -164,7 +188,7 @@ function LoginForm() {
       {/* Switch to Register */}
       <div className="mt-8 text-center border-t border-circle-hairline pt-6">
         <p className="text-xs text-circle-slate">
-            Chưa có tài khoản CIRCLE?{' '}
+          Chưa có tài khoản CIRCLE?{' '}
           <Link
             href="/register"
             className="font-semibold text-circle-sage hover:underline hover:text-circle-charcoal transition-colors ml-1"
