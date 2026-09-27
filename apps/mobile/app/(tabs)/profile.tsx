@@ -36,9 +36,9 @@ export default function ProfileTab() {
   const handleLogout = () => {
     Alert.alert(
       t.auth.logout,
-      'Bạn có chắc chắn muốn đăng xuất khỏi CIRCLE?',
+      t.auth.logoutConfirm,
       [
-        { text: 'Hủy', style: 'cancel' },
+        { text: t.common.cancel, style: 'cancel' },
         {
           text: t.auth.logout,
           style: 'destructive',
@@ -66,13 +66,13 @@ export default function ProfileTab() {
           style={[
             styles.card,
             {
-              backgroundColor: isDark ? colors.surface : '#FFFFFF',
+              backgroundColor: colors.surface,
               borderColor: colors.hairline,
             },
           ]}
         >
           <View style={[styles.avatarBox, { backgroundColor: colors.primary }]}>
-            <Text style={styles.avatarText}>{initials}</Text>
+            <Text style={[styles.avatarText, { color: colors.onPrimary }]}>{initials}</Text>
           </View>
 
           <Text style={[styles.nameText, { color: colors.text }]}>
@@ -95,7 +95,7 @@ export default function ProfileTab() {
           style={[
             styles.infoCard,
             {
-              backgroundColor: isDark ? colors.surface : '#FFFFFF',
+              backgroundColor: colors.surface,
               borderColor: colors.hairline,
             },
           ]}
@@ -106,7 +106,7 @@ export default function ProfileTab() {
 
           <View style={styles.infoRow}>
             <View style={styles.infoLeft}>
-              <CheckCircle2 size={16} color="#10B981" />
+              <CheckCircle2 size={16} color={colors.success} />
               <Text style={[styles.infoLabel, { color: colors.text }]}>
                 {t.home.dualTokenSecured}
               </Text>
@@ -129,7 +129,7 @@ export default function ProfileTab() {
           style={[
             styles.logoutBtn,
             {
-              backgroundColor: isDark ? colors.surface : '#FFFFFF',
+              backgroundColor: colors.surface,
               borderColor: `${colors.coral}40`,
             },
           ]}
@@ -176,7 +176,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 12,
   },
-  avatarText: { fontSize: 24, fontWeight: '800', color: '#FFFFFF' },
+  avatarText: { fontSize: 24, fontWeight: '800' },
   nameText: { fontSize: 18, fontWeight: '700', marginBottom: 2 },
   emailText: { fontSize: 13, marginBottom: 12 },
   roleBadge: {

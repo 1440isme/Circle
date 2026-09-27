@@ -28,7 +28,7 @@ export default function CirclesTab() {
           style={[
             styles.emptyBox,
             {
-              backgroundColor: isDark ? colors.surface : '#FFFFFF',
+              backgroundColor: colors.surface,
               borderColor: colors.hairline,
             },
           ]}
@@ -48,11 +48,11 @@ export default function CirclesTab() {
               onPress={() => handleNotice(t.home.createCirclePrompt)}
               style={[styles.btn, { backgroundColor: colors.primary }]}
             >
-              <Plus size={16} color={isDark ? '#121614' : '#FFFFFF'} />
+              <Plus size={16} color={colors.onPrimary} />
               <Text
                 style={[
                   styles.btnText,
-                  { color: isDark ? '#121614' : '#FFFFFF' },
+                  { color: colors.onPrimary },
                 ]}
               >
                 {t.home.createCircleBtn}

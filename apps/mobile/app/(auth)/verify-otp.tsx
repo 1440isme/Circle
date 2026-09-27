@@ -61,7 +61,7 @@ export default function VerifyOtpScreen() {
 
     const validation = verifyOtpSchema.safeParse({ email: email.trim().toLowerCase(), otp: code });
     if (!validation.success) {
-      setApiError(validation.error.flatten().fieldErrors.otp?.[0] || 'Mã OTP gồm 6 chữ số');
+      setApiError(validation.error.flatten().fieldErrors.otp?.[0] || t.auth.otpSixDigits);
       return;
     }
 
@@ -130,11 +130,7 @@ export default function VerifyOtpScreen() {
           activeOpacity={0.7}
           style={[
             styles.backBtn,
-            {
-              backgroundColor: isDark
-                ? 'rgba(255, 255, 255, 0.08)'
-                : 'rgba(0, 0, 0, 0.04)',
-            },
+            { backgroundColor: colors.wash },
           ]}
         >
           <ArrowLeft size={18} color={colors.text} />
@@ -159,8 +155,8 @@ export default function VerifyOtpScreen() {
             style={[
               styles.emailBadge,
               {
-                backgroundColor: isDark ? colors.surface : '#FFFFFF',
-                borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)',
+                backgroundColor: colors.surface,
+                borderColor: colors.hairline,
               },
             ]}
           >
@@ -206,12 +202,8 @@ export default function VerifyOtpScreen() {
             style={[
               styles.pinInputWrapper,
               {
-                backgroundColor: isDark ? colors.surface : '#FFFFFF',
-                borderColor: otp.length === 6
-                  ? colors.primary
-                  : isDark
-                  ? 'rgba(255,255,255,0.14)'
-                  : 'rgba(0,0,0,0.08)',
+                backgroundColor: colors.surface,
+                borderColor: otp.length === 6 ? colors.primary : colors.hairline,
               },
             ]}
           >

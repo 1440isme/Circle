@@ -41,7 +41,7 @@ export const Input: React.FC<InputProps> = ({
         style={[
           styles.inputWrapper,
           {
-            backgroundColor: isDark ? colors.surface : '#FFFFFF',
+            backgroundColor: colors.surface,
             borderColor: error
               ? colors.coral
               : isFocused

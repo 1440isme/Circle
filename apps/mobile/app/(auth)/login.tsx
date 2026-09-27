@@ -41,7 +41,7 @@ export default function LoginScreen() {
     const validation = loginSchema.safeParse({ email: email.trim().toLowerCase(), password });
     if (!validation.success) {
       const firstError = Object.values(validation.error.flatten().fieldErrors)[0]?.[0];
-      setApiError(firstError || 'Thông tin không hợp lệ');
+      setApiError(firstError || t.auth.invalidInfo);
       return;
     }
 
@@ -85,9 +85,9 @@ export default function LoginScreen() {
       <View style={styles.topBar}>
         <View style={styles.brandRow}>
           <View style={[styles.brandBadge, { backgroundColor: colors.primary }]}>
-            <Text style={styles.brandBadgeText}>C</Text>
+            <Text style={[styles.brandBadgeText, { color: colors.onPrimary }]}>C</Text>
           </View>
-          <Text style={[styles.brandTitle, { color: colors.text }]}>CIRCLE</Text>
+          <Text style={[styles.brandTitle, { color: colors.text }]}>{t.common.appName}</Text>
         </View>
         <HeaderControls />
       </View>
@@ -129,15 +129,15 @@ export default function LoginScreen() {
             style={[
               styles.nativeInputWrapper,
               {
-                backgroundColor: isDark ? colors.surface : '#FFFFFF',
-                borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)',
+                backgroundColor: colors.surface,
+                borderColor: colors.hairline,
               },
             ]}
           >
             <Mail size={20} color={colors.subtle} />
             <TextInput
               style={[styles.nativeTextInput, { color: colors.text }]}
-              placeholder={t.auth.emailPlaceholder || 'tenban@domain.com'}
+              placeholder={t.auth.emailPlaceholder}
               placeholderTextColor={colors.subtle}
               value={email}
               onChangeText={setEmail}
@@ -154,15 +154,15 @@ export default function LoginScreen() {
               styles.nativeInputWrapper,
               {
                 marginTop: 12,
-                backgroundColor: isDark ? colors.surface : '#FFFFFF',
-                borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)',
+                backgroundColor: colors.surface,
+                borderColor: colors.hairline,
               },
             ]}
           >
             <Lock size={20} color={colors.subtle} />
             <TextInput
               style={[styles.nativeTextInput, { color: colors.text }]}
-              placeholder={t.auth.passwordPlaceholder || 'Mật khẩu'}
+              placeholder={t.auth.passwordPlaceholder}
               placeholderTextColor={colors.subtle}
               value={password}
               onChangeText={setPassword}
@@ -196,7 +196,7 @@ export default function LoginScreen() {
                 <Square size={18} color={colors.subtle} />
               )}
               <Text style={[styles.rememberMeText, { color: colors.text }]}>
-                Ghi nhớ đăng nhập
+                {t.auth.rememberMeMobile}
               </Text>
             </TouchableOpacity>
 
@@ -271,7 +271,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   brandBadgeText: {
-    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '800',
   },

@@ -96,3 +96,14 @@ No PR or Issue may be marked **Done** unless:
 - ❌ Never invent or hallucinate API endpoints, statuses, or user metrics. If unsure, mark `UNKNOWN — needs verification`.
 - ❌ Never perform destructive git commands (`git reset --hard`, `git push --force`) on shared branches.
 - ❌ Never leave trailing or dead code when replacing features.
+- ❌ Never hardcode raw strings for user-facing texts (must use shared localization dictionary `t.*`).
+- ❌ Never hardcode raw hex/rgba color values in UI components (must use design token palette `colors.*`).
+
+---
+
+## 8. Zero Hardcode & Seamless Mobile Canvas Mandate
+
+- **Zero Hardcoded Localization:** Every human-readable label, prompt, title, error message, and placeholder MUST be declared in `packages/shared/src/locales/vi.ts` and `en.ts` and accessed via `t.*`. No inline Vietnamese or English literals in UI JSX/TSX.
+- **Zero Hardcoded Theme Colors:** Every color rendered in UI components MUST be resolved from design tokens (`colors.*` from `useThemeStore` / `CircleColors`). Raw hex values (`#FFFFFF`, `#000000`, etc.) and arbitrary `rgba(...)` in component styling are strictly forbidden.
+- **Seamless Infinite Canvas on Mobile:** Mobile applications (`apps/mobile`) must deliver an organic, fluid native mobile experience without rigid rectangular bounding boxes, artificial card partitions, or abrupt header divides. Content flows continuously on a unified canvas background (`colors.canvas`), guided by typography scale, icon accents, and breathing room (whitespace).
+

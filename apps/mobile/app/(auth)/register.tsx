@@ -85,7 +85,7 @@ export default function RegisterScreen() {
 
     if (!validation.success) {
       const firstError = Object.values(validation.error.flatten().fieldErrors)[0]?.[0];
-      setApiError(firstError || 'Thông tin không hợp lệ');
+      setApiError(firstError || t.auth.invalidInfo);
       return;
     }
 
@@ -124,11 +124,7 @@ export default function RegisterScreen() {
           activeOpacity={0.7}
           style={[
             styles.backBtn,
-            {
-              backgroundColor: isDark
-                ? 'rgba(255, 255, 255, 0.08)'
-                : 'rgba(0, 0, 0, 0.04)',
-            },
+            { backgroundColor: colors.wash },
           ]}
         >
           <ArrowLeft size={18} color={colors.text} />
@@ -149,9 +145,7 @@ export default function RegisterScreen() {
                 backgroundColor:
                   step >= 2
                     ? colors.primary
-                    : isDark
-                    ? 'rgba(255,255,255,0.12)'
-                    : 'rgba(0,0,0,0.08)',
+                    : colors.hairline,
               },
             ]}
           />
@@ -162,9 +156,7 @@ export default function RegisterScreen() {
                 backgroundColor:
                   step >= 3
                     ? colors.primary
-                    : isDark
-                    ? 'rgba(255,255,255,0.12)'
-                    : 'rgba(0,0,0,0.08)',
+                    : colors.hairline,
               },
             ]}
           />
@@ -182,12 +174,16 @@ export default function RegisterScreen() {
         <View
           style={[
             styles.stepBadge,
-            { backgroundColor: `${colors.primary}15` },
+            { backgroundColor: colors.wash },
           ]}
         >
           <Sparkles size={12} color={colors.primary} />
           <Text style={[styles.stepBadgeText, { color: colors.primary }]}>
-            {step === 1 ? 'BƯỚC 1 / 3 · DANH TÍNH' : step === 2 ? 'BƯỚC 2 / 3 · LIÊN HỆ' : 'BƯỚC 3 / 3 · BẢO MẬT'}
+            {step === 1
+              ? t.auth.wizardStep1Badge
+              : step === 2
+              ? t.auth.wizardStep2Badge
+              : t.auth.wizardStep3Badge}
           </Text>
         </View>
 
@@ -210,29 +206,25 @@ export default function RegisterScreen() {
         {step === 1 && (
           <View style={styles.stepContent}>
             <Text style={[styles.mainPrompt, { color: colors.text }]}>
-              Bạn muốn bạn bè gọi mình là gì?
+              {t.auth.wizardStep1Prompt}
             </Text>
             <Text style={[styles.subPrompt, { color: colors.subtle }]}>
-              Tên hiển thị này sẽ xuất hiện trong các Vòng tròn thân mật của bạn và có thể thay đổi bất cứ lúc nào.
+              {t.auth.wizardStep1SubPrompt}
             </Text>
 
             <View
               style={[
                 styles.nativeInputWrapper,
                 {
-                  backgroundColor: isDark ? colors.surface : '#FFFFFF',
-                  borderColor: isNameValid
-                    ? colors.primary
-                    : isDark
-                    ? 'rgba(255,255,255,0.12)'
-                    : 'rgba(0,0,0,0.08)',
+                  backgroundColor: colors.surface,
+                  borderColor: isNameValid ? colors.primary : colors.hairline,
                 },
               ]}
             >
               <User size={20} color={isNameValid ? colors.primary : colors.subtle} />
               <TextInput
                 style={[styles.nativeTextInput, { color: colors.text }]}
-                placeholder={t.auth.displayNamePlaceholder || 'VD: Trương Công Bình'}
+                placeholder={t.auth.displayNamePlaceholder}
                 placeholderTextColor={colors.subtle}
                 value={displayName}
                 onChangeText={setDisplayName}
@@ -251,29 +243,25 @@ export default function RegisterScreen() {
         {step === 2 && (
           <View style={styles.stepContent}>
             <Text style={[styles.mainPrompt, { color: colors.text }]}>
-              Địa chỉ email của bạn là gì?
+              {t.auth.wizardStep2Prompt}
             </Text>
             <Text style={[styles.subPrompt, { color: colors.subtle }]}>
-              Chúng tôi sẽ gửi một mã xác thực 6 số tới địa chỉ này để kích hoạt và bảo vệ không gian riêng tư của bạn.
+              {t.auth.wizardStep2SubPrompt}
             </Text>
 
             <View
               style={[
                 styles.nativeInputWrapper,
                 {
-                  backgroundColor: isDark ? colors.surface : '#FFFFFF',
-                  borderColor: isEmailValid
-                    ? colors.primary
-                    : isDark
-                    ? 'rgba(255,255,255,0.12)'
-                    : 'rgba(0,0,0,0.08)',
+                  backgroundColor: colors.surface,
+                  borderColor: isEmailValid ? colors.primary : colors.hairline,
                 },
               ]}
             >
               <Mail size={20} color={isEmailValid ? colors.primary : colors.subtle} />
               <TextInput
                 style={[styles.nativeTextInput, { color: colors.text }]}
-                placeholder={t.auth.emailPlaceholder || 'tenban@domain.com'}
+                placeholder={t.auth.emailPlaceholder}
                 placeholderTextColor={colors.subtle}
                 value={email}
                 onChangeText={setEmail}
@@ -295,10 +283,10 @@ export default function RegisterScreen() {
         {step === 3 && (
           <View style={styles.stepContent}>
             <Text style={[styles.mainPrompt, { color: colors.text }]}>
-              Tạo mật khẩu an toàn
+              {t.auth.wizardStep3Prompt}
             </Text>
             <Text style={[styles.subPrompt, { color: colors.subtle }]}>
-              Mật khẩu giúp bảo vệ tài khoản của bạn và các dữ liệu chia sẻ trong Vòng tròn.
+              {t.auth.wizardStep3SubPrompt}
             </Text>
 
             {/* Password input */}
@@ -306,19 +294,15 @@ export default function RegisterScreen() {
               style={[
                 styles.nativeInputWrapper,
                 {
-                  backgroundColor: isDark ? colors.surface : '#FFFFFF',
-                  borderColor: isPasswordLongEnough
-                    ? colors.primary
-                    : isDark
-                    ? 'rgba(255,255,255,0.12)'
-                    : 'rgba(0,0,0,0.08)',
+                  backgroundColor: colors.surface,
+                  borderColor: isPasswordLongEnough ? colors.primary : colors.hairline,
                 },
               ]}
             >
               <Lock size={20} color={isPasswordLongEnough ? colors.primary : colors.subtle} />
               <TextInput
                 style={[styles.nativeTextInput, { color: colors.text }]}
-                placeholder={t.auth.passwordPlaceholder || 'Mật khẩu an toàn'}
+                placeholder={t.auth.passwordPlaceholder}
                 placeholderTextColor={colors.subtle}
                 value={password}
                 onChangeText={setPassword}
@@ -344,19 +328,15 @@ export default function RegisterScreen() {
                 styles.nativeInputWrapper,
                 {
                   marginTop: 12,
-                  backgroundColor: isDark ? colors.surface : '#FFFFFF',
-                  borderColor: isPasswordMatching
-                    ? colors.primary
-                    : isDark
-                    ? 'rgba(255,255,255,0.12)'
-                    : 'rgba(0,0,0,0.08)',
+                  backgroundColor: colors.surface,
+                  borderColor: isPasswordMatching ? colors.primary : colors.hairline,
                 },
               ]}
             >
               <Lock size={20} color={isPasswordMatching ? colors.primary : colors.subtle} />
               <TextInput
                 style={[styles.nativeTextInput, { color: colors.text }]}
-                placeholder={t.auth.confirmPasswordPlaceholder || 'Nhập lại mật khẩu'}
+                placeholder={t.auth.confirmPasswordPlaceholder}
                 placeholderTextColor={colors.subtle}
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
@@ -390,7 +370,7 @@ export default function RegisterScreen() {
                     { color: isPasswordLongEnough ? colors.text : colors.subtle },
                   ]}
                 >
-                  {t.auth.min8Chars || 'Tối thiểu 8 ký tự'}
+                  {t.auth.min8Chars}
                 </Text>
               </View>
 
@@ -405,7 +385,7 @@ export default function RegisterScreen() {
                     { color: isPasswordMatching ? colors.text : colors.subtle },
                   ]}
                 >
-                  {t.auth.passwordMatch || 'Mật khẩu xác nhận trùng khớp'}
+                  {t.auth.passwordMatch}
                 </Text>
               </View>
             </View>
@@ -438,18 +418,18 @@ export default function RegisterScreen() {
                 backgroundColor:
                   (step === 1 && isNameValid) || (step === 2 && isEmailValid)
                     ? colors.primary
-                    : isDark
-                    ? 'rgba(255,255,255,0.12)'
-                    : 'rgba(0,0,0,0.12)',
+                    : colors.wash,
               },
             ]}
           >
-            <Text style={styles.primaryBtnText}>Tiếp tục</Text>
-            <ArrowRight size={18} color="#FFFFFF" />
+            <Text style={[styles.primaryBtnText, { color: colors.onPrimary }]}>
+              {t.auth.continueBtn}
+            </Text>
+            <ArrowRight size={18} color={colors.onPrimary} />
           </TouchableOpacity>
         ) : (
           <Button
-            title="Đăng ký & Nhận mã OTP"
+            title={t.auth.registerAndVerifyOtp}
             onPress={handleFinalSubmit}
             loading={loading}
             disabled={!isStep3Valid}
@@ -597,7 +577,6 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   primaryBtnText: {
-    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
   },

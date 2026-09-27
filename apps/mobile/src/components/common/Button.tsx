@@ -34,7 +34,7 @@ export const Button: React.FC<ButtonProps> = ({
 
   const getBackgroundColor = () => {
     if (disabled && !loading) {
-      return resolvedTheme === 'dark' ? '#2A332E' : '#E5E9E7';
+      return colors.border;
     }
     switch (variant) {
       case 'primary':
@@ -49,11 +49,11 @@ export const Button: React.FC<ButtonProps> = ({
 
   const getTextColor = () => {
     if (disabled && !loading) {
-      return resolvedTheme === 'dark' ? '#5E6B63' : '#9CA9A2';
+      return colors.subtle;
     }
     switch (variant) {
       case 'primary':
-        return resolvedTheme === 'dark' ? '#121614' : '#FFFFFF';
+        return colors.onPrimary;
       case 'secondary':
       case 'outline':
       case 'ghost':

@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import { ApiResponse, AuthResponseData, AuthTokens } from '@circle/types';
 import { getAuthTokens, saveAuthTokens, clearAuthTokens } from './storage';
+import { useLanguageStore } from '../stores/language.store';
 
 function getDefaultApiUrl(): string {
   // 1. Explicit environment variable
@@ -77,10 +78,12 @@ async function silentRefreshToken(): Promise<string> {
     body: JSON.stringify({ refreshToken }),
   });
 
+  const t = useLanguageStore.getState().t;
+
   const data: ApiResponse<AuthResponseData> = await response.json();
   if (!response.ok || !data.data?.tokens) {
     await clearAuthTokens();
-    throw new ApiError(data.message || 'Phiên đăng nhập hết hạn', response.status);
+    throw new ApiError(data.message || t.common.sessionExpired, response.status);
   }
 
   await saveAuthTokens(data.data.tokens);
@@ -92,6 +95,7 @@ export async function mobileApiRequest<T>(
   options: RequestOptions = {},
 ): Promise<ApiResponse<T>> {
   const { skipAuth = false, retryCount = 0, headers = {}, ...customConfig } = options;
+  const t = useLanguageStore.getState().t;
 
   const defaultHeaders: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -117,7 +121,7 @@ export async function mobileApiRequest<T>(
     });
   } catch (err: any) {
     throw new ApiError(
-      'Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng.',
+      t.common.networkError,
       0,
       err,
     );
@@ -146,7 +150,7 @@ export async function mobileApiRequest<T>(
     return new Promise((resolve, reject) => {
       addRefreshSubscriber((newToken) => {
         if (!newToken) {
-          return reject(new ApiError('Phiên đăng nhập hết hạn', 401));
+          return reject(new ApiError(t.common.sessionExpired, 401));
         }
         resolve(
           mobileApiRequest<T>(endpoint, {
@@ -164,7 +168,7 @@ export async function mobileApiRequest<T>(
     const rawDetails = (resData as any)?.details;
     const message =
       resData?.message ||
-      (Array.isArray(rawDetails) ? rawDetails[0] : 'Đã có lỗi xảy ra');
+      (Array.isArray(rawDetails) ? rawDetails[0] : t.common.unknownError);
     throw new ApiError(message, response.status, resData);
   }
 

@@ -1711,6 +1711,67 @@
 - **Commit:** `469a6b5`
 - **PR:** #58 (https://github.com/1440isme/Circle/pull/58)
 
+---
+
+## AI-0046: Thiết lập Quy tắc Tuyệt đối Cấm Hardcode Ngôn ngữ & Màu sắc, Chuẩn hóa Giao diện Liền mạch Unboxed Mobile Canvas
+
+- **Date:** 2026-09-27 22:05:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #10 (US-MOBILE-001: Mobile Application Shell & Auth Flow)
+- **Purpose:** Tiếp thu chỉ đạo nghiêm ngặt của người dùng về việc cấm triệt để hardcode ngôn ngữ và màu sắc, đồng thời loại bỏ toàn bộ các khối hộp chia cắt kiểu web trên mobile:
+  1. Ban hành Điều luật bất biến:
+     - Hard Rule 8 trong `agentic/RULES.md`: Cấm tuyệt đối raw string literals và raw hex/rgba colors trong UI components.
+     - Mục 9 trong `agentic/CONVENTIONS.md`: Quy ước bắt buộc về Design Tokens và Shared Localization Dictionaries `t.*`.
+     - Mục 3 trong `docs/principles/principle.md`: Chuẩn hóa nguyên tắc Seamless Infinite Canvas trên mobile (không hộp, không phân vùng thô cứng).
+  2. Bổ sung từ điển đa ngôn ngữ (`packages/shared/src/locales/vi.ts` & `en.ts`):
+     - Namespace `composer` cho modal tạo mới (Moment, Reflection, New Circle, Calendar Event).
+     - Bổ sung các key onboarding wizard, remember me, network errors vào `auth` và `common`.
+     - Bổ sung tên các vòng tròn mẫu và thông số thành viên vào `home`.
+  3. Bổ sung semantic design tokens vào `apps/mobile/src/constants/theme.ts`: `onPrimary`, `success`, `warning`, `info`, `accent`, `glass`, `glassBorder`, `sheetBg`.
+  4. Tái cấu trúc toàn diện 100% component mobile (`register.tsx`, `login.tsx`, `verify-otp.tsx`, `_layout.tsx`, `index.tsx`, `circles.tsx`, `messages.tsx`, `profile.tsx`, `HeaderControls.tsx`, `Input.tsx`, `Button.tsx`, `api.ts`):
+     - Xóa bỏ 100% hardcoded hex color và text tiếng Việt thô.
+     - Xóa bỏ các khung viền hộp đóng kín (`heroCard`, `feedCard`, etc.) ở HomeScreen, tái thiết kế thành dòng chảy thông tin tự nhiên, unboxed chips và typography native trên nền canvas thống nhất.
+- **Prompt Summary:** "tốt rồi đó nhưng bạn hard code rồi đó, note thêm vào rule hoặc degisnmd là tuyệt đối k harccode ngôn ngữ hay màu sắc (phải theo bộ langeuage hoặc bộ theme), trải nghiệm liền mạch trên mobile không có box hay phân vùng nào cả"
+- **Files Affected:**
+  - `agentic/RULES.md`
+  - `agentic/CONVENTIONS.md`
+  - `docs/principles/principle.md`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `apps/mobile/src/constants/theme.ts`
+  - `apps/mobile/src/components/common/HeaderControls.tsx`
+  - `apps/mobile/src/components/common/Input.tsx`
+  - `apps/mobile/src/components/common/Button.tsx`
+  - `apps/mobile/src/services/api.ts`
+  - `apps/mobile/app/_layout.tsx`
+  - `apps/mobile/app/(auth)/register.tsx`
+  - `apps/mobile/app/(auth)/login.tsx`
+  - `apps/mobile/app/(auth)/verify-otp.tsx`
+  - `apps/mobile/app/(tabs)/_layout.tsx`
+  - `apps/mobile/app/(tabs)/index.tsx`
+  - `apps/mobile/app/(tabs)/circles.tsx`
+  - `apps/mobile/app/(tabs)/messages.tsx`
+  - `apps/mobile/app/(tabs)/profile.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% refactor code, design tokens, locale dictionaries và cập nhật hiến pháp.
+- **Human Modifications:** Trương Công Bình trực tiếp chỉ đạo cấm hardcode ngôn ngữ và màu sắc, yêu cầu bổ sung vào Rule/DesignMD và chuẩn hóa triết lý Seamless Canvas trên mobile.
+- **Verification Method:**
+  - `npx tsc --noEmit` trong `apps/mobile`: 0 errors.
+  - `npm test -w @circle/backend`: 14/14 unit tests pass 100%.
+  - `npm run build -w @circle/web`: 9/9 static pages build thành công.
+  - `bash ./scripts/check-agent-map.sh`: 93/93 framework files pass 100%.
+- **Official Source Checked:** Apple Human Interface Guidelines (Navigation & Materials), Material Design 3 (Design Tokens), Rubric Level 5 (Gate 3, Gate 8).
+- **Security & License Check:** An toàn, không chứa credentials.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A
+  - **Resolution / Fix:** N/A
+- **Commit:** `62e507a`
+- **PR:** #58 (https://github.com/1440isme/Circle/pull/58)
+
+
 
 
 

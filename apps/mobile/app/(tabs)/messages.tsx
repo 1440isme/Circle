@@ -24,7 +24,7 @@ export default function MessagesTab() {
           style={[
             styles.emptyBox,
             {
-              backgroundColor: isDark ? colors.surface : '#FFFFFF',
+              backgroundColor: colors.surface,
               borderColor: colors.hairline,
             },
           ]}

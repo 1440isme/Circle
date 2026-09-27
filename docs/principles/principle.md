@@ -26,6 +26,9 @@ Core design philosophies and architectural rules governing all code written in C
 - **Strict Type Parity:** Mobile application must import all DTOs, domain interfaces, and socket event contracts directly from `packages/types`.
 - **Defensive Hardware Access:** Always request permissions gracefully (camera, microphone for WebRTC) with intuitive fallback states when denied.
 - **Secure Token Storage:** Store sensitive authentication tokens in hardware-backed secure storage (`expo-secure-store`).
+- **Seamless Infinite Canvas:** Mobile experience is unboxed and organic — no rigid card partitions, boxy container grids, or jarring header borders. Visual structure relies on typography hierarchy and design token spacing.
+- **Zero-Hardcode Rule:** Zero raw string literals and zero raw hex/rgba colors in components. Everything binds to shared `t.*` dictionary and `colors.*` palette tokens.
+
 
 ---
 

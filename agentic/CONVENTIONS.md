@@ -102,3 +102,21 @@ Every artifact in CIRCLE must be connected across the traceability chain:
 
 - Keep [`.agents/SITEMAP.md`](../.agents/SITEMAP.md) updated with feature coverage and test statuses (`✅ Tested`, `⚠️ Partial`, `❌ Not tested`, `🚧 WIP`).
 - When introducing or altering capabilities, update the relevant cluster in [`docs/capabilities/`](../docs/capabilities/).
+
+---
+
+## 9. Design Tokens, Localization & Seamless Canvas Conventions
+
+- **Shared Localization Protocol:**
+  - All UI strings must be added to `packages/shared/src/locales/vi.ts` (Vietnamese) and `en.ts` (English).
+  - Web components consume `useLanguageStore((s) => s.t)`.
+  - Mobile screens consume `useLanguageStore((s) => s.t)`.
+  - Never introduce localized strings directly in JSX elements.
+- **Design Tokens & Theme Invariance:**
+  - All styling colors must map to tokens in `CircleColors` (`primary`, `canvas`, `surface`, `wash`, `subtle`, `text`, `coral`, `peach`, `border`, `hairline`, `onPrimary`, `success`, `info`, `accent`).
+  - Dark mode and light mode transitions must be completely fluid without hardcoded `#FFF` or `#000` overrides.
+- **Seamless Mobile Canvas Experience:**
+  - Mobile UI is an unboxed, infinite canvas. Avoid nested rectangular box cards with thick outlines or contrasting container boxes.
+  - Headers must merge seamlessly with the screen canvas background (`colors.canvas`) without harsh divider lines.
+  - Floating controls (such as the Liquid Glass Tab Bar) float gracefully over the canvas.
+

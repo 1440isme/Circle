@@ -50,7 +50,7 @@ function CustomLiquidTabBar({
     },
     {
       name: 'circles',
-      label: t.nav.yourCircles || 'Vòng tròn',
+      label: t.nav.yourCircles,
       Icon: Users,
     },
     {
@@ -58,12 +58,12 @@ function CustomLiquidTabBar({
     },
     {
       name: 'messages',
-      label: t.nav.chatChannels || 'Tin nhắn',
+      label: t.nav.chatChannels,
       Icon: MessageSquare,
     },
     {
       name: 'profile',
-      label: t.auth.profile || 'Hồ sơ',
+      label: t.auth.profile,
       Icon: User,
     },
   ];
@@ -74,10 +74,8 @@ function CustomLiquidTabBar({
         style={[
           styles.floatingBar,
           {
-            borderColor: isDark
-              ? 'rgba(255, 255, 255, 0.16)'
-              : 'rgba(255, 255, 255, 0.85)',
-            shadowColor: isDark ? '#000000' : colors.primary,
+            borderColor: colors.glassBorder,
+            shadowColor: colors.primary,
           },
         ]}
       >
@@ -93,9 +91,7 @@ function CustomLiquidTabBar({
           style={[
             StyleSheet.absoluteFill,
             {
-              backgroundColor: isDark
-                ? 'rgba(20, 24, 22, 0.72)'
-                : 'rgba(255, 255, 255, 0.75)',
+              backgroundColor: colors.glass,
             },
           ]}
         />
@@ -109,9 +105,9 @@ function CustomLiquidTabBar({
                   <TouchableOpacity
                     onPress={onPressCreate}
                     activeOpacity={0.82}
-                    style={[styles.centerCircleButton, { backgroundColor: colors.primary }]}
+                    style={[styles.centerCircleButton, { backgroundColor: colors.primary, shadowColor: colors.primary }]}
                   >
-                    <Plus size={24} color="#FFFFFF" strokeWidth={2.8} />
+                    <Plus size={24} color={colors.onPrimary} strokeWidth={2.8} />
                   </TouchableOpacity>
                 </View>
               );
@@ -133,11 +129,7 @@ function CustomLiquidTabBar({
               }
             };
 
-            const iconColor = isFocused
-              ? colors.primary
-              : isDark
-              ? 'rgba(255, 255, 255, 0.45)'
-              : 'rgba(30, 41, 35, 0.50)';
+            const iconColor = isFocused ? colors.primary : colors.subtle;
 
             return (
               <View key={tab.name} style={styles.tabSlot}>
@@ -146,8 +138,11 @@ function CustomLiquidTabBar({
                   activeOpacity={0.75}
                   style={[
                     styles.tabButton,
-                    isFocused &&
-                      (isDark ? styles.tabActiveDark : styles.tabActiveLight),
+                    isFocused && {
+                      backgroundColor: `${colors.primary}18`,
+                      borderWidth: 1,
+                      borderColor: `${colors.primary}30`,
+                    },
                   ]}
                 >
                   <Icon
@@ -242,23 +237,23 @@ export default function TabsLayout() {
             style={[
               styles.sheetContainer,
               {
-                backgroundColor: isDark ? 'rgba(26, 32, 29, 0.94)' : 'rgba(255, 255, 255, 0.95)',
-                borderColor: isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(255, 255, 255, 0.90)',
+                backgroundColor: colors.sheetBg,
+                borderColor: colors.glassBorder,
               },
             ]}
             onPress={(e) => e.stopPropagation()}
           >
             {/* Sheet Handle */}
-            <View style={[styles.sheetHandle, { backgroundColor: colors.subtle + '40' }]} />
+            <View style={[styles.sheetHandle, { backgroundColor: colors.hairline }]} />
 
             {/* Title & Close */}
             <View style={styles.sheetHeader}>
               <View>
                 <Text style={[styles.sheetTitle, { color: colors.text }]}>
-                  Chia sẻ & Kết nối
+                  {t.composer.sheetTitle}
                 </Text>
                 <Text style={[styles.sheetSubtitle, { color: colors.subtle }]}>
-                  Chọn nội dung bạn muốn chia sẻ cùng Vòng tròn
+                  {t.composer.sheetSubtitle}
                 </Text>
               </View>
               <TouchableOpacity
@@ -277,8 +272,8 @@ export default function TabsLayout() {
                 activeOpacity={0.8}
                 onPress={() =>
                   handleCreateOption(
-                    'Đăng Khoảnh khắc',
-                    'Tính năng chụp & đăng khoảnh khắc kỷ niệm (Moment) sẽ mở khi bạn tham gia vào một Vòng tròn!',
+                    t.composer.momentAlertTitle,
+                    t.composer.momentAlertDesc,
                   )
                 }
               >
@@ -287,10 +282,10 @@ export default function TabsLayout() {
                 </View>
                 <View style={styles.optionContent}>
                   <Text style={[styles.optionTitle, { color: colors.text }]}>
-                    Khoảnh khắc nhanh (Moment)
+                    {t.composer.momentTitle}
                   </Text>
                   <Text style={[styles.optionDesc, { color: colors.subtle }]}>
-                    Chụp hoặc tải ảnh kỷ niệm tức thì cho nhóm
+                    {t.composer.momentDesc}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -301,8 +296,8 @@ export default function TabsLayout() {
                 activeOpacity={0.8}
                 onPress={() =>
                   handleCreateOption(
-                    'Hộp thư Điều muốn nói',
-                    'Tính năng gửi tâm sự ẩn danh hoặc lời nhắn ấm áp sẽ sẵn sàng trong Module 3!',
+                    t.composer.reflectionAlertTitle,
+                    t.composer.reflectionAlertDesc,
                   )
                 }
               >
@@ -311,10 +306,10 @@ export default function TabsLayout() {
                 </View>
                 <View style={styles.optionContent}>
                   <Text style={[styles.optionTitle, { color: colors.text }]}>
-                    Điều muốn nói (Reflection)
+                    {t.composer.reflectionTitle}
                   </Text>
                   <Text style={[styles.optionDesc, { color: colors.subtle }]}>
-                    Gửi tâm sự, lời nhắn nhủ ấm áp ẩn danh
+                    {t.composer.reflectionDesc}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -325,20 +320,20 @@ export default function TabsLayout() {
                 activeOpacity={0.8}
                 onPress={() =>
                   handleCreateOption(
-                    'Tạo Vòng tròn',
-                    t.home.createCirclePrompt || 'Tính năng tạo Vòng tròn mới sẽ mở trong bản phát hành Module 3.',
+                    t.composer.newCircleAlertTitle,
+                    t.home.createCirclePrompt,
                   )
                 }
               >
                 <View style={[styles.optionIconBox, { backgroundColor: `${colors.peach}40` }]}>
-                  <Sparkles size={22} color="#D97706" />
+                  <Sparkles size={22} color={colors.warning} />
                 </View>
                 <View style={styles.optionContent}>
                   <Text style={[styles.optionTitle, { color: colors.text }]}>
-                    Tạo Vòng tròn mới (New Circle)
+                    {t.composer.newCircleTitle}
                   </Text>
                   <Text style={[styles.optionDesc, { color: colors.subtle }]}>
-                    Khởi tạo không gian kết nối nhóm riêng tư
+                    {t.composer.newCircleDesc}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -349,8 +344,8 @@ export default function TabsLayout() {
                 activeOpacity={0.8}
                 onPress={() =>
                   handleCreateOption(
-                    'Lịch hẹn nhóm',
-                    'Lên lịch hẹn và bình chọn thời gian gặp gỡ sẽ mở trong Module Tiện ích Nhóm!',
+                    t.composer.eventAlertTitle,
+                    t.composer.eventAlertDesc,
                   )
                 }
               >
@@ -359,10 +354,10 @@ export default function TabsLayout() {
                 </View>
                 <View style={styles.optionContent}>
                   <Text style={[styles.optionTitle, { color: colors.text }]}>
-                    Lịch hẹn & Sự kiện
+                    {t.composer.eventTitle}
                   </Text>
                   <Text style={[styles.optionDesc, { color: colors.subtle }]}>
-                    Lên kế hoạch gặp gỡ hoặc sự kiện chung
+                    {t.composer.eventDesc}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -415,16 +410,6 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     gap: 3,
   },
-  tabActiveLight: {
-    backgroundColor: 'rgba(59, 122, 87, 0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(59, 122, 87, 0.20)',
-  },
-  tabActiveDark: {
-    backgroundColor: 'rgba(107, 189, 142, 0.16)',
-    borderWidth: 1,
-    borderColor: 'rgba(107, 189, 142, 0.28)',
-  },
   tabLabel: {
     fontSize: 10,
     letterSpacing: -0.2,
@@ -435,7 +420,6 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#3B7A57',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 8,

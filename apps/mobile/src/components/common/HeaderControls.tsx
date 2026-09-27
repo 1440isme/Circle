@@ -27,7 +27,7 @@ export const HeaderControls: React.FC = () => {
     return isDark ? (
       <Moon size={16} color={colors.primary} />
     ) : (
-      <Sun size={16} color="#E89D71" />
+      <Sun size={16} color={colors.peach} />
     );
   };
 
@@ -40,12 +40,8 @@ export const HeaderControls: React.FC = () => {
         style={[
           styles.circleBtn,
           {
-            backgroundColor: isDark
-              ? 'rgba(255, 255, 255, 0.08)'
-              : 'rgba(0, 0, 0, 0.04)',
-            borderColor: isDark
-              ? 'rgba(255, 255, 255, 0.12)'
-              : 'rgba(0, 0, 0, 0.06)',
+            backgroundColor: colors.wash,
+            borderColor: colors.hairline,
           },
         ]}
       >
@@ -59,12 +55,8 @@ export const HeaderControls: React.FC = () => {
         style={[
           styles.circleBtn,
           {
-            backgroundColor: isDark
-              ? 'rgba(255, 255, 255, 0.08)'
-              : 'rgba(0, 0, 0, 0.04)',
-            borderColor: isDark
-              ? 'rgba(255, 255, 255, 0.12)'
-              : 'rgba(0, 0, 0, 0.06)',
+            backgroundColor: colors.wash,
+            borderColor: colors.hairline,
           },
         ]}
       >

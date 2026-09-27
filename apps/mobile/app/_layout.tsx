@@ -46,12 +46,12 @@ function RootNavigator() {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: colors.canvas }]}>
         <View style={[styles.logoBadge, { backgroundColor: colors.primary }]}>
-          <Text style={styles.logoBadgeText}>C</Text>
+          <Text style={[styles.logoBadgeText, { color: colors.onPrimary }]}>C</Text>
         </View>
         <View style={styles.loadingInfo}>
           <ActivityIndicator size="small" color={colors.primary} />
           <Text style={[styles.loadingText, { color: colors.subtle }]}>
-            {t.home.connectingCircle || 'Connecting to CIRCLE...'}
+            {t.home.connectingCircle}
           </Text>
         </View>
       </View>
@@ -98,7 +98,6 @@ const styles = StyleSheet.create({
   logoBadgeText: {
     fontSize: 28,
     fontWeight: '800',
-    color: '#FFFFFF',
   },
   loadingInfo: {
     flexDirection: 'row',

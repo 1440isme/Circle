@@ -15,13 +15,9 @@ import {
   ShieldCheck,
   Compass,
   Radio,
-  Calendar,
   UserCheck,
   Camera,
   Image as ImageIcon,
-  Heart,
-  MessageCircle,
-  Share2,
 } from 'lucide-react-native';
 import { useThemeStore } from '../../src/stores/theme.store';
 import { useLanguageStore } from '../../src/stores/language.store';
@@ -45,30 +41,30 @@ export default function HomeScreen() {
   const roleLabel = user?.globalRole === 'ADMIN' ? t.auth.admin : t.auth.member;
 
   const handleAction = (msg: string) => {
-    Alert.alert(t.common.appName || 'CIRCLE', msg);
+    Alert.alert(t.common.appName, msg);
   };
 
-  // Sample native social circles for horizontal rail
+  // Sample native social circles for horizontal rail (bound to theme tokens and shared locales)
   const sampleCircles = [
     { id: 'new', name: t.home.createCircleBtn, isAdd: true },
-    { id: '1', name: 'Gia đình nhỏ', initial: 'GĐ', color: '#10B981', members: 4 },
-    { id: '2', name: 'Hội bạn thân', initial: 'BT', color: '#3B82F6', members: 6 },
-    { id: '3', name: 'Đồ án Tốt nghiệp', initial: 'TN', color: '#8B5CF6', members: 2 },
-    { id: '4', name: 'CLB Cầu lông', initial: 'CL', color: '#F59E0B', members: 12 },
+    { id: '1', name: t.home.sampleCircleFamily, initial: 'GĐ', color: colors.success, members: 4 },
+    { id: '2', name: t.home.sampleCircleFriends, initial: 'BT', color: colors.info, members: 6 },
+    { id: '3', name: t.home.sampleCircleThesis, initial: 'TN', color: colors.accent, members: 2 },
+    { id: '4', name: t.home.sampleCircleBadminton, initial: 'CL', color: colors.warning, members: 12 },
   ];
 
   return (
     <View style={[styles.container, { backgroundColor: colors.canvas }]}>
-      {/* Top Header - Seamless with Canvas (No Border) */}
+      {/* Top Header - Seamless with Canvas (No Border Partition) */}
       <View style={[styles.headerBar, { backgroundColor: colors.canvas }]}>
         <View style={styles.brandGroup}>
           <View style={[styles.logoPill, { backgroundColor: colors.primary }]}>
-            <Text style={styles.logoText}>C</Text>
+            <Text style={[styles.logoText, { color: colors.onPrimary }]}>C</Text>
           </View>
           <View>
-            <Text style={[styles.brandText, { color: colors.text }]}>CIRCLE</Text>
+            <Text style={[styles.brandText, { color: colors.text }]}>{t.common.appName}</Text>
             <View style={styles.statusRow}>
-              <View style={[styles.onlineDot, { backgroundColor: '#10B981' }]} />
+              <View style={[styles.onlineDot, { backgroundColor: colors.success }]} />
               <Text style={[styles.subBrandText, { color: colors.subtle }]}>
                 {displayName}
               </Text>
@@ -83,7 +79,7 @@ export default function HomeScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Native Circles Rail (Stories-like Horizontal Strip) */}
+        {/* Native Circles Rail (Stories-like Horizontal Strip on Infinite Canvas) */}
         <View style={styles.circlesRailSection}>
           <ScrollView
             horizontal
@@ -122,18 +118,22 @@ export default function HomeScreen() {
                   key={circle.id}
                   activeOpacity={0.8}
                   onPress={() =>
-                    handleAction(`Vòng tròn ${circle.name} (${circle.members} thành viên)`)
+                    handleAction(
+                      `${t.home.circleLabel} ${circle.name} (${t.home.circleMembersCount.replace('{count}', String(circle.members))})`,
+                    )
                   }
                   style={styles.circleRailItem}
                 >
                   <View
                     style={[
                       styles.circleAvatarRing,
-                      { borderColor: isDark ? colors.hairline : 'rgba(0,0,0,0.08)' },
+                      { borderColor: colors.hairline },
                     ]}
                   >
                     <View style={[styles.circleAvatarInner, { backgroundColor: circle.color }]}>
-                      <Text style={styles.circleAvatarText}>{circle.initial}</Text>
+                      <Text style={[styles.circleAvatarText, { color: colors.onPrimary }]}>
+                        {circle.initial}
+                      </Text>
                     </View>
                   </View>
                   <Text
@@ -148,20 +148,20 @@ export default function HomeScreen() {
           </ScrollView>
         </View>
 
-        {/* Quick Composer Bar */}
+        {/* Quick Composer Bar - Unboxed Seamless Pill */}
         <TouchableOpacity
           activeOpacity={0.85}
           onPress={() => handleAction(t.home.composerPlaceholder)}
           style={[
             styles.composerBar,
             {
-              backgroundColor: isDark ? colors.surface : '#FFFFFF',
-              borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+              backgroundColor: colors.surface,
+              borderColor: colors.hairline,
             },
           ]}
         >
           <View style={[styles.composerAvatar, { backgroundColor: colors.primary }]}>
-            <Text style={styles.composerAvatarText}>{initials}</Text>
+            <Text style={[styles.composerAvatarText, { color: colors.onPrimary }]}>{initials}</Text>
           </View>
           <Text style={[styles.composerPlaceholder, { color: colors.subtle }]}>
             {t.home.composerPlaceholder}
@@ -172,61 +172,46 @@ export default function HomeScreen() {
           </View>
         </TouchableOpacity>
 
-        {/* Welcome Hero Card */}
-        <View
-          style={[
-            styles.heroCard,
-            {
-              backgroundColor: isDark ? colors.surface : '#FFFFFF',
-              borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)',
-            },
-          ]}
-        >
-          <View style={styles.heroTop}>
-            <View style={[styles.avatarBox, { backgroundColor: colors.primary }]}>
-              <Text style={styles.avatarText}>{initials}</Text>
-            </View>
-            <View style={styles.heroInfo}>
-              <View style={[styles.tagPill, { backgroundColor: `${colors.primary}18` }]}>
-                <Sparkles size={11} color={colors.primary} />
-                <Text style={[styles.tagText, { color: colors.primary }]}>
-                  {t.home.createFirstCirclePrompt}
-                </Text>
-              </View>
-              <Text style={[styles.welcomeTitle, { color: colors.text }]}>
-                {t.home.welcomeTitle.replace('{name}', displayName)}
-              </Text>
-              <Text style={[styles.welcomeSubtitle, { color: colors.subtle }]}>
-                {t.home.welcomeSubtitle}
-              </Text>
-            </View>
+        {/* Welcome Section - Seamless Canvas (Unboxed, Organic Flow) */}
+        <View style={styles.welcomeSection}>
+          <View style={[styles.tagPill, { backgroundColor: colors.wash }]}>
+            <Sparkles size={12} color={colors.primary} />
+            <Text style={[styles.tagText, { color: colors.primary }]}>
+              {t.home.createFirstCirclePrompt}
+            </Text>
           </View>
+          <Text style={[styles.welcomeTitle, { color: colors.text }]}>
+            {t.home.welcomeTitle.replace('{name}', displayName)}
+          </Text>
+          <Text style={[styles.welcomeSubtitle, { color: colors.subtle }]}>
+            {t.home.welcomeSubtitle}
+          </Text>
 
-          {/* Action Buttons */}
-          <View style={[styles.actionsRow, { borderTopColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' }]}>
+          {/* Action Chips */}
+          <View style={styles.actionsRow}>
             <TouchableOpacity
-              activeOpacity={0.8}
+              activeOpacity={0.85}
               onPress={() => handleAction(t.home.createCirclePrompt)}
               style={[styles.primaryActionBtn, { backgroundColor: colors.primary }]}
             >
-              <Plus size={15} color="#FFFFFF" strokeWidth={2.4} />
-              <Text style={styles.primaryActionText}>
+              <Plus size={16} color={colors.onPrimary} strokeWidth={2.4} />
+              <Text style={[styles.primaryActionText, { color: colors.onPrimary }]}>
                 {t.home.createCircleBtn}
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              activeOpacity={0.8}
+              activeOpacity={0.85}
               onPress={() => handleAction(t.home.inviteCodePrompt)}
               style={[
                 styles.secondaryActionBtn,
                 {
                   backgroundColor: colors.wash,
-                  borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+                  borderColor: colors.hairline,
                 },
               ]}
             >
-              <KeyRound size={14} color={colors.text} />
+              <KeyRound size={15} color={colors.text} />
               <Text style={[styles.secondaryActionText, { color: colors.text }]}>
                 {t.home.joinWithCodeBtn}
               </Text>
@@ -234,18 +219,10 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Empty Feed State */}
-        <View
-          style={[
-            styles.feedCard,
-            {
-              backgroundColor: isDark ? colors.surface : '#FFFFFF',
-              borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)',
-            },
-          ]}
-        >
+        {/* Empty Feed State - Unboxed Clean Canvas */}
+        <View style={styles.feedEmptySection}>
           <View style={[styles.feedIconBox, { backgroundColor: colors.wash }]}>
-            <Compass size={28} color={colors.primary} />
+            <Compass size={32} color={colors.primary} />
           </View>
           <Text style={[styles.feedTitle, { color: colors.text }]}>
             {t.home.feedEmptyTitle}
@@ -259,8 +236,8 @@ export default function HomeScreen() {
             style={[
               styles.shieldBadge,
               {
-                backgroundColor: `${colors.primary}12`,
-                borderColor: `${colors.primary}25`,
+                backgroundColor: colors.wash,
+                borderColor: colors.hairline,
               },
             ]}
           >
@@ -271,31 +248,13 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Account Info Pill */}
-        <View
-          style={[
-            styles.accountPill,
-            {
-              backgroundColor: isDark ? colors.surface : '#FFFFFF',
-              borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)',
-            },
-          ]}
-        >
-          <View style={styles.accountLeft}>
-            <UserCheck size={16} color={colors.primary} />
-            <Text style={[styles.roleText, { color: colors.text }]}>
-              {roleLabel} · {user?.email}
-            </Text>
-          </View>
-        </View>
-
-        {/* Voice Stage Status Card */}
+        {/* Voice Stage Status Banner - Seamless Wash Pill */}
         <View
           style={[
             styles.stageCard,
             {
               backgroundColor: colors.wash,
-              borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
+              borderColor: colors.hairline,
             },
           ]}
         >
@@ -311,6 +270,24 @@ export default function HomeScreen() {
           <Text style={[styles.stageSubtitle, { color: colors.subtle }]}>
             {t.home.voiceStageReadyHint}
           </Text>
+        </View>
+
+        {/* Account Info Pill */}
+        <View
+          style={[
+            styles.accountPill,
+            {
+              backgroundColor: colors.wash,
+              borderColor: colors.hairline,
+            },
+          ]}
+        >
+          <View style={styles.accountLeft}>
+            <UserCheck size={16} color={colors.primary} />
+            <Text style={[styles.roleText, { color: colors.text }]}>
+              {roleLabel} · {user?.email}
+            </Text>
+          </View>
         </View>
       </ScrollView>
     </View>
@@ -328,7 +305,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    // Seamless with canvas: No border line
   },
   brandGroup: {
     flexDirection: 'row',
@@ -345,7 +321,6 @@ const styles = StyleSheet.create({
   logoText: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#FFFFFF',
   },
   brandText: {
     fontSize: 17,
@@ -368,17 +343,17 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   scrollContent: {
-    paddingHorizontal: 18,
+    paddingHorizontal: 20,
     paddingTop: 8,
     paddingBottom: 110,
-    gap: 14,
+    gap: 18,
   },
   circlesRailSection: {
-    marginHorizontal: -18,
+    marginHorizontal: -20,
     paddingBottom: 4,
   },
   circlesRailContent: {
-    paddingHorizontal: 18,
+    paddingHorizontal: 20,
     gap: 14,
     alignItems: 'center',
   },
@@ -399,7 +374,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    borderWidth: 2,
+    borderWidth: 1.5,
     padding: 2,
     alignItems: 'center',
     justifyContent: 'center',
@@ -412,7 +387,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   circleAvatarText: {
-    color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '700',
   },
@@ -425,15 +399,10 @@ const styles = StyleSheet.create({
   composerBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 24,
+    borderRadius: 26,
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 4,
-    elevation: 1,
     gap: 12,
   },
   composerAvatar: {
@@ -446,127 +415,93 @@ const styles = StyleSheet.create({
   composerAvatarText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#FFFFFF',
   },
   composerPlaceholder: {
     flex: 1,
     fontSize: 13,
+    fontWeight: '500',
   },
   composerIcons: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
   },
-  heroCard: {
-    borderRadius: 24,
-    padding: 18,
-    borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  heroTop: {
-    flexDirection: 'row',
-    gap: 14,
-  },
-  avatarBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
-  heroInfo: {
-    flex: 1,
+  welcomeSection: {
+    paddingVertical: 8,
+    gap: 6,
   },
   tagPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 12,
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 14,
     alignSelf: 'flex-start',
-    marginBottom: 6,
+    marginBottom: 4,
   },
   tagText: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '700',
   },
   welcomeTitle: {
-    fontSize: 17,
+    fontSize: 24,
     fontWeight: '800',
-    letterSpacing: -0.3,
-    lineHeight: 22,
-    marginBottom: 4,
+    letterSpacing: -0.6,
+    lineHeight: 30,
   },
   welcomeSubtitle: {
-    fontSize: 12,
-    lineHeight: 18,
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 8,
   },
   actionsRow: {
     flexDirection: 'row',
     gap: 10,
-    marginTop: 14,
-    paddingTop: 14,
-    borderTopWidth: 1,
+    marginTop: 6,
   },
   primaryActionBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 11,
-    borderRadius: 14,
-    gap: 6,
+    height: 48,
+    borderRadius: 24,
+    gap: 8,
   },
   primaryActionText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
-    color: '#FFFFFF',
   },
   secondaryActionBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 11,
-    borderRadius: 14,
+    height: 48,
+    borderRadius: 24,
     borderWidth: 1,
-    gap: 6,
+    gap: 8,
   },
   secondaryActionText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
   },
-  feedCard: {
-    borderRadius: 24,
-    padding: 24,
+  feedEmptySection: {
     alignItems: 'center',
-    borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 8,
-    elevation: 2,
+    paddingVertical: 20,
+    paddingHorizontal: 16,
   },
   feedIconBox: {
-    width: 56,
-    height: 56,
-    borderRadius: 20,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
   },
   feedTitle: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '800',
     letterSpacing: -0.3,
     marginBottom: 6,
@@ -582,7 +517,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 20,
     borderWidth: 1,
@@ -592,15 +527,10 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   accountPill: {
-    borderRadius: 16,
+    borderRadius: 18,
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.02,
-    shadowRadius: 4,
-    elevation: 1,
   },
   accountLeft: {
     flexDirection: 'row',
