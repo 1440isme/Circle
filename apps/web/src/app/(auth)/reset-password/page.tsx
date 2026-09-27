@@ -62,7 +62,6 @@ function ResetPasswordContent() {
         email: validation.data.email,
         otp: validation.data.otp,
         newPassword: validation.data.newPassword,
-        confirmPassword: validation.data.confirmPassword,
       });
       setSuccessMsg(res?.message || t.auth.resetPasswordSuccess);
       setTimeout(() => {

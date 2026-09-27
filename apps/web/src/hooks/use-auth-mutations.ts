@@ -17,6 +17,7 @@ import {
   RegisterPayload,
   resendOtpApi,
   resetPasswordApi,
+  ResetPasswordPayload,
   verifyOtpApi,
 } from '../lib/auth';
 import { useAuthStore } from '../stores/auth.store';
@@ -84,7 +85,8 @@ export function useForgotPasswordMutation() {
 
 export function useResetPasswordMutation() {
   return useMutation({
-    mutationFn: (payload: ResetPasswordInput) => resetPasswordApi(payload),
+    mutationFn: (payload: ResetPasswordPayload | ResetPasswordInput) =>
+      resetPasswordApi(payload),
   });
 }
 

@@ -43,6 +43,12 @@ export const LanguageSwitcher: React.FC<{ compact?: boolean }> = ({ compact = fa
               <button
                 key={l.code}
                 type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setLocale(l.code);
+                  setIsOpen(false);
+                }}
                 onClick={() => {
                   setLocale(l.code);
                   setIsOpen(false);
