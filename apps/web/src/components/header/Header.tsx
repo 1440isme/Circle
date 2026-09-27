@@ -47,7 +47,7 @@ export const Header: React.FC = () => {
         <div className="h-4 w-px bg-circle-hairline dark:bg-circle-dark-hairline" />
         <div className="flex items-center gap-2 rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas px-3 py-1 text-sm font-medium text-circle-charcoal dark:text-circle-dark-text">
           <span className="flex h-2 w-2 rounded-full bg-circle-primary animate-presence-breathe" />
-          <span>{t.nav.activeCircle}</span>
+          <span>{t.nav.noActiveCircle}</span>
           <Shield className="h-3.5 w-3.5 text-circle-sage" />
         </div>
       </div>

@@ -48,30 +48,47 @@ const NavItem: React.FC<NavItemProps> = ({ icon, label, count, active }) => (
 export const Sidebar: React.FC = () => {
   const t = useLanguageStore((s) => s.t);
 
+  const handleActionNotice = (msg: string) => {
+    alert(msg);
+  };
+
   return (
     <aside className="hidden md:flex w-72 flex-col gap-6 border-r border-circle-hairline dark:border-circle-dark-hairline bg-white/50 dark:bg-circle-dark-surface/50 p-5 backdrop-blur-sm h-[calc(100vh-4rem)] sticky top-16 overflow-y-auto transition-colors">
       {/* Circle Switcher Card */}
-      <div className="rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-3.5 shadow-circle-card">
+      <div className="rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-3.5 shadow-circle-card transition-colors">
         <div className="flex items-center justify-between mb-3">
           <span className="text-xs font-semibold tracking-wider text-circle-slate dark:text-circle-dark-muted uppercase">
             {t.nav.yourCircles}
           </span>
-          <button className="flex h-6 w-6 items-center justify-center rounded-full bg-circle-canvas dark:bg-circle-dark-canvas text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash hover:text-circle-sage transition-colors">
+          <button
+            onClick={() => handleActionNotice(t.home.createCirclePrompt)}
+            className="flex h-6 w-6 items-center justify-center rounded-full bg-circle-canvas dark:bg-circle-dark-canvas text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash hover:text-circle-sage dark:hover:text-circle-primary transition-colors"
+            title={t.nav.createCircle}
+          >
             <Plus className="h-3.5 w-3.5" />
           </button>
         </div>
-        <div className="flex items-center gap-3 rounded-xl bg-circle-canvas dark:bg-circle-dark-canvas p-2">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-circle-primary/20 text-circle-sage font-bold">
-            🍂
+
+        {/* Clean Empty Circle State */}
+        <div className="flex flex-col gap-2.5 rounded-xl border border-dashed border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas/60 p-3 text-center">
+          <div className="mx-auto flex h-9 w-9 items-center justify-center rounded-full bg-circle-primary/10 text-circle-sage dark:text-circle-primary">
+            <HeartHandshake className="h-4 w-4" />
           </div>
-          <div className="flex-1 min-w-0">
-            <h4 className="text-sm font-semibold text-circle-charcoal dark:text-circle-dark-text truncate">
-              {t.nav.activeCircle}
+          <div>
+            <h4 className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text">
+              {t.nav.noActiveCircle}
             </h4>
-            <p className="text-xs text-circle-slate dark:text-circle-dark-muted">
-              {t.nav.membersCount.replace('{total}', '8').replace('{online}', '4')}
+            <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted mt-0.5 leading-snug">
+              {t.home.emptyCirclesTitle}
             </p>
           </div>
+          <button
+            type="button"
+            onClick={() => handleActionNotice(t.home.createCirclePrompt)}
+            className="w-full rounded-lg bg-circle-charcoal dark:bg-circle-primary py-1.5 text-xs font-medium text-white dark:text-circle-charcoal shadow-sm hover:bg-circle-sage hover:text-white transition-all active:scale-98"
+          >
+            + {t.home.createCircleBtn}
+          </button>
         </div>
       </div>
 
@@ -80,7 +97,7 @@ export const Sidebar: React.FC = () => {
         <span className="px-4 text-xs font-semibold tracking-wider text-circle-slate dark:text-circle-dark-muted uppercase mb-1">
           {t.nav.chatChannels}
         </span>
-        <NavItem icon={<MessageSquare className="h-4 w-4" />} label={t.nav.generalDiscussion} count={3} active />
+        <NavItem icon={<MessageSquare className="h-4 w-4" />} label={t.nav.generalDiscussion} active />
         <NavItem icon={<HeartHandshake className="h-4 w-4" />} label={t.nav.confessionCorner} />
       </div>
 
@@ -89,7 +106,7 @@ export const Sidebar: React.FC = () => {
         <span className="px-4 text-xs font-semibold tracking-wider text-circle-slate dark:text-circle-dark-muted uppercase mb-1">
           {t.nav.groupTools}
         </span>
-        <NavItem icon={<ImageIcon className="h-4 w-4" />} label={t.nav.photoAlbum} count={24} />
+        <NavItem icon={<ImageIcon className="h-4 w-4" />} label={t.nav.photoAlbum} />
         <NavItem icon={<Calendar className="h-4 w-4" />} label={t.nav.calendarEvents} />
         <NavItem icon={<FileSpreadsheet className="h-4 w-4" />} label={t.nav.planningSheet} />
         <NavItem icon={<Compass className="h-4 w-4" />} label={t.nav.luckyWheel} />
