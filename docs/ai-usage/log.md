@@ -1247,3 +1247,50 @@
   - **Resolution / Fix:** N/A
 - **Commit:** `403d8b1`
 - **PR:** #51 (https://github.com/1440isme/Circle/pull/51)
+
+---
+
+## AI-0034: Authenticated Home Feed Guard, Clean Real-User State & SMTP Mailer Configuration
+
+- **Date:** 2026-09-27 13:52:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #52 (US-WEB-003 — Authenticated Home Feed Guard, Clean Real-User State & SMTP Mailer Configuration)
+- **Purpose:**
+  1. Hướng dẫn và cấu hình biến môi trường SMTP Mailer trong `.env.example` và `apps/backend/.env` cho phép tùy biến gửi OTP qua email thật hoặc tự động fallback Stream Mailer log ra terminal khi chạy local.
+  2. Bổ sung chế độ Dark Mode (`dark:*`) hoàn chỉnh cho `LanguageSwitcher.tsx` trên Header của cụm màn hình xác thực `/(auth)` và trang chủ.
+  3. Bọc bảo vệ Trang chủ (`apps/web/src/app/page.tsx`) bằng `<AuthGuard mode="require-auth">`, chặn triệt để hành vi tự động load dữ liệu trang chủ khi chưa đăng nhập, tự động điều hướng khách sang `/login?redirect=/`.
+  4. Loại bỏ 100% dữ liệu mock cứng ("Kỷ Niệm Mùa Thu 🍂", các bài viết và thành viên giả định) trong `FeedStream.tsx`, `Sidebar.tsx`, `PresenceRail.tsx`.
+  5. Xây dựng Welcome Hero Dashboard chuẩn Apple HIG / Google Stitch lấy dữ liệu người dùng thật (`useAuth()`), kèm trạng thái rỗng (Empty States) tinh gọn, thanh thoát, sẵn sàng cho Module 3 (Circle Membership) và Module 4 (Feed & Posts).
+  6. Đồng bộ hóa toàn diện từ điển song ngữ Anh - Việt (`packages/shared/src/locales/vi.ts` & `en.ts`).
+- **Prompt Summary:** "gửi otp bằng cách nào, tôi chưa thấy chỗ nào cho việc điền thông tin mail để làm mail gửi cả, ui ở header ngoài trang đăng ký đăng nhập chưa chuyển được sáng tối ngôn ngữ, ở trang chủ thì ok, và làm lại trang chủ chuẩn chỉnh k hardcode hay mock data nữa nhé, và k tự động load trang chủ nếu chưa đăng nhập"
+- **Files Affected:**
+  - `.env.example`
+  - `apps/backend/.env`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `apps/web/src/components/common/LanguageSwitcher.tsx`
+  - `apps/web/src/components/auth/AuthGuard.tsx`
+  - `apps/web/src/app/page.tsx`
+  - `apps/web/src/components/header/Header.tsx`
+  - `apps/web/src/components/navigation/Sidebar.tsx`
+  - `apps/web/src/components/stream/FeedStream.tsx`
+  - `apps/web/src/components/presence/PresenceRail.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% mã nguồn cấu hình, sửa đổi styling dark mode, AuthGuard wrapper, dọn dẹp mock data và bổ sung bản dịch i18n.
+- **Human Modifications:** Trương Công Bình trực tiếp phản hồi về việc thiếu cấu hình SMTP để gửi mail thật, phát hiện lỗi dark mode ở LanguageSwitcher trên Header Auth, và yêu cầu bảo vệ trang chủ cùng việc loại bỏ hoàn toàn mock data.
+- **Verification Method:**
+  - `npm test -w @circle/backend`: 14/14 unit tests pass 100%.
+  - `npm run build -w @circle/shared`: Typecheck & compile pass.
+  - `npm run build -w @circle/web`: Next.js 14 biên dịch thành công 9/9 trang tĩnh.
+  - `npm run lint -w @circle/web`: 0 errors, 0 warnings.
+  - `./scripts/check-agent-map.sh`: 93 file framework markdown liên kết hợp lệ 100%.
+- **Official Source Checked:** Next.js App Router Authentication Patterns, Apple Human Interface Guidelines, Nodemailer SMTP transport specification.
+- **Security & License Check:** An toàn, các biến mật khẩu SMTP trong file mẫu đều để trống, không lưu credentials vào repository.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** Khi chạy build web lần đầu, `FeedStream.tsx` gọi `t.home.createFirstCirclePrompt` nhưng key này chưa được khai báo trong từ điển shared, dẫn tới lỗi typecheck Next.js build.
+  - **Root Cause:** Khai báo thiếu một key translation trong `vi.ts` và `en.ts`.
+  - **Resolution / Fix:** Bổ sung key `createFirstCirclePrompt` vào cả `vi.ts` và `en.ts`, build lại `@circle/shared` và `@circle/web` thành công trơn tru.
+- **Commit:** `6b53555`
+- **PR:** Pending

@@ -1,105 +1,95 @@
 'use client';
 
 import React from 'react';
-import { Calendar, Users, Video, Clock } from 'lucide-react';
+import { Calendar, Radio, Video, ShieldCheck, UserCheck } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { useLanguageStore } from '../../stores/language.store';
 
-interface MemberProps {
-  name: string;
-  role: string;
-  online: boolean;
-  avatarBg: string;
-  initials: string;
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-const MemberItem: React.FC<MemberProps> = ({ name, role, online, avatarBg, initials }) => (
-  <div className="flex items-center justify-between rounded-xl p-2 hover:bg-circle-canvas transition-colors">
-    <div className="flex items-center gap-3">
-      <div className="relative">
-        <div className={`flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold ${avatarBg}`}>
-          {initials}
-        </div>
-        {online && (
-          <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white bg-circle-primary animate-presence-breathe" />
-        )}
-      </div>
-      <div>
-        <h5 className="text-sm font-semibold text-circle-charcoal">{name}</h5>
-        <p className="text-xs text-circle-slate">{role}</p>
-      </div>
-    </div>
-  </div>
-);
-
 export const PresenceRail: React.FC = () => {
+  const { user } = useAuth();
+  const t = useLanguageStore((s) => s.t);
+
+  const displayName = user?.profile?.displayName || user?.email?.split('@')[0] || t.auth.guest;
+  const initials = getInitials(displayName);
+  const roleLabel = user?.globalRole === 'ADMIN' ? t.auth.admin : t.auth.member;
+
   return (
-    <aside className="hidden xl:flex w-80 flex-col gap-6 border-l border-circle-hairline bg-white/50 p-5 backdrop-blur-sm h-[calc(100vh-4rem)] sticky top-16 overflow-y-auto">
-      {/* Quick Call Stage Launcher (Liquid Glass preview) */}
-      <div className="rounded-2xl border border-circle-hairline bg-gradient-to-br from-circle-primary/10 to-circle-wash p-4 shadow-circle-card">
-        <div className="flex items-center gap-2 mb-2">
-          <span className="flex h-2.5 w-2.5 rounded-full bg-circle-primary animate-presence-breathe" />
-          <span className="text-xs font-semibold text-circle-sage uppercase tracking-wider">
-            Phòng Thoại Đang Mở
+    <aside className="hidden xl:flex w-80 flex-col gap-6 border-l border-circle-hairline dark:border-circle-dark-hairline bg-white/50 dark:bg-circle-dark-surface/50 p-5 backdrop-blur-sm h-[calc(100vh-4rem)] sticky top-16 overflow-y-auto transition-colors">
+      {/* Real User Profile Status Card */}
+      <div className="rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-4 shadow-circle-card transition-colors">
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-xs font-semibold uppercase tracking-wider text-circle-slate dark:text-circle-dark-muted">
+            {t.home.yourProfileCard}
+          </span>
+          <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-presence-breathe" />
+            <span>{t.home.onlineStatus}</span>
           </span>
         </div>
-        <h4 className="text-sm font-bold text-circle-charcoal mb-1">Kỷ Niệm Mùa Thu — Stage</h4>
-        <p className="text-xs text-circle-slate mb-3">4 thành viên đang kết nối âm thanh</p>
-        <button className="flex w-full items-center justify-center gap-2 rounded-full bg-circle-sage py-2 px-4 text-xs font-semibold text-white shadow-sm hover:bg-circle-charcoal transition-colors">
+
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-circle-charcoal dark:bg-circle-primary text-white dark:text-circle-charcoal text-sm font-bold shadow-sm">
+              {initials}
+            </div>
+          </div>
+          <div className="min-w-0 flex-1">
+            <h4 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text truncate">
+              {displayName}
+            </h4>
+            <div className="flex items-center gap-1.5 text-xs text-circle-slate dark:text-circle-dark-muted truncate">
+              <UserCheck className="h-3 w-3 text-circle-sage dark:text-circle-primary" />
+              <span>{roleLabel}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-3 pt-3 border-t border-circle-hairline/80 dark:border-circle-dark-hairline flex items-center gap-1.5 text-[11px] text-circle-slate dark:text-circle-dark-muted">
+          <ShieldCheck className="h-3.5 w-3.5 text-circle-sage" />
+          <span className="truncate">{user?.email}</span>
+        </div>
+      </div>
+
+      {/* Voice & Video Stage Status (Clean Empty State) */}
+      <div className="rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-gradient-to-br from-circle-primary/5 via-white dark:via-circle-dark-surface to-circle-canvas dark:to-circle-dark-canvas p-4 shadow-circle-card transition-colors">
+        <div className="flex items-center gap-2 mb-2">
+          <Radio className="h-3.5 w-3.5 text-circle-slate dark:text-circle-dark-muted" />
+          <span className="text-xs font-semibold text-circle-slate dark:text-circle-dark-muted uppercase tracking-wider">
+            {t.home.realtimeVoiceStage}
+          </span>
+        </div>
+        <h4 className="text-sm font-semibold text-circle-charcoal dark:text-circle-dark-text mb-1">
+          {t.home.noVoiceStageOpen}
+        </h4>
+        <p className="text-xs text-circle-slate dark:text-circle-dark-muted mb-3 leading-relaxed">
+          {t.home.voiceStageReadyHint}
+        </p>
+        <button
+          type="button"
+          disabled
+          className="flex w-full items-center justify-center gap-2 rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas py-2 px-4 text-xs font-medium text-circle-slate dark:text-circle-dark-muted cursor-not-allowed opacity-60"
+        >
           <Video className="h-3.5 w-3.5" />
-          <span>Tham gia cùng nhóm</span>
+          <span>{t.nav.groupCall}</span>
         </button>
       </div>
 
-      {/* Online Group Members */}
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between px-2 mb-1">
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-circle-slate uppercase tracking-wider">
-            <Users className="h-3.5 w-3.5" />
-            <span>Thành viên trực tuyến (4)</span>
-          </div>
-        </div>
-        <MemberItem
-          name="Ninh Thị Mỹ Hạnh"
-          role="Product & Business Lead"
-          online={true}
-          avatarBg="bg-circle-wash text-circle-sage"
-          initials="NH"
-        />
-        <MemberItem
-          name="Trương Công Bình"
-          role="Technical & Realtime Lead"
-          online={true}
-          avatarBg="bg-circle-charcoal text-white"
-          initials="TB"
-        />
-        <MemberItem
-          name="Linh Trần"
-          role="Thành viên nhóm"
-          online={true}
-          avatarBg="bg-circle-peach/30 text-amber-800"
-          initials="LT"
-        />
-        <MemberItem
-          name="Tuấn Anh"
-          role="Thành viên nhóm"
-          online={true}
-          avatarBg="bg-emerald-100 text-emerald-800"
-          initials="TA"
-        />
-      </div>
-
-      {/* Upcoming Circle Events */}
-      <div className="flex flex-col gap-2 pt-4 border-t border-circle-hairline">
-        <div className="flex items-center gap-1.5 px-2 mb-1 text-xs font-semibold text-circle-slate uppercase tracking-wider">
+      {/* Upcoming Circle Events (Clean Empty State) */}
+      <div className="flex flex-col gap-2 pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline">
+        <div className="flex items-center gap-1.5 px-1 mb-1 text-xs font-semibold text-circle-slate dark:text-circle-dark-muted uppercase tracking-wider">
           <Calendar className="h-3.5 w-3.5" />
-          <span>Lịch hẹn sắp tới</span>
+          <span>{t.home.upcomingEventsTitle}</span>
         </div>
-        <div className="rounded-xl border border-circle-hairline bg-white p-3 shadow-sm">
-          <div className="flex items-center gap-2 text-xs font-medium text-circle-sage mb-1">
-            <Clock className="h-3.5 w-3.5" />
-            <span>Hôm nay · 15:00</span>
-          </div>
-          <h5 className="text-sm font-semibold text-circle-charcoal">Họp rà soát Use Case & API</h5>
-          <p className="text-xs text-circle-slate mt-1">Chuẩn bị nội dung cho Module 3 và Module 4</p>
+        <div className="rounded-xl border border-dashed border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/40 dark:bg-circle-dark-canvas/40 p-4 text-center">
+          <p className="text-xs text-circle-slate dark:text-circle-dark-muted">
+            {t.home.upcomingEventsEmpty}
+          </p>
         </div>
       </div>
     </aside>
