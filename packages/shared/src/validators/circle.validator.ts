@@ -4,12 +4,12 @@ export const handleRegex = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 export const createCircleSchema = z.object({
   name: z
-    .string()
+    .string('Tên nhóm không được để trống')
     .trim()
     .min(2, 'Tên nhóm phải có ít nhất 2 ký tự')
     .max(50, 'Tên nhóm không được vượt quá 50 ký tự'),
   handle: z
-    .string()
+    .string('Handle định danh không được để trống')
     .trim()
     .min(3, 'Handle phải có ít nhất 3 ký tự')
     .max(30, 'Handle không được vượt quá 30 ký tự')

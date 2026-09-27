@@ -1974,9 +1974,16 @@
 - **Official Source Checked:** SRS (UC07: Create Circle), Capability `CAP-CIRCLE-01`, PR 58, `PROJECT_GOD.md`.
 - **Security & License Check:** An toàn, không chứa secrets, bảo vệ truy cập Circle riêng tư qua role check.
 - **AI Errors / Hallucinations Found:**
-  - **Error Description:** Khi tạo Circle, request gặp lỗi `400 Bad Request: Invalid input: expected string, received undefined` do pipe validation ở backend trước đó chưa lọc `metadata.type !== 'body'`, dẫn đến custom decorator `@CurrentUser()` bị pipe parse `undefined` trước khi body được nạp.
-  - **Root Cause:** Cần cô lập pipe vào `@Body()` hoặc lọc `metadata.type !== 'body'`.
-  - **Resolution / Fix:** Khắc phục triệt để trong `zod-validation.pipe.ts` và gán pipe vào `@Body(new ZodValidationPipe(...))` tại `CirclesController`.
+  - **Error Description:**
+    1. Ở lần biên dịch đầu tiên của `ZodValidationPipe`, thuộc tính truy xuất lỗi của Zod v4 sử dụng `result.error.errors` thay vì `result.error.issues`, dẫn đến lỗi type check `Property 'errors' does not exist on type 'ZodError<unknown>'`.
+    2. Khi người dùng thực hiện tạo Circle, hệ thống báo lỗi `400 Bad Request: Invalid input: expected string, received undefined` cho cả hai trường `name` và `handle`.
+  - **Root Cause:**
+    1. Cú pháp ZodError trong Zod 4 định nghĩa danh sách issues tại `result.error.issues`.
+    2. Khi khai báo `@UsePipes(new ZodValidationPipe(...))` ở cấp độ method Controller, NestJS thực thi pipe trên tất cả các tham số của action, bao gồm `@CurrentUser() user`. Vì custom param decorator chưa được giải quyết trước pipe execution (`value === undefined`), `ZodValidationPipe` tiến hành parse `undefined` và văng lỗi schema validation ngay trước khi `@Body()` được nạp. Đồng thời Zod 4 cú pháp custom error của `z.string()` cần dùng trực tiếp `z.string('...')`.
+  - **Resolution / Fix:**
+    1. Cập nhật `result.error.issues.map(...)`.
+    2. Trong `ZodValidationPipe`, bổ sung điều kiện lọc `if (metadata.type !== 'body') return value;`. Đồng thời chuyển pipe gắn trực tiếp vào tham số payload `@Body(new ZodValidationPipe(createCircleSchema))` tại `CirclesController` để bảo đảm chỉ kiểm thực body.
+    3. Cập nhật cú pháp thông điệp lỗi tiếng Việt chuẩn Zod 4 (`z.string('Tên nhóm không được để trống')`).
 - **Commit:** Pending
 - **PR:** Pending
 

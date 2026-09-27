@@ -22,6 +22,7 @@ export class ZodValidationPipe implements PipeTransform {
   ) {}
 
   transform(value: unknown, metadata: ArgumentMetadata) {
+    // Only validate request body; skip custom decorators like @CurrentUser() or route params
     if (metadata.type !== 'body') {
       return value;
     }

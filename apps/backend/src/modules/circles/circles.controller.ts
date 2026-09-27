@@ -7,7 +7,6 @@ import {
   Param,
   Patch,
   Post,
-  UsePipes,
 } from '@nestjs/common';
 import { CirclesService } from './circles.service';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -29,10 +28,9 @@ export class CirclesController {
    */
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  @UsePipes(new ZodValidationPipe(createCircleSchema))
   async create(
     @CurrentUser() user: AuthUserData,
-    @Body() dto: CreateCircleInput,
+    @Body(new ZodValidationPipe(createCircleSchema)) dto: CreateCircleInput,
   ) {
     return this.circlesService.create(user.id, dto);
   }
@@ -63,11 +61,10 @@ export class CirclesController {
    */
   @Patch(':id')
   @HttpCode(HttpStatus.OK)
-  @UsePipes(new ZodValidationPipe(updateCircleSchema))
   async update(
     @CurrentUser() user: AuthUserData,
     @Param('id') id: string,
-    @Body() dto: UpdateCircleInput,
+    @Body(new ZodValidationPipe(updateCircleSchema)) dto: UpdateCircleInput,
   ) {
     return this.circlesService.update(id, user.id, dto);
   }
