@@ -1371,3 +1371,569 @@
 - **Commit:** `0169ef8`
 - **PR:** #57 (https://github.com/1440isme/Circle/pull/57)
 
+---
+
+## AI-0037: Initialize Mobile App Shell with Full Auth Flow, SecureStore and Bilingual Themes
+
+- **Date:** 2026-09-27 20:40:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #10 (US-MOBILE-001: Mobile Application Shell & Auth Flow)
+- **Purpose:** Xây dựng ứng dụng di động React Native + Expo (`apps/mobile`) với Expo Router v3, đồng bộ 100% các tính năng xác thực, bảo mật, thiết kế và trải nghiệm người dùng tương đồng với bản Web đã hoàn thiện:
+  1. Khởi tạo `apps/mobile` với Expo SDK 51, React Native 0.74.5, Expo Router v3, Zustand, TanStack Query, Lucide icons và `expo-secure-store`. Cấu hình Metro monorepo watch symlinks hỗ trợ `@circle/shared` và `@circle/types`.
+  2. Xây dựng Design System mobile với Design Tokens (Sage, Peach, Charcoal, Canvas, Wash, Dark tokens) đồng bộ theo chuẩn Apple HIG & Google Stitch.
+  3. Cài đặt các Store toàn cục: `theme.store.ts` (Light/Dark/System), `language.store.ts` (VI/EN tích hợp từ `@circle/shared`), `auth.store.ts` (quản lý trạng thái xác thực, profile, refresh token, remember-me).
+  4. Cài đặt `api.ts` xử lý Dual-Token với cơ chế silent refresh tự động khi gặp mã lỗi 401 và bảo mật lưu trữ token qua `expo-secure-store`.
+  5. Xây dựng luồng xác thực đầy đủ: Đăng nhập (`login.tsx`), Đăng ký (`register.tsx`), Xác thực OTP kích hoạt tài khoản (`verify-otp.tsx` với bộ đếm ngược 60 giây), Quên mật khẩu (`forgot-password.tsx`), Đặt lại mật khẩu (`reset-password.tsx`).
+  6. Xây dựng bố cục ứng dụng chính với Bottom Tabs Navigator: Trang chủ Chào mừng Dashboard (`(tabs)/index.tsx`), Vòng tròn (`(tabs)/circles.tsx`), Tin nhắn (`(tabs)/messages.tsx`), Hồ sơ cá nhân (`(tabs)/profile.tsx`).
+  7. Tích hợp HeaderControls cho phép chuyển đổi giao diện sáng/tối và ngôn ngữ Anh/Việt mượt mà trên toàn bộ các màn hình.
+- **Prompt Summary:** "module 3 là của hạnh mà bạn k check file phân công à, chắc là giờ làm mobile đi ha, hiện tại những gì tôi làm được trên web rồi thì làm tương tự với mobile"
+- **Files Affected:**
+  - `apps/mobile/app.json`
+  - `apps/mobile/babel.config.js`
+  - `apps/mobile/metro.config.js`
+  - `apps/mobile/package.json`
+  - `apps/mobile/tsconfig.json`
+  - `apps/mobile/assets/icon.png`, `splash.png`, `adaptive-icon.png`
+  - `apps/mobile/src/constants/theme.ts`
+  - `apps/mobile/src/services/storage.ts`
+  - `apps/mobile/src/services/api.ts`
+  - `apps/mobile/src/stores/auth.store.ts`
+  - `apps/mobile/src/stores/language.store.ts`
+  - `apps/mobile/src/stores/theme.store.ts`
+  - `apps/mobile/src/components/common/Button.tsx`
+  - `apps/mobile/src/components/common/Input.tsx`
+  - `apps/mobile/src/components/common/HeaderControls.tsx`
+  - `apps/mobile/app/_layout.tsx`
+  - `apps/mobile/app/index.tsx`
+  - `apps/mobile/app/(auth)/_layout.tsx`
+  - `apps/mobile/app/(auth)/login.tsx`
+  - `apps/mobile/app/(auth)/register.tsx`
+  - `apps/mobile/app/(auth)/verify-otp.tsx`
+  - `apps/mobile/app/(auth)/forgot-password.tsx`
+  - `apps/mobile/app/(auth)/reset-password.tsx`
+  - `apps/mobile/app/(tabs)/_layout.tsx`
+  - `apps/mobile/app/(tabs)/index.tsx`
+  - `apps/mobile/app/(tabs)/circles.tsx`
+  - `apps/mobile/app/(tabs)/messages.tsx`
+  - `apps/mobile/app/(tabs)/profile.tsx`
+  - `package-lock.json`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% mã nguồn khởi tạo Expo mobile app, cấu hình monorepo, các màn hình auth & dashboard, store quản lý trạng thái, và bộ component UI.
+- **Human Modifications:** Trương Công Bình trực tiếp nhắc nhở phân công nhiệm vụ (Module 3 thuộc về Hạnh per `docs/phan-cong-nhiem-vu.md`) và yêu cầu chuyển sang phát triển ứng dụng di động Mobile (`apps/mobile`) để đồng bộ hoàn toàn tiến độ với bản Web.
+- **Verification Method:**
+  - `npx tsc --noEmit` trong `apps/mobile`: 0 errors.
+  - `npm test -w @circle/backend`: 14/14 unit tests pass 100%.
+  - `npm run build -w @circle/web`: Next.js 14 biên dịch thành công 9/9 trang.
+  - `./scripts/check-agent-map.sh`: 93 file framework markdown liên kết hợp lệ 100%.
+- **Official Source Checked:** Expo SDK 51 Documentation, Expo Router v3 Documentation, React Native Documentation.
+- **Security & License Check:** Token lưu trong `expo-secure-store` bảo mật mã hóa phần cứng Keychain/Keystore; không lộ secrets.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** Khi mới khởi tạo các màn hình mobile auth, AI đã giả định một số key localization như `emailLabel`, `sendResetCode`, `groupOnlyChatTagline`, `security` thay vì sử dụng chính xác các key từ dictionary `@circle/shared` (`email`, `sendResetOtp`, `dualTokenSecurity`).
+  - **Root Cause:** AI không tra cứu chi tiết toàn bộ key dictionary trong `packages/shared/src/locales/vi.ts` trước khi sinh code giao diện.
+  - **Resolution / Fix:** Chạy `npx tsc --noEmit`, đọc chính xác file từ điển `vi.ts` và thay thế toàn bộ key không tồn tại về đúng các key chuẩn của `@circle/shared`.
+- **Commit:** `b20d4b5`
+- **PR:** #58 (https://github.com/1440isme/Circle/pull/58)
+
+---
+
+## AI-0038: Support EXPO_PUBLIC_API_URL for Dynamic Mobile Testing
+
+- **Date:** 2026-09-27 20:43:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #10 (US-MOBILE-001: Mobile Application Shell & Auth Flow)
+- **Purpose:** Bổ sung hỗ trợ biến môi trường `EXPO_PUBLIC_API_URL` trong hàm `getDefaultApiUrl()` tại `apps/mobile/src/services/api.ts` nhằm cho phép lập trình viên chạy thử nghiệm ứng dụng di động trên thiết bị thật (qua Expo Go với mạng LAN Wi-Fi `http://<LAN_IP>:4000`) mà không cần hardcode địa chỉ backend.
+- **Prompt Summary:** "làm sao dể tôi chạy thử"
+- **Files Affected:**
+  - `apps/mobile/src/services/api.ts`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% logic trích xuất biến môi trường `process.env.EXPO_PUBLIC_API_URL`.
+- **Human Modifications:** Trương Công Bình hỏi cách chạy thử ứng dụng di động.
+- **Verification Method:** `npx tsc --noEmit` trong `apps/mobile` pass 100%.
+- **Official Source Checked:** Expo Environment Variables Documentation.
+- **Security & License Check:** An toàn, không chứa secrets.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A
+  - **Resolution / Fix:** N/A
+- **Commit:** `57b7d18`
+- **PR:** #58 (https://github.com/1440isme/Circle/pull/58)
+
+---
+
+## AI-0039: Upgrade Mobile App to Expo SDK 57 for iOS Expo Go Compatibility
+
+- **Date:** 2026-09-27 21:02:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #10 (US-MOBILE-001: Mobile Application Shell & Auth Flow)
+- **Purpose:** Nâng cấp toàn bộ hệ thống dependency của `apps/mobile` lên **Expo SDK 57 (v57.0.25)**, React 19.2.3 và React Native 0.86.3 nhằm khắc phục lỗi không tương thích phiên bản (`Project is incompatible, installed version of Expo Go is for SDK 57.0.0, the project opened uses SDK 51`) khi người dùng quét mã QR bằng Expo Go trên iPhone.
+- **Prompt Summary:** "prj is incompatrible, installed ver expo go for sdk 57.0.0, the prj opened use sdk 51, how to fix: upgrapde pej to sdk 57.0.0 orr luach ios simmulator"
+- **Files Affected:**
+  - `apps/mobile/package.json`
+  - `apps/mobile/src/components/common/Input.tsx`
+  - `package-lock.json`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% cấu hình các package đồng bộ chuẩn Expo SDK 57 (`expo-router ~57.0.23`, `expo-secure-store ~57.0.4`, `expo-status-bar ~57.0.1`, `expo-constants ~57.0.19`, `expo-linking ~57.0.11`, `react-native-safe-area-context ~5.7.0`, `react-native-screens ~4.26.0`, `react-native-svg 15.15.4`) và xử lý type assertion React 19 trong `Input.tsx`.
+- **Human Modifications:** Trương Công Bình báo lỗi Expo Go trên iPhone từ chối mở do yêu cầu SDK 57.0.0.
+- **Verification Method:**
+  - `npx tsc --noEmit` trong `apps/mobile`: 0 errors.
+  - `npm test -w @circle/backend`: 14/14 unit tests pass 100%.
+  - `npm run build -w @circle/web`: Next.js 14 biên dịch thành công 9/9 trang.
+  - `./scripts/check-agent-map.sh`: 93 file framework markdown liên kết hợp lệ 100%.
+- **Official Source Checked:** Expo SDK 57 Bundled Native Modules Specification (`github:expo/expo@sdk-57`).
+- **Security & License Check:** An toàn, không chứa secrets.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A
+  - **Resolution / Fix:** N/A
+- **Commit:** `182e5f2`
+- **PR:** #58 (https://github.com/1440isme/Circle/pull/58)
+
+---
+
+## AI-0040: Fix Mobile API Endpoint Prefix and Dynamic Host IP Resolution
+
+- **Date:** 2026-09-27 21:13:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #10 (US-MOBILE-001: Mobile Application Shell & Auth Flow)
+- **Purpose:** Khắc phục lỗi "Không thể kết nối đến máy chủ" khi đăng nhập từ thiết bị di động:
+  1. Điều chỉnh `getDefaultApiUrl()` trong `apps/mobile/src/services/api.ts` để luôn gắn tiền tố chuẩn `/api/v1` của NestJS Backend.
+  2. Bổ sung cơ chế tự động trích xuất địa chỉ IP của máy chủ phát triển Metro từ `Constants.expoConfig?.hostUri` (ví dụ `192.168.1.196`) khi chạy qua Expo Go, đồng thời cấu hình fallback về IP LAN `http://192.168.1.196:4000/api/v1` thay vì `localhost` (vốn trỏ vào chính điện thoại).
+  3. Cập nhật CORS tại `apps/backend/src/main.ts` với `origin: true` cho phép thiết bị di động kết nối tới API qua mạng LAN nội bộ.
+- **Prompt Summary:** "đã chạy được nhưng chưa đăng nhập được k thể kết nối đến máy chủ"
+- **Files Affected:**
+  - `apps/mobile/src/services/api.ts`
+  - `apps/backend/src/main.ts`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% logic trích xuất IP từ hostUri, chuẩn hóa URL /api/v1 và cấu hình CORS.
+- **Human Modifications:** Trương Công Bình test đăng nhập trên iPhone và thông báo lỗi không kết nối được máy chủ.
+- **Verification Method:**
+  - `npx tsc --noEmit` trong `apps/mobile`: 0 errors.
+  - `npm test -w @circle/backend`: 14/14 unit tests pass 100%.
+  - `./scripts/check-agent-map.sh`: 93 file framework markdown liên kết hợp lệ 100%.
+- **Official Source Checked:** NestJS CORS Documentation, Expo Constants hostUri Specification.
+- **Security & License Check:** An toàn, không chứa secrets.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A
+  - **Resolution / Fix:** N/A
+- **Commit:** `5823458`
+- **PR:** #58 (https://github.com/1440isme/Circle/pull/58)
+
+---
+
+## AI-0041: Implement iOS 26 Liquid Glass Floating Rounded Pill Tab Navigation Bar
+
+- **Date:** 2026-09-27 21:20:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #10 (US-MOBILE-001: Mobile Application Shell & Auth Flow)
+- **Purpose:** Tái thiết kế toàn diện thanh Bottom Tab Navigation trên ứng dụng di động theo ngôn ngữ thiết kế **iOS 26 Liquid Glass & Dynamic Island**:
+  1. Cài đặt thư viện `expo-blur` (v57.0.3) tích hợp hiệu ứng làm mờ nền quang học (Backdrop Frosted Blur).
+  2. Xây dựng cấu trúc thanh điều hướng dạng đảo nổi (Floating Island Pill) tách rời cạnh màn hình (`position: absolute`, `left: 18`, `right: 18`, `bottom: 26 (iOS) / 18 (Android)`, `borderRadius: 36`, `height: 66px`).
+  3. Phối hợp lớp vật liệu kính mờ đa tầng: `BlurView` kết hợp lớp phủ màu trong suốt quang học (`rgba(255, 255, 255, 0.72)` ở Light mode và `rgba(20, 24, 22, 0.70)` ở Dark mode), đường viền phản xạ ánh sáng siêu mỏng (`borderColor: rgba(255, 255, 255, 0.85)` / `0.16`), và bóng đổ khuếch tán cao cấp (Ambient Floating Shadow).
+  4. Bổ sung vi tương tác (Micro-interactions): Hiển thị pill nền mềm khi tab được kích hoạt kèm chấm chỉ thị `activeDot` tinh tế dưới icon tab.
+  5. Cân chỉnh `paddingBottom: 110` trên toàn bộ các màn hình tab (`index.tsx`, `circles.tsx`, `messages.tsx`, `profile.tsx`) đảm bảo nội dung cuộn mượt mà phía dưới mà không bị thanh đảo nổi che khuất.
+- **Prompt Summary:** "thanh nav của mobile tôi chưa thích lắm nha, tôi muốn dạng của ios 26 dạng bo tròn nổi và có liquidglass"
+- **Files Affected:**
+  - `apps/mobile/app/(tabs)/_layout.tsx`
+  - `apps/mobile/app/(tabs)/index.tsx`
+  - `apps/mobile/app/(tabs)/circles.tsx`
+  - `apps/mobile/app/(tabs)/messages.tsx`
+  - `apps/mobile/app/(tabs)/profile.tsx`
+  - `apps/mobile/package.json`
+  - `package-lock.json`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% thiết kế giao diện Liquid Glass, cấu hình `BlurView`, vi tương tác và styling.
+- **Human Modifications:** Trương Công Bình trực tiếp yêu cầu đổi phong cách thanh điều hướng sang phong cách iOS 26 bo tròn nổi và có hiệu ứng kính lỏng (liquid glass).
+- **Verification Method:**
+  - `npx tsc --noEmit` trong `apps/mobile`: 0 errors.
+  - `npm test -w @circle/backend`: 14/14 unit tests pass 100%.
+  - `./scripts/check-agent-map.sh`: 93 file framework markdown liên kết hợp lệ 100%.
+- **Official Source Checked:** Apple Human Interface Guidelines (Translucency and Materials), Expo Blur Documentation.
+- **Security & License Check:** An toàn, không chứa secrets.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A
+  - **Resolution / Fix:** N/A
+- **Commit:** `62ddd78`
+- **PR:** #58 (https://github.com/1440isme/Circle/pull/58)
+
+---
+
+## AI-0042: Refine Tab Slot Highlight and Add Central Plus Action Button with Liquid Glass Composer Sheet
+
+- **Date:** 2026-09-27 21:25:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #10 (US-MOBILE-001: Mobile Application Shell & Auth Flow)
+- **Purpose:** Tinh chỉnh thiết kế thanh điều hướng theo phản hồi của kỹ sư:
+  1. Thay thế vùng highlight active nhỏ xung quanh icon thành viên con nhộng (Pill Capsule) bao trọn toàn bộ chiều cao tab item (`height: 54px`, `borderRadius: 27px`, viền kính bán trong suốt), ôm gọn cả icon và label đồng bộ với viền thanh dock.
+  2. Bổ sung nút hành động chính giữa hình tròn nổi bật với biểu tượng dấu cộng `+` (`width: 48px`, `height: 48px`, màu chủ đạo `colors.primary` với đổ bóng cao cấp), phục vụ mục đích đăng khoảnh khắc và chia sẻ thông tin.
+  3. Xây dựng Bottom Sheet Modal kính lỏng (Liquid Glass Creation Sheet) mở ra ngay khi bấm nút `+`, hiển thị 4 tùy chọn: Đăng khoảnh khắc nhanh (Moment), Hộp thư Điều muốn nói (Reflection), Tạo Vòng tròn mới (New Circle), và Lịch hẹn nhóm (Events).
+  4. Tạo file route `app/(tabs)/create.tsx` nhằm đảm bảo tính tương thích và toàn vẹn của Expo Router v3.
+- **Prompt Summary:** "phần chọn các tab đó chưa đẹp, nó phải to bằng icon hoặc bằng với viền, mà như thanh tab cũng thiếu icon + như thiết kế, nút này để up các khoảnh khắc hoặc các thông tin,"
+- **Files Affected:**
+  - `apps/mobile/app/(tabs)/_layout.tsx`
+  - `apps/mobile/app/(tabs)/create.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% logic cấu hình tab button, component ActionSheet modal và styling.
+- **Human Modifications:** Trương Công Bình yêu cầu vùng chọn tab phải vừa khít viền/chiều cao và bổ sung nút trung tâm `+` để chia sẻ thông tin/khoảnh khắc.
+- **Verification Method:**
+  - `npx tsc --noEmit` trong `apps/mobile`: 0 errors.
+  - `npm test -w @circle/backend`: 14/14 unit tests pass 100%.
+  - `./scripts/check-agent-map.sh`: 93 file framework markdown liên kết hợp lệ 100%.
+- **Official Source Checked:** Apple Human Interface Guidelines (Tab Bars & Modals).
+- **Security & License Check:** An toàn, không chứa secrets.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A
+  - **Resolution / Fix:** N/A
+- **Commit:** `d034698`
+- **PR:** #58 (https://github.com/1440isme/Circle/pull/58)
+
+---
+
+## AI-0043: Fix Tab Bar Vertical and Horizontal Layout Alignment with Custom TabBar
+
+- **Date:** 2026-09-27 21:28:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #10 (US-MOBILE-001: Mobile Application Shell & Auth Flow)
+- **Purpose:** Khắc phục lỗi lệch trục căn chỉnh thanh tab di động (4 tab bị kéo lên trên và chia cột không đều với nút `+` ở giữa):
+  1. Chuyển đổi kiến trúc sang Custom TabBar Component (`CustomLiquidTabBar`) tích hợp trực tiếp qua prop `tabBar` của `expo-router` `Tabs`.
+  2. Phân bổ đồng đều 5 ô slot (`flex: 1` cho mỗi ô) dọc theo trục ngang, triệt tiêu hoàn toàn sự chênh lệch độ rộng giữa các tab và nút `+`.
+  3. Căn giữa chuẩn xác trên trục đứng (`height: 100%`, `justifyContent: 'center'`, `alignItems: 'center'`) trên cả 5 ô, đưa toàn bộ icon, nhãn chữ và nút tròn `+` (`48px × 48px`) về cùng một đường cơ sở quang học hoàn hảo.
+  4. Vùng highlight active (`tabButtonActive`) ôm trọn slot với chiều cao `52px` và `borderRadius: 24px`, tạo cảm giác chuyển động mượt mà và liền mạch.
+- **Prompt Summary:** "bị lỗi layout rồi, 5 icon tab k đều nhau, chỉ có nút + chuẩn còn lại bị lên trên"
+- **Files Affected:**
+  - `apps/mobile/app/(tabs)/_layout.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% kiến trúc Custom TabBar và công thức căn chỉnh layout Flexbox.
+- **Human Modifications:** Trương Công Bình trực tiếp phát hiện và chỉ rõ lỗi lệch hàng giữa 4 tab bên ngoài và nút `+` trung tâm.
+- **Verification Method:**
+  - `npx tsc --noEmit` trong `apps/mobile`: 0 errors.
+  - `npm test -w @circle/backend`: 14/14 unit tests pass 100%.
+  - `./scripts/check-agent-map.sh`: 93 file framework markdown liên kết hợp lệ 100%.
+- **Official Source Checked:** React Native Flexbox Layout Specification.
+- **Security & License Check:** An toàn, không chứa secrets.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A
+  - **Resolution / Fix:** N/A
+- **Commit:** `cdb85b8`
+- **PR:** #58 (https://github.com/1440isme/Circle/pull/58)
+
+---
+
+## AI-0044: Transform Mobile Experience into Seamless Native Social Canvas
+
+- **Date:** 2026-09-27 21:37:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #10 (US-MOBILE-001: Mobile Application Shell & Auth Flow)
+- **Purpose:** Nâng tầm trải nghiệm thị giác di động theo phong cách Native Mobile Social (Threads, Instagram, Apple HIG) thay vì mang cảm giác port từ web xuống:
+  1. Loại bỏ hoàn toàn đường viền ngăn cách thô cứng (`borderBottomWidth: 1`) tại header trên toàn bộ các màn hình (`HomeScreen`, `CirclesScreen`, `MessagesScreen`, `ProfileScreen`).
+  2. Đồng nhất nền màu (`colors.canvas`) từ vùng Safe Area Status Bar xuống trọn vẹn nội dung, mang lại cảm giác một mặt phẳng vô cực liền mạch.
+  3. Tái thiết kế `HeaderControls` thành các nút tròn kính mờ tối giản (`width: 36px, height: 36px, borderRadius: 18px`), loại bỏ viền hộp cứng.
+  4. Bổ sung dải Vòng tròn bạn bè nằm ngang (Circles Stories Strip) với các avatar vòng tròn gradient và nhãn tên, tạo nét đặc trưng mạng xã hội nhóm thân mật.
+  5. Thiết kế thanh đăng bài nhanh (Quick Composer Bar) với avatar cá nhân và biểu tượng chụp ảnh/tải ảnh.
+  6. Áp dụng chuẩn Typography tiêu đề lớn (Large Title `22px, font-weight: 800, letterSpacing: -0.4`) chuẩn iOS.
+- **Prompt Summary:** "bạn nên tham klhaor thêm 1 số ngôn ngữ thiết kế của mobile app để bổ sung kĩ năng, thanh nav tab cũng khá ok rồi, còn về trải nghiệm của tôi 1 số mxh lớn thì header và phần nội dung thường sẽ k có cảm giác ngăn cách, cùng 1 maufu trông trải nghiệm liền mạch hơn, tôi muốn nó native mobile hơn là như 1 bản web port xuống mobile"
+- **Files Affected:**
+  - `apps/mobile/src/components/common/HeaderControls.tsx`
+  - `apps/mobile/app/(tabs)/index.tsx`
+  - `apps/mobile/app/(tabs)/circles.tsx`
+  - `apps/mobile/app/(tabs)/messages.tsx`
+  - `apps/mobile/app/(tabs)/profile.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% thiết kế giao diện liền mạch native mobile, thanh Circles Rail, Composer Bar và typography.
+- **Human Modifications:** Trương Công Bình đưa ra định hướng thiết kế trải nghiệm liền mạch như các mạng xã hội di động lớn, loại bỏ cảm giác chia cắt giữa header và content.
+- **Verification Method:**
+  - `npx tsc --noEmit` trong `apps/mobile`: 0 errors.
+  - `npm test -w @circle/backend`: 14/14 unit tests pass 100%.
+  - `./scripts/check-agent-map.sh`: 93 file framework markdown liên kết hợp lệ 100%.
+- **Official Source Checked:** Apple Human Interface Guidelines (Navigation Bars & Large Titles), Threads/Instagram UI Design Patterns.
+- **Security & License Check:** An toàn, không chứa secrets.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A
+  - **Resolution / Fix:** N/A
+- **Commit:** `c48343f`
+- **PR:** #58 (https://github.com/1440isme/Circle/pull/58)
+
+---
+
+## AI-0045: Implement Step-by-Step Native Mobile Onboarding Wizard and Clean Canvas Auth
+
+- **Date:** 2026-09-27 21:46:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #10 (US-MOBILE-001: Mobile Application Shell & Auth Flow)
+- **Purpose:** Chuyển đổi toàn diện trải nghiệm Đăng ký / Đăng nhập di động từ form điền hàng loạt sang quy trình từng bước tự nhiên (Step-by-Step Onboarding Flow / 1 câu hỏi 1 màn hình) chuẩn Native Mobile UX:
+  1. Tái cấu trúc màn hình Đăng ký (`register.tsx`) thành quy trình Onboarding 3 bước tuần tự:
+     - **Bước 1 (Danh tính):** "Bạn muốn bạn bè gọi mình là gì?" với ô nhập lớn tự động focus và nút tiếp tục.
+     - **Bước 2 (Liên hệ):** "Địa chỉ email của bạn là gì?" với kiểm tra định dạng email thời gian thực.
+     - **Bước 3 (Bảo mật):** "Tạo mật khẩu an toàn" với kiểm tra trực quan điều kiện độ dài và trùng khớp mật khẩu.
+  2. Bổ sung thanh tiến trình 3 đoạn (Segmented Progress Bar) trên đỉnh màn hình kèm nút quay lại thông minh giữa các bước.
+  3. Tái thiết kế màn hình Đăng nhập (`login.tsx`) trên nền canvas liền mạch vô cực, loại bỏ hoàn toàn khung viền hộp đóng khung kiểu web, mở rộng kích thước touch target cho người dùng điện thoại.
+  4. Nâng cấp màn hình Xác thực OTP (`verify-otp.tsx`) với ô nhập mã 6 số giãn cách (Spaced PIN Input), tự động kích hoạt xác thực ngay khi nhập đủ chữ số thứ 6.
+- **Prompt Summary:** "tôi muốn trải nghiệm đăng ký đăng nhập ở mobile phải thật tự nhiên, k phải dạng điền form, điều này tốt và hợp trên web nhưng mobile thì bạn hãy cập nhật xu thế về quy trình tạo tài khoản của các app mobile xem, mỗi bước là 1 màn hình trông rất tự nhiên, tư tưởng của tôi là web là web mobile là mobile ux là trên hết"
+- **Files Affected:**
+  - `apps/mobile/app/(auth)/register.tsx`
+  - `apps/mobile/app/(auth)/login.tsx`
+  - `apps/mobile/app/(auth)/verify-otp.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% logic wizard từng bước, giao diện segmented progress bar, validation và styling native.
+- **Human Modifications:** Trương Công Bình định hướng triết lý "Web là web, Mobile là mobile, UX là trên hết" và yêu cầu tạo tài khoản theo quy trình 1 câu hỏi/1 màn hình.
+- **Verification Method:**
+  - `npx tsc --noEmit` trong `apps/mobile`: 0 errors.
+  - `npm test -w @circle/backend`: 14/14 unit tests pass 100%.
+  - `./scripts/check-agent-map.sh`: 93 file framework markdown liên kết hợp lệ 100%.
+- **Official Source Checked:** Duolingo / BeReal Onboarding Flow Guidelines, Material Design & Apple HIG Onboarding Patterns.
+- **Security & License Check:** An toàn, không chứa secrets.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A
+  - **Resolution / Fix:** N/A
+- **Commit:** `469a6b5`
+- **PR:** #58 (https://github.com/1440isme/Circle/pull/58)
+
+---
+
+## AI-0046: Thiết lập Quy tắc Tuyệt đối Cấm Hardcode Ngôn ngữ & Màu sắc, Chuẩn hóa Giao diện Liền mạch Unboxed Mobile Canvas
+
+- **Date:** 2026-09-27 22:05:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #10 (US-MOBILE-001: Mobile Application Shell & Auth Flow)
+- **Purpose:** Tiếp thu chỉ đạo nghiêm ngặt của người dùng về việc cấm triệt để hardcode ngôn ngữ và màu sắc, đồng thời loại bỏ toàn bộ các khối hộp chia cắt kiểu web trên mobile:
+  1. Ban hành Điều luật bất biến:
+     - Hard Rule 8 trong `agentic/RULES.md`: Cấm tuyệt đối raw string literals và raw hex/rgba colors trong UI components.
+     - Mục 9 trong `agentic/CONVENTIONS.md`: Quy ước bắt buộc về Design Tokens và Shared Localization Dictionaries `t.*`.
+     - Mục 3 trong `docs/principles/principle.md`: Chuẩn hóa nguyên tắc Seamless Infinite Canvas trên mobile (không hộp, không phân vùng thô cứng).
+  2. Bổ sung từ điển đa ngôn ngữ (`packages/shared/src/locales/vi.ts` & `en.ts`):
+     - Namespace `composer` cho modal tạo mới (Moment, Reflection, New Circle, Calendar Event).
+     - Bổ sung các key onboarding wizard, remember me, network errors vào `auth` và `common`.
+     - Bổ sung tên các vòng tròn mẫu và thông số thành viên vào `home`.
+  3. Bổ sung semantic design tokens vào `apps/mobile/src/constants/theme.ts`: `onPrimary`, `success`, `warning`, `info`, `accent`, `glass`, `glassBorder`, `sheetBg`.
+  4. Tái cấu trúc toàn diện 100% component mobile (`register.tsx`, `login.tsx`, `verify-otp.tsx`, `_layout.tsx`, `index.tsx`, `circles.tsx`, `messages.tsx`, `profile.tsx`, `HeaderControls.tsx`, `Input.tsx`, `Button.tsx`, `api.ts`):
+     - Xóa bỏ 100% hardcoded hex color và text tiếng Việt thô.
+     - Xóa bỏ các khung viền hộp đóng kín (`heroCard`, `feedCard`, etc.) ở HomeScreen, tái thiết kế thành dòng chảy thông tin tự nhiên, unboxed chips và typography native trên nền canvas thống nhất.
+- **Prompt Summary:** "tốt rồi đó nhưng bạn hard code rồi đó, note thêm vào rule hoặc degisnmd là tuyệt đối k harccode ngôn ngữ hay màu sắc (phải theo bộ langeuage hoặc bộ theme), trải nghiệm liền mạch trên mobile không có box hay phân vùng nào cả"
+- **Files Affected:**
+  - `agentic/RULES.md`
+  - `agentic/CONVENTIONS.md`
+  - `docs/principles/principle.md`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `apps/mobile/src/constants/theme.ts`
+  - `apps/mobile/src/components/common/HeaderControls.tsx`
+  - `apps/mobile/src/components/common/Input.tsx`
+  - `apps/mobile/src/components/common/Button.tsx`
+  - `apps/mobile/src/services/api.ts`
+  - `apps/mobile/app/_layout.tsx`
+  - `apps/mobile/app/(auth)/register.tsx`
+  - `apps/mobile/app/(auth)/login.tsx`
+  - `apps/mobile/app/(auth)/verify-otp.tsx`
+  - `apps/mobile/app/(tabs)/_layout.tsx`
+  - `apps/mobile/app/(tabs)/index.tsx`
+  - `apps/mobile/app/(tabs)/circles.tsx`
+  - `apps/mobile/app/(tabs)/messages.tsx`
+  - `apps/mobile/app/(tabs)/profile.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% refactor code, design tokens, locale dictionaries và cập nhật hiến pháp.
+- **Human Modifications:** Trương Công Bình trực tiếp chỉ đạo cấm hardcode ngôn ngữ và màu sắc, yêu cầu bổ sung vào Rule/DesignMD và chuẩn hóa triết lý Seamless Canvas trên mobile.
+- **Verification Method:**
+  - `npx tsc --noEmit` trong `apps/mobile`: 0 errors.
+  - `npm test -w @circle/backend`: 14/14 unit tests pass 100%.
+  - `npm run build -w @circle/web`: 9/9 static pages build thành công.
+  - `bash ./scripts/check-agent-map.sh`: 93/93 framework files pass 100%.
+- **Official Source Checked:** Apple Human Interface Guidelines (Navigation & Materials), Material Design 3 (Design Tokens), Rubric Level 5 (Gate 3, Gate 8).
+- **Security & License Check:** An toàn, không chứa credentials.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A
+  - **Resolution / Fix:** N/A
+- **Commit:** `62e507a`
+- **PR:** #58 (https://github.com/1440isme/Circle/pull/58)
+
+---
+
+## AI-0047: Mở rộng Quy tắc Quản trị Công nghệ & Authentic Data, Hiện thực hóa Quy trình Quên Mật khẩu 3 Bước Unboxed Mobile
+
+- **Date:** 2026-09-27 22:20:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #10 (US-MOBILE-001: Mobile Application Shell & Auth Flow)
+- **Purpose:** Tiếp thu toàn diện chỉ đạo của người dùng về 4 nội dung quan trọng:
+  1. **Mở rộng Phạm vi Điều luật:** Áp dụng bắt buộc quy tắc Không hardcode ngôn ngữ (`t.*`) và Không hardcode màu sắc (`colors.*`) cho cả Web và Mobile (`agentic/RULES.md` Rule 8 & `agentic/CONVENTIONS.md` Mục 9).
+  2. **Quản trị Công nghệ Nghiêm ngặt (Technology Governance):** Cấm tuyệt đối việc tùy tiện đưa vào công nghệ/thư viện ngoài lộ trình định hướng mà chưa thảo luận/hỏi ý kiến (điển hình: cấm dùng `class-validator`, quy chuẩn 100% dữ liệu qua `zod` và `ZodValidationPipe`). Bổ sung vào DoD Item 4, Anti-Patterns và Section 10 của `agentic/CONVENTIONS.md`.
+  3. **Cam kết Dữ liệu Thật (Zero Mock Data Mandate):** Loại bỏ toàn bộ các bản ghi giả lập/mẫu trên Mobile HomeScreen (các vòng tròn mẫu "Gia đình nhỏ", "Hội bạn thân", fake member count). Giữ nguyên cấu trúc giao diện chuẩn mực sẵn sàng liên kết dữ liệu thực từ backend API/store khi có, hiển thị action tạo vòng tròn authentic.
+  4. **Quy trình Quên & Đặt lại Mật khẩu 3 Bước Unboxed Native Wizard:** Tái thiết kế toàn bộ `apps/mobile/app/(auth)/forgot-password.tsx` và `reset-password.tsx` từ dạng hộp card form tĩnh sang Wizard 3 bước liền mạch (1 hành vi/câu hỏi trên mỗi màn hình) tương tự màn hình Đăng ký:
+     - **Bước 1 (Email):** Nhập email xác nhận, gọi `/auth/forgot-password`.
+     - **Bước 2 (Mã xác thực):** Nhập mã 6 chữ số dạng PIN giãn cách native, bộ đếm ngược gửi lại mã gọi `/auth/resend-otp` (type: PASSWORD_RESET).
+     - **Bước 3 (Mật khẩu mới):** Nhập mật khẩu mới & xác nhận mật khẩu, checklist trực quan kiểm tra độ dài và độ khớp, gọi `/auth/reset-password`.
+     - Loại bỏ hoàn toàn khung viền card cứng nhắc, đồng bộ hóa 100% tokens màu và ngôn ngữ.
+- **Prompt Summary:** "những luật này k chỉ áp dụng cho mobile mà cho cả web nữa nhé, tiếp bổ sung vào rule là k tùy tiện sử dụng 1 công nghệ nào đó mà chưa có ý kiến hỏi cũng như k có trong lộ trình định hướng (ví dụ như case hôm nay bạn tự ý dùng class-validator mà trong khi tôi đã quy định dùng zod), thiết kế mobile trang chủ tôi khá thích rồi tuy nhiên luật là k có hardcode k mockdata, ui vậy tốt chờ data có rồi hiển thị sau nhé còn những thiết kế mẫu hay data k thật bỏ hết, trình quên mật khẩu chưa áp dụng quy tắc mới như đăng ký"
+- **Files Affected:**
+  - `agentic/RULES.md`
+  - `agentic/CONVENTIONS.md`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `apps/mobile/app/(tabs)/index.tsx`
+  - `apps/mobile/src/components/auth/PasswordRecoveryWizard.tsx`
+  - `apps/mobile/app/(auth)/forgot-password.tsx`
+  - `apps/mobile/app/(auth)/reset-password.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% refactor code, wizard component, schema validation và đồng bộ tài liệu.
+- **Human Modifications:** Trương Công Bình trực tiếp phê bình việc sử dụng `class-validator`, đưa ra luật cấm tùy tiện dùng công nghệ chưa được duyệt, cấm mock data và chỉ đạo chuyển đổi quên mật khẩu sang dạng wizard unboxed 1 câu hỏi/màn hình.
+- **Verification Method:**
+  - `npx tsc --noEmit` trong `apps/mobile`: 0 errors.
+  - `npm test -w @circle/backend`: 14/14 unit tests pass 100%.
+  - `npm run build -w @circle/web`: 9/9 static pages pass 100%.
+  - `bash ./scripts/check-agent-map.sh`: 93/93 framework files pass 100%.
+- **Official Source Checked:** Apple HIG Onboarding & Security, Material 3 Design Tokens, Zod Official Docs.
+- **Security & License Check:** An toàn, không chứa credentials.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** Trực tiếp sử dụng thư viện `class-validator` khi chưa được phê duyệt, vi phạm thỏa thuận công nghệ của dự án.
+  - **Root Cause:** AI đưa thư viện quen thuộc vào thay vì tuân thủ quy chuẩn Zod đã được định hướng trong `packages/shared`.
+  - **Resolution / Fix:** Bổ sung điều luật cấm `class-validator`, cam kết 100% validation thông qua Zod schemas tập trung.
+- **Commit:** `54acfc4`
+- **PR:** #58 (https://github.com/1440isme/Circle/pull/58)
+
+---
+
+## AI-0048: Khắc phục Triệt để Lỗi Dãn Chữ Placeholder trên iOS và Nâng cấp Ô Nhập OTP 6 Ô Tự nhiên
+
+- **Date:** 2026-09-27 22:30:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #10 (US-MOBILE-001: Mobile Application Shell & Auth Flow)
+- **Purpose:** Xử lý triệt để phản ánh của người dùng về việc một số ô nhập (placeholder text) ở các bước đăng nhập và quên mật khẩu bị lỗi dãn khoảng cách chữ cái:
+  1. **Nguyên nhân gốc rễ (Root Cause):**
+     - Trên hệ điều hành iOS, khi thuộc tính `secureTextEntry={true}` được kích hoạt trên `TextInput`, UIKit native chuyển font sang secure password font (dùng để vẽ dấu chấm tròn password mask). Font này tự động áp dụng tracking/letter spacing rộng lên toàn bộ chuỗi placeholder mặc định của `UITextField`, khiến các ký tự tiếng Việt (như "Nhập mật khẩu an toàn", "Tối thiểu 8 ký tự an toàn", "Nhập lại mật khẩu mới") bị dãn cách chữ bất thường.
+     - Ô nhập mã OTP 6 số trước đó áp dụng `letterSpacing: 18` trên một `TextInput` duy nhất, khiến placeholder dạng dấu chấm `"······"` cũng bị dãn khoảng cách quá đà.
+  2. **Giải pháp Hiện thực hóa:**
+     - Áp dụng kỹ thuật **Custom Placeholder Overlay** (`inputInner` + `placeholderOverlay` với `pointerEvents="none"` và `letterSpacing: 0`) cho toàn bộ các ô nhập mật khẩu và text tại `login.tsx`, `PasswordRecoveryWizard.tsx`, `register.tsx` và `Input.tsx`. Khi ô trống, văn bản placeholder được hiển thị bằng component `Text` chuẩn native không bị ảnh hưởng bởi font engine của `secureTextEntry`, gõ chữ thì placeholder tự động biến mất và che phủ chấm bảo mật ngay lập tức mà không gây giật lag con trỏ.
+     - Nâng cấp ô nhập OTP 6 số tại `PasswordRecoveryWizard.tsx` (Bước 2) và `verify-otp.tsx` sang mô hình **6-Cell Native Rounded PIN**: 6 ô vuông bo tròn riêng biệt (`pinCell`) với kích thước cố định, hiển thị từng số đã nhập hoặc dấu chấm nhẹ `·` ở giữa, kết hợp `hiddenPinInput` bắt trọn bàn phím số và tính năng tự động điền mã (oneTimeCode autofill) từ SMS/Email. Xóa bỏ hoàn toàn hack `letterSpacing: 18`.
+- **Prompt Summary:** "1 số nơi để placeholder text (text nằm trong ô nhập) ở bước đăng nhập và quên mật khẩu bị dãn chữ"
+- **Files Affected:**
+  - `apps/mobile/app/(auth)/login.tsx`
+  - `apps/mobile/app/(auth)/register.tsx`
+  - `apps/mobile/app/(auth)/verify-otp.tsx`
+  - `apps/mobile/src/components/auth/PasswordRecoveryWizard.tsx`
+  - `apps/mobile/src/components/common/Input.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% giải pháp component overlay, 6-cell PIN UI và đồng bộ styles.
+- **Human Modifications:** Trương Công Bình trực tiếp trải nghiệm thực tế trên iPhone (iOS Expo Go), phát hiện lỗi dãn chữ placeholder ở màn hình đăng nhập và quên mật khẩu.
+- **Verification Method:**
+  - `npx tsc --noEmit` trong `apps/mobile`: 0 errors.
+  - `npm test -w @circle/backend`: 14/14 unit tests pass 100%.
+  - `bash ./scripts/check-agent-map.sh`: 93/93 framework files pass 100%.
+- **Official Source Checked:** Apple HIG Typography, React Native iOS secureTextEntry Issues & Community Best Practices.
+- **Security & License Check:** An toàn, không chứa credentials.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A
+  - **Resolution / Fix:** N/A
+- **Commit:** `94de2b4`
+- **PR:** #58 (https://github.com/1440isme/Circle/pull/58)
+
+---
+
+## AI-0049: Loại bỏ Toàn bộ Lỗi Hardcode Tiếng Việt, Triệt tiêu class-validator & Hiện thực hóa ZodValidationPipe Đa Ngôn ngữ
+
+- **Date:** 2026-09-27 23:05:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #10 (US-MOBILE-001: Mobile Application Shell & Auth Flow)
+- **Purpose:** Giải quyết triệt để phản ánh "các thông báo lỗi vẫn hardcode tiếng việt", hoàn thành chỉ đạo quản trị công nghệ loại bỏ hoàn toàn `class-validator` khỏi toàn bộ codebase, thay thế bằng `zod` schemas từ `@circle/shared` và `ZodValidationPipe` hỗ trợ bản địa hóa động song ngữ (`vi` / `en`):
+  1. **Đồng bộ Từ điển Song ngữ Hoàn chỉnh (`packages/shared/src/locales/`):**
+     - Bổ sung đầy đủ các khóa thông báo lỗi nghiệp vụ và phản hồi xác thực vào cả `vi.ts` và `en.ts` (`accountNotActivated`, `userNotFound`, `invalidCredentials`, `otpExpiredOrNotFound`, `otpMaxAttemptsExceeded`, `otpIncorrect`, `resendCooldown`, `resendGenericNotice`, `accountAlreadyActivated`, `resetOtpGenericNotice`, `invalidResetRequest`, `emailAlreadyRegistered`, `passwordResetSuccess`, `resendSuccessNotice`, `securityAlertSessionRevoked`, `loggedOutSuccess`, `invalidOrExpiredRefreshToken`, `accountInactiveOrNotFound`, các lỗi Zod validation cho OTP, email, password, display name).
+     - Bổ sung hàm tiện ích `resolveLocale(circleLocale, acceptLanguage)` xuất từ `@circle/shared`.
+  2. **Quản trị Công nghệ & Triệt tiêu class-validator:**
+     - Gỡ bỏ hoàn toàn `class-validator` và `class-transformer` khỏi `apps/backend/package.json`.
+     - Chuyển đổi toàn bộ 7 tệp DTO tại `apps/backend/src/modules/auth/dto/` sang sử dụng kiểu dữ liệu suy diễn từ Zod (`RegisterDtoInput`, `LoginInput`, `VerifyOtpInput`, `ResendOtpInput`, `ForgotPasswordInput`, `ResetPasswordDtoInput`, `RefreshTokenInput`).
+     - Gỡ bỏ `ValidationPipe` của `@nestjs/common` trong `apps/backend/src/main.ts`.
+     - Xây dựng `ZodValidationPipe` tại `apps/backend/src/common/pipes/zod-validation.pipe.ts` hỗ trợ dynamic locale injection qua request headers (`x-circle-locale` / `accept-language`).
+  3. **Bản địa hóa Backend (`auth.controller.ts` & `auth.service.ts`):**
+     - Mọi endpoint auth (`register`, `login`, `verify-otp`, `resend-otp`, `forgot-password`, `reset-password`, `refresh`, `logout`) trích xuất locale từ header và chuyển giao vào `auth.service`.
+     - `auth.service.ts` thay thế 100% các chuỗi exception hardcode bằng `t.auth.<key>` tương ứng với ngôn ngữ yêu cầu.
+  4. **Bản địa hóa Mobile & Web Client:**
+     - `apps/mobile/src/services/api.ts` tự động đính kèm `x-circle-locale` và `Accept-Language` lấy từ `useLanguageStore.getState().locale`.
+     - `apps/mobile/app/(auth)/` (`login.tsx`, `register.tsx`, `verify-otp.tsx`, `PasswordRecoveryWizard.tsx`) sử dụng `createAuthSchemas(locale)` để đảm bảo thông báo lỗi validation trên client lập tức chuyển đổi theo ngôn ngữ hiển thị.
+     - `apps/web/src/lib/api.ts` loại bỏ các chuỗi fallback lỗi hardcode, sử dụng từ điển động `locales[locale]`.
+- **Prompt Summary:** "các thông báo lỗi vẫn hardcode tiếng việt", "tiếp tục hoàn thành nhé"
+- **Files Affected:**
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `packages/shared/src/locales/index.ts`
+  - `packages/shared/src/validators/auth.validator.ts`
+  - `apps/backend/package.json`
+  - `apps/backend/src/main.ts`
+  - `apps/backend/src/common/pipes/zod-validation.pipe.ts`
+  - `apps/backend/src/common/pipes/zod-validation.pipe.spec.ts`
+  - `apps/backend/src/modules/auth/auth.controller.ts`
+  - `apps/backend/src/modules/auth/auth.service.ts`
+  - `apps/backend/src/modules/auth/dto/login.dto.ts`
+  - `apps/backend/src/modules/auth/dto/register.dto.ts`
+  - `apps/backend/src/modules/auth/dto/refresh-token.dto.ts`
+  - `apps/backend/src/modules/auth/dto/verify-otp.dto.ts`
+  - `apps/backend/src/modules/auth/dto/resend-otp.dto.ts`
+  - `apps/backend/src/modules/auth/dto/forgot-password.dto.ts`
+  - `apps/backend/src/modules/auth/dto/reset-password.dto.ts`
+  - `apps/backend/docs/middlewares.md`
+  - `apps/mobile/app/(auth)/login.tsx`
+  - `apps/mobile/app/(auth)/register.tsx`
+  - `apps/mobile/app/(auth)/verify-otp.tsx`
+  - `apps/mobile/src/components/auth/PasswordRecoveryWizard.tsx`
+  - `apps/mobile/src/services/api.ts`
+  - `apps/web/src/lib/api.ts`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% mã nguồn ZodValidationPipe, schemas song ngữ, chuyển đổi DTO và cấu hình backend.
+- **Human Modifications:** Trương Công Bình rà soát kiểm tra, chỉ đạo gỡ bỏ triệt để class-validator và yêu cầu không để sót bất kỳ thông báo lỗi hardcode tiếng Việt nào.
+- **Verification Method:**
+  - `npm run build -w @circle/shared`: biên dịch thành công 0 lỗi.
+  - `npm test -w @circle/backend`: 18/18 tests pass 100% (gồm 4 tests kiểm thử ZodValidationPipe song ngữ).
+  - `npm run build -w @circle/backend`: build NestJS thành công 0 lỗi.
+  - `npx tsc --noEmit` trong `apps/mobile`: 0 errors.
+  - `npm run build -w @circle/web`: build Next.js thành công 9/9 trang tĩnh.
+  - `bash ./scripts/check-agent-map.sh`: 93/93 framework files pass 100%.
+  - `git grep -i -E "lỗi|thành công|thất bại|không hợp lệ|không chính xác|vui lòng"`: 0 kết quả trong backend và mobile source.
+- **Official Source Checked:** NestJS Custom Pipes documentation, Zod safeParse, Project God & Agentic Conventions.
+- **Security & License Check:** An toàn tuyệt đối, không có bí mật hay thư viện chưa được cấp phép.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A
+  - **Resolution / Fix:** N/A
+- **Commit:** `b752f1e`
+- **PR:** #58 (https://github.com/1440isme/Circle/pull/58)
+
+
+
+
+
+
+
+
+
+
+
+

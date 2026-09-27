@@ -1,8 +1,17 @@
 import { ApiResponse, AuthResponseData } from '@circle/types';
+import { locales, Locale } from '@circle/shared';
 import { clearAuthStorage, getStoredTokens, saveTokens, saveUser } from './auth-storage';
 
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+
+function getClientDict() {
+  if (typeof window !== 'undefined') {
+    const locale = (localStorage.getItem('circle_locale') || 'vi') as Locale;
+    return locales[locale] || locales.vi;
+  }
+  return locales.vi;
+}
 
 export class ApiError extends Error {
   public statusCode: number;
@@ -37,10 +46,11 @@ function addRefreshSubscriber(callback: (newToken: string | null) => void) {
  * Perform silent refresh of access and refresh tokens.
  */
 async function silentRefreshToken(): Promise<string> {
+  const dict = getClientDict();
   const { refreshToken } = getStoredTokens();
   if (!refreshToken) {
     clearAuthStorage();
-    throw new ApiError('No refresh token available', 401);
+    throw new ApiError(dict.common.sessionExpired, 401);
   }
 
   try {
@@ -59,7 +69,7 @@ async function silentRefreshToken(): Promise<string> {
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('circle:unauthorized'));
       }
-      throw new ApiError(body.message || 'Phiên làm việc hết hạn', res.status);
+      throw new ApiError(body.message || dict.common.sessionExpired, res.status);
     }
 
     saveTokens(body.data.tokens);
@@ -110,7 +120,8 @@ export async function apiRequest<T>(
       headers: requestHeaders,
     });
   } catch (err: any) {
-    throw new ApiError(err?.message || 'Không thể kết nối đến máy chủ', 503);
+    const dict = getClientDict();
+    throw new ApiError(err?.message || dict.common.networkError, 503);
   }
 
   // Handle 401 Unauthorized with Silent Refresh
@@ -138,7 +149,8 @@ export async function apiRequest<T>(
     return new Promise((resolve, reject) => {
       addRefreshSubscriber((newToken) => {
         if (!newToken) {
-          return reject(new ApiError('Phiên đăng nhập hết hạn', 401));
+          const dict = getClientDict();
+          return reject(new ApiError(dict.common.sessionExpired, 401));
         }
 
         resolve(
@@ -159,10 +171,11 @@ export async function apiRequest<T>(
   }
 
   if (!response.ok) {
+    const dict = getClientDict();
     const errorMessage =
       data?.message ||
       (Array.isArray(data?.message) ? data.message.join(', ') : null) ||
-      `Yêu cầu thất bại với mã lỗi HTTP ${response.status}`;
+      `${dict.common.unknownError} (${response.status})`;
     throw new ApiError(errorMessage, response.status, data);
   }
 

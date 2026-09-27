@@ -1,12 +1,6 @@
-import { IsEmail, IsNotEmpty, IsString, Length, Matches } from 'class-validator';
+import { VerifyOtpInput } from '@circle/shared';
 
-export class VerifyOtpDto {
-  @IsEmail({}, { message: 'Email must be a valid email address' })
-  @IsNotEmpty({ message: 'Email is required' })
-  email: string;
-
-  @IsString()
-  @Length(6, 6, { message: 'OTP must be exactly 6 digits' })
-  @Matches(/^\d{6}$/, { message: 'OTP must contain only numbers' })
-  otp: string;
+export class VerifyOtpDto implements VerifyOtpInput {
+  email!: string;
+  otp!: string;
 }

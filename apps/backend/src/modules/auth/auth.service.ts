@@ -19,7 +19,7 @@ import { ResendOtpDto } from './dto/resend-otp.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { AuthResponseData, AuthTokens, GlobalRole } from '@circle/types';
-import { Locale } from '@circle/shared';
+import { Locale, locales } from '@circle/shared';
 
 @Injectable()
 export class AuthService {
@@ -121,12 +121,13 @@ export class AuthService {
     _ipAddress?: string,
     locale: Locale = 'vi',
   ): Promise<AuthResponseData> {
+    const t = locales[locale] || locales.vi;
     const existingUser = await this.prisma.user.findUnique({
       where: { email: dto.email.toLowerCase() },
     });
 
     if (existingUser) {
-      throw new ConflictException('Email is already registered');
+      throw new ConflictException(t.auth.emailAlreadyRegistered);
     }
 
     const passwordHash = await this.hashPassword(dto.password);
@@ -181,24 +182,26 @@ export class AuthService {
     dto: LoginDto,
     userAgent?: string,
     ipAddress?: string,
+    locale: Locale = 'vi',
   ): Promise<AuthResponseData> {
+    const t = locales[locale] || locales.vi;
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email.toLowerCase() },
       include: { profile: true },
     });
 
     if (!user || user.deletedAt) {
-      throw new UnauthorizedException('Invalid email or password');
+      throw new UnauthorizedException(t.auth.invalidCredentials);
     }
 
     const isPasswordValid = await this.comparePassword(dto.password, user.passwordHash);
     if (!isPasswordValid) {
-      throw new UnauthorizedException('Invalid email or password');
+      throw new UnauthorizedException(t.auth.invalidCredentials);
     }
 
     if (!user.isActivated) {
       throw new UnauthorizedException({
-        message: 'Tài khoản chưa được kích hoạt. Vui lòng kiểm tra email để nhập mã OTP.',
+        message: t.auth.accountNotActivated,
         code: 'ACCOUNT_NOT_ACTIVATED',
         email: user.email,
       });
@@ -236,7 +239,9 @@ export class AuthService {
     dto: VerifyOtpDto,
     userAgent?: string,
     ipAddress?: string,
+    locale: Locale = 'vi',
   ): Promise<AuthResponseData> {
+    const t = locales[locale] || locales.vi;
     const email = dto.email.toLowerCase();
     const user = await this.prisma.user.findUnique({
       where: { email },
@@ -244,7 +249,7 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new BadRequestException('Tài khoản không tồn tại.');
+      throw new BadRequestException(t.auth.userNotFound);
     }
 
     if (user.isActivated) {
@@ -276,24 +281,20 @@ export class AuthService {
 
     const storedOtp = await this.redis.get(otpKey);
     if (!storedOtp) {
-      throw new BadRequestException(
-        'Mã xác thực đã hết hạn hoặc không tồn tại. Vui lòng yêu cầu mã mới.',
-      );
+      throw new BadRequestException(t.auth.otpExpiredOrNotFound);
     }
 
     const attempts = Number(await this.redis.get(attemptKey)) || 0;
     if (attempts >= 5) {
       await this.redis.del(otpKey);
       await this.redis.del(attemptKey);
-      throw new BadRequestException(
-        'Bạn đã nhập sai mã xác thực quá 5 lần. Vui lòng yêu cầu gửi lại mã mới.',
-      );
+      throw new BadRequestException(t.auth.otpMaxAttemptsExceeded);
     }
 
     if (storedOtp !== dto.otp) {
       await this.redis.incr(attemptKey);
       await this.redis.expire(attemptKey, 300);
-      throw new BadRequestException('Mã xác thực không chính xác.');
+      throw new BadRequestException(t.auth.otpIncorrect);
     }
 
     // Clean up Redis keys
@@ -340,13 +341,14 @@ export class AuthService {
     dto: ResendOtpDto,
     locale: Locale = 'vi',
   ): Promise<{ message: string }> {
+    const t = locales[locale] || locales.vi;
     const email = dto.email.toLowerCase();
     const type = dto.type || 'VERIFICATION';
     const cooldownKey = `otp:cooldown:${type}:${email}`;
 
     const isInCooldown = await this.redis.get(cooldownKey);
     if (isInCooldown) {
-      throw new BadRequestException('Vui lòng đợi 60 giây trước khi yêu cầu gửi lại mã mới.');
+      throw new BadRequestException(t.auth.resendCooldown);
     }
 
     const user = await this.prisma.user.findUnique({
@@ -356,11 +358,11 @@ export class AuthService {
 
     if (!user) {
       // Anti-enumeration protection
-      return { message: 'Nếu email tồn tại trên hệ thống, mã xác thực mới đã được gửi.' };
+      return { message: t.auth.resendGenericNotice };
     }
 
     if (type === 'VERIFICATION' && user.isActivated) {
-      throw new BadRequestException('Tài khoản này đã được kích hoạt trước đó.');
+      throw new BadRequestException(t.auth.accountAlreadyActivated);
     }
 
     const otp = this.generateNumericOtp();
@@ -378,7 +380,7 @@ export class AuthService {
       await this.mailService.sendPasswordResetOtp(email, otp, user.profile?.displayName, locale);
     }
 
-    return { message: 'Mã xác thực mới đã được gửi đến email của bạn.' };
+    return { message: t.auth.resendSuccessNotice };
   }
 
   /**
@@ -388,6 +390,7 @@ export class AuthService {
     dto: ForgotPasswordDto,
     locale: Locale = 'vi',
   ): Promise<{ message: string }> {
+    const t = locales[locale] || locales.vi;
     const email = dto.email.toLowerCase();
     const user = await this.prisma.user.findUnique({
       where: { email },
@@ -409,39 +412,38 @@ export class AuthService {
 
     // Always return neutral message for security (prevents account enumeration)
     return {
-      message:
-        'Nếu địa chỉ email tồn tại trên hệ thống, mã xác thực đặt lại mật khẩu đã được gửi đến hộp thư của bạn.',
+      message: t.auth.resetOtpGenericNotice,
     };
   }
 
   /**
    * US-AUTH-004: Resets user password using verified OTP and revokes all active sessions.
    */
-  async resetPassword(dto: ResetPasswordDto): Promise<{ message: string }> {
+  async resetPassword(
+    dto: ResetPasswordDto,
+    locale: Locale = 'vi',
+  ): Promise<{ message: string }> {
+    const t = locales[locale] || locales.vi;
     const email = dto.email.toLowerCase();
     const otpKey = `otp:forgot:${email}`;
     const attemptKey = `otp:attempts:forgot:${email}`;
 
     const storedOtp = await this.redis.get(otpKey);
     if (!storedOtp) {
-      throw new BadRequestException(
-        'Mã xác thực đã hết hạn hoặc không tồn tại. Vui lòng yêu cầu mã mới.',
-      );
+      throw new BadRequestException(t.auth.otpExpiredOrNotFound);
     }
 
     const attempts = Number(await this.redis.get(attemptKey)) || 0;
     if (attempts >= 5) {
       await this.redis.del(otpKey);
       await this.redis.del(attemptKey);
-      throw new BadRequestException(
-        'Bạn đã nhập sai mã xác thực quá 5 lần. Vui lòng yêu cầu mã mới.',
-      );
+      throw new BadRequestException(t.auth.otpMaxAttemptsExceeded);
     }
 
     if (storedOtp !== dto.otp) {
       await this.redis.incr(attemptKey);
       await this.redis.expire(attemptKey, 300);
-      throw new BadRequestException('Mã xác thực không chính xác.');
+      throw new BadRequestException(t.auth.otpIncorrect);
     }
 
     const user = await this.prisma.user.findUnique({
@@ -449,7 +451,7 @@ export class AuthService {
     });
 
     if (!user || user.deletedAt) {
-      throw new BadRequestException('Yêu cầu đặt lại mật khẩu không hợp lệ.');
+      throw new BadRequestException(t.auth.invalidResetRequest);
     }
 
     const newPasswordHash = await this.hashPassword(dto.newPassword);
@@ -473,7 +475,7 @@ export class AuthService {
     await this.redis.del(attemptKey);
 
     return {
-      message: 'Đặt lại mật khẩu thành công. Vui lòng đăng nhập với mật khẩu mới.',
+      message: t.auth.passwordResetSuccess,
     };
   }
 
@@ -484,14 +486,16 @@ export class AuthService {
     dto: RefreshTokenDto,
     userAgent?: string,
     ipAddress?: string,
+    locale: Locale = 'vi',
   ): Promise<AuthResponseData> {
+    const t = locales[locale] || locales.vi;
     const refreshSecret = this.configService.get<string>('JWT_REFRESH_SECRET') || 'default-refresh-secret-32-chars-minimum-key';
 
     let payload: { sub: string; email: string; globalRole: string };
     try {
       payload = await this.jwtService.verifyAsync(dto.refreshToken, { secret: refreshSecret });
     } catch {
-      throw new UnauthorizedException('Invalid or expired refresh token');
+      throw new UnauthorizedException(t.auth.invalidOrExpiredRefreshToken);
     }
 
     const tokenHash = this.hashToken(dto.refreshToken);
@@ -505,11 +509,11 @@ export class AuthService {
         where: { userId: payload.sub },
         data: { isRevoked: true },
       });
-      throw new UnauthorizedException('Security Alert: Refresh token reuse detected. All sessions revoked.');
+      throw new UnauthorizedException(t.auth.securityAlertSessionRevoked);
     }
 
     if (!existingSession || existingSession.expiresAt < new Date()) {
-      throw new UnauthorizedException('Invalid or expired refresh token');
+      throw new UnauthorizedException(t.auth.invalidOrExpiredRefreshToken);
     }
 
     // Revoke old token and rotate
@@ -524,7 +528,7 @@ export class AuthService {
     });
 
     if (!user || !user.isActivated || user.deletedAt) {
-      throw new UnauthorizedException('User account inactive or not found');
+      throw new UnauthorizedException(t.auth.accountInactiveOrNotFound);
     }
 
     const newTokens = await this.generateTokens({
@@ -555,7 +559,12 @@ export class AuthService {
   /**
    * Revoke session on logout.
    */
-  async logout(userId: string, refreshToken?: string): Promise<{ message: string }> {
+  async logout(
+    userId: string,
+    refreshToken?: string,
+    locale: Locale = 'vi',
+  ): Promise<{ message: string }> {
+    const t = locales[locale] || locales.vi;
     if (refreshToken) {
       const tokenHash = this.hashToken(refreshToken);
       await this.prisma.refreshToken.updateMany({
@@ -569,6 +578,6 @@ export class AuthService {
       });
     }
 
-    return { message: 'Logged out successfully' };
+    return { message: t.auth.loggedOutSuccess };
   }
 }

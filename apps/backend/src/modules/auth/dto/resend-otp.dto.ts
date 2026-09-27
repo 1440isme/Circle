@@ -1,14 +1,6 @@
-import { IsEmail, IsIn, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { ResendOtpInput } from '@circle/shared';
 
-export class ResendOtpDto {
-  @IsEmail({}, { message: 'Email must be a valid email address' })
-  @IsNotEmpty({ message: 'Email is required' })
-  email: string;
-
-  @IsOptional()
-  @IsString()
-  @IsIn(['VERIFICATION', 'PASSWORD_RESET'], {
-    message: 'Type must be either VERIFICATION or PASSWORD_RESET',
-  })
-  type?: 'VERIFICATION' | 'PASSWORD_RESET' = 'VERIFICATION';
+export class ResendOtpDto implements ResendOtpInput {
+  email!: string;
+  type?: 'VERIFICATION' | 'PASSWORD_RESET';
 }
