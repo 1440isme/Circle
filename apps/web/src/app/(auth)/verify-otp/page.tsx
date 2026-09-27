@@ -13,12 +13,13 @@ function VerifyOtpContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const emailParam = searchParams.get('email') || '';
+  const fromLogin = searchParams.get('from') === 'login';
   const t = useLanguageStore((s) => s.t);
 
   const [email, setEmail] = useState(emailParam);
   const [otpDigits, setOtpDigits] = useState(['', '', '', '', '', '']);
-  const [countdown, setCountdown] = useState(60);
-  const [canResend, setCanResend] = useState(false);
+  const [countdown, setCountdown] = useState(fromLogin ? 0 : 60);
+  const [canResend, setCanResend] = useState(fromLogin);
   const [apiError, setApiError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
@@ -166,6 +167,13 @@ function VerifyOtpContent() {
         <div className="mb-6 flex items-start gap-3 rounded-2xl border border-circle-primary/30 bg-circle-wash/60 p-4 text-sm text-circle-sage">
           <CheckCircle2 className="h-5 w-5 shrink-0 mt-0.5" />
           <span>{successMsg}</span>
+        </div>
+      )}
+
+      {fromLogin && !apiError && !successMsg && (
+        <div className="mb-6 flex items-start gap-3 rounded-2xl border border-circle-sage/30 bg-circle-wash/50 p-4 text-xs text-circle-charcoal">
+          <ShieldCheck className="h-4 w-4 shrink-0 text-circle-sage mt-0.5" />
+          <span>{t.auth.accountNotActivatedNotice}</span>
         </div>
       )}
 

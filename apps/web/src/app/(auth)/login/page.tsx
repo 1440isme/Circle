@@ -49,7 +49,9 @@ function LoginForm() {
       router.push(redirectUrl);
     } catch (err: any) {
       if (err?.details?.code === 'ACCOUNT_NOT_ACTIVATED' || err?.message?.includes('kích hoạt')) {
-        router.push(`/verify-otp?email=${encodeURIComponent(validationResult.data.email)}`);
+        router.push(
+          `/verify-otp?email=${encodeURIComponent(validationResult.data.email)}&from=login`,
+        );
         return;
       }
       setApiError(err?.message || t.auth.loginFailed);

@@ -1150,8 +1150,41 @@
   - **Error Description:** None.
   - **Root Cause:** N/A
   - **Resolution / Fix:** N/A
-- **Commit:** Pending
-- **PR:** Pending
+- **Commit:** `e54937c`
+- **PR:** #49 (https://github.com/1440isme/Circle/pull/49)
+
+---
+
+## AI-0032: Tối ưu Trải nghiệm Điều hướng Người dùng Chưa kích hoạt từ Login sang Verify OTP
+
+- **Date:** 2026-09-27 11:51:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #48 ([SUB-FEAT]: US-AUTH-004 — Email OTP Verification, Account Activation & Password Recovery (Parent: #18))
+- **Purpose:** Tiếp nhận tình huống câu hỏi thực tế của người dùng: "nếu đăng ký mà chưa xác thực otp và sau đó quay lại đăng nhập thì sao?". Tối ưu hóa toàn diện luồng trải nghiệm cho người dùng trong tình huống này:
+  1. Khi người dùng nhập đúng email & mật khẩu tại `/login` nhưng tài khoản chưa kích hoạt (`ACCOUNT_NOT_ACTIVATED`), frontend bắt mã lỗi và tự động điều hướng sang `/verify-otp?email=...&from=login`.
+  2. Tại màn hình `/verify-otp`:
+     - Nhận biết cờ `from=login` để hiển thị banner giải thích thân thiện: *"Tài khoản của bạn chưa được kích hoạt. Hãy nhập mã OTP trong email, hoặc nhấn 'Gửi lại mã xác thực' nếu mã cũ đã hết hạn."*
+     - Đặt ngay `countdown = 0` và `canResend = true` để người dùng có thể bấm "Gửi lại mã xác thực" ngay lập tức nếu mã 5 phút lúc đăng ký trước đó đã hết hạn, không bắt người dùng phải chờ đếm ngược 60 giây vô lý.
+  3. Kiểm thử Next.js production build (`npm run build -w @circle/web`) thành công 9/9 trang tĩnh không lỗi.
+- **Prompt Summary:** Câu hỏi từ người dùng: "nếu đăng ký mà chưa xác thực otp và sau đó quay lại đăng nhập thì sao".
+- **Files Affected:**
+  - `apps/web/src/app/(auth)/login/page.tsx`
+  - `apps/web/src/app/(auth)/verify-otp/page.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% mã nguồn xử lý điều hướng, query param và banner gợi ý trên giao diện.
+- **Human Modifications:** Trương Công Bình đặt câu hỏi trải nghiệm thực tế giúp phát hiện điểm nghẽn UX (bắt người dùng chờ 60s đếm ngược khi quay lại sau nhiều giờ).
+- **Verification Method:** Chạy `npm run build -w @circle/web` pass 100% (9/9 trang), `./scripts/check-agent-map.sh` pass 100%.
+- **Official Source Checked:** Apple HIG User Guidance, `docs/requirements/use-cases.md` (UC02 Luồng A2).
+- **Security & License Check:** An toàn, không chứa credentials.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** Ban đầu `verify-otp` luôn khởi tạo cứng bộ đếm đếm ngược `countdown = 60`, gây ức chế cho người dùng quay lại đăng nhập sau khi mã OTP cũ đã hết hạn từ lâu.
+  - **Root Cause:** Chưa phân định ngữ cảnh truy cập (người vừa đăng ký xong vs người quay lại từ form đăng nhập).
+  - **Resolution / Fix:** Bổ sung tham số `from=login`, tự động mở quyền gửi lại mã ngay lập tức khi phát hiện chuyển hướng từ đăng nhập.
+- **Commit:** `4b59cc8`
+- **PR:** #49 (https://github.com/1440isme/Circle/pull/49)
+
 
 
 
