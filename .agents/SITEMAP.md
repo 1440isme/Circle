@@ -14,8 +14,8 @@
 | Feature | Description | Web Route | Test Status |
 |---|---|---|---|
 | Landing Hero | Introduction to Circle platform | `/` | 🚧 WIP |
-| User Registration | Email + Password + Profile setup | `/register` | 🚧 WIP |
-| User Login | JWT Access + Refresh Token issuance | `/login` | 🚧 WIP |
+| User Registration | Email + Password + Profile setup | `/register` | ✅ Implemented |
+| User Login | JWT Access + Refresh Token issuance | `/login` | ✅ Implemented |
 | Password Recovery | Reset link email flow | `/forgot-password` | 🚧 WIP |
 
 ### 2. 👥 Circles & Channels (`/circle/:id`)

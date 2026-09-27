@@ -882,6 +882,49 @@
 - **Commit:** `1e0c397`
 - **PR:** #45 (https://github.com/1440isme/Circle/pull/45)
 
+---
 
+## AI-0026: Triển khai Toàn diện Phân hệ Xác thực Web (Web Auth Flow, AuthContext & Session Management)
 
-
+- **Date:** 2026-09-27 10:52:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (Medium)
+- **Related Issue:** #46 ([SUB-FEAT]: US-AUTH-003 — Web Authentication Flow, AuthContext & Session Management (Parent: #18))
+- **Purpose:** Triển khai toàn diện phân hệ xác thực Web (Web Authentication Flow & Session Management) cho nền tảng CIRCLE (`apps/web`):
+  1. Xây dựng tầng lưu trữ phiên an toàn kết hợp `localStorage` và cookies (`apps/web/src/lib/auth-storage.ts`, `cookies.ts`) hỗ trợ SSR và Next.js App Router.
+  2. Xây dựng API Client chuyên dụng (`apps/web/src/lib/api.ts`) tích hợp bộ đánh chặn tự động xoay vòng refresh token (Silent Refresh) khi gặp mã lỗi HTTP 401 Unauthorized, tự động thử lại request ban đầu sau khi cấp mới token mà không làm gián đoạn trải nghiệm người dùng.
+  3. Xây dựng Auth Service (`apps/web/src/lib/auth.ts`) và React `AuthContext` / `useAuth` hook (`apps/web/src/context/AuthContext.tsx`) quản lý toàn diện vòng đời token, hồ sơ người dùng (`GET /api/v1/auth/me`), cùng các hàm `login`, `register`, `logout`.
+  4. Triển khai component bảo vệ điều hướng `AuthGuard` (`apps/web/src/components/auth/AuthGuard.tsx`) hỗ trợ chế độ `require-auth` và `guest-only`.
+  5. Xây dựng giao diện trang Đăng nhập (`/login`) và Đăng ký (`/register`) chuẩn ngôn ngữ thiết kế Apple Human Interface Guidelines + Frosted Glassmorphism (khối card kính mờ `backdrop-blur-xl`, màu thảo mộc thiên nhiên, squircle radii, font Plus Jakarta Sans, live password validation, kiểm tra tính hợp lệ tức thời).
+  6. Kết nối `Header.tsx` với `useAuth`: hiển thị avatar viết tắt, tên thật người dùng, phân quyền, menu dropdown cá nhân và nút Đăng xuất; hiển thị các nút Đăng nhập / Đăng ký khi là khách vãng lai.
+  7. Đồng bộ cập nhật `.agents/SITEMAP.md`, cấu hình ESLint chuẩn hóa và kiểm thử build thành công 100% không cảnh báo hay lỗi.
+- **Prompt Summary:** Yêu cầu: "cùng bắt đầu vào làm tính năng đầu tiên là auth nhé, fullstack luôn", thống nhất triển khai Web Auth trước theo quy chuẩn GitFlow & DoD.
+- **Files Affected:**
+  - `apps/web/package.json`
+  - `apps/web/.eslintrc.json`
+  - `apps/web/src/lib/cookies.ts`
+  - `apps/web/src/lib/auth-storage.ts`
+  - `apps/web/src/lib/api.ts`
+  - `apps/web/src/lib/auth.ts`
+  - `apps/web/src/context/AuthContext.tsx`
+  - `apps/web/src/components/auth/AuthGuard.tsx`
+  - `apps/web/src/app/(auth)/layout.tsx`
+  - `apps/web/src/app/(auth)/login/page.tsx`
+  - `apps/web/src/app/(auth)/register/page.tsx`
+  - `apps/web/src/components/header/Header.tsx`
+  - `apps/web/src/components/stream/FeedStream.tsx`
+  - `apps/web/src/app/layout.tsx`
+  - `.agents/SITEMAP.md`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% cấu trúc mã nguồn TypeScript, React components, CSS Tailwind Glassmorphism và tích hợp ngữ cảnh phiên.
+- **Human Modifications:** Trương Công Bình chỉ đạo triển khai Web Auth trước, tạo Issue #46 và branch GitFlow `feat/46-web-auth-fullstack` theo chuẩn Level 5 Rubric.
+- **Verification Method:** Chạy `npm run build -w @circle/web` thành công (tạo các trang tĩnh `/`, `/login`, `/register`), `npm run lint` đạt 0 lỗi 0 cảnh báo, `./scripts/check-agent-map.sh` đạt chuẩn 100% (93 framework files, 0 broken references), unit tests Backend 7/7 pass.
+- **Official Source Checked:** `PROJECT_GOD.md` (DoD, Rubric Level 5), `docs/design.md`, Apple Human Interface Guidelines, Next.js 14 App Router Docs.
+- **Security & License Check:** Lưu trữ token phân tầng, tự động xóa phiên khi token hết hạn, không hardcode credentials hay secrets.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** Khi build Next.js lần đầu, trang `/login` báo lỗi thiếu `<Suspense>` boundary bao bọc hook `useSearchParams()`. Ngoài ra `FeedStream.tsx` có chứa dấu nháy kép chưa escape chuẩn React.
+  - **Root Cause:** Next.js 14 App Router yêu cầu mọi trang tĩnh sử dụng `useSearchParams()` phải có Suspense boundary để phục vụ prerendering; `FeedStream.tsx` chứa trích dẫn lời nhắn mẫu bằng dấu ngoặc kép trần.
+  - **Resolution / Fix:** Tách `LoginForm` và bọc trong `<Suspense fallback={...}>` trong `LoginPage`; thay thế dấu nháy kép bằng `&ldquo;` và `&rdquo;` trong `FeedStream.tsx`.
+- **Commit:** `2f7ef44`
+- **PR:** Pending
