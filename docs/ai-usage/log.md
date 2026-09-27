@@ -882,6 +882,199 @@
 - **Commit:** `1e0c397`
 - **PR:** #45 (https://github.com/1440isme/Circle/pull/45)
 
+---
 
+## AI-0026: Triển khai Toàn diện Phân hệ Xác thực Web (Web Auth Flow, AuthContext & Session Management)
+
+- **Date:** 2026-09-27 10:52:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (Medium)
+- **Related Issue:** #46 ([SUB-FEAT]: US-AUTH-003 — Web Authentication Flow, AuthContext & Session Management (Parent: #18))
+- **Purpose:** Triển khai toàn diện phân hệ xác thực Web (Web Authentication Flow & Session Management) cho nền tảng CIRCLE (`apps/web`):
+  1. Xây dựng tầng lưu trữ phiên an toàn kết hợp `localStorage` và cookies (`apps/web/src/lib/auth-storage.ts`, `cookies.ts`) hỗ trợ SSR và Next.js App Router.
+  2. Xây dựng API Client chuyên dụng (`apps/web/src/lib/api.ts`) tích hợp bộ đánh chặn tự động xoay vòng refresh token (Silent Refresh) khi gặp mã lỗi HTTP 401 Unauthorized, tự động thử lại request ban đầu sau khi cấp mới token mà không làm gián đoạn trải nghiệm người dùng.
+  3. Xây dựng Auth Service (`apps/web/src/lib/auth.ts`) và React `AuthContext` / `useAuth` hook (`apps/web/src/context/AuthContext.tsx`) quản lý toàn diện vòng đời token, hồ sơ người dùng (`GET /api/v1/auth/me`), cùng các hàm `login`, `register`, `logout`.
+  4. Triển khai component bảo vệ điều hướng `AuthGuard` (`apps/web/src/components/auth/AuthGuard.tsx`) hỗ trợ chế độ `require-auth` và `guest-only`.
+  5. Xây dựng giao diện trang Đăng nhập (`/login`) và Đăng ký (`/register`) chuẩn ngôn ngữ thiết kế Apple Human Interface Guidelines + Frosted Glassmorphism (khối card kính mờ `backdrop-blur-xl`, màu thảo mộc thiên nhiên, squircle radii, font Plus Jakarta Sans, live password validation, kiểm tra tính hợp lệ tức thời).
+  6. Kết nối `Header.tsx` với `useAuth`: hiển thị avatar viết tắt, tên thật người dùng, phân quyền, menu dropdown cá nhân và nút Đăng xuất; hiển thị các nút Đăng nhập / Đăng ký khi là khách vãng lai.
+  7. Đồng bộ cập nhật `.agents/SITEMAP.md`, cấu hình ESLint chuẩn hóa và kiểm thử build thành công 100% không cảnh báo hay lỗi.
+- **Prompt Summary:** Yêu cầu: "cùng bắt đầu vào làm tính năng đầu tiên là auth nhé, fullstack luôn", thống nhất triển khai Web Auth trước theo quy chuẩn GitFlow & DoD.
+- **Files Affected:**
+  - `apps/web/package.json`
+  - `apps/web/.eslintrc.json`
+  - `apps/web/src/lib/cookies.ts`
+  - `apps/web/src/lib/auth-storage.ts`
+  - `apps/web/src/lib/api.ts`
+  - `apps/web/src/lib/auth.ts`
+  - `apps/web/src/context/AuthContext.tsx`
+  - `apps/web/src/components/auth/AuthGuard.tsx`
+  - `apps/web/src/app/(auth)/layout.tsx`
+  - `apps/web/src/app/(auth)/login/page.tsx`
+  - `apps/web/src/app/(auth)/register/page.tsx`
+  - `apps/web/src/components/header/Header.tsx`
+  - `apps/web/src/components/stream/FeedStream.tsx`
+  - `apps/web/src/app/layout.tsx`
+  - `.agents/SITEMAP.md`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% cấu trúc mã nguồn TypeScript, React components, CSS Tailwind Glassmorphism và tích hợp ngữ cảnh phiên.
+- **Human Modifications:** Trương Công Bình chỉ đạo triển khai Web Auth trước, tạo Issue #46 và branch GitFlow `feat/46-web-auth-fullstack` theo chuẩn Level 5 Rubric.
+- **Verification Method:** Chạy `npm run build -w @circle/web` thành công (tạo các trang tĩnh `/`, `/login`, `/register`), `npm run lint` đạt 0 lỗi 0 cảnh báo, `./scripts/check-agent-map.sh` đạt chuẩn 100% (93 framework files, 0 broken references), unit tests Backend 7/7 pass.
+- **Official Source Checked:** `PROJECT_GOD.md` (DoD, Rubric Level 5), `docs/design.md`, Apple Human Interface Guidelines, Next.js 14 App Router Docs.
+- **Security & License Check:** Lưu trữ token phân tầng, tự động xóa phiên khi token hết hạn, không hardcode credentials hay secrets.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** Khi build Next.js lần đầu, trang `/login` báo lỗi thiếu `<Suspense>` boundary bao bọc hook `useSearchParams()`. Ngoài ra `FeedStream.tsx` có chứa dấu nháy kép chưa escape chuẩn React.
+  - **Root Cause:** Next.js 14 App Router yêu cầu mọi trang tĩnh sử dụng `useSearchParams()` phải có Suspense boundary để phục vụ prerendering; `FeedStream.tsx` chứa trích dẫn lời nhắn mẫu bằng dấu ngoặc kép trần.
+  - **Resolution / Fix:** Tách `LoginForm` và bọc trong `<Suspense fallback={...}>` trong `LoginPage`; thay thế dấu nháy kép bằng `&ldquo;` và `&rdquo;` trong `FeedStream.tsx`.
+- **Commit:** `a2c9549`
+- **PR:** #47 (https://github.com/1440isme/Circle/pull/47)
+
+---
+
+## AI-0027: Chuẩn hóa Kiến trúc Frontend — Tích hợp Zod Schemas Chia sẻ, Zustand Store & TanStack Query
+
+- **Date:** 2026-09-27 11:01:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (Medium)
+- **Related Issue:** #46 ([SUB-FEAT]: US-AUTH-003 — Web Authentication Flow, AuthContext & Session Management (Parent: #18))
+- **Purpose:** Tiếp thu ngay chấn chỉnh xác đáng từ người dùng, đồng bộ hóa 100% stack kiến trúc Frontend theo quy hoạch chuẩn mực của CIRCLE (`agentic/CONVENTIONS.md`, `agentic/memory/architecture.md`, `packages/shared/README.md`):
+  1. Tích hợp thư viện Zod vào `packages/shared`, xây dựng bộ schemas xác thực dùng chung (`packages/shared/src/validators/auth.validator.ts`: `loginSchema`, `registerSchema`, `refreshTokenSchema`), xuất khẩu kiểu dữ liệu tự động `LoginInput`, `RegisterInput`.
+  2. Thiết lập Zustand Store quản lý trạng thái máy khách (`apps/web/src/stores/auth.store.ts`: `useAuthStore`) quản lý `user`, `isAuthenticated`, `isLoading`, `setAuth`, `setUser`, `logout`, `initAuth`.
+  3. Cài đặt và cấu hình TanStack Query v5 (`apps/web/src/providers/QueryProvider.tsx`), xây dựng bộ hooks React Query chuyên dụng (`apps/web/src/hooks/use-auth-mutations.ts`: `useLoginMutation`, `useRegisterMutation`, `useLogoutMutation`, `useCurrentUserQuery`).
+  4. Cầu nối `AuthContext.tsx` kế thừa trực tiếp từ `useAuthStore` và các mutation của TanStack Query, đảm bảo tính nhất quán trên toàn ứng dụng.
+  5. Refactor toàn bộ form Đăng nhập (`/login`) và Đăng ký (`/register`) sử dụng `loginSchema.safeParse` và `registerSchema.safeParse`, hiển thị thông báo lỗi chi tiết theo từng trường (`fieldErrors.email`, `fieldErrors.password`, `fieldErrors.displayName`, `fieldErrors.confirmPassword`).
+  6. Kiểm thử `npm run build -w @circle/web` thành công 100%, `npm run lint` đạt 0 lỗi 0 cảnh báo, `./scripts/check-agent-map.sh` đạt 100% 0 broken references.
+- **Prompt Summary:** Nhắc nhở nghiêm khắc từ người dùng: "đã có trong định hướng thì phải xây ngay từ đầu tránh sau này phải refactor, frontend cũng tương tự dùng zustand. tanstack cacthu, cứ bám theo định hướng mà làm nhé, sao bạn lại làm khác vậy".
+- **Files Affected:**
+  - `packages/shared/package.json`
+  - `packages/shared/src/index.ts`
+  - `packages/shared/src/validators/auth.validator.ts`
+  - `apps/web/package.json`
+  - `apps/web/src/stores/auth.store.ts`
+  - `apps/web/src/providers/QueryProvider.tsx`
+  - `apps/web/src/hooks/use-auth-mutations.ts`
+  - `apps/web/src/context/AuthContext.tsx`
+  - `apps/web/src/app/layout.tsx`
+  - `apps/web/src/app/(auth)/login/page.tsx`
+  - `apps/web/src/app/(auth)/register/page.tsx`
+  - `package-lock.json`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% mã nguồn Zod schemas, Zustand store, TanStack Query hooks và refactor giao diện.
+- **Human Modifications:** Người dùng phát hiện và chấn chỉnh kịp thời việc chưa áp dụng các công nghệ đã quy hoạch (Zod, Zustand, TanStack Query) ngay từ đầu.
+- **Verification Method:** Chạy `npm run build -w @circle/web` pass 100%, `npm run lint -w @circle/web` pass 100%, `npm test` 7/7 pass, `./scripts/check-agent-map.sh` pass 100%.
+- **Official Source Checked:** `agentic/CONVENTIONS.md`, `agentic/memory/architecture.md`, `docs/architecture/frontend.md`, `packages/shared/README.md`.
+- **Security & License Check:** An toàn, không chứa credentials, xác thực đầu vào chặt chẽ qua Zod.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** AI triển khai form xác thực ở phiên trước chỉ dùng state thủ công thuần túy, chưa tích hợp ngay bộ công nghệ định hướng đã ghi trong tài liệu kiến trúc (Zod validation schemas chia sẻ ở `packages/shared`, Zustand auth store, TanStack Query cho mutations).
+  - **Root Cause:** AI có xu hướng tối giản hóa bước đầu (minimalist implementation) mà bỏ quên cam kết quy chuẩn kiến trúc dài hạn của dự án.
+  - **Resolution / Fix:** Tiếp thu ngay chấn chỉnh của kỹ sư, cài đặt và đưa Zod vào `packages/shared`, xây dựng `useAuthStore` với Zustand, `QueryProvider` và hooks TanStack Query, refactor toàn bộ form sang Zod safeParse với field-level errors chuẩn mực.
+- **Commit:** `7fa21c1`
+- **PR:** #47 (https://github.com/1440isme/Circle/pull/47)
+
+---
+
+## AI-0028: Thiết lập Hệ thống Song ngữ (Anh - Việt / Bilingual i18n) Toàn diện cho Monorepo
+
+- **Date:** 2026-09-27 11:08:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (Medium)
+- **Related Issue:** #46 ([SUB-FEAT]: US-AUTH-003 — Web Authentication Flow, AuthContext & Session Management (Parent: #18))
+- **Purpose:** Thiết lập hệ thống hỗ trợ Song ngữ (Anh - Việt / Bilingual i18n) dùng chung trong Monorepo theo định hướng phát triển lâu dài:
+  1. Xây dựng từ điển ngôn ngữ chuẩn mực tại `packages/shared/src/locales/` (`vi.ts` tiếng Việt làm mặc định, `en.ts` tiếng Anh đối ứng 1:1), cùng kiểu dữ liệu `TranslationDictionary` và danh mục `LOCALES`.
+  2. Xây dựng Zustand store `useLanguageStore` (`apps/web/src/stores/language.store.ts`) quản lý `locale` và `t`, tự động lưu lựa chọn ngôn ngữ vào `localStorage` và `cookies` (`circle_locale`).
+  3. Tạo component `LanguageSwitcher` (`apps/web/src/components/common/LanguageSwitcher.tsx`) cho phép chuyển đổi ngôn ngữ linh hoạt kèm cờ quốc gia và nhãn rõ ràng theo phong cách Apple HIG.
+  4. Tích hợp `LanguageSwitcher` vào `Header.tsx` và `AuthLayout.tsx`, quốc tế hóa toàn bộ giao diện Đăng nhập, Đăng ký và thanh điều hướng.
+  5. Đối soát và tổng hợp bảng ma trận công nghệ toàn diện của dự án CIRCLE.
+  6. Kiểm thử `npm run build -w @circle/web` thành công 100%, `npm run lint` đạt 0 lỗi 0 cảnh báo, `npm test` 7/7 backend unit tests pass.
+- **Prompt Summary:** Yêu cầu: "nhớ nhé, kiểm tra lại cho tôi xem những công nghệ mà sử dụng trong sản phẩm, đồng thời bổ sung dự án này hỗ trợ song ngữ anh việt nhé, ngay từ đầu chưa có gì nhiều nên khỏe cho sau này đỡ phải sửa".
+- **Files Affected:**
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `packages/shared/src/locales/index.ts`
+  - `packages/shared/src/index.ts`
+  - `apps/web/src/stores/language.store.ts`
+  - `apps/web/src/components/common/LanguageSwitcher.tsx`
+  - `apps/web/src/app/(auth)/layout.tsx`
+  - `apps/web/src/app/(auth)/login/page.tsx`
+  - `apps/web/src/app/(auth)/register/page.tsx`
+  - `apps/web/src/components/header/Header.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% từ điển song ngữ, Zustand language store, component chuyển ngữ và cập nhật view.
+- **Human Modifications:** Trương Công Bình yêu cầu kiểm tra danh mục công nghệ và triển khai ngay giải pháp song ngữ Anh - Việt cho toàn hệ thống từ đầu.
+- **Verification Method:** Chạy `npm run build -w @circle/web` pass 100%, `npm run lint -w @circle/web` pass 100%, `npm test` 7/7 pass, `./scripts/check-agent-map.sh` pass 100%.
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/CONVENTIONS.md`, `docs/design.md`.
+- **Security & License Check:** An toàn, không chứa dữ liệu nhạy cảm.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A
+  - **Resolution / Fix:** N/A
+- **Commit:** `a4fc139`
+- **PR:** #47 (https://github.com/1440isme/Circle/pull/47)
+
+---
+
+## AI-0029: Tinh chỉnh Typography UI — Chuyển đổi Font sang Inter Tối ưu Trải nghiệm và Dễ đọc
+
+- **Date:** 2026-09-27 11:18:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #46 ([SUB-FEAT]: US-AUTH-003 — Web Authentication Flow, AuthContext & Session Management (Parent: #18))
+- **Purpose:** Tiếp nhận phản hồi của người dùng về việc font chữ UI ban đầu (`Plus Jakarta Sans`) có cảm giác chưa thuận mắt (dáng geometric display hơi tròn và rộng, giảm độ tập trung khi đọc form và văn bản). Thực hiện phân tích và đề xuất 4 lựa chọn font hàng đầu tối ưu cho giao diện Web tiếng Việt & chuẩn mực quốc tế:
+  1. Thảo luận và thống nhất cùng kỹ sư chuyển đổi sang **Inter** — chuẩn mực UI toàn cầu (Figma, GitHub, Linear, Apple HIG style) với độ sắc nét cao, x-height chuẩn xác, khẩu độ chữ thoáng đãng và hỗ trợ tiếng Việt xuất sắc.
+  2. Cập nhật `apps/web/src/app/layout.tsx`: nạp font `Inter` từ `next/font/google` với đầy đủ subset `['latin', 'vietnamese']`, weights `['400', '500', '600', '700']` và biến CSS `--font-inter`.
+  3. Cập nhật `apps/web/tailwind.config.ts`: cấu hình `fontFamily.sans` ưu tiên `var(--font-inter)` và các hệ thống font fallbacks cao cấp (`-apple-system`, `BlinkMacSystemFont`, `sans-serif`).
+  4. Biên dịch và kiểm thử thành công qua `npm run build -w @circle/web` (Next.js tạo 6/6 static pages hoàn hảo, không có bất kỳ cảnh báo hay lỗi kiểu).
+- **Prompt Summary:** Phản hồi từ người dùng: "font ui tôi chưa thấy ưng ý lắm, bạn đề xuất font nào khác để nhìn thuận mắt hơn đi", và kỹ sư đã chọn font Inter.
+- **Files Affected:**
+  - `apps/web/src/app/layout.tsx`
+  - `apps/web/tailwind.config.ts`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% cấu hình font Next.js Google Fonts và cập nhật Tailwind theme.
+- **Human Modifications:** Trương Công Bình trực tiếp đánh giá cảm nhận thẩm mỹ và chọn phương án font Inter.
+- **Verification Method:** Chạy `npm run build -w @circle/web` thành công 100% (mã thoát 0), kiểm tra `scripts/check-agent-map.sh` pass 100%.
+- **Official Source Checked:** `next/font/google` Documentation, Rasmus Andersson (Inter Font Standards), Apple HIG Typography.
+- **Security & License Check:** An toàn, font Inter theo giấy phép SIL Open Font License (OFL).
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A
+  - **Resolution / Fix:** N/A
+- **Commit:** `04252bc`
+- **PR:** #47 (https://github.com/1440isme/Circle/pull/47)
+
+---
+
+## AI-0030: Đồng bộ Đặc tả Thiết kế docs/design.md, Khắc phục globals.css và Khởi động Backend Kiểm chứng Đăng ký
+
+- **Date:** 2026-09-27 11:26:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #46 ([SUB-FEAT]: US-AUTH-003 — Web Authentication Flow, AuthContext & Session Management (Parent: #18))
+- **Purpose:** Tiếp nhận câu hỏi kiểm tra từ kỹ sư về việc cập nhật tài liệu thiết kế `docs/design.md`, xác nhận tính toàn cục (Global) của font Inter, và nguyên nhân lỗi chưa đăng ký được trên giao diện Web:
+  1. Cập nhật đồng bộ toàn diện `docs/design.md`: Chuyển đổi toàn bộ các tham chiếu font (Mục 2.2 Typography, sơ đồ Mermaid, mục 5.4 Header iOS Large Title, mục 6 Đối sánh Đa nền tảng và mục 7 DoD checklist) từ `Plus Jakarta Sans` sang **Inter**.
+  2. Khắc phục triệt để trong `apps/web/src/app/globals.css`: Phát hiện thuộc tính `body { font-family: var(--font-plus-jakarta) }` bị sót làm trình duyệt không ăn biến font mới, đã chuyển đổi chính xác sang `var(--font-inter), system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif`.
+  3. Khởi chạy máy chủ Backend Modular Monolith NestJS (`apps/backend`) chạy nền trên cổng 4000 (`npm run dev:backend`), kết nối thành công PostgreSQL 16 và Redis 7 container.
+  4. Thực nghiệm gửi lệnh đăng ký qua cURL (`POST /api/v1/auth/register`), nhận về kết quả HTTP 201 Created cùng đầy đủ User, Profile và cặp Token; kiểm chứng kiểm tra trùng lặp email trả về HTTP 409 Conflict chuẩn mực.
+  5. Đối chiếu hiện trạng hệ thống với đặc tả SRS (UC01, UC02, UC03): Làm rõ hiện trạng luồng Auth (đã hoàn thành Core Identity Foundation: Register, Login, Refresh Token Rotation, Logout, Session Guards, Zod Validation, TanStack Query, Bilingual; chưa có Email Service OTP Verification và Forgot Password).
+- **Prompt Summary:** Yêu cầu: "đổi trong desginmd chưa vậy, đây là áp dụng global và luồng auth đã làm được full chưa vậy, tôi chưa đăng ký được và email đã có veritfy otp cũng như quên mật khẩu chưa".
+- **Files Affected:**
+  - `docs/design.md`
+  - `apps/web/src/app/globals.css`
+  - `apps/web/src/components/stream/FeedStream.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% cập nhật tài liệu đặc tả, tinh chỉnh biến CSS và kiểm thử API end-to-end.
+- **Human Modifications:** Trương Công Bình giám sát đối soát tài liệu thiết kế, phát hiện vấn đề chưa đăng ký được trên Web UI và yêu cầu làm rõ tính toàn vẹn của luồng Auth theo SRS.
+- **Verification Method:** Chạy `./scripts/check-agent-map.sh` pass 100%, cURL đăng ký trả về HTTP 201 Created, cURL trùng lặp email trả về HTTP 409 Conflict.
+- **Official Source Checked:** `docs/design.md`, `docs/requirements/use-cases.md` (UC01, UC02, UC03), `PROJECT_GOD.md`.
+- **Security & License Check:** An toàn, không chứa credentials.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** Ở phiên trước, `globals.css` vẫn còn giữ dòng `body { font-family: var(--font-plus-jakarta) }`, khiến việc khai báo font Inter ở `layout.tsx` bị ghi đè cục bộ. Ngoài ra `docs/design.md` chưa được cập nhật đồng bộ sau khi người dùng chọn đổi font.
+  - **Root Cause:** Sót khai báo trong CSS tĩnh và tài liệu thiết kế chuẩn.
+  - **Resolution / Fix:** Đồng bộ toàn diện `docs/design.md` và sửa `globals.css` sang `var(--font-inter)`.
+- **Commit:** `935ebdc`
+- **PR:** #47 (https://github.com/1440isme/Circle/pull/47)
 
 

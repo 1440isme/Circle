@@ -103,9 +103,9 @@ colors: {
 
 ---
 
-### 2.2. Hệ thống Typography (Apple Scale với Plus Jakarta Sans)
+### 2.2. Hệ thống Typography (Apple Scale với Inter)
 
-CIRCLE chọn font chữ độc quyền là **`Plus Jakarta Sans`** cho toàn bộ Web và Mobile. Font chữ này kết hợp hoàn hảo giữa độ chính xác hình học hiện đại của *SF Pro* (Apple) và sự mềm mại, thân thiện ở các đầu nét uốn cong:
+CIRCLE chọn font chữ độc quyền là **`Inter`** (thiết kế bởi Rasmus Andersson) cho toàn bộ Web và Mobile. Font chữ này kết hợp hoàn hảo giữa độ chính xác hình học hiện đại của *SF Pro* (Apple HIG) và khả năng tối ưu hóa vi mô xuất sắc trên màn hình kỹ thuật số (sub-pixel rendering, x-height chuẩn xác, khẩu độ mở thoáng đãng và hỗ trợ toàn diện hệ ký tự Tiếng Việt có dấu):
 
 | Cấp bậc (Role) | Kích thước (Desktop) | Kích thước (Mobile) | Font Weight | Line Height | Tracking (Letter Spacing) | Mục đích sử dụng |
 |---|---|---|---|---|---|---|
@@ -268,7 +268,7 @@ flowchart LR
 
     subgraph "Ngôn ngữ Thiết kế Đồng nhất (Shared Identity)"
         D1["Bảng màu Thảo mộc: Mint #78C6A3, Sage #4FA982, Peach #F4C7A1"]
-        D2["Typography: Plus Jakarta Sans xuyên suốt Web & Mobile"]
+        D2["Typography: Inter xuyên suốt Web & Mobile"]
         D3["Circle-Centric Architecture: Không gian nhóm, nhịp thở trực tuyến"]
     end
 
@@ -371,7 +371,7 @@ const styles = StyleSheet.create({
 
 ### 5.4. Header iOS: Large Title co giãn Liquid Glass
 - Tuân thủ phong cách Apple kinh điển của ứng dụng *Messages* và *Settings*:
-  - **Trạng thái tĩnh ở đầu trang:** Thanh Header trong suốt hoàn toàn, tiêu đề trang hiển thị ở dạng **Large Title (28px Semibold Plus Jakarta Sans)** nằm trang nhã ngay trên danh sách.
+  - **Trạng thái tĩnh ở đầu trang:** Thanh Header trong suốt hoàn toàn, tiêu đề trang hiển thị ở dạng **Large Title (28px Semibold Inter)** nằm trang nhã ngay trên danh sách.
   - **Trạng thái khi cuộn trang:** Khi danh sách cuộn lên trên, thanh Header lập tức kích hoạt lớp kính **Liquid Glass** mờ ảo, Large Title co lại mượt mà thành **Inline Title (17px Semibold)** nằm chính giữa thanh bar, tạo sự liền mạch thị giác tuyệt đối.
 
 ---
@@ -432,7 +432,7 @@ export const AppleSpringConfig = {
 | **Touch / Click Target** | Tối thiểu 36px | Tối thiểu 44px $\times$ 44px (Chuẩn Apple HIG) | Đều có hiệu ứng thu nhỏ nhẹ `scale(0.98)` khi kích hoạt |
 | **Phản hồi tương tác** | Con trỏ chuột chuyển động + Hover đổi màu Sage `#4FA982` | `expo-haptics` (Rung cơ học theo từng nấc thao tác) | Đều mang lại cảm giác kiểm soát tin cậy |
 | **Modal & Form** | Centered Dialog với backdrop mờ 4px | Apple-style Bottom Sheet (Kéo vuốt đa điểm, lùi màn hình chính) | Đều ưu tiên không gian đọc ấm cúng, không che khuất ngữ cảnh |
-| **Typography Engine** | `next/font/google` (`Plus Jakarta Sans`) | Expo Google Fonts (`Plus Jakarta Sans`) | 100% cùng một font chữ, cùng tỷ lệ tracking và line-height |
+| **Typography Engine** | `next/font/google` (`Inter`) | Expo Google Fonts (`Inter`) | 100% cùng một font chữ, cùng tỷ lệ tracking và line-height |
 
 ---
 
@@ -441,7 +441,7 @@ export const AppleSpringConfig = {
 Trước khi gửi bất kỳ Pull Request nào liên quan đến UI/UX, kỹ sư và AI Agent phải đối chiếu danh sách sau:
 - [ ] **Bảng màu:** Đã dùng đúng tokens (`circle.primary`, `circle.charcoal`, `circle.canvas`, `circle.peach`), không hardcode mã màu lạ.
 - [ ] **Contrast Check:** Chữ trên nền đạt tối thiểu tỉ lệ 4.5:1 (đã kiểm tra WCAG AA).
-- [ ] **Typography:** Dùng đúng font `Plus Jakarta Sans`, không dùng ALL-CAPS cho câu dài, cỡ chữ không nhỏ hơn 11px.
+- [ ] **Typography:** Dùng đúng font `Inter`, không dùng ALL-CAPS cho câu dài, cỡ chữ không nhỏ hơn 11px.
 - [ ] **Tránh AI Clichés:** Không dùng card rập khuôn với shadow đen, không animation nhảy múa thừa thãi.
 - [ ] **Mobile Liquid Glass:** Các thanh Header và Floating Tab Bar sử dụng `BlurView` kết hợp viền phản quang mỏng `1px`, không dùng màu xám bệt.
 - [ ] **Apple Haptics:** Các nút bấm chính, chuyển tab và tương tác cảm xúc đã được tích hợp đúng mã `expo-haptics`.

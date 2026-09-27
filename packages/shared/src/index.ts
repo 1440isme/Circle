@@ -1,5 +1,5 @@
 /**
- * CIRCLE — Shared Utilities & Constants
+ * CIRCLE — Shared Utilities, Constants & Validators
  */
 
 export const APP_NAME = "CIRCLE";
@@ -10,3 +10,9 @@ export const MAX_PAGE_SIZE = 100;
 export function sanitizeText(input: string): string {
   return input.trim();
 }
+
+// Validation schemas & types
+export * from "./validators/auth.validator";
+
+// Locales & Bilingual Support (vi, en)
+export * from "./locales";
