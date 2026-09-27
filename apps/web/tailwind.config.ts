@@ -1,6 +1,7 @@
 import type { Config } from 'tailwindcss';
 
 const config: Config = {
+  darkMode: 'class',
   content: [
     './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
     './src/components/**/*.{js,ts,jsx,tsx,mdx}',
@@ -21,6 +22,16 @@ const config: Config = {
           ivory: '#FFF9F4',
           hairline: '#E5ECE8',
           coral: '#E98282',
+          dark: {
+            canvas: '#0E1512',
+            surface: '#16201B',
+            elevated: '#1E2C25',
+            warm: '#241E18',
+            hairline: '#24352C',
+            text: '#E8EFEA',
+            muted: '#8FA298',
+            wash: 'rgba(120, 198, 163, 0.15)',
+          },
         },
       },
       fontFamily: {

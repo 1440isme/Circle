@@ -98,6 +98,11 @@ export async function apiRequest<T>(
     }
   }
 
+  if (typeof window !== 'undefined') {
+    const locale = localStorage.getItem('circle_locale') || 'vi';
+    requestHeaders['x-circle-locale'] = locale;
+  }
+
   let response: Response;
   try {
     response = await fetch(url, {

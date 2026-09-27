@@ -21,6 +21,13 @@ import { Public } from '../../common/decorators/public.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { ApiResponse, AuthResponseData, AuthUserData } from '@circle/types';
+import { Locale } from '@circle/shared';
+
+function resolveLocale(circleLocale?: string, acceptLanguage?: string): Locale {
+  if (circleLocale === 'en' || circleLocale === 'vi') return circleLocale;
+  if (acceptLanguage && acceptLanguage.toLowerCase().startsWith('en')) return 'en';
+  return 'vi';
+}
 
 @Controller('auth')
 export class AuthController {
@@ -32,9 +39,12 @@ export class AuthController {
   async register(
     @Body() dto: RegisterDto,
     @Headers('user-agent') userAgent?: string,
+    @Headers('x-circle-locale') circleLocale?: string,
+    @Headers('accept-language') acceptLanguage?: string,
     @Ip() ipAddress?: string,
   ): Promise<ApiResponse<AuthResponseData>> {
-    const data = await this.authService.register(dto, userAgent, ipAddress);
+    const locale = resolveLocale(circleLocale, acceptLanguage);
+    const data = await this.authService.register(dto, userAgent, ipAddress, locale);
     return {
       success: true,
       statusCode: HttpStatus.CREATED,
@@ -83,8 +93,13 @@ export class AuthController {
   @Public()
   @Post('resend-otp')
   @HttpCode(HttpStatus.OK)
-  async resendOtp(@Body() dto: ResendOtpDto): Promise<ApiResponse<{ message: string }>> {
-    const data = await this.authService.resendOtp(dto);
+  async resendOtp(
+    @Body() dto: ResendOtpDto,
+    @Headers('x-circle-locale') circleLocale?: string,
+    @Headers('accept-language') acceptLanguage?: string,
+  ): Promise<ApiResponse<{ message: string }>> {
+    const locale = resolveLocale(circleLocale, acceptLanguage);
+    const data = await this.authService.resendOtp(dto, locale);
     return {
       success: true,
       statusCode: HttpStatus.OK,
@@ -97,8 +112,13 @@ export class AuthController {
   @Public()
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
-  async forgotPassword(@Body() dto: ForgotPasswordDto): Promise<ApiResponse<{ message: string }>> {
-    const data = await this.authService.forgotPassword(dto);
+  async forgotPassword(
+    @Body() dto: ForgotPasswordDto,
+    @Headers('x-circle-locale') circleLocale?: string,
+    @Headers('accept-language') acceptLanguage?: string,
+  ): Promise<ApiResponse<{ message: string }>> {
+    const locale = resolveLocale(circleLocale, acceptLanguage);
+    const data = await this.authService.forgotPassword(dto, locale);
     return {
       success: true,
       statusCode: HttpStatus.OK,
