@@ -177,6 +177,58 @@ border-bottom: 1px solid rgba(229, 236, 232, 0.6);
 
 ---
 
+### 2.5. Hệ thống Chủ đề Giao diện Toàn cục (Global Theme System: Light & Dark Mode)
+
+Nhằm bảo vệ thị lực trong các phiên trò chuyện đêm muộn và tôn trọng thói quen của người dùng, CIRCLE thiết kế hệ thống **Chủ đề Kép (Light & Dark Mode)** nhất quán trên toàn bộ Web và Mobile.
+
+> **Kỷ luật Dark Mode của CIRCLE (Chống Lối mòn OLED Đen kịt):**
+> - ❌ **Không dùng màu đen tuyệt đối (`#000000`):** Nền đen tuyệt đối tạo độ tương phản gắt làm mỏi mắt và gây hiệu ứng vệt mờ (smearing) khi cuộn nội dung.
+> - ✅ **Sử dụng sắc độ Thảo mộc Đêm (Deep Forest Obsidian & Night Pine):** Lấy cảm hứng từ rừng thông ban đêm và tro than ấm cúng, đem lại cảm giác bình yên, thư giãn mà vẫn giữ trọn vẹn bản sắc hữu cơ của thương hiệu.
+
+#### Bảng Đối chiếu Design Tokens Song hành (Light vs. Dark Tokens)
+
+| Token Name | Light Mode (Ban ngày) | Dark Mode (Ban đêm) | Vai trò & Mục đích trong giao diện | Tiêu chuẩn WCAG |
+|---|---|---|---|---|
+| `--color-canvas` | `#F7FAF8` *(Botanical Off-White)* | `#0E1512` *(Deep Forest Obsidian)* | Nền toàn trang, êm dịu, không gây lóa mắt | AAA Background Canvas |
+| `--color-surface` | `#FFFFFF` *(Pure White)* | `#16201B` *(Night Pine Surface)* | Nền thẻ (cards), khối chat, thanh bên | Phân tách lớp tự nhiên |
+| `--color-surface-elevated` | `#FFFFFF` | `#1E2C25` *(Elevated Obsidian)* | Dropdown menu, Popover, Floating sheets | Chiều sâu Z-axis |
+| `--color-surface-warm` | `#FFF9F4` *(Warm Ivory)* | `#241E18` *(Dark Amber Warm)* | Thẻ "Điều muốn nói", thiệp kỷ niệm | Điểm nhấn cảm xúc ban đêm |
+| `--color-text-main` | `#24332C` *(Charcoal Forest)* | `#E8EFEA` *(Pale Mint Silver)* | Tiêu đề chính, nội dung tin nhắn đọc | 14.8:1 (Vượt chuẩn AAA) |
+| `--color-text-muted` | `#718078` *(Muted Slate)* | `#8FA298` *(Night Slate Muted)* | Timestamp, nhãn mô tả, placeholder | 6.2:1 (Vượt chuẩn AA) |
+| `--color-hairline` | `#E5ECE8` *(Subtle Sage Line)* | `#24352C` *(Night Hairline)* | Viền siêu mảnh 1px phân tách vùng | Viền tinh tế không gắt |
+| `--color-primary` | `#78C6A3` *(Mint Pastel)* | `#78C6A3` *(Luminescent Mint)* | Màu nhận diện, nút CTA, nhịp thở online | Sáng dịu nổi bật trên nền tối |
+| `--color-primary-dark` | `#4FA982` *(Forest Sage)* | `#52B58C` *(Luminous Sage)* | Trạng thái hover, focus ring | AA Interactive |
+| `--color-primary-wash` | `#DDF3E8` *(Mint Wash)* | `rgba(120, 198, 163, 0.15)` | Nền chip active, halo nhịp thở | Tán xạ hữu cơ ban đêm |
+| `--color-accent-warm` | `#F4C7A1` *(Warm Peach)* | `#F4C7A1` *(Warm Peach Accent)* | Huy hiệu, thiệp kỷ niệm, reaction | Cảm xúc ấm áp |
+| `--color-danger` | `#E98282` *(Soft Coral)* | `#FA8C8C` *(Luminous Coral)* | Cảnh báo, thông báo lỗi | Nhận biết rõ ràng |
+
+#### Vật liệu Kính mờ Ban đêm (Dark Frosted Glass Material)
+
+```css
+/* Dark Mode Frosted Glass (Header, Navigation Bar & Call HUD) */
+.dark .frosted-glass {
+  background: rgba(22, 32, 27, 0.82);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.dark .liquid-glass-pill {
+  background: rgba(14, 21, 18, 0.80);
+  backdrop-filter: blur(20px) saturate(190%);
+  -webkit-backdrop-filter: blur(20px) saturate(190%);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  box-shadow: 0 10px 30px -4px rgba(0, 0, 0, 0.35);
+}
+```
+
+#### Cơ chế Chuyển đổi & Lưu trữ (Theme Switching & Persistence)
+- **3 Chế độ lựa chọn:** `light` (Sáng), `dark` (Tối), và `system` (Tự động theo cấu hình hệ điều hành macOS/iOS/Windows/Android).
+- **Lưu trữ cục bộ:** `localStorage.getItem('circle_theme')` kết hợp đồng bộ cookie để hỗ trợ SSR/SSG không bị nháy trắng giao diện (Zero Flash of Unstyled Theme - FOUT).
+- **CSS Strategy:** Kích hoạt thông qua lớp `.dark` tại thẻ gốc `<html>` kết hợp thuộc tính Tailwind CSS `darkMode: 'class'`.
+
+---
+
 ## 3. Kiến trúc Layout & Hệ thống Lưới (Layout System)
 
 ### 3.1. Desktop Web Layout (Next.js `apps/web` — Màn hình $\ge$ 1200px)

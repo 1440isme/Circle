@@ -19,6 +19,7 @@ import { ResendOtpDto } from './dto/resend-otp.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { AuthResponseData, AuthTokens, GlobalRole } from '@circle/types';
+import { Locale } from '@circle/shared';
 
 @Injectable()
 export class AuthService {
@@ -118,6 +119,7 @@ export class AuthService {
     dto: RegisterDto,
     _userAgent?: string,
     _ipAddress?: string,
+    locale: Locale = 'vi',
   ): Promise<AuthResponseData> {
     const existingUser = await this.prisma.user.findUnique({
       where: { email: dto.email.toLowerCase() },
@@ -153,7 +155,7 @@ export class AuthService {
     await this.redis.set(`otp:verify:${user.email}`, otp, 300);
 
     // Send email with OTP (asynchronous, non-blocking)
-    await this.mailService.sendOtpVerification(user.email, otp, user.profile?.displayName);
+    await this.mailService.sendOtpVerification(user.email, otp, user.profile?.displayName, locale);
 
     return {
       user: {
@@ -334,7 +336,10 @@ export class AuthService {
   /**
    * US-AUTH-004: Resends OTP with 60-second cooldown rate limit.
    */
-  async resendOtp(dto: ResendOtpDto): Promise<{ message: string }> {
+  async resendOtp(
+    dto: ResendOtpDto,
+    locale: Locale = 'vi',
+  ): Promise<{ message: string }> {
     const email = dto.email.toLowerCase();
     const type = dto.type || 'VERIFICATION';
     const cooldownKey = `otp:cooldown:${type}:${email}`;
@@ -368,9 +373,9 @@ export class AuthService {
     await this.redis.set(cooldownKey, '1', 60); // 60s cooldown
 
     if (type === 'VERIFICATION') {
-      await this.mailService.sendOtpVerification(email, otp, user.profile?.displayName);
+      await this.mailService.sendOtpVerification(email, otp, user.profile?.displayName, locale);
     } else {
-      await this.mailService.sendPasswordResetOtp(email, otp, user.profile?.displayName);
+      await this.mailService.sendPasswordResetOtp(email, otp, user.profile?.displayName, locale);
     }
 
     return { message: 'Mã xác thực mới đã được gửi đến email của bạn.' };
@@ -379,7 +384,10 @@ export class AuthService {
   /**
    * US-AUTH-004: Requests a password reset OTP.
    */
-  async forgotPassword(dto: ForgotPasswordDto): Promise<{ message: string }> {
+  async forgotPassword(
+    dto: ForgotPasswordDto,
+    locale: Locale = 'vi',
+  ): Promise<{ message: string }> {
     const email = dto.email.toLowerCase();
     const user = await this.prisma.user.findUnique({
       where: { email },
@@ -395,7 +403,7 @@ export class AuthService {
         await this.redis.set(`otp:forgot:${email}`, otp, 300);
         await this.redis.del(`otp:attempts:forgot:${email}`);
         await this.redis.set(cooldownKey, '1', 60);
-        await this.mailService.sendPasswordResetOtp(email, otp, user.profile?.displayName);
+        await this.mailService.sendPasswordResetOtp(email, otp, user.profile?.displayName, locale);
       }
     }
 

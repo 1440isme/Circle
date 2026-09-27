@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
+import { Locale, dictionaries } from '@circle/shared';
 
 @Injectable()
 export class MailService {
@@ -42,16 +43,30 @@ export class MailService {
    */
   private renderEmailTemplate(options: {
     title: string;
+    brandPill: string;
     greeting: string;
     message: string;
     otp: string;
+    hint: string;
     footerNote: string;
+    footerAutomated: string;
+    lang: string;
   }): string {
-    const { title, greeting, message, otp, footerNote } = options;
+    const {
+      title,
+      brandPill,
+      greeting,
+      message,
+      otp,
+      hint,
+      footerNote,
+      footerAutomated,
+      lang,
+    } = options;
 
     return `
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="${lang}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -146,7 +161,7 @@ export class MailService {
     <div class="container">
       <div class="header">
         <div class="brand-pill">
-          <span>● CIRCLE</span>
+          <span>${brandPill}</span>
         </div>
         <h1 class="title">${title}</h1>
       </div>
@@ -155,13 +170,12 @@ export class MailService {
         <p>${message}</p>
         <div class="otp-box">
           <div class="otp-code">${otp}</div>
-          <div class="otp-hint">Mã có hiệu lực trong 5 phút. Tuyệt đối không chia sẻ mã này.</div>
+          <div class="otp-hint">${hint}</div>
         </div>
         <p style="font-size: 13px; color: #718078;">${footerNote}</p>
       </div>
       <div class="footer">
-        © 2026 CIRCLE — Nền tảng kết nối nhóm thân mật.<br>
-        Email này được gửi tự động, vui lòng không phản hồi trực tiếp.
+        ${footerAutomated}
       </div>
     </div>
   </div>
@@ -173,27 +187,38 @@ export class MailService {
   /**
    * Sends 6-digit OTP email to verify account registration.
    */
-  async sendOtpVerification(email: string, otp: string, displayName?: string): Promise<boolean> {
-    const greeting = displayName ? `Xin chào <strong>${displayName}</strong>,` : 'Xin chào bạn,';
+  async sendOtpVerification(
+    email: string,
+    otp: string,
+    displayName?: string,
+    locale: Locale = 'vi',
+  ): Promise<boolean> {
+    const dict = dictionaries[locale] || dictionaries.vi;
+    const greeting = displayName
+      ? dict.mail.verificationGreeting.replace('{name}', displayName)
+      : dict.mail.verificationGreetingDefault;
+    const subject = dict.mail.verificationSubject.replace('{otp}', otp);
     const html = this.renderEmailTemplate({
-      title: 'Kích hoạt tài khoản CIRCLE',
+      title: dict.mail.verificationTitle,
+      brandPill: dict.mail.brandPill,
       greeting,
-      message:
-        'Cảm ơn bạn đã đăng ký tham gia CIRCLE. Vui lòng nhập mã xác thực gồm 6 chữ số dưới đây để kích hoạt tài khoản của bạn:',
+      message: dict.mail.verificationBody,
       otp,
-      footerNote:
-        'Nếu bạn không thực hiện đăng ký tài khoản trên CIRCLE, vui lòng bỏ qua email này một cách an toàn.',
+      hint: dict.mail.verificationHint,
+      footerNote: dict.mail.verificationFooterNote,
+      footerAutomated: dict.mail.emailFooterAutomated,
+      lang: locale,
     });
 
     try {
       const info = await this.transporter.sendMail({
         from: this.fromAddress,
         to: email,
-        subject: `[CIRCLE] ${otp} là mã xác thực kích hoạt tài khoản của bạn`,
+        subject,
         html,
       });
 
-      this.logger.log(`Verification OTP email sent to ${email}. (OTP: ${otp})`);
+      this.logger.log(`Verification OTP email sent to ${email} (Locale: ${locale}, OTP: ${otp})`);
       if (info.message) {
         this.logger.debug(`Email content stream generated for ${email}`);
       }
@@ -207,27 +232,38 @@ export class MailService {
   /**
    * Sends 6-digit OTP email to reset forgotten password.
    */
-  async sendPasswordResetOtp(email: string, otp: string, displayName?: string): Promise<boolean> {
-    const greeting = displayName ? `Xin chào <strong>${displayName}</strong>,` : 'Xin chào bạn,';
+  async sendPasswordResetOtp(
+    email: string,
+    otp: string,
+    displayName?: string,
+    locale: Locale = 'vi',
+  ): Promise<boolean> {
+    const dict = dictionaries[locale] || dictionaries.vi;
+    const greeting = displayName
+      ? dict.mail.resetGreeting.replace('{name}', displayName)
+      : dict.mail.resetGreetingDefault;
+    const subject = dict.mail.resetSubject.replace('{otp}', otp);
     const html = this.renderEmailTemplate({
-      title: 'Đặt lại mật khẩu CIRCLE',
+      title: dict.mail.resetTitle,
+      brandPill: dict.mail.brandPill,
       greeting,
-      message:
-        'Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản CIRCLE của bạn. Hãy nhập mã xác nhận dưới đây để tiếp tục:',
+      message: dict.mail.resetBody,
       otp,
-      footerNote:
-        'Nếu bạn không yêu cầu đặt lại mật khẩu, ai đó có thể đã nhập nhầm email của bạn. Mật khẩu của bạn vẫn an toàn và không bị thay đổi.',
+      hint: dict.mail.resetHint,
+      footerNote: dict.mail.resetFooterNote,
+      footerAutomated: dict.mail.emailFooterAutomated,
+      lang: locale,
     });
 
     try {
       const info = await this.transporter.sendMail({
         from: this.fromAddress,
         to: email,
-        subject: `[CIRCLE] ${otp} là mã khôi phục mật khẩu của bạn`,
+        subject,
         html,
       });
 
-      this.logger.log(`Password reset OTP email sent to ${email}. (OTP: ${otp})`);
+      this.logger.log(`Password reset OTP email sent to ${email} (Locale: ${locale}, OTP: ${otp})`);
       if (info.message) {
         this.logger.debug(`Email content stream generated for ${email}`);
       }

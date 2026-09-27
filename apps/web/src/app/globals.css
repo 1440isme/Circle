@@ -12,6 +12,12 @@ body {
   font-family: var(--font-inter), system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.dark body {
+  color: #E8EFEA;
+  background-color: #0E1512;
 }
 
 /* Apple Frosted Glass / Liquid Glass utilities */
@@ -22,12 +28,27 @@ body {
   border-bottom: 1px solid rgba(229, 236, 232, 0.7);
 }
 
+.dark .frosted-glass {
+  background: rgba(22, 32, 27, 0.82);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
 .liquid-glass-pill {
   background: rgba(247, 250, 248, 0.75);
   backdrop-filter: blur(20px) saturate(190%);
   -webkit-backdrop-filter: blur(20px) saturate(190%);
   border: 1px solid rgba(229, 236, 232, 0.8);
   box-shadow: 0 10px 30px -4px rgba(36, 51, 44, 0.08);
+}
+
+.dark .liquid-glass-pill {
+  background: rgba(14, 21, 18, 0.80);
+  backdrop-filter: blur(20px) saturate(190%);
+  -webkit-backdrop-filter: blur(20px) saturate(190%);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  box-shadow: 0 10px 30px -4px rgba(0, 0, 0, 0.4);
 }
 
 /* Subtle, unobtrusive scrollbar */
@@ -47,4 +68,12 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(113, 128, 120, 0.4);
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(143, 162, 152, 0.25);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(143, 162, 152, 0.45);
 }
