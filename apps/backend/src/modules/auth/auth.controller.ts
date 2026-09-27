@@ -20,14 +20,9 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 import { Public } from '../../common/decorators/public.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { ApiResponse, AuthResponseData, AuthUserData } from '@circle/types';
-import { Locale } from '@circle/shared';
-
-function resolveLocale(circleLocale?: string, acceptLanguage?: string): Locale {
-  if (circleLocale === 'en' || circleLocale === 'vi') return circleLocale;
-  if (acceptLanguage && acceptLanguage.toLowerCase().startsWith('en')) return 'en';
-  return 'vi';
-}
+import { createAuthSchemas, resolveLocale } from '@circle/shared';
 
 @Controller('auth')
 export class AuthController {
@@ -37,7 +32,7 @@ export class AuthController {
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
   async register(
-    @Body() dto: RegisterDto,
+    @Body(new ZodValidationPipe((locale) => createAuthSchemas(locale).registerDtoSchema)) dto: RegisterDto,
     @Headers('user-agent') userAgent?: string,
     @Headers('x-circle-locale') circleLocale?: string,
     @Headers('accept-language') acceptLanguage?: string,
@@ -58,11 +53,14 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   async login(
-    @Body() dto: LoginDto,
+    @Body(new ZodValidationPipe((locale) => createAuthSchemas(locale).loginSchema)) dto: LoginDto,
     @Headers('user-agent') userAgent?: string,
+    @Headers('x-circle-locale') circleLocale?: string,
+    @Headers('accept-language') acceptLanguage?: string,
     @Ip() ipAddress?: string,
   ): Promise<ApiResponse<AuthResponseData>> {
-    const data = await this.authService.login(dto, userAgent, ipAddress);
+    const locale = resolveLocale(circleLocale, acceptLanguage);
+    const data = await this.authService.login(dto, userAgent, ipAddress, locale);
     return {
       success: true,
       statusCode: HttpStatus.OK,
@@ -76,11 +74,14 @@ export class AuthController {
   @Post('verify-otp')
   @HttpCode(HttpStatus.OK)
   async verifyOtp(
-    @Body() dto: VerifyOtpDto,
+    @Body(new ZodValidationPipe((locale) => createAuthSchemas(locale).verifyOtpSchema)) dto: VerifyOtpDto,
     @Headers('user-agent') userAgent?: string,
+    @Headers('x-circle-locale') circleLocale?: string,
+    @Headers('accept-language') acceptLanguage?: string,
     @Ip() ipAddress?: string,
   ): Promise<ApiResponse<AuthResponseData>> {
-    const data = await this.authService.verifyOtp(dto, userAgent, ipAddress);
+    const locale = resolveLocale(circleLocale, acceptLanguage);
+    const data = await this.authService.verifyOtp(dto, userAgent, ipAddress, locale);
     return {
       success: true,
       statusCode: HttpStatus.OK,
@@ -94,7 +95,7 @@ export class AuthController {
   @Post('resend-otp')
   @HttpCode(HttpStatus.OK)
   async resendOtp(
-    @Body() dto: ResendOtpDto,
+    @Body(new ZodValidationPipe((locale) => createAuthSchemas(locale).resendOtpSchema)) dto: ResendOtpDto,
     @Headers('x-circle-locale') circleLocale?: string,
     @Headers('accept-language') acceptLanguage?: string,
   ): Promise<ApiResponse<{ message: string }>> {
@@ -113,7 +114,7 @@ export class AuthController {
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
   async forgotPassword(
-    @Body() dto: ForgotPasswordDto,
+    @Body(new ZodValidationPipe((locale) => createAuthSchemas(locale).forgotPasswordSchema)) dto: ForgotPasswordDto,
     @Headers('x-circle-locale') circleLocale?: string,
     @Headers('accept-language') acceptLanguage?: string,
   ): Promise<ApiResponse<{ message: string }>> {
@@ -131,8 +132,13 @@ export class AuthController {
   @Public()
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
-  async resetPassword(@Body() dto: ResetPasswordDto): Promise<ApiResponse<{ message: string }>> {
-    const data = await this.authService.resetPassword(dto);
+  async resetPassword(
+    @Body(new ZodValidationPipe((locale) => createAuthSchemas(locale).resetPasswordDtoSchema)) dto: ResetPasswordDto,
+    @Headers('x-circle-locale') circleLocale?: string,
+    @Headers('accept-language') acceptLanguage?: string,
+  ): Promise<ApiResponse<{ message: string }>> {
+    const locale = resolveLocale(circleLocale, acceptLanguage);
+    const data = await this.authService.resetPassword(dto, locale);
     return {
       success: true,
       statusCode: HttpStatus.OK,
@@ -146,11 +152,14 @@ export class AuthController {
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   async refresh(
-    @Body() dto: RefreshTokenDto,
+    @Body(new ZodValidationPipe((locale) => createAuthSchemas(locale).refreshTokenSchema)) dto: RefreshTokenDto,
     @Headers('user-agent') userAgent?: string,
+    @Headers('x-circle-locale') circleLocale?: string,
+    @Headers('accept-language') acceptLanguage?: string,
     @Ip() ipAddress?: string,
   ): Promise<ApiResponse<AuthResponseData>> {
-    const data = await this.authService.refreshTokens(dto, userAgent, ipAddress);
+    const locale = resolveLocale(circleLocale, acceptLanguage);
+    const data = await this.authService.refreshTokens(dto, userAgent, ipAddress, locale);
     return {
       success: true,
       statusCode: HttpStatus.OK,
@@ -166,8 +175,11 @@ export class AuthController {
   async logout(
     @CurrentUser('id') userId: string,
     @Body() body?: { refreshToken?: string },
+    @Headers('x-circle-locale') circleLocale?: string,
+    @Headers('accept-language') acceptLanguage?: string,
   ): Promise<ApiResponse<{ message: string }>> {
-    const data = await this.authService.logout(userId, body?.refreshToken);
+    const locale = resolveLocale(circleLocale, acceptLanguage);
+    const data = await this.authService.logout(userId, body?.refreshToken, locale);
     return {
       success: true,
       statusCode: HttpStatus.OK,

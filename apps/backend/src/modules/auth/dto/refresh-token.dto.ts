@@ -1,7 +1,5 @@
-import { IsNotEmpty, IsString } from 'class-validator';
+import { RefreshTokenInput } from '@circle/shared';
 
-export class RefreshTokenDto {
-  @IsString()
-  @IsNotEmpty({ message: 'Refresh token is required' })
-  refreshToken: string;
+export class RefreshTokenDto implements RefreshTokenInput {
+  refreshToken!: string;
 }

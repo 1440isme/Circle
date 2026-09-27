@@ -22,7 +22,7 @@ import {
   AlertCircle,
   Sparkles,
 } from 'lucide-react-native';
-import { registerSchema } from '@circle/shared';
+import { createAuthSchemas, getFirstZodError } from '@circle/shared';
 import { useThemeStore } from '../../src/stores/theme.store';
 import { useLanguageStore } from '../../src/stores/language.store';
 import { mobileApiRequest } from '../../src/services/api';
@@ -33,7 +33,7 @@ import { HeaderControls } from '../../src/components/common/HeaderControls';
 export default function RegisterScreen() {
   const router = useRouter();
   const { colors, resolvedTheme } = useThemeStore();
-  const t = useLanguageStore((s) => s.t);
+  const { t, locale } = useLanguageStore();
 
   const isDark = resolvedTheme === 'dark';
 
@@ -76,6 +76,7 @@ export default function RegisterScreen() {
   const handleFinalSubmit = async () => {
     setApiError(null);
 
+    const { registerSchema } = createAuthSchemas(locale);
     const validation = registerSchema.safeParse({
       displayName: displayName.trim(),
       email: email.trim().toLowerCase(),
@@ -84,8 +85,8 @@ export default function RegisterScreen() {
     });
 
     if (!validation.success) {
-      const firstError = Object.values(validation.error.flatten().fieldErrors)[0]?.[0];
-      setApiError(firstError || t.auth.invalidInfo);
+      const errorMsg = getFirstZodError(validation.error);
+      setApiError(errorMsg || t.auth.invalidInfo);
       return;
     }
 

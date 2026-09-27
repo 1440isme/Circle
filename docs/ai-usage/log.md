@@ -1847,7 +1847,71 @@
   - `npm test -w @circle/backend`: 14/14 unit tests pass 100%.
   - `bash ./scripts/check-agent-map.sh`: 93/93 framework files pass 100%.
 - **Official Source Checked:** Apple HIG Typography, React Native iOS secureTextEntry Issues & Community Best Practices.
-- **Security & License Check:** An toàn, không chứa credentials.
+
+---
+
+## AI-0049: Loại bỏ Toàn bộ Lỗi Hardcode Tiếng Việt, Triệt tiêu class-validator & Hiện thực hóa ZodValidationPipe Đa Ngôn ngữ
+
+- **Date:** 2026-09-27 23:05:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #10 (US-MOBILE-001: Mobile Application Shell & Auth Flow)
+- **Purpose:** Giải quyết triệt để phản ánh "các thông báo lỗi vẫn hardcode tiếng việt", hoàn thành chỉ đạo quản trị công nghệ loại bỏ hoàn toàn `class-validator` khỏi toàn bộ codebase, thay thế bằng `zod` schemas từ `@circle/shared` và `ZodValidationPipe` hỗ trợ bản địa hóa động song ngữ (`vi` / `en`):
+  1. **Đồng bộ Từ điển Song ngữ Hoàn chỉnh (`packages/shared/src/locales/`):**
+     - Bổ sung đầy đủ các khóa thông báo lỗi nghiệp vụ và phản hồi xác thực vào cả `vi.ts` và `en.ts` (`accountNotActivated`, `userNotFound`, `invalidCredentials`, `otpExpiredOrNotFound`, `otpMaxAttemptsExceeded`, `otpIncorrect`, `resendCooldown`, `resendGenericNotice`, `accountAlreadyActivated`, `resetOtpGenericNotice`, `invalidResetRequest`, `emailAlreadyRegistered`, `passwordResetSuccess`, `resendSuccessNotice`, `securityAlertSessionRevoked`, `loggedOutSuccess`, `invalidOrExpiredRefreshToken`, `accountInactiveOrNotFound`, các lỗi Zod validation cho OTP, email, password, display name).
+     - Bổ sung hàm tiện ích `resolveLocale(circleLocale, acceptLanguage)` xuất từ `@circle/shared`.
+  2. **Quản trị Công nghệ & Triệt tiêu class-validator:**
+     - Gỡ bỏ hoàn toàn `class-validator` và `class-transformer` khỏi `apps/backend/package.json`.
+     - Chuyển đổi toàn bộ 7 tệp DTO tại `apps/backend/src/modules/auth/dto/` sang sử dụng kiểu dữ liệu suy diễn từ Zod (`RegisterDtoInput`, `LoginInput`, `VerifyOtpInput`, `ResendOtpInput`, `ForgotPasswordInput`, `ResetPasswordDtoInput`, `RefreshTokenInput`).
+     - Gỡ bỏ `ValidationPipe` của `@nestjs/common` trong `apps/backend/src/main.ts`.
+     - Xây dựng `ZodValidationPipe` tại `apps/backend/src/common/pipes/zod-validation.pipe.ts` hỗ trợ dynamic locale injection qua request headers (`x-circle-locale` / `accept-language`).
+  3. **Bản địa hóa Backend (`auth.controller.ts` & `auth.service.ts`):**
+     - Mọi endpoint auth (`register`, `login`, `verify-otp`, `resend-otp`, `forgot-password`, `reset-password`, `refresh`, `logout`) trích xuất locale từ header và chuyển giao vào `auth.service`.
+     - `auth.service.ts` thay thế 100% các chuỗi exception hardcode bằng `t.auth.<key>` tương ứng với ngôn ngữ yêu cầu.
+  4. **Bản địa hóa Mobile & Web Client:**
+     - `apps/mobile/src/services/api.ts` tự động đính kèm `x-circle-locale` và `Accept-Language` lấy từ `useLanguageStore.getState().locale`.
+     - `apps/mobile/app/(auth)/` (`login.tsx`, `register.tsx`, `verify-otp.tsx`, `PasswordRecoveryWizard.tsx`) sử dụng `createAuthSchemas(locale)` để đảm bảo thông báo lỗi validation trên client lập tức chuyển đổi theo ngôn ngữ hiển thị.
+     - `apps/web/src/lib/api.ts` loại bỏ các chuỗi fallback lỗi hardcode, sử dụng từ điển động `locales[locale]`.
+- **Prompt Summary:** "các thông báo lỗi vẫn hardcode tiếng việt", "tiếp tục hoàn thành nhé"
+- **Files Affected:**
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `packages/shared/src/locales/index.ts`
+  - `packages/shared/src/validators/auth.validator.ts`
+  - `apps/backend/package.json`
+  - `apps/backend/src/main.ts`
+  - `apps/backend/src/common/pipes/zod-validation.pipe.ts`
+  - `apps/backend/src/common/pipes/zod-validation.pipe.spec.ts`
+  - `apps/backend/src/modules/auth/auth.controller.ts`
+  - `apps/backend/src/modules/auth/auth.service.ts`
+  - `apps/backend/src/modules/auth/dto/login.dto.ts`
+  - `apps/backend/src/modules/auth/dto/register.dto.ts`
+  - `apps/backend/src/modules/auth/dto/refresh-token.dto.ts`
+  - `apps/backend/src/modules/auth/dto/verify-otp.dto.ts`
+  - `apps/backend/src/modules/auth/dto/resend-otp.dto.ts`
+  - `apps/backend/src/modules/auth/dto/forgot-password.dto.ts`
+  - `apps/backend/src/modules/auth/dto/reset-password.dto.ts`
+  - `apps/backend/docs/middlewares.md`
+  - `apps/mobile/app/(auth)/login.tsx`
+  - `apps/mobile/app/(auth)/register.tsx`
+  - `apps/mobile/app/(auth)/verify-otp.tsx`
+  - `apps/mobile/src/components/auth/PasswordRecoveryWizard.tsx`
+  - `apps/mobile/src/services/api.ts`
+  - `apps/web/src/lib/api.ts`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% mã nguồn ZodValidationPipe, schemas song ngữ, chuyển đổi DTO và cấu hình backend.
+- **Human Modifications:** Trương Công Bình rà soát kiểm tra, chỉ đạo gỡ bỏ triệt để class-validator và yêu cầu không để sót bất kỳ thông báo lỗi hardcode tiếng Việt nào.
+- **Verification Method:**
+  - `npm run build -w @circle/shared`: biên dịch thành công 0 lỗi.
+  - `npm test -w @circle/backend`: 18/18 tests pass 100% (gồm 4 tests kiểm thử ZodValidationPipe song ngữ).
+  - `npm run build -w @circle/backend`: build NestJS thành công 0 lỗi.
+  - `npx tsc --noEmit` trong `apps/mobile`: 0 errors.
+  - `npm run build -w @circle/web`: build Next.js thành công 9/9 trang tĩnh.
+  - `bash ./scripts/check-agent-map.sh`: 93/93 framework files pass 100%.
+  - `git grep -i -E "lỗi|thành công|thất bại|không hợp lệ|không chính xác|vui lòng"`: 0 kết quả trong backend và mobile source.
+- **Official Source Checked:** NestJS Custom Pipes documentation, Zod safeParse, Project God & Agentic Conventions.
+- **Security & License Check:** An toàn tuyệt đối, không có bí mật hay thư viện chưa được cấp phép.
 - **AI Errors / Hallucinations Found:**
   - **Error Description:** None.
   - **Root Cause:** N/A

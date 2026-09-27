@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, RefreshCw, CheckCircle2, AlertCircle, Mail, KeyRound } from 'lucide-react-native';
-import { verifyOtpSchema } from '@circle/shared';
+import { createAuthSchemas, getFirstZodError } from '@circle/shared';
 import { useThemeStore } from '../../src/stores/theme.store';
 import { useLanguageStore } from '../../src/stores/language.store';
 import { useAuthStore } from '../../src/stores/auth.store';
@@ -25,7 +25,7 @@ export default function VerifyOtpScreen() {
   const router = useRouter();
   const { email: emailParam } = useLocalSearchParams<{ email?: string; from?: string }>();
   const { colors, resolvedTheme } = useThemeStore();
-  const t = useLanguageStore((s) => s.t);
+  const { t, locale } = useLanguageStore();
   const setAuth = useAuthStore((s) => s.setAuth);
 
   const isDark = resolvedTheme === 'dark';
@@ -60,9 +60,11 @@ export default function VerifyOtpScreen() {
     setApiError(null);
     setSuccessMsg(null);
 
+    const { verifyOtpSchema } = createAuthSchemas(locale);
     const validation = verifyOtpSchema.safeParse({ email: email.trim().toLowerCase(), otp: code });
     if (!validation.success) {
-      setApiError(validation.error.flatten().fieldErrors.otp?.[0] || t.auth.otpSixDigits);
+      const errorMsg = getFirstZodError(validation.error);
+      setApiError(errorMsg || t.auth.otpSixDigits);
       return;
     }
 

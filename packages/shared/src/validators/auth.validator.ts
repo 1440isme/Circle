@@ -1,110 +1,169 @@
 import { z } from 'zod';
+import { locales, Locale } from '../locales';
 
-export const loginSchema = z.object({
-  email: z
-    .string()
-    .trim()
-    .min(1, 'Email không được để trống')
-    .email('Địa chỉ email không đúng định dạng')
-    .toLowerCase(),
-  password: z
-    .string()
-    .min(1, 'Mật khẩu không được để trống'),
-});
+/**
+ * Creates localized Auth Zod validation schemas based on the active client locale.
+ * Strictly guarantees zero hardcoded language strings.
+ */
+export function createAuthSchemas(locale: Locale = 'vi') {
+  const dict = locales[locale] || locales.vi;
+  const v = dict.validation;
 
-export type LoginInput = z.infer<typeof loginSchema>;
-
-export const registerSchema = z
-  .object({
-    displayName: z
-      .string()
-      .trim()
-      .min(2, 'Tên hiển thị phải có ít nhất 2 ký tự')
-      .max(50, 'Tên hiển thị không được vượt quá 50 ký tự'),
+  const loginSchema = z.object({
     email: z
       .string()
       .trim()
-      .min(1, 'Email không được để trống')
-      .email('Địa chỉ email không đúng định dạng')
+      .min(1, v.emailRequired)
+      .email(v.emailInvalid)
       .toLowerCase(),
     password: z
       .string()
-      .min(8, 'Mật khẩu phải có ít nhất 8 ký tự'),
-    confirmPassword: z
-      .string()
-      .min(1, 'Vui lòng xác nhận mật khẩu'),
-  })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: 'Mật khẩu xác nhận không trùng khớp',
-    path: ['confirmPassword'],
+      .min(1, v.passwordRequired),
   });
 
-export type RegisterInput = z.infer<typeof registerSchema>;
-
-export const refreshTokenSchema = z.object({
-  refreshToken: z.string().min(1, 'Refresh token không được để trống'),
-});
-
-export type RefreshTokenInput = z.infer<typeof refreshTokenSchema>;
-
-export const verifyOtpSchema = z.object({
-  email: z
-    .string()
-    .trim()
-    .min(1, 'Email không được để trống')
-    .email('Địa chỉ email không đúng định dạng')
-    .toLowerCase(),
-  otp: z
-    .string()
-    .trim()
-    .length(6, 'Mã OTP phải có đúng 6 chữ số')
-    .regex(/^\d{6}$/, 'Mã OTP chỉ bao gồm chữ số'),
-});
-
-export type VerifyOtpInput = z.infer<typeof verifyOtpSchema>;
-
-export const resendOtpSchema = z.object({
-  email: z
-    .string()
-    .trim()
-    .min(1, 'Email không được để trống')
-    .email('Địa chỉ email không đúng định dạng')
-    .toLowerCase(),
-  type: z.enum(['VERIFICATION', 'PASSWORD_RESET']).optional(),
-});
-
-export type ResendOtpInput = z.infer<typeof resendOtpSchema>;
-
-export const forgotPasswordSchema = z.object({
-  email: z
-    .string()
-    .trim()
-    .min(1, 'Email không được để trống')
-    .email('Địa chỉ email không đúng định dạng')
-    .toLowerCase(),
-});
-
-export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
-
-export const resetPasswordSchema = z
-  .object({
+  const registerDtoSchema = z.object({
+    displayName: z
+      .string()
+      .trim()
+      .min(2, v.displayNameMinLength)
+      .max(50, v.displayNameMaxLength),
     email: z
       .string()
       .trim()
-      .min(1, 'Email không được để trống')
-      .email('Địa chỉ email không đúng định dạng')
+      .min(1, v.emailRequired)
+      .email(v.emailInvalid)
+      .toLowerCase(),
+    password: z
+      .string()
+      .min(8, v.passwordMinLength),
+  });
+
+  const registerSchema = registerDtoSchema
+    .extend({
+      confirmPassword: z
+        .string()
+        .min(1, v.confirmPasswordRequired),
+    })
+    .refine((data) => data.password === data.confirmPassword, {
+      message: v.passwordMismatch,
+      path: ['confirmPassword'],
+    });
+
+  const refreshTokenSchema = z.object({
+    refreshToken: z.string().min(1, v.refreshTokenRequired),
+  });
+
+  const verifyOtpSchema = z.object({
+    email: z
+      .string()
+      .trim()
+      .min(1, v.emailRequired)
+      .email(v.emailInvalid)
       .toLowerCase(),
     otp: z
       .string()
       .trim()
-      .length(6, 'Mã OTP phải có đúng 6 chữ số')
-      .regex(/^\d{6}$/, 'Mã OTP chỉ bao gồm chữ số'),
-    newPassword: z.string().min(8, 'Mật khẩu mới phải có ít nhất 8 ký tự'),
-    confirmPassword: z.string().min(1, 'Vui lòng xác nhận mật khẩu mới'),
-  })
-  .refine((data) => data.newPassword === data.confirmPassword, {
-    message: 'Mật khẩu xác nhận không trùng khớp',
-    path: ['confirmPassword'],
+      .length(6, v.otpSixDigits)
+      .regex(/^\d{6}$/, v.otpDigitsOnly),
   });
 
+  const resendOtpSchema = z.object({
+    email: z
+      .string()
+      .trim()
+      .min(1, v.emailRequired)
+      .email(v.emailInvalid)
+      .toLowerCase(),
+    type: z.enum(['VERIFICATION', 'PASSWORD_RESET']).optional(),
+  });
+
+  const forgotPasswordSchema = z.object({
+    email: z
+      .string()
+      .trim()
+      .min(1, v.emailRequired)
+      .email(v.emailInvalid)
+      .toLowerCase(),
+  });
+
+  const resetPasswordDtoSchema = z.object({
+    email: z
+      .string()
+      .trim()
+      .min(1, v.emailRequired)
+      .email(v.emailInvalid)
+      .toLowerCase(),
+    otp: z
+      .string()
+      .trim()
+      .length(6, v.otpSixDigits)
+      .regex(/^\d{6}$/, v.otpDigitsOnly),
+    newPassword: z.string().min(8, v.passwordMinLength),
+    confirmPassword: z.string().optional(),
+  });
+
+  const resetPasswordSchema = z
+    .object({
+      email: z
+        .string()
+        .trim()
+        .min(1, v.emailRequired)
+        .email(v.emailInvalid)
+        .toLowerCase(),
+      otp: z
+        .string()
+        .trim()
+        .length(6, v.otpSixDigits)
+        .regex(/^\d{6}$/, v.otpDigitsOnly),
+      newPassword: z.string().min(8, v.passwordMinLength),
+      confirmPassword: z.string().min(1, v.confirmPasswordRequired),
+    })
+    .refine((data) => data.newPassword === data.confirmPassword, {
+      message: v.passwordMismatch,
+      path: ['confirmPassword'],
+    });
+
+  return {
+    loginSchema,
+    registerSchema,
+    registerDtoSchema,
+    refreshTokenSchema,
+    verifyOtpSchema,
+    resendOtpSchema,
+    forgotPasswordSchema,
+    resetPasswordSchema,
+    resetPasswordDtoSchema,
+  };
+}
+
+// Default export schemas (default to Vietnamese locale for backward compatibility)
+const defaultSchemas = createAuthSchemas('vi');
+
+export const loginSchema = defaultSchemas.loginSchema;
+export const registerSchema = defaultSchemas.registerSchema;
+export const registerDtoSchema = defaultSchemas.registerDtoSchema;
+export const refreshTokenSchema = defaultSchemas.refreshTokenSchema;
+export const verifyOtpSchema = defaultSchemas.verifyOtpSchema;
+export const resendOtpSchema = defaultSchemas.resendOtpSchema;
+export const forgotPasswordSchema = defaultSchemas.forgotPasswordSchema;
+export const resetPasswordSchema = defaultSchemas.resetPasswordSchema;
+export const resetPasswordDtoSchema = defaultSchemas.resetPasswordDtoSchema;
+
+export type LoginInput = z.infer<typeof loginSchema>;
+export type RegisterInput = z.infer<typeof registerSchema>;
+export type RegisterDtoInput = z.infer<typeof registerDtoSchema>;
+export type RefreshTokenInput = z.infer<typeof refreshTokenSchema>;
+export type VerifyOtpInput = z.infer<typeof verifyOtpSchema>;
+export type ResendOtpInput = z.infer<typeof resendOtpSchema>;
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
+export type ResetPasswordDtoInput = z.infer<typeof resetPasswordDtoSchema>;
+
+/**
+ * Extracts the first human-readable validation error message from a ZodError.
+ */
+export function getFirstZodError(error: z.ZodError): string {
+  const fieldErrors = error.flatten().fieldErrors as Record<string, string[] | undefined>;
+  const firstList = Object.values(fieldErrors).find((arr) => arr && arr.length > 0);
+  return firstList?.[0] || '';
+}

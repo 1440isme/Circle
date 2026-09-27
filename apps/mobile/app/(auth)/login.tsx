@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Mail, Lock, Eye, EyeOff, CheckSquare, Square, AlertCircle, ArrowRight } from 'lucide-react-native';
-import { loginSchema } from '@circle/shared';
+import { createAuthSchemas, getFirstZodError } from '@circle/shared';
 import { useThemeStore } from '../../src/stores/theme.store';
 import { useLanguageStore } from '../../src/stores/language.store';
 import { useAuthStore } from '../../src/stores/auth.store';
@@ -23,7 +23,7 @@ import { HeaderControls } from '../../src/components/common/HeaderControls';
 export default function LoginScreen() {
   const router = useRouter();
   const { colors, resolvedTheme } = useThemeStore();
-  const t = useLanguageStore((s) => s.t);
+  const { t, locale } = useLanguageStore();
   const setAuth = useAuthStore((s) => s.setAuth);
 
   const isDark = resolvedTheme === 'dark';
@@ -38,10 +38,11 @@ export default function LoginScreen() {
   const handleLogin = async () => {
     setApiError(null);
 
+    const { loginSchema } = createAuthSchemas(locale);
     const validation = loginSchema.safeParse({ email: email.trim().toLowerCase(), password });
     if (!validation.success) {
-      const firstError = Object.values(validation.error.flatten().fieldErrors)[0]?.[0];
-      setApiError(firstError || t.auth.invalidInfo);
+      const errorMsg = getFirstZodError(validation.error);
+      setApiError(errorMsg || t.auth.invalidInfo);
       return;
     }
 
@@ -61,8 +62,9 @@ export default function LoginScreen() {
       if (
         err?.details?.code === 'ACCOUNT_NOT_ACTIVATED' ||
         err?.code === 'ACCOUNT_NOT_ACTIVATED' ||
+        err?.message === t.auth.accountNotActivated ||
         err?.message?.toLowerCase().includes('not activated') ||
-        err?.message?.includes('kích hoạt')
+        err?.message?.toLowerCase().includes('kích hoạt')
       ) {
         router.push({
           pathname: '/(auth)/verify-otp',

@@ -97,8 +97,11 @@ export async function mobileApiRequest<T>(
   const { skipAuth = false, retryCount = 0, headers = {}, ...customConfig } = options;
   const t = useLanguageStore.getState().t;
 
+  const currentLocale = useLanguageStore.getState().locale;
   const defaultHeaders: Record<string, string> = {
     'Content-Type': 'application/json',
+    'x-circle-locale': currentLocale,
+    'Accept-Language': currentLocale,
   };
 
   if (!skipAuth) {

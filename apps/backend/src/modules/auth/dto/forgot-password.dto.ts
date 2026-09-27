@@ -1,7 +1,5 @@
-import { IsEmail, IsNotEmpty } from 'class-validator';
+import { ForgotPasswordInput } from '@circle/shared';
 
-export class ForgotPasswordDto {
-  @IsEmail({}, { message: 'Email must be a valid email address' })
-  @IsNotEmpty({ message: 'Email is required' })
-  email: string;
+export class ForgotPasswordDto implements ForgotPasswordInput {
+  email!: string;
 }

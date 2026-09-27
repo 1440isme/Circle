@@ -23,7 +23,7 @@ import {
   Sparkles,
   RefreshCw,
 } from 'lucide-react-native';
-import { forgotPasswordSchema, resetPasswordSchema } from '@circle/shared';
+import { createAuthSchemas, getFirstZodError } from '@circle/shared';
 import { useThemeStore } from '../../stores/theme.store';
 import { useLanguageStore } from '../../stores/language.store';
 import { mobileApiRequest } from '../../services/api';
@@ -41,7 +41,7 @@ export function PasswordRecoveryWizard({
 }: PasswordRecoveryWizardProps) {
   const router = useRouter();
   const { colors } = useThemeStore();
-  const t = useLanguageStore((s) => s.t);
+  const { t, locale } = useLanguageStore();
 
   const [step, setStep] = useState<1 | 2 | 3>(initialStep);
   const [email, setEmail] = useState(initialEmail);
@@ -97,10 +97,11 @@ export function PasswordRecoveryWizard({
     setApiError(null);
     setSuccessMsg(null);
 
+    const { forgotPasswordSchema } = createAuthSchemas(locale);
     const validation = forgotPasswordSchema.safeParse({ email: email.trim().toLowerCase() });
     if (!validation.success) {
-      const firstError = Object.values(validation.error.flatten().fieldErrors)[0]?.[0];
-      setApiError(firstError || t.validation.emailInvalid);
+      const errorMsg = getFirstZodError(validation.error);
+      setApiError(errorMsg || t.validation.emailInvalid);
       return;
     }
 
@@ -175,6 +176,7 @@ export function PasswordRecoveryWizard({
     setApiError(null);
     setSuccessMsg(null);
 
+    const { resetPasswordSchema } = createAuthSchemas(locale);
     const validation = resetPasswordSchema.safeParse({
       email: email.trim().toLowerCase(),
       otp: otp.trim(),
@@ -183,8 +185,8 @@ export function PasswordRecoveryWizard({
     });
 
     if (!validation.success) {
-      const firstError = Object.values(validation.error.flatten().fieldErrors)[0]?.[0];
-      setApiError(firstError || t.auth.invalidInfo);
+      const errorMsg = getFirstZodError(validation.error);
+      setApiError(errorMsg || t.auth.invalidInfo);
       return;
     }
 
