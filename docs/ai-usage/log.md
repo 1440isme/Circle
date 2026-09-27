@@ -1371,3 +1371,69 @@
 - **Commit:** `0169ef8`
 - **PR:** #57 (https://github.com/1440isme/Circle/pull/57)
 
+---
+
+## AI-0037: Initialize Mobile App Shell with Full Auth Flow, SecureStore and Bilingual Themes
+
+- **Date:** 2026-09-27 20:40:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #10 (US-MOBILE-001: Mobile Application Shell & Auth Flow)
+- **Purpose:** Xây dựng ứng dụng di động React Native + Expo (`apps/mobile`) với Expo Router v3, đồng bộ 100% các tính năng xác thực, bảo mật, thiết kế và trải nghiệm người dùng tương đồng với bản Web đã hoàn thiện:
+  1. Khởi tạo `apps/mobile` với Expo SDK 51, React Native 0.74.5, Expo Router v3, Zustand, TanStack Query, Lucide icons và `expo-secure-store`. Cấu hình Metro monorepo watch symlinks hỗ trợ `@circle/shared` và `@circle/types`.
+  2. Xây dựng Design System mobile với Design Tokens (Sage, Peach, Charcoal, Canvas, Wash, Dark tokens) đồng bộ theo chuẩn Apple HIG & Google Stitch.
+  3. Cài đặt các Store toàn cục: `theme.store.ts` (Light/Dark/System), `language.store.ts` (VI/EN tích hợp từ `@circle/shared`), `auth.store.ts` (quản lý trạng thái xác thực, profile, refresh token, remember-me).
+  4. Cài đặt `api.ts` xử lý Dual-Token với cơ chế silent refresh tự động khi gặp mã lỗi 401 và bảo mật lưu trữ token qua `expo-secure-store`.
+  5. Xây dựng luồng xác thực đầy đủ: Đăng nhập (`login.tsx`), Đăng ký (`register.tsx`), Xác thực OTP kích hoạt tài khoản (`verify-otp.tsx` với bộ đếm ngược 60 giây), Quên mật khẩu (`forgot-password.tsx`), Đặt lại mật khẩu (`reset-password.tsx`).
+  6. Xây dựng bố cục ứng dụng chính với Bottom Tabs Navigator: Trang chủ Chào mừng Dashboard (`(tabs)/index.tsx`), Vòng tròn (`(tabs)/circles.tsx`), Tin nhắn (`(tabs)/messages.tsx`), Hồ sơ cá nhân (`(tabs)/profile.tsx`).
+  7. Tích hợp HeaderControls cho phép chuyển đổi giao diện sáng/tối và ngôn ngữ Anh/Việt mượt mà trên toàn bộ các màn hình.
+- **Prompt Summary:** "module 3 là của hạnh mà bạn k check file phân công à, chắc là giờ làm mobile đi ha, hiện tại những gì tôi làm được trên web rồi thì làm tương tự với mobile"
+- **Files Affected:**
+  - `apps/mobile/app.json`
+  - `apps/mobile/babel.config.js`
+  - `apps/mobile/metro.config.js`
+  - `apps/mobile/package.json`
+  - `apps/mobile/tsconfig.json`
+  - `apps/mobile/assets/icon.png`, `splash.png`, `adaptive-icon.png`
+  - `apps/mobile/src/constants/theme.ts`
+  - `apps/mobile/src/services/storage.ts`
+  - `apps/mobile/src/services/api.ts`
+  - `apps/mobile/src/stores/auth.store.ts`
+  - `apps/mobile/src/stores/language.store.ts`
+  - `apps/mobile/src/stores/theme.store.ts`
+  - `apps/mobile/src/components/common/Button.tsx`
+  - `apps/mobile/src/components/common/Input.tsx`
+  - `apps/mobile/src/components/common/HeaderControls.tsx`
+  - `apps/mobile/app/_layout.tsx`
+  - `apps/mobile/app/index.tsx`
+  - `apps/mobile/app/(auth)/_layout.tsx`
+  - `apps/mobile/app/(auth)/login.tsx`
+  - `apps/mobile/app/(auth)/register.tsx`
+  - `apps/mobile/app/(auth)/verify-otp.tsx`
+  - `apps/mobile/app/(auth)/forgot-password.tsx`
+  - `apps/mobile/app/(auth)/reset-password.tsx`
+  - `apps/mobile/app/(tabs)/_layout.tsx`
+  - `apps/mobile/app/(tabs)/index.tsx`
+  - `apps/mobile/app/(tabs)/circles.tsx`
+  - `apps/mobile/app/(tabs)/messages.tsx`
+  - `apps/mobile/app/(tabs)/profile.tsx`
+  - `package-lock.json`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% mã nguồn khởi tạo Expo mobile app, cấu hình monorepo, các màn hình auth & dashboard, store quản lý trạng thái, và bộ component UI.
+- **Human Modifications:** Trương Công Bình trực tiếp nhắc nhở phân công nhiệm vụ (Module 3 thuộc về Hạnh per `docs/phan-cong-nhiem-vu.md`) và yêu cầu chuyển sang phát triển ứng dụng di động Mobile (`apps/mobile`) để đồng bộ hoàn toàn tiến độ với bản Web.
+- **Verification Method:**
+  - `npx tsc --noEmit` trong `apps/mobile`: 0 errors.
+  - `npm test -w @circle/backend`: 14/14 unit tests pass 100%.
+  - `npm run build -w @circle/web`: Next.js 14 biên dịch thành công 9/9 trang.
+  - `./scripts/check-agent-map.sh`: 93 file framework markdown liên kết hợp lệ 100%.
+- **Official Source Checked:** Expo SDK 51 Documentation, Expo Router v3 Documentation, React Native Documentation.
+- **Security & License Check:** Token lưu trong `expo-secure-store` bảo mật mã hóa phần cứng Keychain/Keystore; không lộ secrets.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** Khi mới khởi tạo các màn hình mobile auth, AI đã giả định một số key localization như `emailLabel`, `sendResetCode`, `groupOnlyChatTagline`, `security` thay vì sử dụng chính xác các key từ dictionary `@circle/shared` (`email`, `sendResetOtp`, `dualTokenSecurity`).
+  - **Root Cause:** AI không tra cứu chi tiết toàn bộ key dictionary trong `packages/shared/src/locales/vi.ts` trước khi sinh code giao diện.
+  - **Resolution / Fix:** Chạy `npx tsc --noEmit`, đọc chính xác file từ điển `vi.ts` và thay thế toàn bộ key không tồn tại về đúng các key chuẩn của `@circle/shared`.
+- **Commit:** Pending
+- **PR:** Pending
+
+
