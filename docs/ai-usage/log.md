@@ -1494,6 +1494,40 @@
 - **Commit:** `182e5f2`
 - **PR:** #58 (https://github.com/1440isme/Circle/pull/58)
 
+---
+
+## AI-0040: Fix Mobile API Endpoint Prefix and Dynamic Host IP Resolution
+
+- **Date:** 2026-09-27 21:13:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #10 (US-MOBILE-001: Mobile Application Shell & Auth Flow)
+- **Purpose:** Khắc phục lỗi "Không thể kết nối đến máy chủ" khi đăng nhập từ thiết bị di động:
+  1. Điều chỉnh `getDefaultApiUrl()` trong `apps/mobile/src/services/api.ts` để luôn gắn tiền tố chuẩn `/api/v1` của NestJS Backend.
+  2. Bổ sung cơ chế tự động trích xuất địa chỉ IP của máy chủ phát triển Metro từ `Constants.expoConfig?.hostUri` (ví dụ `192.168.1.196`) khi chạy qua Expo Go, đồng thời cấu hình fallback về IP LAN `http://192.168.1.196:4000/api/v1` thay vì `localhost` (vốn trỏ vào chính điện thoại).
+  3. Cập nhật CORS tại `apps/backend/src/main.ts` với `origin: true` cho phép thiết bị di động kết nối tới API qua mạng LAN nội bộ.
+- **Prompt Summary:** "đã chạy được nhưng chưa đăng nhập được k thể kết nối đến máy chủ"
+- **Files Affected:**
+  - `apps/mobile/src/services/api.ts`
+  - `apps/backend/src/main.ts`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% logic trích xuất IP từ hostUri, chuẩn hóa URL /api/v1 và cấu hình CORS.
+- **Human Modifications:** Trương Công Bình test đăng nhập trên iPhone và thông báo lỗi không kết nối được máy chủ.
+- **Verification Method:**
+  - `npx tsc --noEmit` trong `apps/mobile`: 0 errors.
+  - `npm test -w @circle/backend`: 14/14 unit tests pass 100%.
+  - `./scripts/check-agent-map.sh`: 93 file framework markdown liên kết hợp lệ 100%.
+- **Official Source Checked:** NestJS CORS Documentation, Expo Constants hostUri Specification.
+- **Security & License Check:** An toàn, không chứa secrets.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A
+  - **Resolution / Fix:** N/A
+- **Commit:** Pending
+- **PR:** #58 (https://github.com/1440isme/Circle/pull/58)
+
+
 
 
 

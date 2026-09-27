@@ -4,19 +4,35 @@ import { ApiResponse, AuthResponseData, AuthTokens } from '@circle/types';
 import { getAuthTokens, saveAuthTokens, clearAuthTokens } from './storage';
 
 function getDefaultApiUrl(): string {
+  // 1. Explicit environment variable
   if (process.env.EXPO_PUBLIC_API_URL) {
-    return process.env.EXPO_PUBLIC_API_URL;
+    const url = process.env.EXPO_PUBLIC_API_URL.replace(/\/+$/, '');
+    return url.endsWith('/api/v1') ? url : `${url}/api/v1`;
   }
 
-  // Configured in app.json extra or dev defaults
+  // 2. Configured in app.json extra
   const extraUrl = Constants.expoConfig?.extra?.apiUrl;
-  if (extraUrl) return extraUrl;
-
-  // In Android Emulator, localhost is 10.0.2.2
-  if (Platform.OS === 'android') {
-    return 'http://10.0.2.2:4000';
+  if (extraUrl) {
+    const url = extraUrl.replace(/\/+$/, '');
+    return url.endsWith('/api/v1') ? url : `${url}/api/v1`;
   }
-  return 'http://localhost:4000';
+
+  // 3. Dynamically extract Metro dev server IP when running via Expo Go on physical device
+  const hostUri = Constants.expoConfig?.hostUri;
+  if (hostUri) {
+    const host = hostUri.split(':')[0];
+    if (host && host !== 'localhost' && host !== '127.0.0.1') {
+      return `http://${host}:4000/api/v1`;
+    }
+  }
+
+  // 4. Android Emulator loopback
+  if (Platform.OS === 'android') {
+    return 'http://10.0.2.2:4000/api/v1';
+  }
+
+  // 5. Default fallback to machine LAN IP for physical mobile testing
+  return 'http://192.168.1.196:4000/api/v1';
 }
 
 export const API_BASE_URL = getDefaultApiUrl();
