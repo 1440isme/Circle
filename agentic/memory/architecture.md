@@ -17,7 +17,8 @@ Durable structural realities that govern the CIRCLE codebase.
 
 - **Next.js App Router:** Server Components handle data fetching at the page layer; Client Components handle interactive state.
 - **Admin Dashboard Integration:** The admin interface resides directly inside `apps/web/src/app/admin/` to maximize code reuse of components, API clients, and auth mechanisms, protected by strict RBAC guards.
-- **Global Stores:** Zustand is used for client-only state (`authStore`, `chatStore`, `presenceStore`). Data caches are managed by TanStack Query.
+- **Global Stores:** Zustand is used for client-only state (`authStore`, `chatStore`, `presenceStore`, `languageStore`). Data caches are managed by TanStack Query.
+- **Bilingual i18n & Shared Schemas:** Validation schemas (Zod) and translation dictionaries (English & Vietnamese) are maintained in `packages/shared` as the Single Source of Truth for Web & Mobile clients.
 
 ---
 
