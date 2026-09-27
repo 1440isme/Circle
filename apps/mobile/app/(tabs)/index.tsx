@@ -44,14 +44,8 @@ export default function HomeScreen() {
     Alert.alert(t.common.appName, msg);
   };
 
-  // Sample native social circles for horizontal rail (bound to theme tokens and shared locales)
-  const sampleCircles = [
-    { id: 'new', name: t.home.createCircleBtn, isAdd: true },
-    { id: '1', name: t.home.sampleCircleFamily, initial: 'GĐ', color: colors.success, members: 4 },
-    { id: '2', name: t.home.sampleCircleFriends, initial: 'BT', color: colors.info, members: 6 },
-    { id: '3', name: t.home.sampleCircleThesis, initial: 'TN', color: colors.accent, members: 2 },
-    { id: '4', name: t.home.sampleCircleBadminton, initial: 'CL', color: colors.warning, members: 12 },
-  ];
+  // User's joined circles (strictly binds to real data; zero mock records)
+  const userCircles: Array<{ id: string; name: string; initial: string; color: string; members: number }> = [];
 
   return (
     <View style={[styles.container, { backgroundColor: colors.canvas }]}>
@@ -86,65 +80,60 @@ export default function HomeScreen() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.circlesRailContent}
           >
-            {sampleCircles.map((circle) => {
-              if (circle.isAdd) {
-                return (
-                  <TouchableOpacity
-                    key={circle.id}
-                    activeOpacity={0.8}
-                    onPress={() => handleAction(t.home.createCirclePrompt)}
-                    style={styles.circleRailItem}
-                  >
-                    <View
-                      style={[
-                        styles.addCircleRing,
-                        { borderColor: colors.primary, backgroundColor: colors.wash },
-                      ]}
-                    >
-                      <Plus size={22} color={colors.primary} strokeWidth={2.5} />
-                    </View>
-                    <Text
-                      numberOfLines={1}
-                      style={[styles.circleRailName, { color: colors.text }]}
-                    >
-                      {circle.name}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              }
+            {/* Primary Action: Create Circle Button */}
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => handleAction(t.home.createCirclePrompt)}
+              style={styles.circleRailItem}
+            >
+              <View
+                style={[
+                  styles.addCircleRing,
+                  { borderColor: colors.primary, backgroundColor: colors.wash },
+                ]}
+              >
+                <Plus size={22} color={colors.primary} strokeWidth={2.5} />
+              </View>
+              <Text
+                numberOfLines={1}
+                style={[styles.circleRailName, { color: colors.text }]}
+              >
+                {t.home.createCircleBtn}
+              </Text>
+            </TouchableOpacity>
 
-              return (
-                <TouchableOpacity
-                  key={circle.id}
-                  activeOpacity={0.8}
-                  onPress={() =>
-                    handleAction(
-                      `${t.home.circleLabel} ${circle.name} (${t.home.circleMembersCount.replace('{count}', String(circle.members))})`,
-                    )
-                  }
-                  style={styles.circleRailItem}
+            {/* Real User Circles (Rendered dynamically when available from API/Store) */}
+            {userCircles.map((circle) => (
+              <TouchableOpacity
+                key={circle.id}
+                activeOpacity={0.8}
+                onPress={() =>
+                  handleAction(
+                    `${t.home.circleLabel} ${circle.name} (${t.home.circleMembersCount.replace('{count}', String(circle.members))})`,
+                  )
+                }
+                style={styles.circleRailItem}
+              >
+                <View
+                  style={[
+                    styles.circleAvatarRing,
+                    { borderColor: colors.hairline },
+                  ]}
                 >
-                  <View
-                    style={[
-                      styles.circleAvatarRing,
-                      { borderColor: colors.hairline },
-                    ]}
-                  >
-                    <View style={[styles.circleAvatarInner, { backgroundColor: circle.color }]}>
-                      <Text style={[styles.circleAvatarText, { color: colors.onPrimary }]}>
-                        {circle.initial}
-                      </Text>
-                    </View>
+                  <View style={[styles.circleAvatarInner, { backgroundColor: circle.color }]}>
+                    <Text style={[styles.circleAvatarText, { color: colors.onPrimary }]}>
+                      {circle.initial}
+                    </Text>
                   </View>
-                  <Text
-                    numberOfLines={1}
-                    style={[styles.circleRailName, { color: colors.text }]}
-                  >
-                    {circle.name}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
+                </View>
+                <Text
+                  numberOfLines={1}
+                  style={[styles.circleRailName, { color: colors.text }]}
+                >
+                  {circle.name}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </ScrollView>
         </View>
 

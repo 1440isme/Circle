@@ -82,7 +82,7 @@ No PR or Issue may be marked **Done** unless:
 1. **Requirements:** 100% of Acceptance Criteria (`AC-xxx`) and Business Rules (`BR-xxx`) are satisfied.
 2. **Architecture:** Documentation and Mermaid diagrams in `docs/architecture/` are updated.
 3. **Quality & Tests:** Unit and integration tests added; all existing tests pass; 0 lint errors, 0 TypeScript errors.
-4. **Security:** Auth & RBAC enforced; inputs validated with Zod/class-validator; zero hardcoded secrets.
+4. **Security:** Auth & RBAC enforced; inputs validated with Zod schemas; zero hardcoded secrets.
 5. **AI Logging:** Linked entry `AI-XXXX` recorded in `docs/ai-usage/log.md`.
 6. **Peer Review:** Approved by the peer engineer.
 
@@ -96,14 +96,19 @@ No PR or Issue may be marked **Done** unless:
 - ❌ Never invent or hallucinate API endpoints, statuses, or user metrics. If unsure, mark `UNKNOWN — needs verification`.
 - ❌ Never perform destructive git commands (`git reset --hard`, `git push --force`) on shared branches.
 - ❌ Never leave trailing or dead code when replacing features.
-- ❌ Never hardcode raw strings for user-facing texts (must use shared localization dictionary `t.*`).
-- ❌ Never hardcode raw hex/rgba color values in UI components (must use design token palette `colors.*`).
+- ❌ Never introduce unapproved technologies, third-party libraries, or deviate from the approved architectural roadmap without explicit written discussion and approval (e.g. NEVER arbitrarily use `class-validator` when `Zod` has been mandated).
+- ❌ Never commit mock data, dummy datasets, or fake entities into production UI components (Web & Mobile). When backend data is not yet available, UI must display authentic empty states or loading skeletons (Gate 10 - Academic & Production Integrity).
+- ❌ Never hardcode raw strings for user-facing texts on Web or Mobile (must use shared localization dictionary `t.*`).
+- ❌ Never hardcode raw hex/rgba color values in Web or Mobile UI components (must use design token palette `colors.*` or Tailwind tokens).
 
 ---
 
-## 8. Zero Hardcode & Seamless Mobile Canvas Mandate
+## 8. Zero Hardcode, Zero Mock Data & Seamless Design Token Mandate (Web & Mobile)
 
-- **Zero Hardcoded Localization:** Every human-readable label, prompt, title, error message, and placeholder MUST be declared in `packages/shared/src/locales/vi.ts` and `en.ts` and accessed via `t.*`. No inline Vietnamese or English literals in UI JSX/TSX.
-- **Zero Hardcoded Theme Colors:** Every color rendered in UI components MUST be resolved from design tokens (`colors.*` from `useThemeStore` / `CircleColors`). Raw hex values (`#FFFFFF`, `#000000`, etc.) and arbitrary `rgba(...)` in component styling are strictly forbidden.
+- **Zero Hardcoded Localization (Web & Mobile):** Every human-readable label, prompt, title, error message, button, and placeholder MUST be declared in `packages/shared/src/locales/vi.ts` and `en.ts` and accessed via `t.*`. No inline Vietnamese or English string literals in UI JSX/TSX.
+- **Zero Hardcoded Theme Colors (Web & Mobile):** Every color rendered in UI components MUST be resolved from design tokens (`colors.*` from `useThemeStore` / `CircleColors` on mobile, Tailwind theme tokens on web). Raw hex values (`#FFFFFF`, `#000000`, etc.) and arbitrary `rgba(...)` in component styling are strictly forbidden.
+- **Zero Mock Data in Components:** Components must strictly bind to real data from stores/APIs. Fake sample circles, mock member counts, or simulated entities are strictly banned from UI code. If data is pending or empty, show authentic Empty States.
 - **Seamless Infinite Canvas on Mobile:** Mobile applications (`apps/mobile`) must deliver an organic, fluid native mobile experience without rigid rectangular bounding boxes, artificial card partitions, or abrupt header divides. Content flows continuously on a unified canvas background (`colors.canvas`), guided by typography scale, icon accents, and breathing room (whitespace).
+- **Step-by-Step Native Flow:** Multi-step workflows on mobile (Registration, Forgot Password, Account Setup) must follow an unboxed step-by-step wizard pattern (1 action/question per screen) rather than legacy long form-filling.
+
 

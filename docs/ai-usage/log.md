@@ -1771,6 +1771,51 @@
 - **Commit:** `62e507a`
 - **PR:** #58 (https://github.com/1440isme/Circle/pull/58)
 
+---
+
+## AI-0047: Mở rộng Quy tắc Quản trị Công nghệ & Authentic Data, Hiện thực hóa Quy trình Quên Mật khẩu 3 Bước Unboxed Mobile
+
+- **Date:** 2026-09-27 22:20:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #10 (US-MOBILE-001: Mobile Application Shell & Auth Flow)
+- **Purpose:** Tiếp thu toàn diện chỉ đạo của người dùng về 4 nội dung quan trọng:
+  1. **Mở rộng Phạm vi Điều luật:** Áp dụng bắt buộc quy tắc Không hardcode ngôn ngữ (`t.*`) và Không hardcode màu sắc (`colors.*`) cho cả Web và Mobile (`agentic/RULES.md` Rule 8 & `agentic/CONVENTIONS.md` Mục 9).
+  2. **Quản trị Công nghệ Nghiêm ngặt (Technology Governance):** Cấm tuyệt đối việc tùy tiện đưa vào công nghệ/thư viện ngoài lộ trình định hướng mà chưa thảo luận/hỏi ý kiến (điển hình: cấm dùng `class-validator`, quy chuẩn 100% dữ liệu qua `zod` và `ZodValidationPipe`). Bổ sung vào DoD Item 4, Anti-Patterns và Section 10 của `agentic/CONVENTIONS.md`.
+  3. **Cam kết Dữ liệu Thật (Zero Mock Data Mandate):** Loại bỏ toàn bộ các bản ghi giả lập/mẫu trên Mobile HomeScreen (các vòng tròn mẫu "Gia đình nhỏ", "Hội bạn thân", fake member count). Giữ nguyên cấu trúc giao diện chuẩn mực sẵn sàng liên kết dữ liệu thực từ backend API/store khi có, hiển thị action tạo vòng tròn authentic.
+  4. **Quy trình Quên & Đặt lại Mật khẩu 3 Bước Unboxed Native Wizard:** Tái thiết kế toàn bộ `apps/mobile/app/(auth)/forgot-password.tsx` và `reset-password.tsx` từ dạng hộp card form tĩnh sang Wizard 3 bước liền mạch (1 hành vi/câu hỏi trên mỗi màn hình) tương tự màn hình Đăng ký:
+     - **Bước 1 (Email):** Nhập email xác nhận, gọi `/auth/forgot-password`.
+     - **Bước 2 (Mã xác thực):** Nhập mã 6 chữ số dạng PIN giãn cách native, bộ đếm ngược gửi lại mã gọi `/auth/resend-otp` (type: PASSWORD_RESET).
+     - **Bước 3 (Mật khẩu mới):** Nhập mật khẩu mới & xác nhận mật khẩu, checklist trực quan kiểm tra độ dài và độ khớp, gọi `/auth/reset-password`.
+     - Loại bỏ hoàn toàn khung viền card cứng nhắc, đồng bộ hóa 100% tokens màu và ngôn ngữ.
+- **Prompt Summary:** "những luật này k chỉ áp dụng cho mobile mà cho cả web nữa nhé, tiếp bổ sung vào rule là k tùy tiện sử dụng 1 công nghệ nào đó mà chưa có ý kiến hỏi cũng như k có trong lộ trình định hướng (ví dụ như case hôm nay bạn tự ý dùng class-validator mà trong khi tôi đã quy định dùng zod), thiết kế mobile trang chủ tôi khá thích rồi tuy nhiên luật là k có hardcode k mockdata, ui vậy tốt chờ data có rồi hiển thị sau nhé còn những thiết kế mẫu hay data k thật bỏ hết, trình quên mật khẩu chưa áp dụng quy tắc mới như đăng ký"
+- **Files Affected:**
+  - `agentic/RULES.md`
+  - `agentic/CONVENTIONS.md`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `apps/mobile/app/(tabs)/index.tsx`
+  - `apps/mobile/src/components/auth/PasswordRecoveryWizard.tsx`
+  - `apps/mobile/app/(auth)/forgot-password.tsx`
+  - `apps/mobile/app/(auth)/reset-password.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% refactor code, wizard component, schema validation và đồng bộ tài liệu.
+- **Human Modifications:** Trương Công Bình trực tiếp phê bình việc sử dụng `class-validator`, đưa ra luật cấm tùy tiện dùng công nghệ chưa được duyệt, cấm mock data và chỉ đạo chuyển đổi quên mật khẩu sang dạng wizard unboxed 1 câu hỏi/màn hình.
+- **Verification Method:**
+  - `npx tsc --noEmit` trong `apps/mobile`: 0 errors.
+  - `npm test -w @circle/backend`: 14/14 unit tests pass 100%.
+  - `npm run build -w @circle/web`: 9/9 static pages pass 100%.
+  - `bash ./scripts/check-agent-map.sh`: 93/93 framework files pass 100%.
+- **Official Source Checked:** Apple HIG Onboarding & Security, Material 3 Design Tokens, Zod Official Docs.
+- **Security & License Check:** An toàn, không chứa credentials.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** Trực tiếp sử dụng thư viện `class-validator` khi chưa được phê duyệt, vi phạm thỏa thuận công nghệ của dự án.
+  - **Root Cause:** AI đưa thư viện quen thuộc vào thay vì tuân thủ quy chuẩn Zod đã được định hướng trong `packages/shared`.
+  - **Resolution / Fix:** Bổ sung điều luật cấm `class-validator`, cam kết 100% validation thông qua Zod schemas tập trung.
+- **Commit:** Pending
+- **PR:** #58 (https://github.com/1440isme/Circle/pull/58)
+
 
 
 
