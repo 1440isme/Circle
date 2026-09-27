@@ -68,7 +68,7 @@ export default function RegisterPage() {
         email: validationResult.data.email,
         password: validationResult.data.password,
       });
-      router.push('/');
+      router.push(`/verify-otp?email=${encodeURIComponent(validationResult.data.email)}`);
     } catch (err: any) {
       setApiError(err?.message || t.auth.registerFailed);
     }

@@ -1,4 +1,11 @@
 import { AuthResponseData, AuthUserData } from '@circle/types';
+import {
+  ForgotPasswordInput,
+  RegisterInput,
+  ResendOtpInput,
+  ResetPasswordInput,
+  VerifyOtpInput,
+} from '@circle/shared';
 import { apiRequest } from './api';
 import { clearAuthStorage, getStoredTokens, saveTokens, saveUser } from './auth-storage';
 
@@ -14,7 +21,7 @@ export interface LoginPayload {
 }
 
 /**
- * Register a new user account.
+ * Register a new user account (unactivated, sends OTP).
  */
 export async function registerApi(payload: RegisterPayload): Promise<AuthResponseData> {
   const res = await apiRequest<AuthResponseData>('/auth/register', {
@@ -23,8 +30,73 @@ export async function registerApi(payload: RegisterPayload): Promise<AuthRespons
     skipAuth: true,
   });
 
-  saveTokens(res.data.tokens);
-  saveUser(res.data.user);
+  if (res.data?.tokens) {
+    saveTokens(res.data.tokens);
+  }
+  if (res.data?.user) {
+    saveUser(res.data.user);
+  }
+
+  return res.data;
+}
+
+/**
+ * Verify 6-digit OTP to activate account.
+ */
+export async function verifyOtpApi(payload: VerifyOtpInput): Promise<AuthResponseData> {
+  const res = await apiRequest<AuthResponseData>('/auth/verify-otp', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+    skipAuth: true,
+  });
+
+  if (res.data?.tokens) {
+    saveTokens(res.data.tokens);
+  }
+  if (res.data?.user) {
+    saveUser(res.data.user);
+  }
+
+  return res.data;
+}
+
+/**
+ * Resend OTP code with cooldown check.
+ */
+export async function resendOtpApi(payload: ResendOtpInput): Promise<{ message: string }> {
+  const res = await apiRequest<{ message: string }>('/auth/resend-otp', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+    skipAuth: true,
+  });
+
+  return res.data;
+}
+
+/**
+ * Request password recovery OTP.
+ */
+export async function forgotPasswordApi(
+  payload: ForgotPasswordInput,
+): Promise<{ message: string }> {
+  const res = await apiRequest<{ message: string }>('/auth/forgot-password', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+    skipAuth: true,
+  });
+
+  return res.data;
+}
+
+/**
+ * Reset password with verified OTP.
+ */
+export async function resetPasswordApi(payload: ResetPasswordInput): Promise<{ message: string }> {
+  const res = await apiRequest<{ message: string }>('/auth/reset-password', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+    skipAuth: true,
+  });
 
   return res.data;
 }
@@ -73,3 +145,4 @@ export async function logoutApi(): Promise<void> {
     clearAuthStorage();
   }
 }
+

@@ -13,6 +13,10 @@ import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { VerifyOtpDto } from './dto/verify-otp.dto';
+import { ResendOtpDto } from './dto/resend-otp.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { Public } from '../../common/decorators/public.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -53,6 +57,66 @@ export class AuthController {
       success: true,
       statusCode: HttpStatus.OK,
       message: 'Login successful',
+      data,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  @Public()
+  @Post('verify-otp')
+  @HttpCode(HttpStatus.OK)
+  async verifyOtp(
+    @Body() dto: VerifyOtpDto,
+    @Headers('user-agent') userAgent?: string,
+    @Ip() ipAddress?: string,
+  ): Promise<ApiResponse<AuthResponseData>> {
+    const data = await this.authService.verifyOtp(dto, userAgent, ipAddress);
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      message: 'Email verification successful',
+      data,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  @Public()
+  @Post('resend-otp')
+  @HttpCode(HttpStatus.OK)
+  async resendOtp(@Body() dto: ResendOtpDto): Promise<ApiResponse<{ message: string }>> {
+    const data = await this.authService.resendOtp(dto);
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      message: data.message,
+      data,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  @Public()
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  async forgotPassword(@Body() dto: ForgotPasswordDto): Promise<ApiResponse<{ message: string }>> {
+    const data = await this.authService.forgotPassword(dto);
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      message: data.message,
+      data,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  @Public()
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  async resetPassword(@Body() dto: ResetPasswordDto): Promise<ApiResponse<{ message: string }>> {
+    const data = await this.authService.resetPassword(dto);
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      message: data.message,
       data,
       timestamp: new Date().toISOString(),
     };
