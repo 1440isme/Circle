@@ -1673,6 +1673,45 @@
 - **Commit:** `c48343f`
 - **PR:** #58 (https://github.com/1440isme/Circle/pull/58)
 
+---
+
+## AI-0045: Implement Step-by-Step Native Mobile Onboarding Wizard and Clean Canvas Auth
+
+- **Date:** 2026-09-27 21:46:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #10 (US-MOBILE-001: Mobile Application Shell & Auth Flow)
+- **Purpose:** Chuyển đổi toàn diện trải nghiệm Đăng ký / Đăng nhập di động từ form điền hàng loạt sang quy trình từng bước tự nhiên (Step-by-Step Onboarding Flow / 1 câu hỏi 1 màn hình) chuẩn Native Mobile UX:
+  1. Tái cấu trúc màn hình Đăng ký (`register.tsx`) thành quy trình Onboarding 3 bước tuần tự:
+     - **Bước 1 (Danh tính):** "Bạn muốn bạn bè gọi mình là gì?" với ô nhập lớn tự động focus và nút tiếp tục.
+     - **Bước 2 (Liên hệ):** "Địa chỉ email của bạn là gì?" với kiểm tra định dạng email thời gian thực.
+     - **Bước 3 (Bảo mật):** "Tạo mật khẩu an toàn" với kiểm tra trực quan điều kiện độ dài và trùng khớp mật khẩu.
+  2. Bổ sung thanh tiến trình 3 đoạn (Segmented Progress Bar) trên đỉnh màn hình kèm nút quay lại thông minh giữa các bước.
+  3. Tái thiết kế màn hình Đăng nhập (`login.tsx`) trên nền canvas liền mạch vô cực, loại bỏ hoàn toàn khung viền hộp đóng khung kiểu web, mở rộng kích thước touch target cho người dùng điện thoại.
+  4. Nâng cấp màn hình Xác thực OTP (`verify-otp.tsx`) với ô nhập mã 6 số giãn cách (Spaced PIN Input), tự động kích hoạt xác thực ngay khi nhập đủ chữ số thứ 6.
+- **Prompt Summary:** "tôi muốn trải nghiệm đăng ký đăng nhập ở mobile phải thật tự nhiên, k phải dạng điền form, điều này tốt và hợp trên web nhưng mobile thì bạn hãy cập nhật xu thế về quy trình tạo tài khoản của các app mobile xem, mỗi bước là 1 màn hình trông rất tự nhiên, tư tưởng của tôi là web là web mobile là mobile ux là trên hết"
+- **Files Affected:**
+  - `apps/mobile/app/(auth)/register.tsx`
+  - `apps/mobile/app/(auth)/login.tsx`
+  - `apps/mobile/app/(auth)/verify-otp.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% logic wizard từng bước, giao diện segmented progress bar, validation và styling native.
+- **Human Modifications:** Trương Công Bình định hướng triết lý "Web là web, Mobile là mobile, UX là trên hết" và yêu cầu tạo tài khoản theo quy trình 1 câu hỏi/1 màn hình.
+- **Verification Method:**
+  - `npx tsc --noEmit` trong `apps/mobile`: 0 errors.
+  - `npm test -w @circle/backend`: 14/14 unit tests pass 100%.
+  - `./scripts/check-agent-map.sh`: 93 file framework markdown liên kết hợp lệ 100%.
+- **Official Source Checked:** Duolingo / BeReal Onboarding Flow Guidelines, Material Design & Apple HIG Onboarding Patterns.
+- **Security & License Check:** An toàn, không chứa secrets.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A
+  - **Resolution / Fix:** N/A
+- **Commit:** Pending
+- **PR:** #58 (https://github.com/1440isme/Circle/pull/58)
+
+
 
 
 

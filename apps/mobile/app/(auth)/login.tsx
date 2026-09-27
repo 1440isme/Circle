@@ -7,17 +7,16 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  Alert,
+  TextInput,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Mail, Lock, ShieldCheck, CheckSquare, Square } from 'lucide-react-native';
+import { Mail, Lock, Eye, EyeOff, CheckSquare, Square, AlertCircle, ArrowRight } from 'lucide-react-native';
 import { loginSchema } from '@circle/shared';
 import { useThemeStore } from '../../src/stores/theme.store';
 import { useLanguageStore } from '../../src/stores/language.store';
 import { useAuthStore } from '../../src/stores/auth.store';
 import { mobileApiRequest } from '../../src/services/api';
 import { AuthResponseData } from '@circle/types';
-import { Input } from '../../src/components/common/Input';
 import { Button } from '../../src/components/common/Button';
 import { HeaderControls } from '../../src/components/common/HeaderControls';
 
@@ -27,20 +26,22 @@ export default function LoginScreen() {
   const t = useLanguageStore((s) => s.t);
   const setAuth = useAuthStore((s) => s.setAuth);
 
+  const isDark = resolvedTheme === 'dark';
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
-  const [fieldErrors, setFieldErrors] = useState<{ email?: string[]; password?: string[] }>({});
   const [apiError, setApiError] = useState<string | null>(null);
 
   const handleLogin = async () => {
     setApiError(null);
-    setFieldErrors({});
 
-    const validation = loginSchema.safeParse({ email, password });
+    const validation = loginSchema.safeParse({ email: email.trim().toLowerCase(), password });
     if (!validation.success) {
-      setFieldErrors(validation.error.flatten().fieldErrors);
+      const firstError = Object.values(validation.error.flatten().fieldErrors)[0]?.[0];
+      setApiError(firstError || 'Thông tin không hợp lệ');
       return;
     }
 
@@ -80,93 +81,122 @@ export default function LoginScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={[styles.container, { backgroundColor: colors.canvas }]}
     >
+      {/* Top Header */}
+      <View style={styles.topBar}>
+        <View style={styles.brandRow}>
+          <View style={[styles.brandBadge, { backgroundColor: colors.primary }]}>
+            <Text style={styles.brandBadgeText}>C</Text>
+          </View>
+          <Text style={[styles.brandTitle, { color: colors.text }]}>CIRCLE</Text>
+        </View>
+        <HeaderControls />
+      </View>
+
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
-        {/* Top Header */}
-        <View style={styles.topBar}>
-          <View style={styles.brandRow}>
-            <View style={[styles.brandBadge, { backgroundColor: colors.primary }]}>
-              <Text style={styles.brandBadgeText}>C</Text>
-            </View>
-            <View>
-              <Text style={[styles.brandTitle, { color: colors.text }]}>CIRCLE</Text>
-              <Text style={[styles.brandSubtitle, { color: colors.subtle }]}>
-                {t.auth.brandTagline}
-              </Text>
-            </View>
-          </View>
-          <HeaderControls />
-        </View>
-
-        {/* Card Form */}
-        <View
-          style={[
-            styles.card,
-            {
-              backgroundColor: colors.surface,
-              borderColor: colors.hairline,
-            },
-          ]}
-        >
-          <Text style={[styles.title, { color: colors.text }]}>
+        {/* Welcome Prompt */}
+        <View style={styles.promptSection}>
+          <Text style={[styles.mainPrompt, { color: colors.text }]}>
             {t.auth.welcomeBack}
           </Text>
-          <Text style={[styles.subtitle, { color: colors.subtle }]}>
+          <Text style={[styles.subPrompt, { color: colors.subtle }]}>
             {t.auth.loginSubtitle}
           </Text>
+        </View>
 
-          {apiError ? (
-            <View
-              style={[
-                styles.errorBox,
-                { backgroundColor: `${colors.coral}15`, borderColor: `${colors.coral}30` },
-              ]}
+        {/* API Error Banner */}
+        {apiError ? (
+          <View
+            style={[
+              styles.errorBanner,
+              { backgroundColor: `${colors.coral}15`, borderColor: `${colors.coral}30` },
+            ]}
+          >
+            <AlertCircle size={16} color={colors.coral} />
+            <Text style={[styles.errorBannerText, { color: colors.coral }]}>
+              {apiError}
+            </Text>
+          </View>
+        ) : null}
+
+        {/* Form Fields - Seamless Native Inputs */}
+        <View style={styles.formContainer}>
+          {/* Email Input */}
+          <View
+            style={[
+              styles.nativeInputWrapper,
+              {
+                backgroundColor: isDark ? colors.surface : '#FFFFFF',
+                borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)',
+              },
+            ]}
+          >
+            <Mail size={20} color={colors.subtle} />
+            <TextInput
+              style={[styles.nativeTextInput, { color: colors.text }]}
+              placeholder={t.auth.emailPlaceholder || 'tenban@domain.com'}
+              placeholderTextColor={colors.subtle}
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="next"
+            />
+          </View>
+
+          {/* Password Input */}
+          <View
+            style={[
+              styles.nativeInputWrapper,
+              {
+                marginTop: 12,
+                backgroundColor: isDark ? colors.surface : '#FFFFFF',
+                borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)',
+              },
+            ]}
+          >
+            <Lock size={20} color={colors.subtle} />
+            <TextInput
+              style={[styles.nativeTextInput, { color: colors.text }]}
+              placeholder={t.auth.passwordPlaceholder || 'Mật khẩu'}
+              placeholderTextColor={colors.subtle}
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={!showPassword}
+              autoCapitalize="none"
+              returnKeyType="done"
+              onSubmitEditing={handleLogin}
+            />
+            <TouchableOpacity
+              onPress={() => setShowPassword(!showPassword)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <Text style={[styles.errorBoxText, { color: colors.coral }]}>
-                {apiError}
-              </Text>
-            </View>
-          ) : null}
+              {showPassword ? (
+                <EyeOff size={18} color={colors.subtle} />
+              ) : (
+                <Eye size={18} color={colors.subtle} />
+              )}
+            </TouchableOpacity>
+          </View>
 
-          {/* Email input */}
-          <Input
-            label={t.auth.email}
-            placeholder={t.auth.emailPlaceholder}
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            keyboardType="email-address"
-            icon={<Mail size={18} color={colors.subtle} />}
-            error={fieldErrors.email?.[0]}
-          />
-
-          {/* Password input */}
-          <Input
-            label={t.auth.password}
-            placeholder={t.auth.passwordPlaceholder}
-            value={password}
-            onChangeText={setPassword}
-            isPassword
-            icon={<Lock size={18} color={colors.subtle} />}
-            error={fieldErrors.password?.[0]}
-          />
-
-          {/* Remember me & Forgot Password */}
+          {/* Remember Me & Forgot Password Row */}
           <View style={styles.optionsRow}>
             <TouchableOpacity
-              style={styles.rememberRow}
               onPress={() => setRememberMe(!rememberMe)}
+              style={styles.rememberMeBtn}
               activeOpacity={0.7}
             >
               {rememberMe ? (
-                <CheckSquare size={17} color={colors.primary} />
+                <CheckSquare size={18} color={colors.primary} />
               ) : (
-                <Square size={17} color={colors.subtle} />
+                <Square size={18} color={colors.subtle} />
               )}
-              <Text style={[styles.rememberText, { color: colors.subtle }]}>
-                {t.auth.rememberMe}
+              <Text style={[styles.rememberMeText, { color: colors.text }]}>
+                Ghi nhớ đăng nhập
               </Text>
             </TouchableOpacity>
 
@@ -187,31 +217,31 @@ export default function LoginScreen() {
             loading={loading}
             style={{ marginTop: 8 }}
           />
-
-          {/* Register Link */}
-          <View style={styles.switchAuthRow}>
-            <Text style={[styles.switchAuthText, { color: colors.subtle }]}>
-              {t.auth.noAccount}{' '}
-            </Text>
-            <TouchableOpacity
-              onPress={() => router.push('/(auth)/register')}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.switchAuthLink, { color: colors.primary }]}>
-                {t.auth.signUpNow}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Security Badge */}
-        <View style={styles.securityRow}>
-          <ShieldCheck size={14} color={colors.primary} />
-          <Text style={[styles.securityText, { color: colors.subtle }]}>
-            {t.common.dualTokenSecurity}
-          </Text>
         </View>
       </ScrollView>
+
+      {/* Bottom Footer - Link to Register */}
+      <View
+        style={[
+          styles.bottomBar,
+          {
+            backgroundColor: colors.canvas,
+          },
+        ]}
+      >
+        <TouchableOpacity
+          onPress={() => router.push('/(auth)/register')}
+          style={styles.registerLinkRow}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.linkSubText, { color: colors.subtle }]}>
+            {t.auth.noAccount}{' '}
+          </Text>
+          <Text style={[styles.linkHighlight, { color: colors.primary }]}>
+            {t.auth.signUpNow}
+          </Text>
+        </TouchableOpacity>
+      </View>
     </KeyboardAvoidingView>
   );
 }
@@ -220,16 +250,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  scrollContent: {
-    padding: 20,
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingBottom: 40,
-  },
   topBar: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 28,
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === 'ios' ? 56 : 40,
+    paddingBottom: 12,
   },
   brandRow: {
     flexDirection: 'row',
@@ -237,101 +264,107 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   brandBadge: {
-    width: 38,
-    height: 38,
+    width: 32,
+    height: 32,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
   brandBadgeText: {
-    fontSize: 20,
-    fontWeight: '800',
     color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
   },
   brandTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '800',
-    letterSpacing: -0.5,
+    letterSpacing: -0.4,
   },
-  brandSubtitle: {
-    fontSize: 10,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+  scrollContent: {
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 24,
   },
-  card: {
-    borderRadius: 28,
-    padding: 24,
-    borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 3,
+  promptSection: {
+    marginBottom: 24,
   },
-  title: {
-    fontSize: 22,
-    fontWeight: '700',
-    letterSpacing: -0.3,
+  mainPrompt: {
+    fontSize: 28,
+    fontWeight: '800',
+    letterSpacing: -0.8,
+    lineHeight: 34,
+    marginBottom: 6,
   },
-  subtitle: {
-    fontSize: 13,
-    marginTop: 4,
-    marginBottom: 20,
-    lineHeight: 18,
+  subPrompt: {
+    fontSize: 14,
+    lineHeight: 20,
   },
-  errorBox: {
-    borderRadius: 14,
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     padding: 12,
+    borderRadius: 14,
     borderWidth: 1,
     marginBottom: 16,
   },
-  errorBoxText: {
-    fontSize: 12,
+  errorBannerText: {
+    fontSize: 13,
+    fontWeight: '600',
+    flex: 1,
+  },
+  formContainer: {
+    gap: 4,
+  },
+  nativeInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 56,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    paddingHorizontal: 16,
+    gap: 12,
+  },
+  nativeTextInput: {
+    flex: 1,
+    fontSize: 16,
     fontWeight: '500',
   },
   optionsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 18,
-    marginTop: 2,
+    justifyContent: 'space-between',
+    marginVertical: 14,
+    paddingHorizontal: 2,
   },
-  rememberRow: {
+  rememberMeBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
   },
-  rememberText: {
-    fontSize: 12,
+  rememberMeText: {
+    fontSize: 13,
     fontWeight: '500',
   },
   forgotText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
   },
-  switchAuthRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 20,
+  bottomBar: {
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
   },
-  switchAuthText: {
+  registerLinkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  linkSubText: {
     fontSize: 13,
   },
-  switchAuthLink: {
+  linkHighlight: {
     fontSize: 13,
     fontWeight: '700',
-  },
-  securityRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    marginTop: 24,
-  },
-  securityText: {
-    fontSize: 11,
-    fontWeight: '500',
   },
 });
