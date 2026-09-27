@@ -1433,7 +1433,7 @@
   - **Error Description:** Khi mới khởi tạo các màn hình mobile auth, AI đã giả định một số key localization như `emailLabel`, `sendResetCode`, `groupOnlyChatTagline`, `security` thay vì sử dụng chính xác các key từ dictionary `@circle/shared` (`email`, `sendResetOtp`, `dualTokenSecurity`).
   - **Root Cause:** AI không tra cứu chi tiết toàn bộ key dictionary trong `packages/shared/src/locales/vi.ts` trước khi sinh code giao diện.
   - **Resolution / Fix:** Chạy `npx tsc --noEmit`, đọc chính xác file từ điển `vi.ts` và thay thế toàn bộ key không tồn tại về đúng các key chuẩn của `@circle/shared`.
-- **Commit:** Pending
-- **PR:** Pending
+- **Commit:** `b20d4b5`
+- **PR:** #58 (https://github.com/1440isme/Circle/pull/58)
 
 
