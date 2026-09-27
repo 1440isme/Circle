@@ -1292,5 +1292,5 @@
   - **Error Description:** Khi chạy build web lần đầu, `FeedStream.tsx` gọi `t.home.createFirstCirclePrompt` nhưng key này chưa được khai báo trong từ điển shared, dẫn tới lỗi typecheck Next.js build.
   - **Root Cause:** Khai báo thiếu một key translation trong `vi.ts` và `en.ts`.
   - **Resolution / Fix:** Bổ sung key `createFirstCirclePrompt` vào cả `vi.ts` và `en.ts`, build lại `@circle/shared` và `@circle/web` thành công trơn tru.
-- **Commit:** `6b53555`
-- **PR:** Pending
+- **Commit:** `60453ca`
+- **PR:** #53 (https://github.com/1440isme/Circle/pull/53)
