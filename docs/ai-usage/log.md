@@ -1182,7 +1182,7 @@
   - **Error Description:** Ban đầu `verify-otp` luôn khởi tạo cứng bộ đếm đếm ngược `countdown = 60`, gây ức chế cho người dùng quay lại đăng nhập sau khi mã OTP cũ đã hết hạn từ lâu.
   - **Root Cause:** Chưa phân định ngữ cảnh truy cập (người vừa đăng ký xong vs người quay lại từ form đăng nhập).
   - **Resolution / Fix:** Bổ sung tham số `from=login`, tự động mở quyền gửi lại mã ngay lập tức khi phát hiện chuyển hướng từ đăng nhập.
-- **Commit:** `4b59cc8`
+- **Commit:** `bac5a09`
 - **PR:** #49 (https://github.com/1440isme/Circle/pull/49)
 
 
