@@ -24,7 +24,7 @@ const config: Config = {
         },
       },
       fontFamily: {
-        sans: ['var(--font-plus-jakarta)', 'Plus Jakarta Sans', 'sans-serif'],
+        sans: ['var(--font-inter)', 'Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
       },
       borderRadius: {
         '2xl': '1.5rem',

@@ -1013,3 +1013,34 @@
 - **Commit:** `a4fc139`
 - **PR:** #47 (https://github.com/1440isme/Circle/pull/47)
 
+---
+
+## AI-0029: Tinh chỉnh Typography UI — Chuyển đổi Font sang Inter Tối ưu Trải nghiệm và Dễ đọc
+
+- **Date:** 2026-09-27 11:18:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #46 ([SUB-FEAT]: US-AUTH-003 — Web Authentication Flow, AuthContext & Session Management (Parent: #18))
+- **Purpose:** Tiếp nhận phản hồi của người dùng về việc font chữ UI ban đầu (`Plus Jakarta Sans`) có cảm giác chưa thuận mắt (dáng geometric display hơi tròn và rộng, giảm độ tập trung khi đọc form và văn bản). Thực hiện phân tích và đề xuất 4 lựa chọn font hàng đầu tối ưu cho giao diện Web tiếng Việt & chuẩn mực quốc tế:
+  1. Thảo luận và thống nhất cùng kỹ sư chuyển đổi sang **Inter** — chuẩn mực UI toàn cầu (Figma, GitHub, Linear, Apple HIG style) với độ sắc nét cao, x-height chuẩn xác, khẩu độ chữ thoáng đãng và hỗ trợ tiếng Việt xuất sắc.
+  2. Cập nhật `apps/web/src/app/layout.tsx`: nạp font `Inter` từ `next/font/google` với đầy đủ subset `['latin', 'vietnamese']`, weights `['400', '500', '600', '700']` và biến CSS `--font-inter`.
+  3. Cập nhật `apps/web/tailwind.config.ts`: cấu hình `fontFamily.sans` ưu tiên `var(--font-inter)` và các hệ thống font fallbacks cao cấp (`-apple-system`, `BlinkMacSystemFont`, `sans-serif`).
+  4. Biên dịch và kiểm thử thành công qua `npm run build -w @circle/web` (Next.js tạo 6/6 static pages hoàn hảo, không có bất kỳ cảnh báo hay lỗi kiểu).
+- **Prompt Summary:** Phản hồi từ người dùng: "font ui tôi chưa thấy ưng ý lắm, bạn đề xuất font nào khác để nhìn thuận mắt hơn đi", và kỹ sư đã chọn font Inter.
+- **Files Affected:**
+  - `apps/web/src/app/layout.tsx`
+  - `apps/web/tailwind.config.ts`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% cấu hình font Next.js Google Fonts và cập nhật Tailwind theme.
+- **Human Modifications:** Trương Công Bình trực tiếp đánh giá cảm nhận thẩm mỹ và chọn phương án font Inter.
+- **Verification Method:** Chạy `npm run build -w @circle/web` thành công 100% (mã thoát 0), kiểm tra `scripts/check-agent-map.sh` pass 100%.
+- **Official Source Checked:** `next/font/google` Documentation, Rasmus Andersson (Inter Font Standards), Apple HIG Typography.
+- **Security & License Check:** An toàn, font Inter theo giấy phép SIL Open Font License (OFL).
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A
+  - **Resolution / Fix:** N/A
+- **Commit:** Pending
+- **PR:** #47 (https://github.com/1440isme/Circle/pull/47)
+

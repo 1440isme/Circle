@@ -1,13 +1,13 @@
 import type { Metadata } from 'next';
-import { Plus_Jakarta_Sans } from 'next/font/google';
+import { Inter } from 'next/font/google';
 import './globals.css';
 import { QueryProvider } from '../providers/QueryProvider';
 import { AuthProvider } from '../context/AuthContext';
 
-const plusJakartaSans = Plus_Jakarta_Sans({
+const inter = Inter({
   subsets: ['latin', 'vietnamese'],
   weight: ['400', '500', '600', '700'],
-  variable: '--font-plus-jakarta',
+  variable: '--font-inter',
   display: 'swap',
 });
 
@@ -22,7 +22,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="vi" className={plusJakartaSans.variable}>
+    <html lang="vi" className={inter.variable}>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
