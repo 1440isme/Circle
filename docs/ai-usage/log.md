@@ -1185,6 +1185,65 @@
 - **Commit:** `bac5a09`
 - **PR:** #49 (https://github.com/1440isme/Circle/pull/49)
 
+---
 
+## AI-0033: Chuẩn hóa Toàn diện Song ngữ (i18n) Frontend & Email Service, Triển khai Global Light & Dark Theme
 
-
+- **Date:** 2026-09-27 12:08:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #50 ([SUB-FEAT]: US-WEB-002 — Global Light/Dark Theme System & Full Bilingual i18n Audit (Parent: #18))
+- **Purpose:** Tiếp nhận phản hồi từ người dùng về việc loại bỏ các chuỗi văn bản hardcode Tiếng Việt ở cả Frontend lẫn Email Service, đồng thời đặc tả và triển khai hệ thống Chủ đề Giao diện Kép (Global Light & Dark Theme):
+  1. **Chuẩn hóa Song ngữ (Bilingual i18n Audit):**
+     - Mở rộng toàn diện từ điển `@circle/shared` (`vi.ts` và `en.ts`): Bổ sung đầy đủ các bộ từ khóa cho `common` (theme, copyright, standards, security), `auth` (lỗi, placeholder, thông báo khôi phục), `nav` (kênh trò chuyện, danh mục tiện ích nhóm, đếm thành viên), và `mail` (tiêu đề, lời chào, hướng dẫn mã OTP, lời cảm ơn).
+     - Rà soát và thay thế toàn bộ chuỗi hardcode tiếng Việt trong `apps/web`: `Header`, `Sidebar`, `AuthLayout`, `login`, `register`, `verify-otp`, `forgot-password`, `reset-password`.
+     - Nâng cấp `MailService` trên NestJS Backend: Hỗ trợ tham số `locale: 'vi' | 'en'`, render động nội dung email HTML responsive từ `@circle/shared`.
+     - Tự động truyền header `x-circle-locale` từ API Client Web lên Backend thông qua `apiRequest` wrapper.
+  2. **Đặc tả Thiết kế Chủ đề Toàn cục (Global Theme System Specification):**
+     - Bổ sung mục 2.5 trong `docs/design.md`: Quy định rõ kỷ luật Dark Mode của CIRCLE — tuyệt đối không dùng OLED pitch-black (`#000000`) gây mỏi mắt, sử dụng sắc độ Thảo mộc Đêm (Deep Forest Obsidian `#0E1512` và Night Pine `#16201B`), đạt tỷ lệ tương phản WCAG 2.1 AAA (14.8:1).
+     - Quy định vật liệu kính mờ ban đêm (*Dark Frosted Glass*) và nhịp thở nhung (*Luminescent Mint* `#78C6A3`).
+  3. **Hiện thực hóa Dark Mode trên Next.js Web (`apps/web`):**
+     - Cấu hình Tailwind `darkMode: 'class'` và mở rộng bảng màu `circle.dark.*`.
+     - Cập nhật `globals.css` với các lớp chuyển màu mượt mà, dark frosted glass và dark scrollbar.
+     - Xây dựng `theme.store.ts` (Zustand) hỗ trợ 3 chế độ: `light`, `dark`, `system` (tự động nghe sự kiện thay đổi của hệ điều hành qua `prefers-color-scheme`).
+     - Tạo component `ThemeToggle.tsx` đặt đồng bộ tại thanh Header chính và Header trang xác thực, hỗ trợ song ngữ.
+     - Chèn inline script tại thẻ `<head>` của `layout.tsx` nhằm ngăn chặn triệt để hiện tượng nháy trắng giao diện (Zero FOUT).
+- **Prompt Summary:** "để ý việc hiển thị ở forntend nhé hoặc cả mail nhiều chỗ tôi thấy hardcode tiếng việt, và bổ sung thêm theme light và dark mode luôn ghi vào degsin global luôn nhé"
+- **Files Affected:**
+  - `docs/design.md`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `apps/backend/src/modules/mail/mail.service.ts`
+  - `apps/backend/src/modules/auth/auth.service.ts`
+  - `apps/backend/src/modules/auth/auth.controller.ts`
+  - `apps/web/tailwind.config.ts`
+  - `apps/web/src/app/globals.css`
+  - `apps/web/src/app/layout.tsx`
+  - `apps/web/src/stores/theme.store.ts`
+  - `apps/web/src/components/common/ThemeToggle.tsx`
+  - `apps/web/src/components/header/Header.tsx`
+  - `apps/web/src/components/navigation/Sidebar.tsx`
+  - `apps/web/src/lib/api.ts`
+  - `apps/web/src/app/(auth)/layout.tsx`
+  - `apps/web/src/app/(auth)/login/page.tsx`
+  - `apps/web/src/app/(auth)/register/page.tsx`
+  - `apps/web/src/app/(auth)/verify-otp/page.tsx`
+  - `apps/web/src/app/(auth)/forgot-password/page.tsx`
+  - `apps/web/src/app/(auth)/reset-password/page.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% mã nguồn store, component, refactor mail service và cập nhật CSS theme.
+- **Human Modifications:** Trương Công Bình trực tiếp chỉ ra điểm nghẽn trải nghiệm hardcode tiếng Việt và yêu cầu bổ sung Dark Mode toàn cục vào tài liệu đặc tả thiết kế.
+- **Verification Method:**
+  - `npm test -w @circle/backend`: 14/14 unit tests pass 100%.
+  - `npm run build -w @circle/web`: Biên dịch thành công 9/9 trang tĩnh không lỗi TypeScript.
+  - `npm run lint -w @circle/web`: 0 errors, 0 warnings.
+  - `./scripts/check-agent-map.sh`: Tất cả liên kết trong 93 file tài liệu framework hợp lệ 100%.
+- **Official Source Checked:** Apple HIG Color & Dark Mode Guidelines, WCAG 2.1 Contrast Standards, `docs/design.md`.
+- **Security & License Check:** An toàn, không chứa thông tin bí mật hay API key.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** Không có.
+  - **Root Cause:** N/A
+  - **Resolution / Fix:** N/A
+- **Commit:** `403d8b1`
+- **PR:** #51 (https://github.com/1440isme/Circle/pull/51)

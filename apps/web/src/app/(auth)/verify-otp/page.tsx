@@ -49,14 +49,12 @@ function VerifyOtpContent() {
   }, [countdown]);
 
   const handleDigitChange = (index: number, value: string) => {
-    // Only accept numeric digit
     const cleaned = value.replace(/\D/g, '');
     if (!cleaned && value !== '') return;
 
     const newDigits = [...otpDigits];
 
     if (cleaned.length > 1) {
-      // User pasted multiple characters into this box
       const chars = cleaned.slice(0, 6).split('');
       for (let i = 0; i < 6; i++) {
         newDigits[i] = chars[i] || '';
@@ -71,7 +69,6 @@ function VerifyOtpContent() {
     setOtpDigits(newDigits);
     setApiError(null);
 
-    // Auto advance to next input
     if (cleaned && index < 5) {
       inputRefs.current[index + 1]?.focus();
     }
@@ -135,23 +132,23 @@ function VerifyOtpContent() {
       setOtpDigits(['', '', '', '', '', '']);
       inputRefs.current[0]?.focus();
     } catch (err: any) {
-      setApiError(err?.message || 'Không thể gửi lại mã xác thực.');
+      setApiError(err?.message || t.auth.failedToResendOtp);
     }
   };
 
   return (
-    <div className="rounded-3xl border border-white/80 bg-white/70 p-8 sm:p-10 shadow-xl shadow-circle-charcoal/5 backdrop-blur-xl transition-all">
+    <div className="rounded-3xl border border-white/80 dark:border-white/10 bg-white/70 dark:bg-circle-dark-surface/80 p-8 sm:p-10 shadow-xl shadow-circle-charcoal/5 dark:shadow-black/25 backdrop-blur-xl transition-all">
       {/* Header */}
       <div className="mb-6 text-center">
-        <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-circle-wash text-circle-sage mb-4 shadow-sm">
+        <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-circle-wash dark:bg-circle-dark-wash text-circle-sage dark:text-circle-primary mb-4 shadow-sm">
           <ShieldCheck className="h-6 w-6" />
         </div>
-        <h1 className="text-2xl font-bold tracking-tight text-circle-charcoal sm:text-3xl">
+        <h1 className="text-2xl font-bold tracking-tight text-circle-charcoal dark:text-circle-dark-text sm:text-3xl">
           {t.auth.verifyOtpTitle}
         </h1>
-        <p className="mt-2 text-sm text-circle-slate">
+        <p className="mt-2 text-sm text-circle-slate dark:text-circle-dark-muted">
           {t.auth.verifyOtpSubtitle}{' '}
-          <span className="font-semibold text-circle-charcoal">{email || 'email của bạn'}</span>.
+          <span className="font-semibold text-circle-charcoal dark:text-circle-dark-text">{email || t.common.yourEmail}</span>.
         </p>
       </div>
 
@@ -164,15 +161,15 @@ function VerifyOtpContent() {
       )}
 
       {successMsg && (
-        <div className="mb-6 flex items-start gap-3 rounded-2xl border border-circle-primary/30 bg-circle-wash/60 p-4 text-sm text-circle-sage">
+        <div className="mb-6 flex items-start gap-3 rounded-2xl border border-circle-primary/30 bg-circle-wash/60 dark:bg-circle-dark-wash/30 p-4 text-sm text-circle-sage dark:text-circle-primary">
           <CheckCircle2 className="h-5 w-5 shrink-0 mt-0.5" />
           <span>{successMsg}</span>
         </div>
       )}
 
       {fromLogin && !apiError && !successMsg && (
-        <div className="mb-6 flex items-start gap-3 rounded-2xl border border-circle-sage/30 bg-circle-wash/50 p-4 text-xs text-circle-charcoal">
-          <ShieldCheck className="h-4 w-4 shrink-0 text-circle-sage mt-0.5" />
+        <div className="mb-6 flex items-start gap-3 rounded-2xl border border-circle-sage/30 bg-circle-wash/50 dark:bg-circle-dark-wash/30 p-4 text-xs text-circle-charcoal dark:text-circle-dark-text">
+          <ShieldCheck className="h-4 w-4 shrink-0 text-circle-sage dark:text-circle-primary mt-0.5" />
           <span>{t.auth.accountNotActivatedNotice}</span>
         </div>
       )}
@@ -181,17 +178,17 @@ function VerifyOtpContent() {
         {/* If no email in query, let user edit/verify email */}
         {!emailParam && (
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-circle-slate mb-1.5">
+            <label className="block text-xs font-semibold uppercase tracking-wider text-circle-slate dark:text-circle-dark-muted mb-1.5">
               {t.auth.email}
             </label>
             <div className="relative">
-              <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-circle-slate" />
+              <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-circle-slate dark:text-circle-dark-muted" />
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder={t.auth.emailPlaceholder}
-                className="w-full rounded-2xl border border-circle-hairline bg-white/80 pl-10 pr-4 py-2.5 text-sm text-circle-charcoal placeholder-circle-slate/60 focus:border-circle-sage focus:outline-none focus:ring-4 focus:ring-circle-primary/10 transition-all"
+                className="w-full rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white/80 dark:bg-circle-dark-canvas/80 pl-10 pr-4 py-2.5 text-sm text-circle-charcoal dark:text-circle-dark-text placeholder-circle-slate/60 dark:placeholder-circle-dark-muted/60 focus:border-circle-sage focus:outline-none focus:ring-4 focus:ring-circle-primary/10 transition-all"
                 required
               />
             </div>
@@ -200,7 +197,7 @@ function VerifyOtpContent() {
 
         {/* 6-Digit Apple-Style PIN Inputs */}
         <div>
-          <label className="block text-xs font-semibold uppercase tracking-wider text-circle-slate mb-3 text-center">
+          <label className="block text-xs font-semibold uppercase tracking-wider text-circle-slate dark:text-circle-dark-muted mb-3 text-center">
             {t.auth.otpLabel}
           </label>
           <div className="flex justify-center gap-2 sm:gap-3" onPaste={handlePaste}>
@@ -217,11 +214,11 @@ function VerifyOtpContent() {
                 value={digit}
                 onChange={(e) => handleDigitChange(idx, e.target.value)}
                 onKeyDown={(e) => handleKeyDown(idx, e)}
-                className="h-13 w-11 sm:h-14 sm:w-12 rounded-2xl border-2 border-circle-hairline bg-white text-center text-2xl font-bold text-circle-charcoal shadow-sm transition-all focus:border-circle-sage focus:outline-none focus:ring-4 focus:ring-circle-primary/15"
+                className="h-13 w-11 sm:h-14 sm:w-12 rounded-2xl border-2 border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-canvas text-center text-2xl font-bold text-circle-charcoal dark:text-circle-dark-text shadow-sm transition-all focus:border-circle-sage focus:outline-none focus:ring-4 focus:ring-circle-primary/15"
               />
             ))}
           </div>
-          <p className="mt-3 text-center text-xs text-circle-slate">
+          <p className="mt-3 text-center text-xs text-circle-slate dark:text-circle-dark-muted">
             {t.auth.checkYourInbox}
           </p>
         </div>
@@ -252,7 +249,7 @@ function VerifyOtpContent() {
               type="button"
               onClick={handleResend}
               disabled={resendMutation.isPending}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-circle-sage hover:underline"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-circle-sage dark:text-circle-primary hover:underline"
             >
               {resendMutation.isPending ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -262,18 +259,18 @@ function VerifyOtpContent() {
               <span>{t.auth.resendCode}</span>
             </button>
           ) : (
-            <p className="text-xs text-circle-slate">
+            <p className="text-xs text-circle-slate dark:text-circle-dark-muted">
               {t.auth.resendCountdown}{' '}
-              <span className="font-bold text-circle-charcoal">{countdown}s</span>
+              <span className="font-bold text-circle-charcoal dark:text-circle-dark-text">{countdown}s</span>
             </p>
           )}
         </div>
 
         {/* Back Link */}
-        <div className="border-t border-circle-hairline pt-4 text-center">
+        <div className="border-t border-circle-hairline dark:border-circle-dark-hairline pt-4 text-center">
           <Link
             href="/login"
-            className="text-xs font-semibold text-circle-slate hover:text-circle-charcoal transition-colors"
+            className="text-xs font-semibold text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white transition-colors"
           >
             {t.auth.backToLogin}
           </Link>

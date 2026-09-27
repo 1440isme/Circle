@@ -69,21 +69,21 @@ function ResetPasswordContent() {
         router.push('/login');
       }, 1500);
     } catch (err: any) {
-      setApiError(err?.message || 'Không thể đặt lại mật khẩu.');
+      setApiError(err?.message || t.auth.failedToResetPassword);
     }
   };
 
   return (
-    <div className="rounded-3xl border border-white/80 bg-white/70 p-8 sm:p-10 shadow-xl shadow-circle-charcoal/5 backdrop-blur-xl transition-all">
+    <div className="rounded-3xl border border-white/80 dark:border-white/10 bg-white/70 dark:bg-circle-dark-surface/80 p-8 sm:p-10 shadow-xl shadow-circle-charcoal/5 dark:shadow-black/25 backdrop-blur-xl transition-all">
       {/* Header */}
       <div className="mb-6 text-center">
-        <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-circle-wash text-circle-sage mb-4 shadow-sm">
+        <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-circle-wash dark:bg-circle-dark-wash text-circle-sage dark:text-circle-primary mb-4 shadow-sm">
           <Lock className="h-6 w-6" />
         </div>
-        <h1 className="text-2xl font-bold tracking-tight text-circle-charcoal sm:text-3xl">
+        <h1 className="text-2xl font-bold tracking-tight text-circle-charcoal dark:text-circle-dark-text sm:text-3xl">
           {t.auth.resetPasswordTitle}
         </h1>
-        <p className="mt-2 text-sm text-circle-slate">
+        <p className="mt-2 text-sm text-circle-slate dark:text-circle-dark-muted">
           {t.auth.resetPasswordSubtitle}
         </p>
       </div>
@@ -97,7 +97,7 @@ function ResetPasswordContent() {
       )}
 
       {successMsg && (
-        <div className="mb-6 flex items-start gap-3 rounded-2xl border border-circle-primary/30 bg-circle-wash/60 p-4 text-sm text-circle-sage">
+        <div className="mb-6 flex items-start gap-3 rounded-2xl border border-circle-primary/30 bg-circle-wash/60 dark:bg-circle-dark-wash/30 p-4 text-sm text-circle-sage dark:text-circle-primary">
           <CheckCircle2 className="h-5 w-5 shrink-0 mt-0.5" />
           <span>{successMsg}</span>
         </div>
@@ -106,17 +106,17 @@ function ResetPasswordContent() {
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Email */}
         <div>
-          <label className="block text-xs font-semibold uppercase tracking-wider text-circle-slate mb-1.5">
+          <label className="block text-xs font-semibold uppercase tracking-wider text-circle-slate dark:text-circle-dark-muted mb-1.5">
             {t.auth.email}
           </label>
           <div className="relative">
-            <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-circle-slate" />
+            <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-circle-slate dark:text-circle-dark-muted" />
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder={t.auth.emailPlaceholder}
-              className="w-full rounded-2xl border border-circle-hairline bg-white/80 pl-10 pr-4 py-2.5 text-sm text-circle-charcoal placeholder-circle-slate/60 focus:border-circle-sage focus:outline-none focus:ring-4 focus:ring-circle-primary/10 transition-all"
+              className="w-full rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white/80 dark:bg-circle-dark-canvas/80 pl-10 pr-4 py-2.5 text-sm text-circle-charcoal dark:text-circle-dark-text placeholder-circle-slate/60 dark:placeholder-circle-dark-muted/60 focus:border-circle-sage focus:outline-none focus:ring-4 focus:ring-circle-primary/10 transition-all"
               required
             />
           </div>
@@ -127,19 +127,19 @@ function ResetPasswordContent() {
 
         {/* 6-Digit OTP Input */}
         <div>
-          <label className="block text-xs font-semibold uppercase tracking-wider text-circle-slate mb-1.5">
+          <label className="block text-xs font-semibold uppercase tracking-wider text-circle-slate dark:text-circle-dark-muted mb-1.5">
             {t.auth.otpLabel}
           </label>
           <div className="relative">
-            <KeyRound className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-circle-slate" />
+            <KeyRound className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-circle-slate dark:text-circle-dark-muted" />
             <input
               type="text"
               inputMode="numeric"
               maxLength={6}
               value={otp}
               onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-              placeholder="VD: 123456"
-              className="w-full font-mono tracking-widest text-center text-lg font-bold rounded-2xl border border-circle-hairline bg-white/80 pl-10 pr-4 py-2 text-circle-charcoal placeholder-circle-slate/40 focus:border-circle-sage focus:outline-none focus:ring-4 focus:ring-circle-primary/10 transition-all"
+              placeholder={t.auth.otpPlaceholder}
+              className="w-full font-mono tracking-widest text-center text-lg font-bold rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white/80 dark:bg-circle-dark-canvas/80 pl-10 pr-4 py-2 text-circle-charcoal dark:text-circle-dark-text placeholder-circle-slate/40 dark:placeholder-circle-dark-muted/40 focus:border-circle-sage focus:outline-none focus:ring-4 focus:ring-circle-primary/10 transition-all"
               required
             />
           </div>
@@ -150,23 +150,23 @@ function ResetPasswordContent() {
 
         {/* New Password */}
         <div>
-          <label className="block text-xs font-semibold uppercase tracking-wider text-circle-slate mb-1.5">
+          <label className="block text-xs font-semibold uppercase tracking-wider text-circle-slate dark:text-circle-dark-muted mb-1.5">
             {t.auth.newPassword}
           </label>
           <div className="relative">
-            <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-circle-slate" />
+            <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-circle-slate dark:text-circle-dark-muted" />
             <input
               type={showPassword ? 'text' : 'password'}
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="Tối thiểu 8 ký tự an toàn"
-              className="w-full rounded-2xl border border-circle-hairline bg-white/80 pl-10 pr-10 py-2.5 text-sm text-circle-charcoal placeholder-circle-slate/60 focus:border-circle-sage focus:outline-none focus:ring-4 focus:ring-circle-primary/10 transition-all"
+              placeholder={t.auth.newPasswordPlaceholder}
+              className="w-full rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white/80 dark:bg-circle-dark-canvas/80 pl-10 pr-10 py-2.5 text-sm text-circle-charcoal dark:text-circle-dark-text placeholder-circle-slate/60 dark:placeholder-circle-dark-muted/60 focus:border-circle-sage focus:outline-none focus:ring-4 focus:ring-circle-primary/10 transition-all"
               required
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-circle-slate hover:text-circle-charcoal"
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white"
             >
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
@@ -178,17 +178,17 @@ function ResetPasswordContent() {
 
         {/* Confirm New Password */}
         <div>
-          <label className="block text-xs font-semibold uppercase tracking-wider text-circle-slate mb-1.5">
+          <label className="block text-xs font-semibold uppercase tracking-wider text-circle-slate dark:text-circle-dark-muted mb-1.5">
             {t.auth.confirmNewPassword}
           </label>
           <div className="relative">
-            <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-circle-slate" />
+            <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-circle-slate dark:text-circle-dark-muted" />
             <input
               type={showPassword ? 'text' : 'password'}
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="Nhập lại mật khẩu mới"
-              className="w-full rounded-2xl border border-circle-hairline bg-white/80 pl-10 pr-4 py-2.5 text-sm text-circle-charcoal placeholder-circle-slate/60 focus:border-circle-sage focus:outline-none focus:ring-4 focus:ring-circle-primary/10 transition-all"
+              placeholder={t.auth.confirmNewPasswordPlaceholder}
+              className="w-full rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white/80 dark:bg-circle-dark-canvas/80 pl-10 pr-4 py-2.5 text-sm text-circle-charcoal dark:text-circle-dark-text placeholder-circle-slate/60 dark:placeholder-circle-dark-muted/60 focus:border-circle-sage focus:outline-none focus:ring-4 focus:ring-circle-primary/10 transition-all"
               required
             />
           </div>
@@ -198,20 +198,20 @@ function ResetPasswordContent() {
         </div>
 
         {/* Password Strength Checklist */}
-        <div className="rounded-2xl border border-circle-hairline/80 bg-circle-canvas/60 p-3 space-y-1 text-xs">
+        <div className="rounded-2xl border border-circle-hairline/80 dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas/60 p-3 space-y-1 text-xs">
           <div className="flex items-center gap-1.5">
             <span
-              className={`h-2 w-2 rounded-full ${isLengthValid ? 'bg-circle-primary' : 'bg-circle-slate/40'}`}
+              className={`h-2 w-2 rounded-full ${isLengthValid ? 'bg-circle-primary' : 'bg-circle-slate/40 dark:bg-circle-dark-muted/40'}`}
             />
-            <span className={isLengthValid ? 'text-circle-charcoal font-medium' : 'text-circle-slate'}>
+            <span className={isLengthValid ? 'text-circle-charcoal dark:text-circle-dark-text font-medium' : 'text-circle-slate dark:text-circle-dark-muted'}>
               {t.auth.min8Chars}
             </span>
           </div>
           <div className="flex items-center gap-1.5">
             <span
-              className={`h-2 w-2 rounded-full ${isMatchValid ? 'bg-circle-primary' : 'bg-circle-slate/40'}`}
+              className={`h-2 w-2 rounded-full ${isMatchValid ? 'bg-circle-primary' : 'bg-circle-slate/40 dark:bg-circle-dark-muted/40'}`}
             />
-            <span className={isMatchValid ? 'text-circle-charcoal font-medium' : 'text-circle-slate'}>
+            <span className={isMatchValid ? 'text-circle-charcoal dark:text-circle-dark-text font-medium' : 'text-circle-coral'}>
               {isMatchValid ? t.auth.passwordMatch : t.auth.passwordMismatch}
             </span>
           </div>
@@ -237,10 +237,10 @@ function ResetPasswordContent() {
         </button>
 
         {/* Back Link */}
-        <div className="border-t border-circle-hairline pt-3 text-center">
+        <div className="border-t border-circle-hairline dark:border-circle-dark-hairline pt-3 text-center">
           <Link
             href="/login"
-            className="text-xs font-semibold text-circle-slate hover:text-circle-charcoal transition-colors"
+            className="text-xs font-semibold text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white transition-colors"
           >
             {t.auth.backToLogin}
           </Link>
