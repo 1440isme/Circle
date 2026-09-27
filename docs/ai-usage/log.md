@@ -1332,3 +1332,42 @@
 - **Commit:** `aba5db1`
 - **PR:** #55 (https://github.com/1440isme/Circle/pull/55)
 
+---
+
+## AI-0036: Fix Password Reset Validation Payload and Auth Header Dropdown Interactivity
+
+- **Date:** 2026-09-27 15:55:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #56 ([BUG]: Fix Password Reset Validation Payload and Auth Header Dropdown Interactivity)
+- **Purpose:**
+  1. Loại bỏ trường `confirmPassword` khỏi JSON payload gửi lên endpoint `POST /auth/reset-password` (`resetPasswordApi`, `useResetPasswordMutation`, `reset-password/page.tsx`), đồng thời bổ sung `@IsOptional() confirmPassword?: string` tại `ResetPasswordDto` ở backend nhằm đảm bảo tương thích ngược phòng thủ, loại bỏ dứt điểm lỗi `400 Bad Request: property confirmPassword should not exist`.
+  2. Khắc phục lỗi Stacking Context trong CSS tại `apps/web/src/app/(auth)/layout.tsx`: Nâng `header` lên `relative z-40` để dropdown menu luôn nổi lên trên thẻ `<main>` (`relative z-10`), ngăn chặn hiện tượng vùng chứa form đăng nhập/đăng ký đè lên dropdown làm chặn sự kiện chuột.
+  3. Tích hợp trực tiếp sự kiện `onMouseDown` kết hợp `e.preventDefault()` và `e.stopPropagation()` trên các button lựa chọn của `ThemeToggle.tsx` và `LanguageSwitcher.tsx`, triệt tiêu hoàn toàn xung đột thời gian (event race) với trình lắng nghe click-outside ở document, đảm bảo 100% người dùng click chọn theme (Light/Dark/System) và ngôn ngữ (VI/EN) có hiệu lực tức thì.
+- **Prompt Summary:** "reivew cho hạnh nhé" và "chức năng reset password property confirmPassword should not exist, và ở ngoài trang chủ (trang login va đăng ký vẫn chưa chọn được ngôn ngữ và theme, chỉ xổ ra thôi chứ k chọn được"
+- **Files Affected:**
+  - `apps/backend/src/modules/auth/dto/reset-password.dto.ts`
+  - `apps/web/src/app/(auth)/layout.tsx`
+  - `apps/web/src/app/(auth)/reset-password/page.tsx`
+  - `apps/web/src/components/common/LanguageSwitcher.tsx`
+  - `apps/web/src/components/common/ThemeToggle.tsx`
+  - `apps/web/src/hooks/use-auth-mutations.ts`
+  - `apps/web/src/lib/auth.ts`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% mã nguồn điều chỉnh DTO, payload request, CSS stacking context và event handlers.
+- **Human Modifications:** Trương Công Bình trực tiếp phát hiện lỗi validation `property confirmPassword should not exist` khi test chức năng reset password và lỗi không click chọn được dropdown theme/ngôn ngữ trên trang login/đăng ký.
+- **Verification Method:**
+  - `npm test -w @circle/backend`: 14/14 unit tests pass 100%.
+  - `npm run build -w @circle/web`: Next.js 14 biên dịch thành công 9/9 trang tĩnh không lỗi TypeScript.
+  - `npm run lint -w @circle/web`: 0 errors, 0 warnings.
+  - `./scripts/check-agent-map.sh`: 93 file framework markdown liên kết hợp lệ 100%.
+- **Official Source Checked:** NestJS ValidationPipe Whitelist Documentation, MDN CSS Stacking Context & MouseEvent Specification.
+- **Security & License Check:** An toàn, không chứa thông tin bí mật hay token.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** Không có.
+  - **Root Cause:** N/A
+  - **Resolution / Fix:** N/A
+- **Commit:** `027d7a9`
+- **PR:** Pending
+

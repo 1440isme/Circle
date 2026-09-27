@@ -88,13 +88,22 @@ export async function forgotPasswordApi(
   return res.data;
 }
 
+export interface ResetPasswordPayload {
+  email: string;
+  otp: string;
+  newPassword: string;
+}
+
 /**
  * Reset password with verified OTP.
  */
-export async function resetPasswordApi(payload: ResetPasswordInput): Promise<{ message: string }> {
+export async function resetPasswordApi(
+  payload: ResetPasswordPayload | ResetPasswordInput,
+): Promise<{ message: string }> {
+  const { email, otp, newPassword } = payload;
   const res = await apiRequest<{ message: string }>('/auth/reset-password', {
     method: 'POST',
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ email, otp, newPassword }),
     skipAuth: true,
   });
 

@@ -81,6 +81,12 @@ export const ThemeToggle: React.FC<{ compact?: boolean }> = ({ compact = true })
               <button
                 key={opt.value}
                 type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setTheme(opt.value);
+                  setIsOpen(false);
+                }}
                 onClick={() => {
                   setTheme(opt.value);
                   setIsOpen(false);

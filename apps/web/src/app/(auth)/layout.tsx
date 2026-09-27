@@ -22,7 +22,7 @@ export default function AuthLayout({
       <div className="pointer-events-none absolute -bottom-40 left-1/3 h-96 w-96 rounded-full bg-circle-primary/10 dark:bg-circle-primary/5 blur-3xl" />
 
       {/* Top Header / Brand */}
-      <header className="relative z-10 flex h-20 w-full items-center justify-between px-6 sm:px-12">
+      <header className="relative z-40 flex h-20 w-full items-center justify-between px-6 sm:px-12">
         <Link href="/" className="flex items-center gap-3 group transition-transform active:scale-95">
           <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-circle-primary text-circle-charcoal shadow-sm shadow-circle-primary/30 transition-transform group-hover:scale-105">
             <span className="text-xl font-bold">C</span>
