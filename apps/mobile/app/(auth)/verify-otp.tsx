@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -33,6 +33,7 @@ export default function VerifyOtpScreen() {
   const [email, setEmail] = useState(emailParam || '');
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
+  const pinInputRef = useRef<TextInput>(null);
   const [resending, setResending] = useState(false);
   const [cooldown, setCooldown] = useState(60);
   const [apiError, setApiError] = useState<string | null>(null);
@@ -196,29 +197,56 @@ export default function VerifyOtpScreen() {
           </View>
         ) : null}
 
-        {/* Big Native 6-Digit PIN Input Box */}
+        {/* 6 Native Rounded Cells */}
         <View style={styles.pinSection}>
-          <View
-            style={[
-              styles.pinInputWrapper,
-              {
-                backgroundColor: colors.surface,
-                borderColor: otp.length === 6 ? colors.primary : colors.hairline,
-              },
-            ]}
+          <TouchableOpacity
+            activeOpacity={0.9}
+            onPress={() => pinInputRef.current?.focus()}
+            style={styles.pinCellsRow}
           >
-            <TextInput
-              style={[styles.pinTextInput, { color: colors.text }]}
-              placeholder="······"
-              placeholderTextColor={colors.subtle}
-              value={otp}
-              onChangeText={handleOtpChange}
-              keyboardType="number-pad"
-              maxLength={6}
-              autoFocus
-              textContentType="oneTimeCode"
-            />
-          </View>
+            {[0, 1, 2, 3, 4, 5].map((index) => {
+              const digit = otp[index] || '';
+              const isCurrent = otp.length === index;
+              return (
+                <View
+                  key={index}
+                  style={[
+                    styles.pinCell,
+                    {
+                      backgroundColor: colors.surface,
+                      borderColor: isCurrent
+                        ? colors.primary
+                        : digit
+                        ? colors.primary
+                        : colors.hairline,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.pinCellText,
+                      { color: digit ? colors.text : colors.subtle },
+                    ]}
+                  >
+                    {digit || '·'}
+                  </Text>
+                </View>
+              );
+            })}
+          </TouchableOpacity>
+
+          <TextInput
+            ref={pinInputRef}
+            style={styles.hiddenPinInput}
+            value={otp}
+            onChangeText={handleOtpChange}
+            keyboardType="number-pad"
+            maxLength={6}
+            autoFocus
+            textContentType="oneTimeCode"
+            caretHidden
+          />
+
           <Text style={[styles.hintText, { color: colors.subtle }]}>
             {t.auth.checkYourInbox}
           </Text>
@@ -342,21 +370,32 @@ const styles = StyleSheet.create({
     marginVertical: 16,
     gap: 12,
   },
-  pinInputWrapper: {
-    width: '100%',
-    height: 72,
-    borderRadius: 24,
-    borderWidth: 2,
+  pinCellsRow: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 20,
-  },
-  pinTextInput: {
+    gap: 8,
     width: '100%',
-    fontSize: 32,
-    fontWeight: '800',
-    textAlign: 'center',
-    letterSpacing: 18,
+    paddingVertical: 4,
+  },
+  pinCell: {
+    width: 46,
+    height: 58,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pinCellText: {
+    fontSize: 24,
+    fontWeight: '700',
+    letterSpacing: 0,
+  },
+  hiddenPinInput: {
+    position: 'absolute',
+    opacity: 0,
+    width: 1,
+    height: 1,
   },
   hintText: {
     fontSize: 13,

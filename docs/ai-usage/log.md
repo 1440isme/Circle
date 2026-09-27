@@ -1813,8 +1813,48 @@
   - **Error Description:** Trực tiếp sử dụng thư viện `class-validator` khi chưa được phê duyệt, vi phạm thỏa thuận công nghệ của dự án.
   - **Root Cause:** AI đưa thư viện quen thuộc vào thay vì tuân thủ quy chuẩn Zod đã được định hướng trong `packages/shared`.
   - **Resolution / Fix:** Bổ sung điều luật cấm `class-validator`, cam kết 100% validation thông qua Zod schemas tập trung.
+- **Commit:** `54acfc4`
+- **PR:** #58 (https://github.com/1440isme/Circle/pull/58)
+
+---
+
+## AI-0048: Khắc phục Triệt để Lỗi Dãn Chữ Placeholder trên iOS và Nâng cấp Ô Nhập OTP 6 Ô Tự nhiên
+
+- **Date:** 2026-09-27 22:30:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #10 (US-MOBILE-001: Mobile Application Shell & Auth Flow)
+- **Purpose:** Xử lý triệt để phản ánh của người dùng về việc một số ô nhập (placeholder text) ở các bước đăng nhập và quên mật khẩu bị lỗi dãn khoảng cách chữ cái:
+  1. **Nguyên nhân gốc rễ (Root Cause):**
+     - Trên hệ điều hành iOS, khi thuộc tính `secureTextEntry={true}` được kích hoạt trên `TextInput`, UIKit native chuyển font sang secure password font (dùng để vẽ dấu chấm tròn password mask). Font này tự động áp dụng tracking/letter spacing rộng lên toàn bộ chuỗi placeholder mặc định của `UITextField`, khiến các ký tự tiếng Việt (như "Nhập mật khẩu an toàn", "Tối thiểu 8 ký tự an toàn", "Nhập lại mật khẩu mới") bị dãn cách chữ bất thường.
+     - Ô nhập mã OTP 6 số trước đó áp dụng `letterSpacing: 18` trên một `TextInput` duy nhất, khiến placeholder dạng dấu chấm `"······"` cũng bị dãn khoảng cách quá đà.
+  2. **Giải pháp Hiện thực hóa:**
+     - Áp dụng kỹ thuật **Custom Placeholder Overlay** (`inputInner` + `placeholderOverlay` với `pointerEvents="none"` và `letterSpacing: 0`) cho toàn bộ các ô nhập mật khẩu và text tại `login.tsx`, `PasswordRecoveryWizard.tsx`, `register.tsx` và `Input.tsx`. Khi ô trống, văn bản placeholder được hiển thị bằng component `Text` chuẩn native không bị ảnh hưởng bởi font engine của `secureTextEntry`, gõ chữ thì placeholder tự động biến mất và che phủ chấm bảo mật ngay lập tức mà không gây giật lag con trỏ.
+     - Nâng cấp ô nhập OTP 6 số tại `PasswordRecoveryWizard.tsx` (Bước 2) và `verify-otp.tsx` sang mô hình **6-Cell Native Rounded PIN**: 6 ô vuông bo tròn riêng biệt (`pinCell`) với kích thước cố định, hiển thị từng số đã nhập hoặc dấu chấm nhẹ `·` ở giữa, kết hợp `hiddenPinInput` bắt trọn bàn phím số và tính năng tự động điền mã (oneTimeCode autofill) từ SMS/Email. Xóa bỏ hoàn toàn hack `letterSpacing: 18`.
+- **Prompt Summary:** "1 số nơi để placeholder text (text nằm trong ô nhập) ở bước đăng nhập và quên mật khẩu bị dãn chữ"
+- **Files Affected:**
+  - `apps/mobile/app/(auth)/login.tsx`
+  - `apps/mobile/app/(auth)/register.tsx`
+  - `apps/mobile/app/(auth)/verify-otp.tsx`
+  - `apps/mobile/src/components/auth/PasswordRecoveryWizard.tsx`
+  - `apps/mobile/src/components/common/Input.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% giải pháp component overlay, 6-cell PIN UI và đồng bộ styles.
+- **Human Modifications:** Trương Công Bình trực tiếp trải nghiệm thực tế trên iPhone (iOS Expo Go), phát hiện lỗi dãn chữ placeholder ở màn hình đăng nhập và quên mật khẩu.
+- **Verification Method:**
+  - `npx tsc --noEmit` trong `apps/mobile`: 0 errors.
+  - `npm test -w @circle/backend`: 14/14 unit tests pass 100%.
+  - `bash ./scripts/check-agent-map.sh`: 93/93 framework files pass 100%.
+- **Official Source Checked:** Apple HIG Typography, React Native iOS secureTextEntry Issues & Community Best Practices.
+- **Security & License Check:** An toàn, không chứa credentials.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A
+  - **Resolution / Fix:** N/A
 - **Commit:** Pending
 - **PR:** #58 (https://github.com/1440isme/Circle/pull/58)
+
 
 
 

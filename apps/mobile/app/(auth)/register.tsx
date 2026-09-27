@@ -222,16 +222,24 @@ export default function RegisterScreen() {
               ]}
             >
               <User size={20} color={isNameValid ? colors.primary : colors.subtle} />
-              <TextInput
-                style={[styles.nativeTextInput, { color: colors.text }]}
-                placeholder={t.auth.displayNamePlaceholder}
-                placeholderTextColor={colors.subtle}
-                value={displayName}
-                onChangeText={setDisplayName}
-                autoFocus
-                returnKeyType="next"
-                onSubmitEditing={isNameValid ? handleNextStep : undefined}
-              />
+              <View style={styles.inputInner}>
+                {!displayName ? (
+                  <Text
+                    pointerEvents="none"
+                    style={[styles.placeholderOverlay, { color: colors.subtle }]}
+                  >
+                    {t.auth.displayNamePlaceholder}
+                  </Text>
+                ) : null}
+                <TextInput
+                  style={[styles.nativeTextInput, { color: colors.text }]}
+                  value={displayName}
+                  onChangeText={setDisplayName}
+                  autoFocus
+                  returnKeyType="next"
+                  onSubmitEditing={isNameValid ? handleNextStep : undefined}
+                />
+              </View>
               {isNameValid ? (
                 <CheckCircle2 size={18} color={colors.primary} />
               ) : null}
@@ -259,19 +267,27 @@ export default function RegisterScreen() {
               ]}
             >
               <Mail size={20} color={isEmailValid ? colors.primary : colors.subtle} />
-              <TextInput
-                style={[styles.nativeTextInput, { color: colors.text }]}
-                placeholder={t.auth.emailPlaceholder}
-                placeholderTextColor={colors.subtle}
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-                autoFocus
-                returnKeyType="next"
-                onSubmitEditing={isEmailValid ? handleNextStep : undefined}
-              />
+              <View style={styles.inputInner}>
+                {!email ? (
+                  <Text
+                    pointerEvents="none"
+                    style={[styles.placeholderOverlay, { color: colors.subtle }]}
+                  >
+                    {t.auth.emailPlaceholder}
+                  </Text>
+                ) : null}
+                <TextInput
+                  style={[styles.nativeTextInput, { color: colors.text }]}
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  autoFocus
+                  returnKeyType="next"
+                  onSubmitEditing={isEmailValid ? handleNextStep : undefined}
+                />
+              </View>
               {isEmailValid ? (
                 <CheckCircle2 size={18} color={colors.primary} />
               ) : null}
@@ -300,16 +316,24 @@ export default function RegisterScreen() {
               ]}
             >
               <Lock size={20} color={isPasswordLongEnough ? colors.primary : colors.subtle} />
-              <TextInput
-                style={[styles.nativeTextInput, { color: colors.text }]}
-                placeholder={t.auth.passwordPlaceholder}
-                placeholderTextColor={colors.subtle}
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPassword}
-                autoCapitalize="none"
-                autoFocus
-              />
+              <View style={styles.inputInner}>
+                {!password ? (
+                  <Text
+                    pointerEvents="none"
+                    style={[styles.placeholderOverlay, { color: colors.subtle }]}
+                  >
+                    {t.auth.passwordPlaceholder}
+                  </Text>
+                ) : null}
+                <TextInput
+                  style={[styles.nativeTextInput, { color: colors.text }]}
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                  autoFocus
+                />
+              </View>
               <TouchableOpacity
                 onPress={() => setShowPassword(!showPassword)}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -334,17 +358,25 @@ export default function RegisterScreen() {
               ]}
             >
               <Lock size={20} color={isPasswordMatching ? colors.primary : colors.subtle} />
-              <TextInput
-                style={[styles.nativeTextInput, { color: colors.text }]}
-                placeholder={t.auth.confirmPasswordPlaceholder}
-                placeholderTextColor={colors.subtle}
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                secureTextEntry={!showConfirmPassword}
-                autoCapitalize="none"
-                returnKeyType="done"
-                onSubmitEditing={isStep3Valid ? handleFinalSubmit : undefined}
-              />
+              <View style={styles.inputInner}>
+                {!confirmPassword ? (
+                  <Text
+                    pointerEvents="none"
+                    style={[styles.placeholderOverlay, { color: colors.subtle }]}
+                  >
+                    {t.auth.confirmPasswordPlaceholder}
+                  </Text>
+                ) : null}
+                <TextInput
+                  style={[styles.nativeTextInput, { color: colors.text }]}
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  secureTextEntry={!showConfirmPassword}
+                  autoCapitalize="none"
+                  returnKeyType="done"
+                  onSubmitEditing={isStep3Valid ? handleFinalSubmit : undefined}
+                />
+              </View>
               <TouchableOpacity
                 onPress={() => setShowConfirmPassword(!showConfirmPassword)}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -539,10 +571,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     gap: 12,
   },
+  inputInner: {
+    flex: 1,
+    height: '100%',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  placeholderOverlay: {
+    position: 'absolute',
+    left: 0,
+    fontSize: 16,
+    fontWeight: '500',
+    letterSpacing: 0,
+  },
   nativeTextInput: {
     flex: 1,
     fontSize: 16,
     fontWeight: '500',
+    letterSpacing: 0,
+    padding: 0,
   },
   checklist: {
     marginTop: 14,

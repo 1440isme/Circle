@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -56,6 +56,8 @@ export function PasswordRecoveryWizard({
   const [cooldown, setCooldown] = useState(60);
   const [apiError, setApiError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  const pinInputRef = useRef<TextInput>(null);
 
   useEffect(() => {
     if (initialEmail && !email) {
@@ -321,19 +323,27 @@ export function PasswordRecoveryWizard({
               ]}
             >
               <Mail size={20} color={isEmailValid ? colors.primary : colors.subtle} />
-              <TextInput
-                style={[styles.nativeTextInput, { color: colors.text }]}
-                placeholder={t.auth.emailPlaceholder}
-                placeholderTextColor={colors.subtle}
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-                autoFocus
-                returnKeyType="next"
-                onSubmitEditing={isEmailValid ? handleRequestOtp : undefined}
-              />
+              <View style={styles.inputInner}>
+                {!email ? (
+                  <Text
+                    pointerEvents="none"
+                    style={[styles.placeholderOverlay, { color: colors.subtle }]}
+                  >
+                    {t.auth.emailPlaceholder}
+                  </Text>
+                ) : null}
+                <TextInput
+                  style={[styles.nativeTextInput, { color: colors.text }]}
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  autoFocus
+                  returnKeyType="next"
+                  onSubmitEditing={isEmailValid ? handleRequestOtp : undefined}
+                />
+              </View>
               {isEmailValid ? (
                 <CheckCircle2 size={18} color={colors.primary} />
               ) : null}
@@ -341,7 +351,7 @@ export function PasswordRecoveryWizard({
           </View>
         )}
 
-        {/* ---------------- STEP 2: OTP ---------------- */}
+        {/* ---------------- STEP 2: OTP (6 discrete cells, 0 stretched text) ---------------- */}
         {step === 2 && (
           <View style={styles.stepContent}>
             <Text style={[styles.mainPrompt, { color: colors.text }]}>
@@ -367,27 +377,58 @@ export function PasswordRecoveryWizard({
             </View>
 
             <View style={styles.pinSection}>
-              <View
-                style={[
-                  styles.pinInputWrapper,
-                  {
-                    backgroundColor: colors.surface,
-                    borderColor: isOtpValid ? colors.primary : colors.hairline,
-                  },
-                ]}
+              {/* 6 Native Rounded Cells */}
+              <TouchableOpacity
+                activeOpacity={0.9}
+                onPress={() => pinInputRef.current?.focus()}
+                style={styles.pinCellsRow}
               >
-                <TextInput
-                  style={[styles.pinTextInput, { color: colors.text }]}
-                  placeholder="······"
-                  placeholderTextColor={colors.subtle}
-                  value={otp}
-                  onChangeText={handleOtpChange}
-                  keyboardType="number-pad"
-                  maxLength={6}
-                  autoFocus
-                  textContentType="oneTimeCode"
-                />
-              </View>
+                {[0, 1, 2, 3, 4, 5].map((index) => {
+                  const digit = otp[index] || '';
+                  const isCurrent = otp.length === index;
+                  return (
+                    <View
+                      key={index}
+                      style={[
+                        styles.pinCell,
+                        {
+                          backgroundColor: colors.surface,
+                          borderColor: isCurrent
+                            ? colors.primary
+                            : digit
+                            ? colors.primary
+                            : colors.hairline,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.pinCellText,
+                          {
+                            color: digit ? colors.text : colors.subtle,
+                          },
+                        ]}
+                      >
+                        {digit || '·'}
+                      </Text>
+                    </View>
+                  );
+                })}
+              </TouchableOpacity>
+
+              {/* Hidden Input capturing keyboard strokes & autofill */}
+              <TextInput
+                ref={pinInputRef}
+                style={styles.hiddenPinInput}
+                value={otp}
+                onChangeText={handleOtpChange}
+                keyboardType="number-pad"
+                maxLength={6}
+                autoFocus
+                textContentType="oneTimeCode"
+                caretHidden
+              />
+
               <Text style={[styles.hintText, { color: colors.subtle }]}>
                 {t.auth.checkYourInbox}
               </Text>
@@ -441,16 +482,24 @@ export function PasswordRecoveryWizard({
               ]}
             >
               <Lock size={20} color={isPasswordLongEnough ? colors.primary : colors.subtle} />
-              <TextInput
-                style={[styles.nativeTextInput, { color: colors.text }]}
-                placeholder={t.auth.newPasswordPlaceholder}
-                placeholderTextColor={colors.subtle}
-                value={newPassword}
-                onChangeText={setNewPassword}
-                secureTextEntry={!showNewPassword}
-                autoCapitalize="none"
-                autoFocus
-              />
+              <View style={styles.inputInner}>
+                {!newPassword ? (
+                  <Text
+                    pointerEvents="none"
+                    style={[styles.placeholderOverlay, { color: colors.subtle }]}
+                  >
+                    {t.auth.newPasswordPlaceholder}
+                  </Text>
+                ) : null}
+                <TextInput
+                  style={[styles.nativeTextInput, { color: colors.text }]}
+                  value={newPassword}
+                  onChangeText={setNewPassword}
+                  secureTextEntry={!showNewPassword}
+                  autoCapitalize="none"
+                  autoFocus
+                />
+              </View>
               <TouchableOpacity
                 onPress={() => setShowNewPassword(!showNewPassword)}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -475,17 +524,25 @@ export function PasswordRecoveryWizard({
               ]}
             >
               <Lock size={20} color={isPasswordMatching ? colors.primary : colors.subtle} />
-              <TextInput
-                style={[styles.nativeTextInput, { color: colors.text }]}
-                placeholder={t.auth.confirmNewPasswordPlaceholder}
-                placeholderTextColor={colors.subtle}
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                secureTextEntry={!showConfirmPassword}
-                autoCapitalize="none"
-                returnKeyType="done"
-                onSubmitEditing={isStep3Valid ? handleFinalReset : undefined}
-              />
+              <View style={styles.inputInner}>
+                {!confirmPassword ? (
+                  <Text
+                    pointerEvents="none"
+                    style={[styles.placeholderOverlay, { color: colors.subtle }]}
+                  >
+                    {t.auth.confirmNewPasswordPlaceholder}
+                  </Text>
+                ) : null}
+                <TextInput
+                  style={[styles.nativeTextInput, { color: colors.text }]}
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  secureTextEntry={!showConfirmPassword}
+                  autoCapitalize="none"
+                  returnKeyType="done"
+                  onSubmitEditing={isStep3Valid ? handleFinalReset : undefined}
+                />
+              </View>
               <TouchableOpacity
                 onPress={() => setShowConfirmPassword(!showConfirmPassword)}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -704,31 +761,57 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     gap: 12,
   },
+  inputInner: {
+    flex: 1,
+    height: '100%',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  placeholderOverlay: {
+    position: 'absolute',
+    left: 0,
+    fontSize: 16,
+    fontWeight: '500',
+    letterSpacing: 0,
+  },
   nativeTextInput: {
     flex: 1,
     fontSize: 16,
     fontWeight: '500',
+    letterSpacing: 0,
+    padding: 0,
   },
   pinSection: {
     alignItems: 'center',
     marginVertical: 12,
-    gap: 10,
+    gap: 12,
   },
-  pinInputWrapper: {
-    width: '100%',
-    height: 72,
-    borderRadius: 24,
-    borderWidth: 2,
+  pinCellsRow: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 20,
-  },
-  pinTextInput: {
+    gap: 8,
     width: '100%',
-    fontSize: 32,
-    fontWeight: '800',
-    textAlign: 'center',
-    letterSpacing: 18,
+    paddingVertical: 4,
+  },
+  pinCell: {
+    width: 46,
+    height: 58,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pinCellText: {
+    fontSize: 24,
+    fontWeight: '700',
+    letterSpacing: 0,
+  },
+  hiddenPinInput: {
+    position: 'absolute',
+    opacity: 0,
+    width: 1,
+    height: 1,
   },
   hintText: {
     fontSize: 13,

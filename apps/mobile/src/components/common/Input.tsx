@@ -23,13 +23,13 @@ export const Input: React.FC<InputProps> = ({
   icon,
   isPassword = false,
   style,
+  placeholder,
+  value,
   ...props
 }) => {
-  const { colors, resolvedTheme } = useThemeStore();
+  const { colors } = useThemeStore();
   const [isFocused, setIsFocused] = useState(false);
   const [showPassword, setShowPassword] = useState(!isPassword);
-
-  const isDark = resolvedTheme === 'dark';
 
   return (
     <View style={styles.container}>
@@ -53,18 +53,31 @@ export const Input: React.FC<InputProps> = ({
       >
         {icon ? <View style={styles.iconContainer}>{icon as any}</View> : null}
 
-        <TextInput
-          placeholderTextColor={colors.subtle}
-          secureTextEntry={isPassword && !showPassword}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
-          style={[
-            styles.input,
-            { color: colors.text },
-            style,
-          ]}
-          {...props}
-        />
+        <View style={styles.inputInner}>
+          {isPassword && !value && placeholder ? (
+            <Text
+              pointerEvents="none"
+              style={[styles.placeholderOverlay, { color: colors.subtle }]}
+            >
+              {placeholder}
+            </Text>
+          ) : null}
+
+          <TextInput
+            placeholder={isPassword ? undefined : placeholder}
+            placeholderTextColor={colors.subtle}
+            secureTextEntry={isPassword && !showPassword}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
+            value={value}
+            style={[
+              styles.input,
+              { color: colors.text },
+              style,
+            ]}
+            {...props}
+          />
+        </View>
 
         {isPassword && (
           <TouchableOpacity
@@ -113,10 +126,24 @@ const styles = StyleSheet.create({
   iconContainer: {
     marginRight: 10,
   },
+  inputInner: {
+    flex: 1,
+    height: '100%',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  placeholderOverlay: {
+    position: 'absolute',
+    left: 0,
+    fontSize: 14,
+    letterSpacing: 0,
+  },
   input: {
     flex: 1,
     fontSize: 14,
     height: '100%',
+    letterSpacing: 0,
+    padding: 0,
   },
   eyeButton: {
     padding: 6,
