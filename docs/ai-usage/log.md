@@ -1527,6 +1527,47 @@
 - **Commit:** `5823458`
 - **PR:** #58 (https://github.com/1440isme/Circle/pull/58)
 
+---
+
+## AI-0041: Implement iOS 26 Liquid Glass Floating Rounded Pill Tab Navigation Bar
+
+- **Date:** 2026-09-27 21:20:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #10 (US-MOBILE-001: Mobile Application Shell & Auth Flow)
+- **Purpose:** Tái thiết kế toàn diện thanh Bottom Tab Navigation trên ứng dụng di động theo ngôn ngữ thiết kế **iOS 26 Liquid Glass & Dynamic Island**:
+  1. Cài đặt thư viện `expo-blur` (v57.0.3) tích hợp hiệu ứng làm mờ nền quang học (Backdrop Frosted Blur).
+  2. Xây dựng cấu trúc thanh điều hướng dạng đảo nổi (Floating Island Pill) tách rời cạnh màn hình (`position: absolute`, `left: 18`, `right: 18`, `bottom: 26 (iOS) / 18 (Android)`, `borderRadius: 36`, `height: 66px`).
+  3. Phối hợp lớp vật liệu kính mờ đa tầng: `BlurView` kết hợp lớp phủ màu trong suốt quang học (`rgba(255, 255, 255, 0.72)` ở Light mode và `rgba(20, 24, 22, 0.70)` ở Dark mode), đường viền phản xạ ánh sáng siêu mỏng (`borderColor: rgba(255, 255, 255, 0.85)` / `0.16`), và bóng đổ khuếch tán cao cấp (Ambient Floating Shadow).
+  4. Bổ sung vi tương tác (Micro-interactions): Hiển thị pill nền mềm khi tab được kích hoạt kèm chấm chỉ thị `activeDot` tinh tế dưới icon tab.
+  5. Cân chỉnh `paddingBottom: 110` trên toàn bộ các màn hình tab (`index.tsx`, `circles.tsx`, `messages.tsx`, `profile.tsx`) đảm bảo nội dung cuộn mượt mà phía dưới mà không bị thanh đảo nổi che khuất.
+- **Prompt Summary:** "thanh nav của mobile tôi chưa thích lắm nha, tôi muốn dạng của ios 26 dạng bo tròn nổi và có liquidglass"
+- **Files Affected:**
+  - `apps/mobile/app/(tabs)/_layout.tsx`
+  - `apps/mobile/app/(tabs)/index.tsx`
+  - `apps/mobile/app/(tabs)/circles.tsx`
+  - `apps/mobile/app/(tabs)/messages.tsx`
+  - `apps/mobile/app/(tabs)/profile.tsx`
+  - `apps/mobile/package.json`
+  - `package-lock.json`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% thiết kế giao diện Liquid Glass, cấu hình `BlurView`, vi tương tác và styling.
+- **Human Modifications:** Trương Công Bình trực tiếp yêu cầu đổi phong cách thanh điều hướng sang phong cách iOS 26 bo tròn nổi và có hiệu ứng kính lỏng (liquid glass).
+- **Verification Method:**
+  - `npx tsc --noEmit` trong `apps/mobile`: 0 errors.
+  - `npm test -w @circle/backend`: 14/14 unit tests pass 100%.
+  - `./scripts/check-agent-map.sh`: 93 file framework markdown liên kết hợp lệ 100%.
+- **Official Source Checked:** Apple Human Interface Guidelines (Translucency and Materials), Expo Blur Documentation.
+- **Security & License Check:** An toàn, không chứa secrets.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A
+  - **Resolution / Fix:** N/A
+- **Commit:** Pending
+- **PR:** #58 (https://github.com/1440isme/Circle/pull/58)
+
+
 
 
 

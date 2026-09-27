@@ -75,7 +75,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   headerTitle: { fontSize: 18, fontWeight: '800' },
-  content: { flex: 1, padding: 20, justifyContent: 'center' },
+  content: { flex: 1, padding: 20, paddingBottom: 80, justifyContent: 'center' },
   emptyBox: {
     borderRadius: 28,
     padding: 24,

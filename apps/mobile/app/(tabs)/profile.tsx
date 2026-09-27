@@ -164,7 +164,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   headerTitle: { fontSize: 18, fontWeight: '800' },
-  scrollContent: { padding: 20, gap: 16 },
+  scrollContent: { padding: 20, paddingBottom: 110, gap: 16 },
   card: {
     borderRadius: 28,
     padding: 24,
