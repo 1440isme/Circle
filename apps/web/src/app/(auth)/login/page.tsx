@@ -48,6 +48,10 @@ function LoginForm() {
       await loginMutation.mutateAsync(validationResult.data);
       router.push(redirectUrl);
     } catch (err: any) {
+      if (err?.details?.code === 'ACCOUNT_NOT_ACTIVATED' || err?.message?.includes('kích hoạt')) {
+        router.push(`/verify-otp?email=${encodeURIComponent(validationResult.data.email)}`);
+        return;
+      }
       setApiError(err?.message || t.auth.loginFailed);
     }
   };
@@ -112,13 +116,12 @@ function LoginForm() {
             <label className="block text-xs font-semibold uppercase tracking-wider text-circle-slate">
               {t.auth.password}
             </label>
-            <button
-              type="button"
+            <Link
+              href="/forgot-password"
               className="text-xs font-medium text-circle-sage hover:underline"
-              onClick={() => alert(t.auth.forgotPasswordNotice)}
             >
               {t.auth.forgotPassword}
-            </button>
+            </Link>
           </div>
           <div className="relative">
             <Lock className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-circle-slate" />

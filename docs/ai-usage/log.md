@@ -1074,7 +1074,84 @@
   - **Error Description:** Ở phiên trước, `globals.css` vẫn còn giữ dòng `body { font-family: var(--font-plus-jakarta) }`, khiến việc khai báo font Inter ở `layout.tsx` bị ghi đè cục bộ. Ngoài ra `docs/design.md` chưa được cập nhật đồng bộ sau khi người dùng chọn đổi font.
   - **Root Cause:** Sót khai báo trong CSS tĩnh và tài liệu thiết kế chuẩn.
   - **Resolution / Fix:** Đồng bộ toàn diện `docs/design.md` và sửa `globals.css` sang `var(--font-inter)`.
-- **Commit:** Pending
+- **Commit:** `935ebdc`
 - **PR:** #47 (https://github.com/1440isme/Circle/pull/47)
+
+---
+
+## AI-0031: Xây dựng Hệ thống Xác thực OTP qua Email, Kích hoạt Tài khoản và Quên/Đặt lại Mật khẩu
+
+- **Date:** 2026-09-27 11:45:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #48 ([SUB-FEAT]: US-AUTH-004 — Email OTP Verification, Account Activation & Password Recovery (Parent: #18))
+- **Purpose:** Triển khai toàn diện tính năng Xác thực OTP qua Email, Kích hoạt tài khoản và Khôi phục mật khẩu theo chuẩn Use Case UC01, UC02, UC03 và tiêu chuẩn bảo mật Rubric Level 5 (TC2.4):
+  1. **Hạ tầng Email & Bộ nhớ đệm:**
+     - Xây dựng `MailModule` & `MailService` (`apps/backend/src/modules/mail/`) tích hợp `nodemailer`, tự động sinh template HTML email thương hiệu CIRCLE mang phong cách Apple HIG (tone màu bạc hà `#78C6A3`, cây xô thơm `#4FA982`, hộp mã OTP monospace to rõ ràng).
+     - Xây dựng `RedisService` (`apps/backend/src/database/redis.service.ts`) kết nối container Redis 7 Alpine quản lý mã OTP 6 số ngẫu nhiên (`crypto.randomInt`), cài đặt TTL 300 giây (5 phút), cooldown giới hạn tần suất gửi lại 60 giây và chặn brute-force tối đa 5 lần thử sai.
+  2. **Backend Auth API:**
+     - Cập nhật Prisma Schema đổi `isActivated` mặc định về `false` và chạy migration `20260927044220_user_is_activated_default_false`.
+     - `POST /api/v1/auth/register`: Tạo tài khoản trạng thái chờ, tự động sinh và gửi OTP kích hoạt qua email.
+     - `POST /api/v1/auth/login`: Chặn đăng nhập nếu `isActivated === false`, trả về mã lỗi `ACCOUNT_NOT_ACTIVATED`.
+     - `POST /api/v1/auth/verify-otp`: Xác thực OTP, cập nhật `isActivated: true`, cấp cặp Dual-Token.
+     - `POST /api/v1/auth/resend-otp`: Gửi lại mã OTP mới kèm kiểm tra cooldown 60s.
+     - `POST /api/v1/auth/forgot-password`: Nhận email, sinh mã OTP khôi phục mật khẩu (chống user enumeration flaw).
+     - `POST /api/v1/auth/reset-password`: Xác thực OTP, cập nhật mật khẩu mới (bcrypt cost 12), tự động thu hồi toàn bộ session token cũ trong cơ sở dữ liệu.
+  3. **Shared Contracts & Song ngữ:**
+     - Bổ sung Zod schemas tại `packages/shared/src/validators/auth.validator.ts` (`verifyOtpSchema`, `resendOtpSchema`, `forgotPasswordSchema`, `resetPasswordSchema`) và xuất khẩu kiểu dữ liệu tự động.
+     - Bổ sung từ điển song ngữ Anh - Việt đầy đủ tại `packages/shared/src/locales/vi.ts` và `en.ts`.
+  4. **Frontend Web UI:**
+     - Xây dựng `useVerifyOtpMutation`, `useResendOtpMutation`, `useForgotPasswordMutation`, `useResetPasswordMutation` trên nền TanStack Query.
+     - Trang `/verify-otp`: Giao diện 6 ô nhập mã số OTP phong cách Apple HIG tự động chuyển focus, hỗ trợ paste chuỗi 6 số, hiển thị bộ đếm ngược 60 giây gửi lại mã.
+     - Trang `/forgot-password`: Biểu mẫu nhập email nhận mã xác nhận khôi phục mật khẩu.
+     - Trang `/reset-password`: Biểu mẫu nhập OTP và mật khẩu mới với thanh đo độ dài và trùng khớp mật khẩu trực quan.
+     - Cập nhật trang `/login` liên kết `/forgot-password` và tự động chuyển hướng sang `/verify-otp` nếu phát hiện tài khoản chưa kích hoạt.
+     - Cập nhật trang `/register` tự động điều hướng sang `/verify-otp` ngay sau khi đăng ký.
+  5. **Kiểm thử tự động & Báo cáo sitemap:**
+     - Mở rộng bộ kiểm thử đơn vị `auth.service.spec.ts` lên 14/14 test cases (TC-AUTH-001 đến TC-AUTH-006) pass 100%.
+     - Next.js biên dịch thành công 9/9 trang tĩnh không lỗi kiểu.
+     - Cập nhật `.agents/SITEMAP.md` đánh dấu hoàn thành các trang `/verify-otp`, `/forgot-password`, `/reset-password`.
+- **Prompt Summary:** Yêu cầu: "ok hợp lý, triển khai thôi", sau khi đã thảo luận và thống nhất về sự cần thiết của luồng xác thực email OTP và quên mật khẩu theo chuẩn SRS.
+- **Files Affected:**
+  - `apps/backend/package.json`
+  - `apps/backend/prisma/schema.prisma`
+  - `apps/backend/prisma/migrations/20260927044220_user_is_activated_default_false/migration.sql`
+  - `apps/backend/src/database/redis.service.ts`
+  - `apps/backend/src/database/database.module.ts`
+  - `apps/backend/src/modules/mail/mail.service.ts`
+  - `apps/backend/src/modules/mail/mail.module.ts`
+  - `apps/backend/src/app.module.ts`
+  - `apps/backend/src/modules/auth/dto/verify-otp.dto.ts`
+  - `apps/backend/src/modules/auth/dto/resend-otp.dto.ts`
+  - `apps/backend/src/modules/auth/dto/forgot-password.dto.ts`
+  - `apps/backend/src/modules/auth/dto/reset-password.dto.ts`
+  - `apps/backend/src/modules/auth/auth.service.ts`
+  - `apps/backend/src/modules/auth/auth.controller.ts`
+  - `apps/backend/src/modules/auth/auth.service.spec.ts`
+  - `packages/shared/src/validators/auth.validator.ts`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `apps/web/src/lib/auth.ts`
+  - `apps/web/src/hooks/use-auth-mutations.ts`
+  - `apps/web/src/app/(auth)/verify-otp/page.tsx`
+  - `apps/web/src/app/(auth)/forgot-password/page.tsx`
+  - `apps/web/src/app/(auth)/reset-password/page.tsx`
+  - `apps/web/src/app/(auth)/login/page.tsx`
+  - `apps/web/src/app/(auth)/register/page.tsx`
+  - `.agents/SITEMAP.md`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% mã nguồn module Mail, Redis, DTOs, Controllers, Services, Schemas, Mutations, React components và test suites.
+- **Human Modifications:** Trương Công Bình định hướng và phê duyệt triển khai trọn gói luồng OTP kích hoạt và khôi phục mật khẩu theo chuẩn SRS.
+- **Verification Method:** Chạy `npm test -w @circle/backend` (14/14 tests pass 100%), `npm run build -w @circle/web` (9/9 static pages pass), `npm run lint -w @circle/web` (0 warning 0 error), `./scripts/check-agent-map.sh` (pass 100%).
+- **Official Source Checked:** `PROJECT_GOD.md` (DoD, Rubric Level 5 TC2.1 & TC2.4), `docs/requirements/use-cases.md` (UC01, UC02, UC03).
+- **Security & License Check:** An toàn, mã OTP 6 số lưu Redis có TTL 300s, giới hạn 5 lần nhập sai, cooldown 60s, mật khẩu mới băm bcrypt cost 12, thu hồi toàn bộ session token cũ khi đổi mật khẩu, không làm lộ user enumeration.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A
+  - **Resolution / Fix:** N/A
+- **Commit:** Pending
+- **PR:** Pending
+
 
 

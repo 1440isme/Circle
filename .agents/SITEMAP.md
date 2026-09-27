@@ -15,8 +15,10 @@
 |---|---|---|---|
 | Landing Hero | Introduction to Circle platform | `/` | 🚧 WIP |
 | User Registration | Email + Password + Profile setup | `/register` | ✅ Implemented |
+| Email OTP Verification | 6-digit PIN input + activation flow | `/verify-otp` | ✅ Implemented |
 | User Login | JWT Access + Refresh Token issuance | `/login` | ✅ Implemented |
-| Password Recovery | Reset link email flow | `/forgot-password` | 🚧 WIP |
+| Password Recovery Request | Send OTP to reset password | `/forgot-password` | ✅ Implemented |
+| Password Reset Form | 6-digit OTP verification + new password | `/reset-password` | ✅ Implemented |
 
 ### 2. 👥 Circles & Channels (`/circle/:id`)
 **Route:** `src/app/(circle)/circle/[id]/`

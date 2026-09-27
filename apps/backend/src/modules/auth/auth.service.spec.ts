@@ -1,15 +1,19 @@
-import { ConflictException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
 import * as bcrypt from 'bcryptjs';
 import { AuthService } from './auth.service';
 import { PrismaService } from '../../database/prisma.service';
+import { RedisService } from '../../database/redis.service';
+import { MailService } from '../mail/mail.service';
 import { GlobalRole } from '@circle/types';
 
-describe('AuthService — TC-AUTH-001 & TC-AUTH-002', () => {
+describe('AuthService — Full Test Suite (TC-AUTH-001 to TC-AUTH-006)', () => {
   let service: AuthService;
   let prisma: any;
+  let redis: any;
+  let mailService: any;
   let jwtService: any;
   let configService: any;
 
@@ -39,6 +43,7 @@ describe('AuthService — TC-AUTH-001 & TC-AUTH-002', () => {
       user: {
         findUnique: jest.fn(),
         create: jest.fn(),
+        update: jest.fn(),
       },
       refreshToken: {
         create: jest.fn(),
@@ -47,6 +52,19 @@ describe('AuthService — TC-AUTH-001 & TC-AUTH-002', () => {
         updateMany: jest.fn(),
       },
       $transaction: jest.fn((callback) => callback(prisma)),
+    };
+
+    redis = {
+      get: jest.fn(),
+      set: jest.fn(),
+      del: jest.fn(),
+      incr: jest.fn(),
+      expire: jest.fn(),
+    };
+
+    mailService = {
+      sendOtpVerification: jest.fn().mockResolvedValue(true),
+      sendPasswordResetOtp: jest.fn().mockResolvedValue(true),
     };
 
     jwtService = {
@@ -75,6 +93,8 @@ describe('AuthService — TC-AUTH-001 & TC-AUTH-002', () => {
       providers: [
         AuthService,
         { provide: PrismaService, useValue: prisma },
+        { provide: RedisService, useValue: redis },
+        { provide: MailService, useValue: mailService },
         { provide: JwtService, useValue: jwtService },
         { provide: ConfigService, useValue: configService },
       ],
@@ -83,11 +103,10 @@ describe('AuthService — TC-AUTH-001 & TC-AUTH-002', () => {
     service = module.get<AuthService>(AuthService);
   });
 
-  describe('US-AUTH-001: User Registration (TC-AUTH-001)', () => {
-    it('should register a new user successfully and hash password with bcrypt', async () => {
+  describe('US-AUTH-001 & US-AUTH-004: User Registration (TC-AUTH-001)', () => {
+    it('should register a new user as unactivated, generate OTP, store in Redis, and send email', async () => {
       prisma.user.findUnique.mockResolvedValue(null);
-      prisma.user.create.mockResolvedValue(mockUser);
-      prisma.refreshToken.create.mockResolvedValue({ id: 'token-1' });
+      prisma.user.create.mockResolvedValue({ ...mockUser, isActivated: false });
 
       const dto = {
         email: 'test@example.com',
@@ -101,9 +120,14 @@ describe('AuthService — TC-AUTH-001 & TC-AUTH-002', () => {
         where: { email: 'test@example.com' },
       });
       expect(prisma.user.create).toHaveBeenCalled();
+      expect(redis.set).toHaveBeenCalledWith(
+        expect.stringContaining('otp:verify:test@example.com'),
+        expect.any(String),
+        300,
+      );
+      expect(mailService.sendOtpVerification).toHaveBeenCalled();
       expect(result.user.email).toBe('test@example.com');
-      expect(result.tokens.accessToken).toBe('mock-access-token');
-      expect(result.tokens.refreshToken).toBe('mock-refresh-token');
+      expect(result.tokens).toBeNull();
     });
 
     it('should throw 409 Conflict if email is already registered', async () => {
@@ -136,6 +160,7 @@ describe('AuthService — TC-AUTH-001 & TC-AUTH-002', () => {
       const hashedPassword = await bcrypt.hash(plainPassword, 12);
       prisma.user.findUnique.mockResolvedValue({
         ...mockUser,
+        isActivated: true,
         passwordHash: hashedPassword,
       });
       prisma.refreshToken.create.mockResolvedValue({ id: 'token-1' });
@@ -148,6 +173,23 @@ describe('AuthService — TC-AUTH-001 & TC-AUTH-002', () => {
       expect(result.user.email).toBe('test@example.com');
       expect(result.tokens.accessToken).toBe('mock-access-token');
       expect(result.tokens.refreshToken).toBe('mock-refresh-token');
+    });
+
+    it('should throw 401 Unauthorized if account is not activated', async () => {
+      const plainPassword = 'SecurePassword123!';
+      const hashedPassword = await bcrypt.hash(plainPassword, 12);
+      prisma.user.findUnique.mockResolvedValue({
+        ...mockUser,
+        isActivated: false,
+        passwordHash: hashedPassword,
+      });
+
+      await expect(
+        service.login({
+          email: 'test@example.com',
+          password: plainPassword,
+        }),
+      ).rejects.toThrow(UnauthorizedException);
     });
 
     it('should throw 401 Unauthorized on invalid password', async () => {
@@ -210,7 +252,7 @@ describe('AuthService — TC-AUTH-001 & TC-AUTH-002', () => {
         id: 'compromised-token-id',
         userId: mockUser.id,
         tokenHash,
-        isRevoked: true, // ALREADY REVOKED!
+        isRevoked: true,
         expiresAt: new Date(Date.now() + 100000),
       });
 
@@ -218,11 +260,108 @@ describe('AuthService — TC-AUTH-001 & TC-AUTH-002', () => {
         service.refreshTokens({ refreshToken: reusedToken }),
       ).rejects.toThrow(UnauthorizedException);
 
-      // Verify all sessions were revoked immediately
       expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith({
         where: { userId: mockUser.id },
         data: { isRevoked: true },
       });
+    });
+  });
+
+  describe('US-AUTH-004: OTP Verification & Password Recovery (TC-AUTH-003 to TC-AUTH-006)', () => {
+    it('TC-AUTH-003: should verify OTP, activate user, and return tokens', async () => {
+      prisma.user.findUnique.mockResolvedValue({ ...mockUser, isActivated: false });
+      redis.get.mockImplementation((key: string) => {
+        if (key.includes('otp:verify:')) return Promise.resolve('123456');
+        return Promise.resolve(null);
+      });
+      prisma.user.update.mockResolvedValue({ ...mockUser, isActivated: true });
+      prisma.refreshToken.create.mockResolvedValue({ id: 'token-1' });
+
+      const result = await service.verifyOtp({
+        email: 'test@example.com',
+        otp: '123456',
+      });
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: mockUser.id },
+        data: { isActivated: true },
+        include: { profile: true },
+      });
+      expect(redis.del).toHaveBeenCalledWith('otp:verify:test@example.com');
+      expect(result.tokens.accessToken).toBe('mock-access-token');
+    });
+
+    it('TC-AUTH-003: should throw 400 on incorrect OTP and increment attempt counter', async () => {
+      prisma.user.findUnique.mockResolvedValue({ ...mockUser, isActivated: false });
+      redis.get.mockImplementation((key: string) => {
+        if (key.includes('otp:verify:')) return Promise.resolve('123456');
+        return Promise.resolve('1');
+      });
+
+      await expect(
+        service.verifyOtp({
+          email: 'test@example.com',
+          otp: '999999',
+        }),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(redis.incr).toHaveBeenCalled();
+    });
+
+    it('TC-AUTH-004: should resend OTP if cooldown is not active', async () => {
+      prisma.user.findUnique.mockResolvedValue({ ...mockUser, isActivated: false });
+      redis.get.mockResolvedValue(null); // No cooldown
+
+      const result = await service.resendOtp({ email: 'test@example.com' });
+
+      expect(redis.set).toHaveBeenCalledWith(
+        'otp:cooldown:VERIFICATION:test@example.com',
+        '1',
+        60,
+      );
+      expect(mailService.sendOtpVerification).toHaveBeenCalled();
+      expect(result.message).toBeDefined();
+    });
+
+    it('TC-AUTH-004: should reject resend if cooldown is active', async () => {
+      redis.get.mockResolvedValue('1'); // Cooldown active
+
+      await expect(service.resendOtp({ email: 'test@example.com' })).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('TC-AUTH-005: should request forgot password OTP', async () => {
+      prisma.user.findUnique.mockResolvedValue(mockUser);
+      redis.get.mockResolvedValue(null);
+
+      const result = await service.forgotPassword({ email: 'test@example.com' });
+
+      expect(mailService.sendPasswordResetOtp).toHaveBeenCalled();
+      expect(result.message).toBeDefined();
+    });
+
+    it('TC-AUTH-006: should reset password, update hash, and revoke existing sessions', async () => {
+      redis.get.mockImplementation((key: string) => {
+        if (key.includes('otp:forgot:')) return Promise.resolve('654321');
+        return Promise.resolve(null);
+      });
+      prisma.user.findUnique.mockResolvedValue(mockUser);
+      prisma.user.update.mockResolvedValue(mockUser);
+      prisma.refreshToken.updateMany.mockResolvedValue({ count: 2 });
+
+      const result = await service.resetPassword({
+        email: 'test@example.com',
+        otp: '654321',
+        newPassword: 'BrandNewSecurePassword123!',
+      });
+
+      expect(prisma.user.update).toHaveBeenCalled();
+      expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith({
+        where: { userId: mockUser.id },
+        data: { isRevoked: true },
+      });
+      expect(result.message).toBeDefined();
     });
   });
 });

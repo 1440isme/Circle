@@ -2,7 +2,23 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AuthResponseData, AuthUserData } from '@circle/types';
-import { getCurrentUserApi, loginApi, LoginPayload, registerApi, RegisterPayload } from '../lib/auth';
+import {
+  ForgotPasswordInput,
+  ResendOtpInput,
+  ResetPasswordInput,
+  VerifyOtpInput,
+} from '@circle/shared';
+import {
+  forgotPasswordApi,
+  getCurrentUserApi,
+  loginApi,
+  LoginPayload,
+  registerApi,
+  RegisterPayload,
+  resendOtpApi,
+  resetPasswordApi,
+  verifyOtpApi,
+} from '../lib/auth';
 import { useAuthStore } from '../stores/auth.store';
 
 export const AUTH_KEYS = {
@@ -16,8 +32,10 @@ export function useLoginMutation() {
   return useMutation({
     mutationFn: (payload: LoginPayload) => loginApi(payload),
     onSuccess: (data: AuthResponseData) => {
-      setAuth(data.user, data.tokens);
-      queryClient.setQueryData(AUTH_KEYS.me, data.user);
+      if (data.tokens) {
+        setAuth(data.user, data.tokens);
+        queryClient.setQueryData(AUTH_KEYS.me, data.user);
+      }
     },
   });
 }
@@ -29,9 +47,44 @@ export function useRegisterMutation() {
   return useMutation({
     mutationFn: (payload: RegisterPayload) => registerApi(payload),
     onSuccess: (data: AuthResponseData) => {
-      setAuth(data.user, data.tokens);
-      queryClient.setQueryData(AUTH_KEYS.me, data.user);
+      if (data.tokens) {
+        setAuth(data.user, data.tokens);
+        queryClient.setQueryData(AUTH_KEYS.me, data.user);
+      }
     },
+  });
+}
+
+export function useVerifyOtpMutation() {
+  const queryClient = useQueryClient();
+  const setAuth = useAuthStore((s) => s.setAuth);
+
+  return useMutation({
+    mutationFn: (payload: VerifyOtpInput) => verifyOtpApi(payload),
+    onSuccess: (data: AuthResponseData) => {
+      if (data.tokens) {
+        setAuth(data.user, data.tokens);
+        queryClient.setQueryData(AUTH_KEYS.me, data.user);
+      }
+    },
+  });
+}
+
+export function useResendOtpMutation() {
+  return useMutation({
+    mutationFn: (payload: ResendOtpInput) => resendOtpApi(payload),
+  });
+}
+
+export function useForgotPasswordMutation() {
+  return useMutation({
+    mutationFn: (payload: ForgotPasswordInput) => forgotPasswordApi(payload),
+  });
+}
+
+export function useResetPasswordMutation() {
+  return useMutation({
+    mutationFn: (payload: ResetPasswordInput) => resetPasswordApi(payload),
   });
 }
 
