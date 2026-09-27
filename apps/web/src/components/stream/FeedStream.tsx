@@ -126,7 +126,7 @@ export const FeedStream: React.FC = () => {
             </button>
           </div>
           <p className="text-sm text-circle-charcoal leading-relaxed mb-3">
-            Đã đồng bộ xong toàn bộ hệ thống Design Tokens và giao diện mẫu từ Google Stitch và chuẩn Apple HIG vào dự án. Cả Web và Mobile đều đã có chung bảng màu thảo mộc và font Plus Jakarta Sans nhé!
+            Đã đồng bộ xong toàn bộ hệ thống Design Tokens và giao diện mẫu từ Google Stitch và chuẩn Apple HIG vào dự án. Cả Web và Mobile đều đã có chung bảng màu thảo mộc và font Inter nhé!
           </p>
         </div>
       </div>

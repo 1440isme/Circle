@@ -1041,6 +1041,40 @@
   - **Error Description:** None.
   - **Root Cause:** N/A
   - **Resolution / Fix:** N/A
+- **Commit:** `04252bc`
+- **PR:** #47 (https://github.com/1440isme/Circle/pull/47)
+
+---
+
+## AI-0030: Đồng bộ Đặc tả Thiết kế docs/design.md, Khắc phục globals.css và Khởi động Backend Kiểm chứng Đăng ký
+
+- **Date:** 2026-09-27 11:26:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #46 ([SUB-FEAT]: US-AUTH-003 — Web Authentication Flow, AuthContext & Session Management (Parent: #18))
+- **Purpose:** Tiếp nhận câu hỏi kiểm tra từ kỹ sư về việc cập nhật tài liệu thiết kế `docs/design.md`, xác nhận tính toàn cục (Global) của font Inter, và nguyên nhân lỗi chưa đăng ký được trên giao diện Web:
+  1. Cập nhật đồng bộ toàn diện `docs/design.md`: Chuyển đổi toàn bộ các tham chiếu font (Mục 2.2 Typography, sơ đồ Mermaid, mục 5.4 Header iOS Large Title, mục 6 Đối sánh Đa nền tảng và mục 7 DoD checklist) từ `Plus Jakarta Sans` sang **Inter**.
+  2. Khắc phục triệt để trong `apps/web/src/app/globals.css`: Phát hiện thuộc tính `body { font-family: var(--font-plus-jakarta) }` bị sót làm trình duyệt không ăn biến font mới, đã chuyển đổi chính xác sang `var(--font-inter), system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif`.
+  3. Khởi chạy máy chủ Backend Modular Monolith NestJS (`apps/backend`) chạy nền trên cổng 4000 (`npm run dev:backend`), kết nối thành công PostgreSQL 16 và Redis 7 container.
+  4. Thực nghiệm gửi lệnh đăng ký qua cURL (`POST /api/v1/auth/register`), nhận về kết quả HTTP 201 Created cùng đầy đủ User, Profile và cặp Token; kiểm chứng kiểm tra trùng lặp email trả về HTTP 409 Conflict chuẩn mực.
+  5. Đối chiếu hiện trạng hệ thống với đặc tả SRS (UC01, UC02, UC03): Làm rõ hiện trạng luồng Auth (đã hoàn thành Core Identity Foundation: Register, Login, Refresh Token Rotation, Logout, Session Guards, Zod Validation, TanStack Query, Bilingual; chưa có Email Service OTP Verification và Forgot Password).
+- **Prompt Summary:** Yêu cầu: "đổi trong desginmd chưa vậy, đây là áp dụng global và luồng auth đã làm được full chưa vậy, tôi chưa đăng ký được và email đã có veritfy otp cũng như quên mật khẩu chưa".
+- **Files Affected:**
+  - `docs/design.md`
+  - `apps/web/src/app/globals.css`
+  - `apps/web/src/components/stream/FeedStream.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% cập nhật tài liệu đặc tả, tinh chỉnh biến CSS và kiểm thử API end-to-end.
+- **Human Modifications:** Trương Công Bình giám sát đối soát tài liệu thiết kế, phát hiện vấn đề chưa đăng ký được trên Web UI và yêu cầu làm rõ tính toàn vẹn của luồng Auth theo SRS.
+- **Verification Method:** Chạy `./scripts/check-agent-map.sh` pass 100%, cURL đăng ký trả về HTTP 201 Created, cURL trùng lặp email trả về HTTP 409 Conflict.
+- **Official Source Checked:** `docs/design.md`, `docs/requirements/use-cases.md` (UC01, UC02, UC03), `PROJECT_GOD.md`.
+- **Security & License Check:** An toàn, không chứa credentials.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** Ở phiên trước, `globals.css` vẫn còn giữ dòng `body { font-family: var(--font-plus-jakarta) }`, khiến việc khai báo font Inter ở `layout.tsx` bị ghi đè cục bộ. Ngoài ra `docs/design.md` chưa được cập nhật đồng bộ sau khi người dùng chọn đổi font.
+  - **Root Cause:** Sót khai báo trong CSS tĩnh và tài liệu thiết kế chuẩn.
+  - **Resolution / Fix:** Đồng bộ toàn diện `docs/design.md` và sửa `globals.css` sang `var(--font-inter)`.
 - **Commit:** Pending
 - **PR:** #47 (https://github.com/1440isme/Circle/pull/47)
+
 
