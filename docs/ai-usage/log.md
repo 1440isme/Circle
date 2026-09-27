@@ -1601,6 +1601,40 @@
 - **Commit:** `d034698`
 - **PR:** #58 (https://github.com/1440isme/Circle/pull/58)
 
+---
+
+## AI-0043: Fix Tab Bar Vertical and Horizontal Layout Alignment with Custom TabBar
+
+- **Date:** 2026-09-27 21:28:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #10 (US-MOBILE-001: Mobile Application Shell & Auth Flow)
+- **Purpose:** Khắc phục lỗi lệch trục căn chỉnh thanh tab di động (4 tab bị kéo lên trên và chia cột không đều với nút `+` ở giữa):
+  1. Chuyển đổi kiến trúc sang Custom TabBar Component (`CustomLiquidTabBar`) tích hợp trực tiếp qua prop `tabBar` của `expo-router` `Tabs`.
+  2. Phân bổ đồng đều 5 ô slot (`flex: 1` cho mỗi ô) dọc theo trục ngang, triệt tiêu hoàn toàn sự chênh lệch độ rộng giữa các tab và nút `+`.
+  3. Căn giữa chuẩn xác trên trục đứng (`height: 100%`, `justifyContent: 'center'`, `alignItems: 'center'`) trên cả 5 ô, đưa toàn bộ icon, nhãn chữ và nút tròn `+` (`48px × 48px`) về cùng một đường cơ sở quang học hoàn hảo.
+  4. Vùng highlight active (`tabButtonActive`) ôm trọn slot với chiều cao `52px` và `borderRadius: 24px`, tạo cảm giác chuyển động mượt mà và liền mạch.
+- **Prompt Summary:** "bị lỗi layout rồi, 5 icon tab k đều nhau, chỉ có nút + chuẩn còn lại bị lên trên"
+- **Files Affected:**
+  - `apps/mobile/app/(tabs)/_layout.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% kiến trúc Custom TabBar và công thức căn chỉnh layout Flexbox.
+- **Human Modifications:** Trương Công Bình trực tiếp phát hiện và chỉ rõ lỗi lệch hàng giữa 4 tab bên ngoài và nút `+` trung tâm.
+- **Verification Method:**
+  - `npx tsc --noEmit` trong `apps/mobile`: 0 errors.
+  - `npm test -w @circle/backend`: 14/14 unit tests pass 100%.
+  - `./scripts/check-agent-map.sh`: 93 file framework markdown liên kết hợp lệ 100%.
+- **Official Source Checked:** React Native Flexbox Layout Specification.
+- **Security & License Check:** An toàn, không chứa secrets.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A
+  - **Resolution / Fix:** N/A
+- **Commit:** Pending
+- **PR:** #58 (https://github.com/1440isme/Circle/pull/58)
+
+
 
 
 

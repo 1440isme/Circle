@@ -25,6 +25,158 @@ import {
 import { useThemeStore } from '../../src/stores/theme.store';
 import { useLanguageStore } from '../../src/stores/language.store';
 
+interface CustomTabBarProps {
+  state: any;
+  navigation: any;
+  onPressCreate: () => void;
+  isDark: boolean;
+  colors: any;
+  t: any;
+}
+
+function CustomLiquidTabBar({
+  state,
+  navigation,
+  onPressCreate,
+  isDark,
+  colors,
+  t,
+}: CustomTabBarProps) {
+  const tabs = [
+    {
+      name: 'index',
+      label: t.common.appName || 'CIRCLE',
+      Icon: Home,
+    },
+    {
+      name: 'circles',
+      label: t.nav.yourCircles || 'Vòng tròn',
+      Icon: Users,
+    },
+    {
+      isCenter: true,
+    },
+    {
+      name: 'messages',
+      label: t.nav.chatChannels || 'Tin nhắn',
+      Icon: MessageSquare,
+    },
+    {
+      name: 'profile',
+      label: t.auth.profile || 'Hồ sơ',
+      Icon: User,
+    },
+  ];
+
+  return (
+    <View style={styles.floatingContainer} pointerEvents="box-none">
+      <View
+        style={[
+          styles.floatingBar,
+          {
+            borderColor: isDark
+              ? 'rgba(255, 255, 255, 0.16)'
+              : 'rgba(255, 255, 255, 0.85)',
+            shadowColor: isDark ? '#000000' : colors.primary,
+          },
+        ]}
+      >
+        {/* BlurView Backdrop */}
+        <BlurView
+          intensity={Platform.OS === 'ios' ? 85 : 100}
+          tint={isDark ? 'dark' : 'light'}
+          style={StyleSheet.absoluteFill}
+        />
+
+        {/* Liquid Glass Translucent Tint */}
+        <View
+          style={[
+            StyleSheet.absoluteFill,
+            {
+              backgroundColor: isDark
+                ? 'rgba(20, 24, 22, 0.72)'
+                : 'rgba(255, 255, 255, 0.75)',
+            },
+          ]}
+        />
+
+        {/* Row of 5 Equal Slots */}
+        <View style={styles.tabsRow}>
+          {tabs.map((tab, idx) => {
+            if (tab.isCenter) {
+              return (
+                <View key="center-plus" style={styles.tabSlot}>
+                  <TouchableOpacity
+                    onPress={onPressCreate}
+                    activeOpacity={0.82}
+                    style={[styles.centerCircleButton, { backgroundColor: colors.primary }]}
+                  >
+                    <Plus size={24} color="#FFFFFF" strokeWidth={2.8} />
+                  </TouchableOpacity>
+                </View>
+              );
+            }
+
+            const routeIndex = state.routes.findIndex((r: any) => r.name === tab.name);
+            const isFocused = state.index === routeIndex;
+            const Icon = tab.Icon!;
+
+            const onPress = () => {
+              const event = navigation.emit({
+                type: 'tabPress',
+                target: state.routes[routeIndex]?.key,
+                canPreventDefault: true,
+              });
+
+              if (!isFocused && !event.defaultPrevented) {
+                navigation.navigate(tab.name);
+              }
+            };
+
+            const iconColor = isFocused
+              ? colors.primary
+              : isDark
+              ? 'rgba(255, 255, 255, 0.45)'
+              : 'rgba(30, 41, 35, 0.50)';
+
+            return (
+              <View key={tab.name} style={styles.tabSlot}>
+                <TouchableOpacity
+                  onPress={onPress}
+                  activeOpacity={0.75}
+                  style={[
+                    styles.tabButton,
+                    isFocused &&
+                      (isDark ? styles.tabActiveDark : styles.tabActiveLight),
+                  ]}
+                >
+                  <Icon
+                    size={20}
+                    color={iconColor}
+                    strokeWidth={isFocused ? 2.3 : 1.8}
+                  />
+                  <Text
+                    numberOfLines={1}
+                    style={[
+                      styles.tabLabel,
+                      {
+                        color: iconColor,
+                        fontWeight: isFocused ? '700' : '500',
+                      },
+                    ]}
+                  >
+                    {tab.label}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            );
+          })}
+        </View>
+      </View>
+    </View>
+  );
+}
+
 export default function TabsLayout() {
   const { colors, resolvedTheme } = useThemeStore();
   const t = useLanguageStore((s) => s.t);
@@ -39,142 +191,30 @@ export default function TabsLayout() {
     }, 250);
   };
 
-  // Reusable tab item button with full slot-height active pill capsule
-  const renderTabButton = (props: any) => {
-    const focused = props.accessibilityState?.selected;
-    return (
-      <TouchableOpacity
-        {...props}
-        activeOpacity={0.7}
-        style={[
-          styles.tabButton,
-          focused && (isDark ? styles.tabButtonActiveDark : styles.tabButtonActiveLight),
-        ]}
-      >
-        {props.children}
-      </TouchableOpacity>
-    );
-  };
-
   return (
     <>
       <Tabs
+        tabBar={(props) => (
+          <CustomLiquidTabBar
+            {...props}
+            onPressCreate={() => setCreateModalVisible(true)}
+            isDark={isDark}
+            colors={colors}
+            t={t}
+          />
+        )}
         screenOptions={{
           headerShown: false,
-          tabBarShowLabel: true,
-          tabBarActiveTintColor: colors.primary,
-          tabBarInactiveTintColor: isDark
-            ? 'rgba(255, 255, 255, 0.45)'
-            : 'rgba(30, 41, 35, 0.50)',
-          tabBarLabelStyle: {
-            fontSize: 10,
-            fontWeight: '600',
-            letterSpacing: -0.2,
-            marginTop: 2,
-            marginBottom: Platform.OS === 'ios' ? 2 : 4,
-          },
-          tabBarStyle: {
-            position: 'absolute',
-            bottom: Platform.OS === 'ios' ? 24 : 16,
-            left: 14,
-            right: 14,
-            height: 70,
-            borderRadius: 38,
-            backgroundColor: 'transparent',
-            borderWidth: 1.2,
-            borderColor: isDark
-              ? 'rgba(255, 255, 255, 0.16)'
-              : 'rgba(255, 255, 255, 0.85)',
-            // Floating Liquid Glass Ambient Shadow
-            shadowColor: isDark ? '#000000' : colors.primary,
-            shadowOffset: { width: 0, height: 10 },
-            shadowOpacity: isDark ? 0.45 : 0.12,
-            shadowRadius: 20,
-            elevation: 16,
-            overflow: 'hidden',
-            paddingHorizontal: 6,
-            alignItems: 'center',
-          },
-          tabBarBackground: () => (
-            <View style={StyleSheet.absoluteFill}>
-              <BlurView
-                intensity={Platform.OS === 'ios' ? 85 : 100}
-                tint={isDark ? 'dark' : 'light'}
-                style={StyleSheet.absoluteFill}
-              />
-              {/* Liquid glass optical tint */}
-              <View
-                style={[
-                  StyleSheet.absoluteFill,
-                  {
-                    backgroundColor: isDark
-                      ? 'rgba(20, 24, 22, 0.72)'
-                      : 'rgba(255, 255, 255, 0.74)',
-                  },
-                ]}
-              />
-            </View>
-          ),
         }}
       >
-        {/* 1. Trang chủ (Home) */}
-        <Tabs.Screen
-          name="index"
-          options={{
-            title: t.common.appName || 'CIRCLE',
-            tabBarIcon: ({ color }) => <Home size={22} color={color} strokeWidth={2} />,
-            tabBarButton: renderTabButton,
-          }}
-        />
-
-        {/* 2. Vòng tròn (Circles) */}
-        <Tabs.Screen
-          name="circles"
-          options={{
-            title: t.nav.yourCircles || 'Vòng tròn',
-            tabBarIcon: ({ color }) => <Users size={22} color={color} strokeWidth={2} />,
-            tabBarButton: renderTabButton,
-          }}
-        />
-
-        {/* 3. Nút Tạo mới / Đăng khoảnh khắc (+) */}
+        <Tabs.Screen name="index" />
+        <Tabs.Screen name="circles" />
+        <Tabs.Screen name="messages" />
+        <Tabs.Screen name="profile" />
         <Tabs.Screen
           name="create"
           options={{
-            tabBarLabel: () => null,
-            tabBarButton: () => (
-              <View style={styles.centerButtonWrapper}>
-                <TouchableOpacity
-                  onPress={() => setCreateModalVisible(true)}
-                  style={[styles.centerButton, { backgroundColor: colors.primary }]}
-                  activeOpacity={0.85}
-                >
-                  <Plus size={26} color="#FFFFFF" strokeWidth={2.6} />
-                </TouchableOpacity>
-              </View>
-            ),
-          }}
-        />
-
-        {/* 4. Tin nhắn (Messages) */}
-        <Tabs.Screen
-          name="messages"
-          options={{
-            title: t.nav.chatChannels || 'Tin nhắn',
-            tabBarIcon: ({ color }) => (
-              <MessageSquare size={22} color={color} strokeWidth={2} />
-            ),
-            tabBarButton: renderTabButton,
-          }}
-        />
-
-        {/* 5. Hồ sơ (Profile) */}
-        <Tabs.Screen
-          name="profile"
-          options={{
-            title: t.auth.profile || 'Hồ sơ',
-            tabBarIcon: ({ color }) => <User size={22} color={color} strokeWidth={2} />,
-            tabBarButton: renderTabButton,
+            href: null, // Hide from default drawer/routing lists
           }}
         />
       </Tabs>
@@ -335,32 +375,61 @@ export default function TabsLayout() {
 }
 
 const styles = StyleSheet.create({
-  tabButton: {
-    flex: 1,
-    height: 54,
-    justifyContent: 'center',
+  floatingContainer: {
+    position: 'absolute',
+    bottom: Platform.OS === 'ios' ? 24 : 16,
+    left: 14,
+    right: 14,
     alignItems: 'center',
-    borderRadius: 27,
-    marginHorizontal: 2,
-    marginVertical: 8,
   },
-  tabButtonActiveLight: {
+  floatingBar: {
+    width: '100%',
+    height: 68,
+    borderRadius: 36,
+    borderWidth: 1.2,
+    overflow: 'hidden',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.45,
+    shadowRadius: 20,
+    elevation: 16,
+  },
+  tabsRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 6,
+  },
+  tabSlot: {
+    flex: 1,
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabButton: {
+    width: '92%',
+    height: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 24,
+    paddingVertical: 2,
+    gap: 3,
+  },
+  tabActiveLight: {
     backgroundColor: 'rgba(59, 122, 87, 0.12)',
     borderWidth: 1,
     borderColor: 'rgba(59, 122, 87, 0.20)',
   },
-  tabButtonActiveDark: {
+  tabActiveDark: {
     backgroundColor: 'rgba(107, 189, 142, 0.16)',
     borderWidth: 1,
-    borderColor: 'rgba(107, 189, 142, 0.30)',
+    borderColor: 'rgba(107, 189, 142, 0.28)',
   },
-  centerButtonWrapper: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 4,
-    height: 70,
+  tabLabel: {
+    fontSize: 10,
+    letterSpacing: -0.2,
   },
-  centerButton: {
+  centerCircleButton: {
     width: 48,
     height: 48,
     borderRadius: 24,
