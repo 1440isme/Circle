@@ -2114,7 +2114,7 @@
   - **Error Description:** Modal `CreateCircleModal` trước đó bị đặt sai phạm vi (bên trong `Sidebar`), dẫn tới khi component `Sidebar` unmounted ở chế độ Home Hub thì modal không thể hiển thị dù state Zustand đã cập nhật `isCreateModalOpen = true`.
   - **Root Cause:** Phụ thuộc vị trí đặt component con trong cây React (Component Hierarchy coupling).
   - **Resolution / Fix:** Nhấc `CreateCircleModal` ra ngoài và mount tại cấp trang `page.tsx` (Global Page Level).
-- **Commit:** Pending
+- **Commit:** `be12466`
 - **PR:** Pending
 
 
