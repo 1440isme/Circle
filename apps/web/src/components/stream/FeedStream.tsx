@@ -28,6 +28,7 @@ export const FeedStream: React.FC = () => {
   const activeCircle = useCircleStore((s) => s.activeCircle);
   const setActiveCircle = useCircleStore((s) => s.setActiveCircle);
   const setCreateModalOpen = useCircleStore((s) => s.setCreateModalOpen);
+  const setJoinModalOpen = useCircleStore((s) => s.setJoinModalOpen);
 
   const { data: circles = [], isLoading: isLoadingCircles } = useMyCirclesQuery();
   const [message, setMessage] = useState('');
@@ -87,7 +88,7 @@ export const FeedStream: React.FC = () => {
             </button>
             <button
               type="button"
-              onClick={() => handleActionNotice(t.home.inviteCodePrompt)}
+              onClick={() => setJoinModalOpen(true)}
               className="flex items-center gap-2 rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-white/80 dark:bg-circle-dark-surface/80 px-4 py-2 text-xs sm:text-sm font-semibold text-circle-charcoal dark:text-circle-dark-text shadow-sm hover:bg-circle-canvas dark:hover:bg-circle-dark-elevated transition-colors"
             >
               <KeyRound className="h-4 w-4 text-circle-slate dark:text-circle-dark-muted" />
@@ -189,13 +190,23 @@ export const FeedStream: React.FC = () => {
                   {t.home.feedEmptyDesc}
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => setCreateModalOpen(true)}
-                className="rounded-full bg-circle-charcoal dark:bg-circle-primary px-5 py-2 text-xs font-semibold text-white dark:text-circle-charcoal shadow-sm hover:bg-circle-sage transition-all"
-              >
-                + {t.home.createCircleBtn}
-              </button>
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setCreateModalOpen(true)}
+                  className="rounded-full bg-circle-charcoal dark:bg-circle-primary px-5 py-2 text-xs font-semibold text-white dark:text-circle-charcoal shadow-sm hover:bg-circle-sage transition-all"
+                >
+                  + {t.home.createCircleBtn}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setJoinModalOpen(true)}
+                  className="flex items-center gap-1.5 rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface px-4 py-2 text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text shadow-sm hover:bg-circle-wash dark:hover:bg-circle-dark-wash hover:text-circle-sage dark:hover:text-circle-primary transition-all"
+                >
+                  <KeyRound className="h-3.5 w-3.5" />
+                  <span>{t.home.joinWithCodeBtn}</span>
+                </button>
+              </div>
             </div>
           )}
         </div>

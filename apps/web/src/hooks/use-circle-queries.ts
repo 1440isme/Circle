@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '../lib/api';
-import { CreateCircleInput } from '@circle/shared';
+import { CreateCircleInput, JoinCircleInput } from '@circle/shared';
 import { CircleDetailResponse, CircleEntity, SelectableFriendItem } from '@circle/types';
 import { useCircleStore } from '../stores/circle.store';
 
@@ -70,6 +70,27 @@ export function useCreateCircleMutation() {
       queryClient.invalidateQueries({ queryKey: CIRCLE_KEYS.all });
       setActiveCircle(newCircle);
       setCreateModalOpen(false);
+    },
+  });
+}
+
+export function useJoinCircleMutation() {
+  const queryClient = useQueryClient();
+  const setActiveCircle = useCircleStore((s) => s.setActiveCircle);
+  const setJoinModalOpen = useCircleStore((s) => s.setJoinModalOpen);
+
+  return useMutation({
+    mutationFn: async (input: JoinCircleInput) => {
+      const res = await apiRequest<CircleEntity>('/circles/join', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      });
+      return res.data;
+    },
+    onSuccess: (joinedCircle) => {
+      queryClient.invalidateQueries({ queryKey: CIRCLE_KEYS.all });
+      setActiveCircle(joinedCircle);
+      setJoinModalOpen(false);
     },
   });
 }

@@ -7,7 +7,7 @@ import {
 import { MemberRole, ChannelType, FriendshipStatus } from '@prisma/client';
 import * as crypto from 'crypto';
 import { PrismaService } from '../../database/prisma.service';
-import { CreateCircleInput, UpdateCircleInput, Locale, locales } from '@circle/shared';
+import { CreateCircleInput, UpdateCircleInput, JoinCircleInput, Locale, locales } from '@circle/shared';
 import { SelectableFriendItem } from '@circle/types';
 
 @Injectable()
@@ -401,6 +401,64 @@ export class CirclesService {
       statusCode: 200,
       message: t.circle.updateSuccess,
       data: updatedCircle,
+    };
+  }
+
+  /**
+   * Joins a Circle using an invite code
+   */
+  async joinByInviteCode(userId: string, input: JoinCircleInput, locale: Locale = 'vi') {
+    const t = locales[locale] || locales.vi;
+    const cleanCode = input.inviteCode.trim().toUpperCase();
+
+    const circle = await this.prisma.circle.findUnique({
+      where: {
+        inviteCode: cleanCode,
+      },
+      include: {
+        members: {
+          where: { userId },
+        },
+        _count: {
+          select: { members: true },
+        },
+      },
+    });
+
+    if (!circle || circle.deletedAt !== null) {
+      throw new NotFoundException(t.circle.inviteCodeNotFound);
+    }
+
+    if (circle.members && circle.members.length > 0) {
+      throw new ConflictException(t.circle.alreadyMember);
+    }
+
+    await this.prisma.circleMember.create({
+      data: {
+        circleId: circle.id,
+        userId,
+        role: MemberRole.MEMBER,
+      },
+    });
+
+    return {
+      success: true,
+      statusCode: 200,
+      message: t.circle.joinSuccess,
+      data: {
+        id: circle.id,
+        name: circle.name,
+        handle: circle.handle,
+        avatarUrl: circle.avatarUrl,
+        coverUrl: circle.coverUrl,
+        description: circle.description,
+        inviteCode: circle.inviteCode,
+        isPrivate: circle.isPrivate,
+        createdAt: circle.createdAt,
+        updatedAt: circle.updatedAt,
+        role: MemberRole.MEMBER,
+        memberCount: circle._count.members + 1,
+      },
     };
   }
 }

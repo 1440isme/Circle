@@ -2117,5 +2117,52 @@
 - **Commit:** `be12466`
 - **PR:** Pending
 
+---
+
+## AI-0054: Hiện thực Chức năng Tham gia Vòng tròn bằng Mã mời (Join Circle with Invite Code)
+
+- **Date:** 2026-09-28 17:25:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #4 ([SUB-FEAT]: US-CIRCLE-001 — Circle Creation, Handle Reservation & Channel Hierarchy (Parent: #19))
+- **Purpose:** Xây dựng hoàn chỉnh chức năng tham gia Vòng tròn bằng mã mời (Join Circle with Invite Code) trực tiếp từ Home Hub theo yêu cầu của kỹ sư Ninh Thị Mỹ Hạnh:
+  1. **Schema kiểm thực Zod (`joinCircleSchema`):** Bổ sung vào `packages/shared/src/validators/circle.validator.ts`, kiểm soát độ dài mã mời 6–16 ký tự, chỉ gồm ký tự chữ cái và số, tự động chuyển đổi chữ hoa (uppercase) và loại bỏ khoảng trắng thừa (trim).
+  2. **Bản địa hóa song ngữ (PR 58):** Bổ sung đầy đủ các chuỗi validation và UI dictionary (`circleInviteCodeRequired`, `circleInviteCodeMinLength`, `circleInviteCodeMaxLength`, `circleInviteCodeInvalid`, `joinModalTitle`, `joinModalSubtitle`, `inviteCodeLabel`, `inviteCodePlaceholder`, `joinCircleBtn`, `joiningCircle`, `joinSuccess`, `inviteCodeNotFound`, `alreadyMember`, `joinModalHint`) vào cả `vi.ts` và `en.ts`.
+  3. **Backend API (`POST /api/v1/circles/join`):** Tích hợp endpoint bảo vệ với `ZodValidationPipe` và phương thức `joinByInviteCode` trong `CirclesService`. Xử lý các ngoại lệ nghiệp vụ chuẩn: mã không tồn tại hoặc Circle bị xóa (`NotFoundException`), người dùng đã là thành viên (`ConflictException`), thêm thành viên mới vai trò `MEMBER` và trả về thông tin Vòng tròn với số lượng thành viên cập nhật.
+  4. **Bộ kiểm thử đơn vị Jest:** Mở rộng `circles.service.spec.ts` với 3 test case kiểm thử toàn diện kịch bản tham gia thành công, mã không tồn tại và người dùng đã tham gia nhóm (đạt 33/33 tests pass 100%).
+  5. **Quản lý trạng thái & Cache đồng bộ:** Bổ sung `isJoinModalOpen` và `setJoinModalOpen` vào `circle.store.ts` (Zustand); xây dựng hook `useJoinCircleMutation()` (TanStack Query) tự động làm mới cache danh sách nhóm `['circles']` và tự động chuyển người dùng vào Vòng tròn vừa tham gia làm `activeCircle`.
+  6. **Giao diện Modal Apple HIG (`JoinCircleModal.tsx`):** Thiết kế dialog sang trọng với icon `KeyRound`, ô nhập mã mời phông monospace chữ hoa khổ lớn, tự động lọc ký tự hợp lệ, hiển thị lỗi Zod tức thì và cảnh báo máy chủ.
+  7. **Tích hợp Home Hub:** Mount `JoinCircleModal` tại cấp trang gốc `page.tsx` và liên kết sự kiện mở modal cho các nút "Tham gia bằng mã mời" trên banner chính và empty state trong `FeedStream.tsx`.
+- **Prompt Summary:** "oke sau khi đã tạo nhóm thành công giờ xây chức năng tham gia bằng mã mời ngoài trang home nào"
+- **Files Affected:**
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `packages/shared/src/validators/circle.validator.ts`
+  - `apps/backend/src/modules/circles/circles.service.ts`
+  - `apps/backend/src/modules/circles/circles.controller.ts`
+  - `apps/backend/src/modules/circles/circles.service.spec.ts`
+  - `apps/web/src/stores/circle.store.ts`
+  - `apps/web/src/hooks/use-circle-queries.ts`
+  - `apps/web/src/components/circle/JoinCircleModal.tsx`
+  - `apps/web/src/components/stream/FeedStream.tsx`
+  - `apps/web/src/app/page.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% mã nguồn schemas, controller, service, test cases, store, mutation và component modal.
+- **Human Modifications:** Kỹ sư Ninh Thị Mỹ Hạnh trực tiếp yêu cầu triển khai chức năng tham gia nhóm bằng mã mời ngay ngoài trang Home sau khi hoàn tất tạo Circle.
+- **Verification Method:**
+  - `npm test -w @circle/backend`: 33/33 unit tests pass 100%.
+  - `npm run build -w @circle/backend`: NestJS build thành công với 0 lỗi TypeScript.
+  - `npm run build -w @circle/shared`: Shared package build thành công.
+  - `npm run build -w @circle/web`: Next.js 14 production build hoàn tất 9/9 trang tĩnh với 0 lỗi.
+  - `npx tsc --noEmit` trong `apps/mobile`: 0 errors.
+  - `bash ./scripts/check-agent-map.sh`: 93/93 framework files pass 100%.
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`, SRS (UC08: Join Circle via Invite Code).
+- **Security & License Check:** An toàn tuyệt đối, tuân thủ nguyên tắc PR 58.
+- **AI Errors / Hallucinations Found:** None.
+- **Commit:** Pending
+- **PR:** Pending
+
+
 
 

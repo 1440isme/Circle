@@ -168,6 +168,10 @@ export const en: TranslationDictionary = {
     circleAvatarInvalid: 'Invalid avatar URL',
     circleCoverInvalid: 'Invalid cover URL',
     circleNameOrFriendsRequired: 'Please enter a Circle name or select at least 1 friend',
+    circleInviteCodeRequired: 'Invite code is required',
+    circleInviteCodeMinLength: 'Invite code must be at least 6 characters',
+    circleInviteCodeMaxLength: 'Invite code cannot exceed 16 characters',
+    circleInviteCodeInvalid: 'Invite code must only contain letters and numbers',
   },
   nav: {
     activeCircle: 'Your Circle',
@@ -314,6 +318,16 @@ export const en: TranslationDictionary = {
     createWithFriendsBtn: 'Create Circle with Friends',
     createByNameBtn: 'Create Circle',
     loadingFriends: 'Loading friends...',
+    joinModalTitle: 'Join with Invite Code',
+    joinModalSubtitle: 'Enter the invite code shared by group members to join the private space',
+    inviteCodeLabel: 'Circle Invite Code',
+    inviteCodePlaceholder: 'E.g. 8F4B92A1',
+    joinCircleBtn: 'Join Circle',
+    joiningCircle: 'Joining...',
+    joinSuccess: 'Successfully joined the Circle!',
+    inviteCodeNotFound: 'Invalid invite code or Circle not found',
+    alreadyMember: 'You are already a member of this Circle',
+    joinModalHint: 'Invite code consists of alphanumeric characters provided by group members',
   },
 };
 

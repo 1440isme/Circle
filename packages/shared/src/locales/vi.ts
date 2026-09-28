@@ -166,6 +166,10 @@ export const vi = {
     circleAvatarInvalid: 'Đường dẫn ảnh đại diện không hợp lệ',
     circleCoverInvalid: 'Đường dẫn ảnh bìa không hợp lệ',
     circleNameOrFriendsRequired: 'Vui lòng nhập tên Vòng tròn hoặc chọn ít nhất 1 bạn bè',
+    circleInviteCodeRequired: 'Vui lòng nhập mã mời',
+    circleInviteCodeMinLength: 'Mã mời phải có tối thiểu 6 ký tự',
+    circleInviteCodeMaxLength: 'Mã mời không được vượt quá 16 ký tự',
+    circleInviteCodeInvalid: 'Mã mời chỉ gồm chữ cái và số',
   },
   nav: {
     activeCircle: 'Vòng tròn của bạn',
@@ -312,6 +316,16 @@ export const vi = {
     createWithFriendsBtn: 'Tạo Vòng tròn cùng bạn bè',
     createByNameBtn: 'Tạo Vòng tròn',
     loadingFriends: 'Đang tải danh sách bạn bè...',
+    joinModalTitle: 'Tham gia bằng Mã mời',
+    joinModalSubtitle: 'Nhập mã mời được chia sẻ từ nhóm để gia nhập không gian riêng tư',
+    inviteCodeLabel: 'Mã mời Vòng tròn',
+    inviteCodePlaceholder: 'VD: 8F4B92A1',
+    joinCircleBtn: 'Tham gia Vòng tròn',
+    joiningCircle: 'Đang tham gia...',
+    joinSuccess: 'Tham gia Vòng tròn thành công!',
+    inviteCodeNotFound: 'Mã mời không hợp lệ hoặc Vòng tròn không tồn tại',
+    alreadyMember: 'Bạn đã là thành viên của Vòng tròn này',
+    joinModalHint: 'Mã mời gồm các ký tự chữ và số do trưởng nhóm hoặc thành viên cung cấp',
   },
 };
 

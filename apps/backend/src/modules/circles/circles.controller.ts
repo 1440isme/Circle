@@ -16,6 +16,7 @@ import {
   createCircleSchemas,
   CreateCircleInput,
   UpdateCircleInput,
+  JoinCircleInput,
   resolveLocale,
 } from '@circle/shared';
 import { AuthUserData } from '@circle/types';
@@ -38,6 +39,22 @@ export class CirclesController {
   ) {
     const locale = resolveLocale(circleLocale, acceptLanguage);
     return this.circlesService.create(user.id, dto, locale);
+  }
+
+  /**
+   * POST /api/v1/circles/join — Join a Circle via invite code
+   */
+  @Post('join')
+  @HttpCode(HttpStatus.OK)
+  async join(
+    @CurrentUser() user: AuthUserData,
+    @Body(new ZodValidationPipe((locale) => createCircleSchemas(locale).joinCircleSchema))
+    dto: JoinCircleInput,
+    @Headers('x-circle-locale') circleLocale?: string,
+    @Headers('accept-language') acceptLanguage?: string,
+  ) {
+    const locale = resolveLocale(circleLocale, acceptLanguage);
+    return this.circlesService.joinByInviteCode(user.id, dto, locale);
   }
 
   /**

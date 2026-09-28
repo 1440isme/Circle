@@ -7,6 +7,7 @@ import { Sidebar } from '@/components/navigation/Sidebar';
 import { FeedStream } from '@/components/stream/FeedStream';
 import { PresenceRail } from '@/components/presence/PresenceRail';
 import { CreateCircleModal } from '@/components/circle/CreateCircleModal';
+import { JoinCircleModal } from '@/components/circle/JoinCircleModal';
 import { useCircleStore } from '@/stores/circle.store';
 
 export default function HomePage() {
@@ -32,6 +33,7 @@ export default function HomePage() {
           )}
         </div>
         <CreateCircleModal />
+        <JoinCircleModal />
       </div>
     </AuthGuard>
   );

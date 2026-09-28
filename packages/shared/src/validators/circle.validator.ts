@@ -97,9 +97,21 @@ export function createCircleSchemas(locale: Locale = 'vi') {
     isPrivate: z.boolean().optional(),
   });
 
+  const joinCircleSchema = z.object({
+    inviteCode: z
+      .string()
+      .trim()
+      .min(1, v.circleInviteCodeRequired)
+      .min(6, v.circleInviteCodeMinLength)
+      .max(16, v.circleInviteCodeMaxLength)
+      .regex(/^[A-Za-z0-9]+$/, v.circleInviteCodeInvalid)
+      .toUpperCase(),
+  });
+
   return {
     createCircleSchema,
     updateCircleSchema,
+    joinCircleSchema,
   };
 }
 
@@ -108,6 +120,8 @@ const defaultSchemas = createCircleSchemas('vi');
 
 export const createCircleSchema = defaultSchemas.createCircleSchema;
 export const updateCircleSchema = defaultSchemas.updateCircleSchema;
+export const joinCircleSchema = defaultSchemas.joinCircleSchema;
 
 export type CreateCircleInput = z.infer<typeof createCircleSchema>;
 export type UpdateCircleInput = z.infer<typeof updateCircleSchema>;
+export type JoinCircleInput = z.infer<typeof joinCircleSchema>;

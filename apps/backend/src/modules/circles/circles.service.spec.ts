@@ -385,4 +385,69 @@ describe('CirclesService — Unit Tests (US-CIRCLE-001)', () => {
       ).rejects.toThrow(ForbiddenException);
     });
   });
+
+  describe('joinByInviteCode', () => {
+    const userId = 'user-join-1';
+    const inviteCode = '8F4B92A1';
+
+    it('should successfully join a Circle using a valid invite code', async () => {
+      mockPrisma.circle.findUnique.mockResolvedValue({
+        id: 'circle-join-123',
+        name: 'Nhóm Leo Núi',
+        handle: 'nhom-leo-nui',
+        avatarUrl: null,
+        coverUrl: null,
+        description: 'Cùng nhau chinh phục các đỉnh núi',
+        inviteCode,
+        isPrivate: true,
+        deletedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        members: [], // User is not yet a member
+        _count: { members: 3 },
+      });
+
+      mockPrisma.circleMember.create.mockResolvedValue({
+        id: 'member-new-1',
+        circleId: 'circle-join-123',
+        userId,
+        role: MemberRole.MEMBER,
+      });
+
+      const result = await service.joinByInviteCode(userId, { inviteCode });
+
+      expect(result.success).toBe(true);
+      expect(result.data.id).toBe('circle-join-123');
+      expect(result.data.memberCount).toBe(4);
+      expect(mockPrisma.circleMember.create).toHaveBeenCalledWith({
+        data: {
+          circleId: 'circle-join-123',
+          userId,
+          role: MemberRole.MEMBER,
+        },
+      });
+    });
+
+    it('should throw NotFoundException when invite code does not exist', async () => {
+      mockPrisma.circle.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.joinByInviteCode(userId, { inviteCode: 'NONEXIST' }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw ConflictException when user is already a member', async () => {
+      mockPrisma.circle.findUnique.mockResolvedValue({
+        id: 'circle-join-123',
+        inviteCode,
+        deletedAt: null,
+        members: [{ id: 'm-existing', userId }],
+        _count: { members: 2 },
+      });
+
+      await expect(
+        service.joinByInviteCode(userId, { inviteCode }),
+      ).rejects.toThrow(ConflictException);
+    });
+  });
 });
