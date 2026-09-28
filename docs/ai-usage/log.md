@@ -2035,6 +2035,49 @@
   - **Error Description:** Kiểu `isPrivate` trong `createCircleSchema` ban đầu dùng `.default(false)` làm `z.infer` yêu cầu bắt buộc trường `isPrivate` trong TypeScript input type, gây lỗi biên dịch trong test cases `{ name: '...' }`. Ngoài ra hàm `getSelectableFriends` trả về `displayName` kiểu `string | undefined` do `split('@')[0]`.
   - **Root Cause:** Khác biệt giữa Zod output type và input type khi dùng `.default()`; xử lý chuỗi phân tách có thể trả về undefined trong TypeScript strict mode.
   - **Resolution / Fix:** Chuyển `isPrivate: z.boolean().optional()` trong schema; bổ sung fallback `|| friend.email` để đảm bảo `displayName: string`.
-- **Commit:** `3ee803f`
+- **Commit:** `3b2d370`
 - **PR:** Pending
+
+---
+
+## AI-0052: Tái cấu trúc UX Home Hub (Single-Column) & Không gian Bảng tin Vòng tròn (3-Column Workspace)
+
+- **Date:** 2026-09-28 16:56:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #4 ([SUB-FEAT]: US-CIRCLE-001 — Circle Creation, Handle Reservation & Channel Hierarchy (Parent: #19))
+- **Purpose:** Thống nhất và hiện thực hóa trải nghiệm người dùng (UX Layout) theo thảo luận với kỹ sư Ninh Thị Mỹ Hạnh:
+  1. **Home Hub (Single-Column View):** Khi mới vào ứng dụng web (hoặc khi `activeCircle === null`), giao diện chỉ hiển thị 1 cột trung tâm tinh giản, ẩn hoàn toàn Sidebar bên trái và PresenceRail bên phải. Cột giữa hiển thị lưới danh thiếp các Vòng tròn đã tham gia (`myCirclesHeading`), kèm vai trò (Owner/Member), số thành viên và nút truy cập hoặc tạo Vòng tròn mới.
+  2. **Active Circle Workspace (3-Column View):** Khi người dùng nhấp chọn hoặc vừa tạo xong một Vòng tròn (`activeCircle !== null`), toàn bộ không gian làm việc 3 cột chuẩn sẽ hiển thị (Sidebar kênh thảo luận bên trái, Bảng tin/hội thoại nhóm ở giữa, PresenceRail thành viên bên phải).
+  3. **Chia sẻ và Mời nhóm:** Tại Bảng tin Vòng tròn, bổ sung header hiển thị tên, biểu tượng bảo mật/công khai, nút "Sao chép liên kết" (`circle.app/@handle`) và nút sao chép "Mã mời" (`inviteCode`) có thông báo clipboard trực quan.
+  4. **Nút quay về Trang chủ:** Tích hợp nút "Trang chủ" trên Sidebar và liên kết logo Header để người dùng linh hoạt quay về danh sách Vòng tròn bất cứ lúc nào.
+  5. **Bảo toàn PR 58:** Đảm bảo 100% không hardcode chuỗi hoặc mã màu, bổ sung đầy đủ bộ khóa song ngữ (`homeNav`, `myCirclesHeading`, `myCirclesSubheading`, `enterCircleBtn`, `roleOwner`, `roleMember`, `copyLinkBtn`, `linkCopiedNotice`, `inviteCodeLabel`, `circleFeedTitle`, `circleFeedSubtitle`, `backToHome`) vào cả `vi.ts` và `en.ts`. Sửa chữa namespace `t.home.*` trong `FeedStream.tsx`.
+- **Prompt Summary:** "với phần giao diện này tôi nghĩ khi với vào web chỉ có phần ở giữa nhỉ còn khi vô nhóm sẽ thay cái đó bằng bảng tin hay đoạn hội thoại chẳng hạn nhỉ ... có nên ẩn cột bên trái luôn ko nhỉ ... oke chọn cách 1 là ở cột giữa nó cũng có nhóm đã tham gia để chọn khi chọn hoặc tham gia rồi mở ra trang hiện tại sau đó cái giữa sẽ thay là kiểu bản tin nhóm"
+- **Files Affected:**
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `apps/web/src/app/page.tsx`
+  - `apps/web/src/components/header/Header.tsx`
+  - `apps/web/src/components/navigation/Sidebar.tsx`
+  - `apps/web/src/components/stream/FeedStream.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% mã nguồn cập nhật layout phản ứng, quản lý trạng thái chuyển đổi Home Hub/Active Workspace và các chuỗi từ điển bản địa hóa.
+- **Human Modifications:** Kỹ sư Ninh Thị Mỹ Hạnh trực tiếp định hướng giải pháp UX: ẩn 2 cột biên khi mới vào web để người dùng tập trung chọn nhóm ở cột giữa, sau khi chọn nhóm mới mở không gian 3 cột tương ứng.
+- **Verification Method:**
+  - `npm test -w @circle/backend`: 30/30 tests passed 100%.
+  - `npm run build -w @circle/backend`: NestJS build thành công với 0 lỗi TypeScript.
+  - `npm run build -w @circle/shared`: Shared package build thành công.
+  - `npm run build -w @circle/web`: Next.js 14 production build hoàn tất 9/9 trang tĩnh với 0 lỗi.
+  - `npx tsc --noEmit` trong `apps/mobile`: 0 errors.
+  - `bash ./scripts/check-agent-map.sh`: 93/93 framework files pass 100%.
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`, `agentic/CONVENTIONS.md`.
+- **Security & License Check:** An toàn tuyệt đối, tuân thủ nguyên tắc bảo mật và quy tắc của PR 58.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** Lỗi biên dịch TypeScript trong `FeedStream.tsx` do gọi `t.circle.circleFeedSubtitle` và `t.circle.circleFeedTitle` trong khi hai khóa này được khai báo ở namespace `home` của từ điển i18n (`packages/shared/src/locales/vi.ts` và `en.ts`).
+  - **Root Cause:** Nhầm lẫn namespace giữa `circle` và `home` khi truyền chuỗi đa ngôn ngữ.
+  - **Resolution / Fix:** Đồng bộ chuẩn hóa gọi `t.home.circleFeedSubtitle` và `t.home.circleFeedTitle` trong `FeedStream.tsx`.
+- **Commit:** `4485df6`
+- **PR:** Pending
+
 
