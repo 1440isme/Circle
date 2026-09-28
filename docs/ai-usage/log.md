@@ -1990,7 +1990,7 @@
     2. Trong `ZodValidationPipe`, bổ sung điều kiện lọc `if (metadata.type !== 'body') return value;`. Đồng thời chuyển pipe gắn trực tiếp vào tham số payload `@Body(new ZodValidationPipe((locale) => createCircleSchemas(locale).createCircleSchema))` tại `CirclesController` để bảo đảm chỉ kiểm thực body.
     3. Thêm toàn bộ các khóa từ điển `validation` và `circle` vào `vi.ts` và `en.ts`, xuất `createCircleSchemas(locale)` động và dùng `t.circle.*` trong `CreateCircleModal` và `Sidebar`.
 - **Commit:** `0847ede`
-- **PR:** Pending
+- **PR:** #59
 
 ---
 
@@ -2036,7 +2036,7 @@
   - **Root Cause:** Khác biệt giữa Zod output type và input type khi dùng `.default()`; xử lý chuỗi phân tách có thể trả về undefined trong TypeScript strict mode.
   - **Resolution / Fix:** Chuyển `isPrivate: z.boolean().optional()` trong schema; bổ sung fallback `|| friend.email` để đảm bảo `displayName: string`.
 - **Commit:** `3b2d370`
-- **PR:** Pending
+- **PR:** #59
 
 ---
 
@@ -2078,7 +2078,7 @@
   - **Root Cause:** Nhầm lẫn namespace giữa `circle` và `home` khi truyền chuỗi đa ngôn ngữ.
   - **Resolution / Fix:** Đồng bộ chuẩn hóa gọi `t.home.circleFeedSubtitle` và `t.home.circleFeedTitle` trong `FeedStream.tsx`.
 - **Commit:** `f0b1dec`
-- **PR:** Pending
+- **PR:** #59
 
 ---
 
@@ -2115,7 +2115,7 @@
   - **Root Cause:** Phụ thuộc vị trí đặt component con trong cây React (Component Hierarchy coupling).
   - **Resolution / Fix:** Nhấc `CreateCircleModal` ra ngoài và mount tại cấp trang `page.tsx` (Global Page Level).
 - **Commit:** `be12466`
-- **PR:** Pending
+- **PR:** #59
 
 ---
 
@@ -2161,7 +2161,7 @@
 - **Security & License Check:** An toàn tuyệt đối, tuân thủ nguyên tắc PR 58.
 - **AI Errors / Hallucinations Found:** None.
 - **Commit:** `a6b237d`
-- **PR:** Pending
+- **PR:** #59
 
 ---
 
@@ -2197,7 +2197,7 @@
 - **Security & License Check:** An toàn tuyệt đối, tuân thủ nguyên tắc PR 58.
 - **AI Errors / Hallucinations Found:** None.
 - **Commit:** `f4f38cf`
-- **PR:** Pending
+- **PR:** #59
 
 
 
