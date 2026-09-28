@@ -51,16 +51,20 @@ export const Header: React.FC = () => {
           </div>
           <span className="text-xl font-bold tracking-tight text-circle-charcoal dark:text-circle-dark-text">{t.common.appName}</span>
         </Link>
-        <div className="h-4 w-px bg-circle-hairline dark:bg-circle-dark-hairline" />
-        <button
-          type="button"
-          onClick={() => setActiveCircle(null)}
-          className="flex items-center gap-2 rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas px-3 py-1 text-sm font-medium text-circle-charcoal dark:text-circle-dark-text hover:border-circle-sage/50 transition-colors"
-        >
-          <span className="flex h-2 w-2 rounded-full bg-circle-primary animate-presence-breathe" />
-          <span>{activeCircle?.name || t.nav.noActiveCircle}</span>
-          <Shield className="h-3.5 w-3.5 text-circle-sage" />
-        </button>
+        {activeCircle && (
+          <>
+            <div className="h-4 w-px bg-circle-hairline dark:bg-circle-dark-hairline" />
+            <button
+              type="button"
+              onClick={() => setActiveCircle(null)}
+              className="flex items-center gap-2 rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas px-3 py-1 text-sm font-medium text-circle-charcoal dark:text-circle-dark-text hover:border-circle-sage/50 transition-colors"
+            >
+              <span className="flex h-2 w-2 rounded-full bg-circle-primary animate-presence-breathe" />
+              <span>{activeCircle.name}</span>
+              <Shield className="h-3.5 w-3.5 text-circle-sage" />
+            </button>
+          </>
+        )}
       </div>
 
       {/* Global Search Bar (Pill shape) */}

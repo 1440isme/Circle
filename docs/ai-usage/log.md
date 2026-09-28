@@ -2080,4 +2080,42 @@
 - **Commit:** `f0b1dec`
 - **PR:** Pending
 
+---
+
+## AI-0053: Tinh chỉnh Header, Sidebar và Mount CreateCircleModal tại HomePage Root
+
+- **Date:** 2026-09-28 17:13:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #4 ([SUB-FEAT]: US-CIRCLE-001 — Circle Creation, Handle Reservation & Channel Hierarchy (Parent: #19))
+- **Purpose:** Tinh chỉnh các chi tiết UX và khắc phục sự cố mount modal theo phản hồi từ kỹ sư Ninh Thị Mỹ Hạnh:
+  1. **Ẩn chỉ báo "Chưa chọn Vòng tròn" trên Header:** Bọc điều kiện `{activeCircle && (...)}` để khi người dùng ở Home Hub (chưa chọn nhóm), Header không còn hiển thị nút viên thuốc "Chưa chọn Vòng tròn" cạnh logo CIRCLE, giữ cho thanh điều hướng sạch sẽ và thông thoáng.
+  2. **Khắc phục nút "Tạo Vòng tròn mới" trên Home Hub:** Trước đó component `CreateCircleModal` chỉ được mount bên trong `Sidebar.tsx`. Khi chuyển sang giao diện Single-Column Home Hub (`activeCircle === null`), `Sidebar` bị ẩn dẫn đến `CreateCircleModal` không được render trong DOM, khiến sự kiện bấm nút tạo nhóm không thể kích hoạt giao diện modal. Đã chuyển `CreateCircleModal` mount trực tiếp tại `HomePage` (`apps/web/src/app/page.tsx`) ở cấp trang gốc để luôn hoạt động tin cậy dù ở Home Hub hay trong nhóm.
+  3. **Tối giản Sidebar cột trái:** Xóa bỏ nút "Về trang chủ" trên Sidebar khi người dùng đã chọn nhóm, quy về một điểm chuyển hướng thống nhất và quen thuộc là logo thương hiệu CIRCLE trên Header.
+  4. **Bổ sung nút tạo nhanh:** Thêm nút "+ Tạo Vòng tròn" ngay cạnh huy hiệu đếm số lượng nhóm trong danh sách "Vòng tròn của bạn" trên Home Hub.
+- **Prompt Summary:** "oke bỏ chưa chọn vòng tròn ở trên thanh gần nút circle và ghi ở trang Home nút tạo vòng tròn mới chưa hoạt động, khi chọn nhóm xong bỏ cái về trang chủ ở cột trái luôn."
+- **Files Affected:**
+  - `apps/web/src/components/header/Header.tsx`
+  - `apps/web/src/components/navigation/Sidebar.tsx`
+  - `apps/web/src/components/stream/FeedStream.tsx`
+  - `apps/web/src/app/page.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% mã nguồn điều chỉnh hiển thị và tái cấu trúc vị trí component.
+- **Human Modifications:** Kỹ sư Ninh Thị Mỹ Hạnh kiểm thử thực tế và chỉ đạo loại bỏ các thành phần điều hướng dư thừa, sửa lỗi không mở modal trên Home Hub.
+- **Verification Method:**
+  - `npm run build -w @circle/web`: Next.js 14 production build hoàn tất 9/9 trang với 0 lỗi.
+  - `npm test -w @circle/backend`: 30/30 unit tests pass.
+  - `npx tsc --noEmit` trong `apps/mobile`: 0 lỗi.
+  - `bash ./scripts/check-agent-map.sh`: 93/93 files pass 100%.
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn tuyệt đối, tuân thủ nghiêm ngặt PR 58.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** Modal `CreateCircleModal` trước đó bị đặt sai phạm vi (bên trong `Sidebar`), dẫn tới khi component `Sidebar` unmounted ở chế độ Home Hub thì modal không thể hiển thị dù state Zustand đã cập nhật `isCreateModalOpen = true`.
+  - **Root Cause:** Phụ thuộc vị trí đặt component con trong cây React (Component Hierarchy coupling).
+  - **Resolution / Fix:** Nhấc `CreateCircleModal` ra ngoài và mount tại cấp trang `page.tsx` (Global Page Level).
+- **Commit:** Pending
+- **PR:** Pending
+
+
 

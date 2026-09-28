@@ -14,13 +14,11 @@ import {
   Users,
   Check,
   ChevronDown,
-  Home,
   Link2,
 } from 'lucide-react';
 import { useLanguageStore } from '../../stores/language.store';
 import { useCircleStore } from '../../stores/circle.store';
 import { useMyCirclesQuery } from '../../hooks/use-circle-queries';
-import { CreateCircleModal } from '../circle/CreateCircleModal';
 
 interface NavItemProps {
   icon: React.ReactNode;
@@ -74,20 +72,9 @@ export const Sidebar: React.FC = () => {
   };
 
   return (
-    <>
-      <aside className="hidden md:flex w-72 flex-col gap-4 border-r border-circle-hairline dark:border-circle-dark-hairline bg-white/50 dark:bg-circle-dark-surface/50 p-4 backdrop-blur-sm h-[calc(100vh-4rem)] sticky top-16 overflow-y-auto transition-colors">
-        {/* Back to Home Hub Button */}
-        <button
-          type="button"
-          onClick={() => setActiveCircle(null)}
-          className="flex items-center gap-2.5 rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface px-3.5 py-2.5 text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash hover:text-circle-sage dark:hover:text-circle-primary transition-all shadow-sm group"
-        >
-          <Home className="h-4 w-4 text-circle-slate dark:text-circle-dark-muted group-hover:text-circle-sage dark:group-hover:text-circle-primary" />
-          <span>{t.home.backToHome}</span>
-        </button>
-
-        {/* Circle Switcher Card */}
-        <div className="rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-3.5 shadow-circle-card transition-colors">
+    <aside className="hidden md:flex w-72 flex-col gap-4 border-r border-circle-hairline dark:border-circle-dark-hairline bg-white/50 dark:bg-circle-dark-surface/50 p-4 backdrop-blur-sm h-[calc(100vh-4rem)] sticky top-16 overflow-y-auto transition-colors">
+      {/* Circle Switcher Card */}
+      <div className="rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-3.5 shadow-circle-card transition-colors">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-semibold tracking-wider text-circle-slate dark:text-circle-dark-muted uppercase">
               {t.nav.yourCircles}
@@ -265,9 +252,5 @@ export const Sidebar: React.FC = () => {
           />
         </div>
       </aside>
-
-      {/* Create Circle Modal */}
-      <CreateCircleModal />
-    </>
   );
 };

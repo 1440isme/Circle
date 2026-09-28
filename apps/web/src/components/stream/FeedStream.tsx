@@ -107,9 +107,19 @@ export const FeedStream: React.FC = () => {
                 {t.home.myCirclesSubheading}
               </p>
             </div>
-            <span className="rounded-full bg-circle-canvas dark:bg-circle-dark-canvas px-3 py-1 text-xs font-semibold text-circle-slate dark:text-circle-dark-muted border border-circle-hairline dark:border-circle-dark-hairline">
-              {circles.length}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="rounded-full bg-circle-canvas dark:bg-circle-dark-canvas px-3 py-1 text-xs font-semibold text-circle-slate dark:text-circle-dark-muted border border-circle-hairline dark:border-circle-dark-hairline">
+                {circles.length}
+              </span>
+              <button
+                type="button"
+                onClick={() => setCreateModalOpen(true)}
+                className="flex items-center gap-1 rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface px-3 py-1 text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash hover:text-circle-sage dark:hover:text-circle-primary transition-all shadow-sm"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                <span>{t.home.createCircleBtn}</span>
+              </button>
+            </div>
           </div>
 
           {isLoadingCircles ? (
