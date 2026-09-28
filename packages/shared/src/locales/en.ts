@@ -167,6 +167,7 @@ export const en: TranslationDictionary = {
     circleDescMaxLength: 'Description cannot exceed 255 characters',
     circleAvatarInvalid: 'Invalid avatar URL',
     circleCoverInvalid: 'Invalid cover URL',
+    circleNameOrFriendsRequired: 'Please enter a Circle name or select at least 1 friend',
   },
   nav: {
     activeCircle: 'Your Circle',
@@ -291,6 +292,16 @@ export const en: TranslationDictionary = {
     privateForbidden: 'You do not have permission to access this private Circle',
     updateForbidden: 'Only the Owner or Admin has permission to update Circle information',
     updateSuccess: 'Circle updated successfully',
+    tabCreateByName: 'Create with name',
+    tabSelectFriends: 'Select from friends',
+    friendsSearchPlaceholder: 'Search friends...',
+    selectedFriendsCount: '{count} friends selected',
+    noFriendsFound: 'No available friends found',
+    tempGroupNameHint: 'Circle name will be automatically set to the names of selected members',
+    autoHandleNotice: 'Link handle will be automatically generated upon creation',
+    createWithFriendsBtn: 'Create Circle with Friends',
+    createByNameBtn: 'Create Circle',
+    loadingFriends: 'Loading friends...',
   },
 };
 

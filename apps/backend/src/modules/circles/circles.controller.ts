@@ -55,6 +55,21 @@ export class CirclesController {
   }
 
   /**
+   * GET /api/v1/circles/friends/selectable — Get available friends for quick Circle creation
+   */
+  @Get('friends/selectable')
+  @HttpCode(HttpStatus.OK)
+  async getSelectableFriends(@CurrentUser() user: AuthUserData) {
+    const data = await this.circlesService.getSelectableFriends(user.id);
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      data,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  /**
    * GET /api/v1/circles/:idOrHandle — Get Circle details by ID or Handle
    */
   @Get(':idOrHandle')

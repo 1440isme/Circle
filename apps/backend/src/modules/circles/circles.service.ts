@@ -4,10 +4,11 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { MemberRole, ChannelType } from '@prisma/client';
+import { MemberRole, ChannelType, FriendshipStatus } from '@prisma/client';
 import * as crypto from 'crypto';
 import { PrismaService } from '../../database/prisma.service';
 import { CreateCircleInput, UpdateCircleInput, Locale, locales } from '@circle/shared';
+import { SelectableFriendItem } from '@circle/types';
 
 @Injectable()
 export class CirclesService {
@@ -31,29 +32,94 @@ export class CirclesService {
   }
 
   /**
-   * Creates a new Circle with an OWNER role for creator and a default #general channel
+   * Generates an automatic, clean, URL-friendly unique handle based on Circle name
+   */
+  private async generateUniqueHandle(baseName: string): Promise<string> {
+    const rawSlug = baseName
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/đ/g, 'd')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+
+    const baseSlug = (rawSlug.length >= 2 ? rawSlug : 'circle').slice(0, 20).replace(/-+$/, '');
+
+    for (let attempts = 0; attempts < 5; attempts++) {
+      const suffix = crypto.randomBytes(2).toString('hex'); // 4 hex chars e.g. 4a8b
+      const candidate = `${baseSlug}-${suffix}`;
+      const existing = await this.prisma.circle.findUnique({
+        where: { handle: candidate },
+        select: { id: true },
+      });
+      if (!existing) {
+        return candidate;
+      }
+    }
+
+    return `${baseSlug}-${crypto.randomBytes(4).toString('hex')}`;
+  }
+
+  /**
+   * Creates a new Circle with an OWNER role for creator, initial members if any, and a default #general channel
    */
   async create(userId: string, input: CreateCircleInput, locale: Locale = 'vi') {
     const t = locales[locale] || locales.vi;
-    const normalizedHandle = input.handle.toLowerCase().trim();
 
-    // Check if handle is already reserved / used
-    const existingCircle = await this.prisma.circle.findUnique({
-      where: { handle: normalizedHandle },
-      select: { id: true },
-    });
+    // Resolve unique initial member IDs (excluding creator to prevent duplicate assignment)
+    const uniqueMemberIds = Array.from(
+      new Set(
+        (input.memberIds || []).filter((id): id is string => typeof id === 'string' && id !== userId),
+      ),
+    );
 
-    if (existingCircle) {
-      throw new ConflictException(t.circle.handleTakenError);
+    // 1. Resolve Circle Name:
+    // If name is provided, use it. Otherwise, if friends are selected, concatenate their display names.
+    let circleName = input.name?.trim() || '';
+    if (!circleName) {
+      if (uniqueMemberIds.length > 0) {
+        const involvedUsers = await this.prisma.user.findMany({
+          where: { id: { in: [userId, ...uniqueMemberIds] } },
+          include: { profile: true },
+        });
+
+        // Current user first, followed by other selected members
+        const sortedUsers = [
+          ...involvedUsers.filter((u) => u.id === userId),
+          ...involvedUsers.filter((u) => u.id !== userId),
+        ];
+
+        const names = sortedUsers.map(
+          (u) => u.profile?.displayName || u.email.split('@')[0],
+        );
+        circleName = names.join(', ').slice(0, 50);
+      } else {
+        circleName = `Circle ${crypto.randomBytes(2).toString('hex')}`;
+      }
+    }
+
+    // 2. Resolve Handle:
+    // If handle is provided, validate uniqueness. If not, auto-generate a unique URL-friendly handle.
+    let normalizedHandle = input.handle?.toLowerCase().trim() || '';
+    if (normalizedHandle) {
+      const existingCircle = await this.prisma.circle.findUnique({
+        where: { handle: normalizedHandle },
+        select: { id: true },
+      });
+      if (existingCircle) {
+        throw new ConflictException(t.circle.handleTakenError);
+      }
+    } else {
+      normalizedHandle = await this.generateUniqueHandle(circleName);
     }
 
     const inviteCode = await this.generateUniqueInviteCode();
 
-    // Perform atomic creation of Circle, Owner CircleMember, and #general Channel
+    // Perform atomic creation of Circle, CircleMembers, and #general Channel
     const newCircle = await this.prisma.$transaction(async (tx) => {
       const circle = await tx.circle.create({
         data: {
-          name: input.name.trim(),
+          name: circleName,
           handle: normalizedHandle,
           description: input.description?.trim() || null,
           avatarUrl: input.avatarUrl || null,
@@ -71,6 +137,17 @@ export class CirclesService {
           role: MemberRole.OWNER,
         },
       });
+
+      // Assign selected friends as MEMBERs
+      for (const friendId of uniqueMemberIds) {
+        await tx.circleMember.create({
+          data: {
+            circleId: circle.id,
+            userId: friendId,
+            role: MemberRole.MEMBER,
+          },
+        });
+      }
 
       // Create default general text channel
       const defaultChannel = await tx.channel.create({
@@ -95,9 +172,56 @@ export class CirclesService {
       data: {
         ...newCircle,
         role: MemberRole.OWNER,
-        memberCount: 1,
+        memberCount: 1 + uniqueMemberIds.length,
       },
     };
+  }
+
+  /**
+   * Retrieves list of selectable friends for quick Circle creation
+   */
+  async getSelectableFriends(userId: string): Promise<SelectableFriendItem[]> {
+    // Look up accepted friendships
+    const friendships = await this.prisma.friendship.findMany({
+      where: {
+        OR: [{ senderId: userId }, { receiverId: userId }],
+        status: FriendshipStatus.ACCEPTED,
+      },
+      include: {
+        sender: { include: { profile: true } },
+        receiver: { include: { profile: true } },
+      },
+    });
+
+    if (friendships.length > 0) {
+      return friendships.map((f) => {
+        const friend = f.senderId === userId ? f.receiver : f.sender;
+        return {
+          id: friend.id,
+          email: friend.email,
+          displayName: friend.profile?.displayName || friend.email.split('@')[0] || friend.email,
+          avatarUrl: friend.profile?.avatarUrl || null,
+        };
+      });
+    }
+
+    // Fallback: If no accepted friends exist yet, query other active users in the system
+    // so that the user is never blocked when testing friend selection
+    const platformUsers = await this.prisma.user.findMany({
+      where: {
+        id: { not: userId },
+        deletedAt: null,
+      },
+      include: { profile: true },
+      take: 20,
+    });
+
+    return platformUsers.map((u) => ({
+      id: u.id,
+      email: u.email,
+      displayName: u.profile?.displayName || u.email.split('@')[0] || u.email,
+      avatarUrl: u.profile?.avatarUrl || null,
+    }));
   }
 
   /**

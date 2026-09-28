@@ -1,13 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '../lib/api';
 import { CreateCircleInput } from '@circle/shared';
-import { CircleDetailResponse, CircleEntity } from '@circle/types';
+import { CircleDetailResponse, CircleEntity, SelectableFriendItem } from '@circle/types';
 import { useCircleStore } from '../stores/circle.store';
 
 export const CIRCLE_KEYS = {
   all: ['circles'] as const,
   lists: () => [...CIRCLE_KEYS.all, 'list'] as const,
   detail: (idOrHandle: string) => [...CIRCLE_KEYS.all, 'detail', idOrHandle] as const,
+  friends: () => [...CIRCLE_KEYS.all, 'friends', 'selectable'] as const,
 };
 
 export interface CircleListItem extends CircleEntity {
@@ -16,6 +17,18 @@ export interface CircleListItem extends CircleEntity {
   memberCount: number;
   channels: Array<{ id: string; name: string; type: string; topic: string | null }>;
 }
+
+export function useSelectableFriendsQuery() {
+  return useQuery({
+    queryKey: CIRCLE_KEYS.friends(),
+    queryFn: async () => {
+      const res = await apiRequest<SelectableFriendItem[]>('/circles/friends/selectable');
+      return res.data;
+    },
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+}
+
 
 export function useMyCirclesQuery() {
   return useQuery({

@@ -1992,4 +1992,49 @@
 - **Commit:** `0847ede`
 - **PR:** Pending
 
+---
+
+## AI-0051: Nâng cấp luồng Khởi tạo Circle — Hỗ trợ 2 Chế độ: Chọn bạn bè (Tên tự động) & Đặt tên tối giản (Handle tự sinh)
+
+- **Date:** 2026-09-28 16:15:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #4 ([SUB-FEAT]: US-CIRCLE-001 — Circle Creation, Handle Reservation & Channel Hierarchy (Parent: #19))
+- **Purpose:** Nâng cấp chức năng tạo Vòng tròn theo yêu cầu đặc tả UX từ kỹ sư Ninh Thị Mỹ Hạnh:
+  1. **Hình thức 1 (Chọn từ bạn bè):** Cho phép người dùng chọn các thành viên từ danh sách bạn bè khả dụng (`GET /api/v1/circles/friends/selectable`). Tên Vòng tròn được hệ thống tự động sinh bằng cách ghép tên hiển thị của các thành viên được chọn. Tự động sinh `handle` duy nhất và thêm các thành viên vào Vòng tròn ngay khi khởi tạo mà không yêu cầu người dùng phải tự điền các trường metadata rườm rà.
+  2. **Hình thức 2 (Tạo bằng tên):** Chỉ cần duy nhất 1 ô nhập "Tên Vòng tròn". Bỏ qua trường Handle và mô tả ngắn khi khởi tạo; hệ thống tự động chuẩn hóa và sinh mã `handle` URL-friendly duy nhất chống xung đột (slug + mã hex ngẫu nhiên) làm liên kết Vòng tròn (`circle.app/@{handle}`).
+  3. Cập nhật `createCircleSchema` tại `packages/shared/src/validators/circle.validator.ts`: cho phép `handle` và `description` là tùy chọn, hỗ trợ mảng `memberIds: string[]`, kiểm thực điều kiện ràng buộc (yêu cầu tên nhóm hoặc ít nhất 1 bạn bè).
+  4. Bổ sung các khóa từ điển song ngữ mới (`tabCreateByName`, `tabSelectFriends`, `friendsSearchPlaceholder`, `selectedFriendsCount`, `tempGroupNameHint`, `autoHandleNotice`, `createWithFriendsBtn`, `createByNameBtn`, v.v.) vào `vi.ts` và `en.ts`.
+  5. Cập nhật backend `CirclesService`: thêm logic tự động sinh handle duy nhất (`generateUniqueHandle`), ghép tên thành viên khi thiếu tên nhóm, gán các bạn bè được chọn làm `CircleMember` (`MEMBER`), và endpoint `getSelectableFriends`.
+  6. Mở rộng bộ kiểm thử đơn vị `circles.service.spec.ts` (đạt 30/30 tests pass 100%).
+  7. Tái thiết kế modal `CreateCircleModal.tsx` trên Web UI theo chuẩn Apple HIG với 2 tab chuyển đổi mượt mà, bộ lọc tìm kiếm bạn bè, hiển thị danh sách trực quan, trạng thái đã chọn và bảo đảm 100% Zero Hardcoded Strings qua `t.circle.*`.
+- **Prompt Summary:** "về chức năng tạo circle tôi muôn có 2 hình thức 1 là chọn thành viên trong list bạn bè và khởi tạo nhóm luôn bỏ qua thông tin kia, tên nhóm hiển thị hiện tạm thời là tên các thành viên. 2 là tạo nhóm chỉ cần điền thông tin là tên nhóm thôi còn mã Handle định danh duy nhất ko cần và tự động sinh sau khi tạo (là đường link liên kết dạng vậy), bỏ luôn mô tả ngắn khi khởi tạo"
+- **Files Affected:**
+  - `packages/types/src/index.ts`
+  - `packages/shared/src/validators/circle.validator.ts`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `apps/backend/src/modules/circles/circles.service.ts`
+  - `apps/backend/src/modules/circles/circles.controller.ts`
+  - `apps/backend/src/modules/circles/circles.service.spec.ts`
+  - `apps/web/src/hooks/use-circle-queries.ts`
+  - `apps/web/src/components/circle/CreateCircleModal.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% mã nguồn cập nhật schemas, controller, service, test cases, queries và giao diện modal.
+- **Human Modifications:** Kỹ sư Ninh Thị Mỹ Hạnh trực tiếp định hình và yêu cầu tái cấu trúc luồng tạo Circle thành 2 hình thức tinh gọn, tiện dụng, tự động hóa handle và ghép tên bạn bè.
+- **Verification Method:**
+  - `npm test -w @circle/backend`: 30/30 tests passed 100%.
+  - `npm run build -w @circle/backend`: NestJS build thành công với 0 lỗi TypeScript.
+  - `npm run build -w @circle/web`: Next.js 14 production build thành công 9/9 trang tĩnh với 0 lỗi.
+  - `npx tsc --noEmit` trong `apps/mobile`: 0 errors.
+  - `bash ./scripts/check-agent-map.sh`: 93/93 framework files pass 100%.
+- **Official Source Checked:** `PROJECT_GOD.md`, SRS (UC07: Create Circle), `agentic/RULES.md`.
+- **Security & License Check:** An toàn tuyệt đối, không có bí mật hay lỗ hổng bảo mật.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** Kiểu `isPrivate` trong `createCircleSchema` ban đầu dùng `.default(false)` làm `z.infer` yêu cầu bắt buộc trường `isPrivate` trong TypeScript input type, gây lỗi biên dịch trong test cases `{ name: '...' }`. Ngoài ra hàm `getSelectableFriends` trả về `displayName` kiểu `string | undefined` do `split('@')[0]`.
+  - **Root Cause:** Khác biệt giữa Zod output type và input type khi dùng `.default()`; xử lý chuỗi phân tách có thể trả về undefined trong TypeScript strict mode.
+  - **Resolution / Fix:** Chuyển `isPrivate: z.boolean().optional()` trong schema; bổ sung fallback `|| friend.email` để đảm bảo `displayName: string`.
+- **Commit:** `3ee803f`
+- **PR:** Pending
 

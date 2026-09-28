@@ -201,3 +201,11 @@ export interface CallSessionEntity {
   startedAt: string;
   endedAt?: string | null;
 }
+
+export interface SelectableFriendItem {
+  id: string;
+  email: string;
+  displayName: string;
+  avatarUrl?: string | null;
+}
+

@@ -165,6 +165,7 @@ export const vi = {
     circleDescMaxLength: 'Mô tả không được vượt quá 255 ký tự',
     circleAvatarInvalid: 'Đường dẫn ảnh đại diện không hợp lệ',
     circleCoverInvalid: 'Đường dẫn ảnh bìa không hợp lệ',
+    circleNameOrFriendsRequired: 'Vui lòng nhập tên Vòng tròn hoặc chọn ít nhất 1 bạn bè',
   },
   nav: {
     activeCircle: 'Vòng tròn của bạn',
@@ -289,6 +290,16 @@ export const vi = {
     privateForbidden: 'Bạn không có quyền truy cập Vòng tròn riêng tư này',
     updateForbidden: 'Chỉ Owner hoặc Admin mới có quyền cập nhật thông tin Vòng tròn',
     updateSuccess: 'Cập nhật thông tin Vòng tròn thành công',
+    tabCreateByName: 'Tạo bằng tên',
+    tabSelectFriends: 'Chọn từ bạn bè',
+    friendsSearchPlaceholder: 'Tìm kiếm bạn bè...',
+    selectedFriendsCount: 'Đã chọn {count} bạn bè',
+    noFriendsFound: 'Chưa có bạn bè khả dụng',
+    tempGroupNameHint: 'Tên Vòng tròn sẽ được tự động ghép từ tên các thành viên được chọn',
+    autoHandleNotice: 'Mã liên kết sẽ được tự động tạo sau khi khởi tạo Vòng tròn',
+    createWithFriendsBtn: 'Tạo Vòng tròn cùng bạn bè',
+    createByNameBtn: 'Tạo Vòng tròn',
+    loadingFriends: 'Đang tải danh sách bạn bè...',
   },
 };
 

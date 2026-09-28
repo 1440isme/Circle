@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { CirclesService } from './circles.service';
 import { PrismaService } from '../../database/prisma.service';
-import { MemberRole, ChannelType } from '@prisma/client';
+import { MemberRole, ChannelType, FriendshipStatus } from '@prisma/client';
 
 describe('CirclesService — Unit Tests (US-CIRCLE-001)', () => {
   let service: CirclesService;
@@ -21,6 +21,12 @@ describe('CirclesService — Unit Tests (US-CIRCLE-001)', () => {
     },
     channel: {
       create: jest.fn(),
+    },
+    user: {
+      findMany: jest.fn(),
+    },
+    friendship: {
+      findMany: jest.fn(),
     },
     $transaction: jest.fn(),
   };
@@ -108,11 +114,139 @@ describe('CirclesService — Unit Tests (US-CIRCLE-001)', () => {
       expect(result.data.channels[0]!.name).toBe('general');
     });
 
+    it('should create Circle with only name, automatically generating unique handle', async () => {
+      // Candidate handle check returns null (available)
+      mockPrisma.circle.findUnique.mockResolvedValueOnce(null); // auto-handle check
+      mockPrisma.circle.findUnique.mockResolvedValueOnce(null); // inviteCode check
+
+      mockPrisma.$transaction.mockImplementation(async (callback) => {
+        return callback({
+          circle: {
+            create: jest.fn().mockImplementation((args) => Promise.resolve({
+              id: 'circle-auto',
+              ...args.data,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+              deletedAt: null,
+            })),
+          },
+          circleMember: {
+            create: jest.fn().mockResolvedValue({
+              id: 'member-owner',
+              circleId: 'circle-auto',
+              userId,
+              role: MemberRole.OWNER,
+            }),
+          },
+          channel: {
+            create: jest.fn().mockResolvedValue({
+              id: 'channel-1',
+              circleId: 'circle-auto',
+              name: 'general',
+              type: ChannelType.TEXT,
+            }),
+          },
+        });
+      });
+
+      const result = await service.create(userId, { name: 'Hội K23 ĐH SPKT' });
+
+      expect(result.success).toBe(true);
+      expect(result.statusCode).toBe(201);
+      expect(result.data.name).toBe('Hội K23 ĐH SPKT');
+      expect(result.data.handle).toMatch(/^hoi-k23-dh-spkt-[a-z0-9]+$/);
+    });
+
+    it('should create Circle with memberIds, automatically generating name and adding friends', async () => {
+      const friendId1 = 'friend-cuid-1';
+      const friendId2 = 'friend-cuid-2';
+
+      mockPrisma.user.findMany.mockResolvedValueOnce([
+        { id: userId, email: 'owner@test.com', profile: { displayName: 'Trương Công Bình' } },
+        { id: friendId1, email: 'hanh@test.com', profile: { displayName: 'Ninh Thị Mỹ Hạnh' } },
+        { id: friendId2, email: 'an@test.com', profile: { displayName: 'Nguyễn Văn An' } },
+      ]);
+
+      mockPrisma.circle.findUnique.mockResolvedValueOnce(null); // candidate handle
+      mockPrisma.circle.findUnique.mockResolvedValueOnce(null); // inviteCode
+
+      const mockCircleMemberCreate = jest.fn();
+
+      mockPrisma.$transaction.mockImplementation(async (callback) => {
+        return callback({
+          circle: {
+            create: jest.fn().mockImplementation((args) => Promise.resolve({
+              id: 'circle-friends',
+              ...args.data,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+              deletedAt: null,
+            })),
+          },
+          circleMember: {
+            create: mockCircleMemberCreate,
+          },
+          channel: {
+            create: jest.fn().mockResolvedValue({
+              id: 'channel-1',
+              name: 'general',
+              type: ChannelType.TEXT,
+            }),
+          },
+        });
+      });
+
+      const result = await service.create(userId, { memberIds: [friendId1, friendId2] });
+
+      expect(result.success).toBe(true);
+      expect(result.statusCode).toBe(201);
+      expect(result.data.name).toContain('Trương Công Bình');
+      expect(result.data.name).toContain('Ninh Thị Mỹ Hạnh');
+      expect(result.data.memberCount).toBe(3); // Owner + 2 friends
+      expect(mockCircleMemberCreate).toHaveBeenCalledTimes(3);
+    });
+
     it('TC-CIRCLE-002: should throw ConflictException (409) if handle is already taken', async () => {
       mockPrisma.circle.findUnique.mockResolvedValueOnce({ id: 'existing-circle-id' });
 
       await expect(service.create(userId, createInput)).rejects.toThrow(ConflictException);
       expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getSelectableFriends', () => {
+    const userId = 'user-cuid-1';
+
+    it('should return accepted friends when available', async () => {
+      mockPrisma.friendship.findMany.mockResolvedValueOnce([
+        {
+          id: 'f-1',
+          senderId: userId,
+          receiverId: 'friend-1',
+          status: FriendshipStatus.ACCEPTED,
+          sender: { id: userId, email: 'user@test.com', profile: null },
+          receiver: { id: 'friend-1', email: 'friend1@test.com', profile: { displayName: 'Bạn Thân 1', avatarUrl: null } },
+        },
+      ]);
+
+      const result = await service.getSelectableFriends(userId);
+
+      expect(result).toHaveLength(1);
+      expect(result[0]!.id).toBe('friend-1');
+      expect(result[0]!.displayName).toBe('Bạn Thân 1');
+    });
+
+    it('should fallback to platform users when no accepted friends exist', async () => {
+      mockPrisma.friendship.findMany.mockResolvedValueOnce([]);
+      mockPrisma.user.findMany.mockResolvedValueOnce([
+        { id: 'user-2', email: 'user2@test.com', profile: { displayName: 'User Hai', avatarUrl: null } },
+      ]);
+
+      const result = await service.getSelectableFriends(userId);
+
+      expect(result).toHaveLength(1);
+      expect(result[0]!.id).toBe('user-2');
+      expect(result[0]!.displayName).toBe('User Hai');
     });
   });
 
