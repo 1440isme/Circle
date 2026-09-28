@@ -1947,6 +1947,8 @@
 - **Prompt Summary:** "oke giờ hãy bắt đầu làm module 3 nhé", "validation dùng zod theo quy chuẩn không được tự tiện dùng các công cụ không được thiết kế từ trước. vui lòng đọc kỹ các yêu cầu", "frontend thì dùng tanstack và zustan", "Invalid input: expected string, received undefined tôi đang mắc phải lỗi này khi tạo circle", "à tôi nhắc lại là bạn phải tuân thủ PR 58 nhé"
 - **Files Affected:**
   - `packages/shared/src/validators/circle.validator.ts`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
   - `packages/shared/src/index.ts`
   - `packages/types/src/index.ts`
   - `apps/backend/prisma/schema.prisma`
@@ -1964,26 +1966,30 @@
   - `apps/web/src/components/circle/CreateCircleModal.tsx`
   - `apps/web/src/components/navigation/Sidebar.tsx`
   - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% mã nguồn Zod schemas, backend module, unit test suites, Zustand store, TanStack Query hooks và modal giao diện.
-- **Human Modifications:** Kỹ sư Ninh Thị Mỹ Hạnh trực tiếp chấn chỉnh và yêu cầu tuân thủ nghiêm ngặt Single Source of Truth cho validation bằng Zod, bắt buộc dùng TanStack Query cùng Zustand cho Frontend, và tuân thủ tuyệt đối quy chuẩn kỹ thuật của PR 58.
+- **AI-Generated Portion:** 100% mã nguồn Zod schemas, backend module, unit test suites, Zustand store, TanStack Query hooks, từ điển song ngữ và modal giao diện.
+- **Human Modifications:** Kỹ sư Ninh Thị Mỹ Hạnh trực tiếp chấn chỉnh và yêu cầu tuân thủ nghiêm ngặt Single Source of Truth cho validation bằng Zod, bắt buộc dùng TanStack Query cùng Zustand cho Frontend, và tuân thủ tuyệt đối quy chuẩn kỹ thuật của PR 58 (Zero Hardcoded Strings, Zero Mock Data, Bilingual Schema Factories).
 - **Verification Method:**
   - `npm test -w @circle/backend`: 26/26 tests passed (100% pass rate).
   - `npm run build -w @circle/backend`: NestJS build thành công với 0 lỗi TypeScript.
   - `npm run build -w @circle/web`: Next.js 14 production build hoàn tất thành công 9/9 trang tĩnh với 0 lỗi.
   - `npx tsc --noEmit` trong `apps/mobile`: 0 errors.
+  - `bash ./scripts/check-agent-map.sh`: 93/93 framework files pass 100%.
 - **Official Source Checked:** SRS (UC07: Create Circle), Capability `CAP-CIRCLE-01`, PR 58, `PROJECT_GOD.md`.
 - **Security & License Check:** An toàn, không chứa secrets, bảo vệ truy cập Circle riêng tư qua role check.
 - **AI Errors / Hallucinations Found:**
   - **Error Description:**
     1. Ở lần biên dịch đầu tiên của `ZodValidationPipe`, thuộc tính truy xuất lỗi của Zod v4 sử dụng `result.error.errors` thay vì `result.error.issues`, dẫn đến lỗi type check `Property 'errors' does not exist on type 'ZodError<unknown>'`.
     2. Khi người dùng thực hiện tạo Circle, hệ thống báo lỗi `400 Bad Request: Invalid input: expected string, received undefined` cho cả hai trường `name` và `handle`.
+    3. Form và validator ban đầu chứa các chuỗi tiếng Việt hardcoded vi phạm Rule 8 & 9 và PR 58.
   - **Root Cause:**
     1. Cú pháp ZodError trong Zod 4 định nghĩa danh sách issues tại `result.error.issues`.
-    2. Khi khai báo `@UsePipes(new ZodValidationPipe(...))` ở cấp độ method Controller, NestJS thực thi pipe trên tất cả các tham số của action, bao gồm `@CurrentUser() user`. Vì custom param decorator chưa được giải quyết trước pipe execution (`value === undefined`), `ZodValidationPipe` tiến hành parse `undefined` và văng lỗi schema validation ngay trước khi `@Body()` được nạp. Đồng thời Zod 4 cú pháp custom error của `z.string()` cần dùng trực tiếp `z.string('...')`.
+    2. Khi khai báo `@UsePipes(new ZodValidationPipe(...))` ở cấp độ method Controller, NestJS thực thi pipe trên tất cả các tham số của action, bao gồm `@CurrentUser() user`. Vì custom param decorator chưa được giải quyết trước pipe execution (`value === undefined`), `ZodValidationPipe` tiến hành parse `undefined` và văng lỗi schema validation ngay trước khi `@Body()` được nạp.
+    3. Thiếu việc trích xuất và liên kết với từ điển `packages/shared/src/locales/` (`vi.ts`, `en.ts`).
   - **Resolution / Fix:**
     1. Cập nhật `result.error.issues.map(...)`.
-    2. Trong `ZodValidationPipe`, bổ sung điều kiện lọc `if (metadata.type !== 'body') return value;`. Đồng thời chuyển pipe gắn trực tiếp vào tham số payload `@Body(new ZodValidationPipe(createCircleSchema))` tại `CirclesController` để bảo đảm chỉ kiểm thực body.
-    3. Cập nhật cú pháp thông điệp lỗi tiếng Việt chuẩn Zod 4 (`z.string('Tên nhóm không được để trống')`).
-- **Commit:** Pending
+    2. Trong `ZodValidationPipe`, bổ sung điều kiện lọc `if (metadata.type !== 'body') return value;`. Đồng thời chuyển pipe gắn trực tiếp vào tham số payload `@Body(new ZodValidationPipe((locale) => createCircleSchemas(locale).createCircleSchema))` tại `CirclesController` để bảo đảm chỉ kiểm thực body.
+    3. Thêm toàn bộ các khóa từ điển `validation` và `circle` vào `vi.ts` và `en.ts`, xuất `createCircleSchemas(locale)` động và dùng `t.circle.*` trong `CreateCircleModal` và `Sidebar`.
+- **Commit:** `0847ede`
 - **PR:** Pending
+
 

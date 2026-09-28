@@ -7,7 +7,7 @@ import {
 import { MemberRole, ChannelType } from '@prisma/client';
 import * as crypto from 'crypto';
 import { PrismaService } from '../../database/prisma.service';
-import { CreateCircleInput, UpdateCircleInput } from '@circle/shared';
+import { CreateCircleInput, UpdateCircleInput, Locale, locales } from '@circle/shared';
 
 @Injectable()
 export class CirclesService {
@@ -33,7 +33,8 @@ export class CirclesService {
   /**
    * Creates a new Circle with an OWNER role for creator and a default #general channel
    */
-  async create(userId: string, input: CreateCircleInput) {
+  async create(userId: string, input: CreateCircleInput, locale: Locale = 'vi') {
+    const t = locales[locale] || locales.vi;
     const normalizedHandle = input.handle.toLowerCase().trim();
 
     // Check if handle is already reserved / used
@@ -43,7 +44,7 @@ export class CirclesService {
     });
 
     if (existingCircle) {
-      throw new ConflictException('Handle này đã được sử dụng. Vui lòng chọn handle khác.');
+      throw new ConflictException(t.circle.handleTakenError);
     }
 
     const inviteCode = await this.generateUniqueInviteCode();
@@ -77,7 +78,7 @@ export class CirclesService {
           circleId: circle.id,
           name: 'general',
           type: ChannelType.TEXT,
-          topic: 'Kênh thảo luận chung',
+          topic: t.circle.generalChannelTopic || 'General discussion channel',
         },
       });
 
@@ -90,7 +91,7 @@ export class CirclesService {
     return {
       success: true,
       statusCode: 201,
-      message: 'Khởi tạo Circle thành công',
+      message: t.circle.createSuccess,
       data: {
         ...newCircle,
         role: MemberRole.OWNER,
@@ -102,7 +103,7 @@ export class CirclesService {
   /**
    * Retrieves all Circles that the current user belongs to
    */
-  async findUserCircles(userId: string) {
+  async findUserCircles(userId: string, _locale: Locale = 'vi') {
     const circles = await this.prisma.circle.findMany({
       where: {
         deletedAt: null,
@@ -168,7 +169,8 @@ export class CirclesService {
   /**
    * Retrieves Circle details by ID or Handle
    */
-  async findByIdOrHandle(idOrHandle: string, userId: string) {
+  async findByIdOrHandle(idOrHandle: string, userId: string, locale: Locale = 'vi') {
+    const t = locales[locale] || locales.vi;
     const circle = await this.prisma.circle.findFirst({
       where: {
         OR: [{ id: idOrHandle }, { handle: idOrHandle.toLowerCase().trim() }],
@@ -198,14 +200,14 @@ export class CirclesService {
     });
 
     if (!circle) {
-      throw new NotFoundException('Không tìm thấy Circle');
+      throw new NotFoundException(t.circle.notFound);
     }
 
     const currentMember = circle.members.find((m) => m.userId === userId);
 
     // If private circle, check membership
     if (circle.isPrivate && !currentMember) {
-      throw new ForbiddenException('Bạn không có quyền truy cập Circle riêng tư này');
+      throw new ForbiddenException(t.circle.privateForbidden);
     }
 
     return {
@@ -244,7 +246,8 @@ export class CirclesService {
   /**
    * Updates Circle metadata (Requires OWNER or ADMIN role)
    */
-  async update(circleId: string, userId: string, input: UpdateCircleInput) {
+  async update(circleId: string, userId: string, input: UpdateCircleInput, locale: Locale = 'vi') {
+    const t = locales[locale] || locales.vi;
     const membership = await this.prisma.circleMember.findUnique({
       where: {
         circleId_userId: {
@@ -255,7 +258,7 @@ export class CirclesService {
     });
 
     if (!membership || (membership.role !== MemberRole.OWNER && membership.role !== MemberRole.ADMIN)) {
-      throw new ForbiddenException('Chỉ Owner hoặc Admin mới có quyền cập nhật thông tin Circle');
+      throw new ForbiddenException(t.circle.updateForbidden);
     }
 
     const updatedCircle = await this.prisma.circle.update({
@@ -272,7 +275,7 @@ export class CirclesService {
     return {
       success: true,
       statusCode: 200,
-      message: 'Cập nhật thông tin Circle thành công',
+      message: t.circle.updateSuccess,
       data: updatedCircle,
     };
   }

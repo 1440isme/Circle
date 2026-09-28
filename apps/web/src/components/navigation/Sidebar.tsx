@@ -92,7 +92,7 @@ export const Sidebar: React.FC = () => {
 
           {isLoading ? (
             <div className="py-6 text-center text-xs text-circle-slate dark:text-circle-dark-muted animate-pulse">
-              Đang tải danh sách nhóm...
+              {t.circle.loadingCircles}
             </div>
           ) : circles.length > 0 ? (
             <div className="relative">
@@ -108,7 +108,7 @@ export const Sidebar: React.FC = () => {
                   </div>
                   <div className="truncate">
                     <h4 className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text truncate">
-                      {activeCircle?.name || 'Chọn nhóm'}
+                      {activeCircle?.name || t.circle.selectCircle}
                     </h4>
                     <p className="text-[10px] text-circle-slate dark:text-circle-dark-muted truncate font-mono">
                       @{activeCircle?.handle || 'circle'}
@@ -231,7 +231,11 @@ export const Sidebar: React.FC = () => {
             label={t.nav.circleSettings}
             onClick={() => {
               if (activeCircle) {
-                alert(`Cài đặt nhóm: ${activeCircle.name} (@${activeCircle.handle})`);
+                alert(
+                  t.circle.circleSettingsNotice
+                    .replace('{name}', activeCircle.name)
+                    .replace('{handle}', activeCircle.handle),
+                );
               }
             }}
           />

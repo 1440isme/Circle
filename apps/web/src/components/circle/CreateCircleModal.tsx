@@ -2,13 +2,14 @@
 
 import React, { useState } from 'react';
 import { X, Users, Lock, Globe, AlertCircle, Loader2 } from 'lucide-react';
-import { createCircleSchema } from '@circle/shared';
+import { createCircleSchemas } from '@circle/shared';
 import { useCreateCircleMutation } from '../../hooks/use-circle-queries';
 import { useLanguageStore } from '../../stores/language.store';
 import { useCircleStore } from '../../stores/circle.store';
 
 export const CreateCircleModal: React.FC = () => {
   const t = useLanguageStore((s) => s.t);
+  const locale = useLanguageStore((s) => s.locale);
   const isCreateModalOpen = useCircleStore((s) => s.isCreateModalOpen);
   const setCreateModalOpen = useCircleStore((s) => s.setCreateModalOpen);
 
@@ -61,7 +62,8 @@ export const CreateCircleModal: React.FC = () => {
     e.preventDefault();
     setServerError(null);
 
-    // Validate using Single Source of Truth Zod schema from @circle/shared
+    // Validate using Single Source of Truth bilingual Zod schema from @circle/shared
+    const { createCircleSchema } = createCircleSchemas(locale);
     const validationResult = createCircleSchema.safeParse({
       name: formData.name.trim(),
       handle: formData.handle.trim().toLowerCase(),
@@ -91,7 +93,7 @@ export const CreateCircleModal: React.FC = () => {
         isPrivate: false,
       });
     } catch (err: any) {
-      setServerError(err?.message || 'Có lỗi xảy ra khi tạo Circle. Vui lòng thử lại.');
+      setServerError(err?.message || t.circle.createError);
     }
   };
 
@@ -109,10 +111,10 @@ export const CreateCircleModal: React.FC = () => {
             </div>
             <div>
               <h3 className="text-lg font-bold text-circle-charcoal dark:text-circle-dark-text">
-                {t.home.createCircleBtn}
+                {t.circle.createTitle}
               </h3>
               <p className="text-xs text-circle-slate dark:text-circle-dark-muted">
-                Khởi tạo không gian riêng biệt cho bạn bè hoặc nhóm của bạn
+                {t.circle.createSubtitle}
               </p>
             </div>
           </div>
@@ -137,13 +139,13 @@ export const CreateCircleModal: React.FC = () => {
           {/* Circle Name */}
           <div>
             <label className="block text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text mb-1.5">
-              Tên Circle <span className="text-red-500">*</span>
+              {t.circle.nameLabel} <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
               value={formData.name}
               onChange={handleNameChange}
-              placeholder="VD: Nhóm bạn thân, Học nhóm K23..."
+              placeholder={t.circle.namePlaceholder}
               maxLength={50}
               className={`w-full rounded-xl border px-3.5 py-2.5 text-sm bg-circle-canvas/50 dark:bg-circle-dark-canvas/50 text-circle-charcoal dark:text-circle-dark-text placeholder:text-circle-slate/50 dark:placeholder:text-circle-dark-muted/50 focus:outline-none transition-colors ${
                 fieldErrors.name
@@ -159,11 +161,11 @@ export const CreateCircleModal: React.FC = () => {
           {/* Circle Handle */}
           <div>
             <label className="block text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text mb-1.5">
-              Handle định danh duy nhất <span className="text-red-500">*</span>
+              {t.circle.handleLabel} <span className="text-red-500">*</span>
             </label>
             <div className="relative">
               <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 text-sm font-medium text-circle-slate dark:text-circle-dark-muted">
-                @
+                {t.circle.handlePrefix}
               </span>
               <input
                 type="text"
@@ -177,7 +179,7 @@ export const CreateCircleModal: React.FC = () => {
                     setFieldErrors((prev) => ({ ...prev, handle: '' }));
                   }
                 }}
-                placeholder="nhom-ban-than"
+                placeholder={t.circle.handlePlaceholder}
                 maxLength={30}
                 className={`w-full rounded-xl border pl-8 pr-3.5 py-2.5 text-sm font-mono bg-circle-canvas/50 dark:bg-circle-dark-canvas/50 text-circle-charcoal dark:text-circle-dark-text placeholder:text-circle-slate/50 dark:placeholder:text-circle-dark-muted/50 focus:outline-none transition-colors ${
                   fieldErrors.handle
@@ -190,7 +192,7 @@ export const CreateCircleModal: React.FC = () => {
               <p className="mt-1 text-xs text-red-500">{fieldErrors.handle}</p>
             ) : (
               <p className="mt-1 text-[11px] text-circle-slate dark:text-circle-dark-muted">
-                Liên kết nhóm: <span className="font-mono text-circle-sage dark:text-circle-primary">circle.app/@{formData.handle || 'handle'}</span>
+                {t.circle.handleUrlPreview.replace('{handle}', formData.handle || 'handle')}
               </p>
             )}
           </div>
@@ -198,14 +200,14 @@ export const CreateCircleModal: React.FC = () => {
           {/* Description */}
           <div>
             <label className="block text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text mb-1.5">
-              Mô tả ngắn (tùy chọn)
+              {t.circle.descLabel}
             </label>
             <textarea
               value={formData.description}
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, description: e.target.value }))
               }
-              placeholder="Chia sẻ mục tiêu hoạt động của nhóm..."
+              placeholder={t.circle.descPlaceholder}
               rows={2}
               maxLength={255}
               className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/50 dark:bg-circle-dark-canvas/50 px-3.5 py-2.5 text-sm text-circle-charcoal dark:text-circle-dark-text placeholder:text-circle-slate/50 dark:placeholder:text-circle-dark-muted/50 focus:border-circle-sage dark:focus:border-circle-primary focus:outline-none transition-colors resize-none"
@@ -225,12 +227,12 @@ export const CreateCircleModal: React.FC = () => {
                 </div>
                 <div>
                   <h4 className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text">
-                    {formData.isPrivate ? 'Circle Riêng tư (Private)' : 'Circle Công khai (Public)'}
+                    {formData.isPrivate ? t.circle.privacyPrivate : t.circle.privacyPublic}
                   </h4>
                   <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted">
                     {formData.isPrivate
-                      ? 'Chỉ thành viên được duyệt hoặc nhận mã mời mới có thể tham gia'
-                      : 'Mọi người đều có thể tìm thấy và tham gia tự do'}
+                      ? t.circle.privacyPrivateDesc
+                      : t.circle.privacyPublicDesc}
                   </p>
                 </div>
               </div>
@@ -259,7 +261,7 @@ export const CreateCircleModal: React.FC = () => {
               onClick={handleClose}
               className="rounded-xl px-4 py-2 text-xs font-medium text-circle-slate dark:text-circle-dark-muted hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas transition-colors"
             >
-              Hủy
+              {t.common.cancel}
             </button>
             <button
               type="submit"
@@ -269,10 +271,10 @@ export const CreateCircleModal: React.FC = () => {
               {createCircleMutation.isPending ? (
                 <>
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  <span>Đang khởi tạo...</span>
+                  <span>{t.circle.creatingCircle}</span>
                 </>
               ) : (
-                <span>Tạo Circle</span>
+                <span>{t.home.createCircleBtn}</span>
               )}
             </button>
           </div>

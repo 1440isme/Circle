@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   HttpCode,
   HttpStatus,
   Param,
@@ -12,10 +13,10 @@ import { CirclesService } from './circles.service';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import {
-  createCircleSchema,
+  createCircleSchemas,
   CreateCircleInput,
-  updateCircleSchema,
   UpdateCircleInput,
+  resolveLocale,
 } from '@circle/shared';
 import { AuthUserData } from '@circle/types';
 
@@ -30,9 +31,13 @@ export class CirclesController {
   @HttpCode(HttpStatus.CREATED)
   async create(
     @CurrentUser() user: AuthUserData,
-    @Body(new ZodValidationPipe(createCircleSchema)) dto: CreateCircleInput,
+    @Body(new ZodValidationPipe((locale) => createCircleSchemas(locale).createCircleSchema))
+    dto: CreateCircleInput,
+    @Headers('x-circle-locale') circleLocale?: string,
+    @Headers('accept-language') acceptLanguage?: string,
   ) {
-    return this.circlesService.create(user.id, dto);
+    const locale = resolveLocale(circleLocale, acceptLanguage);
+    return this.circlesService.create(user.id, dto, locale);
   }
 
   /**
@@ -40,8 +45,13 @@ export class CirclesController {
    */
   @Get()
   @HttpCode(HttpStatus.OK)
-  async findMyCircles(@CurrentUser() user: AuthUserData) {
-    return this.circlesService.findUserCircles(user.id);
+  async findMyCircles(
+    @CurrentUser() user: AuthUserData,
+    @Headers('x-circle-locale') circleLocale?: string,
+    @Headers('accept-language') acceptLanguage?: string,
+  ) {
+    const locale = resolveLocale(circleLocale, acceptLanguage);
+    return this.circlesService.findUserCircles(user.id, locale);
   }
 
   /**
@@ -52,8 +62,11 @@ export class CirclesController {
   async findByIdOrHandle(
     @CurrentUser() user: AuthUserData,
     @Param('idOrHandle') idOrHandle: string,
+    @Headers('x-circle-locale') circleLocale?: string,
+    @Headers('accept-language') acceptLanguage?: string,
   ) {
-    return this.circlesService.findByIdOrHandle(idOrHandle, user.id);
+    const locale = resolveLocale(circleLocale, acceptLanguage);
+    return this.circlesService.findByIdOrHandle(idOrHandle, user.id, locale);
   }
 
   /**
@@ -64,8 +77,12 @@ export class CirclesController {
   async update(
     @CurrentUser() user: AuthUserData,
     @Param('id') id: string,
-    @Body(new ZodValidationPipe(updateCircleSchema)) dto: UpdateCircleInput,
+    @Body(new ZodValidationPipe((locale) => createCircleSchemas(locale).updateCircleSchema))
+    dto: UpdateCircleInput,
+    @Headers('x-circle-locale') circleLocale?: string,
+    @Headers('accept-language') acceptLanguage?: string,
   ) {
-    return this.circlesService.update(id, user.id, dto);
+    const locale = resolveLocale(circleLocale, acceptLanguage);
+    return this.circlesService.update(id, user.id, dto, locale);
   }
 }
