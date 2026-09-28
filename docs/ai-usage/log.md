@@ -2163,6 +2163,43 @@
 - **Commit:** `a6b237d`
 - **PR:** Pending
 
+---
+
+## AI-0055: Tinh giản và Hợp nhất Giao diện Khởi tạo Vòng tròn (Unified Single Form)
+
+- **Date:** 2026-09-29 00:11:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #4 ([SUB-FEAT]: US-CIRCLE-001 — Circle Creation, Handle Reservation & Channel Hierarchy (Parent: #19))
+- **Purpose:** Tinh giản và hợp nhất form khởi tạo Vòng tròn theo yêu cầu của kỹ sư Ninh Thị Mỹ Hạnh:
+  1. **Loại bỏ phân tab:** Xóa bỏ hoàn toàn hệ thống 2 tab ("Tạo bằng tên" vs "Chọn từ bạn bè"), quy về một giao diện form duy nhất trực quan, tinh gọn và dễ thao tác.
+  2. **Trường Tên Vòng tròn tùy chọn:** Đặt ở phần trên kèm ghi chú hướng dẫn: người dùng có thể nhập tên hoặc để trống. Nếu để trống, hệ thống sẽ tự động ghép tên của các bạn bè được chọn làm tên nhóm.
+  3. **Thêm bạn bè vào Vòng tròn tùy chọn:** Tích hợp bộ lọc tìm kiếm và danh sách chọn bạn bè ngay bên dưới ô nhập tên. Người dùng có thể chọn thêm bạn bè ngay khi tạo, hoặc không chọn bạn bè (nếu đã đặt tên nhóm).
+  4. **Kiểm thực Zod thông minh:** Đảm bảo người dùng nhập tên (>= 2 ký tự) HOẶC chọn ít nhất 1 bạn bè (hoặc cả hai: vừa đặt tên vừa thêm bạn bè).
+  5. **Bảo toàn PR 58:** Bổ sung các chuỗi bản địa hóa `nameOptionalHint`, `selectFriendsLabel`, `createCircleSubmitBtn` vào cả `vi.ts` và `en.ts`.
+- **Prompt Summary:** "chỗ khởi tạo vòng tròn mới thì chỉ cần 1 cái chung ko cần phân chọn từ bạn bè hay để tên. tức là nó vẫn có chỗ nhập tên mà ko bắt buộc và dưới có thể thêm bạn bè vô luôn hoặc ko (nếu chưa đặt tên thì mặc định là tên các thành viên)"
+- **Files Affected:**
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `apps/web/src/components/circle/CreateCircleModal.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% mã nguồn tái cấu trúc component form và localized strings.
+- **Human Modifications:** Kỹ sư Ninh Thị Mỹ Hạnh trực tiếp định hướng giải pháp UX tinh giản: bỏ phân tab, hợp nhất ô nhập tên tùy chọn và danh sách chọn bạn bè tùy chọn trong cùng 1 modal.
+- **Verification Method:**
+  - `npm test -w @circle/backend`: 33/33 unit tests pass 100%.
+  - `npm run build -w @circle/backend`: NestJS build thành công với 0 lỗi TypeScript.
+  - `npm run build -w @circle/shared`: Shared package build thành công.
+  - `npm run build -w @circle/web`: Next.js 14 production build hoàn tất 9/9 trang tĩnh với 0 lỗi.
+  - `npx tsc --noEmit` trong `apps/mobile`: 0 errors.
+  - `bash ./scripts/check-agent-map.sh`: 93/93 framework files pass 100%.
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn tuyệt đối, tuân thủ nguyên tắc PR 58.
+- **AI Errors / Hallucinations Found:** None.
+- **Commit:** Pending
+- **PR:** Pending
+
+
 
 
 
