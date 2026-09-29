@@ -2257,8 +2257,8 @@
   - **Error Description:** Lỗi TypeScript trong `CircleManagementModal.tsx` khi truy cập `f.handle` trên kiểu `SelectableFriendItem`.
   - **Root Cause:** Kiểu `SelectableFriendItem` chỉ bao gồm `id`, `displayName`, `email`, `avatarUrl`.
   - **Resolution / Fix:** Bỏ `f.handle`, chuyển sang tìm kiếm theo `displayName` và `email`.
-- **Commit:** TBD
-- **PR:** TBD
+- **Commit:** 056f2a0
+- **PR:** TBD (Pending creation)
 
 
 
