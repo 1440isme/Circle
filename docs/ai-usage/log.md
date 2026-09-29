@@ -2329,7 +2329,7 @@
   - **Error Description:** Lỗi `request entity too large` (HTTP 413) khi gửi ảnh/video data URI trực tiếp từ camera lên backend NestJS do giới hạn mặc định 100kb của express body-parser; và modal vẫn hỏi chọn Vòng tròn khi người dùng đang ở trong không gian một Vòng tròn cụ thể.
   - **Root Cause:** Chưa cấu hình `limit: '50mb'` cho `json()` và `urlencoded()` trong `main.ts`; và `CreateMomentModal` chưa tự động khóa theo Vòng tròn đang mở.
   - **Resolution / Fix:** Cấu hình `app.use(json({ limit: '50mb' }))` và `app.use(urlencoded({ extended: true, limit: '50mb' }))` trong `apps/backend/src/main.ts`; cập nhật `CreateMomentModal.tsx` tự động nhận diện `effectiveCircle` để khóa và hiển thị trực tiếp thẻ Vòng tròn đích, không hỏi chọn nhóm khác.
-- **Commit:** 872a465
+- **Commit:** adb29aa
 - **PR:** #62 (https://github.com/1440isme/Circle/pull/62 - DRAFT)
 
 
