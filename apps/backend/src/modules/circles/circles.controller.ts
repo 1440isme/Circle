@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Headers,
   HttpCode,
@@ -17,6 +18,12 @@ import {
   CreateCircleInput,
   UpdateCircleInput,
   JoinCircleInput,
+  CreateInviteInput,
+  CreateJoinRequestInput,
+  ReviewJoinRequestInput,
+  TransferOwnershipInput,
+  UpdateNicknameInput,
+  AddMembersInput,
   resolveLocale,
 } from '@circle/shared';
 import { AuthUserData } from '@circle/types';
@@ -116,5 +123,186 @@ export class CirclesController {
   ) {
     const locale = resolveLocale(circleLocale, acceptLanguage);
     return this.circlesService.update(id, user.id, dto, locale);
+  }
+
+  /**
+   * POST /api/v1/circles/:id/invites — Create custom invite code with expiry/limits
+   */
+  @Post(':id/invites')
+  @HttpCode(HttpStatus.CREATED)
+  async createInvite(
+    @CurrentUser() user: AuthUserData,
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe((locale) => createCircleSchemas(locale).createInviteSchema))
+    dto: CreateInviteInput,
+    @Headers('x-circle-locale') circleLocale?: string,
+    @Headers('accept-language') acceptLanguage?: string,
+  ) {
+    const locale = resolveLocale(circleLocale, acceptLanguage);
+    return this.circlesService.createCustomInviteCode(id, user.id, dto, locale);
+  }
+
+  /**
+   * GET /api/v1/circles/:id/invites — Get all active custom invites for Circle
+   */
+  @Get(':id/invites')
+  @HttpCode(HttpStatus.OK)
+  async getInvites(
+    @CurrentUser() user: AuthUserData,
+    @Param('id') id: string,
+    @Headers('x-circle-locale') circleLocale?: string,
+    @Headers('accept-language') acceptLanguage?: string,
+  ) {
+    const locale = resolveLocale(circleLocale, acceptLanguage);
+    return this.circlesService.getCustomInvites(id, user.id, locale);
+  }
+
+  /**
+   * GET /api/v1/circles/:id/members — Get all members of a Circle
+   */
+  @Get(':id/members')
+  @HttpCode(HttpStatus.OK)
+  async getMembers(
+    @CurrentUser() user: AuthUserData,
+    @Param('id') id: string,
+    @Headers('x-circle-locale') circleLocale?: string,
+    @Headers('accept-language') acceptLanguage?: string,
+  ) {
+    const locale = resolveLocale(circleLocale, acceptLanguage);
+    return this.circlesService.getMembers(id, user.id, locale);
+  }
+
+  /**
+   * POST /api/v1/circles/:id/members — Add new members to Circle
+   */
+  @Post(':id/members')
+  @HttpCode(HttpStatus.OK)
+  async addMembers(
+    @CurrentUser() user: AuthUserData,
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe((locale) => createCircleSchemas(locale).addMembersSchema))
+    dto: AddMembersInput,
+    @Headers('x-circle-locale') circleLocale?: string,
+    @Headers('accept-language') acceptLanguage?: string,
+  ) {
+    const locale = resolveLocale(circleLocale, acceptLanguage);
+    return this.circlesService.addMembers(id, user.id, dto.memberIds, locale);
+  }
+
+
+  /**
+   * DELETE /api/v1/circles/:id/members/:memberId — Remove member (kick)
+   */
+  @Delete(':id/members/:memberId')
+  @HttpCode(HttpStatus.OK)
+  async removeMember(
+    @CurrentUser() user: AuthUserData,
+    @Param('id') id: string,
+    @Param('memberId') memberId: string,
+    @Headers('x-circle-locale') circleLocale?: string,
+    @Headers('accept-language') acceptLanguage?: string,
+  ) {
+    const locale = resolveLocale(circleLocale, acceptLanguage);
+    return this.circlesService.removeMember(id, user.id, memberId, locale);
+  }
+
+  /**
+   * PATCH /api/v1/circles/:id/members/:memberId/nickname — Update member nickname
+   */
+  @Patch(':id/members/:memberId/nickname')
+  @HttpCode(HttpStatus.OK)
+  async updateMemberNickname(
+    @CurrentUser() user: AuthUserData,
+    @Param('id') id: string,
+    @Param('memberId') memberId: string,
+    @Body(new ZodValidationPipe((locale) => createCircleSchemas(locale).updateNicknameSchema))
+    dto: UpdateNicknameInput,
+    @Headers('x-circle-locale') circleLocale?: string,
+    @Headers('accept-language') acceptLanguage?: string,
+  ) {
+    const locale = resolveLocale(circleLocale, acceptLanguage);
+    return this.circlesService.updateMemberNickname(id, user.id, memberId, dto.nickname, locale);
+  }
+
+  /**
+   * POST /api/v1/circles/:id/leave — Leave a Circle
+   */
+  @Post(':id/leave')
+  @HttpCode(HttpStatus.OK)
+  async leave(
+    @CurrentUser() user: AuthUserData,
+    @Param('id') id: string,
+    @Headers('x-circle-locale') circleLocale?: string,
+    @Headers('accept-language') acceptLanguage?: string,
+  ) {
+    const locale = resolveLocale(circleLocale, acceptLanguage);
+    return this.circlesService.leaveCircle(id, user.id, locale);
+  }
+
+  /**
+   * POST /api/v1/circles/:id/transfer-ownership — Transfer ownership to another member
+   */
+  @Post(':id/transfer-ownership')
+  @HttpCode(HttpStatus.OK)
+  async transferOwnership(
+    @CurrentUser() user: AuthUserData,
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe((locale) => createCircleSchemas(locale).transferOwnershipSchema))
+    dto: TransferOwnershipInput,
+    @Headers('x-circle-locale') circleLocale?: string,
+    @Headers('accept-language') acceptLanguage?: string,
+  ) {
+    const locale = resolveLocale(circleLocale, acceptLanguage);
+    return this.circlesService.transferOwnership(id, user.id, dto.newOwnerMemberId, locale);
+  }
+
+  /**
+   * POST /api/v1/circles/:id/join-requests — Request to join private Circle
+   */
+  @Post(':id/join-requests')
+  @HttpCode(HttpStatus.CREATED)
+  async createJoinRequest(
+    @CurrentUser() user: AuthUserData,
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe((locale) => createCircleSchemas(locale).createJoinRequestSchema))
+    dto: CreateJoinRequestInput,
+    @Headers('x-circle-locale') circleLocale?: string,
+    @Headers('accept-language') acceptLanguage?: string,
+  ) {
+    const locale = resolveLocale(circleLocale, acceptLanguage);
+    return this.circlesService.requestToJoin(id, user.id, dto, locale);
+  }
+
+  /**
+   * GET /api/v1/circles/:id/join-requests — Get pending join requests
+   */
+  @Get(':id/join-requests')
+  @HttpCode(HttpStatus.OK)
+  async getJoinRequests(
+    @CurrentUser() user: AuthUserData,
+    @Param('id') id: string,
+    @Headers('x-circle-locale') circleLocale?: string,
+    @Headers('accept-language') acceptLanguage?: string,
+  ) {
+    const locale = resolveLocale(circleLocale, acceptLanguage);
+    return this.circlesService.getJoinRequests(id, user.id, locale);
+  }
+
+  /**
+   * PATCH /api/v1/circles/:id/join-requests/:requestId — Review join request (Approve/Reject)
+   */
+  @Patch(':id/join-requests/:requestId')
+  @HttpCode(HttpStatus.OK)
+  async reviewJoinRequest(
+    @CurrentUser() user: AuthUserData,
+    @Param('id') id: string,
+    @Param('requestId') requestId: string,
+    @Body(new ZodValidationPipe((locale) => createCircleSchemas(locale).reviewJoinRequestSchema))
+    dto: ReviewJoinRequestInput,
+    @Headers('x-circle-locale') circleLocale?: string,
+    @Headers('accept-language') acceptLanguage?: string,
+  ) {
+    const locale = resolveLocale(circleLocale, acceptLanguage);
+    return this.circlesService.reviewJoinRequest(id, user.id, requestId, dto, locale);
   }
 }

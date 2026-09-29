@@ -23,6 +23,12 @@ enum FriendshipStatus {
   BLOCKED
 }
 
+enum JoinRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum MemberRole {
   OWNER
   ADMIN
@@ -71,6 +77,7 @@ model User {
   receivedFriendships  Friendship[]       @relation("FriendshipReceiver")
   notifications        Notification[]
   memberships          CircleMember[]
+  circleJoinRequests   CircleJoinRequest[]
 
   @@index([email])
 }
@@ -147,12 +154,15 @@ model Circle {
   description String?
   inviteCode  String    @unique
   isPrivate   Boolean   @default(false)
+  maxMembers  Int?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
 
   members         CircleMember[]
   channels        Channel[]
+  invites         CircleInvite[]
+  joinRequests    CircleJoinRequest[]
   planningSheets  PlanningSheet[]
   sharedAlbums    SharedAlbum[]
   pinnedRecords   PinnedRecord[]
@@ -189,9 +199,44 @@ model CircleMember {
   editedCells      SheetCell[]
   liveLocations    LiveLocationShare[]
   callParticipants CallParticipant[]
+  createdInvites   CircleInvite[]
 
   @@unique([circleId, userId])
   @@index([circleId])
+  @@index([userId])
+}
+
+model CircleInvite {
+  id          String    @id @default(cuid())
+  circleId    String
+  code        String    @unique
+  createdById String
+  expiresAt   DateTime?
+  maxUses     Int?
+  useCount    Int       @default(0)
+  createdAt   DateTime  @default(now())
+
+  circle    Circle       @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  createdBy CircleMember @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([circleId])
+  @@index([code])
+}
+
+model CircleJoinRequest {
+  id        String            @id @default(cuid())
+  circleId  String
+  userId    String
+  message   String?
+  status    JoinRequestStatus @default(PENDING)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  circle Circle @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([circleId, userId])
+  @@index([circleId, status])
   @@index([userId])
 }
 

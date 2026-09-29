@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -7,7 +8,16 @@ import {
 import { MemberRole, ChannelType, FriendshipStatus } from '@prisma/client';
 import * as crypto from 'crypto';
 import { PrismaService } from '../../database/prisma.service';
-import { CreateCircleInput, UpdateCircleInput, JoinCircleInput, Locale, locales } from '@circle/shared';
+import {
+  CreateCircleInput,
+  UpdateCircleInput,
+  JoinCircleInput,
+  CreateInviteInput,
+  CreateJoinRequestInput,
+  ReviewJoinRequestInput,
+  Locale,
+  locales,
+} from '@circle/shared';
 import { SelectableFriendItem } from '@circle/types';
 
 @Injectable()
@@ -125,6 +135,7 @@ export class CirclesService {
           avatarUrl: input.avatarUrl || null,
           coverUrl: input.coverUrl || null,
           isPrivate: input.isPrivate ?? false,
+          maxMembers: input.maxMembers ?? null,
           inviteCode,
         },
       });
@@ -346,6 +357,7 @@ export class CirclesService {
         description: circle.description,
         inviteCode: circle.inviteCode,
         isPrivate: circle.isPrivate,
+        maxMembers: circle.maxMembers,
         createdAt: circle.createdAt,
         updatedAt: circle.updatedAt,
         role: currentMember?.role,
@@ -381,7 +393,7 @@ export class CirclesService {
       },
     });
 
-    if (!membership || (membership.role !== MemberRole.OWNER && membership.role !== MemberRole.ADMIN)) {
+    if (!membership || membership.role !== MemberRole.OWNER) {
       throw new ForbiddenException(t.circle.updateForbidden);
     }
 
@@ -393,6 +405,7 @@ export class CirclesService {
         ...(input.avatarUrl !== undefined && { avatarUrl: input.avatarUrl || null }),
         ...(input.coverUrl !== undefined && { coverUrl: input.coverUrl || null }),
         ...(input.isPrivate !== undefined && { isPrivate: input.isPrivate }),
+        ...(input.maxMembers !== undefined && { maxMembers: input.maxMembers }),
       },
     });
 
@@ -405,12 +418,73 @@ export class CirclesService {
   }
 
   /**
-   * Joins a Circle using an invite code
+   * Joins a Circle using an invite code (supports custom invites with expiry & max uses, and default circle inviteCode)
    */
   async joinByInviteCode(userId: string, input: JoinCircleInput, locale: Locale = 'vi') {
     const t = locales[locale] || locales.vi;
     const cleanCode = input.inviteCode.trim().toUpperCase();
 
+    // 1. Check custom invite code first
+    const customInvite = await this.prisma.circleInvite.findUnique({
+      where: { code: cleanCode },
+      include: {
+        circle: {
+          include: {
+            members: { where: { userId } },
+            _count: { select: { members: true } },
+          },
+        },
+      },
+    });
+
+    if (customInvite && customInvite.circle && customInvite.circle.deletedAt === null) {
+      if (customInvite.expiresAt && new Date() > customInvite.expiresAt) {
+        throw new BadRequestException(t.circle.inviteCodeExpired);
+      }
+      if (customInvite.maxUses !== null && customInvite.useCount >= customInvite.maxUses) {
+        throw new BadRequestException(t.circle.inviteCodeMaxUsesReached);
+      }
+      if (customInvite.circle.members && customInvite.circle.members.length > 0) {
+        throw new ConflictException(t.circle.alreadyMember);
+      }
+
+      await this.prisma.$transaction([
+        this.prisma.circleMember.create({
+          data: {
+            circleId: customInvite.circleId,
+            userId,
+            role: MemberRole.MEMBER,
+          },
+        }),
+        this.prisma.circleInvite.update({
+          where: { id: customInvite.id },
+          data: { useCount: { increment: 1 } },
+        }),
+      ]);
+
+      const circle = customInvite.circle;
+      return {
+        success: true,
+        statusCode: 200,
+        message: t.circle.joinSuccess,
+        data: {
+          id: circle.id,
+          name: circle.name,
+          handle: circle.handle,
+          avatarUrl: circle.avatarUrl,
+          coverUrl: circle.coverUrl,
+          description: circle.description,
+          inviteCode: circle.inviteCode,
+          isPrivate: circle.isPrivate,
+          createdAt: circle.createdAt,
+          updatedAt: circle.updatedAt,
+          role: MemberRole.MEMBER,
+          memberCount: circle._count.members + 1,
+        },
+      };
+    }
+
+    // 2. Check standard Circle inviteCode
     const circle = await this.prisma.circle.findUnique({
       where: {
         inviteCode: cleanCode,
@@ -431,6 +505,10 @@ export class CirclesService {
 
     if (circle.members && circle.members.length > 0) {
       throw new ConflictException(t.circle.alreadyMember);
+    }
+
+    if (circle.maxMembers !== null && circle._count.members >= circle.maxMembers) {
+      throw new BadRequestException(t.circle.circleFull);
     }
 
     await this.prisma.circleMember.create({
@@ -460,5 +538,586 @@ export class CirclesService {
         memberCount: circle._count.members + 1,
       },
     };
+  }
+
+  /**
+   * Generates a new custom invite code with optional expiry and usage limits (OWNER only)
+   */
+  async createCustomInviteCode(
+    circleId: string,
+    userId: string,
+    input: CreateInviteInput,
+    locale: Locale = 'vi',
+  ) {
+    const t = locales[locale] || locales.vi;
+
+    const member = await this.prisma.circleMember.findUnique({
+      where: {
+        circleId_userId: { circleId, userId },
+      },
+    });
+
+    if (!member || member.role !== MemberRole.OWNER) {
+      throw new ForbiddenException(t.circle.updateForbidden);
+    }
+
+    let code = '';
+    for (let attempts = 0; attempts < 5; attempts++) {
+      const candidate = crypto.randomBytes(4).toString('hex').toUpperCase();
+      const existingInvite = await this.prisma.circleInvite.findUnique({
+        where: { code: candidate },
+        select: { id: true },
+      });
+      const existingCircle = await this.prisma.circle.findUnique({
+        where: { inviteCode: candidate },
+        select: { id: true },
+      });
+      if (!existingInvite && !existingCircle) {
+        code = candidate;
+        break;
+      }
+    }
+    if (!code) {
+      code = crypto.randomBytes(6).toString('hex').toUpperCase();
+    }
+
+    const expiresAt =
+      input.expiresInDays && input.expiresInDays > 0
+        ? new Date(Date.now() + input.expiresInDays * 24 * 60 * 60 * 1000)
+        : null;
+
+    const invite = await this.prisma.circleInvite.create({
+      data: {
+        circleId,
+        code,
+        createdById: member.id,
+        expiresAt,
+        maxUses: input.maxUses || null,
+      },
+    });
+
+    return {
+      success: true,
+      statusCode: 201,
+      message: t.circle.inviteCodeCreatedSuccess,
+      data: invite,
+    };
+  }
+
+  /**
+   * Retrieves all active custom invite codes for a Circle (OWNER only)
+   */
+  async getCustomInvites(circleId: string, userId: string, locale: Locale = 'vi') {
+    const t = locales[locale] || locales.vi;
+
+    const member = await this.prisma.circleMember.findUnique({
+      where: {
+        circleId_userId: { circleId, userId },
+      },
+    });
+
+    if (!member || member.role !== MemberRole.OWNER) {
+      throw new ForbiddenException(t.circle.updateForbidden);
+    }
+
+    const invites = await this.prisma.circleInvite.findMany({
+      where: { circleId },
+      include: {
+        createdBy: {
+          include: {
+            user: {
+              select: { id: true, email: true, profile: true },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return {
+      success: true,
+      statusCode: 200,
+      data: invites,
+    };
+  }
+
+  /**
+   * Adds new members to an existing Circle (Caller must be member of circle)
+   */
+  async addMembers(
+    circleId: string,
+    userId: string,
+    memberIds: string[],
+    locale: Locale = 'vi',
+  ) {
+    const t = locales[locale] || locales.vi;
+
+    const caller = await this.prisma.circleMember.findUnique({
+      where: { circleId_userId: { circleId, userId } },
+    });
+    if (!caller) {
+      throw new ForbiddenException(t.circle.privateForbidden);
+    }
+
+    const circle = await this.prisma.circle.findUnique({
+      where: { id: circleId },
+      include: {
+        _count: { select: { members: true } },
+      },
+    });
+
+    if (!circle || circle.deletedAt !== null) {
+      throw new NotFoundException(t.circle.notFound);
+    }
+
+    // Filter out users already in circle
+    const existingMembers = await this.prisma.circleMember.findMany({
+      where: { circleId, userId: { in: memberIds } },
+      select: { userId: true },
+    });
+    const existingUserIds = new Set(existingMembers.map((m) => m.userId));
+    const newMemberIds = Array.from(new Set(memberIds)).filter((id) => !existingUserIds.has(id));
+
+    if (newMemberIds.length === 0) {
+      return {
+        success: true,
+        statusCode: 200,
+        message: t.circle.addMembersSuccess,
+        data: [],
+      };
+    }
+
+    // Check capacity
+    if (circle.maxMembers !== null) {
+      const projectedCount = circle._count.members + newMemberIds.length;
+      if (projectedCount > circle.maxMembers) {
+        throw new BadRequestException(t.circle.circleFull);
+      }
+    }
+
+    // Create members
+    await this.prisma.$transaction(
+      newMemberIds.map((targetUserId) =>
+        this.prisma.circleMember.create({
+          data: {
+            circleId,
+            userId: targetUserId,
+            role: MemberRole.MEMBER,
+          },
+        }),
+      ),
+    );
+
+    return {
+      success: true,
+      statusCode: 200,
+      message: t.circle.addMembersSuccess,
+      data: newMemberIds,
+    };
+  }
+
+  /**
+   * Retrieves all members of a Circle
+   */
+  async getMembers(circleId: string, userId: string, locale: Locale = 'vi') {
+    const t = locales[locale] || locales.vi;
+
+    const circle = await this.prisma.circle.findUnique({
+      where: { id: circleId },
+      select: { id: true, isPrivate: true, deletedAt: true },
+    });
+
+    if (!circle || circle.deletedAt !== null) {
+      throw new NotFoundException(t.circle.notFound);
+    }
+
+    if (circle.isPrivate) {
+      const membership = await this.prisma.circleMember.findUnique({
+        where: { circleId_userId: { circleId, userId } },
+      });
+      if (!membership) {
+        throw new ForbiddenException(t.circle.privateForbidden);
+      }
+    }
+
+    const members = await this.prisma.circleMember.findMany({
+      where: { circleId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            profile: true,
+          },
+        },
+      },
+      orderBy: [{ role: 'asc' }, { joinedAt: 'asc' }],
+    });
+
+    return {
+      success: true,
+      statusCode: 200,
+      data: members.map((m) => ({
+        id: m.id,
+        userId: m.userId,
+        role: m.role,
+        nickname: m.nickname,
+        joinedAt: m.joinedAt,
+        user: {
+          id: m.user.id,
+          email: m.user.email,
+          profile: m.user.profile,
+        },
+      })),
+    };
+  }
+
+  /**
+   * Removes a member from Circle (OWNER only, cannot remove self or another owner)
+   */
+  async removeMember(
+    circleId: string,
+    userId: string,
+    targetMemberId: string,
+    locale: Locale = 'vi',
+  ) {
+    const t = locales[locale] || locales.vi;
+
+    const caller = await this.prisma.circleMember.findUnique({
+      where: { circleId_userId: { circleId, userId } },
+    });
+
+    if (!caller || caller.role !== MemberRole.OWNER) {
+      throw new ForbiddenException(t.circle.updateForbidden);
+    }
+
+    const target = await this.prisma.circleMember.findUnique({
+      where: { id: targetMemberId },
+    });
+
+    if (!target || target.circleId !== circleId) {
+      throw new NotFoundException(t.circle.notFound);
+    }
+
+    // Cannot remove owner
+    if (target.role === MemberRole.OWNER) {
+      throw new ForbiddenException(t.circle.updateForbidden);
+    }
+
+    // Cannot remove self via kick (use leave instead)
+    if (target.id === caller.id) {
+      throw new ForbiddenException(t.circle.updateForbidden);
+    }
+
+    await this.prisma.circleMember.delete({
+      where: { id: targetMemberId },
+    });
+
+    return {
+      success: true,
+      statusCode: 200,
+      message: t.circle.updateSuccess,
+    };
+  }
+
+  /**
+   * Updates a member's nickname in the Circle (Caller must be in Circle)
+   */
+  async updateMemberNickname(
+    circleId: string,
+    userId: string,
+    targetMemberId: string,
+    nickname?: string | null,
+    locale: Locale = 'vi',
+  ) {
+    const t = locales[locale] || locales.vi;
+
+    const caller = await this.prisma.circleMember.findUnique({
+      where: { circleId_userId: { circleId, userId } },
+    });
+
+    if (!caller) {
+      throw new ForbiddenException(t.circle.privateForbidden);
+    }
+
+    const target = await this.prisma.circleMember.findUnique({
+      where: { id: targetMemberId },
+    });
+
+    if (!target || target.circleId !== circleId) {
+      throw new NotFoundException(t.circle.notFound);
+    }
+
+    const cleanNickname = nickname?.trim() || null;
+
+    const updated = await this.prisma.circleMember.update({
+      where: { id: targetMemberId },
+      data: { nickname: cleanNickname },
+      include: {
+        user: { select: { id: true, email: true, profile: true } },
+      },
+    });
+
+    return {
+      success: true,
+      statusCode: 200,
+      message: t.circle.nicknameUpdated,
+      data: {
+        id: updated.id,
+        userId: updated.userId,
+        role: updated.role,
+        nickname: updated.nickname,
+        joinedAt: updated.joinedAt,
+        user: updated.user,
+      },
+    };
+  }
+
+  /**
+   * Leaves a Circle (Owner must transfer ownership if other members exist)
+   */
+  async leaveCircle(circleId: string, userId: string, locale: Locale = 'vi') {
+    const t = locales[locale] || locales.vi;
+
+    const caller = await this.prisma.circleMember.findUnique({
+      where: { circleId_userId: { circleId, userId } },
+    });
+
+    if (!caller) {
+      throw new NotFoundException(t.circle.notFound);
+    }
+
+    if (caller.role === MemberRole.OWNER) {
+      const memberCount = await this.prisma.circleMember.count({
+        where: { circleId },
+      });
+      if (memberCount > 1) {
+        throw new ForbiddenException(t.circle.ownerCannotLeaveMustTransfer);
+      }
+    }
+
+    await this.prisma.circleMember.delete({
+      where: { id: caller.id },
+    });
+
+    return {
+      success: true,
+      statusCode: 200,
+      message: t.circle.updateSuccess,
+    };
+  }
+
+  /**
+   * Transfers ownership to another member (OWNER only, demoting old owner to MEMBER)
+   */
+  async transferOwnership(
+    circleId: string,
+    userId: string,
+    newOwnerMemberId: string,
+    locale: Locale = 'vi',
+  ) {
+    const t = locales[locale] || locales.vi;
+
+    const caller = await this.prisma.circleMember.findUnique({
+      where: { circleId_userId: { circleId, userId } },
+    });
+
+    if (!caller || caller.role !== MemberRole.OWNER) {
+      throw new ForbiddenException(t.circle.updateForbidden);
+    }
+
+    const target = await this.prisma.circleMember.findUnique({
+      where: { id: newOwnerMemberId },
+    });
+
+    if (!target || target.circleId !== circleId || target.id === caller.id) {
+      throw new NotFoundException(t.circle.notFound);
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.circleMember.update({
+        where: { id: caller.id },
+        data: { role: MemberRole.MEMBER },
+      }),
+      this.prisma.circleMember.update({
+        where: { id: target.id },
+        data: { role: MemberRole.OWNER },
+      }),
+    ]);
+
+    return {
+      success: true,
+      statusCode: 200,
+      message: t.circle.updateSuccess,
+    };
+  }
+
+  /**
+   * Submits a request to join a private Circle
+   */
+  async requestToJoin(
+    circleId: string,
+    userId: string,
+    input: CreateJoinRequestInput,
+    locale: Locale = 'vi',
+  ) {
+    const t = locales[locale] || locales.vi;
+
+    const circle = await this.prisma.circle.findUnique({
+      where: { id: circleId },
+      include: {
+        members: { where: { userId } },
+      },
+    });
+
+    if (!circle || circle.deletedAt !== null) {
+      throw new NotFoundException(t.circle.notFound);
+    }
+
+    if (circle.members && circle.members.length > 0) {
+      throw new ConflictException(t.circle.joinRequestAlreadyMember);
+    }
+
+    const currentMemberCount = await this.prisma.circleMember.count({ where: { circleId } });
+    if (circle.maxMembers !== null && currentMemberCount >= circle.maxMembers) {
+      throw new BadRequestException(t.circle.circleFull);
+    }
+
+    const existingRequest = await this.prisma.circleJoinRequest.findUnique({
+      where: { circleId_userId: { circleId, userId } },
+    });
+
+    if (existingRequest && existingRequest.status === 'PENDING') {
+      throw new ConflictException(t.circle.joinRequestAlreadyPending);
+    }
+
+    if (existingRequest) {
+      await this.prisma.circleJoinRequest.update({
+        where: { id: existingRequest.id },
+        data: {
+          status: 'PENDING',
+          message: input.message?.trim() || null,
+        },
+      });
+    } else {
+      await this.prisma.circleJoinRequest.create({
+        data: {
+          circleId,
+          userId,
+          message: input.message?.trim() || null,
+          status: 'PENDING',
+        },
+      });
+    }
+
+    return {
+      success: true,
+      statusCode: 201,
+      message: t.circle.joinRequestSent,
+    };
+  }
+
+  /**
+   * Retrieves all pending join requests for a Circle (OWNER only)
+   */
+  async getJoinRequests(circleId: string, userId: string, locale: Locale = 'vi') {
+    const t = locales[locale] || locales.vi;
+
+    const caller = await this.prisma.circleMember.findUnique({
+      where: { circleId_userId: { circleId, userId } },
+    });
+
+    if (!caller || caller.role !== MemberRole.OWNER) {
+      throw new ForbiddenException(t.circle.updateForbidden);
+    }
+
+    const requests = await this.prisma.circleJoinRequest.findMany({
+      where: { circleId, status: 'PENDING' },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            profile: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return {
+      success: true,
+      statusCode: 200,
+      data: requests,
+    };
+  }
+
+  /**
+   * Reviews (Approve/Reject) a join request (OWNER only)
+   */
+  async reviewJoinRequest(
+    circleId: string,
+    userId: string,
+    requestId: string,
+    input: ReviewJoinRequestInput,
+    locale: Locale = 'vi',
+  ) {
+    const t = locales[locale] || locales.vi;
+
+    const caller = await this.prisma.circleMember.findUnique({
+      where: { circleId_userId: { circleId, userId } },
+    });
+
+    if (!caller || caller.role !== MemberRole.OWNER) {
+      throw new ForbiddenException(t.circle.updateForbidden);
+    }
+
+    const request = await this.prisma.circleJoinRequest.findFirst({
+      where: { id: requestId, circleId, status: 'PENDING' },
+    });
+
+    if (!request) {
+      throw new NotFoundException(t.circle.notFound);
+    }
+
+    if (input.status === 'APPROVED') {
+      const circleData = await this.prisma.circle.findUnique({
+        where: { id: circleId },
+        select: { maxMembers: true },
+      });
+      const currentMemberCount = await this.prisma.circleMember.count({ where: { circleId } });
+      if (circleData?.maxMembers !== null && circleData?.maxMembers !== undefined && currentMemberCount >= circleData.maxMembers) {
+        throw new BadRequestException(t.circle.circleFull);
+      }
+
+      await this.prisma.$transaction([
+        this.prisma.circleMember.upsert({
+          where: { circleId_userId: { circleId, userId: request.userId } },
+          update: { role: MemberRole.MEMBER },
+          create: { circleId, userId: request.userId, role: MemberRole.MEMBER },
+        }),
+        this.prisma.circleJoinRequest.update({
+          where: { id: requestId },
+          data: { status: 'APPROVED' },
+        }),
+      ]);
+
+      return {
+        success: true,
+        statusCode: 200,
+        message: t.circle.joinRequestApproved,
+      };
+    } else {
+      await this.prisma.circleJoinRequest.update({
+        where: { id: requestId },
+        data: { status: 'REJECTED' },
+      });
+
+      return {
+        success: true,
+        statusCode: 200,
+        message: t.circle.joinRequestRejected,
+      };
+    }
   }
 }

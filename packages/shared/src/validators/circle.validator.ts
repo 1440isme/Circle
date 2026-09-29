@@ -46,6 +46,7 @@ export function createCircleSchemas(locale: Locale = 'vi') {
         .optional()
         .or(z.literal('')),
       isPrivate: z.boolean().optional(),
+      maxMembers: z.number().int().min(2).max(1000).optional().nullable(),
     })
     .refine(
       (data) => {
@@ -95,6 +96,7 @@ export function createCircleSchemas(locale: Locale = 'vi') {
       .optional()
       .or(z.literal('')),
     isPrivate: z.boolean().optional(),
+    maxMembers: z.number().int().min(2).max(1000).optional().nullable(),
   });
 
   const joinCircleSchema = z.object({
@@ -108,10 +110,61 @@ export function createCircleSchemas(locale: Locale = 'vi') {
       .toUpperCase(),
   });
 
+  const createInviteSchema = z.object({
+    expiresInDays: z
+      .number()
+      .int()
+      .min(1, v.circleInviteExpiryMin)
+      .max(365, v.circleInviteExpiryMax)
+      .optional()
+      .nullable(),
+    maxUses: z
+      .number()
+      .int()
+      .min(1, v.circleInviteMaxUsesMin)
+      .max(1000, v.circleInviteMaxUsesMax)
+      .optional()
+      .nullable(),
+  });
+
+  const createJoinRequestSchema = z.object({
+    message: z
+      .string()
+      .trim()
+      .max(500, v.circleJoinRequestMessageMaxLength)
+      .optional()
+      .or(z.literal('')),
+  });
+
+  const reviewJoinRequestSchema = z.object({
+    status: z.enum(['APPROVED', 'REJECTED'], {
+      message: v.circleJoinRequestStatusRequired,
+    }),
+  });
+
+  const transferOwnershipSchema = z.object({
+    newOwnerMemberId: z.string().trim().min(1, v.circleNewOwnerRequired),
+  });
+
   return {
     createCircleSchema,
     updateCircleSchema,
     joinCircleSchema,
+    createInviteSchema,
+    createJoinRequestSchema,
+    reviewJoinRequestSchema,
+    transferOwnershipSchema,
+    updateNicknameSchema: z.object({
+      nickname: z
+        .string()
+        .trim()
+        .max(50, v.circleNicknameMaxLength)
+        .optional()
+        .nullable(),
+    }),
+    addMembersSchema: z.object({
+      memberIds: z.array(z.string().min(1)).min(1, v.circleNameOrFriendsRequired),
+    }),
   };
 }
 
@@ -121,7 +174,19 @@ const defaultSchemas = createCircleSchemas('vi');
 export const createCircleSchema = defaultSchemas.createCircleSchema;
 export const updateCircleSchema = defaultSchemas.updateCircleSchema;
 export const joinCircleSchema = defaultSchemas.joinCircleSchema;
+export const createInviteSchema = defaultSchemas.createInviteSchema;
+export const createJoinRequestSchema = defaultSchemas.createJoinRequestSchema;
+export const reviewJoinRequestSchema = defaultSchemas.reviewJoinRequestSchema;
+export const transferOwnershipSchema = defaultSchemas.transferOwnershipSchema;
+export const updateNicknameSchema = defaultSchemas.updateNicknameSchema;
+export const addMembersSchema = defaultSchemas.addMembersSchema;
 
 export type CreateCircleInput = z.infer<typeof createCircleSchema>;
 export type UpdateCircleInput = z.infer<typeof updateCircleSchema>;
 export type JoinCircleInput = z.infer<typeof joinCircleSchema>;
+export type CreateInviteInput = z.infer<typeof createInviteSchema>;
+export type CreateJoinRequestInput = z.infer<typeof createJoinRequestSchema>;
+export type ReviewJoinRequestInput = z.infer<typeof reviewJoinRequestSchema>;
+export type TransferOwnershipInput = z.infer<typeof transferOwnershipSchema>;
+export type UpdateNicknameInput = z.infer<typeof updateNicknameSchema>;
+export type AddMembersInput = z.infer<typeof addMembersSchema>;

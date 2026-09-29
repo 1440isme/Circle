@@ -76,6 +76,12 @@ export enum CallStatus {
   ENDED = "ENDED",
 }
 
+export enum JoinRequestStatus {
+  PENDING = "PENDING",
+  APPROVED = "APPROVED",
+  REJECTED = "REJECTED",
+}
+
 // =============================================================================
 // AUTH CONTRACTS
 // =============================================================================
@@ -128,6 +134,7 @@ export interface CircleEntity extends BaseEntity {
   description?: string | null;
   inviteCode: string;
   isPrivate: boolean;
+  maxMembers?: number | null;
 }
 
 export interface CircleDetailResponse extends CircleEntity {
@@ -145,6 +152,24 @@ export interface CircleMemberEntity {
   nickname?: string | null;
   joinedAt: string;
   updatedAt: string;
+  user?: UserEntity;
+}
+
+export interface CircleInviteEntity extends BaseEntity {
+  circleId: string;
+  code: string;
+  createdById: string;
+  expiresAt?: string | null;
+  maxUses?: number | null;
+  useCount: number;
+  createdBy?: CircleMemberEntity;
+}
+
+export interface CircleJoinRequestEntity extends BaseEntity {
+  circleId: string;
+  userId: string;
+  message?: string | null;
+  status: JoinRequestStatus;
   user?: UserEntity;
 }
 
