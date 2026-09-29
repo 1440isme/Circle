@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Search, Bell, Sparkles, Shield, LogOut, ChevronDown, User as UserIcon } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguageStore } from '../../stores/language.store';
+import { useCircleStore } from '../../stores/circle.store';
 import { LanguageSwitcher } from '../common/LanguageSwitcher';
 import { ThemeToggle } from '../common/ThemeToggle';
 
@@ -17,6 +18,8 @@ function getInitials(name: string): string {
 export const Header: React.FC = () => {
   const { user, isAuthenticated, isLoading, logout } = useAuth();
   const t = useLanguageStore((s) => s.t);
+  const activeCircle = useCircleStore((s) => s.activeCircle);
+  const setActiveCircle = useCircleStore((s) => s.setActiveCircle);
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -38,18 +41,30 @@ export const Header: React.FC = () => {
     <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-circle-hairline dark:border-circle-dark-hairline bg-white/80 dark:bg-circle-dark-surface/80 px-6 backdrop-blur-md transition-colors">
       {/* Brand & Active Circle indicator */}
       <div className="flex items-center gap-4">
-        <Link href="/" className="flex items-center gap-2.5 group">
+        <Link
+          href="/"
+          onClick={() => setActiveCircle(null)}
+          className="flex items-center gap-2.5 group"
+        >
           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-circle-primary text-circle-charcoal shadow-sm transition-transform group-hover:scale-105">
             <span className="text-lg font-bold">C</span>
           </div>
           <span className="text-xl font-bold tracking-tight text-circle-charcoal dark:text-circle-dark-text">{t.common.appName}</span>
         </Link>
-        <div className="h-4 w-px bg-circle-hairline dark:bg-circle-dark-hairline" />
-        <div className="flex items-center gap-2 rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas px-3 py-1 text-sm font-medium text-circle-charcoal dark:text-circle-dark-text">
-          <span className="flex h-2 w-2 rounded-full bg-circle-primary animate-presence-breathe" />
-          <span>{t.nav.noActiveCircle}</span>
-          <Shield className="h-3.5 w-3.5 text-circle-sage" />
-        </div>
+        {activeCircle && (
+          <>
+            <div className="h-4 w-px bg-circle-hairline dark:bg-circle-dark-hairline" />
+            <button
+              type="button"
+              onClick={() => setActiveCircle(null)}
+              className="flex items-center gap-2 rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas px-3 py-1 text-sm font-medium text-circle-charcoal dark:text-circle-dark-text hover:border-circle-sage/50 transition-colors"
+            >
+              <span className="flex h-2 w-2 rounded-full bg-circle-primary animate-presence-breathe" />
+              <span>{activeCircle.name}</span>
+              <Shield className="h-3.5 w-3.5 text-circle-sage" />
+            </button>
+          </>
+        )}
       </div>
 
       {/* Global Search Bar (Pill shape) */}

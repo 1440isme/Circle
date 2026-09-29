@@ -21,7 +21,12 @@ export class ZodValidationPipe implements PipeTransform {
     @Optional() @Inject(REQUEST) private readonly request?: Request,
   ) {}
 
-  transform(value: unknown, _metadata: ArgumentMetadata) {
+  transform(value: unknown, metadata: ArgumentMetadata) {
+    // Only validate request body; skip custom decorators like @CurrentUser() or route params
+    if (metadata.type !== 'body') {
+      return value;
+    }
+
     let schema: ZodSchema;
 
     if (typeof this.schemaOrFactory === 'function') {

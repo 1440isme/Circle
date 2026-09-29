@@ -1373,6 +1373,7 @@
 
 ---
 
+<<<<<<< HEAD
 ## AI-0037: Initialize Mobile App Shell with Full Auth Flow, SecureStore and Bilingual Themes
 
 - **Date:** 2026-09-27 20:40:00 +07:00
@@ -1926,12 +1927,277 @@
 - **Commit:** `b752f1e`
 - **PR:** #58 (https://github.com/1440isme/Circle/pull/58)
 
+---
 
+## AI-0050: Triển khai Module 3 — US-CIRCLE-001: Circle Creation, Handle Reservation & Channel Hierarchy
 
+- **Date:** 2026-09-28 14:15:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #4 ([SUB-FEAT]: US-CIRCLE-001 — Circle Creation, Handle Reservation & Channel Hierarchy (Parent: #19))
+- **Purpose:**
+  1. Định nghĩa Zod validation schemas tập trung tại `packages/shared/src/validators/circle.validator.ts` (`createCircleSchemas`, `createCircleSchema`, `updateCircleSchema`) làm Single Source of Truth cho toàn bộ Web/Mobile client và Backend DTOs theo đúng quy chuẩn kiến trúc PR 58.
+  2. Bổ sung trường `handle` (unique slug, indexed) vào model `Circle` trong Prisma (`schema.prisma`), tạo và áp dụng migration `20260927101500_add_circle_handle` lên PostgreSQL database.
+  3. Kế thừa và tương thích 100% với `ZodValidationPipe` song ngữ (`Scope.REQUEST`, `SchemaFactory`) của PR 58 tại `apps/backend/src/common/pipes/zod-validation.pipe.ts`, hỗ trợ tự động bóc tách ngôn ngữ từ request header (`x-circle-locale` / `accept-language`).
+  4. Triển khai `CirclesModule` (`CirclesController`, `CirclesService`, DTOs) trong NestJS: thực hiện tạo nhóm theo atomic transaction (tạo Circle, gán người tạo làm `OWNER`, tạo kênh mặc định `#general`), truy vấn danh sách Circle của người dùng, lấy chi tiết Circle, kiểm tra trùng lặp handle trả về `409 Conflict`.
+  5. Xây dựng bộ Unit Test `circles.service.spec.ts` đạt 100% độ bao phủ cho `US-CIRCLE-001` (TC-CIRCLE-001 đến TC-CIRCLE-004).
+  6. Xây dựng Zustand store `useCircleStore` (`apps/web/src/stores/circle.store.ts`) và bộ TanStack Query hooks (`apps/web/src/hooks/use-circle-queries.ts`: `useMyCirclesQuery`, `useCircleDetailQuery`, `useCreateCircleMutation`).
+  7. Triển khai component `CreateCircleModal` với giao diện Apple HIG, kiểm thực form trực tiếp bằng `createCircleSchema` từ `@circle/shared`, tích hợp vào `Sidebar.tsx` cùng bộ hiển thị danh sách Circle động và auto-selection.
+- **Prompt Summary:** "oke giờ hãy bắt đầu làm module 3 nhé", "validation dùng zod theo quy chuẩn không được tự tiện dùng các công cụ không được thiết kế từ trước. vui lòng đọc kỹ các yêu cầu", "frontend thì dùng tanstack và zustan", "Invalid input: expected string, received undefined tôi đang mắc phải lỗi này khi tạo circle", "à tôi nhắc lại là bạn phải tuân thủ PR 58 nhé"
+- **Files Affected:**
+  - `packages/shared/src/validators/circle.validator.ts`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `packages/shared/src/index.ts`
+  - `packages/types/src/index.ts`
+  - `apps/backend/prisma/schema.prisma`
+  - `apps/backend/prisma/migrations/20260927101500_add_circle_handle/migration.sql`
+  - `apps/backend/src/common/pipes/zod-validation.pipe.ts`
+  - `apps/backend/src/modules/circles/dto/create-circle.dto.ts`
+  - `apps/backend/src/modules/circles/dto/update-circle.dto.ts`
+  - `apps/backend/src/modules/circles/circles.service.ts`
+  - `apps/backend/src/modules/circles/circles.controller.ts`
+  - `apps/backend/src/modules/circles/circles.module.ts`
+  - `apps/backend/src/modules/circles/circles.service.spec.ts`
+  - `apps/backend/src/app.module.ts`
+  - `apps/web/src/stores/circle.store.ts`
+  - `apps/web/src/hooks/use-circle-queries.ts`
+  - `apps/web/src/components/circle/CreateCircleModal.tsx`
+  - `apps/web/src/components/navigation/Sidebar.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% mã nguồn Zod schemas, backend module, unit test suites, Zustand store, TanStack Query hooks, từ điển song ngữ và modal giao diện.
+- **Human Modifications:** Kỹ sư Ninh Thị Mỹ Hạnh trực tiếp chấn chỉnh và yêu cầu tuân thủ nghiêm ngặt Single Source of Truth cho validation bằng Zod, bắt buộc dùng TanStack Query cùng Zustand cho Frontend, và tuân thủ tuyệt đối quy chuẩn kỹ thuật của PR 58 (Zero Hardcoded Strings, Zero Mock Data, Bilingual Schema Factories).
+- **Verification Method:**
+  - `npm test -w @circle/backend`: 26/26 tests passed (100% pass rate).
+  - `npm run build -w @circle/backend`: NestJS build thành công với 0 lỗi TypeScript.
+  - `npm run build -w @circle/web`: Next.js 14 production build hoàn tất thành công 9/9 trang tĩnh với 0 lỗi.
+  - `npx tsc --noEmit` trong `apps/mobile`: 0 errors.
+  - `bash ./scripts/check-agent-map.sh`: 93/93 framework files pass 100%.
+- **Official Source Checked:** SRS (UC07: Create Circle), Capability `CAP-CIRCLE-01`, PR 58, `PROJECT_GOD.md`.
+- **Security & License Check:** An toàn, không chứa secrets, bảo vệ truy cập Circle riêng tư qua role check.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:**
+    1. Ở lần biên dịch đầu tiên của `ZodValidationPipe`, thuộc tính truy xuất lỗi của Zod v4 sử dụng `result.error.errors` thay vì `result.error.issues`, dẫn đến lỗi type check `Property 'errors' does not exist on type 'ZodError<unknown>'`.
+    2. Khi người dùng thực hiện tạo Circle, hệ thống báo lỗi `400 Bad Request: Invalid input: expected string, received undefined` cho cả hai trường `name` và `handle`.
+    3. Form và validator ban đầu chứa các chuỗi tiếng Việt hardcoded vi phạm Rule 8 & 9 và PR 58.
+  - **Root Cause:**
+    1. Cú pháp ZodError trong Zod 4 định nghĩa danh sách issues tại `result.error.issues`.
+    2. Khi khai báo `@UsePipes(new ZodValidationPipe(...))` ở cấp độ method Controller, NestJS thực thi pipe trên tất cả các tham số của action, bao gồm `@CurrentUser() user`. Vì custom param decorator chưa được giải quyết trước pipe execution (`value === undefined`), `ZodValidationPipe` tiến hành parse `undefined` và văng lỗi schema validation ngay trước khi `@Body()` được nạp.
+    3. Thiếu việc trích xuất và liên kết với từ điển `packages/shared/src/locales/` (`vi.ts`, `en.ts`).
+  - **Resolution / Fix:**
+    1. Cập nhật `result.error.issues.map(...)`.
+    2. Trong `ZodValidationPipe`, bổ sung điều kiện lọc `if (metadata.type !== 'body') return value;`. Đồng thời chuyển pipe gắn trực tiếp vào tham số payload `@Body(new ZodValidationPipe((locale) => createCircleSchemas(locale).createCircleSchema))` tại `CirclesController` để bảo đảm chỉ kiểm thực body.
+    3. Thêm toàn bộ các khóa từ điển `validation` và `circle` vào `vi.ts` và `en.ts`, xuất `createCircleSchemas(locale)` động và dùng `t.circle.*` trong `CreateCircleModal` và `Sidebar`.
+- **Commit:** `0847ede`
+- **PR:** #59
 
+---
 
+## AI-0051: Nâng cấp luồng Khởi tạo Circle — Hỗ trợ 2 Chế độ: Chọn bạn bè (Tên tự động) & Đặt tên tối giản (Handle tự sinh)
 
+- **Date:** 2026-09-28 16:15:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #4 ([SUB-FEAT]: US-CIRCLE-001 — Circle Creation, Handle Reservation & Channel Hierarchy (Parent: #19))
+- **Purpose:** Nâng cấp chức năng tạo Vòng tròn theo yêu cầu đặc tả UX từ kỹ sư Ninh Thị Mỹ Hạnh:
+  1. **Hình thức 1 (Chọn từ bạn bè):** Cho phép người dùng chọn các thành viên từ danh sách bạn bè khả dụng (`GET /api/v1/circles/friends/selectable`). Tên Vòng tròn được hệ thống tự động sinh bằng cách ghép tên hiển thị của các thành viên được chọn. Tự động sinh `handle` duy nhất và thêm các thành viên vào Vòng tròn ngay khi khởi tạo mà không yêu cầu người dùng phải tự điền các trường metadata rườm rà.
+  2. **Hình thức 2 (Tạo bằng tên):** Chỉ cần duy nhất 1 ô nhập "Tên Vòng tròn". Bỏ qua trường Handle và mô tả ngắn khi khởi tạo; hệ thống tự động chuẩn hóa và sinh mã `handle` URL-friendly duy nhất chống xung đột (slug + mã hex ngẫu nhiên) làm liên kết Vòng tròn (`circle.app/@{handle}`).
+  3. Cập nhật `createCircleSchema` tại `packages/shared/src/validators/circle.validator.ts`: cho phép `handle` và `description` là tùy chọn, hỗ trợ mảng `memberIds: string[]`, kiểm thực điều kiện ràng buộc (yêu cầu tên nhóm hoặc ít nhất 1 bạn bè).
+  4. Bổ sung các khóa từ điển song ngữ mới (`tabCreateByName`, `tabSelectFriends`, `friendsSearchPlaceholder`, `selectedFriendsCount`, `tempGroupNameHint`, `autoHandleNotice`, `createWithFriendsBtn`, `createByNameBtn`, v.v.) vào `vi.ts` và `en.ts`.
+  5. Cập nhật backend `CirclesService`: thêm logic tự động sinh handle duy nhất (`generateUniqueHandle`), ghép tên thành viên khi thiếu tên nhóm, gán các bạn bè được chọn làm `CircleMember` (`MEMBER`), và endpoint `getSelectableFriends`.
+  6. Mở rộng bộ kiểm thử đơn vị `circles.service.spec.ts` (đạt 30/30 tests pass 100%).
+  7. Tái thiết kế modal `CreateCircleModal.tsx` trên Web UI theo chuẩn Apple HIG với 2 tab chuyển đổi mượt mà, bộ lọc tìm kiếm bạn bè, hiển thị danh sách trực quan, trạng thái đã chọn và bảo đảm 100% Zero Hardcoded Strings qua `t.circle.*`.
+- **Prompt Summary:** "về chức năng tạo circle tôi muôn có 2 hình thức 1 là chọn thành viên trong list bạn bè và khởi tạo nhóm luôn bỏ qua thông tin kia, tên nhóm hiển thị hiện tạm thời là tên các thành viên. 2 là tạo nhóm chỉ cần điền thông tin là tên nhóm thôi còn mã Handle định danh duy nhất ko cần và tự động sinh sau khi tạo (là đường link liên kết dạng vậy), bỏ luôn mô tả ngắn khi khởi tạo"
+- **Files Affected:**
+  - `packages/types/src/index.ts`
+  - `packages/shared/src/validators/circle.validator.ts`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `apps/backend/src/modules/circles/circles.service.ts`
+  - `apps/backend/src/modules/circles/circles.controller.ts`
+  - `apps/backend/src/modules/circles/circles.service.spec.ts`
+  - `apps/web/src/hooks/use-circle-queries.ts`
+  - `apps/web/src/components/circle/CreateCircleModal.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% mã nguồn cập nhật schemas, controller, service, test cases, queries và giao diện modal.
+- **Human Modifications:** Kỹ sư Ninh Thị Mỹ Hạnh trực tiếp định hình và yêu cầu tái cấu trúc luồng tạo Circle thành 2 hình thức tinh gọn, tiện dụng, tự động hóa handle và ghép tên bạn bè.
+- **Verification Method:**
+  - `npm test -w @circle/backend`: 30/30 tests passed 100%.
+  - `npm run build -w @circle/backend`: NestJS build thành công với 0 lỗi TypeScript.
+  - `npm run build -w @circle/web`: Next.js 14 production build thành công 9/9 trang tĩnh với 0 lỗi.
+  - `npx tsc --noEmit` trong `apps/mobile`: 0 errors.
+  - `bash ./scripts/check-agent-map.sh`: 93/93 framework files pass 100%.
+- **Official Source Checked:** `PROJECT_GOD.md`, SRS (UC07: Create Circle), `agentic/RULES.md`.
+- **Security & License Check:** An toàn tuyệt đối, không có bí mật hay lỗ hổng bảo mật.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** Kiểu `isPrivate` trong `createCircleSchema` ban đầu dùng `.default(false)` làm `z.infer` yêu cầu bắt buộc trường `isPrivate` trong TypeScript input type, gây lỗi biên dịch trong test cases `{ name: '...' }`. Ngoài ra hàm `getSelectableFriends` trả về `displayName` kiểu `string | undefined` do `split('@')[0]`.
+  - **Root Cause:** Khác biệt giữa Zod output type và input type khi dùng `.default()`; xử lý chuỗi phân tách có thể trả về undefined trong TypeScript strict mode.
+  - **Resolution / Fix:** Chuyển `isPrivate: z.boolean().optional()` trong schema; bổ sung fallback `|| friend.email` để đảm bảo `displayName: string`.
+- **Commit:** `3b2d370`
+- **PR:** #59
 
+---
+
+## AI-0052: Tái cấu trúc UX Home Hub (Single-Column) & Không gian Bảng tin Vòng tròn (3-Column Workspace)
+
+- **Date:** 2026-09-28 16:56:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #4 ([SUB-FEAT]: US-CIRCLE-001 — Circle Creation, Handle Reservation & Channel Hierarchy (Parent: #19))
+- **Purpose:** Thống nhất và hiện thực hóa trải nghiệm người dùng (UX Layout) theo thảo luận với kỹ sư Ninh Thị Mỹ Hạnh:
+  1. **Home Hub (Single-Column View):** Khi mới vào ứng dụng web (hoặc khi `activeCircle === null`), giao diện chỉ hiển thị 1 cột trung tâm tinh giản, ẩn hoàn toàn Sidebar bên trái và PresenceRail bên phải. Cột giữa hiển thị lưới danh thiếp các Vòng tròn đã tham gia (`myCirclesHeading`), kèm vai trò (Owner/Member), số thành viên và nút truy cập hoặc tạo Vòng tròn mới.
+  2. **Active Circle Workspace (3-Column View):** Khi người dùng nhấp chọn hoặc vừa tạo xong một Vòng tròn (`activeCircle !== null`), toàn bộ không gian làm việc 3 cột chuẩn sẽ hiển thị (Sidebar kênh thảo luận bên trái, Bảng tin/hội thoại nhóm ở giữa, PresenceRail thành viên bên phải).
+  3. **Chia sẻ và Mời nhóm:** Tại Bảng tin Vòng tròn, bổ sung header hiển thị tên, biểu tượng bảo mật/công khai, nút "Sao chép liên kết" (`circle.app/@handle`) và nút sao chép "Mã mời" (`inviteCode`) có thông báo clipboard trực quan.
+  4. **Nút quay về Trang chủ:** Tích hợp nút "Trang chủ" trên Sidebar và liên kết logo Header để người dùng linh hoạt quay về danh sách Vòng tròn bất cứ lúc nào.
+  5. **Bảo toàn PR 58:** Đảm bảo 100% không hardcode chuỗi hoặc mã màu, bổ sung đầy đủ bộ khóa song ngữ (`homeNav`, `myCirclesHeading`, `myCirclesSubheading`, `enterCircleBtn`, `roleOwner`, `roleMember`, `copyLinkBtn`, `linkCopiedNotice`, `inviteCodeLabel`, `circleFeedTitle`, `circleFeedSubtitle`, `backToHome`) vào cả `vi.ts` và `en.ts`. Sửa chữa namespace `t.home.*` trong `FeedStream.tsx`.
+- **Prompt Summary:** "với phần giao diện này tôi nghĩ khi với vào web chỉ có phần ở giữa nhỉ còn khi vô nhóm sẽ thay cái đó bằng bảng tin hay đoạn hội thoại chẳng hạn nhỉ ... có nên ẩn cột bên trái luôn ko nhỉ ... oke chọn cách 1 là ở cột giữa nó cũng có nhóm đã tham gia để chọn khi chọn hoặc tham gia rồi mở ra trang hiện tại sau đó cái giữa sẽ thay là kiểu bản tin nhóm"
+- **Files Affected:**
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `apps/web/src/app/page.tsx`
+  - `apps/web/src/components/header/Header.tsx`
+  - `apps/web/src/components/navigation/Sidebar.tsx`
+  - `apps/web/src/components/stream/FeedStream.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% mã nguồn cập nhật layout phản ứng, quản lý trạng thái chuyển đổi Home Hub/Active Workspace và các chuỗi từ điển bản địa hóa.
+- **Human Modifications:** Kỹ sư Ninh Thị Mỹ Hạnh trực tiếp định hướng giải pháp UX: ẩn 2 cột biên khi mới vào web để người dùng tập trung chọn nhóm ở cột giữa, sau khi chọn nhóm mới mở không gian 3 cột tương ứng.
+- **Verification Method:**
+  - `npm test -w @circle/backend`: 30/30 tests passed 100%.
+  - `npm run build -w @circle/backend`: NestJS build thành công với 0 lỗi TypeScript.
+  - `npm run build -w @circle/shared`: Shared package build thành công.
+  - `npm run build -w @circle/web`: Next.js 14 production build hoàn tất 9/9 trang tĩnh với 0 lỗi.
+  - `npx tsc --noEmit` trong `apps/mobile`: 0 errors.
+  - `bash ./scripts/check-agent-map.sh`: 93/93 framework files pass 100%.
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`, `agentic/CONVENTIONS.md`.
+- **Security & License Check:** An toàn tuyệt đối, tuân thủ nguyên tắc bảo mật và quy tắc của PR 58.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** Lỗi biên dịch TypeScript trong `FeedStream.tsx` do gọi `t.circle.circleFeedSubtitle` và `t.circle.circleFeedTitle` trong khi hai khóa này được khai báo ở namespace `home` của từ điển i18n (`packages/shared/src/locales/vi.ts` và `en.ts`).
+  - **Root Cause:** Nhầm lẫn namespace giữa `circle` và `home` khi truyền chuỗi đa ngôn ngữ.
+  - **Resolution / Fix:** Đồng bộ chuẩn hóa gọi `t.home.circleFeedSubtitle` và `t.home.circleFeedTitle` trong `FeedStream.tsx`.
+- **Commit:** `f0b1dec`
+- **PR:** #59
+
+---
+
+## AI-0053: Tinh chỉnh Header, Sidebar và Mount CreateCircleModal tại HomePage Root
+
+- **Date:** 2026-09-28 17:13:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #4 ([SUB-FEAT]: US-CIRCLE-001 — Circle Creation, Handle Reservation & Channel Hierarchy (Parent: #19))
+- **Purpose:** Tinh chỉnh các chi tiết UX và khắc phục sự cố mount modal theo phản hồi từ kỹ sư Ninh Thị Mỹ Hạnh:
+  1. **Ẩn chỉ báo "Chưa chọn Vòng tròn" trên Header:** Bọc điều kiện `{activeCircle && (...)}` để khi người dùng ở Home Hub (chưa chọn nhóm), Header không còn hiển thị nút viên thuốc "Chưa chọn Vòng tròn" cạnh logo CIRCLE, giữ cho thanh điều hướng sạch sẽ và thông thoáng.
+  2. **Khắc phục nút "Tạo Vòng tròn mới" trên Home Hub:** Trước đó component `CreateCircleModal` chỉ được mount bên trong `Sidebar.tsx`. Khi chuyển sang giao diện Single-Column Home Hub (`activeCircle === null`), `Sidebar` bị ẩn dẫn đến `CreateCircleModal` không được render trong DOM, khiến sự kiện bấm nút tạo nhóm không thể kích hoạt giao diện modal. Đã chuyển `CreateCircleModal` mount trực tiếp tại `HomePage` (`apps/web/src/app/page.tsx`) ở cấp trang gốc để luôn hoạt động tin cậy dù ở Home Hub hay trong nhóm.
+  3. **Tối giản Sidebar cột trái:** Xóa bỏ nút "Về trang chủ" trên Sidebar khi người dùng đã chọn nhóm, quy về một điểm chuyển hướng thống nhất và quen thuộc là logo thương hiệu CIRCLE trên Header.
+  4. **Bổ sung nút tạo nhanh:** Thêm nút "+ Tạo Vòng tròn" ngay cạnh huy hiệu đếm số lượng nhóm trong danh sách "Vòng tròn của bạn" trên Home Hub.
+- **Prompt Summary:** "oke bỏ chưa chọn vòng tròn ở trên thanh gần nút circle và ghi ở trang Home nút tạo vòng tròn mới chưa hoạt động, khi chọn nhóm xong bỏ cái về trang chủ ở cột trái luôn."
+- **Files Affected:**
+  - `apps/web/src/components/header/Header.tsx`
+  - `apps/web/src/components/navigation/Sidebar.tsx`
+  - `apps/web/src/components/stream/FeedStream.tsx`
+  - `apps/web/src/app/page.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% mã nguồn điều chỉnh hiển thị và tái cấu trúc vị trí component.
+- **Human Modifications:** Kỹ sư Ninh Thị Mỹ Hạnh kiểm thử thực tế và chỉ đạo loại bỏ các thành phần điều hướng dư thừa, sửa lỗi không mở modal trên Home Hub.
+- **Verification Method:**
+  - `npm run build -w @circle/web`: Next.js 14 production build hoàn tất 9/9 trang với 0 lỗi.
+  - `npm test -w @circle/backend`: 30/30 unit tests pass.
+  - `npx tsc --noEmit` trong `apps/mobile`: 0 lỗi.
+  - `bash ./scripts/check-agent-map.sh`: 93/93 files pass 100%.
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn tuyệt đối, tuân thủ nghiêm ngặt PR 58.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** Modal `CreateCircleModal` trước đó bị đặt sai phạm vi (bên trong `Sidebar`), dẫn tới khi component `Sidebar` unmounted ở chế độ Home Hub thì modal không thể hiển thị dù state Zustand đã cập nhật `isCreateModalOpen = true`.
+  - **Root Cause:** Phụ thuộc vị trí đặt component con trong cây React (Component Hierarchy coupling).
+  - **Resolution / Fix:** Nhấc `CreateCircleModal` ra ngoài và mount tại cấp trang `page.tsx` (Global Page Level).
+- **Commit:** `be12466`
+- **PR:** #59
+
+---
+
+## AI-0054: Hiện thực Chức năng Tham gia Vòng tròn bằng Mã mời (Join Circle with Invite Code)
+
+- **Date:** 2026-09-28 17:25:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #4 ([SUB-FEAT]: US-CIRCLE-001 — Circle Creation, Handle Reservation & Channel Hierarchy (Parent: #19))
+- **Purpose:** Xây dựng hoàn chỉnh chức năng tham gia Vòng tròn bằng mã mời (Join Circle with Invite Code) trực tiếp từ Home Hub theo yêu cầu của kỹ sư Ninh Thị Mỹ Hạnh:
+  1. **Schema kiểm thực Zod (`joinCircleSchema`):** Bổ sung vào `packages/shared/src/validators/circle.validator.ts`, kiểm soát độ dài mã mời 6–16 ký tự, chỉ gồm ký tự chữ cái và số, tự động chuyển đổi chữ hoa (uppercase) và loại bỏ khoảng trắng thừa (trim).
+  2. **Bản địa hóa song ngữ (PR 58):** Bổ sung đầy đủ các chuỗi validation và UI dictionary (`circleInviteCodeRequired`, `circleInviteCodeMinLength`, `circleInviteCodeMaxLength`, `circleInviteCodeInvalid`, `joinModalTitle`, `joinModalSubtitle`, `inviteCodeLabel`, `inviteCodePlaceholder`, `joinCircleBtn`, `joiningCircle`, `joinSuccess`, `inviteCodeNotFound`, `alreadyMember`, `joinModalHint`) vào cả `vi.ts` và `en.ts`.
+  3. **Backend API (`POST /api/v1/circles/join`):** Tích hợp endpoint bảo vệ với `ZodValidationPipe` và phương thức `joinByInviteCode` trong `CirclesService`. Xử lý các ngoại lệ nghiệp vụ chuẩn: mã không tồn tại hoặc Circle bị xóa (`NotFoundException`), người dùng đã là thành viên (`ConflictException`), thêm thành viên mới vai trò `MEMBER` và trả về thông tin Vòng tròn với số lượng thành viên cập nhật.
+  4. **Bộ kiểm thử đơn vị Jest:** Mở rộng `circles.service.spec.ts` với 3 test case kiểm thử toàn diện kịch bản tham gia thành công, mã không tồn tại và người dùng đã tham gia nhóm (đạt 33/33 tests pass 100%).
+  5. **Quản lý trạng thái & Cache đồng bộ:** Bổ sung `isJoinModalOpen` và `setJoinModalOpen` vào `circle.store.ts` (Zustand); xây dựng hook `useJoinCircleMutation()` (TanStack Query) tự động làm mới cache danh sách nhóm `['circles']` và tự động chuyển người dùng vào Vòng tròn vừa tham gia làm `activeCircle`.
+  6. **Giao diện Modal Apple HIG (`JoinCircleModal.tsx`):** Thiết kế dialog sang trọng với icon `KeyRound`, ô nhập mã mời phông monospace chữ hoa khổ lớn, tự động lọc ký tự hợp lệ, hiển thị lỗi Zod tức thì và cảnh báo máy chủ.
+  7. **Tích hợp Home Hub:** Mount `JoinCircleModal` tại cấp trang gốc `page.tsx` và liên kết sự kiện mở modal cho các nút "Tham gia bằng mã mời" trên banner chính và empty state trong `FeedStream.tsx`.
+- **Prompt Summary:** "oke sau khi đã tạo nhóm thành công giờ xây chức năng tham gia bằng mã mời ngoài trang home nào"
+- **Files Affected:**
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `packages/shared/src/validators/circle.validator.ts`
+  - `apps/backend/src/modules/circles/circles.service.ts`
+  - `apps/backend/src/modules/circles/circles.controller.ts`
+  - `apps/backend/src/modules/circles/circles.service.spec.ts`
+  - `apps/web/src/stores/circle.store.ts`
+  - `apps/web/src/hooks/use-circle-queries.ts`
+  - `apps/web/src/components/circle/JoinCircleModal.tsx`
+  - `apps/web/src/components/stream/FeedStream.tsx`
+  - `apps/web/src/app/page.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% mã nguồn schemas, controller, service, test cases, store, mutation và component modal.
+- **Human Modifications:** Kỹ sư Ninh Thị Mỹ Hạnh trực tiếp yêu cầu triển khai chức năng tham gia nhóm bằng mã mời ngay ngoài trang Home sau khi hoàn tất tạo Circle.
+- **Verification Method:**
+  - `npm test -w @circle/backend`: 33/33 unit tests pass 100%.
+  - `npm run build -w @circle/backend`: NestJS build thành công với 0 lỗi TypeScript.
+  - `npm run build -w @circle/shared`: Shared package build thành công.
+  - `npm run build -w @circle/web`: Next.js 14 production build hoàn tất 9/9 trang tĩnh với 0 lỗi.
+  - `npx tsc --noEmit` trong `apps/mobile`: 0 errors.
+  - `bash ./scripts/check-agent-map.sh`: 93/93 framework files pass 100%.
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`, SRS (UC08: Join Circle via Invite Code).
+- **Security & License Check:** An toàn tuyệt đối, tuân thủ nguyên tắc PR 58.
+- **AI Errors / Hallucinations Found:** None.
+- **Commit:** `a6b237d`
+- **PR:** #59
+
+---
+
+## AI-0055: Tinh giản và Hợp nhất Giao diện Khởi tạo Vòng tròn (Unified Single Form)
+
+- **Date:** 2026-09-29 00:11:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #4 ([SUB-FEAT]: US-CIRCLE-001 — Circle Creation, Handle Reservation & Channel Hierarchy (Parent: #19))
+- **Purpose:** Tinh giản và hợp nhất form khởi tạo Vòng tròn theo yêu cầu của kỹ sư Ninh Thị Mỹ Hạnh:
+  1. **Loại bỏ phân tab:** Xóa bỏ hoàn toàn hệ thống 2 tab ("Tạo bằng tên" vs "Chọn từ bạn bè"), quy về một giao diện form duy nhất trực quan, tinh gọn và dễ thao tác.
+  2. **Trường Tên Vòng tròn tùy chọn:** Đặt ở phần trên kèm ghi chú hướng dẫn: người dùng có thể nhập tên hoặc để trống. Nếu để trống, hệ thống sẽ tự động ghép tên của các bạn bè được chọn làm tên nhóm.
+  3. **Thêm bạn bè vào Vòng tròn tùy chọn:** Tích hợp bộ lọc tìm kiếm và danh sách chọn bạn bè ngay bên dưới ô nhập tên. Người dùng có thể chọn thêm bạn bè ngay khi tạo, hoặc không chọn bạn bè (nếu đã đặt tên nhóm).
+  4. **Kiểm thực Zod thông minh:** Đảm bảo người dùng nhập tên (>= 2 ký tự) HOẶC chọn ít nhất 1 bạn bè (hoặc cả hai: vừa đặt tên vừa thêm bạn bè).
+  5. **Bảo toàn PR 58:** Bổ sung các chuỗi bản địa hóa `nameOptionalHint`, `selectFriendsLabel`, `createCircleSubmitBtn` vào cả `vi.ts` và `en.ts`.
+- **Prompt Summary:** "chỗ khởi tạo vòng tròn mới thì chỉ cần 1 cái chung ko cần phân chọn từ bạn bè hay để tên. tức là nó vẫn có chỗ nhập tên mà ko bắt buộc và dưới có thể thêm bạn bè vô luôn hoặc ko (nếu chưa đặt tên thì mặc định là tên các thành viên)"
+- **Files Affected:**
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `apps/web/src/components/circle/CreateCircleModal.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% mã nguồn tái cấu trúc component form và localized strings.
+- **Human Modifications:** Kỹ sư Ninh Thị Mỹ Hạnh trực tiếp định hướng giải pháp UX tinh giản: bỏ phân tab, hợp nhất ô nhập tên tùy chọn và danh sách chọn bạn bè tùy chọn trong cùng 1 modal.
+- **Verification Method:**
+  - `npm test -w @circle/backend`: 33/33 unit tests pass 100%.
+  - `npm run build -w @circle/backend`: NestJS build thành công với 0 lỗi TypeScript.
+  - `npm run build -w @circle/shared`: Shared package build thành công.
+  - `npm run build -w @circle/web`: Next.js 14 production build hoàn tất 9/9 trang tĩnh với 0 lỗi.
+  - `npx tsc --noEmit` trong `apps/mobile`: 0 errors.
+  - `bash ./scripts/check-agent-map.sh`: 93/93 framework files pass 100%.
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn tuyệt đối, tuân thủ nguyên tắc PR 58.
+- **AI Errors / Hallucinations Found:** None.
+- **Commit:** `f4f38cf`
+- **PR:** #59
 
 
 

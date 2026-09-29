@@ -13,6 +13,7 @@ export function sanitizeText(input: string): string {
 
 // Validation schemas & types
 export * from "./validators/auth.validator";
+export * from "./validators/circle.validator";
 
 // Locales & Bilingual Support (vi, en)
 export * from "./locales";
