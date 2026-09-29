@@ -199,15 +199,67 @@ export interface MessageEntity {
   sender?: CircleMemberEntity;
 }
 
+export interface MomentVisibilityEntity {
+  id: string;
+  momentId: string;
+  circleId: string;
+  createdAt: string;
+  circle?: {
+    id: string;
+    name: string;
+    avatarUrl?: string | null;
+  };
+}
+
+export interface MomentReactionEntity {
+  id: string;
+  momentId: string;
+  userId: string;
+  emoji: string;
+  createdAt: string;
+  user?: {
+    id: string;
+    displayName: string;
+    avatarUrl?: string | null;
+  };
+}
+
+export type MomentMediaType = 'IMAGE' | 'VIDEO';
+
 export interface MomentEntity {
   id: string;
-  circleId: string;
-  memberId: string;
+  authorId: string;
+  photoUrl: string;
+  mediaType: MomentMediaType;
   caption?: string | null;
   capturedAt: string;
   createdAt: string;
-  photoUrl?: string | null;
+  updatedAt: string;
+  author?: {
+    id: string;
+    email: string;
+    profile?: {
+      displayName: string;
+      avatarUrl?: string | null;
+    } | null;
+  };
+  visibilities?: MomentVisibilityEntity[];
+  reactions?: MomentReactionEntity[];
+  reactionCounts?: Record<string, number>;
+  userReaction?: string | null;
 }
+
+export interface CreateMomentInput {
+  photoUrl: string;
+  mediaType?: MomentMediaType;
+  caption?: string;
+  circleIds: string[];
+}
+
+export interface ReactMomentInput {
+  emoji: string;
+}
+
 
 export interface PlanningSheetEntity {
   id: string;

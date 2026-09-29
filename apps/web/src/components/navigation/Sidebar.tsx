@@ -15,6 +15,7 @@ import {
   Check,
   ChevronDown,
   Link2,
+  Camera,
 } from 'lucide-react';
 import { useLanguageStore } from '../../stores/language.store';
 import { useCircleStore } from '../../stores/circle.store';
@@ -60,6 +61,8 @@ export const Sidebar: React.FC = () => {
   const setActiveCircle = useCircleStore((s) => s.setActiveCircle);
   const setCreateModalOpen = useCircleStore((s) => s.setCreateModalOpen);
   const setManageModalOpen = useCircleStore((s) => s.setManageModalOpen);
+  const activeCircleView = useCircleStore((s) => s.activeCircleView);
+  const setActiveCircleView = useCircleStore((s) => s.setActiveCircleView);
 
   const { data: circles = [], isLoading } = useMyCirclesQuery();
   const [isDropdownOpen, setIsDropdownOpen] = React.useState(false);
@@ -213,22 +216,39 @@ export const Sidebar: React.FC = () => {
                 key={channel.id}
                 icon={<MessageSquare className="h-4 w-4" />}
                 label={`# ${channel.name}`}
-                active={channel.name === 'general'}
+                active={activeCircleView === channel.name}
+                onClick={() => setActiveCircleView(channel.name)}
               />
             ))
           ) : (
             <>
-              <NavItem icon={<MessageSquare className="h-4 w-4" />} label={t.nav.generalDiscussion} active />
-              <NavItem icon={<HeartHandshake className="h-4 w-4" />} label={t.nav.confessionCorner} />
+              <NavItem
+                icon={<MessageSquare className="h-4 w-4" />}
+                label={t.nav.generalDiscussion}
+                active={activeCircleView === 'general'}
+                onClick={() => setActiveCircleView('general')}
+              />
+              <NavItem
+                icon={<HeartHandshake className="h-4 w-4" />}
+                label={t.nav.confessionCorner}
+                active={activeCircleView === 'confession'}
+                onClick={() => setActiveCircleView('confession')}
+              />
             </>
           )}
         </div>
 
-        {/* Group Tools & Utilities (Module 7) */}
+        {/* Group Tools & Utilities */}
         <div className="flex flex-col gap-1">
           <span className="px-4 text-xs font-semibold tracking-wider text-circle-slate dark:text-circle-dark-muted uppercase mb-1">
             {t.nav.groupTools}
           </span>
+          <NavItem
+            icon={<Camera className="h-4 w-4 text-amber-500" />}
+            label={t.moments.locketWidgetTitle}
+            active={activeCircleView === 'moments'}
+            onClick={() => setActiveCircleView('moments')}
+          />
           <NavItem icon={<ImageIcon className="h-4 w-4" />} label={t.nav.photoAlbum} />
           <NavItem icon={<Calendar className="h-4 w-4" />} label={t.nav.calendarEvents} />
           <NavItem icon={<FileSpreadsheet className="h-4 w-4" />} label={t.nav.planningSheet} />

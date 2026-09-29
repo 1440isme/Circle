@@ -2260,6 +2260,121 @@
 - **Commit:** 056f2a0
 - **PR:** #60 (https://github.com/1440isme/Circle/pull/60)
 
+---
+
+## AI-0057: Triển khai US-MOMENT-001 — Group-Centric Moments Sharing & Circle Visibility Filtering
+
+- **Date:** 2026-09-29 14:55:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #61 ([SUB-FEAT]: US-MOMENT-001 — Group-Centric Moments Sharing & Circle Visibility Filtering (Parent: #20))
+- **Purpose:** Triển khai toàn diện Module 5 (Moments & Group Feed) - US-MOMENT-001: Chia sẻ Khoảnh khắc tức thì (Moments) với cơ chế phân quyền hiển thị theo Vòng tròn (Circle-Centric Privacy), bảng tin Moment Feed, phản ứng cảm xúc emoji, và giao diện Web Story Viewer & Moments Tray:
+  1. **Prisma Database Schema & Migrations:**
+     - Thiết kế model `Moment` (`id`, `authorId`, `photoUrl`, `mediaType`, `caption`, `capturedAt`, `createdAt`, `updatedAt`, `deletedAt`).
+     - Bổ sung enum `MomentMediaType` (`IMAGE`, `VIDEO`) và áp dụng migration `20260929084050_add_moment_media_type`.
+     - Thiết kế model liên kết quyền hiển thị đa Vòng tròn `MomentVisibility` (`momentId`, `circleId`, `createdAt`) với quan hệ `@@unique([momentId, circleId])`.
+     - Thiết kế model cảm xúc `MomentReaction` (`momentId`, `userId`, `emoji`, `createdAt`) với quan hệ `@@unique([momentId, userId, emoji])`.
+  2. **Shared Packages (@circle/types & @circle/shared):**
+     - Bổ sung type `MomentMediaType` (`IMAGE` | `VIDEO`), interface `MomentEntity`, `MomentVisibilityEntity`, `MomentReactionEntity`, `CreateMomentInput`, `ReactMomentInput`.
+     - Cập nhật Zod validation `createMomentSchema` hỗ trợ linh hoạt cả Data URI (`data:image/...`, `data:video/...`) xuất trực tiếp từ camera lẫn URL ngoài, ràng buộc `mediaType` mặc định `IMAGE`.
+     - Bổ sung từ điển bản địa hóa song ngữ i18n (`vi.ts`, `en.ts`) hoàn chỉnh cho camera permissions, chụp ảnh, quay video ngắn, đếm thời gian, đổi camera.
+  3. **Backend NestJS (MomentsModule, MomentsService, MomentsController):**
+     - Hỗ trợ lưu trữ và phân loại `mediaType` (`IMAGE` hoặc `VIDEO`).
+     - `POST /api/v1/moments`: Đăng Moment mới, kiểm tra bắt buộc người dùng phải là thành viên hợp lệ của tất cả các Vòng tròn được chọn trước khi tạo liên kết `MomentVisibility`.
+     - `GET /api/v1/moments/feed`: Lấy luồng Khoảnh khắc tổng hợp từ tất cả các Vòng tròn người dùng đang tham gia, gom nhóm số lượt phản ứng emoji và cờ phản ứng của chính người dùng.
+     - `GET /api/v1/moments/circle/:circleId`: Lấy danh sách Khoảnh khắc thuộc riêng một Vòng tròn cụ thể kèm kiểm tra tư cách thành viên.
+     - `POST /api/v1/moments/:id/react`: Thả hoặc gỡ (toggle) cảm xúc emoji (❤️, 😂, 🔥, 👏, 😍).
+     - `DELETE /api/v1/moments/:id`: Xóa mềm (soft-delete) Khoảnh khắc, chỉ tác giả mới có quyền xóa.
+  4. **Backend Automated Unit Tests:**
+     - 100% 69/69 backend unit tests pass sạch sẽ, bao gồm kiểm thử mediaType và tạo moment.
+  5. **Frontend Web UI (@circle/web):**
+     - `CreateMomentModal.tsx` nâng cấp toàn diện thành **Realtime Camera & Short Video Recorder**:
+       - Kết nối camera / webcam trực tiếp qua `navigator.mediaDevices.getUserMedia`.
+       - Hỗ trợ 2 chế độ: Chụp ảnh trực tiếp (Snapshot qua canvas) và Quay video ngắn trực tiếp (MediaRecorder đếm ngược tối đa 10s có âm thanh).
+       - Nút đổi Camera (Front/Back) và xử lý lỗi phân quyền camera thân thiện.
+       - Màn hình xem lại (Preview) kèm nút "Chụp / Quay lại", ô chú thích và bảng chọn Circle-Centric Privacy.
+     - `StoryViewerModal.tsx` nâng cấp hỗ trợ xem cả Story Ảnh tĩnh và Story Video tự động phát có âm thanh kèm nút bật/tắt tiếng và đồng bộ thanh tiến trình.
+     - `MomentsTray.tsx` tích hợp mượt mà vào `FeedStream.tsx`.
+- **Prompt Summary:** Nâng cấp đăng Khoảnh khắc trực tiếp: camera thời gian thực, chụp ảnh và quay video ngắn không dùng ảnh tải lên, phân quyền Circle, kiểm thử và tích hợp hoàn chỉnh.
+- **Files Affected:**
+  - `apps/backend/prisma/schema.prisma`
+  - `apps/backend/prisma/migrations/20260929073137_add_moments_and_circle_visibility/migration.sql`
+  - `apps/backend/prisma/migrations/20260929084050_add_moment_media_type/migration.sql`
+  - `packages/types/src/index.ts`
+  - `packages/shared/src/validators/moment.validator.ts`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `packages/shared/src/index.ts`
+  - `apps/backend/src/modules/moments/moments.service.ts`
+  - `apps/backend/src/modules/moments/moments.controller.ts`
+  - `apps/backend/src/modules/moments/moments.module.ts`
+  - `apps/backend/src/modules/moments/moments.service.spec.ts`
+  - `apps/backend/src/app.module.ts`
+  - `apps/web/src/hooks/use-moment-queries.ts`
+  - `apps/web/src/components/moments/CreateMomentModal.tsx`
+  - `apps/web/src/components/moments/StoryViewerModal.tsx`
+  - `apps/web/src/components/moments/MomentsTray.tsx`
+  - `apps/web/src/components/stream/FeedStream.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% mã nguồn database schema, backend service & controller, unit tests, realtime camera frontend components, hooks, và từ điển song ngữ i18n.
+- **Human Modifications:** Người dùng định hình yêu cầu khoảnh khắc chân thực (BeReal / Locket): chụp ảnh và quay video trực tiếp thời gian thực, không tải ảnh sẵn.
+- **Verification Method:**
+  - `npm test -w @circle/backend`: 69/69 tests pass 100%.
+  - `npm run build -w @circle/web`: build production thành công, 0 errors.
+  - `npx tsc --noEmit` trong `apps/mobile`: 0 errors.
+  - `bash ./scripts/check-agent-map.sh`: 93/93 files pass 100%.
+- **Official Source Checked:** `PROJECT_GOD.md` (US-MOMENT-001, AC-MOMENT-001-01, AC-MOMENT-001-02, Module 5), `docs/phan-cong-nhiem-vu.md`, GitHub Issue #61.
+- **Security & License Check:** Phân quyền riêng tư theo Circle tuyệt đối: chỉ thành viên trong Vòng tròn được chỉ định mới có quyền truy cập hoặc xem Khoảnh khắc; chỉ tác giả mới có quyền xóa.
+  - **Error Description:** Lỗi `request entity too large` (HTTP 413) khi gửi ảnh/video data URI trực tiếp từ camera lên backend NestJS do giới hạn mặc định 100kb của express body-parser; và modal vẫn hỏi chọn Vòng tròn khi người dùng đang ở trong không gian một Vòng tròn cụ thể.
+  - **Root Cause:** Chưa cấu hình `limit: '50mb'` cho `json()` và `urlencoded()` trong `main.ts`; và `CreateMomentModal` chưa tự động khóa theo Vòng tròn đang mở.
+  - **Resolution / Fix:** Cấu hình `app.use(json({ limit: '50mb' }))` và `app.use(urlencoded({ extended: true, limit: '50mb' }))` trong `apps/backend/src/main.ts`; cập nhật `CreateMomentModal.tsx` tự động nhận diện `effectiveCircle` để khóa và hiển thị trực tiếp thẻ Vòng tròn đích, không hỏi chọn nhóm khác.
+- **Commit:** 43f9295
+- **PR:** #62 (https://github.com/1440isme/Circle/pull/62 - DRAFT)
+
+---
+
+## AI-0058: Tích hợp Mục Khoảnh khắc Thường ngày dạng Bản tin Lướt dọc trong Tiện ích Nhóm
+
+- **Date:** 2026-09-29 17:05:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #61 (US-MOMENT-001: Moments Sharing and Circle Visibility)
+- **Purpose:** 
+  1. Thống nhất tên hiển thị tính năng thành **"Khoảnh khắc thường ngày"** (i18n: `t.moments.locketWidgetTitle` / `Daily Moments`), cập nhật từ điển song ngữ trong `packages/shared/src/locales/vi.ts` & `en.ts` và biên dịch đồng bộ gói `@circle/shared` (`tsc`).
+  2. Bổ sung mục điều hướng **"Khoảnh khắc thường ngày"** (với biểu tượng camera) vào danh mục **Tiện ích Nhóm** ở thanh điều hướng bên trái (`Sidebar.tsx`), quản lý không gian làm việc qua `activeCircleView: 'general' | 'moments'` trong `circle.store.ts`.
+  3. Xây dựng giao diện Bản tin lướt dọc (**`DailyMomentsFeed.tsx`**) tại vùng nội dung trung tâm (`FeedStream.tsx`):
+     - Nút bấm `+ Gửi khoảnh khắc` mở camera thời gian thực để chụp ảnh hoặc quay video ngắn trực tiếp.
+     - Dòng chảy bài đăng dọc (`article` card nối tiếp): ảnh / video ngắn tự quay kèm avatar tác giả, tên, mốc thời gian, chú thích, nút bật/tắt âm thanh cho video và nút xóa bài (cho tác giả).
+     - Thanh cảm xúc tương tác trực tiếp (❤️ 🔥 😂 👏 😍) trên từng bài đăng với số lượt cảm xúc cập nhật theo thời gian thực.
+     - Trạng thái rỗng thân thiện khuyến khích thành viên chia sẻ khoảnh khắc đầu tiên của nhóm.
+- **Prompt Summary:** Thống nhất đổi tên thành Khoảnh khắc thường ngày, đặt vào mục Tiện ích nhóm ở thanh bên trái, khi bấm vào mở ra bản tin lướt dọc hiển thị ảnh các thành viên và tương tác cảm xúc.
+- **Files Affected:**
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `apps/web/src/stores/circle.store.ts`
+  - `apps/web/src/components/navigation/Sidebar.tsx`
+  - `apps/web/src/components/stream/FeedStream.tsx`
+  - `apps/web/src/components/moments/DailyMomentsFeed.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% mã nguồn `DailyMomentsFeed.tsx`, tích hợp stream dọc, điều hướng sidebar, recompile shared và dọn dẹp log trùng lặp.
+- **Human Modifications:** Ninh Thị Mỹ Hạnh trực tiếp định hình vị trí tại Tiện ích nhóm, tên gọi "Khoảnh khắc thường ngày", dạng hiển thị bản tin lướt dọc và yêu cầu tinh gọn nhật ký AI log loại bỏ các bước thảo luận trung gian chưa chốt.
+- **Verification Method:**
+  - `npm run build -w @circle/shared`: Pass 100%.
+  - `npm run build -w @circle/web`: Pass 100% (0 errors).
+  - `npm test -w @circle/backend`: 69/69 tests pass 100%.
+  - `bash ./scripts/check-agent-map.sh`: 93/93 files pass 100%.
+- **Official Source Checked:** `PROJECT_GOD.md` (Module 5), Issue #61, Draft PR #62.
+- **Security & License Check:** An toàn, không chứa credentials.
+- **Commit:** b2b0047
+- **PR:** #62 (https://github.com/1440isme/Circle/pull/62 - DRAFT)
+
+
+
+
+
+
 
 
 
