@@ -2334,110 +2334,42 @@
 
 ---
 
-## AI-0058: Tái thiết kế Widget Khoảnh khắc Thường ngày dạng Locket Slider tại Thanh Tiện ích Nhóm
+## AI-0058: Tích hợp Mục Khoảnh khắc Thường ngày dạng Bản tin Lướt dọc trong Tiện ích Nhóm
 
-- **Date:** 2026-09-29 16:45:00 +07:00
+- **Date:** 2026-09-29 17:05:00 +07:00
 - **Developer:** Ninh Thị Mỹ Hạnh
 - **Tool:** Antigravity IDE
 - **Model:** Gemini 3.8 Flash (High)
 - **Related Issue:** #61 (US-MOMENT-001: Moments Sharing and Circle Visibility)
 - **Purpose:** 
-  1. Tái định vị widget Khoảnh khắc vào mục Tiện ích Nhóm ở thanh điều hướng bên trái (`Sidebar.tsx`), dọn dẹp sạch sẽ không gian chat/thảo luận trung tâm (`FeedStream.tsx`) và thanh tiện ích phụ bên phải (`PresenceRail.tsx`).
-  2. Đổi tên hiển thị chính thức thành **"Khoảnh khắc thường ngày"** (i18n: `t.moments.locketWidgetTitle`), cập nhật đồng bộ từ điển song ngữ trong `packages/shared/src/locales/vi.ts` & `en.ts`.
-  3. Xây dựng thanh trượt filmstrip ngang tương tác ("mấy ảnh lướt lướt") với các thumbnail bo tròn, viền kích hoạt nổi bật kèm cơ chế tự động cuộn mượt mà (`scrollIntoView({ inline: 'center' })`) tới ảnh/video đang chọn.
-  4. Tích hợp nút chụp nhanh (`+`) ngay đầu thanh slider mở trực tiếp camera thời gian thực, bộ điều hướng tiến/lùi mượt mà kèm đếm số lượng, và thả cảm xúc emoji tương tác tức thì.
-- **Prompt Summary:** "sao khi tôi chụp và đăng nhưng ko thấy nó hiển thị nhỉ và bỏ ghi nhóm cái khoảng khắc được chia sẻ trực tiếp .. luôn", "nhưng tôi muốn dạng kiểu locket á", "nên nằm ở mục tiện ích nhóm để tên kiểu Khoảnh khắc thường ngày xong có mấy ảnh lướt lướt đó", "ko ko tôi bảo thêm vào bên trái mà"
+  1. Thống nhất tên hiển thị tính năng thành **"Khoảnh khắc thường ngày"** (i18n: `t.moments.locketWidgetTitle` / `Daily Moments`), cập nhật từ điển song ngữ trong `packages/shared/src/locales/vi.ts` & `en.ts` và biên dịch đồng bộ gói `@circle/shared` (`tsc`).
+  2. Bổ sung mục điều hướng **"Khoảnh khắc thường ngày"** (với biểu tượng camera) vào danh mục **Tiện ích Nhóm** ở thanh điều hướng bên trái (`Sidebar.tsx`), quản lý không gian làm việc qua `activeCircleView: 'general' | 'moments'` trong `circle.store.ts`.
+  3. Xây dựng giao diện Bản tin lướt dọc (**`DailyMomentsFeed.tsx`**) tại vùng nội dung trung tâm (`FeedStream.tsx`):
+     - Nút bấm `+ Gửi khoảnh khắc` mở camera thời gian thực để chụp ảnh hoặc quay video ngắn trực tiếp.
+     - Dòng chảy bài đăng dọc (`article` card nối tiếp): ảnh / video ngắn tự quay kèm avatar tác giả, tên, mốc thời gian, chú thích, nút bật/tắt âm thanh cho video và nút xóa bài (cho tác giả).
+     - Thanh cảm xúc tương tác trực tiếp (❤️ 🔥 😂 👏 😍) trên từng bài đăng với số lượt cảm xúc cập nhật theo thời gian thực.
+     - Trạng thái rỗng thân thiện khuyến khích thành viên chia sẻ khoảnh khắc đầu tiên của nhóm.
+- **Prompt Summary:** Thống nhất đổi tên thành Khoảnh khắc thường ngày, đặt vào mục Tiện ích nhóm ở thanh bên trái, khi bấm vào mở ra bản tin lướt dọc hiển thị ảnh các thành viên và tương tác cảm xúc.
 - **Files Affected:**
-  - `apps/web/src/components/moments/LocketWidget.tsx`
-  - `apps/web/src/components/navigation/Sidebar.tsx`
-  - `apps/web/src/components/presence/PresenceRail.tsx`
-  - `apps/web/src/components/stream/FeedStream.tsx`
   - `packages/shared/src/locales/vi.ts`
   - `packages/shared/src/locales/en.ts`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% mã nguồn tái cấu trúc `LocketWidget`, tích hợp thanh trượt filmstrip cuộn mượt, di dời layout sang `Sidebar`, dọn dẹp `PresenceRail` và `FeedStream`, cập nhật từ điển i18n.
-- **Human Modifications:** Ninh Thị Mỹ Hạnh trực tiếp định hướng chuyển widget vào mục tiện ích nhóm ở thanh bên trái (`Sidebar.tsx`), đặt tên chuẩn "Khoảnh khắc thường ngày", và yêu cầu trải nghiệm trượt ảnh tương tác trực quan.
-- **Verification Method:**
-  - `npm test -w @circle/backend`: 69/69 unit tests pass 100%.
-  - `npm run build -w @circle/web`: Next.js 14 compile & static pages generation pass 100%, 0 errors.
-  - `bash ./scripts/check-agent-map.sh`: 93/93 framework files pass 100%.
-- **Official Source Checked:** `PROJECT_GOD.md` (Module 5), Apple HIG widget styling, Issue #61, Draft PR #62.
-- **Security & License Check:** An toàn, không chứa thông tin bí mật hay credentials.
-- **AI Errors / Hallucinations Found:**
-  - **Error Description:** Không có.
-  - **Root Cause:** N/A
-  - **Resolution / Fix:** N/A
-- **Commit:** 84feaea
-- **PR:** #62 (https://github.com/1440isme/Circle/pull/62 - DRAFT)
-
----
-
-## AI-0059: Tích hợp Mục "Khoảnh khắc thường ngày" vào Tiện ích Nhóm và Không gian Locket Slider
-
-- **Date:** 2026-09-29 16:58:00 +07:00
-- **Developer:** Ninh Thị Mỹ Hạnh
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #61 (US-MOMENT-001: Moments Sharing and Circle Visibility)
-- **Purpose:** 
-  1. Loại bỏ hoàn toàn khối khung widget to trên thanh điều hướng bên trái và thanh bên phải; thay bằng menu item gọn gàng chuẩn **"Khoảnh khắc thường ngày"** (`t.moments.locketWidgetTitle`) nằm trong danh sách **Tiện ích Nhóm** (`Sidebar.tsx`).
-  2. Bổ sung quản lý trạng thái điều hướng không gian làm việc `activeCircleView: string` ('general' | 'moments') trong `apps/web/src/stores/circle.store.ts`.
-  3. Khi click chọn "Khoảnh khắc thường ngày" trong Tiện ích Nhóm ở Sidebar, vùng trung tâm (`FeedStream.tsx`) chuyển sang không gian tương tác Locket chuyên biệt:
-     - Header thông tin "Khoảnh khắc thường ngày".
-     - Khung hiển thị Locket cỡ lớn (ảnh/video trực tiếp, avatar, chú thích, tắt/bật âm thanh, nút xóa).
-     - Thanh trượt Filmstrip thumbnail ngang ("mấy ảnh lướt lướt đó") với nút chụp nhanh `+` và tự động cuộn căn giữa ảnh đang chọn.
-     - Dock thả cảm xúc ❤️ 🔥 😂 👏 😍 tương tác trực tiếp.
-  4. Khi click lại kênh `# general`, màn hình chuyển về luồng thảo luận chung mượt mà.
-- **Prompt Summary:** "bạn hiểu sai ý tôi rồi ko có cái khung đó ở trên thanh tiện ích mà là để tên là khoảng khắc thường ngày xong trong đó có thể lướt xem ảnh các thành viên đã đăng và thả cảm xúc hay j đó"
-- **Files Affected:**
   - `apps/web/src/stores/circle.store.ts`
   - `apps/web/src/components/navigation/Sidebar.tsx`
   - `apps/web/src/components/stream/FeedStream.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% mã nguồn cập nhật state management, điều hướng Sidebar NavItem và chuyển đổi không gian hiển thị tại FeedStream.
-- **Human Modifications:** Ninh Thị Mỹ Hạnh trực tiếp làm rõ thiết kế: Không để khung widget thô trên thanh sidebar, mà để mục "Khoảnh khắc thường ngày" trong tiện ích nhóm, click vào bên trong mới là không gian lướt ảnh và thả cảm xúc.
-- **Verification Method:**
-  - `npm test -w @circle/backend`: 69/69 unit tests pass 100%.
-  - `npm run build -w @circle/web`: Next.js 14 compile & static pages generation pass 100%, 0 errors.
-  - `bash ./scripts/check-agent-map.sh`: 93/93 framework files pass 100%.
-- **Official Source Checked:** `PROJECT_GOD.md` (Module 5), Issue #61, Draft PR #62.
-- **Security & License Check:** An toàn, không chứa credentials.
-- **Commit:** 3d27707
-- **PR:** #62 (https://github.com/1440isme/Circle/pull/62 - DRAFT)
-
----
-
-## AI-0060: Xây dựng Bản tin Lướt dọc Khoảnh khắc Thường ngày và Đồng bộ Build @circle/shared
-
-- **Date:** 2026-09-29 17:03:00 +07:00
-- **Developer:** Ninh Thị Mỹ Hạnh
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #61 (US-MOMENT-001: Moments Sharing and Circle Visibility)
-- **Purpose:** 
-  1. Build đồng bộ gói `@circle/shared` (`tsc`) để cập nhật triệt để bản dịch `Khoảnh khắc thường ngày` thay cho tên cũ `Locket của Nhóm` trong `dist/`.
-  2. Xây dựng giao diện Bản tin lướt dọc (`DailyMomentsFeed.tsx`) chuẩn newsfeed mạng xã hội:
-     - Header với nút bấm "+ Gửi khoảnh khắc" mở camera trực tiếp.
-     - Dòng chảy bài đăng dọc (`article` card nối tiếp): ảnh / video ngắn tự quay kèm avatar tác giả, tên, mốc thời gian, chú thích, nút bật/tắt âm thanh và nút xóa (cho tác giả).
-     - Thanh cảm xúc tương tác trực tiếp (❤️ 🔥 😂 👏 😍) trên từng bài đăng với số lượt cảm xúc thời gian thực.
-     - Trạng thái rỗng thân thiện khuyến khích thành viên đăng khoảnh khắc đầu tiên.
-  3. Tích hợp `DailyMomentsFeed` vào `FeedStream.tsx` khi người dùng chọn mục "Khoảnh khắc thường ngày" từ Tiện ích Nhóm.
-- **Prompt Summary:** "đã kêu đổi tên Locket của Nhóm thành khoảng khắc thường ngày mà xong nó như bản tin lướt dọc chứ"
-- **Files Affected:**
   - `apps/web/src/components/moments/DailyMomentsFeed.tsx`
-  - `apps/web/src/components/stream/FeedStream.tsx`
   - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% mã nguồn `DailyMomentsFeed.tsx`, tích hợp stream dọc và recompile package shared.
-- **Human Modifications:** Ninh Thị Mỹ Hạnh trực tiếp nhắc nhở về việc cập nhật tên hiển thị và định hình rõ dạng bản tin lướt dọc (vertical feed).
+- **AI-Generated Portion:** 100% mã nguồn `DailyMomentsFeed.tsx`, tích hợp stream dọc, điều hướng sidebar, recompile shared và dọn dẹp log trùng lặp.
+- **Human Modifications:** Ninh Thị Mỹ Hạnh trực tiếp định hình vị trí tại Tiện ích nhóm, tên gọi "Khoảnh khắc thường ngày", dạng hiển thị bản tin lướt dọc và yêu cầu tinh gọn nhật ký AI log loại bỏ các bước thảo luận trung gian chưa chốt.
 - **Verification Method:**
-  - `npm run build -w @circle/shared`: TypeScript compile pass.
-  - `npm run build -w @circle/web`: Next.js 14 compile & static pages generation pass 100%, 0 errors.
-  - `npm test -w @circle/backend`: 69/69 unit tests pass 100%.
-  - `bash ./scripts/check-agent-map.sh`: 93/93 framework files pass 100%.
+  - `npm run build -w @circle/shared`: Pass 100%.
+  - `npm run build -w @circle/web`: Pass 100% (0 errors).
+  - `npm test -w @circle/backend`: 69/69 tests pass 100%.
+  - `bash ./scripts/check-agent-map.sh`: 93/93 files pass 100%.
 - **Official Source Checked:** `PROJECT_GOD.md` (Module 5), Issue #61, Draft PR #62.
 - **Security & License Check:** An toàn, không chứa credentials.
-- **Commit:** fab673a
+- **Commit:** b2b0047
 - **PR:** #62 (https://github.com/1440isme/Circle/pull/62 - DRAFT)
+
 
 
 
