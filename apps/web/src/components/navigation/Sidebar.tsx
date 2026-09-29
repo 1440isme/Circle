@@ -19,6 +19,7 @@ import {
 import { useLanguageStore } from '../../stores/language.store';
 import { useCircleStore } from '../../stores/circle.store';
 import { useMyCirclesQuery } from '../../hooks/use-circle-queries';
+import { LocketWidget } from '../moments/LocketWidget';
 
 interface NavItemProps {
   icon: React.ReactNode;
@@ -224,16 +225,22 @@ export const Sidebar: React.FC = () => {
           )}
         </div>
 
-        {/* Group Tools & Utilities (Module 7) */}
-        <div className="flex flex-col gap-1">
-          <span className="px-4 text-xs font-semibold tracking-wider text-circle-slate dark:text-circle-dark-muted uppercase mb-1">
+        {/* Group Tools & Utilities */}
+        <div className="flex flex-col gap-2">
+          <span className="px-3 text-xs font-semibold tracking-wider text-circle-slate dark:text-circle-dark-muted uppercase">
             {t.nav.groupTools}
           </span>
-          <NavItem icon={<ImageIcon className="h-4 w-4" />} label={t.nav.photoAlbum} />
-          <NavItem icon={<Calendar className="h-4 w-4" />} label={t.nav.calendarEvents} />
-          <NavItem icon={<FileSpreadsheet className="h-4 w-4" />} label={t.nav.planningSheet} />
-          <NavItem icon={<Compass className="h-4 w-4" />} label={t.nav.luckyWheel} />
-          <NavItem icon={<HelpCircle className="h-4 w-4" />} label={t.nav.reflectionMailbox} />
+
+          {/* Khoảnh khắc thường ngày (Daily Moments / Locket Slider) */}
+          <LocketWidget circleId={activeCircle?.id} />
+
+          <div className="flex flex-col gap-1 mt-1">
+            <NavItem icon={<ImageIcon className="h-4 w-4" />} label={t.nav.photoAlbum} />
+            <NavItem icon={<Calendar className="h-4 w-4" />} label={t.nav.calendarEvents} />
+            <NavItem icon={<FileSpreadsheet className="h-4 w-4" />} label={t.nav.planningSheet} />
+            <NavItem icon={<Compass className="h-4 w-4" />} label={t.nav.luckyWheel} />
+            <NavItem icon={<HelpCircle className="h-4 w-4" />} label={t.nav.reflectionMailbox} />
+          </div>
         </div>
 
         {/* Circle Settings */}

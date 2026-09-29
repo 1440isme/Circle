@@ -16,7 +16,6 @@ import { useLanguageStore } from '../../stores/language.store';
 import { useCircleStore } from '../../stores/circle.store';
 import { useCircleMembersQuery, useCircleJoinRequestsQuery } from '../../hooks/use-circle-queries';
 import { MemberRole } from '@circle/types';
-import { LocketWidget } from '../moments/LocketWidget';
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -145,11 +144,6 @@ export const PresenceRail: React.FC = () => {
             )}
           </button>
         </div>
-      )}
-
-      {/* Khoảnh khắc thường ngày (Daily Moments / Locket Slider) */}
-      {activeCircle && (
-        <LocketWidget circleId={activeCircle.id} />
       )}
 
       {/* Voice & Video Stage Status (Clean Empty State) */}
