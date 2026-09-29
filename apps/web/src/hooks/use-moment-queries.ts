@@ -13,10 +13,12 @@ export function useMomentsFeedQuery() {
   return useQuery({
     queryKey: MOMENT_KEYS.feed(),
     queryFn: async () => {
-      const res = await apiRequest<MomentEntity[]>('/moments/feed');
-      return res.data;
+      const res = await apiRequest<any>('/moments/feed');
+      if (Array.isArray(res)) return res as MomentEntity[];
+      if (res && Array.isArray(res.data)) return res.data as MomentEntity[];
+      return [];
     },
-    staleTime: 1000 * 60 * 2, // 2 minutes
+    staleTime: 1000 * 30, // 30 seconds
   });
 }
 
@@ -25,11 +27,13 @@ export function useCircleMomentsQuery(circleId: string | null) {
     queryKey: MOMENT_KEYS.circle(circleId || ''),
     queryFn: async () => {
       if (!circleId) return [];
-      const res = await apiRequest<MomentEntity[]>(`/moments/circle/${circleId}`);
-      return res.data;
+      const res = await apiRequest<any>(`/moments/circle/${circleId}`);
+      if (Array.isArray(res)) return res as MomentEntity[];
+      if (res && Array.isArray(res.data)) return res.data as MomentEntity[];
+      return [];
     },
     enabled: Boolean(circleId),
-    staleTime: 1000 * 60 * 2,
+    staleTime: 1000 * 30,
   });
 }
 
@@ -38,11 +42,11 @@ export function useCreateMomentMutation() {
 
   return useMutation({
     mutationFn: async (input: CreateMomentInput) => {
-      const res = await apiRequest<MomentEntity>('/moments', {
+      const res = await apiRequest<any>('/moments', {
         method: 'POST',
         body: JSON.stringify(input),
       });
-      return res.data;
+      return (res?.data ?? res) as MomentEntity;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: MOMENT_KEYS.all });

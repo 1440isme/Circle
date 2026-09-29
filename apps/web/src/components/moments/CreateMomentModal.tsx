@@ -540,27 +540,8 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
                 />
               </div>
 
-              {/* Circle-Based Privacy: Auto-bound when inside a Circle, or Checklist when on Hub */}
-              {effectiveCircle ? (
-                <div className="space-y-1.5 pt-2 border-t border-white/10">
-                  <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-white/10 border border-white/15">
-                    <div className="h-9 w-9 rounded-xl bg-circle-primary text-circle-charcoal font-bold text-sm flex items-center justify-center uppercase shrink-0 shadow-sm">
-                      {effectiveCircle.name ? effectiveCircle.name.slice(0, 2) : 'C'}
-                    </div>
-                    <div className="truncate">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-white truncate">{effectiveCircle.name}</span>
-                        <span className="text-[10px] text-circle-primary font-medium bg-circle-primary/10 px-2 py-0.5 rounded-full border border-circle-primary/20 shrink-0">
-                          {t.moments.sharingToCircle}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-white/60 mt-0.5 truncate">
-                        {t.moments.sharingToCircleDesc.replace('{name}', effectiveCircle.name)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ) : (
+              {/* Circle-Based Privacy: Auto-bound when inside a Circle (no prompt shown), or Checklist when on Hub */}
+              {effectiveCircle ? null : (
                 /* When in Global Hub: Checklist to choose which Circles to share with */
                 <div className="space-y-2 pt-2 border-t border-white/10">
                   <div className="flex items-center justify-between">

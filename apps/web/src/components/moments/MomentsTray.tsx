@@ -89,7 +89,21 @@ export const MomentsTray: React.FC<MomentsTrayProps> = ({ circleId }) => {
               <div className="p-0.5 rounded-full bg-gradient-to-tr from-amber-500 via-rose-500 to-circle-primary group-hover:scale-105 transition-transform shadow-sm">
                 <div className="p-0.5 rounded-full bg-white dark:bg-circle-dark-surface">
                   <div className="h-13 w-13 rounded-full bg-circle-charcoal text-white font-bold text-xs flex items-center justify-center overflow-hidden">
-                    {moment.author?.profile?.avatarUrl ? (
+                    {moment.photoUrl ? (
+                      moment.mediaType === 'VIDEO' || moment.photoUrl.startsWith('data:video/') ? (
+                        <video
+                          src={moment.photoUrl}
+                          className="h-full w-full object-cover pointer-events-none"
+                          muted
+                        />
+                      ) : (
+                        <img
+                          src={moment.photoUrl}
+                          alt={authorName}
+                          className="h-full w-full object-cover"
+                        />
+                      )
+                    ) : moment.author?.profile?.avatarUrl ? (
                       <img
                         src={moment.author.profile.avatarUrl}
                         alt={authorName}
