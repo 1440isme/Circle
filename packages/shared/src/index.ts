@@ -15,6 +15,7 @@ export function sanitizeText(input: string): string {
 export * from "./validators/auth.validator";
 export * from "./validators/circle.validator";
 export * from "./validators/moment.validator";
+export * from "./validators/chat.validator";
 
 // Locales & Bilingual Support (vi, en)
 export * from "./locales";

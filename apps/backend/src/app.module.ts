@@ -6,6 +6,7 @@ import { MailModule } from './modules/mail/mail.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { CirclesModule } from './modules/circles/circles.module';
 import { MomentsModule } from './modules/moments/moments.module';
+import { ChatModule } from './modules/chat/chat.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 
@@ -20,6 +21,7 @@ import { RolesGuard } from './common/guards/roles.guard';
     AuthModule,
     CirclesModule,
     MomentsModule,
+    ChatModule,
   ],
   providers: [
     {
