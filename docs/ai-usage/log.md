@@ -2367,8 +2367,44 @@
   - **Error Description:** Không có.
   - **Root Cause:** N/A
   - **Resolution / Fix:** N/A
-- **Commit:** 310705a
+- **Commit:** 84feaea
 - **PR:** #62 (https://github.com/1440isme/Circle/pull/62 - DRAFT)
+
+---
+
+## AI-0059: Tích hợp Mục "Khoảnh khắc thường ngày" vào Tiện ích Nhóm và Không gian Locket Slider
+
+- **Date:** 2026-09-29 16:58:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #61 (US-MOMENT-001: Moments Sharing and Circle Visibility)
+- **Purpose:** 
+  1. Loại bỏ hoàn toàn khối khung widget to trên thanh điều hướng bên trái và thanh bên phải; thay bằng menu item gọn gàng chuẩn **"Khoảnh khắc thường ngày"** (`t.moments.locketWidgetTitle`) nằm trong danh sách **Tiện ích Nhóm** (`Sidebar.tsx`).
+  2. Bổ sung quản lý trạng thái điều hướng không gian làm việc `activeCircleView: string` ('general' | 'moments') trong `apps/web/src/stores/circle.store.ts`.
+  3. Khi click chọn "Khoảnh khắc thường ngày" trong Tiện ích Nhóm ở Sidebar, vùng trung tâm (`FeedStream.tsx`) chuyển sang không gian tương tác Locket chuyên biệt:
+     - Header thông tin "Khoảnh khắc thường ngày".
+     - Khung hiển thị Locket cỡ lớn (ảnh/video trực tiếp, avatar, chú thích, tắt/bật âm thanh, nút xóa).
+     - Thanh trượt Filmstrip thumbnail ngang ("mấy ảnh lướt lướt đó") với nút chụp nhanh `+` và tự động cuộn căn giữa ảnh đang chọn.
+     - Dock thả cảm xúc ❤️ 🔥 😂 👏 😍 tương tác trực tiếp.
+  4. Khi click lại kênh `# general`, màn hình chuyển về luồng thảo luận chung mượt mà.
+- **Prompt Summary:** "bạn hiểu sai ý tôi rồi ko có cái khung đó ở trên thanh tiện ích mà là để tên là khoảng khắc thường ngày xong trong đó có thể lướt xem ảnh các thành viên đã đăng và thả cảm xúc hay j đó"
+- **Files Affected:**
+  - `apps/web/src/stores/circle.store.ts`
+  - `apps/web/src/components/navigation/Sidebar.tsx`
+  - `apps/web/src/components/stream/FeedStream.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% mã nguồn cập nhật state management, điều hướng Sidebar NavItem và chuyển đổi không gian hiển thị tại FeedStream.
+- **Human Modifications:** Ninh Thị Mỹ Hạnh trực tiếp làm rõ thiết kế: Không để khung widget thô trên thanh sidebar, mà để mục "Khoảnh khắc thường ngày" trong tiện ích nhóm, click vào bên trong mới là không gian lướt ảnh và thả cảm xúc.
+- **Verification Method:**
+  - `npm test -w @circle/backend`: 69/69 unit tests pass 100%.
+  - `npm run build -w @circle/web`: Next.js 14 compile & static pages generation pass 100%, 0 errors.
+  - `bash ./scripts/check-agent-map.sh`: 93/93 framework files pass 100%.
+- **Official Source Checked:** `PROJECT_GOD.md` (Module 5), Issue #61, Draft PR #62.
+- **Security & License Check:** An toàn, không chứa credentials.
+- **Commit:** 855191d
+- **PR:** #62 (https://github.com/1440isme/Circle/pull/62 - DRAFT)
+
 
 
 
