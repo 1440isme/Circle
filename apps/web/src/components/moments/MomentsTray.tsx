@@ -122,6 +122,7 @@ export const MomentsTray: React.FC<MomentsTrayProps> = ({ circleId }) => {
       {/* Modals */}
       <CreateMomentModal
         isOpen={isCreateOpen}
+        circleId={targetCircleId || undefined}
         onClose={() => setIsCreateOpen(false)}
       />
 

@@ -514,6 +514,8 @@ export const vi = {
     retryCamera: 'Thử kết nối lại camera',
     videoBadge: 'Video',
     photoBadge: 'Ảnh',
+    sharingToCircle: 'Chia sẻ tới Vòng tròn',
+    sharingToCircleDesc: 'Khoảnh khắc sẽ được chia sẻ trực tiếp tới Vòng tròn {name}',
   },
 };
 

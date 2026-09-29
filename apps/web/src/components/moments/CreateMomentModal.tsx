@@ -26,17 +26,25 @@ import { useCreateMomentMutation } from '@/hooks/use-moment-queries';
 interface CreateMomentModalProps {
   isOpen: boolean;
   onClose: () => void;
+  circleId?: string;
 }
 
 type CaptureMode = 'PHOTO' | 'VIDEO';
 
 const MAX_VIDEO_SECONDS = 10;
 
-export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({ isOpen, onClose }) => {
+export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
+  isOpen,
+  onClose,
+  circleId,
+}) => {
   const t = useLanguageStore((s) => s.t);
   const activeCircle = useCircleStore((s) => s.activeCircle);
   const { data: myCircles = [] } = useMyCirclesQuery();
   const createMomentMutation = useCreateMomentMutation();
+
+  const effectiveCircle =
+    activeCircle || (circleId ? myCircles.find((c) => c.id === circleId) : null);
 
   // Mode & Capture state
   const [mode, setMode] = useState<CaptureMode>('PHOTO');
@@ -70,8 +78,8 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({ isOpen, on
   // Sync selected circles on open
   useEffect(() => {
     if (isOpen) {
-      if (activeCircle) {
-        setSelectedCircleIds([activeCircle.id]);
+      if (effectiveCircle) {
+        setSelectedCircleIds([effectiveCircle.id]);
       } else if (myCircles.length > 0) {
         setSelectedCircleIds(myCircles.map((c) => c.id));
       }
@@ -81,7 +89,7 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({ isOpen, on
       setCameraError(null);
       setMode('PHOTO');
     }
-  }, [isOpen, activeCircle, myCircles]);
+  }, [isOpen, effectiveCircle, myCircles]);
 
   // Stop camera tracks helper
   const stopCameraStream = useCallback(() => {
@@ -532,64 +540,86 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({ isOpen, on
                 />
               </div>
 
-              {/* Circle-Based Privacy Visibility Selector */}
-              <div className="space-y-2 pt-2 border-t border-white/10">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <label className="text-xs font-bold text-white block">
-                      {t.moments.selectCirclesLabel}
-                    </label>
-                    <p className="text-[11px] text-white/60">{t.moments.selectCirclesDesc}</p>
-                  </div>
-                  {myCircles.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={handleSelectAllCircles}
-                      className="text-[11px] font-semibold text-circle-primary hover:underline"
-                    >
-                      {selectedCircleIds.length === myCircles.length
-                        ? 'Bỏ chọn tất cả'
-                        : 'Chọn tất cả'}
-                    </button>
-                  )}
-                </div>
-
-                {/* Circles List Checklist */}
-                <div className="max-h-40 overflow-y-auto space-y-1.5 pr-1 no-scrollbar">
-                  {myCircles.map((circle) => {
-                    const isChecked = selectedCircleIds.includes(circle.id);
-                    return (
-                      <div
-                        key={circle.id}
-                        onClick={() => handleToggleCircle(circle.id)}
-                        className={`flex items-center justify-between p-2.5 rounded-2xl cursor-pointer transition-all border ${
-                          isChecked
-                            ? 'bg-circle-primary/20 border-circle-primary text-white'
-                            : 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <div className="h-7 w-7 rounded-xl bg-white/10 flex items-center justify-center font-bold text-xs uppercase text-circle-primary shrink-0">
-                            {circle.name.slice(0, 2)}
-                          </div>
-                          <div className="truncate">
-                            <h5 className="text-xs font-semibold truncate">{circle.name}</h5>
-                            <p className="text-[10px] text-white/50 font-mono">@{circle.handle}</p>
-                          </div>
-                        </div>
-
-                        <div>
-                          {isChecked ? (
-                            <CheckSquare className="h-4 w-4 text-circle-primary" />
-                          ) : (
-                            <Square className="h-4 w-4 text-white/40" />
-                          )}
-                        </div>
+              {/* Circle-Based Privacy: Auto-bound when inside a Circle, or Checklist when on Hub */}
+              {effectiveCircle ? (
+                <div className="space-y-1.5 pt-2 border-t border-white/10">
+                  <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-white/10 border border-white/15">
+                    <div className="h-9 w-9 rounded-xl bg-circle-primary text-circle-charcoal font-bold text-sm flex items-center justify-center uppercase shrink-0 shadow-sm">
+                      {effectiveCircle.name ? effectiveCircle.name.slice(0, 2) : 'C'}
+                    </div>
+                    <div className="truncate">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-white truncate">{effectiveCircle.name}</span>
+                        <span className="text-[10px] text-circle-primary font-medium bg-circle-primary/10 px-2 py-0.5 rounded-full border border-circle-primary/20 shrink-0">
+                          {t.moments.sharingToCircle}
+                        </span>
                       </div>
-                    );
-                  })}
+                      <p className="text-[11px] text-white/60 mt-0.5 truncate">
+                        {t.moments.sharingToCircleDesc.replace('{name}', effectiveCircle.name)}
+                      </p>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                /* When in Global Hub: Checklist to choose which Circles to share with */
+                <div className="space-y-2 pt-2 border-t border-white/10">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <label className="text-xs font-bold text-white block">
+                        {t.moments.selectCirclesLabel}
+                      </label>
+                      <p className="text-[11px] text-white/60">{t.moments.selectCirclesDesc}</p>
+                    </div>
+                    {myCircles.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={handleSelectAllCircles}
+                        className="text-[11px] font-semibold text-circle-primary hover:underline"
+                      >
+                        {selectedCircleIds.length === myCircles.length
+                          ? 'Bỏ chọn tất cả'
+                          : 'Chọn tất cả'}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Circles List Checklist */}
+                  <div className="max-h-40 overflow-y-auto space-y-1.5 pr-1 no-scrollbar">
+                    {myCircles.map((circle) => {
+                      const isChecked = selectedCircleIds.includes(circle.id);
+                      return (
+                        <div
+                          key={circle.id}
+                          onClick={() => handleToggleCircle(circle.id)}
+                          className={`flex items-center justify-between p-2.5 rounded-2xl cursor-pointer transition-all border ${
+                            isChecked
+                              ? 'bg-circle-primary/20 border-circle-primary text-white'
+                              : 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="h-7 w-7 rounded-xl bg-white/10 flex items-center justify-center font-bold text-xs uppercase text-circle-primary shrink-0">
+                              {circle.name.slice(0, 2)}
+                            </div>
+                            <div className="truncate">
+                              <h5 className="text-xs font-semibold truncate">{circle.name}</h5>
+                              <p className="text-[10px] text-white/50 font-mono">@{circle.handle}</p>
+                            </div>
+                          </div>
+
+                          <div>
+                            {isChecked ? (
+                              <CheckSquare className="h-4 w-4 text-circle-primary" />
+                            ) : (
+                              <Square className="h-4 w-4 text-white/40" />
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Error Message */}
               {errorMessage && (

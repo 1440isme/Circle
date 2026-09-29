@@ -516,6 +516,8 @@ export const en: TranslationDictionary = {
     retryCamera: 'Retry Camera Access',
     videoBadge: 'Video',
     photoBadge: 'Photo',
+    sharingToCircle: 'Share to Circle',
+    sharingToCircleDesc: 'This moment will be shared directly to Circle {name}',
   },
 };
 
