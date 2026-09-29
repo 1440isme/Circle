@@ -2326,11 +2326,10 @@
   - `bash ./scripts/check-agent-map.sh`: 93/93 files pass 100%.
 - **Official Source Checked:** `PROJECT_GOD.md` (US-MOMENT-001, AC-MOMENT-001-01, AC-MOMENT-001-02, Module 5), `docs/phan-cong-nhiem-vu.md`, GitHub Issue #61.
 - **Security & License Check:** Phân quyền riêng tư theo Circle tuyệt đối: chỉ thành viên trong Vòng tròn được chỉ định mới có quyền truy cập hoặc xem Khoảnh khắc; chỉ tác giả mới có quyền xóa.
-- **AI Errors / Hallucinations Found:**
-  - **Error Description:** Lỗi TypeScript trong `CreateMomentModal.tsx` khi truy cập `t.circle.cancel` không tồn tại.
-  - **Root Cause:** Khóa `cancel` trong từ điển i18n nằm ở nhánh chung `t.common.cancel`.
-  - **Resolution / Fix:** Cập nhật gọi `t.common.cancel`.
-- **Commit:** 6269c7a
+  - **Error Description:** Lỗi `request entity too large` (HTTP 413) khi gửi ảnh/video data URI trực tiếp từ camera lên backend NestJS do giới hạn mặc định 100kb của express body-parser; và modal vẫn hỏi chọn Vòng tròn khi người dùng đang ở trong không gian một Vòng tròn cụ thể.
+  - **Root Cause:** Chưa cấu hình `limit: '50mb'` cho `json()` và `urlencoded()` trong `main.ts`; và `CreateMomentModal` chưa tự động khóa theo Vòng tròn đang mở.
+  - **Resolution / Fix:** Cấu hình `app.use(json({ limit: '50mb' }))` và `app.use(urlencoded({ extended: true, limit: '50mb' }))` trong `apps/backend/src/main.ts`; cập nhật `CreateMomentModal.tsx` tự động nhận diện `effectiveCircle` để khóa và hiển thị trực tiếp thẻ Vòng tròn đích, không hỏi chọn nhóm khác.
+- **Commit:** 872a465
 - **PR:** #62 (https://github.com/1440isme/Circle/pull/62 - DRAFT)
 
 
