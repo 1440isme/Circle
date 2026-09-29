@@ -2433,8 +2433,8 @@
   - **Error Description:** Import nhầm `SendMessageInput` từ `@circle/types` thay vì `@circle/shared` trong `use-chat-queries.ts`; và thuộc tính `socket.connecting` không tồn tại trong type definition của socket.io-client.
   - **Root Cause:** Nhớ nhầm module export của Zod input type và API của socket.io-client v4.
   - **Resolution / Fix:** Chuyển import `SendMessageInput` từ `@circle/shared`, sửa điều kiện socket sang `!socket.connected`.
-- **Commit:** Pending
-- **PR:** Pending
+- **Commit:** `e40ef4e`
+- **PR:** #63 (https://github.com/1440isme/Circle/pull/63)
 
 
 
