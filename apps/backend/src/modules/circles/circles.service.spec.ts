@@ -1,10 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { CirclesService } from './circles.service';
 import { PrismaService } from '../../database/prisma.service';
 import { MemberRole, ChannelType, FriendshipStatus } from '@prisma/client';
 
-describe('CirclesService — Unit Tests (US-CIRCLE-001)', () => {
+describe('CirclesService — Unit Tests (US-CIRCLE-001 & US-CIRCLE-002)', () => {
   let service: CirclesService;
 
   const mockPrisma = {
@@ -18,6 +18,24 @@ describe('CirclesService — Unit Tests (US-CIRCLE-001)', () => {
     circleMember: {
       create: jest.fn(),
       findUnique: jest.fn(),
+      findMany: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+      count: jest.fn(),
+      upsert: jest.fn(),
+    },
+    circleInvite: {
+      findUnique: jest.fn(),
+      findMany: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+    },
+    circleJoinRequest: {
+      findUnique: jest.fn(),
+      findFirst: jest.fn(),
+      findMany: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
     },
     channel: {
       create: jest.fn(),
@@ -448,6 +466,444 @@ describe('CirclesService — Unit Tests (US-CIRCLE-001)', () => {
       await expect(
         service.joinByInviteCode(userId, { inviteCode }),
       ).rejects.toThrow(ConflictException);
+    });
+
+    it('AC-CIRCLE-002-01: should join successfully with custom invite and increment useCount', async () => {
+      mockPrisma.circleInvite.findUnique.mockResolvedValue({
+        id: 'invite-cuid-1',
+        circleId: 'circle-join-123',
+        code: 'INVITE01',
+        expiresAt: new Date(Date.now() + 100000),
+        maxUses: 10,
+        useCount: 2,
+        circle: {
+          id: 'circle-join-123',
+          name: 'Nhóm Custom Invite',
+          handle: 'custom-invite',
+          deletedAt: null,
+          members: [],
+          _count: { members: 2 },
+        },
+      });
+
+      mockPrisma.$transaction.mockResolvedValue([]);
+
+      const result = await service.joinByInviteCode(userId, { inviteCode: 'INVITE01' });
+
+      expect(result.success).toBe(true);
+      expect(result.data.id).toBe('circle-join-123');
+      expect(mockPrisma.$transaction).toHaveBeenCalled();
+    });
+
+    it('AC-CIRCLE-002-01: should reject expired custom invite code', async () => {
+      mockPrisma.circleInvite.findUnique.mockResolvedValue({
+        id: 'invite-expired-1',
+        circleId: 'circle-join-123',
+        code: 'EXPIRED1',
+        expiresAt: new Date(Date.now() - 100000), // Expired!
+        maxUses: 10,
+        useCount: 2,
+        circle: {
+          id: 'circle-join-123',
+          deletedAt: null,
+          members: [],
+        },
+      });
+
+      await expect(
+        service.joinByInviteCode(userId, { inviteCode: 'EXPIRED1' }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('AC-CIRCLE-002-01: should reject custom invite that reached max uses', async () => {
+      mockPrisma.circleInvite.findUnique.mockResolvedValue({
+        id: 'invite-maxed-1',
+        circleId: 'circle-join-123',
+        code: 'MAXEDOUT',
+        expiresAt: null,
+        maxUses: 5,
+        useCount: 5, // Reached limit!
+        circle: {
+          id: 'circle-join-123',
+          deletedAt: null,
+          members: [],
+        },
+      });
+
+      await expect(
+        service.joinByInviteCode(userId, { inviteCode: 'MAXEDOUT' }),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('createCustomInviteCode (US-CIRCLE-002)', () => {
+    const circleId = 'circle-1';
+    const userId = 'user-owner';
+
+    it('should allow OWNER or ADMIN to create custom invite code with expiry & max uses', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValue({
+        id: 'member-owner',
+        circleId,
+        userId,
+        role: MemberRole.OWNER,
+      });
+
+      mockPrisma.circleInvite.findUnique.mockResolvedValue(null);
+      mockPrisma.circle.findUnique.mockResolvedValue(null);
+      mockPrisma.circleInvite.create.mockResolvedValue({
+        id: 'new-invite-id',
+        circleId,
+        code: 'TESTCODE',
+        createdById: 'member-owner',
+        expiresAt: expect.any(Date),
+        maxUses: 20,
+        useCount: 0,
+      });
+
+      const result = await service.createCustomInviteCode(circleId, userId, {
+        expiresInDays: 7,
+        maxUses: 20,
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.statusCode).toBe(201);
+      expect(mockPrisma.circleInvite.create).toHaveBeenCalled();
+    });
+
+    it('should throw ForbiddenException if user is regular MEMBER', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValue({
+        id: 'member-reg',
+        circleId,
+        userId,
+        role: MemberRole.MEMBER,
+      });
+
+      await expect(
+        service.createCustomInviteCode(circleId, userId, { maxUses: 10 }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('removeMember & leaveCircle (US-CIRCLE-002)', () => {
+    const circleId = 'circle-1';
+    const ownerId = 'user-owner';
+    const memberId = 'member-regular';
+
+    it('should allow OWNER to kick member', async () => {
+      mockPrisma.circleMember.findUnique.mockImplementation(({ where }) => {
+        if (where.circleId_userId) {
+          return Promise.resolve({ id: 'member-owner', role: MemberRole.OWNER, userId: ownerId });
+        }
+        if (where.id === memberId) {
+          return Promise.resolve({ id: memberId, circleId, role: MemberRole.MEMBER });
+        }
+        return Promise.resolve(null);
+      });
+      mockPrisma.circleMember.delete.mockResolvedValue({ id: memberId });
+
+      const result = await service.removeMember(circleId, ownerId, memberId);
+      expect(result.success).toBe(true);
+      expect(mockPrisma.circleMember.delete).toHaveBeenCalledWith({ where: { id: memberId } });
+    });
+
+    it('should throw ForbiddenException if regular MEMBER tries to kick another member', async () => {
+      mockPrisma.circleMember.findUnique.mockImplementation(({ where }) => {
+        if (where.circleId_userId) {
+          return Promise.resolve({ id: 'member-regular-1', role: MemberRole.MEMBER, userId: 'user-regular' });
+        }
+        if (where.id === memberId) {
+          return Promise.resolve({ id: memberId, circleId, role: MemberRole.MEMBER });
+        }
+        return Promise.resolve(null);
+      });
+
+      await expect(
+        service.removeMember(circleId, 'user-regular', memberId),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should throw ForbiddenException if caller tries to kick OWNER', async () => {
+      mockPrisma.circleMember.findUnique.mockImplementation(({ where }) => {
+        if (where.circleId_userId) {
+          return Promise.resolve({ id: 'member-owner', role: MemberRole.OWNER, userId: ownerId });
+        }
+        if (where.id === 'member-owner-2') {
+          return Promise.resolve({ id: 'member-owner-2', circleId, role: MemberRole.OWNER });
+        }
+        return Promise.resolve(null);
+      });
+
+      await expect(
+        service.removeMember(circleId, ownerId, 'member-owner-2'),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('leaveCircle: should forbid OWNER from leaving if other members exist', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValue({
+        id: 'member-owner',
+        circleId,
+        userId: ownerId,
+        role: MemberRole.OWNER,
+      });
+      mockPrisma.circleMember.count.mockResolvedValue(3);
+
+      await expect(
+        service.leaveCircle(circleId, ownerId),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('leaveCircle: should allow regular MEMBER to leave', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValue({
+        id: 'member-regular',
+        circleId,
+        userId: 'user-regular',
+        role: MemberRole.MEMBER,
+      });
+      mockPrisma.circleMember.delete.mockResolvedValue({ id: 'member-regular' });
+
+      const result = await service.leaveCircle(circleId, 'user-regular');
+      expect(result.success).toBe(true);
+      expect(mockPrisma.circleMember.delete).toHaveBeenCalledWith({ where: { id: 'member-regular' } });
+    });
+  });
+
+  describe('transferOwnership (US-CIRCLE-002)', () => {
+    const circleId = 'circle-1';
+    const ownerId = 'user-owner';
+    const targetMemberId = 'member-target';
+
+    it('should transfer OWNER role to target member and demote previous owner to MEMBER', async () => {
+      mockPrisma.circleMember.findUnique.mockImplementation(({ where }) => {
+        if (where.circleId_userId) {
+          return Promise.resolve({ id: 'member-owner', role: MemberRole.OWNER, userId: ownerId });
+        }
+        if (where.id === targetMemberId) {
+          return Promise.resolve({ id: targetMemberId, circleId, role: MemberRole.MEMBER });
+        }
+        return Promise.resolve(null);
+      });
+      mockPrisma.$transaction.mockResolvedValue([]);
+
+      const result = await service.transferOwnership(circleId, ownerId, targetMemberId);
+      expect(result.success).toBe(true);
+      expect(mockPrisma.$transaction).toHaveBeenCalled();
+    });
+  });
+
+  describe('joinRequests (US-CIRCLE-002)', () => {
+    const circleId = 'circle-private';
+    const userId = 'user-requester';
+    const ownerId = 'user-owner';
+
+    it('should submit join request for private circle', async () => {
+      mockPrisma.circle.findUnique.mockResolvedValue({
+        id: circleId,
+        isPrivate: true,
+        deletedAt: null,
+        members: [],
+      });
+      mockPrisma.circleJoinRequest.findUnique.mockResolvedValue(null);
+      mockPrisma.circleJoinRequest.create.mockResolvedValue({
+        id: 'req-1',
+        circleId,
+        userId,
+        status: 'PENDING',
+      });
+
+      const result = await service.requestToJoin(circleId, userId, { message: 'Xin tham gia nhóm ạ' });
+      expect(result.success).toBe(true);
+      expect(result.statusCode).toBe(201);
+      expect(mockPrisma.circleJoinRequest.create).toHaveBeenCalled();
+    });
+
+    it('should allow OWNER to review and approve join request', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValue({
+        id: 'm-owner',
+        circleId,
+        userId: ownerId,
+        role: MemberRole.OWNER,
+      });
+      mockPrisma.circleJoinRequest.findFirst.mockResolvedValue({
+        id: 'req-1',
+        circleId,
+        userId: 'user-requester',
+        status: 'PENDING',
+      });
+      mockPrisma.$transaction.mockResolvedValue([]);
+
+      const result = await service.reviewJoinRequest(circleId, ownerId, 'req-1', { status: 'APPROVED' });
+      expect(result.success).toBe(true);
+      expect(mockPrisma.$transaction).toHaveBeenCalled();
+    });
+
+    it('should allow OWNER to reject join request', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValue({
+        id: 'm-owner',
+        circleId,
+        userId: ownerId,
+        role: MemberRole.OWNER,
+      });
+      mockPrisma.circleJoinRequest.findFirst.mockResolvedValue({
+        id: 'req-1',
+        circleId,
+        userId: 'user-requester',
+        status: 'PENDING',
+      });
+      mockPrisma.circleJoinRequest.update.mockResolvedValue({
+        id: 'req-1',
+        status: 'REJECTED',
+      });
+
+      const result = await service.reviewJoinRequest(circleId, ownerId, 'req-1', { status: 'REJECTED' });
+      expect(result.success).toBe(true);
+      expect(mockPrisma.circleJoinRequest.update).toHaveBeenCalledWith({
+        where: { id: 'req-1' },
+        data: { status: 'REJECTED' },
+      });
+    });
+
+    it('should throw ForbiddenException if regular MEMBER tries to review join request', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValue({
+        id: 'm-regular',
+        circleId,
+        userId: 'user-regular',
+        role: MemberRole.MEMBER,
+      });
+
+      await expect(
+        service.reviewJoinRequest(circleId, 'user-regular', 'req-1', { status: 'APPROVED' }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('updateMemberNickname', () => {
+    const circleId = 'circle-nick-1';
+    const callerId = 'user-caller-1';
+    const targetMemberId = 'm-target-1';
+
+    it('should update member nickname successfully', async () => {
+      mockPrisma.circleMember.findUnique
+        .mockResolvedValueOnce({ id: 'm-caller', circleId, userId: callerId, role: MemberRole.MEMBER })
+        .mockResolvedValueOnce({ id: targetMemberId, circleId, userId: 'user-target' });
+
+      mockPrisma.circleMember.update.mockResolvedValue({
+        id: targetMemberId,
+        userId: 'user-target',
+        role: MemberRole.MEMBER,
+        nickname: 'Superstar',
+        joinedAt: new Date(),
+        user: { id: 'user-target', email: 'target@test.com', profile: { displayName: 'Real Name' } },
+      });
+
+      const result = await service.updateMemberNickname(circleId, callerId, targetMemberId, 'Superstar');
+      expect(result.success).toBe(true);
+      expect(result.data.nickname).toBe('Superstar');
+      expect(mockPrisma.circleMember.update).toHaveBeenCalledWith({
+        where: { id: targetMemberId },
+        data: { nickname: 'Superstar' },
+        include: { user: { select: { id: true, email: true, profile: true } } },
+      });
+    });
+
+    it('should clear nickname when given empty string or null so it defaults to user name', async () => {
+      mockPrisma.circleMember.findUnique
+        .mockResolvedValueOnce({ id: 'm-caller', circleId, userId: callerId, role: MemberRole.OWNER })
+        .mockResolvedValueOnce({ id: targetMemberId, circleId, userId: 'user-target' });
+
+      mockPrisma.circleMember.update.mockResolvedValue({
+        id: targetMemberId,
+        userId: 'user-target',
+        role: MemberRole.MEMBER,
+        nickname: null,
+        joinedAt: new Date(),
+        user: { id: 'user-target', email: 'target@test.com', profile: { displayName: 'Real Name' } },
+      });
+
+      const result = await service.updateMemberNickname(circleId, callerId, targetMemberId, '   ');
+      expect(result.success).toBe(true);
+      expect(result.data.nickname).toBeNull();
+      expect(mockPrisma.circleMember.update).toHaveBeenCalledWith({
+        where: { id: targetMemberId },
+        data: { nickname: null },
+        include: { user: { select: { id: true, email: true, profile: true } } },
+      });
+    });
+
+    it('should throw ForbiddenException if caller is not in circle', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValueOnce(null);
+
+      await expect(
+        service.updateMemberNickname(circleId, 'outsider-id', targetMemberId, 'Nick'),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should throw NotFoundException if target member is not found in circle', async () => {
+      mockPrisma.circleMember.findUnique
+        .mockResolvedValueOnce({ id: 'm-caller', circleId, userId: callerId })
+        .mockResolvedValueOnce(null);
+
+      await expect(
+        service.updateMemberNickname(circleId, callerId, 'non-existent-member', 'Nick'),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('addMembers', () => {
+    const circleId = 'circle-add-1';
+    const callerId = 'user-caller-1';
+
+    it('should add members successfully', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValueOnce({
+        id: 'm-caller',
+        circleId,
+        userId: callerId,
+        role: MemberRole.MEMBER,
+      });
+
+      mockPrisma.circle.findUnique.mockResolvedValueOnce({
+        id: circleId,
+        maxMembers: 10,
+        deletedAt: null,
+        _count: { members: 3 },
+      });
+
+      mockPrisma.circleMember.findMany.mockResolvedValueOnce([]); // no existing members
+      mockPrisma.$transaction.mockResolvedValueOnce([]);
+
+      const result = await service.addMembers(circleId, callerId, ['user-friend-1', 'user-friend-2']);
+      expect(result.success).toBe(true);
+      expect(result.data).toEqual(['user-friend-1', 'user-friend-2']);
+      expect(mockPrisma.$transaction).toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException if adding members exceeds maxMembers', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValueOnce({
+        id: 'm-caller',
+        circleId,
+        userId: callerId,
+        role: MemberRole.MEMBER,
+      });
+
+      mockPrisma.circle.findUnique.mockResolvedValueOnce({
+        id: circleId,
+        maxMembers: 5,
+        deletedAt: null,
+        _count: { members: 4 },
+      });
+
+      mockPrisma.circleMember.findMany.mockResolvedValueOnce([]);
+
+      await expect(
+        service.addMembers(circleId, callerId, ['user-f1', 'user-f2']),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw ForbiddenException if caller is not in circle', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValueOnce(null);
+
+      await expect(
+        service.addMembers(circleId, 'outsider', ['user-f1']),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 });

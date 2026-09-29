@@ -59,6 +59,7 @@ export const Sidebar: React.FC = () => {
   const activeCircle = useCircleStore((s) => s.activeCircle);
   const setActiveCircle = useCircleStore((s) => s.setActiveCircle);
   const setCreateModalOpen = useCircleStore((s) => s.setCreateModalOpen);
+  const setManageModalOpen = useCircleStore((s) => s.setManageModalOpen);
 
   const { data: circles = [], isLoading } = useMyCirclesQuery();
   const [isDropdownOpen, setIsDropdownOpen] = React.useState(false);
@@ -242,11 +243,7 @@ export const Sidebar: React.FC = () => {
             label={t.nav.circleSettings}
             onClick={() => {
               if (activeCircle) {
-                alert(
-                  t.circle.circleSettingsNotice
-                    .replace('{name}', activeCircle.name)
-                    .replace('{handle}', activeCircle.handle),
-                );
+                setManageModalOpen(true, 'settings');
               }
             }}
           />

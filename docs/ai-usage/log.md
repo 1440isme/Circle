@@ -2199,6 +2199,68 @@
 - **Commit:** `f4f38cf`
 - **PR:** #59
 
+---
+
+## AI-0056: Triển khai US-CIRCLE-002 — 4-Tab Circle Settings, Add Members & Personal Privacy Controls
+
+- **Date:** 2026-09-29 13:50:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #5 ([SUB-FEAT]: US-CIRCLE-002 — Circle Invite Codes, Join Requests & Role Hierarchy (Parent: #19))
+- **Purpose:** Hoàn thiện toàn diện tái cấu trúc giao diện Cài đặt Vòng tròn dạng khung cố định (Fixed Frame Layout) thành hệ thống 4 tab chuyên biệt theo chỉ đạo của người dùng:
+  1. **Prisma Schema & Migrations:** 
+     - Bổ sung enum `JoinRequestStatus`, model `CircleJoinRequest` (`circleId`, `userId`, `message`, `status`), trường `maxMembers Int?` trong model `Circle`.
+     - Trường `nickname String?` trong `CircleMember` được tích hợp đầy đủ vào hệ thống.
+  2. **Shared Package (@circle/shared):** 
+     - Bổ sung Zod schemas (`addMembersSchema`, `updateNicknameSchema`, `createCircleSchema`, `updateCircleSchema`, `createJoinRequestSchema`, `reviewJoinRequestSchema`, `transferOwnershipSchema`).
+     - Bổ sung bộ từ điển song ngữ i18n (`vi.ts`, `en.ts`) cho 4 tab, tính năng Thêm thành viên, Quyền riêng tư & Tin nhắn, Hỗ trợ & Báo cáo cá nhân. Đảm bảo 100% không hardcode chuỗi ký tự hay màu sắc.
+  3. **Backend NestJS (CirclesService & CirclesController):**
+     - Bổ sung endpoint `POST /api/v1/circles/:id/members` cho phép thành viên thêm bạn bè trực tiếp vào Vòng tròn, kiểm tra dung lượng `maxMembers` và quan hệ bạn bè hợp lệ.
+     - Bổ sung endpoint `PATCH /api/v1/circles/:id/members/:memberId/nickname` cho phép cập nhật biệt danh thành viên (nếu để trống tự động chuyển về `null` để hiển thị tên thật).
+     - Phân quyền 2 cấp độ (`OWNER` và `MEMBER`): Bỏ hoàn toàn vai trò Admin theo SRS Intimate Social Platform. Chỉ `OWNER` mới có quyền cấu hình Vòng tròn, duyệt yêu cầu tham gia, kick thành viên, và chuyển giao quyền sở hữu.
+     - Quản lý quy mô Vòng tròn (`maxMembers`): Kiểm tra dung lượng nhóm trong `addMembers`, `joinByInviteCode`, `requestToJoin`, `reviewJoinRequest` (báo lỗi `circleFull` khi đạt giới hạn).
+  4. **Backend Automated Unit Tests:** 
+     - Thêm test suite cho `addMembers` và `updateMemberNickname`. Toàn bộ 55/55 backend tests pass 100%.
+  5. **Web UI (@circle/web):** Thiết kế lại modal quản lý Vòng tròn `CircleManagementModal.tsx` thành dạng **Khung cố định (Fixed Frame 2-Column Layout)** gồm 4 tab độc lập:
+     - **Cột điều hướng bên trái cố định (`w-64`):** Thể hiện danh tính Vòng tròn (Avatar, Tên, Handle) và 4 tab điều hướng cố định không co giật kích thước khi chuyển tab. Đã bỏ phần chú thích quy mô/chế độ dưới chân thanh điều hướng.
+     - **Tab 1: Thông tin đoạn chat (`chatInfo`):** Tên đoạn chat, ảnh đại diện, ảnh bìa, mô tả nhóm. Đã loại bỏ hoàn toàn chế độ riêng tư và số lượng thành viên ra khỏi tab này.
+     - **Tab 2: Thành viên (`members`):** Danh sách thành viên; nút **Thêm thành viên** (`+ Thêm thành viên`) mở bảng chọn bạn bè có tìm kiếm, chọn nhiều bạn và thêm ngay vào nhóm; icon cây bút nhỏ (`✏️`) đặt ngay cạnh tên hiển thị để đổi biệt danh dạng inline; tên người dùng thật được hiển thị trên dòng riêng biệt bên dưới biệt danh mà không cần tag biệt danh.
+     - **Tab 3: Quyền riêng tư & Hỗ trợ (`privacySupport`):** Dành riêng cho cá nhân mỗi người dùng trong nhóm này:
+       - *Quyền riêng tư & Tin nhắn*: Bật/Tắt hiển thị thông báo đã đọc (Read receipts / "Đã xem"); Thông báo đoạn chat (Bật tất cả / Tắt tiếng 15m, 1h, 8h, 24h / Tắt thông báo).
+       - *Hỗ trợ & Báo cáo*: Báo cáo vi phạm Vòng tròn (form chọn lý do vi phạm); Trung tâm trợ giúp / Hướng dẫn cộng đồng; Rời Vòng tròn (nút nguy hiểm dành cho cá nhân muốn thoát nhóm kèm xác nhận).
+     - **Tab 4: Thiết lập Vòng tròn (`circleSettings`):** Dành cho nhóm: Cấu hình chế độ tham gia (Public/Private), giới hạn số lượng thành viên tối đa (`maxMembers`), liên kết & mã mời duy nhất kèm Web Share API, và danh sách yêu cầu tham gia đang chờ phê duyệt.
+- **Prompt Summary:** Tái cấu trúc 4 tab: Thông tin đoạn chat, Thành viên (thêm nút Thêm thành viên, icon bút cạnh tên, tên thật dưới biệt danh), Quyền riêng tư & Hỗ trợ (cá nhân: đã xem, thông báo, báo cáo, trợ giúp, rời nhóm), và Thiết lập Vòng tròn (nhóm: public/private, số lượng, mã mời, duyệt yêu cầu).
+- **Files Affected:**
+  - `apps/backend/src/modules/circles/circles.service.ts`
+  - `apps/backend/src/modules/circles/circles.controller.ts`
+  - `apps/backend/src/modules/circles/circles.service.spec.ts`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `packages/shared/src/validators/circle.validator.ts`
+  - `apps/web/src/stores/circle.store.ts`
+  - `apps/web/src/hooks/use-circle-queries.ts`
+  - `apps/web/src/components/circle/CircleManagementModal.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% mã nguồn backend, frontend, test suites, i18n locales và Zod schemas.
+- **Human Modifications:** Người dùng định hình chuẩn xác UX/UI bố cục khung cố định và cơ chế 4 tab chuyên biệt.
+- **Verification Method:**
+  - `npm test -w @circle/backend`: 55/55 tests pass 100%.
+  - `npm run build -w @circle/shared`: build thành công.
+  - `npm run build -w @circle/types`: build thành công.
+  - `npx tsc --noEmit` trong `apps/web`: 0 errors.
+  - `npx tsc --noEmit` trong `apps/mobile`: 0 errors.
+  - `bash -c "sed -i 's/\r$//' ./scripts/check-agent-map.sh && ./scripts/check-agent-map.sh"`: 93/93 files pass 100%.
+- **Official Source Checked:** `PROJECT_GOD.md` (US-CIRCLE-002, AC-CIRCLE-002-01, AC-CIRCLE-002-02, Rubric Level 5), `docs/requirements/SRS.md` (UC24, UC25), GitHub Issue #5.
+- **Security & License Check:** Phân quyền RBAC chặt chẽ, kiểm tra tính hợp lệ thành viên Vòng tròn và dung lượng trước khi thêm thành viên hoặc đặt biệt danh.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** Lỗi TypeScript trong `CircleManagementModal.tsx` khi truy cập `f.handle` trên kiểu `SelectableFriendItem`.
+  - **Root Cause:** Kiểu `SelectableFriendItem` chỉ bao gồm `id`, `displayName`, `email`, `avatarUrl`.
+  - **Resolution / Fix:** Bỏ `f.handle`, chuyển sang tìm kiếm theo `displayName` và `email`.
+- **Commit:** 056f2a0
+- **PR:** #60 (https://github.com/1440isme/Circle/pull/60)
+
+
 
 
 

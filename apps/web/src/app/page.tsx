@@ -8,6 +8,7 @@ import { FeedStream } from '@/components/stream/FeedStream';
 import { PresenceRail } from '@/components/presence/PresenceRail';
 import { CreateCircleModal } from '@/components/circle/CreateCircleModal';
 import { JoinCircleModal } from '@/components/circle/JoinCircleModal';
+import { CircleManagementModal } from '@/components/circle/CircleManagementModal';
 import { useCircleStore } from '@/stores/circle.store';
 
 export default function HomePage() {
@@ -34,6 +35,7 @@ export default function HomePage() {
         </div>
         <CreateCircleModal />
         <JoinCircleModal />
+        <CircleManagementModal />
       </div>
     </AuthGuard>
   );
