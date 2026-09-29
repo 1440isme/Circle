@@ -516,12 +516,12 @@ export const vi = {
     photoBadge: 'Ảnh',
     sharingToCircle: 'Chia sẻ tới Vòng tròn',
     sharingToCircleDesc: 'Khoảnh khắc sẽ được chia sẻ trực tiếp tới Vòng tròn {name}',
-    locketWidgetTitle: 'Locket của Nhóm',
-    sendLocketBtn: 'Gửi Locket',
-    emptyLocketTitle: 'Chưa có Locket nào',
-    emptyLocketDesc: 'Chụp hoặc quay video ngắn để gửi trực tiếp vào màn hình nhóm bạn ngay bây giờ!',
+    locketWidgetTitle: 'Khoảnh khắc thường ngày',
+    sendLocketBtn: 'Gửi khoảnh khắc',
+    emptyLocketTitle: 'Chưa có khoảnh khắc thường ngày',
+    emptyLocketDesc: 'Chụp hoặc quay video ngắn trực tiếp để chia sẻ những khoảnh khắc đời thường cùng nhóm bạn!',
     locketCounter: '{current} / {total}',
-    allLockets: 'Tất cả Locket',
+    allLockets: 'Tất cả khoảnh khắc',
   },
 };
 

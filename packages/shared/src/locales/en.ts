@@ -518,12 +518,12 @@ export const en: TranslationDictionary = {
     photoBadge: 'Photo',
     sharingToCircle: 'Share to Circle',
     sharingToCircleDesc: 'This moment will be shared directly to Circle {name}',
-    locketWidgetTitle: 'Group Locket',
-    sendLocketBtn: 'Send to Locket',
-    emptyLocketTitle: 'No Lockets Yet',
-    emptyLocketDesc: 'Take a live photo or short video to send right to your friends screen!',
+    locketWidgetTitle: 'Daily Moments',
+    sendLocketBtn: 'Share Moment',
+    emptyLocketTitle: 'No Daily Moments Yet',
+    emptyLocketDesc: 'Snap a live photo or short video to share authentic daily moments with your group!',
     locketCounter: '{current} / {total}',
-    allLockets: 'All Lockets',
+    allLockets: 'All Moments',
   },
 };
 

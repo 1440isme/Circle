@@ -2332,6 +2332,44 @@
 - **Commit:** 43f9295
 - **PR:** #62 (https://github.com/1440isme/Circle/pull/62 - DRAFT)
 
+---
+
+## AI-0058: Tái thiết kế Widget Khoảnh khắc Thường ngày dạng Locket Slider tại Thanh Tiện ích Nhóm
+
+- **Date:** 2026-09-29 16:45:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #61 (US-MOMENT-001: Moments Sharing and Circle Visibility)
+- **Purpose:** 
+  1. Tái định vị widget Khoảnh khắc từ Bảng tin chính sang vị trí Thanh Tiện ích Nhóm (`PresenceRail.tsx` bên phải không gian Vòng tròn), dọn dẹp sạch sẽ không gian chat/thảo luận trung tâm (`FeedStream.tsx`).
+  2. Đổi tên hiển thị chính thức thành **"Khoảnh khắc thường ngày"** (i18n: `t.moments.locketWidgetTitle`), cập nhật đồng bộ từ điển song ngữ trong `packages/shared/src/locales/vi.ts` & `en.ts`.
+  3. Xây dựng thanh trượt filmstrip ngang tương tác ("mấy ảnh lướt lướt") với các thumbnail bo tròn, viền kích hoạt nổi bật kèm cơ chế tự động cuộn mượt mà (`scrollIntoView({ inline: 'center' })`) tới ảnh/video đang chọn.
+  4. Tích hợp nút chụp nhanh (`+`) ngay đầu thanh slider mở trực tiếp camera thời gian thực, bộ điều hướng tiến/lùi mượt mà kèm đếm số lượng, và thả cảm xúc emoji tương tác tức thì.
+- **Prompt Summary:** "sao khi tôi chụp và đăng nhưng ko thấy nó hiển thị nhỉ và bỏ ghi nhóm cái khoảng khắc được chia sẻ trực tiếp .. luôn", "nhưng tôi muốn dạng kiểu locket á", "nên nằm ở mục tiện ích nhóm để tên kiểu Khoảnh khắc thường ngày xong có mấy ảnh lướt lướt đó"
+- **Files Affected:**
+  - `apps/web/src/components/moments/LocketWidget.tsx`
+  - `apps/web/src/components/presence/PresenceRail.tsx`
+  - `apps/web/src/components/stream/FeedStream.tsx`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% mã nguồn tái cấu trúc `LocketWidget`, tích hợp thanh trượt filmstrip cuộn mượt, di dời layout sang `PresenceRail`, dọn dẹp `FeedStream` và cập nhật từ điển i18n.
+- **Human Modifications:** Ninh Thị Mỹ Hạnh trực tiếp định hướng chuyển widget vào mục tiện ích nhóm, đặt tên chuẩn "Khoảnh khắc thường ngày", và yêu cầu trải nghiệm trượt ảnh tương tác trực quan.
+- **Verification Method:**
+  - `npm test -w @circle/backend`: 69/69 unit tests pass 100%.
+  - `npm run build -w @circle/web`: Next.js 14 compile & static pages generation pass 100%, 0 errors.
+  - `bash ./scripts/check-agent-map.sh`: 93/93 framework files pass 100%.
+- **Official Source Checked:** `PROJECT_GOD.md` (Module 5), Apple HIG widget styling, Issue #61, Draft PR #62.
+- **Security & License Check:** An toàn, không chứa thông tin bí mật hay credentials.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** Không có.
+  - **Root Cause:** N/A
+  - **Resolution / Fix:** N/A
+- **Commit:** 310705a
+- **PR:** #62 (https://github.com/1440isme/Circle/pull/62 - DRAFT)
+
+
 
 
 
