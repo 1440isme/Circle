@@ -2330,7 +2330,7 @@
   - **Error Description:** Lỗi TypeScript trong `CreateMomentModal.tsx` khi truy cập `t.circle.cancel` không tồn tại.
   - **Root Cause:** Khóa `cancel` trong từ điển i18n nằm ở nhánh chung `t.common.cancel`.
   - **Resolution / Fix:** Cập nhật gọi `t.common.cancel`.
-- **Commit:** PENDING_COMMIT
+- **Commit:** 6269c7a
 - **PR:** #62 (https://github.com/1440isme/Circle/pull/62 - DRAFT)
 
 
