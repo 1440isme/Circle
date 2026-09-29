@@ -13,7 +13,7 @@ import {
 import { MomentsService } from './moments.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { AuthUserData } from '../auth/interfaces/auth-token.interface';
+import { AuthUserData } from '@circle/types';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import {
   createMomentSchemas,
