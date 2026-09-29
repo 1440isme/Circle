@@ -22,7 +22,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useLanguageStore } from '../../stores/language.store';
 import { useCircleStore } from '../../stores/circle.store';
 import { useMyCirclesQuery } from '../../hooks/use-circle-queries';
-import { LocketWidget } from '../moments/LocketWidget';
+import { DailyMomentsFeed } from '../moments/DailyMomentsFeed';
 
 export const FeedStream: React.FC = () => {
   const { user } = useAuth();
@@ -282,29 +282,7 @@ export const FeedStream: React.FC = () => {
       </div>
 
       {activeCircleView === 'moments' ? (
-        <div className="flex-1 flex flex-col gap-5">
-          {/* Moments View Header Card */}
-          <div className="rounded-3xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-5 shadow-circle-card transition-colors flex items-center justify-between">
-            <div className="flex items-center gap-3.5">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-500/15 text-amber-500 font-bold">
-                <Camera className="h-5 w-5" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-circle-charcoal dark:text-circle-dark-text">
-                  {t.moments.locketWidgetTitle}
-                </h3>
-                <p className="text-xs text-circle-slate dark:text-circle-dark-muted">
-                  {t.moments.subtitle}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Daily Moments / Locket Interactive View with Photo Slider */}
-          <div className="w-full flex justify-center py-2">
-            <LocketWidget circleId={activeCircle.id} className="max-w-lg w-full" />
-          </div>
-        </div>
+        <DailyMomentsFeed circleId={activeCircle.id} />
       ) : (
         <>
           {/* Main Channel / Feed Stream */}
