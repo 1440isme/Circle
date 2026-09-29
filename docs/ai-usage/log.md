@@ -2258,7 +2258,7 @@
   - **Root Cause:** Kiểu `SelectableFriendItem` chỉ bao gồm `id`, `displayName`, `email`, `avatarUrl`.
   - **Resolution / Fix:** Bỏ `f.handle`, chuyển sang tìm kiếm theo `displayName` và `email`.
 - **Commit:** 056f2a0
-- **PR:** TBD (Pending creation)
+- **PR:** #60 (https://github.com/1440isme/Circle/pull/60)
 
 
 
