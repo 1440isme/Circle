@@ -14,7 +14,15 @@ export function createMomentSchemas(locale: Locale = 'vi') {
       .string()
       .trim()
       .min(1, v.momentPhotoUrlRequired)
-      .url(v.momentPhotoUrlInvalid),
+      .refine(
+        (val) =>
+          val.startsWith('data:') ||
+          val.startsWith('http://') ||
+          val.startsWith('https://') ||
+          val.startsWith('blob:'),
+        v.momentPhotoUrlInvalid,
+      ),
+    mediaType: z.enum(['IMAGE', 'VIDEO']).optional().default('IMAGE'),
     caption: z
       .string()
       .trim()
@@ -43,5 +51,6 @@ export function createMomentSchemas(locale: Locale = 'vi') {
 export type CreateMomentSchemaType = ReturnType<typeof createMomentSchemas>['createMomentSchema'];
 export type ReactMomentSchemaType = ReturnType<typeof createMomentSchemas>['reactMomentSchema'];
 
-export type CreateMomentInput = z.infer<CreateMomentSchemaType>;
-export type ReactMomentInput = z.infer<ReactMomentSchemaType>;
+export type CreateMomentInput = z.input<CreateMomentSchemaType>;
+export type CreateMomentOutput = z.output<CreateMomentSchemaType>;
+export type ReactMomentInput = z.input<ReactMomentSchemaType>;

@@ -224,10 +224,13 @@ export interface MomentReactionEntity {
   };
 }
 
+export type MomentMediaType = 'IMAGE' | 'VIDEO';
+
 export interface MomentEntity {
   id: string;
   authorId: string;
   photoUrl: string;
+  mediaType: MomentMediaType;
   caption?: string | null;
   capturedAt: string;
   createdAt: string;
@@ -248,6 +251,7 @@ export interface MomentEntity {
 
 export interface CreateMomentInput {
   photoUrl: string;
+  mediaType?: MomentMediaType;
   caption?: string;
   circleIds: string[];
 }

@@ -37,6 +37,7 @@ export class MomentsService {
         id: m.id,
         authorId: m.authorId,
         photoUrl: m.photoUrl,
+        mediaType: m.mediaType || 'IMAGE',
         caption: m.caption,
         capturedAt: m.capturedAt ? m.capturedAt.toISOString() : m.createdAt.toISOString(),
         createdAt: m.createdAt.toISOString(),
@@ -121,6 +122,7 @@ export class MomentsService {
       data: {
         authorId: userId,
         photoUrl: dto.photoUrl.trim(),
+        mediaType: (dto.mediaType as any) || 'IMAGE',
         caption: dto.caption?.trim() || null,
         visibilities: {
           create: dto.circleIds.map((circleId) => ({ circleId })),

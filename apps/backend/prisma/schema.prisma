@@ -57,6 +57,11 @@ enum CallStatus {
   ENDED
 }
 
+enum MomentMediaType {
+  IMAGE
+  VIDEO
+}
+
 // =============================================================================
 // 1. ACCOUNT & SOCIAL CONNECTIONS
 // =============================================================================
@@ -305,9 +310,10 @@ model Reaction {
 // =============================================================================
 
 model Moment {
-  id         String    @id @default(cuid())
+  id         String          @id @default(cuid())
   authorId   String
   photoUrl   String
+  mediaType  MomentMediaType @default(IMAGE)
   caption    String?
   capturedAt DateTime  @default(now())
   createdAt  DateTime  @default(now())

@@ -67,6 +67,7 @@ describe('MomentsService', () => {
         id: 'moment-1',
         authorId: 'user-1',
         photoUrl: 'https://img.com/1.jpg',
+        mediaType: 'IMAGE',
         caption: 'Hello moments',
         capturedAt: new Date('2026-09-29T10:00:00Z'),
         createdAt: new Date('2026-09-29T10:00:00Z'),
@@ -104,6 +105,7 @@ describe('MomentsService', () => {
         data: {
           authorId: 'user-1',
           photoUrl: 'https://img.com/1.jpg',
+          mediaType: 'IMAGE',
           caption: 'Hello moments',
           visibilities: {
             create: [{ circleId: 'circle-1' }, { circleId: 'circle-2' }],
@@ -131,6 +133,7 @@ describe('MomentsService', () => {
           id: 'moment-1',
           authorId: 'user-2',
           photoUrl: 'https://img.com/2.jpg',
+          mediaType: 'IMAGE',
           caption: 'Feed moment',
           capturedAt: new Date('2026-09-29T11:00:00Z'),
           createdAt: new Date('2026-09-29T11:00:00Z'),
@@ -177,6 +180,7 @@ describe('MomentsService', () => {
           id: 'moment-1',
           authorId: 'user-1',
           photoUrl: 'https://img.com/1.jpg',
+          mediaType: 'IMAGE',
           capturedAt: new Date(),
           createdAt: new Date(),
           visibilities: [],

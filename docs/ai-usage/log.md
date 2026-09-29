@@ -2271,32 +2271,36 @@
 - **Related Issue:** #61 ([SUB-FEAT]: US-MOMENT-001 — Group-Centric Moments Sharing & Circle Visibility Filtering (Parent: #20))
 - **Purpose:** Triển khai toàn diện Module 5 (Moments & Group Feed) - US-MOMENT-001: Chia sẻ Khoảnh khắc tức thì (Moments) với cơ chế phân quyền hiển thị theo Vòng tròn (Circle-Centric Privacy), bảng tin Moment Feed, phản ứng cảm xúc emoji, và giao diện Web Story Viewer & Moments Tray:
   1. **Prisma Database Schema & Migrations:**
-     - Thiết kế model `Moment` (`id`, `authorId`, `photoUrl`, `caption`, `capturedAt`, `createdAt`, `updatedAt`, `deletedAt`).
+     - Thiết kế model `Moment` (`id`, `authorId`, `photoUrl`, `mediaType`, `caption`, `capturedAt`, `createdAt`, `updatedAt`, `deletedAt`).
+     - Bổ sung enum `MomentMediaType` (`IMAGE`, `VIDEO`) và áp dụng migration `20260929084050_add_moment_media_type`.
      - Thiết kế model liên kết quyền hiển thị đa Vòng tròn `MomentVisibility` (`momentId`, `circleId`, `createdAt`) với quan hệ `@@unique([momentId, circleId])`.
      - Thiết kế model cảm xúc `MomentReaction` (`momentId`, `userId`, `emoji`, `createdAt`) với quan hệ `@@unique([momentId, userId, emoji])`.
-     - Chạy migration `20260929073137_add_moments_and_circle_visibility` an toàn trên PostgreSQL.
   2. **Shared Packages (@circle/types & @circle/shared):**
-     - Bổ sung interface `MomentEntity`, `MomentVisibilityEntity`, `MomentReactionEntity`, `CreateMomentInput`, `ReactMomentInput`.
-     - Xây dựng Zod validation `createMomentSchema` (ràng buộc photoUrl, độ dài caption tối đa 300 ký tự, danh sách circleIds tối thiểu 1 vòng tròn) và `reactMomentSchema` (ràng buộc emoji trong danh sách cho phép).
-     - Bổ sung từ điển bản địa hóa song ngữ i18n (`vi.ts`, `en.ts`) hoàn chỉnh cho toàn bộ module Moments.
+     - Bổ sung type `MomentMediaType` (`IMAGE` | `VIDEO`), interface `MomentEntity`, `MomentVisibilityEntity`, `MomentReactionEntity`, `CreateMomentInput`, `ReactMomentInput`.
+     - Cập nhật Zod validation `createMomentSchema` hỗ trợ linh hoạt cả Data URI (`data:image/...`, `data:video/...`) xuất trực tiếp từ camera lẫn URL ngoài, ràng buộc `mediaType` mặc định `IMAGE`.
+     - Bổ sung từ điển bản địa hóa song ngữ i18n (`vi.ts`, `en.ts`) hoàn chỉnh cho camera permissions, chụp ảnh, quay video ngắn, đếm thời gian, đổi camera.
   3. **Backend NestJS (MomentsModule, MomentsService, MomentsController):**
+     - Hỗ trợ lưu trữ và phân loại `mediaType` (`IMAGE` hoặc `VIDEO`).
      - `POST /api/v1/moments`: Đăng Moment mới, kiểm tra bắt buộc người dùng phải là thành viên hợp lệ của tất cả các Vòng tròn được chọn trước khi tạo liên kết `MomentVisibility`.
      - `GET /api/v1/moments/feed`: Lấy luồng Khoảnh khắc tổng hợp từ tất cả các Vòng tròn người dùng đang tham gia, gom nhóm số lượt phản ứng emoji và cờ phản ứng của chính người dùng.
      - `GET /api/v1/moments/circle/:circleId`: Lấy danh sách Khoảnh khắc thuộc riêng một Vòng tròn cụ thể kèm kiểm tra tư cách thành viên.
      - `POST /api/v1/moments/:id/react`: Thả hoặc gỡ (toggle) cảm xúc emoji (❤️, 😂, 🔥, 👏, 😍).
      - `DELETE /api/v1/moments/:id`: Xóa mềm (soft-delete) Khoảnh khắc, chỉ tác giả mới có quyền xóa.
   4. **Backend Automated Unit Tests:**
-     - Viết 14 test cases chuyên sâu trong `moments.service.spec.ts` kiểm thử toàn diện các luồng: tạo mới, kiểm tra quyền Vòng tròn, bảng tin Feed, lọc theo Circle, phản ứng emoji toggle, và xóa an toàn.
-     - 100% 69/69 backend unit tests pass sạch sẽ.
+     - 100% 69/69 backend unit tests pass sạch sẽ, bao gồm kiểm thử mediaType và tạo moment.
   5. **Frontend Web UI (@circle/web):**
-     - Xây dựng `use-moment-queries.ts` với đầy đủ React Query hooks và tối ưu cache invalidation.
-     - Xây dựng `MomentsTray.tsx`: Thanh cuộn ngang hiển thị story vòng tròn viền gradient động, nút tạo khoảnh khắc cá nhân nổi bật, hỗ trợ cả chế độ Hub tổng và Circle Workspace.
-     - Xây dựng `CreateMomentModal.tsx`: Hỗ trợ dán URL ảnh hoặc chọn nhanh ảnh mẫu có sẵn từ Unsplash, nhập chú thích kèm bộ đếm ký tự, và bảng chọn phân quyền hiển thị theo từng Vòng tròn riêng biệt (`myCircles`) với tính năng "Chọn tất cả".
-     - Xây dựng `StoryViewerModal.tsx`: Trình xem story toàn màn hình trải nghiệm đỉnh cao (phong cách Instagram / BeReal), thanh tiến trình chia phân đoạn (5s/story), phím tắt bàn phím (Mũi tên Trái/Phải/Dấu cách/Esc), thanh thả cảm xúc emoji tương tác tức thì, và nút xóa cho tác giả.
-- **Prompt Summary:** Hoàn thiện Module 5: Tạo Khoảnh khắc, chọn quyền riêng tư theo Circle, xem story, phản ứng emoji, xóa khoảnh khắc, kiểm thử và tích hợp hoàn chỉnh.
+     - `CreateMomentModal.tsx` nâng cấp toàn diện thành **Realtime Camera & Short Video Recorder**:
+       - Kết nối camera / webcam trực tiếp qua `navigator.mediaDevices.getUserMedia`.
+       - Hỗ trợ 2 chế độ: Chụp ảnh trực tiếp (Snapshot qua canvas) và Quay video ngắn trực tiếp (MediaRecorder đếm ngược tối đa 10s có âm thanh).
+       - Nút đổi Camera (Front/Back) và xử lý lỗi phân quyền camera thân thiện.
+       - Màn hình xem lại (Preview) kèm nút "Chụp / Quay lại", ô chú thích và bảng chọn Circle-Centric Privacy.
+     - `StoryViewerModal.tsx` nâng cấp hỗ trợ xem cả Story Ảnh tĩnh và Story Video tự động phát có âm thanh kèm nút bật/tắt tiếng và đồng bộ thanh tiến trình.
+     - `MomentsTray.tsx` tích hợp mượt mà vào `FeedStream.tsx`.
+- **Prompt Summary:** Nâng cấp đăng Khoảnh khắc trực tiếp: camera thời gian thực, chụp ảnh và quay video ngắn không dùng ảnh tải lên, phân quyền Circle, kiểm thử và tích hợp hoàn chỉnh.
 - **Files Affected:**
   - `apps/backend/prisma/schema.prisma`
   - `apps/backend/prisma/migrations/20260929073137_add_moments_and_circle_visibility/migration.sql`
+  - `apps/backend/prisma/migrations/20260929084050_add_moment_media_type/migration.sql`
   - `packages/types/src/index.ts`
   - `packages/shared/src/validators/moment.validator.ts`
   - `packages/shared/src/locales/vi.ts`
@@ -2313,8 +2317,8 @@
   - `apps/web/src/components/moments/MomentsTray.tsx`
   - `apps/web/src/components/stream/FeedStream.tsx`
   - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% mã nguồn database schema, backend service & controller, unit tests, frontend components, hooks, và từ điển song ngữ i18n.
-- **Human Modifications:** Định hướng phân công vai trò nhiệm vụ chuẩn xác cho Ninh Thị Mỹ Hạnh (Module 5) và yêu cầu gom gọn nhật ký AI log.
+- **AI-Generated Portion:** 100% mã nguồn database schema, backend service & controller, unit tests, realtime camera frontend components, hooks, và từ điển song ngữ i18n.
+- **Human Modifications:** Người dùng định hình yêu cầu khoảnh khắc chân thực (BeReal / Locket): chụp ảnh và quay video trực tiếp thời gian thực, không tải ảnh sẵn.
 - **Verification Method:**
   - `npm test -w @circle/backend`: 69/69 tests pass 100%.
   - `npm run build -w @circle/web`: build production thành công, 0 errors.
@@ -2323,11 +2327,11 @@
 - **Official Source Checked:** `PROJECT_GOD.md` (US-MOMENT-001, AC-MOMENT-001-01, AC-MOMENT-001-02, Module 5), `docs/phan-cong-nhiem-vu.md`, GitHub Issue #61.
 - **Security & License Check:** Phân quyền riêng tư theo Circle tuyệt đối: chỉ thành viên trong Vòng tròn được chỉ định mới có quyền truy cập hoặc xem Khoảnh khắc; chỉ tác giả mới có quyền xóa.
 - **AI Errors / Hallucinations Found:**
-  - **Error Description:** Lỗi TypeScript trong `MomentsTray.tsx` khi truy cập `user.displayName` (kiểu `AuthUserData` chứa thông tin trong `profile.displayName`).
-  - **Root Cause:** Cấu trúc dữ liệu `AuthUserData` trong `@circle/types` đặt thông tin hiển thị bên trong thuộc tính `profile`.
-  - **Resolution / Fix:** Cập nhật truy cập chuẩn `user?.profile?.displayName || user?.email?.split('@')[0]`.
-- **Commit:** 9cee74c
-- **PR:** #62 (https://github.com/1440isme/Circle/pull/62)
+  - **Error Description:** Lỗi TypeScript trong `CreateMomentModal.tsx` khi truy cập `t.circle.cancel` không tồn tại.
+  - **Root Cause:** Khóa `cancel` trong từ điển i18n nằm ở nhánh chung `t.common.cancel`.
+  - **Resolution / Fix:** Cập nhật gọi `t.common.cancel`.
+- **Commit:** PENDING_COMMIT
+- **PR:** #62 (https://github.com/1440isme/Circle/pull/62 - DRAFT)
 
 
 

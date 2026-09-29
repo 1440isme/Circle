@@ -1,7 +1,21 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { X, ChevronLeft, ChevronRight, Trash2, Heart, Smile, Flame, ThumbsUp, Sparkles, Pause, Play } from 'lucide-react';
+import {
+  X,
+  ChevronLeft,
+  ChevronRight,
+  Trash2,
+  Heart,
+  Smile,
+  Flame,
+  ThumbsUp,
+  Sparkles,
+  Pause,
+  Play,
+  Volume2,
+  VolumeX,
+} from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useLanguageStore } from '@/stores/language.store';
 import { MomentEntity } from '@circle/types';
@@ -28,12 +42,19 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [isPaused, setIsPaused] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [isMuted, setIsMuted] = useState(false);
+
+  const videoPlayerRef = useRef<HTMLVideoElement>(null);
 
   const reactMutation = useReactMomentMutation();
   const deleteMutation = useDeleteMomentMutation();
 
   const currentMoment = moments[currentIndex];
   const isAuthor = currentMoment?.authorId === user?.id;
+
+  const isVideo =
+    currentMoment?.mediaType === 'VIDEO' ||
+    Boolean(currentMoment?.photoUrl?.startsWith('data:video/'));
 
   // Sync initial index
   useEffect(() => {
@@ -44,9 +65,9 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
     }
   }, [isOpen, initialIndex]);
 
-  // Progress Bar timer
+  // Image Progress Bar timer (Only active when NOT a video)
   useEffect(() => {
-    if (!isOpen || isPaused || !currentMoment) return;
+    if (!isOpen || isPaused || !currentMoment || isVideo) return;
 
     const interval = 50; // update progress every 50ms
     const step = (interval / STORY_DURATION_MS) * 100;
@@ -68,7 +89,18 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
     }, interval);
 
     return () => clearInterval(timer);
-  }, [isOpen, isPaused, currentIndex, moments.length, currentMoment, onClose]);
+  }, [isOpen, isPaused, currentIndex, moments.length, currentMoment, isVideo, onClose]);
+
+  // Video play/pause synchronization
+  useEffect(() => {
+    if (isVideo && videoPlayerRef.current) {
+      if (isPaused) {
+        videoPlayerRef.current.pause();
+      } else {
+        videoPlayerRef.current.play().catch(() => {});
+      }
+    }
+  }, [isPaused, isVideo, currentIndex]);
 
   // Keyboard navigation (ArrowLeft, ArrowRight, Escape, Space)
   useEffect(() => {
@@ -196,8 +228,21 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
+              {/* Sound toggle for video */}
+              {isVideo && (
+                <button
+                  type="button"
+                  onClick={() => setIsMuted((m) => !m)}
+                  className="p-1.5 rounded-full text-white/80 hover:text-white hover:bg-white/10 transition-colors"
+                  title={isMuted ? 'Bật âm thanh' : 'Tắt âm thanh'}
+                >
+                  {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+                </button>
+              )}
+
               {/* Pause/Play toggle */}
               <button
+                type="button"
                 onClick={() => setIsPaused((p) => !p)}
                 className="p-1.5 rounded-full text-white/80 hover:text-white hover:bg-white/10 transition-colors"
                 title={isPaused ? t.moments.nextStory : t.moments.paused}
@@ -208,6 +253,7 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
               {/* Author Delete */}
               {isAuthor && (
                 <button
+                  type="button"
                   onClick={handleDelete}
                   className="p-1.5 rounded-full text-red-400 hover:text-red-300 hover:bg-white/10 transition-colors"
                   title={t.moments.deleteTitle}
@@ -218,6 +264,7 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
 
               {/* Close */}
               <button
+                type="button"
                 onClick={onClose}
                 className="p-1.5 rounded-full text-white/80 hover:text-white hover:bg-white/10 transition-colors"
                 title={t.moments.closeStory}
@@ -228,13 +275,32 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
           </div>
         </div>
 
-        {/* Center Photo Area with Left/Right Click Navigators */}
-        <div className="relative flex-1 flex items-center justify-center overflow-hidden">
-          <img
-            src={currentMoment.photoUrl}
-            alt={currentMoment.caption || 'Moment'}
-            className="w-full h-full object-cover"
-          />
+        {/* Center Media Area with Left/Right Click Navigators */}
+        <div className="relative flex-1 flex items-center justify-center overflow-hidden bg-black">
+          {isVideo ? (
+            <video
+              ref={videoPlayerRef}
+              src={currentMoment.photoUrl}
+              autoPlay
+              playsInline
+              loop={false}
+              muted={isMuted}
+              onTimeUpdate={() => {
+                const vid = videoPlayerRef.current;
+                if (vid && vid.duration) {
+                  setProgress((vid.currentTime / vid.duration) * 100);
+                }
+              }}
+              onEnded={handleNext}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <img
+              src={currentMoment.photoUrl}
+              alt={currentMoment.caption || 'Moment'}
+              className="w-full h-full object-cover"
+            />
+          )}
 
           {/* Transparent Click Navigators */}
           <div
@@ -249,6 +315,7 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
           {/* Left / Right Arrow Buttons on Desktop */}
           {currentIndex > 0 && (
             <button
+              type="button"
               onClick={handlePrev}
               className="absolute left-3 p-2 rounded-full bg-black/40 text-white hover:bg-black/60 transition-colors z-20 hidden sm:block"
             >
@@ -257,6 +324,7 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
           )}
           {currentIndex < moments.length - 1 && (
             <button
+              type="button"
               onClick={handleNext}
               className="absolute right-3 p-2 rounded-full bg-black/40 text-white hover:bg-black/60 transition-colors z-20 hidden sm:block"
             >
@@ -265,48 +333,40 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
           )}
         </div>
 
-        {/* Bottom Area: Caption & Quick Reaction Bar */}
-        <div className="relative z-20 p-4 space-y-3 bg-gradient-to-t from-black/90 via-black/60 to-transparent">
+        {/* Bottom Area: Caption & Quick Emoji Reactions */}
+        <div className="relative z-20 p-4 space-y-3 bg-gradient-to-t from-black/90 via-black/50 to-transparent">
           {/* Caption */}
           {currentMoment.caption && (
-            <p className="text-xs text-white leading-relaxed px-1">
+            <p className="text-xs sm:text-sm text-white/95 leading-snug px-1 text-center font-medium drop-shadow-sm line-clamp-3">
               {currentMoment.caption}
             </p>
           )}
 
-          {/* Reaction Bar & Stats */}
-          <div className="flex items-center justify-between pt-1">
-            {/* Emoji Quick Buttons */}
-            <div className="flex items-center gap-2">
-              {EMOJI_OPTIONS.map((emoji) => {
-                const isSelected = currentMoment.userReaction === emoji;
-                const count = currentMoment.reactionCounts?.[emoji] || 0;
+          {/* Reactions Bar */}
+          <div className="flex items-center justify-between gap-1 bg-white/10 backdrop-blur-md rounded-full px-3 py-1.5 border border-white/15">
+            {EMOJI_OPTIONS.map((emoji) => {
+              const isSelected = currentMoment.userReaction === emoji;
+              const count = currentMoment.reactionCounts?.[emoji] || 0;
 
-                return (
-                  <button
-                    key={emoji}
-                    onClick={() => handleReact(emoji)}
-                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded-full text-sm transition-all transform active:scale-90 ${
-                      isSelected
-                        ? 'bg-white/30 scale-110 shadow-sm border border-white/50'
-                        : 'bg-white/10 hover:bg-white/20'
-                    }`}
-                  >
-                    <span>{emoji}</span>
-                    {count > 0 && (
-                      <span className="text-[10px] text-white font-bold">{count}</span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Total reactions counter */}
-            {currentMoment.reactions && currentMoment.reactions.length > 0 && (
-              <span className="text-[10px] text-white/70 font-mono">
-                {currentMoment.reactions.length} cảm xúc
-              </span>
-            )}
+              return (
+                <button
+                  key={emoji}
+                  type="button"
+                  onClick={() => handleReact(emoji)}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-base transition-all active:scale-125 ${
+                    isSelected
+                      ? 'bg-circle-primary/30 border border-circle-primary/60 scale-110 shadow-sm'
+                      : 'hover:bg-white/10 opacity-80 hover:opacity-100'
+                  }`}
+                  title={emoji}
+                >
+                  <span>{emoji}</span>
+                  {count > 0 && (
+                    <span className="text-[10px] font-bold text-white/90">{count}</span>
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>
