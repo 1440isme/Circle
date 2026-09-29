@@ -2326,8 +2326,8 @@
   - **Error Description:** Lỗi TypeScript trong `MomentsTray.tsx` khi truy cập `user.displayName` (kiểu `AuthUserData` chứa thông tin trong `profile.displayName`).
   - **Root Cause:** Cấu trúc dữ liệu `AuthUserData` trong `@circle/types` đặt thông tin hiển thị bên trong thuộc tính `profile`.
   - **Resolution / Fix:** Cập nhật truy cập chuẩn `user?.profile?.displayName || user?.email?.split('@')[0]`.
-- **Commit:** PENDING_COMMIT
-- **PR:** PENDING_PR
+- **Commit:** 9cee74c
+- **PR:** #62 (https://github.com/1440isme/Circle/pull/62)
 
 
 
