@@ -21,6 +21,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useLanguageStore } from '../../stores/language.store';
 import { useCircleStore } from '../../stores/circle.store';
 import { useMyCirclesQuery } from '../../hooks/use-circle-queries';
+import { MomentsTray } from '../moments/MomentsTray';
 
 export const FeedStream: React.FC = () => {
   const { user } = useAuth();
@@ -54,6 +55,9 @@ export const FeedStream: React.FC = () => {
   if (!activeCircle) {
     return (
       <main className="flex-1 w-full max-w-4xl flex flex-col gap-6 py-2">
+        {/* Moments Tray */}
+        <MomentsTray />
+
         {/* Welcome Hero Banner */}
         <div className="relative overflow-hidden rounded-3xl border border-circle-hairline dark:border-circle-dark-hairline bg-gradient-to-br from-circle-wash/80 via-white/90 to-circle-canvas dark:from-circle-dark-wash dark:via-circle-dark-surface dark:to-circle-dark-canvas p-6 sm:p-8 shadow-circle-card transition-colors">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
@@ -277,6 +281,9 @@ export const FeedStream: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Circle Moments Tray */}
+      <MomentsTray circleId={activeCircle.id} />
 
       {/* Main Channel / Feed Stream */}
       <div className="flex-1 flex flex-col gap-4">

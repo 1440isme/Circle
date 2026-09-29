@@ -78,6 +78,8 @@ model User {
   notifications        Notification[]
   memberships          CircleMember[]
   circleJoinRequests   CircleJoinRequest[]
+  moments              Moment[]
+  momentReactions      MomentReaction[]
 
   @@index([email])
 }
@@ -172,7 +174,7 @@ model Circle {
   calendarEvents  CalendarEvent[]
   liveLocations   LiveLocationShare[]
   callSessions    CallSession[]
-  moments         Moment[]
+  momentVisibilities MomentVisibility[]
 
   @@index([handle])
   @@index([inviteCode])
@@ -192,7 +194,6 @@ model CircleMember {
 
   messages         Message[]
   reactions        Reaction[]
-  moments          Moment[]
   pollVotes        PollVote[]
   createdEvents    CalendarEvent[]
   createdSheets    PlanningSheet[]
@@ -287,18 +288,15 @@ model Message {
 
 model Reaction {
   id        String   @id @default(cuid())
-  messageId String?
-  momentId  String?
+  messageId String
   memberId  String
   emoji     String
   createdAt DateTime @default(now())
 
-  message Message?      @relation(fields: [messageId], references: [id], onDelete: Cascade)
-  moment  Moment?       @relation(fields: [momentId], references: [id], onDelete: Cascade)
-  member  CircleMember  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  message Message      @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  member  CircleMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
 
   @@index([messageId])
-  @@index([momentId])
   @@index([memberId])
 }
 
@@ -307,31 +305,59 @@ model Reaction {
 // =============================================================================
 
 model Moment {
-  id         String   @id @default(cuid())
-  circleId   String
-  memberId   String
+  id         String    @id @default(cuid())
+  authorId   String
+  photoUrl   String
   caption    String?
-  capturedAt DateTime @default(now())
-  createdAt  DateTime @default(now())
+  capturedAt DateTime  @default(now())
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
 
-  circle    Circle       @relation(fields: [circleId], references: [id], onDelete: Cascade)
-  author    CircleMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  photo     Photo?
-  reactions Reaction[]
+  author       User               @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  visibilities MomentVisibility[]
+  reactions    MomentReaction[]
 
-  @@index([circleId, capturedAt(sort: Desc)])
+  @@index([authorId, createdAt(sort: Desc)])
+}
+
+model MomentVisibility {
+  id        String   @id @default(cuid())
+  momentId  String
+  circleId  String
+  createdAt DateTime @default(now())
+
+  moment Moment @relation(fields: [momentId], references: [id], onDelete: Cascade)
+  circle Circle @relation(fields: [circleId], references: [id], onDelete: Cascade)
+
+  @@unique([momentId, circleId])
+  @@index([circleId])
+  @@index([momentId])
+}
+
+model MomentReaction {
+  id        String   @id @default(cuid())
+  momentId  String
+  userId    String
+  emoji     String
+  createdAt DateTime @default(now())
+
+  moment Moment @relation(fields: [momentId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([momentId, userId, emoji])
+  @@index([momentId])
+  @@index([userId])
 }
 
 model Photo {
   id            String   @id @default(cuid())
-  momentId      String?  @unique
   sharedAlbumId String?
   fileUrl       String
   width         Int?
   height        Int?
   createdAt     DateTime @default(now())
 
-  moment      Moment?      @relation(fields: [momentId], references: [id], onDelete: Cascade)
   sharedAlbum SharedAlbum? @relation(fields: [sharedAlbumId], references: [id], onDelete: Cascade)
 
   @@index([sharedAlbumId])
