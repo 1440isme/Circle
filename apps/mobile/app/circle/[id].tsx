@@ -11,7 +11,10 @@ import {
   Share,
   KeyboardAvoidingView,
   Alert,
+  Modal,
+  Image as RNImage,
 } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   ArrowLeft,
@@ -37,6 +40,8 @@ import {
   Edit2,
   KeyRound,
   FileSpreadsheet,
+  Plus,
+  X,
 } from 'lucide-react-native';
 import { useThemeStore } from '../../src/stores/theme.store';
 import { useLanguageStore } from '../../src/stores/language.store';
@@ -49,6 +54,7 @@ import {
   useChannelMessagesQuery,
   useSendMessageMutation,
   useReactMomentMutation,
+  useCreateMomentMutation,
 } from '../../src/hooks/use-circle-queries';
 import { CircleManagementModal } from '../../src/components/circle/CircleManagementModal';
 
@@ -57,6 +63,13 @@ function getInitials(name: string): string {
   if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
+
+const SAMPLE_MOMENT_PHOTOS = [
+  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=600&q=80',
+  'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=600&q=80',
+  'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=600&q=80',
+  'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=600&q=80',
+];
 
 type WorkspaceTab = 'chat' | 'moments' | 'tools';
 
@@ -77,6 +90,11 @@ export default function CircleWorkspaceScreen() {
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
   const [messageInput, setMessageInput] = useState('');
 
+  // Moment Creation States (Locket style)
+  const [isCreateMomentOpen, setIsCreateMomentOpen] = useState(false);
+  const [momentPhotoUrl, setMomentPhotoUrl] = useState('');
+  const [momentCaption, setMomentCaption] = useState('');
+
   // Queries
   const { data: circle, isLoading: isLoadingCircle } = useCircleDetailQuery(circleId);
   const { data: members = [] } = useCircleMembersQuery(circleId);
@@ -92,11 +110,31 @@ export default function CircleWorkspaceScreen() {
 
   const currentChannelId = currentChannel?.id || null;
 
-  // Chat queries
+  // Mutations
   const { data: messagesData, isLoading: isLoadingMessages } =
     useChannelMessagesQuery(currentChannelId);
   const sendMessageMutation = useSendMessageMutation(currentChannelId);
   const reactMomentMutation = useReactMomentMutation(circleId);
+  const createMomentMutation = useCreateMomentMutation(circleId);
+
+  const handleCreateMoment = async () => {
+    if (!momentPhotoUrl.trim() || !circleId) {
+      Alert.alert(t.common.appName, t.validation.momentPhotoUrlRequired);
+      return;
+    }
+    try {
+      await createMomentMutation.mutateAsync({
+        photoUrl: momentPhotoUrl.trim(),
+        caption: momentCaption.trim() || undefined,
+        circleIds: [circleId],
+      });
+      setIsCreateMomentOpen(false);
+      setMomentPhotoUrl('');
+      setMomentCaption('');
+    } catch (err: any) {
+      Alert.alert(t.common.appName, err?.message || t.common.unknownError);
+    }
+  };
 
   const messages = messagesData?.items || [];
 
@@ -411,86 +449,123 @@ export default function CircleWorkspaceScreen() {
 
       {/* TAB 2: KHOẢNH KHẮC THƯỜNG NGÀY (DAILY MOMENTS / LOCKET) */}
       {activeTab === 'moments' && (
-        <ScrollView contentContainerStyle={styles.momentsContainer} showsVerticalScrollIndicator={false}>
-          {/* Header banner with camera prompt */}
-          <View style={[styles.momentPromptCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
-            <View style={styles.momentPromptLeft}>
-              <View style={[styles.cameraIconBox, { backgroundColor: `${colors.primary}20` }]}>
-                <Camera size={22} color={colors.primary} />
-              </View>
-              <View>
-                <Text style={[styles.momentPromptTitle, { color: colors.text }]}>
-                  {t.moments.title} · {circle.name}
-                </Text>
-                <Text style={[styles.momentPromptDesc, { color: colors.subtle }]}>
-                  {t.moments.subtitle}
-                </Text>
+        <View style={{ flex: 1 }}>
+          <ScrollView
+            contentContainerStyle={[styles.momentsContainer, { paddingBottom: 110 }]}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Header banner with camera prompt */}
+            <View style={[styles.momentPromptCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+              <View style={styles.momentPromptLeft}>
+                <View style={[styles.cameraIconBox, { backgroundColor: `${colors.primary}20` }]}>
+                  <Camera size={22} color={colors.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.momentPromptTitle, { color: colors.text }]}>
+                    {t.moments.title} · {circle.name}
+                  </Text>
+                  <Text style={[styles.momentPromptDesc, { color: colors.subtle }]}>
+                    {t.moments.subtitle}
+                  </Text>
+                </View>
               </View>
             </View>
-          </View>
 
-          {isLoadingMoments ? (
-            <ActivityIndicator color={colors.primary} style={{ marginVertical: 30 }} />
-          ) : moments.length === 0 ? (
-            <View style={[styles.emptyMomentsBox, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
-              <ImageIcon size={40} color={colors.subtle} />
-              <Text style={[styles.emptyMomentsTitle, { color: colors.text }]}>
-                {t.moments.emptyCircleTitle}
-              </Text>
-              <Text style={[styles.emptyMomentsDesc, { color: colors.subtle }]}>
-                {t.moments.emptyFeedDesc}
-              </Text>
-            </View>
-          ) : (
-            moments.map((m: any) => {
-              const authorName = m.user?.profile?.displayName || m.user?.email || 'User';
-              return (
-                <View
-                  key={m.id}
-                  style={[styles.momentCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
-                >
-                  <View style={styles.momentCardHeader}>
-                    <View style={styles.momentAuthorRow}>
-                      <View style={[styles.avatarSmall, { backgroundColor: colors.wash }]}>
-                        <Text style={[styles.avatarSmallText, { color: colors.primary }]}>
-                          {getInitials(authorName)}
-                        </Text>
-                      </View>
-                      <View>
-                        <Text style={[styles.momentAuthorName, { color: colors.text }]}>
-                          {authorName}
-                        </Text>
-                        <Text style={[styles.momentTime, { color: colors.subtle }]}>
-                          {new Date(m.createdAt).toLocaleDateString()}
-                        </Text>
+            {isLoadingMoments ? (
+              <ActivityIndicator color={colors.primary} style={{ marginVertical: 30 }} />
+            ) : moments.length === 0 ? (
+              <View style={[styles.emptyMomentsBox, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+                <ImageIcon size={40} color={colors.subtle} />
+                <Text style={[styles.emptyMomentsTitle, { color: colors.text }]}>
+                  {t.moments.emptyCircleTitle}
+                </Text>
+                <Text style={[styles.emptyMomentsDesc, { color: colors.subtle }]}>
+                  {t.moments.emptyFeedDesc}
+                </Text>
+              </View>
+            ) : (
+              moments.map((m: any) => {
+                const authorName = m.user?.profile?.displayName || m.user?.email || 'User';
+                const photoSrc = m.photoUrl || m.imageUrl;
+
+                return (
+                  <View
+                    key={m.id}
+                    style={[styles.momentCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
+                  >
+                    <View style={styles.momentCardHeader}>
+                      <View style={styles.momentAuthorRow}>
+                        <View style={[styles.avatarSmall, { backgroundColor: colors.wash }]}>
+                          <Text style={[styles.avatarSmallText, { color: colors.primary }]}>
+                            {getInitials(authorName)}
+                          </Text>
+                        </View>
+                        <View>
+                          <Text style={[styles.momentAuthorName, { color: colors.text }]}>
+                            {authorName}
+                          </Text>
+                          <Text style={[styles.momentTime, { color: colors.subtle }]}>
+                            {new Date(m.createdAt).toLocaleDateString()}
+                          </Text>
+                        </View>
                       </View>
                     </View>
-                  </View>
 
-                  {/* Caption & Content */}
-                  {m.caption ? (
-                    <Text style={[styles.momentCaption, { color: colors.text }]}>
-                      {m.caption}
-                    </Text>
-                  ) : null}
+                    {/* Moment Photo (Locket Style 1:1 Aspect Ratio) */}
+                    {photoSrc ? (
+                      <View style={[styles.momentPhotoWrapper, { backgroundColor: colors.wash }]}>
+                        <RNImage
+                          source={{ uri: photoSrc }}
+                          style={styles.momentPhoto}
+                          resizeMode="cover"
+                        />
+                      </View>
+                    ) : null}
 
-                  {/* Reaction bar */}
-                  <View style={[styles.reactionRow, { borderTopColor: colors.hairline }]}>
-                    {['❤️', '🔥', '👏', '🥰'].map((emoji) => (
-                      <TouchableOpacity
-                        key={emoji}
-                        onPress={() => handleReactMoment(m.id, emoji)}
-                        style={[styles.reactionPill, { backgroundColor: colors.wash }]}
-                      >
-                        <Text style={styles.reactionEmoji}>{emoji}</Text>
-                      </TouchableOpacity>
-                    ))}
+                    {/* Caption & Content */}
+                    {m.caption ? (
+                      <Text style={[styles.momentCaption, { color: colors.text }]}>
+                        {m.caption}
+                      </Text>
+                    ) : null}
+
+                    {/* Reaction bar */}
+                    <View style={[styles.reactionRow, { borderTopColor: colors.hairline }]}>
+                      {['❤️', '🔥', '👏', '🥰'].map((emoji) => (
+                        <TouchableOpacity
+                          key={emoji}
+                          onPress={() => handleReactMoment(m.id, emoji)}
+                          style={[styles.reactionPill, { backgroundColor: colors.wash }]}
+                        >
+                          <Text style={styles.reactionEmoji}>{emoji}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
                   </View>
-                </View>
-              );
-            })
-          )}
-        </ScrollView>
+                );
+              })
+            )}
+          </ScrollView>
+
+          {/* LOCKET SHUTTER / PLUS CAPTURE BUTTON (FLOATING BOTTOM CENTER) */}
+          <View pointerEvents="box-none" style={styles.locketButtonFloatingArea}>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={() => setIsCreateMomentOpen(true)}
+              style={[
+                styles.locketOuterRing,
+                {
+                  borderColor: colors.primary,
+                  backgroundColor: isDark ? 'rgba(0,0,0,0.55)' : 'rgba(255,255,255,0.75)',
+                },
+              ]}
+            >
+              <View style={[styles.locketInnerCircle, { backgroundColor: colors.primary }]}>
+                <Plus size={30} color={colors.onPrimary} strokeWidth={2.8} />
+              </View>
+            </TouchableOpacity>
+          </View>
+        </View>
       )}
 
       {/* TAB 3: TIỆN ÍCH NHÓM */}
@@ -572,6 +647,148 @@ export default function CircleWorkspaceScreen() {
           </View>
         </ScrollView>
       )}
+
+      {/* CREATE MOMENT (LOCKET STYLE) MODAL */}
+      <Modal
+        visible={isCreateMomentOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setIsCreateMomentOpen(false)}
+      >
+        <View style={styles.momentModalOverlay}>
+          <BlurView
+            intensity={Platform.OS === 'ios' ? 45 : 85}
+            tint={isDark ? 'dark' : 'light'}
+            style={StyleSheet.absoluteFill}
+          />
+
+          <View
+            style={[
+              styles.momentModalSheet,
+              {
+                backgroundColor: colors.sheetBg,
+                borderColor: colors.glassBorder,
+              },
+            ]}
+          >
+            {/* Sheet Handle */}
+            <View style={[styles.sheetHandle, { backgroundColor: colors.hairline }]} />
+
+            <View style={styles.momentModalHeader}>
+              <View style={styles.momentModalTitleGroup}>
+                <Camera size={20} color={colors.primary} />
+                <Text style={[styles.momentModalTitle, { color: colors.text }]}>
+                  {t.moments.createTitle}
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setIsCreateMomentOpen(false)}
+                style={[styles.closeBtn, { backgroundColor: colors.wash }]}
+              >
+                <X size={18} color={colors.subtle} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.momentModalContent}>
+              {/* Photo Preview Frame (Locket Rounded Square Frame) */}
+              <View style={[styles.locketPreviewFrame, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+                {momentPhotoUrl ? (
+                  <RNImage source={{ uri: momentPhotoUrl }} style={styles.locketPreviewImage} resizeMode="cover" />
+                ) : (
+                  <View style={styles.locketPreviewPlaceholder}>
+                    <Camera size={44} color={colors.subtle} />
+                    <Text style={[styles.locketPreviewPlaceholderText, { color: colors.subtle }]}>
+                      {t.moments.photoUrlLabel}
+                    </Text>
+                  </View>
+                )}
+              </View>
+
+              {/* Quick Sample Photos Selector */}
+              <View style={styles.samplePhotosBlock}>
+                <Text style={[styles.samplePhotosLabel, { color: colors.subtle }]}>
+                  Chọn ảnh mẫu nhanh hoặc nhập liên kết:
+                </Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.samplePhotosRow}>
+                  {SAMPLE_MOMENT_PHOTOS.map((url, idx) => (
+                    <TouchableOpacity
+                      key={idx}
+                      activeOpacity={0.8}
+                      onPress={() => setMomentPhotoUrl(url)}
+                      style={[
+                        styles.samplePhotoThumb,
+                        momentPhotoUrl === url && { borderColor: colors.primary, borderWidth: 2.5 },
+                      ]}
+                    >
+                      <RNImage source={{ uri: url }} style={styles.samplePhotoThumbImg} />
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+
+              {/* Custom Photo URL Input */}
+              <View style={styles.formField}>
+                <TextInput
+                  value={momentPhotoUrl}
+                  onChangeText={setMomentPhotoUrl}
+                  placeholder={t.moments.photoUrlPlaceholder}
+                  placeholderTextColor={colors.subtle}
+                  style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.hairline, color: colors.text }]}
+                />
+              </View>
+
+              {/* Caption Input */}
+              <View style={styles.formField}>
+                <TextInput
+                  value={momentCaption}
+                  onChangeText={setMomentCaption}
+                  placeholder={t.moments.captionPlaceholder}
+                  placeholderTextColor={colors.subtle}
+                  multiline
+                  numberOfLines={2}
+                  style={[
+                    styles.input,
+                    styles.momentCaptionInput,
+                    { backgroundColor: colors.surface, borderColor: colors.hairline, color: colors.text },
+                  ]}
+                />
+              </View>
+
+              {/* Action Buttons */}
+              <View style={styles.momentBtnRow}>
+                <TouchableOpacity
+                  onPress={() => setIsCreateMomentOpen(false)}
+                  style={[styles.actionBtn, { backgroundColor: colors.wash }]}
+                >
+                  <Text style={[styles.actionBtnText, { color: colors.text }]}>{t.common.cancel}</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={handleCreateMoment}
+                  disabled={!momentPhotoUrl.trim() || createMomentMutation.isPending}
+                  style={[
+                    styles.actionBtn,
+                    {
+                      backgroundColor:
+                        momentPhotoUrl.trim() && !createMomentMutation.isPending
+                          ? colors.primary
+                          : `${colors.primary}50`,
+                    },
+                  ]}
+                >
+                  {createMomentMutation.isPending ? (
+                    <ActivityIndicator color={colors.onPrimary} size="small" />
+                  ) : (
+                    <Text style={[styles.actionBtnText, { color: colors.onPrimary }]}>
+                      {t.moments.submitShare}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       {/* Circle Management Modal mounted globally for this workspace */}
       <CircleManagementModal />
@@ -940,5 +1157,165 @@ const styles = StyleSheet.create({
   },
   toolDesc: {
     fontSize: 12,
+  },
+  momentPhotoWrapper: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: 18,
+    overflow: 'hidden',
+  },
+  momentPhoto: {
+    width: '100%',
+    height: '100%',
+  },
+  locketButtonFloatingArea: {
+    position: 'absolute',
+    bottom: 24,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  locketOuterRing: {
+    width: 78,
+    height: 78,
+    borderRadius: 39,
+    borderWidth: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 12,
+  },
+  locketInnerCircle: {
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  momentModalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  momentModalSheet: {
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    borderTopWidth: 1.2,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
+    maxHeight: '90%',
+  },
+  momentModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: 14,
+  },
+  momentModalTitleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  momentModalTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  closeBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  momentModalContent: {
+    gap: 14,
+    paddingBottom: 20,
+  },
+  locketPreviewFrame: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: 24,
+    borderWidth: 1,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  locketPreviewImage: {
+    width: '100%',
+    height: '100%',
+  },
+  locketPreviewPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  locketPreviewPlaceholderText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  samplePhotosBlock: {
+    gap: 6,
+  },
+  samplePhotosLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  samplePhotosRow: {
+    flexDirection: 'row',
+    gap: 10,
+    paddingVertical: 4,
+  },
+  samplePhotoThumb: {
+    width: 54,
+    height: 54,
+    borderRadius: 14,
+    overflow: 'hidden',
+  },
+  samplePhotoThumbImg: {
+    width: '100%',
+    height: '100%',
+  },
+  formField: {
+    gap: 6,
+  },
+  input: {
+    height: 44,
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    fontSize: 13,
+  },
+  momentCaptionInput: {
+    height: 60,
+    paddingVertical: 10,
+    textAlignVertical: 'top',
+  },
+  momentBtnRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 4,
+  },
+  actionBtn: {
+    flex: 1,
+    height: 44,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  sheetHandle: {
+    width: 38,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 14,
   },
 });

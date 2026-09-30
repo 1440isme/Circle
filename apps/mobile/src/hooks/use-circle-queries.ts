@@ -7,6 +7,7 @@ import {
   CreateInviteInput,
   ReviewJoinRequestInput,
   AddMembersInput,
+  CreateMomentInput,
 } from '@circle/shared';
 import {
   CircleDetailResponse,
@@ -416,6 +417,26 @@ export function useReactMomentMutation(circleId: string | null) {
       if (circleId) {
         queryClient.invalidateQueries({ queryKey: ['moments', 'circle', circleId] });
       }
+    },
+  });
+}
+
+export function useCreateMomentMutation(circleId: string | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: CreateMomentInput) => {
+      const res = await mobileApiRequest<any>('/moments', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      if (circleId) {
+        queryClient.invalidateQueries({ queryKey: ['moments', 'circle', circleId] });
+      }
+      queryClient.invalidateQueries({ queryKey: ['moments', 'feed'] });
     },
   });
 }
