@@ -58,7 +58,7 @@ function getInitials(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-type WorkspaceTab = 'chat' | 'moments' | 'tools' | 'members';
+type WorkspaceTab = 'chat' | 'moments' | 'tools';
 
 export default function CircleWorkspaceScreen() {
   const router = useRouter();
@@ -114,7 +114,7 @@ export default function CircleWorkspaceScreen() {
   const handleOpenSettings = () => {
     if (circle) {
       setActiveCircle(circle);
-      setManageModalVisible(true, 'info');
+      setManageModalVisible(true, 'menu');
     }
   };
 
@@ -220,10 +220,10 @@ export default function CircleWorkspaceScreen() {
         </View>
       </View>
 
-      {/* Internal Navigation Tabs */}
+      {/* Internal Navigation Tabs: 3 Tabs (Icons Only) */}
       <View style={[styles.segmentedBar, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
         <TouchableOpacity
-          activeOpacity={0.8}
+          activeOpacity={0.7}
           onPress={() => setActiveTab('chat')}
           style={[
             styles.segmentItem,
@@ -231,24 +231,13 @@ export default function CircleWorkspaceScreen() {
           ]}
         >
           <MessageSquare
-            size={16}
+            size={20}
             color={activeTab === 'chat' ? colors.primary : colors.subtle}
           />
-          <Text
-            style={[
-              styles.segmentText,
-              {
-                color: activeTab === 'chat' ? colors.primary : colors.subtle,
-                fontWeight: activeTab === 'chat' ? '700' : '500',
-              },
-            ]}
-          >
-            {t.nav.chatChannels}
-          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          activeOpacity={0.8}
+          activeOpacity={0.7}
           onPress={() => setActiveTab('moments')}
           style={[
             styles.segmentItem,
@@ -256,24 +245,13 @@ export default function CircleWorkspaceScreen() {
           ]}
         >
           <Camera
-            size={16}
+            size={20}
             color={activeTab === 'moments' ? colors.primary : colors.subtle}
           />
-          <Text
-            style={[
-              styles.segmentText,
-              {
-                color: activeTab === 'moments' ? colors.primary : colors.subtle,
-                fontWeight: activeTab === 'moments' ? '700' : '500',
-              },
-            ]}
-          >
-            {t.moments.title}
-          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          activeOpacity={0.8}
+          activeOpacity={0.7}
           onPress={() => setActiveTab('tools')}
           style={[
             styles.segmentItem,
@@ -281,45 +259,9 @@ export default function CircleWorkspaceScreen() {
           ]}
         >
           <Layers
-            size={16}
+            size={20}
             color={activeTab === 'tools' ? colors.primary : colors.subtle}
           />
-          <Text
-            style={[
-              styles.segmentText,
-              {
-                color: activeTab === 'tools' ? colors.primary : colors.subtle,
-                fontWeight: activeTab === 'tools' ? '700' : '500',
-              },
-            ]}
-          >
-            {t.nav.groupTools}
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={() => setActiveTab('members')}
-          style={[
-            styles.segmentItem,
-            activeTab === 'members' && [styles.activeSegmentItem, { borderBottomColor: colors.primary }],
-          ]}
-        >
-          <Users
-            size={16}
-            color={activeTab === 'members' ? colors.primary : colors.subtle}
-          />
-          <Text
-            style={[
-              styles.segmentText,
-              {
-                color: activeTab === 'members' ? colors.primary : colors.subtle,
-                fontWeight: activeTab === 'members' ? '700' : '500',
-              },
-            ]}
-          >
-            {t.circle.membersTitle}
-          </Text>
         </TouchableOpacity>
       </View>
 
@@ -641,72 +583,6 @@ export default function CircleWorkspaceScreen() {
         </ScrollView>
       )}
 
-      {/* TAB 4: THÀNH VIÊN */}
-      {activeTab === 'members' && (
-        <ScrollView contentContainerStyle={styles.membersTabContent} showsVerticalScrollIndicator={false}>
-          <View style={[styles.membersHeaderCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
-            <View>
-              <Text style={[styles.toolTitle, { color: colors.text }]}>
-                {t.circle.membersTitle} ({members.length})
-              </Text>
-              <Text style={[styles.toolDesc, { color: colors.subtle }]}>
-                {circle.isPrivate ? t.circle.privacyPrivate : t.circle.privacyPublic}
-              </Text>
-            </View>
-            <TouchableOpacity
-              onPress={handleOpenSettings}
-              style={[styles.smallSettingBtn, { backgroundColor: colors.wash }]}
-            >
-              <Settings size={16} color={colors.primary} />
-            </TouchableOpacity>
-          </View>
-
-          {members.map((m) => {
-            const memberName = m.user?.profile?.displayName || m.user?.email || 'User';
-            const isMemberOwner = m.role === 'OWNER';
-            const isMemberAdmin = m.role === 'ADMIN';
-
-            return (
-              <View
-                key={m.id}
-                style={[styles.memberCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
-              >
-                <View style={[styles.avatarBox, { backgroundColor: colors.wash }]}>
-                  <Text style={[styles.avatarBoxText, { color: colors.primary }]}>
-                    {getInitials(memberName)}
-                  </Text>
-                </View>
-                <View style={styles.memberInfoBlock}>
-                  <View style={styles.memberHeaderRow}>
-                    <Text numberOfLines={1} style={[styles.memberNameText, { color: colors.text }]}>
-                      {memberName}
-                    </Text>
-                    {isMemberOwner ? (
-                      <View style={[styles.roleBadge, { backgroundColor: `${colors.warning}20` }]}>
-                        <Crown size={11} color={colors.warning} />
-                        <Text style={[styles.roleText, { color: colors.warning }]}>
-                          {t.circle.memberRoleOwner}
-                        </Text>
-                      </View>
-                    ) : isMemberAdmin ? (
-                      <View style={[styles.roleBadge, { backgroundColor: `${colors.primary}20` }]}>
-                        <ShieldCheck size={11} color={colors.primary} />
-                        <Text style={[styles.roleText, { color: colors.primary }]}>
-                          {t.circle.memberRoleAdmin}
-                        </Text>
-                      </View>
-                    ) : null}
-                  </View>
-                  <Text style={[styles.memberSubText, { color: colors.subtle }]}>
-                    {m.nickname ? `${t.circle.nicknameLabel}: ${m.nickname}` : m.user?.email}
-                  </Text>
-                </View>
-              </View>
-            );
-          })}
-        </ScrollView>
-      )}
-
       {/* Circle Management Modal mounted globally for this workspace */}
       <CircleManagementModal />
     </KeyboardAvoidingView>
@@ -799,21 +675,16 @@ const styles = StyleSheet.create({
   segmentedBar: {
     flexDirection: 'row',
     borderBottomWidth: 1,
+    height: 48,
   },
   segmentItem: {
     flex: 1,
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 12,
     borderBottomWidth: 2,
     borderBottomColor: 'transparent',
   },
   activeSegmentItem: {},
-  segmentText: {
-    fontSize: 12,
-  },
   chatContainer: {
     flex: 1,
   },
@@ -1079,73 +950,5 @@ const styles = StyleSheet.create({
   },
   toolDesc: {
     fontSize: 12,
-  },
-  membersTabContent: {
-    padding: 16,
-    gap: 10,
-    paddingBottom: 40,
-  },
-  membersHeaderCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 14,
-    borderRadius: 18,
-    borderWidth: 1,
-    marginBottom: 4,
-  },
-  smallSettingBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  memberCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    borderRadius: 18,
-    borderWidth: 1,
-    gap: 12,
-  },
-  avatarBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarBoxText: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  memberInfoBlock: {
-    flex: 1,
-    gap: 3,
-  },
-  memberHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  memberNameText: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  roleBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  roleText: {
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  memberSubText: {
-    fontSize: 11,
   },
 });

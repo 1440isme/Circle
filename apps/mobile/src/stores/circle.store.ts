@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { CircleEntity } from '@circle/types';
 
-export type CircleManageTab = 'info' | 'members' | 'invites' | 'requests' | 'settings';
+export type CircleManageTab = 'menu' | 'info' | 'members' | 'invites' | 'requests' | 'settings';
 
 interface CircleState {
   activeCircleId: string | null;
@@ -24,7 +24,7 @@ export const useCircleStore = create<CircleState>((set) => ({
   createModalVisible: false,
   joinModalVisible: false,
   manageModalVisible: false,
-  manageActiveTab: 'info',
+  manageActiveTab: 'menu',
   setActiveCircleId: (id) => set({ activeCircleId: id }),
   setActiveCircle: (circle) =>
     set({
@@ -33,7 +33,7 @@ export const useCircleStore = create<CircleState>((set) => ({
     }),
   setCreateModalVisible: (open) => set({ createModalVisible: open }),
   setJoinModalVisible: (open) => set({ joinModalVisible: open }),
-  setManageModalVisible: (open, tab = 'info') =>
+  setManageModalVisible: (open, tab = 'menu') =>
     set({ manageModalVisible: open, manageActiveTab: tab }),
   setManageActiveTab: (tab) => set({ manageActiveTab: tab }),
 }));
