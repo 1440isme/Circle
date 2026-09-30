@@ -41,6 +41,7 @@ import {
   Users,
   Filter,
   Check,
+  Layers,
 } from 'lucide-react-native';
 import { useThemeStore } from '../../stores/theme.store';
 import { useLanguageStore } from '../../stores/language.store';
@@ -101,10 +102,11 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
   const [selectedMemberId, setSelectedMemberId] = useState<string | 'all'>('all');
   const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState<boolean>(false);
 
-  // Real Camera Viewfinder States (Locket UI)
+  // Real Camera Viewfinder States (Locket UI & Dual View)
   const [cameraFacing, setCameraFacing] = useState<CameraType>('front');
   const [flashMode, setFlashMode] = useState<boolean>(false);
-  const [zoomLevel, setZoomLevel] = useState<number>(0);
+  const [isDualMode, setIsDualMode] = useState<boolean>(false);
+  const [zoomOption, setZoomOption] = useState<'0.5x' | '1x'>('1x');
   const [isTakingPhoto, setIsTakingPhoto] = useState<boolean>(false);
   const [activeSampleIndex, setActiveSampleIndex] = useState<number>(0);
 
@@ -195,11 +197,11 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
   };
 
   const handleToggleZoom = () => {
-    setZoomLevel((prev) => {
-      if (prev === 0) return 0.3; // 2x
-      if (prev === 0.3) return 0.6; // 3x
-      return 0; // 1x
-    });
+    setZoomOption((prev) => (prev === '1x' ? '0.5x' : '1x'));
+  };
+
+  const handleToggleDualMode = () => {
+    setIsDualMode((prev) => !prev);
   };
 
   const handleRetake = () => {
@@ -347,15 +349,44 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
               {capturedPhotoUrl ? (
                 <RNImage source={{ uri: capturedPhotoUrl }} style={styles.locketWindowImage} resizeMode="cover" />
               ) : permission?.granted ? (
-                <CameraView
-                  ref={cameraRef}
-                  style={StyleSheet.absoluteFill}
-                  facing={cameraFacing}
-                  flash={flashMode ? 'on' : 'off'}
-                  enableTorch={flashMode}
-                  zoom={zoomLevel}
-                  mode="picture"
-                />
+                <>
+                  {/* Camera chính (Khung lớn) */}
+                  <CameraView
+                    ref={cameraRef}
+                    style={StyleSheet.absoluteFill}
+                    facing={cameraFacing}
+                    flash={flashMode ? 'on' : 'off'}
+                    enableTorch={flashMode}
+                    zoom={zoomOption === '0.5x' ? 0 : 0.25}
+                    mode="picture"
+                  />
+
+                  {/* Hiển thị song song (Dual View) - Khung nổi góc trái */}
+                  {isDualMode && (
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      onPress={handleFlipCamera}
+                      style={[
+                        styles.pipFloatingBox,
+                        {
+                          borderColor: colors.primary,
+                        },
+                      ]}
+                    >
+                      <CameraView
+                        style={StyleSheet.absoluteFill}
+                        facing={cameraFacing === 'front' ? 'back' : 'front'}
+                        mode="picture"
+                      />
+                      <View style={styles.pipSwapOverlay}>
+                        <RefreshCw size={10} color="#FFFFFF" />
+                        <Text style={styles.pipBadgeText}>
+                          {cameraFacing === 'front' ? 'Sau' : 'Trước'}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  )}
+                </>
               ) : (
                 <View style={styles.cameraPermissionBox}>
                   <Camera size={40} color={colors.primary} />
@@ -384,7 +415,7 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
                   <View style={[styles.cornerGuide, styles.cornerBottomLeft, { borderColor: 'rgba(255,255,255,0.7)' }]} />
                   <View style={[styles.cornerGuide, styles.cornerBottomRight, { borderColor: 'rgba(255,255,255,0.7)' }]} />
 
-                  {/* Top Overlay Controls inside Camera: Flash (Left), Facing Mode (Center), Zoom (Right - Đối xứng Flash) */}
+                  {/* Top Overlay Controls inside Camera: Flash (Left), Facing/Dual Mode (Center), Zoom 0.5x->1x (Right - Đối xứng Flash) */}
                   <View style={styles.cameraInnerTopBar}>
                     <TouchableOpacity
                       activeOpacity={0.8}
@@ -400,19 +431,21 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
 
                     <View style={[styles.cameraModePill, { backgroundColor: 'rgba(0,0,0,0.55)' }]}>
                       <Text style={styles.cameraModePillText}>
-                        {cameraFacing === 'front' ? 'Camera trước' : 'Camera sau'}
+                        {isDualMode
+                          ? 'Song song (Dual View)'
+                          : cameraFacing === 'front'
+                          ? 'Camera trước'
+                          : 'Camera sau'}
                       </Text>
                     </View>
 
-                    {/* Nút Zoom đối xứng Flash góc trên phải */}
+                    {/* Nút Zoom 0.5x -> 1x đối xứng Flash góc trên phải */}
                     <TouchableOpacity
                       activeOpacity={0.8}
                       onPress={handleToggleZoom}
                       style={[styles.cameraMiniBtn, { backgroundColor: 'rgba(0,0,0,0.55)' }]}
                     >
-                      <Text style={styles.zoomBtnText}>
-                        {zoomLevel === 0 ? '1x' : zoomLevel === 0.3 ? '2x' : '3x'}
-                      </Text>
+                      <Text style={styles.zoomBtnText}>{zoomOption}</Text>
                     </TouchableOpacity>
                   </View>
                 </>
@@ -470,13 +503,19 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
               ) : (
                 /* Shutter controls bar on Page 0: TO NỮA (90px) */
                 <View style={styles.shutterControlsBar}>
-                  {/* Left Button: Nút lật camera trước/sau */}
+                  {/* Left Button: Nút bật/tắt Hiển thị song song (Dual View) */}
                   <TouchableOpacity
                     activeOpacity={0.8}
-                    onPress={handleFlipCamera}
-                    style={[styles.sideControlBtn, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
+                    onPress={handleToggleDualMode}
+                    style={[
+                      styles.sideControlBtn,
+                      {
+                        backgroundColor: isDualMode ? `${colors.primary}25` : colors.surface,
+                        borderColor: isDualMode ? colors.primary : colors.hairline,
+                      },
+                    ]}
                   >
-                    <RefreshCw size={26} color={colors.text} />
+                    <Layers size={26} color={isDualMode ? colors.primary : colors.text} />
                   </TouchableOpacity>
 
                   {/* Center Button: Authentic Locket Double-Ring Shutter (TO NỮA: 90px) */}
@@ -501,17 +540,13 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
                     </View>
                   </TouchableOpacity>
 
-                  {/* Right Button: Bật / Tắt Flash */}
+                  {/* Right Button: Nút chuyển đổi Camera Trước / Sau (RefreshCw) */}
                   <TouchableOpacity
                     activeOpacity={0.8}
-                    onPress={handleToggleFlash}
+                    onPress={handleFlipCamera}
                     style={[styles.sideControlBtn, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
                   >
-                    {flashMode ? (
-                      <Zap size={26} color="#FBBF24" fill="#FBBF24" />
-                    ) : (
-                      <ZapOff size={26} color={colors.text} />
-                    )}
+                    <RefreshCw size={26} color={colors.text} />
                   </TouchableOpacity>
                 </View>
               )}
@@ -1308,6 +1343,42 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '800',
     letterSpacing: -0.2,
+  },
+  pipFloatingBox: {
+    position: 'absolute',
+    top: 52,
+    left: 14,
+    width: 80,
+    height: 104,
+    borderRadius: 16,
+    borderWidth: 2,
+    overflow: 'hidden',
+    backgroundColor: '#000000',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 8,
+    zIndex: 15,
+  },
+  pipSwapOverlay: {
+    position: 'absolute',
+    bottom: 4,
+    left: 4,
+    right: 4,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    borderRadius: 8,
+    paddingVertical: 2,
+    paddingHorizontal: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  pipBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '800',
   },
   capturedCaptionOverlay: {
     position: 'absolute',
