@@ -63,6 +63,11 @@ const SAMPLE_CAPTURE_PHOTOS = [
   'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=800&q=80',
 ];
 
+const SELFIE_FALLBACK_URL =
+  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=600&q=80';
+const REAR_FALLBACK_URL =
+  'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=600&q=80';
+
 function parseMomentPhotos(rawUrl?: string | null): { mainUrl: string; pipUrl: string | null } {
   if (!rawUrl) return { mainUrl: '', pipUrl: null };
   if (rawUrl.includes('#pip=')) {
@@ -189,9 +194,12 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
         if (mainUrl) {
           setCapturedPhotoUrl(mainUrl);
           if (isDualMode) {
-            // Giữ nguyên góc selfie phụ trong khung nổi PiP
-            const userAvatar = user?.profile?.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80';
-            setDualPipPhotoUrl(userAvatar);
+            // Góc chụp thứ 2 (đối lập với góc cam chính)
+            const counterpartUrl =
+              cameraFacing === 'back'
+                ? user?.profile?.avatarUrl || SELFIE_FALLBACK_URL
+                : REAR_FALLBACK_URL;
+            setDualPipPhotoUrl(counterpartUrl);
           } else {
             setDualPipPhotoUrl(null);
           }
@@ -377,10 +385,10 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
               {capturedPhotoUrl ? (
                 <>
                   <RNImage source={{ uri: capturedPhotoUrl }} style={styles.locketWindowImage} resizeMode="cover" />
-                  {/* Nếu chụp ở chế độ Dual Cam, hiển thị ảnh PiP góc */}
+                  {/* Nếu chụp ở chế độ Dual Cam, hiển thị ảnh PiP góc có thao tác chạm đổi */}
                   {dualPipPhotoUrl && (
                     <TouchableOpacity
-                      activeOpacity={0.9}
+                      activeOpacity={0.85}
                       onPress={() => {
                         const temp = capturedPhotoUrl;
                         setCapturedPhotoUrl(dualPipPhotoUrl);
@@ -389,8 +397,9 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
                       style={[styles.pipFloatingBox, { borderColor: colors.primary }]}
                     >
                       <RNImage source={{ uri: dualPipPhotoUrl }} style={styles.locketWindowImage} resizeMode="cover" />
-                      <View style={styles.pipCornerTag}>
-                        <Text style={styles.pipBadgeText}>Chạm đổi</Text>
+                      <View style={[styles.pipFlipBtn, { backgroundColor: 'rgba(0,0,0,0.75)' }]}>
+                        <RefreshCw size={10} color="#FFFFFF" />
+                        <Text style={styles.pipFlipBtnText}>Chạm đổi</Text>
                       </View>
                     </TouchableOpacity>
                   )}
@@ -420,7 +429,7 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
                     />
                   </View>
 
-                  {/* Hiển thị song song (Dual View) - Khung ảnh nổi góc trên trái */}
+                  {/* Hiển thị song song (Dual View) - Khung ảnh nổi góc trên trái với thao tác Lật cam */}
                   {isDualMode && (
                     <TouchableOpacity
                       activeOpacity={0.85}
@@ -429,29 +438,30 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
                         styles.pipFloatingBox,
                         {
                           borderColor: colors.primary,
-                          backgroundColor: 'rgba(20, 20, 24, 0.92)',
                         },
                       ]}
                     >
-                      {user?.profile?.avatarUrl ? (
-                        <RNImage
-                          source={{ uri: user.profile.avatarUrl }}
-                          style={styles.locketWindowImage}
-                          resizeMode="cover"
-                        />
-                      ) : (
-                        <View style={styles.pipSimulatedContent}>
-                          <View style={[styles.pipIconBadge, { backgroundColor: `${colors.primary}25` }]}>
-                            <Camera size={18} color={colors.primary} />
-                          </View>
-                          <Text style={styles.pipCounterpartLabel}>
-                            {cameraFacing === 'front' ? 'Cam sau' : 'Selfie'}
-                          </Text>
-                        </View>
-                      )}
-                      <View style={styles.pipCornerTag}>
-                        <Text style={styles.pipBadgeText}>
-                          {cameraFacing === 'front' ? 'Sau' : 'Selfie'}
+                      <RNImage
+                        source={{
+                          uri:
+                            cameraFacing === 'back'
+                              ? user?.profile?.avatarUrl || SELFIE_FALLBACK_URL
+                              : REAR_FALLBACK_URL,
+                        }}
+                        style={styles.locketWindowImage}
+                        resizeMode="cover"
+                      />
+                      {/* Badge hiển thị loại góc camera trên PiP */}
+                      <View style={styles.pipTypeBadge}>
+                        <Text style={styles.pipTypeBadgeText}>
+                          {cameraFacing === 'back' ? 'Selfie' : 'Cam sau'}
+                        </Text>
+                      </View>
+                      {/* Thao tác Lật cam trực tiếp trên khung nhỏ */}
+                      <View style={[styles.pipFlipBtn, { backgroundColor: colors.primary }]}>
+                        <RefreshCw size={10} color={colors.onPrimary} />
+                        <Text style={[styles.pipFlipBtnText, { color: colors.onPrimary }]}>
+                          Lật cam
                         </Text>
                       </View>
                     </TouchableOpacity>
@@ -1441,37 +1451,69 @@ const styles = StyleSheet.create({
   },
   pipFloatingBox: {
     position: 'absolute',
-    top: 52,
+    top: 54,
     left: 14,
-    width: 80,
-    height: 104,
-    borderRadius: 16,
-    borderWidth: 2,
+    width: 86,
+    height: 114,
+    borderRadius: 18,
+    borderWidth: 2.5,
     overflow: 'hidden',
     backgroundColor: '#000000',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    elevation: 8,
-    zIndex: 15,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 12,
+    zIndex: 25,
   },
   pipFloatingBoxFeed: {
     position: 'absolute',
     top: 14,
     left: 14,
-    width: 80,
-    height: 104,
-    borderRadius: 16,
-    borderWidth: 2,
+    width: 86,
+    height: 114,
+    borderRadius: 18,
+    borderWidth: 2.5,
     overflow: 'hidden',
     backgroundColor: '#000000',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    elevation: 8,
-    zIndex: 15,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 12,
+    zIndex: 25,
+  },
+  pipTypeBadge: {
+    position: 'absolute',
+    top: 6,
+    left: 6,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  pipTypeBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '700',
+  },
+  pipFlipBtn: {
+    position: 'absolute',
+    bottom: 5,
+    left: 5,
+    right: 5,
+    paddingVertical: 3,
+    paddingHorizontal: 4,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  pipFlipBtnText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '800',
   },
   pipSwapOverlay: {
     position: 'absolute',
@@ -1504,26 +1546,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 9,
     fontWeight: '800',
-  },
-  pipSimulatedContent: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 3,
-    paddingBottom: 16,
-  },
-  pipIconBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 2,
-  },
-  pipCounterpartLabel: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: '700',
   },
   capturedCaptionOverlay: {
     position: 'absolute',
