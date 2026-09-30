@@ -2436,6 +2436,59 @@
 - **Commit:** `e40ef4e`
 - **PR:** #63 (https://github.com/1440isme/Circle/pull/63)
 
+---
+
+## AI-0060: Triển khai Giao diện Quản trị & Điều phối Vòng tròn (Circle Core & Governance) trên Mobile React Native
+
+- **Date:** 2026-09-30 18:15:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #64 ([SUB-FEAT]: US-MOBILE-002 — Mobile Circle Core & Governance UI/UX)
+- **Purpose:** 
+  1. Triển khai hoàn thiện tính năng Quản trị & Điều phối Vòng tròn (Circle Core & Governance) trên ứng dụng di động React Native (`apps/mobile`), tuân thủ chuẩn thiết kế Liquid Glass, 0 hardcoded colors, 0 raw strings (100% i18n keys) và kết nối trực tiếp backend API qua JWT:
+     - Tạo Vòng tròn mới (`CreateCircleModal.tsx`): Nhập tên, @handle định danh, chọn chế độ Công khai/Riêng tư, tìm kiếm và chọn bạn bè ban đầu (`useSelectableFriendsQuery`), validate Zod `createCircleSchema`.
+     - Tham gia bằng Mã mời (`JoinCircleModal.tsx`): Nhập mã 6 ký tự viết hoa alphanumeric, xác thực `joinCircleSchema` và kích hoạt tham gia ngay lập tức.
+     - Quản trị & Thiết lập Vòng tròn (`CircleManagementModal.tsx`): 4 tab điều phối:
+       + Tab Thông tin: Thống kê thành viên, trạng thái riêng tư, hiển thị và chia sẻ mã mời (`Share.share`), chỉnh sửa thông tin Vòng tròn cho Trưởng nhóm.
+       + Tab Thành viên: Danh sách thành viên kèm role badge (`Trưởng nhóm`, `Quản trị viên`), chỉnh sửa/đặt biệt danh thành viên (`UC20`), mời thành viên ra khỏi nhóm (`kickMember`), chuyển giao vai trò Trưởng nhóm (`UC25`), thêm bạn bè vào nhóm (`Add Friends`).
+       + Tab Yêu cầu tham gia: Duyệt / Từ chối yêu cầu tham gia đối với Vòng tròn riêng tư.
+       + Tab Cài đặt: Rời Vòng tròn (`UC22`) dành cho thành viên, Giải tán Vòng tròn (`UC26`) dành cho Trưởng nhóm với xác nhận an toàn.
+  2. Tích hợp dữ liệu động & điều hướng:
+     - `apps/mobile/src/stores/circle.store.ts`: Zustand store quản lý state Vòng tròn đang chọn và hiển thị các modal điều khiển.
+     - `apps/mobile/src/hooks/use-circle-queries.ts`: Bộ TanStack Query hooks kết nối 14 API endpoints cho Circles.
+     - `apps/mobile/app/(tabs)/circles.tsx`: Hiển thị danh sách thẻ Vòng tròn thực tế với Pull-to-refresh, badge phân quyền và nút mở Quản trị.
+     - `apps/mobile/app/(tabs)/index.tsx`: Đồng bộ dải Circles Rail ngang trên Trang chủ với dữ liệu thực, kích hoạt tạo mới và chọn Vòng tròn.
+     - `apps/mobile/app/(tabs)/_layout.tsx`: Kích hoạt tùy chọn Tạo Vòng tròn trong ActionSheet trung tâm, mount 3 modals toàn cục.
+  3. Cập nhật contracts & từ điển:
+     - Bổ sung `danger` semantic color vào theme mobile (`apps/mobile/src/constants/theme.ts`).
+     - Bổ sung các key bản địa hóa cho giải tán Vòng tròn (`deleteCircle`, `deleteCircleConfirm`, `deleteCircleWarning`, `deleteCircleSuccess`) trong `packages/shared/src/locales/vi.ts` và `en.ts`.
+- **Prompt Summary:** Yêu cầu: "oke quay lại module 3 của hạnh xây trên mobile nữa", "vẫn chưa đc PR đâu nhé nào có lệnh tôi kêu PR mới đc PR".
+- **Files Affected:**
+  - `apps/mobile/src/constants/theme.ts`
+  - `apps/mobile/src/stores/circle.store.ts`
+  - `apps/mobile/src/hooks/use-circle-queries.ts`
+  - `apps/mobile/src/components/circle/CreateCircleModal.tsx`
+  - `apps/mobile/src/components/circle/JoinCircleModal.tsx`
+  - `apps/mobile/src/components/circle/CircleManagementModal.tsx`
+  - `apps/mobile/app/(tabs)/circles.tsx`
+  - `apps/mobile/app/(tabs)/index.tsx`
+  - `apps/mobile/app/(tabs)/_layout.tsx`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% mã nguồn components, hooks, stores, styles và localization keys.
+- **Human Modifications:** Ninh Thị Mỹ Hạnh chỉ đạo phát triển Mobile Circle Core theo đúng kiến trúc Module 3, nhấn mạnh chưa được mở PR cho đến khi có lệnh.
+- **Verification Method:**
+  - `npm run typecheck -w @circle/mobile`: TypeScript `tsc --noEmit` pass 100% (0 errors).
+  - `npm test -w @circle/backend`: 83/83 backend unit tests pass 100%.
+  - `bash ./scripts/check-agent-map.sh`: 93/93 markdown references pass 100%.
+- **Official Source Checked:** `PROJECT_GOD.md` (Module 3, Definition of Done, 10 Hard Gates), `docs/phan-cong-nhiem-vu.md` (Hạnh: Module 3), SRS UC20, UC22, UC25, UC26.
+- **Security & License Check:** An toàn, không chứa API keys hay secrets.
+- **Commit:** `98f12cd`
+- **PR:** Pending (Chờ lệnh người dùng theo yêu cầu)
+
+
 
 
 

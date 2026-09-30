@@ -24,6 +24,10 @@ import {
 } from 'lucide-react-native';
 import { useThemeStore } from '../../src/stores/theme.store';
 import { useLanguageStore } from '../../src/stores/language.store';
+import { useCircleStore } from '../../src/stores/circle.store';
+import { CreateCircleModal } from '../../src/components/circle/CreateCircleModal';
+import { JoinCircleModal } from '../../src/components/circle/JoinCircleModal';
+import { CircleManagementModal } from '../../src/components/circle/CircleManagementModal';
 
 interface CustomTabBarProps {
   state: any;
@@ -176,6 +180,7 @@ export default function TabsLayout() {
   const { colors, resolvedTheme } = useThemeStore();
   const t = useLanguageStore((s) => s.t);
   const [createModalVisible, setCreateModalVisible] = useState(false);
+  const setCircleCreateModalVisible = useCircleStore((s) => s.setCreateModalVisible);
 
   const isDark = resolvedTheme === 'dark';
 
@@ -318,12 +323,10 @@ export default function TabsLayout() {
               <TouchableOpacity
                 style={[styles.optionItem, { backgroundColor: colors.wash, borderColor: colors.hairline }]}
                 activeOpacity={0.8}
-                onPress={() =>
-                  handleCreateOption(
-                    t.composer.newCircleAlertTitle,
-                    t.home.createCirclePrompt,
-                  )
-                }
+                onPress={() => {
+                  setCreateModalVisible(false);
+                  setCircleCreateModalVisible(true);
+                }}
               >
                 <View style={[styles.optionIconBox, { backgroundColor: `${colors.peach}40` }]}>
                   <Sparkles size={22} color={colors.warning} />
@@ -365,6 +368,11 @@ export default function TabsLayout() {
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
+
+      {/* Circle Core & Governance Modals */}
+      <CreateCircleModal />
+      <JoinCircleModal />
+      <CircleManagementModal />
     </>
   );
 }
