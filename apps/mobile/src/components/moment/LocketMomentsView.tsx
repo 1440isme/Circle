@@ -19,7 +19,6 @@ import {
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
-import * as ImagePicker from 'expo-image-picker';
 import {
   Camera,
   RefreshCw,
@@ -42,7 +41,6 @@ import {
   Users,
   Filter,
   Check,
-  FolderOpen,
 } from 'lucide-react-native';
 import { useThemeStore } from '../../stores/theme.store';
 import { useLanguageStore } from '../../stores/language.store';
@@ -106,6 +104,7 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
   // Real Camera Viewfinder States (Locket UI)
   const [cameraFacing, setCameraFacing] = useState<CameraType>('front');
   const [flashMode, setFlashMode] = useState<boolean>(false);
+  const [zoomLevel, setZoomLevel] = useState<number>(0);
   const [isTakingPhoto, setIsTakingPhoto] = useState<boolean>(false);
   const [activeSampleIndex, setActiveSampleIndex] = useState<number>(0);
 
@@ -157,7 +156,7 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
   // Ảnh gần nhất cho nút cuộn xuống Lịch sử
   const latestMomentPhoto = moments[0]?.photoUrl || moments[0]?.imageUrl || null;
 
-  // Real Camera Shutter Action
+  // Real Camera Shutter Action (100% Realtime)
   const handleSnapPhoto = async () => {
     if (cameraRef.current && permission?.granted) {
       try {
@@ -175,42 +174,15 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
         }
       } catch (err: any) {
         console.warn('Real camera capture error:', err);
-        // Fallback to sample photo if capture fails
-        setCapturedPhotoUrl(SAMPLE_CAPTURE_PHOTOS[activeSampleIndex]);
+        Alert.alert(t.common.appName, 'Không thể chụp ảnh, vui lòng thử lại.');
       } finally {
         setIsTakingPhoto(false);
       }
     } else if (!permission?.granted) {
       const res = await requestPermission();
       if (!res.granted) {
-        handlePickFromGallery();
+        Alert.alert(t.common.appName, 'Cần cấp quyền Camera để chụp khoảnh khắc realtime.');
       }
-    } else {
-      setCapturedPhotoUrl(SAMPLE_CAPTURE_PHOTOS[activeSampleIndex]);
-    }
-  };
-
-  // Pick Photo From Device Gallery / Library
-  const handlePickFromGallery = async () => {
-    try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.6,
-        base64: true,
-      });
-
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        const asset = result.assets[0];
-        if (asset.base64) {
-          setCapturedPhotoUrl(`data:image/jpeg;base64,${asset.base64}`);
-        } else if (asset.uri) {
-          setCapturedPhotoUrl(asset.uri);
-        }
-      }
-    } catch (err: any) {
-      Alert.alert(t.common.appName, err?.message || 'Không thể chọn ảnh từ thư viện');
     }
   };
 
@@ -220,6 +192,14 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
 
   const handleToggleFlash = () => {
     setFlashMode((prev) => !prev);
+  };
+
+  const handleToggleZoom = () => {
+    setZoomLevel((prev) => {
+      if (prev === 0) return 0.3; // 2x
+      if (prev === 0.3) return 0.6; // 3x
+      return 0; // 1x
+    });
   };
 
   const handleRetake = () => {
@@ -373,6 +353,7 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
                   facing={cameraFacing}
                   flash={flashMode ? 'on' : 'off'}
                   enableTorch={flashMode}
+                  zoom={zoomLevel}
                   mode="picture"
                 />
               ) : (
@@ -382,7 +363,7 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
                     Quyền truy cập máy ảnh
                   </Text>
                   <Text style={[styles.cameraPermissionSub, { color: 'rgba(255,255,255,0.7)' }]}>
-                    Cấp quyền để chụp và chia sẻ khoảnh khắc Locket với bạn bè.
+                    Cấp quyền để chụp và chia sẻ khoảnh khắc realtime với bạn bè.
                   </Text>
                   <TouchableOpacity
                     activeOpacity={0.8}
@@ -392,14 +373,6 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
                     <Text style={[styles.cameraPermissionBtnText, { color: colors.onPrimary }]}>
                       Cấp quyền Camera
                     </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    activeOpacity={0.7}
-                    onPress={handlePickFromGallery}
-                    style={styles.galleryFallbackBtn}
-                  >
-                    <ImageIcon size={15} color="rgba(255,255,255,0.7)" />
-                    <Text style={styles.galleryFallbackText}>Hoặc chọn ảnh từ máy</Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -411,12 +384,12 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
                   <View style={[styles.cornerGuide, styles.cornerBottomLeft, { borderColor: 'rgba(255,255,255,0.7)' }]} />
                   <View style={[styles.cornerGuide, styles.cornerBottomRight, { borderColor: 'rgba(255,255,255,0.7)' }]} />
 
-                  {/* Top Overlay Controls inside Camera: Flash & Mode & Gallery */}
+                  {/* Top Overlay Controls inside Camera: Flash (Left), Facing Mode (Center), Zoom (Right - Đối xứng Flash) */}
                   <View style={styles.cameraInnerTopBar}>
                     <TouchableOpacity
                       activeOpacity={0.8}
                       onPress={handleToggleFlash}
-                      style={[styles.cameraMiniBtn, { backgroundColor: 'rgba(0,0,0,0.5)' }]}
+                      style={[styles.cameraMiniBtn, { backgroundColor: 'rgba(0,0,0,0.55)' }]}
                     >
                       {flashMode ? (
                         <Zap size={16} color="#FBBF24" fill="#FBBF24" />
@@ -425,18 +398,21 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
                       )}
                     </TouchableOpacity>
 
-                    <View style={[styles.cameraModePill, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
+                    <View style={[styles.cameraModePill, { backgroundColor: 'rgba(0,0,0,0.55)' }]}>
                       <Text style={styles.cameraModePillText}>
                         {cameraFacing === 'front' ? 'Camera trước' : 'Camera sau'}
                       </Text>
                     </View>
 
+                    {/* Nút Zoom đối xứng Flash góc trên phải */}
                     <TouchableOpacity
                       activeOpacity={0.8}
-                      onPress={handlePickFromGallery}
-                      style={[styles.cameraMiniBtn, { backgroundColor: 'rgba(0,0,0,0.5)' }]}
+                      onPress={handleToggleZoom}
+                      style={[styles.cameraMiniBtn, { backgroundColor: 'rgba(0,0,0,0.55)' }]}
                     >
-                      <ImageIcon size={16} color="#FFFFFF" />
+                      <Text style={styles.zoomBtnText}>
+                        {zoomLevel === 0 ? '1x' : zoomLevel === 0.3 ? '2x' : '3x'}
+                      </Text>
                     </TouchableOpacity>
                   </View>
                 </>
@@ -494,13 +470,13 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
               ) : (
                 /* Shutter controls bar on Page 0: TO NỮA (90px) */
                 <View style={styles.shutterControlsBar}>
-                  {/* Left Button: Flash / Gallery Toggle */}
+                  {/* Left Button: Nút lật camera trước/sau */}
                   <TouchableOpacity
                     activeOpacity={0.8}
-                    onPress={handlePickFromGallery}
+                    onPress={handleFlipCamera}
                     style={[styles.sideControlBtn, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
                   >
-                    <FolderOpen size={24} color={colors.text} />
+                    <RefreshCw size={26} color={colors.text} />
                   </TouchableOpacity>
 
                   {/* Center Button: Authentic Locket Double-Ring Shutter (TO NỮA: 90px) */}
@@ -525,13 +501,17 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
                     </View>
                   </TouchableOpacity>
 
-                  {/* Right Button: Flip Camera */}
+                  {/* Right Button: Bật / Tắt Flash */}
                   <TouchableOpacity
                     activeOpacity={0.8}
-                    onPress={handleFlipCamera}
+                    onPress={handleToggleFlash}
                     style={[styles.sideControlBtn, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
                   >
-                    <RefreshCw size={26} color={colors.text} />
+                    {flashMode ? (
+                      <Zap size={26} color="#FBBF24" fill="#FBBF24" />
+                    ) : (
+                      <ZapOff size={26} color={colors.text} />
+                    )}
                   </TouchableOpacity>
                 </View>
               )}
@@ -1322,6 +1302,12 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 11,
     fontWeight: '600',
+  },
+  zoomBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: -0.2,
   },
   capturedCaptionOverlay: {
     position: 'absolute',

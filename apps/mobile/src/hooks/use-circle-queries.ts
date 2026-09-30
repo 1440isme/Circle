@@ -363,9 +363,12 @@ export function useCircleMomentsQuery(circleId: string | null) {
     queryFn: async () => {
       if (!circleId) return [];
       const res = await mobileApiRequest<any[]>(`/moments/circle/${circleId}`);
-      return res.data || [];
+      if (Array.isArray(res)) return res;
+      if (res && Array.isArray((res as any).data)) return (res as any).data;
+      return (res as any)?.data || (Array.isArray(res) ? res : []);
     },
     enabled: Boolean(circleId),
+    refetchInterval: 3000,
   });
 }
 
@@ -430,10 +433,17 @@ export function useCreateMomentMutation(circleId: string | null) {
         method: 'POST',
         body: JSON.stringify(input),
       });
-      return res.data;
+      return (res as any)?.data || res;
     },
-    onSuccess: () => {
+    onSuccess: (newMoment) => {
       if (circleId) {
+        if (newMoment && newMoment.id) {
+          queryClient.setQueryData(['moments', 'circle', circleId], (old: any) => {
+            const list = Array.isArray(old) ? old : Array.isArray(old?.data) ? old.data : [];
+            const exists = list.some((m: any) => m.id === newMoment.id);
+            return exists ? list : [newMoment, ...list];
+          });
+        }
         queryClient.invalidateQueries({ queryKey: ['moments', 'circle', circleId] });
       }
       queryClient.invalidateQueries({ queryKey: ['moments', 'feed'] });
