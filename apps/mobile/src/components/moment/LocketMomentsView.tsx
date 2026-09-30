@@ -11,6 +11,8 @@ import {
   Image as RNImage,
   Alert,
   Dimensions,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
 import {
   Camera,
@@ -22,6 +24,8 @@ import {
   Heart,
   Image as ImageIcon,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   X,
   Sparkles,
   History,
@@ -65,7 +69,8 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
   const user = useAuthStore((s) => s.user);
   const isDark = resolvedTheme === 'dark';
 
-  const scrollViewRef = useRef<ScrollView>(null);
+  const verticalScrollRef = useRef<ScrollView>(null);
+  const historyPagerRef = useRef<ScrollView>(null);
 
   // Queries & Mutations
   const { data: moments = [], isLoading: isLoadingMoments } = useCircleMomentsQuery(circleId);
@@ -80,13 +85,15 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
   // Captured Photo State for review
   const [capturedPhotoUrl, setCapturedPhotoUrl] = useState<string | null>(null);
   const [captionText, setCaptionText] = useState<string>('');
-  const [customUrlInput, setCustomUrlInput] = useState<string>('');
-  const [isUrlModalOpen, setIsUrlModalOpen] = useState<boolean>(false);
   const [replyingToAuthor, setReplyingToAuthor] = useState<string | null>(null);
+
+  // Scroll & Dock Visibility State
+  const [showFloatingDock, setShowFloatingDock] = useState<boolean>(false);
+  const [activeMomentIndex, setActiveMomentIndex] = useState<number>(0);
 
   // Shutter action
   const handleSnapPhoto = () => {
-    const selectedUrl = customUrlInput.trim() || SAMPLE_CAPTURE_PHOTOS[activeSampleIndex];
+    const selectedUrl = SAMPLE_CAPTURE_PHOTOS[activeSampleIndex];
     setCapturedPhotoUrl(selectedUrl);
   };
 
@@ -121,8 +128,10 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
       setReplyingToAuthor(null);
       // Smoothly scroll down to see newly posted moment in history
       setTimeout(() => {
-        scrollViewRef.current?.scrollTo({ y: LOCKET_FRAME_SIZE + 140, animated: true });
-      }, 500);
+        verticalScrollRef.current?.scrollTo({ y: LOCKET_FRAME_SIZE + 140, animated: true });
+        historyPagerRef.current?.scrollTo({ x: 0, animated: true });
+        setActiveMomentIndex(0);
+      }, 400);
     } catch (err: any) {
       Alert.alert(t.common.appName, err?.message || t.common.unknownError);
     }
@@ -130,7 +139,7 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
 
   const handleReplyWithPhoto = (authorName: string) => {
     setReplyingToAuthor(authorName);
-    scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+    verticalScrollRef.current?.scrollTo({ y: 0, animated: true });
   };
 
   const handleReactMoment = (momentId: string, emoji: string) => {
@@ -138,11 +147,37 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
   };
 
   const scrollToHistory = () => {
-    scrollViewRef.current?.scrollTo({ y: LOCKET_FRAME_SIZE + 120, animated: true });
+    verticalScrollRef.current?.scrollTo({ y: LOCKET_FRAME_SIZE + 130, animated: true });
   };
 
   const scrollToCamera = () => {
-    scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+    verticalScrollRef.current?.scrollTo({ y: 0, animated: true });
+  };
+
+  const handleVerticalScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const scrollY = e.nativeEvent.contentOffset.y;
+    // Show floating dock only when scrolled down into history view
+    const shouldShow = scrollY > 120;
+    if (shouldShow !== showFloatingDock) {
+      setShowFloatingDock(shouldShow);
+    }
+  };
+
+  const handleHistoryPagerScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const offsetX = e.nativeEvent.contentOffset.x;
+    const itemWidth = LOCKET_FRAME_SIZE + 16;
+    const index = Math.round(offsetX / itemWidth);
+    if (index !== activeMomentIndex && index >= 0 && index < moments.length) {
+      setActiveMomentIndex(index);
+    }
+  };
+
+  const goToMoment = (index: number) => {
+    if (index >= 0 && index < moments.length) {
+      const itemWidth = LOCKET_FRAME_SIZE + 16;
+      historyPagerRef.current?.scrollTo({ x: index * itemWidth, animated: true });
+      setActiveMomentIndex(index);
+    }
   };
 
   const previewPhoto = capturedPhotoUrl || SAMPLE_CAPTURE_PHOTOS[activeSampleIndex];
@@ -150,9 +185,11 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
   return (
     <View style={styles.container}>
       <ScrollView
-        ref={scrollViewRef}
+        ref={verticalScrollRef}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
+        onScroll={handleVerticalScroll}
+        scrollEventThrottle={16}
       >
         {/* =========================================================================
             SECTION 1: LOCKET CAMERA VIEWFINDER (MÀN HÌNH CAMERA CHÍNH)
@@ -243,7 +280,7 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
           </View>
 
           {/* =========================================================================
-              CAMERA BOTTOM CONTROLS (NÚT CHỤP CHÍNH & XOAY CAM)
+              CAMERA BOTTOM CONTROLS (NÚT CHỤP CHÍNH & XOAY CAM BÊN PHẢI)
              ========================================================================= */}
           {capturedPhotoUrl ? (
             /* Review Actions Bar (Retake vs Send) */
@@ -276,15 +313,19 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
               </TouchableOpacity>
             </View>
           ) : (
-            /* Live Camera Shutter Controls Bar */
+            /* Live Realtime Camera Controls Bar */
             <View style={styles.shutterControlsBar}>
-              {/* Left Button: Flip Camera (Xoay Cam) */}
+              {/* Left Button: Flash / Quick Toggle for Symmetry */}
               <TouchableOpacity
                 activeOpacity={0.8}
-                onPress={handleFlipCamera}
+                onPress={handleToggleFlash}
                 style={[styles.sideControlBtn, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
               >
-                <RefreshCw size={22} color={colors.text} />
+                {flashMode ? (
+                  <Zap size={22} color="#FBBF24" fill="#FBBF24" />
+                ) : (
+                  <ZapOff size={22} color={colors.text} />
+                )}
               </TouchableOpacity>
 
               {/* Center Button: Authentic Locket Double-Ring Shutter */}
@@ -304,38 +345,13 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
                 </View>
               </TouchableOpacity>
 
-              {/* Right Button: URL / Library preset */}
+              {/* Right Button: Flip Camera (Xoay Cam chuyển sang bên phải theo yêu cầu) */}
               <TouchableOpacity
                 activeOpacity={0.8}
-                onPress={() => setIsUrlModalOpen(!isUrlModalOpen)}
+                onPress={handleFlipCamera}
                 style={[styles.sideControlBtn, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
               >
-                <ImageIcon size={22} color={colors.text} />
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {/* Quick Custom Photo URL Dropdown */}
-          {isUrlModalOpen && !capturedPhotoUrl && (
-            <View style={[styles.customUrlBox, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
-              <Text style={[styles.customUrlLabel, { color: colors.text }]}>Nhập URL ảnh chụp tùy ý:</Text>
-              <TextInput
-                value={customUrlInput}
-                onChangeText={setCustomUrlInput}
-                placeholder="https://images.unsplash.com/..."
-                placeholderTextColor={colors.subtle}
-                style={[styles.customUrlInput, { backgroundColor: colors.wash, borderColor: colors.hairline, color: colors.text }]}
-              />
-              <TouchableOpacity
-                onPress={() => {
-                  if (customUrlInput.trim()) {
-                    setCapturedPhotoUrl(customUrlInput.trim());
-                    setIsUrlModalOpen(false);
-                  }
-                }}
-                style={[styles.usePhotoBtn, { backgroundColor: colors.primary }]}
-              >
-                <Text style={[styles.usePhotoBtnText, { color: colors.onPrimary }]}>Dùng ảnh này</Text>
+                <RefreshCw size={22} color={colors.text} />
               </TouchableOpacity>
             </View>
           )}
@@ -354,16 +370,24 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
         </View>
 
         {/* =========================================================================
-            SECTION 2: LỊCH SỬ ĐĂNG (MOMENTS TIMELINE & FEED)
+            SECTION 2: LỊCH SỬ ĐĂNG (MOMENTS FEED - DẠNG LƯỚT TỪNG ẢNH 1)
            ========================================================================= */}
         <View style={styles.historySection}>
           <View style={styles.historySectionHeader}>
             <View style={styles.historyTitleRow}>
               <History size={18} color={colors.primary} />
               <Text style={[styles.historyTitle, { color: colors.text }]}>
-                Khoảnh khắc của nhóm ({moments.length})
+                Khoảnh khắc nhóm
               </Text>
+              {moments.length > 0 && (
+                <View style={[styles.pageIndexBadge, { backgroundColor: colors.wash }]}>
+                  <Text style={[styles.pageIndexText, { color: colors.primary }]}>
+                    {activeMomentIndex + 1}/{moments.length}
+                  </Text>
+                </View>
+              )}
             </View>
+
             <TouchableOpacity onPress={scrollToCamera} style={[styles.backToCamBtn, { backgroundColor: colors.wash }]}>
               <Camera size={14} color={colors.primary} />
               <Text style={[styles.backToCamText, { color: colors.primary }]}>Chụp mới</Text>
@@ -390,150 +414,224 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
               </TouchableOpacity>
             </View>
           ) : (
-            moments.map((m: any) => {
-              const authorName = m.user?.profile?.displayName || m.user?.email || 'User';
-              const photoSrc = m.photoUrl || m.imageUrl;
-              const formattedDate = new Date(m.createdAt).toLocaleDateString([], {
-                month: 'short',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-              });
+            /* 1-by-1 Snapping Moment Pager */
+            <View style={styles.momentPagerWrapper}>
+              <ScrollView
+                ref={historyPagerRef}
+                horizontal
+                pagingEnabled={false}
+                snapToInterval={LOCKET_FRAME_SIZE + 16}
+                snapToAlignment="center"
+                decelerationRate="fast"
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.momentPagerContent}
+                onScroll={handleHistoryPagerScroll}
+                scrollEventThrottle={16}
+              >
+                {moments.map((m: any, idx: number) => {
+                  const authorName = m.user?.profile?.displayName || m.user?.email || 'User';
+                  const photoSrc = m.photoUrl || m.imageUrl;
+                  const formattedDate = new Date(m.createdAt).toLocaleDateString([], {
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  });
 
-              return (
-                <View
-                  key={m.id}
-                  style={[
-                    styles.momentFeedCard,
-                    {
-                      width: LOCKET_FRAME_SIZE,
-                      backgroundColor: colors.surface,
-                      borderColor: colors.hairline,
-                    },
-                  ]}
-                >
-                  {/* Card Header: Author info */}
-                  <View style={styles.momentFeedHeader}>
-                    <View style={styles.momentFeedAuthor}>
-                      <View style={[styles.authorAvatar, { backgroundColor: `${colors.primary}20` }]}>
-                        {m.user?.profile?.avatarUrl ? (
-                          <RNImage source={{ uri: m.user.profile.avatarUrl }} style={styles.authorAvatarImg} />
-                        ) : (
-                          <Text style={[styles.authorAvatarText, { color: colors.primary }]}>
-                            {getInitials(authorName)}
-                          </Text>
-                        )}
-                      </View>
-                      <View>
-                        <Text style={[styles.authorDisplayName, { color: colors.text }]}>
-                          {authorName}
-                        </Text>
-                        <Text style={[styles.momentTimeText, { color: colors.subtle }]}>
-                          {formattedDate}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-
-                  {/* Locket 1:1 Photo Frame */}
-                  <View style={[styles.momentPhotoFrame, { backgroundColor: colors.wash }]}>
-                    {photoSrc ? (
-                      <RNImage source={{ uri: photoSrc }} style={styles.momentPhotoImage} resizeMode="cover" />
-                    ) : (
-                      <View style={styles.noPhotoPlaceholder}>
-                        <ImageIcon size={36} color={colors.subtle} />
-                      </View>
-                    )}
-
-                    {/* Caption floating pill inside photo bottom like Locket */}
-                    {m.caption ? (
-                      <View style={styles.photoCaptionPill}>
-                        <Text numberOfLines={3} style={styles.photoCaptionText}>
-                          {m.caption}
-                        </Text>
-                      </View>
-                    ) : null}
-                  </View>
-
-                  {/* Card Footer: Reply with photo & Emoji Reactions */}
-                  <View style={[styles.momentFeedFooter, { borderTopColor: colors.hairline }]}>
-                    {/* Reply with photo button */}
-                    <TouchableOpacity
-                      activeOpacity={0.75}
-                      onPress={() => handleReplyWithPhoto(authorName)}
-                      style={[styles.replyWithPhotoBtn, { backgroundColor: colors.wash }]}
+                  return (
+                    <View
+                      key={m.id || idx}
+                      style={[
+                        styles.momentFeedCard,
+                        {
+                          width: LOCKET_FRAME_SIZE,
+                          backgroundColor: colors.surface,
+                          borderColor: colors.hairline,
+                        },
+                      ]}
                     >
-                      <Camera size={14} color={colors.primary} />
-                      <Text style={[styles.replyWithPhotoText, { color: colors.text }]}>
-                        Đáp lại bằng ảnh
-                      </Text>
-                    </TouchableOpacity>
+                      {/* Card Header: Author info */}
+                      <View style={styles.momentFeedHeader}>
+                        <View style={styles.momentFeedAuthor}>
+                          <View style={[styles.authorAvatar, { backgroundColor: `${colors.primary}20` }]}>
+                            {m.user?.profile?.avatarUrl ? (
+                              <RNImage source={{ uri: m.user.profile.avatarUrl }} style={styles.authorAvatarImg} />
+                            ) : (
+                              <Text style={[styles.authorAvatarText, { color: colors.primary }]}>
+                                {getInitials(authorName)}
+                              </Text>
+                            )}
+                          </View>
+                          <View>
+                            <Text style={[styles.authorDisplayName, { color: colors.text }]}>
+                              {authorName}
+                            </Text>
+                            <Text style={[styles.momentTimeText, { color: colors.subtle }]}>
+                              {formattedDate}
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
 
-                    {/* Reaction Bar */}
-                    <View style={styles.reactionEmojisBar}>
-                      {['❤️', '🔥', '👏', '🥰'].map((emoji) => (
+                      {/* Locket 1:1 Photo Frame */}
+                      <View style={[styles.momentPhotoFrame, { backgroundColor: colors.wash }]}>
+                        {photoSrc ? (
+                          <RNImage source={{ uri: photoSrc }} style={styles.momentPhotoImage} resizeMode="cover" />
+                        ) : (
+                          <View style={styles.noPhotoPlaceholder}>
+                            <ImageIcon size={36} color={colors.subtle} />
+                          </View>
+                        )}
+
+                        {/* Caption floating pill inside photo bottom like Locket */}
+                        {m.caption ? (
+                          <View style={styles.photoCaptionPill}>
+                            <Text numberOfLines={3} style={styles.photoCaptionText}>
+                              {m.caption}
+                            </Text>
+                          </View>
+                        ) : null}
+                      </View>
+
+                      {/* Card Footer: Reply with photo & Emoji Reactions */}
+                      <View style={[styles.momentFeedFooter, { borderTopColor: colors.hairline }]}>
+                        {/* Reply with photo button */}
                         <TouchableOpacity
-                          key={emoji}
-                          onPress={() => handleReactMoment(m.id, emoji)}
-                          style={[styles.reactionMiniPill, { backgroundColor: colors.wash }]}
+                          activeOpacity={0.75}
+                          onPress={() => handleReplyWithPhoto(authorName)}
+                          style={[styles.replyWithPhotoBtn, { backgroundColor: colors.wash }]}
                         >
-                          <Text style={styles.reactionEmojiText}>{emoji}</Text>
+                          <Camera size={14} color={colors.primary} />
+                          <Text style={[styles.replyWithPhotoText, { color: colors.text }]}>
+                            Đáp lại bằng ảnh
+                          </Text>
                         </TouchableOpacity>
-                      ))}
+
+                        {/* Reaction Bar */}
+                        <View style={styles.reactionEmojisBar}>
+                          {['❤️', '🔥', '👏', '🥰'].map((emoji) => (
+                            <TouchableOpacity
+                              key={emoji}
+                              onPress={() => handleReactMoment(m.id, emoji)}
+                              style={[styles.reactionMiniPill, { backgroundColor: colors.wash }]}
+                            >
+                              <Text style={styles.reactionEmojiText}>{emoji}</Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      </View>
                     </View>
+                  );
+                })}
+              </ScrollView>
+
+              {/* Left/Right Snap Arrows for Easy 1-by-1 Navigation */}
+              {moments.length > 1 && (
+                <View style={styles.pagerArrowsRow}>
+                  <TouchableOpacity
+                    disabled={activeMomentIndex === 0}
+                    onPress={() => goToMoment(activeMomentIndex - 1)}
+                    style={[
+                      styles.pagerArrowBtn,
+                      {
+                        backgroundColor: colors.surface,
+                        borderColor: colors.hairline,
+                        opacity: activeMomentIndex === 0 ? 0.35 : 1,
+                      },
+                    ]}
+                  >
+                    <ChevronLeft size={18} color={colors.text} />
+                  </TouchableOpacity>
+
+                  {/* Dot Indicators */}
+                  <View style={styles.pagerDotsContainer}>
+                    {moments.slice(0, 7).map((_: any, dotIdx: number) => (
+                      <View
+                        key={dotIdx}
+                        style={[
+                          styles.pagerDot,
+                          {
+                            backgroundColor:
+                              dotIdx === activeMomentIndex ? colors.primary : colors.hairline,
+                            width: dotIdx === activeMomentIndex ? 16 : 6,
+                          },
+                        ]}
+                      />
+                    ))}
+                    {moments.length > 7 && (
+                      <Text style={[styles.moreDotsText, { color: colors.subtle }]}>...</Text>
+                    )}
                   </View>
+
+                  <TouchableOpacity
+                    disabled={activeMomentIndex === moments.length - 1}
+                    onPress={() => goToMoment(activeMomentIndex + 1)}
+                    style={[
+                      styles.pagerArrowBtn,
+                      {
+                        backgroundColor: colors.surface,
+                        borderColor: colors.hairline,
+                        opacity: activeMomentIndex === moments.length - 1 ? 0.35 : 1,
+                      },
+                    ]}
+                  >
+                    <ChevronRight size={18} color={colors.text} />
+                  </TouchableOpacity>
                 </View>
-              );
-            })
+              )}
+            </View>
           )}
         </View>
       </ScrollView>
 
       {/* =========================================================================
           SECTION 3: FLOATING MINI DOCK (LOCKET BOTTOM FLOATING BAR)
+          CHỈ HIỆN KHI LƯỚT XUỐNG XEM LỊCH SỬ
          ========================================================================= */}
-      <View pointerEvents="box-none" style={styles.floatingDockContainer}>
-        <View
-          style={[
-            styles.floatingDockBar,
-            {
-              backgroundColor: isDark ? 'rgba(25, 25, 25, 0.88)' : 'rgba(255, 255, 255, 0.92)',
-              borderColor: colors.hairline,
-            },
-          ]}
-        >
-          {/* Left: Memory history button */}
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={scrollToHistory}
-            style={styles.dockIconBtn}
+      {showFloatingDock && (
+        <View pointerEvents="box-none" style={styles.floatingDockContainer}>
+          <View
+            style={[
+              styles.floatingDockBar,
+              {
+                backgroundColor: isDark ? 'rgba(25, 25, 25, 0.92)' : 'rgba(255, 255, 255, 0.95)',
+                borderColor: colors.hairline,
+              },
+            ]}
           >
-            <History size={20} color={colors.text} />
-            <Text style={[styles.dockBtnLabel, { color: colors.subtle }]}>Lịch sử</Text>
-          </TouchableOpacity>
+            {/* Left: Memory history button */}
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={scrollToHistory}
+              style={styles.dockIconBtn}
+            >
+              <History size={20} color={colors.primary} />
+              <Text style={[styles.dockBtnLabel, { color: colors.primary }]}>Lịch sử</Text>
+            </TouchableOpacity>
 
-          {/* Center: Mini Locket Shutter */}
-          <TouchableOpacity
-            activeOpacity={0.85}
-            onPress={scrollToCamera}
-            style={[styles.dockShutterOuter, { borderColor: colors.primary }]}
-          >
-            <View style={[styles.dockShutterInner, { backgroundColor: colors.primary }]}>
-              <Plus size={22} color={colors.onPrimary} strokeWidth={3} />
-            </View>
-          </TouchableOpacity>
+            {/* Center: Mini Locket Shutter -> Return to Camera */}
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={scrollToCamera}
+              style={[styles.dockShutterOuter, { borderColor: colors.primary }]}
+            >
+              <View style={[styles.dockShutterInner, { backgroundColor: colors.primary }]}>
+                <Camera size={20} color={colors.onPrimary} />
+              </View>
+            </TouchableOpacity>
 
-          {/* Right: Quick Capture / Preset */}
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={scrollToCamera}
-            style={styles.dockIconBtn}
-          >
-            <Camera size={20} color={colors.text} />
-            <Text style={[styles.dockBtnLabel, { color: colors.subtle }]}>Chụp</Text>
-          </TouchableOpacity>
+            {/* Right: Quick Snap Action */}
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={scrollToCamera}
+              style={styles.dockIconBtn}
+            >
+              <Plus size={20} color={colors.text} />
+              <Text style={[styles.dockBtnLabel, { color: colors.subtle }]}>Chụp mới</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
+      )}
     </View>
   );
 }
@@ -544,13 +642,13 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     alignItems: 'center',
-    paddingBottom: 110,
+    paddingBottom: 120,
   },
   cameraSection: {
     width: '100%',
     alignItems: 'center',
     paddingTop: 12,
-    paddingBottom: 24,
+    paddingBottom: 20,
     gap: 16,
   },
   viewfinderHeader: {
@@ -630,8 +728,8 @@ const styles = StyleSheet.create({
     bottom: 14,
     right: 14,
     borderLeftWidth: 0,
-    borderTopWidth: 0,
-    borderBottomRightRadius: 8,
+    borderBottomWidth: 0,
+    borderTopRightRadius: 8,
   },
   cameraInnerTopBar: {
     position: 'absolute',
@@ -682,7 +780,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 32,
+    gap: 36,
     marginTop: 4,
   },
   sideControlBtn: {
@@ -758,34 +856,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
   },
-  customUrlBox: {
-    width: LOCKET_FRAME_SIZE,
-    padding: 14,
-    borderRadius: 18,
-    borderWidth: 1,
-    gap: 8,
-  },
-  customUrlLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  customUrlInput: {
-    height: 40,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    fontSize: 12,
-  },
-  usePhotoBtn: {
-    height: 38,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  usePhotoBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
   scrollDownCue: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -800,7 +870,7 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
     paddingTop: 16,
-    gap: 16,
+    gap: 14,
   },
   historySectionHeader: {
     flexDirection: 'row',
@@ -816,6 +886,15 @@ const styles = StyleSheet.create({
   },
   historyTitle: {
     fontSize: 15,
+    fontWeight: '800',
+  },
+  pageIndexBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  pageIndexText: {
+    fontSize: 11,
     fontWeight: '800',
   },
   backToCamBtn: {
@@ -860,6 +939,15 @@ const styles = StyleSheet.create({
   firstSnapBtnText: {
     fontSize: 13,
     fontWeight: '700',
+  },
+  momentPagerWrapper: {
+    width: '100%',
+    alignItems: 'center',
+    gap: 12,
+  },
+  momentPagerContent: {
+    paddingHorizontal: 16,
+    gap: 16,
   },
   momentFeedCard: {
     borderRadius: 28,
@@ -969,6 +1057,34 @@ const styles = StyleSheet.create({
   },
   reactionEmojiText: {
     fontSize: 15,
+  },
+  pagerArrowsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+    paddingVertical: 4,
+  },
+  pagerArrowBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pagerDotsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  pagerDot: {
+    height: 6,
+    borderRadius: 3,
+  },
+  moreDotsText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
   floatingDockContainer: {
     position: 'absolute',
