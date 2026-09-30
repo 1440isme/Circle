@@ -505,14 +505,12 @@ export function CircleManagementModal() {
                 onPress={() => setActiveTab('menu')}
                 style={[styles.backToMenuBtn, { backgroundColor: colors.wash }]}
               >
-                <ArrowLeft size={16} color={colors.text} />
-                <Text style={[styles.backToMenuText, { color: colors.text }]}>
-                  {t.nav.circleSettings || 'Cài đặt'}
-                </Text>
+                <ArrowLeft size={18} color={colors.text} />
               </TouchableOpacity>
               <Text numberOfLines={1} style={[styles.subHeaderTitle, { color: colors.text }]}>
                 {getSubHeaderTitle()}
               </Text>
+              <View style={styles.subHeaderPlaceholder} />
             </View>
           )}
 
@@ -1712,28 +1710,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingBottom: 10,
-    marginBottom: 10,
+    paddingBottom: 12,
+    marginBottom: 12,
     borderBottomWidth: 1,
   },
   backToMenuBtn: {
-    flexDirection: 'row',
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
-  backToMenuText: {
-    fontSize: 13,
-    fontWeight: '600',
+    justifyContent: 'center',
   },
   subHeaderTitle: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
     flex: 1,
-    textAlign: 'right',
-    paddingLeft: 8,
+    textAlign: 'center',
+    paddingHorizontal: 8,
+  },
+  subHeaderPlaceholder: {
+    width: 34,
+    height: 34,
   },
   bannerBox: {
     flexDirection: 'row',
