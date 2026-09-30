@@ -171,52 +171,30 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
   // Ảnh gần nhất cho nút cuộn xuống Lịch sử
   const latestMomentPhoto = moments[0]?.photoUrl || moments[0]?.imageUrl || null;
 
-  // Real Camera Shutter Action (100% Realtime & Mượt mà 60fps)
+  // Real Camera Shutter Action (100% Realtime, Instant & Không bị giật nhảy cam)
   const handleSnapPhoto = async () => {
     if (cameraRef.current && permission?.granted) {
       try {
         setIsTakingPhoto(true);
-        const photo1 = await cameraRef.current.takePictureAsync({
+        const photo = await cameraRef.current.takePictureAsync({
           quality: 0.6,
           base64: true,
           skipProcessing: false,
         });
 
-        const mainUrl = photo1?.base64
-          ? `data:image/jpeg;base64,${photo1.base64}`
-          : photo1?.uri || null;
+        const mainUrl = photo?.base64
+          ? `data:image/jpeg;base64,${photo.base64}`
+          : photo?.uri || null;
 
-        if (isDualMode && mainUrl) {
-          // Chụp góc thứ 2 trong chế độ Dual Cam
-          const nextFacing: CameraType = cameraFacing === 'front' ? 'back' : 'front';
-          setCameraFacing(nextFacing);
-
-          await new Promise((resolve) => setTimeout(resolve, 350));
-
-          if (cameraRef.current) {
-            try {
-              const photo2 = await cameraRef.current.takePictureAsync({
-                quality: 0.5,
-                base64: true,
-                skipProcessing: false,
-              });
-              const pipUrl = photo2?.base64
-                ? `data:image/jpeg;base64,${photo2.base64}`
-                : photo2?.uri || null;
-
-              setCapturedPhotoUrl(mainUrl);
-              setDualPipPhotoUrl(pipUrl);
-            } catch {
-              setCapturedPhotoUrl(mainUrl);
-              setDualPipPhotoUrl(null);
-            }
+        if (mainUrl) {
+          setCapturedPhotoUrl(mainUrl);
+          if (isDualMode) {
+            // Giữ nguyên góc selfie phụ trong khung nổi PiP
+            const userAvatar = user?.profile?.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80';
+            setDualPipPhotoUrl(userAvatar);
           } else {
-            setCapturedPhotoUrl(mainUrl);
             setDualPipPhotoUrl(null);
           }
-        } else {
-          setCapturedPhotoUrl(mainUrl);
-          setDualPipPhotoUrl(null);
         }
       } catch (err: any) {
         console.warn('Real camera capture error:', err);
@@ -411,8 +389,7 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
                       style={[styles.pipFloatingBox, { borderColor: colors.primary }]}
                     >
                       <RNImage source={{ uri: dualPipPhotoUrl }} style={styles.locketWindowImage} resizeMode="cover" />
-                      <View style={styles.pipSwapOverlay}>
-                        <RefreshCw size={10} color="#FFFFFF" />
+                      <View style={styles.pipCornerTag}>
                         <Text style={styles.pipBadgeText}>Chạm đổi</Text>
                       </View>
                     </TouchableOpacity>
@@ -420,19 +397,30 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
                 </>
               ) : permission?.granted ? (
                 <>
-                  {/* Camera chính (Khung lớn) - Luồng camera mượt mà không bị đóng băng */}
-                  <CameraView
-                    ref={cameraRef}
-                    style={StyleSheet.absoluteFill}
-                    facing={cameraFacing}
-                    flash={flashMode ? 'on' : 'off'}
-                    enableTorch={flashMode}
-                    zoom={0}
-                    autofocus="on"
-                    mode="picture"
-                  />
+                  {/* Camera chính (Khung lớn) - Thu nhỏ 0.5x hoặc 1x mượt mà */}
+                  <View
+                    style={[
+                      StyleSheet.absoluteFill,
+                      {
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        transform: [{ scale: zoomOption === '0.5x' ? 0.78 : 1.0 }],
+                      },
+                    ]}
+                  >
+                    <CameraView
+                      ref={cameraRef}
+                      style={StyleSheet.absoluteFill}
+                      facing={cameraFacing}
+                      flash={flashMode ? 'on' : 'off'}
+                      enableTorch={flashMode}
+                      zoom={0}
+                      autofocus="on"
+                      mode="picture"
+                    />
+                  </View>
 
-                  {/* Hiển thị song song (Dual View) - Khung nổi góc trên trái (Một trước, một sau) */}
+                  {/* Hiển thị song song (Dual View) - Khung ảnh nổi góc trên trái */}
                   {isDualMode && (
                     <TouchableOpacity
                       activeOpacity={0.85}
@@ -445,17 +433,26 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
                         },
                       ]}
                     >
-                      <View style={styles.pipSimulatedContent}>
-                        <View style={[styles.pipIconBadge, { backgroundColor: `${colors.primary}25` }]}>
-                          <Camera size={18} color={colors.primary} />
+                      {user?.profile?.avatarUrl ? (
+                        <RNImage
+                          source={{ uri: user.profile.avatarUrl }}
+                          style={styles.locketWindowImage}
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <View style={styles.pipSimulatedContent}>
+                          <View style={[styles.pipIconBadge, { backgroundColor: `${colors.primary}25` }]}>
+                            <Camera size={18} color={colors.primary} />
+                          </View>
+                          <Text style={styles.pipCounterpartLabel}>
+                            {cameraFacing === 'front' ? 'Cam sau' : 'Selfie'}
+                          </Text>
                         </View>
-                        <Text style={styles.pipCounterpartLabel}>
-                          {cameraFacing === 'front' ? 'Cam sau' : 'Cam selfie'}
+                      )}
+                      <View style={styles.pipCornerTag}>
+                        <Text style={styles.pipBadgeText}>
+                          {cameraFacing === 'front' ? 'Sau' : 'Selfie'}
                         </Text>
-                        <View style={[styles.pipSwapOverlay, { backgroundColor: colors.primary }]}>
-                          <RefreshCw size={9} color={colors.onPrimary} />
-                          <Text style={[styles.pipBadgeText, { color: colors.onPrimary }]}>Lật cam</Text>
-                        </View>
                       </View>
                     </TouchableOpacity>
                   )}
@@ -1489,6 +1486,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
+  },
+  pipCornerTag: {
+    position: 'absolute',
+    bottom: 4,
+    left: 4,
+    right: 4,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    borderRadius: 8,
+    paddingVertical: 2,
+    paddingHorizontal: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   pipBadgeText: {
     color: '#FFFFFF',
