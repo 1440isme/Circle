@@ -25,6 +25,7 @@ import { useLanguageStore } from '../../src/stores/language.store';
 import { useCircleStore } from '../../src/stores/circle.store';
 import { useMyCirclesQuery, CircleListItem } from '../../src/hooks/use-circle-queries';
 import { HeaderControls } from '../../src/components/common/HeaderControls';
+import { useRouter } from 'expo-router';
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -33,6 +34,7 @@ function getInitials(name: string): string {
 }
 
 export default function CirclesTab() {
+  const router = useRouter();
   const { colors, resolvedTheme } = useThemeStore();
   const t = useLanguageStore((s) => s.t);
   const isDark = resolvedTheme === 'dark';
@@ -58,6 +60,10 @@ export default function CirclesTab() {
 
   const handleSelectCircle = (circle: CircleListItem) => {
     setActiveCircle(circle);
+    router.push({
+      pathname: '/circle/[id]',
+      params: { id: circle.id },
+    });
   };
 
   return (

@@ -25,6 +25,7 @@ import { useAuthStore } from '../../src/stores/auth.store';
 import { useCircleStore } from '../../src/stores/circle.store';
 import { useMyCirclesQuery } from '../../src/hooks/use-circle-queries';
 import { HeaderControls } from '../../src/components/common/HeaderControls';
+import { useRouter } from 'expo-router';
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -33,6 +34,7 @@ function getInitials(name: string): string {
 }
 
 export default function HomeScreen() {
+  const router = useRouter();
   const { colors, resolvedTheme } = useThemeStore();
   const t = useLanguageStore((s) => s.t);
   const { user } = useAuthStore();
@@ -114,7 +116,10 @@ export default function HomeScreen() {
                 activeOpacity={0.8}
                 onPress={() => {
                   setActiveCircle(circle);
-                  setManageModalVisible(true, 'info');
+                  router.push({
+                    pathname: '/circle/[id]',
+                    params: { id: circle.id },
+                  });
                 }}
                 style={styles.circleRailItem}
               >

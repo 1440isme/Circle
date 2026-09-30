@@ -351,3 +351,68 @@ export function useDeleteCircleMutation(circleId: string) {
     },
   });
 }
+
+export function useCircleMomentsQuery(circleId: string | null) {
+  return useQuery({
+    queryKey: ['moments', 'circle', circleId],
+    queryFn: async () => {
+      if (!circleId) return [];
+      const res = await mobileApiRequest<any[]>(`/moments/circle/${circleId}`);
+      return res.data || [];
+    },
+    enabled: Boolean(circleId),
+  });
+}
+
+export function useChannelMessagesQuery(channelId: string | null) {
+  return useQuery({
+    queryKey: ['messages', 'channel', channelId],
+    queryFn: async () => {
+      if (!channelId) return { items: [], nextCursor: null, hasMore: false };
+      const res = await mobileApiRequest<any>(`/channels/${channelId}/messages`);
+      return res.data || { items: [], nextCursor: null, hasMore: false };
+    },
+    enabled: Boolean(channelId),
+    refetchInterval: 3000, // Light polling for mobile sync
+  });
+}
+
+export function useSendMessageMutation(channelId: string | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (content: string) => {
+      if (!channelId) throw new Error('No channel ID');
+      const res = await mobileApiRequest<any>(`/channels/${channelId}/messages`, {
+        method: 'POST',
+        body: JSON.stringify({ content: content.trim() }),
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      if (channelId) {
+        queryClient.invalidateQueries({ queryKey: ['messages', 'channel', channelId] });
+      }
+    },
+  });
+}
+
+export function useReactMomentMutation(circleId: string | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ momentId, emoji }: { momentId: string; emoji: string }) => {
+      const res = await mobileApiRequest<any>(`/moments/${momentId}/react`, {
+        method: 'POST',
+        body: JSON.stringify({ emoji }),
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      if (circleId) {
+        queryClient.invalidateQueries({ queryKey: ['moments', 'circle', circleId] });
+      }
+    },
+  });
+}
+
