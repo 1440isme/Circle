@@ -109,10 +109,14 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
   const [currentPageIndex, setCurrentPageIndex] = useState<number>(0);
   const [isActionMenuOpen, setIsActionMenuOpen] = useState<boolean>(false);
 
-  // Bố cục khung ảnh to sát viền theo yêu cầu
+  // Layout calculations: Fixed top header (44px), giving dedicated height to pages
+  const topHeaderHeight = 44;
+  const listHeight = Math.max(containerHeight - topHeaderHeight, 300);
+
+  // Bố cục khung ảnh to sát viền, dịch lên phía trên vừa vặn không cấn dock
   const locketFrameSize = Math.min(
     SCREEN_WIDTH - 20,
-    containerHeight > 0 ? containerHeight - 200 : 360,
+    listHeight > 0 ? listHeight - 165 : 360,
     360
   );
 
@@ -248,9 +252,9 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
   };
 
   const handleScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    if (containerHeight <= 0) return;
+    if (listHeight <= 0) return;
     const y = e.nativeEvent.contentOffset.y;
-    const page = Math.round(y / containerHeight);
+    const page = Math.round(y / listHeight);
     if (page !== currentPageIndex && page >= 0 && page < feedItems.length) {
       setCurrentPageIndex(page);
     }
@@ -268,30 +272,9 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
   const renderFeedItem = ({ item }: { item: FeedItem; index: number }) => {
     if (item.type === 'camera') {
       return (
-        <View style={[styles.pageContainer, { height: containerHeight }]}>
+        <View style={[styles.pageContainer, { height: listHeight }]}>
           <View style={styles.cameraContent}>
-            {/* Header indicator banner: Trang 0 hiển thị Số lượng bạn bè chuẩn Locket */}
-            <View style={styles.viewfinderHeader}>
-              <View style={[styles.friendsCountBadge, { backgroundColor: `${colors.primary}20` }]}>
-                <Users size={14} color={colors.primary} />
-                <Text style={[styles.friendsCountText, { color: colors.primary }]}>
-                  {members.length > 0 ? `${members.length} bạn bè` : 'Bạn bè'}
-                </Text>
-              </View>
-              {replyingToAuthor && (
-                <View style={[styles.replyingBadge, { backgroundColor: `${colors.warning}20` }]}>
-                  <MessageCircle size={12} color={colors.warning} />
-                  <Text style={[styles.replyingBadgeText, { color: colors.warning }]}>
-                    Đáp lại: {replyingToAuthor}
-                  </Text>
-                  <TouchableOpacity onPress={() => setReplyingToAuthor(null)}>
-                    <X size={12} color={colors.warning} />
-                  </TouchableOpacity>
-                </View>
-              )}
-            </View>
-
-            {/* Locket 1:1 Viewfinder Window (To sát viền) */}
+            {/* Locket 1:1 Viewfinder Window (To sát viền, vị trí cố định) */}
             <View
               style={[
                 styles.locketWindow,
@@ -352,79 +335,82 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
               )}
             </View>
 
-            {/* Review actions when photo is captured */}
-            {capturedPhotoUrl ? (
-              <View style={[styles.reviewActionsBar, { width: locketFrameSize }]}>
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  onPress={handleRetake}
-                  style={[styles.reviewActionBtn, { backgroundColor: colors.wash, borderColor: colors.hairline }]}
-                >
-                  <RotateCcw size={18} color={colors.text} />
-                  <Text style={[styles.reviewBtnText, { color: colors.text }]}>Chụp lại</Text>
-                </TouchableOpacity>
+            {/* Fixed Height Controls Area Below Viewfinder (Không bị nhảy khung khi ấn chụp) */}
+            <View style={styles.fixedControlsArea}>
+              {capturedPhotoUrl ? (
+                /* Review actions when photo is captured */
+                <View style={[styles.reviewActionsBar, { width: locketFrameSize }]}>
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    onPress={handleRetake}
+                    style={[styles.reviewActionBtn, { backgroundColor: colors.wash, borderColor: colors.hairline }]}
+                  >
+                    <RotateCcw size={18} color={colors.text} />
+                    <Text style={[styles.reviewBtnText, { color: colors.text }]}>Chụp lại</Text>
+                  </TouchableOpacity>
 
-                <TouchableOpacity
-                  activeOpacity={0.85}
-                  disabled={createMomentMutation.isPending}
-                  onPress={handleSendMoment}
-                  style={[styles.sendMomentBtn, { backgroundColor: colors.primary }]}
-                >
-                  {createMomentMutation.isPending ? (
-                    <ActivityIndicator color={colors.onPrimary} size="small" />
-                  ) : (
-                    <>
-                      <Send size={16} color={colors.onPrimary} />
-                      <Text style={[styles.sendMomentBtnText, { color: colors.onPrimary }]}>
-                        Gửi vào {circleName}
-                      </Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-              </View>
-            ) : (
-              /* Shutter controls bar right at Page 0 */
-              <View style={styles.shutterControlsBar}>
-                {/* Left Button: Flash Toggle */}
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  onPress={handleToggleFlash}
-                  style={[styles.sideControlBtn, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
-                >
-                  {flashMode ? (
-                    <Zap size={22} color="#FBBF24" fill="#FBBF24" />
-                  ) : (
-                    <ZapOff size={22} color={colors.text} />
-                  )}
-                </TouchableOpacity>
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    disabled={createMomentMutation.isPending}
+                    onPress={handleSendMoment}
+                    style={[styles.sendMomentBtn, { backgroundColor: colors.primary }]}
+                  >
+                    {createMomentMutation.isPending ? (
+                      <ActivityIndicator color={colors.onPrimary} size="small" />
+                    ) : (
+                      <>
+                        <Send size={16} color={colors.onPrimary} />
+                        <Text style={[styles.sendMomentBtnText, { color: colors.onPrimary }]}>
+                          Gửi vào {circleName}
+                        </Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                /* Shutter controls bar on Page 0 */
+                <View style={styles.shutterControlsBar}>
+                  {/* Left Button: Flash Toggle */}
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    onPress={handleToggleFlash}
+                    style={[styles.sideControlBtn, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
+                  >
+                    {flashMode ? (
+                      <Zap size={22} color="#FBBF24" fill="#FBBF24" />
+                    ) : (
+                      <ZapOff size={22} color={colors.text} />
+                    )}
+                  </TouchableOpacity>
 
-                {/* Center Button: Authentic Locket Double-Ring Shutter */}
-                <TouchableOpacity
-                  activeOpacity={0.85}
-                  onPress={handleSnapPhoto}
-                  style={[
-                    styles.locketMainShutterOuter,
-                    {
-                      borderColor: colors.primary,
-                      backgroundColor: isDark ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.7)',
-                    },
-                  ]}
-                >
-                  <View style={[styles.locketMainShutterInner, { backgroundColor: colors.primary }]}>
-                    <Camera size={26} color={colors.onPrimary} />
-                  </View>
-                </TouchableOpacity>
+                  {/* Center Button: Authentic Locket Double-Ring Shutter */}
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={handleSnapPhoto}
+                    style={[
+                      styles.locketMainShutterOuter,
+                      {
+                        borderColor: colors.primary,
+                        backgroundColor: isDark ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.7)',
+                      },
+                    ]}
+                  >
+                    <View style={[styles.locketMainShutterInner, { backgroundColor: colors.primary }]}>
+                      <Camera size={26} color={colors.onPrimary} />
+                    </View>
+                  </TouchableOpacity>
 
-                {/* Right Button: Flip Camera */}
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  onPress={handleFlipCamera}
-                  style={[styles.sideControlBtn, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
-                >
-                  <RefreshCw size={22} color={colors.text} />
-                </TouchableOpacity>
-              </View>
-            )}
+                  {/* Right Button: Flip Camera */}
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    onPress={handleFlipCamera}
+                    style={[styles.sideControlBtn, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
+                  >
+                    <RefreshCw size={22} color={colors.text} />
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
 
             {/* Scroll Down Cue to First Moment */}
             <TouchableOpacity
@@ -435,7 +421,7 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
               <Text style={[styles.scrollDownText, { color: colors.subtle }]}>
                 Vuốt xuống xem khoảnh khắc ({filteredMoments.length})
               </Text>
-              <ChevronDown size={16} color={colors.subtle} />
+              <ChevronDown size={15} color={colors.subtle} />
             </TouchableOpacity>
           </View>
         </View>
@@ -444,7 +430,7 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
 
     if (item.type === 'empty') {
       return (
-        <View style={[styles.pageContainer, { height: containerHeight }]}>
+        <View style={[styles.pageContainer, { height: listHeight }]}>
           <View style={[styles.emptyHistoryBox, { width: momentCardWidth, backgroundColor: colors.surface, borderColor: colors.hairline }]}>
             <ImageIcon size={44} color={colors.subtle} />
             <Text style={[styles.emptyHistoryTitle, { color: colors.text }]}>
@@ -495,7 +481,7 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
     });
 
     return (
-      <View style={[styles.pageContainer, { height: containerHeight }]}>
+      <View style={[styles.pageContainer, { height: listHeight }]}>
         <View
           style={[
             styles.momentFeedCard,
@@ -506,7 +492,7 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
             },
           ]}
         >
-          {/* Card Top: Author Info + Bộ lọc thành viên (Member Filter Dropdown) */}
+          {/* Card Top: Author Info + Index Badge */}
           <View style={styles.momentFeedHeader}>
             <View style={styles.momentFeedAuthor}>
               <View style={[styles.authorAvatar, { backgroundColor: `${colors.primary}20` }]}>
@@ -528,23 +514,11 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
               </View>
             </View>
 
-            {/* Bộ lọc thành viên / Mọi người kiểu Locket */}
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => setIsFilterModalOpen(true)}
-              style={[
-                styles.memberFilterPill,
-                {
-                  backgroundColor: colors.wash,
-                  borderColor: colors.hairline,
-                },
-              ]}
-            >
-              <Text numberOfLines={1} style={[styles.memberFilterPillText, { color: colors.primary }]}>
-                {selectedFilterName}
+            <View style={[styles.pageIndexBadge, { backgroundColor: colors.wash }]}>
+              <Text style={[styles.pageIndexText, { color: colors.primary }]}>
+                {item.index + 1}/{filteredMoments.length}
               </Text>
-              <ChevronDown size={14} color={colors.primary} />
-            </TouchableOpacity>
+            </View>
           </View>
 
           {/* 1:1 Rounded Square Photo with In-photo Caption Overlay (To sát viền) */}
@@ -606,6 +580,57 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
         }
       }}
     >
+      {/* =========================================================================
+          CỐ ĐỊNH THANH TIÊU ĐỀ TRÊN CÙNG (FIXED TOP HEADER)
+          - Trang 0: Số lượng bạn bè
+          - Trang >= 1: Bộ lọc thành viên ("Mọi người" v)
+         ========================================================================= */}
+      <View style={[styles.fixedTopHeader, { height: topHeaderHeight }]}>
+        {currentPageIndex === 0 ? (
+          /* Header ở Trang 0 (Camera): Số lượng bạn bè */
+          <View style={[styles.friendsCountBadge, { backgroundColor: `${colors.primary}20` }]}>
+            <Users size={14} color={colors.primary} />
+            <Text style={[styles.friendsCountText, { color: colors.primary }]}>
+              {members.length > 0 ? `${members.length} bạn bè` : 'Bạn bè'}
+            </Text>
+          </View>
+        ) : (
+          /* Header ở Trang >= 1 (Khoảnh khắc): Bộ lọc thành viên */
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => setIsFilterModalOpen(true)}
+            style={[
+              styles.memberFilterPill,
+              {
+                backgroundColor: colors.wash,
+                borderColor: colors.hairline,
+              },
+            ]}
+          >
+            <Filter size={13} color={colors.primary} />
+            <Text numberOfLines={1} style={[styles.memberFilterPillText, { color: colors.primary }]}>
+              {selectedFilterName}
+            </Text>
+            <ChevronDown size={14} color={colors.primary} />
+          </TouchableOpacity>
+        )}
+
+        {replyingToAuthor && currentPageIndex === 0 && (
+          <View style={[styles.replyingBadge, { backgroundColor: `${colors.warning}20` }]}>
+            <MessageCircle size={12} color={colors.warning} />
+            <Text style={[styles.replyingBadgeText, { color: colors.warning }]}>
+              Đáp lại: {replyingToAuthor}
+            </Text>
+            <TouchableOpacity onPress={() => setReplyingToAuthor(null)}>
+              <X size={12} color={colors.warning} />
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
+
+      {/* =========================================================================
+          SNAP PAGING FEED (TRANG 0 = CAMERA, TRANG 1..N = KHOẢNH KHẮC)
+         ========================================================================= */}
       <FlatList
         ref={flatListRef}
         data={feedItems}
@@ -616,14 +641,14 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
         showsVerticalScrollIndicator={false}
         onMomentumScrollEnd={handleScrollEnd}
         getItemLayout={(_, index) => ({
-          length: containerHeight,
-          offset: containerHeight * index,
+          length: listHeight,
+          offset: listHeight * index,
           index,
         })}
       />
 
       {/* =========================================================================
-          FLOATING BOTTOM DOCK: LUÔN HIỆN ĐỐI TRỌNG 3 NÚT Ở CẢ TRANG 0 VÀ LỊCH SỬ
+          CỐ ĐỊNH THANH ĐIỀU KHIỂN DOCK PHÍA DƯỚI (FIXED BOTTOM DOCK)
           - Nút bên trái: "Lịch sử" (History)
           - Nút chính giữa: Cố định kích thước (Trang 0: Home, Trang >= 1: Camera)
           - Nút bên phải: "Tùy chọn chia sẻ & Quản lý ảnh" (Share / Action Button)
@@ -960,35 +985,38 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  pageContainer: {
-    width: SCREEN_WIDTH,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    paddingBottom: 84, // Chừa khoảng trống cho thanh floating dock
-  },
-  cameraContent: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
+  fixedTopHeader: {
     width: '100%',
-  },
-  viewfinderHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
     paddingHorizontal: 16,
+    zIndex: 10,
   },
   friendsCountBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     paddingHorizontal: 14,
-    paddingVertical: 6,
+    paddingVertical: 5,
     borderRadius: 16,
   },
   friendsCountText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  memberFilterPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 16,
+    borderWidth: 1,
+    maxWidth: 160,
+  },
+  memberFilterPillText: {
     fontSize: 12,
     fontWeight: '700',
   },
@@ -1003,6 +1031,19 @@ const styles = StyleSheet.create({
   replyingBadgeText: {
     fontSize: 11,
     fontWeight: '600',
+  },
+  pageContainer: {
+    width: SCREEN_WIDTH,
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    paddingTop: 6,
+    paddingBottom: 72, // Chừa khoảng trống cho thanh floating dock
+  },
+  cameraContent: {
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    gap: 8,
+    width: '100%',
   },
   locketWindow: {
     borderRadius: 32,
@@ -1098,12 +1139,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
   },
+  fixedControlsArea: {
+    height: 74,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+  },
   shutterControlsBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 36,
-    marginTop: 2,
   },
   sideControlBtn: {
     width: 48,
@@ -1119,9 +1165,9 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   locketMainShutterOuter: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 70,
+    height: 70,
+    borderRadius: 35,
     borderWidth: 4,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1132,9 +1178,9 @@ const styles = StyleSheet.create({
     elevation: 12,
   },
   locketMainShutterInner: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1142,7 +1188,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    marginTop: 4,
   },
   reviewActionBtn: {
     flexDirection: 'row',
@@ -1232,19 +1277,14 @@ const styles = StyleSheet.create({
   momentTimeText: {
     fontSize: 11,
   },
-  memberFilterPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 14,
-    borderWidth: 1,
-    maxWidth: 130,
+  pageIndexBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
   },
-  memberFilterPillText: {
+  pageIndexText: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   momentPhotoFrame: {
     width: '100%',
