@@ -21,27 +21,31 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { useLanguageStore } from '../../stores/language.store';
 import { useCircleStore } from '../../stores/circle.store';
-import { useMyCirclesQuery } from '../../hooks/use-circle-queries';
+import { useMyCirclesQuery, useCircleDetailQuery } from '../../hooks/use-circle-queries';
 import { DailyMomentsFeed } from '../moments/DailyMomentsFeed';
+import { ChannelChatView } from '../chat/ChannelChatView';
 
 export const FeedStream: React.FC = () => {
   const { user } = useAuth();
   const t = useLanguageStore((s) => s.t);
   const activeCircle = useCircleStore((s) => s.activeCircle);
   const activeCircleView = useCircleStore((s) => s.activeCircleView);
+  const activeChannelId = useCircleStore((s) => s.activeChannelId);
   const setActiveCircle = useCircleStore((s) => s.setActiveCircle);
   const setCreateModalOpen = useCircleStore((s) => s.setCreateModalOpen);
   const setJoinModalOpen = useCircleStore((s) => s.setJoinModalOpen);
 
   const { data: circles = [], isLoading: isLoadingCircles } = useMyCirclesQuery();
-  const [message, setMessage] = useState('');
+  const { data: circleDetail } = useCircleDetailQuery(activeCircle ? activeCircle.id : null);
+
+  const channels = circleDetail?.channels || (activeCircle as any)?.channels || [];
+  const currentChannel =
+    channels.find((c: any) => c.id === activeChannelId) ||
+    channels.find((c: any) => c.name === activeCircleView) ||
+    channels[0];
 
   const displayName =
     user?.profile?.displayName || user?.email?.split('@')[0] || t.auth.guest;
-
-  const handleActionNotice = (msg: string) => {
-    alert(msg);
-  };
 
   const handleCopyLink = () => {
     if (activeCircle) {
@@ -283,98 +287,18 @@ export const FeedStream: React.FC = () => {
 
       {activeCircleView === 'moments' ? (
         <DailyMomentsFeed circleId={activeCircle.id} />
+      ) : currentChannel ? (
+        <ChannelChatView
+          key={currentChannel.id}
+          channelId={currentChannel.id}
+          channelName={currentChannel.name}
+          channelTopic={currentChannel.topic}
+          circleId={activeCircle.id}
+        />
       ) : (
-        <>
-          {/* Main Channel / Feed Stream */}
-          <div className="flex-1 flex flex-col gap-4">
-            {/* General Channel Notice */}
-            <div className="flex items-center gap-2.5 rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white/60 dark:bg-circle-dark-surface/60 p-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-circle-primary/10 text-circle-sage dark:text-circle-primary">
-                <MessageSquare className="h-4 w-4" />
-              </div>
-              <div>
-                <h4 className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
-                  # general
-                </h4>
-                <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted">
-                  {t.home.circleFeedSubtitle}
-                </p>
-              </div>
-            </div>
-
-            {/* Clean Empty Feed Banner */}
-            <div className="rounded-3xl border border-dashed border-circle-hairline dark:border-circle-dark-hairline bg-white/50 dark:bg-circle-dark-surface/50 p-8 text-center flex flex-col items-center justify-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-circle-canvas dark:bg-circle-dark-canvas text-circle-sage dark:text-circle-primary border border-circle-hairline dark:border-circle-dark-hairline shadow-sm">
-                <Sparkles className="h-6 w-6 stroke-[1.5]" />
-              </div>
-              <div className="space-y-1">
-                <h4 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
-                  {t.home.circleFeedTitle}
-                </h4>
-                <p className="text-xs text-circle-slate dark:text-circle-dark-muted max-w-sm">
-                  {t.home.feedEmptyDesc}
-                </p>
-              </div>
-              <div className="inline-flex items-center gap-1.5 rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-circle-wash/60 dark:bg-circle-dark-wash/60 px-3 py-1 text-[11px] text-circle-sage dark:text-circle-primary font-medium">
-                <ShieldCheck className="h-3.5 w-3.5" />
-                <span>{t.home.dualTokenSecured}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Sticky Bottom Message Composer */}
-          <div className="sticky bottom-6 mt-auto">
-            <div className="flex items-center gap-3 rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-white/90 dark:bg-circle-dark-surface/90 p-2 shadow-circle-hover backdrop-blur-md transition-colors">
-              <button
-                type="button"
-                onClick={() => handleActionNotice(t.home.createCirclePrompt)}
-                className="flex h-10 w-10 items-center justify-center rounded-full text-circle-slate dark:text-circle-dark-muted hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas hover:text-circle-sage transition-colors"
-                title="Attach file"
-              >
-                <Paperclip className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => handleActionNotice(t.home.createCirclePrompt)}
-                className="flex h-10 w-10 items-center justify-center rounded-full text-circle-slate dark:text-circle-dark-muted hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas hover:text-circle-sage transition-colors"
-                title="Attach image"
-              >
-                <ImageIcon className="h-4 w-4" />
-              </button>
-              <input
-                type="text"
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                placeholder={t.home.composerPlaceholder}
-                className="flex-1 bg-transparent text-xs sm:text-sm text-circle-charcoal dark:text-circle-dark-text placeholder:text-circle-slate dark:placeholder:text-circle-dark-muted focus:outline-none"
-              />
-              <button
-                type="button"
-                onClick={() => handleActionNotice(t.home.createCirclePrompt)}
-                className="flex h-10 w-10 items-center justify-center rounded-full text-circle-slate dark:text-circle-dark-muted hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas transition-colors"
-              >
-                <Smile className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (message.trim()) {
-                    handleActionNotice(t.home.createCirclePrompt);
-                    setMessage('');
-                  }
-                }}
-                className={`flex h-10 w-10 items-center justify-center rounded-full transition-all ${
-                  message.trim()
-                    ? 'bg-circle-primary text-circle-charcoal shadow-sm hover:bg-circle-sage hover:text-white'
-                    : 'bg-circle-canvas dark:bg-circle-dark-canvas text-circle-slate dark:text-circle-dark-muted opacity-50 cursor-not-allowed'
-                }`}
-                disabled={!message.trim()}
-              >
-                <Send className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        </>
+        <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-circle-slate dark:text-circle-dark-muted">
+          <p className="text-sm font-semibold">{t.chat.channelNotFound}</p>
+        </div>
       )}
     </main>
   );

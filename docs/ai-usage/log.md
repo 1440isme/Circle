@@ -2370,6 +2370,73 @@
 - **Commit:** b2b0047
 - **PR:** #62 (https://github.com/1440isme/Circle/pull/62 - DRAFT)
 
+---
+
+## AI-0059: Triển khai Module 4 — Nhắn tin Nhóm Thời gian thực & Media Storage (Full-stack Realtime Group Messaging)
+
+- **Date:** 2026-09-29 21:30:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #63 ([MODULE-4]: Nhắn tin Nhóm Thời gian thực & Media Storage - Full-stack Realtime Group Messaging & Media Storage)
+- **Purpose:** 
+  1. Triển khai trọn vẹn Module 4 Full-stack Nhắn tin nhóm thời gian thực (Realtime Group Messaging & Media Storage) theo phân công nhiệm vụ:
+     - Tuân thủ nguyên tắc cốt lõi: Circle-Only (chỉ nhắn tin trong các kênh của Vòng tròn, tuyệt đối không có tin nhắn 1-1 riêng tư), giới hạn đính kèm 25MB (SRS UC11), ghim tin nhắn (SRS UC13), thả biểu cảm emoji, trích dẫn trả lời tin nhắn (reply thread), chỉ báo đang nhập (typing indicator), phân trang con trỏ (cursor-based pagination).
+  2. Backend NestJS (`apps/backend`):
+     - `ChatGateway`: WebSocket Gateway với xác thực JWT trong handshake, quản lý room `channel:<id>` và `user:<id>`, relay typing status, broadcast tin nhắn mới, reaction, pin/unpin tin nhắn.
+     - `ChatService` & `ChatController`: 6 REST endpoints (`GET/POST /channels/:channelId/messages`, `GET /channels/:channelId/pins`, `POST /messages/:messageId/reactions`, `POST/DELETE /messages/:messageId/pin`). Kiểm tra xác thực thành viên Vòng tròn (RBAC), tính toán reaction counts, cursor pagination.
+     - 14 ca kiểm thử đơn vị (`chat.service.spec.ts`) đạt 100% (83/83 backend unit tests pass).
+  3. Shared & Contracts (`packages/shared`, `packages/types`):
+     - Bổ sung Zod schemas (`chat.validator.ts`) với kiểm duyệt kích thước file (tối đa 25MB), định dạng UUID, enum MessageType.
+     - Song ngữ 100% `vi.ts` và `en.ts` cho toàn bộ nhãn chat, thông báo thành công/thất bại, không hardcode.
+     - Mở rộng domain types: `MessageEntity`, `ReactionEntity`, `PinnedRecordEntity`, `CursorPaginatedMessages`.
+  4. Frontend Web Next.js (`apps/web`):
+     - `socket.ts`: Socket.IO client instance singleton với JWT handshake, auto-reconnect, join/leave channel, typing relay.
+     - `use-chat-queries.ts`: Bộ hooks React Query + Socket.IO realtime cache synchronization cho tin nhắn vô hạn, biểu cảm, ghim tin nhắn, typing users.
+     - Giao diện chat nhóm chuẩn thiết kế: `ChannelChatView.tsx`, `MessageList.tsx`, `MessageBubble.tsx`, `ChatComposer.tsx`, `PinnedMessagesModal.tsx`.
+     - Tích hợp trực tiếp vào không gian làm việc Vòng tròn (`FeedStream.tsx`), thay thế hoàn toàn giao diện mock/alert trước đây.
+- **Prompt Summary:** Yêu cầu: "quay trở lại với web nào, mới merge của hạnh vào dev nhiệm vụ tiếp theo của tôi theo phân công là gì nhỉ", "cách 1 nhé" (Backend First rồi sang Web UI).
+- **Files Affected:**
+  - `packages/types/src/index.ts`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `packages/shared/src/validators/chat.validator.ts`
+  - `packages/shared/src/index.ts`
+  - `apps/backend/package.json`
+  - `apps/backend/src/app.module.ts`
+  - `apps/backend/src/modules/chat/chat.gateway.ts`
+  - `apps/backend/src/modules/chat/chat.service.ts`
+  - `apps/backend/src/modules/chat/chat.controller.ts`
+  - `apps/backend/src/modules/chat/chat.module.ts`
+  - `apps/backend/src/modules/chat/chat.service.spec.ts`
+  - `apps/web/package.json`
+  - `apps/web/src/lib/socket.ts`
+  - `apps/web/src/hooks/use-chat-queries.ts`
+  - `apps/web/src/stores/circle.store.ts`
+  - `apps/web/src/components/navigation/Sidebar.tsx`
+  - `apps/web/src/components/chat/MessageBubble.tsx`
+  - `apps/web/src/components/chat/MessageList.tsx`
+  - `apps/web/src/components/chat/ChatComposer.tsx`
+  - `apps/web/src/components/chat/PinnedMessagesModal.tsx`
+  - `apps/web/src/components/chat/ChannelChatView.tsx`
+  - `apps/web/src/components/stream/FeedStream.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% mã nguồn backend gateway/service/controller/tests, frontend socket/hooks/components, types và locale dictionaries.
+- **Human Modifications:** Trương Công Bình lựa chọn phương án Backend First, chỉ định tuân thủ nghiêm ngặt quy định không 1-1, không mock data, không hardcode ngôn ngữ, chỉ dùng Zod.
+- **Verification Method:**
+  - `npm test -w @circle/backend`: 83/83 unit tests pass 100%.
+  - `npm run build -w @circle/web`: Next.js 14 production build pass 100% (9 static routes, 0 errors).
+  - `bash ./scripts/check-agent-map.sh`: 93/93 files pass 100% (0 broken links).
+- **Official Source Checked:** `PROJECT_GOD.md` (Module 4, Definition of Done, 10 Hard Gates), `docs/phan-cong-nhiem-vu.md` (Bình: Module 4), SRS UC11, UC12, UC13.
+- **Security & License Check:** Phân quyền kênh chat nghiêm ngặt theo Vòng tròn (RBAC): chặn tuyệt đối non-member (403), bảo mật WebSocket handshake bằng JWT, kiểm duyệt giới hạn file 25MB qua Zod.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** Import nhầm `SendMessageInput` từ `@circle/types` thay vì `@circle/shared` trong `use-chat-queries.ts`; và thuộc tính `socket.connecting` không tồn tại trong type definition của socket.io-client.
+  - **Root Cause:** Nhớ nhầm module export của Zod input type và API của socket.io-client v4.
+  - **Resolution / Fix:** Chuyển import `SendMessageInput` từ `@circle/shared`, sửa điều kiện socket sang `!socket.connected`.
+- **Commit:** `e40ef4e`
+- **PR:** #63 (https://github.com/1440isme/Circle/pull/63)
+
+
 
 
 

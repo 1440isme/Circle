@@ -183,6 +183,22 @@ export interface ChannelEntity {
   updatedAt: string;
 }
 
+export interface ReactionEntity {
+  id: string;
+  messageId: string;
+  memberId: string;
+  emoji: string;
+  createdAt: string;
+  member?: CircleMemberEntity;
+}
+
+export interface PinnedRecordEntity {
+  id: string;
+  circleId: string;
+  messageId: string;
+  pinnedAt: string;
+}
+
 export interface MessageEntity {
   id: string;
   channelId: string;
@@ -197,6 +213,32 @@ export interface MessageEntity {
   sentAt: string;
   updatedAt: string;
   sender?: CircleMemberEntity;
+  replyTo?: {
+    id: string;
+    content?: string | null;
+    type: MessageType;
+    sender?: {
+      id: string;
+      nickname?: string | null;
+      user?: {
+        id: string;
+        profile?: {
+          displayName: string;
+          avatarUrl?: string | null;
+        } | null;
+      };
+    };
+  } | null;
+  reactions?: ReactionEntity[];
+  reactionCounts?: Record<string, number>;
+  userReactions?: string[];
+  isPinned?: boolean;
+}
+
+export interface CursorPaginatedMessages {
+  messages: MessageEntity[];
+  nextCursor?: string | null;
+  hasMore: boolean;
 }
 
 export interface MomentVisibilityEntity {

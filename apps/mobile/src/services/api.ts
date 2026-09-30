@@ -19,7 +19,13 @@ function getDefaultApiUrl(): string {
   }
 
   // 3. Dynamically extract Metro dev server IP when running via Expo Go on physical device
-  const hostUri = Constants.expoConfig?.hostUri;
+  const hostUri =
+    Constants.expoConfig?.hostUri ||
+    (Constants as any).expoGoConfig?.debuggerHost ||
+    (Constants as any).manifest?.debuggerHost ||
+    (Constants as any).manifest2?.extra?.expoClient?.hostUri ||
+    Constants.linkingUri?.replace(/^exp:\/\//, '').split('/')[0];
+
   if (hostUri) {
     const host = hostUri.split(':')[0];
     if (host && host !== 'localhost' && host !== '127.0.0.1') {
@@ -27,13 +33,13 @@ function getDefaultApiUrl(): string {
     }
   }
 
-  // 4. Android Emulator loopback
+  // 4. Android Emulator loopback (only when running on emulator and no LAN host extracted)
   if (Platform.OS === 'android') {
     return 'http://10.0.2.2:4000/api/v1';
   }
 
-  // 5. Default fallback to machine LAN IP for physical mobile testing
-  return 'http://192.168.1.196:4000/api/v1';
+  // 5. Default fallback to machine current LAN IP for physical mobile testing
+  return 'http://192.168.1.187:4000/api/v1';
 }
 
 export const API_BASE_URL = getDefaultApiUrl();

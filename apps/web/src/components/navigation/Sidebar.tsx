@@ -63,6 +63,7 @@ export const Sidebar: React.FC = () => {
   const setManageModalOpen = useCircleStore((s) => s.setManageModalOpen);
   const activeCircleView = useCircleStore((s) => s.activeCircleView);
   const setActiveCircleView = useCircleStore((s) => s.setActiveCircleView);
+  const setActiveChannelId = useCircleStore((s) => s.setActiveChannelId);
 
   const { data: circles = [], isLoading } = useMyCirclesQuery();
   const [isDropdownOpen, setIsDropdownOpen] = React.useState(false);
@@ -217,7 +218,10 @@ export const Sidebar: React.FC = () => {
                 icon={<MessageSquare className="h-4 w-4" />}
                 label={`# ${channel.name}`}
                 active={activeCircleView === channel.name}
-                onClick={() => setActiveCircleView(channel.name)}
+                onClick={() => {
+                  setActiveCircleView(channel.name);
+                  setActiveChannelId(channel.id);
+                }}
               />
             ))
           ) : (
