@@ -99,12 +99,14 @@ export function useUpdateCircleMutation(circleId: string) {
   return useMutation({
     mutationFn: async (input: UpdateCircleInput) => {
       const res = await mobileApiRequest<CircleEntity>(`/circles/${circleId}`, {
-        method: 'PUT',
+        method: 'PATCH',
         body: JSON.stringify(input),
       });
       return res.data;
     },
     onSuccess: (updatedCircle) => {
+      queryClient.invalidateQueries({ queryKey: CIRCLE_KEYS.detail(circleId) });
+      queryClient.invalidateQueries({ queryKey: CIRCLE_KEYS.lists() });
       queryClient.invalidateQueries({ queryKey: CIRCLE_KEYS.all });
       if (updatedCircle) {
         setActiveCircle(updatedCircle);
@@ -228,7 +230,7 @@ export function useUpdateNicknameMutation(circleId: string) {
       const res = await mobileApiRequest<CircleMemberEntity>(
         `/circles/${circleId}/members/${memberId}/nickname`,
         {
-          method: 'PUT',
+          method: 'PATCH',
           body: JSON.stringify({ nickname }),
         },
       );
@@ -256,7 +258,7 @@ export function useReviewJoinRequestMutation(circleId: string) {
       const res = await mobileApiRequest<CircleJoinRequestEntity>(
         `/circles/${circleId}/join-requests/${requestId}`,
         {
-          method: 'PUT',
+          method: 'PATCH',
           body: JSON.stringify(input),
         },
       );
@@ -293,18 +295,20 @@ export function useTransferOwnershipMutation(circleId: string) {
   const setActiveCircle = useCircleStore((s) => s.setActiveCircle);
 
   return useMutation({
-    mutationFn: async (newOwnerId: string) => {
+    mutationFn: async (newOwnerMemberId: string) => {
       const res = await mobileApiRequest<CircleEntity>(
         `/circles/${circleId}/transfer-ownership`,
         {
           method: 'POST',
-          body: JSON.stringify({ newOwnerId }),
+          body: JSON.stringify({ newOwnerMemberId }),
         },
       );
       return res.data;
     },
     onSuccess: (updatedCircle) => {
       queryClient.invalidateQueries({ queryKey: CIRCLE_KEYS.all });
+      queryClient.invalidateQueries({ queryKey: CIRCLE_KEYS.members(circleId) });
+      queryClient.invalidateQueries({ queryKey: CIRCLE_KEYS.detail(circleId) });
       if (updatedCircle) {
         setActiveCircle(updatedCircle);
       }

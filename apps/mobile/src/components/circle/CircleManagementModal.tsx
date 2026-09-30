@@ -936,7 +936,7 @@ export function CircleManagementModal() {
                           {isOwner && !isMemberOwner && !isSelf && (
                             <View style={styles.memberActions}>
                               <TouchableOpacity
-                                onPress={() => handleTransferOwnership(m.userId, realDisplayName)}
+                                onPress={() => handleTransferOwnership(m.id, realDisplayName)}
                                 style={[styles.iconActionBtn, { backgroundColor: `${colors.warning}15` }]}
                               >
                                 <Crown size={14} color={colors.warning} />
