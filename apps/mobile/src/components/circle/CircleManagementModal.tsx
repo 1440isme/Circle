@@ -143,7 +143,7 @@ export function CircleManagementModal() {
   // Sync state when modal opens or activeCircle changes
   useEffect(() => {
     if (visible && circle) {
-      setFormName(circle.name || '');
+      setFormName('');
       setFormDesc(circle.description || '');
       setFormAvatar(circle.avatarUrl || '');
       setFormCover(circle.coverUrl || '');
@@ -222,6 +222,7 @@ export function CircleManagementModal() {
         avatarUrl: formAvatar.trim() || undefined,
         coverUrl: formCover.trim() || undefined,
       });
+      setFormName('');
       setSuccessMessage(t.circle.savedSuccess);
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err: any) {

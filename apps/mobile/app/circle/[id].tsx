@@ -187,18 +187,8 @@ export default function CircleWorkspaceScreen() {
           </View>
 
           <View style={styles.headerTitleBlock}>
-            <View style={styles.headerNameRow}>
-              <Text numberOfLines={1} style={[styles.headerTitle, { color: colors.text }]}>
-                {circle.name}
-              </Text>
-              {circle.isPrivate ? (
-                <Lock size={12} color={colors.warning} />
-              ) : (
-                <Globe size={12} color={colors.primary} />
-              )}
-            </View>
-            <Text style={[styles.headerSubtitle, { color: colors.subtle }]}>
-              @{circle.handle} · {circle.memberCount || members.length} {t.home.circleMembersCount.replace('{count}', '')}
+            <Text numberOfLines={1} style={[styles.headerTitle, { color: colors.text }]}>
+              {circle.name}
             </Text>
           </View>
         </View>
