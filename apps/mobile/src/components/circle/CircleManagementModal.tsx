@@ -209,14 +209,15 @@ export function CircleManagementModal() {
     setErrorMessage(null);
     setSuccessMessage(null);
 
-    if (!formName.trim() || formName.trim().length < 2) {
+    const targetName = formName.trim() || circle?.name || '';
+    if (!targetName || targetName.length < 2) {
       setErrorMessage(t.validation.circleNameMinLength);
       return;
     }
 
     try {
       await updateCircleMutation.mutateAsync({
-        name: formName.trim(),
+        name: targetName,
         description: formDesc.trim() || undefined,
         avatarUrl: formAvatar.trim() || undefined,
         coverUrl: formCover.trim() || undefined,
@@ -484,9 +485,6 @@ export function CircleManagementModal() {
                 <Text numberOfLines={1} style={[styles.title, { color: colors.text }]}>
                   {circle.name}
                 </Text>
-                <Text style={[styles.subtitle, { color: colors.subtle }]}>
-                  @{circle.handle} · {circle.isPrivate ? t.circle.privacyPrivate : t.circle.privacyPublic}
-                </Text>
               </View>
             </View>
             <TouchableOpacity
@@ -717,7 +715,7 @@ export function CircleManagementModal() {
                     value={formName}
                     onChangeText={setFormName}
                     editable={isOwner}
-                    placeholder={t.circle.namePlaceholder}
+                    placeholder={circle.name || t.circle.namePlaceholder}
                     placeholderTextColor={colors.subtle}
                     style={[
                       styles.input,
