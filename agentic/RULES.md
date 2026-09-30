@@ -71,6 +71,7 @@ When conflicts or ambiguities arise, you must strictly follow this priority orde
 ## 5. Automated AI Usage Logging (Rule 7 & TC2.3 Level 5)
 
 - **AI Agents must automatically append a log record to [`docs/ai-usage/log.md`](../docs/ai-usage/log.md)** for every nontrivial coding, refactoring, or documentation session.
+- **Timing of Logging:** Chỉ ghi/cập nhật `docs/ai-usage/log.md` khi tính năng/nhiệm vụ đã hoàn thiện và chuẩn bị mở PR, hoặc khi chốt một chức năng mới độc lập hoàn chỉnh. Tuyệt đối không ghi log phân mảnh cho từng lần tinh chỉnh, trao đổi thảo luận hay các bước sửa đổi nhỏ trung gian chưa chốt.
 - **Engineers do not write AI logs manually.** The AI agent is responsible for creating the record format `AI-XXXX`.
 - **Honest defect & hallucination reporting:** Any AI mistake, hallucination, or syntax error must be recorded under `AI Errors / Hallucinations Found` with its root cause and fix.
 

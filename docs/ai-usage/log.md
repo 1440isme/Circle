@@ -2438,9 +2438,9 @@
 
 ---
 
-## AI-0060: Triển khai Giao diện Quản trị & Điều phối Vòng tròn (Circle Core & Governance) trên Mobile React Native
+## AI-0060: Triển khai Giao diện Quản trị Vòng tròn & Không gian Làm việc Workspace (Circle Core, Governance & Workspace) trên Mobile React Native
 
-- **Date:** 2026-09-30 18:15:00 +07:00
+- **Date:** 2026-09-30 18:35:00 +07:00
 - **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210)
 - **Tool:** Antigravity IDE
 - **Model:** Gemini 3.8 Flash (High)
@@ -2454,16 +2454,24 @@
        + Tab Thành viên: Danh sách thành viên kèm role badge (`Trưởng nhóm`, `Quản trị viên`), chỉnh sửa/đặt biệt danh thành viên (`UC20`), mời thành viên ra khỏi nhóm (`kickMember`), chuyển giao vai trò Trưởng nhóm (`UC25`), thêm bạn bè vào nhóm (`Add Friends`).
        + Tab Yêu cầu tham gia: Duyệt / Từ chối yêu cầu tham gia đối với Vòng tròn riêng tư.
        + Tab Cài đặt: Rời Vòng tròn (`UC22`) dành cho thành viên, Giải tán Vòng tròn (`UC26`) dành cho Trưởng nhóm với xác nhận an toàn.
-  2. Tích hợp dữ liệu động & điều hướng:
+  2. Xây dựng Màn hình Không gian Làm việc Vòng tròn chuyên dụng (`apps/mobile/app/circle/[id].tsx`):
+     - Header chuyên nghiệp phong cách Apple Liquid Glass: Nút Back quay lại các tab, avatar viết tắt Vòng tròn, Tên Vòng tròn, @handle định danh, huy hiệu vai trò người dùng (`Trưởng nhóm`, `Quản trị viên`, `Thành viên`), huy hiệu trạng thái bảo mật (`Riêng tư` với biểu tượng khóa / `Công khai`), nút chia sẻ mã mời trực tiếp (`Share.share`), và biểu tượng bánh răng Cài đặt mở ngay `CircleManagementModal`.
+     - Thanh điều hướng phân đoạn 4 tab con (`Segmented Controls`):
+       + Tab 1 — Trò chuyện (`chat`): Lựa chọn kênh (`# general`, `# confession`), thẻ giới thiệu kênh, danh sách bong bóng tin nhắn thời gian thực và thanh soạn thảo tin nhắn cố định ở đáy kết nối trực tiếp `useSendMessageMutation`.
+       + Tab 2 — Khoảnh khắc thường ngày (`moments`): Dòng cấp khoảnh khắc Locket của nhóm (`useCircleMomentsQuery`), ảnh khoảnh khắc kèm tác giả, thời gian, chú thích và thanh cảm xúc emoji tương tác tức thời (`❤️`, `🔥`, `👏`, `🥰` qua `useReactMomentMutation`).
+       + Tab 3 — Tiện ích nhóm (`tools`): Bộ thẻ tiện ích tích hợp Phòng thoại nhóm trực tiếp (`groupCall`), Album ảnh chung (`photoAlbum`), Lịch sự kiện (`calendarEvents`), Bảng kế hoạch chung (`planningSheet`), Vòng xoay may mắn (`luckyWheel`).
+       + Tab 4 — Thành viên (`members`): Danh sách thành viên đầy đủ, avatar, tên, email, biệt danh (`UC20`), vai trò trong nhóm và liên kết mở nhanh modal quản trị thành viên.
+  3. Tích hợp dữ liệu động & điều hướng toàn diện:
      - `apps/mobile/src/stores/circle.store.ts`: Zustand store quản lý state Vòng tròn đang chọn và hiển thị các modal điều khiển.
-     - `apps/mobile/src/hooks/use-circle-queries.ts`: Bộ TanStack Query hooks kết nối 14 API endpoints cho Circles.
-     - `apps/mobile/app/(tabs)/circles.tsx`: Hiển thị danh sách thẻ Vòng tròn thực tế với Pull-to-refresh, badge phân quyền và nút mở Quản trị.
-     - `apps/mobile/app/(tabs)/index.tsx`: Đồng bộ dải Circles Rail ngang trên Trang chủ với dữ liệu thực, kích hoạt tạo mới và chọn Vòng tròn.
+     - `apps/mobile/src/hooks/use-circle-queries.ts`: Bộ TanStack Query hooks kết nối API Vòng tròn, danh sách thành viên, khoảnh khắc nhóm, tin nhắn và gửi tin nhắn trong kênh.
+     - `apps/mobile/app/(tabs)/circles.tsx`: Hiển thị danh sách thẻ Vòng tròn thực tế với Pull-to-refresh; bấm vào bất kỳ thẻ Vòng tròn nào sẽ điều hướng trực tiếp vào không gian làm việc `/circle/[id]`.
+     - `apps/mobile/app/(tabs)/index.tsx`: Đồng bộ dải Circles Rail ngang trên Trang chủ; chọn Vòng tròn sẽ điều hướng ngay vào `/circle/[id]`.
+     - `apps/mobile/app/(tabs)/messages.tsx`: Hiển thị danh sách các Vòng tròn đã tham gia kèm kênh chat `#general`, `#confession`; chọn kênh mở trực tiếp `/circle/[id]`.
      - `apps/mobile/app/(tabs)/_layout.tsx`: Kích hoạt tùy chọn Tạo Vòng tròn trong ActionSheet trung tâm, mount 3 modals toàn cục.
-  3. Cập nhật contracts & từ điển:
+  4. Cập nhật contracts & từ điển:
      - Bổ sung `danger` semantic color vào theme mobile (`apps/mobile/src/constants/theme.ts`).
      - Bổ sung các key bản địa hóa cho giải tán Vòng tròn (`deleteCircle`, `deleteCircleConfirm`, `deleteCircleWarning`, `deleteCircleSuccess`) trong `packages/shared/src/locales/vi.ts` và `en.ts`.
-- **Prompt Summary:** Yêu cầu: "oke quay lại module 3 của hạnh xây trên mobile nữa", "vẫn chưa đc PR đâu nhé nào có lệnh tôi kêu PR mới đc PR".
+- **Prompt Summary:** Chỉ đạo: Triển khai Module 3 trên mobile; khi chọn vào 1 circle sẽ chuyển hẳn vào không gian làm việc của circle đó; chỉ ghi log.md khi chuẩn bị PR hoặc có chức năng mới hoàn chỉnh.
 - **Files Affected:**
   - `apps/mobile/src/constants/theme.ts`
   - `apps/mobile/src/stores/circle.store.ts`
@@ -2471,64 +2479,21 @@
   - `apps/mobile/src/components/circle/CreateCircleModal.tsx`
   - `apps/mobile/src/components/circle/JoinCircleModal.tsx`
   - `apps/mobile/src/components/circle/CircleManagementModal.tsx`
+  - `apps/mobile/app/circle/[id].tsx`
   - `apps/mobile/app/(tabs)/circles.tsx`
   - `apps/mobile/app/(tabs)/index.tsx`
+  - `apps/mobile/app/(tabs)/messages.tsx`
   - `apps/mobile/app/(tabs)/_layout.tsx`
   - `packages/shared/src/locales/vi.ts`
   - `packages/shared/src/locales/en.ts`
   - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% mã nguồn components, hooks, stores, styles và localization keys.
-- **Human Modifications:** Ninh Thị Mỹ Hạnh chỉ đạo phát triển Mobile Circle Core theo đúng kiến trúc Module 3, nhấn mạnh chưa được mở PR cho đến khi có lệnh.
+- **AI-Generated Portion:** 100% mã nguồn components, workspace screen, hooks, stores, styles và localization keys.
+- **Human Modifications:** Ninh Thị Mỹ Hạnh chỉ đạo phát triển Mobile Circle Core theo đúng kiến trúc Module 3, yêu cầu bổ sung không gian làm việc chi tiết khi bấm vào Vòng tròn, và chuẩn hóa quy định chỉ ghi nhật ký AI log khi chuẩn bị PR hoặc có tính năng mới hoàn chỉnh.
 - **Verification Method:**
   - `npm run typecheck -w @circle/mobile`: TypeScript `tsc --noEmit` pass 100% (0 errors).
   - `npm test -w @circle/backend`: 83/83 backend unit tests pass 100%.
   - `bash ./scripts/check-agent-map.sh`: 93/93 markdown references pass 100%.
 - **Official Source Checked:** `PROJECT_GOD.md` (Module 3, Definition of Done, 10 Hard Gates), `docs/phan-cong-nhiem-vu.md` (Hạnh: Module 3), SRS UC20, UC22, UC25, UC26.
-- **Security & License Check:** An toàn, không chứa API keys hay secrets.
-- **Commit:** `ff919e3`
-- **PR:** Pending (Chờ lệnh người dùng theo yêu cầu)
-
----
-
-## AI-0061: Xây dựng Màn hình Không gian Làm việc Vòng tròn (Circle Dedicated Workspace Screen) và Điều hướng Chi tiết trên Mobile
-
-- **Date:** 2026-09-30 18:30:00 +07:00
-- **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210)
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #64 ([SUB-FEAT]: US-MOBILE-002 — Mobile Circle Core & Governance UI/UX)
-- **Purpose:** 
-  1. Xây dựng màn hình Không gian Làm việc Vòng tròn chuyên dụng (`apps/mobile/app/circle/[id].tsx`):
-     - Header chuyên nghiệp phong cách Apple Liquid Glass: Nút Back quay lại các tab, avatar viết tắt Vòng tròn, Tên Vòng tròn, @handle định danh, huy hiệu vai trò người dùng (`Trưởng nhóm`, `Quản trị viên`, `Thành viên`), huy hiệu trạng thái bảo mật (`Riêng tư` với biểu tượng khóa / `Công khai`), nút chia sẻ mã mời trực tiếp (`Share.share`), và biểu tượng bánh răng Cài đặt mở ngay `CircleManagementModal`.
-     - Thanh điều hướng phân đoạn 4 tab con (`Segmented Controls`):
-       + Tab 1 — Trò chuyện (`chat`): Lựa chọn kênh (`# general`, `# confession`), thẻ giới thiệu kênh, danh sách bong bóng tin nhắn thời gian thực và thanh soạn thảo tin nhắn cố định ở đáy kết nối trực tiếp `useSendMessageMutation`.
-       + Tab 2 — Khoảnh khắc thường ngày (`moments`): Dòng cấp khoảnh khắc Locket của nhóm (`useCircleMomentsQuery`), ảnh khoảnh khắc kèm tác giả, thời gian, chú thích và thanh cảm xúc emoji tương tác tức thời (`❤️`, `🔥`, `👏`, `🥰` qua `useReactMomentMutation`).
-       + Tab 3 — Tiện ích nhóm (`tools`): Bộ thẻ tiện ích tích hợp Phòng thoại nhóm trực tiếp (`groupCall`), Album ảnh chung (`photoAlbum`), Lịch sự kiện (`calendarEvents`), Bảng kế hoạch chung (`planningSheet`), Vòng xoay may mắn (`luckyWheel`).
-       + Tab 4 — Thành viên (`members`): Danh sách thành viên đầy đủ, avatar, tên, email, biệt danh (`UC20`), vai trò trong nhóm và liên kết mở nhanh modal quản trị thành viên.
-     - Tích hợp trực tiếp `CircleManagementModal` ngay trong không gian làm việc để quản trị nhanh.
-  2. Bổ sung các custom hooks TanStack Query trong `apps/mobile/src/hooks/use-circle-queries.ts`:
-     - `useCircleMomentsQuery(circleId)`: Lấy danh sách khoảnh khắc nhóm từ `GET /moments/circle/:circleId`.
-     - `useChannelMessagesQuery(channelId)`: Lấy tin nhắn kênh từ `GET /channels/:channelId/messages` kèm polling sync.
-     - `useSendMessageMutation(channelId)`: Gửi tin nhắn mới lên kênh qua `POST /channels/:channelId/messages`.
-     - `useReactMomentMutation(circleId)`: Thả cảm xúc khoảnh khắc qua `POST /moments/:momentId/react`.
-  3. Đồng bộ điều hướng chuyển trang toàn diện:
-     - `apps/mobile/app/(tabs)/circles.tsx`: Nhấn vào bất kỳ thẻ Vòng tròn nào sẽ lập tức điều hướng vào không gian làm việc chi tiết `router.push({ pathname: '/circle/[id]', params: { id: circle.id } })`.
-     - `apps/mobile/app/(tabs)/index.tsx`: Nhấn vào avatar Vòng tròn trên thanh cuộn Circles Rail tại trang chủ sẽ mở ngay `/circle/[id]`.
-     - `apps/mobile/app/(tabs)/messages.tsx`: Chuyển đổi từ màn hình chờ sang danh sách các Vòng tròn đã tham gia kèm kênh chat `#general`, `#confession`; nhấn vào mở trực tiếp `/circle/[id]`.
-- **Prompt Summary:** Yêu cầu: "về phần giao diện khi tôi chọn vô 1 circle chưa có vô vào hẳn 1 circle vậy".
-- **Files Affected:**
-  - `apps/mobile/app/circle/[id].tsx`
-  - `apps/mobile/src/hooks/use-circle-queries.ts`
-  - `apps/mobile/app/(tabs)/circles.tsx`
-  - `apps/mobile/app/(tabs)/index.tsx`
-  - `apps/mobile/app/(tabs)/messages.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% mã nguồn không gian làm việc Vòng tròn, các query hooks và liên kết điều hướng.
-- **Human Modifications:** Ninh Thị Mỹ Hạnh phát hiện trải nghiệm người dùng khi chọn Vòng tròn chưa chuyển hẳn vào không gian làm việc riêng của Vòng tròn, chỉ đạo xây dựng màn hình không gian làm việc chi tiết theo chuẩn Mobile Circle Workspace.
-- **Verification Method:**
-  - `npm run typecheck -w @circle/mobile`: `tsc --noEmit` pass 100% (0 errors).
-  - `bash ./scripts/check-agent-map.sh`: 93/93 markdown references pass 100%.
-- **Official Source Checked:** `PROJECT_GOD.md` (Module 3, Definition of Done, 10 Hard Gates), `docs/phan-cong-nhiem-vu.md` (Hạnh: Module 3).
-- **Security & License Check:** An toàn, không chứa credentials, xác thực quyền truy cập Vòng tròn.
-- **Commit:** `e86b1da`
+- **Security & License Check:** An toàn, không chứa API keys hay credentials.
+- **Commit:** `8b7020d`
 - **PR:** Pending (Chờ lệnh người dùng theo yêu cầu)
