@@ -109,15 +109,15 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
   const [currentPageIndex, setCurrentPageIndex] = useState<number>(0);
   const [isActionMenuOpen, setIsActionMenuOpen] = useState<boolean>(false);
 
-  // Layout calculations: Fixed top header (44px), giving dedicated height to pages
-  const topHeaderHeight = 44;
+  // Layout calculations: Fixed top header (50px), dãn cách thoáng đãng
+  const topHeaderHeight = 50;
   const listHeight = Math.max(containerHeight - topHeaderHeight, 300);
 
-  // Bố cục khung ảnh to sát viền, dịch lên phía trên vừa vặn không cấn dock
+  // Bố cục khung ảnh to sát viền, dịch xuống nhẹ và căn khoảng cách trên/dưới cân đối
   const locketFrameSize = Math.min(
     SCREEN_WIDTH - 20,
-    listHeight > 0 ? listHeight - 165 : 360,
-    360
+    listHeight > 0 ? listHeight - 190 : 350,
+    350
   );
 
   const momentCardWidth = SCREEN_WIDTH - 20;
@@ -335,7 +335,7 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
               )}
             </View>
 
-            {/* Fixed Height Controls Area Below Viewfinder (Không bị nhảy khung khi ấn chụp) */}
+            {/* Fixed Height Controls Area Below Viewfinder (Khoảng cách bằng với khoảng cách trên, nút to hơn) */}
             <View style={styles.fixedControlsArea}>
               {capturedPhotoUrl ? (
                 /* Review actions when photo is captured */
@@ -368,7 +368,7 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
                   </TouchableOpacity>
                 </View>
               ) : (
-                /* Shutter controls bar on Page 0 */
+                /* Shutter controls bar on Page 0: TO HƠN & CÂN ĐỐI */
                 <View style={styles.shutterControlsBar}>
                   {/* Left Button: Flash Toggle */}
                   <TouchableOpacity
@@ -377,13 +377,13 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
                     style={[styles.sideControlBtn, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
                   >
                     {flashMode ? (
-                      <Zap size={22} color="#FBBF24" fill="#FBBF24" />
+                      <Zap size={24} color="#FBBF24" fill="#FBBF24" />
                     ) : (
-                      <ZapOff size={22} color={colors.text} />
+                      <ZapOff size={24} color={colors.text} />
                     )}
                   </TouchableOpacity>
 
-                  {/* Center Button: Authentic Locket Double-Ring Shutter */}
+                  {/* Center Button: Authentic Locket Double-Ring Shutter (TO HƠN NỮA: 84px) */}
                   <TouchableOpacity
                     activeOpacity={0.85}
                     onPress={handleSnapPhoto}
@@ -396,7 +396,7 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
                     ]}
                   >
                     <View style={[styles.locketMainShutterInner, { backgroundColor: colors.primary }]}>
-                      <Camera size={26} color={colors.onPrimary} />
+                      <Camera size={30} color={colors.onPrimary} />
                     </View>
                   </TouchableOpacity>
 
@@ -406,7 +406,7 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
                     onPress={handleFlipCamera}
                     style={[styles.sideControlBtn, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
                   >
-                    <RefreshCw size={22} color={colors.text} />
+                    <RefreshCw size={24} color={colors.text} />
                   </TouchableOpacity>
                 </View>
               )}
@@ -992,6 +992,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     paddingHorizontal: 16,
+    paddingTop: 6,
+    paddingBottom: 4,
     zIndex: 10,
   },
   friendsCountBadge: {
@@ -1036,13 +1038,12 @@ const styles = StyleSheet.create({
     width: SCREEN_WIDTH,
     alignItems: 'center',
     justifyContent: 'flex-start',
-    paddingTop: 6,
-    paddingBottom: 72, // Chừa khoảng trống cho thanh floating dock
+    paddingTop: 14, // Dịch xuống nhẹ nhàng tạo khoảng cách cân đối
+    paddingBottom: 72,
   },
   cameraContent: {
     alignItems: 'center',
     justifyContent: 'flex-start',
-    gap: 8,
     width: '100%',
   },
   locketWindow: {
@@ -1140,7 +1141,8 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   fixedControlsArea: {
-    height: 74,
+    height: 90,
+    marginTop: 14, // Khoảng cách bằng với khoảng cách từ thanh tiêu đề trên đến ảnh
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
@@ -1149,12 +1151,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 36,
+    gap: 34,
   },
   sideControlBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1165,10 +1167,10 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   locketMainShutterOuter: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    borderWidth: 4,
+    width: 82,
+    height: 82,
+    borderRadius: 41,
+    borderWidth: 4.5,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
@@ -1178,9 +1180,9 @@ const styles = StyleSheet.create({
     elevation: 12,
   },
   locketMainShutterInner: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
+    width: 66,
+    height: 66,
+    borderRadius: 33,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1193,8 +1195,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingHorizontal: 14,
-    height: 44,
+    paddingHorizontal: 16,
+    height: 48,
     borderRadius: 16,
     borderWidth: 1,
     justifyContent: 'center',
@@ -1209,7 +1211,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    height: 44,
+    height: 48,
     borderRadius: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -1218,14 +1220,14 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   sendMomentBtnText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '800',
   },
   scrollDownCue: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingVertical: 2,
+    marginTop: 4,
   },
   scrollDownText: {
     fontSize: 12,
