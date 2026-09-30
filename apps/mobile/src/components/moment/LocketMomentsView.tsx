@@ -93,7 +93,13 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
   const [currentPageIndex, setCurrentPageIndex] = useState<number>(0);
 
   // Bố cục khung ảnh to sát viền theo yêu cầu
-  const locketFrameSize = SCREEN_WIDTH - 20;
+  const locketFrameSize = Math.min(
+    SCREEN_WIDTH - 20,
+    containerHeight > 0 ? containerHeight - 200 : 360,
+    360
+  );
+
+  const momentCardWidth = SCREEN_WIDTH - 20;
 
   // Shutter action
   const handleSnapPhoto = () => {
@@ -302,18 +308,60 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
                 </TouchableOpacity>
               </View>
             ) : (
-              /* Scroll Down Cue to First Moment */
-              <TouchableOpacity
-                activeOpacity={0.75}
-                onPress={scrollToFirstMoment}
-                style={styles.scrollDownCue}
-              >
-                <Text style={[styles.scrollDownText, { color: colors.subtle }]}>
-                  Vuốt xuống xem khoảnh khắc ({moments.length})
-                </Text>
-                <ChevronDown size={16} color={colors.subtle} />
-              </TouchableOpacity>
+              /* Shutter controls bar right at Page 0 */
+              <View style={styles.shutterControlsBar}>
+                {/* Left Button: Flash Toggle */}
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={handleToggleFlash}
+                  style={[styles.sideControlBtn, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
+                >
+                  {flashMode ? (
+                    <Zap size={22} color="#FBBF24" fill="#FBBF24" />
+                  ) : (
+                    <ZapOff size={22} color={colors.text} />
+                  )}
+                </TouchableOpacity>
+
+                {/* Center Button: Authentic Locket Double-Ring Shutter */}
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={handleSnapPhoto}
+                  style={[
+                    styles.locketMainShutterOuter,
+                    {
+                      borderColor: colors.primary,
+                      backgroundColor: isDark ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.7)',
+                    },
+                  ]}
+                >
+                  <View style={[styles.locketMainShutterInner, { backgroundColor: colors.primary }]}>
+                    <Camera size={26} color={colors.onPrimary} />
+                  </View>
+                </TouchableOpacity>
+
+                {/* Right Button: Flip Camera */}
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={handleFlipCamera}
+                  style={[styles.sideControlBtn, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
+                >
+                  <RefreshCw size={22} color={colors.text} />
+                </TouchableOpacity>
+              </View>
             )}
+
+            {/* Scroll Down Cue to First Moment */}
+            <TouchableOpacity
+              activeOpacity={0.75}
+              onPress={scrollToFirstMoment}
+              style={styles.scrollDownCue}
+            >
+              <Text style={[styles.scrollDownText, { color: colors.subtle }]}>
+                Vuốt xuống xem khoảnh khắc ({moments.length})
+              </Text>
+              <ChevronDown size={16} color={colors.subtle} />
+            </TouchableOpacity>
           </View>
         </View>
       );
@@ -322,7 +370,7 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
     if (item.type === 'empty') {
       return (
         <View style={[styles.pageContainer, { height: containerHeight }]}>
-          <View style={[styles.emptyHistoryBox, { width: locketFrameSize, backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+          <View style={[styles.emptyHistoryBox, { width: momentCardWidth, backgroundColor: colors.surface, borderColor: colors.hairline }]}>
             <ImageIcon size={44} color={colors.subtle} />
             <Text style={[styles.emptyHistoryTitle, { color: colors.text }]}>
               {t.moments.emptyCircleTitle}
@@ -361,7 +409,7 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
           style={[
             styles.momentFeedCard,
             {
-              width: locketFrameSize,
+              width: momentCardWidth,
               backgroundColor: colors.surface,
               borderColor: colors.hairline,
             },
@@ -473,7 +521,7 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
 
       {/* =========================================================================
           FLOATING BOTTOM DOCK: LUÔN HIỆN Ở CẢ TRANG 0 VÀ CÁC TRANG LỊCH SỬ
-          - Nút giữa ở trang 0 là nút chụp Locket, ở trang lịch sử là icon Ngôi nhà (Home)
+          - Nút giữa cố định kích thước: Trang 0 là Ngôi nhà (Home), Trang >= 1 là Vòng tròn Camera
           - Nút bên trái là Lịch sử
           - Nút bên phải là Lật cam (ở trang 0) hoặc Chụp mới (ở trang lịch sử)
          ========================================================================= */}
@@ -507,47 +555,39 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
             </Text>
           </TouchableOpacity>
 
-          {/* Nút chính giữa: Ở trang 0 là nút chụp Locket, ở các trang lịch sử là icon Ngôi nhà (Home) */}
-          {currentPageIndex === 0 ? (
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={handleSnapPhoto}
-              style={[styles.dockMainShutterOuter, { borderColor: colors.primary }]}
-            >
-              <View style={[styles.dockMainShutterInner, { backgroundColor: colors.primary }]}>
-                <Camera size={26} color={colors.onPrimary} />
-              </View>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={scrollToCamera}
-              style={[styles.dockHomeBtnOuter, { backgroundColor: colors.primary }]}
-            >
-              <Home size={22} color={colors.onPrimary} />
-            </TouchableOpacity>
-          )}
+          {/* Nút chính giữa: Cố định kích thước (không đổi size). Trang 0 là Ngôi nhà (Home), Trang >= 1 là Vòng tròn Camera */}
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={currentPageIndex === 0 ? () => {} : scrollToCamera}
+            style={[styles.dockCenterBtnOuter, { borderColor: colors.primary }]}
+          >
+            <View style={[styles.dockCenterBtnInner, { backgroundColor: colors.primary }]}>
+              {currentPageIndex === 0 ? (
+                <Home size={22} color={colors.onPrimary} />
+              ) : (
+                <Camera size={22} color={colors.onPrimary} />
+              )}
+            </View>
+          </TouchableOpacity>
 
           {/* Nút bên phải: Ở trang 0 là Lật cam, ở các trang lịch sử là Chụp mới */}
-          {currentPageIndex === 0 ? (
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={handleFlipCamera}
-              style={styles.dockIconBtn}
-            >
-              <RefreshCw size={22} color={colors.text} />
-              <Text style={[styles.dockBtnLabel, { color: colors.subtle }]}>Lật cam</Text>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={scrollToCamera}
-              style={styles.dockIconBtn}
-            >
-              <Camera size={22} color={colors.primary} />
-              <Text style={[styles.dockBtnLabel, { color: colors.primary }]}>Chụp mới</Text>
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={currentPageIndex === 0 ? handleFlipCamera : scrollToCamera}
+            style={styles.dockIconBtn}
+          >
+            {currentPageIndex === 0 ? (
+              <>
+                <RefreshCw size={22} color={colors.text} />
+                <Text style={[styles.dockBtnLabel, { color: colors.subtle }]}>Lật cam</Text>
+              </>
+            ) : (
+              <>
+                <Camera size={22} color={colors.primary} />
+                <Text style={[styles.dockBtnLabel, { color: colors.primary }]}>Chụp mới</Text>
+              </>
+            )}
+          </TouchableOpacity>
         </View>
       </View>
     </View>
@@ -563,12 +603,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 10,
-    paddingBottom: 90, // Để chừa không gian cho floating dock bên dưới
+    paddingBottom: 84, // Chừa khoảng trống cho thanh floating dock
   },
   cameraContent: {
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
+    gap: 10,
     width: '100%',
   },
   viewfinderHeader: {
@@ -696,18 +736,58 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
   },
+  shutterControlsBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 36,
+    marginTop: 2,
+  },
+  sideControlBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  locketMainShutterOuter: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    borderWidth: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 12,
+  },
+  locketMainShutterInner: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   reviewActionsBar: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    marginTop: 6,
+    marginTop: 4,
   },
   reviewActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     paddingHorizontal: 14,
-    height: 46,
+    height: 44,
     borderRadius: 16,
     borderWidth: 1,
     justifyContent: 'center',
@@ -722,7 +802,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    height: 46,
+    height: 44,
     borderRadius: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -896,7 +976,7 @@ const styles = StyleSheet.create({
   },
   floatingDockContainer: {
     position: 'absolute',
-    bottom: 14,
+    bottom: 12,
     left: 0,
     right: 0,
     alignItems: 'center',
@@ -927,30 +1007,11 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '600',
   },
-  dockMainShutterOuter: {
-    width: 66,
-    height: 66,
-    borderRadius: 33,
+  dockCenterBtnOuter: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
     borderWidth: 3.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  dockMainShutterInner: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dockHomeBtnOuter: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
@@ -958,5 +1019,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 8,
     elevation: 8,
+  },
+  dockCenterBtnInner: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
