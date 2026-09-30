@@ -1,7 +1,15 @@
 import { create } from 'zustand';
 import { CircleEntity } from '@circle/types';
 
-export type CircleManageTab = 'menu' | 'info' | 'members' | 'invites' | 'requests' | 'settings';
+export type CircleManageTab =
+  | 'menu'
+  | 'chatInfo'
+  | 'members'
+  | 'privacySupport'
+  | 'circleSettings'
+  | 'info'
+  | 'requests'
+  | 'settings';
 
 interface CircleState {
   activeCircleId: string | null;
