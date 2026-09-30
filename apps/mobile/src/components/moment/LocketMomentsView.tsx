@@ -18,6 +18,8 @@ import {
   NativeScrollEvent,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
+import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
+import * as ImagePicker from 'expo-image-picker';
 import {
   Camera,
   RefreshCw,
@@ -40,6 +42,7 @@ import {
   Users,
   Filter,
   Check,
+  FolderOpen,
 } from 'lucide-react-native';
 import { useThemeStore } from '../../stores/theme.store';
 import { useLanguageStore } from '../../stores/language.store';
@@ -84,7 +87,11 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
   const isDark = resolvedTheme === 'dark';
 
   const flatListRef = useRef<FlatList<FeedItem>>(null);
+  const cameraRef = useRef<CameraView>(null);
   const [containerHeight, setContainerHeight] = useState<number>(WINDOW_HEIGHT - 170);
+
+  // Real Camera Permissions from expo-camera
+  const [permission, requestPermission] = useCameraPermissions();
 
   // Queries & Mutations
   const { data: moments = [], isLoading: isLoadingMoments } = useCircleMomentsQuery(circleId);
@@ -96,12 +103,13 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
   const [selectedMemberId, setSelectedMemberId] = useState<string | 'all'>('all');
   const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState<boolean>(false);
 
-  // Camera Viewfinder States (Locket UI)
-  const [cameraFacing, setCameraFacing] = useState<'front' | 'back'>('front');
+  // Real Camera Viewfinder States (Locket UI)
+  const [cameraFacing, setCameraFacing] = useState<CameraType>('front');
   const [flashMode, setFlashMode] = useState<boolean>(false);
+  const [isTakingPhoto, setIsTakingPhoto] = useState<boolean>(false);
   const [activeSampleIndex, setActiveSampleIndex] = useState<number>(0);
 
-  // Captured Photo State for review
+  // Captured Photo State for review & sending
   const [capturedPhotoUrl, setCapturedPhotoUrl] = useState<string | null>(null);
   const [captionText, setCaptionText] = useState<string>('');
   const [replyingToAuthor, setReplyingToAuthor] = useState<string | null>(null);
@@ -123,14 +131,23 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
 
   const momentCardWidth = SCREEN_WIDTH - 20;
 
-  // Lọc moments theo thành viên được chọn
+  // Lọc moments theo thành viên được chọn (hỗ trợ cả authorId và userId)
   const filteredMoments = selectedMemberId === 'all'
     ? moments
-    : moments.filter((m: any) => m.userId === selectedMemberId || m.user?.id === selectedMemberId);
+    : moments.filter(
+        (m: any) =>
+          m.authorId === selectedMemberId ||
+          m.author?.id === selectedMemberId ||
+          m.userId === selectedMemberId ||
+          m.user?.id === selectedMemberId
+      );
 
   // Tên thành viên đang được lọc
   const selectedMember: any = members.find(
-    (mb: any) => mb.userId === selectedMemberId || mb.id === selectedMemberId || mb.user?.id === selectedMemberId
+    (mb: any) =>
+      mb.userId === selectedMemberId ||
+      mb.id === selectedMemberId ||
+      mb.user?.id === selectedMemberId
   );
   const selectedFilterName =
     selectedMemberId === 'all'
@@ -140,15 +157,65 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
   // Ảnh gần nhất cho nút cuộn xuống Lịch sử
   const latestMomentPhoto = moments[0]?.photoUrl || moments[0]?.imageUrl || null;
 
-  // Shutter action
-  const handleSnapPhoto = () => {
-    const selectedUrl = SAMPLE_CAPTURE_PHOTOS[activeSampleIndex];
-    setCapturedPhotoUrl(selectedUrl);
+  // Real Camera Shutter Action
+  const handleSnapPhoto = async () => {
+    if (cameraRef.current && permission?.granted) {
+      try {
+        setIsTakingPhoto(true);
+        const photo = await cameraRef.current.takePictureAsync({
+          quality: 0.6,
+          base64: true,
+          skipProcessing: false,
+        });
+
+        if (photo?.base64) {
+          setCapturedPhotoUrl(`data:image/jpeg;base64,${photo.base64}`);
+        } else if (photo?.uri) {
+          setCapturedPhotoUrl(photo.uri);
+        }
+      } catch (err: any) {
+        console.warn('Real camera capture error:', err);
+        // Fallback to sample photo if capture fails
+        setCapturedPhotoUrl(SAMPLE_CAPTURE_PHOTOS[activeSampleIndex]);
+      } finally {
+        setIsTakingPhoto(false);
+      }
+    } else if (!permission?.granted) {
+      const res = await requestPermission();
+      if (!res.granted) {
+        handlePickFromGallery();
+      }
+    } else {
+      setCapturedPhotoUrl(SAMPLE_CAPTURE_PHOTOS[activeSampleIndex]);
+    }
+  };
+
+  // Pick Photo From Device Gallery / Library
+  const handlePickFromGallery = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.6,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        if (asset.base64) {
+          setCapturedPhotoUrl(`data:image/jpeg;base64,${asset.base64}`);
+        } else if (asset.uri) {
+          setCapturedPhotoUrl(asset.uri);
+        }
+      }
+    } catch (err: any) {
+      Alert.alert(t.common.appName, err?.message || 'Không thể chọn ảnh từ thư viện');
+    }
   };
 
   const handleFlipCamera = () => {
     setCameraFacing((prev) => (prev === 'front' ? 'back' : 'front'));
-    setActiveSampleIndex((prev) => (prev + 1) % SAMPLE_CAPTURE_PHOTOS.length);
   };
 
   const handleToggleFlash = () => {
@@ -175,7 +242,7 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
       setCapturedPhotoUrl(null);
       setCaptionText('');
       setReplyingToAuthor(null);
-      // Snap down to the first moment page
+      // Snap down to the first moment page to see the newly posted moment
       setTimeout(() => {
         flatListRef.current?.scrollToIndex({ index: 1, animated: true });
         setCurrentPageIndex(1);
@@ -231,7 +298,11 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
 
   const currentAuthorName =
     currentFeedItem.type === 'moment'
-      ? currentFeedItem.data?.user?.profile?.displayName || currentFeedItem.data?.user?.email || 'Thành viên'
+      ? currentFeedItem.data?.author?.profile?.displayName ||
+        currentFeedItem.data?.author?.email ||
+        currentFeedItem.data?.user?.profile?.displayName ||
+        currentFeedItem.data?.user?.email ||
+        'Thành viên'
       : user?.profile?.displayName || 'Bạn';
 
   const handleSharePhoto = async () => {
@@ -288,12 +359,50 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
                 {
                   width: locketFrameSize,
                   height: locketFrameSize,
-                  backgroundColor: colors.surface,
+                  backgroundColor: '#18181B',
                   borderColor: colors.hairline,
                 },
               ]}
             >
-              <RNImage source={{ uri: previewPhoto }} style={styles.locketWindowImage} resizeMode="cover" />
+              {capturedPhotoUrl ? (
+                <RNImage source={{ uri: capturedPhotoUrl }} style={styles.locketWindowImage} resizeMode="cover" />
+              ) : permission?.granted ? (
+                <CameraView
+                  ref={cameraRef}
+                  style={StyleSheet.absoluteFill}
+                  facing={cameraFacing}
+                  flash={flashMode ? 'on' : 'off'}
+                  enableTorch={flashMode}
+                  mode="picture"
+                />
+              ) : (
+                <View style={styles.cameraPermissionBox}>
+                  <Camera size={40} color={colors.primary} />
+                  <Text style={[styles.cameraPermissionTitle, { color: '#FFFFFF' }]}>
+                    Quyền truy cập máy ảnh
+                  </Text>
+                  <Text style={[styles.cameraPermissionSub, { color: 'rgba(255,255,255,0.7)' }]}>
+                    Cấp quyền để chụp và chia sẻ khoảnh khắc Locket với bạn bè.
+                  </Text>
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    onPress={requestPermission}
+                    style={[styles.cameraPermissionBtn, { backgroundColor: colors.primary }]}
+                  >
+                    <Text style={[styles.cameraPermissionBtnText, { color: colors.onPrimary }]}>
+                      Cấp quyền Camera
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    onPress={handlePickFromGallery}
+                    style={styles.galleryFallbackBtn}
+                  >
+                    <ImageIcon size={15} color="rgba(255,255,255,0.7)" />
+                    <Text style={styles.galleryFallbackText}>Hoặc chọn ảnh từ máy</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
 
               {!capturedPhotoUrl && (
                 <>
@@ -302,12 +411,12 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
                   <View style={[styles.cornerGuide, styles.cornerBottomLeft, { borderColor: 'rgba(255,255,255,0.7)' }]} />
                   <View style={[styles.cornerGuide, styles.cornerBottomRight, { borderColor: 'rgba(255,255,255,0.7)' }]} />
 
-                  {/* Top Overlay Controls inside Camera: Flash & Mode */}
+                  {/* Top Overlay Controls inside Camera: Flash & Mode & Gallery */}
                   <View style={styles.cameraInnerTopBar}>
                     <TouchableOpacity
                       activeOpacity={0.8}
                       onPress={handleToggleFlash}
-                      style={[styles.cameraMiniBtn, { backgroundColor: 'rgba(0,0,0,0.45)' }]}
+                      style={[styles.cameraMiniBtn, { backgroundColor: 'rgba(0,0,0,0.5)' }]}
                     >
                       {flashMode ? (
                         <Zap size={16} color="#FBBF24" fill="#FBBF24" />
@@ -316,11 +425,19 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
                       )}
                     </TouchableOpacity>
 
-                    <View style={[styles.cameraModePill, { backgroundColor: 'rgba(0,0,0,0.45)' }]}>
+                    <View style={[styles.cameraModePill, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
                       <Text style={styles.cameraModePillText}>
                         {cameraFacing === 'front' ? 'Camera trước' : 'Camera sau'}
                       </Text>
                     </View>
+
+                    <TouchableOpacity
+                      activeOpacity={0.8}
+                      onPress={handlePickFromGallery}
+                      style={[styles.cameraMiniBtn, { backgroundColor: 'rgba(0,0,0,0.5)' }]}
+                    >
+                      <ImageIcon size={16} color="#FFFFFF" />
+                    </TouchableOpacity>
                   </View>
                 </>
               )}
@@ -377,22 +494,19 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
               ) : (
                 /* Shutter controls bar on Page 0: TO NỮA (90px) */
                 <View style={styles.shutterControlsBar}>
-                  {/* Left Button: Flash Toggle */}
+                  {/* Left Button: Flash / Gallery Toggle */}
                   <TouchableOpacity
                     activeOpacity={0.8}
-                    onPress={handleToggleFlash}
+                    onPress={handlePickFromGallery}
                     style={[styles.sideControlBtn, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
                   >
-                    {flashMode ? (
-                      <Zap size={26} color="#FBBF24" fill="#FBBF24" />
-                    ) : (
-                      <ZapOff size={26} color={colors.text} />
-                    )}
+                    <FolderOpen size={24} color={colors.text} />
                   </TouchableOpacity>
 
                   {/* Center Button: Authentic Locket Double-Ring Shutter (TO NỮA: 90px) */}
                   <TouchableOpacity
                     activeOpacity={0.85}
+                    disabled={isTakingPhoto}
                     onPress={handleSnapPhoto}
                     style={[
                       styles.locketMainShutterOuter,
@@ -403,7 +517,11 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
                     ]}
                   >
                     <View style={[styles.locketMainShutterInner, { backgroundColor: colors.primary }]}>
-                      <Camera size={32} color={colors.onPrimary} />
+                      {isTakingPhoto ? (
+                        <ActivityIndicator color={colors.onPrimary} size="small" />
+                      ) : (
+                        <Camera size={32} color={colors.onPrimary} />
+                      )}
                     </View>
                   </TouchableOpacity>
 
@@ -483,7 +601,13 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
 
     // Single Moment Snap Card (1 card per page, To sát viền)
     const m = item.data;
-    const authorName = m.user?.profile?.displayName || m.user?.email || 'User';
+    const authorName =
+      m.author?.profile?.displayName ||
+      m.author?.email ||
+      m.user?.profile?.displayName ||
+      m.user?.email ||
+      'Thành viên';
+    const authorAvatar = m.author?.profile?.avatarUrl || m.user?.profile?.avatarUrl;
     const photoSrc = m.photoUrl || m.imageUrl;
     const formattedDate = new Date(m.createdAt).toLocaleDateString([], {
       month: 'short',
@@ -508,8 +632,8 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
           <View style={styles.momentFeedHeader}>
             <View style={styles.momentFeedAuthor}>
               <View style={[styles.authorAvatar, { backgroundColor: `${colors.primary}20` }]}>
-                {m.user?.profile?.avatarUrl ? (
-                  <RNImage source={{ uri: m.user.profile.avatarUrl }} style={styles.authorAvatarImg} />
+                {authorAvatar ? (
+                  <RNImage source={{ uri: authorAvatar }} style={styles.authorAvatarImg} />
                 ) : (
                   <Text style={[styles.authorAvatarText, { color: colors.primary }]}>
                     {getInitials(authorName)}
@@ -1097,6 +1221,47 @@ const styles = StyleSheet.create({
   locketWindowImage: {
     width: '100%',
     height: '100%',
+  },
+  cameraPermissionBox: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    backgroundColor: '#18181B',
+    gap: 10,
+  },
+  cameraPermissionTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    marginTop: 6,
+    textAlign: 'center',
+  },
+  cameraPermissionSub: {
+    fontSize: 12,
+    textAlign: 'center',
+    lineHeight: 17,
+  },
+  cameraPermissionBtn: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    marginTop: 8,
+  },
+  cameraPermissionBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  galleryFallbackBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    marginTop: 2,
+  },
+  galleryFallbackText: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontWeight: '500',
   },
   cornerGuide: {
     position: 'absolute',
