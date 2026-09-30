@@ -404,7 +404,7 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
                 </>
               ) : permission?.granted ? (
                 <>
-                  {/* Camera chính (Khung lớn) - Chạy mượt mà 60fps không xung đột phần cứng */}
+                  {/* Camera chính (Khung lớn) - Luồng camera mượt mà không bị đóng băng */}
                   <CameraView
                     ref={cameraRef}
                     style={StyleSheet.absoluteFill}
@@ -412,10 +412,11 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
                     flash={flashMode ? 'on' : 'off'}
                     enableTorch={flashMode}
                     zoom={0}
+                    autofocus="on"
                     mode="picture"
                   />
 
-                  {/* Hiển thị song song (Dual View) - Khung nổi góc trái (Chạm để đổi góc nhanh) */}
+                  {/* Hiển thị song song (Dual View) - Khung nổi góc trên trái (Một trước, một sau) */}
                   {isDualMode && (
                     <TouchableOpacity
                       activeOpacity={0.85}
@@ -424,18 +425,20 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
                         styles.pipFloatingBox,
                         {
                           borderColor: colors.primary,
-                          backgroundColor: 'rgba(24, 24, 27, 0.9)',
+                          backgroundColor: 'rgba(20, 20, 24, 0.92)',
                         },
                       ]}
                     >
                       <View style={styles.pipSimulatedContent}>
-                        <Camera size={22} color={colors.primary} />
+                        <View style={[styles.pipIconBadge, { backgroundColor: `${colors.primary}25` }]}>
+                          <Camera size={18} color={colors.primary} />
+                        </View>
                         <Text style={styles.pipCounterpartLabel}>
-                          {cameraFacing === 'front' ? 'Cam sau' : 'Cam trước'}
+                          {cameraFacing === 'front' ? 'Cam sau' : 'Cam selfie'}
                         </Text>
-                        <View style={styles.pipSwapOverlay}>
-                          <RefreshCw size={10} color="#FFFFFF" />
-                          <Text style={styles.pipBadgeText}>Đổi góc</Text>
+                        <View style={[styles.pipSwapOverlay, { backgroundColor: colors.primary }]}>
+                          <RefreshCw size={9} color={colors.onPrimary} />
+                          <Text style={[styles.pipBadgeText, { color: colors.onPrimary }]}>Lật cam</Text>
                         </View>
                       </View>
                     </TouchableOpacity>
@@ -1438,8 +1441,16 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
-    paddingBottom: 18,
+    gap: 3,
+    paddingBottom: 16,
+  },
+  pipIconBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 2,
   },
   pipCounterpartLabel: {
     color: '#FFFFFF',
