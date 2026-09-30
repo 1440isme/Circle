@@ -215,11 +215,11 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
     ...(filteredMoments.length === 0
       ? [{ type: 'empty' as const, id: 'empty-view' }]
       : filteredMoments.map((m: any, idx: number) => ({
-          type: 'moment' as const,
-          id: m.id || `moment-${idx}`,
-          data: m,
-          index: idx,
-        }))),
+        type: 'moment' as const,
+        id: m.id || `moment-${idx}`,
+        data: m,
+        index: idx,
+      }))),
   ];
 
   // Active Moment / Photo Resolution for Action Menu
@@ -419,11 +419,11 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
               )}
             </View>
 
-            {/* Nút xem Lịch sử có ảnh mini + chữ "Lịch sử" + mũi tên xuống */}
+            {/* Nút xem Lịch sử có ảnh mini + chữ "Lịch sử" + mũi tên xuống (ghi trực tiếp không khung viền) */}
             <TouchableOpacity
-              activeOpacity={0.75}
+              activeOpacity={0.7}
               onPress={scrollToFirstMoment}
-              style={[styles.historyCueBtn, { backgroundColor: colors.wash, borderColor: colors.hairline }]}
+              style={styles.historyCueBtn}
             >
               {latestMomentPhoto ? (
                 <RNImage source={{ uri: latestMomentPhoto }} style={styles.historyCueThumb} resizeMode="cover" />
@@ -433,7 +433,7 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
                 </View>
               )}
               <Text style={[styles.historyCueText, { color: colors.text }]}>Lịch sử</Text>
-              <ChevronDown size={16} color={colors.subtle} />
+              <ChevronDown size={18} color={colors.subtle} />
             </TouchableOpacity>
           </View>
         </View>
@@ -797,7 +797,7 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
           {/* Nút chính giữa: Cố định kích thước (không đổi size). Trang 0 là Ngôi nhà (Home), Trang >= 1 là Vòng tròn Camera */}
           <TouchableOpacity
             activeOpacity={0.85}
-            onPress={currentPageIndex === 0 ? () => {} : scrollToCamera}
+            onPress={currentPageIndex === 0 ? () => { } : scrollToCamera}
             style={[styles.dockCenterBtnOuter, { borderColor: colors.primary }]}
           >
             <View style={[styles.dockCenterBtnInner, { backgroundColor: colors.primary }]}>
@@ -1264,21 +1264,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 18,
-    borderWidth: 1,
-    marginTop: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    marginTop: 18,
   },
   historyCueThumb: {
-    width: 24,
-    height: 24,
+    width: 26,
+    height: 26,
     borderRadius: 8,
     overflow: 'hidden',
   },
   historyCueText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
+    letterSpacing: -0.2,
   },
   momentFeedCard: {
     borderRadius: 28,
