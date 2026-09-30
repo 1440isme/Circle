@@ -63,6 +63,17 @@ const SAMPLE_CAPTURE_PHOTOS = [
   'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=800&q=80',
 ];
 
+function parseMomentPhotos(rawUrl?: string | null): { mainUrl: string; pipUrl: string | null } {
+  if (!rawUrl) return { mainUrl: '', pipUrl: null };
+  if (rawUrl.includes('#pip=')) {
+    const parts = rawUrl.split('#pip=');
+    const main = parts[0] || '';
+    const pip = decodeURIComponent(parts[1] || '');
+    return { mainUrl: main, pipUrl: pip || null };
+  }
+  return { mainUrl: rawUrl, pipUrl: null };
+}
+
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
   if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
@@ -115,6 +126,7 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
   const [dualPipPhotoUrl, setDualPipPhotoUrl] = useState<string | null>(null);
   const [captionText, setCaptionText] = useState<string>('');
   const [replyingToAuthor, setReplyingToAuthor] = useState<string | null>(null);
+  const [swappedMoments, setSwappedMoments] = useState<Record<string, boolean>>({});
 
   // Page Tracking & Action Menu State
   const [currentPageIndex, setCurrentPageIndex] = useState<number>(0);
@@ -247,8 +259,12 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
     if (!capturedPhotoUrl || !circleId) return;
 
     try {
+      const finalPhotoUrl = dualPipPhotoUrl
+        ? `${capturedPhotoUrl}#pip=${encodeURIComponent(dualPipPhotoUrl)}`
+        : capturedPhotoUrl;
+
       await createMomentMutation.mutateAsync({
-        photoUrl: capturedPhotoUrl,
+        photoUrl: finalPhotoUrl,
         caption: replyingToAuthor
           ? `Trả lời @${replyingToAuthor}: ${captionText.trim()}`
           : captionText.trim() || undefined,
@@ -680,7 +696,12 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
       m.user?.email ||
       'Thành viên';
     const authorAvatar = m.author?.profile?.avatarUrl || m.user?.profile?.avatarUrl;
-    const photoSrc = m.photoUrl || m.imageUrl;
+    const rawPhotoSrc = m.photoUrl || m.imageUrl;
+    const { mainUrl, pipUrl } = parseMomentPhotos(rawPhotoSrc);
+    const isSwapped = Boolean(swappedMoments[m.id]);
+    const displayMain = isSwapped ? (pipUrl || mainUrl) : mainUrl;
+    const displayPip = isSwapped ? mainUrl : pipUrl;
+
     const formattedDate = new Date(m.createdAt).toLocaleDateString([], {
       month: 'short',
       day: 'numeric',
@@ -729,14 +750,34 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
             </View>
           </View>
 
-          {/* 1:1 Rounded Square Photo with In-photo Caption Overlay (To sát viền) */}
+          {/* 1:1 Rounded Square Photo with In-photo Caption Overlay & Dual View PiP */}
           <View style={[styles.momentPhotoFrame, { backgroundColor: colors.wash }]}>
-            {photoSrc ? (
-              <RNImage source={{ uri: photoSrc }} style={styles.momentPhotoImage} resizeMode="cover" />
+            {displayMain ? (
+              <RNImage source={{ uri: displayMain }} style={styles.momentPhotoImage} resizeMode="cover" />
             ) : (
               <View style={styles.noPhotoPlaceholder}>
                 <ImageIcon size={36} color={colors.subtle} />
               </View>
+            )}
+
+            {/* Khung nổi Dual View PiP trong Feed (Có hỗ trợ chạm để hoán đổi) */}
+            {displayPip && (
+              <TouchableOpacity
+                activeOpacity={0.9}
+                onPress={() => {
+                  setSwappedMoments((prev) => ({
+                    ...prev,
+                    [m.id]: !prev[m.id],
+                  }));
+                }}
+                style={[styles.pipFloatingBoxFeed, { borderColor: colors.primary }]}
+              >
+                <RNImage source={{ uri: displayPip }} style={styles.momentPhotoImage} resizeMode="cover" />
+                <View style={[styles.pipSwapOverlay, { backgroundColor: 'rgba(0,0,0,0.65)' }]}>
+                  <RefreshCw size={9} color="#FFFFFF" />
+                  <Text style={styles.pipBadgeText}>Chạm đổi</Text>
+                </View>
+              </TouchableOpacity>
             )}
 
             {m.caption ? (
@@ -1404,6 +1445,23 @@ const styles = StyleSheet.create({
   pipFloatingBox: {
     position: 'absolute',
     top: 52,
+    left: 14,
+    width: 80,
+    height: 104,
+    borderRadius: 16,
+    borderWidth: 2,
+    overflow: 'hidden',
+    backgroundColor: '#000000',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 8,
+    zIndex: 15,
+  },
+  pipFloatingBoxFeed: {
+    position: 'absolute',
+    top: 14,
     left: 14,
     width: 80,
     height: 104,
