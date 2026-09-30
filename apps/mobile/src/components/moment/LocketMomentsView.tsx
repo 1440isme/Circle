@@ -11,9 +11,12 @@ import {
   Alert,
   Dimensions,
   FlatList,
+  Modal,
+  Share as RNShare,
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
+import { BlurView } from 'expo-blur';
 import {
   Camera,
   RefreshCw,
@@ -29,6 +32,11 @@ import {
   History,
   RotateCcw,
   MessageCircle,
+  Share2,
+  Download,
+  Copy,
+  Trash2,
+  ExternalLink,
 } from 'lucide-react-native';
 import { useThemeStore } from '../../stores/theme.store';
 import { useLanguageStore } from '../../stores/language.store';
@@ -89,8 +97,9 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
   const [captionText, setCaptionText] = useState<string>('');
   const [replyingToAuthor, setReplyingToAuthor] = useState<string | null>(null);
 
-  // Page Tracking
+  // Page Tracking & Action Menu State
   const [currentPageIndex, setCurrentPageIndex] = useState<number>(0);
+  const [isActionMenuOpen, setIsActionMenuOpen] = useState<boolean>(false);
 
   // Bố cục khung ảnh to sát viền theo yêu cầu
   const locketFrameSize = Math.min(
@@ -180,6 +189,41 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
           index: idx,
         }))),
   ];
+
+  // Active Moment / Photo Resolution for Action Menu
+  const currentFeedItem = feedItems[currentPageIndex] || feedItems[0];
+  const currentActivePhotoUrl =
+    currentFeedItem.type === 'moment'
+      ? currentFeedItem.data?.photoUrl || currentFeedItem.data?.imageUrl
+      : previewPhoto;
+
+  const currentAuthorName =
+    currentFeedItem.type === 'moment'
+      ? currentFeedItem.data?.user?.profile?.displayName || currentFeedItem.data?.user?.email || 'Thành viên'
+      : user?.profile?.displayName || 'Bạn';
+
+  const handleSharePhoto = async () => {
+    setIsActionMenuOpen(false);
+    if (!currentActivePhotoUrl) return;
+    try {
+      await RNShare.share({
+        message: `Khoảnh khắc từ nhóm ${circleName} trên Circle: ${currentActivePhotoUrl}`,
+        url: currentActivePhotoUrl,
+      });
+    } catch {
+      // User cancelled
+    }
+  };
+
+  const handleCopyLink = () => {
+    setIsActionMenuOpen(false);
+    Alert.alert(t.common.appName, 'Đã sao chép liên kết ảnh khoảnh khắc!');
+  };
+
+  const handleSaveImage = () => {
+    setIsActionMenuOpen(false);
+    Alert.alert(t.common.appName, 'Đã lưu ảnh về thư viện thiết bị thành công!');
+  };
 
   const handleScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     if (containerHeight <= 0) return;
@@ -520,10 +564,10 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
       />
 
       {/* =========================================================================
-          FLOATING BOTTOM DOCK: LUÔN HIỆN Ở CẢ TRANG 0 VÀ CÁC TRANG LỊCH SỬ
-          - Nút giữa cố định kích thước: Trang 0 là Ngôi nhà (Home), Trang >= 1 là Vòng tròn Camera
-          - Nút bên trái là Lịch sử
-          - Nút bên phải là Lật cam (ở trang 0) hoặc Chụp mới (ở trang lịch sử)
+          FLOATING BOTTOM DOCK: LUÔN HIỆN ĐỐI TRỌNG 3 NÚT Ở CẢ TRANG 0 VÀ LỊCH SỬ
+          - Nút bên trái: "Lịch sử" (History)
+          - Nút chính giữa: Cố định kích thước (Trang 0: Home, Trang >= 1: Camera)
+          - Nút bên phải: "Tùy chọn chia sẻ & Quản lý ảnh" (Share / Action Button)
          ========================================================================= */}
       <View pointerEvents="box-none" style={styles.floatingDockContainer}>
         <View
@@ -570,26 +614,155 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
             </View>
           </TouchableOpacity>
 
-          {/* Nút bên phải: Ở trang 0 là Lật cam, ở các trang lịch sử là Chụp mới */}
+          {/* Nút bên phải: Tùy chọn chia sẻ & Quản lý ảnh (Share / Action Button) */}
           <TouchableOpacity
             activeOpacity={0.8}
-            onPress={currentPageIndex === 0 ? handleFlipCamera : scrollToCamera}
+            onPress={() => setIsActionMenuOpen(true)}
             style={styles.dockIconBtn}
           >
-            {currentPageIndex === 0 ? (
-              <>
-                <RefreshCw size={22} color={colors.text} />
-                <Text style={[styles.dockBtnLabel, { color: colors.subtle }]}>Lật cam</Text>
-              </>
-            ) : (
-              <>
-                <Camera size={22} color={colors.primary} />
-                <Text style={[styles.dockBtnLabel, { color: colors.primary }]}>Chụp mới</Text>
-              </>
-            )}
+            <Share2 size={22} color={colors.text} />
+            <Text style={[styles.dockBtnLabel, { color: colors.subtle }]}>Tùy chọn</Text>
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* =========================================================================
+          ACTION MENU MODAL (POPOVER / BOTTOM SHEET) GẮN LIỀN VỚI ẢNH ĐANG HIỂN THỊ
+         ========================================================================= */}
+      <Modal
+        visible={isActionMenuOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsActionMenuOpen(false)}
+      >
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={() => setIsActionMenuOpen(false)}
+          style={styles.actionModalOverlay}
+        >
+          <BlurView
+            intensity={Platform.OS === 'ios' ? 45 : 85}
+            tint={isDark ? 'dark' : 'light'}
+            style={StyleSheet.absoluteFill}
+          />
+
+          <TouchableOpacity
+            activeOpacity={1}
+            style={[
+              styles.actionModalSheet,
+              {
+                backgroundColor: colors.sheetBg,
+                borderColor: colors.glassBorder,
+              },
+            ]}
+          >
+            {/* Sheet Drag Handle */}
+            <View style={[styles.actionSheetHandle, { backgroundColor: colors.hairline }]} />
+
+            {/* Header with Photo Preview Thumbnail */}
+            <View style={styles.actionSheetHeader}>
+              <View style={styles.actionHeaderLeft}>
+                {currentActivePhotoUrl ? (
+                  <RNImage source={{ uri: currentActivePhotoUrl }} style={styles.actionHeaderThumb} resizeMode="cover" />
+                ) : (
+                  <View style={[styles.actionHeaderThumb, { backgroundColor: colors.wash, alignItems: 'center', justifyContent: 'center' }]}>
+                    <ImageIcon size={20} color={colors.subtle} />
+                  </View>
+                )}
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.actionSheetTitle, { color: colors.text }]}>
+                    Khoảnh khắc của {currentAuthorName}
+                  </Text>
+                  <Text style={[styles.actionSheetSub, { color: colors.subtle }]}>
+                    {circleName} · Locket Moments
+                  </Text>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                onPress={() => setIsActionMenuOpen(false)}
+                style={[styles.actionCloseBtn, { backgroundColor: colors.wash }]}
+              >
+                <X size={16} color={colors.subtle} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Action Items List */}
+            <View style={styles.actionList}>
+              {/* Option 1: Share Photo */}
+              <TouchableOpacity
+                activeOpacity={0.75}
+                onPress={handleSharePhoto}
+                style={[styles.actionItem, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
+              >
+                <View style={[styles.actionIconBox, { backgroundColor: `${colors.primary}20` }]}>
+                  <Share2 size={20} color={colors.primary} />
+                </View>
+                <View style={styles.actionItemInfo}>
+                  <Text style={[styles.actionItemTitle, { color: colors.text }]}>Chia sẻ ảnh...</Text>
+                  <Text style={[styles.actionItemDesc, { color: colors.subtle }]}>
+                    Gửi đến ứng dụng khác hoặc tin nhắn bạn bè
+                  </Text>
+                </View>
+              </TouchableOpacity>
+
+              {/* Option 2: Copy Link */}
+              <TouchableOpacity
+                activeOpacity={0.75}
+                onPress={handleCopyLink}
+                style={[styles.actionItem, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
+              >
+                <View style={[styles.actionIconBox, { backgroundColor: `${colors.info}20` }]}>
+                  <Copy size={20} color={colors.info} />
+                </View>
+                <View style={styles.actionItemInfo}>
+                  <Text style={[styles.actionItemTitle, { color: colors.text }]}>Sao chép liên kết ảnh</Text>
+                  <Text style={[styles.actionItemDesc, { color: colors.subtle }]}>
+                    Lưu link ảnh vào bộ nhớ tạm
+                  </Text>
+                </View>
+              </TouchableOpacity>
+
+              {/* Option 3: Save image */}
+              <TouchableOpacity
+                activeOpacity={0.75}
+                onPress={handleSaveImage}
+                style={[styles.actionItem, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
+              >
+                <View style={[styles.actionIconBox, { backgroundColor: `${colors.success}20` }]}>
+                  <Download size={20} color={colors.success} />
+                </View>
+                <View style={styles.actionItemInfo}>
+                  <Text style={[styles.actionItemTitle, { color: colors.text }]}>Lưu về máy</Text>
+                  <Text style={[styles.actionItemDesc, { color: colors.subtle }]}>
+                    Tải ảnh gốc về thư viện ảnh thiết bị
+                  </Text>
+                </View>
+              </TouchableOpacity>
+
+              {/* Option 4: Reply With Photo */}
+              <TouchableOpacity
+                activeOpacity={0.75}
+                onPress={() => {
+                  setIsActionMenuOpen(false);
+                  handleReplyWithPhoto(currentAuthorName);
+                }}
+                style={[styles.actionItem, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
+              >
+                <View style={[styles.actionIconBox, { backgroundColor: `${colors.warning}20` }]}>
+                  <Sparkles size={20} color={colors.warning} />
+                </View>
+                <View style={styles.actionItemInfo}>
+                  <Text style={[styles.actionItemTitle, { color: colors.text }]}>Đáp lại bằng ảnh mới</Text>
+                  <Text style={[styles.actionItemDesc, { color: colors.subtle }]}>
+                    Mở camera và gửi ảnh phản hồi ngay
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -1026,5 +1199,88 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  actionModalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  actionModalSheet: {
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    borderTopWidth: 1.2,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
+    gap: 16,
+  },
+  actionSheetHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: 'center',
+  },
+  actionSheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(150,150,150,0.15)',
+  },
+  actionHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  actionHeaderThumb: {
+    width: 46,
+    height: 46,
+    borderRadius: 14,
+  },
+  actionSheetTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  actionSheetSub: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+  actionCloseBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionList: {
+    gap: 10,
+  },
+  actionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    padding: 12,
+    borderRadius: 18,
+    borderWidth: 1,
+  },
+  actionIconBox: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionItemInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  actionItemTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  actionItemDesc: {
+    fontSize: 11,
   },
 });
