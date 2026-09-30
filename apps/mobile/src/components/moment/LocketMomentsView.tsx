@@ -28,6 +28,7 @@ import {
   Heart,
   Image as ImageIcon,
   ChevronDown,
+  ChevronUp,
   X,
   Sparkles,
   History,
@@ -91,9 +92,9 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
   const createMomentMutation = useCreateMomentMutation(circleId);
   const reactMomentMutation = useReactMomentMutation(circleId);
 
-  // Member Filter State (Trang 1..N: Lọc theo mọi người hoặc từng thành viên)
+  // Member Filter State (Trang 1..N: Lọc theo mọi người hoặc từng thành viên dạng sổ tại chỗ)
   const [selectedMemberId, setSelectedMemberId] = useState<string | 'all'>('all');
-  const [isFilterModalOpen, setIsFilterModalOpen] = useState<boolean>(false);
+  const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState<boolean>(false);
 
   // Camera Viewfinder States (Locket UI)
   const [cameraFacing, setCameraFacing] = useState<'front' | 'back'>('front');
@@ -109,15 +110,15 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
   const [currentPageIndex, setCurrentPageIndex] = useState<number>(0);
   const [isActionMenuOpen, setIsActionMenuOpen] = useState<boolean>(false);
 
-  // Layout calculations: Fixed top header (50px), dãn cách thoáng đãng
-  const topHeaderHeight = 50;
+  // Layout calculations: Fixed top header (56px)
+  const topHeaderHeight = 56;
   const listHeight = Math.max(containerHeight - topHeaderHeight, 300);
 
-  // Bố cục khung ảnh to sát viền, dịch xuống nhẹ và căn khoảng cách trên/dưới cân đối
+  // Bố cục khung ảnh to sát viền, dịch xuống nhẹ và cân đối
   const locketFrameSize = Math.min(
     SCREEN_WIDTH - 20,
-    listHeight > 0 ? listHeight - 190 : 350,
-    350
+    listHeight > 0 ? listHeight - 210 : 340,
+    340
   );
 
   const momentCardWidth = SCREEN_WIDTH - 20;
@@ -135,6 +136,9 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
     selectedMemberId === 'all'
       ? 'Mọi người'
       : selectedMember?.profile?.displayName || selectedMember?.user?.profile?.displayName || selectedMember?.email || 'Thành viên';
+
+  // Ảnh gần nhất cho nút cuộn xuống Lịch sử
+  const latestMomentPhoto = moments[0]?.photoUrl || moments[0]?.imageUrl || null;
 
   // Shutter action
   const handleSnapPhoto = () => {
@@ -192,11 +196,13 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
   };
 
   const scrollToFirstMoment = () => {
+    setIsFilterDropdownOpen(false);
     flatListRef.current?.scrollToIndex({ index: 1, animated: true });
     setCurrentPageIndex(1);
   };
 
   const scrollToCamera = () => {
+    setIsFilterDropdownOpen(false);
     flatListRef.current?.scrollToIndex({ index: 0, animated: true });
     setCurrentPageIndex(0);
   };
@@ -257,12 +263,13 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
     const page = Math.round(y / listHeight);
     if (page !== currentPageIndex && page >= 0 && page < feedItems.length) {
       setCurrentPageIndex(page);
+      setIsFilterDropdownOpen(false);
     }
   };
 
   const handleSelectFilter = (memberId: string | 'all') => {
     setSelectedMemberId(memberId);
-    setIsFilterModalOpen(false);
+    setIsFilterDropdownOpen(false);
     setTimeout(() => {
       flatListRef.current?.scrollToIndex({ index: 1, animated: true });
       setCurrentPageIndex(1);
@@ -335,7 +342,7 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
               )}
             </View>
 
-            {/* Fixed Height Controls Area Below Viewfinder (Khoảng cách bằng với khoảng cách trên, nút to hơn) */}
+            {/* Fixed Height Controls Area Below Viewfinder (Khoảng cách bằng khoảng cách trên, nút TO NỮA) */}
             <View style={styles.fixedControlsArea}>
               {capturedPhotoUrl ? (
                 /* Review actions when photo is captured */
@@ -345,7 +352,7 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
                     onPress={handleRetake}
                     style={[styles.reviewActionBtn, { backgroundColor: colors.wash, borderColor: colors.hairline }]}
                   >
-                    <RotateCcw size={18} color={colors.text} />
+                    <RotateCcw size={20} color={colors.text} />
                     <Text style={[styles.reviewBtnText, { color: colors.text }]}>Chụp lại</Text>
                   </TouchableOpacity>
 
@@ -359,7 +366,7 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
                       <ActivityIndicator color={colors.onPrimary} size="small" />
                     ) : (
                       <>
-                        <Send size={16} color={colors.onPrimary} />
+                        <Send size={18} color={colors.onPrimary} />
                         <Text style={[styles.sendMomentBtnText, { color: colors.onPrimary }]}>
                           Gửi vào {circleName}
                         </Text>
@@ -368,7 +375,7 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
                   </TouchableOpacity>
                 </View>
               ) : (
-                /* Shutter controls bar on Page 0: TO HƠN & CÂN ĐỐI */
+                /* Shutter controls bar on Page 0: TO NỮA (90px) */
                 <View style={styles.shutterControlsBar}>
                   {/* Left Button: Flash Toggle */}
                   <TouchableOpacity
@@ -377,13 +384,13 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
                     style={[styles.sideControlBtn, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
                   >
                     {flashMode ? (
-                      <Zap size={24} color="#FBBF24" fill="#FBBF24" />
+                      <Zap size={26} color="#FBBF24" fill="#FBBF24" />
                     ) : (
-                      <ZapOff size={24} color={colors.text} />
+                      <ZapOff size={26} color={colors.text} />
                     )}
                   </TouchableOpacity>
 
-                  {/* Center Button: Authentic Locket Double-Ring Shutter (TO HƠN NỮA: 84px) */}
+                  {/* Center Button: Authentic Locket Double-Ring Shutter (TO NỮA: 90px) */}
                   <TouchableOpacity
                     activeOpacity={0.85}
                     onPress={handleSnapPhoto}
@@ -396,7 +403,7 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
                     ]}
                   >
                     <View style={[styles.locketMainShutterInner, { backgroundColor: colors.primary }]}>
-                      <Camera size={30} color={colors.onPrimary} />
+                      <Camera size={32} color={colors.onPrimary} />
                     </View>
                   </TouchableOpacity>
 
@@ -406,22 +413,27 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
                     onPress={handleFlipCamera}
                     style={[styles.sideControlBtn, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
                   >
-                    <RefreshCw size={24} color={colors.text} />
+                    <RefreshCw size={26} color={colors.text} />
                   </TouchableOpacity>
                 </View>
               )}
             </View>
 
-            {/* Scroll Down Cue to First Moment */}
+            {/* Nút xem Lịch sử có ảnh mini + chữ "Lịch sử" + mũi tên xuống */}
             <TouchableOpacity
               activeOpacity={0.75}
               onPress={scrollToFirstMoment}
-              style={styles.scrollDownCue}
+              style={[styles.historyCueBtn, { backgroundColor: colors.wash, borderColor: colors.hairline }]}
             >
-              <Text style={[styles.scrollDownText, { color: colors.subtle }]}>
-                Vuốt xuống xem khoảnh khắc ({filteredMoments.length})
-              </Text>
-              <ChevronDown size={15} color={colors.subtle} />
+              {latestMomentPhoto ? (
+                <RNImage source={{ uri: latestMomentPhoto }} style={styles.historyCueThumb} resizeMode="cover" />
+              ) : (
+                <View style={[styles.historyCueThumb, { backgroundColor: `${colors.primary}25`, alignItems: 'center', justifyContent: 'center' }]}>
+                  <History size={14} color={colors.primary} />
+                </View>
+              )}
+              <Text style={[styles.historyCueText, { color: colors.text }]}>Lịch sử</Text>
+              <ChevronDown size={16} color={colors.subtle} />
             </TouchableOpacity>
           </View>
         </View>
@@ -581,52 +593,151 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
       }}
     >
       {/* =========================================================================
-          CỐ ĐỊNH THANH TIÊU ĐỀ TRÊN CÙNG (FIXED TOP HEADER)
+          CỐ ĐỊNH THANH TIÊU ĐỀ TRÊN CÙNG (FIXED TOP HEADER - TO HƠN)
           - Trang 0: Số lượng bạn bè
-          - Trang >= 1: Bộ lọc thành viên ("Mọi người" v)
+          - Trang >= 1: Bộ lọc mọi người dạng sổ mũi tên lên xuống ngay tại chỗ
          ========================================================================= */}
       <View style={[styles.fixedTopHeader, { height: topHeaderHeight }]}>
         {currentPageIndex === 0 ? (
-          /* Header ở Trang 0 (Camera): Số lượng bạn bè */
+          /* Header ở Trang 0 (Camera): Số lượng bạn bè (TO RÕ RÀNG) */
           <View style={[styles.friendsCountBadge, { backgroundColor: `${colors.primary}20` }]}>
-            <Users size={14} color={colors.primary} />
+            <Users size={16} color={colors.primary} />
             <Text style={[styles.friendsCountText, { color: colors.primary }]}>
               {members.length > 0 ? `${members.length} bạn bè` : 'Bạn bè'}
             </Text>
           </View>
         ) : (
-          /* Header ở Trang >= 1 (Khoảnh khắc): Bộ lọc thành viên */
+          /* Header ở Trang >= 1 (Khoảnh khắc): Bộ lọc dạng sổ mũi tên lên/xuống ngay tại chỗ */
           <TouchableOpacity
             activeOpacity={0.8}
-            onPress={() => setIsFilterModalOpen(true)}
+            onPress={() => setIsFilterDropdownOpen(!isFilterDropdownOpen)}
             style={[
               styles.memberFilterPill,
               {
-                backgroundColor: colors.wash,
-                borderColor: colors.hairline,
+                backgroundColor: isFilterDropdownOpen ? `${colors.primary}25` : colors.wash,
+                borderColor: isFilterDropdownOpen ? colors.primary : colors.hairline,
               },
             ]}
           >
-            <Filter size={13} color={colors.primary} />
+            <Filter size={15} color={colors.primary} />
             <Text numberOfLines={1} style={[styles.memberFilterPillText, { color: colors.primary }]}>
               {selectedFilterName}
             </Text>
-            <ChevronDown size={14} color={colors.primary} />
+            {isFilterDropdownOpen ? (
+              <ChevronUp size={16} color={colors.primary} />
+            ) : (
+              <ChevronDown size={16} color={colors.primary} />
+            )}
           </TouchableOpacity>
         )}
 
         {replyingToAuthor && currentPageIndex === 0 && (
           <View style={[styles.replyingBadge, { backgroundColor: `${colors.warning}20` }]}>
-            <MessageCircle size={12} color={colors.warning} />
+            <MessageCircle size={13} color={colors.warning} />
             <Text style={[styles.replyingBadgeText, { color: colors.warning }]}>
               Đáp lại: {replyingToAuthor}
             </Text>
             <TouchableOpacity onPress={() => setReplyingToAuthor(null)}>
-              <X size={12} color={colors.warning} />
+              <X size={13} color={colors.warning} />
             </TouchableOpacity>
           </View>
         )}
       </View>
+
+      {/* =========================================================================
+          INLINE MEMBER FILTER DROPDOWN (SỔ NGAY TẠI THANH TIÊU ĐỀ TRÊN CÙNG)
+         ========================================================================= */}
+      {isFilterDropdownOpen && currentPageIndex > 0 && (
+        <View style={styles.inlineDropdownWrapper}>
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={() => setIsFilterDropdownOpen(false)}
+            style={StyleSheet.absoluteFill}
+          />
+          <View
+            style={[
+              styles.inlineDropdownMenu,
+              {
+                backgroundColor: colors.sheetBg,
+                borderColor: colors.glassBorder,
+              },
+            ]}
+          >
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 220 }}>
+              {/* Option 1: Tất cả mọi người */}
+              <TouchableOpacity
+                activeOpacity={0.75}
+                onPress={() => handleSelectFilter('all')}
+                style={[
+                  styles.dropdownItem,
+                  {
+                    backgroundColor: selectedMemberId === 'all' ? `${colors.primary}15` : 'transparent',
+                    borderBottomColor: colors.hairline,
+                  },
+                ]}
+              >
+                <View style={[styles.dropdownAvatar, { backgroundColor: `${colors.primary}20` }]}>
+                  <Users size={16} color={colors.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.dropdownItemTitle, { color: colors.text }]}>Mọi người</Text>
+                  <Text style={[styles.dropdownItemSub, { color: colors.subtle }]}>
+                    Tất cả {moments.length} khoảnh khắc
+                  </Text>
+                </View>
+                {selectedMemberId === 'all' && (
+                  <Check size={16} color={colors.primary} />
+                )}
+              </TouchableOpacity>
+
+              {/* Members List */}
+              {members.map((mb: any) => {
+                const memberId = mb.userId || mb.id || mb.user?.id;
+                const displayName = mb.profile?.displayName || mb.user?.profile?.displayName || mb.email || 'Thành viên';
+                const avatarUrl = mb.profile?.avatarUrl || mb.user?.profile?.avatarUrl;
+                const isSelected = selectedMemberId === memberId;
+                const memberMomentsCount = moments.filter(
+                  (m: any) => m.userId === memberId || m.user?.id === memberId
+                ).length;
+
+                return (
+                  <TouchableOpacity
+                    key={memberId}
+                    activeOpacity={0.75}
+                    onPress={() => handleSelectFilter(memberId)}
+                    style={[
+                      styles.dropdownItem,
+                      {
+                        backgroundColor: isSelected ? `${colors.primary}15` : 'transparent',
+                        borderBottomColor: colors.hairline,
+                      },
+                    ]}
+                  >
+                    <View style={[styles.dropdownAvatar, { backgroundColor: `${colors.primary}20` }]}>
+                      {avatarUrl ? (
+                        <RNImage source={{ uri: avatarUrl }} style={styles.dropdownAvatarImg} />
+                      ) : (
+                        <Text style={[styles.dropdownAvatarText, { color: colors.primary }]}>
+                          {getInitials(displayName)}
+                        </Text>
+                      )}
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.dropdownItemTitle, { color: colors.text }]}>{displayName}</Text>
+                      <Text style={[styles.dropdownItemSub, { color: colors.subtle }]}>
+                        {memberMomentsCount} khoảnh khắc
+                      </Text>
+                    </View>
+                    {isSelected && (
+                      <Check size={16} color={colors.primary} />
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      )}
 
       {/* =========================================================================
           SNAP PAGING FEED (TRANG 0 = CAMERA, TRANG 1..N = KHOẢNH KHẮC)
@@ -709,136 +820,6 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
           </TouchableOpacity>
         </View>
       </View>
-
-      {/* =========================================================================
-          MEMBER FILTER MODAL (BỘ LỌC THEO MỌI NGƯỜI HOẶC TỪNG THÀNH VIÊN)
-         ========================================================================= */}
-      <Modal
-        visible={isFilterModalOpen}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setIsFilterModalOpen(false)}
-      >
-        <TouchableOpacity
-          activeOpacity={1}
-          onPress={() => setIsFilterModalOpen(false)}
-          style={styles.actionModalOverlay}
-        >
-          <BlurView
-            intensity={Platform.OS === 'ios' ? 45 : 85}
-            tint={isDark ? 'dark' : 'light'}
-            style={StyleSheet.absoluteFill}
-          />
-
-          <TouchableOpacity
-            activeOpacity={1}
-            style={[
-              styles.actionModalSheet,
-              {
-                backgroundColor: colors.sheetBg,
-                borderColor: colors.glassBorder,
-                maxHeight: '75%',
-              },
-            ]}
-          >
-            {/* Sheet Handle */}
-            <View style={[styles.actionSheetHandle, { backgroundColor: colors.hairline }]} />
-
-            {/* Filter Header */}
-            <View style={styles.actionSheetHeader}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Filter size={18} color={colors.primary} />
-                <Text style={[styles.actionSheetTitle, { color: colors.text }]}>
-                  Lọc khoảnh khắc
-                </Text>
-              </View>
-              <TouchableOpacity
-                onPress={() => setIsFilterModalOpen(false)}
-                style={[styles.actionCloseBtn, { backgroundColor: colors.wash }]}
-              >
-                <X size={16} color={colors.subtle} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
-              {/* Option 1: Tất cả mọi người */}
-              <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={() => handleSelectFilter('all')}
-                style={[
-                  styles.filterOptionItem,
-                  {
-                    backgroundColor: selectedMemberId === 'all' ? `${colors.primary}15` : colors.surface,
-                    borderColor: selectedMemberId === 'all' ? colors.primary : colors.hairline,
-                  },
-                ]}
-              >
-                <View style={[styles.filterOptionAvatar, { backgroundColor: `${colors.primary}20` }]}>
-                  <Users size={18} color={colors.primary} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.filterOptionTitle, { color: colors.text }]}>
-                    Tất cả mọi người
-                  </Text>
-                  <Text style={[styles.filterOptionSub, { color: colors.subtle }]}>
-                    Toàn bộ {moments.length} khoảnh khắc trong nhóm
-                  </Text>
-                </View>
-                {selectedMemberId === 'all' && (
-                  <Check size={18} color={colors.primary} />
-                )}
-              </TouchableOpacity>
-
-              {/* Members List */}
-              {members.map((mb: any) => {
-                const memberId = mb.userId || mb.id || mb.user?.id;
-                const displayName = mb.profile?.displayName || mb.user?.profile?.displayName || mb.email || 'Thành viên';
-                const avatarUrl = mb.profile?.avatarUrl || mb.user?.profile?.avatarUrl;
-                const isSelected = selectedMemberId === memberId;
-                const memberMomentsCount = moments.filter(
-                  (m: any) => m.userId === memberId || m.user?.id === memberId
-                ).length;
-
-                return (
-                  <TouchableOpacity
-                    key={memberId}
-                    activeOpacity={0.8}
-                    onPress={() => handleSelectFilter(memberId)}
-                    style={[
-                      styles.filterOptionItem,
-                      {
-                        backgroundColor: isSelected ? `${colors.primary}15` : colors.surface,
-                        borderColor: isSelected ? colors.primary : colors.hairline,
-                      },
-                    ]}
-                  >
-                    <View style={[styles.filterOptionAvatar, { backgroundColor: `${colors.primary}20` }]}>
-                      {avatarUrl ? (
-                        <RNImage source={{ uri: avatarUrl }} style={styles.filterOptionAvatarImg} />
-                      ) : (
-                        <Text style={[styles.filterOptionAvatarText, { color: colors.primary }]}>
-                          {getInitials(displayName)}
-                        </Text>
-                      )}
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.filterOptionTitle, { color: colors.text }]}>
-                        {displayName}
-                      </Text>
-                      <Text style={[styles.filterOptionSub, { color: colors.subtle }]}>
-                        {memberMomentsCount} khoảnh khắc
-                      </Text>
-                    </View>
-                    {isSelected && (
-                      <Check size={18} color={colors.primary} />
-                    )}
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </Modal>
 
       {/* =========================================================================
           ACTION MENU MODAL (POPOVER / BOTTOM SHEET) GẮN LIỀN VỚI ẢNH ĐANG HIỂN THỊ
@@ -992,53 +973,109 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     paddingHorizontal: 16,
-    paddingTop: 6,
+    paddingTop: 8,
     paddingBottom: 4,
-    zIndex: 10,
+    zIndex: 20,
   },
   friendsCountBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 5,
-    borderRadius: 16,
+    gap: 8,
+    paddingHorizontal: 18,
+    paddingVertical: 7,
+    borderRadius: 20,
   },
   friendsCountText: {
-    fontSize: 12,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '800',
+    letterSpacing: -0.2,
   },
   memberFilterPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 16,
-    borderWidth: 1,
-    maxWidth: 160,
+    gap: 8,
+    paddingHorizontal: 18,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1.2,
+    maxWidth: 180,
   },
   memberFilterPillText: {
-    fontSize: 12,
+    fontSize: 14,
+    fontWeight: '800',
+    letterSpacing: -0.2,
+  },
+  inlineDropdownWrapper: {
+    position: 'absolute',
+    top: 56,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 50,
+    alignItems: 'center',
+  },
+  inlineDropdownMenu: {
+    width: 260,
+    borderRadius: 20,
+    borderWidth: 1.2,
+    paddingVertical: 6,
+    paddingHorizontal: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 12,
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 14,
+    borderBottomWidth: 0.5,
+  },
+  dropdownAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  dropdownAvatarImg: {
+    width: '100%',
+    height: '100%',
+  },
+  dropdownAvatarText: {
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  dropdownItemTitle: {
+    fontSize: 13,
     fontWeight: '700',
+  },
+  dropdownItemSub: {
+    fontSize: 10,
+    marginTop: 1,
   },
   replyingBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
   },
   replyingBadgeText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
   },
   pageContainer: {
     width: SCREEN_WIDTH,
     alignItems: 'center',
     justifyContent: 'flex-start',
-    paddingTop: 14, // Dịch xuống nhẹ nhàng tạo khoảng cách cân đối
+    paddingTop: 14,
     paddingBottom: 72,
   },
   cameraContent: {
@@ -1141,8 +1178,8 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   fixedControlsArea: {
-    height: 90,
-    marginTop: 14, // Khoảng cách bằng với khoảng cách từ thanh tiêu đề trên đến ảnh
+    height: 94,
+    marginTop: 14,
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
@@ -1151,26 +1188,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 34,
+    gap: 32,
   },
   sideControlBtn: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    borderWidth: 1,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    borderWidth: 1.2,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOpacity: 0.12,
+    shadowRadius: 5,
+    elevation: 4,
   },
   locketMainShutterOuter: {
-    width: 82,
-    height: 82,
-    borderRadius: 41,
-    borderWidth: 4.5,
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    borderWidth: 5,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
@@ -1180,9 +1217,9 @@ const styles = StyleSheet.create({
     elevation: 12,
   },
   locketMainShutterInner: {
-    width: 66,
-    height: 66,
-    borderRadius: 33,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1223,15 +1260,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
   },
-  scrollDownCue: {
+  historyCueBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    marginTop: 4,
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 18,
+    borderWidth: 1,
+    marginTop: 8,
   },
-  scrollDownText: {
-    fontSize: 12,
-    fontWeight: '600',
+  historyCueThumb: {
+    width: 24,
+    height: 24,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  historyCueText: {
+    fontSize: 13,
+    fontWeight: '700',
   },
   momentFeedCard: {
     borderRadius: 28,
@@ -1519,37 +1566,5 @@ const styles = StyleSheet.create({
   },
   actionItemDesc: {
     fontSize: 11,
-  },
-  filterOptionItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    padding: 12,
-    borderRadius: 16,
-    borderWidth: 1,
-  },
-  filterOptionAvatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  filterOptionAvatarImg: {
-    width: '100%',
-    height: '100%',
-  },
-  filterOptionAvatarText: {
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  filterOptionTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  filterOptionSub: {
-    fontSize: 11,
-    marginTop: 1,
   },
 });
