@@ -98,27 +98,10 @@ export default function ProfileTab() {
             {displayName}
           </Text>
 
-          <Text style={[styles.emailText, { color: colors.subtle }]}>
-            {user?.email}
-          </Text>
-
           {/* Bio Box */}
-          {bio ? (
-            <View style={[styles.bioBox, { backgroundColor: colors.wash, borderColor: colors.hairline }]}>
-              <Quote size={12} color={colors.primary} style={{ opacity: 0.7 }} />
-              <Text style={[styles.bioText, { color: colors.text }]}>
-                {bio}
-              </Text>
-            </View>
-          ) : null}
-
-          {/* Role Badge */}
-          <View style={[styles.roleBadge, { backgroundColor: colors.wash }]}>
-            <Shield size={13} color={colors.primary} />
-            <Text style={[styles.roleText, { color: colors.primary }]}>
-              {roleLabel}
-            </Text>
-          </View>
+          <Text style={[styles.bioSubText, { color: colors.subtle }]}>
+            {bio || t.auth.noBio}
+          </Text>
 
           {/* Edit Profile Button */}
           <TouchableOpacity
@@ -247,24 +230,14 @@ const styles = StyleSheet.create({
     borderColor: '#FFFFFF',
   },
   avatarText: { fontSize: 28, fontWeight: '800' },
-  nameText: { fontSize: 20, fontWeight: '800', marginBottom: 2 },
-  emailText: { fontSize: 13, marginBottom: 8 },
-  bioBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 14,
-    borderWidth: 1,
-    marginBottom: 10,
-    maxWidth: '92%',
-  },
-  bioText: {
-    fontSize: 12,
-    fontWeight: '500',
-    fontStyle: 'italic',
-    flexShrink: 1,
+  nameText: { fontSize: 20, fontWeight: '800', marginBottom: 4 },
+  bioSubText: {
+    fontSize: 13,
+    fontWeight: '400',
+    textAlign: 'center',
+    marginBottom: 16,
+    paddingHorizontal: 12,
+    lineHeight: 18,
   },
   roleBadge: {
     flexDirection: 'row',

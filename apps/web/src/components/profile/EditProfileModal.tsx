@@ -4,16 +4,12 @@ import React, { useState, useEffect } from 'react';
 import {
   X,
   User,
-  Mail,
-  Shield,
   Check,
   Image as ImageIcon,
   Loader2,
+  Camera,
   Pencil,
   ArrowLeft,
-  Quote,
-  CheckCircle2,
-  Sparkles,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguageStore } from '../../stores/language.store';
@@ -59,7 +55,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
       setAvatarUrl(user.profile?.avatarUrl || '');
       setSuccessMessage(null);
       setErrorMessage(null);
-      setIsEditing(false); // Default to View Mode on opening
+      setIsEditing(false); // Mặc định ở chế độ xem
     }
   }, [user, isOpen]);
 
@@ -90,7 +86,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
       setSuccessMessage(t.auth.profileUpdatedSuccess);
       setTimeout(() => {
         setSuccessMessage(null);
-        setIsEditing(false); // Switch back to View Mode with updated data
+        setIsEditing(false); // Trở lại Chế độ Xem với thông tin mới
       }, 700);
     } catch (err: any) {
       setErrorMessage(err?.message || t.common.unknownError);
@@ -99,7 +95,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-circle-charcoal/40 dark:bg-black/60 backdrop-blur-sm animate-fadeIn">
-      <div className="relative w-full max-w-lg rounded-3xl border border-circle-hairline dark:border-circle-dark-hairline bg-white/95 dark:bg-circle-dark-surface/95 p-6 shadow-2xl backdrop-blur-xl transition-all">
+      <div className="relative w-full max-w-md rounded-3xl border border-circle-hairline dark:border-circle-dark-hairline bg-white/95 dark:bg-circle-dark-surface/95 p-6 shadow-2xl backdrop-blur-xl transition-all">
         {/* Modal Header */}
         <div className="flex items-center justify-between pb-4 border-b border-circle-hairline dark:border-circle-dark-hairline">
           <div className="flex items-center gap-2.5">
@@ -125,7 +121,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
                 {isEditing ? t.auth.editProfile : t.auth.profile}
               </h3>
               <p className="text-xs text-circle-slate dark:text-circle-dark-muted">
-                {isEditing ? t.auth.editProfileSubtitle : user.email}
+                {isEditing ? t.auth.editProfileSubtitle : t.common.slogan}
               </p>
             </div>
           </div>
@@ -152,113 +148,48 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
           </div>
         )}
 
-        {/* MODE 1: VIEW PROFILE MODE */}
+        {/* MODE 1: CHẾ ĐỘ XEM THÔNG TIN CÁ NHÂN (CHỈ CÓ AVATAR, TÊN VÀ TIỂU SỬ NHỎ DƯỚI TÊN) */}
         {!isEditing ? (
-          <div className="mt-5 space-y-5 animate-fadeIn">
-            {/* Avatar & Display Name Banner */}
-            <div className="flex flex-col items-center text-center">
-              <div className="relative group">
-                <div className="relative flex h-24 w-24 items-center justify-center rounded-full border-2 border-circle-primary/40 bg-circle-wash dark:bg-circle-dark-elevated shadow-lg overflow-hidden">
-                  {currentAvatarUrl ? (
-                    <img
-                      src={currentAvatarUrl}
-                      alt={currentDisplayName}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <span className="text-3xl font-extrabold text-circle-charcoal dark:text-circle-dark-text">
-                      {currentInitials}
-                    </span>
-                  )}
-                </div>
-
-                {/* Edit Pencil Badge on Avatar */}
-                <button
-                  type="button"
-                  onClick={() => setIsEditing(true)}
-                  className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full bg-circle-charcoal dark:bg-circle-primary text-white dark:text-circle-charcoal shadow-md hover:scale-105 transition-transform"
-                  title={t.auth.editProfile}
-                >
-                  <Pencil className="h-4 w-4" />
-                </button>
+          <div className="mt-6 flex flex-col items-center text-center animate-fadeIn">
+            {/* Avatar kèm nút máy ảnh Camera */}
+            <div className="relative group">
+              <div className="relative flex h-28 w-28 items-center justify-center rounded-full border-2 border-circle-primary/40 bg-circle-wash dark:bg-circle-dark-elevated shadow-lg overflow-hidden">
+                {currentAvatarUrl ? (
+                  <img
+                    src={currentAvatarUrl}
+                    alt={currentDisplayName}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <span className="text-3xl font-extrabold text-circle-charcoal dark:text-circle-dark-text">
+                    {currentInitials}
+                  </span>
+                )}
               </div>
 
-              <div className="mt-3 flex items-center gap-2">
-                <h4 className="text-xl font-black text-circle-charcoal dark:text-circle-dark-text">
-                  {currentDisplayName}
-                </h4>
-                <button
-                  type="button"
-                  onClick={() => setIsEditing(true)}
-                  className="rounded-full p-1 text-circle-slate hover:bg-circle-canvas dark:hover:bg-circle-dark-elevated hover:text-circle-charcoal dark:hover:text-circle-dark-text transition-colors"
-                  title={t.auth.editProfile}
-                >
-                  <Pencil className="h-3.5 w-3.5 text-circle-sage dark:text-circle-primary" />
-                </button>
-              </div>
-
-              <div className="mt-1 flex items-center gap-2">
-                <span className="inline-flex items-center gap-1 rounded-full bg-circle-primary/20 px-2.5 py-0.5 text-[11px] font-bold text-circle-sage dark:text-circle-primary">
-                  <Shield className="h-3 w-3" />
-                  {user.globalRole === 'ADMIN' ? t.auth.admin : t.auth.member}
-                </span>
-                <span className="inline-flex items-center gap-1 rounded-full bg-circle-success/15 px-2.5 py-0.5 text-[11px] font-semibold text-circle-success">
-                  <CheckCircle2 className="h-3 w-3" />
-                  {t.home.onlineStatus}
-                </span>
-              </div>
+              {/* Nút Máy ảnh Camera ở góc avatar */}
+              <button
+                type="button"
+                onClick={() => setIsEditing(true)}
+                className="absolute bottom-1 right-1 flex h-8 w-8 items-center justify-center rounded-full bg-circle-charcoal dark:bg-circle-primary text-white dark:text-circle-charcoal shadow-md hover:scale-110 transition-transform"
+                title={t.auth.changeAvatar}
+              >
+                <Camera className="h-4 w-4" />
+              </button>
             </div>
 
-            {/* Bio Box */}
-            <div className="rounded-2xl border border-circle-hairline/80 dark:border-circle-dark-hairline/80 bg-circle-wash/40 dark:bg-circle-dark-elevated/40 p-4">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="flex items-center gap-1.5 text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
-                  <Quote className="h-3.5 w-3.5 text-circle-sage dark:text-circle-primary" />
-                  {t.auth.bio}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setIsEditing(true)}
-                  className="text-[11px] font-semibold text-circle-sage dark:text-circle-primary hover:underline"
-                >
-                  {currentBio ? t.auth.editProfile : '+ Thêm tiểu sử'}
-                </button>
-              </div>
-              {currentBio ? (
-                <p className="text-xs italic text-circle-charcoal dark:text-circle-dark-text leading-relaxed">
-                  "{currentBio}"
-                </p>
-              ) : (
-                <p className="text-xs italic text-circle-slate dark:text-circle-dark-muted">
-                  {t.auth.noBio}
-                </p>
-              )}
-            </div>
+            {/* Tên hiển thị */}
+            <h4 className="mt-4 text-xl font-black text-circle-charcoal dark:text-circle-dark-text tracking-tight">
+              {currentDisplayName}
+            </h4>
 
-            {/* Account Details */}
-            <div className="rounded-2xl border border-circle-hairline/80 dark:border-circle-dark-hairline/80 bg-white/60 dark:bg-circle-dark-surface/60 p-4 space-y-2.5">
-              <div className="flex items-center justify-between text-xs">
-                <span className="flex items-center gap-1.5 text-circle-slate dark:text-circle-dark-muted font-medium">
-                  <Mail className="h-3.5 w-3.5" />
-                  {t.auth.email}
-                </span>
-                <span className="font-semibold text-circle-charcoal dark:text-circle-dark-text">
-                  {user.email}
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-xs pt-2 border-t border-circle-hairline/50 dark:border-circle-dark-hairline/50">
-                <span className="flex items-center gap-1.5 text-circle-slate dark:text-circle-dark-muted font-medium">
-                  <Sparkles className="h-3.5 w-3.5 text-circle-coral" />
-                  {t.common.dualTokenSecurity}
-                </span>
-                <span className="font-semibold text-circle-success text-[11px]">
-                  {t.home.dualTokenSecured}
-                </span>
-              </div>
-            </div>
+            {/* Tiểu sử nhỏ ở dưới tên */}
+            <p className="mt-1.5 max-w-xs text-xs text-circle-slate dark:text-circle-dark-muted leading-relaxed">
+              {currentBio || t.auth.noBio}
+            </p>
 
-            {/* View Mode Action Button: Edit Profile */}
-            <div className="pt-2 flex items-center justify-end gap-3">
+            {/* Nút Chỉnh sửa hồ sơ */}
+            <div className="mt-6 flex w-full items-center justify-center gap-3 pt-4 border-t border-circle-hairline dark:border-circle-dark-hairline">
               <button
                 type="button"
                 onClick={onClose}
@@ -277,12 +208,12 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
             </div>
           </div>
         ) : (
-          /* MODE 2: EDIT PROFILE FORM */
+          /* MODE 2: CHẾ ĐỘ CHỈNH SỬA (AVATAR MÁY ẢNH, TÊN, TIỂU SỬ) */
           <form onSubmit={handleSubmit} className="mt-5 space-y-5 animate-fadeIn">
-            {/* Avatar Picker & Preview */}
+            {/* Chọn ảnh đại diện (Presets & Custom URL) */}
             <div className="flex flex-col items-center gap-3">
               <div className="relative group">
-                <div className="relative flex h-20 w-20 items-center justify-center rounded-full border-2 border-circle-primary/40 bg-circle-wash dark:bg-circle-dark-elevated shadow-md overflow-hidden">
+                <div className="relative flex h-24 w-24 items-center justify-center rounded-full border-2 border-circle-primary/40 bg-circle-wash dark:bg-circle-dark-elevated shadow-md overflow-hidden">
                   {avatarUrl ? (
                     <img
                       src={avatarUrl}
@@ -296,15 +227,18 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
                     </span>
                   )}
                 </div>
+                <div className="absolute bottom-0 right-0 flex h-7 w-7 items-center justify-center rounded-full bg-circle-charcoal dark:bg-circle-primary text-white dark:text-circle-charcoal shadow-sm">
+                  <Camera className="h-3.5 w-3.5" />
+                </div>
               </div>
 
-              {/* Quick Avatar Presets */}
+              {/* Danh sách ảnh chọn nhanh */}
               <div className="w-full">
                 <p className="text-xs font-semibold text-circle-slate dark:text-circle-dark-muted text-center mb-2">
-                  {t.auth.changeAvatar} (Chọn nhanh hoặc nhập URL)
+                  {t.auth.changeAvatar} (Chọn ảnh mẫu hoặc nhập link)
                 </p>
                 <div className="flex items-center justify-center gap-2 flex-wrap">
-                  {/* Default Initials Option */}
+                  {/* Mặc định viết tắt */}
                   <button
                     type="button"
                     onClick={() => setAvatarUrl('')}
@@ -347,7 +281,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
                   </button>
                 </div>
 
-                {/* Custom Image URL input */}
+                {/* Nhập URL ảnh tự do */}
                 {showCustomUrlInput && (
                   <div className="mt-2.5 animate-fadeIn">
                     <input
@@ -362,7 +296,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
               </div>
             </div>
 
-            {/* Display Name Input */}
+            {/* Ô nhập Tên hiển thị */}
             <div>
               <label className="block text-xs font-bold text-circle-charcoal dark:text-circle-dark-text mb-1.5">
                 {t.auth.displayName} <span className="text-circle-coral">*</span>
@@ -377,7 +311,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
               />
             </div>
 
-            {/* Bio Input */}
+            {/* Ô nhập Tiểu sử */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="block text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
@@ -397,7 +331,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
               />
             </div>
 
-            {/* Form Actions */}
+            {/* Nút bấm Form */}
             <div className="flex items-center justify-end gap-3 pt-2">
               <button
                 type="button"
