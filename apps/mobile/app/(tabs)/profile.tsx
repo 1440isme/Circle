@@ -109,6 +109,11 @@ export default function ProfileTab() {
             {displayName}
           </Text>
 
+          {/* Bio Box */}
+          <Text style={[styles.bioSubText, { color: colors.subtle }]}>
+            {bio || t.auth.noBio}
+          </Text>
+
           {/* Date of Birth Badge */}
           {dateOfBirth ? (
             <View style={[styles.dobBadge, { backgroundColor: `${colors.primary}15` }]}>
@@ -117,11 +122,6 @@ export default function ProfileTab() {
               </Text>
             </View>
           ) : null}
-
-          {/* Bio Box */}
-          <Text style={[styles.bioSubText, { color: colors.subtle }]}>
-            {bio || t.auth.noBio}
-          </Text>
 
           {/* Edit Profile Button */}
           <TouchableOpacity
@@ -256,7 +256,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 12,
-    marginBottom: 8,
+    marginBottom: 16,
   },
   dobText: {
     fontSize: 12,
@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '400',
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: 10,
     paddingHorizontal: 12,
     lineHeight: 18,
   },
