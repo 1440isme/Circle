@@ -16,6 +16,7 @@ export const JoinCircleModal: React.FC = () => {
   const [inviteCode, setInviteCode] = useState('');
   const [fieldError, setFieldError] = useState<string | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
+  const [pendingNotice, setPendingNotice] = useState<string | null>(null);
 
   const joinCircleMutation = useJoinCircleMutation();
 
@@ -27,6 +28,7 @@ export const JoinCircleModal: React.FC = () => {
     setInviteCode('');
     setFieldError(null);
     setServerError(null);
+    setPendingNotice(null);
     setJoinModalOpen(false);
   };
 
@@ -35,12 +37,14 @@ export const JoinCircleModal: React.FC = () => {
     setInviteCode(rawVal);
     if (fieldError) setFieldError(null);
     if (serverError) setServerError(null);
+    if (pendingNotice) setPendingNotice(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFieldError(null);
     setServerError(null);
+    setPendingNotice(null);
 
     const schemas = createCircleSchemas(locale);
     const parsed = schemas.joinCircleSchema.safeParse({ inviteCode });
@@ -52,10 +56,15 @@ export const JoinCircleModal: React.FC = () => {
     }
 
     try {
-      await joinCircleMutation.mutateAsync({
+      const res = await joinCircleMutation.mutateAsync({
         inviteCode: parsed.data.inviteCode,
       });
-      handleClose();
+
+      if (res?.isPending) {
+        setPendingNotice(t.circle.joinRequestSent);
+      } else {
+        handleClose();
+      }
     } catch (err: any) {
       setServerError(err.message || t.circle.inviteCodeNotFound);
     }
@@ -105,8 +114,33 @@ export const JoinCircleModal: React.FC = () => {
           </div>
         )}
 
-        {/* Join Form */}
-        <form onSubmit={handleSubmit} className="space-y-5">
+        {/* Pending Join Request Sent Alert */}
+        {pendingNotice ? (
+          <div className="space-y-4 py-2 text-center animate-fade-in">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
+              <KeyRound className="h-7 w-7" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
+                {t.circle.privacyPrivate}
+              </h3>
+              <p className="mt-1 text-xs text-circle-slate dark:text-circle-dark-muted px-2">
+                {pendingNotice}
+              </p>
+            </div>
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={handleClose}
+                className="w-full rounded-2xl bg-circle-primary hover:bg-circle-primary/90 text-circle-charcoal py-2.5 text-xs font-bold transition-all shadow-sm"
+              >
+                {t.common.confirm}
+              </button>
+            </div>
+          </div>
+        ) : (
+          /* Join Form */
+          <form onSubmit={handleSubmit} className="space-y-5">
           <div className="space-y-1.5">
             <label className="block text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text">
               {t.circle.inviteCodeLabel}
@@ -162,6 +196,7 @@ export const JoinCircleModal: React.FC = () => {
             </button>
           </div>
         </form>
+        )}
       </div>
     </div>
   );

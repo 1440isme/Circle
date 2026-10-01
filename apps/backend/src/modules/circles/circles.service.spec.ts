@@ -417,7 +417,7 @@ describe('CirclesService — Unit Tests (US-CIRCLE-001 & US-CIRCLE-002)', () => 
         coverUrl: null,
         description: 'Cùng nhau chinh phục các đỉnh núi',
         inviteCode,
-        isPrivate: true,
+        isPrivate: false,
         deletedAt: null,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -461,6 +461,57 @@ describe('CirclesService — Unit Tests (US-CIRCLE-001 & US-CIRCLE-002)', () => 
         deletedAt: null,
         members: [{ id: 'm-existing', userId }],
         _count: { members: 2 },
+      });
+
+      await expect(
+        service.joinByInviteCode(userId, { inviteCode }),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('should create a pending join request when Circle is private', async () => {
+      mockPrisma.circleInvite.findUnique.mockResolvedValue(null);
+      mockPrisma.circle.findUnique.mockResolvedValue({
+        id: 'circle-private-123',
+        name: 'Nhóm Riêng Tư',
+        handle: 'nhom-rieng-tu',
+        inviteCode,
+        isPrivate: true,
+        deletedAt: null,
+        members: [],
+        _count: { members: 3 },
+      });
+      mockPrisma.circleJoinRequest.findUnique.mockResolvedValue(null);
+      mockPrisma.circleJoinRequest.create.mockResolvedValue({
+        id: 'req-1',
+        circleId: 'circle-private-123',
+        userId,
+        status: 'PENDING',
+      });
+
+      const result = await service.joinByInviteCode(userId, { inviteCode });
+
+      expect(result.success).toBe(true);
+      expect(result.statusCode).toBe(202);
+      expect(result.data.isPending).toBe(true);
+      expect(mockPrisma.circleJoinRequest.create).toHaveBeenCalled();
+      expect(mockPrisma.circleMember.create).not.toHaveBeenCalled();
+    });
+
+    it('should throw ConflictException if private circle join request is already pending', async () => {
+      mockPrisma.circleInvite.findUnique.mockResolvedValue(null);
+      mockPrisma.circle.findUnique.mockResolvedValue({
+        id: 'circle-private-123',
+        inviteCode,
+        isPrivate: true,
+        deletedAt: null,
+        members: [],
+        _count: { members: 3 },
+      });
+      mockPrisma.circleJoinRequest.findUnique.mockResolvedValue({
+        id: 'req-pending-1',
+        circleId: 'circle-private-123',
+        userId,
+        status: 'PENDING',
       });
 
       await expect(
