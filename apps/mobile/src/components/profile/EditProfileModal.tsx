@@ -276,27 +276,7 @@ export function EditProfileModal({ visible, initialMode = 'edit', onClose }: Edi
                   />
                 </View>
 
-                {/* Date of Birth Input */}
-                <View style={styles.inputGroup}>
-                  <Text style={[styles.inputLabel, { color: colors.text }]}>
-                    {t.auth.dateOfBirth} (YYYY-MM-DD)
-                  </Text>
-                  <TextInput
-                    value={dateOfBirth}
-                    onChangeText={setDateOfBirth}
-                    placeholder="2002-08-15"
-                    placeholderTextColor={colors.subtle}
-                    maxLength={10}
-                    style={[
-                      styles.textInput,
-                      {
-                        backgroundColor: colors.wash,
-                        borderColor: colors.hairline,
-                        color: colors.text,
-                      },
-                    ]}
-                  />
-                </View>
+
 
                 {/* Bio Input */}
                 <View style={styles.inputGroup}>
@@ -318,6 +298,27 @@ export function EditProfileModal({ visible, initialMode = 'edit', onClose }: Edi
                     numberOfLines={3}
                     style={[
                       styles.textAreaInput,
+                      {
+                        backgroundColor: colors.wash,
+                        borderColor: colors.hairline,
+                        color: colors.text,
+                      },
+                    ]}
+                  />
+                </View>
+                {/* Date of Birth Input */}
+                <View style={styles.inputGroup}>
+                  <Text style={[styles.inputLabel, { color: colors.text }]}>
+                    {t.auth.dateOfBirth} (YYYY-MM-DD)
+                  </Text>
+                  <TextInput
+                    value={dateOfBirth}
+                    onChangeText={setDateOfBirth}
+                    placeholder="2002-08-15"
+                    placeholderTextColor={colors.subtle}
+                    maxLength={10}
+                    style={[
+                      styles.textInput,
                       {
                         backgroundColor: colors.wash,
                         borderColor: colors.hairline,

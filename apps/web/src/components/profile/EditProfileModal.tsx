@@ -255,6 +255,12 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
               {currentDisplayName}
             </h4>
 
+
+
+            {/* Tiểu sử nhỏ dưới tên */}
+            <p className="mt-2 max-w-xs text-xs text-circle-slate dark:text-circle-dark-muted leading-relaxed">
+              {currentBio || t.auth.noBio}
+            </p>
             {/* Năm sinh / Ngày sinh */}
             {currentDateOfBirth && (
               <div className="mt-1.5 flex items-center gap-1.5 text-xs font-semibold text-circle-sage dark:text-circle-primary bg-circle-primary/10 px-3 py-1 rounded-full">
@@ -264,11 +270,6 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
                 </span>
               </div>
             )}
-
-            {/* Tiểu sử nhỏ dưới tên */}
-            <p className="mt-2 max-w-xs text-xs text-circle-slate dark:text-circle-dark-muted leading-relaxed">
-              {currentBio || t.auth.noBio}
-            </p>
 
             {/* Chỉ duy nhất Nút Chỉnh sửa hồ sơ (Không có nút hủy bên trái) */}
             <div className="mt-6 flex w-full items-center justify-center pt-4 border-t border-circle-hairline dark:border-circle-dark-hairline">
@@ -315,11 +316,10 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
                   <button
                     type="button"
                     onClick={() => setAvatarUrl('')}
-                    className={`flex h-10 w-10 items-center justify-center rounded-full border text-xs font-bold transition-all ${
-                      !avatarUrl
+                    className={`flex h-10 w-10 items-center justify-center rounded-full border text-xs font-bold transition-all ${!avatarUrl
                         ? 'border-circle-primary ring-2 ring-circle-primary/30 bg-circle-primary text-circle-charcoal'
                         : 'border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-elevated text-circle-slate dark:text-circle-dark-muted'
-                    }`}
+                      }`}
                     title="Mặc định viết tắt"
                   >
                     {currentInitials}
@@ -330,11 +330,10 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
                       key={idx}
                       type="button"
                       onClick={() => setAvatarUrl(preset)}
-                      className={`relative h-10 w-10 rounded-full overflow-hidden border transition-all ${
-                        avatarUrl === preset
+                      className={`relative h-10 w-10 rounded-full overflow-hidden border transition-all ${avatarUrl === preset
                           ? 'border-circle-primary ring-2 ring-circle-primary/40 scale-105'
                           : 'border-circle-hairline dark:border-circle-dark-hairline opacity-75 hover:opacity-100'
-                      }`}
+                        }`}
                     >
                       <img src={preset} alt={`Preset ${idx + 1}`} className="h-full w-full object-cover" />
                     </button>
@@ -343,11 +342,10 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
                   <button
                     type="button"
                     onClick={() => setShowCustomUrlInput(!showCustomUrlInput)}
-                    className={`flex h-10 w-10 items-center justify-center rounded-full border transition-all ${
-                      showCustomUrlInput
+                    className={`flex h-10 w-10 items-center justify-center rounded-full border transition-all ${showCustomUrlInput
                         ? 'border-circle-primary bg-circle-primary/20 text-circle-sage dark:text-circle-primary'
                         : 'border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-elevated text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal'
-                    }`}
+                      }`}
                     title="Nhập URL ảnh tự chọn"
                   >
                     <ImageIcon className="h-4 w-4" />
@@ -414,19 +412,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
               />
             </div>
 
-            {/* Ngày sinh / Năm sinh */}
-            <div>
-              <label className="block text-xs font-bold text-circle-charcoal dark:text-circle-dark-text mb-1.5">
-                {t.auth.dateOfBirth}
-              </label>
-              <input
-                type="date"
-                value={dateOfBirth}
-                onChange={(e) => setDateOfBirth(e.target.value)}
-                max={new Date().toISOString().split('T')[0]}
-                className="w-full rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas px-4 py-2.5 text-sm text-circle-charcoal dark:text-circle-dark-text focus:border-circle-sage focus:outline-none focus:ring-2 focus:ring-circle-primary/20 transition-all font-medium"
-              />
-            </div>
+
 
             {/* Tiểu sử */}
             <div>
@@ -445,6 +431,20 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
                 maxLength={300}
                 rows={3}
                 className="w-full rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas px-4 py-2.5 text-sm text-circle-charcoal dark:text-circle-dark-text placeholder:text-circle-slate dark:placeholder:text-circle-dark-muted focus:border-circle-sage focus:outline-none focus:ring-2 focus:ring-circle-primary/20 transition-all font-medium resize-none"
+              />
+            </div>
+
+            {/* Ngày sinh / Năm sinh */}
+            <div>
+              <label className="block text-xs font-bold text-circle-charcoal dark:text-circle-dark-text mb-1.5">
+                {t.auth.dateOfBirth}
+              </label>
+              <input
+                type="date"
+                value={dateOfBirth}
+                onChange={(e) => setDateOfBirth(e.target.value)}
+                max={new Date().toISOString().split('T')[0]}
+                className="w-full rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas px-4 py-2.5 text-sm text-circle-charcoal dark:text-circle-dark-text focus:border-circle-sage focus:outline-none focus:ring-2 focus:ring-circle-primary/20 transition-all font-medium"
               />
             </div>
 
