@@ -607,14 +607,12 @@ export class AuthService {
         displayName: dto.displayName || user.email.split('@')[0] || 'User',
         avatarUrl: dto.avatarUrl,
         bio: dto.bio,
-        coverUrl: dto.coverUrl,
         dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : null,
       },
       update: {
         ...(dto.displayName !== undefined && { displayName: dto.displayName }),
         ...(dto.avatarUrl !== undefined && { avatarUrl: dto.avatarUrl }),
         ...(dto.bio !== undefined && { bio: dto.bio }),
-        ...(dto.coverUrl !== undefined && { coverUrl: dto.coverUrl }),
         ...(dto.dateOfBirth !== undefined && {
           dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : null,
         }),

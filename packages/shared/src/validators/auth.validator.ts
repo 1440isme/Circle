@@ -132,7 +132,6 @@ export function createAuthSchemas(locale: Locale = 'vi') {
       .optional(),
     avatarUrl: z.string().trim().nullable().optional(),
     bio: z.string().trim().max(300).nullable().optional(),
-    coverUrl: z.string().trim().nullable().optional(),
     dateOfBirth: z.string().nullable().optional(),
   });
 

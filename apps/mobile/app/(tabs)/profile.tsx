@@ -35,8 +35,19 @@ export default function ProfileTab() {
   const displayName = user?.profile?.displayName || user?.email?.split('@')[0] || t.auth.guest;
   const avatarUrl = user?.profile?.avatarUrl;
   const bio = user?.profile?.bio;
+  const dateOfBirth = user?.profile?.dateOfBirth;
   const initials = getInitials(displayName);
-  const roleLabel = user?.globalRole === 'ADMIN' ? t.auth.admin : t.auth.member;
+  const [modalMode, setModalMode] = useState<'edit' | 'avatar'>('edit');
+
+  const handleOpenAvatar = () => {
+    setModalMode('avatar');
+    setIsEditModalVisible(true);
+  };
+
+  const handleOpenEdit = () => {
+    setModalMode('edit');
+    setIsEditModalVisible(true);
+  };
 
   const handleLogout = () => {
     Alert.alert(
@@ -79,7 +90,7 @@ export default function ProfileTab() {
           {/* Avatar with Edit Camera Overlay */}
           <TouchableOpacity
             activeOpacity={0.85}
-            onPress={() => setIsEditModalVisible(true)}
+            onPress={handleOpenAvatar}
             style={styles.avatarWrapper}
           >
             <View style={[styles.avatarBox, { backgroundColor: colors.primary, borderColor: colors.primary }]}>
@@ -98,6 +109,15 @@ export default function ProfileTab() {
             {displayName}
           </Text>
 
+          {/* Date of Birth Badge */}
+          {dateOfBirth ? (
+            <View style={[styles.dobBadge, { backgroundColor: `${colors.primary}15` }]}>
+              <Text style={[styles.dobText, { color: colors.primary }]}>
+                {t.auth.dateOfBirth}: {new Date(dateOfBirth).toLocaleDateString('vi-VN')}
+              </Text>
+            </View>
+          ) : null}
+
           {/* Bio Box */}
           <Text style={[styles.bioSubText, { color: colors.subtle }]}>
             {bio || t.auth.noBio}
@@ -106,11 +126,11 @@ export default function ProfileTab() {
           {/* Edit Profile Button */}
           <TouchableOpacity
             activeOpacity={0.8}
-            onPress={() => setIsEditModalVisible(true)}
-            style={[styles.editProfileBtn, { backgroundColor: colors.wash, borderColor: colors.hairline }]}
+            onPress={handleOpenEdit}
+            style={[styles.editProfileBtn, { backgroundColor: colors.primary }]}
           >
-            <Edit3 size={14} color={colors.primary} />
-            <Text style={[styles.editProfileBtnText, { color: colors.text }]}>
+            <Edit3 size={14} color={colors.onPrimary} />
+            <Text style={[styles.editProfileBtnText, { color: colors.onPrimary }]}>
               {t.auth.editProfile}
             </Text>
           </TouchableOpacity>
@@ -171,6 +191,7 @@ export default function ProfileTab() {
       {/* Edit Profile Modal */}
       <EditProfileModal
         visible={isEditModalVisible}
+        initialMode={modalMode}
         onClose={() => setIsEditModalVisible(false)}
       />
     </View>
@@ -231,6 +252,16 @@ const styles = StyleSheet.create({
   },
   avatarText: { fontSize: 28, fontWeight: '800' },
   nameText: { fontSize: 20, fontWeight: '800', marginBottom: 4 },
+  dobBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginBottom: 8,
+  },
+  dobText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
   bioSubText: {
     fontSize: 13,
     fontWeight: '400',

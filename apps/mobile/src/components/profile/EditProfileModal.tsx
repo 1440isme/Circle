@@ -13,13 +13,14 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import { X, User, Image as ImageIcon, Check, Sparkles } from 'lucide-react-native';
+import { X, User, Image as ImageIcon, Camera, Calendar } from 'lucide-react-native';
 import { useThemeStore } from '../../stores/theme.store';
 import { useLanguageStore } from '../../stores/language.store';
 import { useAuthStore } from '../../stores/auth.store';
 
 interface EditProfileModalProps {
   visible: boolean;
+  initialMode?: 'edit' | 'avatar';
   onClose: () => void;
 }
 
@@ -38,31 +39,43 @@ function getInitials(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-export function EditProfileModal({ visible, onClose }: EditProfileModalProps) {
+export function EditProfileModal({ visible, initialMode = 'edit', onClose }: EditProfileModalProps) {
   const { colors, resolvedTheme } = useThemeStore();
   const t = useLanguageStore((s) => s.t);
   const { user, updateProfile } = useAuthStore();
 
+  const [mode, setMode] = useState<'edit' | 'avatar'>(initialMode);
   const [displayName, setDisplayName] = useState('');
   const [bio, setBio] = useState('');
+  const [dateOfBirth, setDateOfBirth] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
   const [showCustomUrlInput, setShowCustomUrlInput] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const isDark = resolvedTheme === 'dark';
 
   useEffect(() => {
     if (user && visible) {
       setDisplayName(user.profile?.displayName || user.email?.split('@')[0] || '');
       setBio(user.profile?.bio || '');
       setAvatarUrl(user.profile?.avatarUrl || '');
+      const rawDob = user.profile?.dateOfBirth;
+      if (rawDob) {
+        try {
+          const d = new Date(rawDob);
+          setDateOfBirth(d.toISOString().split('T')[0]);
+        } catch {
+          setDateOfBirth('');
+        }
+      } else {
+        setDateOfBirth('');
+      }
       setShowCustomUrlInput(false);
+      setMode(initialMode);
     }
-  }, [user, visible]);
+  }, [user, visible, initialMode]);
 
   const initials = getInitials(displayName || user?.email || 'User');
 
-  const handleSave = async () => {
+  const handleSaveProfile = async () => {
     const trimmedName = displayName.trim();
     if (!trimmedName || trimmedName.length < 2) {
       Alert.alert(t.common.appName, t.validation.displayNameMinLength);
@@ -74,9 +87,24 @@ export function EditProfileModal({ visible, onClose }: EditProfileModalProps) {
       await updateProfile({
         displayName: trimmedName,
         bio: bio.trim() || null,
-        avatarUrl: avatarUrl.trim() || null,
+        dateOfBirth: dateOfBirth ? new Date(dateOfBirth).toISOString() : null,
       });
       Alert.alert(t.common.appName, t.auth.profileUpdatedSuccess);
+      onClose();
+    } catch (err: any) {
+      Alert.alert(t.common.appName, err?.message || t.common.unknownError);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSaveAvatar = async () => {
+    try {
+      setIsSubmitting(true);
+      await updateProfile({
+        avatarUrl: avatarUrl.trim() || null,
+      });
+      Alert.alert(t.common.appName, t.auth.avatarUpdatedSuccess);
       onClose();
     } catch (err: any) {
       Alert.alert(t.common.appName, err?.message || t.common.unknownError);
@@ -109,10 +137,14 @@ export function EditProfileModal({ visible, onClose }: EditProfileModalProps) {
           <View style={[styles.headerRow, { borderBottomColor: colors.hairline }]}>
             <View style={styles.headerLeft}>
               <View style={[styles.headerIconBox, { backgroundColor: `${colors.primary}20` }]}>
-                <User size={18} color={colors.primary} />
+                {mode === 'avatar' ? (
+                  <Camera size={18} color={colors.primary} />
+                ) : (
+                  <User size={18} color={colors.primary} />
+                )}
               </View>
               <Text style={[styles.headerTitle, { color: colors.text }]}>
-                {t.auth.editProfile}
+                {mode === 'avatar' ? t.auth.changeAvatarTitle : t.auth.editProfile}
               </Text>
             </View>
             <TouchableOpacity
@@ -128,86 +160,113 @@ export function EditProfileModal({ visible, onClose }: EditProfileModalProps) {
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
           >
-            {/* Avatar Preview */}
-            <View style={styles.avatarSection}>
-              <View style={[styles.avatarBox, { borderColor: colors.primary, backgroundColor: colors.wash }]}>
-                {avatarUrl ? (
-                  <RNImage
-                    source={{ uri: avatarUrl }}
-                    style={styles.avatarImage}
-                    resizeMode="cover"
-                  />
-                ) : (
-                  <Text style={[styles.avatarInitials, { color: colors.text }]}>{initials}</Text>
+            {/* AVATAR MODE */}
+            {mode === 'avatar' ? (
+              <View style={styles.avatarSection}>
+                <View style={[styles.avatarBox, { borderColor: colors.primary, backgroundColor: colors.wash }]}>
+                  {avatarUrl ? (
+                    <RNImage
+                      source={{ uri: avatarUrl }}
+                      style={styles.avatarImage}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <Text style={[styles.avatarInitials, { color: colors.text }]}>{initials}</Text>
+                  )}
+                </View>
+                <Text style={[styles.avatarSectionTitle, { color: colors.subtle }]}>
+                  {t.auth.quickAvatarChoose}
+                </Text>
+
+                {/* Avatar Presets Bar */}
+                <View style={styles.presetsRow}>
+                  {/* Default Initials Option */}
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    onPress={() => setAvatarUrl('')}
+                    style={[
+                      styles.presetBtn,
+                      {
+                        backgroundColor: !avatarUrl ? colors.primary : colors.wash,
+                        borderColor: !avatarUrl ? colors.primary : colors.hairline,
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.presetInitials, { color: !avatarUrl ? colors.onPrimary : colors.subtle }]}>
+                      {initials}
+                    </Text>
+                  </TouchableOpacity>
+
+                  {AVATAR_PRESETS.map((preset, idx) => {
+                    const isSelected = avatarUrl === preset;
+                    return (
+                      <TouchableOpacity
+                        key={idx}
+                        activeOpacity={0.8}
+                        onPress={() => setAvatarUrl(preset)}
+                        style={[
+                          styles.presetBtn,
+                          isSelected && { borderColor: colors.primary, borderWidth: 2.5 },
+                        ]}
+                      >
+                        <RNImage source={{ uri: preset }} style={styles.presetThumb} resizeMode="cover" />
+                      </TouchableOpacity>
+                    );
+                  })}
+
+                  {/* Custom URL Toggle Button */}
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    onPress={() => setShowCustomUrlInput(!showCustomUrlInput)}
+                    style={[
+                      styles.presetBtn,
+                      {
+                        backgroundColor: showCustomUrlInput ? `${colors.primary}25` : colors.wash,
+                        borderColor: showCustomUrlInput ? colors.primary : colors.hairline,
+                      },
+                    ]}
+                  >
+                    <ImageIcon size={14} color={showCustomUrlInput ? colors.primary : colors.subtle} />
+                  </TouchableOpacity>
+                </View>
+
+                {showCustomUrlInput && (
+                  <View style={styles.customUrlBox}>
+                    <TextInput
+                      value={avatarUrl}
+                      onChangeText={setAvatarUrl}
+                      placeholder="https://example.com/avatar.jpg"
+                      placeholderTextColor={colors.subtle}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      style={[
+                        styles.customUrlInput,
+                        {
+                          backgroundColor: colors.wash,
+                          borderColor: colors.hairline,
+                          color: colors.text,
+                        },
+                      ]}
+                    />
+                  </View>
                 )}
               </View>
-              <Text style={[styles.avatarSectionTitle, { color: colors.subtle }]}>
-                {t.auth.changeAvatar}
-              </Text>
-
-              {/* Avatar Presets Bar */}
-              <View style={styles.presetsRow}>
-                {/* Default Initials Option */}
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  onPress={() => setAvatarUrl('')}
-                  style={[
-                    styles.presetBtn,
-                    {
-                      backgroundColor: !avatarUrl ? colors.primary : colors.wash,
-                      borderColor: !avatarUrl ? colors.primary : colors.hairline,
-                    },
-                  ]}
-                >
-                  <Text style={[styles.presetInitials, { color: !avatarUrl ? colors.onPrimary : colors.subtle }]}>
-                    {initials}
+            ) : (
+              /* EDIT PROFILE MODE */
+              <View style={{ gap: 14 }}>
+                {/* Display Name Input */}
+                <View style={styles.inputGroup}>
+                  <Text style={[styles.inputLabel, { color: colors.text }]}>
+                    {t.auth.displayName} <Text style={{ color: colors.coral }}>*</Text>
                   </Text>
-                </TouchableOpacity>
-
-                {AVATAR_PRESETS.map((preset, idx) => {
-                  const isSelected = avatarUrl === preset;
-                  return (
-                    <TouchableOpacity
-                      key={idx}
-                      activeOpacity={0.8}
-                      onPress={() => setAvatarUrl(preset)}
-                      style={[
-                        styles.presetBtn,
-                        isSelected && { borderColor: colors.primary, borderWidth: 2.5 },
-                      ]}
-                    >
-                      <RNImage source={{ uri: preset }} style={styles.presetThumb} resizeMode="cover" />
-                    </TouchableOpacity>
-                  );
-                })}
-
-                {/* Custom URL Toggle Button */}
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  onPress={() => setShowCustomUrlInput(!showCustomUrlInput)}
-                  style={[
-                    styles.presetBtn,
-                    {
-                      backgroundColor: showCustomUrlInput ? `${colors.primary}25` : colors.wash,
-                      borderColor: showCustomUrlInput ? colors.primary : colors.hairline,
-                    },
-                  ]}
-                >
-                  <ImageIcon size={14} color={showCustomUrlInput ? colors.primary : colors.subtle} />
-                </TouchableOpacity>
-              </View>
-
-              {showCustomUrlInput && (
-                <View style={styles.customUrlBox}>
                   <TextInput
-                    value={avatarUrl}
-                    onChangeText={setAvatarUrl}
-                    placeholder="https://example.com/avatar.jpg"
+                    value={displayName}
+                    onChangeText={setDisplayName}
+                    placeholder={t.auth.displayNamePlaceholder}
                     placeholderTextColor={colors.subtle}
-                    autoCapitalize="none"
-                    autoCorrect={false}
+                    maxLength={50}
                     style={[
-                      styles.customUrlInput,
+                      styles.textInput,
                       {
                         backgroundColor: colors.wash,
                         borderColor: colors.hairline,
@@ -216,69 +275,59 @@ export function EditProfileModal({ visible, onClose }: EditProfileModalProps) {
                     ]}
                   />
                 </View>
-              )}
-            </View>
 
-            {/* Display Name Input */}
-            <View style={styles.inputGroup}>
-              <Text style={[styles.inputLabel, { color: colors.text }]}>
-                {t.auth.displayName} <Text style={{ color: colors.coral }}>*</Text>
-              </Text>
-              <TextInput
-                value={displayName}
-                onChangeText={setDisplayName}
-                placeholder={t.auth.displayNamePlaceholder}
-                placeholderTextColor={colors.subtle}
-                maxLength={50}
-                style={[
-                  styles.textInput,
-                  {
-                    backgroundColor: colors.wash,
-                    borderColor: colors.hairline,
-                    color: colors.text,
-                  },
-                ]}
-              />
-            </View>
+                {/* Date of Birth Input */}
+                <View style={styles.inputGroup}>
+                  <Text style={[styles.inputLabel, { color: colors.text }]}>
+                    {t.auth.dateOfBirth} (YYYY-MM-DD)
+                  </Text>
+                  <TextInput
+                    value={dateOfBirth}
+                    onChangeText={setDateOfBirth}
+                    placeholder="2002-08-15"
+                    placeholderTextColor={colors.subtle}
+                    maxLength={10}
+                    style={[
+                      styles.textInput,
+                      {
+                        backgroundColor: colors.wash,
+                        borderColor: colors.hairline,
+                        color: colors.text,
+                      },
+                    ]}
+                  />
+                </View>
 
-            {/* Bio Input */}
-            <View style={styles.inputGroup}>
-              <View style={styles.labelRow}>
-                <Text style={[styles.inputLabel, { color: colors.text }]}>
-                  {t.auth.bio}
-                </Text>
-                <Text style={[styles.counterText, { color: colors.subtle }]}>
-                  {bio.length}/300
-                </Text>
+                {/* Bio Input */}
+                <View style={styles.inputGroup}>
+                  <View style={styles.labelRow}>
+                    <Text style={[styles.inputLabel, { color: colors.text }]}>
+                      {t.auth.bio}
+                    </Text>
+                    <Text style={[styles.counterText, { color: colors.subtle }]}>
+                      {bio.length}/300
+                    </Text>
+                  </View>
+                  <TextInput
+                    value={bio}
+                    onChangeText={setBio}
+                    placeholder={t.auth.bioPlaceholder}
+                    placeholderTextColor={colors.subtle}
+                    maxLength={300}
+                    multiline
+                    numberOfLines={3}
+                    style={[
+                      styles.textAreaInput,
+                      {
+                        backgroundColor: colors.wash,
+                        borderColor: colors.hairline,
+                        color: colors.text,
+                      },
+                    ]}
+                  />
+                </View>
               </View>
-              <TextInput
-                value={bio}
-                onChangeText={setBio}
-                placeholder={t.auth.bioPlaceholder}
-                placeholderTextColor={colors.subtle}
-                maxLength={300}
-                multiline
-                numberOfLines={3}
-                style={[
-                  styles.textAreaInput,
-                  {
-                    backgroundColor: colors.wash,
-                    borderColor: colors.hairline,
-                    color: colors.text,
-                  },
-                ]}
-              />
-            </View>
-
-            {/* Account Info Readonly */}
-            <View style={[styles.readonlyCard, { backgroundColor: colors.wash, borderColor: colors.hairline }]}>
-              <Text style={[styles.readonlyItemText, { color: colors.subtle }]}>
-                Email: <Text style={{ color: colors.text, fontWeight: '700' }}>{user?.email}</Text>
-              </Text>
-              <Text style={[styles.readonlyItemText, { color: colors.subtle, marginTop: 4 }]}>
-                Vai trò: <Text style={{ color: colors.primary, fontWeight: '700' }}>{user?.globalRole === 'ADMIN' ? t.auth.admin : t.auth.member}</Text>
-              </Text>
-            </View>
+            )}
           </ScrollView>
 
           {/* Action Buttons */}
@@ -295,7 +344,7 @@ export function EditProfileModal({ visible, onClose }: EditProfileModalProps) {
             </TouchableOpacity>
 
             <TouchableOpacity
-              onPress={handleSave}
+              onPress={mode === 'avatar' ? handleSaveAvatar : handleSaveProfile}
               disabled={isSubmitting}
               style={[styles.saveBtn, { backgroundColor: colors.primary }]}
               activeOpacity={0.85}
@@ -367,12 +416,12 @@ const styles = StyleSheet.create({
   },
   avatarSection: {
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
   },
   avatarBox: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 88,
+    height: 88,
+    borderRadius: 44,
     borderWidth: 2,
     overflow: 'hidden',
     alignItems: 'center',
@@ -388,11 +437,11 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   avatarInitials: {
-    fontSize: 26,
+    fontSize: 28,
     fontWeight: '800',
   },
   avatarSectionTitle: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
   },
   presetsRow: {
@@ -403,9 +452,9 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   presetBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     borderWidth: 1,
     overflow: 'hidden',
     alignItems: 'center',
@@ -416,15 +465,15 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   presetInitials: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
   },
   customUrlBox: {
     width: '100%',
-    marginTop: 4,
+    marginTop: 6,
   },
   customUrlInput: {
-    height: 38,
+    height: 40,
     borderRadius: 12,
     borderWidth: 1,
     paddingHorizontal: 12,
@@ -463,15 +512,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     textAlignVertical: 'top',
-  },
-  readonlyCard: {
-    padding: 14,
-    borderRadius: 16,
-    borderWidth: 1,
-  },
-  readonlyItemText: {
-    fontSize: 12,
-    fontWeight: '500',
   },
   footerRow: {
     flexDirection: 'row',
