@@ -12,6 +12,7 @@ export const en: TranslationDictionary = {
     loading: 'Loading...',
     save: 'Save',
     cancel: 'Cancel',
+    confirm: 'Confirm',
     language: 'Language',
     vietnamese: 'Tiếng Việt',
     english: 'English',

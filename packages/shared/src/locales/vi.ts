@@ -10,6 +10,7 @@ export const vi = {
     loading: 'Đang tải...',
     save: 'Lưu',
     cancel: 'Hủy',
+    confirm: 'Xác nhận',
     language: 'Ngôn ngữ',
     vietnamese: 'Tiếng Việt',
     english: 'English',
