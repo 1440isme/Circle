@@ -2496,4 +2496,53 @@
 - **Official Source Checked:** `PROJECT_GOD.md` (Module 3, Definition of Done, 10 Hard Gates), `docs/phan-cong-nhiem-vu.md` (Hạnh: Module 3), SRS UC20, UC22, UC25, UC26.
 - **Security & License Check:** An toàn, không chứa API keys hay credentials.
 - **Commit:** `8b7020d`
-- **PR:** Pending (Chờ lệnh người dùng theo yêu cầu)
+- **PR:** #65
+
+---
+
+## AI-0061: Hoàn thiện Trải nghiệm Locket Camera Realtime, Zoom 0.5x/1x, Chế độ Dual View Song song và Điều hướng Khoảnh khắc Nhóm trên Mobile
+
+- **Date:** 2026-10-01 13:45:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #64 ([SUB-FEAT]: US-MOBILE-002 — Mobile Circle Core & Governance UI/UX)
+- **Purpose:** 
+  1. Tái cấu trúc và hoàn thiện trải nghiệm Camera Realtime Locket Widget trên Mobile React Native (`apps/mobile/src/components/moment/LocketMomentsView.tsx`):
+     - **Real Camera 60fps & 100% Realtime:** Tích hợp `expo-camera` (`CameraView`) với xử lý chụp ảnh tức thì qua Base64 & URI, loại bỏ hoàn toàn việc chọn ảnh từ thư viện để đảm bảo tính xác thực thời gian thực.
+     - **Điều khiển Zoom góc rộng (0.5x vs 1x):** Bổ sung nút chuyển đổi góc trên bên phải khung ngắm đối xứng với nút Flash, hỗ trợ thu nhỏ hiển thị toàn cảnh 0.5x (uncropped scale `0.78`) và góc tiêu chuẩn 1x.
+     - **Chế độ 2 Camera Song Song (Dual View / PiP):**
+       + Nút bật/tắt Dual View (`Layers`) ở thanh điều khiển dưới.
+       + Khung nổi phụ PiP góc trên bên trái hiển thị góc đối diện (Selfie khi cam chính là cam sau, hoặc ngược lại) với badge góc và nút **Lật cam** (`RefreshCw`) thao tác trực tiếp.
+       + Cơ chế chụp ảnh kép không làm giật/đơ luồng camera, lưu trữ dữ liệu lồng `#pip=` tương thích 100% Zod validation của backend.
+       + Trong chế độ xem lại (Review) và Feed Khoảnh khắc (Trang 1..N): Khung nổi PiP hỗ trợ **chạm để hoán đổi góc nhìn (Tap to Swap)** tức thì giữa ảnh lớn và ảnh nhỏ.
+     - **Bố cục & Điều hướng Tinh chỉnh:**
+       + Cố định Header trên cùng với dropdown lọc theo từng thành viên dạng sổ tại chỗ.
+       + Nút chụp chính phóng to 90px chuẩn Locket đôi viền, cân bằng khoảng cách thẩm mỹ.
+       + Khu vực điều hướng Lịch sử mượt mà với thumbnail ảnh gần nhất.
+  2. Tối ưu hóa Cache & Truy vấn dữ liệu (`apps/mobile/src/hooks/use-circle-queries.ts`):
+     - Xử lý tương thích định dạng dữ liệu trả về từ backend (raw array / wrapped object).
+     - Cập nhật Optimistic Cache tức thì khi đăng bài qua `useCreateMomentMutation`.
+- **Prompt Summary:** Yêu cầu: Tinh chỉnh bố cục camera Locket, làm to nút chụp, thêm zoom 0.5x/1x, tích hợp camera thật, làm chế độ 2 cam trước sau song song (Dual View), sửa lỗi khung nhỏ và thao tác lật, hoàn thiện Module 3 và ghi log mở PR.
+- **Files Affected:**
+  - `apps/mobile/src/components/moment/LocketMomentsView.tsx`
+  - `apps/mobile/src/hooks/use-circle-queries.ts`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% mã nguồn camera controls, Dual View PiP frame, layout adjustments, optimistic mutation hooks và styling.
+- **Human Modifications:** Ninh Thị Mỹ Hạnh trực tiếp nghiệm thu thực tế trên thiết bị di động, chỉ đạo cải tiến các chi tiết UX: tỉ lệ zoom 0.5x, khung nhỏ PiP trực quan, thao tác lật cam và kiểm duyệt chất lượng trước khi mở PR.
+- **Verification Method:**
+  - `npm run typecheck -w @circle/mobile`: TypeScript `tsc --noEmit` pass 100% (0 errors).
+  - `npm test -w @circle/backend -- --testPathPattern="circle"`: 5/5 test suites, 83/83 unit tests pass 100%.
+  - `npm run build -w @circle/backend`: Biên dịch NestJS thành công 0 lỗi.
+  - `npm run build -w @circle/web`: Next.js production build pass 100%.
+  - `bash ./scripts/check-agent-map.sh`: 93/93 markdown references pass 100%.
+- **Official Source Checked:** `PROJECT_GOD.md` (Module 3 & Module 5, Definition of Done, 10 Hard Gates), `docs/phan-cong-nhiem-vu.md` (Hạnh: Module 3 Full-stack), SRS UC20, UC22, UC25, UC26.
+- **Security & License Check:** An toàn, không chứa secret keys hay API credentials.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** Thuộc tính `pipCornerTag` thiếu trong StyleSheet ban đầu gây lỗi typecheck TS2339; và trên Android/iOS không thể render cùng lúc 2 hardware `<CameraView>` mà không khóa camera bus.
+  - **Root Cause:** Quên thêm class style vào StyleSheet; và giới hạn phần cứng mobile chỉ cho phép 1 active hardware camera pipeline tại một thời điểm.
+  - **Resolution / Fix:** Bổ sung `pipCornerTag` và `pipFlipBtn` vào StyleSheet; sử dụng giải pháp hiển thị góc phụ qua dynamic counterpart portrait/preview và capture dual-payload an toàn mượt mà.
+- **Commit:** `cad3ddb`
+- **PR:** #65 (https://github.com/1440isme/Circle/pull/65)
+
