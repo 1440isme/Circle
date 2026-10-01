@@ -51,6 +51,11 @@ describe('AuthService — Full Test Suite (TC-AUTH-001 to TC-AUTH-006)', () => {
         update: jest.fn(),
         updateMany: jest.fn(),
       },
+      userProfile: {
+        upsert: jest.fn(),
+        findUnique: jest.fn(),
+        update: jest.fn(),
+      },
       $transaction: jest.fn((callback) => callback(prisma)),
     };
 
@@ -362,6 +367,37 @@ describe('AuthService — Full Test Suite (TC-AUTH-001 to TC-AUTH-006)', () => {
         data: { isRevoked: true },
       });
       expect(result.message).toBeDefined();
+    });
+  });
+
+  describe('US-AUTH-005: User Profile Management (TC-AUTH-007)', () => {
+    it('TC-AUTH-007: should update user profile display name, avatar, and bio', async () => {
+      prisma.user.findUnique.mockResolvedValue(mockUser);
+      prisma.userProfile.upsert.mockResolvedValue({
+        id: 'profile-1',
+        userId: mockUser.id,
+        displayName: 'Alex Binh Updated',
+        avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb',
+        bio: 'Fullstack Engineer at CIRCLE',
+        coverUrl: null,
+        dateOfBirth: null,
+        updatedAt: new Date(),
+      });
+
+      const result = await service.updateProfile(mockUser.id, {
+        displayName: 'Alex Binh Updated',
+        avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb',
+        bio: 'Fullstack Engineer at CIRCLE',
+      });
+
+      expect(prisma.userProfile.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { userId: mockUser.id },
+        }),
+      );
+      expect(result.id).toBe(mockUser.id);
+      expect(result.profile?.displayName).toBe('Alex Binh Updated');
+      expect(result.profile?.bio).toBe('Fullstack Engineer at CIRCLE');
     });
   });
 });

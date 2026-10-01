@@ -6,6 +6,7 @@ import {
   ForgotPasswordInput,
   ResendOtpInput,
   ResetPasswordInput,
+  UpdateProfileInput,
   VerifyOtpInput,
 } from '@circle/shared';
 import {
@@ -18,6 +19,7 @@ import {
   resendOtpApi,
   resetPasswordApi,
   ResetPasswordPayload,
+  updateProfileApi,
   verifyOtpApi,
 } from '../lib/auth';
 import { useAuthStore } from '../stores/auth.store';
@@ -98,6 +100,19 @@ export function useLogoutMutation() {
     mutationFn: () => logout(),
     onSuccess: () => {
       queryClient.clear();
+    },
+  });
+}
+
+export function useUpdateProfileMutation() {
+  const queryClient = useQueryClient();
+  const setUser = useAuthStore((s) => s.setUser);
+
+  return useMutation({
+    mutationFn: (payload: UpdateProfileInput) => updateProfileApi(payload),
+    onSuccess: (data: AuthUserData) => {
+      setUser(data);
+      queryClient.setQueryData(AUTH_KEYS.me, data);
     },
   });
 }

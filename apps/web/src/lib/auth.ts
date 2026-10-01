@@ -4,6 +4,7 @@ import {
   RegisterInput,
   ResendOtpInput,
   ResetPasswordInput,
+  UpdateProfileInput,
   VerifyOtpInput,
 } from '@circle/shared';
 import { apiRequest } from './api';
@@ -139,6 +140,21 @@ export async function getCurrentUserApi(): Promise<AuthUserData> {
 }
 
 /**
+ * Update user profile (displayName, avatarUrl, bio, coverUrl, dateOfBirth).
+ */
+export async function updateProfileApi(
+  payload: UpdateProfileInput,
+): Promise<AuthUserData> {
+  const res = await apiRequest<AuthUserData>('/auth/profile', {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
+
+  saveUser(res.data);
+  return res.data;
+}
+
+/**
  * Logout current session.
  */
 export async function logoutApi(): Promise<void> {
@@ -154,4 +170,6 @@ export async function logoutApi(): Promise<void> {
     clearAuthStorage();
   }
 }
+
+
 

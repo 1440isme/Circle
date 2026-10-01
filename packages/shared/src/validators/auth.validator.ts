@@ -123,6 +123,19 @@ export function createAuthSchemas(locale: Locale = 'vi') {
       path: ['confirmPassword'],
     });
 
+  const updateProfileSchema = z.object({
+    displayName: z
+      .string()
+      .trim()
+      .min(2, v.displayNameMinLength)
+      .max(50, v.displayNameMaxLength)
+      .optional(),
+    avatarUrl: z.string().trim().nullable().optional(),
+    bio: z.string().trim().max(300).nullable().optional(),
+    coverUrl: z.string().trim().nullable().optional(),
+    dateOfBirth: z.string().nullable().optional(),
+  });
+
   return {
     loginSchema,
     registerSchema,
@@ -133,6 +146,7 @@ export function createAuthSchemas(locale: Locale = 'vi') {
     forgotPasswordSchema,
     resetPasswordSchema,
     resetPasswordDtoSchema,
+    updateProfileSchema,
   };
 }
 
@@ -148,6 +162,7 @@ export const resendOtpSchema = defaultSchemas.resendOtpSchema;
 export const forgotPasswordSchema = defaultSchemas.forgotPasswordSchema;
 export const resetPasswordSchema = defaultSchemas.resetPasswordSchema;
 export const resetPasswordDtoSchema = defaultSchemas.resetPasswordDtoSchema;
+export const updateProfileSchema = defaultSchemas.updateProfileSchema;
 
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RegisterInput = z.infer<typeof registerSchema>;
@@ -158,6 +173,7 @@ export type ResendOtpInput = z.infer<typeof resendOtpSchema>;
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 export type ResetPasswordDtoInput = z.infer<typeof resetPasswordDtoSchema>;
+export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 
 /**
  * Extracts the first human-readable validation error message from a ZodError.
