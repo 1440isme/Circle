@@ -7,6 +7,33 @@ const SOCKET_URL =
   'http://localhost:4000';
 
 let socket: Socket | null = null;
+const connectionListeners = new Set<(connected: boolean) => void>();
+
+function notifyConnectionChange(connected: boolean) {
+  connectionListeners.forEach((listener) => {
+    try {
+      listener(connected);
+    } catch {
+      // ignore
+    }
+  });
+}
+
+export function subscribeSocketConnection(listener: (connected: boolean) => void): () => void {
+  connectionListeners.add(listener);
+  if (socket) {
+    listener(socket.connected);
+  } else {
+    listener(false);
+  }
+  return () => {
+    connectionListeners.delete(listener);
+  };
+}
+
+export function isSocketConnected(): boolean {
+  return !!socket?.connected;
+}
 
 /**
  * Initializes or returns the existing Socket.IO singleton instance.
@@ -42,10 +69,15 @@ export function getSocket(): Socket | null {
   });
 
   socket.on('connect', () => {
-    // Socket connected
+    notifyConnectionChange(true);
+  });
+
+  socket.on('disconnect', () => {
+    notifyConnectionChange(false);
   });
 
   socket.on('connect_error', (error) => {
+    notifyConnectionChange(false);
     console.warn('[Socket.IO] Connection error:', error.message);
   });
 
@@ -59,6 +91,7 @@ export function disconnectSocket(): void {
   if (socket) {
     socket.disconnect();
     socket = null;
+    notifyConnectionChange(false);
   }
 }
 
@@ -85,10 +118,10 @@ export function leaveChannelRoom(channelId: string): void {
 /**
  * Broadcast typing status to current channel members.
  */
-export function sendTypingStatus(channelId: string, isTyping: boolean): void {
+export function sendTypingStatus(channelId: string, isTyping: boolean, userName?: string): void {
   const s = getSocket();
   if (s && channelId) {
-    s.emit('chat:typing', { channelId, isTyping });
+    s.emit('chat:typing', { channelId, isTyping, userName });
   }
 }
 

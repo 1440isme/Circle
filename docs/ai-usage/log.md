@@ -2901,4 +2901,54 @@
 - **Commit:** Pending
 - **PR:** #69 (https://github.com/1440isme/Circle/pull/69)
 
+---
+
+## AI-0074: Production-Grade Messaging P0 (Optimistic UI, Typing Indicator, Outbox & Media Attachment)
+
+- **Date:** 2026-10-04 00:50:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #70 ([SUB-FEAT]: US-CHAT-002 — Production-Grade Messaging P0: Optimistic UI, Typing Indicator, Outbox & Media Attachment (Parent: #20))
+- **Purpose:** 
+  1. Triển khai trọn vẹn nhóm tính năng ưu tiên P0 cho chức năng Nhắn tin chuẩn công nghiệp trên cả Web và Mobile (`apps/web`, `apps/mobile`, `apps/backend`, `packages/shared`, `packages/types`).
+  2. Vòng đời tin nhắn & Optimistic UI: Gửi tức thì với trạng thái `SENDING` (⏳), tự động khớp sang `SENT` (✓) khi máy chủ xác nhận, hoặc chuyển sang `FAILED` kèm nút "Thử lại" / Retry khi mất mạng hoặc gặp lỗi.
+  3. Chỉ báo đang nhập thời gian thực (Typing Indicator): Phát tán và hiển thị tên người đang nhập qua Socket.IO (`chat:user-typing`) với debounced timer tự dập tắt sau 2.5s-3s.
+  4. Đính kèm và xem ảnh trò chuyện: Cho phép chọn ảnh trên cả Web và Mobile, hiển thị thumbnail xem trước có nút gỡ bỏ, tải lên Cloudflare R2 qua presigned URL an toàn và render bong bóng ảnh có khả năng phóng to xem toàn màn hình (lightbox).
+  5. Khả năng chống chịu mạng & Socket.IO trên Mobile: Tích hợp singleton Socket.IO client vào Expo mobile thay thế polling 3s trước đây, hiển thị banner cảnh báo đang kết nối lại khi mất mạng trên cả hai nền tảng.
+  6. Tuyệt đối không hardcode: Toàn bộ chuỗi ngôn ngữ dùng `t.chat.*` trong `@circle/shared` (hỗ trợ cả tiếng Việt và tiếng Anh), toàn bộ màu sắc tuân thủ 100% Design Tokens từ `CircleColors` (`colors.*`), đồng bộ giao diện và trải nghiệm giữa Web và Mobile.
+- **Files Affected:**
+  - `packages/types/src/index.ts`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `apps/backend/src/modules/chat/chat.gateway.ts`
+  - `apps/backend/src/modules/chat/chat.gateway.spec.ts`
+  - `apps/web/src/lib/socket.ts`
+  - `apps/web/src/hooks/use-chat-queries.ts`
+  - `apps/web/src/components/chat/MessageBubble.tsx`
+  - `apps/web/src/components/chat/MessageList.tsx`
+  - `apps/web/src/components/chat/ChannelChatView.tsx`
+  - `apps/mobile/src/services/socket.ts`
+  - `apps/mobile/src/hooks/use-circle-queries.ts`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `apps/mobile/package.json`
+  - `package-lock.json`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% implementation, cross-platform UI, optimistic mutations and tests.
+- **Human Modifications:** Trương Công Bình giám sát, định hướng tiêu chuẩn UX công nghiệp (WhatsApp/Telegram/Slack) và nghiêm cấm hardcode màu sắc/ngôn ngữ.
+- **Verification Method:**
+  - Backend: 7/7 Jest suites, 99/99 unit tests pass 100%.
+  - Web: Next.js 14 production build pass 100% (9/9 static routes).
+  - Mobile: TypeScript typecheck pass (0 errors).
+  - Integrity: `check-agent-map.sh` pass (94/94 files).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`, `agentic/CONVENTIONS.md`.
+- **Security & License Check:** Pass 100%. Không lộ secret/credential, xác thực Socket.IO token đầy đủ, tải file an toàn qua Cloudflare R2 Presigned URLs.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A.
+  - **Resolution / Fix:** N/A.
+- **Commit:** Pending
+- **PR:** Pending
+
+
 

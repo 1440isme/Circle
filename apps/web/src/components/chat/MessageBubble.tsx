@@ -6,6 +6,9 @@ import {
   Reply,
   FileText,
   Download,
+  Clock,
+  Check,
+  AlertCircle,
 } from 'lucide-react';
 import { MessageEntity, MessageType } from '@circle/types';
 import { useLanguageStore } from '../../stores/language.store';
@@ -20,6 +23,7 @@ interface MessageBubbleProps {
   onReply: (message: MessageEntity) => void;
   onReact: (messageId: string, emoji: string) => void;
   onTogglePin: (messageId: string, isPinned: boolean) => void;
+  onRetry?: (message: MessageEntity) => void;
 }
 
 const QUICK_EMOJIS = ['👍', '❤️', '😂', '🔥', '🎉'];
@@ -34,6 +38,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   onReply,
   onReact,
   onTogglePin,
+  onRetry,
 }) => {
   const t = useLanguageStore((s) => s.t);
   const locale = useLanguageStore((s) => s.locale);
@@ -244,16 +249,40 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           )}
         </div>
 
-        {/* Sent Timestamp (Displayed ONLY when clicked/tapped) */}
-        {showTimestamp && (
+        {/* Sent Timestamp & Status (Displayed when clicked/tapped or when FAILED) */}
+        {(showTimestamp || message.status === 'FAILED') && (
           <div
-            className={`text-[10px] mt-1 px-1 font-mono transition-opacity animate-in fade-in flex items-center ${
+            className={`text-[10px] mt-1 px-1 font-mono transition-opacity animate-in fade-in flex items-center gap-1.5 ${
               isSenderMe
                 ? 'justify-end text-circle-slate/60 dark:text-circle-dark-muted/60'
                 : 'justify-start text-circle-slate/60 dark:text-circle-dark-muted/60'
             }`}
           >
             <span>{sentTime}</span>
+            {isSenderMe && (
+              <span className="inline-flex items-center">
+                {message.status === 'SENDING' ? (
+                  <span className="inline-flex items-center gap-1 text-circle-slate/60 dark:text-circle-dark-muted/60">
+                    <Clock className="w-3 h-3 animate-spin text-circle-primary" />
+                    <span>{t.chat.sendingStatus}</span>
+                  </span>
+                ) : message.status === 'FAILED' ? (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRetry?.(message);
+                    }}
+                    className="inline-flex items-center gap-1 text-red-500 font-semibold hover:underline cursor-pointer"
+                  >
+                    <AlertCircle className="w-3 h-3 text-red-500" />
+                    <span>{t.chat.retryAction}</span>
+                  </button>
+                ) : (
+                  <Check className="w-3 h-3 text-circle-primary" />
+                )}
+              </span>
+            )}
           </div>
         )}
       </div>
