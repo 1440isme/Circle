@@ -95,6 +95,22 @@ describe('ChatGateway', () => {
       expect(res.circleId).toBe('circle_1');
       expect(Array.isArray(res.onlineUserIds)).toBe(true);
     });
+
+    it('should reject when requester is not a member of the circle', async () => {
+      const mockSocket: any = {
+        id: 'sock_stranger',
+        data: { userId: 'stranger_99' },
+      };
+
+      mockPrisma.circleMember.findMany.mockResolvedValue([
+        { userId: 'user_1' },
+        { userId: 'user_2' },
+      ]);
+
+      const res = await gateway.handleGetCircleOnline(mockSocket, { circleId: 'circle_1' });
+      expect(res.success).toBe(false);
+      expect(res.error).toContain('Forbidden');
+    });
   });
 
   describe('handleTyping', () => {

@@ -100,7 +100,7 @@ export default function CircleWorkspaceScreen() {
     useChannelMessagesQuery(currentChannelId);
   const sendMessageMutation = useSendMessageMutation(currentChannelId);
 
-  const messages = messagesData?.items || [];
+  const messages = messagesData?.messages || (messagesData as any)?.items || [];
 
   const handleShareInviteCode = async () => {
     if (!circle?.inviteCode) return;

@@ -2825,5 +2825,49 @@
   - **Error Description:** None.
   - **Root Cause:** N/A.
   - **Resolution / Fix:** N/A.
+- **Commit:** `af627bc`
+- **PR:** #69 (https://github.com/1440isme/Circle/pull/69)
+
+---
+
+## AI-0072: Peer Review Adjustments for PR #68 (Membership Guard, Alpha Transparency & R2 Fallback Warning)
+
+- **Date:** 2026-10-03 23:30:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #7 ([SUB-FEAT]: US-MEDIA-001 — Cloudflare R2 Presigned Upload URL Generation & Asset Delivery)
+- **Purpose:** 
+  1. Tiếp thu và xử lý 100% phản hồi Peer Review từ Kỹ sư Ninh Thị Mỹ Hạnh (@BH-bonnie) trên PR #68.
+  2. Bổ sung kiểm tra hội viên (`isMember`) trong `ChatGateway.handleGetCircleOnline` ngăn chặn user ngoài Circle truy vấn danh sách người online (khắc phục lỗ hổng kiểm tra quyền).
+  3. Bổ sung unit test kiểm thử từ chối truy vấn người online đối với non-member trong `chat.gateway.spec.ts`.
+  4. Bảo toàn kênh trong suốt (Alpha channel) cho ảnh PNG và WebP trong `image-optimizer.ts` (`{ alpha: isPngOrWebp }`), chống biến vùng trong suốt thành nền đen.
+  5. Cập nhật cảnh báo runtime và tài liệu `.env.example` về `CLOUDFLARE_R2_PUBLIC_DOMAIN` bắt buộc khi bật `isR2Configured`.
+  6. Đồng bộ hóa localization keys `storage` và `presence` vào `@circle/shared`.
+- **Files Affected:**
+  - `apps/backend/src/modules/chat/chat.gateway.ts`
+  - `apps/backend/src/modules/chat/chat.gateway.spec.ts`
+  - `apps/backend/src/modules/storage/storage.service.ts`
+  - `apps/web/src/lib/image-optimizer.ts`
+  - `apps/web/src/stores/language.store.ts`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `.env.example`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% code fixes, negative test cases and documentation updates.
+- **Human Modifications:** Trương Công Bình trực tiếp rà soát và kiểm thử lại toàn bộ luồng sau khi nhận review từ Ninh Thị Mỹ Hạnh.
+- **Verification Method:**
+  - Backend: 7/7 Jest suites, 99/99 unit tests pass 100%.
+  - Web: Next.js 14 production build pass 100% (9/9 static routes).
+  - Mobile: TypeScript typecheck pass (0 errors).
+  - Integrity: `check-agent-map.sh` pass (94/94 files).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** Pass 100%. Lỗ hổng kiểm tra quyền đã được vá triệt để.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A.
+  - **Resolution / Fix:** N/A.
 - **Commit:** Pending
-- **PR:** #71 (https://github.com/1440isme/Circle/pull/71)
+- **PR:** #68 (https://github.com/1440isme/Circle/pull/68)
+

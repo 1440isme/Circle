@@ -10,6 +10,7 @@ interface LanguageState {
   locale: Locale;
   t: TranslationDictionary;
   setLocale: (locale: Locale) => void;
+  initLanguage: () => void;
 }
 
 function getInitialLocale(): Locale {
@@ -25,6 +26,14 @@ export const useLanguageStore = create<LanguageState>((set) => {
   return {
     locale: initialLocale,
     t: dictionaries[initialLocale],
+
+    initLanguage: () => {
+      const current = getInitialLocale();
+      set({
+        locale: current,
+        t: dictionaries[current],
+      });
+    },
 
     setLocale: (locale: Locale) => {
       if (typeof window !== 'undefined') {

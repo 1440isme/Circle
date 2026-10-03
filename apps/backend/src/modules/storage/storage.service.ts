@@ -58,6 +58,11 @@ export class StorageService {
 
     if (this.isR2Configured) {
       this.logger.log(`Cloudflare R2 Storage initialized (Bucket: ${this.bucketName})`);
+      if (!this.publicDomain) {
+        this.logger.warn(
+          'CLOUDFLARE_R2_PUBLIC_DOMAIN is not set. Note that Cloudflare R2 direct S3 endpoints require authorization and do not support anonymous public reads via <img> tags. Please configure a public r2.dev URL or custom domain in production.',
+        );
+      }
     } else {
       this.logger.log(
         'Cloudflare R2 not configured. Operating in Local Media Fallback mode.',

@@ -85,7 +85,8 @@ export async function optimizeImage(
     canvas.width = width;
     canvas.height = height;
 
-    const ctx = canvas.getContext('2d', { alpha: false });
+    const isPngOrWebp = file.type === 'image/png' || outputFormat === 'image/webp';
+    const ctx = canvas.getContext('2d', { alpha: isPngOrWebp });
     if (!ctx) {
       throw new Error('Canvas 2D context not available');
     }

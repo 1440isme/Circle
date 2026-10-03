@@ -148,6 +148,12 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       select: { userId: true },
     });
 
+    // Verify requester is a member of this circle
+    const isMember = members.some((m) => m.userId === userId);
+    if (!isMember) {
+      return { success: false, error: 'Forbidden: You are not a member of this circle' };
+    }
+
     const onlineUserIds = members
       .map((m) => m.userId)
       .filter((uid) => this.userSockets.has(uid) && this.userSockets.get(uid)!.size > 0);
