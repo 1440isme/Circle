@@ -1,3 +1,4 @@
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { mobileApiRequest } from '../services/api';
 import {
@@ -16,8 +17,16 @@ import {
   CircleInviteEntity,
   CircleJoinRequestEntity,
   SelectableFriendItem,
+  MessageEntity,
+  MessageType,
 } from '@circle/types';
 import { useCircleStore } from '../stores/circle.store';
+import {
+  getMobileSocket,
+  joinMobileChannelRoom,
+  leaveMobileChannelRoom,
+  sendMobileTypingStatus,
+} from '../services/socket';
 
 export const CIRCLE_KEYS = {
   all: ['circles'] as const,
@@ -372,8 +381,24 @@ export function useCircleMomentsQuery(circleId: string | null) {
   });
 }
 
+function deduplicateMessages(list: MessageEntity[]): MessageEntity[] {
+  const seen = new Set<string>();
+  const result: MessageEntity[] = [];
+  for (const m of list) {
+    const key = m.id || m.tempId;
+    if (key) {
+      if (seen.has(key)) continue;
+      seen.add(key);
+    }
+    result.push(m);
+  }
+  return result;
+}
+
 export function useChannelMessagesQuery(channelId: string | null) {
-  return useQuery({
+  const queryClient = useQueryClient();
+
+  const query = useQuery({
     queryKey: ['messages', 'channel', channelId],
     queryFn: async () => {
       if (!channelId) return { messages: [], nextCursor: null, hasMore: false };
@@ -381,43 +406,228 @@ export function useChannelMessagesQuery(channelId: string | null) {
       const data = res.data;
       const list = data?.messages || data?.items || (Array.isArray(data) ? data : []);
       return {
-        messages: list,
+        messages: deduplicateMessages(list),
         nextCursor: data?.nextCursor || null,
         hasMore: Boolean(data?.hasMore),
       };
     },
     enabled: Boolean(channelId),
-    refetchInterval: 3000, // Light polling for mobile sync
+    refetchInterval: 15000, // Background fallback sync; instant delivery via socket
   });
+
+  useEffect(() => {
+    if (!channelId) return;
+    let isCancelled = false;
+    let activeSocket: any = null;
+
+    joinMobileChannelRoom(channelId);
+
+    const handleNewMessage = (newMsg: MessageEntity) => {
+      if (newMsg.channelId !== channelId) return;
+
+      queryClient.setQueryData(['messages', 'channel', channelId], (old: any) => {
+        if (!old) return { messages: [newMsg], nextCursor: null, hasMore: false };
+        const list: MessageEntity[] = old.messages || old.items || [];
+
+        // Check if message already exists with real ID
+        const exists = list.some((m) => m.id === newMsg.id && !m.tempId);
+
+        // Find optimistic sending message matching content or tempId
+        const tempMatchIdx = list.findIndex(
+          (m) =>
+            (m.tempId && (m.tempId === newMsg.tempId || m.id === newMsg.tempId)) ||
+            (m.status === 'SENDING' &&
+              ((m.content && m.content === newMsg.content) || (m.fileUrl && m.fileUrl === newMsg.fileUrl)) &&
+              Math.abs(new Date(m.sentAt).getTime() - new Date(newMsg.sentAt).getTime()) < 20000),
+        );
+
+        if (exists) {
+          // If real message already exists, clean up any matching temp placeholder
+          if (tempMatchIdx !== -1) {
+            return {
+              ...old,
+              messages: list.filter((_, idx) => idx !== tempMatchIdx),
+            };
+          }
+          return old;
+        }
+
+        if (tempMatchIdx !== -1) {
+          const copy = [...list];
+          copy[tempMatchIdx] = { ...newMsg, status: 'SENT' };
+          return { ...old, messages: deduplicateMessages(copy) };
+        }
+
+        return {
+          ...old,
+          messages: deduplicateMessages([...list, { ...newMsg, status: 'SENT' }]),
+        };
+      });
+    };
+
+    const handleReaction = (payload: {
+      messageId: string;
+      memberId: string;
+      emoji: string;
+      reactionCounts: Record<string, number>;
+      userReactions: string[];
+    }) => {
+      queryClient.setQueryData(['messages', 'channel', channelId], (old: any) => {
+        if (!old) return old;
+        const list: MessageEntity[] = old.messages || old.items || [];
+        return {
+          ...old,
+          messages: list.map((m) =>
+            m.id === payload.messageId
+              ? {
+                  ...m,
+                  reactionCounts: payload.reactionCounts,
+                  userReactions: payload.userReactions,
+                }
+              : m,
+          ),
+        };
+      });
+    };
+
+    getMobileSocket().then((socket) => {
+      if (!socket || isCancelled) return;
+      activeSocket = socket;
+      socket.on('chat:message', handleNewMessage);
+      socket.on('chat:reaction', handleReaction);
+    });
+
+    return () => {
+      isCancelled = true;
+      if (activeSocket) {
+        activeSocket.off('chat:message', handleNewMessage);
+        activeSocket.off('chat:reaction', handleReaction);
+      }
+      leaveMobileChannelRoom(channelId);
+    };
+  }, [channelId, queryClient]);
+
+  return query;
 }
+
+export type SendMobileMessageInput =
+  | string
+  | {
+      content?: string;
+      type?: MessageType;
+      fileUrl?: string;
+      fileName?: string;
+      fileSize?: number;
+      replyToId?: string;
+      tempId?: string;
+    };
 
 export function useSendMessageMutation(channelId: string | null) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (input: string | { content: string; replyToId?: string }) => {
+    mutationFn: async (input: SendMobileMessageInput) => {
       if (!channelId) throw new Error('No channel ID');
       const payload = typeof input === 'string' ? { content: input.trim() } : input;
+      const { tempId, ...cleanPayload } = payload as any;
       const res = await mobileApiRequest<any>(`/channels/${channelId}/messages`, {
         method: 'POST',
-        body: JSON.stringify(payload),
+        body: JSON.stringify(cleanPayload),
       });
-      return res.data;
+      return { message: res.data, tempId };
     },
-    onSuccess: (newMsg) => {
-      if (channelId) {
-        if (newMsg) {
-          queryClient.setQueryData(['messages', 'channel', channelId], (old: any) => {
-            if (!old) return { messages: [newMsg], nextCursor: null, hasMore: false };
-            const list = old.messages || old.items || [];
-            const exists = list.some((m: any) => m.id === newMsg.id);
+    onMutate: async (input) => {
+      if (!channelId) return;
+
+      const tempId =
+        typeof input === 'object' && input.tempId
+          ? input.tempId
+          : `temp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
+      const optimisticMsg: MessageEntity = {
+        id: tempId,
+        tempId,
+        channelId,
+        memberId: 'optimistic_me',
+        type: typeof input === 'object' && input.type ? input.type : MessageType.TEXT,
+        content: typeof input === 'string' ? input.trim() : input.content?.trim() || null,
+        fileUrl: typeof input === 'object' ? input.fileUrl : null,
+        fileName: typeof input === 'object' ? input.fileName : null,
+        fileSize: typeof input === 'object' ? input.fileSize : null,
+        replyToId: typeof input === 'object' ? input.replyToId : null,
+        sentAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        status: 'SENDING',
+      };
+
+      queryClient.setQueryData(['messages', 'channel', channelId], (old: any) => {
+        if (!old) return { messages: [optimisticMsg], nextCursor: null, hasMore: false };
+        const list = old.messages || old.items || [];
+        return {
+          ...old,
+          messages: deduplicateMessages([...list, optimisticMsg]),
+        };
+      });
+
+      return { tempId };
+    },
+    onSuccess: ({ message, tempId }) => {
+      if (channelId && message) {
+        queryClient.setQueryData(['messages', 'channel', channelId], (old: any) => {
+          if (!old)
+            return {
+              messages: [{ ...message, status: 'SENT' }],
+              nextCursor: null,
+              hasMore: false,
+            };
+          const list = old.messages || old.items || [];
+
+          // If socket already added this exact message ID, remove the temp placeholder
+          const alreadyHasRealId = list.some(
+            (m: any) => m.id === message.id && m.id !== tempId && m.tempId !== tempId,
+          );
+
+          if (alreadyHasRealId) {
             return {
               ...old,
-              messages: exists ? list : [...list, newMsg],
+              messages: list.filter((m: any) => m.tempId !== tempId && m.id !== tempId),
             };
+          }
+
+          let matched = false;
+          const updated = list.map((m: any) => {
+            if (m.tempId === tempId || m.id === tempId) {
+              matched = true;
+              return { ...message, status: 'SENT' };
+            }
+            return m;
           });
-        }
-        queryClient.invalidateQueries({ queryKey: ['messages', 'channel', channelId] });
+
+          const finalMessages = matched
+            ? updated
+            : [...updated, { ...message, status: 'SENT' }];
+
+          return {
+            ...old,
+            messages: deduplicateMessages(finalMessages),
+          };
+        });
+      }
+    },
+    onError: (_err, _input, context) => {
+      if (channelId && context?.tempId) {
+        queryClient.setQueryData(['messages', 'channel', channelId], (old: any) => {
+          if (!old) return old;
+          const list = old.messages || old.items || [];
+          return {
+            ...old,
+            messages: list.map((m: any) =>
+              m.tempId === context.tempId || m.id === context.tempId
+                ? { ...m, status: 'FAILED' }
+                : m,
+            ),
+          };
+        });
       }
     },
   });
@@ -518,5 +728,93 @@ export function useCreateMomentMutation(circleId: string | null) {
       queryClient.invalidateQueries({ queryKey: ['moments', 'feed'] });
     },
   });
+}
+
+/**
+ * Hook to manage real-time typing indicators in mobile channel chat.
+ */
+export function useMobileChannelTyping(channelId: string | null) {
+  const [typingUsers, setTypingUsers] = useState<Array<{ userId: string; userName: string }>>([]);
+  const typingTimeoutsRef = useRef<Map<string, any>>(new Map());
+  const myTypingTimerRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (!channelId) return;
+    let unsubscribed = false;
+
+    getMobileSocket().then((socket) => {
+      if (!socket || unsubscribed) return;
+
+      const handleUserTyping = (data: {
+        channelId: string;
+        userId: string;
+        userName?: string;
+        isTyping: boolean;
+      }) => {
+        if (data.channelId !== channelId) return;
+
+        const { userId, isTyping, userName } = data;
+        const resolvedName = userName || 'Thành viên';
+        const timeouts = typingTimeoutsRef.current;
+
+        if (isTyping) {
+          if (timeouts.has(userId)) {
+            clearTimeout(timeouts.get(userId));
+          }
+
+          setTypingUsers((prev) => {
+            const filtered = prev.filter((u) => u.userId !== userId);
+            return [...filtered, { userId, userName: resolvedName }];
+          });
+
+          const timeout = setTimeout(() => {
+            setTypingUsers((prev) => prev.filter((u) => u.userId !== userId));
+            timeouts.delete(userId);
+          }, 3000);
+
+          timeouts.set(userId, timeout);
+        } else {
+          if (timeouts.has(userId)) {
+            clearTimeout(timeouts.get(userId));
+            timeouts.delete(userId);
+          }
+          setTypingUsers((prev) => prev.filter((u) => u.userId !== userId));
+        }
+      };
+
+      socket.on('chat:user-typing', handleUserTyping);
+
+      return () => {
+        socket.off('chat:user-typing', handleUserTyping);
+      };
+    });
+
+    return () => {
+      unsubscribed = true;
+      typingTimeoutsRef.current.forEach((t) => clearTimeout(t));
+      typingTimeoutsRef.current.clear();
+    };
+  }, [channelId]);
+
+  const reportTyping = useCallback(
+    (isTyping: boolean, userName?: string) => {
+      if (!channelId) return;
+      sendMobileTypingStatus(channelId, isTyping, userName);
+
+      if (myTypingTimerRef.current) {
+        clearTimeout(myTypingTimerRef.current);
+      }
+
+      if (isTyping) {
+        myTypingTimerRef.current = setTimeout(() => {
+          sendMobileTypingStatus(channelId, false, userName);
+          myTypingTimerRef.current = null;
+        }, 2500);
+      }
+    },
+    [channelId],
+  );
+
+  return { typingUsers, reportTyping };
 }
 

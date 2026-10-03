@@ -212,7 +212,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('chat:typing')
   handleTyping(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { channelId: string; isTyping: boolean },
+    @MessageBody() data: { channelId: string; isTyping: boolean; userName?: string },
   ) {
     const userId = client.data.userId;
     if (!data?.channelId || !userId) return;
@@ -220,6 +220,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     client.to(`channel:${data.channelId}`).emit('chat:user-typing', {
       channelId: data.channelId,
       userId,
+      userName: data.userName || client.data.user?.email || 'Thành viên',
       isTyping: !!data.isTyping,
     });
   }

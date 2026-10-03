@@ -16,6 +16,7 @@ interface MessageListProps {
   onReply: (message: MessageEntity) => void;
   onReact: (messageId: string, emoji: string) => void;
   onTogglePin: (messageId: string, isPinned: boolean) => void;
+  onRetry?: (message: MessageEntity) => void;
 }
 
 interface MessageCluster {
@@ -37,6 +38,7 @@ export const MessageList: React.FC<MessageListProps> = ({
   onReply,
   onReact,
   onTogglePin,
+  onRetry,
 }) => {
   const t = useLanguageStore((s) => s.t);
   const locale = useLanguageStore((s) => s.locale);
@@ -233,6 +235,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                             onReply={onReply}
                             onReact={onReact}
                             onTogglePin={onTogglePin}
+                            onRetry={onRetry}
                           />
                         ))}
                       </div>
@@ -280,6 +283,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                               onReply={onReply}
                               onReact={onReact}
                               onTogglePin={onTogglePin}
+                              onRetry={onRetry}
                             />
                           ))}
                         </div>

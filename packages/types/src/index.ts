@@ -233,6 +233,8 @@ export interface MessageEntity {
   reactionCounts?: Record<string, number>;
   userReactions?: string[];
   isPinned?: boolean;
+  status?: 'SENDING' | 'SENT' | 'FAILED';
+  tempId?: string;
 }
 
 export interface CursorPaginatedMessages {

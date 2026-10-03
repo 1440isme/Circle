@@ -21,11 +21,9 @@ function getInitialLocale(): Locale {
 }
 
 export const useLanguageStore = create<LanguageState>((set) => {
-  const initialLocale = getInitialLocale();
-
   return {
-    locale: initialLocale,
-    t: dictionaries[initialLocale],
+    locale: 'vi',
+    t: dictionaries['vi'],
 
     initLanguage: () => {
       const current = getInitialLocale();
