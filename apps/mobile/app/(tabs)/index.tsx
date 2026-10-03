@@ -22,7 +22,10 @@ import {
 import { useThemeStore } from '../../src/stores/theme.store';
 import { useLanguageStore } from '../../src/stores/language.store';
 import { useAuthStore } from '../../src/stores/auth.store';
+import { useCircleStore } from '../../src/stores/circle.store';
+import { useMyCirclesQuery } from '../../src/hooks/use-circle-queries';
 import { HeaderControls } from '../../src/components/common/HeaderControls';
+import { useRouter } from 'expo-router';
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -31,6 +34,7 @@ function getInitials(name: string): string {
 }
 
 export default function HomeScreen() {
+  const router = useRouter();
   const { colors, resolvedTheme } = useThemeStore();
   const t = useLanguageStore((s) => s.t);
   const { user } = useAuthStore();
@@ -44,8 +48,11 @@ export default function HomeScreen() {
     Alert.alert(t.common.appName, msg);
   };
 
-  // User's joined circles (strictly binds to real data; zero mock records)
-  const userCircles: Array<{ id: string; name: string; initial: string; color: string; members: number }> = [];
+  const { data: myCircles = [] } = useMyCirclesQuery();
+  const setCreateModalVisible = useCircleStore((s) => s.setCreateModalVisible);
+  const setJoinModalVisible = useCircleStore((s) => s.setJoinModalVisible);
+  const setActiveCircle = useCircleStore((s) => s.setActiveCircle);
+  const setManageModalVisible = useCircleStore((s) => s.setManageModalVisible);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.canvas }]}>
@@ -83,7 +90,7 @@ export default function HomeScreen() {
             {/* Primary Action: Create Circle Button */}
             <TouchableOpacity
               activeOpacity={0.8}
-              onPress={() => handleAction(t.home.createCirclePrompt)}
+              onPress={() => setCreateModalVisible(true)}
               style={styles.circleRailItem}
             >
               <View
@@ -103,15 +110,17 @@ export default function HomeScreen() {
             </TouchableOpacity>
 
             {/* Real User Circles (Rendered dynamically when available from API/Store) */}
-            {userCircles.map((circle) => (
+            {myCircles.map((circle) => (
               <TouchableOpacity
                 key={circle.id}
                 activeOpacity={0.8}
-                onPress={() =>
-                  handleAction(
-                    `${t.home.circleLabel} ${circle.name} (${t.home.circleMembersCount.replace('{count}', String(circle.members))})`,
-                  )
-                }
+                onPress={() => {
+                  setActiveCircle(circle);
+                  router.push({
+                    pathname: '/circle/[id]' as any,
+                    params: { id: circle.id },
+                  });
+                }}
                 style={styles.circleRailItem}
               >
                 <View
@@ -120,9 +129,9 @@ export default function HomeScreen() {
                     { borderColor: colors.hairline },
                   ]}
                 >
-                  <View style={[styles.circleAvatarInner, { backgroundColor: circle.color }]}>
+                  <View style={[styles.circleAvatarInner, { backgroundColor: colors.primary }]}>
                     <Text style={[styles.circleAvatarText, { color: colors.onPrimary }]}>
-                      {circle.initial}
+                      {getInitials(circle.name)}
                     </Text>
                   </View>
                 </View>
@@ -180,7 +189,7 @@ export default function HomeScreen() {
           <View style={styles.actionsRow}>
             <TouchableOpacity
               activeOpacity={0.85}
-              onPress={() => handleAction(t.home.createCirclePrompt)}
+              onPress={() => setCreateModalVisible(true)}
               style={[styles.primaryActionBtn, { backgroundColor: colors.primary }]}
             >
               <Plus size={16} color={colors.onPrimary} strokeWidth={2.4} />
@@ -191,7 +200,7 @@ export default function HomeScreen() {
 
             <TouchableOpacity
               activeOpacity={0.85}
-              onPress={() => handleAction(t.home.inviteCodePrompt)}
+              onPress={() => setJoinModalVisible(true)}
               style={[
                 styles.secondaryActionBtn,
                 {

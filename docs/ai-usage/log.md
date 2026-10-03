@@ -2436,14 +2436,116 @@
 - **Commit:** `e40ef4e`
 - **PR:** #63 (https://github.com/1440isme/Circle/pull/63)
 
+---
 
+## AI-0060: Triển khai Giao diện Quản trị Vòng tròn & Không gian Làm việc Workspace (Circle Core, Governance & Workspace) trên Mobile React Native
 
+- **Date:** 2026-09-30 18:35:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #64 ([SUB-FEAT]: US-MOBILE-002 — Mobile Circle Core & Governance UI/UX)
+- **Purpose:** 
+  1. Triển khai hoàn thiện tính năng Quản trị & Điều phối Vòng tròn (Circle Core & Governance) trên ứng dụng di động React Native (`apps/mobile`), tuân thủ chuẩn thiết kế Liquid Glass, 0 hardcoded colors, 0 raw strings (100% i18n keys) và kết nối trực tiếp backend API qua JWT:
+     - Tạo Vòng tròn mới (`CreateCircleModal.tsx`): Nhập tên, @handle định danh, chọn chế độ Công khai/Riêng tư, tìm kiếm và chọn bạn bè ban đầu (`useSelectableFriendsQuery`), validate Zod `createCircleSchema`.
+     - Tham gia bằng Mã mời (`JoinCircleModal.tsx`): Nhập mã 6 ký tự viết hoa alphanumeric, xác thực `joinCircleSchema` và kích hoạt tham gia ngay lập tức.
+     - Quản trị & Thiết lập Vòng tròn (`CircleManagementModal.tsx`): 4 tab điều phối:
+       + Tab Thông tin: Thống kê thành viên, trạng thái riêng tư, hiển thị và chia sẻ mã mời (`Share.share`), chỉnh sửa thông tin Vòng tròn cho Trưởng nhóm.
+       + Tab Thành viên: Danh sách thành viên kèm role badge (`Trưởng nhóm`, `Quản trị viên`), chỉnh sửa/đặt biệt danh thành viên (`UC20`), mời thành viên ra khỏi nhóm (`kickMember`), chuyển giao vai trò Trưởng nhóm (`UC25`), thêm bạn bè vào nhóm (`Add Friends`).
+       + Tab Yêu cầu tham gia: Duyệt / Từ chối yêu cầu tham gia đối với Vòng tròn riêng tư.
+       + Tab Cài đặt: Rời Vòng tròn (`UC22`) dành cho thành viên, Giải tán Vòng tròn (`UC26`) dành cho Trưởng nhóm với xác nhận an toàn.
+  2. Xây dựng Màn hình Không gian Làm việc Vòng tròn chuyên dụng (`apps/mobile/app/circle/[id].tsx`):
+     - Header chuyên nghiệp phong cách Apple Liquid Glass: Nút Back quay lại các tab, avatar viết tắt Vòng tròn, Tên Vòng tròn, @handle định danh, huy hiệu vai trò người dùng (`Trưởng nhóm`, `Quản trị viên`, `Thành viên`), huy hiệu trạng thái bảo mật (`Riêng tư` với biểu tượng khóa / `Công khai`), nút chia sẻ mã mời trực tiếp (`Share.share`), và biểu tượng bánh răng Cài đặt mở ngay `CircleManagementModal`.
+     - Thanh điều hướng phân đoạn 4 tab con (`Segmented Controls`):
+       + Tab 1 — Trò chuyện (`chat`): Lựa chọn kênh (`# general`, `# confession`), thẻ giới thiệu kênh, danh sách bong bóng tin nhắn thời gian thực và thanh soạn thảo tin nhắn cố định ở đáy kết nối trực tiếp `useSendMessageMutation`.
+       + Tab 2 — Khoảnh khắc thường ngày (`moments`): Dòng cấp khoảnh khắc Locket của nhóm (`useCircleMomentsQuery`), ảnh khoảnh khắc kèm tác giả, thời gian, chú thích và thanh cảm xúc emoji tương tác tức thời (`❤️`, `🔥`, `👏`, `🥰` qua `useReactMomentMutation`).
+       + Tab 3 — Tiện ích nhóm (`tools`): Bộ thẻ tiện ích tích hợp Phòng thoại nhóm trực tiếp (`groupCall`), Album ảnh chung (`photoAlbum`), Lịch sự kiện (`calendarEvents`), Bảng kế hoạch chung (`planningSheet`), Vòng xoay may mắn (`luckyWheel`).
+       + Tab 4 — Thành viên (`members`): Danh sách thành viên đầy đủ, avatar, tên, email, biệt danh (`UC20`), vai trò trong nhóm và liên kết mở nhanh modal quản trị thành viên.
+  3. Tích hợp dữ liệu động & điều hướng toàn diện:
+     - `apps/mobile/src/stores/circle.store.ts`: Zustand store quản lý state Vòng tròn đang chọn và hiển thị các modal điều khiển.
+     - `apps/mobile/src/hooks/use-circle-queries.ts`: Bộ TanStack Query hooks kết nối API Vòng tròn, danh sách thành viên, khoảnh khắc nhóm, tin nhắn và gửi tin nhắn trong kênh.
+     - `apps/mobile/app/(tabs)/circles.tsx`: Hiển thị danh sách thẻ Vòng tròn thực tế với Pull-to-refresh; bấm vào bất kỳ thẻ Vòng tròn nào sẽ điều hướng trực tiếp vào không gian làm việc `/circle/[id]`.
+     - `apps/mobile/app/(tabs)/index.tsx`: Đồng bộ dải Circles Rail ngang trên Trang chủ; chọn Vòng tròn sẽ điều hướng ngay vào `/circle/[id]`.
+     - `apps/mobile/app/(tabs)/messages.tsx`: Hiển thị danh sách các Vòng tròn đã tham gia kèm kênh chat `#general`, `#confession`; chọn kênh mở trực tiếp `/circle/[id]`.
+     - `apps/mobile/app/(tabs)/_layout.tsx`: Kích hoạt tùy chọn Tạo Vòng tròn trong ActionSheet trung tâm, mount 3 modals toàn cục.
+  4. Cập nhật contracts & từ điển:
+     - Bổ sung `danger` semantic color vào theme mobile (`apps/mobile/src/constants/theme.ts`).
+     - Bổ sung các key bản địa hóa cho giải tán Vòng tròn (`deleteCircle`, `deleteCircleConfirm`, `deleteCircleWarning`, `deleteCircleSuccess`) trong `packages/shared/src/locales/vi.ts` và `en.ts`.
+- **Prompt Summary:** Chỉ đạo: Triển khai Module 3 trên mobile; khi chọn vào 1 circle sẽ chuyển hẳn vào không gian làm việc của circle đó; chỉ ghi log.md khi chuẩn bị PR hoặc có chức năng mới hoàn chỉnh.
+- **Files Affected:**
+  - `apps/mobile/src/constants/theme.ts`
+  - `apps/mobile/src/stores/circle.store.ts`
+  - `apps/mobile/src/hooks/use-circle-queries.ts`
+  - `apps/mobile/src/components/circle/CreateCircleModal.tsx`
+  - `apps/mobile/src/components/circle/JoinCircleModal.tsx`
+  - `apps/mobile/src/components/circle/CircleManagementModal.tsx`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `apps/mobile/app/(tabs)/circles.tsx`
+  - `apps/mobile/app/(tabs)/index.tsx`
+  - `apps/mobile/app/(tabs)/messages.tsx`
+  - `apps/mobile/app/(tabs)/_layout.tsx`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% mã nguồn components, workspace screen, hooks, stores, styles và localization keys.
+- **Human Modifications:** Ninh Thị Mỹ Hạnh chỉ đạo phát triển Mobile Circle Core theo đúng kiến trúc Module 3, yêu cầu bổ sung không gian làm việc chi tiết khi bấm vào Vòng tròn, và chuẩn hóa quy định chỉ ghi nhật ký AI log khi chuẩn bị PR hoặc có tính năng mới hoàn chỉnh.
+- **Verification Method:**
+  - `npm run typecheck -w @circle/mobile`: TypeScript `tsc --noEmit` pass 100% (0 errors).
+  - `npm test -w @circle/backend`: 83/83 backend unit tests pass 100%.
+  - `bash ./scripts/check-agent-map.sh`: 93/93 markdown references pass 100%.
+- **Official Source Checked:** `PROJECT_GOD.md` (Module 3, Definition of Done, 10 Hard Gates), `docs/phan-cong-nhiem-vu.md` (Hạnh: Module 3), SRS UC20, UC22, UC25, UC26.
+- **Security & License Check:** An toàn, không chứa API keys hay credentials.
+- **Commit:** `8b7020d`
+- **PR:** #65
 
+---
 
+## AI-0061: Hoàn thiện Trải nghiệm Locket Camera Realtime, Zoom 0.5x/1x, Chế độ Dual View Song song và Điều hướng Khoảnh khắc Nhóm trên Mobile
 
-
-
-
-
-
+- **Date:** 2026-10-01 13:45:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #64 ([SUB-FEAT]: US-MOBILE-002 — Mobile Circle Core & Governance UI/UX)
+- **Purpose:** 
+  1. Tái cấu trúc và hoàn thiện trải nghiệm Camera Realtime Locket Widget trên Mobile React Native (`apps/mobile/src/components/moment/LocketMomentsView.tsx`):
+     - **Real Camera 60fps & 100% Realtime:** Tích hợp `expo-camera` (`CameraView`) với xử lý chụp ảnh tức thì qua Base64 & URI, loại bỏ hoàn toàn việc chọn ảnh từ thư viện để đảm bảo tính xác thực thời gian thực.
+     - **Điều khiển Zoom góc rộng (0.5x vs 1x):** Bổ sung nút chuyển đổi góc trên bên phải khung ngắm đối xứng với nút Flash, hỗ trợ thu nhỏ hiển thị toàn cảnh 0.5x (uncropped scale `0.78`) và góc tiêu chuẩn 1x.
+     - **Chế độ 2 Camera Song Song (Dual View / PiP):**
+       + Nút bật/tắt Dual View (`Layers`) ở thanh điều khiển dưới.
+       + Khung nổi phụ PiP góc trên bên trái hiển thị góc đối diện (Selfie khi cam chính là cam sau, hoặc ngược lại) với badge góc và nút **Lật cam** (`RefreshCw`) thao tác trực tiếp.
+       + Cơ chế chụp ảnh kép không làm giật/đơ luồng camera, lưu trữ dữ liệu lồng `#pip=` tương thích 100% Zod validation của backend.
+       + Trong chế độ xem lại (Review) và Feed Khoảnh khắc (Trang 1..N): Khung nổi PiP hỗ trợ **chạm để hoán đổi góc nhìn (Tap to Swap)** tức thì giữa ảnh lớn và ảnh nhỏ.
+     - **Bố cục & Điều hướng Tinh chỉnh:**
+       + Cố định Header trên cùng với dropdown lọc theo từng thành viên dạng sổ tại chỗ.
+       + Nút chụp chính phóng to 90px chuẩn Locket đôi viền, cân bằng khoảng cách thẩm mỹ.
+       + Khu vực điều hướng Lịch sử mượt mà với thumbnail ảnh gần nhất.
+  2. Tối ưu hóa Cache & Truy vấn dữ liệu (`apps/mobile/src/hooks/use-circle-queries.ts`):
+     - Xử lý tương thích định dạng dữ liệu trả về từ backend (raw array / wrapped object).
+     - Cập nhật Optimistic Cache tức thì khi đăng bài qua `useCreateMomentMutation`.
+- **Prompt Summary:** Yêu cầu: Tinh chỉnh bố cục camera Locket, làm to nút chụp, thêm zoom 0.5x/1x, tích hợp camera thật, làm chế độ 2 cam trước sau song song (Dual View), sửa lỗi khung nhỏ và thao tác lật, hoàn thiện Module 3 và ghi log mở PR.
+- **Files Affected:**
+  - `apps/mobile/src/components/moment/LocketMomentsView.tsx`
+  - `apps/mobile/src/hooks/use-circle-queries.ts`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `apps/mobile/app/(tabs)/circles.tsx`
+  - `apps/mobile/app/(tabs)/index.tsx`
+  - `apps/mobile/app/(tabs)/messages.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% mã nguồn camera controls, Dual View PiP frame, layout adjustments, optimistic mutation hooks và styling.
+- **Human Modifications:** Ninh Thị Mỹ Hạnh trực tiếp nghiệm thu thực tế trên thiết bị di động, chỉ đạo cải tiến các chi tiết UX: tỉ lệ zoom 0.5x, khung nhỏ PiP trực quan, thao tác lật cam và kiểm duyệt chất lượng trước khi mở PR.
+- **Verification Method:**
+  - `npm run typecheck -w @circle/mobile`: TypeScript `tsc --noEmit` pass 100% (0 errors).
+  - `npm test -w @circle/backend -- --testPathPattern="circle"`: 5/5 test suites, 83/83 unit tests pass 100%.
+  - `npm run build -w @circle/backend`: Biên dịch NestJS thành công 0 lỗi.
+  - `npm run build -w @circle/web`: Next.js production build pass 100%.
+  - `bash ./scripts/check-agent-map.sh`: 93/93 markdown references pass 100%.
+- **Official Source Checked:** `PROJECT_GOD.md` (Module 3 & Module 5, Definition of Done, 10 Hard Gates), `docs/phan-cong-nhiem-vu.md` (Hạnh: Module 3 Full-stack), SRS UC20, UC22, UC25, UC26.
+- **Security & License Check:** An toàn, không chứa secret keys hay API credentials.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** Thuộc tính `pipCornerTag` thiếu trong StyleSheet ban đầu gây lỗi typecheck TS2339; và trên Android/iOS không thể render cùng lúc 2 hardware `<CameraView>` mà không khóa camera bus; dynamic typed route `/circle/[id]` thiếu type declaration trong Expo Router types.
+  - **Root Cause:** Quên thêm class style vào StyleSheet; giới hạn phần cứng mobile chỉ cho phép 1 active hardware camera pipeline; và route mới chưa được sinh vào router.d.ts của expo-router.
+  - **Resolution / Fix:** Bổ sung `pipCornerTag` và `pipFlipBtn` vào StyleSheet; sử dụng giải pháp hiển thị góc phụ qua dynamic counterpart portrait/preview và capture dual-payload an toàn mượt mà; ép kiểu pathname `/circle/[id]` trong tab screens.
+- **Commit:** `cad3ddb`
+- **PR:** #65 (https://github.com/1440isme/Circle/pull/65)
 
