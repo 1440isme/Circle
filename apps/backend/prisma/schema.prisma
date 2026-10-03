@@ -156,8 +156,6 @@ model Circle {
   name        String
   handle      String    @unique
   avatarUrl   String?
-  coverUrl    String?
-  description String?
   inviteCode  String    @unique
   isPrivate   Boolean   @default(false)
   maxMembers  Int?

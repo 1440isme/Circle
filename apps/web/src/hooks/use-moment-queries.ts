@@ -89,3 +89,30 @@ export function useDeleteMomentMutation() {
     },
   });
 }
+
+export function useReplyMomentMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      momentId,
+      message,
+      circleId,
+    }: {
+      momentId: string;
+      message: string;
+      circleId: string;
+    }) => {
+      const res = await apiRequest<any>(`/moments/${momentId}/reply`, {
+        method: 'POST',
+        body: JSON.stringify({ message, circleId }),
+      });
+      return res?.data ?? res;
+    },
+    onSuccess: () => {
+      // Invalidate chat messages cache so if user navigates to chat, it displays immediately
+      queryClient.invalidateQueries({ queryKey: ['chat'] });
+      queryClient.invalidateQueries({ queryKey: ['channels'] });
+    },
+  });
+}

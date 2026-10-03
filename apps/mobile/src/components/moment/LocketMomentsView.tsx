@@ -51,6 +51,7 @@ import {
   useCircleMembersQuery,
   useReactMomentMutation,
   useCreateMomentMutation,
+  useReplyMomentMutation,
 } from '../../hooks/use-circle-queries';
 import { uploadMobileMedia } from '../../services/storage-upload.service';
 
@@ -115,6 +116,7 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
   const { data: members = [] } = useCircleMembersQuery(circleId);
   const createMomentMutation = useCreateMomentMutation(circleId);
   const reactMomentMutation = useReactMomentMutation(circleId);
+  const replyMomentMutation = useReplyMomentMutation(circleId);
 
   // Member Filter State (Trang 1..N: Lọc theo mọi người hoặc từng thành viên dạng sổ tại chỗ)
   const [selectedMemberId, setSelectedMemberId] = useState<string | 'all'>('all');
@@ -134,6 +136,12 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
   const [captionText, setCaptionText] = useState<string>('');
   const [replyingToAuthor, setReplyingToAuthor] = useState<string | null>(null);
   const [swappedMoments, setSwappedMoments] = useState<Record<string, boolean>>({});
+
+  // Chat Reply Modal State
+  const [isChatReplyOpen, setIsChatReplyOpen] = useState<boolean>(false);
+  const [chatReplyMomentId, setChatReplyMomentId] = useState<string | null>(null);
+  const [chatReplyAuthorName, setChatReplyAuthorName] = useState<string>('');
+  const [chatReplyText, setChatReplyText] = useState<string>('');
 
   // Page Tracking & Action Menu State
   const [currentPageIndex, setCurrentPageIndex] = useState<number>(0);
@@ -297,6 +305,31 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
     setReplyingToAuthor(authorName);
     flatListRef.current?.scrollToIndex({ index: 0, animated: true });
     setCurrentPageIndex(0);
+  };
+
+  const handleOpenChatReply = (momentId: string, authorName: string) => {
+    setChatReplyMomentId(momentId);
+    setChatReplyAuthorName(authorName);
+    setChatReplyText('');
+    setIsChatReplyOpen(true);
+  };
+
+  const handleSendChatReply = async () => {
+    if (!chatReplyMomentId || !chatReplyText.trim() || replyMomentMutation.isPending) return;
+
+    try {
+      await replyMomentMutation.mutateAsync({
+        momentId: chatReplyMomentId,
+        message: chatReplyText.trim(),
+        targetCircleId: circleId,
+      });
+      setIsChatReplyOpen(false);
+      setChatReplyText('');
+      setChatReplyMomentId(null);
+      Alert.alert(t.common.appName, 'Đã gửi tin nhắn trích dẫn ảnh vào nhóm chat!');
+    } catch (err: any) {
+      Alert.alert(t.common.appName, err?.message || t.common.unknownError);
+    }
   };
 
   const handleReactMoment = (momentId: string, emoji: string) => {
@@ -819,18 +852,31 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
             ) : null}
           </View>
 
-          {/* Card Bottom: Reply With Photo + Quick Emoji Reactions */}
+          {/* Card Bottom: Reply Into Chat + Reply With Photo + Quick Emoji Reactions */}
           <View style={[styles.momentFeedFooter, { borderTopColor: colors.hairline }]}>
-            <TouchableOpacity
-              activeOpacity={0.75}
-              onPress={() => handleReplyWithPhoto(authorName)}
-              style={[styles.replyWithPhotoBtn, { backgroundColor: colors.wash }]}
-            >
-              <Camera size={14} color={colors.primary} />
-              <Text style={[styles.replyWithPhotoText, { color: colors.text }]}>
-                Đáp lại bằng ảnh
-              </Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+              <TouchableOpacity
+                activeOpacity={0.75}
+                onPress={() => handleOpenChatReply(m.id, authorName)}
+                style={[styles.replyWithPhotoBtn, { backgroundColor: colors.wash }]}
+              >
+                <MessageCircle size={14} color={colors.primary} />
+                <Text style={[styles.replyWithPhotoText, { color: colors.text }]}>
+                  Phản hồi
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                activeOpacity={0.75}
+                onPress={() => handleReplyWithPhoto(authorName)}
+                style={[styles.replyWithPhotoBtn, { backgroundColor: colors.wash }]}
+              >
+                <Camera size={14} color={colors.primary} />
+                <Text style={[styles.replyWithPhotoText, { color: colors.text }]}>
+                  Ảnh
+                </Text>
+              </TouchableOpacity>
+            </View>
 
             <View style={styles.reactionEmojisBar}>
               {['❤️', '🔥', '👏', '🥰'].map((emoji) => (
@@ -1202,7 +1248,29 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
                 </View>
               </TouchableOpacity>
 
-              {/* Option 4: Reply With Photo */}
+              {/* Option 4: Reply into Circle Chat */}
+              <TouchableOpacity
+                activeOpacity={0.75}
+                onPress={() => {
+                  setIsActionMenuOpen(false);
+                  if (currentFeedItem.type === 'moment') {
+                    handleOpenChatReply(currentFeedItem.data.id, currentAuthorName);
+                  }
+                }}
+                style={[styles.actionItem, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
+              >
+                <View style={[styles.actionIconBox, { backgroundColor: `${colors.primary}20` }]}>
+                  <MessageCircle size={20} color={colors.primary} />
+                </View>
+                <View style={styles.actionItemInfo}>
+                  <Text style={[styles.actionItemTitle, { color: colors.text }]}>Phản hồi vào nhóm chat</Text>
+                  <Text style={[styles.actionItemDesc, { color: colors.subtle }]}>
+                    Trích dẫn ảnh khoảnh khắc và gửi vào kênh trò chuyện chung
+                  </Text>
+                </View>
+              </TouchableOpacity>
+
+              {/* Option 5: Reply With Photo */}
               <TouchableOpacity
                 activeOpacity={0.75}
                 onPress={() => {
@@ -1220,6 +1288,110 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
                     Mở camera và gửi ảnh phản hồi ngay
                   </Text>
                 </View>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Modal Phản hồi khoảnh khắc vào nhóm chat */}
+      <Modal
+        visible={isChatReplyOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsChatReplyOpen(false)}
+      >
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={() => setIsChatReplyOpen(false)}
+          style={styles.actionModalOverlay}
+        >
+          <BlurView
+            intensity={Platform.OS === 'ios' ? 45 : 85}
+            tint={isDark ? 'dark' : 'light'}
+            style={StyleSheet.absoluteFill}
+          />
+
+          <TouchableOpacity
+            activeOpacity={1}
+            style={[
+              styles.actionModalSheet,
+              {
+                backgroundColor: colors.sheetBg,
+                borderColor: colors.glassBorder,
+              },
+            ]}
+          >
+            <View style={[styles.actionSheetHandle, { backgroundColor: colors.hairline }]} />
+
+            <View style={styles.actionSheetHeader}>
+              <View style={styles.actionHeaderLeft}>
+                <View style={[styles.actionIconBox, { backgroundColor: `${colors.primary}20`, width: 38, height: 38 }]}>
+                  <MessageCircle size={18} color={colors.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.actionSheetTitle, { color: colors.text, fontSize: 15 }]}>
+                    Phản hồi vào {circleName}
+                  </Text>
+                  <Text style={[styles.actionSheetSub, { color: colors.subtle }]}>
+                    Trích dẫn khoảnh khắc của {chatReplyAuthorName}
+                  </Text>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                onPress={() => setIsChatReplyOpen(false)}
+                style={[styles.actionCloseBtn, { backgroundColor: colors.wash }]}
+              >
+                <X size={16} color={colors.subtle} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={{ paddingHorizontal: 16, paddingBottom: 24, gap: 12 }}>
+              <TextInput
+                value={chatReplyText}
+                onChangeText={setChatReplyText}
+                placeholder="Nhập tin nhắn gửi vào nhóm chat..."
+                placeholderTextColor={colors.subtle}
+                multiline
+                maxLength={2000}
+                style={{
+                  backgroundColor: colors.surface,
+                  borderColor: colors.hairline,
+                  borderWidth: 1,
+                  borderRadius: 16,
+                  padding: 14,
+                  fontSize: 14,
+                  color: colors.text,
+                  minHeight: 90,
+                  textAlignVertical: 'top',
+                }}
+              />
+
+              <TouchableOpacity
+                disabled={!chatReplyText.trim() || replyMomentMutation.isPending}
+                onPress={handleSendChatReply}
+                style={{
+                  backgroundColor: colors.primary,
+                  borderRadius: 14,
+                  paddingVertical: 14,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexDirection: 'row',
+                  gap: 8,
+                  opacity: !chatReplyText.trim() || replyMomentMutation.isPending ? 0.5 : 1,
+                }}
+              >
+                {replyMomentMutation.isPending ? (
+                  <ActivityIndicator color={colors.onPrimary} size="small" />
+                ) : (
+                  <>
+                    <Send size={16} color={colors.onPrimary} />
+                    <Text style={{ color: colors.onPrimary, fontWeight: '700', fontSize: 14 }}>
+                      Gửi vào nhóm chat
+                    </Text>
+                  </>
+                )}
               </TouchableOpacity>
             </View>
           </TouchableOpacity>
