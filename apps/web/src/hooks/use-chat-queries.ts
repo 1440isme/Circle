@@ -201,8 +201,18 @@ export function useChannelMessagesQuery(channelId: string | null) {
     };
   }, [channelId, queryClient]);
 
-  // Flatten all messages across pages
-  const messages = query.data?.pages.flatMap((page) => page.messages) || [];
+  // Flatten and deduplicate all messages across pages
+  const rawMessages = query.data?.pages.flatMap((page) => page.messages) || [];
+  const seenWebKeys = new Set<string>();
+  const messages: MessageEntity[] = [];
+  for (const m of rawMessages) {
+    const k = m.id || m.tempId;
+    if (k) {
+      if (seenWebKeys.has(k)) continue;
+      seenWebKeys.add(k);
+    }
+    messages.push(m);
+  }
 
   return {
     ...query,
@@ -276,6 +286,26 @@ export function useSendMessageMutation(channelId: string | null) {
         CHAT_KEYS.messages(channelId),
         (oldData) => {
           if (!oldData) return oldData;
+
+          // Check if socket already delivered this real message ID
+          const alreadyHasRealId = oldData.pages.some((page) =>
+            page.messages.some(
+              (m) => m.id === message.id && m.id !== tempId && m.tempId !== tempId,
+            ),
+          );
+
+          if (alreadyHasRealId) {
+            // Remove the temporary optimistic placeholder
+            return {
+              ...oldData,
+              pages: oldData.pages.map((page) => ({
+                ...page,
+                messages: page.messages.filter(
+                  (m) => m.tempId !== tempId && m.id !== tempId,
+                ),
+              })),
+            };
+          }
 
           let replaced = false;
           const updatedPages = oldData.pages.map((page) => ({

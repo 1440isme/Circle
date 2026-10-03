@@ -546,7 +546,17 @@ export default function CircleWorkspaceScreen() {
   const pinMessageMutation = usePinMessageMutation(currentChannelId);
   const { typingUsers, reportTyping } = useMobileChannelTyping(currentChannelId);
 
-  const messages = messagesData?.messages || (messagesData as any)?.items || [];
+  const rawMessages: any[] = messagesData?.messages || (messagesData as any)?.items || [];
+  const seenMsgKeys = new Set<string>();
+  const messages: any[] = [];
+  for (const m of rawMessages) {
+    const k = m.id || m.tempId;
+    if (k) {
+      if (seenMsgKeys.has(k)) continue;
+      seenMsgKeys.add(k);
+    }
+    messages.push(m);
+  }
 
   const clusters = buildMobileClusters(messages, user?.id, user?.email);
 
@@ -856,7 +866,7 @@ export default function CircleWorkspaceScreen() {
 
                         return (
                           <MobileSwipeMessageBubble
-                            key={msg.id}
+                            key={msg.id ? `bubble-me-${msg.id}` : `bubble-temp-${msg.tempId || msgIdx}`}
                             msg={msg}
                             allMessages={messages}
                             isSenderMe={true}
@@ -923,7 +933,7 @@ export default function CircleWorkspaceScreen() {
 
                         return (
                           <MobileSwipeMessageBubble
-                            key={msg.id}
+                            key={msg.id ? `bubble-other-${msg.id}` : `bubble-temp-${msg.tempId || msgIdx}`}
                             msg={msg}
                             allMessages={messages}
                             isSenderMe={false}

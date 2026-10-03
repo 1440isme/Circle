@@ -2950,5 +2950,46 @@
 - **Commit:** `e257c8f`
 - **PR:** #71 (https://github.com/1440isme/Circle/pull/71)
 
+---
+
+## AI-0075: Fix React Duplicate Keys in Chat & SSR Hydration Mismatch in Web
+
+- **Date:** 2026-10-04 01:05:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #70 ([SUB-FEAT]: US-CHAT-002 — Production-Grade Messaging P0: Optimistic UI, Typing Indicator, Outbox & Media Attachment (Parent: #20))
+- **Purpose:** 
+  1. Khắc phục cảnh báo trùng khóa React (`Encountered two children with the same key`):
+     - Sửa lỗi listener leak trong `useChannelMessagesQuery` trên mobile: di chuyển cleanup handler `socket.off` ra hàm trả về của `useEffect` thay vì bị nuốt bên trong `.then()`, triệt tiêu hoàn toàn hiện tượng đăng ký lắng nghe lặp nhiều lần khi re-render.
+     - Giải quyết triệt để race condition giữa Socket.IO `chat:message` và HTTP `onSuccess` trong `useSendMessageMutation` (cả Mobile và Web): khi socket đã nạp tin nhắn ID thực tế trước khi HTTP hoàn tất, `onSuccess` loại bỏ optimistic placeholder thay vì biến đổi thành item thứ hai mang cùng ID.
+     - Bổ sung hàm tiện ích `deduplicateMessages` bảo đảm mảng tin nhắn luôn có ID độc bản, kèm khóa định danh tiền tố `bubble-me-${id}` / `bubble-other-${id}` trong `[id].tsx`.
+  2. Khắc phục lỗi Next.js SSR Hydration (`Text content does not match server-rendered HTML. Server: "Đang kết nối CIRCLE..." Client: "Connecting to CIRCLE..."`):
+     - Đồng bộ giá trị khởi tạo của `useLanguageStore` trên Web về ngôn ngữ chuẩn `'vi'` trong lần render đầu tiên để khớp 100% giữa Server và Client, sau đó `initLanguage()` trên `AuthProvider` sẽ tự động đọc `localStorage` và cập nhật ngôn ngữ đã lưu sau khi mount.
+     - Bổ sung cờ `suppressHydrationWarning` cho thẻ hiển thị trạng thái kết nối trong `AuthGuard.tsx`.
+- **Files Affected:**
+  - `apps/mobile/src/hooks/use-circle-queries.ts`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `apps/web/src/stores/language.store.ts`
+  - `apps/web/src/components/auth/AuthGuard.tsx`
+  - `apps/web/src/hooks/use-chat-queries.ts`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% bug diagnosis, synchronization fixes and deduplication logic.
+- **Human Modifications:** Trương Công Bình cung cấp log lỗi runtime từ thiết bị di động và trình duyệt, trực tiếp chỉ đạo sửa dứt điểm.
+- **Verification Method:**
+  - Backend: 7/7 Jest suites, 99/99 unit tests pass 100%.
+  - Web: Next.js 14 production build pass 100% (9/9 static routes).
+  - Mobile: TypeScript typecheck pass (0 errors).
+  - Integrity: `check-agent-map.sh` pass (94/94 files).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** Pass 100%.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A.
+  - **Resolution / Fix:** N/A.
+- **Commit:** Pending
+- **PR:** #71 (https://github.com/1440isme/Circle/pull/71)
+
+
 
 

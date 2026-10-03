@@ -381,6 +381,20 @@ export function useCircleMomentsQuery(circleId: string | null) {
   });
 }
 
+function deduplicateMessages(list: MessageEntity[]): MessageEntity[] {
+  const seen = new Set<string>();
+  const result: MessageEntity[] = [];
+  for (const m of list) {
+    const key = m.id || m.tempId;
+    if (key) {
+      if (seen.has(key)) continue;
+      seen.add(key);
+    }
+    result.push(m);
+  }
+  return result;
+}
+
 export function useChannelMessagesQuery(channelId: string | null) {
   const queryClient = useQueryClient();
 
@@ -392,7 +406,7 @@ export function useChannelMessagesQuery(channelId: string | null) {
       const data = res.data;
       const list = data?.messages || data?.items || (Array.isArray(data) ? data : []);
       return {
-        messages: list,
+        messages: deduplicateMessages(list),
         nextCursor: data?.nextCursor || null,
         hasMore: Boolean(data?.hasMore),
       };
@@ -404,80 +418,91 @@ export function useChannelMessagesQuery(channelId: string | null) {
   useEffect(() => {
     if (!channelId) return;
     let isCancelled = false;
+    let activeSocket: any = null;
 
     joinMobileChannelRoom(channelId);
 
+    const handleNewMessage = (newMsg: MessageEntity) => {
+      if (newMsg.channelId !== channelId) return;
+
+      queryClient.setQueryData(['messages', 'channel', channelId], (old: any) => {
+        if (!old) return { messages: [newMsg], nextCursor: null, hasMore: false };
+        const list: MessageEntity[] = old.messages || old.items || [];
+
+        // Check if message already exists with real ID
+        const exists = list.some((m) => m.id === newMsg.id && !m.tempId);
+
+        // Find optimistic sending message matching content or tempId
+        const tempMatchIdx = list.findIndex(
+          (m) =>
+            (m.tempId && (m.tempId === newMsg.tempId || m.id === newMsg.tempId)) ||
+            (m.status === 'SENDING' &&
+              ((m.content && m.content === newMsg.content) || (m.fileUrl && m.fileUrl === newMsg.fileUrl)) &&
+              Math.abs(new Date(m.sentAt).getTime() - new Date(newMsg.sentAt).getTime()) < 20000),
+        );
+
+        if (exists) {
+          // If real message already exists, clean up any matching temp placeholder
+          if (tempMatchIdx !== -1) {
+            return {
+              ...old,
+              messages: list.filter((_, idx) => idx !== tempMatchIdx),
+            };
+          }
+          return old;
+        }
+
+        if (tempMatchIdx !== -1) {
+          const copy = [...list];
+          copy[tempMatchIdx] = { ...newMsg, status: 'SENT' };
+          return { ...old, messages: deduplicateMessages(copy) };
+        }
+
+        return {
+          ...old,
+          messages: deduplicateMessages([...list, { ...newMsg, status: 'SENT' }]),
+        };
+      });
+    };
+
+    const handleReaction = (payload: {
+      messageId: string;
+      memberId: string;
+      emoji: string;
+      reactionCounts: Record<string, number>;
+      userReactions: string[];
+    }) => {
+      queryClient.setQueryData(['messages', 'channel', channelId], (old: any) => {
+        if (!old) return old;
+        const list: MessageEntity[] = old.messages || old.items || [];
+        return {
+          ...old,
+          messages: list.map((m) =>
+            m.id === payload.messageId
+              ? {
+                  ...m,
+                  reactionCounts: payload.reactionCounts,
+                  userReactions: payload.userReactions,
+                }
+              : m,
+          ),
+        };
+      });
+    };
+
     getMobileSocket().then((socket) => {
       if (!socket || isCancelled) return;
-
-      const handleNewMessage = (newMsg: MessageEntity) => {
-        if (newMsg.channelId !== channelId) return;
-
-        queryClient.setQueryData(['messages', 'channel', channelId], (old: any) => {
-          if (!old) return { messages: [newMsg], nextCursor: null, hasMore: false };
-          const list: MessageEntity[] = old.messages || old.items || [];
-
-          // Reconcile optimistic sending message
-          const tempMatchIdx = list.findIndex(
-            (m) =>
-              (m.tempId && (m.tempId === newMsg.tempId || m.id === newMsg.tempId)) ||
-              (m.status === 'SENDING' &&
-                m.content === newMsg.content &&
-                Math.abs(new Date(m.sentAt).getTime() - new Date(newMsg.sentAt).getTime()) < 15000),
-          );
-
-          if (tempMatchIdx !== -1) {
-            const copy = [...list];
-            copy[tempMatchIdx] = { ...newMsg, status: 'SENT' };
-            return { ...old, messages: copy };
-          }
-
-          const exists = list.some((m) => m.id === newMsg.id);
-          if (exists) return old;
-
-          return {
-            ...old,
-            messages: [...list, { ...newMsg, status: 'SENT' }],
-          };
-        });
-      };
-
-      const handleReaction = (payload: {
-        messageId: string;
-        memberId: string;
-        emoji: string;
-        reactionCounts: Record<string, number>;
-        userReactions: string[];
-      }) => {
-        queryClient.setQueryData(['messages', 'channel', channelId], (old: any) => {
-          if (!old) return old;
-          const list: MessageEntity[] = old.messages || old.items || [];
-          return {
-            ...old,
-            messages: list.map((m) =>
-              m.id === payload.messageId
-                ? {
-                    ...m,
-                    reactionCounts: payload.reactionCounts,
-                    userReactions: payload.userReactions,
-                  }
-                : m,
-            ),
-          };
-        });
-      };
-
+      activeSocket = socket;
       socket.on('chat:message', handleNewMessage);
       socket.on('chat:reaction', handleReaction);
-
-      return () => {
-        socket.off('chat:message', handleNewMessage);
-        socket.off('chat:reaction', handleReaction);
-      };
     });
 
     return () => {
       isCancelled = true;
+      if (activeSocket) {
+        activeSocket.off('chat:message', handleNewMessage);
+        activeSocket.off('chat:reaction', handleReaction);
+      }
       leaveMobileChannelRoom(channelId);
     };
   }, [channelId, queryClient]);
@@ -540,7 +565,7 @@ export function useSendMessageMutation(channelId: string | null) {
         const list = old.messages || old.items || [];
         return {
           ...old,
-          messages: [...list, optimisticMsg],
+          messages: deduplicateMessages([...list, optimisticMsg]),
         };
       });
 
@@ -556,17 +581,35 @@ export function useSendMessageMutation(channelId: string | null) {
               hasMore: false,
             };
           const list = old.messages || old.items || [];
+
+          // If socket already added this exact message ID, remove the temp placeholder
+          const alreadyHasRealId = list.some(
+            (m: any) => m.id === message.id && m.id !== tempId && m.tempId !== tempId,
+          );
+
+          if (alreadyHasRealId) {
+            return {
+              ...old,
+              messages: list.filter((m: any) => m.tempId !== tempId && m.id !== tempId),
+            };
+          }
+
+          let matched = false;
           const updated = list.map((m: any) => {
             if (m.tempId === tempId || m.id === tempId) {
+              matched = true;
               return { ...message, status: 'SENT' };
             }
             return m;
           });
 
-          const exists = updated.some((m: any) => m.id === message.id);
+          const finalMessages = matched
+            ? updated
+            : [...updated, { ...message, status: 'SENT' }];
+
           return {
             ...old,
-            messages: exists ? updated : [...updated, { ...message, status: 'SENT' }],
+            messages: deduplicateMessages(finalMessages),
           };
         });
       }

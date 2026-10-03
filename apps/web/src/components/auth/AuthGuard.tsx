@@ -42,7 +42,7 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({
             </div>
             <div className="flex items-center gap-2 text-sm text-circle-slate dark:text-circle-dark-muted">
               <span className="h-2 w-2 rounded-full bg-circle-primary animate-presence-breathe" />
-              <span>{t?.home?.connectingCircle || 'Connecting to CIRCLE...'}</span>
+              <span suppressHydrationWarning>{t?.home?.connectingCircle || 'Connecting to CIRCLE...'}</span>
             </div>
           </div>
         </div>
