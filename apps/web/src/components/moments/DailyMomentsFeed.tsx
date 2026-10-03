@@ -10,6 +10,8 @@ import {
   Plus,
   Sparkles,
   MessageCircle,
+  Send,
+  CheckCircle2,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useLanguageStore } from '@/stores/language.store';
@@ -19,6 +21,7 @@ import {
   useCircleMomentsQuery,
   useReactMomentMutation,
   useDeleteMomentMutation,
+  useReplyMomentMutation,
 } from '@/hooks/use-moment-queries';
 import { CreateMomentModal } from './CreateMomentModal';
 
@@ -49,12 +52,38 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
 
   const reactMutation = useReactMomentMutation();
   const deleteMutation = useDeleteMomentMutation();
+  const replyMutation = useReplyMomentMutation();
+
+  const [expandedReplyId, setExpandedReplyId] = useState<string | null>(null);
+  const [replyTexts, setReplyTexts] = useState<Record<string, string>>({});
+  const [replySuccessMap, setReplySuccessMap] = useState<Record<string, boolean>>({});
 
   const handleToggleSound = (momentId: string) => {
     setUnmutedVideoIds((prev) => ({
       ...prev,
       [momentId]: !prev[momentId],
     }));
+  };
+
+  const handleSendFeedReply = async (momentId: string, circleId: string) => {
+    const text = (replyTexts[momentId] || '').trim();
+    if (!text || !circleId || replyMutation.isPending) return;
+
+    try {
+      await replyMutation.mutateAsync({
+        momentId,
+        message: text,
+        circleId,
+      });
+      setReplyTexts((prev) => ({ ...prev, [momentId]: '' }));
+      setReplySuccessMap((prev) => ({ ...prev, [momentId]: true }));
+      setTimeout(() => {
+        setReplySuccessMap((prev) => ({ ...prev, [momentId]: false }));
+        setExpandedReplyId((prev) => (prev === momentId ? null : prev));
+      }, 2500);
+    } catch {
+      // Handled by mutation
+    }
   };
 
   const handleReact = async (momentId: string, emoji: string) => {
@@ -241,47 +270,95 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
                   )}
                 </div>
 
-                {/* Bottom Reactions Dock */}
-                <div className="flex items-center justify-between pt-1">
-                  <div className="flex items-center gap-1.5 bg-circle-canvas/60 dark:bg-circle-dark-canvas/60 p-1.5 rounded-full border border-circle-hairline dark:border-circle-dark-hairline">
-                    {EMOJI_OPTIONS.map((emoji) => {
-                      const isSelected = moment.userReaction === emoji;
-                      const count = moment.reactionCounts?.[emoji] || 0;
+                {/* Bottom Reactions & Reply Dock */}
+                <div className="space-y-2 pt-1">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 bg-circle-canvas/60 dark:bg-circle-dark-canvas/60 p-1.5 rounded-full border border-circle-hairline dark:border-circle-dark-hairline">
+                      {EMOJI_OPTIONS.map((emoji) => {
+                        const isSelected = moment.userReaction === emoji;
+                        const count = moment.reactionCounts?.[emoji] || 0;
 
-                      return (
-                        <button
-                          key={emoji}
-                          type="button"
-                          onClick={() => handleReact(moment.id, emoji)}
-                          className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-sm transition-all active:scale-125 ${
-                            isSelected
-                              ? 'bg-circle-primary/20 border border-circle-primary/50 text-circle-sage dark:text-circle-primary scale-105 shadow-sm'
-                              : 'hover:bg-circle-wash dark:hover:bg-circle-dark-wash opacity-80 hover:opacity-100'
-                          }`}
-                          title={emoji}
-                        >
-                          <span>{emoji}</span>
-                          {count > 0 && (
-                            <span className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
-                              {count}
-                            </span>
-                          )}
-                        </button>
-                      );
-                    })}
+                        return (
+                          <button
+                            key={emoji}
+                            type="button"
+                            onClick={() => handleReact(moment.id, emoji)}
+                            className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-sm transition-all active:scale-125 ${
+                              isSelected
+                                ? 'bg-circle-primary/20 border border-circle-primary/50 text-circle-sage dark:text-circle-primary scale-105 shadow-sm'
+                                : 'hover:bg-circle-wash dark:hover:bg-circle-dark-wash opacity-80 hover:opacity-100'
+                            }`}
+                            title={emoji}
+                          >
+                            <span>{emoji}</span>
+                            {count > 0 && (
+                              <span className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
+                                {count}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setExpandedReplyId((prev) => (prev === moment.id ? null : moment.id))
+                        }
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                          expandedReplyId === moment.id
+                            ? 'bg-circle-primary text-circle-charcoal'
+                            : 'bg-circle-canvas/80 dark:bg-circle-dark-canvas/80 text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash border border-circle-hairline dark:border-circle-dark-hairline'
+                        }`}
+                      >
+                        <MessageCircle className="h-3.5 w-3.5" />
+                        <span>{t.moments.replyButton || 'Phản hồi'}</span>
+                      </button>
+                    </div>
                   </div>
 
-                  <span className="text-xs text-circle-slate dark:text-circle-dark-muted font-medium px-2">
-                    {Object.values(moment.reactionCounts || {}).reduce((a, b) => a + b, 0) > 0 && (
-                      <span className="flex items-center gap-1">
-                        <Heart className="h-3.5 w-3.5 fill-rose-500 text-rose-500" />
-                        <span>
-                          {Object.values(moment.reactionCounts || {}).reduce((a, b) => a + b, 0)}{' '}
-                          {locale === 'vi' ? 'cảm xúc' : 'reactions'}
-                        </span>
-                      </span>
-                    )}
-                  </span>
+                  {/* Expanded Quick Reply Form */}
+                  {expandedReplyId === moment.id && (
+                    <div className="pt-2 animate-fade-in">
+                      {replySuccessMap[moment.id] ? (
+                        <div className="flex items-center justify-center gap-2 py-2 px-3 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl text-emerald-600 dark:text-emerald-400 text-xs font-medium">
+                          <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
+                          <span>{t.moments.replySuccess || 'Đã gửi phản hồi vào khung chat của Vòng tròn!'}</span>
+                        </div>
+                      ) : (
+                        <form
+                          onSubmit={(e) => {
+                            e.preventDefault();
+                            const primaryCircleId =
+                              moment.visibilities?.[0]?.circleId || targetCircleId || '';
+                            handleSendFeedReply(moment.id, primaryCircleId);
+                          }}
+                          className="flex items-center gap-2 bg-circle-canvas/90 dark:bg-circle-dark-canvas/90 rounded-2xl p-1.5 border border-circle-hairline dark:border-circle-dark-hairline focus-within:border-circle-primary transition-colors"
+                        >
+                          <input
+                            type="text"
+                            value={replyTexts[moment.id] || ''}
+                            onChange={(e) =>
+                              setReplyTexts((prev) => ({ ...prev, [moment.id]: e.target.value }))
+                            }
+                            placeholder={t.moments.replyPlaceholder || 'Gửi tin nhắn phản hồi vào nhóm chat...'}
+                            maxLength={2000}
+                            className="flex-1 bg-transparent px-3 py-1 text-xs text-circle-charcoal dark:text-circle-dark-text placeholder:text-circle-slate dark:placeholder:text-circle-dark-muted focus:outline-none min-w-0"
+                          />
+                          <button
+                            type="submit"
+                            disabled={!replyTexts[moment.id]?.trim() || replyMutation.isPending}
+                            className="p-2 rounded-xl bg-circle-primary text-circle-charcoal disabled:opacity-40 hover:scale-105 active:scale-95 transition-all shrink-0 shadow-sm"
+                            title={t.moments.replyButton || 'Gửi'}
+                          >
+                            <Send className="h-3.5 w-3.5 stroke-[2.5]" />
+                          </button>
+                        </form>
+                      )}
+                    </div>
+                  )}
                 </div>
               </article>
             );

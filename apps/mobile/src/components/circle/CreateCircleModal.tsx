@@ -9,6 +9,7 @@ import {
   StyleSheet,
   Platform,
   ActivityIndicator,
+  Switch,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import {
@@ -229,78 +230,38 @@ export function CreateCircleModal() {
               ) : null}
             </View>
 
-            {/* Field: Privacy Mode */}
-            <View style={styles.formGroup}>
-              <Text style={[styles.label, { color: colors.text }]}>
-                {t.circle.privacyTitle}
-              </Text>
-              <View style={styles.privacyOptions}>
-                {/* Public Option */}
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  onPress={() => setIsPrivate(false)}
-                  style={[
-                    styles.privacyCard,
-                    {
-                      backgroundColor: !isPrivate ? `${colors.primary}12` : colors.surface,
-                      borderColor: !isPrivate ? colors.primary : colors.hairline,
-                    },
-                  ]}
-                >
-                  <View style={styles.privacyCardHeader}>
-                    <Globe
-                      size={18}
-                      color={!isPrivate ? colors.primary : colors.subtle}
-                    />
-                    <Text
-                      style={[
-                        styles.privacyTitle,
-                        {
-                          color: !isPrivate ? colors.primary : colors.text,
-                        },
-                      ]}
-                    >
-                      {t.circle.privacyPublic}
-                    </Text>
-                  </View>
-                  <Text style={[styles.privacyDesc, { color: colors.subtle }]}>
-                    {t.circle.privacyPublicDesc}
+            {/* Field: Require Approval Toggle */}
+            <View
+              style={[
+                styles.approvalCard,
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: isPrivate ? colors.primary : colors.hairline,
+                },
+              ]}
+            >
+              <View style={styles.approvalLeft}>
+                <View style={[styles.approvalIconBox, { backgroundColor: `${colors.primary}18` }]}>
+                  {isPrivate ? (
+                    <Lock size={18} color={colors.primary} />
+                  ) : (
+                    <Globe size={18} color={colors.primary} />
+                  )}
+                </View>
+                <View style={styles.approvalTextGroup}>
+                  <Text style={[styles.approvalTitle, { color: colors.text }]}>
+                    {t.circle.requireApprovalTitle}
                   </Text>
-                </TouchableOpacity>
-
-                {/* Private Option */}
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  onPress={() => setIsPrivate(true)}
-                  style={[
-                    styles.privacyCard,
-                    {
-                      backgroundColor: isPrivate ? `${colors.primary}12` : colors.surface,
-                      borderColor: isPrivate ? colors.primary : colors.hairline,
-                    },
-                  ]}
-                >
-                  <View style={styles.privacyCardHeader}>
-                    <Lock
-                      size={18}
-                      color={isPrivate ? colors.primary : colors.subtle}
-                    />
-                    <Text
-                      style={[
-                        styles.privacyTitle,
-                        {
-                          color: isPrivate ? colors.primary : colors.text,
-                        },
-                      ]}
-                    >
-                      {t.circle.privacyPrivate}
-                    </Text>
-                  </View>
-                  <Text style={[styles.privacyDesc, { color: colors.subtle }]}>
-                    {t.circle.privacyPrivateDesc}
+                  <Text style={[styles.approvalDesc, { color: colors.subtle }]}>
+                    {t.circle.requireApprovalDesc}
                   </Text>
-                </TouchableOpacity>
+                </View>
               </View>
+              <Switch
+                value={isPrivate}
+                onValueChange={setIsPrivate}
+                trackColor={{ false: colors.hairline, true: colors.primary }}
+              />
             </View>
 
             {/* Field: Friend Selector */}
@@ -398,12 +359,6 @@ export function CreateCircleModal() {
                               style={[styles.friendName, { color: colors.text }]}
                             >
                               {f.displayName}
-                            </Text>
-                            <Text
-                              numberOfLines={1}
-                              style={[styles.friendEmail, { color: colors.subtle }]}
-                            >
-                              {f.email}
                             </Text>
                           </View>
                         </View>
@@ -587,27 +542,39 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: 2,
   },
-  privacyOptions: {
-    gap: 10,
-  },
-  privacyCard: {
+  approvalCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     padding: 14,
     borderRadius: 18,
     borderWidth: 1.2,
-    gap: 4,
+    gap: 12,
   },
-  privacyCardHeader: {
+  approvalLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 12,
+    flex: 1,
   },
-  privacyTitle: {
+  approvalIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  approvalTextGroup: {
+    flex: 1,
+    gap: 2,
+  },
+  approvalTitle: {
     fontSize: 14,
     fontWeight: '700',
   },
-  privacyDesc: {
-    fontSize: 12,
-    lineHeight: 16,
+  approvalDesc: {
+    fontSize: 11,
+    lineHeight: 15,
   },
   friendSectionHeader: {
     flexDirection: 'row',

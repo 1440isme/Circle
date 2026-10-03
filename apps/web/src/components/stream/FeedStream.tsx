@@ -241,7 +241,7 @@ export const FeedStream: React.FC = () => {
           key={currentChannel.id}
           channelId={currentChannel.id}
           channelName={activeCircle.name}
-          channelTopic={activeCircle.description || t.home.circleFeedSubtitle}
+          channelTopic={t.home.circleFeedSubtitle}
           circleId={activeCircle.id}
         />
       ) : (

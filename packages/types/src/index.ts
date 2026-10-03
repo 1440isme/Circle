@@ -113,7 +113,6 @@ export interface UserProfileEntity {
   userId: string;
   displayName: string;
   avatarUrl?: string | null;
-  coverUrl?: string | null;
   bio?: string | null;
   dateOfBirth?: string | null;
   updatedAt: string;
@@ -130,8 +129,6 @@ export interface CircleEntity extends BaseEntity {
   name: string;
   handle: string;
   avatarUrl?: string | null;
-  coverUrl?: string | null;
-  description?: string | null;
   inviteCode: string;
   isPrivate: boolean;
   maxMembers?: number | null;
@@ -302,6 +299,11 @@ export interface CreateMomentInput {
 
 export interface ReactMomentInput {
   emoji: string;
+}
+
+export interface ReplyMomentInput {
+  message: string;
+  circleId: string;
 }
 
 

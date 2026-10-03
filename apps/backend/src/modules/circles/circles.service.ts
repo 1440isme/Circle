@@ -8,6 +8,7 @@ import {
 import { MemberRole, ChannelType, FriendshipStatus } from '@prisma/client';
 import * as crypto from 'crypto';
 import { PrismaService } from '../../database/prisma.service';
+import { RedisService } from '../../database/redis.service';
 import {
   CreateCircleInput,
   UpdateCircleInput,
@@ -22,7 +23,70 @@ import { SelectableFriendItem } from '@circle/types';
 
 @Injectable()
 export class CirclesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly redis: RedisService,
+  ) {}
+
+  /**
+   * Redis key helpers for Circle & Member caching
+   */
+  private getMemberRoleCacheKey(circleId: string, userId: string): string {
+    return `circle:${circleId}:member:${userId}:role`;
+  }
+
+  private getUserCirclesCacheKey(userId: string): string {
+    return `user:${userId}:circles`;
+  }
+
+  /**
+   * Invalidates Redis cache for circle membership and user circles list
+   */
+  async invalidateMembershipCache(circleId: string, userIds: string[] = []): Promise<void> {
+    try {
+      const keysToDelete: string[] = [];
+      for (const uid of userIds) {
+        keysToDelete.push(this.getMemberRoleCacheKey(circleId, uid));
+        keysToDelete.push(this.getUserCirclesCacheKey(uid));
+      }
+      for (const key of keysToDelete) {
+        await this.redis.del(key);
+      }
+    } catch {
+      // Redis failures do not interrupt business logic
+    }
+  }
+
+  /**
+   * Fast member role lookup with Redis cache fallback to Prisma
+   */
+  async getCachedMemberRole(circleId: string, userId: string): Promise<MemberRole | null> {
+    const cacheKey = this.getMemberRoleCacheKey(circleId, userId);
+    try {
+      const cached = await this.redis.get(cacheKey);
+      if (cached) {
+        return cached as MemberRole;
+      }
+    } catch {
+      // Fall through to database
+    }
+
+    const membership = await this.prisma.circleMember.findUnique({
+      where: { circleId_userId: { circleId, userId } },
+      select: { role: true },
+    });
+
+    if (membership) {
+      try {
+        await this.redis.set(cacheKey, membership.role, 600); // 10 minutes TTL
+      } catch {
+        // Non-blocking
+      }
+      return membership.role;
+    }
+
+    return null;
+  }
 
   /**
    * Generates a collision-resistant 8-character uppercase invite code
@@ -131,9 +195,7 @@ export class CirclesService {
         data: {
           name: circleName,
           handle: normalizedHandle,
-          description: input.description?.trim() || null,
           avatarUrl: input.avatarUrl || null,
-          coverUrl: input.coverUrl || null,
           isPrivate: input.isPrivate ?? false,
           maxMembers: input.maxMembers ?? null,
           inviteCode,
@@ -175,6 +237,8 @@ export class CirclesService {
         channels: [defaultChannel],
       };
     });
+
+    await this.invalidateMembershipCache(newCircle.id, [userId, ...uniqueMemberIds]);
 
     return {
       success: true,
@@ -282,8 +346,6 @@ export class CirclesService {
       name: circle.name,
       handle: circle.handle,
       avatarUrl: circle.avatarUrl,
-      coverUrl: circle.coverUrl,
-      description: circle.description,
       inviteCode: circle.inviteCode,
       isPrivate: circle.isPrivate,
       createdAt: circle.createdAt,
@@ -353,8 +415,6 @@ export class CirclesService {
         name: circle.name,
         handle: circle.handle,
         avatarUrl: circle.avatarUrl,
-        coverUrl: circle.coverUrl,
-        description: circle.description,
         inviteCode: circle.inviteCode,
         isPrivate: circle.isPrivate,
         maxMembers: circle.maxMembers,
@@ -401,13 +461,13 @@ export class CirclesService {
       where: { id: circleId },
       data: {
         ...(input.name !== undefined && { name: input.name.trim() }),
-        ...(input.description !== undefined && { description: input.description.trim() || null }),
         ...(input.avatarUrl !== undefined && { avatarUrl: input.avatarUrl || null }),
-        ...(input.coverUrl !== undefined && { coverUrl: input.coverUrl || null }),
         ...(input.isPrivate !== undefined && { isPrivate: input.isPrivate }),
         ...(input.maxMembers !== undefined && { maxMembers: input.maxMembers }),
       },
     });
+
+    await this.invalidateMembershipCache(circleId, [userId]);
 
     return {
       success: true,
@@ -494,8 +554,6 @@ export class CirclesService {
             name: circle.name,
             handle: circle.handle,
             avatarUrl: circle.avatarUrl,
-            coverUrl: circle.coverUrl,
-            description: circle.description,
             inviteCode: customInvite.code,
             isPrivate: circle.isPrivate,
             createdAt: circle.createdAt,
@@ -520,6 +578,8 @@ export class CirclesService {
         }),
       ]);
 
+      await this.invalidateMembershipCache(customInvite.circleId, [userId]);
+
       return {
         success: true,
         statusCode: 200,
@@ -529,8 +589,6 @@ export class CirclesService {
           name: circle.name,
           handle: circle.handle,
           avatarUrl: circle.avatarUrl,
-          coverUrl: circle.coverUrl,
-          description: circle.description,
           inviteCode: circle.inviteCode,
           isPrivate: circle.isPrivate,
           createdAt: circle.createdAt,
@@ -606,8 +664,6 @@ export class CirclesService {
           name: circle.name,
           handle: circle.handle,
           avatarUrl: circle.avatarUrl,
-          coverUrl: circle.coverUrl,
-          description: circle.description,
           inviteCode: circle.inviteCode,
           isPrivate: circle.isPrivate,
           createdAt: circle.createdAt,
@@ -626,6 +682,8 @@ export class CirclesService {
       },
     });
 
+    await this.invalidateMembershipCache(circle.id, [userId]);
+
     return {
       success: true,
       statusCode: 200,
@@ -635,8 +693,6 @@ export class CirclesService {
         name: circle.name,
         handle: circle.handle,
         avatarUrl: circle.avatarUrl,
-        coverUrl: circle.coverUrl,
-        description: circle.description,
         inviteCode: circle.inviteCode,
         isPrivate: circle.isPrivate,
         createdAt: circle.createdAt,
@@ -815,6 +871,8 @@ export class CirclesService {
       ),
     );
 
+    await this.invalidateMembershipCache(circleId, newMemberIds);
+
     return {
       success: true,
       statusCode: 200,
@@ -920,6 +978,8 @@ export class CirclesService {
       where: { id: targetMemberId },
     });
 
+    await this.invalidateMembershipCache(circleId, [target.userId]);
+
     return {
       success: true,
       statusCode: 200,
@@ -965,6 +1025,8 @@ export class CirclesService {
       },
     });
 
+    await this.invalidateMembershipCache(circleId, [target.userId]);
+
     return {
       success: true,
       statusCode: 200,
@@ -1006,6 +1068,8 @@ export class CirclesService {
     await this.prisma.circleMember.delete({
       where: { id: caller.id },
     });
+
+    await this.invalidateMembershipCache(circleId, [userId]);
 
     return {
       success: true,
@@ -1051,6 +1115,8 @@ export class CirclesService {
         data: { role: MemberRole.OWNER },
       }),
     ]);
+
+    await this.invalidateMembershipCache(circleId, [caller.userId, target.userId]);
 
     return {
       success: true,
@@ -1208,6 +1274,8 @@ export class CirclesService {
           data: { status: 'APPROVED' },
         }),
       ]);
+
+      await this.invalidateMembershipCache(circleId, [request.userId]);
 
       return {
         success: true,
