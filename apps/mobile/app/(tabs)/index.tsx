@@ -7,6 +7,8 @@ import {
   TouchableOpacity,
   Alert,
   Platform,
+  Modal,
+  ActivityIndicator,
 } from 'react-native';
 import {
   Sparkles,
@@ -18,6 +20,7 @@ import {
   UserCheck,
   Camera,
   Image as ImageIcon,
+  MessageSquare,
 } from 'lucide-react-native';
 import { useThemeStore } from '../../src/stores/theme.store';
 import { useLanguageStore } from '../../src/stores/language.store';
@@ -48,15 +51,29 @@ export default function HomeScreen() {
     Alert.alert(t.common.appName, msg);
   };
 
-  const { data: myCircles = [] } = useMyCirclesQuery();
+  const { data: myCircles = [], isLoading: isLoadingCircles } = useMyCirclesQuery();
   const setCreateModalVisible = useCircleStore((s) => s.setCreateModalVisible);
   const setJoinModalVisible = useCircleStore((s) => s.setJoinModalVisible);
+  const activeCircle = useCircleStore((s) => s.activeCircle);
   const setActiveCircle = useCircleStore((s) => s.setActiveCircle);
   const setManageModalVisible = useCircleStore((s) => s.setManageModalVisible);
 
+  const currentCircle = activeCircle || (myCircles.length > 0 ? myCircles[0] : null);
+  const hasCircles = myCircles.length > 0;
+
+  const handleOpenCircleWorkspace = (circle: any) => {
+    setActiveCircle(circle);
+    router.push({
+      pathname: '/circle/[id]' as any,
+      params: { id: circle.id },
+    });
+  };
+
+  const [circleSwitcherVisible, setCircleSwitcherVisible] = React.useState(false);
+
   return (
     <View style={[styles.container, { backgroundColor: colors.canvas }]}>
-      {/* Top Header - Seamless with Canvas (No Border Partition) */}
+      {/* Top Header - Brand + Circular Active Circle Avatar Button */}
       <View style={[styles.headerBar, { backgroundColor: colors.canvas }]}>
         <View style={styles.brandGroup}>
           <View style={[styles.logoPill, { backgroundColor: colors.primary }]}>
@@ -73,178 +90,205 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        <HeaderControls />
+        {/* Header Right: Circular Active Circle Avatar Button (No text, opens switcher) */}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => setCircleSwitcherVisible(true)}
+          style={[
+            styles.headerCircleAvatarBtn,
+            {
+              backgroundColor: colors.primary,
+              borderColor: colors.hairline,
+            },
+          ]}
+        >
+          {currentCircle ? (
+            <Text style={[styles.headerCircleAvatarText, { color: colors.onPrimary }]}>
+              {getInitials(currentCircle.name)}
+            </Text>
+          ) : (
+            <Plus size={18} color={colors.onPrimary} strokeWidth={2.5} />
+          )}
+        </TouchableOpacity>
       </View>
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Native Circles Rail (Stories-like Horizontal Strip on Infinite Canvas) */}
-        <View style={styles.circlesRailSection}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.circlesRailContent}
-          >
-            {/* Primary Action: Create Circle Button */}
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => setCreateModalVisible(true)}
-              style={styles.circleRailItem}
-            >
-              <View
-                style={[
-                  styles.addCircleRing,
-                  { borderColor: colors.primary, backgroundColor: colors.wash },
-                ]}
-              >
-                <Plus size={22} color={colors.primary} strokeWidth={2.5} />
-              </View>
-              <Text
-                numberOfLines={1}
-                style={[styles.circleRailName, { color: colors.text }]}
-              >
-                {t.home.createCircleBtn}
-              </Text>
-            </TouchableOpacity>
 
-            {/* Real User Circles (Rendered dynamically when available from API/Store) */}
-            {myCircles.map((circle) => (
-              <TouchableOpacity
-                key={circle.id}
-                activeOpacity={0.8}
-                onPress={() => {
-                  setActiveCircle(circle);
-                  router.push({
-                    pathname: '/circle/[id]' as any,
-                    params: { id: circle.id },
-                  });
-                }}
-                style={styles.circleRailItem}
-              >
-                <View
-                  style={[
-                    styles.circleAvatarRing,
-                    { borderColor: colors.hairline },
-                  ]}
-                >
-                  <View style={[styles.circleAvatarInner, { backgroundColor: colors.primary }]}>
-                    <Text style={[styles.circleAvatarText, { color: colors.onPrimary }]}>
-                      {getInitials(circle.name)}
-                    </Text>
-                  </View>
-                </View>
-                <Text
-                  numberOfLines={1}
-                  style={[styles.circleRailName, { color: colors.text }]}
-                >
-                  {circle.name}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
 
-        {/* Quick Composer Bar - Unboxed Seamless Pill */}
-        <TouchableOpacity
-          activeOpacity={0.85}
-          onPress={() => handleAction(t.home.composerPlaceholder)}
-          style={[
-            styles.composerBar,
-            {
-              backgroundColor: colors.surface,
-              borderColor: colors.hairline,
-            },
-          ]}
-        >
-          <View style={[styles.composerAvatar, { backgroundColor: colors.primary }]}>
-            <Text style={[styles.composerAvatarText, { color: colors.onPrimary }]}>{initials}</Text>
+        {/* Loading Indicator while fetching circles */}
+        {isLoadingCircles && (
+          <View style={{ paddingVertical: 24, alignItems: 'center' }}>
+            <ActivityIndicator size="small" color={colors.primary} />
           </View>
-          <Text style={[styles.composerPlaceholder, { color: colors.subtle }]}>
-            {t.home.composerPlaceholder}
-          </Text>
-          <View style={styles.composerIcons}>
-            <Camera size={18} color={colors.subtle} />
-            <ImageIcon size={18} color={colors.subtle} />
-          </View>
-        </TouchableOpacity>
+        )}
 
-        {/* Welcome Section - Seamless Canvas (Unboxed, Organic Flow) */}
-        <View style={styles.welcomeSection}>
-          <View style={[styles.tagPill, { backgroundColor: colors.wash }]}>
-            <Sparkles size={12} color={colors.primary} />
-            <Text style={[styles.tagText, { color: colors.primary }]}>
-              {t.home.createFirstCirclePrompt}
-            </Text>
-          </View>
-          <Text style={[styles.welcomeTitle, { color: colors.text }]}>
-            {t.home.welcomeTitle.replace('{name}', displayName)}
-          </Text>
-          <Text style={[styles.welcomeSubtitle, { color: colors.subtle }]}>
-            {t.home.welcomeSubtitle}
-          </Text>
 
-          {/* Action Chips */}
-          <View style={styles.actionsRow}>
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={() => setCreateModalVisible(true)}
-              style={[styles.primaryActionBtn, { backgroundColor: colors.primary }]}
-            >
-              <Plus size={16} color={colors.onPrimary} strokeWidth={2.4} />
-              <Text style={[styles.primaryActionText, { color: colors.onPrimary }]}>
-                {t.home.createCircleBtn}
-              </Text>
-            </TouchableOpacity>
 
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={() => setJoinModalVisible(true)}
-              style={[
-                styles.secondaryActionBtn,
-                {
-                  backgroundColor: colors.wash,
-                  borderColor: colors.hairline,
-                },
-              ]}
-            >
-              <KeyRound size={15} color={colors.text} />
-              <Text style={[styles.secondaryActionText, { color: colors.text }]}>
-                {t.home.joinWithCodeBtn}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Empty Feed State - Unboxed Clean Canvas */}
-        <View style={styles.feedEmptySection}>
-          <View style={[styles.feedIconBox, { backgroundColor: colors.wash }]}>
-            <Compass size={32} color={colors.primary} />
-          </View>
-          <Text style={[styles.feedTitle, { color: colors.text }]}>
-            {t.home.feedEmptyTitle}
-          </Text>
-          <Text style={[styles.feedDesc, { color: colors.subtle }]}>
-            {t.home.feedEmptyDesc}
-          </Text>
-
-          {/* Social Privacy Badge */}
-          <View
+        {/* When user has circles, show active circle quick card */}
+        {hasCircles && currentCircle && (
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => handleOpenCircleWorkspace(currentCircle)}
             style={[
-              styles.shieldBadge,
+              styles.activeCircleSpotlightCard,
               {
-                backgroundColor: colors.wash,
+                backgroundColor: colors.surface,
                 borderColor: colors.hairline,
               },
             ]}
           >
-            <ShieldCheck size={14} color={colors.primary} />
-            <Text style={[styles.shieldText, { color: colors.primary }]}>
-              {t.common.dualTokenSecurity}
-            </Text>
-          </View>
-        </View>
+            <View style={styles.spotlightHeader}>
+              <View style={[styles.spotlightAvatar, { backgroundColor: colors.primary }]}>
+                <Text style={[styles.spotlightAvatarText, { color: colors.onPrimary }]}>
+                  {getInitials(currentCircle.name)}
+                </Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.spotlightTitle, { color: colors.text }]}>
+                  {currentCircle.name}
+                </Text>
+                <Text style={[styles.spotlightSubtitle, { color: colors.subtle }]}>
+                  {currentCircle.description || t.home.circleFeedSubtitle}
+                </Text>
+              </View>
+            </View>
+
+            <View style={[styles.spotlightDivider, { backgroundColor: colors.hairline }]} />
+
+            <View style={styles.spotlightActions}>
+              <View style={styles.spotlightActionItem}>
+                <MessageSquare size={14} color={colors.primary} />
+                <Text style={[styles.spotlightActionText, { color: colors.text }]}>
+                  {t.chat.title}
+                </Text>
+              </View>
+              <View style={styles.spotlightActionItem}>
+                <Camera size={14} color={colors.primary} />
+                <Text style={[styles.spotlightActionText, { color: colors.text }]}>
+                  {t.composer.momentTitle}
+                </Text>
+              </View>
+              <View style={styles.spotlightActionItem}>
+                <Radio size={14} color={colors.primary} />
+                <Text style={[styles.spotlightActionText, { color: colors.text }]}>
+                  {t.nav.groupCall}
+                </Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+        )}
+
+        {/* Circle Switcher Modal */}
+        <Modal
+          visible={circleSwitcherVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setCircleSwitcherVisible(false)}
+        >
+          <TouchableOpacity
+            style={styles.modalBackdrop}
+            activeOpacity={1}
+            onPress={() => setCircleSwitcherVisible(false)}
+          >
+            <View
+              style={[
+                styles.switcherSheet,
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.hairline,
+                },
+              ]}
+            >
+              <View style={[styles.sheetHandle, { backgroundColor: colors.hairline }]} />
+              <View style={styles.switcherHeader}>
+                <Text style={[styles.switcherTitle, { color: colors.text }]}>
+                  {t.nav.yourCircles}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setCircleSwitcherVisible(false)}
+                  style={[styles.closeBtn, { backgroundColor: colors.wash }]}
+                >
+                  <Text style={{ color: colors.subtle, fontWeight: '700' }}>✕</Text>
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView style={{ maxHeight: 280 }} showsVerticalScrollIndicator={false}>
+                {myCircles.map((circle) => {
+                  const isSelected = currentCircle?.id === circle.id;
+                  return (
+                    <TouchableOpacity
+                      key={circle.id}
+                      activeOpacity={0.75}
+                      onPress={() => {
+                        setActiveCircle(circle);
+                        setCircleSwitcherVisible(false);
+                      }}
+                      style={[
+                        styles.circleSwitcherItem,
+                        {
+                          backgroundColor: isSelected ? `${colors.primary}15` : colors.wash,
+                          borderColor: isSelected ? colors.primary : colors.hairline,
+                        },
+                      ]}
+                    >
+                      <View style={[styles.switcherAvatar, { backgroundColor: colors.primary }]}>
+                        <Text style={[styles.switcherAvatarText, { color: colors.onPrimary }]}>
+                          {getInitials(circle.name)}
+                        </Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.switcherCircleName, { color: colors.text }]}>
+                          {circle.name}
+                        </Text>
+                        <Text style={[styles.switcherCircleHandle, { color: colors.subtle }]}>
+                          @{circle.handle}
+                        </Text>
+                      </View>
+                      {isSelected && (
+                        <View style={[styles.checkDot, { backgroundColor: colors.primary }]} />
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+
+              <View style={styles.switcherActions}>
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    setCircleSwitcherVisible(false);
+                    setCreateModalVisible(true);
+                  }}
+                  style={[styles.switcherActionBtn, { backgroundColor: colors.primary }]}
+                >
+                  <Plus size={16} color={colors.onPrimary} strokeWidth={2.4} />
+                  <Text style={[styles.switcherActionBtnText, { color: colors.onPrimary }]}>
+                    {t.home.createCircleBtn}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    setCircleSwitcherVisible(false);
+                    setJoinModalVisible(true);
+                  }}
+                  style={[styles.switcherActionBtnSecondary, { borderColor: colors.hairline, backgroundColor: colors.wash }]}
+                >
+                  <KeyRound size={15} color={colors.text} />
+                  <Text style={[styles.switcherActionBtnSecondaryText, { color: colors.text }]}>
+                    {t.home.joinWithCodeBtn}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </TouchableOpacity>
+        </Modal>
+
+
 
         {/* Voice Stage Status Banner - Seamless Wash Pill */}
         <View
@@ -563,5 +607,201 @@ const styles = StyleSheet.create({
   },
   stageSubtitle: {
     fontSize: 12,
+  },
+  activeCircleHeaderPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 8,
+    maxWidth: 160,
+  },
+  activeCircleDot: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  activeCircleInitials: {
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  activeCircleHeaderName: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  activeCircleSpotlightCard: {
+    borderRadius: 22,
+    padding: 16,
+    borderWidth: 1,
+    gap: 12,
+  },
+  spotlightHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  spotlightAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  spotlightAvatarText: {
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  spotlightTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+  },
+  spotlightSubtitle: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  spotlightDivider: {
+    height: 1,
+    width: '100%',
+  },
+  spotlightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+  },
+  spotlightActionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  spotlightActionText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  headerCircleAvatarBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  headerCircleAvatarText: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'flex-end',
+    padding: 16,
+    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
+  },
+  switcherSheet: {
+    borderRadius: 32,
+    padding: 20,
+    borderWidth: 1.2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 24,
+    elevation: 20,
+    gap: 12,
+  },
+  sheetHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 8,
+  },
+  switcherHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  switcherTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+  },
+  closeBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  circleSwitcherItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 18,
+    borderWidth: 1,
+    marginBottom: 8,
+    gap: 12,
+  },
+  switcherAvatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  switcherAvatarText: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  switcherCircleName: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  switcherCircleHandle: {
+    fontSize: 11,
+    marginTop: 1,
+  },
+  checkDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  switcherActions: {
+    gap: 8,
+    marginTop: 4,
+  },
+  switcherActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 46,
+    borderRadius: 23,
+    gap: 8,
+  },
+  switcherActionBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  switcherActionBtnSecondary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 46,
+    borderRadius: 23,
+    borderWidth: 1,
+    gap: 8,
+  },
+  switcherActionBtnSecondaryText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
 });

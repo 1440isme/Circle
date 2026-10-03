@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
+  Image as RNImage,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
@@ -12,10 +13,27 @@ import {
   KeyboardAvoidingView,
   Alert,
   Modal,
-  Image as RNImage,
+  PanResponder,
+  Animated,
+  Vibration,
+  Keyboard,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
+
+const triggerHapticFeedback = () => {
+  try {
+    Vibration.vibrate(1);
+    if (Platform.OS === 'ios') {
+      setTimeout(() => {
+        try {
+          Vibration.cancel();
+        } catch {}
+      }, 20);
+    }
+  } catch {}
+};
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ArrowLeft,
   Settings,
@@ -42,6 +60,8 @@ import {
   FileSpreadsheet,
   Plus,
   X,
+  Pin,
+  Reply,
 } from 'lucide-react-native';
 import { useThemeStore } from '../../src/stores/theme.store';
 import { useLanguageStore } from '../../src/stores/language.store';
@@ -52,6 +72,8 @@ import {
   useCircleMembersQuery,
   useChannelMessagesQuery,
   useSendMessageMutation,
+  useReactMessageMutation,
+  usePinMessageMutation,
 } from '../../src/hooks/use-circle-queries';
 import { CircleManagementModal } from '../../src/components/circle/CircleManagementModal';
 import { LocketMomentsView } from '../../src/components/moment/LocketMomentsView';
@@ -64,8 +86,351 @@ function getInitials(name: string): string {
 
 type WorkspaceTab = 'chat' | 'moments' | 'tools';
 
+interface MobileMessageCluster {
+  senderUserId: string;
+  senderName: string;
+  senderAvatarUrl?: string | null;
+  senderRole?: string;
+  isSenderMe: boolean;
+  messages: any[];
+}
+
+function buildMobileClusters(
+  items: any[],
+  currentUserId?: string,
+  currentUserEmail?: string,
+): MobileMessageCluster[] {
+  const clusters: MobileMessageCluster[] = [];
+  let currentCluster: MobileMessageCluster | null = null;
+
+  items.forEach((msg) => {
+    const senderUserId =
+      msg.sender?.user?.id || msg.sender?.userId || msg.memberId || msg.senderId || '';
+    const isSenderMe = Boolean(
+      (currentUserId &&
+        (senderUserId === currentUserId ||
+          msg.memberId === currentUserId ||
+          msg.sender?.userId === currentUserId ||
+          msg.senderId === currentUserId)) ||
+        (currentUserEmail &&
+          (msg.sender?.user?.email === currentUserEmail ||
+            msg.sender?.email === currentUserEmail)),
+    );
+    const senderName =
+      msg.sender?.nickname ||
+      msg.sender?.user?.profile?.displayName ||
+      msg.sender?.profile?.displayName ||
+      msg.sender?.user?.email?.split('@')[0] ||
+      msg.sender?.email?.split('@')[0] ||
+      'User';
+    const senderAvatarUrl = msg.sender?.user?.profile?.avatarUrl;
+    const senderRole = msg.sender?.role;
+
+    const msgTime = new Date(msg.sentAt || msg.createdAt || Date.now()).getTime();
+    const lastMsg = currentCluster?.messages[currentCluster.messages.length - 1];
+    const lastMsgTime = lastMsg
+      ? new Date(lastMsg.sentAt || lastMsg.createdAt || Date.now()).getTime()
+      : 0;
+    const isWithin3Min = msgTime - lastMsgTime < 3 * 60 * 1000;
+
+    if (
+      currentCluster &&
+      currentCluster.senderUserId === senderUserId &&
+      currentCluster.isSenderMe === isSenderMe &&
+      isWithin3Min
+    ) {
+      currentCluster.messages.push(msg);
+    } else {
+      if (currentCluster) {
+        clusters.push(currentCluster);
+      }
+      currentCluster = {
+        senderUserId,
+        senderName,
+        senderAvatarUrl,
+        senderRole,
+        isSenderMe,
+        messages: [msg],
+      };
+    }
+  });
+
+  if (currentCluster) {
+    clusters.push(currentCluster);
+  }
+
+  return clusters;
+}
+
+const QUICK_EMOJIS = ['👍', '❤️', '😂', '🔥', '🎉'];
+
+interface MobileSwipeMessageBubbleProps {
+  msg: any;
+  allMessages?: any[];
+  isSenderMe: boolean;
+  isFirst: boolean;
+  isLast: boolean;
+  isSingle: boolean;
+  showTimestamp: boolean;
+  hasReactions: boolean;
+  colors: any;
+  onToggleTimestamp: () => void;
+  onLongPress: () => void;
+  onSwipeReply: () => void;
+}
+
+function MobileSwipeMessageBubble({
+  msg,
+  allMessages,
+  isSenderMe,
+  isFirst,
+  isLast,
+  isSingle,
+  showTimestamp,
+  hasReactions,
+  colors,
+  onToggleTimestamp,
+  onLongPress,
+  onSwipeReply,
+}: MobileSwipeMessageBubbleProps) {
+  const translateX = useRef(new Animated.Value(0)).current;
+  const hasVibratedOnSwipe = useRef(false);
+
+  const rawReplyId = typeof msg.replyTo === 'string' ? msg.replyTo : (msg.replyTo?.id || msg.replyToId);
+  const replyTarget =
+    (typeof msg.replyTo === 'object' &&
+    msg.replyTo !== null &&
+    (msg.replyTo.content || msg.replyTo.text || msg.replyTo.fileName || msg.replyTo.fileUrl)
+      ? msg.replyTo
+      : null) ||
+    (allMessages && rawReplyId ? allMessages.find((m: any) => m.id === rawReplyId) : null);
+
+  const hasValidReply = Boolean(
+    replyTarget &&
+      (replyTarget.content ||
+        replyTarget.text ||
+        replyTarget.message ||
+        replyTarget.fileName ||
+        replyTarget.fileUrl),
+  );
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        return gestureState.dx > 15 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.5;
+      },
+      onPanResponderTerminationRequest: () => false,
+      onPanResponderMove: (_, gestureState) => {
+        if (gestureState.dx > 0) {
+          const cappedDx = Math.min(gestureState.dx, 65);
+          translateX.setValue(cappedDx);
+          if (gestureState.dx > 35 && !hasVibratedOnSwipe.current) {
+            hasVibratedOnSwipe.current = true;
+            triggerHapticFeedback();
+          } else if (gestureState.dx <= 35) {
+            hasVibratedOnSwipe.current = false;
+          }
+        }
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        hasVibratedOnSwipe.current = false;
+        if (gestureState.dx > 35) {
+          onSwipeReply();
+        }
+        Animated.spring(translateX, {
+          toValue: 0,
+          useNativeDriver: true,
+          bounciness: 6,
+        }).start();
+      },
+      onPanResponderTerminate: () => {
+        hasVibratedOnSwipe.current = false;
+        Animated.spring(translateX, {
+          toValue: 0,
+          useNativeDriver: true,
+        }).start();
+      },
+    }),
+  ).current;
+
+  const swipeIconOpacity = translateX.interpolate({
+    inputRange: [0, 15, 35],
+    outputRange: [0, 0.4, 1],
+    extrapolate: 'clamp',
+  });
+  const swipeIconScale = translateX.interpolate({
+    inputRange: [0, 20, 35],
+    outputRange: [0.6, 0.9, 1.1],
+    extrapolate: 'clamp',
+  });
+
+  return (
+    <View style={{ width: '100%', alignItems: isSenderMe ? 'flex-end' : 'flex-start' }}>
+      <View
+        style={[styles.swipeContainer, { alignItems: isSenderMe ? 'flex-end' : 'flex-start' }]}
+        {...panResponder.panHandlers}
+      >
+        {/* Animated Swipe Reply Indicator Icon */}
+        <Animated.View
+          style={[
+            styles.swipeReplyIconBox,
+            {
+              opacity: swipeIconOpacity,
+              transform: [{ scale: swipeIconScale }],
+            },
+          ]}
+          pointerEvents="none"
+        >
+          <View style={{ transform: [{ scaleX: -1 }] }}>
+            <Reply size={15} color={colors.primary} />
+          </View>
+        </Animated.View>
+
+        <Animated.View
+          style={{
+            transform: [{ translateX }],
+            maxWidth: '100%',
+          }}
+        >
+          <TouchableOpacity
+            activeOpacity={0.88}
+            onPress={onToggleTimestamp}
+            onLongPress={() => {
+              triggerHapticFeedback();
+              onLongPress();
+            }}
+            delayLongPress={280}
+            style={[
+              styles.messageBubble,
+              isSenderMe
+                ? isSingle
+                  ? styles.singleBubbleMe
+                  : isFirst
+                  ? styles.firstBubbleMe
+                  : isLast
+                  ? styles.lastBubbleMe
+                  : styles.middleBubbleMe
+                : isSingle
+                ? styles.singleBubbleOther
+                : isFirst
+                ? styles.firstBubbleOther
+                : isLast
+                ? styles.lastBubbleOther
+                : styles.middleBubbleOther,
+              isSenderMe
+                ? { backgroundColor: colors.primary }
+                : { backgroundColor: colors.surface, borderColor: colors.hairline },
+            ]}
+          >
+            {/* Reply Quote Banner - Beautiful horizontal inline pill matching Web */}
+            {hasValidReply && replyTarget && (
+              <View
+                style={[
+                  styles.replyQuoteBox,
+                  {
+                    backgroundColor: isSenderMe
+                      ? 'rgba(0, 0, 0, 0.15)'
+                      : colors.wash,
+                  },
+                ]}
+              >
+                <View style={{ transform: [{ scaleX: -1 }], marginRight: 4 }}>
+                  <Reply
+                    size={11}
+                    color={isSenderMe ? colors.onPrimary : colors.primary}
+                    style={{ opacity: 0.85 }}
+                  />
+                </View>
+                <Text
+                  numberOfLines={1}
+                  style={[
+                    styles.replyQuoteAuthor,
+                    { color: isSenderMe ? colors.onPrimary : colors.primary },
+                  ]}
+                >
+                  {(
+                    replyTarget.sender?.nickname ||
+                    replyTarget.sender?.user?.profile?.displayName ||
+                    replyTarget.sender?.profile?.displayName ||
+                    replyTarget.sender?.displayName ||
+                    replyTarget.sender?.name ||
+                    replyTarget.sender?.user?.email?.split('@')[0] ||
+                    replyTarget.sender?.email?.split('@')[0] ||
+                    'User'
+                  ) + ':'}
+                </Text>
+                <Text
+                  numberOfLines={1}
+                  style={[
+                    styles.replyQuoteText,
+                    { color: isSenderMe ? colors.onPrimary : colors.subtle },
+                  ]}
+                >
+                  {replyTarget.content ||
+                    replyTarget.text ||
+                    replyTarget.message ||
+                    (replyTarget.fileName ? `📎 ${replyTarget.fileName}` : '') ||
+                    (replyTarget.fileUrl ? '📷 [Hình ảnh/Tệp tin]' : '') ||
+                    'Tin nhắn'}
+                </Text>
+              </View>
+            )}
+
+            <Text
+              style={[
+                styles.messageText,
+                { color: isSenderMe ? colors.onPrimary : colors.text },
+              ]}
+            >
+              {msg.content}
+            </Text>
+
+            {/* Overlapping Reaction Badge */}
+            {hasReactions && (
+              <View
+                style={[
+                  styles.reactionsBadgePill,
+                  { backgroundColor: colors.surface, borderColor: colors.hairline },
+                ]}
+              >
+                {Object.keys(msg.reactionCounts).map((emoji) => (
+                  <Text key={emoji} style={styles.reactionEmojiText}>
+                    {emoji}
+                  </Text>
+                ))}
+              </View>
+            )}
+          </TouchableOpacity>
+        </Animated.View>
+      </View>
+
+      {/* Sent Timestamp */}
+      {showTimestamp && (
+        <Text
+          style={[
+            styles.timestampText,
+            {
+              color: colors.subtle,
+              marginTop: 2,
+              marginHorizontal: 4,
+              alignSelf: isSenderMe ? 'flex-end' : 'flex-start',
+            },
+          ]}
+        >
+          {new Date(msg.sentAt || msg.createdAt || Date.now()).toLocaleTimeString(
+            [],
+            { hour: '2-digit', minute: '2-digit' },
+          )}
+        </Text>
+      )}
+    </View>
+  );
+}
+
 export default function CircleWorkspaceScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const circleId = id || '';
 
@@ -80,8 +445,13 @@ export default function CircleWorkspaceScreen() {
   const [activeTab, setActiveTab] = useState<WorkspaceTab>('chat');
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
   const [messageInput, setMessageInput] = useState('');
+  const [replyingMessage, setReplyingMessage] = useState<any | null>(null);
+  const [activeActionMessage, setActiveActionMessage] = useState<any | null>(null);
+  const [activeTimestampMessageId, setActiveTimestampMessageId] = useState<string | null>(null);
 
-  // Queries
+  const scrollViewRef = useRef<ScrollView>(null);
+
+  // Queries & Mutations
   const { data: circle, isLoading: isLoadingCircle } = useCircleDetailQuery(circleId);
   const { data: members = [] } = useCircleMembersQuery(circleId);
 
@@ -95,12 +465,46 @@ export default function CircleWorkspaceScreen() {
 
   const currentChannelId = currentChannel?.id || null;
 
-  // Mutations
   const { data: messagesData, isLoading: isLoadingMessages } =
     useChannelMessagesQuery(currentChannelId);
   const sendMessageMutation = useSendMessageMutation(currentChannelId);
+  const reactMessageMutation = useReactMessageMutation(currentChannelId);
+  const pinMessageMutation = usePinMessageMutation(currentChannelId);
 
   const messages = messagesData?.messages || (messagesData as any)?.items || [];
+
+  const clusters = buildMobileClusters(messages, user?.id, user?.email);
+
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, () => {
+      setIsKeyboardVisible(true);
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 60);
+    });
+
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setIsKeyboardVisible(false);
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (messages.length > 0) {
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 60);
+    }
+  }, [messages.length, currentChannelId]);
 
   const handleShareInviteCode = async () => {
     if (!circle?.inviteCode) return;
@@ -123,12 +527,27 @@ export default function CircleWorkspaceScreen() {
   const handleSendMessage = async () => {
     if (!messageInput.trim() || !currentChannelId) return;
     const content = messageInput;
+    const replyToId = replyingMessage?.id;
     setMessageInput('');
+    setReplyingMessage(null);
+    setTimeout(() => {
+      scrollViewRef.current?.scrollToEnd({ animated: true });
+    }, 50);
     try {
-      await sendMessageMutation.mutateAsync(content);
+      await sendMessageMutation.mutateAsync({ content, replyToId });
     } catch (err: any) {
       Alert.alert(t.common.appName, err?.message || t.common.unknownError);
     }
+  };
+
+  const handleReact = (messageId: string, emoji: string) => {
+    reactMessageMutation.mutate({ messageId, emoji });
+    setActiveActionMessage(null);
+  };
+
+  const handleTogglePin = (messageId: string, isPinned: boolean) => {
+    pinMessageMutation.mutate({ messageId, isPinned });
+    setActiveActionMessage(null);
   };
 
   if (isLoadingCircle) {
@@ -159,9 +578,6 @@ export default function CircleWorkspaceScreen() {
       </View>
     );
   }
-
-  const isOwner = circle.role === 'OWNER';
-  const isAdmin = circle.role === 'ADMIN';
 
   return (
     <KeyboardAvoidingView
@@ -253,116 +669,133 @@ export default function CircleWorkspaceScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* TAB 1: CHAT CHANNELS */}
+      {/* TAB 1: TRÒ CHUYỆN TRỰC TIẾP TRONG CIRCLE */}
       {activeTab === 'chat' && (
         <View style={styles.chatContainer}>
-          {/* Channel selector strip */}
-          <View style={[styles.channelStrip, { backgroundColor: colors.canvas }]}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.channelScroll}>
-              {channels.map((chan) => {
-                const isCurrent = (chan.id === currentChannelId) || (chan.name === 'general' && !currentChannelId);
-                return (
-                  <TouchableOpacity
-                    key={chan.id}
-                    onPress={() => setSelectedChannelId(chan.id)}
-                    style={[
-                      styles.channelPill,
-                      {
-                        backgroundColor: isCurrent ? colors.primary : colors.surface,
-                        borderColor: isCurrent ? colors.primary : colors.hairline,
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.channelPillText,
-                        { color: isCurrent ? colors.onPrimary : colors.text },
-                      ]}
-                    >
-                      # {chan.name}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </View>
-
           {/* Messages list */}
           <ScrollView
+            ref={scrollViewRef}
             style={styles.messagesList}
             contentContainerStyle={styles.messagesScrollContent}
             showsVerticalScrollIndicator={false}
+            onContentSizeChange={() => {
+              scrollViewRef.current?.scrollToEnd({ animated: false });
+            }}
           >
-            {/* Channel introduction banner */}
-            <View style={[styles.channelIntroCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
-              <View style={[styles.hashBox, { backgroundColor: colors.wash }]}>
-                <Text style={[styles.hashText, { color: colors.primary }]}>#</Text>
-              </View>
-              <Text style={[styles.channelIntroTitle, { color: colors.text }]}>
-                {t.home.welcomeTitle.replace('{name}', `#${currentChannel?.name || 'general'}`)}
-              </Text>
-              <Text style={[styles.channelIntroDesc, { color: colors.subtle }]}>
-                {currentChannel?.topic || t.circle.generalChannelTopic}
-              </Text>
-            </View>
-
             {isLoadingMessages ? (
               <ActivityIndicator color={colors.primary} style={{ marginVertical: 20 }} />
             ) : messages.length === 0 ? (
               <View style={[styles.emptyChatBox, { backgroundColor: colors.wash }]}>
+                <MessageSquare size={32} color={colors.primary} style={{ marginBottom: 8 }} />
+                <Text style={[styles.emptyChatTitle, { color: colors.text }]}>
+                  {t.chat.noMessagesYet}
+                </Text>
                 <Text style={[styles.emptyChatText, { color: colors.subtle }]}>
-                  {t.home.feedEmptyDesc}
+                  {t.chat.firstMessageHint}
                 </Text>
               </View>
             ) : (
-              messages.map((msg: any) => {
-                const isMyMsg = msg.senderId === user?.id;
-                const senderName = msg.sender?.profile?.displayName || msg.sender?.email || 'User';
+              clusters.map((cluster, clusterIdx) => {
+                const isSenderMe = cluster.isSenderMe;
 
+                if (isSenderMe) {
+                  return (
+                    <View
+                      key={`mobile-cluster-me-${clusterIdx}`}
+                      style={[styles.clusterContainerMe]}
+                    >
+                      {cluster.messages.map((msg, msgIdx) => {
+                        const isFirst = msgIdx === 0;
+                        const isLast = msgIdx === cluster.messages.length - 1;
+                        const isSingle = cluster.messages.length === 1;
+                        const showTimestamp = activeTimestampMessageId === msg.id;
+                        const hasReactions =
+                          msg.reactionCounts && Object.keys(msg.reactionCounts).length > 0;
+
+                        return (
+                          <MobileSwipeMessageBubble
+                            key={msg.id}
+                            msg={msg}
+                            allMessages={messages}
+                            isSenderMe={true}
+                            isFirst={isFirst}
+                            isLast={isLast}
+                            isSingle={isSingle}
+                            showTimestamp={showTimestamp}
+                            hasReactions={hasReactions}
+                            colors={colors}
+                            onToggleTimestamp={() =>
+                              setActiveTimestampMessageId((prev) => (prev === msg.id ? null : msg.id))
+                            }
+                            onLongPress={() => setActiveActionMessage(msg)}
+                            onSwipeReply={() => setReplyingMessage(msg)}
+                          />
+                        );
+                      })}
+                    </View>
+                  );
+                }
+
+                // Other user's cluster
                 return (
                   <View
-                    key={msg.id}
-                    style={[
-                      styles.messageRow,
-                      isMyMsg ? styles.myMessageRow : styles.otherMessageRow,
-                    ]}
+                    key={`mobile-cluster-other-${clusterIdx}`}
+                    style={styles.clusterContainerOther}
                   >
-                    {!isMyMsg && (
-                      <View style={[styles.senderAvatar, { backgroundColor: colors.wash }]}>
+                    {/* Avatar aligned with the bottom of the cluster */}
+                    <View style={[styles.senderAvatarBottom, { backgroundColor: `${colors.primary}18` }]}>
+                      {cluster.senderAvatarUrl ? (
+                        <RNImage
+                          source={{ uri: cluster.senderAvatarUrl }}
+                          style={styles.senderAvatarImg}
+                        />
+                      ) : (
                         <Text style={[styles.senderAvatarText, { color: colors.primary }]}>
-                          {getInitials(senderName)}
-                        </Text>
-                      </View>
-                    )}
-                    <View
-                      style={[
-                        styles.messageBubble,
-                        isMyMsg
-                          ? [styles.myBubble, { backgroundColor: colors.primary }]
-                          : [styles.otherBubble, { backgroundColor: colors.surface, borderColor: colors.hairline }],
-                      ]}
-                    >
-                      {!isMyMsg && (
-                        <Text style={[styles.senderName, { color: colors.primary }]}>
-                          {senderName}
+                          {cluster.senderName.slice(0, 2).toUpperCase()}
                         </Text>
                       )}
-                      <Text
-                        style={[
-                          styles.messageText,
-                          { color: isMyMsg ? colors.onPrimary : colors.text },
-                        ]}
-                      >
-                        {msg.content}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.timestampText,
-                          { color: isMyMsg ? 'rgba(255,255,255,0.7)' : colors.subtle },
-                        ]}
-                      >
-                        {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </Text>
+                    </View>
+
+                    {/* Messages Stack */}
+                    <View style={styles.clusterMessagesCol}>
+                      {/* Sender Name once at the top of cluster */}
+                      <View style={styles.senderHeaderRow}>
+                        <Text
+                          numberOfLines={1}
+                          style={[styles.senderName, { color: colors.text }]}
+                        >
+                          {cluster.senderName}
+                        </Text>
+                      </View>
+
+                      {cluster.messages.map((msg, msgIdx) => {
+                        const isFirst = msgIdx === 0;
+                        const isLast = msgIdx === cluster.messages.length - 1;
+                        const isSingle = cluster.messages.length === 1;
+                        const showTimestamp = activeTimestampMessageId === msg.id;
+                        const hasReactions =
+                          msg.reactionCounts && Object.keys(msg.reactionCounts).length > 0;
+
+                        return (
+                          <MobileSwipeMessageBubble
+                            key={msg.id}
+                            msg={msg}
+                            allMessages={messages}
+                            isSenderMe={false}
+                            isFirst={isFirst}
+                            isLast={isLast}
+                            isSingle={isSingle}
+                            showTimestamp={showTimestamp}
+                            hasReactions={hasReactions}
+                            colors={colors}
+                            onToggleTimestamp={() =>
+                              setActiveTimestampMessageId((prev) => (prev === msg.id ? null : msg.id))
+                            }
+                            onLongPress={() => setActiveActionMessage(msg)}
+                            onSwipeReply={() => setReplyingMessage(msg)}
+                          />
+                        );
+                      })}
                     </View>
                   </View>
                 );
@@ -370,39 +803,94 @@ export default function CircleWorkspaceScreen() {
             )}
           </ScrollView>
 
-          {/* Chat Composer */}
-          <View style={[styles.composerBar, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
-            <TextInput
-              value={messageInput}
-              onChangeText={setMessageInput}
-              placeholder={`${t.home.composerPlaceholder}`}
-              placeholderTextColor={colors.subtle}
-              style={[styles.composerInput, { color: colors.text }]}
-              multiline
-            />
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={handleSendMessage}
-              disabled={!messageInput.trim() || sendMessageMutation.isPending}
+          {/* Floating Rounded Composer Area */}
+          <View
+            style={[
+              styles.composerFloatingContainer,
+              { paddingBottom: isKeyboardVisible ? 6 : (insets.bottom > 0 ? insets.bottom + 2 : 10) },
+            ]}
+          >
+            {/* Reply Quote Preview Floating Pill */}
+            {replyingMessage && (
+              <View
+                style={[
+                  styles.replyPreviewBar,
+                  { backgroundColor: colors.surface, borderColor: colors.hairline },
+                ]}
+              >
+                <View style={styles.replyPreviewLeft}>
+                  <View style={{ transform: [{ scaleX: -1 }], marginRight: 2 }}>
+                    <Reply size={15} color={colors.primary} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.replyPreviewAuthor, { color: colors.primary }]}>
+                      {t.chat.replyingTo.replace(
+                        '{name}',
+                        replyingMessage.sender?.nickname ||
+                          replyingMessage.sender?.user?.profile?.displayName ||
+                          replyingMessage.sender?.profile?.displayName ||
+                          replyingMessage.sender?.user?.email?.split('@')[0] ||
+                          'User',
+                      )}
+                    </Text>
+                    <Text numberOfLines={1} style={[styles.replyPreviewContent, { color: colors.subtle }]}>
+                      {replyingMessage.content ||
+                        (replyingMessage.fileName ? `📎 ${replyingMessage.fileName}` : '') ||
+                        (replyingMessage.fileUrl ? '📷 [Hình ảnh/Tệp tin]' : 'Tin nhắn')}
+                    </Text>
+                  </View>
+                </View>
+                <TouchableOpacity
+                  onPress={() => setReplyingMessage(null)}
+                  style={[styles.cancelReplyBtn, { backgroundColor: colors.wash }]}
+                >
+                  <X size={14} color={colors.subtle} />
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Rounded Floating Composer Bar with embedded Send Button */}
+            <View
               style={[
-                styles.sendBtn,
+                styles.composerBar,
                 {
-                  backgroundColor:
-                    messageInput.trim() && !sendMessageMutation.isPending
-                      ? colors.primary
-                      : colors.wash,
+                  backgroundColor: colors.surface,
+                  borderColor: colors.hairline,
                 },
               ]}
             >
-              {sendMessageMutation.isPending ? (
-                <ActivityIndicator size="small" color={colors.onPrimary} />
-              ) : (
-                <Send
-                  size={18}
-                  color={messageInput.trim() ? colors.onPrimary : colors.subtle}
-                />
-              )}
-            </TouchableOpacity>
+              <TextInput
+                value={messageInput}
+                onChangeText={setMessageInput}
+                placeholder={t.chat.composerPlaceholder.replace('#{channel}', currentChannel?.name || 'chat')}
+                placeholderTextColor={colors.subtle}
+                style={[styles.composerInput, { color: colors.text }]}
+                multiline
+              />
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={handleSendMessage}
+                disabled={!messageInput.trim() || sendMessageMutation.isPending}
+                style={[
+                  styles.sendBtn,
+                  {
+                    backgroundColor:
+                      messageInput.trim() && !sendMessageMutation.isPending
+                        ? colors.primary
+                        : colors.wash,
+                  },
+                ]}
+              >
+                {sendMessageMutation.isPending ? (
+                  <ActivityIndicator size="small" color={colors.onPrimary} />
+                ) : (
+                  <Send
+                    size={17}
+                    color={messageInput.trim() ? colors.onPrimary : colors.subtle}
+                  />
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       )}
@@ -492,7 +980,86 @@ export default function CircleWorkspaceScreen() {
         </ScrollView>
       )}
 
-      {/* Circle Management Modal mounted globally for this workspace */}
+      {/* Floating Action Menu Modal on Long Press */}
+      <Modal
+        visible={Boolean(activeActionMessage)}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setActiveActionMessage(null)}
+      >
+        <TouchableOpacity
+          style={styles.actionModalBackdrop}
+          activeOpacity={1}
+          onPress={() => setActiveActionMessage(null)}
+        >
+          <BlurView
+            intensity={Platform.OS === 'ios' ? 25 : 50}
+            tint={isDark ? 'dark' : 'light'}
+            style={StyleSheet.absoluteFill}
+          />
+          <View
+            style={[
+              styles.actionMenuCard,
+              {
+                backgroundColor: colors.surface,
+                borderColor: colors.hairline,
+              },
+            ]}
+          >
+            {/* Quick Emojis Row */}
+            <View style={styles.actionEmojisRow}>
+              {QUICK_EMOJIS.map((emoji) => (
+                <TouchableOpacity
+                  key={emoji}
+                  activeOpacity={0.7}
+                  onPress={() => handleReact(activeActionMessage.id, emoji)}
+                  style={styles.actionEmojiBtn}
+                >
+                  <Text style={styles.actionEmojiText}>{emoji}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <View style={[styles.actionDivider, { backgroundColor: colors.hairline }]} />
+
+            {/* Quick Actions (Reply, Pin) */}
+            <View style={styles.actionButtonsRow}>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => {
+                  setReplyingMessage(activeActionMessage);
+                  setActiveActionMessage(null);
+                }}
+                style={[styles.actionBtnItem, { backgroundColor: colors.wash }]}
+              >
+                <View style={{ transform: [{ scaleX: -1 }], marginRight: 2 }}>
+                  <Reply size={16} color={colors.primary} />
+                </View>
+                <Text style={[styles.actionBtnItemText, { color: colors.text }]}>{t.chat.replyAction}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() =>
+                  handleTogglePin(activeActionMessage.id, !activeActionMessage.isPinned)
+                }
+                style={[styles.actionBtnItem, { backgroundColor: colors.wash }]}
+              >
+                <Pin
+                  size={16}
+                  color={activeActionMessage?.isPinned ? colors.warning : colors.subtle}
+                  fill={activeActionMessage?.isPinned ? colors.warning : 'transparent'}
+                />
+                <Text style={[styles.actionBtnItemText, { color: colors.text }]}>
+                  {activeActionMessage?.isPinned ? t.chat.unpinAction : t.chat.pinAction}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Circle Management Modal */}
       <CircleManagementModal />
     </KeyboardAvoidingView>
   );
@@ -567,19 +1134,10 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 1,
   },
-  headerNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
   headerTitle: {
     fontSize: 16,
     fontWeight: '800',
     letterSpacing: -0.3,
-  },
-  headerSubtitle: {
-    fontSize: 11,
-    fontWeight: '500',
   },
   segmentedBar: {
     flexDirection: 'row',
@@ -597,237 +1155,286 @@ const styles = StyleSheet.create({
   chatContainer: {
     flex: 1,
   },
-  channelStrip: {
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-  },
-  channelScroll: {
-    gap: 8,
-  },
-  channelPill: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 16,
-    borderWidth: 1,
-  },
-  channelPillText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
   messagesList: {
     flex: 1,
     paddingHorizontal: 16,
   },
   messagesScrollContent: {
-    gap: 12,
+    gap: 10,
     paddingVertical: 14,
-  },
-  channelIntroCard: {
-    padding: 16,
-    borderRadius: 20,
-    borderWidth: 1,
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 8,
-  },
-  hashBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 4,
-  },
-  hashText: {
-    fontSize: 22,
-    fontWeight: '800',
-  },
-  channelIntroTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    textAlign: 'center',
-  },
-  channelIntroDesc: {
-    fontSize: 12,
-    textAlign: 'center',
   },
   emptyChatBox: {
     padding: 24,
     borderRadius: 18,
     alignItems: 'center',
   },
+  emptyChatTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
   emptyChatText: {
     fontSize: 13,
     fontWeight: '500',
     textAlign: 'center',
   },
-  messageRow: {
+  clusterContainerMe: {
+    alignItems: 'flex-end',
+    alignSelf: 'flex-end',
+    maxWidth: '82%',
+    gap: 2,
+    marginVertical: 3,
+  },
+  clusterContainerOther: {
     flexDirection: 'row',
+    alignItems: 'flex-end',
+    alignSelf: 'flex-start',
+    maxWidth: '85%',
     gap: 8,
-    marginVertical: 2,
+    marginVertical: 3,
   },
-  myMessageRow: {
-    justifyContent: 'flex-end',
-  },
-  otherMessageRow: {
-    justifyContent: 'flex-start',
-  },
-  senderAvatar: {
+  senderAvatarBottom: {
     width: 32,
     height: 32,
-    borderRadius: 16,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 2,
+    overflow: 'hidden',
+  },
+  senderAvatarImg: {
+    width: 32,
+    height: 32,
+    borderRadius: 12,
   },
   senderAvatarText: {
-    fontSize: 11,
+    fontSize: 11.5,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  senderHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginBottom: 3,
+    marginLeft: 2,
+    flexWrap: 'wrap',
+  },
+  senderName: {
+    fontSize: 12,
     fontWeight: '700',
   },
-  messageBubble: {
-    maxWidth: '78%',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 18,
-    gap: 4,
+  roleBadgeOwner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 10,
   },
-  myBubble: {
+  roleBadgeOwnerText: {
+    fontSize: 9,
+    fontWeight: '700',
+  },
+  roleBadgeAdmin: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  roleBadgeAdminText: {
+    fontSize: 9,
+    fontWeight: '700',
+  },
+  clusterMessagesCol: {
+    flex: 1,
+    gap: 2,
+  },
+  messageBubble: {
+    position: 'relative',
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    gap: 4,
+    maxWidth: '100%',
+  },
+  singleBubbleMe: {
+    borderRadius: 18,
     borderBottomRightRadius: 4,
   },
-  otherBubble: {
+  firstBubbleMe: {
+    borderRadius: 18,
+    borderBottomRightRadius: 6,
+  },
+  middleBubbleMe: {
+    borderRadius: 18,
+    borderTopRightRadius: 6,
+    borderBottomRightRadius: 6,
+  },
+  lastBubbleMe: {
+    borderRadius: 18,
+    borderTopRightRadius: 6,
+    borderBottomRightRadius: 4,
+  },
+  singleBubbleOther: {
+    borderRadius: 18,
     borderBottomLeftRadius: 4,
     borderWidth: 1,
   },
-  senderName: {
-    fontSize: 11,
-    fontWeight: '700',
+  firstBubbleOther: {
+    borderRadius: 18,
+    borderBottomLeftRadius: 6,
+    borderWidth: 1,
+  },
+  middleBubbleOther: {
+    borderRadius: 18,
+    borderTopLeftRadius: 6,
+    borderBottomLeftRadius: 6,
+    borderWidth: 1,
+  },
+  lastBubbleOther: {
+    borderRadius: 18,
+    borderTopLeftRadius: 6,
+    borderBottomLeftRadius: 4,
+    borderWidth: 1,
   },
   messageText: {
-    fontSize: 14,
-    lineHeight: 19,
+    fontSize: 14.5,
+    lineHeight: 20.5,
+    fontWeight: '400',
+    letterSpacing: -0.1,
   },
   timestampText: {
     fontSize: 10,
-    alignSelf: 'flex-end',
+    opacity: 0.65,
+  },
+  swipeContainer: {
+    position: 'relative',
+    width: '100%',
+    justifyContent: 'center',
+  },
+  swipeReplyIconBox: {
+    position: 'absolute',
+    left: 4,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 28,
+    zIndex: 1,
+  },
+  replyQuoteBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 3.5,
+    borderRadius: 10,
+    marginBottom: 4,
+    maxWidth: '100%',
+    gap: 4,
+  },
+  replyQuoteAuthor: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    flexShrink: 0,
+  },
+  replyQuoteText: {
+    fontSize: 11.5,
+    fontWeight: '400',
+    flexShrink: 1,
+    opacity: 0.88,
+  },
+  reactionsBadgePill: {
+    position: 'absolute',
+    bottom: -6,
+    right: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 10,
+    borderWidth: 1,
+    elevation: 0,
+    shadowOpacity: 0,
+  },
+  reactionEmojiText: {
+    fontSize: 11,
+    lineHeight: 13,
+  },
+  composerFloatingContainer: {
+    paddingHorizontal: 14,
+    paddingTop: 4,
+    gap: 6,
+  },
+  replyPreviewBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 16,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  replyPreviewLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+    minWidth: 0,
+  },
+  replyPreviewAuthor: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  replyPreviewContent: {
+    fontSize: 11,
+  },
+  cancelReplyBtn: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
   },
   composerBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderTopWidth: 1,
-    gap: 10,
+    borderRadius: 25,
+    borderWidth: 1.2,
+    paddingLeft: 14,
+    paddingRight: 5,
+    paddingVertical: 3,
+    minHeight: 46,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 3,
+    gap: 8,
   },
   composerInput: {
     flex: 1,
-    maxHeight: 100,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    maxHeight: 90,
+    paddingVertical: 6,
+    paddingRight: 6,
     fontSize: 14,
   },
   sendBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  momentsContainer: {
-    padding: 16,
-    gap: 14,
-    paddingBottom: 40,
-  },
-  momentPromptCard: {
-    padding: 16,
-    borderRadius: 22,
-    borderWidth: 1,
-  },
-  momentPromptLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  cameraIconBox: {
-    width: 48,
-    height: 48,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  momentPromptTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  momentPromptDesc: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-  emptyMomentsBox: {
-    padding: 32,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    gap: 8,
-  },
-  emptyMomentsTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  emptyMomentsDesc: {
-    fontSize: 12,
-    textAlign: 'center',
-  },
-  momentCard: {
-    borderRadius: 22,
-    borderWidth: 1,
-    padding: 14,
-    gap: 10,
-  },
-  momentCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  momentAuthorRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  avatarSmall: {
     width: 36,
     height: 36,
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  avatarSmallText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  momentAuthorName: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  momentTime: {
-    fontSize: 11,
-  },
-  momentCaption: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  reactionRow: {
-    flexDirection: 'row',
-    gap: 8,
-    paddingTop: 8,
-    borderTopWidth: 1,
-  },
-  reactionPill: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  reactionEmoji: {
-    fontSize: 16,
   },
   toolsContainer: {
     padding: 16,
@@ -860,164 +1467,57 @@ const styles = StyleSheet.create({
   toolDesc: {
     fontSize: 12,
   },
-  momentPhotoWrapper: {
-    width: '100%',
-    aspectRatio: 1,
-    borderRadius: 18,
-    overflow: 'hidden',
-  },
-  momentPhoto: {
-    width: '100%',
-    height: '100%',
-  },
-  locketButtonFloatingArea: {
-    position: 'absolute',
-    bottom: 24,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  locketOuterRing: {
-    width: 78,
-    height: 78,
-    borderRadius: 39,
-    borderWidth: 4,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
-    elevation: 12,
-  },
-  locketInnerCircle: {
-    width: 62,
-    height: 62,
-    borderRadius: 31,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  momentModalOverlay: {
+  actionModalBackdrop: {
     flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.5)',
-  },
-  momentModalSheet: {
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    borderTopWidth: 1.2,
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
-    maxHeight: '90%',
-  },
-  momentModalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingBottom: 14,
-  },
-  momentModalTitleGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  momentModalTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  closeBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.3)',
     justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
   },
-  momentModalContent: {
-    gap: 14,
-    paddingBottom: 20,
-  },
-  locketPreviewFrame: {
+  actionMenuCard: {
     width: '100%',
-    aspectRatio: 1,
+    maxWidth: 320,
     borderRadius: 24,
     borderWidth: 1,
-    overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
+    padding: 14,
+    gap: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 18,
+    elevation: 10,
   },
-  locketPreviewImage: {
+  actionEmojisRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+  },
+  actionEmojiBtn: {
+    padding: 6,
+    borderRadius: 16,
+  },
+  actionEmojiText: {
+    fontSize: 24,
+  },
+  actionDivider: {
+    height: 1,
     width: '100%',
-    height: '100%',
   },
-  locketPreviewPlaceholder: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  locketPreviewPlaceholderText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  samplePhotosBlock: {
-    gap: 6,
-  },
-  samplePhotosLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  samplePhotosRow: {
+  actionButtonsRow: {
     flexDirection: 'row',
     gap: 10,
-    paddingVertical: 4,
   },
-  samplePhotoThumb: {
-    width: 54,
-    height: 54,
-    borderRadius: 14,
-    overflow: 'hidden',
-  },
-  samplePhotoThumbImg: {
-    width: '100%',
-    height: '100%',
-  },
-  formField: {
-    gap: 6,
-  },
-  input: {
-    height: 44,
-    borderRadius: 14,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    fontSize: 13,
-  },
-  momentCaptionInput: {
-    height: 60,
-    paddingVertical: 10,
-    textAlignVertical: 'top',
-  },
-  momentBtnRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 4,
-  },
-  actionBtn: {
+  actionBtnItem: {
     flex: 1,
-    height: 44,
-    borderRadius: 14,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 6,
+    height: 40,
+    borderRadius: 14,
   },
-  actionBtnText: {
+  actionBtnItemText: {
     fontSize: 13,
-    fontWeight: '700',
-  },
-  sheetHandle: {
-    width: 38,
-    height: 4,
-    borderRadius: 2,
-    alignSelf: 'center',
-    marginBottom: 14,
+    fontWeight: '600',
   },
 });
