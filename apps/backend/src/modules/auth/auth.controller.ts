@@ -6,6 +6,7 @@ import {
   HttpCode,
   HttpStatus,
   Ip,
+  Patch,
   Post,
   UseGuards,
 } from '@nestjs/common';
@@ -17,6 +18,7 @@ import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { ResendOtpDto } from './dto/resend-otp.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 import { Public } from '../../common/decorators/public.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -199,6 +201,26 @@ export class AuthController {
       success: true,
       statusCode: HttpStatus.OK,
       data: user,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('profile')
+  @HttpCode(HttpStatus.OK)
+  async updateProfile(
+    @CurrentUser('id') userId: string,
+    @Body(new ZodValidationPipe((locale) => createAuthSchemas(locale).updateProfileSchema)) dto: UpdateProfileDto,
+    @Headers('x-circle-locale') circleLocale?: string,
+    @Headers('accept-language') acceptLanguage?: string,
+  ): Promise<ApiResponse<AuthUserData>> {
+    const locale = resolveLocale(circleLocale, acceptLanguage);
+    const data = await this.authService.updateProfile(userId, dto, locale);
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      message: 'Profile updated successfully',
+      data,
       timestamp: new Date().toISOString(),
     };
   }

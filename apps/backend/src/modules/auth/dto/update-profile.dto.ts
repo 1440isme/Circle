@@ -1,0 +1,8 @@
+import { UpdateProfileInput } from '@circle/shared';
+
+export class UpdateProfileDto implements UpdateProfileInput {
+  displayName?: string;
+  avatarUrl?: string | null;
+  bio?: string | null;
+  dateOfBirth?: string | null;
+}

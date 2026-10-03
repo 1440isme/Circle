@@ -94,7 +94,6 @@ model UserProfile {
   userId      String    @unique
   displayName String
   avatarUrl   String?
-  coverUrl    String?
   bio         String?
   dateOfBirth DateTime?
   updatedAt   DateTime  @updatedAt

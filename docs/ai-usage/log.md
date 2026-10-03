@@ -1373,7 +1373,6 @@
 
 ---
 
-<<<<<<< HEAD
 ## AI-0037: Initialize Mobile App Shell with Full Auth Flow, SecureStore and Bilingual Themes
 
 - **Date:** 2026-09-27 20:40:00 +07:00
@@ -2548,4 +2547,64 @@
   - **Resolution / Fix:** Bổ sung `pipCornerTag` và `pipFlipBtn` vào StyleSheet; sử dụng giải pháp hiển thị góc phụ qua dynamic counterpart portrait/preview và capture dual-payload an toàn mượt mà; ép kiểu pathname `/circle/[id]` trong tab screens.
 - **Commit:** `cad3ddb`
 - **PR:** #65 (https://github.com/1440isme/Circle/pull/65)
+
+---
+
+## AI-0062: Triển khai Tính năng Xem & Cập nhật Hồ sơ Cá nhân (User Profile View & Edit) trên Web & Mobile
+
+- **Date:** 2026-10-01 15:35:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #66 ([USER-STORY]: Cập nhật thông tin hồ sơ cá nhân - Display Name, Avatar, Bio, Date of Birth trên Web và Mobile)
+- **Purpose:** 
+  1. Triển khai trọn vẹn tính năng xem và cập nhật hồ sơ cá nhân (User Profile Management) trên cả hai nền tảng Web (`Next.js 14`) và Mobile (`React Native / Expo`).
+  2. Cơ chế View / Edit thông minh:
+     - Mặc định khi ấn vào "Hồ sơ cá nhân", hiển thị thẻ Profile View với: Ảnh đại diện lớn, Tên hiển thị (`displayName`), Tiểu sử (`bio`), Ngày sinh / Năm sinh (`dateOfBirth`).
+     - Nút Máy ảnh (`Camera`) trên avatar cho phép mở trực tiếp chế độ chọn ảnh mẫu hoặc dán link URL và lưu ngay.
+     - Nút "Chỉnh sửa hồ sơ" mở form chỉnh sửa họ tên, tiểu sử (với bộ đếm 0/300 ký tự) và ngày sinh.
+     - Lược bỏ hoàn toàn các trường không cần thiết (`coverUrl`, vai trò, email thừa, nút hủy bên trái) để giữ giao diện cá nhân tinh tế, tối giản.
+  3. Backend NestJS (`apps/backend`):
+     - Cung cấp endpoint `PATCH /api/v1/auth/profile` với `UpdateProfileDto` và `JwtAuthGuard`.
+     - Tích hợp `prisma.userProfile.upsert` cập nhật dữ liệu và đồng bộ `AuthUserData`.
+     - Unit test `TC-AUTH-007` (15/15 auth tests, 84/84 backend tests pass 100%).
+  4. Shared Contracts (`packages/shared`):
+     - Bổ sung `updateProfileSchema` & `UpdateProfileInput` với Zod validator.
+     - Hỗ trợ song ngữ 100% tiếng Việt (`vi.ts`) và tiếng Anh (`en.ts`).
+  5. State Management & Cache:
+     - Web: `useUpdateProfileMutation` tự động cập nhật `AuthContext` ngay khi lưu thành công.
+     - Mobile: `useAuthStore.updateProfile` đồng bộ tức thì vào Zustand store và AsyncStorage.
+- **Prompt Summary:** Yêu cầu: "nhiệm vụ xây dựng chỗ hồ sơ cá nhân sẽ có thể chỉnh tên và avatar và tiểu sử ở web và mobile", "ấn vô thì mới xem có cái bút để ấn sửa", "bỏ nút bên cạnh tên đi, nút bên avatar để máy ảnh chọn ảnh, chỉ có tên, tiểu sử, ngày sinh, bỏ coverUrl và nút hủy", "ở mobile đổi tiểu sử lên trên ngày sinh".
+- **Files Affected:**
+  - `apps/backend/prisma/schema.prisma`
+  - `apps/backend/src/modules/auth/dto/update-profile.dto.ts`
+  - `apps/backend/src/modules/auth/auth.service.ts`
+  - `apps/backend/src/modules/auth/auth.controller.ts`
+  - `apps/backend/src/modules/auth/auth.service.spec.ts`
+  - `packages/shared/src/validators/auth.validator.ts`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `apps/web/src/lib/auth.ts`
+  - `apps/web/src/hooks/use-auth-mutations.ts`
+  - `apps/web/src/components/profile/EditProfileModal.tsx`
+  - `apps/web/src/components/header/Header.tsx`
+  - `apps/mobile/src/stores/auth.store.ts`
+  - `apps/mobile/src/components/profile/EditProfileModal.tsx`
+  - `apps/mobile/app/(tabs)/profile.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% mã nguồn components, DTOs, tests, validators, i18n và tài liệu hóa.
+- **Human Modifications:** Ninh Thị Mỹ Hạnh trực tiếp định hướng UX: tách biệt luồng xem và chỉnh sửa, nút camera đổi avatar trực tiếp, sắp xếp vị trí bio lên trên ngày sinh, lược bỏ trường thừa.
+- **Verification Method:**
+  - `npm test -w @circle/backend`: 84/84 unit tests pass 100%.
+  - `npm run build -w @circle/web`: Next.js production build pass 100% (0 errors).
+  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: TypeScript pass 100% (0 errors).
+  - `npm run build -w @circle/shared`: Shared package build pass 100%.
+- **Official Source Checked:** `PROJECT_GOD.md` (Module 1 / Auth & Profile, Definition of Done), `agentic/RULES.md`.
+- **Security & License Check:** Xác thực JWT bearer token, kiểm duyệt định dạng dữ liệu Zod, không lộ thông tin nhạy cảm.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** Ban đầu modal mở thẳng vào form chỉnh sửa thay vì chế độ xem có nút bút/máy ảnh, và hiển thị kèm các thông tin hệ thống (vai trò, email, bảo mật kép).
+  - **Root Cause:** Hiểu chưa sát yêu cầu tối giản thông tin cá nhân của người dùng.
+  - **Resolution / Fix:** Tinh chỉnh modal thành 3 chế độ chuyên biệt: View (chỉ Tên, Bio, Ngày sinh), Direct Avatar Picker (khi bấm Camera) và Edit Form (khi bấm Chỉnh sửa hồ sơ).
+- **Commit:** `fa1ba3f`
+- **PR:** #66 (https://github.com/1440isme/Circle/pull/66)
 

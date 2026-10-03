@@ -18,7 +18,8 @@ import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { ResendOtpDto } from './dto/resend-otp.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
-import { AuthResponseData, AuthTokens, GlobalRole } from '@circle/types';
+import { UpdateProfileDto } from './dto/update-profile.dto';
+import { AuthResponseData, AuthTokens, AuthUserData, GlobalRole } from '@circle/types';
 import { Locale, locales } from '@circle/shared';
 
 @Injectable()
@@ -579,5 +580,54 @@ export class AuthService {
     }
 
     return { message: t.auth.loggedOutSuccess };
+  }
+
+  /**
+   * Updates user profile (displayName, avatarUrl, bio, coverUrl, dateOfBirth).
+   */
+  async updateProfile(
+    userId: string,
+    dto: UpdateProfileDto,
+    locale: Locale = 'vi',
+  ): Promise<AuthUserData> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { profile: true },
+    });
+
+    if (!user || user.deletedAt) {
+      const t = locales[locale] || locales.vi;
+      throw new UnauthorizedException(t.auth.accountInactiveOrNotFound);
+    }
+
+    const updatedProfile = await this.prisma.userProfile.upsert({
+      where: { userId },
+      create: {
+        userId,
+        displayName: dto.displayName || user.email.split('@')[0] || 'User',
+        avatarUrl: dto.avatarUrl,
+        bio: dto.bio,
+        dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : null,
+      },
+      update: {
+        ...(dto.displayName !== undefined && { displayName: dto.displayName }),
+        ...(dto.avatarUrl !== undefined && { avatarUrl: dto.avatarUrl }),
+        ...(dto.bio !== undefined && { bio: dto.bio }),
+        ...(dto.dateOfBirth !== undefined && {
+          dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : null,
+        }),
+      },
+    });
+
+    return {
+      id: user.id,
+      email: user.email,
+      globalRole: user.globalRole as GlobalRole,
+      profile: {
+        ...updatedProfile,
+        dateOfBirth: updatedProfile.dateOfBirth?.toISOString() || null,
+        updatedAt: updatedProfile.updatedAt.toISOString(),
+      },
+    };
   }
 }

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -7,14 +7,16 @@ import {
   ScrollView,
   Alert,
   Platform,
+  Image as RNImage,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { User, Mail, Shield, LogOut, CheckCircle2 } from 'lucide-react-native';
+import { User, Mail, Shield, LogOut, CheckCircle2, Edit3, Camera, Quote } from 'lucide-react-native';
 import { useThemeStore } from '../../src/stores/theme.store';
 import { useLanguageStore } from '../../src/stores/language.store';
 import { useAuthStore } from '../../src/stores/auth.store';
 import { Button } from '../../src/components/common/Button';
 import { HeaderControls } from '../../src/components/common/HeaderControls';
+import { EditProfileModal } from '../../src/components/profile/EditProfileModal';
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -27,11 +29,25 @@ export default function ProfileTab() {
   const { colors, resolvedTheme } = useThemeStore();
   const t = useLanguageStore((s) => s.t);
   const { user, logout } = useAuthStore();
+  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
 
   const isDark = resolvedTheme === 'dark';
   const displayName = user?.profile?.displayName || user?.email?.split('@')[0] || t.auth.guest;
+  const avatarUrl = user?.profile?.avatarUrl;
+  const bio = user?.profile?.bio;
+  const dateOfBirth = user?.profile?.dateOfBirth;
   const initials = getInitials(displayName);
-  const roleLabel = user?.globalRole === 'ADMIN' ? t.auth.admin : t.auth.member;
+  const [modalMode, setModalMode] = useState<'edit' | 'avatar'>('edit');
+
+  const handleOpenAvatar = () => {
+    setModalMode('avatar');
+    setIsEditModalVisible(true);
+  };
+
+  const handleOpenEdit = () => {
+    setModalMode('edit');
+    setIsEditModalVisible(true);
+  };
 
   const handleLogout = () => {
     Alert.alert(
@@ -71,23 +87,53 @@ export default function ProfileTab() {
             },
           ]}
         >
-          <View style={[styles.avatarBox, { backgroundColor: colors.primary }]}>
-            <Text style={[styles.avatarText, { color: colors.onPrimary }]}>{initials}</Text>
-          </View>
+          {/* Avatar with Edit Camera Overlay */}
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={handleOpenAvatar}
+            style={styles.avatarWrapper}
+          >
+            <View style={[styles.avatarBox, { backgroundColor: colors.primary, borderColor: colors.primary }]}>
+              {avatarUrl ? (
+                <RNImage source={{ uri: avatarUrl }} style={styles.avatarImage} resizeMode="cover" />
+              ) : (
+                <Text style={[styles.avatarText, { color: colors.onPrimary }]}>{initials}</Text>
+              )}
+            </View>
+            <View style={[styles.avatarEditBadge, { backgroundColor: colors.primary }]}>
+              <Camera size={12} color={colors.onPrimary} />
+            </View>
+          </TouchableOpacity>
 
           <Text style={[styles.nameText, { color: colors.text }]}>
             {displayName}
           </Text>
-          <Text style={[styles.emailText, { color: colors.subtle }]}>
-            {user?.email}
+
+          {/* Bio Box */}
+          <Text style={[styles.bioSubText, { color: colors.subtle }]}>
+            {bio || t.auth.noBio}
           </Text>
 
-          <View style={[styles.roleBadge, { backgroundColor: colors.wash }]}>
-            <Shield size={13} color={colors.primary} />
-            <Text style={[styles.roleText, { color: colors.primary }]}>
-              {roleLabel}
+          {/* Date of Birth Badge */}
+          {dateOfBirth ? (
+            <View style={[styles.dobBadge, { backgroundColor: `${colors.primary}15` }]}>
+              <Text style={[styles.dobText, { color: colors.primary }]}>
+                {t.auth.dateOfBirth}: {new Date(dateOfBirth).toLocaleDateString('vi-VN')}
+              </Text>
+            </View>
+          ) : null}
+
+          {/* Edit Profile Button */}
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={handleOpenEdit}
+            style={[styles.editProfileBtn, { backgroundColor: colors.primary }]}
+          >
+            <Edit3 size={14} color={colors.onPrimary} />
+            <Text style={[styles.editProfileBtnText, { color: colors.onPrimary }]}>
+              {t.auth.editProfile}
             </Text>
-          </View>
+          </TouchableOpacity>
         </View>
 
         {/* Security & Token Info */}
@@ -141,6 +187,13 @@ export default function ProfileTab() {
           </Text>
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Edit Profile Modal */}
+      <EditProfileModal
+        visible={isEditModalVisible}
+        initialMode={modalMode}
+        onClose={() => setIsEditModalVisible(false)}
+      />
     </View>
   );
 }
@@ -168,17 +221,55 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
-  avatarBox: {
-    width: 72,
-    height: 72,
-    borderRadius: 26,
-    alignItems: 'center',
-    justifyContent: 'center',
+  avatarWrapper: {
+    position: 'relative',
     marginBottom: 12,
   },
-  avatarText: { fontSize: 24, fontWeight: '800' },
-  nameText: { fontSize: 18, fontWeight: '700', marginBottom: 2 },
-  emailText: { fontSize: 13, marginBottom: 12 },
+  avatarBox: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+  },
+  avatarEditBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  avatarText: { fontSize: 28, fontWeight: '800' },
+  nameText: { fontSize: 20, fontWeight: '800', marginBottom: 4 },
+  dobBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  dobText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  bioSubText: {
+    fontSize: 13,
+    fontWeight: '400',
+    textAlign: 'center',
+    marginBottom: 10,
+    paddingHorizontal: 12,
+    lineHeight: 18,
+  },
   roleBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -186,6 +277,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: 14,
+    marginBottom: 14,
+  },
+  editProfileBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 18,
+    paddingVertical: 9,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  editProfileBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   roleText: { fontSize: 11, fontWeight: '700' },
   infoCard: {

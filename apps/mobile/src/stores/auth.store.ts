@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { AuthTokens, AuthUserData, AuthResponseData } from '@circle/types';
+import { UpdateProfileInput } from '@circle/shared';
 import {
   getAuthTokens,
   saveAuthTokens,
@@ -19,6 +20,7 @@ interface AuthState {
   setAuth: (user: AuthUserData, tokens: AuthTokens) => Promise<void>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  updateProfile: (dto: UpdateProfileInput) => Promise<AuthUserData>;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -86,7 +88,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  refreshProfile: async () => {
+    refreshProfile: async () => {
     try {
       const res = await mobileApiRequest<AuthUserData>('/auth/me', {
         method: 'GET',
@@ -100,5 +102,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         await get().logout();
       }
     }
+  },
+
+  updateProfile: async (dto: UpdateProfileInput) => {
+    const res = await mobileApiRequest<AuthUserData>('/auth/profile', {
+      method: 'PATCH',
+      body: JSON.stringify(dto),
+    });
+    if (res.data) {
+      await saveUserData(res.data);
+      set({ user: res.data });
+    }
+    return res.data;
   },
 }));
