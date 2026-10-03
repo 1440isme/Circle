@@ -61,7 +61,7 @@ export default function CirclesTab() {
   const handleSelectCircle = (circle: CircleListItem) => {
     setActiveCircle(circle);
     router.push({
-      pathname: '/circle/[id]',
+      pathname: '/circle/[id]' as any,
       params: { id: circle.id },
     });
   };

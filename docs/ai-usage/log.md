@@ -2528,6 +2528,9 @@
   - `apps/mobile/src/components/moment/LocketMomentsView.tsx`
   - `apps/mobile/src/hooks/use-circle-queries.ts`
   - `apps/mobile/app/circle/[id].tsx`
+  - `apps/mobile/app/(tabs)/circles.tsx`
+  - `apps/mobile/app/(tabs)/index.tsx`
+  - `apps/mobile/app/(tabs)/messages.tsx`
   - `docs/ai-usage/log.md`
 - **AI-Generated Portion:** 100% mã nguồn camera controls, Dual View PiP frame, layout adjustments, optimistic mutation hooks và styling.
 - **Human Modifications:** Ninh Thị Mỹ Hạnh trực tiếp nghiệm thu thực tế trên thiết bị di động, chỉ đạo cải tiến các chi tiết UX: tỉ lệ zoom 0.5x, khung nhỏ PiP trực quan, thao tác lật cam và kiểm duyệt chất lượng trước khi mở PR.
@@ -2540,9 +2543,9 @@
 - **Official Source Checked:** `PROJECT_GOD.md` (Module 3 & Module 5, Definition of Done, 10 Hard Gates), `docs/phan-cong-nhiem-vu.md` (Hạnh: Module 3 Full-stack), SRS UC20, UC22, UC25, UC26.
 - **Security & License Check:** An toàn, không chứa secret keys hay API credentials.
 - **AI Errors / Hallucinations Found:**
-  - **Error Description:** Thuộc tính `pipCornerTag` thiếu trong StyleSheet ban đầu gây lỗi typecheck TS2339; và trên Android/iOS không thể render cùng lúc 2 hardware `<CameraView>` mà không khóa camera bus.
-  - **Root Cause:** Quên thêm class style vào StyleSheet; và giới hạn phần cứng mobile chỉ cho phép 1 active hardware camera pipeline tại một thời điểm.
-  - **Resolution / Fix:** Bổ sung `pipCornerTag` và `pipFlipBtn` vào StyleSheet; sử dụng giải pháp hiển thị góc phụ qua dynamic counterpart portrait/preview và capture dual-payload an toàn mượt mà.
+  - **Error Description:** Thuộc tính `pipCornerTag` thiếu trong StyleSheet ban đầu gây lỗi typecheck TS2339; và trên Android/iOS không thể render cùng lúc 2 hardware `<CameraView>` mà không khóa camera bus; dynamic typed route `/circle/[id]` thiếu type declaration trong Expo Router types.
+  - **Root Cause:** Quên thêm class style vào StyleSheet; giới hạn phần cứng mobile chỉ cho phép 1 active hardware camera pipeline; và route mới chưa được sinh vào router.d.ts của expo-router.
+  - **Resolution / Fix:** Bổ sung `pipCornerTag` và `pipFlipBtn` vào StyleSheet; sử dụng giải pháp hiển thị góc phụ qua dynamic counterpart portrait/preview và capture dual-payload an toàn mượt mà; ép kiểu pathname `/circle/[id]` trong tab screens.
 - **Commit:** `cad3ddb`
 - **PR:** #65 (https://github.com/1440isme/Circle/pull/65)
 

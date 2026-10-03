@@ -33,7 +33,7 @@ export default function MessagesTab() {
   const handleOpenCircle = (circle: any) => {
     setActiveCircle(circle);
     router.push({
-      pathname: '/circle/[id]',
+      pathname: '/circle/[id]' as any,
       params: { id: circle.id },
     });
   };
