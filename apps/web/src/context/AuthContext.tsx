@@ -6,6 +6,9 @@ import { useAuthStore } from '../stores/auth.store';
 import { useLoginMutation, useRegisterMutation, useLogoutMutation } from '../hooks/use-auth-mutations';
 import { LoginPayload, RegisterPayload } from '../lib/auth';
 
+import { useLanguageStore } from '../stores/language.store';
+import { useThemeStore } from '../stores/theme.store';
+
 interface AuthContextType {
   user: AuthUserData | null;
   isAuthenticated: boolean;
@@ -23,12 +26,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isLoading = useAuthStore((s) => s.isLoading);
   const initAuth = useAuthStore((s) => s.initAuth);
+  const initLanguage = useLanguageStore((s) => s.initLanguage);
+  const initTheme = useThemeStore((s) => s.initTheme);
 
   const loginMutation = useLoginMutation();
   const registerMutation = useRegisterMutation();
   const logoutMutation = useLogoutMutation();
 
   useEffect(() => {
+    initLanguage();
+    initTheme();
     initAuth();
 
     const handleUnauthorized = () => {
@@ -39,7 +46,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => {
       window.removeEventListener('circle:unauthorized', handleUnauthorized);
     };
-  }, [initAuth]);
+  }, [initAuth, initLanguage, initTheme]);
 
   const login = async (payload: LoginPayload) => {
     return loginMutation.mutateAsync(payload);

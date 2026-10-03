@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import { MessageEntity, MessageType } from '@circle/types';
 import { useLanguageStore } from '../../stores/language.store';
+import { useUploadMedia } from '../../hooks/use-upload-media';
+import { createPreviewUrl, revokePreviewUrl } from '../../lib/image-optimizer';
 
 interface ChatComposerProps {
   channelId: string;
@@ -45,9 +47,11 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [attachedFile, setAttachedFile] = useState<{
     file: File;
-    dataUrl: string;
+    previewUrl: string;
     isImage: boolean;
   } | null>(null);
+
+  const { uploadMedia, isUploading, progress } = useUploadMedia();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -68,6 +72,22 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
     }
   }, [replyingMessage]);
 
+  // Cleanup object URL on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      if (attachedFile?.previewUrl) {
+        revokePreviewUrl(attachedFile.previewUrl);
+      }
+    };
+  }, [attachedFile?.previewUrl]);
+
+  const handleClearAttachment = useCallback(() => {
+    if (attachedFile?.previewUrl) {
+      revokePreviewUrl(attachedFile.previewUrl);
+    }
+    setAttachedFile(null);
+  }, [attachedFile]);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, isImageOnly = false) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -78,17 +98,18 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result as string;
-      const isImage = file.type.startsWith('image/');
-      setAttachedFile({
-        file,
-        dataUrl,
-        isImage,
-      });
-    };
-    reader.readAsDataURL(file);
+    if (attachedFile?.previewUrl) {
+      revokePreviewUrl(attachedFile.previewUrl);
+    }
+
+    const previewUrl = createPreviewUrl(file);
+    const isImage = file.type.startsWith('image/');
+
+    setAttachedFile({
+      file,
+      previewUrl,
+      isImage,
+    });
     e.target.value = '';
   };
 
@@ -104,19 +125,29 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
   const handleSend = async () => {
     const trimmed = content.trim();
     if (!trimmed && !attachedFile) return;
-    if (isSubmitting) return;
+    if (isSubmitting || isUploading) return;
 
     setIsSubmitting(true);
     try {
       if (attachedFile) {
+        // Upload to Cloudflare R2 / Storage first (with automatic client-side optimization)
+        const uploadRes = await uploadMedia({
+          folder: 'attachments',
+          file: attachedFile.file,
+          fileName: attachedFile.file.name,
+        });
+
         await onSendMessage({
           content: trimmed || undefined,
           type: MessageType.FILE,
-          fileUrl: attachedFile.dataUrl,
+          fileUrl: uploadRes.publicUrl,
           fileName: attachedFile.file.name,
           fileSize: attachedFile.file.size,
           replyToId: replyingMessage?.id,
         });
+
+        revokePreviewUrl(attachedFile.previewUrl);
+        setAttachedFile(null);
       } else {
         await onSendMessage({
           content: trimmed,
@@ -126,7 +157,6 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
       }
 
       setContent('');
-      setAttachedFile(null);
       onCancelReply();
       reportTyping(false);
       setShowEmojiPicker(false);
@@ -199,10 +229,10 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
 
       {/* Attached File Preview */}
       {attachedFile && (
-        <div className="mb-2 inline-flex items-center gap-2 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/80 dark:bg-circle-dark-canvas/80 p-2 pr-3 text-xs shadow-sm">
+        <div className="mb-2 inline-flex items-center gap-2 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/80 dark:bg-circle-dark-canvas/80 p-2 pr-3 text-xs shadow-sm animate-in fade-in duration-100">
           {attachedFile.isImage ? (
             <img
-              src={attachedFile.dataUrl}
+              src={attachedFile.previewUrl}
               alt="preview"
               className="h-10 w-10 rounded-lg object-cover"
             />
@@ -221,7 +251,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
           </div>
           <button
             type="button"
-            onClick={() => setAttachedFile(null)}
+            onClick={handleClearAttachment}
             className="ml-2 flex h-5 w-5 items-center justify-center rounded-full text-circle-slate hover:bg-circle-hairline hover:text-circle-charcoal transition-colors"
           >
             <X className="h-3 w-3" />
@@ -297,15 +327,15 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
           <button
             type="button"
             onClick={handleSend}
-            disabled={(!content.trim() && !attachedFile) || isSubmitting}
+            disabled={(!content.trim() && !attachedFile) || isSubmitting || isUploading}
             className={`flex h-8 w-8 items-center justify-center rounded-full transition-all ${
-              (content.trim() || attachedFile) && !isSubmitting
+              (content.trim() || attachedFile) && !isSubmitting && !isUploading
                 ? 'bg-circle-primary text-circle-charcoal shadow-sm hover:bg-circle-sage hover:text-white active:scale-95'
                 : 'bg-circle-canvas dark:bg-circle-dark-canvas text-circle-slate dark:text-circle-dark-muted opacity-40 cursor-not-allowed'
             }`}
             title={t.chat.sendBtn}
           >
-            {isSubmitting ? (
+            {isSubmitting || isUploading ? (
               <Loader2 className="h-4 w-4 animate-spin text-circle-charcoal" />
             ) : (
               <Send className="h-4 w-4" />
@@ -316,3 +346,4 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
     </div>
   );
 };
+

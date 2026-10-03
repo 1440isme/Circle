@@ -1,5 +1,3 @@
-'use client';
-
 import React, { useState, useEffect } from 'react';
 import {
   X,
@@ -11,12 +9,22 @@ import {
   Pencil,
   ArrowLeft,
   Calendar,
+  Upload,
+  Sun,
+  Moon,
+  Monitor,
+  Globe,
+  LogOut,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguageStore } from '../../stores/language.store';
+import { useThemeStore, Theme } from '../../stores/theme.store';
 import { useUpdateProfileMutation } from '../../hooks/use-auth-mutations';
+import { useUploadMedia } from '../../hooks/use-upload-media';
+import { createPreviewUrl, revokePreviewUrl } from '../../lib/image-optimizer';
 
 interface EditProfileModalProps {
+
   isOpen: boolean;
   onClose: () => void;
 }
@@ -65,8 +73,10 @@ function getBirthYear(dateString?: string | null): string {
 }
 
 export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose }) => {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const t = useLanguageStore((s) => s.t);
+  const { locale, setLocale } = useLanguageStore();
+  const { theme, setTheme } = useThemeStore();
   const updateProfileMutation = useUpdateProfileMutation();
 
   const [mode, setMode] = useState<ModalMode>('view');
@@ -77,6 +87,27 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
   const [showCustomUrlInput, setShowCustomUrlInput] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const { uploadMedia, isUploading } = useUploadMedia();
+  const avatarFileInputRef = React.useRef<HTMLInputElement>(null);
+  const [selectedAvatarFile, setSelectedAvatarFile] = useState<File | null>(null);
+  const [localAvatarPreview, setLocalAvatarPreview] = useState<string | null>(null);
+
+  const handleAvatarFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (localAvatarPreview) {
+      revokePreviewUrl(localAvatarPreview);
+    }
+
+    const preview = createPreviewUrl(file);
+    setSelectedAvatarFile(file);
+    setLocalAvatarPreview(preview);
+    setAvatarUrl(preview);
+    e.target.value = '';
+  };
+
 
   useEffect(() => {
     if (user && isOpen) {
@@ -108,6 +139,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
   const currentBio = user.profile?.bio;
   const currentDateOfBirth = user.profile?.dateOfBirth;
   const currentInitials = getInitials(currentDisplayName);
+
 
   // Submit full profile edit (Name, Bio, Date of Birth)
   const handleEditSubmit = async (e: React.FormEvent) => {
@@ -144,9 +176,27 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
     setSuccessMessage(null);
 
     try {
+      let finalAvatarUrl = avatarUrl.trim();
+
+      if (selectedAvatarFile) {
+        const uploadRes = await uploadMedia({
+          folder: 'avatars',
+          file: selectedAvatarFile,
+          fileName: selectedAvatarFile.name,
+        });
+        finalAvatarUrl = uploadRes.publicUrl;
+      }
+
       await updateProfileMutation.mutateAsync({
-        avatarUrl: avatarUrl.trim() || null,
+        avatarUrl: finalAvatarUrl || null,
       });
+
+      if (localAvatarPreview) {
+        revokePreviewUrl(localAvatarPreview);
+        setLocalAvatarPreview(null);
+      }
+      setSelectedAvatarFile(null);
+
       setSuccessMessage(t.auth.avatarUpdatedSuccess);
       setTimeout(() => {
         setSuccessMessage(null);
@@ -156,6 +206,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
       setErrorMessage(err?.message || t.common.unknownError);
     }
   };
+
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-circle-charcoal/40 dark:bg-black/60 backdrop-blur-sm animate-fadeIn">
@@ -271,16 +322,117 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
               </div>
             )}
 
-            {/* Chỉ duy nhất Nút Chỉnh sửa hồ sơ (Không có nút hủy bên trái) */}
-            <div className="mt-6 flex w-full items-center justify-center pt-4 border-t border-circle-hairline dark:border-circle-dark-hairline">
+            {/* Nút Chỉnh sửa hồ sơ */}
+            <div className="mt-5 flex w-full items-center justify-center pt-4 border-t border-circle-hairline dark:border-circle-dark-hairline">
               <button
                 type="button"
                 onClick={() => setMode('edit')}
-                className="flex items-center justify-center gap-2 w-full rounded-full bg-circle-charcoal dark:bg-circle-primary py-3 text-xs font-bold text-white dark:text-circle-charcoal hover:opacity-90 transition-opacity shadow-md"
+                className="flex items-center justify-center gap-2 w-full rounded-full bg-circle-charcoal dark:bg-circle-primary py-2.5 text-xs font-bold text-white dark:text-circle-charcoal hover:opacity-90 transition-opacity shadow-md"
               >
                 <Pencil className="h-3.5 w-3.5" />
                 <span>{t.auth.editProfile}</span>
               </button>
+            </div>
+
+            {/* CÀI ĐẶT HỆ THỐNG (THEME & NGÔN NGỮ & ĐĂNG XUẤT) */}
+            <div className="mt-4 w-full rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas/60 p-3.5 space-y-3 text-left">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-circle-slate dark:text-circle-dark-muted">
+                {t.common.systemSettings}
+              </span>
+
+              {/* Theme Selection */}
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text">
+                  {t.common.theme}
+                </span>
+                <div className="flex items-center gap-1 bg-white dark:bg-circle-dark-surface p-1 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline shadow-xs">
+                  <button
+                    type="button"
+                    onClick={() => setTheme('light')}
+                    className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold transition-all ${
+                      theme === 'light'
+                        ? 'bg-circle-primary text-circle-charcoal shadow-xs'
+                        : 'text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal'
+                    }`}
+                    title={t.common.themeLight}
+                  >
+                    <Sun className="h-3 w-3" />
+                    <span>{t.common.themeLight}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTheme('dark')}
+                    className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold transition-all ${
+                      theme === 'dark'
+                        ? 'bg-circle-primary text-circle-charcoal shadow-xs'
+                        : 'text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal'
+                    }`}
+                    title={t.common.themeDark}
+                  >
+                    <Moon className="h-3 w-3" />
+                    <span>{t.common.themeDark}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTheme('system')}
+                    className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold transition-all ${
+                      theme === 'system'
+                        ? 'bg-circle-primary text-circle-charcoal shadow-xs'
+                        : 'text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal'
+                    }`}
+                    title={t.common.themeSystem}
+                  >
+                    <Monitor className="h-3 w-3" />
+                    <span>{t.common.themeSystem}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Language Selection */}
+              <div className="flex items-center justify-between pt-1 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60">
+                <span className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text">
+                  {t.common.language}
+                </span>
+                <div className="flex items-center gap-1 bg-white dark:bg-circle-dark-surface p-1 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline shadow-xs">
+                  <button
+                    type="button"
+                    onClick={() => setLocale('vi')}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all ${
+                      locale === 'vi'
+                        ? 'bg-circle-primary text-circle-charcoal shadow-xs'
+                        : 'text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal'
+                    }`}
+                  >
+                    🇻🇳 Tiếng Việt
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLocale('en')}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all ${
+                      locale === 'en'
+                        ? 'bg-circle-primary text-circle-charcoal shadow-xs'
+                        : 'text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal'
+                    }`}
+                  >
+                    🇬🇧 English
+                  </button>
+                </div>
+              </div>
+
+              {/* Logout Button */}
+              <div className="pt-2 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    onClose();
+                    await logout();
+                  }}
+                  className="flex w-full items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold text-circle-coral hover:bg-circle-coral/10 transition-colors"
+                >
+                  <LogOut className="h-3.5 w-3.5" />
+                  <span>{t.auth.logout}</span>
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -339,6 +491,21 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
                     </button>
                   ))}
 
+                  {/* Nút tải ảnh từ thiết bị lên Cloudflare R2 */}
+                  <button
+                    type="button"
+                    onClick={() => avatarFileInputRef.current?.click()}
+                    disabled={isUploading}
+                    className="flex h-10 w-10 items-center justify-center rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-elevated text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal hover:bg-circle-wash transition-all"
+                    title="Tải ảnh từ thiết bị lên R2 Storage"
+                  >
+                    {isUploading ? (
+                      <Loader2 className="h-4 w-4 animate-spin text-circle-primary" />
+                    ) : (
+                      <Upload className="h-4 w-4" />
+                    )}
+                  </button>
+
                   <button
                     type="button"
                     onClick={() => setShowCustomUrlInput(!showCustomUrlInput)}
@@ -351,6 +518,14 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
                     <ImageIcon className="h-4 w-4" />
                   </button>
                 </div>
+
+                <input
+                  ref={avatarFileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleAvatarFileUpload}
+                />
 
                 {/* Nhập URL ảnh tự do */}
                 {showCustomUrlInput && (

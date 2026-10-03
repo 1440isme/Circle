@@ -6,8 +6,6 @@ import { Search, Bell, Sparkles, Shield, LogOut, ChevronDown, User as UserIcon }
 import { useAuth } from '../../context/AuthContext';
 import { useLanguageStore } from '../../stores/language.store';
 import { useCircleStore } from '../../stores/circle.store';
-import { LanguageSwitcher } from '../common/LanguageSwitcher';
-import { ThemeToggle } from '../common/ThemeToggle';
 import { EditProfileModal } from '../profile/EditProfileModal';
 
 function getInitials(name: string): string {
@@ -98,12 +96,6 @@ export const Header: React.FC = () => {
             <Sparkles className="h-3.5 w-3.5 text-circle-sage dark:text-circle-primary" />
             <span>{t.nav.reflectionCard}</span>
           </button>
-
-          {/* Global Theme Toggle (Light / Dark / System) */}
-          <ThemeToggle />
-
-          {/* Bilingual Switcher (VI / EN) */}
-          <LanguageSwitcher />
 
           {/* User state / Auth buttons */}
           {isLoading ? (

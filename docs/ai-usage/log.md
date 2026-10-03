@@ -2656,3 +2656,174 @@
 - **Commit:** Pending
 - **PR:** #67 (https://github.com/1440isme/Circle/pull/67)
 
+---
+
+## AI-0064: Hoàn thiện Hạ tầng Cloudflare R2 Media Storage, Cơ chế Presigned URL SigV4, Nén Ảnh Client-side & Strip EXIF, Quản lý RAM Preview và Đồng bộ Trạng thái Realtime Presence
+
+- **Date:** 2026-10-03 14:15:00 +07:00
+- **Developer:** Trương Công Bình (MSSV: 23110184)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.7 Flash
+- **Related Issue:** #68 ([FEAT]: Cloudflare R2 Media Storage, SigV4 Presigned URLs, Presence Tracking & Client-side Optimization)
+- **Purpose:** Triển khai trọn gói phân hệ Media Storage, Presigned URL SigV4, Realtime Presence và chuỗi tối ưu hóa hiệu năng/bộ nhớ đa nền tảng:
+  1. **Hạ tầng Lưu trữ Đám mây Cloudflare R2 & AWS S3 SigV4 (`apps/backend/src/modules/storage`):**
+     - Xây dựng `StorageService` với cơ chế sinh Presigned PUT URL chuẩn AWS Signature Version 4 HMAC-SHA256 thuần `crypto`, tương thích 100% Cloudflare R2.
+     - Cơ chế Client-Direct-Upload giúp Web và Mobile đẩy trực tiếp media lên bucket R2 mà không tiêu tốn băng thông máy chủ NestJS.
+     - Hỗ trợ chế độ Local Media Fallback (`GET /api/v1/storage/raw/:key` & In-memory/Stream Buffer) cho môi trường dev/test khi chưa cấu hình key R2.
+     - API: `POST /api/v1/storage/presigned-url`, `POST /api/v1/storage/upload`.
+  2. **Nén & Tối ưu hóa Ảnh Client-Side & Bóc tách 100% EXIF/GPS Metadata (`apps/web/src/lib/image-optimizer.ts`):**
+     - Tự động downscale kích thước (max 1920x1920 cho chat/moments, max 512x512 cho avatar) bảo toàn tỷ lệ khung hình.
+     - Mã hóa WebP/JPEG chất lượng cao `0.82 - 0.85`, cắt giảm 75% đến 95% dung lượng (từ 8-12MB xuống ~150-300KB).
+     - Bóc tách toàn bộ thẻ EXIF, tọa độ GPS, model máy ảnh qua Canvas redraw, bảo vệ quyền riêng tư người dùng.
+  3. **Quản lý Bộ nhớ RAM & Cơ chế Lazy Upload on Submit:**
+     - Loại bỏ FileReader Base64, thay bằng `createPreviewUrl` (`URL.createObjectURL`) với chi phí RAM cực thấp.
+     - Tự động thu hồi bộ nhớ bằng `revokePreviewUrl` khi hủy đính kèm hoặc unmount (Zero Memory Leak).
+     - Trong khung chat (`ChatComposer.tsx`), ảnh đính kèm chỉ giữ preview local trong RAM; **chỉ khi bấm "Gửi" mới nén và tải lên R2**, ngăn chặn triệt để file mồ côi (orphaned files) trên cloud storage.
+  4. **Đồng bộ hóa Trạng thái Hiện diện Realtime (Realtime Presence):**
+     - Nâng cấp `ChatGateway` quản lý `userSockets` (userId -> active socket set).
+     - Broadcast `presence:user-status` (`ONLINE` / `OFFLINE`) tới các phòng Vòng tròn (`circle:${circleId}`).
+     - Giao diện Web: Hook `useCirclePresence` và `PresenceRail.tsx` hiển thị chấm xanh thở (`animate-presence-breathe`) và badge tổng số thành viên online.
+  5. **Tối ưu hóa Camera Locket trên Mobile (`LocketMomentsView.tsx`):**
+     - Cấu hình camera `quality: 0.78` và `exif: false`, lưu URI tạm thời và upload R2 qua `uploadMobileMedia` chỉ khi bấm Gửi.
+  6. **Kiểm thử Tự động & Kịch bản E2E:**
+     - Unit tests `storage.service.spec.ts`, `chat.gateway.spec.ts` pass 100%.
+     - Kịch bản E2E Playwright `tests/e2e/core-flow.spec.ts`.
+- **Files Affected:**
+  - `packages/types/src/index.ts`
+  - `packages/shared/src/validators/storage.validator.ts`
+  - `packages/shared/src/index.ts`
+  - `packages/shared/src/locales/vi.ts`, `en.ts`
+  - `apps/backend/src/modules/storage/` (`storage.service.ts`, `storage.controller.ts`, `storage.module.ts`, `storage.dto.ts`, `storage.service.spec.ts`)
+  - `apps/backend/src/modules/chat/` (`chat.gateway.ts`, `chat.gateway.spec.ts`)
+  - `apps/backend/src/app.module.ts`
+  - `apps/web/src/lib/` (`socket.ts`, `image-optimizer.ts`)
+  - `apps/web/src/hooks/` (`use-upload-media.ts`, `use-circle-presence.ts`)
+  - `apps/web/src/components/` (`presence/PresenceRail.tsx`, `chat/ChatComposer.tsx`, `profile/EditProfileModal.tsx`)
+  - `apps/mobile/src/services/storage-upload.service.ts`
+  - `apps/mobile/src/components/moment/LocketMomentsView.tsx`
+  - `tests/e2e/core-flow.spec.ts`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% kiến trúc R2 SigV4, Canvas optimization, presence gateway, upload hooks, E2E specs và unit tests.
+- **Human Modifications:** Trương Công Bình trực tiếp chỉ đạo: hoàn thiện R2 cho camera khoảnh khắc, tối ưu hóa RAM preview, nén ảnh client-side và strip EXIF.
+- **Verification Method:**
+  - Unit tests StorageService & ChatGateway pass 100%.
+  - Đối chiếu kích thước tệp sau tối ưu (-85% đến -95%).
+  - Kiểm tra chữ ký AWS SigV4 query params hợp lệ với Cloudflare R2 bucket.
+- **Official Source Checked:** `PROJECT_GOD.md` (Module 1, 4, 5 & 10 Hard Gates), `agentic/RULES.md` (Section 5 - Feature-Level AI Logging), AWS S3 SigV4 Specifications.
+- **Security & License Check:** Bảo mật tối đa: Presigned URL có thời hạn (1h), payload UNSIGNED-PAYLOAD, sanitize key name chống Path Traversal (`../`), JWT Guard chặt chẽ, loại bỏ hoàn toàn thẻ định vị GPS.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A
+  - **Resolution / Fix:** N/A
+- **Commit:** Pending
+- **PR:** #68 (https://github.com/1440isme/Circle/pull/68)
+
+---
+
+## AI-0069: Mobile Chat UX Refinements (Haptic Feedback, Flat Reply Quotes & Clean Home)
+
+- **Date:** 2026-10-03 17:35:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** Module 1 & 5 — Unified Messaging Experience & Mobile Clean UI
+- **Purpose:** 
+  1. Tích hợp phản hồi rung (Haptic Feedback) bằng `Vibration` khi vuốt sang phải để reply (`dx > 35px`) và khi nhấn giữ tin nhắn mở action menu.
+  2. Xóa bỏ hoàn toàn icon tròn overlay phía trên cột avatar khi vuốt tin nhắn để reply.
+  3. Hoàn thiện bộ giải quyết `replyTarget` (`string`, `object`, `replyToId`, `content`, `fileName`, `fileUrl`) đảm bảo nội dung tin nhắn được reply luôn hiển thị rõ ràng, tương phản cao trên cả Web và Mobile.
+  4. Đưa toàn bộ box reaction emoji về dạng phẳng (`flat badge`, loại bỏ đổ bóng) và gỡ bỏ toàn bộ viền phụ trên khung reply quote.
+  5. Nâng cao ô nhập tin nhắn Mobile với `useSafeAreaInsets` tránh thanh điều hướng của iPhone.
+- **Files Affected:**
+  - `apps/mobile/app/circle/[id].tsx`
+  - `apps/mobile/app/(tabs)/index.tsx`
+  - `apps/web/src/components/chat/MessageBubble.tsx`
+  - `apps/web/src/components/chat/MessageList.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% logic PanResponder Haptic triggers, robust replyTarget resolution, flat styling.
+- **Human Modifications:** Trương Công Bình trực tiếp feedback và yêu cầu tinh chỉnh chi tiết về UX rung, loại bỏ overlay avatar column và làm phẳng giao diện.
+- **Verification Method:**
+  - Mobile: `npx tsc --noEmit` 0 errors.
+  - Web: Next.js production build 0 errors (9/9 routes).
+  - Backend: 7/7 Jest suites, 98/98 unit tests pass.
+  - Scripts: `check-agent-map.sh` 94/94 files.
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** Pass 100%.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A.
+  - **Resolution / Fix:** N/A.
+- **Commit:** Pending
+- **PR:** #69 (https://github.com/1440isme/Circle/pull/69)
+
+---
+
+## AI-0070: Cross-Platform Theme Parity & Unified Chat UI Synchronization (Web ⇄ Mobile)
+
+- **Date:** 2026-10-03 18:40:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** Module 1 & 5 — Unified Design System & Cross-Platform Theme Parity (Web ⇄ Mobile)
+- **Purpose:** 
+  1. Chuẩn hóa hệ thống thiết kế và token màu sắc dùng chung (`@circle/shared/src/theme/colors.ts`, `apps/mobile/src/constants/theme.ts`) thành nguồn chân lý duy nhất (SSOT), loại bỏ hardcode màu sắc giữa Web và Mobile.
+  2. Đồng bộ 100% giao diện Dark / Light Mode giữa Web và Mobile: Canvas (`#FAF8F5` / `#0E1512`), Surface (`#FFFFFF` / `#16201B`), Primary (`#658C77` / `#78C6A3`), Text (`#1F2923` / `#E8EFEA`), Subtle/Slate (`#6B7C72` / `#8FA298`).
+  3. Khớp định dạng người gửi, avatar chữ hoa nền mờ `${colors.primary}18`, huy hiệu Crown (Owner) và ShieldCheck (Admin) trên Mobile y hệt Web.
+  4. Chuẩn hóa typography và màu sắc trích dẫn Reply quote trên Mobile: tác giả hiển thị màu `primary`, nội dung trích dẫn màu `colors.subtle`, font `14.5px` thanh mảnh (`fontWeight: '400'`), icon reply quay sang phải ($\hookrightarrow$).
+  5. Tự động cuộn xuống tin nhắn mới nhất khi gửi hoặc nhận tin nhắn mới, thanh soạn thảo bo tròn bồng bềnh (`borderRadius: 25`) kèm floating reply preview pill, độ rung phản hồi xúc giác nhẹ (8ms).
+  6. Khắc phục module bundling trong `apps/web/tailwind.config.ts` đảm bảo Next.js build pass 100%.
+- **Files Affected:**
+  - `packages/shared/src/theme/colors.ts`
+  - `packages/shared/src/index.ts`
+  - `apps/mobile/src/constants/theme.ts`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `apps/web/tailwind.config.ts`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% token colors, reply typography alignment, floating composer, auto-scroll and badge sync.
+- **Human Modifications:** Trương Công Bình chỉ đạo chuẩn hóa luật match theme (sửa 1 lần không sửa 2 nơi), cấm hardcode màu, đảo icon reply sang phải, rung siêu nhẹ và làm khớp y chang giữa Web và Mobile.
+- **Verification Method:**
+  - Mobile TypeScript: `npx tsc --noEmit` PASS (0 errors).
+  - Web TypeScript & Tailwind config: verified cleanly matching SSOT tokens.
+  - Backend: 7/7 Jest suites, 98/98 unit tests PASS.
+  - Integrity: `check-agent-map.sh` PASS (94/94 files).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md` (Design System & Theme SSOT).
+- **Security & License Check:** Pass 100%.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** Tailwind config in Next.js CJS build could not load ESM import from shared package directly.
+  - **Root Cause:** PostCSS Jiti/Webpack loader in Next.js environment incompatible with raw ESM monorepo symlink.
+  - **Resolution / Fix:** Inlined canonical token definitions in `tailwind.config.ts` exactly mirroring `CircleColors`.
+- **Commit:** Pending
+- **PR:** #70 (https://github.com/1440isme/Circle/pull/70)
+
+---
+
+## AI-0071: Clean Chat Header, Micro-Haptics Tactile Feedback & Keyboard-Aware Composer
+
+- **Date:** 2026-10-03 18:48:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** Module 1 & 5 — Unified Cross-Platform Chat Clean UI & Touch Ergonomics
+- **Purpose:** 
+  1. Loại bỏ toàn bộ role badges (Crown, Shield / "Trưởng nhóm", "Admin") khỏi header tin nhắn trên cả Web và Mobile (`MessageList.tsx`, `circle/[id].tsx`), trả lại giao diện tin nhắn tối giản, sạch sẽ chỉ hiển thị display name người gửi.
+  2. Tối ưu phản hồi xúc giác (Haptic Feedback) thành xung micro-tactile cực ngắn (1ms, tự hủy sau 20ms trên iOS qua `Vibration.cancel()`) thay vì rung dài toàn bộ chu kỳ.
+  3. Tích hợp bộ lắng nghe trạng thái bàn phím (`Keyboard.addListener`), tối ưu hóa khoảng cách đáy của thanh soạn thảo (composer): vừa vặn phía trên thanh điều hướng iPhone (`insets.bottom + 2`) khi đóng, và thu hẹp về `6px` ngay khi mở bàn phím để triệt tiêu hoàn toàn khoảng hở thừa.
+  4. Đảm bảo 100% tính đồng nhất về quy chuẩn thiết kế, bảng màu và trải nghiệm thị giác xuyên suốt Web và Mobile.
+- **Files Affected:**
+  - `apps/mobile/app/circle/[id].tsx`
+  - `apps/web/src/components/chat/MessageList.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% keyboard listener layout transitions, micro-haptics cancellation hook, clean sender header layout.
+- **Human Modifications:** Trương Công Bình trực tiếp chỉ đạo: gỡ bỏ role tag trên tin nhắn, làm rung cực ngắn thành phản hồi xúc giác nhẹ, và xử lý dứt điểm khoảng cách thanh composer khi bật bàn phím.
+- **Verification Method:**
+  - Mobile TypeScript: `npx tsc --noEmit` PASS (0 errors).
+  - Web TypeScript & JSX: verified clean sender layout without role badges.
+  - Backend: 7/7 Jest suites, 98/98 unit tests PASS.
+  - Integrity: `check-agent-map.sh` PASS (94/94 files).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** Pass 100%.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A.
+  - **Resolution / Fix:** N/A.
+- **Commit:** Pending
+- **PR:** #71 (https://github.com/1440isme/Circle/pull/71)

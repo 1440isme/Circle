@@ -4,26 +4,32 @@ import { ApiResponse, AuthResponseData, AuthTokens } from '@circle/types';
 import { getAuthTokens, saveAuthTokens, clearAuthTokens } from './storage';
 import { useLanguageStore } from '../stores/language.store';
 
-function getDefaultApiUrl(): string {
+export function getApiBaseUrl(): string {
   // 1. Explicit environment variable
   if (process.env.EXPO_PUBLIC_API_URL) {
     const url = process.env.EXPO_PUBLIC_API_URL.replace(/\/+$/, '');
     return url.endsWith('/api/v1') ? url : `${url}/api/v1`;
   }
 
-  // 2. Configured in app.json extra
+  // 2. Web browser platform
+  if (Platform.OS === 'web') {
+    return 'http://localhost:4000/api/v1';
+  }
+
+  // 3. Configured in app.json extra
   const extraUrl = Constants.expoConfig?.extra?.apiUrl;
   if (extraUrl) {
     const url = extraUrl.replace(/\/+$/, '');
     return url.endsWith('/api/v1') ? url : `${url}/api/v1`;
   }
 
-  // 3. Dynamically extract Metro dev server IP when running via Expo Go on physical device
+  // 4. Dynamically extract Metro dev server IP when running via Expo Go on physical device
   const hostUri =
     Constants.expoConfig?.hostUri ||
     (Constants as any).expoGoConfig?.debuggerHost ||
     (Constants as any).manifest?.debuggerHost ||
     (Constants as any).manifest2?.extra?.expoClient?.hostUri ||
+    (Constants as any).experienceUrl?.replace(/^exp:\/\//, '').split('/')[0] ||
     Constants.linkingUri?.replace(/^exp:\/\//, '').split('/')[0];
 
   if (hostUri) {
@@ -33,16 +39,16 @@ function getDefaultApiUrl(): string {
     }
   }
 
-  // 4. Android Emulator loopback (only when running on emulator and no LAN host extracted)
+  // 5. Android Emulator loopback (only when running on emulator and no LAN host extracted)
   if (Platform.OS === 'android') {
     return 'http://10.0.2.2:4000/api/v1';
   }
 
-  // 5. Default fallback to machine current LAN IP for physical mobile testing
-  return 'http://192.168.1.187:4000/api/v1';
+  // 6. Default fallback to localhost for simulator or LAN IP
+  return 'http://localhost:4000/api/v1';
 }
 
-export const API_BASE_URL = getDefaultApiUrl();
+export const API_BASE_URL = getApiBaseUrl();
 
 export class ApiError extends Error {
   constructor(
@@ -78,7 +84,8 @@ async function silentRefreshToken(): Promise<string> {
     throw new ApiError('No refresh token available', 401);
   }
 
-  const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+  const baseUrl = getApiBaseUrl();
+  const response = await fetch(`${baseUrl}/auth/refresh`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ refreshToken }),
@@ -117,7 +124,8 @@ export async function mobileApiRequest<T>(
     }
   }
 
-  const url = `${API_BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+  const baseUrl = getApiBaseUrl();
+  const url = `${baseUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
 
   let response: Response;
   try {

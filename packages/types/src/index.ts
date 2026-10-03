@@ -328,3 +328,57 @@ export interface SelectableFriendItem {
   avatarUrl?: string | null;
 }
 
+// =============================================================================
+// STORAGE & MEDIA CONTRACTS (CLOUDFLARE R2)
+// =============================================================================
+
+export type StorageFolder = 'moments' | 'avatars' | 'attachments' | 'albums';
+
+export interface PresignedUploadRequest {
+  folder: StorageFolder;
+  fileName: string;
+  contentType: string;
+  fileSize?: number;
+}
+
+export interface PresignedUploadResponse {
+  uploadUrl: string;
+  publicUrl: string;
+  key: string;
+  method: 'PUT' | 'POST';
+  headers?: Record<string, string>;
+  expiresInSeconds: number;
+}
+
+export interface DirectUploadResponse {
+  publicUrl: string;
+  key: string;
+  fileName: string;
+  fileSize: number;
+  contentType: string;
+}
+
+// =============================================================================
+// PRESENCE & REALTIME STATUS CONTRACTS
+// =============================================================================
+
+export type UserStatus = 'ONLINE' | 'AWAY' | 'OFFLINE';
+
+export interface UserPresenceEntity {
+  userId: string;
+  status: UserStatus;
+  lastActiveAt: string;
+}
+
+export interface CirclePresenceSyncPayload {
+  circleId: string;
+  onlineUserIds: string[];
+}
+
+export interface UserPresenceChangePayload {
+  userId: string;
+  status: UserStatus;
+  circleIds: string[];
+  timestamp: string;
+}
+

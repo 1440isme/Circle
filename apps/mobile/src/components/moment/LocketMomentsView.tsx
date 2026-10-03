@@ -52,6 +52,8 @@ import {
   useReactMomentMutation,
   useCreateMomentMutation,
 } from '../../hooks/use-circle-queries';
+import { uploadMobileMedia } from '../../services/storage-upload.service';
+
 
 const { width: SCREEN_WIDTH, height: WINDOW_HEIGHT } = Dimensions.get('window');
 
@@ -181,15 +183,14 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
     if (cameraRef.current && permission?.granted) {
       try {
         setIsTakingPhoto(true);
+        // Optimize image quality to 0.78 and strip all EXIF metadata for privacy & storage savings
         const photo = await cameraRef.current.takePictureAsync({
-          quality: 0.6,
-          base64: true,
+          quality: 0.78,
+          exif: false,
           skipProcessing: false,
         });
 
-        const mainUrl = photo?.base64
-          ? `data:image/jpeg;base64,${photo.base64}`
-          : photo?.uri || null;
+        const mainUrl = photo?.uri || (photo?.base64 ? `data:image/jpeg;base64,${photo.base64}` : null);
 
         if (mainUrl) {
           setCapturedPhotoUrl(mainUrl);
@@ -245,9 +246,28 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
     if (!capturedPhotoUrl || !circleId) return;
 
     try {
-      const finalPhotoUrl = dualPipPhotoUrl
-        ? `${capturedPhotoUrl}#pip=${encodeURIComponent(dualPipPhotoUrl)}`
-        : capturedPhotoUrl;
+      setIsTakingPhoto(true);
+
+      // Upload main photo to Cloudflare R2 / Storage
+      const uploadedMain = await uploadMobileMedia({
+        folder: 'moments',
+        uri: capturedPhotoUrl,
+        contentType: 'image/jpeg',
+      });
+
+      let uploadedPipUrl: string | null = null;
+      if (dualPipPhotoUrl) {
+        const uploadedPip = await uploadMobileMedia({
+          folder: 'moments',
+          uri: dualPipPhotoUrl,
+          contentType: 'image/jpeg',
+        });
+        uploadedPipUrl = uploadedPip.publicUrl;
+      }
+
+      const finalPhotoUrl = uploadedPipUrl
+        ? `${uploadedMain.publicUrl}#pip=${encodeURIComponent(uploadedPipUrl)}`
+        : uploadedMain.publicUrl;
 
       await createMomentMutation.mutateAsync({
         photoUrl: finalPhotoUrl,
@@ -267,8 +287,11 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
       }, 350);
     } catch (err: any) {
       Alert.alert(t.common.appName, err?.message || t.common.unknownError);
+    } finally {
+      setIsTakingPhoto(false);
     }
   };
+
 
   const handleReplyWithPhoto = (authorName: string) => {
     setReplyingToAuthor(authorName);

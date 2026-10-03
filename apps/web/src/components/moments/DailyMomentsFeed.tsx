@@ -31,6 +31,7 @@ const EMOJI_OPTIONS = ['❤️', '🔥', '😂', '👏', '😍'];
 export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) => {
   const { user } = useAuth();
   const t = useLanguageStore((s) => s.t);
+  const locale = useLanguageStore((s) => s.locale);
   const activeCircleStore = useCircleStore((s) => s.activeCircle);
   const targetCircleId = circleId || activeCircleStore?.id;
 
@@ -91,33 +92,33 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
 
   return (
     <div className="flex-1 w-full max-w-xl mx-auto flex flex-col gap-6 py-2">
-      {/* Feed Top Header & Quick Capture CTA */}
-      <div className="rounded-3xl border border-circle-hairline dark:border-circle-dark-hairline bg-white/80 dark:bg-circle-dark-surface/80 p-5 shadow-circle-card backdrop-blur-md transition-colors flex items-center justify-between">
-        <div className="flex items-center gap-3.5">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-500/15 text-amber-500 font-bold shadow-sm">
-            <Camera className="h-5 w-5 stroke-[2]" />
+      {/* Feed Top Header & Quick Capture CTA (Only shown when moments exist) */}
+      {moments.length > 0 && (
+        <div className="rounded-3xl border border-circle-hairline dark:border-circle-dark-hairline bg-white/80 dark:bg-circle-dark-surface/80 p-4 shadow-circle-card backdrop-blur-md transition-colors flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-circle-primary/10 text-circle-sage dark:text-circle-primary font-bold shadow-sm">
+              <Camera className="h-5 w-5 stroke-[2]" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
+                {t.moments.locketWidgetTitle}
+              </h3>
+              <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted">
+                {moments.length} {locale === 'vi' ? 'khoảnh khắc được chia sẻ' : 'moments shared'}
+              </p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-base font-bold text-circle-charcoal dark:text-circle-dark-text">
-              {t.moments.locketWidgetTitle}
-            </h3>
-            <p className="text-xs text-circle-slate dark:text-circle-dark-muted">
-              {moments.length > 0
-                ? `${moments.length} khoảnh khắc được chia sẻ`
-                : t.moments.subtitle}
-            </p>
-          </div>
-        </div>
 
-        <button
-          type="button"
-          onClick={() => setIsCreateOpen(true)}
-          className="flex items-center gap-2 rounded-full bg-amber-500 hover:bg-amber-400 text-stone-950 px-4 py-2 text-xs font-bold shadow-sm hover:shadow-circle-hover transition-all active:scale-95"
-        >
-          <Camera className="h-4 w-4" />
-          <span>{t.moments.sendLocketBtn}</span>
-        </button>
-      </div>
+          <button
+            type="button"
+            onClick={() => setIsCreateOpen(true)}
+            className="flex items-center gap-2 rounded-full bg-circle-charcoal dark:bg-circle-primary text-white dark:text-circle-charcoal hover:bg-circle-sage px-4 py-2 text-xs font-bold shadow-sm transition-all active:scale-95"
+          >
+            <Camera className="h-4 w-4" />
+            <span>{t.moments.sendLocketBtn}</span>
+          </button>
+        </div>
+      )}
 
       {/* Loading Skeleton */}
       {isLoading && moments.length === 0 && (
@@ -254,7 +255,7 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
                           onClick={() => handleReact(moment.id, emoji)}
                           className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-sm transition-all active:scale-125 ${
                             isSelected
-                              ? 'bg-amber-500/20 border border-amber-500/50 scale-105 shadow-sm'
+                              ? 'bg-circle-primary/20 border border-circle-primary/50 text-circle-sage dark:text-circle-primary scale-105 shadow-sm'
                               : 'hover:bg-circle-wash dark:hover:bg-circle-dark-wash opacity-80 hover:opacity-100'
                           }`}
                           title={emoji}
@@ -276,7 +277,7 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
                         <Heart className="h-3.5 w-3.5 fill-rose-500 text-rose-500" />
                         <span>
                           {Object.values(moment.reactionCounts || {}).reduce((a, b) => a + b, 0)}{' '}
-                          cảm xúc
+                          {locale === 'vi' ? 'cảm xúc' : 'reactions'}
                         </span>
                       </span>
                     )}
@@ -287,9 +288,9 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
           })}
         </div>
       ) : !isLoading ? (
-        /* Empty Feed State */
+        /* Empty Feed State - Single Clean Prompt Card */
         <div className="rounded-3xl border border-dashed border-circle-hairline dark:border-circle-dark-hairline bg-white/60 dark:bg-circle-dark-surface/60 p-10 text-center shadow-circle-card flex flex-col items-center justify-center gap-4 transition-colors">
-          <div className="h-16 w-16 rounded-3xl bg-amber-500/15 text-amber-500 flex items-center justify-center shadow-sm">
+          <div className="h-16 w-16 rounded-3xl bg-circle-primary/10 text-circle-sage dark:text-circle-primary flex items-center justify-center shadow-sm">
             <Camera className="h-8 w-8 stroke-[1.5]" />
           </div>
           <div className="space-y-1.5 max-w-sm">
@@ -303,7 +304,7 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
           <button
             type="button"
             onClick={() => setIsCreateOpen(true)}
-            className="flex items-center gap-2 rounded-full bg-amber-500 hover:bg-amber-400 text-stone-950 px-6 py-2.5 text-xs sm:text-sm font-bold shadow-md hover:shadow-lg transition-all active:scale-95"
+            className="flex items-center gap-2 rounded-full bg-circle-charcoal dark:bg-circle-primary text-white dark:text-circle-charcoal hover:bg-circle-sage px-6 py-2.5 text-xs sm:text-sm font-bold shadow-md hover:shadow-lg transition-all active:scale-95"
           >
             <Camera className="h-4 w-4" />
             <span>{t.moments.sendLocketBtn}</span>
