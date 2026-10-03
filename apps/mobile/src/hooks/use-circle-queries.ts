@@ -376,9 +376,15 @@ export function useChannelMessagesQuery(channelId: string | null) {
   return useQuery({
     queryKey: ['messages', 'channel', channelId],
     queryFn: async () => {
-      if (!channelId) return { items: [], nextCursor: null, hasMore: false };
+      if (!channelId) return { messages: [], nextCursor: null, hasMore: false };
       const res = await mobileApiRequest<any>(`/channels/${channelId}/messages`);
-      return res.data || { items: [], nextCursor: null, hasMore: false };
+      const data = res.data;
+      const list = data?.messages || data?.items || (Array.isArray(data) ? data : []);
+      return {
+        messages: list,
+        nextCursor: data?.nextCursor || null,
+        hasMore: Boolean(data?.hasMore),
+      };
     },
     enabled: Boolean(channelId),
     refetchInterval: 3000, // Light polling for mobile sync
@@ -389,11 +395,74 @@ export function useSendMessageMutation(channelId: string | null) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (content: string) => {
+    mutationFn: async (input: string | { content: string; replyToId?: string }) => {
       if (!channelId) throw new Error('No channel ID');
+      const payload = typeof input === 'string' ? { content: input.trim() } : input;
       const res = await mobileApiRequest<any>(`/channels/${channelId}/messages`, {
         method: 'POST',
-        body: JSON.stringify({ content: content.trim() }),
+        body: JSON.stringify(payload),
+      });
+      return res.data;
+    },
+    onSuccess: (newMsg) => {
+      if (channelId) {
+        if (newMsg) {
+          queryClient.setQueryData(['messages', 'channel', channelId], (old: any) => {
+            if (!old) return { messages: [newMsg], nextCursor: null, hasMore: false };
+            const list = old.messages || old.items || [];
+            const exists = list.some((m: any) => m.id === newMsg.id);
+            return {
+              ...old,
+              messages: exists ? list : [...list, newMsg],
+            };
+          });
+        }
+        queryClient.invalidateQueries({ queryKey: ['messages', 'channel', channelId] });
+      }
+    },
+  });
+}
+
+export function useReactMessageMutation(channelId: string | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ messageId, emoji }: { messageId: string; emoji: string }) => {
+      const res = await mobileApiRequest<any>(`/messages/${messageId}/reactions`, {
+        method: 'POST',
+        body: JSON.stringify({ emoji }),
+      });
+      return res.data;
+    },
+    onSuccess: (resData, variables) => {
+      if (channelId && resData) {
+        queryClient.setQueryData(['messages', 'channel', channelId], (old: any) => {
+          if (!old) return old;
+          const list = old.messages || old.items || [];
+          const updated = list.map((m: any) => {
+            if (m.id !== variables.messageId) return m;
+            return {
+              ...m,
+              reactionCounts: resData.reactionCounts,
+              userReactions: resData.userReactions,
+            };
+          });
+          return { ...old, messages: updated };
+        });
+        queryClient.invalidateQueries({ queryKey: ['messages', 'channel', channelId] });
+      }
+    },
+  });
+}
+
+export function usePinMessageMutation(channelId: string | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ messageId, isPinned }: { messageId: string; isPinned: boolean }) => {
+      const method = isPinned ? 'DELETE' : 'POST';
+      const res = await mobileApiRequest<any>(`/messages/${messageId}/pin`, {
+        method,
       });
       return res.data;
     },

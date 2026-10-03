@@ -49,6 +49,7 @@ Indexed in [`agentic/skills/README.md`](./agentic/skills/README.md). The core fl
 - [`deploy`](./agentic/skills/deploy.md) — Staging and production container deployment.
 - [`docs-update`](./agentic/skills/docs-update.md) — Keep maps, capabilities, and diagrams in sync.
 - [`learn-and-update`](./agentic/skills/learn-and-update.md) — Capture best practices, gotchas, and lessons.
+- [`pre-completion-verification`](./agentic/skills/pre-completion-verification.md) — 5-Tier full-spectrum verification before claiming completion.
 - [`ai-log-entry`](./agentic/skills/ai-log-entry.md) — Automated `AI-XXXX` usage logging.
 
 **Domain Skills:**

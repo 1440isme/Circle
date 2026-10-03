@@ -17,6 +17,7 @@ Playbooks for AI coding agents and engineers. Skills are concise, load-on-demand
 | [`deploy.md`](deploy.md) | Staging or production deployment | Docker Compose, Traefik, and container checks |
 | [`docs-update.md`](docs-update.md) | Architecture, capabilities, or APIs change | Keep diagrams, SRS, and capability catalog in sync |
 | [`learn-and-update.md`](learn-and-update.md) | After solving a non-obvious bug or finding a pattern | Record insights into `agentic/memory/` and `agentic/learning/` |
+| [`pre-completion-verification.md`](pre-completion-verification.md) | Before declaring any task, feature or release as done | 5-Tier full-spectrum verification (builds, tests, types, zero base64, fallbacks) |
 | [`ai-log-entry.md`](ai-log-entry.md) | After every AI coding / refactoring session | Automatically append record to `docs/ai-usage/log.md` |
 
 ---

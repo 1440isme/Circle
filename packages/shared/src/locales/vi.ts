@@ -15,7 +15,7 @@ export const vi = {
     vietnamese: 'Tiếng Việt',
     english: 'English',
     connecting: 'Đang kết nối CIRCLE...',
-    copyright: '© 2026 CIRCLE — Đề tài Tốt nghiệp Kỹ sư CNTT (Trương Công Bình & Ninh Thị Mỹ Hạnh).',
+    copyright: '© 2026 CIRCLE.',
     communityStandards: 'Tiêu chuẩn cộng đồng',
     privacyPolicy: 'Chính sách bảo mật',
     dualTokenSecurity: 'Bảo mật kép Dual-Token & bcrypt',
@@ -23,6 +23,7 @@ export const vi = {
     themeLight: 'Sáng',
     themeDark: 'Tối',
     themeSystem: 'Hệ thống',
+    systemSettings: 'Cài đặt hệ thống',
     changeTheme: 'Đổi giao diện',
     yourEmail: 'email của bạn',
     networkError: 'Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng.',
@@ -368,7 +369,7 @@ export const vi = {
     inviteCodeNotFound: 'Mã mời không hợp lệ hoặc Vòng tròn không tồn tại',
     alreadyMember: 'Bạn đã là thành viên của Vòng tròn này',
     joinModalHint: 'Mã mời gồm các ký tự chữ và số do trưởng nhóm hoặc thành viên cung cấp',
-    membersTitle: 'Thành viên Vòng tròn',
+    membersTitle: 'Thành viên',
     memberRoleOwner: 'Trưởng nhóm',
     memberRoleAdmin: 'Quản trị viên',
     memberRoleModerator: 'Kiểm duyệt viên',
@@ -585,7 +586,7 @@ export const vi = {
     someoneTyping: 'Ai đó đang nhập...',
     replyingTo: 'Đang trả lời {name}',
     cancelReply: 'Hủy trả lời',
-    composerPlaceholder: 'Nhập tin nhắn vào #{channel}...',
+    composerPlaceholder: 'Aa',
     attachFile: 'Đính kèm tệp (tối đa 25MB)',
     attachImage: 'Gửi hình ảnh',
     sendBtn: 'Gửi tin nhắn',
@@ -606,6 +607,21 @@ export const vi = {
     viewPinned: 'Xem tin nhắn đã ghim',
     closePinned: 'Đóng',
   },
+  storage: {
+    uploadSuccess: 'Tải lên phương tiện thành công',
+    uploadFailed: 'Tải lên phương tiện thất bại. Vui lòng thử lại.',
+    fileTooLarge: 'Kích thước tệp vượt quá giới hạn 25MB',
+    invalidFileType: 'Định dạng tệp không được hỗ trợ',
+    presignedUrlError: 'Không thể tạo liên kết tải lên an toàn',
+    uploading: 'Đang tải lên ({percent}%)...',
+  },
+  presence: {
+    online: 'Trực tuyến',
+    offline: 'Ngoại tuyến',
+    away: 'Tạm vắng',
+    activeNow: 'Đang hoạt động',
+    membersOnline: '{count} đang trực tuyến',
+  },
 };
 
 type DeepRecord<T> = {
@@ -613,3 +629,4 @@ type DeepRecord<T> = {
 };
 
 export type TranslationDictionary = DeepRecord<typeof vi>;
+

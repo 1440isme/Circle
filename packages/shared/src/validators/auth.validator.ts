@@ -130,7 +130,19 @@ export function createAuthSchemas(locale: Locale = 'vi') {
       .min(2, v.displayNameMinLength)
       .max(50, v.displayNameMaxLength)
       .optional(),
-    avatarUrl: z.string().trim().nullable().optional(),
+    avatarUrl: z
+      .string()
+      .trim()
+      .refine(
+        (val) =>
+          !val ||
+          val.startsWith('http://') ||
+          val.startsWith('https://') ||
+          val.startsWith('/'),
+        'URL ảnh đại diện không hợp lệ / Invalid avatar URL',
+      )
+      .nullable()
+      .optional(),
     bio: z.string().trim().max(300).nullable().optional(),
     dateOfBirth: z.string().nullable().optional(),
   });

@@ -91,3 +91,17 @@ export function sendTypingStatus(channelId: string, isTyping: boolean): void {
     s.emit('chat:typing', { channelId, isTyping });
   }
 }
+
+/**
+ * Request list of currently online user IDs in a circle.
+ */
+export function queryCircleOnlineUsers(
+  circleId: string,
+  callback: (response: { success: boolean; circleId: string; onlineUserIds: string[] }) => void,
+): void {
+  const s = getSocket();
+  if (s && circleId) {
+    s.emit('presence:get-circle-online', { circleId }, callback);
+  }
+}
+

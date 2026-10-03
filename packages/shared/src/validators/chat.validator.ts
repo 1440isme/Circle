@@ -21,6 +21,14 @@ export function createChatSchemas(locale: Locale = 'vi') {
       fileUrl: z
         .string()
         .trim()
+        .refine(
+          (val) =>
+            !val ||
+            val.startsWith('http://') ||
+            val.startsWith('https://') ||
+            val.startsWith('/'),
+          'URL tệp không hợp lệ / Invalid file URL',
+        )
         .optional()
         .or(z.literal('')),
       fileName: z.string().trim().max(255).optional().or(z.literal('')),

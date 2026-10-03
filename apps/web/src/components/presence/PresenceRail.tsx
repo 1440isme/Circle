@@ -15,6 +15,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useLanguageStore } from '../../stores/language.store';
 import { useCircleStore } from '../../stores/circle.store';
 import { useCircleMembersQuery, useCircleJoinRequestsQuery } from '../../hooks/use-circle-queries';
+import { useCirclePresence } from '../../hooks/use-circle-presence';
 import { MemberRole } from '@circle/types';
 
 function getInitials(name: string): string {
@@ -30,6 +31,7 @@ export const PresenceRail: React.FC = () => {
   const setManageModalOpen = useCircleStore((s) => s.setManageModalOpen);
 
   const { data: members = [] } = useCircleMembersQuery(activeCircle?.id || null);
+  const { isUserOnline, onlineCount } = useCirclePresence(activeCircle?.id || null);
 
   // Check caller role in active circle (2-role hierarchy: OWNER and MEMBER)
   const currentMember = members.find((m) => m.userId === user?.id);
@@ -46,40 +48,6 @@ export const PresenceRail: React.FC = () => {
 
   return (
     <aside className="hidden xl:flex w-80 flex-col gap-5 border-l border-circle-hairline dark:border-circle-dark-hairline bg-white/50 dark:bg-circle-dark-surface/50 p-5 backdrop-blur-sm h-[calc(100vh-4rem)] sticky top-16 overflow-y-auto transition-colors">
-      {/* Real User Profile Status Card */}
-      <div className="rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-4 shadow-circle-card transition-colors">
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-xs font-semibold uppercase tracking-wider text-circle-slate dark:text-circle-dark-muted">
-            {t.home.yourProfileCard}
-          </span>
-          <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
-            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-presence-breathe" />
-            <span>{t.home.onlineStatus}</span>
-          </span>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-circle-charcoal dark:bg-circle-primary text-white dark:text-circle-charcoal text-sm font-bold shadow-sm">
-              {initials}
-            </div>
-          </div>
-          <div className="min-w-0 flex-1">
-            <h4 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text truncate">
-              {displayName}
-            </h4>
-            <div className="flex items-center gap-1.5 text-xs text-circle-slate dark:text-circle-dark-muted truncate">
-              <UserCheck className="h-3 w-3 text-circle-sage dark:text-circle-primary" />
-              <span>{roleLabel}</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-3 pt-3 border-t border-circle-hairline/80 dark:border-circle-dark-hairline flex items-center gap-1.5 text-[11px] text-circle-slate dark:text-circle-dark-muted">
-          <ShieldCheck className="h-3.5 w-3.5 text-circle-sage" />
-          <span className="truncate">{user?.email}</span>
-        </div>
-      </div>
 
       {/* Active Circle Members Rail */}
       {activeCircle && (
@@ -91,23 +59,30 @@ export const PresenceRail: React.FC = () => {
                 {t.circle.membersTitle} ({members.length})
               </span>
             </div>
-            <button
-              onClick={() => setManageModalOpen(true, 'members')}
-              className="relative p-1.5 rounded-lg border border-circle-hairline dark:border-circle-dark-hairline hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas text-circle-slate hover:text-circle-charcoal dark:text-circle-dark-muted dark:hover:text-circle-dark-text transition-colors"
-              title={t.circle.manageMembers}
-            >
-              <Settings className="h-3.5 w-3.5" />
-              {joinRequests.length > 0 && (
-                <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-circle-primary ring-2 ring-white dark:ring-circle-dark-surface animate-pulse" />
-              )}
-            </button>
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span>{onlineCount} {t.presence.online}</span>
+              </span>
+              <button
+                onClick={() => setManageModalOpen(true, 'members')}
+                className="relative p-1.5 rounded-lg border border-circle-hairline dark:border-circle-dark-hairline hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas text-circle-slate hover:text-circle-charcoal dark:text-circle-dark-muted dark:hover:text-circle-dark-text transition-colors"
+                title={t.circle.manageMembers}
+              >
+                <Settings className="h-3.5 w-3.5" />
+                {joinRequests.length > 0 && (
+                  <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-circle-primary ring-2 ring-white dark:ring-circle-dark-surface animate-pulse" />
+                )}
+              </button>
+            </div>
           </div>
 
-          <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+          <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
             {members.map((m) => {
               const memberName =
                 m.user?.profile?.displayName || m.user?.email?.split('@')[0] || t.auth.member;
               const memberInitials = getInitials(memberName);
+              const isOnline = isUserOnline(m.userId) || m.userId === user?.id;
 
               return (
                 <div
@@ -115,8 +90,15 @@ export const PresenceRail: React.FC = () => {
                   className="flex items-center justify-between py-1.5 px-2 rounded-xl hover:bg-circle-canvas/60 dark:hover:bg-circle-dark-canvas/60 transition-colors"
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-circle-charcoal dark:bg-circle-primary text-white dark:text-circle-charcoal text-[10px] font-bold flex-shrink-0">
-                      {memberInitials}
+                    <div className="relative shrink-0">
+                      <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-circle-charcoal dark:bg-circle-primary text-white dark:text-circle-charcoal text-[10px] font-bold">
+                        {memberInitials}
+                      </div>
+                      <span
+                        className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full ring-1 ring-white dark:ring-circle-dark-surface ${
+                          isOnline ? 'bg-emerald-500' : 'bg-circle-slate/40 dark:bg-circle-dark-muted/40'
+                        }`}
+                      />
                     </div>
                     <span className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text truncate">
                       {memberName}
@@ -130,6 +112,7 @@ export const PresenceRail: React.FC = () => {
               );
             })}
           </div>
+
 
           {/* Quick Invite / Manage Button */}
           <button

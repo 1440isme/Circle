@@ -53,17 +53,7 @@ function CustomLiquidTabBar({
       Icon: Home,
     },
     {
-      name: 'circles',
-      label: t.nav.yourCircles,
-      Icon: Users,
-    },
-    {
       isCenter: true,
-    },
-    {
-      name: 'messages',
-      label: t.nav.chatChannels,
-      Icon: MessageSquare,
     },
     {
       name: 'profile',
@@ -208,8 +198,18 @@ export default function TabsLayout() {
         }}
       >
         <Tabs.Screen name="index" />
-        <Tabs.Screen name="circles" />
-        <Tabs.Screen name="messages" />
+        <Tabs.Screen
+          name="circles"
+          options={{
+            href: null,
+          }}
+        />
+        <Tabs.Screen
+          name="messages"
+          options={{
+            href: null,
+          }}
+        />
         <Tabs.Screen name="profile" />
         <Tabs.Screen
           name="create"
@@ -381,51 +381,52 @@ const styles = StyleSheet.create({
   floatingContainer: {
     position: 'absolute',
     bottom: Platform.OS === 'ios' ? 24 : 16,
-    left: 14,
-    right: 14,
+    left: 0,
+    right: 0,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   floatingBar: {
-    width: '100%',
-    height: 68,
-    borderRadius: 36,
+    width: 228,
+    height: 64,
+    borderRadius: 32,
     borderWidth: 1.2,
     overflow: 'hidden',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.45,
-    shadowRadius: 20,
-    elevation: 16,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 18,
+    elevation: 14,
   },
   tabsRow: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 6,
+    paddingHorizontal: 8,
   },
   tabSlot: {
-    flex: 1,
+    width: 64,
     height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
   },
   tabButton: {
-    width: '92%',
-    height: 52,
+    width: 58,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 24,
+    borderRadius: 20,
     paddingVertical: 2,
-    gap: 3,
+    gap: 2,
   },
   tabLabel: {
-    fontSize: 10,
+    fontSize: 9.5,
     letterSpacing: -0.2,
   },
   centerCircleButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
     shadowOffset: { width: 0, height: 4 },

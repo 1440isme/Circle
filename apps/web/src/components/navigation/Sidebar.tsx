@@ -206,53 +206,33 @@ export const Sidebar: React.FC = () => {
           )}
         </div>
 
-        {/* Main Channels & Communications */}
+        {/* Intimate Circle Navigation: Single Chat & Moments */}
         <div className="flex flex-col gap-1">
-          <span className="px-4 text-xs font-semibold tracking-wider text-circle-slate dark:text-circle-dark-muted uppercase mb-1">
-            {t.nav.chatChannels}
-          </span>
-          {activeCircle && (activeCircle as any).channels?.length > 0 ? (
-            (activeCircle as any).channels.map((channel: any) => (
-              <NavItem
-                key={channel.id}
-                icon={<MessageSquare className="h-4 w-4" />}
-                label={`# ${channel.name}`}
-                active={activeCircleView === channel.name}
-                onClick={() => {
-                  setActiveCircleView(channel.name);
-                  setActiveChannelId(channel.id);
-                }}
-              />
-            ))
-          ) : (
-            <>
-              <NavItem
-                icon={<MessageSquare className="h-4 w-4" />}
-                label={t.nav.generalDiscussion}
-                active={activeCircleView === 'general'}
-                onClick={() => setActiveCircleView('general')}
-              />
-              <NavItem
-                icon={<HeartHandshake className="h-4 w-4" />}
-                label={t.nav.confessionCorner}
-                active={activeCircleView === 'confession'}
-                onClick={() => setActiveCircleView('confession')}
-              />
-            </>
-          )}
-        </div>
-
-        {/* Group Tools & Utilities */}
-        <div className="flex flex-col gap-1">
-          <span className="px-4 text-xs font-semibold tracking-wider text-circle-slate dark:text-circle-dark-muted uppercase mb-1">
-            {t.nav.groupTools}
-          </span>
           <NavItem
-            icon={<Camera className="h-4 w-4 text-amber-500" />}
+            icon={<MessageSquare className="h-4 w-4" />}
+            label={t.chat.title}
+            active={!activeCircleView || activeCircleView === 'chat' || activeCircleView === 'general'}
+            onClick={() => {
+              setActiveCircleView('chat');
+              const defaultChannel = (activeCircle as any)?.channels?.[0];
+              if (defaultChannel) {
+                setActiveChannelId(defaultChannel.id);
+              }
+            }}
+          />
+          <NavItem
+            icon={<Camera className="h-4 w-4" />}
             label={t.moments.locketWidgetTitle}
             active={activeCircleView === 'moments'}
             onClick={() => setActiveCircleView('moments')}
           />
+        </div>
+
+        {/* Group Tools & Utilities */}
+        <div className="flex flex-col gap-1 pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline">
+          <span className="px-4 text-xs font-semibold tracking-wider text-circle-slate dark:text-circle-dark-muted uppercase mb-1">
+            {t.nav.groupTools}
+          </span>
           <NavItem icon={<ImageIcon className="h-4 w-4" />} label={t.nav.photoAlbum} />
           <NavItem icon={<Calendar className="h-4 w-4" />} label={t.nav.calendarEvents} />
           <NavItem icon={<FileSpreadsheet className="h-4 w-4" />} label={t.nav.planningSheet} />

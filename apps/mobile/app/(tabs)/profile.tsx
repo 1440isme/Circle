@@ -10,12 +10,25 @@ import {
   Image as RNImage,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { User, Mail, Shield, LogOut, CheckCircle2, Edit3, Camera, Quote } from 'lucide-react-native';
+import {
+  User,
+  Mail,
+  Shield,
+  LogOut,
+  CheckCircle2,
+  Edit3,
+  Camera,
+  Quote,
+  Sun,
+  Moon,
+  Laptop,
+  Globe,
+  Sliders,
+} from 'lucide-react-native';
 import { useThemeStore } from '../../src/stores/theme.store';
 import { useLanguageStore } from '../../src/stores/language.store';
 import { useAuthStore } from '../../src/stores/auth.store';
 import { Button } from '../../src/components/common/Button';
-import { HeaderControls } from '../../src/components/common/HeaderControls';
 import { EditProfileModal } from '../../src/components/profile/EditProfileModal';
 
 function getInitials(name: string): string {
@@ -26,8 +39,8 @@ function getInitials(name: string): string {
 
 export default function ProfileTab() {
   const router = useRouter();
-  const { colors, resolvedTheme } = useThemeStore();
-  const t = useLanguageStore((s) => s.t);
+  const { colors, theme, resolvedTheme, setTheme } = useThemeStore();
+  const { locale, setLocale, t } = useLanguageStore();
   const { user, logout } = useAuthStore();
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
 
@@ -73,10 +86,9 @@ export default function ProfileTab() {
         <Text style={[styles.headerTitle, { color: colors.text }]}>
           {t.auth.profile}
         </Text>
-        <HeaderControls />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Profile Card */}
         <View
           style={[
@@ -134,6 +146,143 @@ export default function ProfileTab() {
               {t.auth.editProfile}
             </Text>
           </TouchableOpacity>
+        </View>
+
+        {/* System Settings Section (Cài đặt hệ thống) */}
+        <View
+          style={[
+            styles.infoCard,
+            {
+              backgroundColor: colors.surface,
+              borderColor: colors.hairline,
+            },
+          ]}
+        >
+          <View style={styles.sectionTitleRow}>
+            <Sliders size={14} color={colors.primary} />
+            <Text style={[styles.sectionTitle, { color: colors.text, marginBottom: 0 }]}>
+              {locale === 'vi' ? 'Cài đặt hệ thống' : 'System Settings'}
+            </Text>
+          </View>
+
+          {/* Theme Switcher Row */}
+          <View style={[styles.settingRow, { borderBottomWidth: 1, borderBottomColor: colors.hairline }]}>
+            <Text style={[styles.settingLabel, { color: colors.text }]}>
+              {t.common.theme}
+            </Text>
+            <View style={styles.themeButtonsGroup}>
+              <TouchableOpacity
+                onPress={() => setTheme('light')}
+                style={[
+                  styles.themeOptionBtn,
+                  {
+                    backgroundColor: theme === 'light' ? colors.primary : colors.wash,
+                    borderColor: theme === 'light' ? colors.primary : colors.hairline,
+                  },
+                ]}
+              >
+                <Sun size={14} color={theme === 'light' ? colors.onPrimary : colors.text} />
+                <Text
+                  style={[
+                    styles.themeOptionText,
+                    { color: theme === 'light' ? colors.onPrimary : colors.text },
+                  ]}
+                >
+                  {t.common.themeLight}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => setTheme('dark')}
+                style={[
+                  styles.themeOptionBtn,
+                  {
+                    backgroundColor: theme === 'dark' ? colors.primary : colors.wash,
+                    borderColor: theme === 'dark' ? colors.primary : colors.hairline,
+                  },
+                ]}
+              >
+                <Moon size={14} color={theme === 'dark' ? colors.onPrimary : colors.text} />
+                <Text
+                  style={[
+                    styles.themeOptionText,
+                    { color: theme === 'dark' ? colors.onPrimary : colors.text },
+                  ]}
+                >
+                  {t.common.themeDark}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => setTheme('system')}
+                style={[
+                  styles.themeOptionBtn,
+                  {
+                    backgroundColor: theme === 'system' ? colors.primary : colors.wash,
+                    borderColor: theme === 'system' ? colors.primary : colors.hairline,
+                  },
+                ]}
+              >
+                <Laptop size={14} color={theme === 'system' ? colors.onPrimary : colors.text} />
+                <Text
+                  style={[
+                    styles.themeOptionText,
+                    { color: theme === 'system' ? colors.onPrimary : colors.text },
+                  ]}
+                >
+                  {t.common.themeSystem}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Language Switcher Row */}
+          <View style={styles.settingRow}>
+            <Text style={[styles.settingLabel, { color: colors.text }]}>
+              {t.common.language}
+            </Text>
+            <View style={styles.langButtonsGroup}>
+              <TouchableOpacity
+                onPress={() => setLocale('vi')}
+                style={[
+                  styles.langOptionBtn,
+                  {
+                    backgroundColor: locale === 'vi' ? colors.primary : colors.wash,
+                    borderColor: locale === 'vi' ? colors.primary : colors.hairline,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.langOptionText,
+                    { color: locale === 'vi' ? colors.onPrimary : colors.text },
+                  ]}
+                >
+                  {t.common.vietnamese}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => setLocale('en')}
+                style={[
+                  styles.langOptionBtn,
+                  {
+                    backgroundColor: locale === 'en' ? colors.primary : colors.wash,
+                    borderColor: locale === 'en' ? colors.primary : colors.hairline,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.langOptionText,
+                    { color: locale === 'en' ? colors.onPrimary : colors.text },
+                  ]}
+                >
+                  {t.common.english}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
 
         {/* Security & Token Info */}
@@ -304,6 +453,56 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 12,
+  },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 12,
+  },
+  settingRow: {
+    paddingVertical: 12,
+    gap: 8,
+  },
+  settingLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  themeButtonsGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  themeOptionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  themeOptionText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  langButtonsGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  langOptionBtn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  langOptionText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   infoRow: {
     flexDirection: 'row',

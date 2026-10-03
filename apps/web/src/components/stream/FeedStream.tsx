@@ -61,48 +61,50 @@ export const FeedStream: React.FC = () => {
   if (!activeCircle) {
     return (
       <main className="flex-1 w-full max-w-4xl flex flex-col gap-6 py-2">
-        {/* Welcome Hero Banner */}
-        <div className="relative overflow-hidden rounded-3xl border border-circle-hairline dark:border-circle-dark-hairline bg-gradient-to-br from-circle-wash/80 via-white/90 to-circle-canvas dark:from-circle-dark-wash dark:via-circle-dark-surface dark:to-circle-dark-canvas p-6 sm:p-8 shadow-circle-card transition-colors">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
-            <div className="flex items-start gap-4">
-              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-circle-primary text-circle-charcoal shadow-sm text-2xl font-bold">
-                C
-              </div>
-              <div className="space-y-1">
-                <div className="inline-flex items-center gap-1.5 rounded-full bg-circle-primary/20 dark:bg-circle-primary/10 px-2.5 py-0.5 text-xs font-semibold text-circle-sage dark:text-circle-primary">
-                  <Sparkles className="h-3 w-3" />
-                  <span>{t.home.createFirstCirclePrompt}</span>
+        {/* Welcome Hero Banner: ONLY displayed when user has 0 circles */}
+        {circles.length === 0 && !isLoadingCircles && (
+          <div className="relative overflow-hidden rounded-3xl border border-circle-hairline dark:border-circle-dark-hairline bg-gradient-to-br from-circle-wash/80 via-white/90 to-circle-canvas dark:from-circle-dark-wash dark:via-circle-dark-surface dark:to-circle-dark-canvas p-6 sm:p-8 shadow-circle-card transition-colors animate-fadeIn">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+              <div className="flex items-start gap-4">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-circle-primary text-circle-charcoal shadow-sm text-2xl font-bold">
+                  C
                 </div>
-                <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-circle-charcoal dark:text-circle-dark-text">
-                  {t.home.welcomeTitle.replace('{name}', displayName)}
-                </h2>
-                <p className="text-sm text-circle-slate dark:text-circle-dark-muted max-w-xl leading-relaxed">
-                  {t.home.welcomeSubtitle}
-                </p>
+                <div className="space-y-1">
+                  <div className="inline-flex items-center gap-1.5 rounded-full bg-circle-primary/20 dark:bg-circle-primary/10 px-2.5 py-0.5 text-xs font-semibold text-circle-sage dark:text-circle-primary">
+                    <Sparkles className="h-3 w-3" />
+                    <span>{t.home.createFirstCirclePrompt}</span>
+                  </div>
+                  <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-circle-charcoal dark:text-circle-dark-text">
+                    {t.home.welcomeTitle.replace('{name}', displayName)}
+                  </h2>
+                  <p className="text-sm text-circle-slate dark:text-circle-dark-muted max-w-xl leading-relaxed">
+                    {t.home.welcomeSubtitle}
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Quick Actions */}
-          <div className="mt-6 flex flex-wrap items-center gap-3 pt-4 border-t border-circle-hairline/80 dark:border-circle-dark-hairline">
-            <button
-              type="button"
-              onClick={() => setCreateModalOpen(true)}
-              className="flex items-center gap-2 rounded-full bg-circle-charcoal dark:bg-circle-primary px-5 py-2 text-xs sm:text-sm font-semibold text-white dark:text-circle-charcoal shadow-sm hover:bg-circle-sage dark:hover:bg-circle-sage dark:hover:text-white transition-all active:scale-98"
-            >
-              <Plus className="h-4 w-4" />
-              <span>{t.home.createCircleBtn}</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setJoinModalOpen(true)}
-              className="flex items-center gap-2 rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-white/80 dark:bg-circle-dark-surface/80 px-4 py-2 text-xs sm:text-sm font-semibold text-circle-charcoal dark:text-circle-dark-text shadow-sm hover:bg-circle-canvas dark:hover:bg-circle-dark-elevated transition-colors"
-            >
-              <KeyRound className="h-4 w-4 text-circle-slate dark:text-circle-dark-muted" />
-              <span>{t.home.joinWithCodeBtn}</span>
-            </button>
+            {/* Quick Actions */}
+            <div className="mt-6 flex flex-wrap items-center gap-3 pt-4 border-t border-circle-hairline/80 dark:border-circle-dark-hairline">
+              <button
+                type="button"
+                onClick={() => setCreateModalOpen(true)}
+                className="flex items-center gap-2 rounded-full bg-circle-charcoal dark:bg-circle-primary px-5 py-2 text-xs sm:text-sm font-semibold text-white dark:text-circle-charcoal shadow-sm hover:bg-circle-sage dark:hover:bg-circle-sage dark:hover:text-white transition-all active:scale-98"
+              >
+                <Plus className="h-4 w-4" />
+                <span>{t.home.createCircleBtn}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setJoinModalOpen(true)}
+                className="flex items-center gap-2 rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-white/80 dark:bg-circle-dark-surface/80 px-4 py-2 text-xs sm:text-sm font-semibold text-circle-charcoal dark:text-circle-dark-text shadow-sm hover:bg-circle-canvas dark:hover:bg-circle-dark-elevated transition-colors"
+              >
+                <KeyRound className="h-4 w-4 text-circle-slate dark:text-circle-dark-muted" />
+                <span>{t.home.joinWithCodeBtn}</span>
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* My Circles Section (Grid of Cards) */}
         <div className="space-y-4">
@@ -222,77 +224,18 @@ export const FeedStream: React.FC = () => {
   }
 
   // =========================================================================
-  // VIEW 2: ACTIVE CIRCLE WORKSPACE & FEED (When inside a selected Circle)
+  // VIEW 2: ACTIVE CIRCLE WORKSPACE (Clean, Direct Chat & Moments without top banner)
   // =========================================================================
   return (
-    <main className="flex-1 max-w-3xl flex flex-col gap-5 p-6 min-h-[calc(100vh-4rem)]">
-      {/* Circle Top Header Card */}
-      <div className="rounded-3xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-5 shadow-circle-card transition-colors">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3.5 min-w-0">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-circle-primary/10 text-circle-sage dark:text-circle-primary font-bold text-lg uppercase shadow-sm">
-              {activeCircle.name ? activeCircle.name.slice(0, 2) : 'C'}
-            </div>
-            <div className="truncate">
-              <div className="flex items-center gap-2">
-                <h2 className="text-lg sm:text-xl font-bold text-circle-charcoal dark:text-circle-dark-text truncate">
-                  {activeCircle.name}
-                </h2>
-                <span className="shrink-0 flex items-center gap-1 rounded-full bg-circle-canvas dark:bg-circle-dark-canvas px-2.5 py-0.5 text-[10px] font-medium text-circle-slate dark:text-circle-dark-muted">
-                  {activeCircle.isPrivate ? (
-                    <>
-                      <Lock className="h-3 w-3 text-amber-500" />
-                      <span>{t.circle.privacyPrivate}</span>
-                    </>
-                  ) : (
-                    <>
-                      <Globe className="h-3 w-3 text-circle-sage dark:text-circle-primary" />
-                      <span>{t.circle.privacyPublic}</span>
-                    </>
-                  )}
-                </span>
-              </div>
-              <p className="text-xs text-circle-slate dark:text-circle-dark-muted font-mono mt-0.5 truncate">
-                @{activeCircle.handle} · {t.circle.membersCount.replace('{count}', String((activeCircle as any).memberCount || 1))}
-              </p>
-            </div>
-          </div>
-
-          {/* Quick Share & Invite Actions */}
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={handleCopyLink}
-              className="flex items-center gap-1.5 rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/80 dark:bg-circle-dark-canvas/80 px-3.5 py-1.5 text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash hover:text-circle-sage dark:hover:text-circle-primary transition-all shadow-sm"
-              title={t.home.copyLinkBtn}
-            >
-              <Link2 className="h-3.5 w-3.5" />
-              <span>{t.home.copyLinkBtn}</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                navigator.clipboard.writeText(activeCircle.inviteCode);
-                alert(`${t.home.inviteCodeLabel}: ${activeCircle.inviteCode} (${t.home.linkCopiedNotice})`);
-              }}
-              className="flex items-center gap-1.5 rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-circle-wash/60 dark:bg-circle-dark-wash/60 px-3 py-1.5 text-xs font-mono font-medium text-circle-sage dark:text-circle-primary hover:bg-circle-primary/20 transition-colors"
-              title="Click to copy invite code"
-            >
-              <KeyRound className="h-3 w-3" />
-              <span>{activeCircle.inviteCode}</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
+    <main className="flex-1 max-w-4xl flex flex-col gap-4 p-4 sm:p-6 min-h-[calc(100vh-4rem)]">
       {activeCircleView === 'moments' ? (
         <DailyMomentsFeed circleId={activeCircle.id} />
       ) : currentChannel ? (
         <ChannelChatView
           key={currentChannel.id}
           channelId={currentChannel.id}
-          channelName={currentChannel.name}
-          channelTopic={currentChannel.topic}
+          channelName={activeCircle.name}
+          channelTopic={activeCircle.description || t.home.circleFeedSubtitle}
           circleId={activeCircle.id}
         />
       ) : (

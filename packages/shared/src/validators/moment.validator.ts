@@ -16,10 +16,9 @@ export function createMomentSchemas(locale: Locale = 'vi') {
       .min(1, v.momentPhotoUrlRequired)
       .refine(
         (val) =>
-          val.startsWith('data:') ||
           val.startsWith('http://') ||
           val.startsWith('https://') ||
-          val.startsWith('blob:'),
+          val.startsWith('/'),
         v.momentPhotoUrlInvalid,
       ),
     mediaType: z.enum(['IMAGE', 'VIDEO']).optional().default('IMAGE'),
