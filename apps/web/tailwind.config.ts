@@ -1,5 +1,7 @@
 import type { Config } from 'tailwindcss';
 
+// NOTE: Mirrored from packages/shared/src/theme/colors.ts (CircleColors).
+// Update both whenever theme tokens change.
 const circleColors = {
   light: {
     primary: '#658C77',
