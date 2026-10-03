@@ -4,20 +4,19 @@ import React, { useState } from 'react';
 import {
   Pin,
   Reply,
-  Smile,
   FileText,
   Download,
-  Check,
-  MoreVertical,
-  Shield,
-  Crown,
 } from 'lucide-react';
-import { MessageEntity, MessageType, MemberRole } from '@circle/types';
+import { MessageEntity, MessageType } from '@circle/types';
 import { useLanguageStore } from '../../stores/language.store';
 
 interface MessageBubbleProps {
   message: MessageEntity;
+  allMessages?: MessageEntity[];
   currentUserId?: string;
+  isFirstInCluster?: boolean;
+  isLastInCluster?: boolean;
+  isSingleInCluster?: boolean;
   onReply: (message: MessageEntity) => void;
   onReact: (messageId: string, emoji: string) => void;
   onTogglePin: (messageId: string, isPinned: boolean) => void;
@@ -27,26 +26,48 @@ const QUICK_EMOJIS = ['👍', '❤️', '😂', '🔥', '🎉'];
 
 export const MessageBubble: React.FC<MessageBubbleProps> = ({
   message,
+  allMessages,
   currentUserId,
+  isFirstInCluster = true,
+  isLastInCluster = true,
+  isSingleInCluster = true,
   onReply,
   onReact,
   onTogglePin,
 }) => {
   const t = useLanguageStore((s) => s.t);
   const locale = useLanguageStore((s) => s.locale);
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showTimestamp, setShowTimestamp] = useState(false);
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
 
-  const senderUser = message.sender?.user;
-  const senderProfile = senderUser?.profile;
-  const senderName =
-    message.sender?.nickname ||
-    senderProfile?.displayName ||
-    senderUser?.email?.split('@')[0] ||
-    t.auth.guest;
+  const replyTargetId =
+    typeof message.replyTo === 'string'
+      ? message.replyTo
+      : (message.replyTo?.id || message.replyToId);
+  const replyTarget =
+    (typeof message.replyTo === 'object' &&
+    message.replyTo !== null &&
+    (message.replyTo.content || (message.replyTo as any).text || (message.replyTo as any).fileUrl)
+      ? message.replyTo
+      : null) ||
+    (allMessages && replyTargetId ? allMessages.find((m) => m.id === replyTargetId) : null);
 
-  const isSenderMe = currentUserId && senderUser?.id === currentUserId;
-  const senderRole = message.sender?.role;
+  const hasValidReply = Boolean(
+    replyTarget &&
+      (replyTarget.content ||
+        (replyTarget as any).text ||
+        (replyTarget as any).message ||
+        (replyTarget as any).fileName ||
+        (replyTarget as any).fileUrl),
+  );
+
+  const senderUserId = message.sender?.user?.id || message.sender?.userId;
+  const isSenderMe = Boolean(
+    currentUserId &&
+      (senderUserId === currentUserId ||
+        message.memberId === currentUserId ||
+        message.sender?.user?.id === currentUserId),
+  );
 
   // Format sent time (e.g., 14:30)
   const sentTime = new Date(message.sentAt).toLocaleTimeString(
@@ -72,170 +93,177 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     (message.fileUrl.startsWith('data:image/') ||
       /\.(jpeg|jpg|gif|png|webp|svg)($|\?)/i.test(message.fileUrl));
 
+  // Determine corner radius styles for smart stacking
+  const getBubbleRadius = () => {
+    if (isSingleInCluster) {
+      return isSenderMe ? 'rounded-2xl rounded-br-xs' : 'rounded-2xl rounded-bl-xs';
+    }
+    if (isSenderMe) {
+      if (isFirstInCluster) return 'rounded-2xl rounded-br-md';
+      if (isLastInCluster) return 'rounded-2xl rounded-tr-md rounded-br-xs';
+      return 'rounded-2xl rounded-r-md';
+    } else {
+      if (isFirstInCluster) return 'rounded-2xl rounded-bl-md';
+      if (isLastInCluster) return 'rounded-2xl rounded-tl-md rounded-bl-xs';
+      return 'rounded-2xl rounded-l-md';
+    }
+  };
+
+  const hasReactions =
+    message.reactionCounts && Object.keys(message.reactionCounts).length > 0;
+
   return (
     <div
-      className={`group relative flex items-start gap-3 px-3 py-2 rounded-2xl transition-colors hover:bg-circle-canvas/60 dark:hover:bg-circle-dark-elevated/40 ${
-        message.isPinned ? 'bg-amber-50/40 dark:bg-amber-950/10' : ''
+      className={`group relative flex flex-col transition-all ${
+        isSenderMe ? 'items-end' : 'items-start'
       }`}
     >
-      {/* Pinned indicator banner */}
+      {/* Pinned indicator badge */}
       {message.isPinned && (
-        <div className="absolute top-1 right-3 flex items-center gap-1 text-[10px] font-medium text-amber-600 dark:text-amber-400">
+        <div className="flex items-center gap-1 text-[10px] font-medium text-amber-600 dark:text-amber-400 mb-1 px-1">
           <Pin className="h-3 w-3 fill-amber-500 text-amber-500" />
           <span>{t.chat.pinnedBadge}</span>
         </div>
       )}
 
-      {/* Avatar */}
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-circle-primary/10 text-circle-sage dark:text-circle-primary font-bold text-xs uppercase shadow-sm overflow-hidden select-none">
-        {senderProfile?.avatarUrl ? (
-          <img
-            src={senderProfile.avatarUrl}
-            alt={senderName}
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <span>{senderName.slice(0, 2)}</span>
-        )}
-      </div>
-
-      {/* Message Content Container */}
-      <div className="flex-1 min-w-0">
-        {/* Header: Sender Name, Badges & Time */}
-        <div className="flex items-center gap-2 mb-1 flex-wrap">
-          <span className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text truncate">
-            {senderName}
-          </span>
-
-          {/* Role badge if Owner or Admin */}
-          {senderRole === MemberRole.OWNER && (
-            <span className="inline-flex items-center gap-0.5 rounded-full bg-circle-primary/20 text-circle-sage dark:text-circle-primary px-1.5 py-0.2 text-[9px] font-semibold">
-              <Crown className="h-2.5 w-2.5" />
-              <span>{t.home.roleOwner}</span>
-            </span>
-          )}
-          {senderRole === MemberRole.ADMIN && (
-            <span className="inline-flex items-center gap-0.5 rounded-full bg-circle-canvas dark:bg-circle-dark-canvas text-circle-slate dark:text-circle-dark-muted px-1.5 py-0.2 text-[9px] font-semibold">
-              <Shield className="h-2.5 w-2.5" />
-              <span>Admin</span>
-            </span>
-          )}
-
-          <span className="text-[10px] text-circle-slate dark:text-circle-dark-muted font-mono">
-            {sentTime}
-          </span>
-        </div>
-
-        {/* Reply Quote Banner */}
-        {message.replyTo && (
-          <div className="flex items-center gap-2 mb-1.5 rounded-lg border-l-2 border-circle-sage/80 bg-circle-canvas/80 dark:bg-circle-dark-canvas/80 px-2 py-1 text-xs">
-            <Reply className="h-3 w-3 text-circle-sage shrink-0 scale-x-[-1]" />
-            <span className="font-semibold text-circle-sage dark:text-circle-primary shrink-0">
-              {message.replyTo.sender?.nickname ||
-                message.replyTo.sender?.user?.profile?.displayName ||
-                t.auth.guest}
-              :
-            </span>
-            <span className="text-circle-slate dark:text-circle-dark-muted truncate">
-              {message.replyTo.type === MessageType.FILE
-                ? `[${t.chat.fileDownload}]`
-                : message.replyTo.content}
-            </span>
-          </div>
-        )}
-
-        {/* Message Body (Text) */}
-        {message.content && (
-          <div className="text-xs sm:text-sm text-circle-charcoal dark:text-circle-dark-text whitespace-pre-wrap break-words leading-relaxed">
-            {message.content}
-          </div>
-        )}
-
-        {/* Attachment: Image */}
-        {isImageAttachment && message.fileUrl && (
-          <div className="mt-2">
-            <button
-              type="button"
-              onClick={() => setIsImageModalOpen(true)}
-              className="group/img relative max-w-sm overflow-hidden rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline shadow-sm hover:opacity-95 transition-opacity"
+      {/* Message Bubble Container with Click-to-Toggle-Timestamp */}
+      <div className="relative inline-block max-w-full">
+        <div
+          onClick={() => setShowTimestamp((prev) => !prev)}
+          className={`relative cursor-pointer select-text px-4 py-2.5 transition-all shadow-sm ${getBubbleRadius()} ${
+            isSenderMe
+              ? 'bg-circle-primary text-white dark:bg-circle-dark-primary dark:text-circle-dark-canvas'
+              : 'bg-white dark:bg-circle-dark-surface text-circle-charcoal dark:text-circle-dark-text border border-circle-hairline dark:border-circle-dark-hairline'
+          } ${message.isPinned ? 'ring-2 ring-amber-400/40' : ''}`}
+        >
+          {/* Reply Quote Banner - Flat rounded container, NO side borders */}
+          {hasValidReply && replyTarget && (
+            <div
+              className={`flex items-center gap-2 mb-1.5 rounded-xl px-2.5 py-1 text-xs max-w-full ${
+                isSenderMe
+                  ? 'bg-white/20 dark:bg-black/20 text-white/95 dark:text-circle-dark-canvas/95'
+                  : 'bg-circle-wash/70 dark:bg-circle-dark-wash text-circle-primary dark:text-circle-dark-muted'
+              }`}
             >
-              <img
-                src={message.fileUrl}
-                alt={message.fileName || 'Attachment'}
-                className="max-h-72 w-auto object-cover rounded-2xl"
-              />
-            </button>
+              <Reply className="h-3 w-3 shrink-0 scale-x-[-1] opacity-75" />
+              <span className="font-semibold shrink-0">
+                {replyTarget.sender?.nickname ||
+                  replyTarget.sender?.user?.profile?.displayName ||
+                  (replyTarget.sender as any)?.profile?.displayName ||
+                  (replyTarget.sender as any)?.user?.email?.split('@')[0] ||
+                  t.auth.guest}
+                :
+              </span>
+              <span className="truncate opacity-90">
+                {replyTarget.content ||
+                  (replyTarget.type === MessageType.FILE ? `[${t.chat.fileDownload}]` : '') ||
+                  'Tin nhắn'}
+              </span>
+            </div>
+          )}
 
-            {/* Lightbox Modal */}
-            {isImageModalOpen && (
-              <div
-                className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
-                onClick={() => setIsImageModalOpen(false)}
+          {/* Message Text Content */}
+          {message.content && (
+            <div className="text-xs sm:text-sm whitespace-pre-wrap break-words leading-relaxed font-normal">
+              {message.content}
+            </div>
+          )}
+
+          {/* Attachment: Image */}
+          {isImageAttachment && message.fileUrl && (
+            <div className="mt-2" onClick={(e) => e.stopPropagation()}>
+              <button
+                type="button"
+                onClick={() => setIsImageModalOpen(true)}
+                className="group/img relative max-w-sm overflow-hidden rounded-2xl border border-white/20 dark:border-black/20 shadow-sm hover:opacity-95 transition-opacity"
               >
                 <img
                   src={message.fileUrl}
                   alt={message.fileName || 'Attachment'}
-                  className="max-h-[90vh] max-w-[90vw] object-contain rounded-2xl shadow-2xl"
+                  className="max-h-72 w-auto object-cover rounded-2xl"
                 />
-              </div>
-            )}
-          </div>
-        )}
+              </button>
 
-        {/* Attachment: Document / Generic File */}
-        {message.type === MessageType.FILE && !isImageAttachment && message.fileUrl && (
-          <div className="mt-2 inline-flex items-center gap-3 rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas/60 p-3 max-w-sm shadow-sm">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-circle-primary/10 text-circle-sage dark:text-circle-primary">
-              <FileText className="h-5 w-5" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text truncate">
-                {message.fileName || 'File'}
-              </p>
-              <p className="text-[10px] text-circle-slate dark:text-circle-dark-muted">
-                {formatFileSize(message.fileSize)}
-              </p>
-            </div>
-            <a
-              href={message.fileUrl}
-              download={message.fileName || 'download'}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-white dark:bg-circle-dark-surface text-circle-slate dark:text-circle-dark-muted hover:text-circle-sage hover:bg-circle-wash transition-colors shadow-sm"
-              title={t.chat.fileDownload}
-            >
-              <Download className="h-4 w-4" />
-            </a>
-          </div>
-        )}
-
-        {/* Reaction Chips */}
-        {message.reactionCounts && Object.keys(message.reactionCounts).length > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5 mt-2">
-            {Object.entries(message.reactionCounts).map(([emoji, count]) => {
-              const hasReacted = message.userReactions?.includes(emoji);
-              return (
-                <button
-                  key={emoji}
-                  type="button"
-                  onClick={() => onReact(message.id, emoji)}
-                  className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium transition-all ${
-                    hasReacted
-                      ? 'border border-circle-sage bg-circle-wash/60 text-circle-sage dark:border-circle-primary dark:bg-circle-dark-wash dark:text-circle-primary shadow-sm'
-                      : 'border border-circle-hairline dark:border-circle-dark-hairline bg-white/70 dark:bg-circle-dark-surface/70 text-circle-slate dark:text-circle-dark-muted hover:bg-circle-canvas'
-                  }`}
+              {/* Lightbox Modal */}
+              {isImageModalOpen && (
+                <div
+                  className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+                  onClick={() => setIsImageModalOpen(false)}
                 >
-                  <span>{emoji}</span>
-                  <span className="text-[10px] font-semibold">{count}</span>
-                </button>
-              );
-            })}
+                  <img
+                    src={message.fileUrl}
+                    alt={message.fileName || 'Attachment'}
+                    className="max-h-[90vh] max-w-[90vw] object-contain rounded-2xl shadow-2xl"
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Attachment: Document / Generic File */}
+          {message.type === MessageType.FILE && !isImageAttachment && message.fileUrl && (
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className={`mt-2 inline-flex items-center gap-3 rounded-xl p-2.5 max-w-sm shadow-sm ${
+                isSenderMe
+                  ? 'bg-white/15 dark:bg-black/15 text-white dark:text-circle-charcoal'
+                  : 'bg-circle-canvas dark:bg-circle-dark-canvas text-circle-charcoal dark:text-circle-dark-text'
+              }`}
+            >
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-circle-primary/20 text-circle-primary">
+                <FileText className="h-4 w-4" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold truncate">
+                  {message.fileName || 'File'}
+                </p>
+                <p className="text-[10px] opacity-75">
+                  {formatFileSize(message.fileSize)}
+                </p>
+              </div>
+              <a
+                href={message.fileUrl}
+                download={message.fileName || 'download'}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex h-7 w-7 items-center justify-center rounded-full bg-white/20 hover:bg-white/30 transition-colors"
+                title={t.chat.fileDownload}
+              >
+                <Download className="h-3.5 w-3.5" />
+              </a>
+            </div>
+          )}
+
+          {/* Overlapping Reaction Badge (Bottom-Right Corner, Icons Only, No Counts, Flat) */}
+          {hasReactions && (
+            <div className="absolute -bottom-2 right-1.5 flex items-center gap-0.5 rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-white/95 dark:bg-circle-dark-surface px-1.5 py-0.5 text-xs select-none">
+              {Object.keys(message.reactionCounts!).map((emoji) => (
+                <span key={emoji} className="text-[12px] leading-none">{emoji}</span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Sent Timestamp (Displayed ONLY when clicked/tapped) */}
+        {showTimestamp && (
+          <div
+            className={`text-[10px] mt-1 px-1 font-mono transition-opacity animate-in fade-in flex items-center ${
+              isSenderMe
+                ? 'justify-end text-circle-slate/60 dark:text-circle-dark-muted/60'
+                : 'justify-start text-circle-slate/60 dark:text-circle-dark-muted/60'
+            }`}
+          >
+            <span>{sentTime}</span>
           </div>
         )}
       </div>
 
-      {/* Hover Action Bar */}
-      <div className="absolute right-2 -top-3 hidden group-hover:flex items-center gap-0.5 rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-1 shadow-circle-hover transition-all z-10">
+      {/* Hover Action Bar (Pin, Reply, Quick Emojis) */}
+      <div
+        className={`absolute -top-3 hidden group-hover:flex items-center gap-0.5 rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-1 shadow-circle-hover transition-all z-20 ${
+          isSenderMe ? 'right-2' : 'left-2'
+        }`}
+      >
         {/* Quick Emoji Buttons */}
         <div className="flex items-center gap-0.5 pr-1 border-r border-circle-hairline dark:border-circle-dark-hairline">
           {QUICK_EMOJIS.map((emoji) => (

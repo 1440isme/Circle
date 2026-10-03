@@ -2664,7 +2664,7 @@
 - **Developer:** Trương Công Bình (MSSV: 23110184)
 - **Tool:** Antigravity IDE
 - **Model:** Gemini 3.7 Flash
-- **Related Issue:** #68 ([FEAT]: Cloudflare R2 Media Storage, SigV4 Presigned URLs, Presence Tracking & Client-side Optimization)
+- **Related Issue:** #7 ([SUB-FEAT]: US-MEDIA-001 — Cloudflare R2 Presigned Upload URL Generation & Asset Delivery)
 - **Purpose:** Triển khai trọn gói phân hệ Media Storage, Presigned URL SigV4, Realtime Presence và chuỗi tối ưu hóa hiệu năng/bộ nhớ đa nền tảng:
   1. **Hạ tầng Lưu trữ Đám mây Cloudflare R2 & AWS S3 SigV4 (`apps/backend/src/modules/storage`):**
      - Xây dựng `StorageService` với cơ chế sinh Presigned PUT URL chuẩn AWS Signature Version 4 HMAC-SHA256 thuần `crypto`, tương thích 100% Cloudflare R2.
@@ -2726,7 +2726,7 @@
 - **Developer:** Trương Công Bình
 - **Tool:** Antigravity IDE
 - **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** Module 1 & 5 — Unified Messaging Experience & Mobile Clean UI
+- **Related Issue:** #6 ([SUB-FEAT]: US-CHAT-001 — Real-time Channel Text Messaging & Cross-Platform Chat UX)
 - **Purpose:** 
   1. Tích hợp phản hồi rung (Haptic Feedback) bằng `Vibration` khi vuốt sang phải để reply (`dx > 35px`) và khi nhấn giữ tin nhắn mở action menu.
   2. Xóa bỏ hoàn toàn icon tròn overlay phía trên cột avatar khi vuốt tin nhắn để reply.
@@ -2752,7 +2752,7 @@
   - **Error Description:** None.
   - **Root Cause:** N/A.
   - **Resolution / Fix:** N/A.
-- **Commit:** Pending
+- **Commit:** `c7807fd`
 - **PR:** #69 (https://github.com/1440isme/Circle/pull/69)
 
 ---
@@ -2763,7 +2763,7 @@
 - **Developer:** Trương Công Bình
 - **Tool:** Antigravity IDE
 - **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** Module 1 & 5 — Unified Design System & Cross-Platform Theme Parity (Web ⇄ Mobile)
+- **Related Issue:** #6 ([SUB-FEAT]: US-CHAT-001 — Real-time Channel Text Messaging & Cross-Platform Chat UX)
 - **Purpose:** 
   1. Chuẩn hóa hệ thống thiết kế và token màu sắc dùng chung (`@circle/shared/src/theme/colors.ts`, `apps/mobile/src/constants/theme.ts`) thành nguồn chân lý duy nhất (SSOT), loại bỏ hardcode màu sắc giữa Web và Mobile.
   2. Đồng bộ 100% giao diện Dark / Light Mode giữa Web và Mobile: Canvas (`#FAF8F5` / `#0E1512`), Surface (`#FFFFFF` / `#16201B`), Primary (`#658C77` / `#78C6A3`), Text (`#1F2923` / `#E8EFEA`), Subtle/Slate (`#6B7C72` / `#8FA298`).
@@ -2791,8 +2791,8 @@
   - **Error Description:** Tailwind config in Next.js CJS build could not load ESM import from shared package directly.
   - **Root Cause:** PostCSS Jiti/Webpack loader in Next.js environment incompatible with raw ESM monorepo symlink.
   - **Resolution / Fix:** Inlined canonical token definitions in `tailwind.config.ts` exactly mirroring `CircleColors`.
-- **Commit:** Pending
-- **PR:** #70 (https://github.com/1440isme/Circle/pull/70)
+- **Commit:** `c7807fd`
+- **PR:** #69 (https://github.com/1440isme/Circle/pull/69)
 
 ---
 
@@ -2802,7 +2802,7 @@
 - **Developer:** Trương Công Bình
 - **Tool:** Antigravity IDE
 - **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** Module 1 & 5 — Unified Cross-Platform Chat Clean UI & Touch Ergonomics
+- **Related Issue:** #6 ([SUB-FEAT]: US-CHAT-001 — Real-time Channel Text Messaging & Cross-Platform Chat UX)
 - **Purpose:** 
   1. Loại bỏ toàn bộ role badges (Crown, Shield / "Trưởng nhóm", "Admin") khỏi header tin nhắn trên cả Web và Mobile (`MessageList.tsx`, `circle/[id].tsx`), trả lại giao diện tin nhắn tối giản, sạch sẽ chỉ hiển thị display name người gửi.
   2. Tối ưu phản hồi xúc giác (Haptic Feedback) thành xung micro-tactile cực ngắn (1ms, tự hủy sau 20ms trên iOS qua `Vibration.cancel()`) thay vì rung dài toàn bộ chu kỳ.
@@ -2868,6 +2868,6 @@
   - **Error Description:** None.
   - **Root Cause:** N/A.
   - **Resolution / Fix:** N/A.
-- **Commit:** Pending
+- **Commit:** `5f52cb1`
 - **PR:** #68 (https://github.com/1440isme/Circle/pull/68)
 

@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useRef, useEffect } from 'react';
-import { Sparkles, MessageSquare, ArrowUpCircle } from 'lucide-react';
-import { MessageEntity } from '@circle/types';
+import { Sparkles, ArrowUpCircle } from 'lucide-react';
+import { MessageEntity, MemberRole } from '@circle/types';
 import { useLanguageStore } from '../../stores/language.store';
 import { MessageBubble } from './MessageBubble';
 
@@ -16,6 +16,15 @@ interface MessageListProps {
   onReply: (message: MessageEntity) => void;
   onReact: (messageId: string, emoji: string) => void;
   onTogglePin: (messageId: string, isPinned: boolean) => void;
+}
+
+interface MessageCluster {
+  senderUserId: string;
+  senderName: string;
+  senderAvatarUrl?: string | null;
+  senderRole?: MemberRole;
+  isSenderMe: boolean;
+  messages: MessageEntity[];
 }
 
 export const MessageList: React.FC<MessageListProps> = ({
@@ -81,6 +90,61 @@ export const MessageList: React.FC<MessageListProps> = ({
     }
   });
 
+  // Helper to build consecutive clusters
+  const buildClusters = (items: MessageEntity[]): MessageCluster[] => {
+    const clusters: MessageCluster[] = [];
+    let currentCluster: MessageCluster | null = null;
+
+    items.forEach((msg) => {
+      const senderUserId = msg.sender?.user?.id || msg.sender?.userId || msg.memberId || '';
+      const isSenderMe = Boolean(
+        currentUserId &&
+          (senderUserId === currentUserId ||
+            msg.memberId === currentUserId ||
+            msg.sender?.user?.id === currentUserId),
+      );
+      const senderName =
+        msg.sender?.nickname ||
+        msg.sender?.user?.profile?.displayName ||
+        msg.sender?.user?.email?.split('@')[0] ||
+        t.auth.guest;
+      const senderAvatarUrl = msg.sender?.user?.profile?.avatarUrl;
+      const senderRole = msg.sender?.role;
+
+      const msgTime = new Date(msg.sentAt).getTime();
+      const lastMsg = currentCluster?.messages[currentCluster.messages.length - 1];
+      const lastMsgTime = lastMsg ? new Date(lastMsg.sentAt).getTime() : 0;
+      const isWithin3Min = msgTime - lastMsgTime < 3 * 60 * 1000;
+
+      if (
+        currentCluster &&
+        currentCluster.senderUserId === senderUserId &&
+        currentCluster.isSenderMe === isSenderMe &&
+        isWithin3Min
+      ) {
+        currentCluster.messages.push(msg);
+      } else {
+        if (currentCluster) {
+          clusters.push(currentCluster);
+        }
+        currentCluster = {
+          senderUserId,
+          senderName,
+          senderAvatarUrl,
+          senderRole,
+          isSenderMe,
+          messages: [msg],
+        };
+      }
+    });
+
+    if (currentCluster) {
+      clusters.push(currentCluster);
+    }
+
+    return clusters;
+  };
+
   return (
     <div
       ref={containerRef}
@@ -130,34 +194,103 @@ export const MessageList: React.FC<MessageListProps> = ({
           </p>
         </div>
       ) : (
-        /* Message Groups */
-        groupedMessages.map((group) => (
-          <div key={group.date} className="space-y-2">
-            {/* Date Divider */}
-            <div className="relative flex items-center justify-center my-4">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-circle-hairline dark:border-circle-dark-hairline" />
-              </div>
-              <span className="relative rounded-full bg-circle-canvas dark:bg-circle-dark-canvas px-3 py-0.5 text-[11px] font-semibold text-circle-slate dark:text-circle-dark-muted border border-circle-hairline dark:border-circle-dark-hairline shadow-sm">
-                {group.date}
-              </span>
-            </div>
+        /* Message Date Groups */
+        groupedMessages.map((group) => {
+          const clusters = buildClusters(group.items);
 
-            {/* Messages in Group */}
-            <div className="space-y-1">
-              {group.items.map((msg) => (
-                <MessageBubble
-                  key={msg.id}
-                  message={msg}
-                  currentUserId={currentUserId}
-                  onReply={onReply}
-                  onReact={onReact}
-                  onTogglePin={onTogglePin}
-                />
-              ))}
+          return (
+            <div key={group.date} className="space-y-2">
+              {/* Date Divider */}
+              <div className="relative flex items-center justify-center my-4">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-circle-hairline dark:border-circle-dark-hairline" />
+                </div>
+                <span className="relative rounded-full bg-circle-canvas dark:bg-circle-dark-canvas px-3 py-0.5 text-[11px] font-semibold text-circle-slate dark:text-circle-dark-muted border border-circle-hairline dark:border-circle-dark-hairline shadow-sm">
+                  {group.date}
+                </span>
+              </div>
+
+              {/* Message Clusters */}
+              <div className="space-y-3">
+                {clusters.map((cluster, clusterIdx) => {
+                  const isSenderMe = cluster.isSenderMe;
+
+                  if (isSenderMe) {
+                    return (
+                      <div
+                        key={`cluster-me-${clusterIdx}`}
+                        className="flex flex-col items-end gap-1 ml-auto max-w-[82%]"
+                      >
+                        {cluster.messages.map((msg, msgIdx) => (
+                          <MessageBubble
+                            key={msg.id}
+                            message={msg}
+                            allMessages={messages}
+                            currentUserId={currentUserId}
+                            isFirstInCluster={msgIdx === 0}
+                            isLastInCluster={msgIdx === cluster.messages.length - 1}
+                            isSingleInCluster={cluster.messages.length === 1}
+                            onReply={onReply}
+                            onReact={onReact}
+                            onTogglePin={onTogglePin}
+                          />
+                        ))}
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div
+                      key={`cluster-other-${clusterIdx}`}
+                      className="flex items-end gap-2.5 mr-auto max-w-[82%]"
+                    >
+                      {/* Avatar aligned with bottom edge of last message in cluster */}
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-circle-primary/10 text-circle-sage dark:text-circle-primary font-bold text-xs uppercase shadow-sm overflow-hidden select-none mb-0.5">
+                        {cluster.senderAvatarUrl ? (
+                          <img
+                            src={cluster.senderAvatarUrl}
+                            alt={cluster.senderName}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <span>{cluster.senderName.slice(0, 2)}</span>
+                        )}
+                      </div>
+
+                      {/* Cluster Messages Column */}
+                      <div className="flex flex-col items-start min-w-0 flex-1">
+                        {/* Header: Sender Name (Once at top of cluster) */}
+                        <div className="flex items-center gap-1.5 mb-1 px-1">
+                          <span className="text-[12px] font-bold text-circle-charcoal dark:text-circle-dark-text truncate">
+                            {cluster.senderName}
+                          </span>
+                        </div>
+
+                        {/* Consecutive Message Bubbles Stacked */}
+                        <div className="flex flex-col gap-1 items-start w-full">
+                          {cluster.messages.map((msg, msgIdx) => (
+                            <MessageBubble
+                              key={msg.id}
+                              message={msg}
+                              allMessages={messages}
+                              currentUserId={currentUserId}
+                              isFirstInCluster={msgIdx === 0}
+                              isLastInCluster={msgIdx === cluster.messages.length - 1}
+                              isSingleInCluster={cluster.messages.length === 1}
+                              onReply={onReply}
+                              onReact={onReact}
+                              onTogglePin={onTogglePin}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        ))
+          );
+        })
       )}
 
       {/* Invisible anchor for scrolling */}
