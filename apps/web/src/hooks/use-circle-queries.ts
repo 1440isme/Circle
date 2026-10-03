@@ -119,7 +119,7 @@ export function useJoinCircleMutation() {
 
   return useMutation({
     mutationFn: async (input: JoinCircleInput) => {
-      const res = await apiRequest<CircleEntity>('/circles/join', {
+      const res = await apiRequest<CircleEntity & { isPending?: boolean }>('/circles/join', {
         method: 'POST',
         body: JSON.stringify(input),
       });
@@ -127,8 +127,10 @@ export function useJoinCircleMutation() {
     },
     onSuccess: (joinedCircle) => {
       queryClient.invalidateQueries({ queryKey: CIRCLE_KEYS.all });
-      setActiveCircle(joinedCircle);
-      setJoinModalOpen(false);
+      if (!joinedCircle?.isPending) {
+        setActiveCircle(joinedCircle);
+        setJoinModalOpen(false);
+      }
     },
   });
 }

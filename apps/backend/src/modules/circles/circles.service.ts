@@ -447,7 +447,65 @@ export class CirclesService {
       if (customInvite.circle.members && customInvite.circle.members.length > 0) {
         throw new ConflictException(t.circle.alreadyMember);
       }
+      if (
+        customInvite.circle.maxMembers !== null &&
+        customInvite.circle._count.members >= customInvite.circle.maxMembers
+      ) {
+        throw new BadRequestException(t.circle.circleFull);
+      }
 
+      const circle = customInvite.circle;
+
+      // If the Circle is Private, do NOT instantly join; send a pending join request
+      if (circle.isPrivate) {
+        const existingRequest = await this.prisma.circleJoinRequest.findUnique({
+          where: { circleId_userId: { circleId: circle.id, userId } },
+        });
+
+        if (existingRequest && existingRequest.status === 'PENDING') {
+          throw new ConflictException(t.circle.joinRequestAlreadyPending);
+        }
+
+        if (existingRequest) {
+          await this.prisma.circleJoinRequest.update({
+            where: { id: existingRequest.id },
+            data: {
+              status: 'PENDING',
+              message: 'Yêu cầu tham gia qua mã mời',
+            },
+          });
+        } else {
+          await this.prisma.circleJoinRequest.create({
+            data: {
+              circleId: circle.id,
+              userId,
+              status: 'PENDING',
+              message: 'Yêu cầu tham gia qua mã mời',
+            },
+          });
+        }
+
+        return {
+          success: true,
+          statusCode: 202,
+          message: t.circle.joinRequestSent,
+          data: {
+            id: circle.id,
+            name: circle.name,
+            handle: circle.handle,
+            avatarUrl: circle.avatarUrl,
+            coverUrl: circle.coverUrl,
+            description: circle.description,
+            inviteCode: customInvite.code,
+            isPrivate: circle.isPrivate,
+            createdAt: circle.createdAt,
+            updatedAt: circle.updatedAt,
+            isPending: true,
+          },
+        };
+      }
+
+      // Public circle: instant join
       await this.prisma.$transaction([
         this.prisma.circleMember.create({
           data: {
@@ -462,7 +520,6 @@ export class CirclesService {
         }),
       ]);
 
-      const circle = customInvite.circle;
       return {
         success: true,
         statusCode: 200,
@@ -511,6 +568,56 @@ export class CirclesService {
       throw new BadRequestException(t.circle.circleFull);
     }
 
+    // If the Circle is Private, do NOT instantly join; send a pending join request
+    if (circle.isPrivate) {
+      const existingRequest = await this.prisma.circleJoinRequest.findUnique({
+        where: { circleId_userId: { circleId: circle.id, userId } },
+      });
+
+      if (existingRequest && existingRequest.status === 'PENDING') {
+        throw new ConflictException(t.circle.joinRequestAlreadyPending);
+      }
+
+      if (existingRequest) {
+        await this.prisma.circleJoinRequest.update({
+          where: { id: existingRequest.id },
+          data: {
+            status: 'PENDING',
+            message: 'Yêu cầu tham gia qua mã mời',
+          },
+        });
+      } else {
+        await this.prisma.circleJoinRequest.create({
+          data: {
+            circleId: circle.id,
+            userId,
+            status: 'PENDING',
+            message: 'Yêu cầu tham gia qua mã mời',
+          },
+        });
+      }
+
+      return {
+        success: true,
+        statusCode: 202,
+        message: t.circle.joinRequestSent,
+        data: {
+          id: circle.id,
+          name: circle.name,
+          handle: circle.handle,
+          avatarUrl: circle.avatarUrl,
+          coverUrl: circle.coverUrl,
+          description: circle.description,
+          inviteCode: circle.inviteCode,
+          isPrivate: circle.isPrivate,
+          createdAt: circle.createdAt,
+          updatedAt: circle.updatedAt,
+          isPending: true,
+        },
+      };
+    }
+
+    // Public circle: instant join
     await this.prisma.circleMember.create({
       data: {
         circleId: circle.id,

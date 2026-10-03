@@ -2608,3 +2608,51 @@
 - **Commit:** `fa1ba3f`
 - **PR:** #66 (https://github.com/1440isme/Circle/pull/66)
 
+---
+
+## AI-0063: Nâng cấp Trải nghiệm Cài đặt Vòng tròn — Modal Popup Xác nhận, Báo cáo Vi phạm Tùy chỉnh, Nhập Số lượng Thành viên và Kiểm soát Phê duyệt Vòng tròn Riêng tư
+
+- **Date:** 2026-10-01 16:00:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #67 ([FEAT]: Circle Settings Enhancements — Modal Popups, Custom Capacity & Private Circle Approval Flow)
+- **Purpose:** Triển khai nâng cấp toàn diện các tính năng trong Cài đặt Vòng tròn (`CircleManagementModal`) và luồng kiểm soát gia nhập Vòng tròn (`joinByInviteCode`):
+  1. **Modal Popup Xác nhận Căn giữa Màn hình (Center Overlay Modal Dialogs):**
+     - Thay thế toàn bộ các thông báo xác nhận inline cuộn chìm bên dưới bằng các Modal Popup căn giữa nổi bật trên nền mờ tối (`fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in`).
+     - Áp dụng cho 3 hành động quan trọng: **Rời khỏi Vòng tròn (Leave Circle)**, **Xóa thành viên (Kick Member)** kèm hiển thị thông tin thành viên bị xóa, và **Chuyển quyền sở hữu (Transfer Ownership)** kèm cảnh báo rủi ro không thể hoàn tác.
+  2. **Báo cáo vi phạm Vòng tròn (Report Circle) với Lý do "Khác":**
+     - Thêm tùy chọn "Lý do khác" trong danh sách lý do báo cáo.
+     - Tự động mở khung văn bản `<textarea>` cho phép người dùng nhập chi tiết lý do báo cáo kèm cơ chế kiểm tra tính hợp lệ bắt buộc (validation) trước khi gửi.
+  3. **Thiết lập Vòng tròn — Tùy chỉnh Nhập Số lượng Thành viên Tối đa (`maxMembers`):**
+     - Chuyển đổi từ dropdown `<select>` cố định sang trường nhập số trực tiếp (`<input type="number">`), hỗ trợ nhập bất kỳ giới hạn nào từ 2 đến 10,000 thành viên (hoặc để trống cho không giới hạn).
+     - Bổ sung thanh nút chọn nhanh (Quick Preset Pills: Không giới hạn, 5, 10, 20, 50, 100, 500) giúp thao tác nhanh chóng và tiện lợi.
+  4. **Kiểm soát Gia nhập Vòng tròn Riêng tư (Private Circle Join Approval Flow):**
+     - Cập nhật logic `joinByInviteCode` trong `CirclesService` của NestJS: Đối với Vòng tròn Riêng tư (`isPrivate: true`), việc nhập mã mời/liên kết mời sẽ **không** tự động thêm vào nhóm ngay, mà tạo bản ghi `CircleJoinRequest` với trạng thái `PENDING` (hoặc tái kích hoạt request cũ) và trả về `statusCode: 202 Accepted` kèm thông báo gửi yêu cầu thành công.
+     - Đối với Vòng tròn Công khai (`isPrivate: false`), người dùng vẫn được gia nhập ngay lập tức (`statusCode: 200 OK`).
+     - Cập nhật `JoinCircleModal` trên Web để hiển thị giao diện thông báo xác nhận yêu cầu tham gia Vòng tròn riêng tư đã gửi tới Trưởng nhóm.
+- **Files Affected:**
+  - `apps/backend/src/modules/circles/circles.service.ts`
+  - `apps/backend/src/modules/circles/circles.service.spec.ts`
+  - `apps/web/src/components/circle/CircleManagementModal.tsx`
+  - `apps/web/src/components/circle/JoinCircleModal.tsx`
+  - `apps/web/src/hooks/use-circle-queries.ts`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% logic kiểm tra private circle backend, unit tests, giao diện Modal popup, input nhập số lượng và từ điển đa ngôn ngữ.
+- **Human Modifications:** Trương Công Bình trực tiếp chỉ đạo yêu cầu chuyển confirmation thành popup nổi, bổ sung nhập lý do khác cho report, cho phép nhập số thành viên tùy ý và siết chặt luồng duyệt của nhóm private.
+- **Verification Method:**
+  - `npm test -w @circle/backend`: 85/85 unit tests pass 100% (bao gồm 39 tests của `circles.service.spec.ts`).
+  - `npm run build -w @circle/web`: Next.js 14 production build pass 100% (0 errors).
+  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: TypeScript typecheck pass 100% (0 errors).
+  - `bash ./scripts/check-agent-map.sh`: 93/93 files pass 100% (0 broken links).
+- **Official Source Checked:** `PROJECT_GOD.md` (Module 3, 10 Hard Gates), SRS UC04, UC05, UC07, `docs/design.md`.
+- **Security & License Check:** Phân quyền và bảo mật chặt chẽ: kiểm tra `isPrivate`, giới hạn `maxMembers`, bảo vệ quyền Owner. Không lưu trữ thông tin nhạy cảm.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A
+  - **Resolution / Fix:** N/A
+- **Commit:** Pending
+- **PR:** #67 (https://github.com/1440isme/Circle/pull/67)
+

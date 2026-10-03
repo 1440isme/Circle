@@ -104,6 +104,8 @@ export const CircleManagementModal: React.FC = () => {
   const [notificationMute, setNotificationMute] = useState<string>('all');
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [reportReason, setReportReason] = useState('spam');
+  const [customReportText, setCustomReportText] = useState('');
+  const [reportFieldError, setReportFieldError] = useState<string | null>(null);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
 
   // Group Settings Form state
@@ -125,6 +127,8 @@ export const CircleManagementModal: React.FC = () => {
       setSelectedFriendIds([]);
       setFriendSearch('');
       setIsReportOpen(false);
+      setCustomReportText('');
+      setReportFieldError(null);
       setIsHelpOpen(false);
       setFormName(activeCircle.name || '');
       setFormDesc(activeCircle.description || '');
@@ -184,6 +188,9 @@ export const CircleManagementModal: React.FC = () => {
   const reviewRequestMutation = useReviewJoinRequestMutation(circleId);
   const updateNicknameMutation = useUpdateMemberNicknameMutation(circleId);
   const addMembersMutation = useAddCircleMembersMutation(circleId);
+
+  const kickingMember = members.find((m) => m.id === confirmKickMemberId);
+  const transferringMember = members.find((m) => m.id === confirmTransferMemberId);
 
   if (!isManageModalOpen || !activeCircle) return null;
 
@@ -376,7 +383,13 @@ export const CircleManagementModal: React.FC = () => {
 
   const handleSubmitReport = (e: React.FormEvent) => {
     e.preventDefault();
+    setReportFieldError(null);
+    if (reportReason === 'other' && !customReportText.trim()) {
+      setReportFieldError(t.circle.reportReasonOtherRequired);
+      return;
+    }
     setIsReportOpen(false);
+    setCustomReportText('');
     setSuccessMessage(t.circle.reportSubmittedSuccess);
     setTimeout(() => setSuccessMessage(null), 4000);
   };
@@ -922,51 +935,6 @@ export const CircleManagementModal: React.FC = () => {
                     })}
                   </div>
                 )}
-
-                {/* Confirmation Alerts */}
-                {confirmKickMemberId && (
-                  <div className="p-4 rounded-2xl border border-red-200 dark:border-red-900/50 bg-red-50/50 dark:bg-red-950/30 space-y-3">
-                    <p className="text-xs font-medium text-red-800 dark:text-red-300">
-                      {t.circle.kickMemberConfirm}
-                    </p>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleKickMember(confirmKickMemberId)}
-                        className="px-4 py-1.5 rounded-full bg-red-600 text-white text-xs font-bold hover:bg-red-700 transition-colors"
-                      >
-                        {t.circle.kickMember}
-                      </button>
-                      <button
-                        onClick={() => setConfirmKickMemberId(null)}
-                        className="px-4 py-1.5 rounded-full border border-circle-hairline dark:border-circle-dark-hairline text-xs font-medium text-circle-slate hover:bg-white dark:hover:bg-circle-dark-surface transition-colors"
-                      >
-                        {t.common.cancel}
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {confirmTransferMemberId && (
-                  <div className="p-4 rounded-2xl border border-amber-200 dark:border-amber-900/50 bg-amber-50/50 dark:bg-amber-950/30 space-y-3">
-                    <p className="text-xs font-medium text-amber-800 dark:text-amber-300">
-                      {t.circle.transferOwnershipConfirm}
-                    </p>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleTransferOwnership(confirmTransferMemberId)}
-                        className="px-4 py-1.5 rounded-full bg-amber-600 text-white text-xs font-bold hover:bg-amber-700 transition-colors"
-                      >
-                        {t.circle.transferOwnership}
-                      </button>
-                      <button
-                        onClick={() => setConfirmTransferMemberId(null)}
-                        className="px-4 py-1.5 rounded-full border border-circle-hairline dark:border-circle-dark-hairline text-xs font-medium text-circle-slate hover:bg-white dark:hover:bg-circle-dark-surface transition-colors"
-                      >
-                        {t.common.cancel}
-                      </button>
-                    </div>
-                  </div>
-                )}
               </div>
             )}
 
@@ -1118,12 +1086,13 @@ export const CircleManagementModal: React.FC = () => {
                       <h5 className="text-xs font-bold text-amber-900 dark:text-amber-300">
                         Chọn lý do báo cáo Vòng tròn này:
                       </h5>
-                      <div className="space-y-1.5">
+                      <div className="space-y-2">
                         {[
-                          { key: 'harassment', label: 'Nội dung quấy rối, công kích cá nhân hoặc bạo lực' },
-                          { key: 'spam', label: 'Tin nhắn rác, quảng cáo không mong muốn hoặc lừa đảo' },
-                          { key: 'inappropriate', label: 'Nội dung người lớn hoặc vi phạm pháp luật' },
-                          { key: 'impersonation', label: 'Mạo danh cá nhân, tổ chức khác' },
+                          { key: 'harassment', label: t.circle.reportReasonHarassment },
+                          { key: 'spam', label: t.circle.reportReasonSpam },
+                          { key: 'inappropriate', label: t.circle.reportReasonInappropriate },
+                          { key: 'impersonation', label: t.circle.reportReasonImpersonation },
+                          { key: 'other', label: t.circle.reportReasonOther },
                         ].map((reason) => (
                           <label key={reason.key} className="flex items-center gap-2 text-xs text-circle-charcoal dark:text-circle-dark-text cursor-pointer">
                             <input
@@ -1131,24 +1100,53 @@ export const CircleManagementModal: React.FC = () => {
                               name="reportReason"
                               value={reason.key}
                               checked={reportReason === reason.key}
-                              onChange={(e) => setReportReason(e.target.value)}
+                              onChange={(e) => {
+                                setReportReason(e.target.value);
+                                if (reportFieldError) setReportFieldError(null);
+                              }}
                               className="text-circle-primary focus:ring-circle-primary"
                             />
                             <span>{reason.label}</span>
                           </label>
                         ))}
                       </div>
+
+                      {/* Textarea for "Khác" option */}
+                      {reportReason === 'other' && (
+                        <div className="space-y-1 pt-1">
+                          <textarea
+                            value={customReportText}
+                            onChange={(e) => {
+                              setCustomReportText(e.target.value);
+                              if (reportFieldError) setReportFieldError(null);
+                            }}
+                            rows={3}
+                            placeholder={t.circle.reportReasonOtherPlaceholder}
+                            className="w-full rounded-xl border border-amber-300 dark:border-amber-800 bg-white dark:bg-circle-dark-surface p-2.5 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-none focus:ring-1 focus:ring-amber-500 resize-none"
+                          />
+                          {reportFieldError && (
+                            <p className="text-[11px] text-rose-600 dark:text-rose-400 font-medium">
+                              {reportFieldError}
+                            </p>
+                          )}
+                        </div>
+                      )}
+
                       <div className="flex justify-end gap-2 pt-1">
                         <button
                           type="button"
-                          onClick={() => setIsReportOpen(false)}
-                          className="px-3 py-1 rounded-lg border border-circle-hairline dark:border-circle-dark-hairline text-xs font-medium text-circle-slate"
+                          onClick={() => {
+                            setIsReportOpen(false);
+                            setCustomReportText('');
+                            setReportFieldError(null);
+                          }}
+                          className="px-3 py-1 rounded-lg border border-circle-hairline dark:border-circle-dark-hairline text-xs font-medium text-circle-slate hover:bg-white dark:hover:bg-circle-dark-surface"
                         >
                           {t.common.cancel}
                         </button>
                         <button
                           type="submit"
-                          className="px-3.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-all"
+                          className="px-3.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-all shadow-sm"
                         >
                           Gửi báo cáo
                         </button>
@@ -1214,33 +1212,6 @@ export const CircleManagementModal: React.FC = () => {
                     </button>
                   </div>
                 </div>
-
-                {/* Confirmation Leave Alert in Tab 3 */}
-                {confirmLeave && (
-                  <div className="p-4 rounded-2xl border border-red-200 dark:border-red-900/50 bg-red-50/50 dark:bg-red-950/30 space-y-3 animate-fade-in">
-                    <p className="text-xs font-medium text-red-800 dark:text-red-300">
-                      {isOwner && members.length > 1
-                        ? t.circle.ownerCannotLeaveMustTransfer
-                        : t.circle.leaveCircleConfirm}
-                    </p>
-                    <div className="flex gap-2">
-                      {(!isOwner || members.length <= 1) && (
-                        <button
-                          onClick={handleLeaveCircle}
-                          className="px-4 py-1.5 rounded-full bg-red-600 text-white text-xs font-bold hover:bg-red-700 transition-colors"
-                        >
-                          {t.circle.leaveCircle}
-                        </button>
-                      )}
-                      <button
-                        onClick={() => setConfirmLeave(false)}
-                        className="px-4 py-1.5 rounded-full border border-circle-hairline dark:border-circle-dark-hairline text-xs font-medium text-circle-slate hover:bg-white dark:hover:bg-circle-dark-surface transition-colors"
-                      >
-                        {t.common.cancel}
-                      </button>
-                    </div>
-                  </div>
-                )}
               </div>
             )}
 
@@ -1326,19 +1297,49 @@ export const CircleManagementModal: React.FC = () => {
                           .replace('{max}', formMaxMembers ? String(formMaxMembers) : t.circle.maxMembersUnlimited)}
                       </span>
                     </label>
-                    <select
-                      value={formMaxMembers ?? ''}
-                      onChange={(e) => setFormMaxMembers(e.target.value ? Number(e.target.value) : null)}
-                      disabled={!isOwner}
-                      className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface px-3.5 py-2.5 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-none focus:ring-1 focus:ring-circle-primary disabled:opacity-60"
-                    >
-                      <option value="">{t.circle.maxMembersUnlimited}</option>
-                      <option value="5">5 {t.circle.settingsTabMembers.toLowerCase()}</option>
-                      <option value="10">10 {t.circle.settingsTabMembers.toLowerCase()}</option>
-                      <option value="20">20 {t.circle.settingsTabMembers.toLowerCase()}</option>
-                      <option value="50">50 {t.circle.settingsTabMembers.toLowerCase()}</option>
-                      <option value="100">100 {t.circle.settingsTabMembers.toLowerCase()}</option>
-                    </select>
+                    <div className="space-y-2">
+                      <input
+                        type="number"
+                        min={2}
+                        max={10000}
+                        value={formMaxMembers ?? ''}
+                        onChange={(e) => {
+                          const val = e.target.value.trim();
+                          setFormMaxMembers(val ? Math.max(2, parseInt(val, 10)) : null);
+                        }}
+                        disabled={!isOwner}
+                        placeholder={t.circle.maxMembersPlaceholder}
+                        className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface px-3.5 py-2.5 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-none focus:ring-1 focus:ring-circle-primary disabled:opacity-60"
+                      />
+                      <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                        {[
+                          { label: t.circle.maxMembersUnlimited, value: null },
+                          { label: '5', value: 5 },
+                          { label: '10', value: 10 },
+                          { label: '20', value: 20 },
+                          { label: '50', value: 50 },
+                          { label: '100', value: 100 },
+                          { label: '500', value: 500 },
+                        ].map((preset) => (
+                          <button
+                            key={String(preset.value)}
+                            type="button"
+                            disabled={!isOwner}
+                            onClick={() => setFormMaxMembers(preset.value)}
+                            className={`px-2.5 py-1 rounded-lg text-[11px] font-medium border transition-all ${
+                              formMaxMembers === preset.value
+                                ? 'border-circle-primary bg-circle-primary/15 text-circle-charcoal dark:text-circle-primary font-bold shadow-xs'
+                                : 'border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface text-circle-slate hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas'
+                            }`}
+                          >
+                            {preset.label}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-[10px] text-circle-slate dark:text-circle-dark-muted">
+                        {t.circle.maxMembersCustomHint}
+                      </p>
+                    </div>
                   </div>
 
                   {isOwner && (
@@ -1495,6 +1496,170 @@ export const CircleManagementModal: React.FC = () => {
           </div>
         </main>
       </div>
+
+      {/* =========================================================================
+          MODAL XÁC NHẬN RỜI VÒNG TRÒN (LEAVE CIRCLE POPUP DIALOG)
+         ========================================================================= */}
+      {confirmLeave && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div
+            className="w-full max-w-sm rounded-3xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-6 shadow-2xl space-y-4 animate-scale-in"
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 mx-auto">
+              <LogOut className="h-6 w-6" />
+            </div>
+            <div className="text-center space-y-1.5">
+              <h3 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
+                {t.circle.confirmLeaveTitle}
+              </h3>
+              <p className="text-xs text-circle-slate dark:text-circle-dark-muted leading-relaxed">
+                {isOwner && members.length > 1
+                  ? t.circle.ownerCannotLeaveMustTransfer
+                  : t.circle.confirmLeaveWarning}
+              </p>
+            </div>
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setConfirmLeave(false)}
+                className="flex-1 rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline py-2.5 text-xs font-semibold text-circle-slate dark:text-circle-dark-muted hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas transition-colors"
+              >
+                {t.common.cancel}
+              </button>
+              {(!isOwner || members.length <= 1) && (
+                <button
+                  type="button"
+                  onClick={handleLeaveCircle}
+                  disabled={leaveMutation.isPending}
+                  className="flex-1 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white py-2.5 text-xs font-bold transition-colors shadow-sm disabled:opacity-50"
+                >
+                  {leaveMutation.isPending ? t.circle.savingChanges : t.circle.leaveCircle}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          MODAL XÁC NHẬN XÓA THÀNH VIÊN (KICK MEMBER POPUP DIALOG)
+         ========================================================================= */}
+      {confirmKickMemberId && kickingMember && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div
+            className="w-full max-w-sm rounded-3xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-6 shadow-2xl space-y-4 animate-scale-in"
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 mx-auto">
+              <UserX className="h-6 w-6" />
+            </div>
+            <div className="text-center space-y-1.5">
+              <h3 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
+                {t.circle.confirmKickTitle}
+              </h3>
+              <p className="text-xs text-circle-slate dark:text-circle-dark-muted leading-relaxed">
+                {t.circle.confirmKickWarning}
+              </p>
+              <div className="mt-3 p-3 rounded-2xl bg-circle-canvas/60 dark:bg-circle-dark-canvas/60 border border-circle-hairline dark:border-circle-dark-hairline flex items-center gap-2.5 text-left">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-circle-charcoal text-white text-xs font-bold overflow-hidden">
+                  {kickingMember.user?.profile?.avatarUrl ? (
+                    <img src={kickingMember.user.profile.avatarUrl} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    getInitials(kickingMember.nickname || kickingMember.user?.profile?.displayName || kickingMember.user?.email || 'M')
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text truncate">
+                    {kickingMember.nickname || kickingMember.user?.profile?.displayName || kickingMember.user?.email}
+                  </p>
+                  <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted truncate">
+                    {kickingMember.user?.email}
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setConfirmKickMemberId(null)}
+                className="flex-1 rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline py-2.5 text-xs font-semibold text-circle-slate dark:text-circle-dark-muted hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas transition-colors"
+              >
+                {t.common.cancel}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleKickMember(confirmKickMemberId)}
+                disabled={removeMemberMutation.isPending}
+                className="flex-1 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white py-2.5 text-xs font-bold transition-colors shadow-sm disabled:opacity-50"
+              >
+                {removeMemberMutation.isPending ? t.circle.savingChanges : t.circle.kickMember}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          MODAL XÁC NHẬN CHUYỂN QUYỀN SỞ HỮU (TRANSFER OWNERSHIP POPUP DIALOG)
+         ========================================================================= */}
+      {confirmTransferMemberId && transferringMember && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div
+            className="w-full max-w-sm rounded-3xl border border-amber-200 dark:border-amber-900/50 bg-white dark:bg-circle-dark-surface p-6 shadow-2xl space-y-4 animate-scale-in"
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 mx-auto">
+              <Crown className="h-6 w-6" />
+            </div>
+            <div className="text-center space-y-1.5">
+              <h3 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
+                {t.circle.confirmTransferTitle}
+              </h3>
+              <p className="text-xs text-circle-slate dark:text-circle-dark-muted leading-relaxed">
+                {t.circle.confirmTransferWarning}
+              </p>
+              <div className="mt-3 p-3 rounded-2xl bg-circle-canvas/60 dark:bg-circle-dark-canvas/60 border border-circle-hairline dark:border-circle-dark-hairline flex items-center gap-2.5 text-left">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-500 text-white text-xs font-bold overflow-hidden">
+                  {transferringMember.user?.profile?.avatarUrl ? (
+                    <img src={transferringMember.user.profile.avatarUrl} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    getInitials(transferringMember.nickname || transferringMember.user?.profile?.displayName || transferringMember.user?.email || 'M')
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text truncate">
+                    {transferringMember.nickname || transferringMember.user?.profile?.displayName || transferringMember.user?.email}
+                  </p>
+                  <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted truncate">
+                    {transferringMember.user?.email}
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setConfirmTransferMemberId(null)}
+                className="flex-1 rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline py-2.5 text-xs font-semibold text-circle-slate dark:text-circle-dark-muted hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas transition-colors"
+              >
+                {t.common.cancel}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleTransferOwnership(confirmTransferMemberId)}
+                disabled={transferOwnershipMutation.isPending}
+                className="flex-1 rounded-2xl bg-amber-600 hover:bg-amber-700 text-white py-2.5 text-xs font-bold transition-colors shadow-sm disabled:opacity-50"
+              >
+                {transferOwnershipMutation.isPending ? t.circle.savingChanges : t.circle.transferOwnership}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
