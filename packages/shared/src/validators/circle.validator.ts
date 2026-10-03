@@ -29,20 +29,9 @@ export function createCircleSchemas(locale: Locale = 'vi') {
         .optional()
         .or(z.literal('')),
       memberIds: z.array(z.string()).optional(),
-      description: z
-        .string()
-        .trim()
-        .max(255, v.circleDescMaxLength)
-        .optional()
-        .or(z.literal('')),
       avatarUrl: z
         .string()
         .url(v.circleAvatarInvalid)
-        .optional()
-        .or(z.literal('')),
-      coverUrl: z
-        .string()
-        .url(v.circleCoverInvalid)
         .optional()
         .or(z.literal('')),
       isPrivate: z.boolean().optional(),
@@ -79,20 +68,9 @@ export function createCircleSchemas(locale: Locale = 'vi') {
       .min(2, v.circleNameMinLength)
       .max(50, v.circleNameMaxLength)
       .optional(),
-    description: z
-      .string()
-      .trim()
-      .max(255, v.circleDescMaxLength)
-      .optional()
-      .or(z.literal('')),
     avatarUrl: z
       .string()
       .url(v.circleAvatarInvalid)
-      .optional()
-      .or(z.literal('')),
-    coverUrl: z
-      .string()
-      .url(v.circleCoverInvalid)
       .optional()
       .or(z.literal('')),
     isPrivate: z.boolean().optional(),

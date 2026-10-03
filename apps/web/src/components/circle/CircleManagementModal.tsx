@@ -5,7 +5,6 @@ import {
   X,
   MessageSquare,
   Users,
-  ShieldCheck,
   UserX,
   LogOut,
   Crown,
@@ -13,10 +12,8 @@ import {
   Check,
   AlertTriangle,
   Image,
-  Lock,
-  Globe,
   Save,
-  Link,
+  Link as LinkIcon,
   Share2,
   Pencil,
   Sliders,
@@ -31,6 +28,7 @@ import {
   CheckSquare,
   Square,
   ChevronRight,
+  UserCheck,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useLanguageStore } from '@/stores/language.store';
@@ -56,6 +54,7 @@ function getInitials(name: string): string {
 }
 
 type TabType = 'chatInfo' | 'members' | 'privacySupport' | 'circleSettings';
+type MembersSubTab = 'roster' | 'requests';
 
 export const CircleManagementModal: React.FC = () => {
   const { user } = useAuth();
@@ -67,13 +66,12 @@ export const CircleManagementModal: React.FC = () => {
 
   // Normalize initial tab
   const getInitialTab = (): TabType => {
-    if (manageActiveTab === 'members') return 'members';
+    if (manageActiveTab === 'members' || manageActiveTab === 'requests') return 'members';
     if (manageActiveTab === 'privacySupport') return 'privacySupport';
     if (
       manageActiveTab === 'circleSettings' ||
       manageActiveTab === 'settings' ||
-      manageActiveTab === 'invites' ||
-      manageActiveTab === 'requests'
+      manageActiveTab === 'invites'
     ) {
       return 'circleSettings';
     }
@@ -81,6 +79,7 @@ export const CircleManagementModal: React.FC = () => {
   };
 
   const [activeTab, setActiveTab] = useState<TabType>('chatInfo');
+  const [membersSubTab, setMembersSubTab] = useState<MembersSubTab>('roster');
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [copiedLink, setCopiedLink] = useState<boolean>(false);
   const [sharedDone, setSharedDone] = useState<boolean>(false);
@@ -108,11 +107,9 @@ export const CircleManagementModal: React.FC = () => {
   const [reportFieldError, setReportFieldError] = useState<string | null>(null);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
 
-  // Group Settings Form state
+  // Group Settings Form state (Cleaned: No cover, No description)
   const [formName, setFormName] = useState('');
-  const [formDesc, setFormDesc] = useState('');
   const [formAvatar, setFormAvatar] = useState('');
-  const [formCover, setFormCover] = useState('');
   const [formIsPrivate, setFormIsPrivate] = useState(false);
   const [formMaxMembers, setFormMaxMembers] = useState<number | null>(null);
 
@@ -120,6 +117,11 @@ export const CircleManagementModal: React.FC = () => {
   useEffect(() => {
     if (isManageModalOpen && activeCircle) {
       setActiveTab(getInitialTab());
+      if (manageActiveTab === 'requests') {
+        setMembersSubTab('requests');
+      } else {
+        setMembersSubTab('roster');
+      }
       setErrorMessage(null);
       setSuccessMessage(null);
       setEditingMemberId(null);
@@ -131,9 +133,7 @@ export const CircleManagementModal: React.FC = () => {
       setReportFieldError(null);
       setIsHelpOpen(false);
       setFormName(activeCircle.name || '');
-      setFormDesc(activeCircle.description || '');
       setFormAvatar(activeCircle.avatarUrl || '');
-      setFormCover(activeCircle.coverUrl || '');
       setFormIsPrivate(Boolean(activeCircle.isPrivate));
       setFormMaxMembers(activeCircle.maxMembers ?? null);
 
@@ -178,21 +178,17 @@ export const CircleManagementModal: React.FC = () => {
   const currentInviteCode = activeCircle?.inviteCode || '';
   const inviteLink =
     typeof window !== 'undefined'
-      ? `${window.location.origin}/join?code=${currentInviteCode}`
-      : `https://circle.app/join?code=${currentInviteCode}`;
+      ? `${window.location.origin}/join/${currentInviteCode}`
+      : `https://circle.app/join/${currentInviteCode}`;
 
+  // Mutations
   const updateCircleMutation = useUpdateCircleMutation(circleId);
   const removeMemberMutation = useRemoveMemberMutation(circleId);
-  const leaveMutation = useLeaveCircleMutation(circleId);
+  const leaveCircleMutation = useLeaveCircleMutation(circleId);
   const transferOwnershipMutation = useTransferOwnershipMutation(circleId);
   const reviewRequestMutation = useReviewJoinRequestMutation(circleId);
   const updateNicknameMutation = useUpdateMemberNicknameMutation(circleId);
   const addMembersMutation = useAddCircleMembersMutation(circleId);
-
-  const kickingMember = members.find((m) => m.id === confirmKickMemberId);
-  const transferringMember = members.find((m) => m.id === confirmTransferMemberId);
-
-  if (!isManageModalOpen || !activeCircle) return null;
 
   const handleCopyCode = (code: string) => {
     navigator.clipboard.writeText(code);
@@ -207,7 +203,7 @@ export const CircleManagementModal: React.FC = () => {
   };
 
   const handleShare = async () => {
-    if (typeof navigator !== 'undefined' && navigator.share) {
+    if (typeof navigator !== 'undefined' && navigator.share && activeCircle) {
       try {
         await navigator.share({
           title: `CIRCLE - ${activeCircle.name}`,
@@ -224,7 +220,7 @@ export const CircleManagementModal: React.FC = () => {
     handleCopyLink();
   };
 
-  // Tab 1: Save Chat Information (Name, Avatar, Cover, Description) — NO privacy or max members!
+  // Tab 1: Save Chat Information (Name, Avatar) — Profile style
   const handleSaveChatInfo = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
@@ -238,9 +234,7 @@ export const CircleManagementModal: React.FC = () => {
     try {
       await updateCircleMutation.mutateAsync({
         name: formName.trim(),
-        description: formDesc.trim() || undefined,
         avatarUrl: formAvatar.trim() || undefined,
-        coverUrl: formCover.trim() || undefined,
       });
       setSuccessMessage(t.circle.savedSuccess);
       setTimeout(() => setSuccessMessage(null), 3000);
@@ -250,8 +244,8 @@ export const CircleManagementModal: React.FC = () => {
   };
 
   // Tab 4: Save Circle-Level Settings (isPrivate, maxMembers)
-  const handleSaveCircleSettings = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSaveCircleSettings = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     setErrorMessage(null);
     setSuccessMessage(null);
 
@@ -308,8 +302,9 @@ export const CircleManagementModal: React.FC = () => {
     setErrorMessage(null);
     try {
       await addMembersMutation.mutateAsync(selectedFriendIds);
-      setSelectedFriendIds([]);
       setIsAddMemberOpen(false);
+      setSelectedFriendIds([]);
+      setFriendSearch('');
       setSuccessMessage(t.circle.addMembersSuccess);
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err: any) {
@@ -317,22 +312,12 @@ export const CircleManagementModal: React.FC = () => {
     }
   };
 
+  // Tab 2: Member Management Actions
   const handleKickMember = async (memberId: string) => {
     setErrorMessage(null);
     try {
       await removeMemberMutation.mutateAsync(memberId);
       setConfirmKickMemberId(null);
-    } catch (err: any) {
-      setErrorMessage(err.message || t.circle.createError);
-    }
-  };
-
-  const handleLeaveCircle = async () => {
-    setErrorMessage(null);
-    try {
-      await leaveMutation.mutateAsync();
-      setConfirmLeave(false);
-      setManageModalOpen(false);
     } catch (err: any) {
       setErrorMessage(err.message || t.circle.createError);
     }
@@ -348,6 +333,17 @@ export const CircleManagementModal: React.FC = () => {
     }
   };
 
+  const handleLeaveCircle = async () => {
+    setErrorMessage(null);
+    try {
+      await leaveCircleMutation.mutateAsync();
+      setConfirmLeave(false);
+      setManageModalOpen(false);
+    } catch (err: any) {
+      setErrorMessage(err.message || t.circle.createError);
+    }
+  };
+
   const handleReviewRequest = async (requestId: string, status: 'APPROVED' | 'REJECTED') => {
     setErrorMessage(null);
     try {
@@ -357,28 +353,24 @@ export const CircleManagementModal: React.FC = () => {
     }
   };
 
-  // Tab 3: Personal Settings Handlers
+  // Tab 3: Personal Settings Handlers (Silent update, no success toast)
   const handleToggleReadReceipts = () => {
     const next = !readReceipts;
     setReadReceipts(next);
     try {
-      localStorage.setItem(`circle_${activeCircle.id}_read_receipts`, String(next));
+      localStorage.setItem(`circle_${circleId}_read_receipts`, String(next));
     } catch {
       // Ignore
     }
-    setSuccessMessage(t.circle.savedSuccess);
-    setTimeout(() => setSuccessMessage(null), 2000);
   };
 
   const handleChangeNotificationMute = (value: string) => {
     setNotificationMute(value);
     try {
-      localStorage.setItem(`circle_${activeCircle.id}_notification_mute`, value);
+      localStorage.setItem(`circle_${circleId}_notification_mute`, value);
     } catch {
       // Ignore
     }
-    setSuccessMessage(t.circle.savedSuccess);
-    setTimeout(() => setSuccessMessage(null), 2000);
   };
 
   const handleSubmitReport = (e: React.FormEvent) => {
@@ -394,6 +386,8 @@ export const CircleManagementModal: React.FC = () => {
     setTimeout(() => setSuccessMessage(null), 4000);
   };
 
+  if (!isManageModalOpen || !activeCircle) return null;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-circle-charcoal/60 dark:bg-black/75 backdrop-blur-sm animate-fade-in">
       {/* Khung cố định (Fixed Dimensions Window) */}
@@ -401,7 +395,6 @@ export const CircleManagementModal: React.FC = () => {
         
         {/* =========================================================================
             CỘT TRÁI CỐ ĐỊNH (FIXED LEFT NAVIGATION FRAME)
-            Giữ nguyên vị trí cố định khi chuyển qua các tab khác
            ========================================================================= */}
         <aside className="w-full md:w-64 shrink-0 flex flex-col justify-between border-b md:border-b-0 md:border-r border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas/60 p-5">
           <div className="space-y-5">
@@ -460,18 +453,19 @@ export const CircleManagementModal: React.FC = () => {
                   <Users className="h-4 w-4 shrink-0" />
                   <span className="truncate">{t.circle.settingsTabMembers}</span>
                 </div>
-                <span
-                  className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                    activeTab === 'members'
-                      ? 'bg-circle-charcoal text-white'
-                      : 'bg-circle-canvas dark:bg-circle-dark-canvas text-circle-slate'
-                  }`}
-                >
-                  {members.length}
-                </span>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className="rounded-full px-2 py-0.5 text-[10px] bg-circle-canvas dark:bg-circle-dark-canvas">
+                    {members.length}
+                  </span>
+                  {joinRequests.length > 0 && isOwner && (
+                    <span className="rounded-full px-1.5 py-0.2 text-[10px] bg-red-500 text-white font-bold animate-pulse">
+                      {joinRequests.length}
+                    </span>
+                  )}
+                </div>
               </button>
 
-              {/* Tab 3: Quyền riêng tư & Hỗ trợ (Dành cho cá nhân) */}
+              {/* Tab 3: Quyền riêng tư & Hỗ trợ */}
               <button
                 type="button"
                 onClick={() => {
@@ -484,11 +478,11 @@ export const CircleManagementModal: React.FC = () => {
                     : 'text-circle-slate dark:text-circle-dark-muted hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas hover:text-circle-charcoal dark:hover:text-circle-dark-text'
                 }`}
               >
-                <ShieldCheck className="h-4 w-4 shrink-0" />
+                <Eye className="h-4 w-4 shrink-0" />
                 <span className="truncate">{t.circle.privacyAndSupportTab}</span>
               </button>
 
-              {/* Tab 4: Thiết lập Vòng tròn (Dành cho nhóm) */}
+              {/* Tab 4: Thiết lập Vòng tròn */}
               <button
                 type="button"
                 onClick={() => {
@@ -505,11 +499,6 @@ export const CircleManagementModal: React.FC = () => {
                   <Sliders className="h-4 w-4 shrink-0" />
                   <span className="truncate">{t.circle.circleSettingsTab}</span>
                 </div>
-                {joinRequests.length > 0 && isOwner && (
-                  <span className="rounded-full px-1.5 py-0.2 text-[10px] bg-red-500 text-white font-bold animate-pulse">
-                    {joinRequests.length}
-                  </span>
-                )}
               </button>
             </nav>
           </div>
@@ -517,25 +506,16 @@ export const CircleManagementModal: React.FC = () => {
 
         {/* =========================================================================
             KHUNG NỘI DUNG BÊN PHẢI (RIGHT CONTENT PANE)
-            Chuyển đổi mượt mà giữa các tab mà không làm thay đổi kích thước khung cố định
            ========================================================================= */}
         <main className="flex-1 h-full flex flex-col overflow-hidden bg-white dark:bg-circle-dark-surface">
-          {/* Header Bar with Tab Title & Close Button */}
+          {/* Header Bar with Tab Title (No subtitles as requested) & Close Button */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-circle-hairline dark:border-circle-dark-hairline bg-white/80 dark:bg-circle-dark-surface/80 backdrop-blur-sm">
-            <div>
-              <h3 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
-                {activeTab === 'chatInfo' && t.circle.chatInfoTitle}
-                {activeTab === 'members' && t.circle.settingsTabMembers}
-                {activeTab === 'privacySupport' && t.circle.privacyAndSupportTitle}
-                {activeTab === 'circleSettings' && t.circle.circleSettingsTab}
-              </h3>
-              <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted">
-                {activeTab === 'chatInfo' && t.circle.chatInfoSubtitle}
-                {activeTab === 'members' && `${members.length} ${t.circle.settingsTabMembers.toLowerCase()}`}
-                {activeTab === 'privacySupport' && t.circle.personalPrivacyTitle}
-                {activeTab === 'circleSettings' && t.circle.circleSettingsSubtitle}
-              </p>
-            </div>
+            <h3 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
+              {activeTab === 'chatInfo' && t.circle.chatInfoTitle}
+              {activeTab === 'members' && t.circle.settingsTabMembers}
+              {activeTab === 'privacySupport' && t.circle.privacyAndSupportTitle}
+              {activeTab === 'circleSettings' && t.circle.circleSettingsTab}
+            </h3>
             <button
               onClick={() => setManageModalOpen(false)}
               className="p-2 rounded-full text-circle-slate hover:text-circle-charcoal dark:text-circle-dark-muted dark:hover:text-circle-dark-text hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas transition-colors"
@@ -561,82 +541,72 @@ export const CircleManagementModal: React.FC = () => {
           {/* Tab Content Container */}
           <div className="flex-1 overflow-y-auto p-6 space-y-6">
             {/* =========================================================================
-                TAB 1: THÔNG TIN ĐOẠN CHAT (CHAT INFORMATION)
-                Đã loại bỏ hoàn toàn chế độ và số lượng thành viên ra khỏi tab này!
+                TAB 1: THÔNG TIN ĐOẠN CHAT (PROFILE STYLE: AVATAR & NAME)
                ========================================================================= */}
             {activeTab === 'chatInfo' && (
-              <form onSubmit={handleSaveChatInfo} className="space-y-5">
-                {/* Circle Name */}
-                <div>
-                  <label className="block text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text mb-1.5">
-                    {t.circle.nameLabel}
-                  </label>
-                  <input
-                    type="text"
-                    value={formName}
-                    onChange={(e) => setFormName(e.target.value)}
-                    disabled={!isOwner}
-                    placeholder={t.circle.namePlaceholder}
-                    className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas px-3.5 py-2.5 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-none focus:ring-1 focus:ring-circle-primary disabled:opacity-60"
-                  />
-                </div>
-
-                {/* Avatar URL */}
-                <div>
-                  <label className="block text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text mb-1.5 flex items-center gap-1.5">
-                    <Image className="h-3.5 w-3.5 text-circle-primary" />
-                    <span>{t.circle.avatarUrlLabel}</span>
-                  </label>
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-circle-canvas dark:bg-circle-dark-canvas border border-circle-hairline dark:border-circle-dark-hairline overflow-hidden">
+              <form onSubmit={handleSaveChatInfo} className="space-y-6">
+                {/* Profile Header Style Box */}
+                <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 p-5 rounded-2xl bg-circle-canvas/50 dark:bg-circle-dark-canvas/50 border border-circle-hairline dark:border-circle-dark-hairline">
+                  <div className="relative group">
+                    <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-circle-charcoal dark:bg-circle-primary text-white dark:text-circle-charcoal font-bold text-2xl uppercase overflow-hidden shadow-md ring-4 ring-white dark:ring-circle-dark-surface">
                       {formAvatar ? (
-                        <img src={formAvatar} alt="Avatar Preview" className="h-full w-full object-cover" />
+                        <img src={formAvatar} alt={formName || activeCircle.name} className="h-full w-full object-cover" />
                       ) : (
-                        <span className="text-xs font-bold text-circle-slate dark:text-circle-dark-muted">
-                          {formName ? formName.slice(0, 2).toUpperCase() : 'AV'}
-                        </span>
+                        (formName || activeCircle.name).slice(0, 2).toUpperCase()
                       )}
                     </div>
+                  </div>
+
+                  <div className="min-w-0 flex-1 text-center sm:text-left space-y-1">
+                    <h4 className="text-base font-bold text-circle-charcoal dark:text-circle-dark-text truncate">
+                      {formName || activeCircle.name}
+                    </h4>
+                    <p className="text-xs text-circle-slate dark:text-circle-dark-muted font-mono truncate">
+                      @{activeCircle.handle}
+                    </p>
+                    <div className="pt-1 flex items-center justify-center sm:justify-start gap-2 text-[11px] text-circle-slate dark:text-circle-dark-muted">
+                      <span className="inline-flex items-center gap-1 font-medium">
+                        <Users className="h-3 w-3 text-circle-primary" />
+                        {members.length} {t.circle.settingsTabMembers.toLowerCase()}
+                      </span>
+                      <span>•</span>
+                      <span>{formIsPrivate ? t.circle.privacyPrivate : t.circle.privacyPublic}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Edit Form */}
+                <div className="space-y-4">
+                  {/* Circle Name */}
+                  <div>
+                    <label className="block text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text mb-1.5">
+                      {t.circle.nameLabel}
+                    </label>
+                    <input
+                      type="text"
+                      value={formName}
+                      onChange={(e) => setFormName(e.target.value)}
+                      disabled={!isOwner}
+                      placeholder={t.circle.namePlaceholder}
+                      className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas px-3.5 py-2.5 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-none focus:ring-1 focus:ring-circle-primary disabled:opacity-60"
+                    />
+                  </div>
+
+                  {/* Avatar URL */}
+                  <div>
+                    <label className="block text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text mb-1.5 flex items-center gap-1.5">
+                      <Image className="h-3.5 w-3.5 text-circle-primary" />
+                      <span>{t.circle.avatarUrlLabel}</span>
+                    </label>
                     <input
                       type="url"
                       value={formAvatar}
                       onChange={(e) => setFormAvatar(e.target.value)}
                       disabled={!isOwner}
                       placeholder={t.circle.avatarUrlPlaceholder}
-                      className="flex-1 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas px-3.5 py-2.5 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-none focus:ring-1 focus:ring-circle-primary disabled:opacity-60"
+                      className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas px-3.5 py-2.5 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-none focus:ring-1 focus:ring-circle-primary disabled:opacity-60"
                     />
                   </div>
-                </div>
-
-                {/* Cover URL */}
-                <div>
-                  <label className="block text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text mb-1.5 flex items-center gap-1.5">
-                    <Image className="h-3.5 w-3.5 text-circle-primary" />
-                    <span>{t.circle.coverUrlLabel}</span>
-                  </label>
-                  <input
-                    type="url"
-                    value={formCover}
-                    onChange={(e) => setFormCover(e.target.value)}
-                    disabled={!isOwner}
-                    placeholder={t.circle.coverUrlPlaceholder}
-                    className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas px-3.5 py-2.5 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-none focus:ring-1 focus:ring-circle-primary disabled:opacity-60"
-                  />
-                </div>
-
-                {/* Description */}
-                <div>
-                  <label className="block text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text mb-1.5">
-                    {t.circle.descLabel}
-                  </label>
-                  <textarea
-                    value={formDesc}
-                    onChange={(e) => setFormDesc(e.target.value)}
-                    disabled={!isOwner}
-                    rows={3}
-                    placeholder={t.circle.descPlaceholder}
-                    className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas px-3.5 py-2.5 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-none focus:ring-1 focus:ring-circle-primary disabled:opacity-60 resize-none"
-                  />
                 </div>
 
                 {/* Submit Button (Owner only) */}
@@ -656,41 +626,66 @@ export const CircleManagementModal: React.FC = () => {
             )}
 
             {/* =========================================================================
-                TAB 2: THÀNH VIÊN (MEMBERS & NICKNAMES)
-                Có nút "Thêm thành viên" và nút đặt biệt danh (cây bút bên cạnh tên)
+                TAB 2: THÀNH VIÊN & YÊU CẦU THAM GIA (INTEGRATED SEGMENTED SLIDER)
                ========================================================================= */}
             {activeTab === 'members' && (
               <div className="space-y-4">
-                {/* Members Action Top Bar */}
-                <div className="flex items-center justify-between pb-3 border-b border-circle-hairline dark:border-circle-dark-hairline">
-                  <div className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
-                    {members.length} {t.circle.settingsTabMembers.toLowerCase()}
+                {/* Segmented SubTab Slider & Action Top Bar */}
+                <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-circle-hairline dark:border-circle-dark-hairline">
+                  {/* Segmented Toggle Pill */}
+                  <div className="flex items-center p-1 rounded-xl bg-circle-canvas dark:bg-circle-dark-canvas border border-circle-hairline dark:border-circle-dark-hairline">
+                    <button
+                      type="button"
+                      onClick={() => setMembersSubTab('roster')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                        membersSubTab === 'roster'
+                          ? 'bg-white dark:bg-circle-dark-surface text-circle-charcoal dark:text-circle-dark-text shadow-xs'
+                          : 'text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal'
+                      }`}
+                    >
+                      {t.circle.membersSubTab || 'Thành viên'} ({members.length})
+                    </button>
+                    {isOwner && (
+                      <button
+                        type="button"
+                        onClick={() => setMembersSubTab('requests')}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                          membersSubTab === 'requests'
+                            ? 'bg-white dark:bg-circle-dark-surface text-circle-charcoal dark:text-circle-dark-text shadow-xs'
+                            : 'text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal'
+                        }`}
+                      >
+                        <span>{t.circle.joinRequestsSubTab || 'Yêu cầu tham gia'}</span>
+                        {joinRequests.length > 0 && (
+                          <span className="rounded-full px-1.5 py-0.2 text-[10px] bg-red-500 text-white font-bold">
+                            {joinRequests.length}
+                          </span>
+                        )}
+                      </button>
+                    )}
                   </div>
 
-                  {/* Nút Thêm thành viên */}
-                  <button
-                    type="button"
-                    onClick={() => setIsAddMemberOpen(!isAddMemberOpen)}
-                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-circle-primary hover:bg-circle-primary/90 text-circle-charcoal text-xs font-bold transition-all shadow-sm"
-                  >
-                    <UserPlus className="h-3.5 w-3.5" />
-                    <span>{t.circle.addMemberBtn}</span>
-                  </button>
+                  {/* Nút Thêm thành viên (chỉ hiện khi xem danh sách thành viên) */}
+                  {membersSubTab === 'roster' && (
+                    <button
+                      type="button"
+                      onClick={() => setIsAddMemberOpen(!isAddMemberOpen)}
+                      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-circle-primary hover:bg-circle-primary/90 text-circle-charcoal text-xs font-bold transition-all shadow-sm"
+                    >
+                      <UserPlus className="h-3.5 w-3.5" />
+                      <span>{t.circle.addMemberBtn}</span>
+                    </button>
+                  )}
                 </div>
 
                 {/* Sub-panel: Thêm bạn bè vào Vòng tròn */}
-                {isAddMemberOpen && (
+                {membersSubTab === 'roster' && isAddMemberOpen && (
                   <div className="p-4 rounded-2xl border border-circle-primary/30 bg-circle-primary/5 dark:bg-circle-primary/10 space-y-3.5 animate-fade-in shadow-sm">
                     <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text flex items-center gap-1.5">
-                          <UserPlus className="h-3.5 w-3.5 text-circle-primary" />
-                          <span>{t.circle.addMembersTitle}</span>
-                        </h4>
-                        <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted mt-0.5">
-                          {t.circle.addMembersSubtitle}
-                        </p>
-                      </div>
+                      <h4 className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text flex items-center gap-1.5">
+                        <UserPlus className="h-3.5 w-3.5 text-circle-primary" />
+                        <span>{t.circle.addMembersTitle}</span>
+                      </h4>
                       <button
                         type="button"
                         onClick={() => setIsAddMemberOpen(false)}
@@ -707,7 +702,7 @@ export const CircleManagementModal: React.FC = () => {
                         type="text"
                         value={friendSearch}
                         onChange={(e) => setFriendSearch(e.target.value)}
-                        placeholder="Tìm bạn bè theo tên hoặc email..."
+                        placeholder="Tìm bạn bè..."
                         className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface pl-8 pr-3 py-2 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-none focus:ring-1 focus:ring-circle-primary"
                       />
                     </div>
@@ -755,14 +750,9 @@ export const CircleManagementModal: React.FC = () => {
                                     initials
                                   )}
                                 </div>
-                                <div className="min-w-0">
-                                  <p className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text truncate">
-                                    {f.displayName}
-                                  </p>
-                                  <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted truncate">
-                                    {f.email}
-                                  </p>
-                                </div>
+                                <p className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text truncate">
+                                  {f.displayName}
+                                </p>
                               </div>
                               <div className="text-circle-primary shrink-0 pl-2">
                                 {isSelected ? (
@@ -800,169 +790,198 @@ export const CircleManagementModal: React.FC = () => {
                   </div>
                 )}
 
-                {/* Member Roster List */}
-                {isLoadingMembers ? (
-                  <div className="p-8 text-center text-xs text-circle-slate dark:text-circle-dark-muted">
-                    {t.circle.loadingFriends}
-                  </div>
-                ) : (
-                  <div className="divide-y divide-circle-hairline dark:divide-circle-dark-hairline">
-                    {members.map((m) => {
-                      const isSelf = m.userId === user?.id;
-                      const realDisplayName = m.user?.profile?.displayName || m.user?.email?.split('@')[0] || t.auth.member;
-                      const hasNickname = Boolean(m.nickname && m.nickname.trim().length > 0);
-                      const displayTitle = hasNickname ? m.nickname : realDisplayName;
-                      const initials = getInitials(displayTitle || realDisplayName);
-                      const isEditingThis = editingMemberId === m.id;
+                {/* SubTab 1: Member Roster List (Bỏ email) */}
+                {membersSubTab === 'roster' && (
+                  isLoadingMembers ? (
+                    <div className="p-8 text-center text-xs text-circle-slate dark:text-circle-dark-muted">
+                      {t.circle.loadingFriends}
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-circle-hairline dark:divide-circle-dark-hairline">
+                      {members.map((m) => {
+                        const isSelf = m.userId === user?.id;
+                        const realDisplayName = m.user?.profile?.displayName || m.user?.email?.split('@')[0] || t.auth.member;
+                        const hasNickname = Boolean(m.nickname && m.nickname.trim().length > 0);
+                        const displayTitle = hasNickname ? m.nickname : realDisplayName;
+                        const initials = getInitials(displayTitle || realDisplayName);
+                        const isEditingThis = editingMemberId === m.id;
 
-                      return (
-                        <div key={m.id} className="py-3.5 flex flex-col gap-2">
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-3 min-w-0">
-                              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-circle-charcoal dark:bg-circle-primary text-white dark:text-circle-charcoal text-xs font-bold shadow-sm flex-shrink-0">
-                                {initials}
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                {isEditingThis ? (
-                                  <div className="flex items-center gap-1.5 flex-wrap py-0.5">
-                                    <input
-                                      type="text"
-                                      value={nicknameInput}
-                                      onChange={(e) => setNicknameInput(e.target.value)}
-                                      placeholder={realDisplayName}
-                                      maxLength={50}
-                                      autoFocus
-                                      onKeyDown={(e) => {
-                                        if (e.key === 'Enter') handleSaveNickname(m.id);
-                                        if (e.key === 'Escape') setEditingMemberId(null);
-                                      }}
-                                      className="rounded-lg border border-circle-primary bg-white dark:bg-circle-dark-canvas px-2.5 py-1 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-none focus:ring-1 focus:ring-circle-primary w-40 sm:w-52 shadow-sm"
-                                    />
-                                    <button
-                                      type="button"
-                                      disabled={updateNicknameMutation.isPending}
-                                      onClick={() => handleSaveNickname(m.id)}
-                                      title={t.circle.saveNickname}
-                                      className="p-1 rounded-md bg-circle-primary text-circle-charcoal hover:bg-circle-primary/90 transition-colors shadow-sm disabled:opacity-50"
-                                    >
-                                      <Check className="h-3.5 w-3.5" />
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => setEditingMemberId(null)}
-                                      title={t.common.cancel}
-                                      className="p-1 rounded-md border border-circle-hairline dark:border-circle-dark-hairline text-circle-slate hover:bg-circle-canvas transition-colors"
-                                    >
-                                      <X className="h-3.5 w-3.5" />
-                                    </button>
-                                  </div>
-                                ) : (
-                                  <div className="flex items-center gap-1.5 flex-wrap">
-                                    <h4 className="text-sm font-semibold text-circle-charcoal dark:text-circle-dark-text truncate">
-                                      {displayTitle}
-                                    </h4>
-                                    {isSelf && (
-                                      <span className="rounded-full px-2 py-0.2 text-[10px] font-medium bg-circle-canvas dark:bg-circle-dark-canvas text-circle-slate">
-                                        Bạn
-                                      </span>
-                                    )}
-                                    {/* Icon cây bút nhỏ (~14px, màu xám nhạt) đặt ngay cạnh tên hiển thị */}
-                                    <button
-                                      type="button"
-                                      onClick={() => handleStartEditNickname(m.id, m.nickname)}
-                                      title={t.circle.setNickname}
-                                      className="p-1 rounded-md text-circle-slate/60 hover:text-circle-charcoal dark:text-circle-dark-muted/60 dark:hover:text-circle-dark-text hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas transition-colors shrink-0"
-                                    >
-                                      <Pencil className="h-3.5 w-3.5" />
-                                    </button>
-                                  </div>
-                                )}
-                                {hasNickname ? (
-                                  <>
-                                    <p className="text-xs text-circle-slate dark:text-circle-dark-muted truncate mt-0.5">
-                                      {realDisplayName}
-                                    </p>
-                                    <p className="text-[11px] text-circle-slate/70 dark:text-circle-dark-muted/70 truncate">
-                                      {m.user?.email}
-                                    </p>
-                                  </>
-                                ) : (
-                                  <p className="text-xs text-circle-slate dark:text-circle-dark-muted truncate mt-0.5">
-                                    {m.user?.email}
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Role Badge & Actions */}
-                            <div className="flex items-center gap-2 flex-shrink-0">
-                              {/* Role Badge */}
-                              {m.role === MemberRole.OWNER ? (
-                                <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/50">
-                                  <Crown className="h-3 w-3 text-amber-600 dark:text-amber-400" />
-                                  <span>{t.circle.memberRoleOwner}</span>
-                                </span>
-                              ) : (
-                                <span className="rounded-full px-2.5 py-1 text-xs font-medium bg-circle-canvas dark:bg-circle-dark-canvas text-circle-slate dark:text-circle-dark-muted border border-circle-hairline dark:border-circle-dark-hairline">
-                                  {t.circle.memberRoleMember}
-                                </span>
-                              )}
-
-                              {/* OWNER Controls */}
-                              {isOwner && !isSelf && (
-                                <div className="flex items-center gap-1">
-                                  <button
-                                    onClick={() => setConfirmTransferMemberId(m.id)}
-                                    title={t.circle.transferOwnership}
-                                    className="p-1.5 rounded-lg border border-circle-hairline dark:border-circle-dark-hairline hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas text-amber-600 dark:text-amber-400 transition-colors"
-                                  >
-                                    <Crown className="h-4 w-4" />
-                                  </button>
-
-                                  <button
-                                    onClick={() => setConfirmKickMemberId(m.id)}
-                                    title={t.circle.kickMember}
-                                    className="p-1.5 rounded-lg border border-circle-hairline dark:border-circle-dark-hairline hover:bg-red-50 dark:hover:bg-red-950/40 text-red-500 transition-colors"
-                                  >
-                                    <UserX className="h-4 w-4" />
-                                  </button>
+                        return (
+                          <div key={m.id} className="py-3.5 flex flex-col gap-2">
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-circle-charcoal dark:bg-circle-primary text-white dark:text-circle-charcoal text-xs font-bold shadow-sm flex-shrink-0">
+                                  {initials}
                                 </div>
-                              )}
+                                <div className="min-w-0 flex-1">
+                                  {isEditingThis ? (
+                                    <div className="flex items-center gap-1.5 flex-wrap py-0.5">
+                                      <input
+                                        type="text"
+                                        value={nicknameInput}
+                                        onChange={(e) => setNicknameInput(e.target.value)}
+                                        placeholder={realDisplayName}
+                                        maxLength={50}
+                                        autoFocus
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Enter') handleSaveNickname(m.id);
+                                          if (e.key === 'Escape') setEditingMemberId(null);
+                                        }}
+                                        className="rounded-lg border border-circle-primary bg-white dark:bg-circle-dark-canvas px-2.5 py-1 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-none focus:ring-1 focus:ring-circle-primary w-40 sm:w-52 shadow-sm"
+                                      />
+                                      <button
+                                        type="button"
+                                        disabled={updateNicknameMutation.isPending}
+                                        onClick={() => handleSaveNickname(m.id)}
+                                        title={t.circle.saveNickname}
+                                        className="p-1 rounded-md bg-circle-primary text-circle-charcoal hover:bg-circle-primary/90 transition-colors shadow-sm disabled:opacity-50"
+                                      >
+                                        <Check className="h-3.5 w-3.5" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => setEditingMemberId(null)}
+                                        title={t.common.cancel}
+                                        className="p-1 rounded-md border border-circle-hairline dark:border-circle-dark-hairline text-circle-slate hover:bg-circle-canvas transition-colors"
+                                      >
+                                        <X className="h-3.5 w-3.5" />
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <h4 className="text-sm font-semibold text-circle-charcoal dark:text-circle-dark-text truncate">
+                                        {displayTitle}
+                                      </h4>
+                                      {hasNickname && (
+                                        <span className="text-xs text-circle-slate dark:text-circle-dark-muted truncate">
+                                          ({realDisplayName})
+                                        </span>
+                                      )}
+                                      {isSelf && (
+                                        <span className="rounded-full px-2 py-0.2 text-[10px] font-medium bg-circle-canvas dark:bg-circle-dark-canvas text-circle-slate">
+                                          Bạn
+                                        </span>
+                                      )}
+                                      <button
+                                        type="button"
+                                        onClick={() => handleStartEditNickname(m.id, m.nickname)}
+                                        title={t.circle.setNickname}
+                                        className="p-1 rounded-md text-circle-slate/60 hover:text-circle-charcoal dark:text-circle-dark-muted/60 dark:hover:text-circle-dark-text hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas transition-colors shrink-0"
+                                      >
+                                        <Pencil className="h-3.5 w-3.5" />
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Role Badge & Actions */}
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                {m.role === MemberRole.OWNER ? (
+                                  <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/50">
+                                    <Crown className="h-3 w-3 text-amber-600 dark:text-amber-400" />
+                                    <span>{t.circle.memberRoleOwner}</span>
+                                  </span>
+                                ) : (
+                                  <span className="rounded-full px-2.5 py-1 text-xs font-medium bg-circle-canvas dark:bg-circle-dark-canvas text-circle-slate dark:text-circle-dark-muted border border-circle-hairline dark:border-circle-dark-hairline">
+                                    {t.circle.memberRoleMember}
+                                  </span>
+                                )}
+
+                                {isOwner && !isSelf && (
+                                  <div className="flex items-center gap-1">
+                                    <button
+                                      onClick={() => setConfirmTransferMemberId(m.id)}
+                                      title={t.circle.transferOwnership}
+                                      className="p-1.5 rounded-lg border border-circle-hairline dark:border-circle-dark-hairline hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas text-amber-600 dark:text-amber-400 transition-colors"
+                                    >
+                                      <Crown className="h-4 w-4" />
+                                    </button>
+
+                                    <button
+                                      onClick={() => setConfirmKickMemberId(m.id)}
+                                      title={t.circle.kickMember}
+                                      className="p-1.5 rounded-lg border border-circle-hairline dark:border-circle-dark-hairline hover:bg-red-50 dark:hover:bg-red-950/40 text-red-500 transition-colors"
+                                    >
+                                      <UserX className="h-4 w-4" />
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
+                  )
+                )}
+
+                {/* SubTab 2: Join Requests List (Được đẩy vào trong Tab Thành viên) */}
+                {membersSubTab === 'requests' && isOwner && (
+                  <div className="space-y-3 pt-1">
+                    {joinRequests.length === 0 ? (
+                      <p className="py-8 text-center text-xs text-circle-slate dark:text-circle-dark-muted">
+                        {t.circle.noPendingJoinRequests || 'Chưa có yêu cầu tham gia nào đang chờ duyệt'}
+                      </p>
+                    ) : (
+                      <div className="divide-y divide-circle-hairline dark:divide-circle-dark-hairline">
+                        {joinRequests.map((req) => {
+                          const requesterName =
+                            req.user?.profile?.displayName || req.user?.email?.split('@')[0] || t.auth.member;
+                          const reqInitials = getInitials(requesterName);
+
+                          return (
+                            <div key={req.id} className="py-3 flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-circle-charcoal text-white text-xs font-bold">
+                                  {reqInitials}
+                                </div>
+                                <div className="min-w-0">
+                                  <h5 className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text truncate">
+                                    {requesterName}
+                                  </h5>
+                                  {req.message && (
+                                    <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted italic truncate">
+                                      &ldquo;{req.message}&rdquo;
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => handleReviewRequest(req.id, 'APPROVED')}
+                                  disabled={reviewRequestMutation.isPending}
+                                  className="inline-flex items-center gap-1 px-3 py-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs"
+                                >
+                                  <UserCheck className="h-3.5 w-3.5" />
+                                  <span>Duyệt</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleReviewRequest(req.id, 'REJECTED')}
+                                  disabled={reviewRequestMutation.isPending}
+                                  className="px-2.5 py-1 rounded-xl border border-circle-hairline text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 text-xs font-semibold transition-all"
+                                >
+                                  Từ chối
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
             )}
 
             {/* =========================================================================
-                TAB 3: QUYỀN RIÊNG TƯ & HỖ TRỢ (DÀNH CHO CÁ NHÂN MỖI NGƯỜI DÙNG)
-                - Quyền riêng tư & Tin nhắn:
-                  + Bật/Tắt hiển thị thông báo đã đọc (Read receipts / "Đã xem")
-                  + Thông báo đoạn chat (Bật / Tắt / Tắt tiếng tạm thời)
-                - Hỗ trợ & Báo cáo:
-                  + Báo cáo vi phạm Vòng tròn
-                  + Trung tâm trợ giúp / Hướng dẫn cộng đồng
-                  + Rời Vòng tròn (Dành cho cá nhân muốn thoát nhóm)
+                TAB 3: QUYỀN RIÊNG TƯ & HỖ TRỢ (CLEANED & SILENT TOGGLE)
                ========================================================================= */}
             {activeTab === 'privacySupport' && (
               <div className="space-y-6">
-                {/* Section Header Notice */}
-                <div className="p-3.5 rounded-2xl bg-circle-primary/10 border border-circle-primary/20 flex items-center gap-3">
-                  <ShieldCheck className="h-5 w-5 text-circle-primary shrink-0" />
-                  <div>
-                    <h4 className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
-                      {t.circle.personalPrivacyTitle}
-                    </h4>
-                    <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted mt-0.5">
-                      {t.circle.personalPrivacySubtitle}
-                    </p>
-                  </div>
-                </div>
-
                 {/* Phần 1: Quyền riêng tư & Tin nhắn */}
                 <div className="p-4 rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface space-y-4 shadow-sm">
                   <h4 className="text-xs font-bold uppercase tracking-wider text-circle-charcoal dark:text-circle-dark-text flex items-center gap-1.5">
@@ -1100,10 +1119,7 @@ export const CircleManagementModal: React.FC = () => {
                               name="reportReason"
                               value={reason.key}
                               checked={reportReason === reason.key}
-                              onChange={(e) => {
-                                setReportReason(e.target.value);
-                                if (reportFieldError) setReportFieldError(null);
-                              }}
+                              onChange={(e) => setReportReason(e.target.value)}
                               className="text-circle-primary focus:ring-circle-primary"
                             />
                             <span>{reason.label}</span>
@@ -1111,42 +1127,32 @@ export const CircleManagementModal: React.FC = () => {
                         ))}
                       </div>
 
-                      {/* Textarea for "Khác" option */}
                       {reportReason === 'other' && (
-                        <div className="space-y-1 pt-1">
+                        <div>
                           <textarea
                             value={customReportText}
-                            onChange={(e) => {
-                              setCustomReportText(e.target.value);
-                              if (reportFieldError) setReportFieldError(null);
-                            }}
-                            rows={3}
+                            onChange={(e) => setCustomReportText(e.target.value)}
                             placeholder={t.circle.reportReasonOtherPlaceholder}
-                            className="w-full rounded-xl border border-amber-300 dark:border-amber-800 bg-white dark:bg-circle-dark-surface p-2.5 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-none focus:ring-1 focus:ring-amber-500 resize-none"
+                            rows={2}
+                            className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-2.5 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-none focus:ring-1 focus:ring-circle-primary"
                           />
                           {reportFieldError && (
-                            <p className="text-[11px] text-rose-600 dark:text-rose-400 font-medium">
-                              {reportFieldError}
-                            </p>
+                            <p className="text-[11px] text-red-500 mt-1">{reportFieldError}</p>
                           )}
                         </div>
                       )}
 
-                      <div className="flex justify-end gap-2 pt-1">
+                      <div className="flex justify-end gap-2">
                         <button
                           type="button"
-                          onClick={() => {
-                            setIsReportOpen(false);
-                            setCustomReportText('');
-                            setReportFieldError(null);
-                          }}
-                          className="px-3 py-1 rounded-lg border border-circle-hairline dark:border-circle-dark-hairline text-xs font-medium text-circle-slate hover:bg-white dark:hover:bg-circle-dark-surface"
+                          onClick={() => setIsReportOpen(false)}
+                          className="px-3 py-1 rounded-xl border border-circle-hairline text-xs font-semibold text-circle-slate"
                         >
                           {t.common.cancel}
                         </button>
                         <button
                           type="submit"
-                          className="px-3.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-all shadow-sm"
+                          className="px-3.5 py-1 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-xs"
                         >
                           Gửi báo cáo
                         </button>
@@ -1172,9 +1178,6 @@ export const CircleManagementModal: React.FC = () => {
                         <ChevronRight className={`h-3.5 w-3.5 transition-transform ${isHelpOpen ? 'rotate-90' : ''}`} />
                       </button>
                     </div>
-                    <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted leading-snug">
-                      {t.circle.helpCenterDesc}
-                    </p>
 
                     {isHelpOpen && (
                       <div className="mt-3 p-3 rounded-lg bg-white dark:bg-circle-dark-surface border border-circle-hairline dark:border-circle-dark-hairline text-xs space-y-2 text-circle-slate dark:text-circle-dark-muted animate-fade-in">
@@ -1199,9 +1202,6 @@ export const CircleManagementModal: React.FC = () => {
                           {t.circle.leaveCirclePersonalTitle}
                         </h5>
                       </div>
-                      <p className="text-[11px] text-red-600/80 dark:text-red-400/80 mt-1 leading-snug">
-                        {t.circle.leaveCirclePersonalDesc}
-                      </p>
                     </div>
                     <button
                       type="button"
@@ -1216,80 +1216,45 @@ export const CircleManagementModal: React.FC = () => {
             )}
 
             {/* =========================================================================
-                TAB 4: THIẾT LẬP VÒNG TRÒN (CIRCLE SETTINGS - DÀNH CHO NHÓM)
-                Chứa cấu hình chế độ riêng tư (Public/Private), số lượng tối đa (maxMembers),
-                mã mời, chia sẻ và danh sách duyệt yêu cầu tham gia
+                TAB 4: THIẾT LẬP VÒNG TRÒN (APPROVAL TOGGLE & COMPACT INVITES)
                ========================================================================= */}
             {activeTab === 'circleSettings' && (
               <div className="space-y-6">
-                {/* Section 1: Circle Mode & Max Capacity Settings */}
+                {/* Section 1: Approval toggle & Capacity */}
                 <form
                   onSubmit={handleSaveCircleSettings}
-                  className="p-4 rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/30 dark:bg-circle-dark-canvas/30 space-y-4 shadow-sm"
+                  className="p-5 rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/30 dark:bg-circle-dark-canvas/30 space-y-5 shadow-sm"
                 >
-                  <div>
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-circle-charcoal dark:text-circle-dark-text flex items-center gap-1.5">
-                      <Sliders className="h-3.5 w-3.5 text-circle-primary" />
-                      <span>{t.circle.circleSettingsTitle}</span>
-                    </h4>
-                    <p className="text-xs text-circle-slate dark:text-circle-dark-muted mt-0.5">
-                      {t.circle.circleSettingsSubtitle}
-                    </p>
-                  </div>
-
-                  {/* Mode: Public vs Private */}
-                  <div>
-                    <label className="block text-xs font-medium text-circle-slate dark:text-circle-dark-muted mb-1.5">
-                      {t.circle.circleModeLabel}
-                    </label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <button
-                        type="button"
-                        disabled={!isOwner}
-                        onClick={() => setFormIsPrivate(false)}
-                        className={`flex items-start gap-2.5 p-3 rounded-2xl border text-left transition-all ${
-                          !formIsPrivate
-                            ? 'border-circle-primary bg-circle-primary/10'
-                            : 'border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface'
-                        }`}
-                      >
-                        <Globe className="h-4 w-4 text-circle-primary shrink-0 mt-0.5" />
-                        <div>
-                          <h5 className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
-                            {t.circle.privacyPublic}
-                          </h5>
-                          <p className="text-[10px] text-circle-slate dark:text-circle-dark-muted mt-0.5 leading-snug">
-                            {t.circle.circleModePublicDesc}
-                          </p>
-                        </div>
-                      </button>
-
-                      <button
-                        type="button"
-                        disabled={!isOwner}
-                        onClick={() => setFormIsPrivate(true)}
-                        className={`flex items-start gap-2.5 p-3 rounded-2xl border text-left transition-all ${
-                          formIsPrivate
-                            ? 'border-circle-primary bg-circle-primary/10'
-                            : 'border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface'
-                        }`}
-                      >
-                        <Lock className="h-4 w-4 text-circle-primary shrink-0 mt-0.5" />
-                        <div>
-                          <h5 className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
-                            {t.circle.privacyPrivate}
-                          </h5>
-                          <p className="text-[10px] text-circle-slate dark:text-circle-dark-muted mt-0.5 leading-snug">
-                            {t.circle.circleModePrivateDesc}
-                          </p>
-                        </div>
-                      </button>
+                  {/* Cần trưởng nhóm phê duyệt Toggle Switch */}
+                  <div className="flex items-center justify-between gap-4 p-4 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface shadow-xs">
+                    <div className="min-w-0 flex-1">
+                      <h4 className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
+                        {t.circle.requireApprovalTitle || 'Cần trưởng nhóm phê duyệt'}
+                      </h4>
+                      <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted mt-1 leading-snug">
+                        {t.circle.requireApprovalDesc || 'Trưởng nhóm cần phê duyệt tất cả yêu cầu tham gia nhóm chat'}
+                      </p>
                     </div>
+
+                    <button
+                      type="button"
+                      disabled={!isOwner}
+                      onClick={() => setFormIsPrivate(!formIsPrivate)}
+                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-50 ${
+                        formIsPrivate ? 'bg-circle-primary' : 'bg-gray-300 dark:bg-gray-700'
+                      }`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                          formIsPrivate ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
                   </div>
 
                   {/* Maximum Members */}
                   <div>
-                    <label className="block text-xs font-medium text-circle-slate dark:text-circle-dark-muted mb-1.5 flex items-center justify-between">
+                    <label className="block text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text mb-1.5 flex items-center justify-between">
                       <span>{t.circle.maxMembersLabel}</span>
                       <span className="text-[10px] text-circle-slate dark:text-circle-dark-muted font-normal">
                         {t.circle.circleCapacityCount
@@ -1336,9 +1301,6 @@ export const CircleManagementModal: React.FC = () => {
                           </button>
                         ))}
                       </div>
-                      <p className="text-[10px] text-circle-slate dark:text-circle-dark-muted">
-                        {t.circle.maxMembersCustomHint}
-                      </p>
                     </div>
                   </div>
 
@@ -1354,307 +1316,158 @@ export const CircleManagementModal: React.FC = () => {
                   )}
                 </form>
 
-                {/* Section 2: Invite Link & Sharing */}
-                <div className="p-4 rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface space-y-3.5 shadow-sm">
-                  <div>
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-circle-charcoal dark:text-circle-dark-text flex items-center gap-1.5">
-                      <Link className="h-3.5 w-3.5 text-circle-primary" />
-                      <span>{t.circle.inviteLinkCardTitle}</span>
-                    </h4>
-                    <p className="text-xs text-circle-slate dark:text-circle-dark-muted mt-0.5">
-                      {t.circle.inviteLinkCardDesc}
-                    </p>
-                  </div>
-
-                  {/* Invite Link with Copy & Share */}
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                    <div className="flex-1 flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas text-xs font-mono text-circle-charcoal dark:text-circle-dark-text overflow-hidden">
-                      <Link className="h-3.5 w-3.5 text-circle-primary shrink-0" />
-                      <span className="truncate">{inviteLink}</span>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <button
-                        onClick={handleCopyLink}
-                        title={t.circle.copyInviteLink}
-                        className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-circle-primary hover:bg-circle-primary/90 text-circle-charcoal text-xs font-bold transition-all shadow-sm"
-                      >
-                        {copiedLink ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                        <span>{copiedLink ? t.circle.copiedInviteLink : t.circle.copyInviteLink}</span>
-                      </button>
-                      <button
-                        onClick={handleShare}
-                        title={t.circle.shareInvite}
-                        className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas text-circle-charcoal dark:text-circle-dark-text text-xs font-bold transition-all"
-                      >
-                        {sharedDone ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Share2 className="h-3.5 w-3.5 text-circle-primary" />}
-                        <span>{sharedDone ? t.circle.copiedInviteLink : t.circle.shareInvite}</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Code box */}
-                  <div className="flex items-center justify-between p-3 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/50 dark:bg-circle-dark-canvas/50">
+                {/* Section 2: Invite Link & Code (Tinh gọn) */}
+                <div className="p-5 rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface space-y-4 shadow-sm">
+                  {/* 1. Mã mời tham gia & Nút sao chép mã */}
+                  <div className="flex items-center justify-between p-3.5 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/50 dark:bg-circle-dark-canvas/50">
                     <div className="flex items-center gap-3">
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-circle-slate dark:text-circle-dark-muted">
+                      <span className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
                         {t.circle.inviteCodeLabel}:
                       </span>
-                      <span className="font-mono text-base font-bold tracking-widest text-circle-charcoal dark:text-circle-dark-text">
+                      <span className="font-mono text-sm font-bold tracking-widest text-circle-charcoal dark:text-circle-dark-text">
                         {currentInviteCode}
                       </span>
                     </div>
                     <button
                       onClick={() => handleCopyCode(currentInviteCode)}
-                      className="inline-flex items-center gap-1 px-3 py-1 rounded-lg border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-primary/10 transition-colors"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-circle-primary hover:bg-circle-primary/90 text-circle-charcoal text-xs font-bold transition-all shadow-xs"
                     >
                       {copiedCode === currentInviteCode ? (
                         <>
-                          <Check className="h-3.5 w-3.5 text-emerald-500" />
-                          <span className="text-emerald-600 dark:text-emerald-400">{t.circle.copiedInviteCode}</span>
+                          <Check className="h-3.5 w-3.5" />
+                          <span>{t.circle.copiedInviteCode}</span>
                         </>
                       ) : (
                         <>
                           <Copy className="h-3.5 w-3.5" />
-                          <span>{t.circle.copyInviteCode}</span>
+                          <span>{t.circle.copyCodeBtn || 'Sao chép mã'}</span>
                         </>
                       )}
                     </button>
                   </div>
-                </div>
 
-                {/* Section 3: Join Requests (Owner only, for Private Circles) */}
-                {isOwner && (
-                  <div className="p-4 rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface space-y-3.5 shadow-sm">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-circle-charcoal dark:text-circle-dark-text flex items-center gap-1.5">
-                        <Users className="h-3.5 w-3.5 text-circle-primary" />
-                        <span>{t.circle.joinRequestsTitle}</span>
-                      </h4>
-                      <span className="rounded-full px-2 py-0.5 text-[10px] bg-circle-canvas dark:bg-circle-dark-canvas font-semibold">
-                        {joinRequests.length}
+                  {/* 2. Liên kết tham gia & Nút sao chép liên kết */}
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3.5 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/50 dark:bg-circle-dark-canvas/50">
+                    <div className="min-w-0 flex-1 flex items-center gap-2">
+                      <span className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text shrink-0">
+                        {t.circle.linkTitle || 'Liên kết'}:
+                      </span>
+                      <span className="text-xs font-mono text-circle-slate dark:text-circle-dark-muted truncate">
+                        {inviteLink}
                       </span>
                     </div>
-
-                    {joinRequests.length === 0 ? (
-                      <p className="py-4 text-center text-xs text-circle-slate dark:text-circle-dark-muted">
-                        {t.circle.noPendingJoinRequests}
-                      </p>
-                    ) : (
-                      <div className="divide-y divide-circle-hairline dark:divide-circle-dark-hairline">
-                        {joinRequests.map((req) => {
-                          const requesterName =
-                            req.user?.profile?.displayName || req.user?.email?.split('@')[0] || t.auth.member;
-                          const reqInitials = getInitials(requesterName);
-
-                          return (
-                            <div key={req.id} className="py-3 flex items-center justify-between gap-3">
-                              <div className="flex items-center gap-2.5 min-w-0">
-                                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-circle-charcoal dark:bg-circle-primary text-white dark:text-circle-charcoal text-xs font-bold flex-shrink-0">
-                                  {reqInitials}
-                                </div>
-                                <div className="min-w-0">
-                                  <h5 className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text truncate">
-                                    {requesterName}
-                                  </h5>
-                                  <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted truncate">
-                                    {req.user?.email}
-                                  </p>
-                                  {req.message && (
-                                    <p className="text-[11px] italic text-circle-charcoal dark:text-circle-dark-text mt-0.5">
-                                      "{req.message}"
-                                    </p>
-                                  )}
-                                </div>
-                              </div>
-
-                              <div className="flex items-center gap-1.5 flex-shrink-0">
-                                <button
-                                  onClick={() => handleReviewRequest(req.id, 'APPROVED')}
-                                  disabled={reviewRequestMutation.isPending}
-                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-600 text-white text-[11px] font-bold hover:bg-emerald-700 transition-colors disabled:opacity-50"
-                                >
-                                  <Check className="h-3 w-3" />
-                                  <span>{t.circle.approveJoinRequest}</span>
-                                </button>
-                                <button
-                                  onClick={() => handleReviewRequest(req.id, 'REJECTED')}
-                                  disabled={reviewRequestMutation.isPending}
-                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-circle-hairline dark:border-circle-dark-hairline text-circle-slate text-[11px] hover:bg-circle-canvas transition-colors disabled:opacity-50"
-                                >
-                                  <X className="h-3 w-3" />
-                                  <span>{t.circle.rejectJoinRequest}</span>
-                                </button>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={handleCopyLink}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface hover:bg-circle-canvas text-xs font-bold text-circle-charcoal dark:text-circle-dark-text transition-all shadow-xs"
+                      >
+                        {copiedLink ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+                        <span>{copiedLink ? t.circle.copiedInviteLink : (t.circle.copyLinkBtn || 'Sao chép liên kết')}</span>
+                      </button>
+                      <button
+                        onClick={handleShare}
+                        title={t.circle.shareInvite}
+                        className="p-1.5 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas text-circle-slate hover:text-circle-charcoal transition-all"
+                      >
+                        {sharedDone ? <Check className="h-4 w-4 text-emerald-500" /> : <Share2 className="h-4 w-4" />}
+                      </button>
+                    </div>
                   </div>
-                )}
+                </div>
               </div>
             )}
           </div>
         </main>
       </div>
 
-      {/* =========================================================================
-          MODAL XÁC NHẬN RỜI VÒNG TRÒN (LEAVE CIRCLE POPUP DIALOG)
-         ========================================================================= */}
-      {confirmLeave && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div
-            className="w-full max-w-sm rounded-3xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-6 shadow-2xl space-y-4 animate-scale-in"
-            role="dialog"
-            aria-modal="true"
-          >
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 mx-auto">
-              <LogOut className="h-6 w-6" />
-            </div>
-            <div className="text-center space-y-1.5">
-              <h3 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
-                {t.circle.confirmLeaveTitle}
-              </h3>
-              <p className="text-xs text-circle-slate dark:text-circle-dark-muted leading-relaxed">
-                {isOwner && members.length > 1
-                  ? t.circle.ownerCannotLeaveMustTransfer
-                  : t.circle.confirmLeaveWarning}
-              </p>
-            </div>
-            <div className="flex items-center gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => setConfirmLeave(false)}
-                className="flex-1 rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline py-2.5 text-xs font-semibold text-circle-slate dark:text-circle-dark-muted hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas transition-colors"
-              >
-                {t.common.cancel}
-              </button>
-              {(!isOwner || members.length <= 1) && (
-                <button
-                  type="button"
-                  onClick={handleLeaveCircle}
-                  disabled={leaveMutation.isPending}
-                  className="flex-1 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white py-2.5 text-xs font-bold transition-colors shadow-sm disabled:opacity-50"
-                >
-                  {leaveMutation.isPending ? t.circle.savingChanges : t.circle.leaveCircle}
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* =========================================================================
-          MODAL XÁC NHẬN XÓA THÀNH VIÊN (KICK MEMBER POPUP DIALOG)
-         ========================================================================= */}
-      {confirmKickMemberId && kickingMember && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div
-            className="w-full max-w-sm rounded-3xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-6 shadow-2xl space-y-4 animate-scale-in"
-            role="dialog"
-            aria-modal="true"
-          >
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 mx-auto">
-              <UserX className="h-6 w-6" />
-            </div>
-            <div className="text-center space-y-1.5">
-              <h3 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
-                {t.circle.confirmKickTitle}
-              </h3>
-              <p className="text-xs text-circle-slate dark:text-circle-dark-muted leading-relaxed">
-                {t.circle.confirmKickWarning}
-              </p>
-              <div className="mt-3 p-3 rounded-2xl bg-circle-canvas/60 dark:bg-circle-dark-canvas/60 border border-circle-hairline dark:border-circle-dark-hairline flex items-center gap-2.5 text-left">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-circle-charcoal text-white text-xs font-bold overflow-hidden">
-                  {kickingMember.user?.profile?.avatarUrl ? (
-                    <img src={kickingMember.user.profile.avatarUrl} alt="" className="h-full w-full object-cover" />
-                  ) : (
-                    getInitials(kickingMember.nickname || kickingMember.user?.profile?.displayName || kickingMember.user?.email || 'M')
-                  )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text truncate">
-                    {kickingMember.nickname || kickingMember.user?.profile?.displayName || kickingMember.user?.email}
-                  </p>
-                  <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted truncate">
-                    {kickingMember.user?.email}
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 pt-2">
+      {/* Confirmation Modals */}
+      {confirmKickMemberId && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
+          <div className="w-full max-w-sm p-5 rounded-2xl bg-white dark:bg-circle-dark-surface border border-circle-hairline dark:border-circle-dark-hairline shadow-circle-card space-y-4">
+            <h4 className="text-sm font-bold text-red-600 dark:text-red-400 flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4" />
+              <span>{t.circle.confirmKickTitle}</span>
+            </h4>
+            <p className="text-xs text-circle-slate dark:text-circle-dark-muted">
+              {t.circle.confirmKickWarning}
+            </p>
+            <div className="flex justify-end gap-2 pt-1">
               <button
                 type="button"
                 onClick={() => setConfirmKickMemberId(null)}
-                className="flex-1 rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline py-2.5 text-xs font-semibold text-circle-slate dark:text-circle-dark-muted hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas transition-colors"
+                className="px-3.5 py-1.5 rounded-xl border border-circle-hairline text-xs font-semibold text-circle-slate"
               >
                 {t.common.cancel}
               </button>
               <button
                 type="button"
-                onClick={() => handleKickMember(confirmKickMemberId)}
                 disabled={removeMemberMutation.isPending}
-                className="flex-1 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white py-2.5 text-xs font-bold transition-colors shadow-sm disabled:opacity-50"
+                onClick={() => handleKickMember(confirmKickMemberId)}
+                className="px-3.5 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold disabled:opacity-50"
               >
-                {removeMemberMutation.isPending ? t.circle.savingChanges : t.circle.kickMember}
+                {t.circle.kickMember}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* =========================================================================
-          MODAL XÁC NHẬN CHUYỂN QUYỀN SỞ HỮU (TRANSFER OWNERSHIP POPUP DIALOG)
-         ========================================================================= */}
-      {confirmTransferMemberId && transferringMember && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div
-            className="w-full max-w-sm rounded-3xl border border-amber-200 dark:border-amber-900/50 bg-white dark:bg-circle-dark-surface p-6 shadow-2xl space-y-4 animate-scale-in"
-            role="dialog"
-            aria-modal="true"
-          >
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 mx-auto">
-              <Crown className="h-6 w-6" />
-            </div>
-            <div className="text-center space-y-1.5">
-              <h3 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
-                {t.circle.confirmTransferTitle}
-              </h3>
-              <p className="text-xs text-circle-slate dark:text-circle-dark-muted leading-relaxed">
-                {t.circle.confirmTransferWarning}
-              </p>
-              <div className="mt-3 p-3 rounded-2xl bg-circle-canvas/60 dark:bg-circle-dark-canvas/60 border border-circle-hairline dark:border-circle-dark-hairline flex items-center gap-2.5 text-left">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-500 text-white text-xs font-bold overflow-hidden">
-                  {transferringMember.user?.profile?.avatarUrl ? (
-                    <img src={transferringMember.user.profile.avatarUrl} alt="" className="h-full w-full object-cover" />
-                  ) : (
-                    getInitials(transferringMember.nickname || transferringMember.user?.profile?.displayName || transferringMember.user?.email || 'M')
-                  )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text truncate">
-                    {transferringMember.nickname || transferringMember.user?.profile?.displayName || transferringMember.user?.email}
-                  </p>
-                  <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted truncate">
-                    {transferringMember.user?.email}
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 pt-2">
+      {confirmTransferMemberId && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
+          <div className="w-full max-w-sm p-5 rounded-2xl bg-white dark:bg-circle-dark-surface border border-circle-hairline dark:border-circle-dark-hairline shadow-circle-card space-y-4">
+            <h4 className="text-sm font-bold text-amber-600 dark:text-amber-400 flex items-center gap-2">
+              <Crown className="h-4 w-4" />
+              <span>{t.circle.confirmTransferTitle}</span>
+            </h4>
+            <p className="text-xs text-circle-slate dark:text-circle-dark-muted">
+              {t.circle.confirmTransferWarning}
+            </p>
+            <div className="flex justify-end gap-2 pt-1">
               <button
                 type="button"
                 onClick={() => setConfirmTransferMemberId(null)}
-                className="flex-1 rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline py-2.5 text-xs font-semibold text-circle-slate dark:text-circle-dark-muted hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas transition-colors"
+                className="px-3.5 py-1.5 rounded-xl border border-circle-hairline text-xs font-semibold text-circle-slate"
               >
                 {t.common.cancel}
               </button>
               <button
                 type="button"
-                onClick={() => handleTransferOwnership(confirmTransferMemberId)}
                 disabled={transferOwnershipMutation.isPending}
-                className="flex-1 rounded-2xl bg-amber-600 hover:bg-amber-700 text-white py-2.5 text-xs font-bold transition-colors shadow-sm disabled:opacity-50"
+                onClick={() => handleTransferOwnership(confirmTransferMemberId)}
+                className="px-3.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold disabled:opacity-50"
               >
-                {transferOwnershipMutation.isPending ? t.circle.savingChanges : t.circle.transferOwnership}
+                {t.circle.transferOwnership}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmLeave && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
+          <div className="w-full max-w-sm p-5 rounded-2xl bg-white dark:bg-circle-dark-surface border border-circle-hairline dark:border-circle-dark-hairline shadow-circle-card space-y-4">
+            <h4 className="text-sm font-bold text-red-600 dark:text-red-400 flex items-center gap-2">
+              <LogOut className="h-4 w-4" />
+              <span>{t.circle.confirmLeaveTitle}</span>
+            </h4>
+            <p className="text-xs text-circle-slate dark:text-circle-dark-muted">
+              {t.circle.confirmLeaveWarning}
+            </p>
+            <div className="flex justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setConfirmLeave(false)}
+                className="px-3.5 py-1.5 rounded-xl border border-circle-hairline text-xs font-semibold text-circle-slate"
+              >
+                {t.common.cancel}
+              </button>
+              <button
+                type="button"
+                disabled={leaveCircleMutation.isPending}
+                onClick={handleLeaveCircle}
+                className="px-3.5 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold disabled:opacity-50"
+              >
+                {t.circle.leaveCircle}
               </button>
             </div>
           </div>

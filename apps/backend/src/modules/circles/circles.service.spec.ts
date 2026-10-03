@@ -2,10 +2,17 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConflictException, ForbiddenException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { CirclesService } from './circles.service';
 import { PrismaService } from '../../database/prisma.service';
+import { RedisService } from '../../database/redis.service';
 import { MemberRole, ChannelType, FriendshipStatus } from '@prisma/client';
 
 describe('CirclesService — Unit Tests (US-CIRCLE-001 & US-CIRCLE-002)', () => {
   let service: CirclesService;
+
+  const mockRedis = {
+    get: jest.fn().mockResolvedValue(null),
+    set: jest.fn().mockResolvedValue(undefined),
+    del: jest.fn().mockResolvedValue(undefined),
+  };
 
   const mockPrisma = {
     circle: {
@@ -57,6 +64,10 @@ describe('CirclesService — Unit Tests (US-CIRCLE-001 & US-CIRCLE-002)', () => 
           provide: PrismaService,
           useValue: mockPrisma,
         },
+        {
+          provide: RedisService,
+          useValue: mockRedis,
+        },
       ],
     }).compile();
 
@@ -69,7 +80,6 @@ describe('CirclesService — Unit Tests (US-CIRCLE-001 & US-CIRCLE-002)', () => 
     const createInput = {
       name: 'Nhóm Bạn Thân',
       handle: 'nhom-ban-than',
-      description: 'Nhóm tụ tập cuối tuần',
       isPrivate: false,
     };
 
@@ -82,9 +92,7 @@ describe('CirclesService — Unit Tests (US-CIRCLE-001 & US-CIRCLE-002)', () => 
         id: 'circle-1',
         name: createInput.name,
         handle: createInput.handle,
-        description: createInput.description,
         avatarUrl: null,
-        coverUrl: null,
         isPrivate: false,
         inviteCode: 'ABCDEF12',
         createdAt: new Date(),
@@ -277,8 +285,6 @@ describe('CirclesService — Unit Tests (US-CIRCLE-001 & US-CIRCLE-002)', () => 
           name: 'Tech Enthusiasts',
           handle: 'tech-enthusiasts',
           avatarUrl: null,
-          coverUrl: null,
-          description: 'Tech talk',
           inviteCode: 'TECH1234',
           isPrivate: false,
           createdAt: new Date(),
@@ -309,8 +315,6 @@ describe('CirclesService — Unit Tests (US-CIRCLE-001 & US-CIRCLE-002)', () => 
         name: 'Open Group',
         handle: 'open-group',
         avatarUrl: null,
-        coverUrl: null,
-        description: null,
         inviteCode: 'OPEN1234',
         isPrivate: false,
         createdAt: new Date(),
@@ -414,8 +418,6 @@ describe('CirclesService — Unit Tests (US-CIRCLE-001 & US-CIRCLE-002)', () => 
         name: 'Nhóm Leo Núi',
         handle: 'nhom-leo-nui',
         avatarUrl: null,
-        coverUrl: null,
-        description: 'Cùng nhau chinh phục các đỉnh núi',
         inviteCode,
         isPrivate: false,
         deletedAt: null,

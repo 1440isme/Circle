@@ -18,6 +18,7 @@ export function createMomentSchemas(locale: Locale = 'vi') {
         (val) =>
           val.startsWith('http://') ||
           val.startsWith('https://') ||
+          val.startsWith('blob:') ||
           val.startsWith('/'),
         v.momentPhotoUrlInvalid,
       ),
@@ -41,15 +42,31 @@ export function createMomentSchemas(locale: Locale = 'vi') {
       .max(16, v.momentEmojiInvalid),
   });
 
+  const replyMomentSchema = z.object({
+    message: z
+      .string()
+      .trim()
+      .min(1, v.momentReplyMessageRequired)
+      .max(2000, v.momentReplyMessageMaxLength),
+    circleId: z
+      .string()
+      .trim()
+      .min(1, v.momentReplyCircleRequired),
+  });
+
   return {
     createMomentSchema,
     reactMomentSchema,
+    replyMomentSchema,
   };
 }
 
 export type CreateMomentSchemaType = ReturnType<typeof createMomentSchemas>['createMomentSchema'];
 export type ReactMomentSchemaType = ReturnType<typeof createMomentSchemas>['reactMomentSchema'];
+export type ReplyMomentSchemaType = ReturnType<typeof createMomentSchemas>['replyMomentSchema'];
 
 export type CreateMomentInput = z.input<CreateMomentSchemaType>;
 export type CreateMomentOutput = z.output<CreateMomentSchemaType>;
 export type ReactMomentInput = z.input<ReactMomentSchemaType>;
+export type ReplyMomentInput = z.input<ReplyMomentSchemaType>;
+export type ReplyMomentOutput = z.output<ReplyMomentSchemaType>;

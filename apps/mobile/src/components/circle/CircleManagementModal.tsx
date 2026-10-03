@@ -113,11 +113,12 @@ export function CircleManagementModal() {
 
   // Form States (matching web CircleManagementModal)
   const [formName, setFormName] = useState('');
-  const [formDesc, setFormDesc] = useState('');
   const [formAvatar, setFormAvatar] = useState('');
-  const [formCover, setFormCover] = useState('');
   const [formIsPrivate, setFormIsPrivate] = useState(false);
   const [formMaxMembers, setFormMaxMembers] = useState<number | null>(null);
+
+  // Members Subtab ('roster' | 'requests')
+  const [membersSubTab, setMembersSubTab] = useState<'roster' | 'requests'>('roster');
 
   // Sub-dialog & Action States
   const [editingMember, setEditingMember] = useState<{ id: string; nickname: string; name: string } | null>(null);
@@ -144,11 +145,10 @@ export function CircleManagementModal() {
   useEffect(() => {
     if (visible && circle) {
       setFormName('');
-      setFormDesc(circle.description || '');
       setFormAvatar(circle.avatarUrl || '');
-      setFormCover(circle.coverUrl || '');
       setFormIsPrivate(Boolean(circle.isPrivate));
       setFormMaxMembers(circle.maxMembers ?? null);
+      setMembersSubTab('roster');
       setErrorMessage(null);
       setSuccessMessage(null);
       setIsAddFriendsOpen(false);
@@ -164,6 +164,7 @@ export function CircleManagementModal() {
   const handleClose = () => {
     setVisible(false);
     setActiveTab('menu');
+    setMembersSubTab('roster');
     setEditingMember(null);
     setIsAddFriendsOpen(false);
     setErrorMessage(null);
@@ -204,7 +205,7 @@ export function CircleManagementModal() {
     }, 2500);
   };
 
-  // Tab 1: Save Chat Information (Name, Avatar, Cover, Description)
+  // Tab 1: Save Chat Information (Name, Avatar)
   const handleSaveChatInfo = async () => {
     setErrorMessage(null);
     setSuccessMessage(null);
@@ -218,9 +219,7 @@ export function CircleManagementModal() {
     try {
       await updateCircleMutation.mutateAsync({
         name: targetName,
-        description: formDesc.trim() || undefined,
         avatarUrl: formAvatar.trim() || undefined,
-        coverUrl: formCover.trim() || undefined,
       });
       setFormName('');
       setSuccessMessage(t.circle.savedSuccess);
@@ -548,7 +547,7 @@ export function CircleManagementModal() {
                       {t.circle.chatInfoTab}
                     </Text>
                     <Text numberOfLines={1} style={[styles.menuRowSubtitle, { color: colors.subtle }]}>
-                      {circle.name} · {circle.description || t.circle.descLabel}
+                      {circle.name}
                     </Text>
                   </View>
                   <ChevronRight size={18} color={colors.subtle} />
@@ -568,7 +567,7 @@ export function CircleManagementModal() {
                       {t.circle.settingsTabMembers}
                     </Text>
                     <Text numberOfLines={1} style={[styles.menuRowSubtitle, { color: colors.subtle }]}>
-                      {members.length} {t.circle.settingsTabMembers.toLowerCase()} · {t.circle.setNickname}
+                      {members.length} {t.circle.settingsTabMembers.toLowerCase()}
                     </Text>
                   </View>
                   <View style={styles.menuRowRight}>
@@ -592,9 +591,6 @@ export function CircleManagementModal() {
                     <Text style={[styles.menuRowTitle, { color: colors.text }]}>
                       {t.circle.privacyAndSupportTab}
                     </Text>
-                    <Text numberOfLines={1} style={[styles.menuRowSubtitle, { color: colors.subtle }]}>
-                      {t.circle.personalPrivacySubtitle}
-                    </Text>
                   </View>
                   <ChevronRight size={18} color={colors.subtle} />
                 </TouchableOpacity>
@@ -611,9 +607,6 @@ export function CircleManagementModal() {
                   <View style={styles.menuRowContent}>
                     <Text style={[styles.menuRowTitle, { color: colors.text }]}>
                       {t.circle.circleSettingsTab}
-                    </Text>
-                    <Text numberOfLines={1} style={[styles.menuRowSubtitle, { color: colors.subtle }]}>
-                      {circle.isPrivate ? t.circle.privacyPrivate : t.circle.privacyPublic} · {t.circle.inviteLinkCardTitle}
                     </Text>
                   </View>
                   <View style={styles.menuRowRight}>
@@ -697,16 +690,33 @@ export function CircleManagementModal() {
           )}
 
           {/* =========================================================================
-              SUB-VIEW 1: CHAT INFO (Thông tin đoạn chat)
+              SUB-VIEW 1: CHAT INFO (Thông tin đoạn chat - Profile Header Style)
              ========================================================================= */}
           {(activeTab === 'chatInfo' || activeTab === 'info') && (
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.tabContent}>
+              {/* Profile Header View */}
+              <View style={[styles.profileHeaderBox, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+                <View style={[styles.bigAvatarBox, { backgroundColor: `${colors.primary}20` }]}>
+                  {formAvatar || circle.avatarUrl ? (
+                    <RNImage
+                      source={{ uri: (formAvatar || circle.avatarUrl) as string }}
+                      style={styles.bigAvatarImg}
+                    />
+                  ) : (
+                    <Text style={[styles.bigAvatarText, { color: colors.primary }]}>
+                      {getInitials(formName || circle.name)}
+                    </Text>
+                  )}
+                </View>
+                <Text style={[styles.profileCircleName, { color: colors.text }]}>{formName || circle.name}</Text>
+                {circle.handle ? (
+                  <Text style={[styles.profileCircleHandle, { color: colors.subtle }]}>@{circle.handle}</Text>
+                ) : null}
+              </View>
+
               <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
                 <Text style={[styles.cardTitle, { color: colors.text }]}>
                   {t.circle.chatInfoTitle}
-                </Text>
-                <Text style={[styles.cardDesc, { color: colors.subtle }]}>
-                  {t.circle.chatInfoSubtitle}
                 </Text>
 
                 {/* Name */}
@@ -732,65 +742,14 @@ export function CircleManagementModal() {
                     <ImageIcon size={14} color={colors.primary} />
                     <Text style={[styles.label, { color: colors.text }]}>{t.circle.avatarUrlLabel}</Text>
                   </View>
-                  <View style={styles.avatarInputRow}>
-                    <View style={[styles.avatarPreviewBox, { backgroundColor: colors.wash, borderColor: colors.hairline }]}>
-                      {formAvatar ? (
-                        <RNImage source={{ uri: formAvatar }} style={styles.avatarPreviewImg} />
-                      ) : (
-                        <Text style={[styles.avatarPreviewText, { color: colors.primary }]}>
-                          {formName ? getInitials(formName) : 'AV'}
-                        </Text>
-                      )}
-                    </View>
-                    <TextInput
-                      value={formAvatar}
-                      onChangeText={setFormAvatar}
-                      editable={isOwner}
-                      placeholder={t.circle.avatarUrlPlaceholder}
-                      placeholderTextColor={colors.subtle}
-                      style={[
-                        styles.input,
-                        { flex: 1, backgroundColor: colors.wash, borderColor: colors.hairline, color: colors.text },
-                        !isOwner && { opacity: 0.6 },
-                      ]}
-                    />
-                  </View>
-                </View>
-
-                {/* Cover URL */}
-                <View style={styles.formField}>
-                  <View style={styles.labelRow}>
-                    <ImageIcon size={14} color={colors.primary} />
-                    <Text style={[styles.label, { color: colors.text }]}>{t.circle.coverUrlLabel}</Text>
-                  </View>
                   <TextInput
-                    value={formCover}
-                    onChangeText={setFormCover}
+                    value={formAvatar}
+                    onChangeText={setFormAvatar}
                     editable={isOwner}
-                    placeholder={t.circle.coverUrlPlaceholder}
+                    placeholder={t.circle.avatarUrlPlaceholder}
                     placeholderTextColor={colors.subtle}
                     style={[
                       styles.input,
-                      { backgroundColor: colors.wash, borderColor: colors.hairline, color: colors.text },
-                      !isOwner && { opacity: 0.6 },
-                    ]}
-                  />
-                </View>
-
-                {/* Description */}
-                <View style={styles.formField}>
-                  <Text style={[styles.label, { color: colors.text }]}>{t.circle.descLabel}</Text>
-                  <TextInput
-                    value={formDesc}
-                    onChangeText={setFormDesc}
-                    editable={isOwner}
-                    multiline
-                    numberOfLines={3}
-                    placeholder={t.circle.descPlaceholder}
-                    placeholderTextColor={colors.subtle}
-                    style={[
-                      styles.input,
-                      styles.textArea,
                       { backgroundColor: colors.wash, borderColor: colors.hairline, color: colors.text },
                       !isOwner && { opacity: 0.6 },
                     ]}
@@ -822,138 +781,242 @@ export function CircleManagementModal() {
           )}
 
           {/* =========================================================================
-              SUB-VIEW 2: MEMBERS & NICKNAMES (Thành viên)
+              SUB-VIEW 2: MEMBERS & JOIN REQUESTS (Thành viên)
              ========================================================================= */}
           {activeTab === 'members' && (
             <View style={styles.membersContainer}>
-              {/* Member Controls: Count & Add Member button */}
-              <View style={styles.memberControlsRow}>
-                <View style={[styles.searchBar, { backgroundColor: colors.surface, borderColor: colors.hairline, flex: 1 }]}>
-                  <Search size={15} color={colors.subtle} />
-                  <TextInput
-                    value={memberSearch}
-                    onChangeText={setMemberSearch}
-                    placeholder={t.circle.friendsSearchPlaceholder}
-                    placeholderTextColor={colors.subtle}
-                    style={[styles.searchInput, { color: colors.text }]}
-                  />
-                </View>
-
+              {/* Segmented Subtabs: Thành viên | Yêu cầu tham gia */}
+              <View style={[styles.segmentedSubTabs, { backgroundColor: colors.wash, borderColor: colors.hairline }]}>
                 <TouchableOpacity
                   activeOpacity={0.8}
-                  onPress={() => setIsAddFriendsOpen(true)}
-                  style={[styles.addMemberBtn, { backgroundColor: colors.primary }]}
+                  onPress={() => setMembersSubTab('roster')}
+                  style={[
+                    styles.segmentBtn,
+                    membersSubTab === 'roster' && [styles.segmentBtnActive, { backgroundColor: colors.surface, borderColor: colors.hairline }],
+                  ]}
                 >
-                  <UserPlus size={16} color={colors.onPrimary} />
-                  <Text style={[styles.addMemberBtnText, { color: colors.onPrimary }]}>
-                    {t.circle.addMemberBtn}
+                  <Text
+                    style={[
+                      styles.segmentBtnText,
+                      { color: membersSubTab === 'roster' ? colors.primary : colors.subtle },
+                      membersSubTab === 'roster' && { fontWeight: '700' },
+                    ]}
+                  >
+                    {t.circle.membersSubTab} ({members.length})
                   </Text>
                 </TouchableOpacity>
+
+                {isOwnerOrAdmin && (
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    onPress={() => setMembersSubTab('requests')}
+                    style={[
+                      styles.segmentBtn,
+                      membersSubTab === 'requests' && [styles.segmentBtnActive, { backgroundColor: colors.surface, borderColor: colors.hairline }],
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.segmentBtnText,
+                        { color: membersSubTab === 'requests' ? colors.primary : colors.subtle },
+                        membersSubTab === 'requests' && { fontWeight: '700' },
+                      ]}
+                    >
+                      {t.circle.joinRequestsSubTab} ({joinRequests.length})
+                    </Text>
+                  </TouchableOpacity>
+                )}
               </View>
 
-              {/* Members List */}
-              {isLoadingMembers ? (
-                <ActivityIndicator style={{ marginVertical: 30 }} color={colors.primary} />
-              ) : (
-                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.memberList}>
-                  {filteredMembers.map((m) => {
-                    const realDisplayName = m.user?.profile?.displayName || m.user?.email?.split('@')[0] || t.auth.member;
-                    const hasNickname = Boolean(m.nickname && m.nickname.trim().length > 0);
-                    const displayTitle = hasNickname ? m.nickname : realDisplayName;
-                    const isSelf = user?.id === m.userId;
-                    const isMemberOwner = m.role === MemberRole.OWNER;
-                    const isMemberAdmin = m.role === MemberRole.ADMIN;
+              {/* Subtab 1: Roster */}
+              {membersSubTab === 'roster' && (
+                <>
+                  {/* Member Controls: Count & Add Member button */}
+                  <View style={styles.memberControlsRow}>
+                    <View style={[styles.searchBar, { backgroundColor: colors.surface, borderColor: colors.hairline, flex: 1 }]}>
+                      <Search size={15} color={colors.subtle} />
+                      <TextInput
+                        value={memberSearch}
+                        onChangeText={setMemberSearch}
+                        placeholder={t.circle.friendsSearchPlaceholder}
+                        placeholderTextColor={colors.subtle}
+                        style={[styles.searchInput, { color: colors.text }]}
+                      />
+                    </View>
 
-                    return (
-                      <View
-                        key={m.id}
-                        style={[
-                          styles.memberItem,
-                          { backgroundColor: colors.surface, borderColor: colors.hairline },
-                        ]}
-                      >
-                        <View style={styles.memberLeft}>
-                          <View style={[styles.avatarBox, { backgroundColor: `${colors.primary}20` }]}>
-                            {m.user?.profile?.avatarUrl ? (
-                              <RNImage source={{ uri: m.user.profile.avatarUrl }} style={styles.memberAvatarImg} />
-                            ) : (
-                              <Text style={[styles.avatarText, { color: colors.primary }]}>
-                                {getInitials(displayTitle || realDisplayName)}
-                              </Text>
-                            )}
-                          </View>
-                          <View style={styles.memberDetails}>
-                            <View style={styles.nameRow}>
-                              <Text numberOfLines={1} style={[styles.memberName, { color: colors.text }]}>
-                                {displayTitle}
-                              </Text>
-                              {isSelf && (
-                                <View style={[styles.selfBadge, { backgroundColor: colors.wash }]}>
-                                  <Text style={[styles.selfBadgeText, { color: colors.subtle }]}>Bạn</Text>
+                    <TouchableOpacity
+                      activeOpacity={0.8}
+                      onPress={() => setIsAddFriendsOpen(true)}
+                      style={[styles.addMemberBtn, { backgroundColor: colors.primary }]}
+                    >
+                      <UserPlus size={16} color={colors.onPrimary} />
+                      <Text style={[styles.addMemberBtnText, { color: colors.onPrimary }]}>
+                        {t.circle.addMemberBtn}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Members List */}
+                  {isLoadingMembers ? (
+                    <ActivityIndicator style={{ marginVertical: 30 }} color={colors.primary} />
+                  ) : (
+                    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.memberList}>
+                      {filteredMembers.map((m) => {
+                        const realDisplayName = m.user?.profile?.displayName || m.user?.email?.split('@')[0] || t.auth.member;
+                        const hasNickname = Boolean(m.nickname && m.nickname.trim().length > 0);
+                        const displayTitle = hasNickname ? m.nickname : realDisplayName;
+                        const isSelf = user?.id === m.userId;
+                        const isMemberOwner = m.role === MemberRole.OWNER;
+                        const isMemberAdmin = m.role === MemberRole.ADMIN;
+
+                        return (
+                          <View
+                            key={m.id}
+                            style={[
+                              styles.memberItem,
+                              { backgroundColor: colors.surface, borderColor: colors.hairline },
+                            ]}
+                          >
+                            <View style={styles.memberLeft}>
+                              <View style={[styles.avatarBox, { backgroundColor: `${colors.primary}20` }]}>
+                                {m.user?.profile?.avatarUrl ? (
+                                  <RNImage source={{ uri: m.user.profile.avatarUrl }} style={styles.memberAvatarImg} />
+                                ) : (
+                                  <Text style={[styles.avatarText, { color: colors.primary }]}>
+                                    {getInitials(displayTitle || realDisplayName)}
+                                  </Text>
+                                )}
+                              </View>
+                              <View style={styles.memberDetails}>
+                                <View style={styles.nameRow}>
+                                  <Text numberOfLines={1} style={[styles.memberName, { color: colors.text }]}>
+                                    {displayTitle}
+                                  </Text>
+                                  {isSelf && (
+                                    <View style={[styles.selfBadge, { backgroundColor: colors.wash }]}>
+                                      <Text style={[styles.selfBadgeText, { color: colors.subtle }]}>Bạn</Text>
+                                    </View>
+                                  )}
+                                  {/* Inline Pencil Icon to change nickname */}
+                                  <TouchableOpacity
+                                    activeOpacity={0.7}
+                                    onPress={() => handleOpenNicknameDialog(m.id, m.nickname ?? null, realDisplayName)}
+                                    style={[styles.pencilBtn, { backgroundColor: colors.wash }]}
+                                  >
+                                    <Pencil size={12} color={colors.subtle} />
+                                  </TouchableOpacity>
+                                </View>
+
+                                {hasNickname ? (
+                                  <Text numberOfLines={1} style={[styles.subtleText, { color: colors.subtle }]}>
+                                    {realDisplayName}
+                                  </Text>
+                                ) : null}
+                              </View>
+                            </View>
+
+                            {/* Right: Role & Actions */}
+                            <View style={styles.memberRight}>
+                              {isMemberOwner ? (
+                                <View style={[styles.roleBadge, { backgroundColor: `${colors.warning}20` }]}>
+                                  <Crown size={12} color={colors.warning} />
+                                  <Text style={[styles.roleText, { color: colors.warning }]}>
+                                    {t.circle.memberRoleOwner}
+                                  </Text>
+                                </View>
+                              ) : isMemberAdmin ? (
+                                <View style={[styles.roleBadge, { backgroundColor: `${colors.primary}20` }]}>
+                                  <ShieldCheck size={12} color={colors.primary} />
+                                  <Text style={[styles.roleText, { color: colors.primary }]}>
+                                    {t.circle.memberRoleAdmin}
+                                  </Text>
+                                </View>
+                              ) : (
+                                <View style={[styles.roleBadge, { backgroundColor: colors.wash }]}>
+                                  <Text style={[styles.roleText, { color: colors.subtle }]}>
+                                    {t.circle.memberRoleMember}
+                                  </Text>
                                 </View>
                               )}
-                              {/* Inline Pencil Icon to change nickname */}
-                              <TouchableOpacity
-                                activeOpacity={0.7}
-                                onPress={() => handleOpenNicknameDialog(m.id, m.nickname ?? null, realDisplayName)}
-                                style={[styles.pencilBtn, { backgroundColor: colors.wash }]}
-                              >
-                                <Pencil size={12} color={colors.subtle} />
-                              </TouchableOpacity>
-                            </View>
 
-                            <Text numberOfLines={1} style={[styles.subtleText, { color: colors.subtle }]}>
-                              {hasNickname ? `${realDisplayName} · ${m.user?.email}` : m.user?.email}
-                            </Text>
+                              {/* Owner Controls (Transfer & Kick) */}
+                              {isOwner && !isMemberOwner && !isSelf && (
+                                <View style={styles.memberActions}>
+                                  <TouchableOpacity
+                                    onPress={() => handleTransferOwnership(m.id, realDisplayName)}
+                                    style={[styles.iconActionBtn, { backgroundColor: `${colors.warning}15` }]}
+                                  >
+                                    <Crown size={14} color={colors.warning} />
+                                  </TouchableOpacity>
+
+                                  <TouchableOpacity
+                                    onPress={() => handleKickMember(m.id, realDisplayName)}
+                                    style={[styles.iconActionBtn, { backgroundColor: `${colors.danger}15` }]}
+                                  >
+                                    <UserX size={14} color={colors.danger} />
+                                  </TouchableOpacity>
+                                </View>
+                              )}
+                            </View>
+                          </View>
+                        );
+                      })}
+                    </ScrollView>
+                  )}
+                </>
+              )}
+
+              {/* Subtab 2: Join Requests */}
+              {membersSubTab === 'requests' && (
+                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.memberList}>
+                  {isLoadingRequests ? (
+                    <ActivityIndicator style={{ marginVertical: 30 }} color={colors.primary} />
+                  ) : joinRequests.length === 0 ? (
+                    <View style={[styles.emptyBox, { backgroundColor: colors.wash, marginVertical: 20 }]}>
+                      <Text style={[styles.emptyText, { color: colors.subtle }]}>
+                        {t.circle.noPendingJoinRequests}
+                      </Text>
+                    </View>
+                  ) : (
+                    joinRequests.map((req) => {
+                      const reqName = req.user?.profile?.displayName || req.user?.email || 'User';
+                      return (
+                        <View
+                          key={req.id}
+                          style={[styles.requestItem, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
+                        >
+                          <View style={styles.memberLeft}>
+                            <View style={[styles.avatarBox, { backgroundColor: `${colors.primary}20` }]}>
+                              <Text style={[styles.avatarText, { color: colors.primary }]}>
+                                {getInitials(reqName)}
+                              </Text>
+                            </View>
+                            <View style={{ flex: 1 }}>
+                              <Text style={[styles.memberName, { color: colors.text }]}>{reqName}</Text>
+                              {req.message ? (
+                                <Text style={[styles.requestMsg, { color: colors.text }]}>"{req.message}"</Text>
+                              ) : null}
+                            </View>
+                          </View>
+
+                          <View style={styles.requestActions}>
+                            <TouchableOpacity
+                              onPress={() => handleReviewRequest(req.id, 'APPROVED')}
+                              style={[styles.acceptBtn, { backgroundColor: colors.success }]}
+                            >
+                              <Check size={16} color="#FFFFFF" />
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              onPress={() => handleReviewRequest(req.id, 'REJECTED')}
+                              style={[styles.rejectBtn, { backgroundColor: `${colors.danger}20` }]}
+                            >
+                              <X size={16} color={colors.danger} />
+                            </TouchableOpacity>
                           </View>
                         </View>
-
-                        {/* Right: Role & Actions */}
-                        <View style={styles.memberRight}>
-                          {isMemberOwner ? (
-                            <View style={[styles.roleBadge, { backgroundColor: `${colors.warning}20` }]}>
-                              <Crown size={12} color={colors.warning} />
-                              <Text style={[styles.roleText, { color: colors.warning }]}>
-                                {t.circle.memberRoleOwner}
-                              </Text>
-                            </View>
-                          ) : isMemberAdmin ? (
-                            <View style={[styles.roleBadge, { backgroundColor: `${colors.primary}20` }]}>
-                              <ShieldCheck size={12} color={colors.primary} />
-                              <Text style={[styles.roleText, { color: colors.primary }]}>
-                                {t.circle.memberRoleAdmin}
-                              </Text>
-                            </View>
-                          ) : (
-                            <View style={[styles.roleBadge, { backgroundColor: colors.wash }]}>
-                              <Text style={[styles.roleText, { color: colors.subtle }]}>
-                                {t.circle.memberRoleMember}
-                              </Text>
-                            </View>
-                          )}
-
-                          {/* Owner Controls (Transfer & Kick) */}
-                          {isOwner && !isMemberOwner && !isSelf && (
-                            <View style={styles.memberActions}>
-                              <TouchableOpacity
-                                onPress={() => handleTransferOwnership(m.id, realDisplayName)}
-                                style={[styles.iconActionBtn, { backgroundColor: `${colors.warning}15` }]}
-                              >
-                                <Crown size={14} color={colors.warning} />
-                              </TouchableOpacity>
-
-                              <TouchableOpacity
-                                onPress={() => handleKickMember(m.id, realDisplayName)}
-                                style={[styles.iconActionBtn, { backgroundColor: `${colors.danger}15` }]}
-                              >
-                                <UserX size={14} color={colors.danger} />
-                              </TouchableOpacity>
-                            </View>
-                          )}
-                        </View>
-                      </View>
-                    );
-                  })}
+                      );
+                    })
+                  )}
                 </ScrollView>
               )}
             </View>
@@ -964,19 +1027,6 @@ export function CircleManagementModal() {
              ========================================================================= */}
           {activeTab === 'privacySupport' && (
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.tabContent}>
-              {/* Notice Box */}
-              <View style={[styles.noticeCard, { backgroundColor: `${colors.primary}12`, borderColor: `${colors.primary}30` }]}>
-                <ShieldCheck size={18} color={colors.primary} />
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.noticeTitle, { color: colors.text }]}>
-                    {t.circle.personalPrivacyTitle}
-                  </Text>
-                  <Text style={[styles.noticeDesc, { color: colors.subtle }]}>
-                    {t.circle.personalPrivacySubtitle}
-                  </Text>
-                </View>
-              </View>
-
               {/* Section 1: Privacy & Messaging */}
               <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
                 <View style={styles.sectionHeaderRow}>
@@ -986,7 +1036,7 @@ export function CircleManagementModal() {
                   </Text>
                 </View>
 
-                {/* Read Receipts Toggle */}
+                {/* Read Receipts Toggle (Silent update) */}
                 <View style={[styles.preferenceRow, { backgroundColor: colors.wash, borderColor: colors.hairline }]}>
                   <View style={{ flex: 1, paddingRight: 10 }}>
                     <View style={styles.labelRow}>
@@ -1001,16 +1051,12 @@ export function CircleManagementModal() {
                   </View>
                   <Switch
                     value={readReceipts}
-                    onValueChange={(val) => {
-                      setReadReceipts(val);
-                      setSuccessMessage(t.circle.savedSuccess);
-                      setTimeout(() => setSuccessMessage(null), 2000);
-                    }}
+                    onValueChange={(val) => setReadReceipts(val)}
                     trackColor={{ false: colors.hairline, true: colors.primary }}
                   />
                 </View>
 
-                {/* Chat Notifications Mute Selector */}
+                {/* Chat Notifications Mute Selector (Silent update) */}
                 <View style={[styles.preferenceRowColumn, { backgroundColor: colors.wash, borderColor: colors.hairline }]}>
                   <View style={styles.labelRow}>
                     {notificationMute === 'off' ? (
@@ -1040,11 +1086,7 @@ export function CircleManagementModal() {
                       <TouchableOpacity
                         key={item.key}
                         activeOpacity={0.7}
-                        onPress={() => {
-                          setNotificationMute(item.key);
-                          setSuccessMessage(t.circle.savedSuccess);
-                          setTimeout(() => setSuccessMessage(null), 2000);
-                        }}
+                        onPress={() => setNotificationMute(item.key)}
                         style={[
                           styles.mutePill,
                           notificationMute === item.key
@@ -1201,7 +1243,7 @@ export function CircleManagementModal() {
              ========================================================================= */}
           {(activeTab === 'circleSettings' || activeTab === 'settings') && (
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.tabContent}>
-              {/* Section 1: Joining Mode & Capacity */}
+              {/* Section 1: Approval Switch & Capacity */}
               <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
                 <View style={styles.sectionHeaderRow}>
                   <Sliders size={16} color={colors.primary} />
@@ -1209,53 +1251,34 @@ export function CircleManagementModal() {
                     {t.circle.circleSettingsTitle}
                   </Text>
                 </View>
-                <Text style={[styles.cardDesc, { color: colors.subtle }]}>
-                  {t.circle.circleSettingsSubtitle}
-                </Text>
 
-                {/* Mode Selector Cards */}
-                <View style={styles.modeCardsRow}>
-                  <TouchableOpacity
-                    activeOpacity={0.8}
+                {/* Require Approval Switch */}
+                <View
+                  style={[
+                    styles.preferenceRow,
+                    {
+                      backgroundColor: colors.wash,
+                      borderColor: formIsPrivate ? colors.primary : colors.hairline,
+                    },
+                  ]}
+                >
+                  <View style={{ flex: 1, paddingRight: 10 }}>
+                    <View style={styles.labelRow}>
+                      <ShieldCheck size={16} color={colors.primary} />
+                      <Text style={[styles.prefTitle, { color: colors.text }]}>
+                        {t.circle.requireApprovalTitle}
+                      </Text>
+                    </View>
+                    <Text style={[styles.prefDesc, { color: colors.subtle }]}>
+                      {t.circle.requireApprovalDesc}
+                    </Text>
+                  </View>
+                  <Switch
+                    value={formIsPrivate}
                     disabled={!isOwner}
-                    onPress={() => setFormIsPrivate(false)}
-                    style={[
-                      styles.modeCard,
-                      !formIsPrivate
-                        ? { backgroundColor: `${colors.primary}15`, borderColor: colors.primary }
-                        : { backgroundColor: colors.wash, borderColor: colors.hairline },
-                      !isOwner && { opacity: 0.6 },
-                    ]}
-                  >
-                    <Globe size={18} color={colors.primary} />
-                    <Text style={[styles.modeCardTitle, { color: colors.text }]}>
-                      {t.circle.privacyPublic}
-                    </Text>
-                    <Text style={[styles.modeCardDesc, { color: colors.subtle }]}>
-                      {t.circle.circleModePublicDesc}
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    disabled={!isOwner}
-                    onPress={() => setFormIsPrivate(true)}
-                    style={[
-                      styles.modeCard,
-                      formIsPrivate
-                        ? { backgroundColor: `${colors.primary}15`, borderColor: colors.primary }
-                        : { backgroundColor: colors.wash, borderColor: colors.hairline },
-                      !isOwner && { opacity: 0.6 },
-                    ]}
-                  >
-                    <Lock size={18} color={colors.primary} />
-                    <Text style={[styles.modeCardTitle, { color: colors.text }]}>
-                      {t.circle.privacyPrivate}
-                    </Text>
-                    <Text style={[styles.modeCardDesc, { color: colors.subtle }]}>
-                      {t.circle.circleModePrivateDesc}
-                    </Text>
-                  </TouchableOpacity>
+                    onValueChange={setFormIsPrivate}
+                    trackColor={{ false: colors.hairline, true: colors.primary }}
+                  />
                 </View>
 
                 {/* Capacity Selector */}
@@ -1327,7 +1350,7 @@ export function CircleManagementModal() {
                 )}
               </View>
 
-              {/* Section 2: Invite Link & Code */}
+              {/* Section 2: Invite Link & Code (Clean & Tidy) */}
               <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
                 <View style={styles.sectionHeaderRow}>
                   <LinkIcon size={16} color={colors.primary} />
@@ -1335,105 +1358,45 @@ export function CircleManagementModal() {
                     {t.circle.inviteLinkCardTitle}
                   </Text>
                 </View>
-                <Text style={[styles.cardDesc, { color: colors.subtle }]}>
-                  {t.circle.inviteLinkCardDesc}
-                </Text>
-
-                {/* Link Box with Copy & Share */}
-                <View style={[styles.inviteLinkContainer, { backgroundColor: colors.wash, borderColor: colors.hairline }]}>
-                  <LinkIcon size={14} color={colors.primary} />
-                  <Text numberOfLines={1} style={[styles.inviteLinkText, { color: colors.text }]}>
-                    {inviteLink}
-                  </Text>
-                  <View style={styles.inviteLinkBtns}>
-                    <TouchableOpacity onPress={handleCopyLink} style={[styles.smallIconBtn, { backgroundColor: colors.surface }]}>
-                      {copiedLink ? <Check size={14} color={colors.success} /> : <Copy size={14} color={colors.primary} />}
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={handleShareInvite} style={[styles.smallIconBtn, { backgroundColor: colors.primary }]}>
-                      <Share2 size={14} color={colors.onPrimary} />
-                    </TouchableOpacity>
-                  </View>
-                </View>
 
                 {/* Code Box */}
                 <View style={[styles.codeRow, { backgroundColor: colors.wash, borderColor: colors.hairline }]}>
-                  <View>
+                  <View style={{ flex: 1 }}>
                     <Text style={[styles.codeLabel, { color: colors.subtle }]}>{t.circle.inviteCodeLabel}</Text>
                     <Text style={[styles.codeText, { color: colors.primary }]}>{inviteCode || '------'}</Text>
                   </View>
                   <TouchableOpacity
                     onPress={handleCopyCode}
-                    style={[styles.smallOutlineBtn, { borderColor: colors.hairline, backgroundColor: colors.surface }]}
+                    style={[styles.smallOutlineBtn, { borderColor: colors.primary, backgroundColor: colors.surface }]}
                   >
-                    <Copy size={14} color={colors.text} />
-                    <Text style={[styles.smallOutlineBtnText, { color: colors.text }]}>
-                      {copiedCode ? t.circle.copiedInviteCode : t.circle.copyInviteCode}
+                    <Copy size={13} color={colors.primary} />
+                    <Text style={[styles.smallOutlineBtnText, { color: colors.primary }]}>
+                      {copiedCode ? t.circle.copiedInviteCode : t.circle.copyCodeBtn}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Link Box */}
+                <View style={[styles.codeRow, { backgroundColor: colors.wash, borderColor: colors.hairline }]}>
+                  <View style={{ flex: 1, paddingRight: 8 }}>
+                    <Text style={[styles.codeLabel, { color: colors.subtle }]}>{t.circle.linkTitle}</Text>
+                    <Text numberOfLines={1} style={[styles.inviteLinkTextClean, { color: colors.text }]}>
+                      {inviteLink}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={handleCopyLink}
+                    style={[styles.smallOutlineBtn, { borderColor: colors.primary, backgroundColor: colors.surface }]}
+                  >
+                    {copiedLink ? <Check size={13} color={colors.success} /> : <Copy size={13} color={colors.primary} />}
+                    <Text style={[styles.smallOutlineBtnText, { color: colors.primary }]}>
+                      {copiedLink ? t.circle.copiedInviteLink : t.circle.copyLinkBtn}
                     </Text>
                   </TouchableOpacity>
                 </View>
               </View>
 
-              {/* Section 3: Join Requests (Owner Only) */}
-              {isOwner && (
-                <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
-                  <View style={styles.sectionHeaderRow}>
-                    <Users size={16} color={colors.primary} />
-                    <Text style={[styles.cardTitle, { color: colors.text }]}>
-                      {t.circle.joinRequestsTitle} ({joinRequests.length})
-                    </Text>
-                  </View>
-
-                  {isLoadingRequests ? (
-                    <ActivityIndicator style={{ marginVertical: 14 }} color={colors.primary} />
-                  ) : joinRequests.length === 0 ? (
-                    <Text style={[styles.emptyHintText, { color: colors.subtle }]}>
-                      {t.circle.noPendingJoinRequests}
-                    </Text>
-                  ) : (
-                    joinRequests.map((req) => {
-                      const reqName = req.user?.profile?.displayName || req.user?.email || 'User';
-                      return (
-                        <View
-                          key={req.id}
-                          style={[styles.requestItem, { backgroundColor: colors.wash, borderColor: colors.hairline }]}
-                        >
-                          <View style={styles.memberLeft}>
-                            <View style={[styles.avatarBox, { backgroundColor: colors.surface }]}>
-                              <Text style={[styles.avatarText, { color: colors.primary }]}>
-                                {getInitials(reqName)}
-                              </Text>
-                            </View>
-                            <View style={{ flex: 1 }}>
-                              <Text style={[styles.memberName, { color: colors.text }]}>{reqName}</Text>
-                              <Text style={[styles.subtleText, { color: colors.subtle }]}>{req.user?.email}</Text>
-                              {req.message && (
-                                <Text style={[styles.requestMsg, { color: colors.text }]}>"{req.message}"</Text>
-                              )}
-                            </View>
-                          </View>
-
-                          <View style={styles.requestActions}>
-                            <TouchableOpacity
-                              onPress={() => handleReviewRequest(req.id, 'APPROVED')}
-                              style={[styles.acceptBtn, { backgroundColor: colors.success }]}
-                            >
-                              <Check size={16} color="#FFFFFF" />
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                              onPress={() => handleReviewRequest(req.id, 'REJECTED')}
-                              style={[styles.rejectBtn, { backgroundColor: `${colors.danger}20` }]}
-                            >
-                              <X size={16} color={colors.danger} />
-                            </TouchableOpacity>
-                          </View>
-                        </View>
-                      );
-                    })
-                  )}
-                </View>
-              )}
-
-              {/* Section 4: Danger Zone */}
+              {/* Section 3: Danger Zone */}
               {isOwner && (
                 <View style={[styles.card, { backgroundColor: `${colors.danger}08`, borderColor: `${colors.danger}30` }]}>
                   <View style={styles.sectionHeaderRow}>
@@ -1886,6 +1849,70 @@ const styles = StyleSheet.create({
   primaryActionBtnText: {
     fontSize: 13,
     fontWeight: '700',
+  },
+  profileHeaderBox: {
+    padding: 20,
+    borderRadius: 24,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  bigAvatarBox: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    marginBottom: 4,
+  },
+  bigAvatarImg: {
+    width: '100%',
+    height: '100%',
+  },
+  bigAvatarText: {
+    fontSize: 24,
+    fontWeight: '800',
+  },
+  profileCircleName: {
+    fontSize: 18,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  profileCircleHandle: {
+    fontSize: 13,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  segmentedSubTabs: {
+    flexDirection: 'row',
+    padding: 4,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 4,
+  },
+  segmentBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  segmentBtnActive: {
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  segmentBtnText: {
+    fontSize: 12,
+  },
+  inviteLinkTextClean: {
+    fontSize: 12,
+    marginTop: 2,
   },
   membersContainer: {
     flex: 1,

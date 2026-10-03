@@ -105,7 +105,6 @@ export class ChatService {
                         userId: msg.sender.user.profile.userId,
                         displayName: msg.sender.user.profile.displayName,
                         avatarUrl: msg.sender.user.profile.avatarUrl,
-                        coverUrl: msg.sender.user.profile.coverUrl,
                         bio: msg.sender.user.profile.bio,
                         dateOfBirth: msg.sender.user.profile.dateOfBirth?.toISOString() || null,
                         updatedAt: msg.sender.user.profile.updatedAt.toISOString(),

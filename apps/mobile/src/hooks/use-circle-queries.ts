@@ -520,3 +520,30 @@ export function useCreateMomentMutation(circleId: string | null) {
   });
 }
 
+export function useReplyMomentMutation(circleId: string | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      momentId,
+      message,
+      targetCircleId,
+    }: {
+      momentId: string;
+      message: string;
+      targetCircleId?: string;
+    }) => {
+      const actualCircleId = targetCircleId || circleId;
+      if (!actualCircleId) throw new Error('No circle ID provided');
+      const res = await mobileApiRequest<any>(`/moments/${momentId}/reply`, {
+        method: 'POST',
+        body: JSON.stringify({ message: message.trim(), circleId: actualCircleId }),
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['messages'] });
+    },
+  });
+}
+

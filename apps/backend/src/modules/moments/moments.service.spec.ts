@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { MomentsService } from './moments.service';
 import { PrismaService } from '../../database/prisma.service';
+import { ChatGateway } from '../chat/chat.gateway';
 import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 
 describe('MomentsService', () => {
@@ -10,6 +11,14 @@ describe('MomentsService', () => {
     circleMember: {
       findMany: jest.fn(),
       findFirst: jest.fn(),
+      findUnique: jest.fn(),
+    },
+    channel: {
+      findFirst: jest.fn(),
+      create: jest.fn(),
+    },
+    message: {
+      create: jest.fn(),
     },
     moment: {
       create: jest.fn(),
@@ -24,6 +33,10 @@ describe('MomentsService', () => {
     },
   };
 
+  const mockChatGateway = {
+    broadcastNewMessage: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -31,6 +44,10 @@ describe('MomentsService', () => {
         {
           provide: PrismaService,
           useValue: mockPrisma,
+        },
+        {
+          provide: ChatGateway,
+          useValue: mockChatGateway,
         },
       ],
     }).compile();
@@ -280,6 +297,175 @@ describe('MomentsService', () => {
         where: { id: 'm-1' },
         data: { deletedAt: expect.any(Date) },
       });
+    });
+  });
+
+  describe('replyMoment', () => {
+    const mockMoment = {
+      id: 'm-1',
+      authorId: 'user-2',
+      photoUrl: 'https://images.unsplash.com/photo-1.jpg',
+      caption: 'Chuyến đi tuyệt vời',
+      deletedAt: null,
+      author: {
+        id: 'user-2',
+        email: 'user2@circle.app',
+        profile: { displayName: 'Hạnh Ninh' },
+      },
+      visibilities: [{ circleId: 'c-1' }],
+    };
+
+    const mockMember = {
+      id: 'mem-1',
+      circleId: 'c-1',
+      userId: 'user-1',
+      role: 'MEMBER',
+      nickname: 'Bình',
+      joinedAt: new Date('2026-09-01'),
+      updatedAt: new Date('2026-09-01'),
+      user: {
+        id: 'user-1',
+        email: 'user1@circle.app',
+        isActivated: true,
+        globalRole: 'USER',
+        createdAt: new Date('2026-09-01'),
+        updatedAt: new Date('2026-09-01'),
+        profile: {
+          id: 'prof-1',
+          userId: 'user-1',
+          displayName: 'Bình Trương',
+          avatarUrl: null,
+          bio: null,
+          dateOfBirth: null,
+          updatedAt: new Date('2026-09-01'),
+        },
+      },
+    };
+
+    const mockChannel = {
+      id: 'chan-1',
+      circleId: 'c-1',
+      name: 'general',
+      type: 'TEXT',
+    };
+
+    const mockRawMessage = {
+      id: 'msg-1',
+      channelId: 'chan-1',
+      memberId: 'mem-1',
+      type: 'FILE',
+      content: 'Ảnh này chụp ở đâu thế?',
+      fileUrl: 'https://images.unsplash.com/photo-1.jpg',
+      fileName: 'Khoảnh khắc: "Chuyến đi tuyệt vời"',
+      fileSize: 0,
+      audioDuration: null,
+      replyToId: null,
+      sentAt: new Date('2026-10-03T10:00:00Z'),
+      updatedAt: new Date('2026-10-03T10:00:00Z'),
+      sender: mockMember,
+      reactions: [],
+      pinnedRecord: null,
+    };
+
+    it('should throw NotFoundException if moment does not exist or is deleted', async () => {
+      mockPrisma.moment.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.replyMoment('user-1', 'm-none', {
+          message: 'Hello',
+          circleId: 'c-1',
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw ForbiddenException if moment is not visible in the selected circle', async () => {
+      mockPrisma.moment.findUnique.mockResolvedValue(mockMoment);
+
+      await expect(
+        service.replyMoment('user-1', 'm-1', {
+          message: 'Hello',
+          circleId: 'c-different',
+        }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should throw ForbiddenException if user is not a member of the circle', async () => {
+      mockPrisma.moment.findUnique.mockResolvedValue(mockMoment);
+      mockPrisma.circleMember.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.replyMoment('user-outsider', 'm-1', {
+          message: 'Hello',
+          circleId: 'c-1',
+        }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should create message in existing channel, broadcast via ChatGateway, and return MessageEntity', async () => {
+      mockPrisma.moment.findUnique.mockResolvedValue(mockMoment);
+      mockPrisma.circleMember.findUnique.mockResolvedValue(mockMember);
+      mockPrisma.channel.findFirst.mockResolvedValue(mockChannel);
+      mockPrisma.message.create.mockResolvedValue(mockRawMessage);
+
+      const result = await service.replyMoment('user-1', 'm-1', {
+        message: 'Ảnh này chụp ở đâu thế?',
+        circleId: 'c-1',
+      });
+
+      expect(result.id).toBe('msg-1');
+      expect(result.channelId).toBe('chan-1');
+      expect(result.content).toBe('Ảnh này chụp ở đâu thế?');
+      expect(result.fileUrl).toBe('https://images.unsplash.com/photo-1.jpg');
+      expect(result.fileName).toBe('Khoảnh khắc: "Chuyến đi tuyệt vời"');
+
+      expect(mockPrisma.message.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            channelId: 'chan-1',
+            memberId: 'mem-1',
+            type: 'FILE',
+            content: 'Ảnh này chụp ở đâu thế?',
+            fileUrl: 'https://images.unsplash.com/photo-1.jpg',
+            fileName: 'Khoảnh khắc: "Chuyến đi tuyệt vời"',
+          }),
+        }),
+      );
+
+      expect(mockChatGateway.broadcastNewMessage).toHaveBeenCalledWith('chan-1', expect.objectContaining({
+        id: 'msg-1',
+        content: 'Ảnh này chụp ở đâu thế?',
+      }));
+    });
+
+    it('should auto-create a default text channel if circle has no text channels yet', async () => {
+      mockPrisma.moment.findUnique.mockResolvedValue(mockMoment);
+      mockPrisma.circleMember.findUnique.mockResolvedValue(mockMember);
+      mockPrisma.channel.findFirst.mockResolvedValue(null);
+      mockPrisma.channel.create.mockResolvedValue({
+        id: 'chan-new',
+        circleId: 'c-1',
+        name: 'general',
+        type: 'TEXT',
+      });
+      mockPrisma.message.create.mockResolvedValue({
+        ...mockRawMessage,
+        channelId: 'chan-new',
+      });
+
+      const result = await service.replyMoment('user-1', 'm-1', {
+        message: 'Ảnh này chụp ở đâu thế?',
+        circleId: 'c-1',
+      });
+
+      expect(mockPrisma.channel.create).toHaveBeenCalledWith({
+        data: {
+          circleId: 'c-1',
+          name: 'general',
+          type: 'TEXT',
+        },
+      });
+      expect(result.channelId).toBe('chan-new');
+      expect(mockChatGateway.broadcastNewMessage).toHaveBeenCalledWith('chan-new', expect.any(Object));
     });
   });
 });

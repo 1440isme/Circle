@@ -5,16 +5,21 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
+import { ChatGateway } from '../chat/chat.gateway';
 import {
   CreateMomentInput,
+  ReplyMomentInput,
   Locale,
   locales,
 } from '@circle/shared';
-import { MomentEntity } from '@circle/types';
+import { MomentEntity, MessageEntity } from '@circle/types';
 
 @Injectable()
 export class MomentsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly chatGateway: ChatGateway,
+  ) {}
 
   /**
    * Helper to format moments with reaction aggregates and current user reaction state
@@ -391,5 +396,185 @@ export class MomentsService {
     });
 
     return { success: true };
+  }
+
+  /**
+   * POST /api/v1/moments/:id/reply — Reply to a Moment by sending a message with photo quote directly into the Circle's group chat
+   */
+  async replyMoment(
+    userId: string,
+    momentId: string,
+    dto: ReplyMomentInput,
+    locale: Locale = 'vi',
+  ): Promise<MessageEntity> {
+    const dict = locales[locale] || locales.vi;
+
+    // 1. Verify Moment existence and not deleted
+    const moment = await this.prisma.moment.findUnique({
+      where: { id: momentId },
+      include: {
+        author: {
+          include: {
+            profile: true,
+          },
+        },
+        visibilities: {
+          select: { circleId: true },
+        },
+      },
+    });
+
+    if (!moment || moment.deletedAt) {
+      throw new NotFoundException(dict.moments.momentNotFound || dict.auth.userNotFound);
+    }
+
+    // 2. Verify Moment is shared with target Circle
+    const isVisibleInCircle = moment.visibilities.some((v) => v.circleId === dto.circleId);
+    if (!isVisibleInCircle) {
+      throw new ForbiddenException(dict.moments.momentNotVisibleInCircle || dict.circle.privateForbidden);
+    }
+
+    // 3. Verify user is an active member of this Circle
+    const member = await this.prisma.circleMember.findUnique({
+      where: {
+        circleId_userId: {
+          circleId: dto.circleId,
+          userId,
+        },
+      },
+      include: {
+        user: {
+          include: {
+            profile: true,
+          },
+        },
+      },
+    });
+
+    if (!member) {
+      throw new ForbiddenException(dict.chat.notCircleMember);
+    }
+
+    // 4. Find or create the primary text channel for this Circle
+    let channel = await this.prisma.channel.findFirst({
+      where: {
+        circleId: dto.circleId,
+        type: 'TEXT',
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    if (!channel) {
+      channel = await this.prisma.channel.create({
+        data: {
+          circleId: dto.circleId,
+          name: 'general',
+          type: 'TEXT',
+        },
+      });
+    }
+
+    // 5. Build moment quote title
+    const momentAuthorName =
+      moment.author?.profile?.displayName || moment.author?.email?.split('@')[0] || 'User';
+    const quoteTitle = moment.caption
+      ? `Khoảnh khắc: "${moment.caption}"`
+      : dict.moments.quoteMomentAuthor.replace('{author}', momentAuthorName);
+
+    // 6. Create Message in Circle's Channel
+    const rawMessage = await this.prisma.message.create({
+      data: {
+        channelId: channel.id,
+        memberId: member.id,
+        type: 'FILE',
+        content: dto.message.trim(),
+        fileUrl: moment.photoUrl,
+        fileName: quoteTitle,
+        fileSize: 0,
+      },
+      include: {
+        sender: {
+          include: {
+            user: {
+              include: {
+                profile: true,
+              },
+            },
+          },
+        },
+        reactions: {
+          include: {
+            member: {
+              include: {
+                user: {
+                  include: {
+                    profile: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        pinnedRecord: true,
+      },
+    });
+
+    // 7. Format message entity
+    const formattedMessage: MessageEntity = {
+      id: rawMessage.id,
+      channelId: rawMessage.channelId,
+      memberId: rawMessage.memberId,
+      type: rawMessage.type as any,
+      content: rawMessage.content,
+      fileUrl: rawMessage.fileUrl,
+      fileName: rawMessage.fileName,
+      fileSize: rawMessage.fileSize,
+      audioDuration: rawMessage.audioDuration,
+      replyToId: rawMessage.replyToId,
+      sentAt: rawMessage.sentAt.toISOString(),
+      updatedAt: rawMessage.updatedAt.toISOString(),
+      sender: rawMessage.sender
+        ? {
+            id: rawMessage.sender.id,
+            circleId: rawMessage.sender.circleId,
+            userId: rawMessage.sender.userId,
+            role: rawMessage.sender.role as any,
+            nickname: rawMessage.sender.nickname,
+            joinedAt: rawMessage.sender.joinedAt.toISOString(),
+            updatedAt: rawMessage.sender.updatedAt.toISOString(),
+            user: rawMessage.sender.user
+              ? {
+                  id: rawMessage.sender.user.id,
+                  email: rawMessage.sender.user.email,
+                  isActivated: rawMessage.sender.user.isActivated,
+                  globalRole: rawMessage.sender.user.globalRole as any,
+                  createdAt: rawMessage.sender.user.createdAt.toISOString(),
+                  updatedAt: rawMessage.sender.user.updatedAt.toISOString(),
+                  profile: rawMessage.sender.user.profile
+                    ? {
+                        id: rawMessage.sender.user.profile.id,
+                        userId: rawMessage.sender.user.profile.userId,
+                        displayName: rawMessage.sender.user.profile.displayName,
+                        avatarUrl: rawMessage.sender.user.profile.avatarUrl,
+                        bio: rawMessage.sender.user.profile.bio,
+                        dateOfBirth: rawMessage.sender.user.profile.dateOfBirth?.toISOString() || null,
+                        updatedAt: rawMessage.sender.user.profile.updatedAt.toISOString(),
+                      }
+                    : null,
+                }
+              : undefined,
+          }
+        : undefined,
+      replyTo: null,
+      reactions: [],
+      reactionCounts: {},
+      userReactions: [],
+      isPinned: false,
+    };
+
+    // 8. Broadcast realtime message to all Circle members in the channel
+    this.chatGateway.broadcastNewMessage(channel.id, formattedMessage);
+
+    return formattedMessage;
   }
 }
