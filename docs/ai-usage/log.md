@@ -3095,7 +3095,7 @@
   - **Error Description:** Điều kiện `m.tempId === tempId` trong mutation cache update không guard trường hợp `tempId` là `undefined`, dẫn đến việc vô tình ghi đè toàn bộ danh sách tin nhắn lịch sử bằng tin nhắn mới.
   - **Root Cause:** `mutationFn` không trả về `tempId` nếu đầu vào không truyền `tempId`, làm cho `tempId` trong `onSuccess` mang giá trị `undefined`, dẫn tới biểu thức `undefined === undefined` trả về `true` cho tất cả tin nhắn cũ.
   - **Resolution / Fix:** Lấy `activeTempId` từ `data.tempId || variables?.tempId || context?.tempId` và bắt buộc điều kiện `Boolean(activeTempId)` trước khi so sánh `m.tempId === activeTempId`.
-- **Commit:** `6f7327d`, `b2cce77`
-- **PR:** #71 (https://github.com/1440isme/Circle/pull/71)
+- **Commit:** `6f7327d`, `b2cce77`, `4030896`, `eca3aef`
+- **PR:** #71, #73 (https://github.com/1440isme/Circle/pull/73)
 
 
