@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -184,6 +184,7 @@ interface MobileSwipeMessageBubbleProps {
   isFirst: boolean;
   isLast: boolean;
   isSingle: boolean;
+  isLatestSentByMe?: boolean;
   showTimestamp: boolean;
   hasReactions: boolean;
   colors: any;
@@ -202,6 +203,7 @@ function MobileSwipeMessageBubble({
   isFirst,
   isLast,
   isSingle,
+  isLatestSentByMe = false,
   showTimestamp,
   hasReactions,
   colors,
@@ -442,37 +444,36 @@ function MobileSwipeMessageBubble({
         </Animated.View>
       </View>
 
-      {/* Sent Timestamp & Status */}
-      {(showTimestamp || msg.status === 'FAILED') && (
+      {/* Sent Timestamp (ONLY on tap) & Status Icon (Visible on latest message or sending/failed) */}
+      {(showTimestamp || (isSenderMe && (isLatestSentByMe || msg.status === 'SENDING' || msg.status === 'FAILED'))) && (
         <View
           style={[
             styles.timestampRow,
             {
               alignSelf: isSenderMe ? 'flex-end' : 'flex-start',
-              marginTop: 2,
+              marginTop: 1,
               marginHorizontal: 4,
             },
           ]}
         >
-          <Text style={[styles.timestampText, { color: colors.subtle }]}>
-            {new Date(msg.sentAt || msg.createdAt || Date.now()).toLocaleTimeString(
-              [],
-              { hour: '2-digit', minute: '2-digit' },
-            )}
-          </Text>
+          {showTimestamp && (
+            <Text style={[styles.timestampText, { color: colors.subtle }]}>
+              {new Date(msg.sentAt || msg.createdAt || Date.now()).toLocaleTimeString(
+                [],
+                { hour: '2-digit', minute: '2-digit' },
+              )}
+            </Text>
+          )}
 
-          {isSenderMe && (
+          {isSenderMe && (isLatestSentByMe || msg.status === 'SENDING' || msg.status === 'FAILED') && (
             <View style={styles.statusBox}>
               {msg.status === 'SENDING' ? (
                 <View style={styles.sendingRow}>
                   <ActivityIndicator
                     size="small"
                     color={colors.primary}
-                    style={{ transform: [{ scale: 0.6 }], marginRight: 2 }}
+                    style={{ transform: [{ scale: 0.6 }], marginRight: 1 }}
                   />
-                  <Text style={[styles.sendingStatusText, { color: colors.subtle }]}>
-                    {t.chat.sendingStatus}
-                  </Text>
                 </View>
               ) : msg.status === 'FAILED' ? (
                 <TouchableOpacity
@@ -481,9 +482,6 @@ function MobileSwipeMessageBubble({
                   style={styles.retryBtnRow}
                 >
                   <AlertCircle size={12} color={colors.danger} />
-                  <Text style={[styles.retryBtnText, { color: colors.danger }]}>
-                    {t.chat.retryAction}
-                  </Text>
                 </TouchableOpacity>
               ) : (
                 <Check size={12} color={colors.primary} />
@@ -624,6 +622,24 @@ export default function CircleWorkspaceScreen() {
   }, []);
 
   const lastMessageId = messages.length > 0 ? messages[messages.length - 1].id : null;
+  const lastMessageByMeId = useMemo(() => {
+    return [...messages]
+      .reverse()
+      .find((m) => {
+        const senderUserId =
+          m.sender?.user?.id || m.sender?.userId || m.memberId || '';
+        return Boolean(
+          (user?.id &&
+            (senderUserId === user.id ||
+              m.memberId === user.id ||
+              m.sender?.userId === user.id)) ||
+            (user?.email && m.sender?.user?.email === user.email) ||
+            m.memberId === 'optimistic_me' ||
+            m.status === 'SENDING' ||
+            m.tempId,
+        );
+      })?.id;
+  }, [messages, user?.id, user?.email]);
   const prevLastMessageIdRef = useRef<string | null>(null);
   const isFirstLoadRef = useRef(true);
   const isNearBottomRef = useRef(true);
@@ -1001,6 +1017,7 @@ export default function CircleWorkspaceScreen() {
                                 isFirst={isFirst}
                                 isLast={isLast}
                                 isSingle={isSingle}
+                                isLatestSentByMe={Boolean(lastMessageByMeId && msg.id === lastMessageByMeId)}
                                 showTimestamp={showTimestamp}
                                 hasReactions={hasReactions}
                                 colors={colors}

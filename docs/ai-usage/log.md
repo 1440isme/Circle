@@ -3058,6 +3058,10 @@
   5. Thiết lập hệ thống kiểm thử tự động E2E đa nền tảng (Playwright Desktop & Mobile Web Viewport Emulation):
      - Tích hợp `@playwright/test` với cấu hình đa thiết bị: `chromium-desktop` (1280x800) và `mobile-chrome` (Pixel 7 viewport với touch events).
      - Viết spec `tests/e2e/chat-messaging.spec.ts` tự động login, gửi chuỗi tin nhắn và kiểm tra tự động `scrollHeight > clientHeight`, `distanceFromBottom: 0`, bảo toàn toàn bộ tin nhắn.
+  6. Tinh chỉnh hiển thị trạng thái tin nhắn và thời gian gửi (Message Status Indicators & Timestamp Toggle):
+     - Hiển thị biểu tượng trạng thái tối giản (không dùng chữ thô): biểu tượng quay `Clock` / `ActivityIndicator` cho tin nhắn đang gửi (`SENDING`), biểu tượng tích `✓` cho tin nhắn đã gửi (`SENT`), và `AlertCircle` kèm nút Thử lại cho tin nhắn lỗi (`FAILED`).
+     - Trạng thái gửi chỉ hiển thị duy nhất cho tin nhắn mới nhất mà người dùng gửi (`isLatestSentByMe`), hoặc khi tin nhắn đang trong hàng đợi gửi (`SENDING`) / gửi thất bại (`FAILED`), tránh gây rối mắt trên toàn bộ lịch sử.
+     - Ẩn nhãn thời gian theo mặc định; chỉ hiển thị timestamp khi người dùng nhấp/chạm vào bong bóng tin nhắn (`showTimestamp`), áp dụng đồng bộ trên cả Web và Mobile.
 - **Files Affected:**
   - `playwright.config.ts`
   - `tests/e2e/chat-messaging.spec.ts`
@@ -3091,7 +3095,7 @@
   - **Error Description:** Điều kiện `m.tempId === tempId` trong mutation cache update không guard trường hợp `tempId` là `undefined`, dẫn đến việc vô tình ghi đè toàn bộ danh sách tin nhắn lịch sử bằng tin nhắn mới.
   - **Root Cause:** `mutationFn` không trả về `tempId` nếu đầu vào không truyền `tempId`, làm cho `tempId` trong `onSuccess` mang giá trị `undefined`, dẫn tới biểu thức `undefined === undefined` trả về `true` cho tất cả tin nhắn cũ.
   - **Resolution / Fix:** Lấy `activeTempId` từ `data.tempId || variables?.tempId || context?.tempId` và bắt buộc điều kiện `Boolean(activeTempId)` trước khi so sánh `m.tempId === activeTempId`.
-- **Commit:** `6f7327d`, `b2cce77`
-- **PR:** #71 (https://github.com/1440isme/Circle/pull/71)
+- **Commit:** `6f7327d`, `b2cce77`, `4030896`, `eca3aef`
+- **PR:** #71, #73 (https://github.com/1440isme/Circle/pull/73)
 
 
