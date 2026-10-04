@@ -15,13 +15,7 @@
 
 2. **Những việc chưa làm được:**
 
-- Chưa phân tích yêu cầu chức năng và phi chức năng của hệ thống.
-- Chưa xây dựng User Stories, Acceptance Criteria, Business Rules và Data Dictionary.
-- Chưa xây dựng Use Case Diagram và đặc tả các Use Case chính.
-- Chưa thiết kế kiến trúc Client–Server, Modular Monolith và các sơ đồ kiến trúc.
-- Chưa thiết kế cơ sở dữ liệu ERD.
-- Chưa xây dựng Sequence Diagrams cho các luồng nghiệp vụ cốt lõi.
-- Chưa hoàn thiện và đóng gói đầy đủ bộ tài liệu SRS và SDD.
+- Khảo sát thực tế mới dừng lại ở phạm vi sinh viên nội bộ, chưa mở rộng thu thập được thêm dữ liệu khảo sát từ các nhóm đối tượng người dùng bên ngoài trường (dự kiến sẽ tiếp tục thu thập thêm trong quá trình triển khai thực nghiệm).
 
 3. **Những vướng mắc, khó khăn:**
 
@@ -59,10 +53,11 @@
 
 2. **Những việc chưa làm được:**
 
-- Chưa hoàn thiện thiết kế kiến trúc Client–Server theo hướng Modular Monolith và các sơ đồ kiến trúc liên quan (sơ đồ C4 Model, Sơ đồ lớp - Class Diagram).
-- Chưa hoàn thiện thiết kế cơ sở dữ liệu ERD chi tiết (Physical ERD với đầy đủ các bảng, quan hệ, khóa chính, khóa ngoại, chỉ mục).
-- Chưa hoàn thiện Sequence Diagrams cho các luồng nghiệp vụ cốt lõi (Xác thực tài khoản, Quản lý Circle, Tin nhắn nhóm thời gian thực qua Socket.IO, Đàm thoại WebRTC).
-- Chưa hoàn thiện và đóng gói đầy đủ bộ tài liệu SRS và SDD.
+- Các công việc thiết kế kỹ thuật thuộc giai đoạn Tuần 2 – 3 chưa hoàn thành trong Tuần 2 và được kéo dài sang Tuần 3 để tiếp tục hoàn thiện, bao gồm:
+  - Thiết kế kiến trúc Client–Server theo hướng Modular Monolith và các sơ đồ kiến trúc liên quan (sơ đồ C4 Model, Sơ đồ lớp - Class Diagram).
+  - Thiết kế cơ sở dữ liệu ERD chi tiết (Physical ERD với đầy đủ các bảng, quan hệ, khóa chính, khóa ngoại, chỉ mục).
+  - Xây dựng Sequence Diagrams cho các luồng nghiệp vụ cốt lõi.
+  - Đóng gói hoàn thiện bộ tài liệu SRS và SDD.
 
 3. **Những vướng mắc, khó khăn:**
 
@@ -81,3 +76,40 @@
 - Hoàn thiện Sequence Diagrams cho các luồng nghiệp vụ cốt lõi.
 - Hoàn thiện và đóng gói đầy đủ bộ tài liệu SRS và SDD.
 - Rà soát toàn bộ tài liệu thiết kế và chuẩn bị các yêu cầu kỹ thuật để bước vào giai đoạn thiết lập hạ tầng mã nguồn và môi trường phát triển (Tuần 4: NestJS, Next.js, React Native/Expo, Docker, CI).
+
+---
+
+### Giai đoạn: Tuần 3 (31/08/2026 – 06/09/2026)
+
+**Thành viên thực hiện:** Trương Công Bình, Ninh Thị Mỹ Hạnh
+
+1. **Những việc đã làm được:**
+
+- Hoàn thiện thiết kế kiến trúc Client–Server theo hướng Modular Monolith và các sơ đồ kiến trúc liên quan: hoàn thành sơ đồ C4 Model (Context, Container, Component Diagrams) và Sơ đồ lớp miền nghiệp vụ (Domain Class Diagram).
+- Hoàn thiện thiết kế cơ sở dữ liệu ERD chi tiết (Physical ERD gồm đầy đủ các bảng dữ liệu, quan hệ 1-N, N-N, khóa chính, khóa ngoại, chỉ mục) và chuẩn bị cấu trúc ánh xạ sang Prisma Schema.
+- Hoàn thiện Sequence Diagrams cho các luồng nghiệp vụ cốt lõi: Luồng xác thực tài khoản JWT và luân chuyển Refresh Token, Luồng tạo và quản lý Circle, Luồng gửi nhận tin nhắn thời gian thực qua Socket.IO, Luồng báo hiệu cuộc gọi đàm thoại WebRTC (Signaling Offer/Answer/ICE) qua máy chủ Coturn (STUN/TURN).
+- Hoàn thiện và đóng gói đầy đủ bộ tài liệu Đặc tả Yêu cầu Phần mềm (SRS) và tài liệu Thiết kế Phần mềm (SDD - Software Design Document).
+- Rà soát toàn diện sự thống nhất giữa SRS, SDD, ERD, 26 Use Cases và chuẩn bị các thông số kỹ thuật sẵn sàng cho giai đoạn thiết lập môi trường và phát triển hệ thống ở Tuần 4.
+
+2. **Những việc chưa làm được:**
+
+- Không có. Nhóm đã hoàn thành toàn bộ các công việc và sản phẩm dự kiến của giai đoạn Tuần 2 – 3 theo đúng kế hoạch đề ra (hoàn thành đầy đủ: SRS, User Stories, Acceptance Criteria, Business Rules, Data Dictionary, Use Case Diagram, SDD, Architecture/C4 Diagram, ERD, Sequence Diagrams), không có công việc tồn đọng bị kéo dài sang giai đoạn sau.
+
+3. **Những vướng mắc, khó khăn:**
+
+- Việc thiết kế cơ sở dữ liệu ERD cho một mạng xã hội nhóm đòi hỏi cân đối giữa tính toàn vẹn dữ liệu quan hệ (PostgreSQL) và hiệu năng truy vấn nhanh cho các tác vụ thời gian thực (tin nhắn nhóm, trạng thái cuộc gọi, sự kiện).
+- Luồng Signaling WebRTC cho Voice/Video Call và luồng định tuyến tin nhắn Socket.IO tương đối phức tạp, cần mô hình hóa cẩn trọng trong Sequence Diagrams để tránh tình trạng race-condition khi triển khai thực tế.
+- Cần thống nhất quy chuẩn kiến trúc Monorepo để chia sẻ mã nguồn dùng chung (DTO, Types, Locales) giữa Backend, Web và Mobile mà không bị phụ thuộc chéo vòng lặp (circular dependency).
+
+4. **Câu hỏi (nếu có):**
+
+- Xin ý kiến góp ý của GVHD về bộ tài liệu thiết kế phần mềm (SDD), Sơ đồ kiến trúc C4 Model và Sơ đồ cơ sở dữ liệu ERD trước khi nhóm bắt đầu tiến hành thiết lập hạ tầng mã nguồn và cài đặt hệ thống ở Tuần 4.
+
+5. **Những việc sẽ làm trong tuần tiếp theo:**
+
+- Thiết lập Backend với NestJS, TypeScript, Prisma và PostgreSQL.
+- Thiết lập Web Application với Next.js và Mobile Application với React Native/Expo.
+- Thiết lập Docker môi trường phát triển (PostgreSQL, Redis).
+- Thiết lập Git/GitHub, quy chuẩn Branch/PR và luồng CI cơ bản.
+- Xây dựng Authentication/Authorization với JWT, Refresh Token và RBAC.
+- Xây dựng các chức năng tài khoản cơ bản (đăng ký, đăng nhập, hồ sơ cá nhân).
