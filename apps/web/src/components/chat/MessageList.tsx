@@ -45,6 +45,19 @@ export const MessageList: React.FC<MessageListProps> = ({
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const lastMessageId = messages.length > 0 ? messages[messages.length - 1].id : null;
+  const lastMessageByMeId = [...messages]
+    .reverse()
+    .find((m) =>
+      Boolean(
+        (currentUserId &&
+          (m.sender?.user?.id === currentUserId ||
+            m.sender?.userId === currentUserId ||
+            m.memberId === currentUserId)) ||
+          m.memberId === 'optimistic_me' ||
+          m.status === 'SENDING' ||
+          m.tempId,
+      ),
+    )?.id;
   const prevLastMessageIdRef = useRef<string | null>(null);
   const isFirstRenderRef = useRef<boolean>(true);
 
@@ -271,6 +284,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                             isFirstInCluster={msgIdx === 0}
                             isLastInCluster={msgIdx === cluster.messages.length - 1}
                             isSingleInCluster={cluster.messages.length === 1}
+                            isLatestSentByMe={Boolean(lastMessageByMeId && msg.id === lastMessageByMeId)}
                             onReply={onReply}
                             onReact={onReact}
                             onTogglePin={onTogglePin}

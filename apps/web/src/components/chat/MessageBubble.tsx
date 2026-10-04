@@ -20,6 +20,7 @@ interface MessageBubbleProps {
   isFirstInCluster?: boolean;
   isLastInCluster?: boolean;
   isSingleInCluster?: boolean;
+  isLatestSentByMe?: boolean;
   onReply: (message: MessageEntity) => void;
   onReact: (messageId: string, emoji: string) => void;
   onTogglePin: (messageId: string, isPinned: boolean) => void;
@@ -35,6 +36,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   isFirstInCluster = true,
   isLastInCluster = true,
   isSingleInCluster = true,
+  isLatestSentByMe = false,
   onReply,
   onReact,
   onTogglePin,
@@ -249,22 +251,21 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           )}
         </div>
 
-        {/* Sent Timestamp & Status (Displayed when clicked/tapped or when FAILED) */}
-        {(showTimestamp || message.status === 'FAILED') && (
+        {/* Sent Timestamp (ONLY on click/tap) & Status Icon (Visible for latest message or sending/failed) */}
+        {(showTimestamp || (isSenderMe && (isLatestSentByMe || message.status === 'SENDING' || message.status === 'FAILED'))) && (
           <div
-            className={`text-[10px] mt-1 px-1 font-mono transition-opacity animate-in fade-in flex items-center gap-1.5 ${
+            className={`text-[10px] mt-1 px-1 font-mono transition-opacity animate-in fade-in flex items-center gap-1 select-none ${
               isSenderMe
                 ? 'justify-end text-circle-slate/60 dark:text-circle-dark-muted/60'
                 : 'justify-start text-circle-slate/60 dark:text-circle-dark-muted/60'
             }`}
           >
-            <span>{sentTime}</span>
-            {isSenderMe && (
+            {showTimestamp && <span>{sentTime}</span>}
+            {isSenderMe && (isLatestSentByMe || message.status === 'SENDING' || message.status === 'FAILED') && (
               <span className="inline-flex items-center">
                 {message.status === 'SENDING' ? (
-                  <span className="inline-flex items-center gap-1 text-circle-slate/60 dark:text-circle-dark-muted/60">
-                    <Clock className="w-3 h-3 animate-spin text-circle-primary" />
-                    <span>{t.chat.sendingStatus}</span>
+                  <span className="inline-flex items-center text-circle-primary ml-0.5" title={t.chat.sendingStatus}>
+                    <Clock className="w-3 h-3 animate-spin" />
                   </span>
                 ) : message.status === 'FAILED' ? (
                   <button
@@ -273,13 +274,15 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                       e.stopPropagation();
                       onRetry?.(message);
                     }}
-                    className="inline-flex items-center gap-1 text-red-500 font-semibold hover:underline cursor-pointer"
+                    className="inline-flex items-center text-red-500 hover:opacity-80 cursor-pointer ml-0.5"
+                    title={t.chat.retryAction}
                   >
                     <AlertCircle className="w-3 h-3 text-red-500" />
-                    <span>{t.chat.retryAction}</span>
                   </button>
                 ) : (
-                  <Check className="w-3 h-3 text-circle-primary" />
+                  <span className="inline-flex items-center text-circle-primary dark:text-circle-dark-primary ml-0.5" title={t.chat.sentStatus}>
+                    <Check className="w-3 h-3" />
+                  </span>
                 )}
               </span>
             )}

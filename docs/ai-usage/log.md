@@ -3058,6 +3058,10 @@
   5. Thiết lập hệ thống kiểm thử tự động E2E đa nền tảng (Playwright Desktop & Mobile Web Viewport Emulation):
      - Tích hợp `@playwright/test` với cấu hình đa thiết bị: `chromium-desktop` (1280x800) và `mobile-chrome` (Pixel 7 viewport với touch events).
      - Viết spec `tests/e2e/chat-messaging.spec.ts` tự động login, gửi chuỗi tin nhắn và kiểm tra tự động `scrollHeight > clientHeight`, `distanceFromBottom: 0`, bảo toàn toàn bộ tin nhắn.
+  6. Tinh chỉnh hiển thị trạng thái tin nhắn và thời gian gửi (Message Status Indicators & Timestamp Toggle):
+     - Hiển thị biểu tượng trạng thái tối giản (không dùng chữ thô): biểu tượng quay `Clock` / `ActivityIndicator` cho tin nhắn đang gửi (`SENDING`), biểu tượng tích `✓` cho tin nhắn đã gửi (`SENT`), và `AlertCircle` kèm nút Thử lại cho tin nhắn lỗi (`FAILED`).
+     - Trạng thái gửi chỉ hiển thị duy nhất cho tin nhắn mới nhất mà người dùng gửi (`isLatestSentByMe`), hoặc khi tin nhắn đang trong hàng đợi gửi (`SENDING`) / gửi thất bại (`FAILED`), tránh gây rối mắt trên toàn bộ lịch sử.
+     - Ẩn nhãn thời gian theo mặc định; chỉ hiển thị timestamp khi người dùng nhấp/chạm vào bong bóng tin nhắn (`showTimestamp`), áp dụng đồng bộ trên cả Web và Mobile.
 - **Files Affected:**
   - `playwright.config.ts`
   - `tests/e2e/chat-messaging.spec.ts`
