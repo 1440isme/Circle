@@ -114,20 +114,21 @@ describe('ChatGateway', () => {
   });
 
   describe('handleTyping', () => {
-    it('should broadcast user typing status to channel room', () => {
+    it('should broadcast user typing status to channel room with userName', () => {
       const mockTo = { emit: jest.fn() };
       const mockSocket: any = {
         id: 'sock_4',
-        data: { userId: 'user_1' },
+        data: { userId: 'user_1', user: { email: 'test@circle.vn' } },
         to: jest.fn().mockReturnValue(mockTo),
       };
 
-      gateway.handleTyping(mockSocket, { channelId: 'chan_1', isTyping: true });
+      gateway.handleTyping(mockSocket, { channelId: 'chan_1', isTyping: true, userName: 'Công Bình' });
 
       expect(mockSocket.to).toHaveBeenCalledWith('channel:chan_1');
       expect(mockTo.emit).toHaveBeenCalledWith('chat:user-typing', {
         channelId: 'chan_1',
         userId: 'user_1',
+        userName: 'Công Bình',
         isTyping: true,
       });
     });

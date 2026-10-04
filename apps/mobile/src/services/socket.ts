@@ -1,10 +1,6 @@
 import { io, Socket } from 'socket.io-client';
-import { getStoredTokens } from './auth-storage';
-
-const SOCKET_URL =
-  process.env.NEXT_PUBLIC_SOCKET_URL ||
-  process.env.NEXT_PUBLIC_API_URL?.replace('/api/v1', '') ||
-  'http://localhost:4000';
+import { getAuthTokens } from './storage';
+import { getApiBaseUrl } from './api';
 
 let socket: Socket | null = null;
 let currentActiveChannelId: string | null = null;
@@ -15,7 +11,7 @@ function notifyConnectionChange(connected: boolean) {
     try {
       listener(connected);
     } catch {
-      // ignore
+      // ignore errors in listeners
     }
   });
 }
@@ -32,27 +28,22 @@ export function subscribeSocketConnection(listener: (connected: boolean) => void
   };
 }
 
-export function isSocketConnected(): boolean {
+export function isMobileSocketConnected(): boolean {
   return !!socket?.connected;
 }
 
-/**
- * Initializes or returns the existing Socket.IO singleton instance.
- */
-export function getSocket(): Socket | null {
-  if (typeof window === 'undefined') return null;
-
-  const { accessToken } = getStoredTokens();
+export async function getMobileSocket(): Promise<Socket | null> {
+  const { accessToken } = await getAuthTokens();
   if (!accessToken) {
     if (socket) {
       socket.disconnect();
       socket = null;
+      notifyConnectionChange(false);
     }
     return null;
   }
 
   if (socket) {
-    // If socket exists but disconnected or token changed, update auth
     if (!socket.connected) {
       socket.auth = { token: accessToken };
       socket.connect();
@@ -60,12 +51,14 @@ export function getSocket(): Socket | null {
     return socket;
   }
 
-  socket = io(SOCKET_URL, {
+  const socketUrl = getApiBaseUrl().replace('/api/v1', '');
+
+  socket = io(socketUrl, {
     auth: { token: accessToken },
     autoConnect: true,
     reconnection: true,
-    reconnectionAttempts: 5,
-    reconnectionDelay: 1000,
+    reconnectionAttempts: 10,
+    reconnectionDelay: 1500,
     transports: ['websocket', 'polling'],
   });
 
@@ -82,16 +75,13 @@ export function getSocket(): Socket | null {
 
   socket.on('connect_error', (error) => {
     notifyConnectionChange(false);
-    console.warn('[Socket.IO] Connection error:', error.message);
+    console.warn('[Mobile Socket.IO] Connection error:', error.message);
   });
 
   return socket;
 }
 
-/**
- * Cleanly disconnects the current socket instance (e.g. on logout).
- */
-export function disconnectSocket(): void {
+export function disconnectMobileSocket(): void {
   if (socket) {
     socket.disconnect();
     socket = null;
@@ -100,50 +90,31 @@ export function disconnectSocket(): void {
   }
 }
 
-/**
- * Join a specific channel room for realtime group chat events.
- */
-export function joinChannelRoom(channelId: string): void {
+export async function joinMobileChannelRoom(channelId: string): Promise<void> {
   currentActiveChannelId = channelId;
-  const s = getSocket();
+  const s = await getMobileSocket();
   if (s && channelId) {
     s.emit('chat:join-channel', { channelId });
   }
 }
 
-/**
- * Leave a specific channel room.
- */
-export function leaveChannelRoom(channelId: string): void {
+export async function leaveMobileChannelRoom(channelId: string): Promise<void> {
   if (currentActiveChannelId === channelId) {
     currentActiveChannelId = null;
   }
-  const s = getSocket();
+  const s = await getMobileSocket();
   if (s && channelId) {
     s.emit('chat:leave-channel', { channelId });
   }
 }
 
-/**
- * Broadcast typing status to current channel members.
- */
-export function sendTypingStatus(channelId: string, isTyping: boolean, userName?: string): void {
-  const s = getSocket();
+export async function sendMobileTypingStatus(
+  channelId: string,
+  isTyping: boolean,
+  userName?: string,
+): Promise<void> {
+  const s = await getMobileSocket();
   if (s && channelId) {
     s.emit('chat:typing', { channelId, isTyping, userName });
   }
 }
-
-/**
- * Request list of currently online user IDs in a circle.
- */
-export function queryCircleOnlineUsers(
-  circleId: string,
-  callback: (response: { success: boolean; circleId: string; onlineUserIds: string[] }) => void,
-): void {
-  const s = getSocket();
-  if (s && circleId) {
-    s.emit('presence:get-circle-online', { circleId }, callback);
-  }
-}
-

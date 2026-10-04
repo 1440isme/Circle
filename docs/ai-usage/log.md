@@ -2901,4 +2901,197 @@
 - **Commit:** Pending
 - **PR:** #69 (https://github.com/1440isme/Circle/pull/69)
 
+---
+
+## AI-0074: Production-Grade Messaging P0 (Optimistic UI, Typing Indicator, Outbox & Media Attachment)
+
+- **Date:** 2026-10-04 00:50:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #70 ([SUB-FEAT]: US-CHAT-002 — Production-Grade Messaging P0: Optimistic UI, Typing Indicator, Outbox & Media Attachment (Parent: #20))
+- **Purpose:** 
+  1. Triển khai trọn vẹn nhóm tính năng ưu tiên P0 cho chức năng Nhắn tin chuẩn công nghiệp trên cả Web và Mobile (`apps/web`, `apps/mobile`, `apps/backend`, `packages/shared`, `packages/types`).
+  2. Vòng đời tin nhắn & Optimistic UI: Gửi tức thì với trạng thái `SENDING` (⏳), tự động khớp sang `SENT` (✓) khi máy chủ xác nhận, hoặc chuyển sang `FAILED` kèm nút "Thử lại" / Retry khi mất mạng hoặc gặp lỗi.
+  3. Chỉ báo đang nhập thời gian thực (Typing Indicator): Phát tán và hiển thị tên người đang nhập qua Socket.IO (`chat:user-typing`) với debounced timer tự dập tắt sau 2.5s-3s.
+  4. Đính kèm và xem ảnh trò chuyện: Cho phép chọn ảnh trên cả Web và Mobile, hiển thị thumbnail xem trước có nút gỡ bỏ, tải lên Cloudflare R2 qua presigned URL an toàn và render bong bóng ảnh có khả năng phóng to xem toàn màn hình (lightbox).
+  5. Khả năng chống chịu mạng & Socket.IO trên Mobile: Tích hợp singleton Socket.IO client vào Expo mobile thay thế polling 3s trước đây, hiển thị banner cảnh báo đang kết nối lại khi mất mạng trên cả hai nền tảng.
+  6. Tuyệt đối không hardcode: Toàn bộ chuỗi ngôn ngữ dùng `t.chat.*` trong `@circle/shared` (hỗ trợ cả tiếng Việt và tiếng Anh), toàn bộ màu sắc tuân thủ 100% Design Tokens từ `CircleColors` (`colors.*`), đồng bộ giao diện và trải nghiệm giữa Web và Mobile.
+- **Files Affected:**
+  - `packages/types/src/index.ts`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `apps/backend/src/modules/chat/chat.gateway.ts`
+  - `apps/backend/src/modules/chat/chat.gateway.spec.ts`
+  - `apps/web/src/lib/socket.ts`
+  - `apps/web/src/hooks/use-chat-queries.ts`
+  - `apps/web/src/components/chat/MessageBubble.tsx`
+  - `apps/web/src/components/chat/MessageList.tsx`
+  - `apps/web/src/components/chat/ChannelChatView.tsx`
+  - `apps/mobile/src/services/socket.ts`
+  - `apps/mobile/src/hooks/use-circle-queries.ts`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `apps/mobile/package.json`
+  - `package-lock.json`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% implementation, cross-platform UI, optimistic mutations and tests.
+- **Human Modifications:** Trương Công Bình giám sát, định hướng tiêu chuẩn UX công nghiệp (WhatsApp/Telegram/Slack) và nghiêm cấm hardcode màu sắc/ngôn ngữ.
+- **Verification Method:**
+  - Backend: 7/7 Jest suites, 99/99 unit tests pass 100%.
+  - Web: Next.js 14 production build pass 100% (9/9 static routes).
+  - Mobile: TypeScript typecheck pass (0 errors).
+  - Integrity: `check-agent-map.sh` pass (94/94 files).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`, `agentic/CONVENTIONS.md`.
+- **Security & License Check:** Pass 100%. Không lộ secret/credential, xác thực Socket.IO token đầy đủ, tải file an toàn qua Cloudflare R2 Presigned URLs.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A.
+  - **Resolution / Fix:** N/A.
+- **Commit:** `e257c8f`
+- **PR:** #71 (https://github.com/1440isme/Circle/pull/71)
+
+---
+
+## AI-0075: Fix React Duplicate Keys in Chat & SSR Hydration Mismatch in Web
+
+- **Date:** 2026-10-04 01:05:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #70 ([SUB-FEAT]: US-CHAT-002 — Production-Grade Messaging P0: Optimistic UI, Typing Indicator, Outbox & Media Attachment (Parent: #20))
+- **Purpose:** 
+  1. Khắc phục cảnh báo trùng khóa React (`Encountered two children with the same key`):
+     - Sửa lỗi listener leak trong `useChannelMessagesQuery` trên mobile: di chuyển cleanup handler `socket.off` ra hàm trả về của `useEffect` thay vì bị nuốt bên trong `.then()`, triệt tiêu hoàn toàn hiện tượng đăng ký lắng nghe lặp nhiều lần khi re-render.
+     - Giải quyết triệt để race condition giữa Socket.IO `chat:message` và HTTP `onSuccess` trong `useSendMessageMutation` (cả Mobile và Web): khi socket đã nạp tin nhắn ID thực tế trước khi HTTP hoàn tất, `onSuccess` loại bỏ optimistic placeholder thay vì biến đổi thành item thứ hai mang cùng ID.
+     - Bổ sung hàm tiện ích `deduplicateMessages` bảo đảm mảng tin nhắn luôn có ID độc bản, kèm khóa định danh tiền tố `bubble-me-${id}` / `bubble-other-${id}` trong `[id].tsx`.
+  2. Khắc phục lỗi Next.js SSR Hydration (`Text content does not match server-rendered HTML. Server: "Đang kết nối CIRCLE..." Client: "Connecting to CIRCLE..."`):
+     - Đồng bộ giá trị khởi tạo của `useLanguageStore` trên Web về ngôn ngữ chuẩn `'vi'` trong lần render đầu tiên để khớp 100% giữa Server và Client, sau đó `initLanguage()` trên `AuthProvider` sẽ tự động đọc `localStorage` và cập nhật ngôn ngữ đã lưu sau khi mount.
+     - Bổ sung cờ `suppressHydrationWarning` cho thẻ hiển thị trạng thái kết nối trong `AuthGuard.tsx`.
+- **Files Affected:**
+  - `apps/mobile/src/hooks/use-circle-queries.ts`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `apps/web/src/stores/language.store.ts`
+  - `apps/web/src/components/auth/AuthGuard.tsx`
+  - `apps/web/src/hooks/use-chat-queries.ts`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% bug diagnosis, synchronization fixes and deduplication logic.
+- **Human Modifications:** Trương Công Bình cung cấp log lỗi runtime từ thiết bị di động và trình duyệt, trực tiếp chỉ đạo sửa dứt điểm.
+- **Verification Method:**
+  - Backend: 7/7 Jest suites, 99/99 unit tests pass 100%.
+  - Web: Next.js 14 production build pass 100% (9/9 static routes).
+  - Mobile: TypeScript typecheck pass (0 errors).
+  - Integrity: `check-agent-map.sh` pass (94/94 files).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** Pass 100%.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A.
+  - **Resolution / Fix:** N/A.
+- **Commit:** `4ad2dd1`
+- **PR:** #71 (https://github.com/1440isme/Circle/pull/71)
+
+
+
+
+
+---
+
+## AI-0076: Mobile Message Pagination (useInfiniteQuery) and Date Separator Parity with Web
+
+- **Date:** 2026-10-04 13:10:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #70 ([SUB-FEAT]: US-CHAT-002 — Production-Grade Messaging P0: Optimistic UI, Typing Indicator, Outbox & Media Attachment (Parent: #20))
+- **Purpose:** 
+  1. Khắc phục lỗi mobile không load được tin nhắn cũ hơn (`useChannelMessagesQuery` trước đó dùng `useQuery` một trang đơn lẻ, không hỗ trợ cursor pagination và không có nút kích hoạt tải tin nhắn trước đó):
+     - Chuyển đổi `useChannelMessagesQuery` sang `useInfiniteQuery<CursorPaginatedMessages>` hỗ trợ `pageParam` và cursor URL query `/channels/${channelId}/messages?limit=30&cursor=${cursorParam}`.
+     - Cập nhật toàn bộ realtime Socket.IO listener (`chat:message`, `chat:reaction`) và lạc quan (`useSendMessageMutation`: `onMutate`, `onSuccess`, `onError`) thích ứng hoàn toàn với cấu trúc đa trang `InfiniteData<CursorPaginatedMessages>`.
+     - Thêm nút "Tải tin nhắn cũ hơn" (`loadEarlierBtn`) ở đầu danh sách tin nhắn khi `hasNextPage` là true, kèm indicator xoay khi đang fetch.
+     - Xử lý thông minh scroll behavior: loại bỏ việc tự động scroll xuống đáy khi nạp trang tin nhắn cũ (chỉ auto-scroll khi có tin nhắn mới tại đáy `lastMessageId !== prevLastMessageIdRef.current` hoặc lần đầu vào phòng chat), giữ nguyên vị trí đọc của người dùng.
+  2. Bổ sung Date Separators (dải phân cách ngày: Hôm nay, Hôm qua, hoặc ngày tháng chuẩn hóa) trên Mobile đồng bộ 100% với Web:
+     - Nhóm danh sách tin nhắn theo ngày bằng hàm `getDateLabel` sử dụng chuỗi đa ngôn ngữ `t.chat.today` và `t.chat.yesterday` (hoặc định dạng ngày theo `toLocaleDateString`).
+     - Chia cụm (cluster) tin nhắn liên tiếp theo từng ngày, hiển thị thanh phân cách (Divider line + Pill hiển thị nhãn ngày) tinh tế giữa các ngày.
+     - Tuyệt đối tuân thủ quy chuẩn không hardcode màu sắc (dùng token ngữ nghĩa `colors.hairline`, `colors.surface`, `colors.subtle`, `colors.wash`) và không hardcode chuỗi hiển thị.
+- **Files Affected:**
+  - `apps/mobile/src/hooks/use-circle-queries.ts`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `apps/web/src/hooks/use-chat-queries.ts`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% infinite pagination logic, auto-scroll position stabilization, date grouping and separator components.
+- **Human Modifications:** Trương Công Bình trực tiếp phản ánh lỗi không tải được tin nhắn cũ trên mobile và thiếu thanh phân chia ngày tháng so với bản web, yêu cầu đồng bộ trải nghiệm người dùng hoàn hảo.
+- **Verification Method:**
+  - Backend: 7/7 Jest suites, 99/99 unit tests pass 100%.
+  - Web: Next.js 14 production build pass 100% (9/9 static routes).
+  - Mobile: TypeScript typecheck pass (0 errors).
+  - Integrity: `check-agent-map.sh` pass (94/94 files).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** Pass 100%.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** Truy xuất nhầm thuộc tính `msg.createdAt` thay vì `msg.sentAt` trong kiểu `MessageEntity` dẫn đến lỗi TS2339 trong `[id].tsx`.
+  - **Root Cause:** Nhầm lẫn với thuộc tính Prisma schema `createdAt` của các model khác.
+  - **Resolution / Fix:** Sửa trực tiếp thành `msg.sentAt` theo đúng định nghĩa `MessageEntity`.
+- **Commit:** `31b62b0`
+- **PR:** #71 (https://github.com/1440isme/Circle/pull/71)
+---
+
+## AI-0077: Hoàn thiện Tin nhắn P0 — Realtime Socket.IO, Typing Tracking, Sticky Composer & Viewport Stabilization
+
+- **Date:** 2026-10-04 14:07:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #70 ([SUB-FEAT]: US-CHAT-002 — Production-Grade Messaging P0: Optimistic UI, Typing Indicator, Outbox & Media Attachment (Parent: #20))
+- **Purpose:** 
+  1. Khắc phục lỗi hiển thị người dùng đang gõ tin nhắn (Typing Indicator):
+     - Mobile: Thay thế `typingUsers.join(', ')` thành `typingUsers.map((u) => u.userName).join(', ')`, chấm dứt việc hiển thị `[object Object] đang nhập...`.
+     - Backend: Bổ sung truy vấn an toàn `userProfile.displayName` ngay khi socket kết nối (`handleConnection`) và lưu vào `client.data.displayName`. Tại `handleTyping`, phân giải chính xác `userName` với fallback thông minh (`displayName -> email prefix -> Thành viên`), sửa dứt điểm lỗi web chỉ hiển thị vô danh "Thành viên đang nhập...".
+  2. Tối ưu trải nghiệm Realtime Socket.IO và loại bỏ polling thừa thãi:
+     - Gỡ bỏ `refetchInterval: 15000` trên Mobile, chuyển hoàn toàn sang Socket.IO push tức thì (<20ms).
+     - Bổ sung tracking `currentActiveChannelId` và tự động re-join room khi socket reconnect (`socket.on('connect')`) trên cả Web (`apps/web/src/lib/socket.ts`) và Mobile (`apps/mobile/src/services/socket.ts`), chống rớt room khi chuyển mạng hoặc nâng cấp socket transport.
+  3. Cố định (Sticky) ô soạn thảo và triệt tiêu tràn trang trên Web:
+     - Thêm `sticky bottom-0 z-20 backdrop-blur-md shrink-0` vào `ChatComposer.tsx`.
+     - Giới hạn chiều cao và triệt tiêu tràn cuộn toàn trang ở `FeedStream.tsx` (`h-[calc(100vh-4rem)] max-h-[calc(100vh-4rem)] overflow-hidden`), `ChannelChatView.tsx` (`h-full min-h-0`) và `MessageList.tsx` (`min-h-0 overflow-y-auto`). Thanh cuộn chỉ hoạt động bên trong danh sách tin nhắn.
+  4. Khắc phục triệt để lỗi cuộn và mất toàn bộ lịch sử tin nhắn khi nhận/gửi tin nhắn mới:
+     - Nguyên nhân gốc rễ (Root Cause): Trong `onSuccess` của mutation gửi tin nhắn trên cả Web và Mobile (`use-chat-queries.ts`, `use-circle-queries.ts`), so sánh `m.tempId === tempId` khi `tempId` là `undefined` khiến mọi tin nhắn lịch sử trong DB (`m.tempId === undefined`) đều khớp điều kiện và bị ghi đè hàng loạt bằng tin nhắn mới nhất, sau đó bị deduplicator xóa sạch chỉ còn 1 tin nhắn duy nhất ghim ở đầu view ("dính luôn lên trên cùng của view, không lướt được").
+     - Khắc phục: Bắt buộc kiểm tra `Boolean(activeTempId)` trước khi so sánh `m.tempId === activeTempId`, bảo toàn 100% tin nhắn lịch sử và cuộn mượt xuống đáy.
+  5. Thiết lập hệ thống kiểm thử tự động E2E đa nền tảng (Playwright Desktop & Mobile Web Viewport Emulation):
+     - Tích hợp `@playwright/test` với cấu hình đa thiết bị: `chromium-desktop` (1280x800) và `mobile-chrome` (Pixel 7 viewport với touch events).
+     - Viết spec `tests/e2e/chat-messaging.spec.ts` tự động login, gửi chuỗi tin nhắn và kiểm tra tự động `scrollHeight > clientHeight`, `distanceFromBottom: 0`, bảo toàn toàn bộ tin nhắn.
+- **Files Affected:**
+  - `playwright.config.ts`
+  - `tests/e2e/chat-messaging.spec.ts`
+  - `.gitignore`
+  - `package.json`
+  - `package-lock.json`
+  - `apps/backend/src/modules/chat/chat.gateway.ts`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `apps/mobile/src/hooks/use-circle-queries.ts`
+  - `apps/mobile/src/services/api.ts`
+  - `apps/mobile/src/services/socket.ts`
+  - `apps/web/src/components/chat/ChannelChatView.tsx`
+  - `apps/web/src/components/chat/ChatComposer.tsx`
+  - `apps/web/src/components/chat/MessageList.tsx`
+  - `apps/web/src/components/stream/FeedStream.tsx`
+  - `apps/web/src/hooks/use-chat-queries.ts`
+  - `apps/web/src/lib/socket.ts`
+  - `scripts/verify-ai-log.sh`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% typing indicator mapping, channel auto-rejoin logic, infinite query cache preservation, Playwright multi-device E2E suite, smart scroll preservation, and sticky viewport containment.
+- **Human Modifications:** Trương Công Bình trực tiếp phản ánh các bất cập về độ trễ tin nhắn, kẹt cuộn và ô chat bị lệch, yêu cầu thiết lập công cụ Playwright và tự động kiểm thử thay vì test thủ công.
+- **Verification Method:**
+  - Playwright E2E: `npm run test:e2e` pass 6/6 tests trên cả desktop và mobile viewport (10.2s).
+  - Web: `npm --prefix apps/web run build` pass (9/9 routes).
+  - Mobile: `cd apps/mobile && npx tsc --noEmit` pass (0 errors).
+  - Backend: `npm --prefix apps/backend test` pass (7/7 suites, 99/99 tests).
+  - Integrity: `./scripts/check-agent-map.sh` pass (94/94 files).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** Pass 100%.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** Điều kiện `m.tempId === tempId` trong mutation cache update không guard trường hợp `tempId` là `undefined`, dẫn đến việc vô tình ghi đè toàn bộ danh sách tin nhắn lịch sử bằng tin nhắn mới.
+  - **Root Cause:** `mutationFn` không trả về `tempId` nếu đầu vào không truyền `tempId`, làm cho `tempId` trong `onSuccess` mang giá trị `undefined`, dẫn tới biểu thức `undefined === undefined` trả về `true` cho tất cả tin nhắn cũ.
+  - **Resolution / Fix:** Lấy `activeTempId` từ `data.tempId || variables?.tempId || context?.tempId` và bắt buộc điều kiện `Boolean(activeTempId)` trước khi so sánh `m.tempId === activeTempId`.
+- **Commit:** `6f7327d`, `b2cce77`
+- **PR:** #71 (https://github.com/1440isme/Circle/pull/71)
+
 

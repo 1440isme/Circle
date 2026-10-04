@@ -5,8 +5,8 @@ import { getAuthTokens, saveAuthTokens, clearAuthTokens } from './storage';
 import { useLanguageStore } from '../stores/language.store';
 
 export function getApiBaseUrl(): string {
-  // 1. Explicit environment variable
-  if (process.env.EXPO_PUBLIC_API_URL) {
+  // 1. Explicit production / remote HTTPS environment variable
+  if (process.env.EXPO_PUBLIC_API_URL?.startsWith('https://')) {
     const url = process.env.EXPO_PUBLIC_API_URL.replace(/\/+$/, '');
     return url.endsWith('/api/v1') ? url : `${url}/api/v1`;
   }
@@ -16,14 +16,8 @@ export function getApiBaseUrl(): string {
     return 'http://localhost:4000/api/v1';
   }
 
-  // 3. Configured in app.json extra
-  const extraUrl = Constants.expoConfig?.extra?.apiUrl;
-  if (extraUrl) {
-    const url = extraUrl.replace(/\/+$/, '');
-    return url.endsWith('/api/v1') ? url : `${url}/api/v1`;
-  }
-
-  // 4. Dynamically extract Metro dev server IP when running via Expo Go on physical device
+  // 3. Dynamically extract Metro dev server IP when running via Expo Go on physical device
+  // This automatically adapts to DHCP Wi-Fi IP changes so phone can always reach the backend
   const hostUri =
     Constants.expoConfig?.hostUri ||
     (Constants as any).expoGoConfig?.debuggerHost ||
@@ -37,6 +31,12 @@ export function getApiBaseUrl(): string {
     if (host && host !== 'localhost' && host !== '127.0.0.1') {
       return `http://${host}:4000/api/v1`;
     }
+  }
+
+  // 4. Explicit local environment variable
+  if (process.env.EXPO_PUBLIC_API_URL) {
+    const url = process.env.EXPO_PUBLIC_API_URL.replace(/\/+$/, '');
+    return url.endsWith('/api/v1') ? url : `${url}/api/v1`;
   }
 
   // 5. Android Emulator loopback (only when running on emulator and no LAN host extracted)

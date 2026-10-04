@@ -39,3 +39,8 @@ temp/
 # Secrets
 *.pem
 *.key
+
+# Playwright Test Artifacts
+playwright-report/
+test-results/
+tests/e2e/*.png

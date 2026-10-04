@@ -62,7 +62,13 @@ import {
   X,
   Pin,
   Reply,
+  Check,
+  Clock,
+  AlertCircle,
+  WifiOff,
+  ArrowUpCircle,
 } from 'lucide-react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { useThemeStore } from '../../src/stores/theme.store';
 import { useLanguageStore } from '../../src/stores/language.store';
 import { useAuthStore } from '../../src/stores/auth.store';
@@ -74,7 +80,11 @@ import {
   useSendMessageMutation,
   useReactMessageMutation,
   usePinMessageMutation,
+  useMobileChannelTyping,
 } from '../../src/hooks/use-circle-queries';
+import { uploadMobileMedia } from '../../src/services/storage-upload.service';
+import { subscribeSocketConnection } from '../../src/services/socket';
+import { MessageType } from '@circle/types';
 import { CircleManagementModal } from '../../src/components/circle/CircleManagementModal';
 import { LocketMomentsView } from '../../src/components/moment/LocketMomentsView';
 
@@ -114,7 +124,10 @@ function buildMobileClusters(
           msg.senderId === currentUserId)) ||
         (currentUserEmail &&
           (msg.sender?.user?.email === currentUserEmail ||
-            msg.sender?.email === currentUserEmail)),
+            msg.sender?.email === currentUserEmail)) ||
+        msg.memberId === 'optimistic_me' ||
+        msg.status === 'SENDING' ||
+        msg.tempId,
     );
     const senderName =
       msg.sender?.nickname ||
@@ -174,9 +187,12 @@ interface MobileSwipeMessageBubbleProps {
   showTimestamp: boolean;
   hasReactions: boolean;
   colors: any;
+  t: any;
   onToggleTimestamp: () => void;
   onLongPress: () => void;
   onSwipeReply: () => void;
+  onRetry?: (msg: any) => void;
+  onPreviewImage?: (url: string) => void;
 }
 
 function MobileSwipeMessageBubble({
@@ -189,9 +205,12 @@ function MobileSwipeMessageBubble({
   showTimestamp,
   hasReactions,
   colors,
+  t,
   onToggleTimestamp,
   onLongPress,
   onSwipeReply,
+  onRetry,
+  onPreviewImage,
 }: MobileSwipeMessageBubbleProps) {
   const translateX = useRef(new Animated.Value(0)).current;
   const hasVibratedOnSwipe = useRef(false);
@@ -218,9 +237,9 @@ function MobileSwipeMessageBubble({
     PanResponder.create({
       onStartShouldSetPanResponder: () => false,
       onMoveShouldSetPanResponder: (_, gestureState) => {
-        return gestureState.dx > 15 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.5;
+        return gestureState.dx > 25 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 2;
       },
-      onPanResponderTerminationRequest: () => false,
+      onPanResponderTerminationRequest: () => true,
       onPanResponderMove: (_, gestureState) => {
         if (gestureState.dx > 0) {
           const cappedDx = Math.min(gestureState.dx, 65);
@@ -377,14 +396,32 @@ function MobileSwipeMessageBubble({
               </View>
             )}
 
-            <Text
-              style={[
-                styles.messageText,
-                { color: isSenderMe ? colors.onPrimary : colors.text },
-              ]}
-            >
-              {msg.content}
-            </Text>
+            {/* Image Attachment */}
+            {Boolean(msg.fileUrl) && (
+              <TouchableOpacity
+                activeOpacity={0.9}
+                onPress={() => onPreviewImage?.(msg.fileUrl)}
+                style={styles.bubbleImageWrapper}
+              >
+                <RNImage
+                  source={{ uri: msg.fileUrl }}
+                  style={styles.bubbleImageContent}
+                  resizeMode="cover"
+                />
+              </TouchableOpacity>
+            )}
+
+            {/* Message Text Content */}
+            {Boolean(msg.content && msg.content.trim()) && (
+              <Text
+                style={[
+                  styles.messageText,
+                  { color: isSenderMe ? colors.onPrimary : colors.text },
+                ]}
+              >
+                {msg.content}
+              </Text>
+            )}
 
             {/* Overlapping Reaction Badge */}
             {hasReactions && (
@@ -405,24 +442,55 @@ function MobileSwipeMessageBubble({
         </Animated.View>
       </View>
 
-      {/* Sent Timestamp */}
-      {showTimestamp && (
-        <Text
+      {/* Sent Timestamp & Status */}
+      {(showTimestamp || msg.status === 'FAILED') && (
+        <View
           style={[
-            styles.timestampText,
+            styles.timestampRow,
             {
-              color: colors.subtle,
+              alignSelf: isSenderMe ? 'flex-end' : 'flex-start',
               marginTop: 2,
               marginHorizontal: 4,
-              alignSelf: isSenderMe ? 'flex-end' : 'flex-start',
             },
           ]}
         >
-          {new Date(msg.sentAt || msg.createdAt || Date.now()).toLocaleTimeString(
-            [],
-            { hour: '2-digit', minute: '2-digit' },
+          <Text style={[styles.timestampText, { color: colors.subtle }]}>
+            {new Date(msg.sentAt || msg.createdAt || Date.now()).toLocaleTimeString(
+              [],
+              { hour: '2-digit', minute: '2-digit' },
+            )}
+          </Text>
+
+          {isSenderMe && (
+            <View style={styles.statusBox}>
+              {msg.status === 'SENDING' ? (
+                <View style={styles.sendingRow}>
+                  <ActivityIndicator
+                    size="small"
+                    color={colors.primary}
+                    style={{ transform: [{ scale: 0.6 }], marginRight: 2 }}
+                  />
+                  <Text style={[styles.sendingStatusText, { color: colors.subtle }]}>
+                    {t.chat.sendingStatus}
+                  </Text>
+                </View>
+              ) : msg.status === 'FAILED' ? (
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => onRetry?.(msg)}
+                  style={styles.retryBtnRow}
+                >
+                  <AlertCircle size={12} color={colors.danger} />
+                  <Text style={[styles.retryBtnText, { color: colors.danger }]}>
+                    {t.chat.retryAction}
+                  </Text>
+                </TouchableOpacity>
+              ) : (
+                <Check size={12} color={colors.primary} />
+              )}
+            </View>
           )}
-        </Text>
+        </View>
       )}
     </View>
   );
@@ -435,7 +503,7 @@ export default function CircleWorkspaceScreen() {
   const circleId = id || '';
 
   const { colors, resolvedTheme } = useThemeStore();
-  const t = useLanguageStore((s) => s.t);
+  const { t, locale } = useLanguageStore();
   const user = useAuthStore((s) => s.user);
   const isDark = resolvedTheme === 'dark';
 
@@ -445,11 +513,21 @@ export default function CircleWorkspaceScreen() {
   const [activeTab, setActiveTab] = useState<WorkspaceTab>('chat');
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
   const [messageInput, setMessageInput] = useState('');
+  const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
+  const [isUploadingMedia, setIsUploadingMedia] = useState(false);
+  const [previewingImageUrl, setPreviewingImageUrl] = useState<string | null>(null);
+  const [isSocketConnected, setIsSocketConnected] = useState(true);
   const [replyingMessage, setReplyingMessage] = useState<any | null>(null);
   const [activeActionMessage, setActiveActionMessage] = useState<any | null>(null);
   const [activeTimestampMessageId, setActiveTimestampMessageId] = useState<string | null>(null);
 
   const scrollViewRef = useRef<ScrollView>(null);
+
+  useEffect(() => {
+    return subscribeSocketConnection((connected) => {
+      setIsSocketConnected(connected);
+    });
+  }, []);
 
   // Queries & Mutations
   const { data: circle, isLoading: isLoadingCircle } = useCircleDetailQuery(circleId);
@@ -465,15 +543,62 @@ export default function CircleWorkspaceScreen() {
 
   const currentChannelId = currentChannel?.id || null;
 
-  const { data: messagesData, isLoading: isLoadingMessages } =
-    useChannelMessagesQuery(currentChannelId);
+  const {
+    messages = [],
+    isLoading: isLoadingMessages,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  } = useChannelMessagesQuery(currentChannelId);
   const sendMessageMutation = useSendMessageMutation(currentChannelId);
   const reactMessageMutation = useReactMessageMutation(currentChannelId);
   const pinMessageMutation = usePinMessageMutation(currentChannelId);
+  const { typingUsers, reportTyping } = useMobileChannelTyping(currentChannelId);
 
-  const messages = messagesData?.messages || (messagesData as any)?.items || [];
+  // Format date separator label matching Web exactly
+  const getDateLabel = (dateStr: string) => {
+    const msgDate = new Date(dateStr);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
 
-  const clusters = buildMobileClusters(messages, user?.id, user?.email);
+    if (msgDate.toDateString() === today.toDateString()) {
+      return t.chat.today;
+    }
+    if (msgDate.toDateString() === yesterday.toDateString()) {
+      return t.chat.yesterday;
+    }
+
+    return msgDate.toLocaleDateString(locale === 'vi' ? 'vi-VN' : 'en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  };
+
+  interface MobileDateSection {
+    date: string;
+    clusters: MobileMessageCluster[];
+  }
+
+  // Group messages by date first, then cluster consecutive messages within each date
+  const dateMap = new Map<string, any[]>();
+  messages.forEach((msg) => {
+    const dateLabel = getDateLabel(msg.sentAt || new Date().toISOString());
+    if (!dateMap.has(dateLabel)) {
+      dateMap.set(dateLabel, []);
+    }
+    dateMap.get(dateLabel)!.push(msg);
+  });
+
+  const dateSections: MobileDateSection[] = [];
+  dateMap.forEach((msgsInDate, dateLabel) => {
+    dateSections.push({
+      date: dateLabel,
+      clusters: buildMobileClusters(msgsInDate, user?.id, user?.email),
+    });
+  });
 
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
 
@@ -498,13 +623,52 @@ export default function CircleWorkspaceScreen() {
     };
   }, []);
 
+  const lastMessageId = messages.length > 0 ? messages[messages.length - 1].id : null;
+  const prevLastMessageIdRef = useRef<string | null>(null);
+  const isFirstLoadRef = useRef(true);
+  const isNearBottomRef = useRef(true);
+
+  const handleScroll = (event: any) => {
+    const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+    const paddingToBottom = 160;
+    isNearBottomRef.current =
+      layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom;
+  };
+
   useEffect(() => {
-    if (messages.length > 0) {
+    isFirstLoadRef.current = true;
+    prevLastMessageIdRef.current = null;
+  }, [currentChannelId]);
+
+  useEffect(() => {
+    if (messages.length === 0) return;
+
+    const lastMsg = messages[messages.length - 1];
+    const isSenderMe = Boolean(
+      (user?.id &&
+        (lastMsg?.sender?.user?.id === user.id ||
+          lastMsg?.sender?.userId === user.id ||
+          lastMsg?.memberId === user.id)) ||
+        lastMsg?.memberId === 'optimistic_me' ||
+        lastMsg?.status === 'SENDING' ||
+        lastMsg?.tempId,
+    );
+
+    if (isFirstLoadRef.current) {
+      isFirstLoadRef.current = false;
+      prevLastMessageIdRef.current = lastMessageId;
       setTimeout(() => {
-        scrollViewRef.current?.scrollToEnd({ animated: true });
+        scrollViewRef.current?.scrollToEnd({ animated: false });
       }, 60);
+    } else if (lastMessageId && lastMessageId !== prevLastMessageIdRef.current) {
+      prevLastMessageIdRef.current = lastMessageId;
+      if (isSenderMe || isNearBottomRef.current) {
+        setTimeout(() => {
+          scrollViewRef.current?.scrollToEnd({ animated: true });
+        }, 50);
+      }
     }
-  }, [messages.length, currentChannelId]);
+  }, [messages.length, lastMessageId, currentChannelId, user?.id]);
 
   const handleShareInviteCode = async () => {
     if (!circle?.inviteCode) return;
@@ -524,19 +688,77 @@ export default function CircleWorkspaceScreen() {
     }
   };
 
+  const handlePickImage = async () => {
+    try {
+      const res = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        quality: 0.8,
+      });
+
+      if (!res.canceled && res.assets && res.assets.length > 0) {
+        setSelectedImageUri(res.assets[0].uri);
+      }
+    } catch (err: any) {
+      Alert.alert(t.common.appName, err?.message || t.storage.uploadFailed);
+    }
+  };
+
   const handleSendMessage = async () => {
-    if (!messageInput.trim() || !currentChannelId) return;
-    const content = messageInput;
+    if ((!messageInput.trim() && !selectedImageUri) || !currentChannelId) return;
+    const content = messageInput.trim();
     const replyToId = replyingMessage?.id;
+    const imageToUpload = selectedImageUri;
+
     setMessageInput('');
+    setSelectedImageUri(null);
     setReplyingMessage(null);
+    reportTyping(false, user?.profile?.displayName || user?.email);
+    isNearBottomRef.current = true;
+
     setTimeout(() => {
       scrollViewRef.current?.scrollToEnd({ animated: true });
     }, 50);
+
     try {
-      await sendMessageMutation.mutateAsync({ content, replyToId });
+      if (imageToUpload) {
+        setIsUploadingMedia(true);
+        const uploaded = await uploadMobileMedia({
+          folder: 'attachments',
+          uri: imageToUpload,
+        });
+        setIsUploadingMedia(false);
+
+        await sendMessageMutation.mutateAsync({
+          content: content || undefined,
+          type: MessageType.FILE,
+          fileUrl: uploaded.publicUrl,
+          replyToId,
+        });
+      } else {
+        await sendMessageMutation.mutateAsync({
+          content,
+          type: MessageType.TEXT,
+          replyToId,
+        });
+      }
     } catch (err: any) {
-      Alert.alert(t.common.appName, err?.message || t.common.unknownError);
+      setIsUploadingMedia(false);
+      Alert.alert(t.common.appName, t.chat.sendFailedAlert);
+    }
+  };
+
+  const handleRetry = async (msg: any) => {
+    try {
+      await sendMessageMutation.mutateAsync({
+        content: msg.content,
+        type: msg.type || MessageType.TEXT,
+        fileUrl: msg.fileUrl,
+        replyToId: msg.replyToId,
+        tempId: msg.tempId || msg.id,
+      });
+    } catch {
+      Alert.alert(t.common.appName, t.chat.sendFailedAlert);
     }
   };
 
@@ -624,6 +846,16 @@ export default function CircleWorkspaceScreen() {
         </View>
       </View>
 
+      {/* Network Reconnection Banner */}
+      {!isSocketConnected && (
+        <View style={[styles.reconnectBanner, { backgroundColor: colors.wash, borderColor: colors.hairline }]}>
+          <WifiOff size={13} color={colors.subtle} style={{ marginRight: 6 }} />
+          <Text style={[styles.reconnectText, { color: colors.subtle }]}>
+            {t.chat.reconnecting}
+          </Text>
+        </View>
+      )}
+
       {/* Internal Navigation Tabs: 3 Tabs (Icons Only) */}
       <View style={[styles.segmentedBar, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
         <TouchableOpacity
@@ -678,11 +910,41 @@ export default function CircleWorkspaceScreen() {
             style={styles.messagesList}
             contentContainerStyle={styles.messagesScrollContent}
             showsVerticalScrollIndicator={false}
+            onScroll={handleScroll}
+            scrollEventThrottle={16}
             onContentSizeChange={() => {
-              scrollViewRef.current?.scrollToEnd({ animated: false });
+              if (isFirstLoadRef.current || isNearBottomRef.current) {
+                scrollViewRef.current?.scrollToEnd({ animated: !isFirstLoadRef.current });
+              }
             }}
           >
-            {isLoadingMessages ? (
+            {/* Load Earlier Messages Button */}
+            {hasNextPage && (
+              <View style={styles.loadEarlierContainer}>
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => fetchNextPage()}
+                  disabled={isFetchingNextPage}
+                  style={[
+                    styles.loadEarlierBtn,
+                    { backgroundColor: colors.surface, borderColor: colors.hairline },
+                  ]}
+                >
+                  {isFetchingNextPage ? (
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  ) : (
+                    <>
+                      <ArrowUpCircle size={15} color={colors.subtle} style={{ marginRight: 6 }} />
+                      <Text style={[styles.loadEarlierText, { color: colors.subtle }]}>
+                        {t.chat.loadEarlierMessages}
+                      </Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {isLoadingMessages && messages.length === 0 ? (
               <ActivityIndicator color={colors.primary} style={{ marginVertical: 20 }} />
             ) : messages.length === 0 ? (
               <View style={[styles.emptyChatBox, { backgroundColor: colors.wash }]}>
@@ -695,111 +957,137 @@ export default function CircleWorkspaceScreen() {
                 </Text>
               </View>
             ) : (
-              clusters.map((cluster, clusterIdx) => {
-                const isSenderMe = cluster.isSenderMe;
-
-                if (isSenderMe) {
-                  return (
+              dateSections.map((section, sectionIdx) => (
+                <View key={`date-section-${section.date}-${sectionIdx}`}>
+                  {/* Date Divider Pill (Today, Yesterday, or Formatted Date) */}
+                  <View style={styles.dateSeparatorRow}>
+                    <View style={[styles.dateSeparatorLine, { backgroundColor: colors.hairline }]} />
                     <View
-                      key={`mobile-cluster-me-${clusterIdx}`}
-                      style={[styles.clusterContainerMe]}
+                      style={[
+                        styles.dateSeparatorPill,
+                        { backgroundColor: colors.surface, borderColor: colors.hairline },
+                      ]}
                     >
-                      {cluster.messages.map((msg, msgIdx) => {
-                        const isFirst = msgIdx === 0;
-                        const isLast = msgIdx === cluster.messages.length - 1;
-                        const isSingle = cluster.messages.length === 1;
-                        const showTimestamp = activeTimestampMessageId === msg.id;
-                        const hasReactions =
-                          msg.reactionCounts && Object.keys(msg.reactionCounts).length > 0;
-
-                        return (
-                          <MobileSwipeMessageBubble
-                            key={msg.id}
-                            msg={msg}
-                            allMessages={messages}
-                            isSenderMe={true}
-                            isFirst={isFirst}
-                            isLast={isLast}
-                            isSingle={isSingle}
-                            showTimestamp={showTimestamp}
-                            hasReactions={hasReactions}
-                            colors={colors}
-                            onToggleTimestamp={() =>
-                              setActiveTimestampMessageId((prev) => (prev === msg.id ? null : msg.id))
-                            }
-                            onLongPress={() => setActiveActionMessage(msg)}
-                            onSwipeReply={() => setReplyingMessage(msg)}
-                          />
-                        );
-                      })}
-                    </View>
-                  );
-                }
-
-                // Other user's cluster
-                return (
-                  <View
-                    key={`mobile-cluster-other-${clusterIdx}`}
-                    style={styles.clusterContainerOther}
-                  >
-                    {/* Avatar aligned with the bottom of the cluster */}
-                    <View style={[styles.senderAvatarBottom, { backgroundColor: `${colors.primary}18` }]}>
-                      {cluster.senderAvatarUrl ? (
-                        <RNImage
-                          source={{ uri: cluster.senderAvatarUrl }}
-                          style={styles.senderAvatarImg}
-                        />
-                      ) : (
-                        <Text style={[styles.senderAvatarText, { color: colors.primary }]}>
-                          {cluster.senderName.slice(0, 2).toUpperCase()}
-                        </Text>
-                      )}
-                    </View>
-
-                    {/* Messages Stack */}
-                    <View style={styles.clusterMessagesCol}>
-                      {/* Sender Name once at the top of cluster */}
-                      <View style={styles.senderHeaderRow}>
-                        <Text
-                          numberOfLines={1}
-                          style={[styles.senderName, { color: colors.text }]}
-                        >
-                          {cluster.senderName}
-                        </Text>
-                      </View>
-
-                      {cluster.messages.map((msg, msgIdx) => {
-                        const isFirst = msgIdx === 0;
-                        const isLast = msgIdx === cluster.messages.length - 1;
-                        const isSingle = cluster.messages.length === 1;
-                        const showTimestamp = activeTimestampMessageId === msg.id;
-                        const hasReactions =
-                          msg.reactionCounts && Object.keys(msg.reactionCounts).length > 0;
-
-                        return (
-                          <MobileSwipeMessageBubble
-                            key={msg.id}
-                            msg={msg}
-                            allMessages={messages}
-                            isSenderMe={false}
-                            isFirst={isFirst}
-                            isLast={isLast}
-                            isSingle={isSingle}
-                            showTimestamp={showTimestamp}
-                            hasReactions={hasReactions}
-                            colors={colors}
-                            onToggleTimestamp={() =>
-                              setActiveTimestampMessageId((prev) => (prev === msg.id ? null : msg.id))
-                            }
-                            onLongPress={() => setActiveActionMessage(msg)}
-                            onSwipeReply={() => setReplyingMessage(msg)}
-                          />
-                        );
-                      })}
+                      <Text style={[styles.dateSeparatorText, { color: colors.subtle }]}>
+                        {section.date}
+                      </Text>
                     </View>
                   </View>
-                );
-              })
+
+                  {/* Message Clusters in this Date Section */}
+                  {section.clusters.map((cluster, clusterIdx) => {
+                    const isSenderMe = cluster.isSenderMe;
+
+                    if (isSenderMe) {
+                      return (
+                        <View
+                          key={`mobile-cluster-me-${sectionIdx}-${clusterIdx}`}
+                          style={[styles.clusterContainerMe]}
+                        >
+                          {cluster.messages.map((msg, msgIdx) => {
+                            const isFirst = msgIdx === 0;
+                            const isLast = msgIdx === cluster.messages.length - 1;
+                            const isSingle = cluster.messages.length === 1;
+                            const showTimestamp = activeTimestampMessageId === msg.id;
+                            const hasReactions =
+                              msg.reactionCounts && Object.keys(msg.reactionCounts).length > 0;
+
+                            return (
+                              <MobileSwipeMessageBubble
+                                key={msg.id ? `bubble-me-${msg.id}` : `bubble-temp-${msg.tempId || msgIdx}`}
+                                msg={msg}
+                                allMessages={messages}
+                                isSenderMe={true}
+                                isFirst={isFirst}
+                                isLast={isLast}
+                                isSingle={isSingle}
+                                showTimestamp={showTimestamp}
+                                hasReactions={hasReactions}
+                                colors={colors}
+                                t={t}
+                                onToggleTimestamp={() =>
+                                  setActiveTimestampMessageId((prev) => (prev === msg.id ? null : msg.id))
+                                }
+                                onLongPress={() => setActiveActionMessage(msg)}
+                                onSwipeReply={() => setReplyingMessage(msg)}
+                                onRetry={handleRetry}
+                                onPreviewImage={(url) => setPreviewingImageUrl(url)}
+                              />
+                            );
+                          })}
+                        </View>
+                      );
+                    }
+
+                    // Other user's cluster
+                    return (
+                      <View
+                        key={`mobile-cluster-other-${sectionIdx}-${clusterIdx}`}
+                        style={styles.clusterContainerOther}
+                      >
+                        {/* Avatar aligned with the bottom of the cluster */}
+                        <View style={[styles.senderAvatarBottom, { backgroundColor: `${colors.primary}18` }]}>
+                          {cluster.senderAvatarUrl ? (
+                            <RNImage
+                              source={{ uri: cluster.senderAvatarUrl }}
+                              style={styles.senderAvatarImg}
+                            />
+                          ) : (
+                            <Text style={[styles.senderAvatarText, { color: colors.primary }]}>
+                              {cluster.senderName.slice(0, 2).toUpperCase()}
+                            </Text>
+                          )}
+                        </View>
+
+                        {/* Messages Stack */}
+                        <View style={styles.clusterMessagesCol}>
+                          {/* Sender Name once at the top of cluster */}
+                          <View style={styles.senderHeaderRow}>
+                            <Text
+                              numberOfLines={1}
+                              style={[styles.senderName, { color: colors.text }]}
+                            >
+                              {cluster.senderName}
+                            </Text>
+                          </View>
+
+                          {cluster.messages.map((msg, msgIdx) => {
+                            const isFirst = msgIdx === 0;
+                            const isLast = msgIdx === cluster.messages.length - 1;
+                            const isSingle = cluster.messages.length === 1;
+                            const showTimestamp = activeTimestampMessageId === msg.id;
+                            const hasReactions =
+                              msg.reactionCounts && Object.keys(msg.reactionCounts).length > 0;
+
+                            return (
+                              <MobileSwipeMessageBubble
+                                key={msg.id ? `bubble-other-${msg.id}` : `bubble-temp-${msg.tempId || msgIdx}`}
+                                msg={msg}
+                                allMessages={messages}
+                                isSenderMe={false}
+                                isFirst={isFirst}
+                                isLast={isLast}
+                                isSingle={isSingle}
+                                showTimestamp={showTimestamp}
+                                hasReactions={hasReactions}
+                                colors={colors}
+                                t={t}
+                                onToggleTimestamp={() =>
+                                  setActiveTimestampMessageId((prev) => (prev === msg.id ? null : msg.id))
+                                }
+                                onLongPress={() => setActiveActionMessage(msg)}
+                                onSwipeReply={() => setReplyingMessage(msg)}
+                                onRetry={handleRetry}
+                                onPreviewImage={(url) => setPreviewingImageUrl(url)}
+                              />
+                            );
+                          })}
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              ))
             )}
           </ScrollView>
 
@@ -810,6 +1098,57 @@ export default function CircleWorkspaceScreen() {
               { paddingBottom: isKeyboardVisible ? 6 : (insets.bottom > 0 ? insets.bottom + 2 : 10) },
             ]}
           >
+            {/* Realtime Typing Indicator Bar */}
+            {typingUsers.length > 0 && (
+              <View
+                style={[
+                  styles.typingBar,
+                  { backgroundColor: colors.surface, borderColor: colors.hairline },
+                ]}
+              >
+                <Text numberOfLines={1} style={[styles.typingText, { color: colors.subtle }]}>
+                  {t.chat.typingIndicator.replace(
+                    '{names}',
+                    typingUsers.map((u) => u.userName).join(', '),
+                  )}
+                </Text>
+              </View>
+            )}
+
+            {/* Selected Image Attachment Preview Bar */}
+            {selectedImageUri && (
+              <View
+                style={[
+                  styles.attachmentPreviewBar,
+                  { backgroundColor: colors.surface, borderColor: colors.hairline },
+                ]}
+              >
+                <View style={styles.attachmentImgBox}>
+                  <RNImage source={{ uri: selectedImageUri }} style={styles.attachmentThumb} resizeMode="cover" />
+                  {isUploadingMedia && (
+                    <View style={[styles.uploadingOverlay, { backgroundColor: colors.canvas }]}>
+                      <ActivityIndicator size="small" color={colors.primary} />
+                    </View>
+                  )}
+                </View>
+                <View style={{ flex: 1, marginLeft: 8 }}>
+                  <Text numberOfLines={1} style={[styles.attachmentTitle, { color: colors.text }]}>
+                    {t.chat.imageAttachment}
+                  </Text>
+                  <Text numberOfLines={1} style={[styles.attachmentSub, { color: colors.subtle }]}>
+                    {isUploadingMedia ? t.common.loading : t.chat.attachImage}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => setSelectedImageUri(null)}
+                  disabled={isUploadingMedia}
+                  style={[styles.removeAttachmentBtn, { backgroundColor: colors.wash }]}
+                >
+                  <X size={14} color={colors.subtle} />
+                </TouchableOpacity>
+              </View>
+            )}
+
             {/* Reply Quote Preview Floating Pill */}
             {replyingMessage && (
               <View
@@ -859,9 +1198,21 @@ export default function CircleWorkspaceScreen() {
                 },
               ]}
             >
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={handlePickImage}
+                disabled={isUploadingMedia || sendMessageMutation.isPending}
+                style={[styles.imagePickBtn, { backgroundColor: colors.wash }]}
+              >
+                <ImageIcon size={18} color={colors.primary} />
+              </TouchableOpacity>
+
               <TextInput
                 value={messageInput}
-                onChangeText={setMessageInput}
+                onChangeText={(text) => {
+                  setMessageInput(text);
+                  reportTyping(text.length > 0, user?.profile?.displayName || user?.email);
+                }}
                 placeholder={t.chat.composerPlaceholder.replace('#{channel}', currentChannel?.name || 'chat')}
                 placeholderTextColor={colors.subtle}
                 style={[styles.composerInput, { color: colors.text }]}
@@ -870,23 +1221,23 @@ export default function CircleWorkspaceScreen() {
               <TouchableOpacity
                 activeOpacity={0.8}
                 onPress={handleSendMessage}
-                disabled={!messageInput.trim() || sendMessageMutation.isPending}
+                disabled={(!messageInput.trim() && !selectedImageUri) || sendMessageMutation.isPending || isUploadingMedia}
                 style={[
                   styles.sendBtn,
                   {
                     backgroundColor:
-                      messageInput.trim() && !sendMessageMutation.isPending
+                      (messageInput.trim() || selectedImageUri) && !sendMessageMutation.isPending && !isUploadingMedia
                         ? colors.primary
                         : colors.wash,
                   },
                 ]}
               >
-                {sendMessageMutation.isPending ? (
+                {sendMessageMutation.isPending || isUploadingMedia ? (
                   <ActivityIndicator size="small" color={colors.onPrimary} />
                 ) : (
                   <Send
                     size={17}
-                    color={messageInput.trim() ? colors.onPrimary : colors.subtle}
+                    color={(messageInput.trim() || selectedImageUri) ? colors.onPrimary : colors.subtle}
                   />
                 )}
               </TouchableOpacity>
@@ -1057,6 +1408,30 @@ export default function CircleWorkspaceScreen() {
             </View>
           </View>
         </TouchableOpacity>
+      </Modal>
+
+      {/* Lightbox / Full-screen Image Preview Modal */}
+      <Modal
+        visible={!!previewingImageUrl}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPreviewingImageUrl(null)}
+      >
+        <View style={[styles.fullScreenModalBg, { backgroundColor: colors.canvas }]}>
+          <TouchableOpacity
+            style={[styles.closeFullImgBtn, { backgroundColor: colors.surface }]}
+            onPress={() => setPreviewingImageUrl(null)}
+          >
+            <X size={20} color={colors.text} />
+          </TouchableOpacity>
+          {previewingImageUrl && (
+            <RNImage
+              source={{ uri: previewingImageUrl }}
+              style={styles.fullScreenImg}
+              resizeMode="contain"
+            />
+          )}
+        </View>
       </Modal>
 
       {/* Circle Management Modal */}
@@ -1518,6 +1893,170 @@ const styles = StyleSheet.create({
   },
   actionBtnItemText: {
     fontSize: 13,
+    fontWeight: '600',
+  },
+  bubbleImageWrapper: {
+    borderRadius: 14,
+    overflow: 'hidden',
+    marginBottom: 4,
+    width: 220,
+    height: 160,
+  },
+  bubbleImageContent: {
+    width: '100%',
+    height: '100%',
+  },
+  timestampRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  statusBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  sendingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  sendingStatusText: {
+    fontSize: 10,
+    fontWeight: '500',
+  },
+  retryBtnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  retryBtnText: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  reconnectBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 5,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+  },
+  reconnectText: {
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  typingBar: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignSelf: 'flex-start',
+  },
+  typingText: {
+    fontSize: 11.5,
+    fontStyle: 'italic',
+  },
+  attachmentPreviewBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 8,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  attachmentImgBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 8,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  attachmentThumb: {
+    width: '100%',
+    height: '100%',
+  },
+  uploadingOverlay: {
+    ...StyleSheet.absoluteFill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    opacity: 0.8,
+  },
+  attachmentTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  attachmentSub: {
+    fontSize: 11,
+  },
+  removeAttachmentBtn: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  imagePickBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fullScreenModalBg: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closeFullImgBtn: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    zIndex: 10,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fullScreenImg: {
+    width: '100%',
+    height: '80%',
+  },
+  loadEarlierContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+  },
+  loadEarlierBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  loadEarlierText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  dateSeparatorRow: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 12,
+  },
+  dateSeparatorLine: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    height: 1,
+  },
+  dateSeparatorPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 3,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  dateSeparatorText: {
+    fontSize: 11,
     fontWeight: '600',
   },
 });

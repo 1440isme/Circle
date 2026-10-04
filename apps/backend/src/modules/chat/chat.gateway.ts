@@ -62,6 +62,17 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       client.data.user = payload;
       client.data.userId = userId;
 
+      // Resolve user display name for presence and typing indicators safely
+      try {
+        const userProfile = await this.prisma.userProfile.findUnique({
+          where: { userId },
+          select: { displayName: true },
+        });
+        client.data.displayName = userProfile?.displayName || payload.email?.split('@')[0] || 'Thành viên';
+      } catch {
+        client.data.displayName = payload.email?.split('@')[0] || 'Thành viên';
+      }
+
       // Join personal room
       client.join(`user:${userId}`);
 
@@ -212,14 +223,21 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('chat:typing')
   handleTyping(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { channelId: string; isTyping: boolean },
+    @MessageBody() data: { channelId: string; isTyping: boolean; userName?: string },
   ) {
     const userId = client.data.userId;
     if (!data?.channelId || !userId) return;
 
+    const resolvedName =
+      data.userName?.trim() ||
+      client.data.displayName ||
+      client.data.user?.email?.split('@')[0] ||
+      'Thành viên';
+
     client.to(`channel:${data.channelId}`).emit('chat:user-typing', {
       channelId: data.channelId,
       userId,
+      userName: resolvedName,
       isTyping: !!data.isTyping,
     });
   }

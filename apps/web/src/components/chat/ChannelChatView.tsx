@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { MessageSquare, Pin, Users, Hash } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { MessageSquare, Pin, Users, Hash, WifiOff } from 'lucide-react';
 import { MessageEntity } from '@circle/types';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguageStore } from '../../stores/language.store';
@@ -13,6 +13,7 @@ import {
   usePinnedMessagesQuery,
   useChannelTyping,
 } from '../../hooks/use-chat-queries';
+import { subscribeSocketConnection } from '../../lib/socket';
 import { MessageList } from './MessageList';
 import { ChatComposer } from './ChatComposer';
 import { PinnedMessagesModal } from './PinnedMessagesModal';
@@ -34,6 +35,13 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
 
   const [replyingMessage, setReplyingMessage] = useState<MessageEntity | null>(null);
   const [isPinnedModalOpen, setIsPinnedModalOpen] = useState(false);
+  const [isSocketConnected, setIsSocketConnected] = useState(true);
+
+  useEffect(() => {
+    return subscribeSocketConnection((connected) => {
+      setIsSocketConnected(connected);
+    });
+  }, []);
 
   // Queries & Mutations
   const {
@@ -62,8 +70,28 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
     pinMessageMutation.mutate({ messageId, isPinned });
   };
 
+  const handleRetry = (msg: MessageEntity) => {
+    sendMessageMutation.mutate({
+      content: msg.content || undefined,
+      type: msg.type,
+      fileUrl: msg.fileUrl || undefined,
+      fileName: msg.fileName || undefined,
+      fileSize: msg.fileSize || undefined,
+      replyToId: msg.replyToId || undefined,
+      tempId: msg.tempId || msg.id,
+    });
+  };
+
   return (
-    <div className="flex-1 flex flex-col h-[calc(100vh-6rem)] rounded-3xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface shadow-circle-card overflow-hidden transition-colors">
+    <div className="flex-1 flex flex-col h-full min-h-0 rounded-3xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface shadow-circle-card overflow-hidden transition-colors">
+      {/* Network Reconnection Banner */}
+      {!isSocketConnected && (
+        <div className="flex items-center justify-center gap-2 bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 py-1.5 px-4 text-xs font-medium border-b border-amber-500/20 animate-pulse transition-all">
+          <WifiOff className="h-3.5 w-3.5" />
+          <span>{t.chat.reconnecting}</span>
+        </div>
+      )}
+
       {/* Pinned Messages Bar (ONLY shown when pinned messages exist) */}
       {pinnedMessages.length > 0 && (
         <div className="flex items-center justify-between border-b border-circle-hairline dark:border-circle-dark-hairline px-4 py-2 bg-circle-wash/60 dark:bg-circle-dark-wash/60 backdrop-blur-sm z-10 text-xs">
@@ -92,13 +120,19 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
         onReply={handleReply}
         onReact={handleReact}
         onTogglePin={handleTogglePin}
+        onRetry={handleRetry}
       />
 
       {/* Typing Indicator Bar */}
       {typingUsers.length > 0 && (
         <div className="px-5 py-1 text-[11px] text-circle-slate dark:text-circle-dark-muted flex items-center gap-1.5 animate-pulse bg-circle-canvas/30 dark:bg-circle-dark-canvas/30">
-          <span className="flex h-1.5 w-1.5 rounded-full bg-circle-sage animate-ping" />
-          <span>{t.chat.someoneTyping}</span>
+          <span className="flex h-1.5 w-1.5 rounded-full bg-circle-primary animate-ping" />
+          <span>
+            {t.chat.typingIndicator.replace(
+              '{names}',
+              typingUsers.map((u) => u.userName).join(', '),
+            )}
+          </span>
         </div>
       )}
 
@@ -111,7 +145,9 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
         onSendMessage={async (data) => {
           await sendMessageMutation.mutateAsync(data);
         }}
-        reportTyping={reportTyping}
+        reportTyping={(isTyping) =>
+          reportTyping(isTyping, user?.profile?.displayName || user?.email)
+        }
       />
 
       {/* Pinned Messages Modal */}

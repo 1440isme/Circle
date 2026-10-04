@@ -16,6 +16,7 @@ interface MessageListProps {
   onReply: (message: MessageEntity) => void;
   onReact: (messageId: string, emoji: string) => void;
   onTogglePin: (messageId: string, isPinned: boolean) => void;
+  onRetry?: (message: MessageEntity) => void;
 }
 
 interface MessageCluster {
@@ -37,24 +38,61 @@ export const MessageList: React.FC<MessageListProps> = ({
   onReply,
   onReact,
   onTogglePin,
+  onRetry,
 }) => {
   const t = useLanguageStore((s) => s.t);
   const locale = useLanguageStore((s) => s.locale);
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const isFirstRenderRef = useRef(true);
+  const lastMessageId = messages.length > 0 ? messages[messages.length - 1].id : null;
+  const prevLastMessageIdRef = useRef<string | null>(null);
+  const isFirstRenderRef = useRef<boolean>(true);
 
-  // Auto-scroll to bottom on new messages
+  const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
+    if (containerRef.current) {
+      containerRef.current.scrollTo({
+        top: containerRef.current.scrollHeight,
+        behavior,
+      });
+    }
+  };
+
+  // Auto-scroll to bottom on first render or when a new message is appended at the bottom
   useEffect(() => {
-    if (messages.length > 0) {
-      if (isFirstRenderRef.current) {
-        bottomRef.current?.scrollIntoView({ behavior: 'auto' });
-        isFirstRenderRef.current = false;
-      } else {
-        bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (messages.length === 0) return;
+
+    const lastMsg = messages[messages.length - 1];
+    const isSenderMe = Boolean(
+      (currentUserId &&
+        (lastMsg.sender?.user?.id === currentUserId ||
+          lastMsg.sender?.userId === currentUserId ||
+          lastMsg.memberId === currentUserId)) ||
+        lastMsg.memberId === 'optimistic_me' ||
+        lastMsg.status === 'SENDING' ||
+        lastMsg.tempId,
+    );
+
+    if (isFirstRenderRef.current) {
+      setTimeout(() => scrollToBottom('auto'), 60);
+      isFirstRenderRef.current = false;
+      prevLastMessageIdRef.current = lastMessageId;
+      return;
+    }
+
+    // Only scroll to bottom if a new message was added at the bottom
+    if (lastMessageId && lastMessageId !== prevLastMessageIdRef.current) {
+      prevLastMessageIdRef.current = lastMessageId;
+      const container = containerRef.current;
+      if (container) {
+        const isNearBottom =
+          container.scrollHeight - container.scrollTop - container.clientHeight < 300;
+        // If sender is ME (user sent message) or user is already near bottom, scroll down
+        if (isSenderMe || isNearBottom) {
+          setTimeout(() => scrollToBottom('smooth'), 50);
+        }
       }
     }
-  }, [messages.length]);
+  }, [messages.length, lastMessageId, currentUserId]);
 
   // Format date separator label
   const getDateLabel = (dateStr: string) => {
@@ -98,10 +136,13 @@ export const MessageList: React.FC<MessageListProps> = ({
     items.forEach((msg) => {
       const senderUserId = msg.sender?.user?.id || msg.sender?.userId || msg.memberId || '';
       const isSenderMe = Boolean(
-        currentUserId &&
+        (currentUserId &&
           (senderUserId === currentUserId ||
             msg.memberId === currentUserId ||
-            msg.sender?.user?.id === currentUserId),
+            msg.sender?.user?.id === currentUserId)) ||
+          msg.memberId === 'optimistic_me' ||
+          msg.status === 'SENDING' ||
+          msg.tempId,
       );
       const senderName =
         msg.sender?.nickname ||
@@ -148,7 +189,7 @@ export const MessageList: React.FC<MessageListProps> = ({
   return (
     <div
       ref={containerRef}
-      className="flex-1 overflow-y-auto px-4 py-4 space-y-4 min-h-[300px]"
+      className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-4"
     >
       {/* Load earlier messages button */}
       {hasMore && (
@@ -233,6 +274,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                             onReply={onReply}
                             onReact={onReact}
                             onTogglePin={onTogglePin}
+                            onRetry={onRetry}
                           />
                         ))}
                       </div>
@@ -280,6 +322,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                               onReply={onReply}
                               onReact={onReact}
                               onTogglePin={onTogglePin}
+                              onRetry={onRetry}
                             />
                           ))}
                         </div>

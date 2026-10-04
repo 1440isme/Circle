@@ -1,4 +1,5 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useState, useRef, useCallback } from 'react';
+import { useMutation, useQuery, useInfiniteQuery, InfiniteData, useQueryClient } from '@tanstack/react-query';
 import { mobileApiRequest } from '../services/api';
 import {
   CreateCircleInput,
@@ -16,8 +17,17 @@ import {
   CircleInviteEntity,
   CircleJoinRequestEntity,
   SelectableFriendItem,
+  MessageEntity,
+  MessageType,
+  CursorPaginatedMessages,
 } from '@circle/types';
 import { useCircleStore } from '../stores/circle.store';
+import {
+  getMobileSocket,
+  joinMobileChannelRoom,
+  leaveMobileChannelRoom,
+  sendMobileTypingStatus,
+} from '../services/socket';
 
 export const CIRCLE_KEYS = {
   all: ['circles'] as const,
@@ -372,52 +382,324 @@ export function useCircleMomentsQuery(circleId: string | null) {
   });
 }
 
+function deduplicateMessages(list: MessageEntity[]): MessageEntity[] {
+  const seen = new Set<string>();
+  const result: MessageEntity[] = [];
+  for (const m of list) {
+    const key = m.id || m.tempId;
+    if (key) {
+      if (seen.has(key)) continue;
+      seen.add(key);
+    }
+    result.push(m);
+  }
+  return result;
+}
+
 export function useChannelMessagesQuery(channelId: string | null) {
-  return useQuery({
+  const queryClient = useQueryClient();
+
+  const query = useInfiniteQuery<CursorPaginatedMessages>({
     queryKey: ['messages', 'channel', channelId],
-    queryFn: async () => {
+    queryFn: async ({ pageParam }) => {
       if (!channelId) return { messages: [], nextCursor: null, hasMore: false };
-      const res = await mobileApiRequest<any>(`/channels/${channelId}/messages`);
+      const cursorParam = pageParam ? `&cursor=${encodeURIComponent(pageParam as string)}` : '';
+      const res = await mobileApiRequest<CursorPaginatedMessages>(
+        `/channels/${channelId}/messages?limit=30${cursorParam}`,
+      );
       const data = res.data;
-      const list = data?.messages || data?.items || (Array.isArray(data) ? data : []);
+      const list = data?.messages || (data as any)?.items || (Array.isArray(data) ? data : []);
       return {
-        messages: list,
+        messages: deduplicateMessages(list),
         nextCursor: data?.nextCursor || null,
         hasMore: Boolean(data?.hasMore),
       };
     },
+    initialPageParam: null as string | null,
+    getNextPageParam: (lastPage) => (lastPage?.hasMore ? lastPage.nextCursor : undefined),
     enabled: Boolean(channelId),
-    refetchInterval: 3000, // Light polling for mobile sync
+    staleTime: 1000 * 30,
   });
+
+  useEffect(() => {
+    if (!channelId) return;
+    let isCancelled = false;
+    let activeSocket: any = null;
+
+    joinMobileChannelRoom(channelId);
+
+    const handleNewMessage = (newMsg: MessageEntity) => {
+      if (newMsg.channelId !== channelId) return;
+
+      queryClient.setQueryData<InfiniteData<CursorPaginatedMessages>>(
+        ['messages', 'channel', channelId],
+        (oldData) => {
+          if (!oldData || oldData.pages.length === 0) {
+            return {
+              pageParams: [null],
+              pages: [{ messages: [{ ...newMsg, status: 'SENT' as const }], nextCursor: null, hasMore: false }],
+            };
+          }
+
+          const incomingTempId = newMsg.tempId;
+          let replaced = false;
+          const updatedPages = oldData.pages.map((page) => ({
+            ...page,
+            messages: page.messages.map((m) => {
+              if (
+                (Boolean(incomingTempId) && (m.tempId === incomingTempId || m.id === incomingTempId)) ||
+                (m.status === 'SENDING' &&
+                  ((m.content && m.content === newMsg.content) || (m.fileUrl && m.fileUrl === newMsg.fileUrl)) &&
+                  Math.abs(new Date(m.sentAt).getTime() - new Date(newMsg.sentAt).getTime()) < 20000)
+              ) {
+                replaced = true;
+                return { ...newMsg, status: 'SENT' as const };
+              }
+              return m;
+            }),
+          }));
+
+          if (replaced) {
+            return { ...oldData, pages: updatedPages };
+          }
+
+          // Check if message already exists
+          const exists = updatedPages.some((page) =>
+            page.messages.some((m) => m.id === newMsg.id && !m.tempId),
+          );
+          if (exists) return oldData;
+
+          // Append to latest page (pages[0])
+          const firstPage = updatedPages[0];
+          updatedPages[0] = {
+            ...firstPage,
+            messages: deduplicateMessages([...firstPage.messages, { ...newMsg, status: 'SENT' as const }]),
+          };
+
+          return { ...oldData, pages: updatedPages };
+        },
+      );
+    };
+
+    const handleReaction = (payload: {
+      messageId: string;
+      memberId: string;
+      emoji: string;
+      reactionCounts: Record<string, number>;
+      userReactions: string[];
+    }) => {
+      queryClient.setQueryData<InfiniteData<CursorPaginatedMessages>>(
+        ['messages', 'channel', channelId],
+        (oldData) => {
+          if (!oldData) return oldData;
+          return {
+            ...oldData,
+            pages: oldData.pages.map((page) => ({
+              ...page,
+              messages: page.messages.map((m) =>
+                m.id === payload.messageId
+                  ? {
+                      ...m,
+                      reactionCounts: payload.reactionCounts,
+                      userReactions: payload.userReactions,
+                    }
+                  : m,
+              ),
+            })),
+          };
+        },
+      );
+    };
+
+    getMobileSocket().then((socket) => {
+      if (!socket || isCancelled) return;
+      activeSocket = socket;
+      socket.on('chat:message', handleNewMessage);
+      socket.on('chat:reaction', handleReaction);
+    });
+
+    return () => {
+      isCancelled = true;
+      if (activeSocket) {
+        activeSocket.off('chat:message', handleNewMessage);
+        activeSocket.off('chat:reaction', handleReaction);
+      }
+      leaveMobileChannelRoom(channelId);
+    };
+  }, [channelId, queryClient]);
+
+  // Flatten and deduplicate all messages across pages, sorted chronologically (oldest to newest)
+  const rawList = query.data?.pages.flatMap((page) => page.messages) || [];
+  const deduplicated = deduplicateMessages(rawList);
+  deduplicated.sort(
+    (a, b) => new Date(a.sentAt || 0).getTime() - new Date(b.sentAt || 0).getTime(),
+  );
+
+  return {
+    ...query,
+    messages: deduplicated,
+  };
 }
+
+export type SendMobileMessageInput =
+  | string
+  | {
+      content?: string;
+      type?: MessageType;
+      fileUrl?: string;
+      fileName?: string;
+      fileSize?: number;
+      replyToId?: string;
+      tempId?: string;
+    };
 
 export function useSendMessageMutation(channelId: string | null) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (input: string | { content: string; replyToId?: string }) => {
+    mutationFn: async (input: SendMobileMessageInput) => {
       if (!channelId) throw new Error('No channel ID');
       const payload = typeof input === 'string' ? { content: input.trim() } : input;
+      const { tempId, ...cleanPayload } = payload as any;
       const res = await mobileApiRequest<any>(`/channels/${channelId}/messages`, {
         method: 'POST',
-        body: JSON.stringify(payload),
+        body: JSON.stringify(cleanPayload),
       });
-      return res.data;
+      return { message: res.data, tempId };
     },
-    onSuccess: (newMsg) => {
-      if (channelId) {
-        if (newMsg) {
-          queryClient.setQueryData(['messages', 'channel', channelId], (old: any) => {
-            if (!old) return { messages: [newMsg], nextCursor: null, hasMore: false };
-            const list = old.messages || old.items || [];
-            const exists = list.some((m: any) => m.id === newMsg.id);
+    onMutate: async (input) => {
+      if (!channelId) return;
+
+      const tempId =
+        typeof input === 'object' && input.tempId
+          ? input.tempId
+          : `temp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
+      const optimisticMsg: MessageEntity = {
+        id: tempId,
+        tempId,
+        channelId,
+        memberId: 'optimistic_me',
+        type: typeof input === 'object' && input.type ? input.type : MessageType.TEXT,
+        content: typeof input === 'string' ? input.trim() : input.content?.trim() || null,
+        fileUrl: typeof input === 'object' ? input.fileUrl : null,
+        fileName: typeof input === 'object' ? input.fileName : null,
+        fileSize: typeof input === 'object' ? input.fileSize : null,
+        replyToId: typeof input === 'object' ? input.replyToId : null,
+        sentAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        status: 'SENDING',
+      };
+
+      queryClient.setQueryData<InfiniteData<CursorPaginatedMessages>>(
+        ['messages', 'channel', channelId],
+        (oldData) => {
+          if (!oldData || oldData.pages.length === 0) {
             return {
-              ...old,
-              messages: exists ? list : [...list, newMsg],
+              pageParams: [null],
+              pages: [{ messages: [optimisticMsg], nextCursor: null, hasMore: false }],
             };
-          });
-        }
-        queryClient.invalidateQueries({ queryKey: ['messages', 'channel', channelId] });
+          }
+          const updatedPages = [...oldData.pages];
+          updatedPages[0] = {
+            ...updatedPages[0],
+            messages: deduplicateMessages([...updatedPages[0].messages, optimisticMsg]),
+          };
+          return { ...oldData, pages: updatedPages };
+        },
+      );
+
+      return { tempId };
+    },
+    onSuccess: (data: any, variables: any, context: any) => {
+      if (channelId) {
+        const message = data?.message || data;
+        const activeTempId =
+          data?.tempId ||
+          (typeof variables === 'object' ? variables?.tempId : undefined) ||
+          context?.tempId;
+
+        queryClient.setQueryData<InfiniteData<CursorPaginatedMessages>>(
+          ['messages', 'channel', channelId],
+          (oldData) => {
+            if (!oldData) return oldData;
+
+            // If socket already added this exact message ID, remove the temp placeholder
+            const alreadyHasRealId =
+              Boolean(message?.id) &&
+              oldData.pages.some((page) =>
+                page.messages.some(
+                  (m) =>
+                    m.id === message.id &&
+                    (!activeTempId || (m.id !== activeTempId && m.tempId !== activeTempId)),
+                ),
+              );
+
+            if (alreadyHasRealId) {
+              if (activeTempId) {
+                return {
+                  ...oldData,
+                  pages: oldData.pages.map((page) => ({
+                    ...page,
+                    messages: page.messages.filter(
+                      (m) => m.tempId !== activeTempId && m.id !== activeTempId,
+                    ),
+                  })),
+                };
+              }
+              return oldData;
+            }
+
+            let matched = false;
+            const updatedPages = oldData.pages.map((page) => ({
+              ...page,
+              messages: page.messages.map((m) => {
+                if (
+                  Boolean(activeTempId) &&
+                  (m.tempId === activeTempId || m.id === activeTempId)
+                ) {
+                  matched = true;
+                  return { ...message, status: 'SENT' as const };
+                }
+                return m;
+              }),
+            }));
+
+            if (!matched) {
+              updatedPages[0] = {
+                ...updatedPages[0],
+                messages: deduplicateMessages([
+                  ...updatedPages[0].messages,
+                  { ...message, status: 'SENT' as const },
+                ]),
+              };
+            }
+
+            return { ...oldData, pages: updatedPages };
+          },
+        );
+      }
+    },
+    onError: (_err, _input, context: any) => {
+      const activeTempId = context?.tempId;
+      if (channelId && activeTempId) {
+        queryClient.setQueryData<InfiniteData<CursorPaginatedMessages>>(
+          ['messages', 'channel', channelId],
+          (oldData) => {
+            if (!oldData) return oldData;
+            return {
+              ...oldData,
+              pages: oldData.pages.map((page) => ({
+                ...page,
+                messages: page.messages.map((m) =>
+                  m.tempId === activeTempId || m.id === activeTempId
+                    ? { ...m, status: 'FAILED' as const }
+                    : m,
+                ),
+              })),
+            };
+          },
+        );
       }
     },
   });
@@ -518,5 +800,93 @@ export function useCreateMomentMutation(circleId: string | null) {
       queryClient.invalidateQueries({ queryKey: ['moments', 'feed'] });
     },
   });
+}
+
+/**
+ * Hook to manage real-time typing indicators in mobile channel chat.
+ */
+export function useMobileChannelTyping(channelId: string | null) {
+  const [typingUsers, setTypingUsers] = useState<Array<{ userId: string; userName: string }>>([]);
+  const typingTimeoutsRef = useRef<Map<string, any>>(new Map());
+  const myTypingTimerRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (!channelId) return;
+    let unsubscribed = false;
+
+    getMobileSocket().then((socket) => {
+      if (!socket || unsubscribed) return;
+
+      const handleUserTyping = (data: {
+        channelId: string;
+        userId: string;
+        userName?: string;
+        isTyping: boolean;
+      }) => {
+        if (data.channelId !== channelId) return;
+
+        const { userId, isTyping, userName } = data;
+        const resolvedName = userName || 'Thành viên';
+        const timeouts = typingTimeoutsRef.current;
+
+        if (isTyping) {
+          if (timeouts.has(userId)) {
+            clearTimeout(timeouts.get(userId));
+          }
+
+          setTypingUsers((prev) => {
+            const filtered = prev.filter((u) => u.userId !== userId);
+            return [...filtered, { userId, userName: resolvedName }];
+          });
+
+          const timeout = setTimeout(() => {
+            setTypingUsers((prev) => prev.filter((u) => u.userId !== userId));
+            timeouts.delete(userId);
+          }, 3000);
+
+          timeouts.set(userId, timeout);
+        } else {
+          if (timeouts.has(userId)) {
+            clearTimeout(timeouts.get(userId));
+            timeouts.delete(userId);
+          }
+          setTypingUsers((prev) => prev.filter((u) => u.userId !== userId));
+        }
+      };
+
+      socket.on('chat:user-typing', handleUserTyping);
+
+      return () => {
+        socket.off('chat:user-typing', handleUserTyping);
+      };
+    });
+
+    return () => {
+      unsubscribed = true;
+      typingTimeoutsRef.current.forEach((t) => clearTimeout(t));
+      typingTimeoutsRef.current.clear();
+    };
+  }, [channelId]);
+
+  const reportTyping = useCallback(
+    (isTyping: boolean, userName?: string) => {
+      if (!channelId) return;
+      sendMobileTypingStatus(channelId, isTyping, userName);
+
+      if (myTypingTimerRef.current) {
+        clearTimeout(myTypingTimerRef.current);
+      }
+
+      if (isTyping) {
+        myTypingTimerRef.current = setTimeout(() => {
+          sendMobileTypingStatus(channelId, false, userName);
+          myTypingTimerRef.current = null;
+        }, 2500);
+      }
+    },
+    [channelId],
+  );
+
+  return { typingUsers, reportTyping };
 }
 
