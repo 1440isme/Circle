@@ -623,6 +623,14 @@ export default function CircleWorkspaceScreen() {
   const lastMessageId = messages.length > 0 ? messages[messages.length - 1].id : null;
   const prevLastMessageIdRef = useRef<string | null>(null);
   const isFirstLoadRef = useRef(true);
+  const isNearBottomRef = useRef(true);
+
+  const handleScroll = (event: any) => {
+    const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+    const paddingToBottom = 160;
+    isNearBottomRef.current =
+      layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom;
+  };
 
   useEffect(() => {
     isFirstLoadRef.current = true;
@@ -640,9 +648,11 @@ export default function CircleWorkspaceScreen() {
       }, 80);
     } else if (lastMessageId && lastMessageId !== prevLastMessageIdRef.current) {
       prevLastMessageIdRef.current = lastMessageId;
-      setTimeout(() => {
-        scrollViewRef.current?.scrollToEnd({ animated: true });
-      }, 60);
+      if (isNearBottomRef.current) {
+        setTimeout(() => {
+          scrollViewRef.current?.scrollToEnd({ animated: true });
+        }, 60);
+      }
     }
   }, [messages.length, lastMessageId, currentChannelId]);
 
@@ -690,6 +700,7 @@ export default function CircleWorkspaceScreen() {
     setSelectedImageUri(null);
     setReplyingMessage(null);
     reportTyping(false, user?.profile?.displayName || user?.email);
+    isNearBottomRef.current = true;
 
     setTimeout(() => {
       scrollViewRef.current?.scrollToEnd({ animated: true });
@@ -885,6 +896,8 @@ export default function CircleWorkspaceScreen() {
             style={styles.messagesList}
             contentContainerStyle={styles.messagesScrollContent}
             showsVerticalScrollIndicator={false}
+            onScroll={handleScroll}
+            scrollEventThrottle={16}
           >
             {/* Load Earlier Messages Button */}
             {hasNextPage && (
@@ -1075,7 +1088,10 @@ export default function CircleWorkspaceScreen() {
                 ]}
               >
                 <Text numberOfLines={1} style={[styles.typingText, { color: colors.subtle }]}>
-                  {t.chat.typingIndicator.replace('{names}', typingUsers.join(', '))}
+                  {t.chat.typingIndicator.replace(
+                    '{names}',
+                    typingUsers.map((u) => u.userName).join(', '),
+                  )}
                 </Text>
               </View>
             )}

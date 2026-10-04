@@ -3,6 +3,7 @@ import { getAuthTokens } from './storage';
 import { getApiBaseUrl } from './api';
 
 let socket: Socket | null = null;
+let currentActiveChannelId: string | null = null;
 const connectionListeners = new Set<(connected: boolean) => void>();
 
 function notifyConnectionChange(connected: boolean) {
@@ -63,6 +64,9 @@ export async function getMobileSocket(): Promise<Socket | null> {
 
   socket.on('connect', () => {
     notifyConnectionChange(true);
+    if (currentActiveChannelId) {
+      socket?.emit('chat:join-channel', { channelId: currentActiveChannelId });
+    }
   });
 
   socket.on('disconnect', () => {
@@ -81,11 +85,13 @@ export function disconnectMobileSocket(): void {
   if (socket) {
     socket.disconnect();
     socket = null;
+    currentActiveChannelId = null;
     notifyConnectionChange(false);
   }
 }
 
 export async function joinMobileChannelRoom(channelId: string): Promise<void> {
+  currentActiveChannelId = channelId;
   const s = await getMobileSocket();
   if (s && channelId) {
     s.emit('chat:join-channel', { channelId });
@@ -93,6 +99,9 @@ export async function joinMobileChannelRoom(channelId: string): Promise<void> {
 }
 
 export async function leaveMobileChannelRoom(channelId: string): Promise<void> {
+  if (currentActiveChannelId === channelId) {
+    currentActiveChannelId = null;
+  }
   const s = await getMobileSocket();
   if (s && channelId) {
     s.emit('chat:leave-channel', { channelId });

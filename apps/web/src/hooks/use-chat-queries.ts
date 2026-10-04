@@ -100,11 +100,11 @@ export function useChannelMessagesQuery(channelId: string | null) {
           );
           if (exists) return oldData;
 
-          // Append to the last page
-          const lastPageIndex = updatedPages.length - 1;
-          updatedPages[lastPageIndex] = {
-            ...updatedPages[lastPageIndex],
-            messages: [...updatedPages[lastPageIndex].messages, { ...newMessage, status: 'SENT' as const }],
+          // Append to latest page (pages[0])
+          const firstPage = updatedPages[0];
+          updatedPages[0] = {
+            ...firstPage,
+            messages: [...firstPage.messages, { ...newMessage, status: 'SENT' as const }],
           };
 
           return {
@@ -270,11 +270,10 @@ export function useSendMessageMutation(channelId: string | null) {
               pages: [{ messages: [optimisticMessage], nextCursor: null, hasMore: false }],
             };
           }
-          const lastPageIndex = oldData.pages.length - 1;
           const updatedPages = [...oldData.pages];
-          updatedPages[lastPageIndex] = {
-            ...updatedPages[lastPageIndex],
-            messages: [...updatedPages[lastPageIndex].messages, optimisticMessage],
+          updatedPages[0] = {
+            ...updatedPages[0],
+            messages: [...updatedPages[0].messages, optimisticMessage],
           };
           return { ...oldData, pages: updatedPages };
         },
@@ -327,11 +326,10 @@ export function useSendMessageMutation(channelId: string | null) {
           );
 
           if (!replaced && !alreadyExists) {
-            const lastPageIndex = updatedPages.length - 1;
-            updatedPages[lastPageIndex] = {
-              ...updatedPages[lastPageIndex],
+            updatedPages[0] = {
+              ...updatedPages[0],
               messages: [
-                ...updatedPages[lastPageIndex].messages,
+                ...updatedPages[0].messages,
                 { ...message, status: 'SENT' as const },
               ],
             };

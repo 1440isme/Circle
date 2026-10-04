@@ -419,7 +419,6 @@ export function useChannelMessagesQuery(channelId: string | null) {
     getNextPageParam: (lastPage) => (lastPage?.hasMore ? lastPage.nextCursor : undefined),
     enabled: Boolean(channelId),
     staleTime: 1000 * 30,
-    refetchInterval: 15000, // Background fallback sync; instant delivery via socket
   });
 
   useEffect(() => {

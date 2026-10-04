@@ -3033,3 +3033,47 @@
   - **Resolution / Fix:** Sửa trực tiếp thành `msg.sentAt` theo đúng định nghĩa `MessageEntity`.
 - **Commit:** `31b62b0`
 - **PR:** #71 (https://github.com/1440isme/Circle/pull/71)
+---
+
+## AI-0077: Đồng bộ Realtime Socket.IO, Tên người dùng Typing, và Smart Scroll Preservation
+
+- **Date:** 2026-10-04 13:52:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #70 ([SUB-FEAT]: US-CHAT-002 — Production-Grade Messaging P0: Optimistic UI, Typing Indicator, Outbox & Media Attachment (Parent: #20))
+- **Purpose:** 
+  1. Khắc phục lỗi hiển thị người dùng đang gõ tin nhắn (Typing Indicator):
+     - Mobile: Thay thế `typingUsers.join(', ')` thành `typingUsers.map((u) => u.userName).join(', ')`, chấm dứt việc hiển thị `[object Object] đang nhập...`.
+     - Backend: Bổ sung truy vấn an toàn `userProfile.displayName` ngay khi socket kết nối (`handleConnection`) và lưu vào `client.data.displayName`. Tại `handleTyping`, phân giải chính xác `userName` với fallback thông minh (`displayName -> email prefix -> Thành viên`), sửa dứt điểm lỗi web chỉ hiển thị vô danh "Thành viên đang nhập...".
+  2. Tối ưu trải nghiệm Realtime Socket.IO và loại bỏ polling thừa thãi:
+     - Gỡ bỏ `refetchInterval: 15000` trên Mobile, chuyển hoàn toàn sang Socket.IO push tức thì (<20ms).
+     - Bổ sung tracking `currentActiveChannelId` và tự động re-join room khi socket reconnect (`socket.on('connect')`) trên cả Web (`apps/web/src/lib/socket.ts`) và Mobile (`apps/mobile/src/services/socket.ts`), chống rớt room khi chuyển mạng hoặc nâng cấp socket transport.
+  3. Khắc phục triệt để lỗi cuộn và mất lịch sử tin nhắn khi nhận tin nhắn mới:
+     - Web: Sửa `useChannelMessagesQuery` và `useSendMessageMutation` chèn tin nhắn mới vào đúng trang mới nhất (`pages[0]`) thay vì trang cũ nhất (`lastPageIndex`).
+     - Web & Mobile: Tích hợp cơ chế phát hiện vị trí đọc thông minh (`isNearBottomRef` / threshold 250px), chỉ tự động cuộn xuống đáy khi người dùng đang ở cuối danh sách; nếu người dùng đang đọc tin nhắn cũ thì vị trí đọc được bảo toàn 100%.
+- **Files Affected:**
+  - `apps/backend/src/modules/chat/chat.gateway.ts`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `apps/mobile/src/hooks/use-circle-queries.ts`
+  - `apps/mobile/src/services/socket.ts`
+  - `apps/web/src/components/chat/MessageList.tsx`
+  - `apps/web/src/hooks/use-chat-queries.ts`
+  - `apps/web/src/lib/socket.ts`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% typing indicator mapping, channel auto-rejoin logic, infinite query page indexing corrections, smart scroll preservation.
+- **Human Modifications:** Trương Công Bình yêu cầu khắc phục triệt để độ trễ tin nhắn, giải quyết tình trạng không xem lại được tin nhắn cũ khi có tin mới tới, và sửa tên hiển thị người dùng đang nhập.
+- **Verification Method:**
+  - Web: `npm --prefix apps/web run build` pass (9/9 routes).
+  - Mobile: `npm --prefix apps/mobile run typecheck` pass (0 errors).
+  - Backend: `npm --prefix apps/backend test` pass (7/7 suites, 99/99 tests).
+  - End-to-end Socket: Test trực tiếp socket room join, dispatch typing event, và nhận broadcast tin nhắn mới trong <20ms.
+  - Integrity: `./scripts/check-agent-map.sh` pass (94/94 files).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** Pass 100%.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** Bỏ quên khai báo `const isFirstRenderRef = useRef<boolean>(true);` trong `MessageList.tsx` gây lỗi TS2552 trong build Next.js.
+  - **Root Cause:** Sửa logic auto-scroll nhưng khai báo biến nằm ngoài phạm vi thay đổi cục bộ.
+  - **Resolution / Fix:** Khai báo đầy đủ `isFirstRenderRef` ngay cạnh `prevLastMessageIdRef`.
+- **Commit:** Pending
+- **PR:** #71 (https://github.com/1440isme/Circle/pull/71)

@@ -44,19 +44,34 @@ export const MessageList: React.FC<MessageListProps> = ({
   const locale = useLanguageStore((s) => s.locale);
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const isFirstRenderRef = useRef(true);
+  const lastMessageId = messages.length > 0 ? messages[messages.length - 1].id : null;
+  const prevLastMessageIdRef = useRef<string | null>(null);
+  const isFirstRenderRef = useRef<boolean>(true);
 
-  // Auto-scroll to bottom on new messages
+  // Auto-scroll to bottom on first render or when a new message is appended at the bottom
   useEffect(() => {
-    if (messages.length > 0) {
-      if (isFirstRenderRef.current) {
-        bottomRef.current?.scrollIntoView({ behavior: 'auto' });
-        isFirstRenderRef.current = false;
-      } else {
-        bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (messages.length === 0) return;
+
+    if (isFirstRenderRef.current) {
+      bottomRef.current?.scrollIntoView({ behavior: 'auto' });
+      isFirstRenderRef.current = false;
+      prevLastMessageIdRef.current = lastMessageId;
+      return;
+    }
+
+    // Only scroll to bottom if a new message was added at the bottom
+    if (lastMessageId && lastMessageId !== prevLastMessageIdRef.current) {
+      prevLastMessageIdRef.current = lastMessageId;
+      const container = containerRef.current;
+      if (container) {
+        const isNearBottom =
+          container.scrollHeight - container.scrollTop - container.clientHeight < 250;
+        if (isNearBottom) {
+          bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }
       }
     }
-  }, [messages.length]);
+  }, [messages.length, lastMessageId]);
 
   // Format date separator label
   const getDateLabel = (dateStr: string) => {

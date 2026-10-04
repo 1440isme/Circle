@@ -7,6 +7,7 @@ const SOCKET_URL =
   'http://localhost:4000';
 
 let socket: Socket | null = null;
+let currentActiveChannelId: string | null = null;
 const connectionListeners = new Set<(connected: boolean) => void>();
 
 function notifyConnectionChange(connected: boolean) {
@@ -70,6 +71,9 @@ export function getSocket(): Socket | null {
 
   socket.on('connect', () => {
     notifyConnectionChange(true);
+    if (currentActiveChannelId) {
+      socket?.emit('chat:join-channel', { channelId: currentActiveChannelId });
+    }
   });
 
   socket.on('disconnect', () => {
@@ -91,6 +95,7 @@ export function disconnectSocket(): void {
   if (socket) {
     socket.disconnect();
     socket = null;
+    currentActiveChannelId = null;
     notifyConnectionChange(false);
   }
 }
@@ -99,6 +104,7 @@ export function disconnectSocket(): void {
  * Join a specific channel room for realtime group chat events.
  */
 export function joinChannelRoom(channelId: string): void {
+  currentActiveChannelId = channelId;
   const s = getSocket();
   if (s && channelId) {
     s.emit('chat:join-channel', { channelId });
@@ -109,6 +115,9 @@ export function joinChannelRoom(channelId: string): void {
  * Leave a specific channel room.
  */
 export function leaveChannelRoom(channelId: string): void {
+  if (currentActiveChannelId === channelId) {
+    currentActiveChannelId = null;
+  }
   const s = getSocket();
   if (s && channelId) {
     s.emit('chat:leave-channel', { channelId });
