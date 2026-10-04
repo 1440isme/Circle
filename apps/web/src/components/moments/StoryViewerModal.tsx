@@ -15,11 +15,19 @@ import {
   Play,
   Volume2,
   VolumeX,
+  Send,
+  MessageCircle,
+  CheckCircle2,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useLanguageStore } from '@/stores/language.store';
+import { useCircleStore } from '@/stores/circle.store';
 import { MomentEntity } from '@circle/types';
-import { useReactMomentMutation, useDeleteMomentMutation } from '@/hooks/use-moment-queries';
+import {
+  useReactMomentMutation,
+  useDeleteMomentMutation,
+  useReplyMomentMutation,
+} from '@/hooks/use-moment-queries';
 
 interface StoryViewerModalProps {
   moments: MomentEntity[];
@@ -48,6 +56,12 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
 
   const reactMutation = useReactMomentMutation();
   const deleteMutation = useDeleteMomentMutation();
+  const replyMutation = useReplyMomentMutation();
+  const activeCircle = useCircleStore((s) => s.activeCircle);
+
+  const [replyText, setReplyText] = useState('');
+  const [targetCircleId, setTargetCircleId] = useState<string>('');
+  const [replySuccess, setReplySuccess] = useState(false);
 
   const currentMoment = moments[currentIndex];
   const isAuthor = currentMoment?.authorId === user?.id;
@@ -56,14 +70,45 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
     currentMoment?.mediaType === 'VIDEO' ||
     Boolean(currentMoment?.photoUrl?.startsWith('data:video/'));
 
-  // Sync initial index
+  // Sync initial index and circle selection
   useEffect(() => {
     if (isOpen) {
       setCurrentIndex(initialIndex);
       setProgress(0);
       setIsPaused(false);
+      setReplyText('');
+      setReplySuccess(false);
     }
   }, [isOpen, initialIndex]);
+
+  useEffect(() => {
+    if (currentMoment?.visibilities && currentMoment.visibilities.length > 0) {
+      const match = currentMoment.visibilities.find((v) => v.circleId === activeCircle?.id);
+      setTargetCircleId(match ? match.circleId : currentMoment.visibilities[0].circleId);
+    }
+    setReplyText('');
+    setReplySuccess(false);
+  }, [currentMoment, activeCircle?.id]);
+
+  const handleSendReply = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!replyText.trim() || !targetCircleId || !currentMoment || replyMutation.isPending) return;
+
+    try {
+      await replyMutation.mutateAsync({
+        momentId: currentMoment.id,
+        message: replyText.trim(),
+        circleId: targetCircleId,
+      });
+      setReplyText('');
+      setReplySuccess(true);
+      setTimeout(() => {
+        setReplySuccess(false);
+      }, 3000);
+    } catch {
+      // Handled by mutation
+    }
+  };
 
   // Image Progress Bar timer (Only active when NOT a video)
   useEffect(() => {
@@ -368,6 +413,54 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
               );
             })}
           </div>
+
+          {/* Quick Reply Form to Circle Group Chat */}
+          <form onSubmit={handleSendReply} className="space-y-1.5">
+            {replySuccess ? (
+              <div className="flex items-center justify-center gap-2 py-2 px-3 bg-emerald-500/20 border border-emerald-500/40 rounded-full text-emerald-300 text-xs font-medium animate-fade-in">
+                <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
+                <span>{t.moments.replySuccess || 'Đã gửi phản hồi vào khung chat của Vòng tròn!'}</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md rounded-full px-3 py-1.5 border border-white/15 focus-within:border-circle-primary/70 transition-colors">
+                {currentMoment.visibilities && currentMoment.visibilities.length > 1 ? (
+                  <select
+                    value={targetCircleId}
+                    onChange={(e) => setTargetCircleId(e.target.value)}
+                    className="bg-transparent text-white/90 text-[11px] font-medium focus:outline-none cursor-pointer max-w-[100px] truncate"
+                    title={t.moments.replySelectCircle || 'Chọn Vòng tròn'}
+                  >
+                    {currentMoment.visibilities.map((v) => (
+                      <option key={v.circleId} value={v.circleId} className="bg-circle-charcoal text-white">
+                        {v.circle?.name || 'Circle'}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <MessageCircle className="h-4 w-4 text-white/60 shrink-0" />
+                )}
+
+                <input
+                  type="text"
+                  value={replyText}
+                  onChange={(e) => setReplyText(e.target.value)}
+                  onFocus={() => setIsPaused(true)}
+                  placeholder={t.moments.replyPlaceholder || 'Gửi tin nhắn vào nhóm chat...'}
+                  maxLength={2000}
+                  className="flex-1 bg-transparent text-white placeholder-white/50 text-xs focus:outline-none min-w-0"
+                />
+
+                <button
+                  type="submit"
+                  disabled={!replyText.trim() || replyMutation.isPending}
+                  className="p-1.5 rounded-full bg-circle-primary text-circle-charcoal disabled:opacity-40 disabled:hover:bg-circle-primary hover:scale-105 active:scale-95 transition-all shrink-0 shadow-sm"
+                  title={t.moments.replyButton || 'Gửi vào nhóm'}
+                >
+                  <Send className="h-3.5 w-3.5 stroke-[2.5]" />
+                </button>
+              </div>
+            )}
+          </form>
         </div>
       </div>
     </div>

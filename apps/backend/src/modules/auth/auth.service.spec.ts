@@ -31,7 +31,6 @@ describe('AuthService — Full Test Suite (TC-AUTH-001 to TC-AUTH-006)', () => {
       userId: 'user-cuid-1',
       displayName: 'Test User',
       avatarUrl: null,
-      coverUrl: null,
       bio: null,
       dateOfBirth: null,
       updatedAt: new Date(),
@@ -379,7 +378,6 @@ describe('AuthService — Full Test Suite (TC-AUTH-001 to TC-AUTH-006)', () => {
         displayName: 'Alex Binh Updated',
         avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb',
         bio: 'Fullstack Engineer at CIRCLE',
-        coverUrl: null,
         dateOfBirth: null,
         updatedAt: new Date(),
       });

@@ -151,7 +151,7 @@ export default function HomeScreen() {
                   {currentCircle.name}
                 </Text>
                 <Text style={[styles.spotlightSubtitle, { color: colors.subtle }]}>
-                  {currentCircle.description || t.home.circleFeedSubtitle}
+                  {t.home.circleFeedSubtitle}
                 </Text>
               </View>
             </View>

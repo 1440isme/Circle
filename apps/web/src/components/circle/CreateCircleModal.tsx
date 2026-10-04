@@ -252,9 +252,6 @@ export const CreateCircleModal: React.FC = () => {
                           <p className="text-xs font-semibold truncate">
                             {friend.displayName}
                           </p>
-                          <p className="text-[10px] text-circle-slate dark:text-circle-dark-muted truncate">
-                            {friend.email}
-                          </p>
                         </div>
                       </div>
 
@@ -274,54 +271,29 @@ export const CreateCircleModal: React.FC = () => {
             </div>
           </div>
 
-          {/* Privacy Choice */}
-          <div className="space-y-1.5 pt-1">
-            <label className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text">
-              {t.circle.privacyTitle}
-            </label>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setIsPrivate(false)}
-                className={`flex items-center gap-2.5 rounded-2xl border p-2.5 text-left transition-all ${
-                  !isPrivate
-                    ? 'border-circle-sage dark:border-circle-primary bg-circle-primary/10 text-circle-charcoal dark:text-circle-dark-text shadow-sm'
-                    : 'border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/50 dark:bg-circle-dark-canvas/50 text-circle-slate dark:text-circle-dark-muted hover:border-circle-slate/30'
-                }`}
-              >
-                <Globe
-                  className={`h-4 w-4 shrink-0 ${
-                    !isPrivate
-                      ? 'text-circle-sage dark:text-circle-primary'
-                      : 'text-circle-slate dark:text-circle-dark-muted'
-                  }`}
-                />
-                <div>
-                  <h4 className="text-xs font-bold">{t.circle.privacyPublic}</h4>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setIsPrivate(true)}
-                className={`flex items-center gap-2.5 rounded-2xl border p-2.5 text-left transition-all ${
-                  isPrivate
-                    ? 'border-circle-sage dark:border-circle-primary bg-circle-primary/10 text-circle-charcoal dark:text-circle-dark-text shadow-sm'
-                    : 'border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/50 dark:bg-circle-dark-canvas/50 text-circle-slate dark:text-circle-dark-muted hover:border-circle-slate/30'
-                }`}
-              >
-                <Lock
-                  className={`h-4 w-4 shrink-0 ${
-                    isPrivate
-                      ? 'text-circle-sage dark:text-circle-primary'
-                      : 'text-circle-slate dark:text-circle-dark-muted'
-                  }`}
-                />
-                <div>
-                  <h4 className="text-xs font-bold">{t.circle.privacyPrivate}</h4>
-                </div>
-              </button>
+          {/* Cần trưởng nhóm phê duyệt Toggle Switch */}
+          <div className="flex items-center justify-between gap-4 p-3.5 rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/50 dark:bg-circle-dark-canvas/50">
+            <div className="min-w-0 flex-1">
+              <h4 className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
+                {t.circle.requireApprovalTitle || 'Cần trưởng nhóm phê duyệt'}
+              </h4>
+              <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted mt-0.5 leading-snug">
+                {t.circle.requireApprovalDesc || 'Trưởng nhóm cần phê duyệt tất cả yêu cầu tham gia nhóm chat'}
+              </p>
             </div>
+            <button
+              type="button"
+              onClick={() => setIsPrivate(!isPrivate)}
+              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                isPrivate ? 'bg-circle-primary' : 'bg-gray-300 dark:bg-gray-700'
+              }`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                  isPrivate ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
           </div>
 
           {/* Auto Handle Notice */}

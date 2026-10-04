@@ -62,7 +62,6 @@ describe('ChatService — Module 4 Realtime Group Messaging', () => {
         userId: 'user-1',
         displayName: 'Trương Công Bình',
         avatarUrl: 'https://avatar.com/1.png',
-        coverUrl: null,
         bio: 'Coding enthusiast',
         dateOfBirth: null,
         updatedAt: new Date('2026-09-01T00:00:00Z'),

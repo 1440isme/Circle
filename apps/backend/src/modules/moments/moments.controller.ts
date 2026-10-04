@@ -19,6 +19,7 @@ import {
   createMomentSchemas,
   CreateMomentInput,
   ReactMomentInput,
+  ReplyMomentInput,
   resolveLocale,
 } from '@circle/shared';
 
@@ -102,5 +103,22 @@ export class MomentsController {
   ) {
     const locale = resolveLocale(circleLocale, acceptLanguage);
     return this.momentsService.delete(user.id, id, locale);
+  }
+
+  /**
+   * POST /api/v1/moments/:id/reply — Reply to a Moment by sending a quoted message directly into the Circle's group chat
+   */
+  @Post(':id/reply')
+  @HttpCode(HttpStatus.CREATED)
+  async reply(
+    @CurrentUser() user: AuthUserData,
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe((locale) => createMomentSchemas(locale).replyMomentSchema))
+    dto: ReplyMomentInput,
+    @Headers('x-circle-locale') circleLocale?: string,
+    @Headers('accept-language') acceptLanguage?: string,
+  ) {
+    const locale = resolveLocale(circleLocale, acceptLanguage);
+    return this.momentsService.replyMoment(user.id, id, dto, locale);
   }
 }
