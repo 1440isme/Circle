@@ -48,12 +48,32 @@ export const MessageList: React.FC<MessageListProps> = ({
   const prevLastMessageIdRef = useRef<string | null>(null);
   const isFirstRenderRef = useRef<boolean>(true);
 
+  const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
+    if (containerRef.current) {
+      containerRef.current.scrollTo({
+        top: containerRef.current.scrollHeight,
+        behavior,
+      });
+    }
+  };
+
   // Auto-scroll to bottom on first render or when a new message is appended at the bottom
   useEffect(() => {
     if (messages.length === 0) return;
 
+    const lastMsg = messages[messages.length - 1];
+    const isSenderMe = Boolean(
+      (currentUserId &&
+        (lastMsg.sender?.user?.id === currentUserId ||
+          lastMsg.sender?.userId === currentUserId ||
+          lastMsg.memberId === currentUserId)) ||
+        lastMsg.memberId === 'optimistic_me' ||
+        lastMsg.status === 'SENDING' ||
+        lastMsg.tempId,
+    );
+
     if (isFirstRenderRef.current) {
-      bottomRef.current?.scrollIntoView({ behavior: 'auto' });
+      setTimeout(() => scrollToBottom('auto'), 60);
       isFirstRenderRef.current = false;
       prevLastMessageIdRef.current = lastMessageId;
       return;
@@ -65,13 +85,14 @@ export const MessageList: React.FC<MessageListProps> = ({
       const container = containerRef.current;
       if (container) {
         const isNearBottom =
-          container.scrollHeight - container.scrollTop - container.clientHeight < 250;
-        if (isNearBottom) {
-          bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+          container.scrollHeight - container.scrollTop - container.clientHeight < 300;
+        // If sender is ME (user sent message) or user is already near bottom, scroll down
+        if (isSenderMe || isNearBottom) {
+          setTimeout(() => scrollToBottom('smooth'), 50);
         }
       }
     }
-  }, [messages.length, lastMessageId]);
+  }, [messages.length, lastMessageId, currentUserId]);
 
   // Format date separator label
   const getDateLabel = (dateStr: string) => {
@@ -115,10 +136,13 @@ export const MessageList: React.FC<MessageListProps> = ({
     items.forEach((msg) => {
       const senderUserId = msg.sender?.user?.id || msg.sender?.userId || msg.memberId || '';
       const isSenderMe = Boolean(
-        currentUserId &&
+        (currentUserId &&
           (senderUserId === currentUserId ||
             msg.memberId === currentUserId ||
-            msg.sender?.user?.id === currentUserId),
+            msg.sender?.user?.id === currentUserId)) ||
+          msg.memberId === 'optimistic_me' ||
+          msg.status === 'SENDING' ||
+          msg.tempId,
       );
       const senderName =
         msg.sender?.nickname ||
@@ -165,7 +189,7 @@ export const MessageList: React.FC<MessageListProps> = ({
   return (
     <div
       ref={containerRef}
-      className="flex-1 overflow-y-auto px-4 py-4 space-y-4 min-h-[300px]"
+      className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-4"
     >
       {/* Load earlier messages button */}
       {hasMore && (

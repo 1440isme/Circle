@@ -3077,3 +3077,37 @@
   - **Resolution / Fix:** Khai báo đầy đủ `isFirstRenderRef` ngay cạnh `prevLastMessageIdRef`.
 - **Commit:** Pending
 - **PR:** #71 (https://github.com/1440isme/Circle/pull/71)
+---
+
+## AI-0078: Khắc phục kẹt cuộn khi gửi tin nhắn & Sticky Chat Composer trên Web
+
+- **Date:** 2026-10-04 14:07:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #70 ([SUB-FEAT]: US-CHAT-002 — Production-Grade Messaging P0: Optimistic UI, Typing Indicator, Outbox & Media Attachment (Parent: #20))
+- **Purpose:** 
+  1. Cố định (Sticky) ô nhập tin nhắn trên Web khi cuộn trang:
+     - Thêm `sticky bottom-0 z-20 backdrop-blur-md` vào `ChatComposer.tsx`.
+     - Giới hạn chiều cao và triệt tiêu tràn trang ngoài ở `FeedStream.tsx` (`h-[calc(100vh-4rem)] max-h-[calc(100vh-4rem)] overflow-hidden`), `ChannelChatView.tsx` (`h-full min-h-0`) và `MessageList.tsx` (`min-h-0 overflow-y-auto`). Giờ đây thanh cuộn chỉ hoạt động bên trong danh sách tin nhắn, ô soạn thảo luôn bám chặt chân trang.
+  2. Khắc phục lỗi gửi tin nhắn xong view bị kẹt ở trên cùng và không cuộn được:
+     - Web: Loại bỏ `scrollIntoView` (vốn gây cuộn toàn bộ window), thay bằng `container.scrollTo({ top: container.scrollHeight, behavior })` cục bộ. Bổ sung nhận diện `isSenderMe` cho tin nhắn lạc quan (`optimistic_me`, `tempId`, `SENDING`) và ép buộc tự động cuộn xuống đáy khi chính người dùng gửi tin nhắn mới (chỉ giữ vị trí đọc khi tin nhắn đến từ người khác).
+     - Mobile: Bổ sung `onContentSizeChange` trên `ScrollView` đảm bảo luôn cuộn xuống đáy khi tin nhắn mới làm thay đổi chiều cao nội dung. Nới lỏng `PanResponder` trong `MobileSwipeMessageBubble` (`onPanResponderTerminationRequest: () => true`) để không chặn hoặc khóa cử chỉ cuộn dọc trên Android/iOS.
+- **Files Affected:**
+  - `apps/mobile/app/circle/[id].tsx`
+  - `apps/web/src/components/chat/ChannelChatView.tsx`
+  - `apps/web/src/components/chat/ChatComposer.tsx`
+  - `apps/web/src/components/chat/MessageList.tsx`
+  - `apps/web/src/components/stream/FeedStream.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% sticky viewport containment, direct container scrolling logic, PanResponder event delegation, onContentSizeChange auto-scroll sync.
+- **Human Modifications:** Trương Công Bình phản ánh lỗi gửi tin nhắn mới xong bị dính ở trên cùng không lướt được và yêu cầu stick ô nhập tin nhắn khi cuộn trang web.
+- **Verification Method:**
+  - Web: Next.js 14 production build pass (9/9 routes).
+  - Mobile: TypeScript typecheck pass (0 errors).
+  - Integrity: `./scripts/check-agent-map.sh` pass (94/94 files).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** Pass 100%.
+- **AI Errors / Hallucinations Found:** None.
+- **Commit:** Pending
+- **PR:** #71 (https://github.com/1440isme/Circle/pull/71)

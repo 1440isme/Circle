@@ -83,7 +83,7 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col h-[calc(100vh-6rem)] rounded-3xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface shadow-circle-card overflow-hidden transition-colors">
+    <div className="flex-1 flex flex-col h-full min-h-0 rounded-3xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface shadow-circle-card overflow-hidden transition-colors">
       {/* Network Reconnection Banner */}
       {!isSocketConnected && (
         <div className="flex items-center justify-center gap-2 bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 py-1.5 px-4 text-xs font-medium border-b border-amber-500/20 animate-pulse transition-all">

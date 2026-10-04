@@ -124,7 +124,10 @@ function buildMobileClusters(
           msg.senderId === currentUserId)) ||
         (currentUserEmail &&
           (msg.sender?.user?.email === currentUserEmail ||
-            msg.sender?.email === currentUserEmail)),
+            msg.sender?.email === currentUserEmail)) ||
+        msg.memberId === 'optimistic_me' ||
+        msg.status === 'SENDING' ||
+        msg.tempId,
     );
     const senderName =
       msg.sender?.nickname ||
@@ -234,9 +237,9 @@ function MobileSwipeMessageBubble({
     PanResponder.create({
       onStartShouldSetPanResponder: () => false,
       onMoveShouldSetPanResponder: (_, gestureState) => {
-        return gestureState.dx > 15 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.5;
+        return gestureState.dx > 25 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 2;
       },
-      onPanResponderTerminationRequest: () => false,
+      onPanResponderTerminationRequest: () => true,
       onPanResponderMove: (_, gestureState) => {
         if (gestureState.dx > 0) {
           const cappedDx = Math.min(gestureState.dx, 65);
@@ -640,21 +643,32 @@ export default function CircleWorkspaceScreen() {
   useEffect(() => {
     if (messages.length === 0) return;
 
+    const lastMsg = messages[messages.length - 1];
+    const isSenderMe = Boolean(
+      (user?.id &&
+        (lastMsg?.sender?.user?.id === user.id ||
+          lastMsg?.sender?.userId === user.id ||
+          lastMsg?.memberId === user.id)) ||
+        lastMsg?.memberId === 'optimistic_me' ||
+        lastMsg?.status === 'SENDING' ||
+        lastMsg?.tempId,
+    );
+
     if (isFirstLoadRef.current) {
       isFirstLoadRef.current = false;
       prevLastMessageIdRef.current = lastMessageId;
       setTimeout(() => {
         scrollViewRef.current?.scrollToEnd({ animated: false });
-      }, 80);
+      }, 60);
     } else if (lastMessageId && lastMessageId !== prevLastMessageIdRef.current) {
       prevLastMessageIdRef.current = lastMessageId;
-      if (isNearBottomRef.current) {
+      if (isSenderMe || isNearBottomRef.current) {
         setTimeout(() => {
           scrollViewRef.current?.scrollToEnd({ animated: true });
-        }, 60);
+        }, 50);
       }
     }
-  }, [messages.length, lastMessageId, currentChannelId]);
+  }, [messages.length, lastMessageId, currentChannelId, user?.id]);
 
   const handleShareInviteCode = async () => {
     if (!circle?.inviteCode) return;
@@ -898,6 +912,11 @@ export default function CircleWorkspaceScreen() {
             showsVerticalScrollIndicator={false}
             onScroll={handleScroll}
             scrollEventThrottle={16}
+            onContentSizeChange={() => {
+              if (isFirstLoadRef.current || isNearBottomRef.current) {
+                scrollViewRef.current?.scrollToEnd({ animated: !isFirstLoadRef.current });
+              }
+            }}
           >
             {/* Load Earlier Messages Button */}
             {hasNextPage && (

@@ -227,7 +227,13 @@ export const FeedStream: React.FC = () => {
   // VIEW 2: ACTIVE CIRCLE WORKSPACE (Clean, Direct Chat & Moments without top banner)
   // =========================================================================
   return (
-    <main className="flex-1 max-w-4xl flex flex-col gap-4 p-4 sm:p-6 min-h-[calc(100vh-4rem)]">
+    <main
+      className={`flex-1 max-w-4xl flex flex-col ${
+        activeCircleView === 'moments'
+          ? 'gap-4 p-4 sm:p-6 min-h-[calc(100vh-4rem)]'
+          : 'p-2 sm:p-4 h-[calc(100vh-4rem)] max-h-[calc(100vh-4rem)] overflow-hidden'
+      }`}
+    >
       {activeCircleView === 'moments' ? (
         <DailyMomentsFeed circleId={activeCircle.id} />
       ) : currentChannel ? (
