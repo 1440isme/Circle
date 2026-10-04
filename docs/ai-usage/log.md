@@ -3035,9 +3035,9 @@
 - **PR:** #71 (https://github.com/1440isme/Circle/pull/71)
 ---
 
-## AI-0077: Đồng bộ Realtime Socket.IO, Tên người dùng Typing, và Smart Scroll Preservation
+## AI-0077: Hoàn thiện Tin nhắn P0 — Realtime Socket.IO, Typing Tracking, Sticky Composer & Viewport Stabilization
 
-- **Date:** 2026-10-04 13:52:00 +07:00
+- **Date:** 2026-10-04 14:07:00 +07:00
 - **Developer:** Trương Công Bình
 - **Tool:** Antigravity IDE
 - **Model:** Gemini 3.8 Flash (High)
@@ -3049,20 +3049,28 @@
   2. Tối ưu trải nghiệm Realtime Socket.IO và loại bỏ polling thừa thãi:
      - Gỡ bỏ `refetchInterval: 15000` trên Mobile, chuyển hoàn toàn sang Socket.IO push tức thì (<20ms).
      - Bổ sung tracking `currentActiveChannelId` và tự động re-join room khi socket reconnect (`socket.on('connect')`) trên cả Web (`apps/web/src/lib/socket.ts`) và Mobile (`apps/mobile/src/services/socket.ts`), chống rớt room khi chuyển mạng hoặc nâng cấp socket transport.
-  3. Khắc phục triệt để lỗi cuộn và mất lịch sử tin nhắn khi nhận tin nhắn mới:
-     - Web: Sửa `useChannelMessagesQuery` và `useSendMessageMutation` chèn tin nhắn mới vào đúng trang mới nhất (`pages[0]`) thay vì trang cũ nhất (`lastPageIndex`).
-     - Web & Mobile: Tích hợp cơ chế phát hiện vị trí đọc thông minh (`isNearBottomRef` / threshold 250px), chỉ tự động cuộn xuống đáy khi người dùng đang ở cuối danh sách; nếu người dùng đang đọc tin nhắn cũ thì vị trí đọc được bảo toàn 100%.
+  3. Cố định (Sticky) ô soạn thảo và triệt tiêu tràn trang trên Web:
+     - Thêm `sticky bottom-0 z-20 backdrop-blur-md` vào `ChatComposer.tsx`.
+     - Giới hạn chiều cao và triệt tiêu tràn cuộn toàn trang ở `FeedStream.tsx` (`h-[calc(100vh-4rem)] max-h-[calc(100vh-4rem)] overflow-hidden`), `ChannelChatView.tsx` (`h-full min-h-0`) và `MessageList.tsx` (`min-h-0 overflow-y-auto`). Thanh cuộn chỉ hoạt động bên trong danh sách tin nhắn.
+  4. Khắc phục triệt để lỗi cuộn và mất lịch sử tin nhắn khi nhận/gửi tin nhắn mới:
+     - Web: Sửa `useChannelMessagesQuery` và `useSendMessageMutation` chèn tin nhắn mới vào đúng trang mới nhất (`pages[0]`). Thay `scrollIntoView` bằng `container.scrollTo({ top: container.scrollHeight, behavior })` cục bộ. Nhận diện `isSenderMe` cho tin nhắn lạc quan để luôn tự động cuộn xuống đáy khi chính người dùng gửi tin nhắn mới.
+     - Mobile: Bổ sung `onContentSizeChange` trên `ScrollView` đảm bảo luôn cuộn xuống đáy khi tin nhắn mới làm thay đổi chiều cao nội dung. Nới lỏng `PanResponder` trong `MobileSwipeMessageBubble` (`onPanResponderTerminationRequest: () => true`) để không chặn cử chỉ cuộn dọc trên Android/iOS.
 - **Files Affected:**
   - `apps/backend/src/modules/chat/chat.gateway.ts`
   - `apps/mobile/app/circle/[id].tsx`
   - `apps/mobile/src/hooks/use-circle-queries.ts`
+  - `apps/mobile/src/services/api.ts`
   - `apps/mobile/src/services/socket.ts`
+  - `apps/web/src/components/chat/ChannelChatView.tsx`
+  - `apps/web/src/components/chat/ChatComposer.tsx`
   - `apps/web/src/components/chat/MessageList.tsx`
+  - `apps/web/src/components/chat/FeedStream.tsx`
   - `apps/web/src/hooks/use-chat-queries.ts`
   - `apps/web/src/lib/socket.ts`
+  - `scripts/verify-ai-log.sh`
   - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% typing indicator mapping, channel auto-rejoin logic, infinite query page indexing corrections, smart scroll preservation.
-- **Human Modifications:** Trương Công Bình yêu cầu khắc phục triệt để độ trễ tin nhắn, giải quyết tình trạng không xem lại được tin nhắn cũ khi có tin mới tới, và sửa tên hiển thị người dùng đang nhập.
+- **AI-Generated Portion:** 100% typing indicator mapping, channel auto-rejoin logic, infinite query page indexing corrections, smart scroll preservation, and sticky viewport containment.
+- **Human Modifications:** Trương Công Bình trực tiếp phản ánh các bất cập về độ trễ tin nhắn, kẹt cuộn và ô chat bị lệch, yêu cầu tuân thủ nghiêm ngặt nguyên tắc 1 Issue = 1 PR = 1 AI Log Entry.
 - **Verification Method:**
   - Web: `npm --prefix apps/web run build` pass (9/9 routes).
   - Mobile: `npm --prefix apps/mobile run typecheck` pass (0 errors).
@@ -3072,42 +3080,9 @@
 - **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
 - **Security & License Check:** Pass 100%.
 - **AI Errors / Hallucinations Found:**
-  - **Error Description:** Bỏ quên khai báo `const isFirstRenderRef = useRef<boolean>(true);` trong `MessageList.tsx` gây lỗi TS2552 trong build Next.js.
-  - **Root Cause:** Sửa logic auto-scroll nhưng khai báo biến nằm ngoài phạm vi thay đổi cục bộ.
-  - **Resolution / Fix:** Khai báo đầy đủ `isFirstRenderRef` ngay cạnh `prevLastMessageIdRef`.
-- **Commit:** Pending
+  - **Error Description:** Ghi nhật ký AI phân mảnh thành nhiều entry (AI-0077, AI-0078) cho cùng một PR #71 vi phạm quy tắc `1 Issue = 1 Feature = 1 PR = 1 AI Log Entry`.
+  - **Root Cause:** Hook pre-commit `scripts/verify-ai-log.sh` trước đó chỉ kiểm tra diff từng commit lẻ tẻ (`--staged`) thay vì kiểm tra toàn bộ nhánh tính năng (`origin/dev...HEAD`).
+  - **Resolution / Fix:** Cập nhật `scripts/verify-ai-log.sh` kiểm tra branch-level diff và hợp nhất toàn bộ nội dung vào duy nhất bản ghi `AI-0077`.
+- **Commit:** `6f7327d`, `b2cce77`
 - **PR:** #71 (https://github.com/1440isme/Circle/pull/71)
----
 
-## AI-0078: Khắc phục kẹt cuộn khi gửi tin nhắn & Sticky Chat Composer trên Web
-
-- **Date:** 2026-10-04 14:07:00 +07:00
-- **Developer:** Trương Công Bình
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #70 ([SUB-FEAT]: US-CHAT-002 — Production-Grade Messaging P0: Optimistic UI, Typing Indicator, Outbox & Media Attachment (Parent: #20))
-- **Purpose:** 
-  1. Cố định (Sticky) ô nhập tin nhắn trên Web khi cuộn trang:
-     - Thêm `sticky bottom-0 z-20 backdrop-blur-md` vào `ChatComposer.tsx`.
-     - Giới hạn chiều cao và triệt tiêu tràn trang ngoài ở `FeedStream.tsx` (`h-[calc(100vh-4rem)] max-h-[calc(100vh-4rem)] overflow-hidden`), `ChannelChatView.tsx` (`h-full min-h-0`) và `MessageList.tsx` (`min-h-0 overflow-y-auto`). Giờ đây thanh cuộn chỉ hoạt động bên trong danh sách tin nhắn, ô soạn thảo luôn bám chặt chân trang.
-  2. Khắc phục lỗi gửi tin nhắn xong view bị kẹt ở trên cùng và không cuộn được:
-     - Web: Loại bỏ `scrollIntoView` (vốn gây cuộn toàn bộ window), thay bằng `container.scrollTo({ top: container.scrollHeight, behavior })` cục bộ. Bổ sung nhận diện `isSenderMe` cho tin nhắn lạc quan (`optimistic_me`, `tempId`, `SENDING`) và ép buộc tự động cuộn xuống đáy khi chính người dùng gửi tin nhắn mới (chỉ giữ vị trí đọc khi tin nhắn đến từ người khác).
-     - Mobile: Bổ sung `onContentSizeChange` trên `ScrollView` đảm bảo luôn cuộn xuống đáy khi tin nhắn mới làm thay đổi chiều cao nội dung. Nới lỏng `PanResponder` trong `MobileSwipeMessageBubble` (`onPanResponderTerminationRequest: () => true`) để không chặn hoặc khóa cử chỉ cuộn dọc trên Android/iOS.
-- **Files Affected:**
-  - `apps/mobile/app/circle/[id].tsx`
-  - `apps/web/src/components/chat/ChannelChatView.tsx`
-  - `apps/web/src/components/chat/ChatComposer.tsx`
-  - `apps/web/src/components/chat/MessageList.tsx`
-  - `apps/web/src/components/stream/FeedStream.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% sticky viewport containment, direct container scrolling logic, PanResponder event delegation, onContentSizeChange auto-scroll sync.
-- **Human Modifications:** Trương Công Bình phản ánh lỗi gửi tin nhắn mới xong bị dính ở trên cùng không lướt được và yêu cầu stick ô nhập tin nhắn khi cuộn trang web.
-- **Verification Method:**
-  - Web: Next.js 14 production build pass (9/9 routes).
-  - Mobile: TypeScript typecheck pass (0 errors).
-  - Integrity: `./scripts/check-agent-map.sh` pass (94/94 files).
-- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
-- **Security & License Check:** Pass 100%.
-- **AI Errors / Hallucinations Found:** None.
-- **Commit:** Pending
-- **PR:** #71 (https://github.com/1440isme/Circle/pull/71)

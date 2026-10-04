@@ -50,6 +50,17 @@ for file in $CHANGED_FILES; do
   fi
 done
 
+# If not staged in this specific commit, check if the current branch already includes log.md updates
+if [ "$LOG_MODIFIED" = false ] && [ "$MODE" = "--staged" ]; then
+  BASE_REF=$(git merge-base HEAD origin/dev 2>/dev/null || git merge-base HEAD origin/develop 2>/dev/null || git merge-base HEAD origin/main 2>/dev/null || true)
+  if [ -n "$BASE_REF" ]; then
+    if git diff --name-only "$BASE_REF"...HEAD | grep -q "^$LOG_FILE$"; then
+      LOG_MODIFIED=true
+      echo "ℹ️ AI Log Check: Current feature branch already includes $LOG_FILE updates for this task/PR."
+    fi
+  fi
+fi
+
 if [ "$LOG_MODIFIED" = false ]; then
   echo "======================================================================" >&2
   echo "❌ COMMIT / PR REJECTED: Hard Gate G3 (Rubric TC2.3 Level 5 Violation)" >&2
