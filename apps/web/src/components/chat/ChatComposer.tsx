@@ -182,7 +182,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
   };
 
   return (
-    <div className="sticky bottom-0 z-20 border-t border-circle-hairline dark:border-circle-dark-hairline bg-white/95 dark:bg-circle-dark-surface/95 backdrop-blur-md p-3 transition-colors">
+    <div className="sticky bottom-0 z-20 shrink-0 border-t border-circle-hairline dark:border-circle-dark-hairline bg-white/95 dark:bg-circle-dark-surface/95 backdrop-blur-md p-3 transition-colors">
       {/* Hidden file inputs */}
       <input
         ref={fileInputRef}

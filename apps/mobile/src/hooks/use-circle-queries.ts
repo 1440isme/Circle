@@ -441,12 +441,13 @@ export function useChannelMessagesQuery(channelId: string | null) {
             };
           }
 
+          const incomingTempId = newMsg.tempId;
           let replaced = false;
           const updatedPages = oldData.pages.map((page) => ({
             ...page,
             messages: page.messages.map((m) => {
               if (
-                (m.tempId && (m.tempId === newMsg.tempId || m.id === newMsg.tempId)) ||
+                (Boolean(incomingTempId) && (m.tempId === incomingTempId || m.id === incomingTempId)) ||
                 (m.status === 'SENDING' &&
                   ((m.content && m.content === newMsg.content) || (m.fileUrl && m.fileUrl === newMsg.fileUrl)) &&
                   Math.abs(new Date(m.sentAt).getTime() - new Date(newMsg.sentAt).getTime()) < 20000)
@@ -610,37 +611,53 @@ export function useSendMessageMutation(channelId: string | null) {
 
       return { tempId };
     },
-    onSuccess: ({ message, tempId }) => {
-      if (channelId && message) {
+    onSuccess: (data: any, variables: any, context: any) => {
+      if (channelId) {
+        const message = data?.message || data;
+        const activeTempId =
+          data?.tempId ||
+          (typeof variables === 'object' ? variables?.tempId : undefined) ||
+          context?.tempId;
+
         queryClient.setQueryData<InfiniteData<CursorPaginatedMessages>>(
           ['messages', 'channel', channelId],
           (oldData) => {
             if (!oldData) return oldData;
 
             // If socket already added this exact message ID, remove the temp placeholder
-            const alreadyHasRealId = oldData.pages.some((page) =>
-              page.messages.some(
-                (m) => m.id === message.id && m.id !== tempId && m.tempId !== tempId,
-              ),
-            );
+            const alreadyHasRealId =
+              Boolean(message?.id) &&
+              oldData.pages.some((page) =>
+                page.messages.some(
+                  (m) =>
+                    m.id === message.id &&
+                    (!activeTempId || (m.id !== activeTempId && m.tempId !== activeTempId)),
+                ),
+              );
 
             if (alreadyHasRealId) {
-              return {
-                ...oldData,
-                pages: oldData.pages.map((page) => ({
-                  ...page,
-                  messages: page.messages.filter(
-                    (m) => m.tempId !== tempId && m.id !== tempId,
-                  ),
-                })),
-              };
+              if (activeTempId) {
+                return {
+                  ...oldData,
+                  pages: oldData.pages.map((page) => ({
+                    ...page,
+                    messages: page.messages.filter(
+                      (m) => m.tempId !== activeTempId && m.id !== activeTempId,
+                    ),
+                  })),
+                };
+              }
+              return oldData;
             }
 
             let matched = false;
             const updatedPages = oldData.pages.map((page) => ({
               ...page,
               messages: page.messages.map((m) => {
-                if (m.tempId === tempId || m.id === tempId) {
+                if (
+                  Boolean(activeTempId) &&
+                  (m.tempId === activeTempId || m.id === activeTempId)
+                ) {
                   matched = true;
                   return { ...message, status: 'SENT' as const };
                 }
@@ -651,7 +668,10 @@ export function useSendMessageMutation(channelId: string | null) {
             if (!matched) {
               updatedPages[0] = {
                 ...updatedPages[0],
-                messages: deduplicateMessages([...updatedPages[0].messages, { ...message, status: 'SENT' as const }]),
+                messages: deduplicateMessages([
+                  ...updatedPages[0].messages,
+                  { ...message, status: 'SENT' as const },
+                ]),
               };
             }
 
@@ -660,8 +680,9 @@ export function useSendMessageMutation(channelId: string | null) {
         );
       }
     },
-    onError: (_err, _input, context) => {
-      if (channelId && context?.tempId) {
+    onError: (_err, _input, context: any) => {
+      const activeTempId = context?.tempId;
+      if (channelId && activeTempId) {
         queryClient.setQueryData<InfiniteData<CursorPaginatedMessages>>(
           ['messages', 'channel', channelId],
           (oldData) => {
@@ -671,7 +692,7 @@ export function useSendMessageMutation(channelId: string | null) {
               pages: oldData.pages.map((page) => ({
                 ...page,
                 messages: page.messages.map((m) =>
-                  m.tempId === context.tempId || m.id === context.tempId
+                  m.tempId === activeTempId || m.id === activeTempId
                     ? { ...m, status: 'FAILED' as const }
                     : m,
                 ),

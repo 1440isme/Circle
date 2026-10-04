@@ -73,12 +73,13 @@ export function useChannelMessagesQuery(channelId: string | null) {
             };
           }
 
+          const incomingTempId = newMessage.tempId;
           let replaced = false;
           const updatedPages = oldData.pages.map((page) => ({
             ...page,
             messages: page.messages.map((m) => {
               if (
-                (m.tempId && (m.tempId === newMessage.tempId || m.id === newMessage.tempId)) ||
+                (Boolean(incomingTempId) && (m.tempId === incomingTempId || m.id === incomingTempId)) ||
                 (m.status === 'SENDING' &&
                   m.content === newMessage.content &&
                   Math.abs(new Date(m.sentAt).getTime() - new Date(newMessage.sentAt).getTime()) < 15000)
@@ -281,8 +282,11 @@ export function useSendMessageMutation(channelId: string | null) {
 
       return { tempId };
     },
-    onSuccess: ({ message, tempId }) => {
+    onSuccess: (data, variables, context) => {
       if (!channelId) return;
+
+      const message = data.message;
+      const activeTempId = data.tempId || variables?.tempId || context?.tempId;
 
       queryClient.setQueryData<InfiniteData<CursorPaginatedMessages>>(
         CHAT_KEYS.messages(channelId),
@@ -290,30 +294,40 @@ export function useSendMessageMutation(channelId: string | null) {
           if (!oldData) return oldData;
 
           // Check if socket already delivered this real message ID
-          const alreadyHasRealId = oldData.pages.some((page) =>
-            page.messages.some(
-              (m) => m.id === message.id && m.id !== tempId && m.tempId !== tempId,
-            ),
-          );
+          const alreadyHasRealId =
+            Boolean(message?.id) &&
+            oldData.pages.some((page) =>
+              page.messages.some(
+                (m) =>
+                  m.id === message.id &&
+                  (!activeTempId || (m.id !== activeTempId && m.tempId !== activeTempId)),
+              ),
+            );
 
           if (alreadyHasRealId) {
-            // Remove the temporary optimistic placeholder
-            return {
-              ...oldData,
-              pages: oldData.pages.map((page) => ({
-                ...page,
-                messages: page.messages.filter(
-                  (m) => m.tempId !== tempId && m.id !== tempId,
-                ),
-              })),
-            };
+            // Remove the temporary optimistic placeholder if one exists
+            if (activeTempId) {
+              return {
+                ...oldData,
+                pages: oldData.pages.map((page) => ({
+                  ...page,
+                  messages: page.messages.filter(
+                    (m) => m.tempId !== activeTempId && m.id !== activeTempId,
+                  ),
+                })),
+              };
+            }
+            return oldData;
           }
 
           let replaced = false;
           const updatedPages = oldData.pages.map((page) => ({
             ...page,
             messages: page.messages.map((m) => {
-              if (m.tempId === tempId || m.id === tempId) {
+              if (
+                Boolean(activeTempId) &&
+                (m.tempId === activeTempId || m.id === activeTempId)
+              ) {
                 replaced = true;
                 return { ...message, status: 'SENT' as const };
               }
@@ -340,7 +354,8 @@ export function useSendMessageMutation(channelId: string | null) {
       );
     },
     onError: (_err, _input, context) => {
-      if (!channelId || !context?.tempId) return;
+      const activeTempId = context?.tempId;
+      if (!channelId || !activeTempId) return;
       queryClient.setQueryData<InfiniteData<CursorPaginatedMessages>>(
         CHAT_KEYS.messages(channelId),
         (oldData) => {
@@ -350,7 +365,7 @@ export function useSendMessageMutation(channelId: string | null) {
             pages: oldData.pages.map((page) => ({
               ...page,
               messages: page.messages.map((m) => {
-                if (m.tempId === context.tempId || m.id === context.tempId) {
+                if (m.tempId === activeTempId || m.id === activeTempId) {
                   return { ...m, status: 'FAILED' as const };
                 }
                 return m;

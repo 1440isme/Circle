@@ -3050,12 +3050,20 @@
      - Gỡ bỏ `refetchInterval: 15000` trên Mobile, chuyển hoàn toàn sang Socket.IO push tức thì (<20ms).
      - Bổ sung tracking `currentActiveChannelId` và tự động re-join room khi socket reconnect (`socket.on('connect')`) trên cả Web (`apps/web/src/lib/socket.ts`) và Mobile (`apps/mobile/src/services/socket.ts`), chống rớt room khi chuyển mạng hoặc nâng cấp socket transport.
   3. Cố định (Sticky) ô soạn thảo và triệt tiêu tràn trang trên Web:
-     - Thêm `sticky bottom-0 z-20 backdrop-blur-md` vào `ChatComposer.tsx`.
+     - Thêm `sticky bottom-0 z-20 backdrop-blur-md shrink-0` vào `ChatComposer.tsx`.
      - Giới hạn chiều cao và triệt tiêu tràn cuộn toàn trang ở `FeedStream.tsx` (`h-[calc(100vh-4rem)] max-h-[calc(100vh-4rem)] overflow-hidden`), `ChannelChatView.tsx` (`h-full min-h-0`) và `MessageList.tsx` (`min-h-0 overflow-y-auto`). Thanh cuộn chỉ hoạt động bên trong danh sách tin nhắn.
-  4. Khắc phục triệt để lỗi cuộn và mất lịch sử tin nhắn khi nhận/gửi tin nhắn mới:
-     - Web: Sửa `useChannelMessagesQuery` và `useSendMessageMutation` chèn tin nhắn mới vào đúng trang mới nhất (`pages[0]`). Thay `scrollIntoView` bằng `container.scrollTo({ top: container.scrollHeight, behavior })` cục bộ. Nhận diện `isSenderMe` cho tin nhắn lạc quan để luôn tự động cuộn xuống đáy khi chính người dùng gửi tin nhắn mới.
-     - Mobile: Bổ sung `onContentSizeChange` trên `ScrollView` đảm bảo luôn cuộn xuống đáy khi tin nhắn mới làm thay đổi chiều cao nội dung. Nới lỏng `PanResponder` trong `MobileSwipeMessageBubble` (`onPanResponderTerminationRequest: () => true`) để không chặn cử chỉ cuộn dọc trên Android/iOS.
+  4. Khắc phục triệt để lỗi cuộn và mất toàn bộ lịch sử tin nhắn khi nhận/gửi tin nhắn mới:
+     - Nguyên nhân gốc rễ (Root Cause): Trong `onSuccess` của mutation gửi tin nhắn trên cả Web và Mobile (`use-chat-queries.ts`, `use-circle-queries.ts`), so sánh `m.tempId === tempId` khi `tempId` là `undefined` khiến mọi tin nhắn lịch sử trong DB (`m.tempId === undefined`) đều khớp điều kiện và bị ghi đè hàng loạt bằng tin nhắn mới nhất, sau đó bị deduplicator xóa sạch chỉ còn 1 tin nhắn duy nhất ghim ở đầu view ("dính luôn lên trên cùng của view, không lướt được").
+     - Khắc phục: Bắt buộc kiểm tra `Boolean(activeTempId)` trước khi so sánh `m.tempId === activeTempId`, bảo toàn 100% tin nhắn lịch sử và cuộn mượt xuống đáy.
+  5. Thiết lập hệ thống kiểm thử tự động E2E đa nền tảng (Playwright Desktop & Mobile Web Viewport Emulation):
+     - Tích hợp `@playwright/test` với cấu hình đa thiết bị: `chromium-desktop` (1280x800) và `mobile-chrome` (Pixel 7 viewport với touch events).
+     - Viết spec `tests/e2e/chat-messaging.spec.ts` tự động login, gửi chuỗi tin nhắn và kiểm tra tự động `scrollHeight > clientHeight`, `distanceFromBottom: 0`, bảo toàn toàn bộ tin nhắn.
 - **Files Affected:**
+  - `playwright.config.ts`
+  - `tests/e2e/chat-messaging.spec.ts`
+  - `.gitignore`
+  - `package.json`
+  - `package-lock.json`
   - `apps/backend/src/modules/chat/chat.gateway.ts`
   - `apps/mobile/app/circle/[id].tsx`
   - `apps/mobile/src/hooks/use-circle-queries.ts`
@@ -3064,25 +3072,26 @@
   - `apps/web/src/components/chat/ChannelChatView.tsx`
   - `apps/web/src/components/chat/ChatComposer.tsx`
   - `apps/web/src/components/chat/MessageList.tsx`
-  - `apps/web/src/components/chat/FeedStream.tsx`
+  - `apps/web/src/components/stream/FeedStream.tsx`
   - `apps/web/src/hooks/use-chat-queries.ts`
   - `apps/web/src/lib/socket.ts`
   - `scripts/verify-ai-log.sh`
   - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% typing indicator mapping, channel auto-rejoin logic, infinite query page indexing corrections, smart scroll preservation, and sticky viewport containment.
-- **Human Modifications:** Trương Công Bình trực tiếp phản ánh các bất cập về độ trễ tin nhắn, kẹt cuộn và ô chat bị lệch, yêu cầu tuân thủ nghiêm ngặt nguyên tắc 1 Issue = 1 PR = 1 AI Log Entry.
+- **AI-Generated Portion:** 100% typing indicator mapping, channel auto-rejoin logic, infinite query cache preservation, Playwright multi-device E2E suite, smart scroll preservation, and sticky viewport containment.
+- **Human Modifications:** Trương Công Bình trực tiếp phản ánh các bất cập về độ trễ tin nhắn, kẹt cuộn và ô chat bị lệch, yêu cầu thiết lập công cụ Playwright và tự động kiểm thử thay vì test thủ công.
 - **Verification Method:**
+  - Playwright E2E: `npm run test:e2e` pass 6/6 tests trên cả desktop và mobile viewport (10.2s).
   - Web: `npm --prefix apps/web run build` pass (9/9 routes).
-  - Mobile: `npm --prefix apps/mobile run typecheck` pass (0 errors).
+  - Mobile: `cd apps/mobile && npx tsc --noEmit` pass (0 errors).
   - Backend: `npm --prefix apps/backend test` pass (7/7 suites, 99/99 tests).
-  - End-to-end Socket: Test trực tiếp socket room join, dispatch typing event, và nhận broadcast tin nhắn mới trong <20ms.
   - Integrity: `./scripts/check-agent-map.sh` pass (94/94 files).
 - **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
 - **Security & License Check:** Pass 100%.
 - **AI Errors / Hallucinations Found:**
-  - **Error Description:** Ghi nhật ký AI phân mảnh thành nhiều entry (AI-0077, AI-0078) cho cùng một PR #71 vi phạm quy tắc `1 Issue = 1 Feature = 1 PR = 1 AI Log Entry`.
-  - **Root Cause:** Hook pre-commit `scripts/verify-ai-log.sh` trước đó chỉ kiểm tra diff từng commit lẻ tẻ (`--staged`) thay vì kiểm tra toàn bộ nhánh tính năng (`origin/dev...HEAD`).
-  - **Resolution / Fix:** Cập nhật `scripts/verify-ai-log.sh` kiểm tra branch-level diff và hợp nhất toàn bộ nội dung vào duy nhất bản ghi `AI-0077`.
+  - **Error Description:** Điều kiện `m.tempId === tempId` trong mutation cache update không guard trường hợp `tempId` là `undefined`, dẫn đến việc vô tình ghi đè toàn bộ danh sách tin nhắn lịch sử bằng tin nhắn mới.
+  - **Root Cause:** `mutationFn` không trả về `tempId` nếu đầu vào không truyền `tempId`, làm cho `tempId` trong `onSuccess` mang giá trị `undefined`, dẫn tới biểu thức `undefined === undefined` trả về `true` cho tất cả tin nhắn cũ.
+  - **Resolution / Fix:** Lấy `activeTempId` từ `data.tempId || variables?.tempId || context?.tempId` và bắt buộc điều kiện `Boolean(activeTempId)` trước khi so sánh `m.tempId === activeTempId`.
 - **Commit:** `6f7327d`, `b2cce77`
 - **PR:** #71 (https://github.com/1440isme/Circle/pull/71)
+
 
