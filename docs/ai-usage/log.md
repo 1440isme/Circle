@@ -2993,3 +2993,43 @@
 
 
 
+
+---
+
+## AI-0076: Mobile Message Pagination (useInfiniteQuery) and Date Separator Parity with Web
+
+- **Date:** 2026-10-04 13:10:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #70 ([SUB-FEAT]: US-CHAT-002 — Production-Grade Messaging P0: Optimistic UI, Typing Indicator, Outbox & Media Attachment (Parent: #20))
+- **Purpose:** 
+  1. Khắc phục lỗi mobile không load được tin nhắn cũ hơn (`useChannelMessagesQuery` trước đó dùng `useQuery` một trang đơn lẻ, không hỗ trợ cursor pagination và không có nút kích hoạt tải tin nhắn trước đó):
+     - Chuyển đổi `useChannelMessagesQuery` sang `useInfiniteQuery<CursorPaginatedMessages>` hỗ trợ `pageParam` và cursor URL query `/channels/${channelId}/messages?limit=30&cursor=${cursorParam}`.
+     - Cập nhật toàn bộ realtime Socket.IO listener (`chat:message`, `chat:reaction`) và lạc quan (`useSendMessageMutation`: `onMutate`, `onSuccess`, `onError`) thích ứng hoàn toàn với cấu trúc đa trang `InfiniteData<CursorPaginatedMessages>`.
+     - Thêm nút "Tải tin nhắn cũ hơn" (`loadEarlierBtn`) ở đầu danh sách tin nhắn khi `hasNextPage` là true, kèm indicator xoay khi đang fetch.
+     - Xử lý thông minh scroll behavior: loại bỏ việc tự động scroll xuống đáy khi nạp trang tin nhắn cũ (chỉ auto-scroll khi có tin nhắn mới tại đáy `lastMessageId !== prevLastMessageIdRef.current` hoặc lần đầu vào phòng chat), giữ nguyên vị trí đọc của người dùng.
+  2. Bổ sung Date Separators (dải phân cách ngày: Hôm nay, Hôm qua, hoặc ngày tháng chuẩn hóa) trên Mobile đồng bộ 100% với Web:
+     - Nhóm danh sách tin nhắn theo ngày bằng hàm `getDateLabel` sử dụng chuỗi đa ngôn ngữ `t.chat.today` và `t.chat.yesterday` (hoặc định dạng ngày theo `toLocaleDateString`).
+     - Chia cụm (cluster) tin nhắn liên tiếp theo từng ngày, hiển thị thanh phân cách (Divider line + Pill hiển thị nhãn ngày) tinh tế giữa các ngày.
+     - Tuyệt đối tuân thủ quy chuẩn không hardcode màu sắc (dùng token ngữ nghĩa `colors.hairline`, `colors.surface`, `colors.subtle`, `colors.wash`) và không hardcode chuỗi hiển thị.
+- **Files Affected:**
+  - `apps/mobile/src/hooks/use-circle-queries.ts`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `apps/web/src/hooks/use-chat-queries.ts`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% infinite pagination logic, auto-scroll position stabilization, date grouping and separator components.
+- **Human Modifications:** Trương Công Bình trực tiếp phản ánh lỗi không tải được tin nhắn cũ trên mobile và thiếu thanh phân chia ngày tháng so với bản web, yêu cầu đồng bộ trải nghiệm người dùng hoàn hảo.
+- **Verification Method:**
+  - Backend: 7/7 Jest suites, 99/99 unit tests pass 100%.
+  - Web: Next.js 14 production build pass 100% (9/9 static routes).
+  - Mobile: TypeScript typecheck pass (0 errors).
+  - Integrity: `check-agent-map.sh` pass (94/94 files).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** Pass 100%.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** Truy xuất nhầm thuộc tính `msg.createdAt` thay vì `msg.sentAt` trong kiểu `MessageEntity` dẫn đến lỗi TS2339 trong `[id].tsx`.
+  - **Root Cause:** Nhầm lẫn với thuộc tính Prisma schema `createdAt` của các model khác.
+  - **Resolution / Fix:** Sửa trực tiếp thành `msg.sentAt` theo đúng định nghĩa `MessageEntity`.
+- **Commit:** `31b62b0`
+- **PR:** #71 (https://github.com/1440isme/Circle/pull/71)

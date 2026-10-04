@@ -213,6 +213,9 @@ export function useChannelMessagesQuery(channelId: string | null) {
     }
     messages.push(m);
   }
+  messages.sort(
+    (a, b) => new Date(a.sentAt || 0).getTime() - new Date(b.sentAt || 0).getTime(),
+  );
 
   return {
     ...query,

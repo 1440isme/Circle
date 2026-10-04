@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useInfiniteQuery, InfiniteData, useQueryClient } from '@tanstack/react-query';
 import { mobileApiRequest } from '../services/api';
 import {
   CreateCircleInput,
@@ -19,6 +19,7 @@ import {
   SelectableFriendItem,
   MessageEntity,
   MessageType,
+  CursorPaginatedMessages,
 } from '@circle/types';
 import { useCircleStore } from '../stores/circle.store';
 import {
@@ -398,20 +399,26 @@ function deduplicateMessages(list: MessageEntity[]): MessageEntity[] {
 export function useChannelMessagesQuery(channelId: string | null) {
   const queryClient = useQueryClient();
 
-  const query = useQuery({
+  const query = useInfiniteQuery<CursorPaginatedMessages>({
     queryKey: ['messages', 'channel', channelId],
-    queryFn: async () => {
+    queryFn: async ({ pageParam }) => {
       if (!channelId) return { messages: [], nextCursor: null, hasMore: false };
-      const res = await mobileApiRequest<any>(`/channels/${channelId}/messages`);
+      const cursorParam = pageParam ? `&cursor=${encodeURIComponent(pageParam as string)}` : '';
+      const res = await mobileApiRequest<CursorPaginatedMessages>(
+        `/channels/${channelId}/messages?limit=30${cursorParam}`,
+      );
       const data = res.data;
-      const list = data?.messages || data?.items || (Array.isArray(data) ? data : []);
+      const list = data?.messages || (data as any)?.items || (Array.isArray(data) ? data : []);
       return {
         messages: deduplicateMessages(list),
         nextCursor: data?.nextCursor || null,
         hasMore: Boolean(data?.hasMore),
       };
     },
+    initialPageParam: null as string | null,
+    getNextPageParam: (lastPage) => (lastPage?.hasMore ? lastPage.nextCursor : undefined),
     enabled: Boolean(channelId),
+    staleTime: 1000 * 30,
     refetchInterval: 15000, // Background fallback sync; instant delivery via socket
   });
 
@@ -425,44 +432,53 @@ export function useChannelMessagesQuery(channelId: string | null) {
     const handleNewMessage = (newMsg: MessageEntity) => {
       if (newMsg.channelId !== channelId) return;
 
-      queryClient.setQueryData(['messages', 'channel', channelId], (old: any) => {
-        if (!old) return { messages: [newMsg], nextCursor: null, hasMore: false };
-        const list: MessageEntity[] = old.messages || old.items || [];
-
-        // Check if message already exists with real ID
-        const exists = list.some((m) => m.id === newMsg.id && !m.tempId);
-
-        // Find optimistic sending message matching content or tempId
-        const tempMatchIdx = list.findIndex(
-          (m) =>
-            (m.tempId && (m.tempId === newMsg.tempId || m.id === newMsg.tempId)) ||
-            (m.status === 'SENDING' &&
-              ((m.content && m.content === newMsg.content) || (m.fileUrl && m.fileUrl === newMsg.fileUrl)) &&
-              Math.abs(new Date(m.sentAt).getTime() - new Date(newMsg.sentAt).getTime()) < 20000),
-        );
-
-        if (exists) {
-          // If real message already exists, clean up any matching temp placeholder
-          if (tempMatchIdx !== -1) {
+      queryClient.setQueryData<InfiniteData<CursorPaginatedMessages>>(
+        ['messages', 'channel', channelId],
+        (oldData) => {
+          if (!oldData || oldData.pages.length === 0) {
             return {
-              ...old,
-              messages: list.filter((_, idx) => idx !== tempMatchIdx),
+              pageParams: [null],
+              pages: [{ messages: [{ ...newMsg, status: 'SENT' as const }], nextCursor: null, hasMore: false }],
             };
           }
-          return old;
-        }
 
-        if (tempMatchIdx !== -1) {
-          const copy = [...list];
-          copy[tempMatchIdx] = { ...newMsg, status: 'SENT' };
-          return { ...old, messages: deduplicateMessages(copy) };
-        }
+          let replaced = false;
+          const updatedPages = oldData.pages.map((page) => ({
+            ...page,
+            messages: page.messages.map((m) => {
+              if (
+                (m.tempId && (m.tempId === newMsg.tempId || m.id === newMsg.tempId)) ||
+                (m.status === 'SENDING' &&
+                  ((m.content && m.content === newMsg.content) || (m.fileUrl && m.fileUrl === newMsg.fileUrl)) &&
+                  Math.abs(new Date(m.sentAt).getTime() - new Date(newMsg.sentAt).getTime()) < 20000)
+              ) {
+                replaced = true;
+                return { ...newMsg, status: 'SENT' as const };
+              }
+              return m;
+            }),
+          }));
 
-        return {
-          ...old,
-          messages: deduplicateMessages([...list, { ...newMsg, status: 'SENT' }]),
-        };
-      });
+          if (replaced) {
+            return { ...oldData, pages: updatedPages };
+          }
+
+          // Check if message already exists
+          const exists = updatedPages.some((page) =>
+            page.messages.some((m) => m.id === newMsg.id && !m.tempId),
+          );
+          if (exists) return oldData;
+
+          // Append to latest page (pages[0])
+          const firstPage = updatedPages[0];
+          updatedPages[0] = {
+            ...firstPage,
+            messages: deduplicateMessages([...firstPage.messages, { ...newMsg, status: 'SENT' as const }]),
+          };
+
+          return { ...oldData, pages: updatedPages };
+        },
+      );
     };
 
     const handleReaction = (payload: {
@@ -472,22 +488,27 @@ export function useChannelMessagesQuery(channelId: string | null) {
       reactionCounts: Record<string, number>;
       userReactions: string[];
     }) => {
-      queryClient.setQueryData(['messages', 'channel', channelId], (old: any) => {
-        if (!old) return old;
-        const list: MessageEntity[] = old.messages || old.items || [];
-        return {
-          ...old,
-          messages: list.map((m) =>
-            m.id === payload.messageId
-              ? {
-                  ...m,
-                  reactionCounts: payload.reactionCounts,
-                  userReactions: payload.userReactions,
-                }
-              : m,
-          ),
-        };
-      });
+      queryClient.setQueryData<InfiniteData<CursorPaginatedMessages>>(
+        ['messages', 'channel', channelId],
+        (oldData) => {
+          if (!oldData) return oldData;
+          return {
+            ...oldData,
+            pages: oldData.pages.map((page) => ({
+              ...page,
+              messages: page.messages.map((m) =>
+                m.id === payload.messageId
+                  ? {
+                      ...m,
+                      reactionCounts: payload.reactionCounts,
+                      userReactions: payload.userReactions,
+                    }
+                  : m,
+              ),
+            })),
+          };
+        },
+      );
     };
 
     getMobileSocket().then((socket) => {
@@ -507,7 +528,17 @@ export function useChannelMessagesQuery(channelId: string | null) {
     };
   }, [channelId, queryClient]);
 
-  return query;
+  // Flatten and deduplicate all messages across pages, sorted chronologically (oldest to newest)
+  const rawList = query.data?.pages.flatMap((page) => page.messages) || [];
+  const deduplicated = deduplicateMessages(rawList);
+  deduplicated.sort(
+    (a, b) => new Date(a.sentAt || 0).getTime() - new Date(b.sentAt || 0).getTime(),
+  );
+
+  return {
+    ...query,
+    messages: deduplicated,
+  };
 }
 
 export type SendMobileMessageInput =
@@ -560,74 +591,95 @@ export function useSendMessageMutation(channelId: string | null) {
         status: 'SENDING',
       };
 
-      queryClient.setQueryData(['messages', 'channel', channelId], (old: any) => {
-        if (!old) return { messages: [optimisticMsg], nextCursor: null, hasMore: false };
-        const list = old.messages || old.items || [];
-        return {
-          ...old,
-          messages: deduplicateMessages([...list, optimisticMsg]),
-        };
-      });
+      queryClient.setQueryData<InfiniteData<CursorPaginatedMessages>>(
+        ['messages', 'channel', channelId],
+        (oldData) => {
+          if (!oldData || oldData.pages.length === 0) {
+            return {
+              pageParams: [null],
+              pages: [{ messages: [optimisticMsg], nextCursor: null, hasMore: false }],
+            };
+          }
+          const updatedPages = [...oldData.pages];
+          updatedPages[0] = {
+            ...updatedPages[0],
+            messages: deduplicateMessages([...updatedPages[0].messages, optimisticMsg]),
+          };
+          return { ...oldData, pages: updatedPages };
+        },
+      );
 
       return { tempId };
     },
     onSuccess: ({ message, tempId }) => {
       if (channelId && message) {
-        queryClient.setQueryData(['messages', 'channel', channelId], (old: any) => {
-          if (!old)
-            return {
-              messages: [{ ...message, status: 'SENT' }],
-              nextCursor: null,
-              hasMore: false,
-            };
-          const list = old.messages || old.items || [];
+        queryClient.setQueryData<InfiniteData<CursorPaginatedMessages>>(
+          ['messages', 'channel', channelId],
+          (oldData) => {
+            if (!oldData) return oldData;
 
-          // If socket already added this exact message ID, remove the temp placeholder
-          const alreadyHasRealId = list.some(
-            (m: any) => m.id === message.id && m.id !== tempId && m.tempId !== tempId,
-          );
+            // If socket already added this exact message ID, remove the temp placeholder
+            const alreadyHasRealId = oldData.pages.some((page) =>
+              page.messages.some(
+                (m) => m.id === message.id && m.id !== tempId && m.tempId !== tempId,
+              ),
+            );
 
-          if (alreadyHasRealId) {
-            return {
-              ...old,
-              messages: list.filter((m: any) => m.tempId !== tempId && m.id !== tempId),
-            };
-          }
-
-          let matched = false;
-          const updated = list.map((m: any) => {
-            if (m.tempId === tempId || m.id === tempId) {
-              matched = true;
-              return { ...message, status: 'SENT' };
+            if (alreadyHasRealId) {
+              return {
+                ...oldData,
+                pages: oldData.pages.map((page) => ({
+                  ...page,
+                  messages: page.messages.filter(
+                    (m) => m.tempId !== tempId && m.id !== tempId,
+                  ),
+                })),
+              };
             }
-            return m;
-          });
 
-          const finalMessages = matched
-            ? updated
-            : [...updated, { ...message, status: 'SENT' }];
+            let matched = false;
+            const updatedPages = oldData.pages.map((page) => ({
+              ...page,
+              messages: page.messages.map((m) => {
+                if (m.tempId === tempId || m.id === tempId) {
+                  matched = true;
+                  return { ...message, status: 'SENT' as const };
+                }
+                return m;
+              }),
+            }));
 
-          return {
-            ...old,
-            messages: deduplicateMessages(finalMessages),
-          };
-        });
+            if (!matched) {
+              updatedPages[0] = {
+                ...updatedPages[0],
+                messages: deduplicateMessages([...updatedPages[0].messages, { ...message, status: 'SENT' as const }]),
+              };
+            }
+
+            return { ...oldData, pages: updatedPages };
+          },
+        );
       }
     },
     onError: (_err, _input, context) => {
       if (channelId && context?.tempId) {
-        queryClient.setQueryData(['messages', 'channel', channelId], (old: any) => {
-          if (!old) return old;
-          const list = old.messages || old.items || [];
-          return {
-            ...old,
-            messages: list.map((m: any) =>
-              m.tempId === context.tempId || m.id === context.tempId
-                ? { ...m, status: 'FAILED' }
-                : m,
-            ),
-          };
-        });
+        queryClient.setQueryData<InfiniteData<CursorPaginatedMessages>>(
+          ['messages', 'channel', channelId],
+          (oldData) => {
+            if (!oldData) return oldData;
+            return {
+              ...oldData,
+              pages: oldData.pages.map((page) => ({
+                ...page,
+                messages: page.messages.map((m) =>
+                  m.tempId === context.tempId || m.id === context.tempId
+                    ? { ...m, status: 'FAILED' as const }
+                    : m,
+                ),
+              })),
+            };
+          },
+        );
       }
     },
   });

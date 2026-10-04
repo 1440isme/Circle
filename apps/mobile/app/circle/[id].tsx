@@ -66,6 +66,7 @@ import {
   Clock,
   AlertCircle,
   WifiOff,
+  ArrowUpCircle,
 } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useThemeStore } from '../../src/stores/theme.store';
@@ -499,7 +500,7 @@ export default function CircleWorkspaceScreen() {
   const circleId = id || '';
 
   const { colors, resolvedTheme } = useThemeStore();
-  const t = useLanguageStore((s) => s.t);
+  const { t, locale } = useLanguageStore();
   const user = useAuthStore((s) => s.user);
   const isDark = resolvedTheme === 'dark';
 
@@ -539,26 +540,62 @@ export default function CircleWorkspaceScreen() {
 
   const currentChannelId = currentChannel?.id || null;
 
-  const { data: messagesData, isLoading: isLoadingMessages } =
-    useChannelMessagesQuery(currentChannelId);
+  const {
+    messages = [],
+    isLoading: isLoadingMessages,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  } = useChannelMessagesQuery(currentChannelId);
   const sendMessageMutation = useSendMessageMutation(currentChannelId);
   const reactMessageMutation = useReactMessageMutation(currentChannelId);
   const pinMessageMutation = usePinMessageMutation(currentChannelId);
   const { typingUsers, reportTyping } = useMobileChannelTyping(currentChannelId);
 
-  const rawMessages: any[] = messagesData?.messages || (messagesData as any)?.items || [];
-  const seenMsgKeys = new Set<string>();
-  const messages: any[] = [];
-  for (const m of rawMessages) {
-    const k = m.id || m.tempId;
-    if (k) {
-      if (seenMsgKeys.has(k)) continue;
-      seenMsgKeys.add(k);
+  // Format date separator label matching Web exactly
+  const getDateLabel = (dateStr: string) => {
+    const msgDate = new Date(dateStr);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    if (msgDate.toDateString() === today.toDateString()) {
+      return t.chat.today;
     }
-    messages.push(m);
+    if (msgDate.toDateString() === yesterday.toDateString()) {
+      return t.chat.yesterday;
+    }
+
+    return msgDate.toLocaleDateString(locale === 'vi' ? 'vi-VN' : 'en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  };
+
+  interface MobileDateSection {
+    date: string;
+    clusters: MobileMessageCluster[];
   }
 
-  const clusters = buildMobileClusters(messages, user?.id, user?.email);
+  // Group messages by date first, then cluster consecutive messages within each date
+  const dateMap = new Map<string, any[]>();
+  messages.forEach((msg) => {
+    const dateLabel = getDateLabel(msg.sentAt || new Date().toISOString());
+    if (!dateMap.has(dateLabel)) {
+      dateMap.set(dateLabel, []);
+    }
+    dateMap.get(dateLabel)!.push(msg);
+  });
+
+  const dateSections: MobileDateSection[] = [];
+  dateMap.forEach((msgsInDate, dateLabel) => {
+    dateSections.push({
+      date: dateLabel,
+      clusters: buildMobileClusters(msgsInDate, user?.id, user?.email),
+    });
+  });
 
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
 
@@ -583,13 +620,31 @@ export default function CircleWorkspaceScreen() {
     };
   }, []);
 
+  const lastMessageId = messages.length > 0 ? messages[messages.length - 1].id : null;
+  const prevLastMessageIdRef = useRef<string | null>(null);
+  const isFirstLoadRef = useRef(true);
+
   useEffect(() => {
-    if (messages.length > 0) {
+    isFirstLoadRef.current = true;
+    prevLastMessageIdRef.current = null;
+  }, [currentChannelId]);
+
+  useEffect(() => {
+    if (messages.length === 0) return;
+
+    if (isFirstLoadRef.current) {
+      isFirstLoadRef.current = false;
+      prevLastMessageIdRef.current = lastMessageId;
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: false });
+      }, 80);
+    } else if (lastMessageId && lastMessageId !== prevLastMessageIdRef.current) {
+      prevLastMessageIdRef.current = lastMessageId;
       setTimeout(() => {
         scrollViewRef.current?.scrollToEnd({ animated: true });
       }, 60);
     }
-  }, [messages.length, currentChannelId]);
+  }, [messages.length, lastMessageId, currentChannelId]);
 
   const handleShareInviteCode = async () => {
     if (!circle?.inviteCode) return;
@@ -830,11 +885,34 @@ export default function CircleWorkspaceScreen() {
             style={styles.messagesList}
             contentContainerStyle={styles.messagesScrollContent}
             showsVerticalScrollIndicator={false}
-            onContentSizeChange={() => {
-              scrollViewRef.current?.scrollToEnd({ animated: false });
-            }}
           >
-            {isLoadingMessages ? (
+            {/* Load Earlier Messages Button */}
+            {hasNextPage && (
+              <View style={styles.loadEarlierContainer}>
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => fetchNextPage()}
+                  disabled={isFetchingNextPage}
+                  style={[
+                    styles.loadEarlierBtn,
+                    { backgroundColor: colors.surface, borderColor: colors.hairline },
+                  ]}
+                >
+                  {isFetchingNextPage ? (
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  ) : (
+                    <>
+                      <ArrowUpCircle size={15} color={colors.subtle} style={{ marginRight: 6 }} />
+                      <Text style={[styles.loadEarlierText, { color: colors.subtle }]}>
+                        {t.chat.loadEarlierMessages}
+                      </Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {isLoadingMessages && messages.length === 0 ? (
               <ActivityIndicator color={colors.primary} style={{ marginVertical: 20 }} />
             ) : messages.length === 0 ? (
               <View style={[styles.emptyChatBox, { backgroundColor: colors.wash }]}>
@@ -847,117 +925,137 @@ export default function CircleWorkspaceScreen() {
                 </Text>
               </View>
             ) : (
-              clusters.map((cluster, clusterIdx) => {
-                const isSenderMe = cluster.isSenderMe;
-
-                if (isSenderMe) {
-                  return (
+              dateSections.map((section, sectionIdx) => (
+                <View key={`date-section-${section.date}-${sectionIdx}`}>
+                  {/* Date Divider Pill (Today, Yesterday, or Formatted Date) */}
+                  <View style={styles.dateSeparatorRow}>
+                    <View style={[styles.dateSeparatorLine, { backgroundColor: colors.hairline }]} />
                     <View
-                      key={`mobile-cluster-me-${clusterIdx}`}
-                      style={[styles.clusterContainerMe]}
+                      style={[
+                        styles.dateSeparatorPill,
+                        { backgroundColor: colors.surface, borderColor: colors.hairline },
+                      ]}
                     >
-                      {cluster.messages.map((msg, msgIdx) => {
-                        const isFirst = msgIdx === 0;
-                        const isLast = msgIdx === cluster.messages.length - 1;
-                        const isSingle = cluster.messages.length === 1;
-                        const showTimestamp = activeTimestampMessageId === msg.id;
-                        const hasReactions =
-                          msg.reactionCounts && Object.keys(msg.reactionCounts).length > 0;
-
-                        return (
-                          <MobileSwipeMessageBubble
-                            key={msg.id ? `bubble-me-${msg.id}` : `bubble-temp-${msg.tempId || msgIdx}`}
-                            msg={msg}
-                            allMessages={messages}
-                            isSenderMe={true}
-                            isFirst={isFirst}
-                            isLast={isLast}
-                            isSingle={isSingle}
-                            showTimestamp={showTimestamp}
-                            hasReactions={hasReactions}
-                            colors={colors}
-                            t={t}
-                            onToggleTimestamp={() =>
-                              setActiveTimestampMessageId((prev) => (prev === msg.id ? null : msg.id))
-                            }
-                            onLongPress={() => setActiveActionMessage(msg)}
-                            onSwipeReply={() => setReplyingMessage(msg)}
-                            onRetry={handleRetry}
-                            onPreviewImage={(url) => setPreviewingImageUrl(url)}
-                          />
-                        );
-                      })}
-                    </View>
-                  );
-                }
-
-                // Other user's cluster
-                return (
-                  <View
-                    key={`mobile-cluster-other-${clusterIdx}`}
-                    style={styles.clusterContainerOther}
-                  >
-                    {/* Avatar aligned with the bottom of the cluster */}
-                    <View style={[styles.senderAvatarBottom, { backgroundColor: `${colors.primary}18` }]}>
-                      {cluster.senderAvatarUrl ? (
-                        <RNImage
-                          source={{ uri: cluster.senderAvatarUrl }}
-                          style={styles.senderAvatarImg}
-                        />
-                      ) : (
-                        <Text style={[styles.senderAvatarText, { color: colors.primary }]}>
-                          {cluster.senderName.slice(0, 2).toUpperCase()}
-                        </Text>
-                      )}
-                    </View>
-
-                    {/* Messages Stack */}
-                    <View style={styles.clusterMessagesCol}>
-                      {/* Sender Name once at the top of cluster */}
-                      <View style={styles.senderHeaderRow}>
-                        <Text
-                          numberOfLines={1}
-                          style={[styles.senderName, { color: colors.text }]}
-                        >
-                          {cluster.senderName}
-                        </Text>
-                      </View>
-
-                      {cluster.messages.map((msg, msgIdx) => {
-                        const isFirst = msgIdx === 0;
-                        const isLast = msgIdx === cluster.messages.length - 1;
-                        const isSingle = cluster.messages.length === 1;
-                        const showTimestamp = activeTimestampMessageId === msg.id;
-                        const hasReactions =
-                          msg.reactionCounts && Object.keys(msg.reactionCounts).length > 0;
-
-                        return (
-                          <MobileSwipeMessageBubble
-                            key={msg.id ? `bubble-other-${msg.id}` : `bubble-temp-${msg.tempId || msgIdx}`}
-                            msg={msg}
-                            allMessages={messages}
-                            isSenderMe={false}
-                            isFirst={isFirst}
-                            isLast={isLast}
-                            isSingle={isSingle}
-                            showTimestamp={showTimestamp}
-                            hasReactions={hasReactions}
-                            colors={colors}
-                            t={t}
-                            onToggleTimestamp={() =>
-                              setActiveTimestampMessageId((prev) => (prev === msg.id ? null : msg.id))
-                            }
-                            onLongPress={() => setActiveActionMessage(msg)}
-                            onSwipeReply={() => setReplyingMessage(msg)}
-                            onRetry={handleRetry}
-                            onPreviewImage={(url) => setPreviewingImageUrl(url)}
-                          />
-                        );
-                      })}
+                      <Text style={[styles.dateSeparatorText, { color: colors.subtle }]}>
+                        {section.date}
+                      </Text>
                     </View>
                   </View>
-                );
-              })
+
+                  {/* Message Clusters in this Date Section */}
+                  {section.clusters.map((cluster, clusterIdx) => {
+                    const isSenderMe = cluster.isSenderMe;
+
+                    if (isSenderMe) {
+                      return (
+                        <View
+                          key={`mobile-cluster-me-${sectionIdx}-${clusterIdx}`}
+                          style={[styles.clusterContainerMe]}
+                        >
+                          {cluster.messages.map((msg, msgIdx) => {
+                            const isFirst = msgIdx === 0;
+                            const isLast = msgIdx === cluster.messages.length - 1;
+                            const isSingle = cluster.messages.length === 1;
+                            const showTimestamp = activeTimestampMessageId === msg.id;
+                            const hasReactions =
+                              msg.reactionCounts && Object.keys(msg.reactionCounts).length > 0;
+
+                            return (
+                              <MobileSwipeMessageBubble
+                                key={msg.id ? `bubble-me-${msg.id}` : `bubble-temp-${msg.tempId || msgIdx}`}
+                                msg={msg}
+                                allMessages={messages}
+                                isSenderMe={true}
+                                isFirst={isFirst}
+                                isLast={isLast}
+                                isSingle={isSingle}
+                                showTimestamp={showTimestamp}
+                                hasReactions={hasReactions}
+                                colors={colors}
+                                t={t}
+                                onToggleTimestamp={() =>
+                                  setActiveTimestampMessageId((prev) => (prev === msg.id ? null : msg.id))
+                                }
+                                onLongPress={() => setActiveActionMessage(msg)}
+                                onSwipeReply={() => setReplyingMessage(msg)}
+                                onRetry={handleRetry}
+                                onPreviewImage={(url) => setPreviewingImageUrl(url)}
+                              />
+                            );
+                          })}
+                        </View>
+                      );
+                    }
+
+                    // Other user's cluster
+                    return (
+                      <View
+                        key={`mobile-cluster-other-${sectionIdx}-${clusterIdx}`}
+                        style={styles.clusterContainerOther}
+                      >
+                        {/* Avatar aligned with the bottom of the cluster */}
+                        <View style={[styles.senderAvatarBottom, { backgroundColor: `${colors.primary}18` }]}>
+                          {cluster.senderAvatarUrl ? (
+                            <RNImage
+                              source={{ uri: cluster.senderAvatarUrl }}
+                              style={styles.senderAvatarImg}
+                            />
+                          ) : (
+                            <Text style={[styles.senderAvatarText, { color: colors.primary }]}>
+                              {cluster.senderName.slice(0, 2).toUpperCase()}
+                            </Text>
+                          )}
+                        </View>
+
+                        {/* Messages Stack */}
+                        <View style={styles.clusterMessagesCol}>
+                          {/* Sender Name once at the top of cluster */}
+                          <View style={styles.senderHeaderRow}>
+                            <Text
+                              numberOfLines={1}
+                              style={[styles.senderName, { color: colors.text }]}
+                            >
+                              {cluster.senderName}
+                            </Text>
+                          </View>
+
+                          {cluster.messages.map((msg, msgIdx) => {
+                            const isFirst = msgIdx === 0;
+                            const isLast = msgIdx === cluster.messages.length - 1;
+                            const isSingle = cluster.messages.length === 1;
+                            const showTimestamp = activeTimestampMessageId === msg.id;
+                            const hasReactions =
+                              msg.reactionCounts && Object.keys(msg.reactionCounts).length > 0;
+
+                            return (
+                              <MobileSwipeMessageBubble
+                                key={msg.id ? `bubble-other-${msg.id}` : `bubble-temp-${msg.tempId || msgIdx}`}
+                                msg={msg}
+                                allMessages={messages}
+                                isSenderMe={false}
+                                isFirst={isFirst}
+                                isLast={isLast}
+                                isSingle={isSingle}
+                                showTimestamp={showTimestamp}
+                                hasReactions={hasReactions}
+                                colors={colors}
+                                t={t}
+                                onToggleTimestamp={() =>
+                                  setActiveTimestampMessageId((prev) => (prev === msg.id ? null : msg.id))
+                                }
+                                onLongPress={() => setActiveActionMessage(msg)}
+                                onSwipeReply={() => setReplyingMessage(msg)}
+                                onRetry={handleRetry}
+                                onPreviewImage={(url) => setPreviewingImageUrl(url)}
+                              />
+                            );
+                          })}
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              ))
             )}
           </ScrollView>
 
@@ -1886,5 +1984,44 @@ const styles = StyleSheet.create({
   fullScreenImg: {
     width: '100%',
     height: '80%',
+  },
+  loadEarlierContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+  },
+  loadEarlierBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  loadEarlierText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  dateSeparatorRow: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 12,
+  },
+  dateSeparatorLine: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    height: 1,
+  },
+  dateSeparatorPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 3,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  dateSeparatorText: {
+    fontSize: 11,
+    fontWeight: '600',
   },
 });
