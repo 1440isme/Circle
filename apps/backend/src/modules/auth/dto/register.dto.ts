@@ -4,4 +4,5 @@ export class RegisterDto implements RegisterDtoInput {
   displayName!: string;
   email!: string;
   password!: string;
+  turnstileToken?: string;
 }

@@ -8,6 +8,8 @@ import { loginSchema } from '@circle/shared';
 import { useLoginMutation } from '../../../hooks/use-auth-mutations';
 import { useLanguageStore } from '../../../stores/language.store';
 import { AuthGuard } from '../../../components/auth/AuthGuard';
+import { TrustBanner } from '../../../components/auth/TrustBanner';
+import { TurnstileWidget } from '../../../components/auth/TurnstileWidget';
 
 function LoginForm() {
   const router = useRouter();
@@ -21,6 +23,7 @@ function LoginForm() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
+  const [turnstileToken, setTurnstileToken] = useState<string | undefined>(undefined);
   const [fieldErrors, setFieldErrors] = useState<{ email?: string[]; password?: string[] }>({});
   const [apiError, setApiError] = useState<string | null>(null);
 
@@ -45,7 +48,10 @@ function LoginForm() {
     }
 
     try {
-      await loginMutation.mutateAsync(validationResult.data);
+      await loginMutation.mutateAsync({
+        ...validationResult.data,
+        turnstileToken,
+      });
       router.push(redirectUrl);
     } catch (err: any) {
       if (
@@ -175,6 +181,13 @@ function LoginForm() {
           </label>
         </div>
 
+        {/* Cloudflare Turnstile bot verification */}
+        <TurnstileWidget
+          onVerify={(token) => setTurnstileToken(token)}
+          onExpire={() => setTurnstileToken(undefined)}
+          onError={() => setTurnstileToken(undefined)}
+        />
+
         {/* Submit Button */}
         <div className="pt-2">
           <button
@@ -209,6 +222,9 @@ function LoginForm() {
           </Link>
         </p>
       </div>
+
+      {/* Privacy & Trust Signals */}
+      <TrustBanner />
     </div>
   );
 }

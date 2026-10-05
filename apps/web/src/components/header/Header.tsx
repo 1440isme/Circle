@@ -2,11 +2,12 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { Search, Bell, Sparkles, Shield, LogOut, ChevronDown, User as UserIcon } from 'lucide-react';
+import { Search, Bell, Sparkles, Shield, LogOut, ChevronDown, User as UserIcon, Laptop } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguageStore } from '../../stores/language.store';
 import { useCircleStore } from '../../stores/circle.store';
 import { EditProfileModal } from '../profile/EditProfileModal';
+import { SessionsManagementModal } from '../profile/SessionsManagementModal';
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -21,6 +22,7 @@ export const Header: React.FC = () => {
   const setActiveCircle = useCircleStore((s) => s.setActiveCircle);
   const [showMenu, setShowMenu] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [isSessionsModalOpen, setIsSessionsModalOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Close menu on click outside
@@ -140,6 +142,16 @@ export const Header: React.FC = () => {
                       <UserIcon className="h-3.5 w-3.5 text-circle-slate dark:text-circle-dark-muted" />
                       <span>{t.auth.profile}</span>
                     </button>
+                    <button
+                      onClick={() => {
+                        setShowMenu(false);
+                        setIsSessionsModalOpen(true);
+                      }}
+                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-canvas dark:hover:bg-circle-dark-surface transition-colors"
+                    >
+                      <Laptop className="h-3.5 w-3.5 text-circle-slate dark:text-circle-dark-muted" />
+                      <span>{t.auth.sessionsTitle}</span>
+                    </button>
                   </div>
                   <div className="border-t border-circle-hairline/70 dark:border-circle-dark-hairline pt-1">
                     <button
@@ -179,6 +191,12 @@ export const Header: React.FC = () => {
       <EditProfileModal
         isOpen={isProfileModalOpen}
         onClose={() => setIsProfileModalOpen(false)}
+      />
+
+      {/* Sessions Management Modal */}
+      <SessionsManagementModal
+        isOpen={isSessionsModalOpen}
+        onClose={() => setIsSessionsModalOpen(false)}
       />
     </>
   );

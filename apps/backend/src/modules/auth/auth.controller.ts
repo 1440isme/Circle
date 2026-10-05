@@ -1,11 +1,13 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Headers,
   HttpCode,
   HttpStatus,
   Ip,
+  Param,
   Patch,
   Post,
   UseGuards,
@@ -23,7 +25,7 @@ import { Public } from '../../common/decorators/public.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
-import { ApiResponse, AuthResponseData, AuthUserData } from '@circle/types';
+import { ApiResponse, AuthResponseData, AuthUserData, SessionEntity } from '@circle/types';
 import { createAuthSchemas, resolveLocale } from '@circle/shared';
 
 @Controller('auth')
@@ -220,6 +222,62 @@ export class AuthController {
       success: true,
       statusCode: HttpStatus.OK,
       message: 'Profile updated successfully',
+      data,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('sessions')
+  @HttpCode(HttpStatus.OK)
+  async getSessions(
+    @CurrentUser('id') userId: string,
+    @Headers('x-refresh-token') currentRefreshToken?: string,
+  ): Promise<ApiResponse<SessionEntity[]>> {
+    const data = await this.authService.getUserSessions(userId, currentRefreshToken);
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      data,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete('sessions/other')
+  @HttpCode(HttpStatus.OK)
+  async revokeOtherSessions(
+    @CurrentUser('id') userId: string,
+    @Headers('x-refresh-token') currentRefreshToken?: string,
+    @Headers('x-circle-locale') circleLocale?: string,
+    @Headers('accept-language') acceptLanguage?: string,
+  ): Promise<ApiResponse<{ message: string }>> {
+    const locale = resolveLocale(circleLocale, acceptLanguage);
+    const data = await this.authService.revokeOtherSessions(userId, currentRefreshToken, locale);
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      message: data.message,
+      data,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete('sessions/:sessionId')
+  @HttpCode(HttpStatus.OK)
+  async revokeSession(
+    @CurrentUser('id') userId: string,
+    @Param('sessionId') sessionId: string,
+    @Headers('x-circle-locale') circleLocale?: string,
+    @Headers('accept-language') acceptLanguage?: string,
+  ): Promise<ApiResponse<{ message: string }>> {
+    const locale = resolveLocale(circleLocale, acceptLanguage);
+    const data = await this.authService.revokeSession(userId, sessionId, locale);
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      message: data.message,
       data,
       timestamp: new Date().toISOString(),
     };

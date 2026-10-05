@@ -1,4 +1,4 @@
-import { AuthResponseData, AuthUserData } from '@circle/types';
+import { AuthResponseData, AuthUserData, SessionEntity } from '@circle/types';
 import {
   ForgotPasswordInput,
   RegisterInput,
@@ -14,11 +14,13 @@ export interface RegisterPayload {
   email: string;
   password: string;
   displayName: string;
+  turnstileToken?: string;
 }
 
 export interface LoginPayload {
   email: string;
   password: string;
+  turnstileToken?: string;
 }
 
 /**
@@ -170,6 +172,54 @@ export async function logoutApi(): Promise<void> {
     clearAuthStorage();
   }
 }
+
+/**
+ * Fetch all active sessions for the current authenticated user.
+ */
+export async function getUserSessionsApi(): Promise<SessionEntity[]> {
+  const { refreshToken } = getStoredTokens();
+  const headers: Record<string, string> = {};
+  if (refreshToken) {
+    headers['x-refresh-token'] = refreshToken;
+  }
+
+  const res = await apiRequest<SessionEntity[]>('/auth/sessions', {
+    method: 'GET',
+    headers,
+  });
+
+  return res.data;
+}
+
+/**
+ * Revoke a specific session by its sessionId.
+ */
+export async function revokeSessionApi(sessionId: string): Promise<{ message: string }> {
+  const res = await apiRequest<{ message: string }>(`/auth/sessions/${sessionId}`, {
+    method: 'DELETE',
+  });
+
+  return res.data;
+}
+
+/**
+ * Revoke all other sessions except the current active session.
+ */
+export async function revokeOtherSessionsApi(): Promise<{ count: number; message: string }> {
+  const { refreshToken } = getStoredTokens();
+  const headers: Record<string, string> = {};
+  if (refreshToken) {
+    headers['x-refresh-token'] = refreshToken;
+  }
+
+  const res = await apiRequest<{ count: number; message: string }>('/auth/sessions/other', {
+    method: 'DELETE',
+    headers,
+  });
+
+  return res.data;
+}
+
 
 
 

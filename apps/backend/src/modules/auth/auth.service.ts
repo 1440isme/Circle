@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -19,8 +20,9 @@ import { ResendOtpDto } from './dto/resend-otp.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
-import { AuthResponseData, AuthTokens, AuthUserData, GlobalRole } from '@circle/types';
+import { AuthResponseData, AuthTokens, AuthUserData, GlobalRole, SessionEntity } from '@circle/types';
 import { Locale, locales } from '@circle/shared';
+import { TurnstileService } from './turnstile.service';
 
 @Injectable()
 export class AuthService {
@@ -32,6 +34,7 @@ export class AuthService {
     private readonly mailService: MailService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly turnstileService: TurnstileService,
   ) {}
 
   /**
@@ -119,10 +122,18 @@ export class AuthService {
   async register(
     dto: RegisterDto,
     _userAgent?: string,
-    _ipAddress?: string,
+    ipAddress?: string,
     locale: Locale = 'vi',
   ): Promise<AuthResponseData> {
     const t = locales[locale] || locales.vi;
+
+    if (this.turnstileService.isEnabled()) {
+      const isHuman = await this.turnstileService.validateToken(dto.turnstileToken, ipAddress);
+      if (!isHuman) {
+        throw new BadRequestException(t.auth.turnstileFailed);
+      }
+    }
+
     const existingUser = await this.prisma.user.findUnique({
       where: { email: dto.email.toLowerCase() },
     });
@@ -186,6 +197,14 @@ export class AuthService {
     locale: Locale = 'vi',
   ): Promise<AuthResponseData> {
     const t = locales[locale] || locales.vi;
+
+    if (this.turnstileService.isEnabled()) {
+      const isHuman = await this.turnstileService.validateToken(dto.turnstileToken, ipAddress);
+      if (!isHuman) {
+        throw new BadRequestException(t.auth.turnstileFailed);
+      }
+    }
+
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email.toLowerCase() },
       include: { profile: true },
@@ -392,6 +411,14 @@ export class AuthService {
     locale: Locale = 'vi',
   ): Promise<{ message: string }> {
     const t = locales[locale] || locales.vi;
+
+    if (this.turnstileService.isEnabled()) {
+      const isHuman = await this.turnstileService.validateToken(dto.turnstileToken);
+      if (!isHuman) {
+        throw new BadRequestException(t.auth.turnstileFailed);
+      }
+    }
+
     const email = dto.email.toLowerCase();
     const user = await this.prisma.user.findUnique({
       where: { email },
@@ -629,5 +656,132 @@ export class AuthService {
         updatedAt: updatedProfile.updatedAt.toISOString(),
       },
     };
+  }
+
+  /**
+   * Helper to parse userAgent into DeviceType, Browser, and OS.
+   */
+  parseUserAgent(userAgent?: string | null): {
+    deviceType: 'MOBILE' | 'DESKTOP' | 'TABLET' | 'UNKNOWN';
+    browser: string;
+    os: string;
+  } {
+    if (!userAgent) {
+      return { deviceType: 'UNKNOWN', browser: 'Unknown Browser', os: 'Unknown OS' };
+    }
+    const ua = userAgent.toLowerCase();
+    let deviceType: 'MOBILE' | 'DESKTOP' | 'TABLET' | 'UNKNOWN' = 'DESKTOP';
+    if (ua.includes('tablet') || ua.includes('ipad')) {
+      deviceType = 'TABLET';
+    } else if (ua.includes('mobile') || ua.includes('iphone') || ua.includes('android')) {
+      deviceType = 'MOBILE';
+    }
+
+    let os = 'Unknown OS';
+    if (ua.includes('iphone') || ua.includes('ipad') || ua.includes('ios')) os = 'iOS';
+    else if (ua.includes('android')) os = 'Android';
+    else if (ua.includes('mac os') || ua.includes('macintosh')) os = 'macOS';
+    else if (ua.includes('windows')) os = 'Windows';
+    else if (ua.includes('linux')) os = 'Linux';
+
+    let browser = 'Unknown Browser';
+    if (ua.includes('circle mobile app') || ua.includes('expo') || ua.includes('okhttp') || ua.includes('cfnetwork')) {
+      browser = 'Circle Mobile App';
+    } else if (ua.includes('edg/')) {
+      browser = 'Edge';
+    } else if (ua.includes('chrome/') || ua.includes('crios/')) {
+      browser = 'Chrome';
+    } else if (ua.includes('safari/') && !ua.includes('chrome')) {
+      browser = 'Safari';
+    } else if (ua.includes('firefox/') || ua.includes('fxios/')) {
+      browser = 'Firefox';
+    }
+
+    return { deviceType, browser, os };
+  }
+
+  /**
+   * Retrieves active sessions for a user, marking the current session.
+   */
+  async getUserSessions(userId: string, currentRefreshToken?: string): Promise<SessionEntity[]> {
+    const currentHash = currentRefreshToken ? this.hashToken(currentRefreshToken) : null;
+    const now = new Date();
+
+    const activeTokens = await this.prisma.refreshToken.findMany({
+      where: {
+        userId,
+        isRevoked: false,
+        expiresAt: { gt: now },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return activeTokens.map((token, index) => {
+      const { deviceType, browser, os } = this.parseUserAgent(token.userAgent);
+      const isCurrent = currentHash ? token.tokenHash === currentHash : index === 0;
+
+      return {
+        id: token.id,
+        deviceType,
+        browser,
+        os,
+        ipAddress: token.ipAddress,
+        isCurrent,
+        createdAt: token.createdAt.toISOString(),
+        expiresAt: token.expiresAt.toISOString(),
+      };
+    });
+  }
+
+  /**
+   * Revokes a specific remote session.
+   */
+  async revokeSession(
+    userId: string,
+    sessionId: string,
+    locale: Locale = 'vi',
+  ): Promise<{ message: string }> {
+    const t = locales[locale] || locales.vi;
+
+    const session = await this.prisma.refreshToken.findFirst({
+      where: {
+        id: sessionId,
+        userId,
+      },
+    });
+
+    if (!session || session.isRevoked) {
+      throw new NotFoundException(t.auth.sessionNotFound);
+    }
+
+    await this.prisma.refreshToken.update({
+      where: { id: sessionId },
+      data: { isRevoked: true },
+    });
+
+    return { message: t.auth.revokeSessionSuccess };
+  }
+
+  /**
+   * Revokes all other active sessions, keeping only the current one.
+   */
+  async revokeOtherSessions(
+    userId: string,
+    currentRefreshToken?: string,
+    locale: Locale = 'vi',
+  ): Promise<{ message: string }> {
+    const t = locales[locale] || locales.vi;
+    const currentHash = currentRefreshToken ? this.hashToken(currentRefreshToken) : null;
+
+    await this.prisma.refreshToken.updateMany({
+      where: {
+        userId,
+        isRevoked: false,
+        ...(currentHash ? { tokenHash: { not: currentHash } } : {}),
+      },
+      data: { isRevoked: true },
+    });
+
+    return { message: t.auth.revokeAllOtherSuccess };
   }
 }

@@ -9,7 +9,7 @@ const USER_DATA_KEY = 'circle_user_data';
 // In-memory fallback for non-native platforms (e.g. web preview)
 const memoryStore = new Map<string, string>();
 
-async function setItem(key: string, value: string): Promise<void> {
+export async function setItem(key: string, value: string): Promise<void> {
   if (Platform.OS === 'web') {
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem(key, value);
@@ -21,7 +21,7 @@ async function setItem(key: string, value: string): Promise<void> {
   await SecureStore.setItemAsync(key, value);
 }
 
-async function getItem(key: string): Promise<string | null> {
+export async function getItem(key: string): Promise<string | null> {
   if (Platform.OS === 'web') {
     if (typeof localStorage !== 'undefined') {
       return localStorage.getItem(key);
@@ -31,7 +31,7 @@ async function getItem(key: string): Promise<string | null> {
   return await SecureStore.getItemAsync(key);
 }
 
-async function deleteItem(key: string): Promise<void> {
+export async function deleteItem(key: string): Promise<void> {
   if (Platform.OS === 'web') {
     if (typeof localStorage !== 'undefined') {
       localStorage.removeItem(key);

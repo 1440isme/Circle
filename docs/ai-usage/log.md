@@ -2903,7 +2903,64 @@
 
 ---
 
-<<<<<<< HEAD
+## AI-0082: Triển khai Messaging P2 Read Receipts, Subtle Message Viewers và Chức năng Cài đặt Vòng tròn (Web & Mobile)
+
+- **Date:** 2026-10-05 22:35:00 +07:00
+- **Developer:** Trương Công Bình (MSSV: 23110184)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** Issue #75 ([SUB-FEAT]: US-CHAT-003 & US-CIRCLE-004 — Messaging P2 Read Receipts, Subtle Message Viewers & Functional Circle Settings)
+- **Purpose:** Triển khai hoàn thiện tính năng P2 Messaging và chức năng thực tế của Cài đặt Vòng tròn:
+  1. **Subtle Message Viewers & Realtime Read Receipts (Xem người xem tin nhắn tinh tế khi bấm vào tin nhắn cụ thể, tương tự như xem giờ):**
+     - Schema Prisma: Bổ sung model `MessageReceipt` (`messageId`, `userId`, `readAt`) và quan hệ cascade với `Message` / `User`.
+     - Backend Service & Gateway: Tạo endpoint `POST /api/v1/messages/:messageId/read`, Socket listener `@SubscribeMessage('chat:read')` và broadcast `chat:user-read` qua `ChatGateway` (phòng chống triệt để circular dependency).
+     - Giao diện tinh tế trên Web & Mobile (`MessageBubble` và `MobileSwipeMessageBubble`): Khi người dùng click/tap vào tin nhắn để xem giờ, đồng thời hiển thị danh sách người đã xem tinh tế với icon `Eye`, mini avatar stack (tối đa 3 avatar) cùng tên/số lượng người đã xem (`seenBy` / `seenByCount`).
+     - Tự động đánh dấu đã đọc khi xem tin nhắn mới, đồng thời tôn trọng tùy chọn riêng tư `readReceipts` và `typingIndicator` được lưu trữ per-circle.
+  2. **Kích hoạt toàn bộ chức năng Cài đặt Vòng tròn (`CircleManagementModal`) trên Web và Mobile:**
+     - Tab 4 (Thiết lập Vòng tròn): Bổ sung Vùng nguy hiểm (Danger Zone) cho Trưởng nhóm với nút "Giải tán Vòng tròn" (`DELETE /api/v1/circles/:id`) kèm modal/alert xác nhận, dọn dẹp cache và redirect an toàn.
+     - Tab 5 (Trợ giúp & Báo cáo): Kết nối chức năng Báo cáo Vòng tròn và Báo cáo người dùng vi phạm vào endpoint thực tế `POST /api/v1/circles/:id/reports` lưu trữ trong database model `CircleReport`.
+     - Tab 3 (Thông báo & Quyền riêng tư): Lưu trữ và áp dụng tùy chọn Thông báo đã đọc (Read receipts), Chỉ báo đang nhập (Typing indicator) và AI assistance trên cả Web (localStorage) và Mobile (SecureStore/Storage).
+- **Prompt Summary:** Yêu cầu làm tính năng P2 xem người xem tin nhắn tinh tế khi bấm vào tin nhắn cụ thể (tương tự như xem giờ), đồng thời thực hiện các chức năng của cài đặt circle có thể hoạt động được.
+- **Files Affected:**
+  - `apps/backend/prisma/schema.prisma`
+  - `apps/backend/prisma/migrations/20261005150233_add_message_receipts_and_circle_reports/migration.sql`
+  - `apps/backend/src/modules/chat/chat.controller.ts`
+  - `apps/backend/src/modules/chat/chat.gateway.ts`
+  - `apps/backend/src/modules/chat/chat.service.ts`
+  - `apps/backend/src/modules/circles/circles.controller.ts`
+  - `apps/backend/src/modules/circles/circles.service.ts`
+  - `apps/backend/src/modules/circles/circles.service.spec.ts`
+  - `packages/types/src/index.ts`
+  - `packages/shared/src/validators/circle.validator.ts`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `apps/web/src/hooks/use-circle-queries.ts`
+  - `apps/web/src/hooks/use-chat-queries.ts`
+  - `apps/web/src/lib/socket.ts`
+  - `apps/web/src/components/chat/MessageBubble.tsx`
+  - `apps/web/src/components/chat/ChannelChatView.tsx`
+  - `apps/web/src/components/circle/CircleManagementModal.tsx`
+  - `apps/mobile/src/hooks/use-circle-queries.ts`
+  - `apps/mobile/src/services/socket.ts`
+  - `apps/mobile/src/services/storage.ts`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `apps/mobile/src/components/circle/CircleManagementModal.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% database schema migration, backend endpoints, socket events, query hooks, UI viewers logic, confirmation dialogs và i18n locales.
+- **Human Modifications:** Người dùng trực tiếp định hướng tính năng P2 xem người xem tin nhắn tinh tế và yêu cầu hoàn thiện chức năng cài đặt circle.
+- **Verification Method:**
+  - `npm test -w @circle/backend`: 7/7 test suites pass, 107/107 tests pass (100%).
+  - `npm run build -w @circle/backend`: NestJS build pass 100%.
+  - `npm run build -w @circle/shared` & `npm run build -w @circle/types`: Pass 100%.
+  - `npx tsc --noEmit -p apps/web/tsconfig.json`: TypeScript typecheck pass (0 errors).
+  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: TypeScript typecheck pass (0 errors).
+  - `npm run build -w @circle/web`: Next.js 14 production build pass (9/9 routes, 0 errors).
+  - `npx playwright test`: 6/6 E2E tests pass (100%) trên cả desktop và mobile viewports.
+- **Official Source Checked:** `PROJECT_GOD.md` (Gate 1 Working Product, Gate 4 Automated Testing, Gate 8 Clean Code), `agentic/RULES.md`.
+- **Security & License Check:** Phân quyền Owner cho thao tác giải tán circle, RBAC kiểm tra thành viên cho báo cáo, bảo vệ socket room access, tuân thủ MIT license, không rò rỉ secrets.
+
+---
+
 ## AI-0074: Production-Grade Messaging P0 (Optimistic UI, Typing Indicator, Outbox & Media Attachment)
 
 - **Date:** 2026-10-04 00:50:00 +07:00
@@ -3311,67 +3368,127 @@
 
 ---
 
-## AI-0082: Triển khai Messaging P2 Read Receipts, Subtle Message Viewers và Chức năng Cài đặt Vòng tròn (Web & Mobile)
+## AI-0083: Tối ưu hóa Module Xác thực (Auth UX & Security) cho Mạng xã hội nhóm riêng tư: Kiểm tra độ phức tạp Mật khẩu Đa tầng, Quản lý Phiên đăng nhập & Thiết bị từ xa (Session Management), Mở khóa Sinh trắc học (Face ID / Vân tay) trên Mobile, Tín hiệu Tin cậy & Cam kết Bảo mật (Trust Signals)
 
-- **Date:** 2026-10-05 22:35:00 +07:00
+- **Date:** 2026-10-05 21:12:00 +07:00
 - **Developer:** Trương Công Bình (MSSV: 23110184)
 - **Tool:** Antigravity IDE
 - **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** Issue #75 ([SUB-FEAT]: US-CHAT-003 & US-CIRCLE-004 — Messaging P2 Read Receipts, Subtle Message Viewers & Functional Circle Settings)
-- **Purpose:** Triển khai hoàn thiện tính năng P2 Messaging và chức năng thực tế của Cài đặt Vòng tròn:
-  1. **Subtle Message Viewers & Realtime Read Receipts (Xem người xem tin nhắn tinh tế khi bấm vào tin nhắn cụ thể, tương tự như xem giờ):**
-     - Schema Prisma: Bổ sung model `MessageReceipt` (`messageId`, `userId`, `readAt`) và quan hệ cascade với `Message` / `User`.
-     - Backend Service & Gateway: Tạo endpoint `POST /api/v1/messages/:messageId/read`, Socket listener `@SubscribeMessage('chat:read')` và broadcast `chat:user-read` qua `ChatGateway` (phòng chống triệt để circular dependency).
-     - Giao diện tinh tế trên Web & Mobile (`MessageBubble` và `MobileSwipeMessageBubble`): Khi người dùng click/tap vào tin nhắn để xem giờ, đồng thời hiển thị danh sách người đã xem tinh tế với icon `Eye`, mini avatar stack (tối đa 3 avatar) cùng tên/số lượng người đã xem (`seenBy` / `seenByCount`).
-     - Tự động đánh dấu đã đọc khi xem tin nhắn mới, đồng thời tôn trọng tùy chọn riêng tư `readReceipts` và `typingIndicator` được lưu trữ per-circle.
-  2. **Kích hoạt toàn bộ chức năng Cài đặt Vòng tròn (`CircleManagementModal`) trên Web và Mobile:**
-     - Tab 4 (Thiết lập Vòng tròn): Bổ sung Vùng nguy hiểm (Danger Zone) cho Trưởng nhóm với nút "Giải tán Vòng tròn" (`DELETE /api/v1/circles/:id`) kèm modal/alert xác nhận, dọn dẹp cache và redirect an toàn.
-     - Tab 5 (Trợ giúp & Báo cáo): Kết nối chức năng Báo cáo Vòng tròn và Báo cáo người dùng vi phạm vào endpoint thực tế `POST /api/v1/circles/:id/reports` lưu trữ trong database model `CircleReport`.
-     - Tab 3 (Thông báo & Quyền riêng tư): Lưu trữ và áp dụng tùy chọn Thông báo đã đọc (Read receipts), Chỉ báo đang nhập (Typing indicator) và AI assistance trên cả Web (localStorage) và Mobile (SecureStore/Storage).
-- **Prompt Summary:** Yêu cầu làm tính năng P2 xem người xem tin nhắn tinh tế khi bấm vào tin nhắn cụ thể (tương tự như xem giờ), đồng thời thực hiện các chức năng của cài đặt circle có thể hoạt động được.
+- **Related Issue:** Module 1 (Authentication, Security & Session Governance)
+- **Purpose:** Triển khai toàn diện các chuẩn UX & Security đặc thù của mạng xã hội riêng tư (Private Social Network) theo chuẩn mực Signal, Telegram, Apple:
+  1. **Kiểm tra độ phức tạp mật khẩu đa tầng (Strong Password Enforcement):**
+     - Cập nhật Zod schemas tại `@circle/shared` (`registerDtoSchema`, `registerSchema`, `resetPasswordDtoSchema`, `resetPasswordSchema`) bắt buộc 4 tiêu chí phức tạp: chữ hoa (`[A-Z]`), chữ thường (`[a-z]`), số (`[0-9]`), ký tự đặc biệt (`[^A-Za-z0-9]`) cùng tối thiểu 8 ký tự.
+     - Cung cấp hàm kiểm tra `checkPasswordRequirements(password)` trả về trạng thái chi tiết từng tiêu chí.
+     - Đồng bộ từ điển đa ngôn ngữ (`vi.ts`, `en.ts`) với 100% không hardcode chuỗi.
+  2. **Chỉ số đo độ mạnh mật khẩu thời gian thực (Real-time Password Strength UI):**
+     - **Web (`apps/web`):** Xây dựng `PasswordStrengthIndicator.tsx` gồm thanh đo trực quan 4 nấc (Yếu, Trung bình, Rất an toàn) và danh sách kiểm tra động 5 tiêu chí + trạng thái trùng khớp mật khẩu xác nhận. Tích hợp trực tiếp vào màn Đăng ký (`/register`) và Đặt lại mật khẩu (`/reset-password`).
+     - **Mobile (`apps/mobile`):** Xây dựng `PasswordComplexityChecklist.tsx` hiển thị trạng thái từng tiêu chí trong wizard Đăng ký và Đặt lại mật khẩu (`PasswordRecoveryWizard.tsx`).
+  3. **Tín hiệu tin cậy & Cam kết bảo mật (Trust Signals & Privacy Commitment):**
+     - Web & Mobile: Xây dựng `TrustBanner.tsx` kèm biểu tượng khiên bảo vệ "Mạng xã hội riêng tư 100% (Mã hóa an toàn · Không quảng cáo · Không theo dõi hành vi)" và modal cam kết quyền riêng tư 3 điểm then chốt.
+  4. **Quản lý thiết bị & Phiên làm việc từ xa (Session & Device Management - Full-stack):**
+     - **Backend (`apps/backend`):** Triển khai 3 API endpoints bảo mật:
+       - `GET /api/v1/auth/sessions`: Truy vấn các phiên đang hoạt động của người dùng, phân tích User Agent (`parseUserAgent`) thành Desktop, Mobile, Tablet, Trình duyệt và Hệ điều hành, đánh dấu phiên hiện tại `isCurrent`.
+       - `DELETE /api/v1/auth/sessions/:sessionId`: Đăng xuất từ xa một thiết bị cụ thể.
+       - `DELETE /api/v1/auth/sessions/other`: Hủy toàn bộ các phiên làm việc trên các thiết bị khác, bảo vệ phiên hiện tại.
+       - Bổ sung 5 unit test cases (`TC-AUTH-SESSION-001` đến `TC-AUTH-SESSION-005`), nâng tổng số unit tests Backend lên 109/109 pass 100%.
+     - **Frontend Web (`apps/web`):** Tạo modal `SessionsManagementModal.tsx` và liên kết trong menu Header của tài khoản, cho phép người dùng xem toàn bộ thiết bị đang đăng nhập, địa chỉ IP, thời gian đăng nhập và đăng xuất từ xa thiết bị lạ.
+  5. **Mở khóa Sinh trắc học (Biometric Authentication) trên Mobile:**
+     - Cài đặt `expo-local-authentication`, xây dựng `biometric.service.ts` kết hợp `expo-secure-store`.
+     - Cho phép người dùng bật/tắt xác thực Face ID / Vân tay trong màn hình Cài đặt cá nhân (`ProfileTab`).
+     - Tự động hiển thị màn hình khóa sinh trắc học khi khởi động app nếu đã bật tính năng này.
+  6. **Đạt toàn bộ tiêu chuẩn nghiệm thu (DoD):**
+     - 109/109 Backend unit tests pass 100%.
+     - Next.js 14 Web build pass 100% (9/9 routes compiled static, 0 lint errors).
+     - Mobile TypeScript typecheck pass 100% (0 errors).
+     - Integrity check `./scripts/check-agent-map.sh` pass 94/94 files (0 broken references).
+- **Prompt Summary:** Tối ưu hóa xác thực cho mạng xã hội nhóm riêng tư theo chuẩn UX & Security: bỏ email OTP vì phiền hà; bắt buộc mật khẩu mạnh (hoa, thường, số, ký tự đặc biệt); quản lý thiết bị/session management; sinh trắc học Face ID/Vân tay cho mobile; trust signals và cam kết bảo mật.
 - **Files Affected:**
-  - `apps/backend/prisma/schema.prisma`
-  - `apps/backend/prisma/migrations/20261005150233_add_message_receipts_and_circle_reports/migration.sql`
-  - `apps/backend/src/modules/chat/chat.controller.ts`
-  - `apps/backend/src/modules/chat/chat.gateway.ts`
-  - `apps/backend/src/modules/chat/chat.service.ts`
-  - `apps/backend/src/modules/circles/circles.controller.ts`
-  - `apps/backend/src/modules/circles/circles.service.ts`
-  - `apps/backend/src/modules/circles/circles.service.spec.ts`
   - `packages/types/src/index.ts`
-  - `packages/shared/src/validators/circle.validator.ts`
   - `packages/shared/src/locales/vi.ts`
   - `packages/shared/src/locales/en.ts`
-  - `apps/web/src/hooks/use-circle-queries.ts`
-  - `apps/web/src/hooks/use-chat-queries.ts`
-  - `apps/web/src/lib/socket.ts`
-  - `apps/web/src/components/chat/MessageBubble.tsx`
-  - `apps/web/src/components/chat/ChannelChatView.tsx`
-  - `apps/web/src/components/circle/CircleManagementModal.tsx`
-  - `apps/mobile/src/hooks/use-circle-queries.ts`
-  - `apps/mobile/src/services/socket.ts`
+  - `packages/shared/src/validators/auth.validator.ts`
+  - `apps/backend/src/modules/auth/auth.service.ts`
+  - `apps/backend/src/modules/auth/auth.controller.ts`
+  - `apps/backend/src/modules/auth/auth.service.spec.ts`
+  - `apps/web/src/lib/auth.ts`
+  - `apps/web/src/hooks/use-auth-mutations.ts`
+  - `apps/web/src/components/auth/PasswordStrengthIndicator.tsx`
+  - `apps/web/src/components/auth/TrustBanner.tsx`
+  - `apps/web/src/components/profile/SessionsManagementModal.tsx`
+  - `apps/web/src/components/header/Header.tsx`
+  - `apps/web/src/app/(auth)/login/page.tsx`
+  - `apps/web/src/app/(auth)/register/page.tsx`
+  - `apps/web/src/app/(auth)/reset-password/page.tsx`
+  - `apps/mobile/package.json`
   - `apps/mobile/src/services/storage.ts`
-  - `apps/mobile/app/circle/[id].tsx`
-  - `apps/mobile/src/components/circle/CircleManagementModal.tsx`
+  - `apps/mobile/src/services/biometric.service.ts`
+  - `apps/mobile/src/components/auth/PasswordComplexityChecklist.tsx`
+  - `apps/mobile/src/components/auth/TrustBanner.tsx`
+  - `apps/mobile/src/components/auth/PasswordRecoveryWizard.tsx`
+  - `apps/mobile/app/(auth)/register.tsx`
+  - `apps/mobile/app/(tabs)/profile.tsx`
+  - `apps/mobile/app/_layout.tsx`
+  - `package-lock.json`
   - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% database schema migration, backend endpoints, socket events, query hooks, UI viewers logic, confirmation dialogs và i18n locales.
-- **Human Modifications:** Người dùng trực tiếp định hướng tính năng P2 xem người xem tin nhắn tinh tế và yêu cầu hoàn thiện chức năng cài đặt circle.
+- **AI-Generated Portion:** 100% mã nguồn backend controller/service/tests, mobile biometric service & components, web session modal & strength indicator, Zod validator updates và tài liệu nhật ký.
+- **Human Modifications:** Người dùng định hướng nghiệp vụ cốt lõi, tinh giảm các bước gây ma sát thừa (bỏ email OTP) và nhấn mạnh chuẩn bảo mật mật khẩu cùng tính năng quản lý thiết bị và Face ID.
 - **Verification Method:**
-  - `npm test -w @circle/backend`: 7/7 test suites pass, 107/107 tests pass (100%).
-  - `npm run build -w @circle/backend`: NestJS build pass 100%.
+  - `npm test -w @circle/backend`: 109/109 tests pass 100% (7/7 test suites).
   - `npm run build -w @circle/shared` & `npm run build -w @circle/types`: Pass 100%.
-  - `npx tsc --noEmit -p apps/web/tsconfig.json`: TypeScript typecheck pass (0 errors).
-  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: TypeScript typecheck pass (0 errors).
-  - `npm run build -w @circle/web`: Next.js 14 production build pass (9/9 routes, 0 errors).
-  - `npx playwright test`: 6/6 E2E tests pass (100%) trên cả desktop và mobile viewports.
-- **Official Source Checked:** `PROJECT_GOD.md` (Gate 1 Working Product, Gate 4 Automated Testing, Gate 8 Clean Code), `agentic/RULES.md`.
-- **Security & License Check:** Phân quyền Owner cho thao tác giải tán circle, RBAC kiểm tra thành viên cho báo cáo, bảo vệ socket room access, tuân thủ MIT license, không rò rỉ secrets.
+  - `npm run build -w @circle/web`: Next.js production build pass 100% (all 9 routes static generated, 0 type errors).
+  - `npm run typecheck -w @circle/mobile`: TypeScript pass 100% (0 errors).
+  - `./scripts/check-agent-map.sh`: 94/94 files pass (0 broken references).
+- **Official Source Checked:** `PROJECT_GOD.md` (Module 1 - Auth, Security & Session Governance), `agentic/RULES.md`.
+- **Security & License Check:** Tuân thủ Dual-token + bcrypt + session revocation, input validation chặt chẽ qua Zod, không leak secret, tuân thủ MIT license.
 - **AI Errors / Hallucinations Found:**
-  - **Error Description:** None.
-  - **Root Cause:** N/A
-  - **Resolution / Fix:** N/A
-- **Commit:** Pending
-- **PR:** Pending
+  - **Error Description:** (1) `parseUserAgent` ban đầu kiểm tra chuỗi `mac os` trước `iphone`, dẫn đến user-agent iOS có chứa `like Mac OS X` bị gán sai thành `macOS`. (2) Mock `refreshToken` trong `auth.service.spec.ts` thiếu `findFirst` và `findMany`. (3) Thuộc tính `close` trong `t.common` ban đầu chưa có trong từ điển shared locales.
+  - **Root Cause:** Sắp xếp thứ tự regex trong heuristic parser và thiếu sót mock khi viết unit test.
+  - **Resolution / Fix:** Sửa thứ tự kiểm tra `iOS` trước `macOS` trong `parseUserAgent`, bổ sung `findFirst`, `findMany` vào mock Prisma, và thêm key `close` vào cả `vi.ts` và `en.ts` trong `@circle/shared`.
+- **Commit:** `a9a0046`
+- **PR:** #77
 
+---
 
+## AI-0084: Implement Cloudflare Turnstile Bot Protection across Auth Flows
 
+- **Date:** 2026-10-05 23:00:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #77 (US-AUTH-SEC: Privacy-First Bot Protection & Cloudflare Turnstile Verification)
+- **Purpose:** Tích hợp cơ chế bảo vệ chống bot, chống tấn công brute-force và credential stuffing bằng Cloudflare Turnstile không ma sát (frictionless / privacy-preserving) cho các biểu mẫu Xác thực (Login, Register, Forgot Password):
+  1. **Shared Contracts & Locales:** Bổ sung `turnstileToken` tùy chọn vào `loginSchema`, `registerDtoSchema`, `forgotPasswordSchema` trong `@circle/shared`. Thêm các khóa bản địa hóa song ngữ `vi`/`en`: `turnstileVerify`, `turnstileRequired`, `turnstileFailed`.
+  2. **Backend Turnstile Verification Service:** Tạo `TurnstileService` trong `apps/backend/src/modules/auth/turnstile.service.ts` để gọi API xác thực `https://challenges.cloudflare.com/turnstile/v0/siteverify` với Cloudflare. Hỗ trợ cờ bật/tắt `TURNSTILE_ENABLED` và khóa kiểm thử chính thức của Cloudflare (`1x0000000000000000000000000000000AA`) đảm bảo môi trường local dev và CI luôn pass 100%. Tích hợp kiểm tra token vào `AuthService.register`, `AuthService.login`, `AuthService.forgotPassword`.
+  3. **Turnstile Unit Tests:** Thêm 5 unit tests toàn diện trong `turnstile.service.spec.ts` và 2 test case (`TC-AUTH-TURNSTILE-001`, `TC-AUTH-TURNSTILE-002`) trong `auth.service.spec.ts`. Toàn bộ 116/116 unit tests backend vượt qua 100%.
+  4. **Frontend Turnstile Widget & UI Integration:** Xây dựng component `TurnstileWidget` tự động nạp SDK Cloudflare Turnstile render explicit, nhận diện dark/light theme động từ `useThemeStore`, dọn dẹp widget an toàn khi unmount. Nhúng widget vào các màn hình Web:
+     - `apps/web/src/app/(auth)/login/page.tsx`
+     - `apps/web/src/app/(auth)/register/page.tsx`
+     - `apps/web/src/app/(auth)/forgot-password/page.tsx`
+- **Prompt Summary:** "con ve phan dang ky hoac dang nhap toi thay thay co captcha hoac cloudfare verify gi do -> ok"
+- **Files Affected:**
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `packages/shared/src/validators/auth.validator.ts`
+  - `apps/backend/src/modules/auth/turnstile.service.ts`
+  - `apps/backend/src/modules/auth/turnstile.service.spec.ts`
+  - `apps/backend/src/modules/auth/auth.module.ts`
+  - `apps/backend/src/modules/auth/auth.service.ts`
+  - `apps/backend/src/modules/auth/auth.service.spec.ts`
+  - `apps/backend/src/modules/auth/dto/register.dto.ts`
+  - `apps/backend/src/modules/auth/dto/login.dto.ts`
+  - `apps/backend/src/modules/auth/dto/forgot-password.dto.ts`
+  - `apps/web/src/components/auth/TurnstileWidget.tsx`
+  - `apps/web/src/lib/auth.ts`
+  - `apps/web/src/app/(auth)/login/page.tsx`
+  - `apps/web/src/app/(auth)/register/page.tsx`
+  - `apps/web/src/app/(auth)/forgot-password/page.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% TurnstileService, TurnstileWidget, DTO updates, Zod schemas, unit tests và trang Auth forms.
+- **Human Modifications:** Trương Công Bình đặt yêu cầu tích hợp giải pháp xác thực captcha / Cloudflare verification nhằm bảo vệ tài khoản và luồng đăng ký / đăng nhập của người dùng.
+- **Verification Method:**
+  - `npm test -w @circle/backend`: 116/116 unit tests pass 100% (8/8 test suites).
+  - `npm run build -w @circle/web`: Next.js 14 production build pass 100% (9 static routes generated, 0 type errors).
+  - `npm run typecheck -w @circle/mobile`: Pass 100% (0 errors).
+  - `./scripts/check-agent-map.sh`: 94/94 files pass (0 broken references).
+- **Official Source Checked:** Cloudflare Turnstile Server-Side Validation Documentation, Next.js Documentation.
+- **Security & License Check:** Bảo mật cao, sử dụng secret key server-side không lộ client, zero secret leaks, MIT license.

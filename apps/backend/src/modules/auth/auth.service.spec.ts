@@ -4,6 +4,7 @@ import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
 import * as bcrypt from 'bcryptjs';
 import { AuthService } from './auth.service';
+import { TurnstileService } from './turnstile.service';
 import { PrismaService } from '../../database/prisma.service';
 import { RedisService } from '../../database/redis.service';
 import { MailService } from '../mail/mail.service';
@@ -16,6 +17,7 @@ describe('AuthService — Full Test Suite (TC-AUTH-001 to TC-AUTH-006)', () => {
   let mailService: any;
   let jwtService: any;
   let configService: any;
+  let turnstileService: any;
 
   const mockUser = {
     id: 'user-cuid-1',
@@ -47,6 +49,8 @@ describe('AuthService — Full Test Suite (TC-AUTH-001 to TC-AUTH-006)', () => {
       refreshToken: {
         create: jest.fn(),
         findUnique: jest.fn(),
+        findFirst: jest.fn(),
+        findMany: jest.fn(),
         update: jest.fn(),
         updateMany: jest.fn(),
       },
@@ -93,6 +97,11 @@ describe('AuthService — Full Test Suite (TC-AUTH-001 to TC-AUTH-006)', () => {
       }),
     };
 
+    turnstileService = {
+      isEnabled: jest.fn().mockReturnValue(false),
+      validateToken: jest.fn().mockResolvedValue(true),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
@@ -101,6 +110,7 @@ describe('AuthService — Full Test Suite (TC-AUTH-001 to TC-AUTH-006)', () => {
         { provide: MailService, useValue: mailService },
         { provide: JwtService, useValue: jwtService },
         { provide: ConfigService, useValue: configService },
+        { provide: TurnstileService, useValue: turnstileService },
       ],
     }).compile();
 
@@ -398,4 +408,154 @@ describe('AuthService — Full Test Suite (TC-AUTH-001 to TC-AUTH-006)', () => {
       expect(result.profile?.bio).toBe('Fullstack Engineer at CIRCLE');
     });
   });
+
+  describe('Session Management', () => {
+    it('TC-AUTH-SESSION-001: should parse user agent correctly', () => {
+      const desktop = service.parseUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36');
+      expect(desktop.deviceType).toBe('DESKTOP');
+      expect(desktop.os).toBe('macOS');
+      expect(desktop.browser).toBe('Chrome');
+
+      const mobile = service.parseUserAgent('Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Circle Mobile App');
+      expect(mobile.deviceType).toBe('MOBILE');
+      expect(mobile.os).toBe('iOS');
+      expect(mobile.browser).toBe('Circle Mobile App');
+
+      const tablet = service.parseUserAgent('Mozilla/5.0 (iPad; CPU OS 17_5 like Mac OS X) AppleWebKit/605.1.15 Safari/605.1.15');
+      expect(tablet.deviceType).toBe('TABLET');
+      expect(tablet.os).toBe('iOS');
+      expect(tablet.browser).toBe('Safari');
+    });
+
+    it('TC-AUTH-SESSION-002: should retrieve user active sessions with current flag', async () => {
+      const mockSessions = [
+        {
+          id: 'session-1',
+          userId: mockUser.id,
+          tokenHash: 'current-hash',
+          userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X) Chrome/128.0.0.0',
+          ipAddress: '127.0.0.1',
+          createdAt: new Date(),
+          expiresAt: new Date(Date.now() + 86400000),
+          isRevoked: false,
+        },
+        {
+          id: 'session-2',
+          userId: mockUser.id,
+          tokenHash: 'other-hash',
+          userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS) Mobile Circle Mobile App',
+          ipAddress: '192.168.1.187',
+          createdAt: new Date(),
+          expiresAt: new Date(Date.now() + 86400000),
+          isRevoked: false,
+        },
+      ];
+
+      (prisma.refreshToken.findMany as jest.Mock).mockResolvedValue(mockSessions);
+      jest.spyOn(service, 'hashToken').mockReturnValue('current-hash');
+
+      const result = await service.getUserSessions(mockUser.id, 'current-raw-token');
+
+      expect(prisma.refreshToken.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            userId: mockUser.id,
+            isRevoked: false,
+          }),
+        }),
+      );
+      expect(result).toHaveLength(2);
+      expect(result[0]!.id).toBe('session-1');
+      expect(result[0]!.isCurrent).toBe(true);
+      expect(result[1]!.id).toBe('session-2');
+      expect(result[1]!.isCurrent).toBe(false);
+    });
+
+    it('TC-AUTH-SESSION-003: should revoke a specific remote session', async () => {
+      (prisma.refreshToken.findFirst as jest.Mock).mockResolvedValue({
+        id: 'session-target',
+        userId: mockUser.id,
+        isRevoked: false,
+      });
+      (prisma.refreshToken.update as jest.Mock).mockResolvedValue({
+        id: 'session-target',
+        isRevoked: true,
+      });
+
+      const result = await service.revokeSession(mockUser.id, 'session-target', 'vi');
+
+      expect(prisma.refreshToken.findFirst).toHaveBeenCalledWith({
+        where: { id: 'session-target', userId: mockUser.id },
+      });
+      expect(prisma.refreshToken.update).toHaveBeenCalledWith({
+        where: { id: 'session-target' },
+        data: { isRevoked: true },
+      });
+      expect(result.message).toBeDefined();
+    });
+
+    it('TC-AUTH-SESSION-004: should throw NotFoundException when session does not exist or already revoked', async () => {
+      (prisma.refreshToken.findFirst as jest.Mock).mockResolvedValue(null);
+
+      await expect(
+        service.revokeSession(mockUser.id, 'non-existent-session', 'vi'),
+      ).rejects.toThrow();
+    });
+
+    it('TC-AUTH-SESSION-005: should revoke all other sessions except current', async () => {
+      (prisma.refreshToken.updateMany as jest.Mock).mockResolvedValue({ count: 3 });
+      jest.spyOn(service, 'hashToken').mockReturnValue('current-token-hash');
+
+      const result = await service.revokeOtherSessions(mockUser.id, 'current-raw-token', 'vi');
+
+      expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            userId: mockUser.id,
+            isRevoked: false,
+            tokenHash: { not: 'current-token-hash' },
+          }),
+          data: { isRevoked: true },
+        }),
+      );
+      expect(result.message).toBeDefined();
+    });
+  });
+
+  describe('Turnstile Bot Protection (TC-AUTH-TURNSTILE-001 & 002)', () => {
+    it('TC-AUTH-TURNSTILE-001: should throw BadRequestException if Turnstile is enabled and token validation fails', async () => {
+      turnstileService.isEnabled.mockReturnValue(true);
+      turnstileService.validateToken.mockResolvedValue(false);
+
+      const dto = {
+        email: 'bot@example.com',
+        password: 'Password123!',
+        displayName: 'Bot User',
+        turnstileToken: 'fake-bot-token',
+      };
+
+      await expect(service.register(dto as any, undefined, '127.0.0.1', 'vi')).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('TC-AUTH-TURNSTILE-002: should proceed with registration when Turnstile token is valid', async () => {
+      turnstileService.isEnabled.mockReturnValue(true);
+      turnstileService.validateToken.mockResolvedValue(true);
+      prisma.user.findUnique.mockResolvedValue(null);
+      prisma.user.create.mockResolvedValue({ ...mockUser, isActivated: false });
+
+      const dto = {
+        email: 'human@example.com',
+        password: 'Password123!',
+        displayName: 'Human User',
+        turnstileToken: 'valid-turnstile-token',
+      };
+
+      const result = await service.register(dto as any, undefined, '127.0.0.1', 'vi');
+      expect(result).toBeDefined();
+      expect(turnstileService.validateToken).toHaveBeenCalledWith('valid-turnstile-token', '127.0.0.1');
+    });
+  });
 });
+

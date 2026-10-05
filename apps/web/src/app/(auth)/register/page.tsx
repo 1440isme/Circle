@@ -8,6 +8,9 @@ import { registerSchema } from '@circle/shared';
 import { useRegisterMutation } from '../../../hooks/use-auth-mutations';
 import { useLanguageStore } from '../../../stores/language.store';
 import { AuthGuard } from '../../../components/auth/AuthGuard';
+import { PasswordStrengthIndicator } from '../../../components/auth/PasswordStrengthIndicator';
+import { TrustBanner } from '../../../components/auth/TrustBanner';
+import { TurnstileWidget } from '../../../components/auth/TurnstileWidget';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -20,6 +23,7 @@ export default function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [agreeTerms, setAgreeTerms] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | undefined>(undefined);
 
   const [fieldErrors, setFieldErrors] = useState<{
     displayName?: string[];
@@ -67,6 +71,7 @@ export default function RegisterPage() {
         displayName: validationResult.data.displayName,
         email: validationResult.data.email,
         password: validationResult.data.password,
+        turnstileToken,
       });
       router.push(`/verify-otp?email=${encodeURIComponent(validationResult.data.email)}`);
     } catch (err: any) {
@@ -188,20 +193,10 @@ export default function RegisterPage() {
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
-            {fieldErrors.password?.[0] ? (
+            {fieldErrors.password?.[0] && (
               <p className="mt-1 text-xs text-circle-coral font-medium">{fieldErrors.password[0]}</p>
-            ) : password.length > 0 ? (
-              <div className="mt-1.5 flex items-center gap-1.5 text-[11px]">
-                <CheckCircle2
-                  className={`h-3.5 w-3.5 ${
-                    isLengthValid ? 'text-circle-sage' : 'text-circle-slate/40'
-                  }`}
-                />
-                <span className={isLengthValid ? 'text-circle-sage font-medium' : 'text-circle-slate dark:text-circle-dark-muted'}>
-                  {t.auth.min8Chars} ({password.length}/8)
-                </span>
-              </div>
-            ) : null}
+            )}
+            <PasswordStrengthIndicator password={password} />
           </div>
 
           {/* Confirm Password Field */}
@@ -257,6 +252,13 @@ export default function RegisterPage() {
             </label>
           </div>
 
+          {/* Cloudflare Turnstile bot verification */}
+          <TurnstileWidget
+            onVerify={(token) => setTurnstileToken(token)}
+            onExpire={() => setTurnstileToken(undefined)}
+            onError={() => setTurnstileToken(undefined)}
+          />
+
           {/* Submit Button */}
           <div className="pt-2">
             <button
@@ -291,6 +293,9 @@ export default function RegisterPage() {
             </Link>
           </p>
         </div>
+
+        {/* Privacy & Trust Signals */}
+        <TrustBanner />
       </div>
     </AuthGuard>
   );
