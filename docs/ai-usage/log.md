@@ -3309,5 +3309,69 @@
 - **Commit:** Pending
 - **PR:** #70
 
+---
+
+## AI-0082: Triển khai Messaging P2 Read Receipts, Subtle Message Viewers và Chức năng Cài đặt Vòng tròn (Web & Mobile)
+
+- **Date:** 2026-10-05 22:35:00 +07:00
+- **Developer:** Trương Công Bình (MSSV: 23110184)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** Issue #75 ([SUB-FEAT]: US-CHAT-003 & US-CIRCLE-004 — Messaging P2 Read Receipts, Subtle Message Viewers & Functional Circle Settings)
+- **Purpose:** Triển khai hoàn thiện tính năng P2 Messaging và chức năng thực tế của Cài đặt Vòng tròn:
+  1. **Subtle Message Viewers & Realtime Read Receipts (Xem người xem tin nhắn tinh tế khi bấm vào tin nhắn cụ thể, tương tự như xem giờ):**
+     - Schema Prisma: Bổ sung model `MessageReceipt` (`messageId`, `userId`, `readAt`) và quan hệ cascade với `Message` / `User`.
+     - Backend Service & Gateway: Tạo endpoint `POST /api/v1/messages/:messageId/read`, Socket listener `@SubscribeMessage('chat:read')` và broadcast `chat:user-read` qua `ChatGateway` (phòng chống triệt để circular dependency).
+     - Giao diện tinh tế trên Web & Mobile (`MessageBubble` và `MobileSwipeMessageBubble`): Khi người dùng click/tap vào tin nhắn để xem giờ, đồng thời hiển thị danh sách người đã xem tinh tế với icon `Eye`, mini avatar stack (tối đa 3 avatar) cùng tên/số lượng người đã xem (`seenBy` / `seenByCount`).
+     - Tự động đánh dấu đã đọc khi xem tin nhắn mới, đồng thời tôn trọng tùy chọn riêng tư `readReceipts` và `typingIndicator` được lưu trữ per-circle.
+  2. **Kích hoạt toàn bộ chức năng Cài đặt Vòng tròn (`CircleManagementModal`) trên Web và Mobile:**
+     - Tab 4 (Thiết lập Vòng tròn): Bổ sung Vùng nguy hiểm (Danger Zone) cho Trưởng nhóm với nút "Giải tán Vòng tròn" (`DELETE /api/v1/circles/:id`) kèm modal/alert xác nhận, dọn dẹp cache và redirect an toàn.
+     - Tab 5 (Trợ giúp & Báo cáo): Kết nối chức năng Báo cáo Vòng tròn và Báo cáo người dùng vi phạm vào endpoint thực tế `POST /api/v1/circles/:id/reports` lưu trữ trong database model `CircleReport`.
+     - Tab 3 (Thông báo & Quyền riêng tư): Lưu trữ và áp dụng tùy chọn Thông báo đã đọc (Read receipts), Chỉ báo đang nhập (Typing indicator) và AI assistance trên cả Web (localStorage) và Mobile (SecureStore/Storage).
+- **Prompt Summary:** Yêu cầu làm tính năng P2 xem người xem tin nhắn tinh tế khi bấm vào tin nhắn cụ thể (tương tự như xem giờ), đồng thời thực hiện các chức năng của cài đặt circle có thể hoạt động được.
+- **Files Affected:**
+  - `apps/backend/prisma/schema.prisma`
+  - `apps/backend/prisma/migrations/20261005150233_add_message_receipts_and_circle_reports/migration.sql`
+  - `apps/backend/src/modules/chat/chat.controller.ts`
+  - `apps/backend/src/modules/chat/chat.gateway.ts`
+  - `apps/backend/src/modules/chat/chat.service.ts`
+  - `apps/backend/src/modules/circles/circles.controller.ts`
+  - `apps/backend/src/modules/circles/circles.service.ts`
+  - `apps/backend/src/modules/circles/circles.service.spec.ts`
+  - `packages/types/src/index.ts`
+  - `packages/shared/src/validators/circle.validator.ts`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `apps/web/src/hooks/use-circle-queries.ts`
+  - `apps/web/src/hooks/use-chat-queries.ts`
+  - `apps/web/src/lib/socket.ts`
+  - `apps/web/src/components/chat/MessageBubble.tsx`
+  - `apps/web/src/components/chat/ChannelChatView.tsx`
+  - `apps/web/src/components/circle/CircleManagementModal.tsx`
+  - `apps/mobile/src/hooks/use-circle-queries.ts`
+  - `apps/mobile/src/services/socket.ts`
+  - `apps/mobile/src/services/storage.ts`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `apps/mobile/src/components/circle/CircleManagementModal.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% database schema migration, backend endpoints, socket events, query hooks, UI viewers logic, confirmation dialogs và i18n locales.
+- **Human Modifications:** Người dùng trực tiếp định hướng tính năng P2 xem người xem tin nhắn tinh tế và yêu cầu hoàn thiện chức năng cài đặt circle.
+- **Verification Method:**
+  - `npm test -w @circle/backend`: 7/7 test suites pass, 107/107 tests pass (100%).
+  - `npm run build -w @circle/backend`: NestJS build pass 100%.
+  - `npm run build -w @circle/shared` & `npm run build -w @circle/types`: Pass 100%.
+  - `npx tsc --noEmit -p apps/web/tsconfig.json`: TypeScript typecheck pass (0 errors).
+  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: TypeScript typecheck pass (0 errors).
+  - `npm run build -w @circle/web`: Next.js 14 production build pass (9/9 routes, 0 errors).
+  - `npx playwright test`: 6/6 E2E tests pass (100%) trên cả desktop và mobile viewports.
+- **Official Source Checked:** `PROJECT_GOD.md` (Gate 1 Working Product, Gate 4 Automated Testing, Gate 8 Clean Code), `agentic/RULES.md`.
+- **Security & License Check:** Phân quyền Owner cho thao tác giải tán circle, RBAC kiểm tra thành viên cho báo cáo, bảo vệ socket room access, tuân thủ MIT license, không rò rỉ secrets.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A
+  - **Resolution / Fix:** N/A
+- **Commit:** Pending
+- **PR:** Pending
+
 
 

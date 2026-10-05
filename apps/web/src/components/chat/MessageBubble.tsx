@@ -9,6 +9,7 @@ import {
   Clock,
   Check,
   AlertCircle,
+  Eye,
 } from 'lucide-react';
 import { MessageEntity, MessageType } from '@circle/types';
 import { useLanguageStore } from '../../stores/language.store';
@@ -254,13 +255,47 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         {/* Sent Timestamp (ONLY on click/tap) & Status Icon (Visible for latest message or sending/failed) */}
         {(showTimestamp || (isSenderMe && (isLatestSentByMe || message.status === 'SENDING' || message.status === 'FAILED'))) && (
           <div
-            className={`text-[10px] mt-1 px-1 font-mono transition-opacity animate-in fade-in flex items-center gap-1 select-none ${
+            className={`text-[10px] mt-1 px-1 font-mono transition-opacity animate-in fade-in flex flex-wrap items-center gap-2 select-none ${
               isSenderMe
                 ? 'justify-end text-circle-slate/60 dark:text-circle-dark-muted/60'
                 : 'justify-start text-circle-slate/60 dark:text-circle-dark-muted/60'
             }`}
           >
             {showTimestamp && <span>{sentTime}</span>}
+            {showTimestamp && message.readers && message.readers.length > 0 && (
+              <span className="inline-flex items-center gap-1.5 font-sans font-medium text-[10px] text-circle-slate/80 dark:text-circle-dark-muted/80">
+                <span className="inline-block w-1 h-1 rounded-full bg-circle-hairline dark:bg-circle-dark-hairline" />
+                <Eye className="w-3 h-3 text-circle-primary shrink-0" />
+                <span className="flex -space-x-1 items-center">
+                  {message.readers.slice(0, 3).map((reader) => (
+                    <span
+                      key={reader.userId}
+                      className="w-3.5 h-3.5 rounded-full overflow-hidden border border-white dark:border-circle-dark-surface bg-circle-wash dark:bg-circle-dark-wash inline-block shrink-0"
+                      title={reader.displayName}
+                    >
+                      {reader.avatarUrl ? (
+                        <img src={reader.avatarUrl} alt={reader.displayName} className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="w-full h-full flex items-center justify-center text-[7px] font-bold text-circle-charcoal dark:text-circle-dark-text">
+                          {reader.displayName.charAt(0).toUpperCase()}
+                        </span>
+                      )}
+                    </span>
+                  ))}
+                </span>
+                <span className="truncate max-w-[160px]">
+                  {message.readers.length <= 2
+                    ? (t.chat.seenBy || 'Đã xem bởi {names}').replace(
+                        '{names}',
+                        message.readers.map((r) => r.displayName).join(', '),
+                      )
+                    : (t.chat.seenByCount || 'Đã xem bởi {count} người').replace(
+                        '{count}',
+                        String(message.readers.length),
+                      )}
+                </span>
+              </span>
+            )}
             {isSenderMe && (isLatestSentByMe || message.status === 'SENDING' || message.status === 'FAILED') && (
               <span className="inline-flex items-center">
                 {message.status === 'SENDING' ? (

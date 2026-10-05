@@ -24,6 +24,7 @@ import {
   TransferOwnershipInput,
   UpdateNicknameInput,
   AddMembersInput,
+  CreateReportInput,
   resolveLocale,
 } from '@circle/shared';
 import { AuthUserData } from '@circle/types';
@@ -304,5 +305,37 @@ export class CirclesController {
   ) {
     const locale = resolveLocale(circleLocale, acceptLanguage);
     return this.circlesService.reviewJoinRequest(id, user.id, requestId, dto, locale);
+  }
+
+  /**
+   * DELETE /api/v1/circles/:id — Dissolve / Delete Circle (Owner only)
+   */
+  @Delete(':id')
+  @HttpCode(HttpStatus.OK)
+  async deleteCircle(
+    @CurrentUser() user: AuthUserData,
+    @Param('id') id: string,
+    @Headers('x-circle-locale') circleLocale?: string,
+    @Headers('accept-language') acceptLanguage?: string,
+  ) {
+    const locale = resolveLocale(circleLocale, acceptLanguage);
+    return this.circlesService.deleteCircle(id, user.id, locale);
+  }
+
+  /**
+   * POST /api/v1/circles/:id/reports — Report Circle or Member
+   */
+  @Post(':id/reports')
+  @HttpCode(HttpStatus.CREATED)
+  async createReport(
+    @CurrentUser() user: AuthUserData,
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe((locale) => createCircleSchemas(locale).createReportSchema))
+    dto: CreateReportInput,
+    @Headers('x-circle-locale') circleLocale?: string,
+    @Headers('accept-language') acceptLanguage?: string,
+  ) {
+    const locale = resolveLocale(circleLocale, acceptLanguage);
+    return this.circlesService.createReport(id, user.id, dto, locale);
   }
 }

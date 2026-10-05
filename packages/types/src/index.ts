@@ -232,6 +232,8 @@ export interface MessageEntity {
   isPinned?: boolean;
   status?: 'SENDING' | 'SENT' | 'FAILED';
   tempId?: string;
+  readers?: MessageReaderEntity[];
+  receipts?: MessageReceiptEntity[];
 }
 
 export interface CursorPaginatedMessages {
@@ -385,4 +387,63 @@ export interface UserPresenceChangePayload {
   circleIds: string[];
   timestamp: string;
 }
+
+// =============================================================================
+// READ RECEIPTS & MODERATION REPORT CONTRACTS
+// =============================================================================
+
+export interface MessageReaderEntity {
+  userId: string;
+  displayName: string;
+  avatarUrl?: string | null;
+  readAt: string;
+}
+
+export interface MessageReceiptEntity {
+  id: string;
+  messageId: string;
+  userId: string;
+  readAt: string;
+  user?: {
+    id: string;
+    email: string;
+    profile?: {
+      displayName: string;
+      avatarUrl?: string | null;
+    } | null;
+  };
+}
+
+export enum ReportTargetType {
+  CIRCLE = "CIRCLE",
+  USER = "USER",
+}
+
+export enum ReportStatus {
+  PENDING = "PENDING",
+  REVIEWED = "REVIEWED",
+  RESOLVED = "RESOLVED",
+  DISMISSED = "DISMISSED",
+}
+
+export interface CircleReportEntity {
+  id: string;
+  reporterId: string;
+  circleId: string;
+  targetUserId?: string | null;
+  targetType: ReportTargetType;
+  reason: string;
+  details?: string | null;
+  status: ReportStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateReportInput {
+  targetType?: ReportTargetType;
+  targetUserId?: string | null;
+  reason: string;
+  details?: string | null;
+}
+
 

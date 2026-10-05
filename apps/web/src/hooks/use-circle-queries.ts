@@ -305,3 +305,41 @@ export function useAddCircleMembersMutation(circleId: string) {
     },
   });
 }
+
+export function useDeleteCircleMutation(circleId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest<{ success: boolean; message?: string }>(
+        `/circles/${circleId}`,
+        {
+          method: 'DELETE',
+        },
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: CIRCLE_KEYS.all });
+      queryClient.invalidateQueries({ queryKey: CIRCLE_KEYS.lists() });
+      useCircleStore.getState().setActiveCircle(null);
+      useCircleStore.getState().setManageModalOpen(false);
+    },
+  });
+}
+
+export function useCreateReportMutation(circleId: string) {
+  return useMutation({
+    mutationFn: async (payload: { targetType?: 'CIRCLE' | 'USER'; targetUserId?: string | null; reason: string; details?: string | null }) => {
+      const res = await apiRequest<{ success: boolean; message?: string; data?: { id: string } }>(
+        `/circles/${circleId}/reports`,
+        {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        },
+      );
+      return res.data;
+    },
+  });
+}
+

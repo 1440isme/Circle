@@ -347,20 +347,22 @@ export function useLeaveCircleMutation(circleId: string) {
   });
 }
 
-export function useDeleteCircleMutation(circleId: string) {
+export function useDeleteCircleMutation(circleId: string | null) {
   const queryClient = useQueryClient();
   const setActiveCircle = useCircleStore((s) => s.setActiveCircle);
   const setManageModalVisible = useCircleStore((s) => s.setManageModalVisible);
 
   return useMutation({
     mutationFn: async () => {
-      const res = await mobileApiRequest<{ success: boolean }>(`/circles/${circleId}`, {
+      if (!circleId) throw new Error('No circle ID');
+      const res = await mobileApiRequest<{ success: boolean; message?: string }>(`/circles/${circleId}`, {
         method: 'DELETE',
       });
       return res.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: CIRCLE_KEYS.all });
+      queryClient.invalidateQueries({ queryKey: ['circles'] });
       setActiveCircle(null);
       setManageModalVisible(false);
     },
@@ -511,11 +513,47 @@ export function useChannelMessagesQuery(channelId: string | null) {
       );
     };
 
+    const handleUserRead = (payload: {
+      channelId: string;
+      messageId: string;
+      reader: {
+        userId: string;
+        displayName: string;
+        avatarUrl: string | null;
+        readAt: string;
+      };
+    }) => {
+      if (payload.channelId !== channelId) return;
+
+      queryClient.setQueryData<InfiniteData<CursorPaginatedMessages>>(
+        ['messages', 'channel', channelId],
+        (oldData) => {
+          if (!oldData) return oldData;
+          return {
+            ...oldData,
+            pages: oldData.pages.map((page) => ({
+              ...page,
+              messages: page.messages.map((m) => {
+                if (m.id !== payload.messageId) return m;
+                const existing = m.readers || [];
+                if (existing.some((r) => r.userId === payload.reader.userId)) return m;
+                return {
+                  ...m,
+                  readers: [...existing, payload.reader],
+                };
+              }),
+            })),
+          };
+        },
+      );
+    };
+
     getMobileSocket().then((socket) => {
       if (!socket || isCancelled) return;
       activeSocket = socket;
       socket.on('chat:message', handleNewMessage);
       socket.on('chat:reaction', handleReaction);
+      socket.on('chat:user-read', handleUserRead);
     });
 
     return () => {
@@ -523,6 +561,7 @@ export function useChannelMessagesQuery(channelId: string | null) {
       if (activeSocket) {
         activeSocket.off('chat:message', handleNewMessage);
         activeSocket.off('chat:reaction', handleReaction);
+        activeSocket.off('chat:user-read', handleUserRead);
       }
       leaveMobileChannelRoom(channelId);
     };
@@ -916,4 +955,26 @@ export function useReplyMomentMutation(circleId: string | null) {
     },
   });
 }
+
+export function useCreateReportMutation(circleId: string | null) {
+  return useMutation({
+    mutationFn: async (payload: {
+      targetType?: 'CIRCLE' | 'USER';
+      targetUserId?: string | null;
+      reason: string;
+      details?: string | null;
+    }) => {
+      if (!circleId) throw new Error('No circle ID');
+      const res = await mobileApiRequest<{ success: boolean; message?: string; data?: { id: string } }>(
+        `/circles/${circleId}/reports`,
+        {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        },
+      );
+      return res.data;
+    },
+  });
+}
+
 
