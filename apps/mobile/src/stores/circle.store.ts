@@ -7,6 +7,7 @@ export type CircleManageTab =
   | 'members'
   | 'privacySupport'
   | 'circleSettings'
+  | 'supportReports'
   | 'info'
   | 'requests'
   | 'settings';
