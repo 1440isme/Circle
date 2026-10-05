@@ -3388,7 +3388,7 @@
   - **Root Cause:** Sắp xếp thứ tự regex trong heuristic parser và thiếu sót mock khi viết unit test.
   - **Resolution / Fix:** Sửa thứ tự kiểm tra `iOS` trước `macOS` trong `parseUserAgent`, bổ sung `findFirst`, `findMany` vào mock Prisma, và thêm key `close` vào cả `vi.ts` và `en.ts` trong `@circle/shared`.
 - **Commit:** `a9a0046`
-- **PR:** #74
+- **PR:** #77
 
 ---
 
@@ -3398,7 +3398,7 @@
 - **Developer:** Trương Công Bình
 - **Tool:** Antigravity IDE
 - **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #74 (US-AUTH-SEC: Privacy-First Bot Protection & Cloudflare Turnstile Verification)
+- **Related Issue:** #77 (US-AUTH-SEC: Privacy-First Bot Protection & Cloudflare Turnstile Verification)
 - **Purpose:** Tích hợp cơ chế bảo vệ chống bot, chống tấn công brute-force và credential stuffing bằng Cloudflare Turnstile không ma sát (frictionless / privacy-preserving) cho các biểu mẫu Xác thực (Login, Register, Forgot Password):
   1. **Shared Contracts & Locales:** Bổ sung `turnstileToken` tùy chọn vào `loginSchema`, `registerDtoSchema`, `forgotPasswordSchema` trong `@circle/shared`. Thêm các khóa bản địa hóa song ngữ `vi`/`en`: `turnstileVerify`, `turnstileRequired`, `turnstileFailed`.
   2. **Backend Turnstile Verification Service:** Tạo `TurnstileService` trong `apps/backend/src/modules/auth/turnstile.service.ts` để gọi API xác thực `https://challenges.cloudflare.com/turnstile/v0/siteverify` với Cloudflare. Hỗ trợ cờ bật/tắt `TURNSTILE_ENABLED` và khóa kiểm thử chính thức của Cloudflare (`1x0000000000000000000000000000000AA`) đảm bảo môi trường local dev và CI luôn pass 100%. Tích hợp kiểm tra token vào `AuthService.register`, `AuthService.login`, `AuthService.forgotPassword`.
@@ -3439,8 +3439,8 @@
   - **Error Description:** None.
   - **Root Cause:** N/A
   - **Resolution / Fix:** N/A
-- **Commit:** `5d32982`
-- **PR:** #74
+- **Commit:** `a32d8ea`
+- **PR:** #77
 
 
 
