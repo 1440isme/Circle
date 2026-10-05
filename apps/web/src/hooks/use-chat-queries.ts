@@ -184,11 +184,47 @@ export function useChannelMessagesQuery(channelId: string | null) {
       queryClient.invalidateQueries({ queryKey: CHAT_KEYS.pins(channelId) });
     };
 
+    const handleUserRead = (payload: {
+      channelId: string;
+      messageId: string;
+      reader: {
+        userId: string;
+        displayName: string;
+        avatarUrl: string | null;
+        readAt: string;
+      };
+    }) => {
+      if (payload.channelId !== channelId) return;
+
+      queryClient.setQueryData<InfiniteData<CursorPaginatedMessages>>(
+        CHAT_KEYS.messages(channelId),
+        (oldData) => {
+          if (!oldData) return oldData;
+          return {
+            ...oldData,
+            pages: oldData.pages.map((page) => ({
+              ...page,
+              messages: page.messages.map((m) => {
+                if (m.id !== payload.messageId) return m;
+                const existing = m.readers || [];
+                if (existing.some((r) => r.userId === payload.reader.userId)) return m;
+                return {
+                  ...m,
+                  readers: [...existing, payload.reader],
+                };
+              }),
+            })),
+          };
+        },
+      );
+    };
+
     if (socket) {
       socket.on('chat:message', handleNewMessage);
       socket.on('chat:reaction', handleReaction);
       socket.on('chat:pin', handlePin);
       socket.on('chat:unpin', handleUnpin);
+      socket.on('chat:user-read', handleUserRead);
     }
 
     return () => {
@@ -197,6 +233,7 @@ export function useChannelMessagesQuery(channelId: string | null) {
         socket.off('chat:reaction', handleReaction);
         socket.off('chat:pin', handlePin);
         socket.off('chat:unpin', handleUnpin);
+        socket.off('chat:user-read', handleUserRead);
       }
       leaveChannelRoom(channelId);
     };

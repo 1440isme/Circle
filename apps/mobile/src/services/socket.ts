@@ -118,3 +118,13 @@ export async function sendMobileTypingStatus(
     s.emit('chat:typing', { channelId, isTyping, userName });
   }
 }
+
+export async function sendMobileMessageRead(
+  channelId: string,
+  messageId: string,
+): Promise<void> {
+  const s = await getMobileSocket();
+  if (s && channelId && messageId) {
+    s.emit('chat:read', { channelId, messageId });
+  }
+}

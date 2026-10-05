@@ -16,6 +16,7 @@ import {
   CreateInviteInput,
   CreateJoinRequestInput,
   ReviewJoinRequestInput,
+  CreateReportInput,
   Locale,
   locales,
 } from '@circle/shared';
@@ -1294,5 +1295,84 @@ export class CirclesService {
         message: t.circle.joinRequestRejected,
       };
     }
+  }
+
+  /**
+   * DELETE /api/v1/circles/:id — Dissolve / Delete Circle (Owner only)
+   */
+  async deleteCircle(circleId: string, userId: string, locale: Locale = 'vi') {
+    const t = locales[locale] || locales.vi;
+    const circle = await this.prisma.circle.findUnique({
+      where: { id: circleId },
+      include: {
+        members: { where: { userId } },
+      },
+    });
+
+    if (!circle || circle.deletedAt !== null) {
+      throw new NotFoundException(t.circle.notFound);
+    }
+
+    const caller = circle.members[0];
+    if (!caller || caller.role !== MemberRole.OWNER) {
+      throw new ForbiddenException(t.circle.ownerCannotLeaveMustTransfer || 'Chỉ trưởng nhóm mới có quyền giải tán Vòng tròn');
+    }
+
+    await this.prisma.circle.update({
+      where: { id: circleId },
+      data: { deletedAt: new Date() },
+    });
+
+    await this.invalidateMembershipCache(circleId, [userId]);
+
+    return {
+      success: true,
+      statusCode: 200,
+      message: t.circle.deleteCircleSuccess || 'Đã giải tán Vòng tròn thành công!',
+    };
+  }
+
+  /**
+   * POST /api/v1/circles/:id/reports — Submit report for Circle or Member
+   */
+  async createReport(
+    circleId: string,
+    userId: string,
+    input: CreateReportInput,
+    locale: Locale = 'vi',
+  ) {
+    const t = locales[locale] || locales.vi;
+    const circle = await this.prisma.circle.findUnique({
+      where: { id: circleId },
+      include: {
+        members: { where: { userId } },
+      },
+    });
+
+    if (!circle || circle.deletedAt !== null) {
+      throw new NotFoundException(t.circle.notFound);
+    }
+
+    if (!circle.members || circle.members.length === 0) {
+      throw new ForbiddenException(t.chat.notCircleMember || 'Bạn không phải là thành viên của Vòng tròn này');
+    }
+
+    const report = await this.prisma.circleReport.create({
+      data: {
+        reporterId: userId,
+        circleId,
+        targetUserId: input.targetUserId || null,
+        targetType: input.targetType === 'USER' ? 'USER' : 'CIRCLE',
+        reason: input.reason,
+        details: input.details || null,
+      },
+    });
+
+    return {
+      success: true,
+      statusCode: 201,
+      message: t.circle.reportSubmittedSuccess || 'Đã gửi báo cáo thành công!',
+      data: { id: report.id },
+    };
   }
 }

@@ -76,3 +76,11 @@ export async function getUserData(): Promise<AuthUserData | null> {
     return null;
   }
 }
+
+export async function getStorageItem(key: string): Promise<string | null> {
+  return await getItem(key);
+}
+
+export async function setStorageItem(key: string, value: string): Promise<void> {
+  await setItem(key, value);
+}

@@ -13,7 +13,7 @@ import {
   usePinnedMessagesQuery,
   useChannelTyping,
 } from '../../hooks/use-chat-queries';
-import { subscribeSocketConnection } from '../../lib/socket';
+import { subscribeSocketConnection, sendMessageRead } from '../../lib/socket';
 import { MessageList } from './MessageList';
 import { ChatComposer } from './ChatComposer';
 import { PinnedMessagesModal } from './PinnedMessagesModal';
@@ -29,6 +29,7 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
   channelId,
   channelName,
   channelTopic,
+  circleId,
 }) => {
   const { user } = useAuth();
   const t = useLanguageStore((s) => s.t);
@@ -51,6 +52,28 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
     isFetchingNextPage,
     fetchNextPage,
   } = useChannelMessagesQuery(channelId);
+
+  // Mark latest unread message as read when channel is viewed or updated
+  useEffect(() => {
+    if (!channelId || !circleId || messages.length === 0 || !user?.id) return;
+
+    try {
+      const stored = localStorage.getItem(`circle_${circleId}_read_receipts`);
+      if (stored === 'false') return;
+    } catch {}
+
+    const unreadMessages = messages.filter((m) => {
+      const senderId = m.sender?.user?.id || m.sender?.userId;
+      if (senderId === user.id || m.memberId === 'optimistic_me') return false;
+      const alreadyRead = (m.readers || []).some((r) => r.userId === user.id);
+      return !alreadyRead;
+    });
+
+    if (unreadMessages.length > 0) {
+      const latestUnread = unreadMessages[unreadMessages.length - 1];
+      sendMessageRead(channelId, latestUnread.id);
+    }
+  }, [channelId, circleId, messages, user?.id]);
 
   const sendMessageMutation = useSendMessageMutation(channelId);
   const reactMessageMutation = useReactMessageMutation(channelId);
@@ -145,9 +168,13 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
         onSendMessage={async (data) => {
           await sendMessageMutation.mutateAsync(data);
         }}
-        reportTyping={(isTyping) =>
-          reportTyping(isTyping, user?.profile?.displayName || user?.email)
-        }
+        reportTyping={(isTyping) => {
+          try {
+            const stored = localStorage.getItem(`circle_${circleId}_typing_indicator`);
+            if (stored === 'false') return;
+          } catch {}
+          reportTyping(isTyping, user?.profile?.displayName || user?.email);
+        }}
       />
 
       {/* Pinned Messages Modal */}

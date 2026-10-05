@@ -67,6 +67,7 @@ import {
   AlertCircle,
   WifiOff,
   ArrowUpCircle,
+  Eye,
 } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useThemeStore } from '../../src/stores/theme.store';
@@ -83,7 +84,8 @@ import {
   useMobileChannelTyping,
 } from '../../src/hooks/use-circle-queries';
 import { uploadMobileMedia } from '../../src/services/storage-upload.service';
-import { subscribeSocketConnection } from '../../src/services/socket';
+import { subscribeSocketConnection, sendMobileMessageRead } from '../../src/services/socket';
+import { getStorageItem } from '../../src/services/storage';
 import { MessageType } from '@circle/types';
 import { CircleManagementModal } from '../../src/components/circle/CircleManagementModal';
 import { LocketMomentsView } from '../../src/components/moment/LocketMomentsView';
@@ -465,6 +467,23 @@ function MobileSwipeMessageBubble({
             </Text>
           )}
 
+          {showTimestamp && msg.readers && msg.readers.length > 0 && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: 6 }}>
+              <Eye size={11} color={colors.primary} />
+              <Text numberOfLines={1} style={[styles.timestampText, { color: colors.subtle, maxWidth: 170 }]}>
+                {msg.readers.length <= 2
+                  ? (t.chat.seenBy || 'Đã xem bởi {names}').replace(
+                      '{names}',
+                      msg.readers.map((r: any) => r.displayName).join(', '),
+                    )
+                  : (t.chat.seenByCount || 'Đã xem bởi {count} người').replace(
+                      '{count}',
+                      String(msg.readers.length),
+                    )}
+              </Text>
+            </View>
+          )}
+
           {isSenderMe && (isLatestSentByMe || msg.status === 'SENDING' || msg.status === 'FAILED') && (
             <View style={styles.statusBox}>
               {msg.status === 'SENDING' ? (
@@ -552,6 +571,43 @@ export default function CircleWorkspaceScreen() {
   const reactMessageMutation = useReactMessageMutation(currentChannelId);
   const pinMessageMutation = usePinMessageMutation(currentChannelId);
   const { typingUsers, reportTyping } = useMobileChannelTyping(currentChannelId);
+
+  // Mark message as read when channel is viewed or new messages arrive
+  useEffect(() => {
+    if (!currentChannelId || !circleId || messages.length === 0 || !user?.id) return;
+
+    (async () => {
+      try {
+        const stored = await getStorageItem(`circle_${circleId}_read_receipts`);
+        if (stored === 'false') return;
+      } catch {}
+
+      const unreadMessages = messages.filter((m: any) => {
+        const senderId = m.sender?.user?.id || m.sender?.userId;
+        if (senderId === user.id || m.memberId === 'optimistic_me') return false;
+        const alreadyRead = (m.readers || []).some((r: any) => r.userId === user.id);
+        return !alreadyRead;
+      });
+
+      if (unreadMessages.length > 0) {
+        const latestUnread = unreadMessages[unreadMessages.length - 1];
+        sendMobileMessageRead(currentChannelId, latestUnread.id);
+      }
+    })();
+  }, [currentChannelId, circleId, messages, user?.id]);
+
+  const handleToggleTimestamp = (msgId: string) => {
+    setActiveTimestampMessageId((prev) => (prev === msgId ? null : msgId));
+    if (currentChannelId && circleId && user?.id) {
+      (async () => {
+        try {
+          const stored = await getStorageItem(`circle_${circleId}_read_receipts`);
+          if (stored === 'false') return;
+        } catch {}
+        sendMobileMessageRead(currentChannelId, msgId);
+      })();
+    }
+  };
 
   // Format date separator label matching Web exactly
   const getDateLabel = (dateStr: string) => {
@@ -1022,9 +1078,7 @@ export default function CircleWorkspaceScreen() {
                                 hasReactions={hasReactions}
                                 colors={colors}
                                 t={t}
-                                onToggleTimestamp={() =>
-                                  setActiveTimestampMessageId((prev) => (prev === msg.id ? null : msg.id))
-                                }
+                                onToggleTimestamp={() => handleToggleTimestamp(msg.id)}
                                 onLongPress={() => setActiveActionMessage(msg)}
                                 onSwipeReply={() => setReplyingMessage(msg)}
                                 onRetry={handleRetry}
@@ -1089,9 +1143,7 @@ export default function CircleWorkspaceScreen() {
                                 hasReactions={hasReactions}
                                 colors={colors}
                                 t={t}
-                                onToggleTimestamp={() =>
-                                  setActiveTimestampMessageId((prev) => (prev === msg.id ? null : msg.id))
-                                }
+                                onToggleTimestamp={() => handleToggleTimestamp(msg.id)}
                                 onLongPress={() => setActiveActionMessage(msg)}
                                 onSwipeReply={() => setReplyingMessage(msg)}
                                 onRetry={handleRetry}
@@ -1228,7 +1280,14 @@ export default function CircleWorkspaceScreen() {
                 value={messageInput}
                 onChangeText={(text) => {
                   setMessageInput(text);
-                  reportTyping(text.length > 0, user?.profile?.displayName || user?.email);
+                  if (circleId) {
+                    getStorageItem(`circle_${circleId}_typing_indicator`).then((v) => {
+                      if (v === 'false') return;
+                      reportTyping(text.length > 0, user?.profile?.displayName || user?.email);
+                    });
+                  } else {
+                    reportTyping(text.length > 0, user?.profile?.displayName || user?.email);
+                  }
                 }}
                 placeholder={t.chat.composerPlaceholder.replace('#{channel}', currentChannel?.name || 'chat')}
                 placeholderTextColor={colors.subtle}

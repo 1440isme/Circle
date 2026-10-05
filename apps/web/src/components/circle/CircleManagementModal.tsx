@@ -41,6 +41,7 @@ import {
   VolumeX,
   Volume2,
   ChevronDown,
+  Trash2,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useLanguageStore } from '@/stores/language.store';
@@ -56,6 +57,8 @@ import {
   useUpdateMemberNicknameMutation,
   useAddCircleMembersMutation,
   useSelectableFriendsQuery,
+  useDeleteCircleMutation,
+  useCreateReportMutation,
 } from '@/hooks/use-circle-queries';
 import { useUploadMedia } from '@/hooks/use-upload-media';
 import { MemberRole } from '@circle/types';
@@ -112,6 +115,7 @@ export const CircleManagementModal: React.FC = () => {
   const [confirmKickMemberId, setConfirmKickMemberId] = useState<string | null>(null);
   const [confirmTransferMemberId, setConfirmTransferMemberId] = useState<string | null>(null);
   const [confirmLeave, setConfirmLeave] = useState<boolean>(false);
+  const [confirmDeleteCircle, setConfirmDeleteCircle] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -278,6 +282,8 @@ export const CircleManagementModal: React.FC = () => {
   const reviewRequestMutation = useReviewJoinRequestMutation(circleId);
   const updateNicknameMutation = useUpdateMemberNicknameMutation(circleId);
   const addMembersMutation = useAddCircleMembersMutation(circleId);
+  const deleteCircleMutation = useDeleteCircleMutation(circleId);
+  const createReportMutation = useCreateReportMutation(circleId);
 
   const handleCopyCode = (code: string) => {
     navigator.clipboard.writeText(code);
@@ -524,6 +530,17 @@ export const CircleManagementModal: React.FC = () => {
     }
   };
 
+  const handleDeleteCircle = async () => {
+    setErrorMessage(null);
+    try {
+      await deleteCircleMutation.mutateAsync();
+      setConfirmDeleteCircle(false);
+      setManageModalOpen(false);
+    } catch (err: any) {
+      setErrorMessage(err.message || t.circle.createError);
+    }
+  };
+
   const handleReviewRequest = async (requestId: string, status: 'APPROVED' | 'REJECTED') => {
     setErrorMessage(null);
     try {
@@ -604,20 +621,29 @@ export const CircleManagementModal: React.FC = () => {
     } catch {}
   };
 
-  const handleSubmitReport = (e: React.FormEvent) => {
+  const handleSubmitReport = async (e: React.FormEvent) => {
     e.preventDefault();
     setReportFieldError(null);
     if (reportReason === 'other' && !customReportText.trim()) {
       setReportFieldError(t.circle.reportReasonOtherRequired);
       return;
     }
-    setIsReportOpen(false);
-    setCustomReportText('');
-    setSuccessMessage(t.circle.reportSubmittedSuccess);
-    setTimeout(() => setSuccessMessage(null), 4000);
+    try {
+      await createReportMutation.mutateAsync({
+        targetType: 'CIRCLE',
+        reason: reportReason,
+        details: customReportText.trim() || undefined,
+      });
+      setIsReportOpen(false);
+      setCustomReportText('');
+      setSuccessMessage(t.circle.reportSubmittedSuccess);
+      setTimeout(() => setSuccessMessage(null), 4000);
+    } catch (err: any) {
+      setReportFieldError(err?.message || 'Không thể gửi báo cáo. Vui lòng thử lại sau.');
+    }
   };
 
-  const handleSubmitReportUser = (e: React.FormEvent) => {
+  const handleSubmitReportUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setReportUserFieldError(null);
     if (!reportedUserId) {
@@ -628,11 +654,21 @@ export const CircleManagementModal: React.FC = () => {
       setReportUserFieldError(t.circle.reportReasonOtherRequired);
       return;
     }
-    setIsReportUserOpen(false);
-    setReportedUserId('');
-    setCustomReportUserText('');
-    setSuccessMessage('Đã gửi báo cáo người dùng. Ban quản trị sẽ xác minh vi phạm trong thời gian sớm nhất!');
-    setTimeout(() => setSuccessMessage(null), 4000);
+    try {
+      await createReportMutation.mutateAsync({
+        targetType: 'USER',
+        targetUserId: reportedUserId,
+        reason: reportUserReason,
+        details: customReportUserText.trim() || undefined,
+      });
+      setIsReportUserOpen(false);
+      setReportedUserId('');
+      setCustomReportUserText('');
+      setSuccessMessage('Đã gửi báo cáo người dùng. Ban quản trị sẽ xác minh vi phạm trong thời gian sớm nhất!');
+      setTimeout(() => setSuccessMessage(null), 4000);
+    } catch (err: any) {
+      setReportUserFieldError(err?.message || 'Không thể gửi báo cáo. Vui lòng thử lại sau.');
+    }
   };
 
   if (!isManageModalOpen || !activeCircle) return null;
@@ -1918,6 +1954,31 @@ export const CircleManagementModal: React.FC = () => {
                     </div>
                   </div>
                 </div>
+
+                {/* Section 3: Vùng nguy hiểm - Giải tán Vòng tròn (Owner Only) */}
+                {isOwner && (
+                  <div className="p-5 rounded-3xl border border-red-200 dark:border-red-900/50 bg-red-50/20 dark:bg-red-950/10 space-y-3 shadow-sm">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <h4 className="text-xs font-bold text-red-600 dark:text-red-400 flex items-center gap-1.5">
+                          <AlertTriangle className="h-4 w-4" />
+                          <span>{t.circle.dangerZone || 'Vùng nguy hiểm'}</span>
+                        </h4>
+                        <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted mt-1 leading-snug">
+                          {t.circle.deleteCircleWarning || 'Xóa hoàn toàn Vòng tròn này và loại bỏ tất cả các thành viên. Hành động này không thể hoàn tác.'}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDeleteCircle(true)}
+                        className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-all shadow-xs shrink-0 cursor-pointer"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        <span>{t.circle.deleteCircle || 'Giải tán Vòng tròn'}</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -2273,6 +2334,38 @@ export const CircleManagementModal: React.FC = () => {
                 className="px-3.5 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold disabled:opacity-50"
               >
                 {t.circle.leaveCircle}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmDeleteCircle && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
+          <div className="w-full max-w-sm p-5 rounded-2xl bg-white dark:bg-circle-dark-surface border border-red-200 dark:border-red-900/50 shadow-circle-card space-y-4">
+            <h4 className="text-sm font-bold text-red-600 dark:text-red-400 flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4" />
+              <span>{t.circle.deleteCircle || 'Giải tán Vòng tròn'}</span>
+            </h4>
+            <p className="text-xs text-circle-slate dark:text-circle-dark-muted">
+              {t.circle.deleteCircleConfirm || 'Bạn có chắc chắn muốn giải tán Vòng tròn này? Toàn bộ tin nhắn và dữ liệu sẽ bị xóa vĩnh viễn và không thể khôi phục.'}
+            </p>
+            <div className="flex justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setConfirmDeleteCircle(false)}
+                className="px-3.5 py-1.5 rounded-xl border border-circle-hairline text-xs font-semibold text-circle-slate"
+              >
+                {t.common.cancel}
+              </button>
+              <button
+                type="button"
+                disabled={deleteCircleMutation.isPending}
+                onClick={handleDeleteCircle}
+                className="px-3.5 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold disabled:opacity-50 inline-flex items-center gap-1.5"
+              >
+                {deleteCircleMutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                <span>{t.circle.deleteCircle || 'Giải tán'}</span>
               </button>
             </div>
           </div>
