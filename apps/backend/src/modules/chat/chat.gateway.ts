@@ -248,6 +248,76 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
+  @SubscribeMessage('chat:read')
+  async handleMessageRead(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { channelId: string; messageId: string },
+  ) {
+    const userId = client.data.userId;
+    if (!userId || !data?.channelId || !data?.messageId) return;
+
+    try {
+      const channel = await this.prisma.channel.findUnique({
+        where: { id: data.channelId },
+        include: {
+          circle: {
+            include: {
+              members: {
+                where: { userId },
+              },
+            },
+          },
+        },
+      });
+
+      if (!channel || channel.circle.members.length === 0) return;
+
+      const receipt = await this.prisma.messageReceipt.upsert({
+        where: {
+          messageId_userId: { messageId: data.messageId, userId },
+        },
+        update: {
+          readAt: new Date(),
+        },
+        create: {
+          messageId: data.messageId,
+          userId,
+          readAt: new Date(),
+        },
+        include: {
+          user: {
+            include: { profile: true },
+          },
+        },
+      });
+
+      const reader = {
+        userId,
+        displayName: receipt.user?.profile?.displayName || client.data.displayName || 'Member',
+        avatarUrl: receipt.user?.profile?.avatarUrl || null,
+        readAt: receipt.readAt.toISOString(),
+      };
+
+      client.to(`channel:${data.channelId}`).emit('chat:user-read', {
+        channelId: data.channelId,
+        messageId: data.messageId,
+        reader,
+      });
+    } catch (err: any) {
+      this.logger.debug(`Error handling socket chat:read: ${err.message}`);
+    }
+  }
+
+  broadcastMessageRead(channelId: string, messageId: string, reader: any) {
+    if (this.server) {
+      this.server.to(`channel:${channelId}`).emit('chat:user-read', {
+        channelId,
+        messageId,
+        reader,
+      });
+    }
+  }
+
   broadcastReaction(channelId: string, payload: any) {
     if (this.server) {
       this.server.to(`channel:${channelId}`).emit('chat:reaction', payload);

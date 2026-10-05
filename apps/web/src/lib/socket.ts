@@ -135,6 +135,16 @@ export function sendTypingStatus(channelId: string, isTyping: boolean, userName?
 }
 
 /**
+ * Emit message read receipt to mark message as read.
+ */
+export function sendMessageRead(channelId: string, messageId: string): void {
+  const s = getSocket();
+  if (s && channelId && messageId) {
+    s.emit('chat:read', { channelId, messageId });
+  }
+}
+
+/**
  * Request list of currently online user IDs in a circle.
  */
 export function queryCircleOnlineUsers(

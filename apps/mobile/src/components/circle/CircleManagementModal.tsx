@@ -64,7 +64,9 @@ import {
   useSelectableFriendsQuery,
   useReviewJoinRequestMutation,
   useUpdateCircleMutation,
+  useCreateReportMutation,
 } from '../../hooks/use-circle-queries';
+import { getStorageItem, setStorageItem } from '../../services/storage';
 import { MemberRole } from '@circle/types';
 
 function getInitials(name: string): string {
@@ -118,6 +120,7 @@ export function CircleManagementModal() {
   const addMembersMutation = useAddMembersMutation(circleId || '');
   const reviewJoinRequestMutation = useReviewJoinRequestMutation(circleId || '');
   const updateCircleMutation = useUpdateCircleMutation(circleId || '');
+  const createReportMutation = useCreateReportMutation(circleId || '');
 
   // Tab 1: Chat Info States (Pencil Edit Mode & Avatar Picker)
   const [isEditingChatInfo, setIsEditingChatInfo] = useState(false);
@@ -196,6 +199,18 @@ export function CircleManagementModal() {
       setIsMsgLevelModalOpen(false);
       setIsCapacityModalOpen(false);
       setEditingMember(null);
+
+      if (circle?.id) {
+        getStorageItem(`circle_${circle.id}_read_receipts`).then((v) => {
+          if (v !== null) setReadReceipts(v === 'true');
+        });
+        getStorageItem(`circle_${circle.id}_typing_indicator`).then((v) => {
+          if (v !== null) setShowTypingIndicator(v === 'true');
+        });
+        getStorageItem(`circle_${circle.id}_ai_processing`).then((v) => {
+          if (v !== null) setAllowAiProcessing(v === 'true');
+        });
+      }
     }
   }, [visible, circle]);
 
@@ -500,21 +515,60 @@ export function CircleManagementModal() {
     );
   };
 
-  const handleSubmitReportCircle = () => {
-    setIsReportOpen(false);
-    setSuccessMessage(t.circle.reportSubmittedSuccess || 'Đã gửi báo cáo vi phạm');
-    setTimeout(() => setSuccessMessage(null), 3500);
+  const handleToggleReadReceipts = (val: boolean) => {
+    setReadReceipts(val);
+    if (circleId) {
+      setStorageItem(`circle_${circleId}_read_receipts`, String(val));
+    }
   };
 
-  const handleSubmitReportUser = () => {
-    if (!reportedUserId) {
+  const handleToggleTypingIndicator = (val: boolean) => {
+    setShowTypingIndicator(val);
+    if (circleId) {
+      setStorageItem(`circle_${circleId}_typing_indicator`, String(val));
+    }
+  };
+
+  const handleToggleAiProcessing = (val: boolean) => {
+    setAllowAiProcessing(val);
+    if (circleId) {
+      setStorageItem(`circle_${circleId}_ai_processing`, String(val));
+    }
+  };
+
+  const handleSubmitReportCircle = async () => {
+    if (!circleId) return;
+    try {
+      await createReportMutation.mutateAsync({
+        targetType: 'CIRCLE',
+        reason: reportReason,
+      });
+      setIsReportOpen(false);
+      setSuccessMessage(t.circle.reportSubmittedSuccess || 'Đã gửi báo cáo vi phạm');
+      setTimeout(() => setSuccessMessage(null), 3500);
+    } catch (err: any) {
+      Alert.alert(t.common.appName || 'CIRCLE', err?.message || 'Không thể gửi báo cáo');
+    }
+  };
+
+  const handleSubmitReportUser = async () => {
+    if (!reportedUserId || !circleId) {
       Alert.alert('CIRCLE', 'Vui lòng chọn thành viên cần báo cáo');
       return;
     }
-    setIsReportUserOpen(false);
-    setReportedUserId('');
-    setSuccessMessage('Đã gửi báo cáo người dùng vi phạm');
-    setTimeout(() => setSuccessMessage(null), 3500);
+    try {
+      await createReportMutation.mutateAsync({
+        targetType: 'USER',
+        targetUserId: reportedUserId,
+        reason: reportUserReason,
+      });
+      setIsReportUserOpen(false);
+      setReportedUserId('');
+      setSuccessMessage('Đã gửi báo cáo người dùng vi phạm');
+      setTimeout(() => setSuccessMessage(null), 3500);
+    } catch (err: any) {
+      Alert.alert(t.common.appName || 'CIRCLE', err?.message || 'Không thể gửi báo cáo');
+    }
   };
 
   if (!circle) return null;
@@ -1247,7 +1301,7 @@ export function CircleManagementModal() {
                   </View>
                   <Switch
                     value={readReceipts}
-                    onValueChange={(val) => setReadReceipts(val)}
+                    onValueChange={handleToggleReadReceipts}
                     trackColor={{ false: colors.hairline, true: colors.primary }}
                   />
                 </View>
@@ -1261,7 +1315,7 @@ export function CircleManagementModal() {
                   </View>
                   <Switch
                     value={showTypingIndicator}
-                    onValueChange={(val) => setShowTypingIndicator(val)}
+                    onValueChange={handleToggleTypingIndicator}
                     trackColor={{ false: colors.hairline, true: colors.primary }}
                   />
                 </View>
@@ -1275,7 +1329,7 @@ export function CircleManagementModal() {
                   </View>
                   <Switch
                     value={allowAiProcessing}
-                    onValueChange={(val) => setAllowAiProcessing(val)}
+                    onValueChange={handleToggleAiProcessing}
                     trackColor={{ false: colors.hairline, true: colors.primary }}
                   />
                 </View>

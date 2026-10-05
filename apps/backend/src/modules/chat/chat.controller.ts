@@ -124,4 +124,19 @@ export class ChatController {
     const locale = resolveLocale(circleLocale, acceptLanguage);
     return this.chatService.unpinMessage(user.id, messageId, locale);
   }
+
+  /**
+   * POST /api/v1/messages/:messageId/read — Mark message as read
+   */
+  @Post('messages/:messageId/read')
+  @HttpCode(HttpStatus.OK)
+  async markMessageAsRead(
+    @CurrentUser() user: AuthUserData,
+    @Param('messageId') messageId: string,
+    @Headers('x-circle-locale') circleLocale?: string,
+    @Headers('accept-language') acceptLanguage?: string,
+  ) {
+    const locale = resolveLocale(circleLocale, acceptLanguage);
+    return this.chatService.markMessageAsRead(user.id, messageId, locale);
+  }
 }

@@ -143,6 +143,12 @@ export function createCircleSchemas(locale: Locale = 'vi') {
     addMembersSchema: z.object({
       memberIds: z.array(z.string().min(1)).min(1, v.circleNameOrFriendsRequired),
     }),
+    createReportSchema: z.object({
+      targetType: z.enum(['CIRCLE', 'USER']).optional().default('CIRCLE'),
+      targetUserId: z.string().optional().nullable(),
+      reason: z.string().trim().min(1, 'Vui lòng chọn lý do báo cáo'),
+      details: z.string().trim().max(1000).optional().nullable(),
+    }),
   };
 }
 
@@ -158,6 +164,7 @@ export const reviewJoinRequestSchema = defaultSchemas.reviewJoinRequestSchema;
 export const transferOwnershipSchema = defaultSchemas.transferOwnershipSchema;
 export const updateNicknameSchema = defaultSchemas.updateNicknameSchema;
 export const addMembersSchema = defaultSchemas.addMembersSchema;
+export const createReportSchema = defaultSchemas.createReportSchema;
 
 export type CreateCircleInput = z.infer<typeof createCircleSchema>;
 export type UpdateCircleInput = z.infer<typeof updateCircleSchema>;
@@ -168,3 +175,4 @@ export type ReviewJoinRequestInput = z.infer<typeof reviewJoinRequestSchema>;
 export type TransferOwnershipInput = z.infer<typeof transferOwnershipSchema>;
 export type UpdateNicknameInput = z.infer<typeof updateNicknameSchema>;
 export type AddMembersInput = z.infer<typeof addMembersSchema>;
+export type CreateReportInput = z.input<typeof createReportSchema>;

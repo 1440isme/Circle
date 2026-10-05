@@ -53,6 +53,11 @@ describe('CirclesService — Unit Tests (US-CIRCLE-001 & US-CIRCLE-002)', () => 
     friendship: {
       findMany: jest.fn(),
     },
+    circleReport: {
+      create: jest.fn(),
+      findMany: jest.fn(),
+      findUnique: jest.fn(),
+    },
     $transaction: jest.fn(),
   };
 
@@ -957,6 +962,60 @@ describe('CirclesService — Unit Tests (US-CIRCLE-001 & US-CIRCLE-002)', () => 
       await expect(
         service.addMembers(circleId, 'outsider', ['user-f1']),
       ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('deleteCircle (US-CIRCLE-004)', () => {
+    const circleId = 'circle-del-1';
+    const ownerId = 'user-owner-1';
+
+    it('should allow OWNER to dissolve / delete circle', async () => {
+      mockPrisma.circle.findUnique.mockResolvedValueOnce({
+        id: circleId,
+        deletedAt: null,
+        members: [{ id: 'm-owner', userId: ownerId, role: MemberRole.OWNER }],
+      });
+      mockPrisma.circle.update.mockResolvedValueOnce({ id: circleId, deletedAt: new Date() });
+
+      const result = await service.deleteCircle(circleId, ownerId);
+      expect(result.success).toBe(true);
+      expect(mockPrisma.circle.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: circleId }, data: expect.objectContaining({ deletedAt: expect.any(Date) }) }),
+      );
+    });
+
+    it('should reject non-OWNER from deleting circle', async () => {
+      mockPrisma.circle.findUnique.mockResolvedValueOnce({
+        id: circleId,
+        deletedAt: null,
+        members: [{ id: 'm-mem', userId: 'user-member-1', role: MemberRole.MEMBER }],
+      });
+
+      await expect(service.deleteCircle(circleId, 'user-member-1')).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('createReport (US-ADMIN-001)', () => {
+    const circleId = 'circle-rep-1';
+    const reporterId = 'user-rep-1';
+
+    it('should allow circle member to submit a report', async () => {
+      mockPrisma.circle.findUnique.mockResolvedValueOnce({
+        id: circleId,
+        deletedAt: null,
+        members: [{ id: 'm-rep', userId: reporterId, role: MemberRole.MEMBER }],
+      });
+      mockPrisma.circleReport.create.mockResolvedValueOnce({
+        id: 'rep-123',
+        reporterId,
+        circleId,
+        reason: 'spam',
+      });
+
+      const result = await service.createReport(circleId, reporterId, { targetType: 'CIRCLE', reason: 'spam', details: 'Spamming links' });
+      expect(result.success).toBe(true);
+      expect(result.statusCode).toBe(201);
+      expect(mockPrisma.circleReport.create).toHaveBeenCalled();
     });
   });
 });

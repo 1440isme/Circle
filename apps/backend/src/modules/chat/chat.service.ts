@@ -14,7 +14,7 @@ import {
   locales,
 } from '@circle/shared';
 import { MessageType } from '@prisma/client';
-import { ApiResponse, MessageEntity, CursorPaginatedMessages } from '@circle/types';
+import { ApiResponse, MessageEntity, CursorPaginatedMessages, MessageReaderEntity } from '@circle/types';
 
 @Injectable()
 export class ChatService {
@@ -148,6 +148,18 @@ export class ChatService {
       reactionCounts,
       userReactions,
       isPinned: !!msg.pinnedRecord,
+      readers: msg.receipts?.map((r: any) => ({
+        userId: r.userId,
+        displayName: r.user?.profile?.displayName || r.user?.email?.split('@')[0] || 'Member',
+        avatarUrl: r.user?.profile?.avatarUrl || null,
+        readAt: r.readAt instanceof Date ? r.readAt.toISOString() : new Date(r.readAt).toISOString(),
+      })) || [],
+      receipts: msg.receipts?.map((r: any) => ({
+        id: r.id,
+        messageId: r.messageId,
+        userId: r.userId,
+        readAt: r.readAt instanceof Date ? r.readAt.toISOString() : new Date(r.readAt).toISOString(),
+      })) || [],
     };
   }
 
@@ -190,6 +202,7 @@ export class ChatService {
             replyTo: { include: { sender: { include: { user: { include: { profile: true } } } } } },
             reactions: { include: { member: { include: { user: { include: { profile: true } } } } } },
             pinnedRecord: true,
+            receipts: { include: { user: { include: { profile: true } } } },
           },
         });
       } else {
@@ -204,6 +217,7 @@ export class ChatService {
             replyTo: { include: { sender: { include: { user: { include: { profile: true } } } } } },
             reactions: { include: { member: { include: { user: { include: { profile: true } } } } } },
             pinnedRecord: true,
+            receipts: { include: { user: { include: { profile: true } } } },
           },
         });
       }
@@ -217,6 +231,7 @@ export class ChatService {
           replyTo: { include: { sender: { include: { user: { include: { profile: true } } } } } },
           reactions: { include: { member: { include: { user: { include: { profile: true } } } } } },
           pinnedRecord: true,
+          receipts: { include: { user: { include: { profile: true } } } },
         },
       });
     }
@@ -295,6 +310,7 @@ export class ChatService {
         replyTo: { include: { sender: { include: { user: { include: { profile: true } } } } } },
         reactions: { include: { member: { include: { user: { include: { profile: true } } } } } },
         pinnedRecord: true,
+        receipts: { include: { user: { include: { profile: true } } } },
       },
     });
 
@@ -532,6 +548,69 @@ export class ChatService {
       success: true,
       statusCode: 200,
       data: messages,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  /**
+   * POST /api/v1/messages/:messageId/read — Mark message as read
+   */
+  async markMessageAsRead(
+    userId: string,
+    messageId: string,
+    locale: Locale = 'vi',
+  ): Promise<ApiResponse<MessageReaderEntity>> {
+    const t = locales[locale] || locales.vi;
+    const message = await this.prisma.message.findUnique({
+      where: { id: messageId },
+      include: {
+        channel: {
+          include: {
+            circle: true,
+          },
+        },
+      },
+    });
+
+    if (!message || message.deletedAt) {
+      throw new NotFoundException(t.chat.messageNotFound);
+    }
+
+    await this.ensureCircleMembership(userId, message.channel.circleId, locale);
+
+    const receipt = await this.prisma.messageReceipt.upsert({
+      where: {
+        messageId_userId: { messageId, userId },
+      },
+      update: {
+        readAt: new Date(),
+      },
+      create: {
+        messageId,
+        userId,
+        readAt: new Date(),
+      },
+      include: {
+        user: {
+          include: { profile: true },
+        },
+      },
+    });
+
+    const reader: MessageReaderEntity = {
+      userId,
+      displayName: receipt.user?.profile?.displayName || receipt.user?.email?.split('@')[0] || 'Member',
+      avatarUrl: receipt.user?.profile?.avatarUrl || null,
+      readAt: receipt.readAt.toISOString(),
+    };
+
+    // Broadcast to channel room
+    this.chatGateway.broadcastMessageRead(message.channelId, messageId, reader);
+
+    return {
+      success: true,
+      statusCode: 200,
+      data: reader,
       timestamp: new Date().toISOString(),
     };
   }
