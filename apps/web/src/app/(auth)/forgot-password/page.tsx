@@ -8,6 +8,7 @@ import { forgotPasswordSchema } from '@circle/shared';
 import { useForgotPasswordMutation } from '../../../hooks/use-auth-mutations';
 import { useLanguageStore } from '../../../stores/language.store';
 import { AuthGuard } from '../../../components/auth/AuthGuard';
+import { TurnstileWidget } from '../../../components/auth/TurnstileWidget';
 
 export default function ForgotPasswordPage() {
   const router = useRouter();
@@ -15,6 +16,7 @@ export default function ForgotPasswordPage() {
   const forgotMutation = useForgotPasswordMutation();
 
   const [email, setEmail] = useState('');
+  const [turnstileToken, setTurnstileToken] = useState<string | undefined>(undefined);
   const [fieldErrors, setFieldErrors] = useState<{ email?: string[] }>({});
   const [apiError, setApiError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -31,7 +33,10 @@ export default function ForgotPasswordPage() {
     }
 
     try {
-      const res = await forgotMutation.mutateAsync({ email: validation.data.email });
+      const res = await forgotMutation.mutateAsync({
+        email: validation.data.email,
+        turnstileToken,
+      });
       setSuccessMsg(res?.message || t.auth.resetOtpSentSuccess);
       setTimeout(() => {
         router.push(`/reset-password?email=${encodeURIComponent(validation.data.email)}`);
@@ -96,6 +101,13 @@ export default function ForgotPasswordPage() {
               <p className="mt-1.5 text-xs text-circle-coral">{fieldErrors.email[0]}</p>
             )}
           </div>
+
+          {/* Cloudflare Turnstile bot verification */}
+          <TurnstileWidget
+            onVerify={(t) => setTurnstileToken(t)}
+            onExpire={() => setTurnstileToken(undefined)}
+            onError={() => setTurnstileToken(undefined)}
+          />
 
           {/* Submit button */}
           <button

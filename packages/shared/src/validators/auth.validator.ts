@@ -47,6 +47,7 @@ export function createAuthSchemas(locale: Locale = 'vi') {
     password: z
       .string()
       .min(1, v.passwordRequired),
+    turnstileToken: z.string().optional(),
   });
 
   const registerDtoSchema = z.object({
@@ -62,6 +63,7 @@ export function createAuthSchemas(locale: Locale = 'vi') {
       .email(v.emailInvalid)
       .toLowerCase(),
     password: strongPasswordSchema,
+    turnstileToken: z.string().optional(),
   });
 
   const registerSchema = registerDtoSchema
@@ -110,6 +112,7 @@ export function createAuthSchemas(locale: Locale = 'vi') {
       .min(1, v.emailRequired)
       .email(v.emailInvalid)
       .toLowerCase(),
+    turnstileToken: z.string().optional(),
   });
 
   const resetPasswordDtoSchema = z.object({

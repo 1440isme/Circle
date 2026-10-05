@@ -10,6 +10,7 @@ import { useLanguageStore } from '../../../stores/language.store';
 import { AuthGuard } from '../../../components/auth/AuthGuard';
 import { PasswordStrengthIndicator } from '../../../components/auth/PasswordStrengthIndicator';
 import { TrustBanner } from '../../../components/auth/TrustBanner';
+import { TurnstileWidget } from '../../../components/auth/TurnstileWidget';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -22,6 +23,7 @@ export default function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [agreeTerms, setAgreeTerms] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | undefined>(undefined);
 
   const [fieldErrors, setFieldErrors] = useState<{
     displayName?: string[];
@@ -69,6 +71,7 @@ export default function RegisterPage() {
         displayName: validationResult.data.displayName,
         email: validationResult.data.email,
         password: validationResult.data.password,
+        turnstileToken,
       });
       router.push(`/verify-otp?email=${encodeURIComponent(validationResult.data.email)}`);
     } catch (err: any) {
@@ -248,6 +251,13 @@ export default function RegisterPage() {
               {t.auth.termsAgreement}
             </label>
           </div>
+
+          {/* Cloudflare Turnstile bot verification */}
+          <TurnstileWidget
+            onVerify={(token) => setTurnstileToken(token)}
+            onExpire={() => setTurnstileToken(undefined)}
+            onError={() => setTurnstileToken(undefined)}
+          />
 
           {/* Submit Button */}
           <div className="pt-2">

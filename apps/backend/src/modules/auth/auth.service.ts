@@ -22,6 +22,7 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { AuthResponseData, AuthTokens, AuthUserData, GlobalRole, SessionEntity } from '@circle/types';
 import { Locale, locales } from '@circle/shared';
+import { TurnstileService } from './turnstile.service';
 
 @Injectable()
 export class AuthService {
@@ -33,6 +34,7 @@ export class AuthService {
     private readonly mailService: MailService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly turnstileService: TurnstileService,
   ) {}
 
   /**
@@ -120,10 +122,18 @@ export class AuthService {
   async register(
     dto: RegisterDto,
     _userAgent?: string,
-    _ipAddress?: string,
+    ipAddress?: string,
     locale: Locale = 'vi',
   ): Promise<AuthResponseData> {
     const t = locales[locale] || locales.vi;
+
+    if (this.turnstileService.isEnabled()) {
+      const isHuman = await this.turnstileService.validateToken(dto.turnstileToken, ipAddress);
+      if (!isHuman) {
+        throw new BadRequestException(t.auth.turnstileFailed);
+      }
+    }
+
     const existingUser = await this.prisma.user.findUnique({
       where: { email: dto.email.toLowerCase() },
     });
@@ -187,6 +197,14 @@ export class AuthService {
     locale: Locale = 'vi',
   ): Promise<AuthResponseData> {
     const t = locales[locale] || locales.vi;
+
+    if (this.turnstileService.isEnabled()) {
+      const isHuman = await this.turnstileService.validateToken(dto.turnstileToken, ipAddress);
+      if (!isHuman) {
+        throw new BadRequestException(t.auth.turnstileFailed);
+      }
+    }
+
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email.toLowerCase() },
       include: { profile: true },
@@ -393,6 +411,14 @@ export class AuthService {
     locale: Locale = 'vi',
   ): Promise<{ message: string }> {
     const t = locales[locale] || locales.vi;
+
+    if (this.turnstileService.isEnabled()) {
+      const isHuman = await this.turnstileService.validateToken(dto.turnstileToken);
+      if (!isHuman) {
+        throw new BadRequestException(t.auth.turnstileFailed);
+      }
+    }
+
     const email = dto.email.toLowerCase();
     const user = await this.prisma.user.findUnique({
       where: { email },

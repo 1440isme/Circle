@@ -189,6 +189,9 @@ export const vi = {
     privacyPolicyBullet1: 'Dữ liệu nhóm là riêng tư tuyệt đối: Chỉ thành viên trong Vòng tròn mới xem được nội dung.',
     privacyPolicyBullet2: 'Không thu thập dữ liệu cá nhân cho mục đích quảng cáo hoặc bán cho bên thứ ba.',
     privacyPolicyBullet3: 'Bạn có toàn quyền xóa dữ liệu và kiểm soát các thiết bị đăng nhập bất cứ lúc nào.',
+    turnstileVerify: 'Xác thực an toàn Cloudflare',
+    turnstileRequired: 'Vui lòng hoàn thành xác thực bảo mật trước khi tiếp tục',
+    turnstileFailed: 'Xác thực bảo mật không thành công hoặc đã hết hạn, vui lòng thử lại',
   },
   validation: {
     emailRequired: 'Email không được để trống',

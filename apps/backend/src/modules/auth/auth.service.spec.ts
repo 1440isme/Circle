@@ -4,6 +4,7 @@ import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
 import * as bcrypt from 'bcryptjs';
 import { AuthService } from './auth.service';
+import { TurnstileService } from './turnstile.service';
 import { PrismaService } from '../../database/prisma.service';
 import { RedisService } from '../../database/redis.service';
 import { MailService } from '../mail/mail.service';
@@ -16,6 +17,7 @@ describe('AuthService — Full Test Suite (TC-AUTH-001 to TC-AUTH-006)', () => {
   let mailService: any;
   let jwtService: any;
   let configService: any;
+  let turnstileService: any;
 
   const mockUser = {
     id: 'user-cuid-1',
@@ -95,6 +97,11 @@ describe('AuthService — Full Test Suite (TC-AUTH-001 to TC-AUTH-006)', () => {
       }),
     };
 
+    turnstileService = {
+      isEnabled: jest.fn().mockReturnValue(false),
+      validateToken: jest.fn().mockResolvedValue(true),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
@@ -103,6 +110,7 @@ describe('AuthService — Full Test Suite (TC-AUTH-001 to TC-AUTH-006)', () => {
         { provide: MailService, useValue: mailService },
         { provide: JwtService, useValue: jwtService },
         { provide: ConfigService, useValue: configService },
+        { provide: TurnstileService, useValue: turnstileService },
       ],
     }).compile();
 
@@ -513,4 +521,41 @@ describe('AuthService — Full Test Suite (TC-AUTH-001 to TC-AUTH-006)', () => {
       expect(result.message).toBeDefined();
     });
   });
+
+  describe('Turnstile Bot Protection (TC-AUTH-TURNSTILE-001 & 002)', () => {
+    it('TC-AUTH-TURNSTILE-001: should throw BadRequestException if Turnstile is enabled and token validation fails', async () => {
+      turnstileService.isEnabled.mockReturnValue(true);
+      turnstileService.validateToken.mockResolvedValue(false);
+
+      const dto = {
+        email: 'bot@example.com',
+        password: 'Password123!',
+        displayName: 'Bot User',
+        turnstileToken: 'fake-bot-token',
+      };
+
+      await expect(service.register(dto as any, undefined, '127.0.0.1', 'vi')).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('TC-AUTH-TURNSTILE-002: should proceed with registration when Turnstile token is valid', async () => {
+      turnstileService.isEnabled.mockReturnValue(true);
+      turnstileService.validateToken.mockResolvedValue(true);
+      prisma.user.findUnique.mockResolvedValue(null);
+      prisma.user.create.mockResolvedValue({ ...mockUser, isActivated: false });
+
+      const dto = {
+        email: 'human@example.com',
+        password: 'Password123!',
+        displayName: 'Human User',
+        turnstileToken: 'valid-turnstile-token',
+      };
+
+      const result = await service.register(dto as any, undefined, '127.0.0.1', 'vi');
+      expect(result).toBeDefined();
+      expect(turnstileService.validateToken).toHaveBeenCalledWith('valid-turnstile-token', '127.0.0.1');
+    });
+  });
 });
+

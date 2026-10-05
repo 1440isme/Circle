@@ -3311,7 +3311,7 @@
 
 ---
 
-## AI-0082: Tối ưu hóa Module Xác thực (Auth UX & Security) cho Mạng xã hội nhóm riêng tư: Kiểm tra độ phức tạp Mật khẩu Đa tầng, Quản lý Phiên đăng nhập & Thiết bị từ xa (Session Management), Mở khóa Sinh trắc học (Face ID / Vân tay) trên Mobile, Tín hiệu Tin cậy & Cam kết Bảo mật (Trust Signals)
+## AI-0083: Tối ưu hóa Module Xác thực (Auth UX & Security) cho Mạng xã hội nhóm riêng tư: Kiểm tra độ phức tạp Mật khẩu Đa tầng, Quản lý Phiên đăng nhập & Thiết bị từ xa (Session Management), Mở khóa Sinh trắc học (Face ID / Vân tay) trên Mobile, Tín hiệu Tin cậy & Cam kết Bảo mật (Trust Signals)
 
 - **Date:** 2026-10-05 21:12:00 +07:00
 - **Developer:** Trương Công Bình (MSSV: 23110184)
@@ -3389,5 +3389,58 @@
   - **Resolution / Fix:** Sửa thứ tự kiểm tra `iOS` trước `macOS` trong `parseUserAgent`, bổ sung `findFirst`, `findMany` vào mock Prisma, và thêm key `close` vào cả `vi.ts` và `en.ts` trong `@circle/shared`.
 - **Commit:** `a9a0046`
 - **PR:** #74
+
+---
+
+## AI-0084: Implement Cloudflare Turnstile Bot Protection across Auth Flows
+
+- **Date:** 2026-10-05 23:00:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #74 (US-AUTH-SEC: Privacy-First Bot Protection & Cloudflare Turnstile Verification)
+- **Purpose:** Tích hợp cơ chế bảo vệ chống bot, chống tấn công brute-force và credential stuffing bằng Cloudflare Turnstile không ma sát (frictionless / privacy-preserving) cho các biểu mẫu Xác thực (Login, Register, Forgot Password):
+  1. **Shared Contracts & Locales:** Bổ sung `turnstileToken` tùy chọn vào `loginSchema`, `registerDtoSchema`, `forgotPasswordSchema` trong `@circle/shared`. Thêm các khóa bản địa hóa song ngữ `vi`/`en`: `turnstileVerify`, `turnstileRequired`, `turnstileFailed`.
+  2. **Backend Turnstile Verification Service:** Tạo `TurnstileService` trong `apps/backend/src/modules/auth/turnstile.service.ts` để gọi API xác thực `https://challenges.cloudflare.com/turnstile/v0/siteverify` với Cloudflare. Hỗ trợ cờ bật/tắt `TURNSTILE_ENABLED` và khóa kiểm thử chính thức của Cloudflare (`1x0000000000000000000000000000000AA`) đảm bảo môi trường local dev và CI luôn pass 100%. Tích hợp kiểm tra token vào `AuthService.register`, `AuthService.login`, `AuthService.forgotPassword`.
+  3. **Turnstile Unit Tests:** Thêm 5 unit tests toàn diện trong `turnstile.service.spec.ts` và 2 test case (`TC-AUTH-TURNSTILE-001`, `TC-AUTH-TURNSTILE-002`) trong `auth.service.spec.ts`. Toàn bộ 116/116 unit tests backend vượt qua 100%.
+  4. **Frontend Turnstile Widget & UI Integration:** Xây dựng component `TurnstileWidget` tự động nạp SDK Cloudflare Turnstile render explicit, nhận diện dark/light theme động từ `useThemeStore`, dọn dẹp widget an toàn khi unmount. Nhúng widget vào các màn hình Web:
+     - `apps/web/src/app/(auth)/login/page.tsx`
+     - `apps/web/src/app/(auth)/register/page.tsx`
+     - `apps/web/src/app/(auth)/forgot-password/page.tsx`
+- **Prompt Summary:** "con ve phan dang ky hoac dang nhap toi thay thay co captcha hoac cloudfare verify gi do -> ok"
+- **Files Affected:**
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `packages/shared/src/validators/auth.validator.ts`
+  - `apps/backend/src/modules/auth/turnstile.service.ts`
+  - `apps/backend/src/modules/auth/turnstile.service.spec.ts`
+  - `apps/backend/src/modules/auth/auth.module.ts`
+  - `apps/backend/src/modules/auth/auth.service.ts`
+  - `apps/backend/src/modules/auth/auth.service.spec.ts`
+  - `apps/backend/src/modules/auth/dto/register.dto.ts`
+  - `apps/backend/src/modules/auth/dto/login.dto.ts`
+  - `apps/backend/src/modules/auth/dto/forgot-password.dto.ts`
+  - `apps/web/src/components/auth/TurnstileWidget.tsx`
+  - `apps/web/src/lib/auth.ts`
+  - `apps/web/src/app/(auth)/login/page.tsx`
+  - `apps/web/src/app/(auth)/register/page.tsx`
+  - `apps/web/src/app/(auth)/forgot-password/page.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% TurnstileService, TurnstileWidget, DTO updates, Zod schemas, unit tests và trang Auth forms.
+- **Human Modifications:** Trương Công Bình đặt yêu cầu tích hợp giải pháp xác thực captcha / Cloudflare verification nhằm bảo vệ tài khoản và luồng đăng ký / đăng nhập của người dùng.
+- **Verification Method:**
+  - `npm test -w @circle/backend`: 116/116 unit tests pass 100% (8/8 test suites).
+  - `npm run build -w @circle/web`: Next.js 14 production build pass 100% (9 static routes generated, 0 type errors).
+  - `npm run typecheck -w @circle/mobile`: Pass 100% (0 errors).
+  - `./scripts/check-agent-map.sh`: 94/94 files pass (0 broken references).
+- **Official Source Checked:** Cloudflare Turnstile Server-Side Validation Documentation, Next.js Documentation.
+- **Security & License Check:** Bảo mật cao, sử dụng secret key server-side không lộ client, zero secret leaks, MIT license.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A
+  - **Resolution / Fix:** N/A
+- **Commit:** `5d32982`
+- **PR:** #74
+
 
 

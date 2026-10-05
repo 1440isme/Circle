@@ -191,6 +191,9 @@ export const en: TranslationDictionary = {
     privacyPolicyBullet1: 'Group data is strictly private: Only approved circle members can access content.',
     privacyPolicyBullet2: 'Zero personal data harvesting for advertising or selling to third parties.',
     privacyPolicyBullet3: 'You retain full ownership to erase data and terminate sessions anytime.',
+    turnstileVerify: 'Cloudflare Security Check',
+    turnstileRequired: 'Please complete security check before proceeding',
+    turnstileFailed: 'Security check failed or expired, please try again',
   },
   validation: {
     emailRequired: 'Email is required',
