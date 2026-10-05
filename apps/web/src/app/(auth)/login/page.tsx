@@ -8,6 +8,7 @@ import { loginSchema } from '@circle/shared';
 import { useLoginMutation } from '../../../hooks/use-auth-mutations';
 import { useLanguageStore } from '../../../stores/language.store';
 import { AuthGuard } from '../../../components/auth/AuthGuard';
+import { TrustBanner } from '../../../components/auth/TrustBanner';
 
 function LoginForm() {
   const router = useRouter();
@@ -209,6 +210,9 @@ function LoginForm() {
           </Link>
         </p>
       </div>
+
+      {/* Privacy & Trust Signals */}
+      <TrustBanner />
     </div>
   );
 }

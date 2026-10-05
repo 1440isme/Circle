@@ -22,13 +22,15 @@ import {
   AlertCircle,
   Sparkles,
 } from 'lucide-react-native';
-import { createAuthSchemas, getFirstZodError } from '@circle/shared';
+import { createAuthSchemas, getFirstZodError, checkPasswordRequirements } from '@circle/shared';
 import { useThemeStore } from '../../src/stores/theme.store';
 import { useLanguageStore } from '../../src/stores/language.store';
 import { mobileApiRequest } from '../../src/services/api';
 import { AuthResponseData } from '@circle/types';
 import { Button } from '../../src/components/common/Button';
 import { HeaderControls } from '../../src/components/common/HeaderControls';
+import { PasswordComplexityChecklist } from '../../src/components/auth/PasswordComplexityChecklist';
+import { TrustBanner } from '../../src/components/auth/TrustBanner';
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -53,9 +55,9 @@ export default function RegisterScreen() {
   // Validation helpers
   const isNameValid = displayName.trim().length >= 2;
   const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
-  const isPasswordLongEnough = password.length >= 8;
-  const isPasswordMatching = password.length >= 8 && password === confirmPassword;
-  const isStep3Valid = isPasswordLongEnough && isPasswordMatching;
+  const passwordReqs = checkPasswordRequirements(password);
+  const isPasswordMatching = password.length > 0 && password === confirmPassword;
+  const isStep3Valid = passwordReqs.isValid && isPasswordMatching;
 
   const handleNextStep = () => {
     setApiError(null);
@@ -312,11 +314,11 @@ export default function RegisterScreen() {
                 styles.nativeInputWrapper,
                 {
                   backgroundColor: colors.surface,
-                  borderColor: isPasswordLongEnough ? colors.primary : colors.hairline,
+                  borderColor: passwordReqs.minLength ? colors.primary : colors.hairline,
                 },
               ]}
             >
-              <Lock size={20} color={isPasswordLongEnough ? colors.primary : colors.subtle} />
+              <Lock size={20} color={passwordReqs.minLength ? colors.primary : colors.subtle} />
               <View style={styles.inputInner}>
                 {!password ? (
                   <Text
@@ -390,43 +392,20 @@ export default function RegisterScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Checklist */}
-            <View style={styles.checklist}>
-              <View style={styles.checkItem}>
-                <CheckCircle2
-                  size={15}
-                  color={isPasswordLongEnough ? colors.primary : colors.subtle}
-                />
-                <Text
-                  style={[
-                    styles.checkText,
-                    { color: isPasswordLongEnough ? colors.text : colors.subtle },
-                  ]}
-                >
-                  {t.auth.min8Chars}
-                </Text>
-              </View>
-
-              <View style={styles.checkItem}>
-                <CheckCircle2
-                  size={15}
-                  color={isPasswordMatching ? colors.primary : colors.subtle}
-                />
-                <Text
-                  style={[
-                    styles.checkText,
-                    { color: isPasswordMatching ? colors.text : colors.subtle },
-                  ]}
-                >
-                  {t.auth.passwordMatch}
-                </Text>
-              </View>
-            </View>
+            {/* Realtime Password Complexity Checklist */}
+            <PasswordComplexityChecklist
+              password={password}
+              confirmPassword={confirmPassword}
+              showMatch={true}
+            />
 
             {/* Terms notice */}
             <Text style={[styles.termsText, { color: colors.subtle }]}>
               {t.auth.termsAgreement}
             </Text>
+
+            {/* Privacy Trust Banner */}
+            <TrustBanner />
           </View>
         )}
       </ScrollView>

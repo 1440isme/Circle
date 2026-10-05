@@ -3256,3 +3256,85 @@
 - **Commit:** Pending
 - **PR:** #70
 
+---
+
+## AI-0081: Tối ưu hóa Module Xác thực (Auth UX & Security) cho Mạng xã hội nhóm riêng tư: Kiểm tra độ phức tạp Mật khẩu Đa tầng, Quản lý Phiên đăng nhập & Thiết bị từ xa (Session Management), Mở khóa Sinh trắc học (Face ID / Vân tay) trên Mobile, Tín hiệu Tin cậy & Cam kết Bảo mật (Trust Signals)
+
+- **Date:** 2026-10-05 21:12:00 +07:00
+- **Developer:** Trương Công Bình (MSSV: 23110184)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** Module 1 (Authentication, Security & Session Governance)
+- **Purpose:** Triển khai toàn diện các chuẩn UX & Security đặc thù của mạng xã hội riêng tư (Private Social Network) theo chuẩn mực Signal, Telegram, Apple:
+  1. **Kiểm tra độ phức tạp mật khẩu đa tầng (Strong Password Enforcement):**
+     - Cập nhật Zod schemas tại `@circle/shared` (`registerDtoSchema`, `registerSchema`, `resetPasswordDtoSchema`, `resetPasswordSchema`) bắt buộc 4 tiêu chí phức tạp: chữ hoa (`[A-Z]`), chữ thường (`[a-z]`), số (`[0-9]`), ký tự đặc biệt (`[^A-Za-z0-9]`) cùng tối thiểu 8 ký tự.
+     - Cung cấp hàm kiểm tra `checkPasswordRequirements(password)` trả về trạng thái chi tiết từng tiêu chí.
+     - Đồng bộ từ điển đa ngôn ngữ (`vi.ts`, `en.ts`) với 100% không hardcode chuỗi.
+  2. **Chỉ số đo độ mạnh mật khẩu thời gian thực (Real-time Password Strength UI):**
+     - **Web (`apps/web`):** Xây dựng `PasswordStrengthIndicator.tsx` gồm thanh đo trực quan 4 nấc (Yếu, Trung bình, Rất an toàn) và danh sách kiểm tra động 5 tiêu chí + trạng thái trùng khớp mật khẩu xác nhận. Tích hợp trực tiếp vào màn Đăng ký (`/register`) và Đặt lại mật khẩu (`/reset-password`).
+     - **Mobile (`apps/mobile`):** Xây dựng `PasswordComplexityChecklist.tsx` hiển thị trạng thái từng tiêu chí trong wizard Đăng ký và Đặt lại mật khẩu (`PasswordRecoveryWizard.tsx`).
+  3. **Tín hiệu tin cậy & Cam kết bảo mật (Trust Signals & Privacy Commitment):**
+     - Web & Mobile: Xây dựng `TrustBanner.tsx` kèm biểu tượng khiên bảo vệ "Mạng xã hội riêng tư 100% (Mã hóa an toàn · Không quảng cáo · Không theo dõi hành vi)" và modal cam kết quyền riêng tư 3 điểm then chốt.
+  4. **Quản lý thiết bị & Phiên làm việc từ xa (Session & Device Management - Full-stack):**
+     - **Backend (`apps/backend`):** Triển khai 3 API endpoints bảo mật:
+       - `GET /api/v1/auth/sessions`: Truy vấn các phiên đang hoạt động của người dùng, phân tích User Agent (`parseUserAgent`) thành Desktop, Mobile, Tablet, Trình duyệt và Hệ điều hành, đánh dấu phiên hiện tại `isCurrent`.
+       - `DELETE /api/v1/auth/sessions/:sessionId`: Đăng xuất từ xa một thiết bị cụ thể.
+       - `DELETE /api/v1/auth/sessions/other`: Hủy toàn bộ các phiên làm việc trên các thiết bị khác, bảo vệ phiên hiện tại.
+       - Bổ sung 5 unit test cases (`TC-AUTH-SESSION-001` đến `TC-AUTH-SESSION-005`), nâng tổng số unit tests Backend lên 109/109 pass 100%.
+     - **Frontend Web (`apps/web`):** Tạo modal `SessionsManagementModal.tsx` và liên kết trong menu Header của tài khoản, cho phép người dùng xem toàn bộ thiết bị đang đăng nhập, địa chỉ IP, thời gian đăng nhập và đăng xuất từ xa thiết bị lạ.
+  5. **Mở khóa Sinh trắc học (Biometric Authentication) trên Mobile:**
+     - Cài đặt `expo-local-authentication`, xây dựng `biometric.service.ts` kết hợp `expo-secure-store`.
+     - Cho phép người dùng bật/tắt xác thực Face ID / Vân tay trong màn hình Cài đặt cá nhân (`ProfileTab`).
+     - Tự động hiển thị màn hình khóa sinh trắc học khi khởi động app nếu đã bật tính năng này.
+  6. **Đạt toàn bộ tiêu chuẩn nghiệm thu (DoD):**
+     - 109/109 Backend unit tests pass 100%.
+     - Next.js 14 Web build pass 100% (9/9 routes compiled static, 0 lint errors).
+     - Mobile TypeScript typecheck pass 100% (0 errors).
+     - Integrity check `./scripts/check-agent-map.sh` pass 94/94 files (0 broken references).
+- **Prompt Summary:** Tối ưu hóa xác thực cho mạng xã hội nhóm riêng tư theo chuẩn UX & Security: bỏ email OTP vì phiền hà; bắt buộc mật khẩu mạnh (hoa, thường, số, ký tự đặc biệt); quản lý thiết bị/session management; sinh trắc học Face ID/Vân tay cho mobile; trust signals và cam kết bảo mật.
+- **Files Affected:**
+  - `packages/types/src/index.ts`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `packages/shared/src/validators/auth.validator.ts`
+  - `apps/backend/src/modules/auth/auth.service.ts`
+  - `apps/backend/src/modules/auth/auth.controller.ts`
+  - `apps/backend/src/modules/auth/auth.service.spec.ts`
+  - `apps/web/src/lib/auth.ts`
+  - `apps/web/src/hooks/use-auth-mutations.ts`
+  - `apps/web/src/components/auth/PasswordStrengthIndicator.tsx`
+  - `apps/web/src/components/auth/TrustBanner.tsx`
+  - `apps/web/src/components/profile/SessionsManagementModal.tsx`
+  - `apps/web/src/components/header/Header.tsx`
+  - `apps/web/src/app/(auth)/login/page.tsx`
+  - `apps/web/src/app/(auth)/register/page.tsx`
+  - `apps/web/src/app/(auth)/reset-password/page.tsx`
+  - `apps/mobile/package.json`
+  - `apps/mobile/src/services/storage.ts`
+  - `apps/mobile/src/services/biometric.service.ts`
+  - `apps/mobile/src/components/auth/PasswordComplexityChecklist.tsx`
+  - `apps/mobile/src/components/auth/TrustBanner.tsx`
+  - `apps/mobile/src/components/auth/PasswordRecoveryWizard.tsx`
+  - `apps/mobile/app/(auth)/register.tsx`
+  - `apps/mobile/app/(tabs)/profile.tsx`
+  - `apps/mobile/app/_layout.tsx`
+  - `package-lock.json`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% mã nguồn backend controller/service/tests, mobile biometric service & components, web session modal & strength indicator, Zod validator updates và tài liệu nhật ký.
+- **Human Modifications:** Người dùng định hướng nghiệp vụ cốt lõi, tinh giảm các bước gây ma sát thừa (bỏ email OTP) và nhấn mạnh chuẩn bảo mật mật khẩu cùng tính năng quản lý thiết bị và Face ID.
+- **Verification Method:**
+  - `npm test -w @circle/backend`: 109/109 tests pass 100% (7/7 test suites).
+  - `npm run build -w @circle/shared` & `npm run build -w @circle/types`: Pass 100%.
+  - `npm run build -w @circle/web`: Next.js production build pass 100% (all 9 routes static generated, 0 type errors).
+  - `npm run typecheck -w @circle/mobile`: TypeScript pass 100% (0 errors).
+  - `./scripts/check-agent-map.sh`: 94/94 files pass (0 broken references).
+- **Official Source Checked:** `PROJECT_GOD.md` (Module 1 - Auth, Security & Session Governance), `agentic/RULES.md`.
+- **Security & License Check:** Tuân thủ Dual-token + bcrypt + session revocation, input validation chặt chẽ qua Zod, không leak secret, tuân thủ MIT license.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** (1) `parseUserAgent` ban đầu kiểm tra chuỗi `mac os` trước `iphone`, dẫn đến user-agent iOS có chứa `like Mac OS X` bị gán sai thành `macOS`. (2) Mock `refreshToken` trong `auth.service.spec.ts` thiếu `findFirst` và `findMany`. (3) Thuộc tính `close` trong `t.common` ban đầu chưa có trong từ điển shared locales.
+  - **Root Cause:** Sắp xếp thứ tự regex trong heuristic parser và thiếu sót mock khi viết unit test.
+  - **Resolution / Fix:** Sửa thứ tự kiểm tra `iOS` trước `macOS` trong `parseUserAgent`, bổ sung `findFirst`, `findMany` vào mock Prisma, và thêm key `close` vào cả `vi.ts` và `en.ts` trong `@circle/shared`.
+- **Commit:** `b6a65ee`
+- **PR:** #74
+
+

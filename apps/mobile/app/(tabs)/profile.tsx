@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   ScrollView,
   Alert,
   Platform,
+  Switch,
   Image as RNImage,
 } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -30,6 +31,12 @@ import { useLanguageStore } from '../../src/stores/language.store';
 import { useAuthStore } from '../../src/stores/auth.store';
 import { Button } from '../../src/components/common/Button';
 import { EditProfileModal } from '../../src/components/profile/EditProfileModal';
+import {
+  checkBiometricStatus,
+  isBiometricUnlockEnabled,
+  setBiometricUnlockEnabled,
+  authenticateWithBiometrics,
+} from '../../src/services/biometric.service';
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -51,6 +58,35 @@ export default function ProfileTab() {
   const dateOfBirth = user?.profile?.dateOfBirth;
   const initials = getInitials(displayName);
   const [modalMode, setModalMode] = useState<'edit' | 'avatar'>('edit');
+  const [hasBiometrics, setHasBiometrics] = useState(false);
+  const [biometricEnabled, setBiometricEnabled] = useState(false);
+
+  useEffect(() => {
+    async function loadBiometrics() {
+      const status = await checkBiometricStatus();
+      setHasBiometrics(status.hasHardware);
+      if (status.hasHardware) {
+        const enabled = await isBiometricUnlockEnabled();
+        setBiometricEnabled(enabled);
+      }
+    }
+    loadBiometrics();
+  }, []);
+
+  const handleToggleBiometric = async (value: boolean) => {
+    if (value) {
+      const success = await authenticateWithBiometrics(t.auth.biometricPrompt);
+      if (success) {
+        await setBiometricUnlockEnabled(true);
+        setBiometricEnabled(true);
+      } else {
+        Alert.alert(t.auth.biometricTitle, t.auth.biometricFailed);
+      }
+    } else {
+      await setBiometricUnlockEnabled(false);
+      setBiometricEnabled(false);
+    }
+  };
 
   const handleOpenAvatar = () => {
     setModalMode('avatar');
@@ -316,6 +352,28 @@ export default function ProfileTab() {
               </Text>
             </View>
           </View>
+
+          {hasBiometrics && (
+            <View style={[styles.infoRow, { borderTopWidth: 1, borderTopColor: colors.hairline, justifyContent: 'space-between' }]}>
+              <View style={[styles.infoLeft, { flex: 1, paddingRight: 10 }]}>
+                <Shield size={16} color={colors.primary} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.infoLabel, { color: colors.text }]}>
+                    {t.auth.biometricTitle}
+                  </Text>
+                  <Text style={{ fontSize: 11, color: colors.subtle, marginTop: 2 }}>
+                    {t.auth.biometricDesc}
+                  </Text>
+                </View>
+              </View>
+              <Switch
+                value={biometricEnabled}
+                onValueChange={handleToggleBiometric}
+                trackColor={{ false: colors.wash, true: colors.primary }}
+                thumbColor={colors.surface}
+              />
+            </View>
+          )}
         </View>
 
         {/* Logout Button */}

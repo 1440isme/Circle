@@ -104,6 +104,17 @@ export interface AuthResponseData {
   tokens: AuthTokens;
 }
 
+export interface SessionEntity {
+  id: string;
+  deviceType: 'MOBILE' | 'DESKTOP' | 'TABLET' | 'UNKNOWN';
+  browser: string;
+  os: string;
+  ipAddress: string | null;
+  isCurrent: boolean;
+  createdAt: string;
+  expiresAt: string;
+}
+
 // =============================================================================
 // DOMAIN ENTITIES
 // =============================================================================

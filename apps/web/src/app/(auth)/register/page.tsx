@@ -8,6 +8,8 @@ import { registerSchema } from '@circle/shared';
 import { useRegisterMutation } from '../../../hooks/use-auth-mutations';
 import { useLanguageStore } from '../../../stores/language.store';
 import { AuthGuard } from '../../../components/auth/AuthGuard';
+import { PasswordStrengthIndicator } from '../../../components/auth/PasswordStrengthIndicator';
+import { TrustBanner } from '../../../components/auth/TrustBanner';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -188,20 +190,10 @@ export default function RegisterPage() {
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
-            {fieldErrors.password?.[0] ? (
+            {fieldErrors.password?.[0] && (
               <p className="mt-1 text-xs text-circle-coral font-medium">{fieldErrors.password[0]}</p>
-            ) : password.length > 0 ? (
-              <div className="mt-1.5 flex items-center gap-1.5 text-[11px]">
-                <CheckCircle2
-                  className={`h-3.5 w-3.5 ${
-                    isLengthValid ? 'text-circle-sage' : 'text-circle-slate/40'
-                  }`}
-                />
-                <span className={isLengthValid ? 'text-circle-sage font-medium' : 'text-circle-slate dark:text-circle-dark-muted'}>
-                  {t.auth.min8Chars} ({password.length}/8)
-                </span>
-              </div>
-            ) : null}
+            )}
+            <PasswordStrengthIndicator password={password} />
           </div>
 
           {/* Confirm Password Field */}
@@ -291,6 +283,9 @@ export default function RegisterPage() {
             </Link>
           </p>
         </div>
+
+        {/* Privacy & Trust Signals */}
+        <TrustBanner />
       </div>
     </AuthGuard>
   );

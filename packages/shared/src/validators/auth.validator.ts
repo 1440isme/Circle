@@ -1,6 +1,26 @@
 import { z } from 'zod';
 import { locales, Locale } from '../locales';
 
+export interface PasswordRequirements {
+  minLength: boolean;
+  hasUpper: boolean;
+  hasLower: boolean;
+  hasNumber: boolean;
+  hasSpecial: boolean;
+  isValid: boolean;
+}
+
+export function checkPasswordRequirements(password: string): PasswordRequirements {
+  const p = password || '';
+  const minLength = p.length >= 8;
+  const hasUpper = /[A-Z]/.test(p);
+  const hasLower = /[a-z]/.test(p);
+  const hasNumber = /[0-9]/.test(p);
+  const hasSpecial = /[^A-Za-z0-9]/.test(p);
+  const isValid = minLength && hasUpper && hasLower && hasNumber && hasSpecial;
+  return { minLength, hasUpper, hasLower, hasNumber, hasSpecial, isValid };
+}
+
 /**
  * Creates localized Auth Zod validation schemas based on the active client locale.
  * Strictly guarantees zero hardcoded language strings.
@@ -8,6 +28,14 @@ import { locales, Locale } from '../locales';
 export function createAuthSchemas(locale: Locale = 'vi') {
   const dict = locales[locale] || locales.vi;
   const v = dict.validation;
+
+  const strongPasswordSchema = z
+    .string()
+    .min(8, v.passwordMinLength)
+    .regex(/[A-Z]/, v.passwordUppercase)
+    .regex(/[a-z]/, v.passwordLowercase)
+    .regex(/[0-9]/, v.passwordNumber)
+    .regex(/[^A-Za-z0-9]/, v.passwordSpecialChar);
 
   const loginSchema = z.object({
     email: z
@@ -33,9 +61,7 @@ export function createAuthSchemas(locale: Locale = 'vi') {
       .min(1, v.emailRequired)
       .email(v.emailInvalid)
       .toLowerCase(),
-    password: z
-      .string()
-      .min(8, v.passwordMinLength),
+    password: strongPasswordSchema,
   });
 
   const registerSchema = registerDtoSchema
@@ -98,7 +124,7 @@ export function createAuthSchemas(locale: Locale = 'vi') {
       .trim()
       .length(6, v.otpSixDigits)
       .regex(/^\d{6}$/, v.otpDigitsOnly),
-    newPassword: z.string().min(8, v.passwordMinLength),
+    newPassword: strongPasswordSchema,
     confirmPassword: z.string().optional(),
   });
 
@@ -115,7 +141,7 @@ export function createAuthSchemas(locale: Locale = 'vi') {
         .trim()
         .length(6, v.otpSixDigits)
         .regex(/^\d{6}$/, v.otpDigitsOnly),
-      newPassword: z.string().min(8, v.passwordMinLength),
+      newPassword: strongPasswordSchema,
       confirmPassword: z.string().min(1, v.confirmPasswordRequired),
     })
     .refine((data) => data.newPassword === data.confirmPassword, {

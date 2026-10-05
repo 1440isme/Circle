@@ -4,10 +4,12 @@ import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Lock, Mail, KeyRound, Eye, EyeOff, ArrowRight, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
-import { resetPasswordSchema } from '@circle/shared';
+import { resetPasswordSchema, checkPasswordRequirements } from '@circle/shared';
 import { useResetPasswordMutation } from '../../../hooks/use-auth-mutations';
 import { useLanguageStore } from '../../../stores/language.store';
 import { AuthGuard } from '../../../components/auth/AuthGuard';
+import { PasswordStrengthIndicator } from '../../../components/auth/PasswordStrengthIndicator';
+import { TrustBanner } from '../../../components/auth/TrustBanner';
 
 function ResetPasswordContent() {
   const router = useRouter();
@@ -37,7 +39,7 @@ function ResetPasswordContent() {
     }
   }, [emailParam]);
 
-  const isLengthValid = newPassword.length >= 8;
+  const passwordReqs = checkPasswordRequirements(newPassword);
   const isMatchValid = newPassword.length > 0 && newPassword === confirmPassword;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -197,29 +199,16 @@ function ResetPasswordContent() {
         </div>
 
         {/* Password Strength Checklist */}
-        <div className="rounded-2xl border border-circle-hairline/80 dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas/60 p-3 space-y-1 text-xs">
-          <div className="flex items-center gap-1.5">
-            <span
-              className={`h-2 w-2 rounded-full ${isLengthValid ? 'bg-circle-primary' : 'bg-circle-slate/40 dark:bg-circle-dark-muted/40'}`}
-            />
-            <span className={isLengthValid ? 'text-circle-charcoal dark:text-circle-dark-text font-medium' : 'text-circle-slate dark:text-circle-dark-muted'}>
-              {t.auth.min8Chars}
-            </span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span
-              className={`h-2 w-2 rounded-full ${isMatchValid ? 'bg-circle-primary' : 'bg-circle-slate/40 dark:bg-circle-dark-muted/40'}`}
-            />
-            <span className={isMatchValid ? 'text-circle-charcoal dark:text-circle-dark-text font-medium' : 'text-circle-coral'}>
-              {isMatchValid ? t.auth.passwordMatch : t.auth.passwordMismatch}
-            </span>
-          </div>
-        </div>
+        <PasswordStrengthIndicator
+          password={newPassword}
+          confirmPassword={confirmPassword}
+          showMatch={true}
+        />
 
         {/* Submit */}
         <button
           type="submit"
-          disabled={resetMutation.isPending || !isLengthValid || !isMatchValid}
+          disabled={resetMutation.isPending || !passwordReqs.isValid || !isMatchValid}
           className="group relative flex w-full items-center justify-center gap-2 rounded-full bg-circle-primary px-6 py-3.5 text-sm font-semibold text-circle-charcoal shadow-md shadow-circle-primary/20 transition-all hover:bg-circle-sage hover:text-white focus:outline-none focus:ring-4 focus:ring-circle-primary/20 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {resetMutation.isPending ? (
@@ -245,6 +234,9 @@ function ResetPasswordContent() {
           </Link>
         </div>
       </form>
+
+      {/* Privacy & Trust Signals */}
+      <TrustBanner />
     </div>
   );
 }

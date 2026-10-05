@@ -12,6 +12,7 @@ import {
 import {
   forgotPasswordApi,
   getCurrentUserApi,
+  getUserSessionsApi,
   loginApi,
   LoginPayload,
   registerApi,
@@ -19,6 +20,8 @@ import {
   resendOtpApi,
   resetPasswordApi,
   ResetPasswordPayload,
+  revokeOtherSessionsApi,
+  revokeSessionApi,
   updateProfileApi,
   verifyOtpApi,
 } from '../lib/auth';
@@ -26,6 +29,7 @@ import { useAuthStore } from '../stores/auth.store';
 
 export const AUTH_KEYS = {
   me: ['auth', 'me'] as const,
+  sessions: ['auth', 'sessions'] as const,
 };
 
 export function useLoginMutation() {
@@ -130,3 +134,36 @@ export function useCurrentUserQuery() {
     },
   });
 }
+
+export function useSessionsQuery() {
+  const { isAuthenticated } = useAuthStore();
+
+  return useQuery({
+    queryKey: AUTH_KEYS.sessions,
+    queryFn: getUserSessionsApi,
+    enabled: isAuthenticated,
+  });
+}
+
+export function useRevokeSessionMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (sessionId: string) => revokeSessionApi(sessionId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: AUTH_KEYS.sessions });
+    },
+  });
+}
+
+export function useRevokeOtherSessionsMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => revokeOtherSessionsApi(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: AUTH_KEYS.sessions });
+    },
+  });
+}
+

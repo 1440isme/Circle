@@ -23,12 +23,14 @@ import {
   Sparkles,
   RefreshCw,
 } from 'lucide-react-native';
-import { createAuthSchemas, getFirstZodError } from '@circle/shared';
+import { createAuthSchemas, getFirstZodError, checkPasswordRequirements } from '@circle/shared';
 import { useThemeStore } from '../../stores/theme.store';
 import { useLanguageStore } from '../../stores/language.store';
 import { mobileApiRequest } from '../../services/api';
 import { Button } from '../common/Button';
 import { HeaderControls } from '../common/HeaderControls';
+import { PasswordComplexityChecklist } from './PasswordComplexityChecklist';
+import { TrustBanner } from './TrustBanner';
 
 interface PasswordRecoveryWizardProps {
   initialEmail?: string;
@@ -76,9 +78,9 @@ export function PasswordRecoveryWizard({
   // Validation helpers
   const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
   const isOtpValid = otp.trim().length === 6 && /^\d{6}$/.test(otp.trim());
-  const isPasswordLongEnough = newPassword.length >= 8;
-  const isPasswordMatching = newPassword.length >= 8 && newPassword === confirmPassword;
-  const isStep3Valid = isPasswordLongEnough && isPasswordMatching;
+  const passwordReqs = checkPasswordRequirements(newPassword);
+  const isPasswordMatching = newPassword.length > 0 && newPassword === confirmPassword;
+  const isStep3Valid = passwordReqs.isValid && isPasswordMatching;
 
   const handlePrevStep = () => {
     setApiError(null);
@@ -479,11 +481,11 @@ export function PasswordRecoveryWizard({
                 styles.nativeInputWrapper,
                 {
                   backgroundColor: colors.surface,
-                  borderColor: isPasswordLongEnough ? colors.primary : colors.hairline,
+                  borderColor: passwordReqs.minLength ? colors.primary : colors.hairline,
                 },
               ]}
             >
-              <Lock size={20} color={isPasswordLongEnough ? colors.primary : colors.subtle} />
+              <Lock size={20} color={passwordReqs.minLength ? colors.primary : colors.subtle} />
               <View style={styles.inputInner}>
                 {!newPassword ? (
                   <Text
@@ -557,38 +559,15 @@ export function PasswordRecoveryWizard({
               </TouchableOpacity>
             </View>
 
-            {/* Checklist */}
-            <View style={styles.checklist}>
-              <View style={styles.checkItem}>
-                <CheckCircle2
-                  size={15}
-                  color={isPasswordLongEnough ? colors.primary : colors.subtle}
-                />
-                <Text
-                  style={[
-                    styles.checkText,
-                    { color: isPasswordLongEnough ? colors.text : colors.subtle },
-                  ]}
-                >
-                  {t.auth.min8Chars}
-                </Text>
-              </View>
+            {/* Realtime Password Complexity Checklist */}
+            <PasswordComplexityChecklist
+              password={newPassword}
+              confirmPassword={confirmPassword}
+              showMatch={true}
+            />
 
-              <View style={styles.checkItem}>
-                <CheckCircle2
-                  size={15}
-                  color={isPasswordMatching ? colors.primary : colors.subtle}
-                />
-                <Text
-                  style={[
-                    styles.checkText,
-                    { color: isPasswordMatching ? colors.text : colors.subtle },
-                  ]}
-                >
-                  {t.auth.passwordMatch}
-                </Text>
-              </View>
-            </View>
+            {/* Privacy Trust Banner */}
+            <TrustBanner />
           </View>
         )}
       </ScrollView>
