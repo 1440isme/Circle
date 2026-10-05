@@ -3256,3 +3256,58 @@
 - **Commit:** Pending
 - **PR:** #70
 
+---
+
+## AI-0081: Tinh chỉnh Toàn diện Giao diện và Chức năng Cài đặt Vòng tròn (Web & Mobile)
+
+- **Date:** 2026-10-05 03:45:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** Module 3 (Không gian Nhóm - Circle Core & Governance) & Cross-platform UI/UX Harmonization
+- **Purpose:** Tinh chỉnh và tái cấu trúc toàn diện Giao diện & Chức năng Cài đặt Vòng tròn (`CircleManagementModal`) trên cả Web và Mobile:
+  1. **Tách cấu trúc 5 Tabs đồng bộ, chuẩn nghiệp vụ:**
+     - **Tab 1: Thông tin của Circle (`chatInfo`):** Chế độ xem Profile Card trực quan. Nút Cây bút (`Pencil`) / icon Máy ảnh (`Camera`) mở form chỉnh sửa tên nhóm và bộ chọn avatar (tải ảnh lên Cloudflare R2 qua Presigned URL hoặc chọn từ preset avatar).
+     - **Tab 2: Thành viên & Yêu cầu tham gia (`members`):** Subtab Thành viên tinh gọn (loại bỏ số đếm thành viên) và Subtab Yêu cầu tham gia `(Y)`. Nút `+ Thêm thành viên` luôn hiển thị cố định trên thanh công cụ ở cả 2 subtabs.
+     - **Tab 3: Thông báo & Quyền riêng tư (`privacySupport`):** Cài đặt cá nhân gồm:
+       + Tắt thông báo đoạn chat (Mute Chat Toggle với popup chọn thời gian: `15 phút`, `1 giờ`, `8 giờ`, `24 giờ`, `Đến khi tôi bật lại`; khi bật sẽ tự động ẩn thông báo tin nhắn và cuộc gọi).
+       + Khi mở thông báo: tùy chọn mức độ tin nhắn (`Tất cả`, `Lượt nhắc & phản hồi`, `Không thông báo`) và tắt thông báo cuộc gọi.
+       + Chức năng **Tắt thông báo từ thành viên cụ thể (Mute Member Notifications)**.
+       + Quyền riêng tư: Thông báo đã đọc (Read receipts / "Đã xem"), Chỉ báo đang nhập (Typing indicator), Cho phép AI xử lý nội dung tin nhắn.
+     - **Tab 4: Thiết lập Vòng tròn (`circleSettings`):** Dành riêng cho Trưởng nhóm (Owner/Admin) với cơ chế lưu ngầm tự động (Silent Auto-Save, không hiển thị toast làm phiền):
+       + Chế độ phê duyệt thành viên mới (Bật/Tắt).
+       + Số lượng thành viên tối đa (Dropdown / Popup chọn Không giới hạn hoặc Nhập số tùy biến).
+       + Khối Mã mời & Liên kết tham gia tách biệt với nút sao chép / chia sẻ tiện lợi.
+       + Giải tán Vòng tròn.
+     - **Tab 5: Trợ giúp & Báo cáo (`supportReports`):** Báo cáo người dùng vi phạm (chọn thành viên + lý do), Báo cáo Vòng tròn vi phạm, Quy tắc cộng đồng & Rời Vòng tròn.
+  2. **Tối ưu hóa trải nghiệm Mobile (`apps/mobile`):**
+     - Menu gốc sạch sẽ, loại bỏ toàn bộ các chú thích phụ dưới tên tab.
+     - Chuyển đổi toàn bộ dropdown/form dài thành hệ thống 7 **Popup Modals** chuyên dụng, chuẩn thao tác cảm ứng trên thiết bị di động.
+- **Prompt Summary:** Tinh chỉnh toàn diện giao diện và chức năng Cài đặt Vòng tròn trên cả Web và Mobile: Tách 5 tabs chuẩn nghiệp vụ (Thông tin của Circle, Thành viên + Yêu cầu, Thông báo & Quyền riêng tư, Thiết lập Vòng tròn, Trợ giúp & Báo cáo), Avatar máy ảnh và form sửa dạng profile card, thêm thành viên luôn hiển thị, subtab thành viên tinh gọn, mute thành viên cụ thể, privacy switches & AI assistance, capacity dropdown & silent auto-save, chuyển mobile sang popup modals.
+- **Files Affected:**
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `apps/web/src/stores/circle.store.ts`
+  - `apps/mobile/src/stores/circle.store.ts`
+  - `apps/web/src/components/circle/CircleManagementModal.tsx`
+  - `apps/mobile/src/components/circle/CircleManagementModal.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% component UI logic, Presigned URL media upload integration, Zustand stores type update, Popup Modals, i18n locales, responsive layout và AI log.
+- **Human Modifications:** Người dùng trực tiếp định hướng toàn bộ các yêu cầu tinh chỉnh UI/UX và logic nghiệp vụ.
+- **Verification Method:**
+  - `npm run build -w @circle/shared`: Pass 100%.
+  - `npm run build -w @circle/web`: Next.js 14 production build pass 100% (9/9 static routes, 0 errors).
+  - `npx tsc --noEmit -p apps/web/tsconfig.json`: TypeScript typecheck pass 100% (0 errors).
+  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: TypeScript typecheck pass 100% (0 errors).
+  - `npm test -w @circle/backend`: 104/104 unit & integration tests pass 100%.
+- **Official Source Checked:** `PROJECT_GOD.md` (Gate 1 Working Product, Gate 8 Clean Code), `agentic/RULES.md`.
+- **Security & License Check:** Phân quyền Trưởng nhóm / Thành viên chuẩn xác, an toàn tải ảnh R2, không sử dụng Base64 trong database, tuân thủ MIT license.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A
+  - **Resolution / Fix:** N/A
+- **Commit:** Pending
+- **PR:** #70
+
+
+

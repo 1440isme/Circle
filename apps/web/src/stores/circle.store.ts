@@ -9,7 +9,7 @@ interface CircleState {
   isCreateModalOpen: boolean;
   isJoinModalOpen: boolean;
   isManageModalOpen: boolean;
-  manageActiveTab: 'chatInfo' | 'members' | 'privacySupport' | 'circleSettings' | 'settings' | 'invites' | 'requests';
+  manageActiveTab: 'chatInfo' | 'members' | 'privacySupport' | 'circleSettings' | 'supportReports' | 'settings' | 'invites' | 'requests';
   setActiveCircleId: (id: string | null) => void;
   setActiveCircle: (circle: CircleEntity | null) => void;
   setActiveCircleView: (view: string) => void;
@@ -18,7 +18,7 @@ interface CircleState {
   setJoinModalOpen: (open: boolean) => void;
   setManageModalOpen: (
     open: boolean,
-    tab?: 'chatInfo' | 'members' | 'privacySupport' | 'circleSettings' | 'settings' | 'invites' | 'requests',
+    tab?: 'chatInfo' | 'members' | 'privacySupport' | 'circleSettings' | 'supportReports' | 'settings' | 'invites' | 'requests',
   ) => void;
 }
 
