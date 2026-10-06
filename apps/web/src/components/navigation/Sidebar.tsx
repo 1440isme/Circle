@@ -222,7 +222,7 @@ export const Sidebar: React.FC = () => {
           />
           <NavItem
             icon={<Camera className="h-4 w-4" />}
-            label={t.moments.locketWidgetTitle}
+            label={t.moments.momentWidgetTitle}
             active={activeCircleView === 'moments'}
             onClick={() => setActiveCircleView('moments')}
           />

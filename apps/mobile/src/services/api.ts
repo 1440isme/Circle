@@ -50,6 +50,17 @@ export function getApiBaseUrl(): string {
 
 export const API_BASE_URL = getApiBaseUrl();
 
+export function resolveMobileMediaUrl(url?: string | null): string {
+  if (!url) return '';
+  if (url.startsWith('data:') || url.startsWith('file://')) return url;
+  if (url.includes('localhost:4000') || url.includes('127.0.0.1:4000')) {
+    const mobileBase = getApiBaseUrl().replace(/\/api\/v1\/?$/, '');
+    return url.replace(/http:\/\/(localhost|127\.0\.0\.1):4000/, mobileBase);
+  }
+  return url;
+}
+
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -125,7 +136,10 @@ export async function mobileApiRequest<T>(
   }
 
   const baseUrl = getApiBaseUrl();
-  const url = `${baseUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+  const url =
+    endpoint.startsWith('http://') || endpoint.startsWith('https://')
+      ? resolveMobileMediaUrl(endpoint)
+      : `${baseUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
 
   let response: Response;
   try {

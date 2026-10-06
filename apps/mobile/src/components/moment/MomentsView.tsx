@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -18,7 +18,9 @@ import {
   NativeScrollEvent,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
+
 import {
   Camera,
   RefreshCw,
@@ -54,32 +56,41 @@ import {
   useReplyMomentMutation,
 } from '../../hooks/use-circle-queries';
 import { uploadMobileMedia } from '../../services/storage-upload.service';
+import { resolveMobileMediaUrl } from '../../services/api';
 
 
 const { width: SCREEN_WIDTH, height: WINDOW_HEIGHT } = Dimensions.get('window');
 
-const SAMPLE_CAPTURE_PHOTOS = [
-  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80',
-  'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=800&q=80',
-  'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=800&q=80',
-  'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=800&q=80',
-  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=800&q=80',
-];
+const isExpoGo =
+  Constants.executionEnvironment === ExecutionEnvironment.StoreClient ||
+  (Constants as any).appOwnership === 'expo';
 
-const SELFIE_FALLBACK_URL =
-  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=600&q=80';
-const REAR_FALLBACK_URL =
-  'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=600&q=80';
+// Safe dynamic resolution for native MultiCam module (only active on Development Build)
+let DualCameraFrontView: any = null;
+let DualCameraBackView: any = null;
+let takeDualPictureAsync: any = null;
+
+if (!isExpoGo) {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const dualCam = require('expo-dual-camera');
+    DualCameraFrontView = dualCam?.DualCameraFrontView;
+    DualCameraBackView = dualCam?.DualCameraBackView;
+    takeDualPictureAsync = dualCam?.takePictureAsync;
+  } catch {
+    // Native module 'ExpoDualCamera' not present in this client
+  }
+}
 
 function parseMomentPhotos(rawUrl?: string | null): { mainUrl: string; pipUrl: string | null } {
   if (!rawUrl) return { mainUrl: '', pipUrl: null };
   if (rawUrl.includes('#pip=')) {
     const parts = rawUrl.split('#pip=');
-    const main = parts[0] || '';
-    const pip = decodeURIComponent(parts[1] || '');
+    const main = resolveMobileMediaUrl(parts[0] || '');
+    const pip = resolveMobileMediaUrl(decodeURIComponent(parts[1] || ''));
     return { mainUrl: main, pipUrl: pip || null };
   }
-  return { mainUrl: rawUrl, pipUrl: null };
+  return { mainUrl: resolveMobileMediaUrl(rawUrl), pipUrl: null };
 }
 
 function getInitials(name: string): string {
@@ -88,7 +99,7 @@ function getInitials(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-interface LocketMomentsViewProps {
+interface MomentsViewProps {
   circleId: string;
   circleName: string;
 }
@@ -98,7 +109,7 @@ type FeedItem =
   | { type: 'empty'; id: string }
   | { type: 'moment'; id: string; data: any; index: number };
 
-export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewProps) {
+export function MomentsView({ circleId, circleName }: MomentsViewProps) {
   const { colors, resolvedTheme } = useThemeStore();
   const t = useLanguageStore((s) => s.t);
   const user = useAuthStore((s) => s.user);
@@ -122,13 +133,34 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
   const [selectedMemberId, setSelectedMemberId] = useState<string | 'all'>('all');
   const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState<boolean>(false);
 
-  // Real Camera Viewfinder States (Locket UI & Dual View)
+  // Real Camera Viewfinder States (Moment UI & Dual View)
   const [cameraFacing, setCameraFacing] = useState<CameraType>('front');
   const [flashMode, setFlashMode] = useState<boolean>(false);
   const [isDualMode, setIsDualMode] = useState<boolean>(false);
   const [zoomOption, setZoomOption] = useState<'0.5x' | '1x'>('1x');
+  const [availableLenses, setAvailableLenses] = useState<string[]>([]);
+
+  // Xác định lens thực tế từ danh sách trả về của thiết bị
+  const ultraWideLens = availableLenses.find((lens) => lens === 'Back Ultra Wide Camera');
+  const standardLens = availableLenses.find((lens) => lens === 'Back Camera');
+  const frontLens = availableLenses.find((lens) => lens === 'Front Camera');
+
+  // Lens được chọn chính xác theo hướng camera và mức zoom
+  const selectedLensName =
+    cameraFacing === 'back'
+      ? zoomOption === '0.5x' && ultraWideLens
+        ? ultraWideLens
+        : standardLens || 'Back Camera'
+      : frontLens || 'Front Camera';
+
+  // Mức zoom cho camera:
+  // - Camera sau: zoom = 0 (dùng thấu kính quang học vật lý Back Camera vs Back Ultra Wide Camera)
+  // - Camera trước (theo cơ chế Apple & Locket):
+  //    + '0.5x': zoom = 0 (mở trọn vẹn 100% cảm biến góc rộng 23mm)
+  //    + '1x': zoom = 0.04 (crop nhẹ vừa phải, tự nhiên, không bị quá gần mặt)
+  const cameraZoom = cameraFacing === 'front' ? (zoomOption === '0.5x' ? 0 : 0.04) : 0;
+
   const [isTakingPhoto, setIsTakingPhoto] = useState<boolean>(false);
-  const [activeSampleIndex, setActiveSampleIndex] = useState<number>(0);
 
   // Captured Photo State for review & sending
   const [capturedPhotoUrl, setCapturedPhotoUrl] = useState<string | null>(null);
@@ -152,7 +184,7 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
   const listHeight = Math.max(containerHeight - topHeaderHeight, 300);
 
   // Bố cục khung ảnh to sát viền, dịch xuống nhẹ và cân đối
-  const locketFrameSize = Math.min(
+  const momentFrameSize = Math.min(
     SCREEN_WIDTH - 20,
     listHeight > 0 ? listHeight - 210 : 340,
     340
@@ -188,42 +220,97 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
 
   // Real Camera Shutter Action (100% Realtime, Instant & Không bị giật nhảy cam)
   const handleSnapPhoto = async () => {
-    if (cameraRef.current && permission?.granted) {
-      try {
-        setIsTakingPhoto(true);
-        // Optimize image quality to 0.78 and strip all EXIF metadata for privacy & storage savings
+    if (!permission?.granted) {
+      const res = await requestPermission();
+      if (!res.granted) {
+        Alert.alert(t.common.appName, 'Cần cấp quyền Camera để chụp khoảnh khắc realtime.');
+        return;
+      }
+    }
+
+    try {
+      setIsTakingPhoto(true);
+
+      if (isDualMode && !isExpoGo) {
+        // Dual Mode trên Development Build: Chụp đồng thời 2 camera thật từ expo-dual-camera
+        const dualResult = await takeDualPictureAsync({ quality: 0.78 });
+        if (dualResult?.frontUri && dualResult?.backUri) {
+          const mainUrl = cameraFacing === 'back' ? dualResult.backUri : dualResult.frontUri;
+          const counterpartUrl = cameraFacing === 'back' ? dualResult.frontUri : dualResult.backUri;
+          setCapturedPhotoUrl(mainUrl);
+          setDualPipPhotoUrl(counterpartUrl);
+        } else {
+          Alert.alert(t.common.appName, 'Không thể chụp ảnh chế độ Dual, vui lòng thử lại.');
+        }
+      } else if (isDualMode && isExpoGo && cameraRef.current) {
+        // Dual Mode trên Expo Go: Chụp kép 2 camera thật liên tiếp (Sequential Dual Shot)
+        // 1. Chụp bức ảnh 1 từ camera chính
+        const shot1 = await cameraRef.current.takePictureAsync({
+          quality: 0.78,
+          exif: false,
+          skipProcessing: false,
+          base64: true,
+        });
+        const shot1Url = shot1?.base64
+          ? `data:image/jpeg;base64,${shot1.base64}`
+          : shot1?.uri || null;
+
+        if (!shot1Url) {
+          throw new Error('Không thể chụp ảnh từ camera 1');
+        }
+
+        // 2. Lật sang camera đối diện để chụp bức ảnh 2
+        const secondFacing: CameraType = cameraFacing === 'front' ? 'back' : 'front';
+        setCameraFacing(secondFacing);
+
+        // Đợi native camera session khởi tạo góc thứ 2
+        await new Promise((resolve) => setTimeout(resolve, 450));
+
+        let shot2Url = shot1Url;
+        try {
+          const shot2 = await cameraRef.current.takePictureAsync({
+            quality: 0.78,
+            exif: false,
+            skipProcessing: false,
+            base64: true,
+          });
+          if (shot2?.base64) {
+            shot2Url = `data:image/jpeg;base64,${shot2.base64}`;
+          } else if (shot2?.uri) {
+            shot2Url = shot2.uri;
+          }
+        } catch (e) {
+          console.warn('Shot 2 capture error:', e);
+        }
+
+        // 3. Khôi phục lại hướng camera ban đầu
+        setCameraFacing(cameraFacing);
+
+        // 4. Lưu cả 2 ảnh CHỤP THẬT từ 2 camera của máy
+        setCapturedPhotoUrl(shot1Url);
+        setDualPipPhotoUrl(shot2Url);
+      } else if (cameraRef.current) {
+        // Normal Mode: Chụp bằng expo-camera
         const photo = await cameraRef.current.takePictureAsync({
           quality: 0.78,
           exif: false,
           skipProcessing: false,
+          base64: true,
         });
 
-        const mainUrl = photo?.uri || (photo?.base64 ? `data:image/jpeg;base64,${photo.base64}` : null);
-
+        const mainUrl = photo?.base64
+          ? `data:image/jpeg;base64,${photo.base64}`
+          : photo?.uri || null;
         if (mainUrl) {
           setCapturedPhotoUrl(mainUrl);
-          if (isDualMode) {
-            // Góc chụp thứ 2 (đối lập với góc cam chính)
-            const counterpartUrl =
-              cameraFacing === 'back'
-                ? user?.profile?.avatarUrl || SELFIE_FALLBACK_URL
-                : REAR_FALLBACK_URL;
-            setDualPipPhotoUrl(counterpartUrl);
-          } else {
-            setDualPipPhotoUrl(null);
-          }
+          setDualPipPhotoUrl(null);
         }
-      } catch (err: any) {
-        console.warn('Real camera capture error:', err);
-        Alert.alert(t.common.appName, 'Không thể chụp ảnh, vui lòng thử lại.');
-      } finally {
-        setIsTakingPhoto(false);
       }
-    } else if (!permission?.granted) {
-      const res = await requestPermission();
-      if (!res.granted) {
-        Alert.alert(t.common.appName, 'Cần cấp quyền Camera để chụp khoảnh khắc realtime.');
-      }
+    } catch (err: any) {
+      console.warn('Real camera capture error:', err);
+      Alert.alert(t.common.appName, 'Không thể chụp ảnh, vui lòng thử lại.');
+    } finally {
+      setIsTakingPhoto(false);
     }
   };
 
@@ -348,7 +435,7 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
     setCurrentPageIndex(0);
   };
 
-  const previewPhoto = capturedPhotoUrl || SAMPLE_CAPTURE_PHOTOS[activeSampleIndex];
+  const previewPhoto = capturedPhotoUrl || null;
 
   // Prepare full feed items (Page 0 = Camera, Page 1..N = Filtered Moments or Empty)
   const feedItems: FeedItem[] = [
@@ -426,13 +513,13 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
       return (
         <View style={[styles.pageContainer, { height: listHeight }]}>
           <View style={styles.cameraContent}>
-            {/* Locket 1:1 Viewfinder Window (To sát viền, vị trí cố định) */}
+            {/* Moment 1:1 Viewfinder Window (To sát viền, vị trí cố định) */}
             <View
               style={[
-                styles.locketWindow,
+                styles.momentWindow,
                 {
-                  width: locketFrameSize,
-                  height: locketFrameSize,
+                  width: momentFrameSize,
+                  height: momentFrameSize,
                   backgroundColor: '#18181B',
                   borderColor: colors.hairline,
                 },
@@ -440,7 +527,7 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
             >
               {capturedPhotoUrl ? (
                 <>
-                  <RNImage source={{ uri: capturedPhotoUrl }} style={styles.locketWindowImage} resizeMode="cover" />
+                  <RNImage source={{ uri: capturedPhotoUrl }} style={styles.momentWindowImage} resizeMode="cover" />
                   {/* Nếu chụp ở chế độ Dual Cam, hiển thị ảnh PiP góc có thao tác chạm đổi */}
                   {dualPipPhotoUrl && (
                     <TouchableOpacity
@@ -452,7 +539,7 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
                       }}
                       style={[styles.pipFloatingBox, { borderColor: colors.primary }]}
                     >
-                      <RNImage source={{ uri: dualPipPhotoUrl }} style={styles.locketWindowImage} resizeMode="cover" />
+                      <RNImage source={{ uri: dualPipPhotoUrl }} style={styles.momentWindowImage} resizeMode="cover" />
                       <View style={[styles.pipFlipBtn, { backgroundColor: 'rgba(0,0,0,0.75)' }]}>
                         <RefreshCw size={10} color="#FFFFFF" />
                         <Text style={styles.pipFlipBtnText}>Chạm đổi</Text>
@@ -462,65 +549,137 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
                 </>
               ) : permission?.granted ? (
                 <>
-                  {/* Camera chính (Khung lớn) - Thu nhỏ 0.5x hoặc 1x mượt mà */}
-                  <View
-                    style={[
-                      StyleSheet.absoluteFill,
-                      {
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        transform: [{ scale: zoomOption === '0.5x' ? 0.78 : 1.0 }],
-                      },
-                    ]}
-                  >
-                    <CameraView
-                      ref={cameraRef}
-                      style={StyleSheet.absoluteFill}
-                      facing={cameraFacing}
-                      flash={flashMode ? 'on' : 'off'}
-                      enableTorch={flashMode}
-                      zoom={0}
-                      autofocus="on"
-                      mode="picture"
-                    />
-                  </View>
+                  {isDualMode && !isExpoGo ? (
+                    /* Dual Mode trên Development Build: Live thật đồng thời cả 2 camera (trước + sau) bằng expo-dual-camera */
+                    <>
+                      {cameraFacing === 'back' ? (
+                        <>
+                          {/* Khung lớn chính: Camera sau Live */}
+                          <DualCameraBackView
+                            style={StyleSheet.absoluteFill}
+                            lens={zoomOption === '0.5x' ? 'ultraWide' : 'wide'}
+                            flash={flashMode ? 'on' : 'off'}
+                            enableTorch={flashMode}
+                          />
+                          {/* Khung PiP nổi góc trên trái: Camera trước Live */}
+                          <TouchableOpacity
+                            activeOpacity={0.85}
+                            onPress={handleFlipCamera}
+                            style={[styles.pipFloatingBox, { borderColor: colors.primary }]}
+                          >
+                            <DualCameraFrontView style={styles.momentWindowImage} mirror={true} />
+                            {/* Badge hiển thị loại góc camera trên PiP */}
+                            <View style={styles.pipTypeBadge}>
+                              <Text style={styles.pipTypeBadgeText}>Selfie</Text>
+                            </View>
+                            {/* Thao tác Lật vai trò cam trực tiếp trên khung nhỏ */}
+                            <View style={[styles.pipFlipBtn, { backgroundColor: colors.primary }]}>
+                              <RefreshCw size={10} color={colors.onPrimary} />
+                              <Text style={[styles.pipFlipBtnText, { color: colors.onPrimary }]}>
+                                Lật cam
+                              </Text>
+                            </View>
+                          </TouchableOpacity>
+                        </>
+                      ) : (
+                        <>
+                          {/* Khung lớn chính: Camera trước Live */}
+                          <DualCameraFrontView
+                            style={StyleSheet.absoluteFill}
+                            mirror={true}
+                            zoom={cameraZoom}
+                          />
+                          {/* Khung PiP nổi góc trên trái: Camera sau Live */}
+                          <TouchableOpacity
+                            activeOpacity={0.85}
+                            onPress={handleFlipCamera}
+                            style={[styles.pipFloatingBox, { borderColor: colors.primary }]}
+                          >
+                            <DualCameraBackView
+                              style={styles.momentWindowImage}
+                              lens={zoomOption === '0.5x' ? 'ultraWide' : 'wide'}
+                            />
+                            {/* Badge hiển thị loại góc camera trên PiP */}
+                            <View style={styles.pipTypeBadge}>
+                              <Text style={styles.pipTypeBadgeText}>Cam sau</Text>
+                            </View>
+                            {/* Thao tác Lật vai trò cam trực tiếp trên khung nhỏ */}
+                            <View style={[styles.pipFlipBtn, { backgroundColor: colors.primary }]}>
+                              <RefreshCw size={10} color={colors.onPrimary} />
+                              <Text style={[styles.pipFlipBtnText, { color: colors.onPrimary }]}>
+                                Lật cam
+                              </Text>
+                            </View>
+                          </TouchableOpacity>
+                        </>
+                      )}
+                    </>
+                  ) : (
+                    /* Normal Mode HOẶC Dual Mode trên Expo Go */
+                    <>
+                      <View style={StyleSheet.absoluteFill}>
+                        <CameraView
+                          key={cameraFacing === 'back' ? `${cameraFacing}-${zoomOption}` : cameraFacing}
+                          ref={cameraRef}
+                          style={StyleSheet.absoluteFill}
+                          facing={cameraFacing}
+                          mirror={cameraFacing === 'front'}
+                          flash={flashMode ? 'on' : 'off'}
+                          enableTorch={flashMode}
+                          zoom={cameraZoom}
+                          autofocus="on"
+                          mode="picture"
+                          selectedLens={selectedLensName}
+                          onAvailableLensesChanged={(event: any) => {
+                            const list = event?.lenses || event?.nativeEvent?.lenses;
+                            if (list && list.length > 0) {
+                              setAvailableLenses(list);
+                            }
+                          }}
+                          onCameraReady={async () => {
+                            try {
+                              const lenses = await cameraRef.current?.getAvailableLensesAsync();
+                              if (lenses && lenses.length > 0) {
+                                setAvailableLenses(lenses);
+                              }
+                            } catch {}
+                          }}
+                        />
+                      </View>
 
-                  {/* Hiển thị song song (Dual View) - Khung ảnh nổi góc trên trái với thao tác Lật cam */}
-                  {isDualMode && (
-                    <TouchableOpacity
-                      activeOpacity={0.85}
-                      onPress={handleFlipCamera}
-                      style={[
-                        styles.pipFloatingBox,
-                        {
-                          borderColor: colors.primary,
-                        },
-                      ]}
-                    >
-                      <RNImage
-                        source={{
-                          uri:
-                            cameraFacing === 'back'
-                              ? user?.profile?.avatarUrl || SELFIE_FALLBACK_URL
-                              : REAR_FALLBACK_URL,
-                        }}
-                        style={styles.locketWindowImage}
-                        resizeMode="cover"
-                      />
-                      {/* Badge hiển thị loại góc camera trên PiP */}
-                      <View style={styles.pipTypeBadge}>
-                        <Text style={styles.pipTypeBadgeText}>
-                          {cameraFacing === 'back' ? 'Selfie' : 'Cam sau'}
-                        </Text>
-                      </View>
-                      {/* Thao tác Lật cam trực tiếp trên khung nhỏ */}
-                      <View style={[styles.pipFlipBtn, { backgroundColor: colors.primary }]}>
-                        <RefreshCw size={10} color={colors.onPrimary} />
-                        <Text style={[styles.pipFlipBtnText, { color: colors.onPrimary }]}>
-                          Lật cam
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
+                      {/* Trên Expo Go khi bật Dual Mode: Hiển thị khung PiP chuyển đổi nhanh góc ngắm */}
+                      {isDualMode && isExpoGo && (
+                        <TouchableOpacity
+                          activeOpacity={0.85}
+                          onPress={handleFlipCamera}
+                          style={[
+                            styles.pipFloatingBox,
+                            {
+                              borderColor: colors.primary,
+                              backgroundColor: 'rgba(20,20,20,0.85)',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            },
+                          ]}
+                        >
+                          <Camera size={22} color={colors.primary} />
+                          <Text style={[styles.pipTypeBadgeText, { marginTop: 4, textAlign: 'center', fontSize: 10 }]}>
+                            {cameraFacing === 'back' ? 'Góc Selfie' : 'Góc Sau'}
+                          </Text>
+                          <View style={styles.pipTypeBadge}>
+                            <Text style={styles.pipTypeBadgeText}>
+                              {cameraFacing === 'back' ? 'Selfie' : 'Cam sau'}
+                            </Text>
+                          </View>
+                          <View style={[styles.pipFlipBtn, { backgroundColor: colors.primary }]}>
+                            <RefreshCw size={10} color={colors.onPrimary} />
+                            <Text style={[styles.pipFlipBtnText, { color: colors.onPrimary }]}>
+                              Chạm đổi
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
+                      )}
+                    </>
                   )}
                 </>
               ) : (
@@ -608,7 +767,7 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
             <View style={styles.fixedControlsArea}>
               {capturedPhotoUrl ? (
                 /* Review actions when photo is captured */
-                <View style={[styles.reviewActionsBar, { width: locketFrameSize }]}>
+                <View style={[styles.reviewActionsBar, { width: momentFrameSize }]}>
                   <TouchableOpacity
                     activeOpacity={0.8}
                     onPress={handleRetake}
@@ -654,20 +813,20 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
                     <Layers size={26} color={isDualMode ? colors.primary : colors.text} />
                   </TouchableOpacity>
 
-                  {/* Center Button: Authentic Locket Double-Ring Shutter (TO NỮA: 90px) */}
+                  {/* Center Button: Authentic Moment Double-Ring Shutter (TO NỮA: 90px) */}
                   <TouchableOpacity
                     activeOpacity={0.85}
                     disabled={isTakingPhoto}
                     onPress={handleSnapPhoto}
                     style={[
-                      styles.locketMainShutterOuter,
+                      styles.momentMainShutterOuter,
                       {
                         borderColor: colors.primary,
                         backgroundColor: isDark ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.7)',
                       },
                     ]}
                   >
-                    <View style={[styles.locketMainShutterInner, { backgroundColor: colors.primary }]}>
+                    <View style={[styles.momentMainShutterInner, { backgroundColor: colors.primary }]}>
                       {isTakingPhoto ? (
                         <ActivityIndicator color={colors.onPrimary} size="small" />
                       ) : (
@@ -695,7 +854,7 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
               style={styles.historyCueBtn}
             >
               {latestMomentPhoto ? (
-                <RNImage source={{ uri: latestMomentPhoto }} style={styles.historyCueThumb} resizeMode="cover" />
+                <RNImage source={{ uri: resolveMobileMediaUrl(latestMomentPhoto) }} style={styles.historyCueThumb} resizeMode="cover" />
               ) : (
                 <View style={[styles.historyCueThumb, { backgroundColor: `${colors.primary}25`, alignItems: 'center', justifyContent: 'center' }]}>
                   <History size={14} color={colors.primary} />
@@ -789,7 +948,7 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
             <View style={styles.momentFeedAuthor}>
               <View style={[styles.authorAvatar, { backgroundColor: `${colors.primary}20` }]}>
                 {authorAvatar ? (
-                  <RNImage source={{ uri: authorAvatar }} style={styles.authorAvatarImg} />
+                  <RNImage source={{ uri: resolveMobileMediaUrl(authorAvatar) }} style={styles.authorAvatarImg} />
                 ) : (
                   <Text style={[styles.authorAvatarText, { color: colors.primary }]}>
                     {getInitials(authorName)}
@@ -1171,7 +1330,7 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
             <View style={styles.actionSheetHeader}>
               <View style={styles.actionHeaderLeft}>
                 {currentActivePhotoUrl ? (
-                  <RNImage source={{ uri: currentActivePhotoUrl }} style={styles.actionHeaderThumb} resizeMode="cover" />
+                  <RNImage source={{ uri: resolveMobileMediaUrl(currentActivePhotoUrl) }} style={styles.actionHeaderThumb} resizeMode="cover" />
                 ) : (
                   <View style={[styles.actionHeaderThumb, { backgroundColor: colors.wash, alignItems: 'center', justifyContent: 'center' }]}>
                     <ImageIcon size={20} color={colors.subtle} />
@@ -1182,7 +1341,7 @@ export function LocketMomentsView({ circleId, circleName }: LocketMomentsViewPro
                     Khoảnh khắc của {currentAuthorName}
                   </Text>
                   <Text style={[styles.actionSheetSub, { color: colors.subtle }]}>
-                    {circleName} · Locket Moments
+                    {circleName} · Moments
                   </Text>
                 </View>
               </View>
@@ -1522,7 +1681,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
     width: '100%',
   },
-  locketWindow: {
+  momentWindow: {
     borderRadius: 32,
     borderWidth: 1.5,
     overflow: 'hidden',
@@ -1533,7 +1692,7 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     elevation: 10,
   },
-  locketWindowImage: {
+  momentWindowImage: {
     width: '100%',
     height: '100%',
   },
@@ -1787,7 +1946,7 @@ const styles = StyleSheet.create({
     shadowRadius: 5,
     elevation: 4,
   },
-  locketMainShutterOuter: {
+  momentMainShutterOuter: {
     width: 90,
     height: 90,
     borderRadius: 45,
@@ -1800,7 +1959,7 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 12,
   },
-  locketMainShutterInner: {
+  momentMainShutterInner: {
     width: 72,
     height: 72,
     borderRadius: 36,

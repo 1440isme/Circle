@@ -31,6 +31,8 @@ Thumbs.db
 # Temporary
 tmp/
 temp/
+uploads/
+apps/backend/uploads/
 
 # Prisma
 *.db

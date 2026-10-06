@@ -88,7 +88,7 @@ import { subscribeSocketConnection, sendMobileMessageRead } from '../../src/serv
 import { getStorageItem } from '../../src/services/storage';
 import { MessageType } from '@circle/types';
 import { CircleManagementModal } from '../../src/components/circle/CircleManagementModal';
-import { LocketMomentsView } from '../../src/components/moment/LocketMomentsView';
+import { MomentsView } from '../../src/components/moment/MomentsView';
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -1322,9 +1322,9 @@ export default function CircleWorkspaceScreen() {
         </View>
       )}
 
-      {/* TAB 2: KHOẢNH KHẮC THƯỜNG NGÀY (AUTHENTIC LOCKET VIEW) */}
+      {/* TAB 2: KHOẢNH KHẮC THƯỜNG NGÀY (AUTHENTIC MOMENTS VIEW) */}
       {activeTab === 'moments' && (
-        <LocketMomentsView circleId={circleId} circleName={circle.name} />
+        <MomentsView circleId={circleId} circleName={circle.name} />
       )}
 
       {/* TAB 3: TIỆN ÍCH NHÓM */}

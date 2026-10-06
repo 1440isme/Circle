@@ -130,7 +130,7 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
             </div>
             <div>
               <h3 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
-                {t.moments.locketWidgetTitle}
+                {t.moments.momentWidgetTitle}
               </h3>
               <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted">
                 {moments.length} {locale === 'vi' ? 'khoảnh khắc được chia sẻ' : 'moments shared'}
@@ -144,7 +144,7 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
             className="flex items-center gap-2 rounded-full bg-circle-charcoal dark:bg-circle-primary text-white dark:text-circle-charcoal hover:bg-circle-sage px-4 py-2 text-xs font-bold shadow-sm transition-all active:scale-95"
           >
             <Camera className="h-4 w-4" />
-            <span>{t.moments.sendLocketBtn}</span>
+            <span>{t.moments.sendMomentBtn}</span>
           </button>
         </div>
       )}
@@ -372,10 +372,10 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
           </div>
           <div className="space-y-1.5 max-w-sm">
             <h4 className="text-base font-bold text-circle-charcoal dark:text-circle-dark-text">
-              {t.moments.emptyLocketTitle}
+              {t.moments.emptyMomentTitle}
             </h4>
             <p className="text-xs text-circle-slate dark:text-circle-dark-muted leading-relaxed">
-              {t.moments.emptyLocketDesc}
+              {t.moments.emptyMomentDesc}
             </p>
           </div>
           <button
@@ -384,7 +384,7 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
             className="flex items-center gap-2 rounded-full bg-circle-charcoal dark:bg-circle-primary text-white dark:text-circle-charcoal hover:bg-circle-sage px-6 py-2.5 text-xs sm:text-sm font-bold shadow-md hover:shadow-lg transition-all active:scale-95"
           >
             <Camera className="h-4 w-4" />
-            <span>{t.moments.sendLocketBtn}</span>
+            <span>{t.moments.sendMomentBtn}</span>
           </button>
         </div>
       ) : null}

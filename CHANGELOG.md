@@ -31,9 +31,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Realtime messaging, reply threads, and emoji reactions via Socket.IO Gateway.
   - Message pinning and unpinning with pinned messages modal browser.
   - Typing indicators broadcasting across active channel members.
-- **Moments & Group Feed / Locket Widget (Module 5):**
+- **Moments & Group Feed Widget (Module 5):**
   - Circle-based privacy controls for Moments feed.
-  - **Locket Camera Realtime on Mobile:** 60fps viewfinder, 0.5x wide / 1x standard zoom toggle, Dual View PiP (front/rear simultaneous capture), tap-to-swap views, and instant reactions.
+  - **Moment Camera Realtime on Mobile:** 60fps viewfinder, 0.5x wide / 1x standard zoom toggle, Dual View PiP (front/rear simultaneous capture), tap-to-swap views, and instant reactions.
 - **Cloudflare R2 Media Storage Infrastructure:**
   - AWS SigV4 HMAC-SHA256 Presigned PUT URL generator for direct client-to-cloud uploads.
   - Local Media Fallback mode (`/api/v1/storage/raw/:key` & In-Memory/Stream buffer) for zero-dependency offline local development.
@@ -58,8 +58,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 🌟 Added & Refined (Moments & Camera Pipeline)
+- **Physical Hardware 0.5x Ultra Wide Lens Switching:** Direct integration with `selectedLens` ('Back Ultra Wide Camera' vs 'Back Camera') on iOS/Android, replacing CSS scaling.
+- **Natural Selfie Zoom Calibration:** 0.04 natural portrait framing for standard 1x and full 23mm sensor (zoom 0) for wide selfies without flicker.
+- **Hybrid Real Dual Camera Capture:**
+  - Concurrent native MultiCam live streams (`expo-dual-camera`) on Development Build.
+  - 100% real sequential dual sensor shot fallback on Expo Go (zero avatar/placeholder fallbacks).
+- **Persistent Local Media Storage:** Local file storage on disk (`apps/backend/uploads/`) with in-memory caching for zero data loss across development server restarts.
+- **Dynamic LAN IP Mapping:** Mobile client automatic URL translation (`resolveMobileMediaUrl`) bridging local development server to physical smartphones over Wi-Fi.
+
 ### 🚀 Planned for Next Iterations
 - **Module 6 (WebRTC Realtime Group Calling):** Coturn STUN/TURN integration, Signaling Gateway, and group video/audio grid stage.
 - **Module 7.1 (Group Utility Tools):** Shared HD Album, Group Calendar & Reminders, Decision Wheel, and Anonymous Confessions ("Điều muốn nói").
 - **Module 7.2 (Realtime Group Tools):** Collaborative Planning Sheet, Live Location Map (Mapbox), and Realtime Group Polls.
 - **Module 8 & 9:** Multi-platform Push Notifications (Expo/FCM) and Admin Moderation Queue.
+
