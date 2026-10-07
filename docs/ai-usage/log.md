@@ -3653,3 +3653,42 @@
   - **Error Description:** None.
   - **Root Cause:** N/A
   - **Resolution / Fix:** N/A
+
+---
+
+## AI-0090: Tinh chỉnh Trải nghiệm Người xem Tin nhắn, Đồng bộ Realtime và Định vị Action Toolbar
+
+- **Date:** 2026-10-07 21:40:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #80 (US-CHAT-READ-RECEIPTS: Refine subtle read receipts, right-aligned viewer avatars & realtime broadcast)
+- **Purpose:**
+  1. Tinh chỉnh vị trí hiển thị avatar người xem tin nhắn mới nhất: Luôn căn góc phải màn hình/khung chat (`w-full flex justify-end`), áp dụng cho cả tin nhắn của mình gửi và tin nhắn của người khác gửi.
+  2. Nâng thanh công cụ phản ứng (Hover Action Bar) trên Web lên phía trên đỉnh bubble (`bottom-[calc(100%+4px)]`), ngang hàng mốc xem giờ, tuyệt đối không che nội dung tin nhắn.
+  3. Khắc phục chuỗi hiển thị tên người xem khi bấm vào tin nhắn cũ: Sửa template locale `{names}` và bổ sung hàm định dạng an toàn hiển thị đúng tên người xem, giữ nguyên độ dài bubble ôm sát nội dung không bị kéo giãn.
+  4. Khắc phục lỗi realtime người xem tin nhắn: Backend chuyển `client.to` sang `this.server.to` trong `chat:read` gateway handler để broadcast event `chat:user-read` cho toàn bộ client trong phòng (kể cả người vừa đọc), kết hợp optimistic update tức thì trên Web (`ChannelChatView.tsx`) và Mobile (`[id].tsx`).
+- **Prompt Summary:** Yêu cầu tinh chỉnh avatar người xem tin nhắn người khác hiển thị góc phải, hover bar web nâng cao không che chữ, hiển thị đúng tên người xem tin nhắn cũ và đồng bộ realtime ngay khi xem không cần load lại.
+- **Files Affected:**
+  - `apps/backend/src/modules/chat/chat.gateway.ts`
+  - `apps/web/src/components/chat/MessageBubble.tsx`
+  - `apps/web/src/components/chat/MessageList.tsx`
+  - `apps/web/src/components/chat/ChannelChatView.tsx`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `tests/e2e/read-receipts-verification.spec.ts`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% logic xử lý layout CSS, socket room broadcast, optimistic cache mutation và Playwright E2E script.
+- **Human Modifications:** Trương Công Bình trực tiếp kiểm tra thực tế, phát hiện các điểm bất cập về UX/realtime và yêu cầu hiệu chỉnh.
+- **Verification Method:**
+  - `npx playwright test tests/e2e/read-receipts-verification.spec.ts`: 2/2 tests Pass (Desktop + Mobile).
+  - TypeScript compilation check: `apps/backend`, `apps/web`, `apps/mobile` đạt 0 errors.
+  - Script kiểm tra tính toàn vẹn: `./scripts/check-agent-map.sh` Pass 100%.
+- **Official Source Checked:** Socket.IO Room Broadcasting Docs, TanStack Query Optimistic Updates.
+- **Security & License Check:** An toàn, không chứa secret/token.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A.
+  - **Resolution / Fix:** N/A.
+

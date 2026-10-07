@@ -9,7 +9,6 @@ import { useResetPasswordMutation } from '../../../hooks/use-auth-mutations';
 import { useLanguageStore } from '../../../stores/language.store';
 import { AuthGuard } from '../../../components/auth/AuthGuard';
 import { PasswordStrengthIndicator } from '../../../components/auth/PasswordStrengthIndicator';
-import { TrustBanner } from '../../../components/auth/TrustBanner';
 
 function ResetPasswordContent() {
   const router = useRouter();
@@ -234,9 +233,6 @@ function ResetPasswordContent() {
           </Link>
         </div>
       </form>
-
-      {/* Privacy & Trust Signals */}
-      <TrustBanner />
     </div>
   );
 }

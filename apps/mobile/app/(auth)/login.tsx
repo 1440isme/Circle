@@ -10,7 +10,7 @@ import {
   TextInput,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Mail, Lock, Eye, EyeOff, CheckSquare, Square, AlertCircle, ArrowRight } from 'lucide-react-native';
+import { Mail, Lock, Eye, EyeOff, AlertCircle, ArrowRight } from 'lucide-react-native';
 import { createAuthSchemas, getFirstZodError } from '@circle/shared';
 import { useThemeStore } from '../../src/stores/theme.store';
 import { useLanguageStore } from '../../src/stores/language.store';
@@ -31,7 +31,6 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
 
@@ -201,23 +200,8 @@ export default function LoginScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Remember Me & Forgot Password Row */}
+          {/* Forgot Password Row */}
           <View style={styles.optionsRow}>
-            <TouchableOpacity
-              onPress={() => setRememberMe(!rememberMe)}
-              style={styles.rememberMeBtn}
-              activeOpacity={0.7}
-            >
-              {rememberMe ? (
-                <CheckSquare size={18} color={colors.primary} />
-              ) : (
-                <Square size={18} color={colors.subtle} />
-              )}
-              <Text style={[styles.rememberMeText, { color: colors.text }]}>
-                {t.auth.rememberMeMobile}
-              </Text>
-            </TouchableOpacity>
-
             <TouchableOpacity
               onPress={() => router.push('/(auth)/forgot-password')}
               activeOpacity={0.7}
@@ -365,18 +349,9 @@ const styles = StyleSheet.create({
   optionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginVertical: 14,
+    justifyContent: 'flex-end',
+    marginVertical: 12,
     paddingHorizontal: 2,
-  },
-  rememberMeBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  rememberMeText: {
-    fontSize: 13,
-    fontWeight: '500',
   },
   forgotText: {
     fontSize: 13,

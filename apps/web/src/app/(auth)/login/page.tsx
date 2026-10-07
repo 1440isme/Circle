@@ -8,7 +8,6 @@ import { loginSchema } from '@circle/shared';
 import { useLoginMutation } from '../../../hooks/use-auth-mutations';
 import { useLanguageStore } from '../../../stores/language.store';
 import { AuthGuard } from '../../../components/auth/AuthGuard';
-import { TrustBanner } from '../../../components/auth/TrustBanner';
 import { TurnstileWidget } from '../../../components/auth/TurnstileWidget';
 
 function LoginForm() {
@@ -22,7 +21,6 @@ function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(true);
   const [turnstileToken, setTurnstileToken] = useState<string | undefined>(undefined);
   const [fieldErrors, setFieldErrors] = useState<{ email?: string[]; password?: string[] }>({});
   const [apiError, setApiError] = useState<string | null>(null);
@@ -73,14 +71,10 @@ function LoginForm() {
     <div className="rounded-3xl border border-white/80 dark:border-white/10 bg-white/70 dark:bg-circle-dark-surface/80 p-8 sm:p-10 shadow-xl shadow-circle-charcoal/5 dark:shadow-black/25 backdrop-blur-xl transition-all">
       {/* Card Header */}
       <div className="mb-8 text-center sm:text-left">
-        <div className="inline-flex items-center gap-2 rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-elevated px-3 py-1 text-xs font-semibold text-circle-sage mb-3">
-          <span className="h-1.5 w-1.5 rounded-full bg-circle-primary animate-presence-breathe" />
-          <span>{t.auth.userBadge}</span>
-        </div>
         <h1 className="text-2xl font-bold tracking-tight text-circle-charcoal dark:text-circle-dark-text sm:text-3xl">
           {t.auth.welcomeBack}
         </h1>
-        <p className="mt-1 text-sm text-circle-slate dark:text-circle-dark-muted">
+        <p className="mt-1.5 text-sm text-circle-slate dark:text-circle-dark-muted">
           {t.auth.loginSubtitle}
         </p>
       </div>
@@ -167,20 +161,6 @@ function LoginForm() {
           )}
         </div>
 
-        {/* Remember me */}
-        <div className="flex items-center gap-2 pt-1">
-          <input
-            type="checkbox"
-            id="rememberMe"
-            checked={rememberMe}
-            onChange={(e) => setRememberMe(e.target.checked)}
-            className="h-4 w-4 rounded-md border-circle-hairline dark:border-circle-dark-hairline text-circle-sage focus:ring-circle-wash dark:bg-circle-dark-canvas"
-          />
-          <label htmlFor="rememberMe" className="text-xs text-circle-slate dark:text-circle-dark-muted cursor-pointer select-none">
-            {t.auth.rememberMe}
-          </label>
-        </div>
-
         {/* Cloudflare Turnstile bot verification */}
         <TurnstileWidget
           onVerify={(token) => setTurnstileToken(token)}
@@ -222,9 +202,6 @@ function LoginForm() {
           </Link>
         </p>
       </div>
-
-      {/* Privacy & Trust Signals */}
-      <TrustBanner />
     </div>
   );
 }

@@ -44,7 +44,8 @@ export const MessageList: React.FC<MessageListProps> = ({
   const locale = useLanguageStore((s) => s.locale);
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const lastMessageId = messages.length > 0 ? messages[messages.length - 1].id : null;
+  const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
+  const lastMessageId = lastMessage ? lastMessage.id : null;
   const lastMessageByMeId = [...messages]
     .reverse()
     .find((m) =>
@@ -285,6 +286,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                             isLastInCluster={msgIdx === cluster.messages.length - 1}
                             isSingleInCluster={cluster.messages.length === 1}
                             isLatestSentByMe={Boolean(lastMessageByMeId && msg.id === lastMessageByMeId)}
+                            isLatestMessage={Boolean(lastMessageId && msg.id === lastMessageId)}
                             onReply={onReply}
                             onReact={onReact}
                             onTogglePin={onTogglePin}
@@ -295,52 +297,89 @@ export const MessageList: React.FC<MessageListProps> = ({
                     );
                   }
 
+                  const isLatestCluster = Boolean(
+                    lastMessageId && cluster.messages.some((m) => m.id === lastMessageId),
+                  );
+
                   return (
                     <div
                       key={`cluster-other-${clusterIdx}`}
-                      className="flex items-end gap-2.5 mr-auto max-w-[82%]"
+                      className="flex flex-col w-full"
                     >
-                      {/* Avatar aligned with bottom edge of last message in cluster */}
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-circle-primary/10 text-circle-sage dark:text-circle-primary font-bold text-xs uppercase shadow-sm overflow-hidden select-none mb-0.5">
-                        {cluster.senderAvatarUrl ? (
-                          <img
-                            src={cluster.senderAvatarUrl}
-                            alt={cluster.senderName}
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <span>{cluster.senderName.slice(0, 2)}</span>
-                        )}
-                      </div>
-
-                      {/* Cluster Messages Column */}
-                      <div className="flex flex-col items-start min-w-0 flex-1">
-                        {/* Header: Sender Name (Once at top of cluster) */}
-                        <div className="flex items-center gap-1.5 mb-1 px-1">
-                          <span className="text-[12px] font-bold text-circle-charcoal dark:text-circle-dark-text truncate">
-                            {cluster.senderName}
-                          </span>
-                        </div>
-
-                        {/* Consecutive Message Bubbles Stacked */}
-                        <div className="flex flex-col gap-1 items-start w-full">
-                          {cluster.messages.map((msg, msgIdx) => (
-                            <MessageBubble
-                              key={msg.id}
-                              message={msg}
-                              allMessages={messages}
-                              currentUserId={currentUserId}
-                              isFirstInCluster={msgIdx === 0}
-                              isLastInCluster={msgIdx === cluster.messages.length - 1}
-                              isSingleInCluster={cluster.messages.length === 1}
-                              onReply={onReply}
-                              onReact={onReact}
-                              onTogglePin={onTogglePin}
-                              onRetry={onRetry}
+                      <div className="flex items-end gap-2.5 mr-auto max-w-[82%]">
+                        {/* Avatar aligned with bottom edge of last message in cluster */}
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-circle-primary/10 text-circle-sage dark:text-circle-primary font-bold text-xs uppercase shadow-sm overflow-hidden select-none mb-0.5">
+                          {cluster.senderAvatarUrl ? (
+                            <img
+                              src={cluster.senderAvatarUrl}
+                              alt={cluster.senderName}
+                              className="h-full w-full object-cover"
                             />
-                          ))}
+                          ) : (
+                            <span>{cluster.senderName.slice(0, 2)}</span>
+                          )}
+                        </div>
+
+                        {/* Cluster Messages Column */}
+                        <div className="flex flex-col items-start min-w-0 flex-1">
+                          {/* Header: Sender Name (Once at top of cluster) */}
+                          <div className="flex items-center gap-1.5 mb-1 px-1">
+                            <span className="text-[12px] font-bold text-circle-charcoal dark:text-circle-dark-text truncate">
+                              {cluster.senderName}
+                            </span>
+                          </div>
+
+                          {/* Consecutive Message Bubbles Stacked */}
+                          <div className="flex flex-col gap-1 items-start w-full">
+                            {cluster.messages.map((msg, msgIdx) => (
+                              <MessageBubble
+                                key={msg.id}
+                                message={msg}
+                                allMessages={messages}
+                                currentUserId={currentUserId}
+                                isFirstInCluster={msgIdx === 0}
+                                isLastInCluster={msgIdx === cluster.messages.length - 1}
+                                isSingleInCluster={cluster.messages.length === 1}
+                                isLatestMessage={Boolean(lastMessageId && msg.id === lastMessageId)}
+                                onReply={onReply}
+                                onReact={onReact}
+                                onTogglePin={onTogglePin}
+                                onRetry={onRetry}
+                              />
+                            ))}
+                          </div>
                         </div>
                       </div>
+
+                      {/* Latest message read receipts for other's message: ALWAYS aligned to bottom right corner of chat */}
+                      {isLatestCluster && lastMessage && lastMessage.readers && lastMessage.readers.length > 0 && (
+                        <div className="w-full flex items-center justify-end mt-1 px-1 select-none animate-in fade-in">
+                          <div
+                            className="flex items-center -space-x-1"
+                            title={lastMessage.readers.map((r: any) => r.displayName || r.nickname || 'Member').join(', ')}
+                          >
+                            {lastMessage.readers.slice(0, 5).map((reader: any) => (
+                              <span
+                                key={reader.userId}
+                                className="w-4 h-4 rounded-full overflow-hidden border border-white dark:border-circle-dark-surface bg-circle-wash dark:bg-circle-dark-wash inline-flex items-center justify-center shrink-0 shadow-xs"
+                                title={reader.displayName || (reader as any).nickname || 'Member'}
+                              >
+                                {reader.avatarUrl ? (
+                                  <img
+                                    src={reader.avatarUrl}
+                                    alt={reader.displayName || 'Member'}
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  <span className="w-full h-full flex items-center justify-center text-[8px] font-bold text-circle-charcoal dark:text-circle-dark-text bg-circle-primary/20">
+                                    {((reader.displayName || (reader as any).nickname || 'U')).charAt(0).toUpperCase()}
+                                  </span>
+                                )}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })}

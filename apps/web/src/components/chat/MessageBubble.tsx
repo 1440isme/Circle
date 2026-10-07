@@ -9,7 +9,6 @@ import {
   Clock,
   Check,
   AlertCircle,
-  Eye,
 } from 'lucide-react';
 import { MessageEntity, MessageType } from '@circle/types';
 import { useLanguageStore } from '../../stores/language.store';
@@ -22,6 +21,7 @@ interface MessageBubbleProps {
   isLastInCluster?: boolean;
   isSingleInCluster?: boolean;
   isLatestSentByMe?: boolean;
+  isLatestMessage?: boolean;
   onReply: (message: MessageEntity) => void;
   onReact: (messageId: string, emoji: string) => void;
   onTogglePin: (messageId: string, isPinned: boolean) => void;
@@ -38,6 +38,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   isLastInCluster = true,
   isSingleInCluster = true,
   isLatestSentByMe = false,
+  isLatestMessage = false,
   onReply,
   onReact,
   onTogglePin,
@@ -122,7 +123,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
   return (
     <div
-      className={`group relative flex flex-col transition-all ${
+      className={`group relative flex flex-col transition-all w-full ${
         isSenderMe ? 'items-end' : 'items-start'
       }`}
     >
@@ -134,11 +135,22 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         </div>
       )}
 
-      {/* Message Bubble Container with Click-to-Toggle-Timestamp */}
-      <div className="relative inline-block max-w-full">
+      {/* Timestamp ON TOP (ONLY on click/tap) */}
+      {showTimestamp && (
+        <div
+          className={`text-[10px] font-mono mb-1 px-1 text-circle-slate/60 dark:text-circle-dark-muted/60 select-none animate-in fade-in transition-opacity ${
+            isSenderMe ? 'text-right' : 'text-left'
+          }`}
+        >
+          {sentTime}
+        </div>
+      )}
+
+      {/* Message Bubble Container - w-fit ensures it hugs only the content width and NEVER stretches */}
+      <div className="relative inline-block w-fit max-w-full">
         <div
           onClick={() => setShowTimestamp((prev) => !prev)}
-          className={`relative cursor-pointer select-text px-4 py-2.5 transition-all shadow-sm ${getBubbleRadius()} ${
+          className={`relative cursor-pointer select-text px-4 py-2.5 transition-all shadow-sm w-fit max-w-full ${getBubbleRadius()} ${
             isSenderMe
               ? 'bg-circle-primary text-white dark:bg-circle-dark-primary dark:text-circle-dark-canvas'
               : 'bg-white dark:bg-circle-dark-surface text-circle-charcoal dark:text-circle-dark-text border border-circle-hairline dark:border-circle-dark-hairline'
@@ -252,123 +264,159 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           )}
         </div>
 
-        {/* Sent Timestamp (ONLY on click/tap) & Status Icon (Visible for latest message or sending/failed) */}
-        {(showTimestamp || (isSenderMe && (isLatestSentByMe || message.status === 'SENDING' || message.status === 'FAILED'))) && (
-          <div
-            className={`text-[10px] mt-1 px-1 font-mono transition-opacity animate-in fade-in flex flex-wrap items-center gap-2 select-none ${
-              isSenderMe
-                ? 'justify-end text-circle-slate/60 dark:text-circle-dark-muted/60'
-                : 'justify-start text-circle-slate/60 dark:text-circle-dark-muted/60'
-            }`}
+        {/* Hover Action Bar (Pin, Reply, Quick Emojis) - High up above bubble, level with timestamp, never covers bubble */}
+        <div
+          className={`absolute bottom-[calc(100%+4px)] hidden group-hover:flex items-center gap-0.5 rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-1 shadow-circle-hover transition-all z-20 before:absolute before:-bottom-2 before:left-0 before:right-0 before:h-3 ${
+            isSenderMe ? 'right-0' : 'left-0'
+          }`}
+        >
+          {/* Quick Emoji Buttons */}
+          <div className="flex items-center gap-0.5 pr-1 border-r border-circle-hairline dark:border-circle-dark-hairline">
+            {QUICK_EMOJIS.map((emoji) => (
+              <button
+                key={emoji}
+                type="button"
+                onClick={() => onReact(message.id, emoji)}
+                className="flex h-6 w-6 items-center justify-center rounded-full hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-xs transition-transform hover:scale-125"
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+
+          {/* Reply Action */}
+          <button
+            type="button"
+            onClick={() => onReply(message)}
+            className="flex h-6 w-6 items-center justify-center rounded-full text-circle-slate dark:text-circle-dark-muted hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas hover:text-circle-sage transition-colors"
+            title={t.chat.replyAction}
           >
-            {showTimestamp && <span>{sentTime}</span>}
-            {showTimestamp && message.readers && message.readers.length > 0 && (
-              <span className="inline-flex items-center gap-1.5 font-sans font-medium text-[10px] text-circle-slate/80 dark:text-circle-dark-muted/80">
-                <span className="inline-block w-1 h-1 rounded-full bg-circle-hairline dark:bg-circle-dark-hairline" />
-                <Eye className="w-3 h-3 text-circle-primary shrink-0" />
-                <span className="flex -space-x-1 items-center">
-                  {message.readers.slice(0, 3).map((reader) => (
-                    <span
-                      key={reader.userId}
-                      className="w-3.5 h-3.5 rounded-full overflow-hidden border border-white dark:border-circle-dark-surface bg-circle-wash dark:bg-circle-dark-wash inline-block shrink-0"
-                      title={reader.displayName}
-                    >
-                      {reader.avatarUrl ? (
-                        <img src={reader.avatarUrl} alt={reader.displayName} className="w-full h-full object-cover" />
-                      ) : (
-                        <span className="w-full h-full flex items-center justify-center text-[7px] font-bold text-circle-charcoal dark:text-circle-dark-text">
-                          {reader.displayName.charAt(0).toUpperCase()}
-                        </span>
-                      )}
-                    </span>
-                  ))}
-                </span>
-                <span className="truncate max-w-[160px]">
-                  {message.readers.length <= 2
-                    ? (t.chat.seenBy || 'Đã xem bởi {names}').replace(
-                        '{names}',
-                        message.readers.map((r) => r.displayName).join(', '),
-                      )
-                    : (t.chat.seenByCount || 'Đã xem bởi {count} người').replace(
-                        '{count}',
-                        String(message.readers.length),
-                      )}
-                </span>
-              </span>
-            )}
-            {isSenderMe && (isLatestSentByMe || message.status === 'SENDING' || message.status === 'FAILED') && (
+            <Reply className="h-3.5 w-3.5 scale-x-[-1]" />
+          </button>
+
+          {/* Pin / Unpin Action */}
+          <button
+            type="button"
+            onClick={() => onTogglePin(message.id, !!message.isPinned)}
+            className={`flex h-6 w-6 items-center justify-center rounded-full transition-colors ${
+              message.isPinned
+                ? 'text-amber-500 hover:bg-amber-100/60 dark:hover:bg-amber-950/30'
+                : 'text-circle-slate dark:text-circle-dark-muted hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas hover:text-amber-500'
+            }`}
+            title={message.isPinned ? t.chat.unpinAction : t.chat.pinAction}
+          >
+            <Pin className={`h-3.5 w-3.5 ${message.isPinned ? 'fill-amber-500' : ''}`} />
+          </button>
+        </div>
+      </div>
+
+      {/* Sibling Below Bubble: Seen status / Avatar / Sending status */}
+      {isLatestMessage ? (
+        isSenderMe ? (
+          /* Latest Message sent by ME: ALWAYS show who has seen with mini avatar stack on the RIGHT */
+          <div className="w-full flex items-center justify-end gap-1.5 mt-1 px-0.5 select-none animate-in fade-in">
+            {/* Sending/Failed status if sent by me */}
+            {(message.status === 'SENDING' || message.status === 'FAILED') && (
               <span className="inline-flex items-center">
                 {message.status === 'SENDING' ? (
-                  <span className="inline-flex items-center text-circle-primary ml-0.5" title={t.chat.sendingStatus}>
-                    <Clock className="w-3 h-3 animate-spin" />
+                  <span title={t.chat.sendingStatus} className="inline-flex items-center">
+                    <Clock className="w-3 h-3 text-circle-primary animate-spin" />
                   </span>
-                ) : message.status === 'FAILED' ? (
+                ) : (
                   <button
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       onRetry?.(message);
                     }}
-                    className="inline-flex items-center text-red-500 hover:opacity-80 cursor-pointer ml-0.5"
+                    className="inline-flex items-center text-red-500 hover:opacity-80 cursor-pointer"
                     title={t.chat.retryAction}
                   >
                     <AlertCircle className="w-3 h-3 text-red-500" />
                   </button>
-                ) : (
-                  <span className="inline-flex items-center text-circle-primary dark:text-circle-dark-primary ml-0.5" title={t.chat.sentStatus}>
-                    <Check className="w-3 h-3" />
-                  </span>
                 )}
               </span>
             )}
+
+            {/* Mini avatar stack on the right */}
+            {message.readers && message.readers.length > 0 ? (
+              <div
+                className="flex items-center -space-x-1"
+                title={message.readers.map((r) => r.displayName || (r as any).nickname || 'Member').join(', ')}
+              >
+                {message.readers.slice(0, 5).map((reader) => (
+                  <span
+                    key={reader.userId}
+                    className="w-4 h-4 rounded-full overflow-hidden border border-white dark:border-circle-dark-surface bg-circle-wash dark:bg-circle-dark-wash inline-flex items-center justify-center shrink-0 shadow-xs"
+                    title={reader.displayName || (reader as any).nickname || 'Member'}
+                  >
+                    {reader.avatarUrl ? (
+                      <img
+                        src={reader.avatarUrl}
+                        alt={reader.displayName || 'Member'}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span className="w-full h-full flex items-center justify-center text-[8px] font-bold text-circle-charcoal dark:text-circle-dark-text bg-circle-primary/20">
+                        {((reader.displayName || (reader as any).nickname || 'U')).charAt(0).toUpperCase()}
+                      </span>
+                    )}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              /* Sent check mark when sent by me and no one has read yet */
+              message.status !== 'SENDING' && message.status !== 'FAILED' && (
+                <span
+                  className="inline-flex items-center text-circle-primary dark:text-circle-dark-primary"
+                  title={t.chat.sentStatus}
+                >
+                  <Check className="w-3 h-3" />
+                </span>
+              )
+            )}
           </div>
-        )}
-      </div>
-
-      {/* Hover Action Bar (Pin, Reply, Quick Emojis) */}
-      <div
-        className={`absolute -top-3 hidden group-hover:flex items-center gap-0.5 rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-1 shadow-circle-hover transition-all z-20 ${
-          isSenderMe ? 'right-2' : 'left-2'
-        }`}
-      >
-        {/* Quick Emoji Buttons */}
-        <div className="flex items-center gap-0.5 pr-1 border-r border-circle-hairline dark:border-circle-dark-hairline">
-          {QUICK_EMOJIS.map((emoji) => (
-            <button
-              key={emoji}
-              type="button"
-              onClick={() => onReact(message.id, emoji)}
-              className="flex h-6 w-6 items-center justify-center rounded-full hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-xs transition-transform hover:scale-125"
-            >
-              {emoji}
-            </button>
-          ))}
-        </div>
-
-        {/* Reply Action */}
-        <button
-          type="button"
-          onClick={() => onReply(message)}
-          className="flex h-6 w-6 items-center justify-center rounded-full text-circle-slate dark:text-circle-dark-muted hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas hover:text-circle-sage transition-colors"
-          title={t.chat.replyAction}
-        >
-          <Reply className="h-3.5 w-3.5 scale-x-[-1]" />
-        </button>
-
-        {/* Pin / Unpin Action */}
-        <button
-          type="button"
-          onClick={() => onTogglePin(message.id, !!message.isPinned)}
-          className={`flex h-6 w-6 items-center justify-center rounded-full transition-colors ${
-            message.isPinned
-              ? 'text-amber-500 hover:bg-amber-100/60 dark:hover:bg-amber-950/30'
-              : 'text-circle-slate dark:text-circle-dark-muted hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas hover:text-amber-500'
-          }`}
-          title={message.isPinned ? t.chat.unpinAction : t.chat.pinAction}
-        >
-          <Pin className={`h-3.5 w-3.5 ${message.isPinned ? 'fill-amber-500' : ''}`} />
-        </button>
-      </div>
+        ) : null
+      ) : (
+        /* Older messages: Seen by info shown as pure TEXT below ONLY when clicked, NO eye icon */
+        showTimestamp && message.readers && message.readers.length > 0 ? (
+          <div
+            className={`text-[10px] text-circle-slate/70 dark:text-circle-dark-muted/70 mt-1 px-1 font-sans select-none transition-opacity animate-in fade-in max-w-full ${
+              isSenderMe ? 'text-right' : 'text-left'
+            }`}
+          >
+            {(() => {
+              const names = message.readers
+                .map((r) => r.displayName || (r as any).nickname || (r as any).name || 'Member')
+                .join(', ');
+              if (message.readers.length <= 2) {
+                const tmpl = t.chat.seenBy || 'Đã xem bởi {names}';
+                return tmpl.includes('{names}') ? tmpl.replace('{names}', names) : `${tmpl} ${names}`;
+              }
+              const countTmpl = t.chat.seenByCount || 'Đã xem bởi {count} người';
+              return countTmpl.includes('{count}')
+                ? countTmpl.replace('{count}', String(message.readers.length))
+                : `${countTmpl}: ${message.readers.length} người`;
+            })()}
+          </div>
+        ) : isSenderMe && (message.status === 'SENDING' || message.status === 'FAILED') ? (
+          <div className="w-full flex items-center justify-end mt-1 px-1">
+            {message.status === 'SENDING' ? (
+              <Clock className="w-3 h-3 text-circle-primary animate-spin" />
+            ) : (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRetry?.(message);
+                }}
+              >
+                <AlertCircle className="w-3 h-3 text-red-500" />
+              </button>
+            )}
+          </div>
+        ) : null
+      )}
     </div>
   );
 };
