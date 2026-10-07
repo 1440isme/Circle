@@ -3733,3 +3733,52 @@
 - **Commit:** `3d7f4b8`
 - **PR:** #80
 
+---
+
+## AI-0092: Triển khai Module WebRTC Calls & Signaling Gateway (UC12, SPIKE-RTC-001)
+
+- **Date:** 2026-10-07 23:05:00 +07:00
+- **Developer:** Trương Công Bình (23110184)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #8 ([SUB-RESEARCH]: SPIKE-RTC-001 — WebRTC Audio/Video Signaling Architecture & STUN/TURN PoC) & Epic #20
+- **Purpose:**
+  1. Triển khai backend module `CallsModule` trong NestJS bao gồm `CallsService`, `CallsController`, và `CallsGateway` (Socket.IO signaling cho SDP offer/answer, ICE candidates, quản lý trạng thái cuộc gọi `CallSession` và `CallParticipant`).
+  2. Bổ sung các schema và contracts dùng chung trong `@circle/types` và `@circle/shared` (`IceServerConfig`, `CallSessionDetailEntity`, `createCallSchemas`).
+  3. Cung cấp API `GET /api/v1/calls/ice-servers` trả về cấu hình STUN & TURN credentials phục vụ NAT traversal.
+  4. Triển khai frontend Web: custom hook `useWebRTCCall`, query hooks `use-call-queries.ts`, component `CallStageModal.tsx` và tích hợp các nút gọi thoại / gọi video cùng banner phòng gọi realtime vào `ChannelChatView.tsx`.
+  5. Viết bộ kiểm thử unit tests hoàn chỉnh cho `CallsService` và `CallsGateway` (14 tests mới).
+- **Prompt Summary:** Tự động kiểm tra trạng thái repo, phát hiện nhánh chat đã merge thành công vào develop, chủ động checkout nhánh mới và triển khai trọn gói Module 6 WebRTC Signaling & Call theo đúng kế hoạch và issue #8.
+- **Files Affected:**
+  - `packages/types/src/index.ts`
+  - `packages/shared/src/index.ts`
+  - `packages/shared/src/validators/calls.validator.ts`
+  - `apps/backend/src/app.module.ts`
+  - `apps/backend/src/modules/calls/calls.module.ts`
+  - `apps/backend/src/modules/calls/calls.controller.ts`
+  - `apps/backend/src/modules/calls/calls.service.ts`
+  - `apps/backend/src/modules/calls/calls.gateway.ts`
+  - `apps/backend/src/modules/calls/calls.service.spec.ts`
+  - `apps/backend/src/modules/calls/calls.gateway.spec.ts`
+  - `apps/web/src/hooks/use-call-queries.ts`
+  - `apps/web/src/hooks/use-webrtc-call.ts`
+  - `apps/web/src/components/call/CallStageModal.tsx`
+  - `apps/web/src/components/chat/ChannelChatView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% mã nguồn backend signaling, frontend WebRTC hook, modal UI và bộ test suites.
+- **Human Modifications:** Trương Công Bình rà soát và định hướng luồng công việc theo đúng SDLC của đề tài.
+- **Verification Method:**
+  - `npm test -w @circle/backend`: 133/133 unit tests pass 100% (10/10 test suites).
+  - `npm run build -w @circle/web`: Next.js 14 production build pass 100% (9 static routes).
+  - `npm run typecheck -w @circle/mobile`: 0 errors.
+  - `./scripts/check-agent-map.sh`: 94/94 files pass.
+- **Official Source Checked:** `PROJECT_GOD.md` (Section 4 & Gate D), `docs/phan-cong-nhiem-vu.md` (Module 6), Issue #8.
+- **Security & License Check:** Cấu hình STUN/TURN lấy từ biến môi trường, không lưu cứng secret; phân quyền thành viên vòng tròn trước khi cấp quyền truy cập phiên gọi.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** Unused variable `BadRequestException` và TypeScript TS2532 trong `calls.service.spec.ts`.
+  - **Root Cause:** Strict TypeScript checks của dự án.
+  - **Resolution / Fix:** Loại bỏ import thừa và bổ sung non-null assertion cho mảng test `iceServers`.
+- **Commit:** Pending
+- **PR:** Pending
+
+

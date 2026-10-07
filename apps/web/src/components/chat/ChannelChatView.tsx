@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useQueryClient, InfiniteData } from '@tanstack/react-query';
-import { MessageSquare, Pin, Users, Hash, WifiOff } from 'lucide-react';
-import { MessageEntity, CursorPaginatedMessages } from '@circle/types';
+import { MessageSquare, Pin, Users, Hash, WifiOff, Phone, Video, Radio } from 'lucide-react';
+import { MessageEntity, CursorPaginatedMessages, CallType, CallSessionDetailEntity } from '@circle/types';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguageStore } from '../../stores/language.store';
 import {
@@ -15,10 +15,12 @@ import {
   usePinnedMessagesQuery,
   useChannelTyping,
 } from '../../hooks/use-chat-queries';
+import { useActiveCallQuery, useInitiateCallMutation } from '../../hooks/use-call-queries';
 import { subscribeSocketConnection, sendMessageRead } from '../../lib/socket';
 import { MessageList } from './MessageList';
 import { ChatComposer } from './ChatComposer';
 import { PinnedMessagesModal } from './PinnedMessagesModal';
+import { CallStageModal } from '../call/CallStageModal';
 
 interface ChannelChatViewProps {
   channelId: string;
@@ -40,6 +42,21 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
   const [replyingMessage, setReplyingMessage] = useState<MessageEntity | null>(null);
   const [isPinnedModalOpen, setIsPinnedModalOpen] = useState(false);
   const [isSocketConnected, setIsSocketConnected] = useState(true);
+  const [activeCallStageSession, setActiveCallStageSession] = useState<CallSessionDetailEntity | null>(null);
+
+  const { data: activeCircleCall } = useActiveCallQuery(circleId);
+  const initiateCallMutation = useInitiateCallMutation();
+
+  const handleStartCall = async (callType: CallType) => {
+    try {
+      const res = await initiateCallMutation.mutateAsync({ circleId, callType });
+      if (res?.callSession) {
+        setActiveCallStageSession(res.callSession);
+      }
+    } catch (err: any) {
+      console.error('Error starting call:', err);
+    }
+  };
 
   useEffect(() => {
     return subscribeSocketConnection((connected) => {
@@ -140,6 +157,70 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
 
   return (
     <div className="flex-1 flex flex-col h-full min-h-0 rounded-3xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface shadow-circle-card overflow-hidden transition-colors">
+      {/* Channel Header Bar with Call Actions */}
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-circle-hairline dark:border-circle-dark-hairline bg-white/80 dark:bg-circle-dark-surface/80 backdrop-blur-md z-10">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-circle-wash dark:bg-circle-dark-wash text-circle-sage dark:text-circle-primary font-bold">
+            <Hash className="h-4 w-4" />
+          </div>
+          <div className="min-w-0">
+            <h3 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text truncate">
+              {channelName}
+            </h3>
+            {channelTopic && (
+              <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted truncate hidden sm:block">
+                {channelTopic}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Action Controls: Audio Call, Video Call */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          <button
+            type="button"
+            onClick={() => handleStartCall(CallType.AUDIO)}
+            disabled={initiateCallMutation.isPending}
+            className="flex h-8 w-8 items-center justify-center rounded-full text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors active:scale-95 shadow-2xs"
+            title="Bắt đầu phòng gọi thoại / Start Audio Call"
+          >
+            <Phone className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => handleStartCall(CallType.VIDEO)}
+            disabled={initiateCallMutation.isPending}
+            className="flex h-8 w-8 items-center justify-center rounded-full text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors active:scale-95 shadow-2xs"
+            title="Bắt đầu cuộc gọi video / Start Video Call"
+          >
+            <Video className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* Active Call In-Progress Alert Banner */}
+      {activeCircleCall && (
+        <div className="flex items-center justify-between px-4 py-2 bg-emerald-500/10 dark:bg-emerald-500/15 border-b border-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs animate-fadeIn">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="relative flex h-2.5 w-2.5 shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+            </span>
+            <span className="font-semibold truncate">
+              {activeCircleCall.callType === CallType.VIDEO ? 'Phòng gọi Video' : 'Phòng đàm thoại'}{' '}
+              đang diễn ra ({activeCircleCall.participants?.length || 1} người)
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setActiveCallStageSession(activeCircleCall)}
+            className="flex items-center gap-1 shrink-0 px-3 py-1 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-[11px] shadow-sm transition-all active:scale-95"
+          >
+            <span>Tham gia</span>
+          </button>
+        </div>
+      )}
+
       {/* Network Reconnection Banner */}
       {!isSocketConnected && (
         <div className="flex items-center justify-center gap-2 bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 py-1.5 px-4 text-xs font-medium border-b border-amber-500/20 animate-pulse transition-all">
@@ -218,6 +299,15 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
         isLoading={isLoadingPins}
         onUnpin={(messageId) => handleTogglePin(messageId, true)}
       />
+
+      {/* WebRTC Call Stage Modal */}
+      {activeCallStageSession && (
+        <CallStageModal
+          callSession={activeCallStageSession}
+          isOpen={!!activeCallStageSession}
+          onClose={() => setActiveCallStageSession(null)}
+        />
+      )}
     </div>
   );
 };
