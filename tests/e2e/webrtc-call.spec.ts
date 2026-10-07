@@ -40,6 +40,12 @@ test.describe('CIRCLE WebRTC Audio/Video Call E2E Verification (UC12, SPIKE-RTC-
     const callModal = page.locator('text=/Voice Room|thành viên đang tham gia/i').first();
     await expect(callModal).toBeVisible({ timeout: 15000 });
 
+    const isMobile = Boolean(page.viewportSize()?.width && page.viewportSize()!.width < 600);
+    const screenshotPath = isMobile
+      ? 'webrtc-call-stage-verified-mobile.png'
+      : 'webrtc-call-stage-verified-desktop.png';
+    await page.screenshot({ path: screenshotPath });
+
     // Verify control action buttons in Call Stage (Leave / Rời phòng button)
     const leaveBtn = page.locator('button:has-text("Rời phòng")');
     await expect(leaveBtn).toBeVisible({ timeout: 5000 });
