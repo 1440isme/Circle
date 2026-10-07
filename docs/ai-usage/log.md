@@ -3492,3 +3492,164 @@
   - `./scripts/check-agent-map.sh`: 94/94 files pass (0 broken references).
 - **Official Source Checked:** Cloudflare Turnstile Server-Side Validation Documentation, Next.js Documentation.
 - **Security & License Check:** Bảo mật cao, sử dụng secret key server-side không lộ client, zero secret leaks, MIT license.
+
+
+---
+
+## AI-0085: Triển khai 0.5x Ultra Wide Hardware Switching & Tinh chỉnh Selfie Zoom cho Expo Camera
+
+- **Date:** 2026-10-06 23:48:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #78 (US-MOMENT-CAM: Hardware Optical Ultra Wide 0.5x Lens & Natural Selfie Zoom)
+- **Purpose:** 
+  1. Loại bỏ hoàn toàn giải pháp giả lập zoom bằng `transform: [{ scale }]` hoặc `zoom={0.5}` gây méo khung hình.
+  2. Tích hợp chuyển đổi thấu kính quang học vật lý phần cứng thật (`Back Ultra Wide Camera` vs `Back Camera`) thông qua `selectedLens` của Expo Camera trên iOS / Android.
+  3. Xử lý cơ chế selfie theo chuẩn Locket và Apple Camera: `0.5x` mở trọn vẹn cảm biến góc rộng 23mm (`zoom = 0`), `1x` tinh chỉnh góc chụp chân dung tự nhiên (`zoom = 0.04`).
+  4. Khắc phục hiện tượng giật/nháy reload camera khi chuyển đổi zoom ở camera trước bằng cách tối ưu hóa `key` của `CameraView`.
+  5. Thêm cấu hình lật gương `mirror={cameraFacing === 'front'}` trên cả preview lẫn `takePictureAsync` để ảnh chụp selfie ra đúng chiều tự nhiên không bị lộn ngược.
+  6. Dọn dẹp toàn bộ console.log và mã nguồn debug tạm thời.
+- **Prompt Summary:** Yêu cầu: Triển khai 0.5x bằng camera Ultra Wide thật của thiết bị, không dùng transform scale, xử lý mượt mà chuyển đổi camera trước/sau, cấu hình mirror selfie và dọn dẹp log dư thừa.
+- **Files Affected:**
+  - `apps/mobile/src/components/moment/MomentsView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% logic trích xuất lens, điều khiển zoom, cấu hình CameraView và mirror photo.
+- **Human Modifications:** Ninh Thị Mỹ Hạnh trực tiếp kiểm thử trên iPhone thật, cung cấp danh sách lens từ phần cứng, định hướng tinh chỉnh góc chụp và phê duyệt giải pháp.
+- **Verification Method:**
+  - `npm run typecheck -w @circle/mobile` / `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Vượt qua 100% (0 errors).
+  - Kiểm thử trực tiếp trên thiết bị iPhone thật: Camera sau chuyển đổi chuẩn xác giữa 1x và 0.5x Ultra Wide; camera trước phóng to thu nhỏ mượt mà không nháy đen; ảnh chụp selfie đúng chiều gương.
+- **Official Source Checked:** Apple AVFoundation `AVCaptureDeviceDiscoverySession` Documentation, Expo Camera SDK 57 `selectedLens` & `mirror` API Documentation.
+- **Security & License Check:** An toàn, không chứa bí mật hay thông tin nhạy cảm.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A
+  - **Resolution / Fix:** N/A
+
+---
+
+## AI-0086: Tích hợp Hybrid Dual Camera Architecture (Expo Go & Development Build Support)
+
+- **Date:** 2026-10-07 02:22:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #78 (US-MOMENT-CAM: Simultaneous Dual Camera Live & Sequential Fallback)
+- **Purpose:**
+  1. Tích hợp thư viện `expo-dual-camera` hỗ trợ `AVCaptureMultiCamSession` (iOS) và `CameraX Concurrent` (Android) cho chế độ Dual Camera Live đồng thời.
+  2. Xây dựng cơ chế **Hybrid Architecture**: Tự động nhận diện môi trường qua `expo-constants`:
+     - Trên **Development Build**: Mở 2 camera Live đồng thời với `<DualCameraBackView>` + `<DualCameraFrontView>` và chụp ảnh kép qua `takeDualPictureAsync`.
+     - Trên **Expo Go**: Tự động kích hoạt cơ chế **Sequential Dual Real Capture (chụp kép 2 camera thật liên tiếp chuẩn BeReal)**, loại bỏ hoàn toàn việc dùng avatar hay ảnh tĩnh giả lập.
+  3. Cài đặt **Safe Dynamic Loading** cho native module tránh crash khi chạy trên môi trường Expo Go sandbox.
+- **Prompt Summary:** Yêu cầu: Nâng cấp chế độ Dual Mode hiển thị camera thật thay vì ảnh avatar/fallback, tích hợp expo-dual-camera và hỗ trợ tương thích an toàn trên Expo Go.
+- **Files Affected:**
+  - `apps/mobile/src/components/moment/MomentsView.tsx`
+  - `apps/mobile/package.json`
+  - `apps/mobile/app.json`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% logic điều phối Hybrid camera, cơ chế Sequential Dual Capture, và safe dynamic loader.
+- **Human Modifications:** Ninh Thị Mỹ Hạnh yêu cầu loại bỏ ảnh giả lập, định hướng trải nghiệm Dual Camera thật và kiểm thử thực tế trên Expo Go.
+- **Verification Method:**
+  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Pass 100% (0 errors).
+  - Kiểm thử trực tiếp trên Expo Go: Chạy mượt mà, không crash module native, chụp kép thành công cả 2 camera (trước & sau).
+- **Official Source Checked:** `expo-dual-camera` API Documentation, Expo Constants ExecutionEnvironment Documentation.
+- **Security & License Check:** An toàn, không chứa bí mật hay thông tin nhạy cảm.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A
+  - **Resolution / Fix:** N/A
+
+---
+
+## AI-0087: Sửa lỗi Route Mapping StorageController & Cấu hình Build Monolith cho Storage Upload
+
+- **Date:** 2026-10-07 02:40:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #78 (US-STORAGE-UPLOAD: Direct Upload Route Mapping & Monorepo Build Configuration)
+- **Purpose:**
+  1. Khắc phục lỗi `Cannot POST /api/v1/storage/upload` khi ứng dụng mobile upload ảnh moments.
+  2. Bổ sung cấu hình `entryFile: "apps/backend/src/main"` trong `apps/backend/nest-cli.json` và cập nhật `start:prod` trong `package.json` để tương thích cấu trúc biên dịch monorepo (`dist/apps/backend/src/main`).
+  3. Đảm bảo toàn bộ route của `StorageController` (`/api/v1/storage/upload`, `/api/v1/storage/presigned-url`, `/api/v1/storage/raw/*`) được đăng ký và ánh xạ chính xác trên NestJS API Gateway.
+- **Prompt Summary:** Khắc phục lỗi `Cannot POST /api/v1/storage/upload` khi upload ảnh từ thiết bị mobile.
+- **Files Affected:**
+  - `apps/backend/src/app.module.ts`
+  - `apps/backend/nest-cli.json`
+  - `apps/backend/package.json`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% phân tích nguyên nhân route không được load và sửa cấu hình NestJS/TypeScript compilation.
+- **Human Modifications:** Ninh Thị Mỹ Hạnh phát hiện lỗi từ log Expo console, yêu cầu truy vết nguyên nhân và sửa dứt điểm.
+- **Verification Method:**
+  - Build NestJS thành công (`nest build`).
+  - Kiểm tra log khởi động NestJS: `[RouterExplorer] Mapped {/api/v1/storage/upload, POST}` xuất hiện đầy đủ.
+  - Kiểm tra `curl -i -X POST http://localhost:4000/api/v1/storage/upload` trả về `401 Unauthorized` (chứng minh route đã tồn tại và hoạt động đúng với JwtAuthGuard).
+- **Official Source Checked:** NestJS CLI Monorepo Docs, Express Request Routing Specs.
+- **Security & License Check:** An toàn, toàn bộ endpoint upload yêu cầu JWT Guard hợp lệ.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A
+  - **Resolution / Fix:** N/A
+
+---
+
+## AI-0088: Khắc phục hiển thị ảnh chụp thật trên Mobile (Resolve Dynamic LAN IP & Storage Upload)
+
+- **Date:** 2026-10-07 02:44:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #78 (US-MOMENT-VIEW: Real Captured Photo Feed Display & Dynamic LAN IP Mapping)
+- **Purpose:**
+  1. Giải thích chi tiết sự khác biệt giữa cơ chế cũ (dùng link ảnh mẫu Unsplash tĩnh có sẵn trên internet) và cơ chế mới (chụp ảnh camera thật từ phần cứng thiết bị, chuyển đổi base64 và lưu trữ trên backend).
+  2. Bổ sung hàm tiện ích `resolveMobileMediaUrl` trong `apps/mobile/src/services/api.ts` để tự động biến đổi các URL dạng `http://localhost:4000/...` thành IP mạng LAN thực tế của máy chủ dev (`http://192.168.x.x:4000/...`), giúp thiết bị điện thoại thật đọc và render hình ảnh mượt mà.
+  3. Áp dụng `resolveMobileMediaUrl` trên toàn bộ component `MomentsView.tsx` (ảnh chính, khung ảnh phụ PiP, avatar người đăng, và ảnh thumbnail lịch sử).
+  4. Dọn dẹp mã nguồn rác `SAMPLE_CAPTURE_PHOTOS` và state `activeSampleIndex`.
+- **Prompt Summary:** Giải thích lý do trước đó đăng ảnh hiển thị được còn bây giờ vừa chụp ảnh đăng lại chưa hiển thị và khắc phục.
+- **Files Affected:**
+  - `apps/mobile/src/services/api.ts`
+  - `apps/mobile/src/components/moment/MomentsView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% logic resolve URL và chuẩn hóa pipeline hiển thị hình ảnh mobile.
+- **Human Modifications:** Ninh Thị Mỹ Hạnh trực tiếp thử nghiệm và đặt câu hỏi làm rõ hành vi pipeline upload/display.
+- **Verification Method:**
+  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Exit code 0 (Pass 100%).
+  - Backend đã sẵn sàng endpoint `GET /api/v1/storage/raw/*` phục vụ buffer ảnh cho mobile client.
+- **Official Source Checked:** React Native `<Image>` Network Resource Resolution Specs, Expo Constants Host IP Discovery.
+- **Security & License Check:** An toàn, không có secret, không ảnh hưởng các module khác.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A
+  - **Resolution / Fix:** N/A
+
+---
+
+## AI-0089: Sửa lỗi Public URL Dummy Domain & Bổ sung Disk Persistence cho Local Storage Fallback
+
+- **Date:** 2026-10-07 02:53:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #78 (US-STORAGE-DEV: Local Media URL Resolution & File Persistence)
+- **Purpose:**
+  1. Truy vết nguyên nhân chính xác vì sao ảnh chụp đăng lên không hiển thị: trong file `.env` có thiết lập `CLOUDFLARE_R2_PUBLIC_DOMAIN="https://media.circle.example.com"` (dummy domain), khiến hàm `getPublicUrl()` sinh ra domain ảo không tồn tại thay vì trỏ về endpoint local raw media của server dev (`/api/v1/storage/raw/*`).
+  2. Cập nhật điều kiện kiểm tra trong `getPublicUrl()`: chỉ áp dụng `publicDomain` khi Cloudflare R2 thực sự được cấu hình (`isR2Configured === true`), còn ở môi trường Local Fallback luôn trả về endpoint server cục bộ.
+  3. Bổ sung cơ chế ghi file vật lý vào thư mục `uploads/` trên ổ đĩa bên cạnh in-memory map, giúp các ảnh đã chụp không bị mất khi backend hot-reload hoặc restart.
+  4. Sửa lỗi ghép URL trong `mobileApiRequest` trên mobile app khi nhận endpoint là đường dẫn tuyệt đối (tránh bị nối lặp `baseUrl`).
+- **Prompt Summary:** Khắc phục triệt để lỗi ảnh moment chụp xong bấm đăng nhưng không hiển thị trên bảng tin.
+- **Files Affected:**
+  - `apps/backend/src/modules/storage/storage.service.ts`
+  - `apps/mobile/src/services/api.ts`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% logic sửa điều kiện domain, lưu trữ disk storage và xử lý URL mobileApiRequest.
+- **Human Modifications:** Ninh Thị Mỹ Hạnh trực tiếp thử nghiệm và phát hiện hiện tượng ảnh không hiển thị sau khi đăng.
+- **Verification Method:**
+  - Chạy test upload trực tiếp qua Node.js: Trả về HTTP 201 Created với URL hợp lệ `/api/v1/storage/raw/moments/...`.
+  - Fetch URL ảnh vừa upload: Trả về HTTP 200 OK với đúng header `image/jpeg` và binary buffer.
+  - Tạo moment thành công qua API `/api/v1/moments` (HTTP 201).
+- **Official Source Checked:** Express Static Buffer Streaming, HTTP Content-Type Standards.
+- **Security & License Check:** An toàn, không chứa bí mật.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A
+  - **Resolution / Fix:** N/A

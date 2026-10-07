@@ -6,6 +6,8 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
+import * as fs from 'fs';
+import * as path from 'path';
 import {
   PresignedUploadRequest,
   PresignedUploadResponse,
@@ -168,11 +170,11 @@ export class StorageService {
    * Constructs the public CDN URL for a stored asset
    */
   getPublicUrl(key: string): string {
-    if (this.publicDomain) {
-      const base = this.publicDomain.replace(/\/+$/, '');
-      return `${base}/${key}`;
-    }
     if (this.isR2Configured) {
+      if (this.publicDomain) {
+        const base = this.publicDomain.replace(/\/+$/, '');
+        return `${base}/${key}`;
+      }
       return `https://${this.bucketName}.${this.accountId}.r2.cloudflarestorage.com/${key}`;
     }
     // Local development fallback endpoint
@@ -251,6 +253,18 @@ export class StorageService {
       createdAt: new Date(),
     });
 
+    // Also persist to disk so images survive restarts
+    try {
+      const diskPath = path.join(process.cwd(), 'uploads', key);
+      const dir = path.dirname(diskPath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      fs.writeFileSync(diskPath, buffer);
+    } catch (err: any) {
+      this.logger.warn(`Could not persist upload to disk: ${err.message}`);
+    }
+
     const publicUrl = this.getPublicUrl(key);
 
     return {
@@ -266,6 +280,28 @@ export class StorageService {
    * Retrieves a stored buffer for the local raw media endpoint
    */
   getLocalBuffer(key: string): { buffer: Buffer; contentType: string } | null {
-    return this.localBufferStore.get(key) || null;
+    const fromMem = this.localBufferStore.get(key);
+    if (fromMem) return fromMem;
+
+    // Check disk storage
+    try {
+      const diskPath = path.join(process.cwd(), 'uploads', key);
+      if (fs.existsSync(diskPath)) {
+        const buffer = fs.readFileSync(diskPath);
+        const ext = path.extname(key).toLowerCase();
+        let contentType = 'image/jpeg';
+        if (ext === '.png') contentType = 'image/png';
+        else if (ext === '.webp') contentType = 'image/webp';
+        else if (ext === '.mp4') contentType = 'video/mp4';
+
+        const item = { buffer, contentType };
+        this.localBufferStore.set(key, { ...item, createdAt: new Date() });
+        return item;
+      }
+    } catch (err: any) {
+      this.logger.warn(`Could not read disk file: ${err.message}`);
+    }
+
+    return null;
   }
 }
