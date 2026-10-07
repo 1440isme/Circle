@@ -25,7 +25,8 @@ export function useIceServersQuery() {
     queryKey: CALL_KEYS.iceServers(),
     queryFn: async () => {
       const res = await apiRequest<IceServersResponse>('/calls/ice-servers');
-      return res.data?.iceServers || [];
+      const data: any = (res as any)?.data || res;
+      return data?.iceServers || [];
     },
     staleTime: 1000 * 60 * 30, // 30 minutes cache
   });
@@ -45,7 +46,8 @@ export function useActiveCallQuery(circleId: string | null) {
         const res = await apiRequest<CallSessionDetailEntity>(
           `/circles/${circleId}/calls/active`,
         );
-        return res.data || null;
+        const data: any = (res as any)?.data || res;
+        return data || null;
       } catch {
         return null;
       }
@@ -113,13 +115,14 @@ export function useInitiateCallMutation() {
           body: JSON.stringify({ callType }),
         },
       );
-      return res.data;
+      return (res as any)?.data || res;
     },
-    onSuccess: (data, variables) => {
-      if (data?.callSession) {
+    onSuccess: (data: any, variables) => {
+      const session = data?.callSession || data;
+      if (session) {
         queryClient.setQueryData(
           CALL_KEYS.active(variables.circleId),
-          data.callSession,
+          session,
         );
       }
     },

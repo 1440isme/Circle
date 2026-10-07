@@ -3764,6 +3764,7 @@
   - `apps/web/src/hooks/use-webrtc-call.ts`
   - `apps/web/src/components/call/CallStageModal.tsx`
   - `apps/web/src/components/chat/ChannelChatView.tsx`
+  - `tests/e2e/webrtc-call.spec.ts`
   - `docs/ai-usage/log.md`
 - **AI-Generated Portion:** 100% mã nguồn backend signaling, frontend WebRTC hook, modal UI và bộ test suites.
 - **Human Modifications:** Trương Công Bình rà soát và định hướng luồng công việc theo đúng SDLC của đề tài.
@@ -3771,6 +3772,8 @@
   - `npm test -w @circle/backend`: 133/133 unit tests pass 100% (10/10 test suites).
   - `npm run build -w @circle/web`: Next.js 14 production build pass 100% (9 static routes).
   - `npm run typecheck -w @circle/mobile`: 0 errors.
+  - `npx playwright test tests/e2e/webrtc-call.spec.ts`: 2/2 tests pass 100% (Chromium Desktop + Mobile Chrome).
+  - `npx playwright test`: 6/6 tests pass 100% (webrtc-call, read-receipts, chat-messaging).
   - `./scripts/check-agent-map.sh`: 94/94 files pass.
 - **Official Source Checked:** `PROJECT_GOD.md` (Section 4 & Gate D), `docs/phan-cong-nhiem-vu.md` (Module 6), Issue #8.
 - **Security & License Check:** Cấu hình STUN/TURN lấy từ biến môi trường, không lưu cứng secret; phân quyền thành viên vòng tròn trước khi cấp quyền truy cập phiên gọi.

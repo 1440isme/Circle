@@ -49,9 +49,10 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
 
   const handleStartCall = async (callType: CallType) => {
     try {
-      const res = await initiateCallMutation.mutateAsync({ circleId, callType });
-      if (res?.callSession) {
-        setActiveCallStageSession(res.callSession);
+      const res: any = await initiateCallMutation.mutateAsync({ circleId, callType });
+      const session = res?.callSession || res;
+      if (session && session.id) {
+        setActiveCallStageSession(session);
       }
     } catch (err: any) {
       console.error('Error starting call:', err);
