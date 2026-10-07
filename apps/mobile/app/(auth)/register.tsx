@@ -30,7 +30,6 @@ import { AuthResponseData } from '@circle/types';
 import { Button } from '../../src/components/common/Button';
 import { HeaderControls } from '../../src/components/common/HeaderControls';
 import { PasswordComplexityChecklist } from '../../src/components/auth/PasswordComplexityChecklist';
-import { TrustBanner } from '../../src/components/auth/TrustBanner';
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -403,9 +402,6 @@ export default function RegisterScreen() {
             <Text style={[styles.termsText, { color: colors.subtle }]}>
               {t.auth.termsAgreement}
             </Text>
-
-            {/* Privacy Trust Banner */}
-            <TrustBanner />
           </View>
         )}
       </ScrollView>

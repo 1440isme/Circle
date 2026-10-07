@@ -298,7 +298,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         readAt: receipt.readAt.toISOString(),
       };
 
-      client.to(`channel:${data.channelId}`).emit('chat:user-read', {
+      this.server?.to(`channel:${data.channelId}`).emit('chat:user-read', {
         channelId: data.channelId,
         messageId: data.messageId,
         reader,

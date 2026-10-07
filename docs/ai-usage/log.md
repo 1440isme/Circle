@@ -3653,3 +3653,83 @@
   - **Error Description:** None.
   - **Root Cause:** N/A
   - **Resolution / Fix:** N/A
+
+---
+
+## AI-0090: Tinh chỉnh Trải nghiệm Người xem Tin nhắn, Đồng bộ Realtime và Định vị Action Toolbar
+
+- **Date:** 2026-10-07 21:40:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #80 (US-CHAT-READ-RECEIPTS: Refine subtle read receipts, right-aligned viewer avatars & realtime broadcast)
+- **Purpose:**
+  1. Tinh chỉnh vị trí hiển thị avatar người xem tin nhắn mới nhất: Luôn căn góc phải màn hình/khung chat (`w-full flex justify-end`), áp dụng cho cả tin nhắn của mình gửi và tin nhắn của người khác gửi.
+  2. Nâng thanh công cụ phản ứng (Hover Action Bar) trên Web lên phía trên đỉnh bubble (`bottom-[calc(100%+4px)]`), ngang hàng mốc xem giờ, tuyệt đối không che nội dung tin nhắn.
+  3. Khắc phục chuỗi hiển thị tên người xem khi bấm vào tin nhắn cũ: Sửa template locale `{names}` và bổ sung hàm định dạng an toàn hiển thị đúng tên người xem, giữ nguyên độ dài bubble ôm sát nội dung không bị kéo giãn.
+  4. Khắc phục lỗi realtime người xem tin nhắn: Backend chuyển `client.to` sang `this.server.to` trong `chat:read` gateway handler để broadcast event `chat:user-read` cho toàn bộ client trong phòng (kể cả người vừa đọc), kết hợp optimistic update tức thì trên Web (`ChannelChatView.tsx`) và Mobile (`[id].tsx`).
+- **Prompt Summary:** Yêu cầu tinh chỉnh avatar người xem tin nhắn người khác hiển thị góc phải, hover bar web nâng cao không che chữ, hiển thị đúng tên người xem tin nhắn cũ và đồng bộ realtime ngay khi xem không cần load lại.
+- **Files Affected:**
+  - `apps/backend/src/modules/chat/chat.gateway.ts`
+  - `apps/web/src/components/chat/MessageBubble.tsx`
+  - `apps/web/src/components/chat/MessageList.tsx`
+  - `apps/web/src/components/chat/ChannelChatView.tsx`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `tests/e2e/read-receipts-verification.spec.ts`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% logic xử lý layout CSS, socket room broadcast, optimistic cache mutation và Playwright E2E script.
+- **Human Modifications:** Trương Công Bình trực tiếp kiểm tra thực tế, phát hiện các điểm bất cập về UX/realtime và yêu cầu hiệu chỉnh.
+- **Verification Method:**
+  - `npx playwright test tests/e2e/read-receipts-verification.spec.ts`: 2/2 tests Pass (Desktop + Mobile).
+  - TypeScript compilation check: `apps/backend`, `apps/web`, `apps/mobile` đạt 0 errors.
+  - Script kiểm tra tính toàn vẹn: `./scripts/check-agent-map.sh` Pass 100%.
+- **Official Source Checked:** Socket.IO Room Broadcasting Docs, TanStack Query Optimistic Updates.
+- **Security & License Check:** An toàn, không chứa secret/token.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A.
+  - **Resolution / Fix:** N/A.
+
+---
+
+## AI-0091: Tinh chỉnh Giao diện Xác thực: Gỡ bỏ TrustBanner, Badges và Checkbox Duy trì Đăng nhập Thừa
+
+- **Date:** 2026-10-07 21:44:00 +07:00
+- **Developer:** Trương Công Bình (23110184)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #80 (US-AUTH-CLEANUP: Auth UI Layout Simplification & Redundant Controls Removal)
+- **Purpose:**
+  1. Gỡ bỏ hoàn toàn component `TrustBanner` ("Mạng xã hội riêng tư 100%...") ở chân các màn hình Đăng nhập (`/login`), Đăng ký (`/register`), Đặt lại mật khẩu (`/reset-password`) trên Web và Mobile (`register.tsx`, `PasswordRecoveryWizard.tsx`) giúp giao diện tự nhiên, gọn gàng, tránh cảm giác gượng ép.
+  2. Gỡ bỏ các pill badge `userBadge` và `communityBadge` ở header form Web, tối ưu khoảng cách typography cho tiêu đề và phụ đề.
+  3. Gỡ bỏ checkbox `Duy trì trạng thái đăng nhập trên thiết bị này` trên cả Web và Mobile vì hệ thống đã quản lý phiên tự động an toàn (SecureStore / session tokens). Căn phải nút `Quên mật khẩu?` thanh thoát trên Mobile.
+  4. Xóa bỏ hoàn toàn các file component `TrustBanner.tsx` thừa thãi.
+- **Prompt Summary:** "bo badge mxh rieng tu di nhe, nhin no con k uy tin bang, bo di nhin con dep hon gon layout hon. o phan dang nhap sao bao la co che do nho thong minh roi nen bo phan duy tri trang thai login tren thiet bi nay, sao van con hien"
+- **Files Affected:**
+  - `apps/web/src/app/(auth)/login/page.tsx`
+  - `apps/web/src/app/(auth)/register/page.tsx`
+  - `apps/web/src/app/(auth)/reset-password/page.tsx`
+  - `apps/web/src/components/auth/TrustBanner.tsx` (deleted)
+  - `apps/mobile/app/(auth)/login.tsx`
+  - `apps/mobile/app/(auth)/register.tsx`
+  - `apps/mobile/src/components/auth/PasswordRecoveryWizard.tsx`
+  - `apps/mobile/src/components/auth/TrustBanner.tsx` (deleted)
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% refactor giao diện và dọn dẹp các control thừa.
+- **Human Modifications:** Trương Công Bình đưa ra quyết định thiết kế loại bỏ các badge và checkbox thừa để tối ưu layout và độ tin cậy UX.
+- **Verification Method:**
+  - `npm run typecheck -w @circle/mobile`: 0 errors.
+  - `npm run build -w @circle/web`: Next.js 14 production build pass 100% (9 static routes).
+  - `npm test -w @circle/backend`: 119/119 unit tests pass 100% (8/8 test suites).
+  - `./scripts/check-agent-map.sh`: 94/94 files pass.
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn, không chứa secret/token.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A.
+  - **Resolution / Fix:** N/A.
+- **Commit:** `3d7f4b8`
+- **PR:** #80
+

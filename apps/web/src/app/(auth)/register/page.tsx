@@ -9,7 +9,6 @@ import { useRegisterMutation } from '../../../hooks/use-auth-mutations';
 import { useLanguageStore } from '../../../stores/language.store';
 import { AuthGuard } from '../../../components/auth/AuthGuard';
 import { PasswordStrengthIndicator } from '../../../components/auth/PasswordStrengthIndicator';
-import { TrustBanner } from '../../../components/auth/TrustBanner';
 import { TurnstileWidget } from '../../../components/auth/TurnstileWidget';
 
 export default function RegisterPage() {
@@ -84,14 +83,10 @@ export default function RegisterPage() {
       <div className="rounded-3xl border border-white/80 dark:border-white/10 bg-white/70 dark:bg-circle-dark-surface/80 p-8 sm:p-10 shadow-xl shadow-circle-charcoal/5 dark:shadow-black/25 backdrop-blur-xl transition-all">
         {/* Card Header */}
         <div className="mb-6 text-center sm:text-left">
-          <div className="inline-flex items-center gap-2 rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-elevated px-3 py-1 text-xs font-semibold text-circle-sage mb-3">
-            <span className="h-1.5 w-1.5 rounded-full bg-circle-primary animate-presence-breathe" />
-            <span>{t.auth.communityBadge}</span>
-          </div>
           <h1 className="text-2xl font-bold tracking-tight text-circle-charcoal dark:text-circle-dark-text sm:text-3xl">
             {t.auth.createAccount}
           </h1>
-          <p className="mt-1 text-sm text-circle-slate dark:text-circle-dark-muted">
+          <p className="mt-1.5 text-sm text-circle-slate dark:text-circle-dark-muted">
             {t.auth.registerSubtitle}
           </p>
         </div>
@@ -293,9 +288,6 @@ export default function RegisterPage() {
             </Link>
           </p>
         </div>
-
-        {/* Privacy & Trust Signals */}
-        <TrustBanner />
       </div>
     </AuthGuard>
   );

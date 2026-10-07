@@ -1,11 +1,13 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useQueryClient, InfiniteData } from '@tanstack/react-query';
 import { MessageSquare, Pin, Users, Hash, WifiOff } from 'lucide-react';
-import { MessageEntity } from '@circle/types';
+import { MessageEntity, CursorPaginatedMessages } from '@circle/types';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguageStore } from '../../stores/language.store';
 import {
+  CHAT_KEYS,
   useChannelMessagesQuery,
   useSendMessageMutation,
   useReactMessageMutation,
@@ -31,6 +33,7 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
   channelTopic,
   circleId,
 }) => {
+  const queryClient = useQueryClient();
   const { user } = useAuth();
   const t = useLanguageStore((s) => s.t);
 
@@ -63,8 +66,8 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
     } catch {}
 
     const unreadMessages = messages.filter((m) => {
-      const senderId = m.sender?.user?.id || m.sender?.userId;
-      if (senderId === user.id || m.memberId === 'optimistic_me') return false;
+      const senderUserId = m.sender?.user?.id || m.sender?.userId;
+      if (senderUserId === user.id || m.memberId === 'optimistic_me') return false;
       const alreadyRead = (m.readers || []).some((r) => r.userId === user.id);
       return !alreadyRead;
     });
@@ -72,8 +75,38 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
     if (unreadMessages.length > 0) {
       const latestUnread = unreadMessages[unreadMessages.length - 1];
       sendMessageRead(channelId, latestUnread.id);
+
+      // Optimistically add current user as reader to latestUnread immediately
+      const currentReader = {
+        userId: user.id,
+        displayName: user.profile?.displayName || (user as any).displayName || user.email?.split('@')[0] || 'Me',
+        avatarUrl: user.profile?.avatarUrl || (user as any).avatarUrl || null,
+        readAt: new Date().toISOString(),
+      };
+
+      queryClient.setQueryData<InfiniteData<CursorPaginatedMessages>>(
+        CHAT_KEYS.messages(channelId),
+        (oldData) => {
+          if (!oldData) return oldData;
+          return {
+            ...oldData,
+            pages: oldData.pages.map((page) => ({
+              ...page,
+              messages: page.messages.map((m) => {
+                if (m.id !== latestUnread.id) return m;
+                const existing = m.readers || [];
+                if (existing.some((r) => r.userId === user.id)) return m;
+                return {
+                  ...m,
+                  readers: [...existing, currentReader],
+                };
+              }),
+            })),
+          };
+        },
+      );
     }
-  }, [channelId, circleId, messages, user?.id]);
+  }, [channelId, circleId, messages, user?.id, queryClient]);
 
   const sendMessageMutation = useSendMessageMutation(channelId);
   const reactMessageMutation = useReactMessageMutation(channelId);

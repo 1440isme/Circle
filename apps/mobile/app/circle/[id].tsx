@@ -67,7 +67,6 @@ import {
   AlertCircle,
   WifiOff,
   ArrowUpCircle,
-  Eye,
 } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useThemeStore } from '../../src/stores/theme.store';
@@ -86,7 +85,8 @@ import {
 import { uploadMobileMedia } from '../../src/services/storage-upload.service';
 import { subscribeSocketConnection, sendMobileMessageRead } from '../../src/services/socket';
 import { getStorageItem } from '../../src/services/storage';
-import { MessageType } from '@circle/types';
+import { useQueryClient, InfiniteData } from '@tanstack/react-query';
+import { MessageType, CursorPaginatedMessages } from '@circle/types';
 import { CircleManagementModal } from '../../src/components/circle/CircleManagementModal';
 import { MomentsView } from '../../src/components/moment/MomentsView';
 
@@ -187,6 +187,7 @@ interface MobileSwipeMessageBubbleProps {
   isLast: boolean;
   isSingle: boolean;
   isLatestSentByMe?: boolean;
+  isLatestMessage?: boolean;
   showTimestamp: boolean;
   hasReactions: boolean;
   colors: any;
@@ -206,6 +207,7 @@ function MobileSwipeMessageBubble({
   isLast,
   isSingle,
   isLatestSentByMe = false,
+  isLatestMessage = false,
   showTimestamp,
   hasReactions,
   colors,
@@ -290,6 +292,26 @@ function MobileSwipeMessageBubble({
 
   return (
     <View style={{ width: '100%', alignItems: isSenderMe ? 'flex-end' : 'flex-start' }}>
+      {/* Timestamp ON TOP (ONLY on tap) */}
+      {showTimestamp && (
+        <Text
+          style={[
+            styles.timestampTopText,
+            {
+              color: colors.subtle,
+              alignSelf: isSenderMe ? 'flex-end' : 'flex-start',
+              marginBottom: 3,
+              marginHorizontal: 6,
+            },
+          ]}
+        >
+          {new Date(msg.sentAt || msg.createdAt || Date.now()).toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit',
+          })}
+        </Text>
+      )}
+
       <View
         style={[styles.swipeContainer, { alignItems: isSenderMe ? 'flex-end' : 'flex-start' }]}
         {...panResponder.panHandlers}
@@ -314,6 +336,7 @@ function MobileSwipeMessageBubble({
           style={{
             transform: [{ translateX }],
             maxWidth: '100%',
+            alignSelf: isSenderMe ? 'flex-end' : 'flex-start',
           }}
         >
           <TouchableOpacity
@@ -342,8 +365,8 @@ function MobileSwipeMessageBubble({
                 ? styles.lastBubbleOther
                 : styles.middleBubbleOther,
               isSenderMe
-                ? { backgroundColor: colors.primary }
-                : { backgroundColor: colors.surface, borderColor: colors.hairline },
+                ? { backgroundColor: colors.primary, alignSelf: 'flex-end' }
+                : { backgroundColor: colors.surface, borderColor: colors.hairline, alignSelf: 'flex-start' },
             ]}
           >
             {/* Reply Quote Banner - Beautiful horizontal inline pill matching Web */}
@@ -446,74 +469,134 @@ function MobileSwipeMessageBubble({
         </Animated.View>
       </View>
 
-      {/* Sent Timestamp (ONLY on tap) & Status Icon (Visible on latest message or sending/failed) */}
-      {(showTimestamp || (isSenderMe && (isLatestSentByMe || msg.status === 'SENDING' || msg.status === 'FAILED'))) && (
-        <View
-          style={[
-            styles.timestampRow,
-            {
-              alignSelf: isSenderMe ? 'flex-end' : 'flex-start',
-              marginTop: 1,
-              marginHorizontal: 4,
-            },
-          ]}
-        >
-          {showTimestamp && (
-            <Text style={[styles.timestampText, { color: colors.subtle }]}>
-              {new Date(msg.sentAt || msg.createdAt || Date.now()).toLocaleTimeString(
-                [],
-                { hour: '2-digit', minute: '2-digit' },
-              )}
-            </Text>
-          )}
-
-          {showTimestamp && msg.readers && msg.readers.length > 0 && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: 6 }}>
-              <Eye size={11} color={colors.primary} />
-              <Text numberOfLines={1} style={[styles.timestampText, { color: colors.subtle, maxWidth: 170 }]}>
-                {msg.readers.length <= 2
-                  ? (t.chat.seenBy || 'Đã xem bởi {names}').replace(
-                      '{names}',
-                      msg.readers.map((r: any) => r.displayName).join(', '),
-                    )
-                  : (t.chat.seenByCount || 'Đã xem bởi {count} người').replace(
-                      '{count}',
-                      String(msg.readers.length),
-                    )}
-              </Text>
-            </View>
-          )}
-
-          {isSenderMe && (isLatestSentByMe || msg.status === 'SENDING' || msg.status === 'FAILED') && (
-            <View style={styles.statusBox}>
-              {msg.status === 'SENDING' ? (
-                <View style={styles.sendingRow}>
+      {/* Sibling Below Bubble: Seen info & status */}
+      {isLatestMessage ? (
+        isSenderMe ? (
+          /* Latest Message sent by ME: ALWAYS show who has seen with mini avatar stack on the RIGHT */
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'flex-end',
+              alignSelf: 'flex-end',
+              marginTop: 3,
+              marginRight: 4,
+              gap: 4,
+            }}
+          >
+            {/* Status if sender is me and sending/failed */}
+            {(msg.status === 'SENDING' || msg.status === 'FAILED') && (
+              <View style={styles.statusBox}>
+                {msg.status === 'SENDING' ? (
                   <ActivityIndicator
                     size="small"
                     color={colors.primary}
                     style={{ transform: [{ scale: 0.6 }], marginRight: 1 }}
                   />
-                </View>
-              ) : msg.status === 'FAILED' ? (
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() => onRetry?.(msg)}
-                  style={styles.retryBtnRow}
-                >
-                  <AlertCircle size={12} color={colors.danger} />
-                </TouchableOpacity>
-              ) : (
+                ) : (
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    onPress={() => onRetry?.(msg)}
+                    style={styles.retryBtnRow}
+                  >
+                    <AlertCircle size={12} color={colors.danger} />
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+
+            {/* Mini avatar stack of readers on the right */}
+            {msg.readers && msg.readers.length > 0 ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                {msg.readers.slice(0, 5).map((reader: any, rIdx: number) => (
+                  <View
+                    key={reader.userId || rIdx}
+                    style={[
+                      styles.miniReaderAvatar,
+                      {
+                        borderColor: colors.surface,
+                        backgroundColor: colors.wash,
+                        marginLeft: rIdx > 0 ? -5 : 0,
+                      },
+                    ]}
+                  >
+                    {reader.avatarUrl ? (
+                      <RNImage source={{ uri: reader.avatarUrl }} style={styles.miniReaderAvatarImg} />
+                    ) : (
+                      <Text style={[styles.miniReaderAvatarText, { color: colors.text }]}>
+                        {((reader.displayName || reader.nickname || 'U')).charAt(0).toUpperCase()}
+                      </Text>
+                    )}
+                  </View>
+                ))}
+              </View>
+            ) : (
+              msg.status !== 'SENDING' && msg.status !== 'FAILED' && (
                 <Check size={12} color={colors.primary} />
-              )}
-            </View>
-          )}
-        </View>
+              )
+            )}
+          </View>
+        ) : null
+      ) : (
+        /* Older messages: Seen by info as TEXT below ONLY when tapped, NO eye icon */
+        showTimestamp && msg.readers && msg.readers.length > 0 ? (
+          <Text
+            numberOfLines={1}
+            style={[
+              styles.seenByTextBelow,
+              {
+                color: colors.subtle,
+                alignSelf: isSenderMe ? 'flex-end' : 'flex-start',
+                marginTop: 2,
+                marginHorizontal: 6,
+              },
+            ]}
+          >
+            {(() => {
+              const names = msg.readers
+                .map((r: any) => r.displayName || r.nickname || r.name || 'Member')
+                .join(', ');
+              if (msg.readers.length <= 2) {
+                const tmpl = t.chat?.seenBy || 'Đã xem bởi {names}';
+                return tmpl.includes('{names}') ? tmpl.replace('{names}', names) : `${tmpl} ${names}`;
+              }
+              const countTmpl = t.chat?.seenByCount || 'Đã xem bởi {count} người';
+              return countTmpl.includes('{count}')
+                ? countTmpl.replace('{count}', String(msg.readers.length))
+                : `${countTmpl}: ${msg.readers.length} người`;
+            })()}
+          </Text>
+        ) : isSenderMe && (msg.status === 'SENDING' || msg.status === 'FAILED') ? (
+          <View
+            style={[
+              styles.statusBox,
+              { alignSelf: 'flex-end', marginTop: 2, marginHorizontal: 4 },
+            ]}
+          >
+            {msg.status === 'SENDING' ? (
+              <ActivityIndicator
+                size="small"
+                color={colors.primary}
+                style={{ transform: [{ scale: 0.6 }], marginRight: 1 }}
+              />
+            ) : (
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => onRetry?.(msg)}
+                style={styles.retryBtnRow}
+              >
+                <AlertCircle size={12} color={colors.danger} />
+              </TouchableOpacity>
+            )}
+          </View>
+        ) : null
       )}
     </View>
   );
 }
 
 export default function CircleWorkspaceScreen() {
+  const queryClient = useQueryClient();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -583,8 +666,8 @@ export default function CircleWorkspaceScreen() {
       } catch {}
 
       const unreadMessages = messages.filter((m: any) => {
-        const senderId = m.sender?.user?.id || m.sender?.userId;
-        if (senderId === user.id || m.memberId === 'optimistic_me') return false;
+        const senderUserId = m.sender?.user?.id || m.sender?.userId;
+        if (senderUserId === user.id || m.memberId === 'optimistic_me') return false;
         const alreadyRead = (m.readers || []).some((r: any) => r.userId === user.id);
         return !alreadyRead;
       });
@@ -592,9 +675,38 @@ export default function CircleWorkspaceScreen() {
       if (unreadMessages.length > 0) {
         const latestUnread = unreadMessages[unreadMessages.length - 1];
         sendMobileMessageRead(currentChannelId, latestUnread.id);
+
+        const currentReader = {
+          userId: user.id,
+          displayName: (user as any).displayName || (user as any).profile?.displayName || user.email?.split('@')[0] || 'Me',
+          avatarUrl: (user as any).avatarUrl || (user as any).profile?.avatarUrl || null,
+          readAt: new Date().toISOString(),
+        };
+
+        queryClient.setQueryData<InfiniteData<CursorPaginatedMessages>>(
+          ['messages', 'channel', currentChannelId],
+          (oldData) => {
+            if (!oldData) return oldData;
+            return {
+              ...oldData,
+              pages: oldData.pages.map((page) => ({
+                ...page,
+                messages: page.messages.map((m: any) => {
+                  if (m.id !== latestUnread.id) return m;
+                  const existing = m.readers || [];
+                  if (existing.some((r: any) => r.userId === user.id)) return m;
+                  return {
+                    ...m,
+                    readers: [...existing, currentReader],
+                  };
+                }),
+              })),
+            };
+          },
+        );
       }
     })();
-  }, [currentChannelId, circleId, messages, user?.id]);
+  }, [currentChannelId, circleId, messages, user?.id, queryClient]);
 
   const handleToggleTimestamp = (msgId: string) => {
     setActiveTimestampMessageId((prev) => (prev === msgId ? null : msgId));
@@ -1074,6 +1186,7 @@ export default function CircleWorkspaceScreen() {
                                 isLast={isLast}
                                 isSingle={isSingle}
                                 isLatestSentByMe={Boolean(lastMessageByMeId && msg.id === lastMessageByMeId)}
+                                isLatestMessage={Boolean(lastMessageId && msg.id === lastMessageId)}
                                 showTimestamp={showTimestamp}
                                 hasReactions={hasReactions}
                                 colors={colors}
@@ -1091,67 +1204,116 @@ export default function CircleWorkspaceScreen() {
                     }
 
                     // Other user's cluster
+                    const isLatestCluster = Boolean(
+                      lastMessageId && cluster.messages.some((m) => m.id === lastMessageId),
+                    );
+                    const lastMsgInChat = messages.length > 0 ? messages[messages.length - 1] : null;
+
                     return (
                       <View
                         key={`mobile-cluster-other-${sectionIdx}-${clusterIdx}`}
-                        style={styles.clusterContainerOther}
+                        style={{ width: '100%', marginVertical: 3 }}
                       >
-                        {/* Avatar aligned with the bottom of the cluster */}
-                        <View style={[styles.senderAvatarBottom, { backgroundColor: `${colors.primary}18` }]}>
-                          {cluster.senderAvatarUrl ? (
-                            <RNImage
-                              source={{ uri: cluster.senderAvatarUrl }}
-                              style={styles.senderAvatarImg}
-                            />
-                          ) : (
-                            <Text style={[styles.senderAvatarText, { color: colors.primary }]}>
-                              {cluster.senderName.slice(0, 2).toUpperCase()}
-                            </Text>
-                          )}
-                        </View>
-
-                        {/* Messages Stack */}
-                        <View style={styles.clusterMessagesCol}>
-                          {/* Sender Name once at the top of cluster */}
-                          <View style={styles.senderHeaderRow}>
-                            <Text
-                              numberOfLines={1}
-                              style={[styles.senderName, { color: colors.text }]}
-                            >
-                              {cluster.senderName}
-                            </Text>
+                        <View style={styles.clusterContainerOther}>
+                          {/* Avatar aligned with the bottom of the cluster */}
+                          <View style={[styles.senderAvatarBottom, { backgroundColor: `${colors.primary}18` }]}>
+                            {cluster.senderAvatarUrl ? (
+                              <RNImage
+                                source={{ uri: cluster.senderAvatarUrl }}
+                                style={styles.senderAvatarImg}
+                              />
+                            ) : (
+                              <Text style={[styles.senderAvatarText, { color: colors.primary }]}>
+                                {cluster.senderName.slice(0, 2).toUpperCase()}
+                              </Text>
+                            )}
                           </View>
 
-                          {cluster.messages.map((msg, msgIdx) => {
-                            const isFirst = msgIdx === 0;
-                            const isLast = msgIdx === cluster.messages.length - 1;
-                            const isSingle = cluster.messages.length === 1;
-                            const showTimestamp = activeTimestampMessageId === msg.id;
-                            const hasReactions =
-                              msg.reactionCounts && Object.keys(msg.reactionCounts).length > 0;
+                          {/* Messages Stack */}
+                          <View style={styles.clusterMessagesCol}>
+                            {/* Sender Name once at the top of cluster */}
+                            <View style={styles.senderHeaderRow}>
+                              <Text
+                                numberOfLines={1}
+                                style={[styles.senderName, { color: colors.text }]}
+                              >
+                                {cluster.senderName}
+                              </Text>
+                            </View>
 
-                            return (
-                              <MobileSwipeMessageBubble
-                                key={msg.id ? `bubble-other-${msg.id}` : `bubble-temp-${msg.tempId || msgIdx}`}
-                                msg={msg}
-                                allMessages={messages}
-                                isSenderMe={false}
-                                isFirst={isFirst}
-                                isLast={isLast}
-                                isSingle={isSingle}
-                                showTimestamp={showTimestamp}
-                                hasReactions={hasReactions}
-                                colors={colors}
-                                t={t}
-                                onToggleTimestamp={() => handleToggleTimestamp(msg.id)}
-                                onLongPress={() => setActiveActionMessage(msg)}
-                                onSwipeReply={() => setReplyingMessage(msg)}
-                                onRetry={handleRetry}
-                                onPreviewImage={(url) => setPreviewingImageUrl(url)}
-                              />
-                            );
-                          })}
+                            {cluster.messages.map((msg, msgIdx) => {
+                              const isFirst = msgIdx === 0;
+                              const isLast = msgIdx === cluster.messages.length - 1;
+                              const isSingle = cluster.messages.length === 1;
+                              const showTimestamp = activeTimestampMessageId === msg.id;
+                              const hasReactions =
+                                msg.reactionCounts && Object.keys(msg.reactionCounts).length > 0;
+
+                              return (
+                                <MobileSwipeMessageBubble
+                                  key={msg.id ? `bubble-other-${msg.id}` : `bubble-temp-${msg.tempId || msgIdx}`}
+                                  msg={msg}
+                                  allMessages={messages}
+                                  isSenderMe={false}
+                                  isFirst={isFirst}
+                                  isLast={isLast}
+                                  isSingle={isSingle}
+                                  isLatestMessage={Boolean(lastMessageId && msg.id === lastMessageId)}
+                                  showTimestamp={showTimestamp}
+                                  hasReactions={hasReactions}
+                                  colors={colors}
+                                  t={t}
+                                  onToggleTimestamp={() => handleToggleTimestamp(msg.id)}
+                                  onLongPress={() => setActiveActionMessage(msg)}
+                                  onSwipeReply={() => setReplyingMessage(msg)}
+                                  onRetry={handleRetry}
+                                  onPreviewImage={(url) => setPreviewingImageUrl(url)}
+                                />
+                              );
+                            })}
+                          </View>
                         </View>
+
+                        {/* Latest message read receipts for other's message: ALWAYS aligned to bottom right corner */}
+                        {isLatestCluster && lastMsgInChat?.readers && lastMsgInChat.readers.length > 0 && (
+                          <View
+                            style={{
+                              width: '100%',
+                              flexDirection: 'row',
+                              justifyContent: 'flex-end',
+                              alignItems: 'center',
+                              marginTop: 2,
+                              paddingRight: 6,
+                            }}
+                          >
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                              {lastMsgInChat.readers.slice(0, 5).map((reader: any, rIdx: number) => (
+                                <View
+                                  key={reader.userId || rIdx}
+                                  style={[
+                                    styles.miniReaderAvatar,
+                                    {
+                                      borderColor: colors.surface,
+                                      backgroundColor: colors.wash,
+                                      marginLeft: rIdx > 0 ? -5 : 0,
+                                    },
+                                  ]}
+                                >
+                                  {reader.avatarUrl ? (
+                                    <RNImage
+                                      source={{ uri: reader.avatarUrl }}
+                                      style={styles.miniReaderAvatarImg}
+                                    />
+                                  ) : (
+                                    <Text style={[styles.miniReaderAvatarText, { color: colors.text }]}>
+                                      {((reader.displayName || reader.nickname || 'U')).charAt(0).toUpperCase()}
+                                    </Text>
+                                  )}
+                                </View>
+                              ))}
+                            </View>
+                          </View>
+                        )}
                       </View>
                     );
                   })}
@@ -1761,6 +1923,33 @@ const styles = StyleSheet.create({
   timestampText: {
     fontSize: 10,
     opacity: 0.65,
+  },
+  timestampTopText: {
+    fontSize: 10,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    opacity: 0.65,
+  },
+  seenByTextBelow: {
+    fontSize: 10,
+    opacity: 0.75,
+    maxWidth: 240,
+  },
+  miniReaderAvatar: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  miniReaderAvatarImg: {
+    width: '100%',
+    height: '100%',
+  },
+  miniReaderAvatarText: {
+    fontSize: 8,
+    fontWeight: '700',
   },
   swipeContainer: {
     position: 'relative',

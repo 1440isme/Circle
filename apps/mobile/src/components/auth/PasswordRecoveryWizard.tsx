@@ -30,7 +30,6 @@ import { mobileApiRequest } from '../../services/api';
 import { Button } from '../common/Button';
 import { HeaderControls } from '../common/HeaderControls';
 import { PasswordComplexityChecklist } from './PasswordComplexityChecklist';
-import { TrustBanner } from './TrustBanner';
 
 interface PasswordRecoveryWizardProps {
   initialEmail?: string;
@@ -565,9 +564,6 @@ export function PasswordRecoveryWizard({
               confirmPassword={confirmPassword}
               showMatch={true}
             />
-
-            {/* Privacy Trust Banner */}
-            <TrustBanner />
           </View>
         )}
       </ScrollView>
