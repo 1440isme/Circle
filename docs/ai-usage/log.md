@@ -3692,3 +3692,44 @@
   - **Root Cause:** N/A.
   - **Resolution / Fix:** N/A.
 
+---
+
+## AI-0091: Tinh chỉnh Giao diện Xác thực: Gỡ bỏ TrustBanner, Badges và Checkbox Duy trì Đăng nhập Thừa
+
+- **Date:** 2026-10-07 21:44:00 +07:00
+- **Developer:** Trương Công Bình (23110184)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #80 (US-AUTH-CLEANUP: Auth UI Layout Simplification & Redundant Controls Removal)
+- **Purpose:**
+  1. Gỡ bỏ hoàn toàn component `TrustBanner` ("Mạng xã hội riêng tư 100%...") ở chân các màn hình Đăng nhập (`/login`), Đăng ký (`/register`), Đặt lại mật khẩu (`/reset-password`) trên Web và Mobile (`register.tsx`, `PasswordRecoveryWizard.tsx`) giúp giao diện tự nhiên, gọn gàng, tránh cảm giác gượng ép.
+  2. Gỡ bỏ các pill badge `userBadge` và `communityBadge` ở header form Web, tối ưu khoảng cách typography cho tiêu đề và phụ đề.
+  3. Gỡ bỏ checkbox `Duy trì trạng thái đăng nhập trên thiết bị này` trên cả Web và Mobile vì hệ thống đã quản lý phiên tự động an toàn (SecureStore / session tokens). Căn phải nút `Quên mật khẩu?` thanh thoát trên Mobile.
+  4. Xóa bỏ hoàn toàn các file component `TrustBanner.tsx` thừa thãi.
+- **Prompt Summary:** "bo badge mxh rieng tu di nhe, nhin no con k uy tin bang, bo di nhin con dep hon gon layout hon. o phan dang nhap sao bao la co che do nho thong minh roi nen bo phan duy tri trang thai login tren thiet bi nay, sao van con hien"
+- **Files Affected:**
+  - `apps/web/src/app/(auth)/login/page.tsx`
+  - `apps/web/src/app/(auth)/register/page.tsx`
+  - `apps/web/src/app/(auth)/reset-password/page.tsx`
+  - `apps/web/src/components/auth/TrustBanner.tsx` (deleted)
+  - `apps/mobile/app/(auth)/login.tsx`
+  - `apps/mobile/app/(auth)/register.tsx`
+  - `apps/mobile/src/components/auth/PasswordRecoveryWizard.tsx`
+  - `apps/mobile/src/components/auth/TrustBanner.tsx` (deleted)
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% refactor giao diện và dọn dẹp các control thừa.
+- **Human Modifications:** Trương Công Bình đưa ra quyết định thiết kế loại bỏ các badge và checkbox thừa để tối ưu layout và độ tin cậy UX.
+- **Verification Method:**
+  - `npm run typecheck -w @circle/mobile`: 0 errors.
+  - `npm run build -w @circle/web`: Next.js 14 production build pass 100% (9 static routes).
+  - `npm test -w @circle/backend`: 119/119 unit tests pass 100% (8/8 test suites).
+  - `./scripts/check-agent-map.sh`: 94/94 files pass.
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn, không chứa secret/token.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A.
+  - **Resolution / Fix:** N/A.
+- **Commit:** TBD
+- **PR:** TBD
+
