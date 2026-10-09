@@ -9,7 +9,6 @@ import { PresenceRail } from '@/components/presence/PresenceRail';
 import { CreateCircleModal } from '@/components/circle/CreateCircleModal';
 import { JoinCircleModal } from '@/components/circle/JoinCircleModal';
 import { CircleManagementModal } from '@/components/circle/CircleManagementModal';
-import { FriendsModal } from '@/components/friend/FriendsModal';
 import { useCircleStore } from '@/stores/circle.store';
 
 export default function HomePage() {
@@ -37,7 +36,6 @@ export default function HomePage() {
         <CreateCircleModal />
         <JoinCircleModal />
         <CircleManagementModal />
-        <FriendsModal />
       </div>
     </AuthGuard>
   );

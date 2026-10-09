@@ -2,12 +2,10 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { Search, Bell, Sparkles, Shield, LogOut, ChevronDown, User as UserIcon, Laptop, Users } from 'lucide-react';
+import { Search, Bell, Sparkles, Shield, LogOut, ChevronDown, User as UserIcon, Laptop } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguageStore } from '../../stores/language.store';
 import { useCircleStore } from '../../stores/circle.store';
-import { useFriendStore } from '../../stores/friend.store';
-import { useReceivedFriendRequestsQuery } from '../../hooks/use-friend-queries';
 import { EditProfileModal } from '../profile/EditProfileModal';
 import { SessionsManagementModal } from '../profile/SessionsManagementModal';
 
@@ -25,8 +23,6 @@ export const Header: React.FC = () => {
   const [showMenu, setShowMenu] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isSessionsModalOpen, setIsSessionsModalOpen] = useState(false);
-  const setFriendsModalOpen = useFriendStore((s) => s.setFriendsModalOpen);
-  const { data: receivedRequests = [] } = useReceivedFriendRequestsQuery();
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Close menu on click outside
@@ -48,9 +44,6 @@ export const Header: React.FC = () => {
 
   const handleGlobalSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (isAuthenticated) {
-      setFriendsModalOpen(true, 'search', headerSearch);
-    }
   };
 
   return (
@@ -91,11 +84,6 @@ export const Header: React.FC = () => {
             type="text"
             value={headerSearch}
             onChange={(e) => setHeaderSearch(e.target.value)}
-            onFocus={() => {
-              if (isAuthenticated && !headerSearch) {
-                // optionally user can hit enter or type
-              }
-            }}
             placeholder={t.common.searchPlaceholder}
             className="w-full rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas py-2 pl-10 pr-4 text-sm text-circle-charcoal dark:text-circle-dark-text placeholder:text-circle-slate dark:placeholder:text-circle-dark-muted focus:border-circle-sage focus:bg-white dark:focus:bg-circle-dark-elevated focus:outline-none focus:ring-2 focus:ring-circle-primary/20 transition-all"
           />
@@ -103,21 +91,6 @@ export const Header: React.FC = () => {
 
         {/* Actions, Theme Toggle, Language Switcher & Profile */}
         <div className="flex items-center gap-2.5">
-          {isAuthenticated && (
-            <button
-              onClick={() => setFriendsModalOpen(true)}
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface text-circle-slate dark:text-circle-dark-muted hover:bg-circle-canvas dark:hover:bg-circle-dark-elevated hover:text-circle-charcoal dark:hover:text-circle-dark-text transition-colors relative"
-              title={t.friend.title}
-            >
-              <Users className="h-4 w-4" />
-              {receivedRequests.length > 0 && (
-                <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-circle-coral px-1 text-[9px] font-bold text-white shadow-sm">
-                  {receivedRequests.length}
-                </span>
-              )}
-            </button>
-          )}
-
           <button
             className="flex h-9 w-9 items-center justify-center rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface text-circle-slate dark:text-circle-dark-muted hover:bg-circle-canvas dark:hover:bg-circle-dark-elevated hover:text-circle-charcoal dark:hover:text-circle-dark-text transition-colors relative"
             title={t.nav.notifications}
@@ -167,21 +140,6 @@ export const Header: React.FC = () => {
                     <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted truncate">{user.email}</p>
                   </div>
                   <div className="py-1">
-                    <button
-                      onClick={() => {
-                        setShowMenu(false);
-                        setFriendsModalOpen(true);
-                      }}
-                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-canvas dark:hover:bg-circle-dark-surface transition-colors"
-                    >
-                      <Users className="h-3.5 w-3.5 text-circle-slate dark:text-circle-dark-muted" />
-                      <span>{t.friend.title}</span>
-                      {receivedRequests.length > 0 && (
-                        <span className="ml-auto rounded-full bg-circle-coral px-1.5 py-0.5 text-[10px] font-bold text-white">
-                          {receivedRequests.length}
-                        </span>
-                      )}
-                    </button>
                     <button
                       onClick={() => {
                         setShowMenu(false);

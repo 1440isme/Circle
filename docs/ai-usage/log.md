@@ -3853,5 +3853,62 @@
 - **Commit:** Pending
 - **PR:** #83
 
+---
+
+## AI-0094: Tái Cấu Trúc Khử Bỏ Module Kết Bạn 1-1 (UC06) — Định Hướng Kiến Trúc Circle-Centric Thuần Túy
+
+- **Date:** 2026-10-09 13:58:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #82 (Đóng Issue #82 và đóng PR #83)
+- **Purpose:** Thực hiện quyết định kiến trúc chiến lược theo yêu cầu của kỹ sư trưởng:
+  1. CIRCLE là nền tảng mạng xã hội tập trung tuyệt đối vào không gian nhóm thân mật (**Circle-Centric / Group-First**). Mọi tương tác, kết nối, trò chuyện, gọi điện, chia sẻ khoảnh khắc và cộng tác đều diễn ra trong các Circle.
+  2. Loại bỏ hoàn toàn đồ thị quan hệ bạn bè 1-1 (UC06) vốn tạo sự trùng lặp nghiệp vụ, phân mảnh trải nghiệm nhóm và gây dư thừa không cần thiết.
+  3. Dọn dẹp sạch sẽ mã nguồn trên toàn bộ hệ thống:
+     - **Backend:** Xóa hoàn toàn `apps/backend/src/modules/friends/` (`FriendsController`, `FriendsService`, `FriendsModule`, `friends.service.spec.ts`) và gỡ bỏ khỏi `AppModule`.
+     - **Shared Packages:** Xóa các kiểu dữ liệu `FriendItem`, `FriendRequestItem`, `FriendSearchResult`, `FriendRelationshipStatus`, `SendFriendRequestInput` khỏi `@circle/types`; xóa `friend.validator.ts` và từ điển dịch `t.friend` khỏi `@circle/shared`.
+     - **Web Frontend:** Xóa `friend.store.ts`, `use-friend-queries.ts`, `FriendsModal.tsx`; dọn dẹp các nút/trigger khỏi `Header.tsx`, `Sidebar.tsx`, `page.tsx`.
+     - **Mobile App:** Xóa `FriendsModal.tsx`, `use-friend-queries.ts`; dọn dẹp trigger khỏi màn hình hồ sơ `profile.tsx`.
+     - **Tài liệu:** Cập nhật `docs/requirements/README.md`, `docs/requirements/SRS.md`, `docs/requirements/use-cases.md`, `docs/thesis/Bao-cao-TLCN.md` đánh dấu `UC06` là Deprecated / Removed với lý do kiến trúc rõ ràng.
+- **Prompt Summary:** Quyết định loại bỏ chức năng Kết bạn & Bạn bè (UC06) do không mang ý nghĩa và dư thừa so với kiến trúc Circle-Centric của đồ án.
+- **Files Affected:**
+  - `apps/backend/src/app.module.ts`
+  - `apps/backend/src/modules/friends/` (deleted)
+  - `apps/mobile/app/(tabs)/profile.tsx`
+  - `apps/mobile/src/components/friend/` (deleted)
+  - `apps/mobile/src/hooks/use-friend-queries.ts` (deleted)
+  - `apps/web/src/app/page.tsx`
+  - `apps/web/src/components/friend/` (deleted)
+  - `apps/web/src/components/header/Header.tsx`
+  - `apps/web/src/components/navigation/Sidebar.tsx`
+  - `apps/web/src/hooks/use-friend-queries.ts` (deleted)
+  - `apps/web/src/stores/friend.store.ts` (deleted)
+  - `docs/requirements/README.md`
+  - `docs/requirements/SRS.md`
+  - `docs/requirements/use-cases.md`
+  - `docs/thesis/Bao-cao-TLCN.md`
+  - `packages/shared/src/index.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/validators/friend.validator.ts` (deleted)
+  - `packages/types/src/index.ts`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% tái cấu trúc, dọn dẹp mã nguồn, cập nhật tài liệu và chạy kiểm thử tự động.
+- **Human Modifications:** Trương Công Bình trực tiếp phê duyệt quyết định kiến trúc và loại bỏ phân hệ kết bạn 1-1 để tối ưu hóa tính độc đáo và tính tập trung của nền tảng Circle.
+- **Verification Method:**
+  - `npm test -w @circle/backend`: 8/8 test suites passed, 119/119 unit tests passed 100%.
+  - `npm run build -w @circle/web`: Next.js production build passed 100% (9/9 static routes).
+  - `npx tsc --noEmit` trong `apps/mobile`: 0 errors.
+  - `@circle/types` & `@circle/shared` build sạch sẽ.
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn, không còn dead code hay bảo mật lỏng lẻo.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A.
+  - **Resolution / Fix:** N/A.
+- **Commit:** Pending
+- **PR:** #83 (Closed)
+
 
 

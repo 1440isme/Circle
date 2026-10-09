@@ -25,15 +25,12 @@ import {
   Laptop,
   Globe,
   Sliders,
-  Users,
 } from 'lucide-react-native';
 import { useThemeStore } from '../../src/stores/theme.store';
 import { useLanguageStore } from '../../src/stores/language.store';
 import { useAuthStore } from '../../src/stores/auth.store';
 import { Button } from '../../src/components/common/Button';
 import { EditProfileModal } from '../../src/components/profile/EditProfileModal';
-import { FriendsModal } from '../../src/components/friend/FriendsModal';
-import { useReceivedFriendRequestsQuery } from '../../src/hooks/use-friend-queries';
 import {
   checkBiometricStatus,
   isBiometricUnlockEnabled,
@@ -53,8 +50,6 @@ export default function ProfileTab() {
   const { locale, setLocale, t } = useLanguageStore();
   const { user, logout } = useAuthStore();
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
-  const [isFriendsModalVisible, setIsFriendsModalVisible] = useState(false);
-  const { data: receivedRequests = [] } = useReceivedFriendRequestsQuery();
 
   const isDark = resolvedTheme === 'dark';
   const displayName = user?.profile?.displayName || user?.email?.split('@')[0] || t.auth.guest;
@@ -186,25 +181,6 @@ export default function ProfileTab() {
             <Text style={[styles.editProfileBtnText, { color: colors.onPrimary }]}>
               {t.auth.editProfile}
             </Text>
-          </TouchableOpacity>
-
-          {/* Friends Management Button */}
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => setIsFriendsModalVisible(true)}
-            style={[styles.friendsActionBtn, { backgroundColor: colors.wash, borderColor: colors.hairline }]}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Users size={14} color={colors.primary} />
-              <Text style={[styles.friendsActionBtnText, { color: colors.text }]}>
-                {t.friend.title}
-              </Text>
-            </View>
-            {receivedRequests.length > 0 && (
-              <View style={[styles.reqCountBadge, { backgroundColor: colors.danger }]}>
-                <Text style={styles.reqCountBadgeText}>{receivedRequests.length}</Text>
-              </View>
-            )}
           </TouchableOpacity>
         </View>
 
@@ -425,12 +401,6 @@ export default function ProfileTab() {
         initialMode={modalMode}
         onClose={() => setIsEditModalVisible(false)}
       />
-
-      {/* Friends Modal */}
-      <FriendsModal
-        visible={isFriendsModalVisible}
-        onClose={() => setIsFriendsModalVisible(false)}
-      />
     </View>
   );
 }
@@ -527,31 +497,6 @@ const styles = StyleSheet.create({
   },
   editProfileBtnText: {
     fontSize: 12,
-    fontWeight: '700',
-  },
-  friendsActionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 14,
-    borderWidth: 1,
-    marginTop: 8,
-    width: '100%',
-  },
-  friendsActionBtnText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  reqCountBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 8,
-  },
-  reqCountBadgeText: {
-    color: '#fff',
-    fontSize: 10,
     fontWeight: '700',
   },
   roleText: { fontSize: 11, fontWeight: '700' },

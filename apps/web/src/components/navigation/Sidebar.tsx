@@ -19,8 +19,6 @@ import {
 } from 'lucide-react';
 import { useLanguageStore } from '../../stores/language.store';
 import { useCircleStore } from '../../stores/circle.store';
-import { useFriendStore } from '../../stores/friend.store';
-import { useReceivedFriendRequestsQuery } from '../../hooks/use-friend-queries';
 import { useMyCirclesQuery } from '../../hooks/use-circle-queries';
 
 interface NavItemProps {
@@ -66,8 +64,6 @@ export const Sidebar: React.FC = () => {
   const activeCircleView = useCircleStore((s) => s.activeCircleView);
   const setActiveCircleView = useCircleStore((s) => s.setActiveCircleView);
   const setActiveChannelId = useCircleStore((s) => s.setActiveChannelId);
-  const setFriendsModalOpen = useFriendStore((s) => s.setFriendsModalOpen);
-  const { data: receivedRequests = [] } = useReceivedFriendRequestsQuery();
 
   const { data: circles = [], isLoading } = useMyCirclesQuery();
   const [isDropdownOpen, setIsDropdownOpen] = React.useState(false);
@@ -229,12 +225,6 @@ export const Sidebar: React.FC = () => {
             label={t.moments.momentWidgetTitle}
             active={activeCircleView === 'moments'}
             onClick={() => setActiveCircleView('moments')}
-          />
-          <NavItem
-            icon={<Users className="h-4 w-4" />}
-            label={t.friend.title}
-            count={receivedRequests.length > 0 ? receivedRequests.length : undefined}
-            onClick={() => setFriendsModalOpen(true)}
           />
         </div>
 
