@@ -10,6 +10,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
@@ -25,7 +26,7 @@ import { Public } from '../../common/decorators/public.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
-import { ApiResponse, AuthResponseData, AuthUserData, SessionEntity } from '@circle/types';
+import { ApiResponse, AuthResponseData, AuthUserData, PublicUserEntity, SessionEntity } from '@circle/types';
 import { createAuthSchemas, resolveLocale } from '@circle/shared';
 
 @Controller('auth')
@@ -222,6 +223,22 @@ export class AuthController {
       success: true,
       statusCode: HttpStatus.OK,
       message: 'Profile updated successfully',
+      data,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('users/search')
+  @HttpCode(HttpStatus.OK)
+  async searchUsers(
+    @CurrentUser('id') currentUserId: string,
+    @Query('q') query?: string,
+  ): Promise<ApiResponse<PublicUserEntity[]>> {
+    const data = await this.authService.searchPublicUsers(query, currentUserId);
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
       data,
       timestamp: new Date().toISOString(),
     };

@@ -81,6 +81,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
 
   const [mode, setMode] = useState<ModalMode>('view');
   const [displayName, setDisplayName] = useState('');
+  const [handle, setHandle] = useState('');
   const [bio, setBio] = useState('');
   const [dateOfBirth, setDateOfBirth] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
@@ -112,6 +113,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
   useEffect(() => {
     if (user && isOpen) {
       setDisplayName(user.profile?.displayName || user.email.split('@')[0]);
+      setHandle(user.profile?.handle || '');
       setBio(user.profile?.bio || '');
       setAvatarUrl(user.profile?.avatarUrl || '');
       const rawDob = user.profile?.dateOfBirth;
@@ -135,13 +137,14 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
   if (!isOpen || !user) return null;
 
   const currentDisplayName = user.profile?.displayName || user.email.split('@')[0];
+  const currentHandle = user.profile?.handle || `user_${user.id.slice(-6)}`;
   const currentAvatarUrl = user.profile?.avatarUrl;
   const currentBio = user.profile?.bio;
   const currentDateOfBirth = user.profile?.dateOfBirth;
   const currentInitials = getInitials(currentDisplayName);
 
 
-  // Submit full profile edit (Name, Bio, Date of Birth)
+  // Submit full profile edit (Handle, Name, Bio, Date of Birth)
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
@@ -153,9 +156,20 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
       return;
     }
 
+    const cleanedHandle = handle.trim().toLowerCase().replace(/^@/, '');
+    if (cleanedHandle && cleanedHandle.length < 3) {
+      setErrorMessage(t.validation.userHandleMinLength);
+      return;
+    }
+    if (cleanedHandle && !/^[a-z0-9_]+$/.test(cleanedHandle)) {
+      setErrorMessage(t.validation.userHandleInvalid);
+      return;
+    }
+
     try {
       await updateProfileMutation.mutateAsync({
         displayName: trimmedName,
+        handle: cleanedHandle || null,
         bio: bio.trim() || null,
         dateOfBirth: dateOfBirth ? new Date(dateOfBirth).toISOString() : null,
       });
@@ -301,10 +315,13 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
               </button>
             </div>
 
-            {/* Tên hiển thị */}
+            {/* Tên hiển thị & Mã định danh @nickname */}
             <h4 className="mt-4 text-xl font-black text-circle-charcoal dark:text-circle-dark-text tracking-tight">
               {currentDisplayName}
             </h4>
+            <div className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-circle-canvas dark:bg-circle-dark-elevated px-2.5 py-0.5 text-xs font-mono font-bold text-circle-sage dark:text-circle-primary border border-circle-hairline dark:border-circle-dark-hairline">
+              <span>@{currentHandle}</span>
+            </div>
 
 
 
@@ -572,6 +589,34 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
         {/* MODE 3: CHẾ ĐỘ CHỈNH SỬA THÔNG TIN (TÊN, NĂM SINH, TIỂU SỬ) */}
         {mode === 'edit' && (
           <form onSubmit={handleEditSubmit} className="mt-5 space-y-4 animate-fadeIn">
+            {/* Mã định danh / Nickname */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
+                  {t.auth.handle}
+                </label>
+                <span className="text-[10px] text-circle-slate dark:text-circle-dark-muted font-mono">
+                  @{handle.trim().toLowerCase().replace(/^@/, '') || 'nickname'}
+                </span>
+              </div>
+              <div className="relative">
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-circle-slate dark:text-circle-dark-muted">
+                  @
+                </span>
+                <input
+                  type="text"
+                  value={handle}
+                  onChange={(e) => setHandle(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+                  placeholder={t.auth.handlePlaceholder}
+                  maxLength={30}
+                  className="w-full rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas pl-8 pr-4 py-2.5 text-sm text-circle-charcoal dark:text-circle-dark-text placeholder:text-circle-slate dark:placeholder:text-circle-dark-muted focus:border-circle-sage focus:outline-none focus:ring-2 focus:ring-circle-primary/20 transition-all font-mono"
+                />
+              </div>
+              <p className="mt-1 text-[11px] text-circle-slate dark:text-circle-dark-muted">
+                {t.validation.userHandleInvalid}
+              </p>
+            </div>
+
             {/* Tên hiển thị */}
             <div>
               <label className="block text-xs font-bold text-circle-charcoal dark:text-circle-dark-text mb-1.5">

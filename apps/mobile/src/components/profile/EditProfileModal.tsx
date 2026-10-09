@@ -46,6 +46,7 @@ export function EditProfileModal({ visible, initialMode = 'edit', onClose }: Edi
 
   const [mode, setMode] = useState<'edit' | 'avatar'>(initialMode);
   const [displayName, setDisplayName] = useState('');
+  const [handle, setHandle] = useState('');
   const [bio, setBio] = useState('');
   const [dateOfBirth, setDateOfBirth] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
@@ -55,6 +56,7 @@ export function EditProfileModal({ visible, initialMode = 'edit', onClose }: Edi
   useEffect(() => {
     if (user && visible) {
       setDisplayName(user.profile?.displayName || user.email?.split('@')[0] || '');
+      setHandle(user.profile?.handle || '');
       setBio(user.profile?.bio || '');
       setAvatarUrl(user.profile?.avatarUrl || '');
       const rawDob = user.profile?.dateOfBirth;
@@ -82,10 +84,27 @@ export function EditProfileModal({ visible, initialMode = 'edit', onClose }: Edi
       return;
     }
 
+    const cleanHandle = handle.trim().toLowerCase().replace(/^@+/, '');
+    if (cleanHandle) {
+      if (cleanHandle.length < 3) {
+        Alert.alert(t.common.appName, t.validation.userHandleMinLength || 'Mã định danh phải có ít nhất 3 ký tự');
+        return;
+      }
+      if (cleanHandle.length > 30) {
+        Alert.alert(t.common.appName, t.validation.userHandleMaxLength || 'Mã định danh tối đa 30 ký tự');
+        return;
+      }
+      if (!/^[a-z0-9_]+$/.test(cleanHandle)) {
+        Alert.alert(t.common.appName, t.validation.userHandleInvalid || 'Mã định danh chỉ gồm chữ thường, số và dấu gạch dưới');
+        return;
+      }
+    }
+
     try {
       setIsSubmitting(true);
       await updateProfile({
         displayName: trimmedName,
+        handle: cleanHandle || undefined,
         bio: bio.trim() || null,
         dateOfBirth: dateOfBirth ? new Date(dateOfBirth).toISOString() : null,
       });
@@ -274,6 +293,47 @@ export function EditProfileModal({ visible, initialMode = 'edit', onClose }: Edi
                       },
                     ]}
                   />
+                </View>
+
+                {/* Nickname / Handle Input */}
+                <View style={styles.inputGroup}>
+                  <View style={styles.labelRow}>
+                    <Text style={[styles.inputLabel, { color: colors.text }]}>
+                      {t.auth.handle || 'Mã định danh (Nickname)'}
+                    </Text>
+                    <Text style={[styles.counterText, { color: colors.subtle }]}>
+                      {handle.replace(/^@+/, '').length}/30
+                    </Text>
+                  </View>
+                  <View
+                    style={[
+                      styles.handleInputContainer,
+                      {
+                        backgroundColor: colors.wash,
+                        borderColor: colors.hairline,
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.atPrefix, { color: colors.primary }]}>@</Text>
+                    <TextInput
+                      value={handle.replace(/^@+/, '')}
+                      onChangeText={(val) => setHandle(val.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+                      placeholder="congbinh_99"
+                      placeholderTextColor={colors.subtle}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      maxLength={30}
+                      style={[
+                        styles.handleTextInput,
+                        {
+                          color: colors.text,
+                        },
+                      ]}
+                    />
+                  </View>
+                  <Text style={[styles.helperText, { color: colors.subtle }]}>
+                    {t.auth.handlePlaceholder || 'Dùng để tìm kiếm bạn bè an toàn mà không làm lộ email'}
+                  </Text>
                 </View>
 
 
@@ -503,6 +563,30 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     fontSize: 14,
     fontWeight: '500',
+  },
+  handleInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 44,
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    gap: 4,
+  },
+  atPrefix: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  handleTextInput: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    paddingVertical: 0,
+  },
+  helperText: {
+    fontSize: 11,
+    lineHeight: 15,
+    marginTop: 2,
   },
   textAreaInput: {
     height: 80,

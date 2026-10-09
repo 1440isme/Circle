@@ -1,4 +1,4 @@
-import { AuthResponseData, AuthUserData, SessionEntity } from '@circle/types';
+import { AuthResponseData, AuthUserData, PublicUserEntity, SessionEntity } from '@circle/types';
 import {
   ForgotPasswordInput,
   RegisterInput,
@@ -217,6 +217,17 @@ export async function revokeOtherSessionsApi(): Promise<{ count: number; message
     headers,
   });
 
+  return res.data;
+}
+
+/**
+ * Searches users by handle/displayName (privacy-preserving, no email).
+ */
+export async function searchPublicUsersApi(query?: string): Promise<PublicUserEntity[]> {
+  const params = query ? `?q=${encodeURIComponent(query)}` : '';
+  const res = await apiRequest<PublicUserEntity[]>(`/auth/users/search${params}`, {
+    method: 'GET',
+  });
   return res.data;
 }
 

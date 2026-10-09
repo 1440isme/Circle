@@ -122,11 +122,20 @@ export interface SessionEntity {
 export interface UserProfileEntity {
   id: string;
   userId: string;
+  handle?: string | null;
   displayName: string;
   avatarUrl?: string | null;
   bio?: string | null;
   dateOfBirth?: string | null;
   updatedAt: string;
+}
+
+export interface PublicUserEntity {
+  id: string;
+  handle: string;
+  displayName: string;
+  avatarUrl?: string | null;
+  bio?: string | null;
 }
 
 export interface UserEntity extends BaseEntity {

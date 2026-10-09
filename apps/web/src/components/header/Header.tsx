@@ -119,7 +119,9 @@ export const Header: React.FC = () => {
                 </div>
                 <div className="hidden lg:block text-left text-xs leading-tight pr-1">
                   <p className="font-semibold text-circle-charcoal dark:text-circle-dark-text">{displayName}</p>
-                  <p className="text-circle-slate dark:text-circle-dark-muted">{user.globalRole === 'ADMIN' ? t.auth.admin : t.auth.member}</p>
+                  <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted font-mono">
+                    @{user.profile?.handle || user.email.split('@')[0]}
+                  </p>
                 </div>
                 <ChevronDown className="hidden sm:block h-3.5 w-3.5 text-circle-slate dark:text-circle-dark-muted" />
               </button>
@@ -129,7 +131,10 @@ export const Header: React.FC = () => {
                 <div className="absolute right-0 mt-2 w-56 rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white/95 dark:bg-circle-dark-elevated/95 p-2 shadow-xl shadow-circle-charcoal/8 backdrop-blur-md animate-fadeIn z-50">
                   <div className="px-3 py-2 border-b border-circle-hairline/70 dark:border-circle-dark-hairline">
                     <p className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text truncate">{displayName}</p>
-                    <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted truncate">{user.email}</p>
+                    <p className="text-[11px] font-mono text-circle-primary font-medium truncate">
+                      @{user.profile?.handle || user.email.split('@')[0]}
+                    </p>
+                    <p className="text-[10px] text-circle-slate dark:text-circle-dark-muted truncate">{user.email}</p>
                   </div>
                   <div className="py-1">
                     <button

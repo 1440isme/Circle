@@ -3733,3 +3733,52 @@
 - **Commit:** `3d7f4b8`
 - **PR:** #80
 
+---
+
+## AI-0095: Implement Unique User Handle (Nickname) & Privacy-Preserving User Discovery
+
+- **Date:** 2026-10-09 14:35:00 +07:00
+- **Developer:** Trương Công Bình (23110184)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #84 ([SUB-FEAT]: US-USER-001 — Quản lý Nickname / User Handle định danh duy nhất & tìm kiếm bảo mật)
+- **Purpose:**
+  1. Thay đổi cấu trúc cơ sở dữ liệu `UserProfile` bổ sung trường `handle String? @unique` kèm chỉ mục `@@index([handle])` phục vụ định danh người dùng độc nhất không trùng lặp.
+  2. Cập nhật cơ chế đăng ký tài khoản tự động khởi tạo handle mặc định ngẫu nhiên (ví dụ `user_xxxxxx` hoặc từ tên hiển thị) đảm bảo 100% người dùng luôn có mã định danh.
+  3. Xây dựng endpoint tìm kiếm người dùng bảo vệ quyền riêng tư `GET /auth/users/search?q=...` chỉ trả về `@handle`, `displayName`, `avatarUrl`, `bio` (kiểu `PublicUserEntity`), triệt tiêu hoàn toàn nguy cơ rò rỉ địa chỉ Gmail của người dùng.
+  4. Cập nhật DTO và Zod validation cho `handle` với các quy chuẩn: 3–30 ký tự, chữ thường không dấu, số và gạch dưới (`/^[a-z0-9_]+$/`), loại bỏ tiền tố `@` tự động và kiểm tra tính duy nhất khi cập nhật hồ sơ.
+  5. Đồng bộ giao diện Web và Mobile: Tích hợp nhập và tùy chỉnh `@handle` trong modal chỉnh sửa thông tin cá nhân (`EditProfileModal`), hiển thị huy hiệu `@handle` nổi bật tại Header menu và màn hình Profile cá nhân.
+  6. Bổ sung 4 test cases (`TC-AUTH-HANDLE-001` đến `004`) trong bộ kiểm thử `auth.service.spec.ts` xác thực tính độc nhất, tự động sinh handle, cập nhật và tìm kiếm người dùng công khai.
+- **Prompt Summary:** "oke rồi về phần bạn bè tôi muốn mỗi người có thể tự tạo nickname(mặc định cũng có 1 cái mã định danh để hỗ trợ tìm kiếm thay vì tìm bằng gmail dễ lộ email)"
+- **Files Affected:**
+  - `apps/backend/prisma/schema.prisma`
+  - `packages/types/src/index.ts`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `packages/shared/src/validators/auth.validator.ts`
+  - `apps/backend/src/modules/auth/dto/update-profile.dto.ts`
+  - `apps/backend/src/modules/auth/auth.service.ts`
+  - `apps/backend/src/modules/auth/auth.controller.ts`
+  - `apps/backend/src/modules/auth/auth.service.spec.ts`
+  - `apps/web/src/lib/auth.ts`
+  - `apps/web/src/components/profile/EditProfileModal.tsx`
+  - `apps/web/src/components/header/Header.tsx`
+  - `apps/mobile/src/components/profile/EditProfileModal.tsx`
+  - `apps/mobile/app/(tabs)/profile.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% backend logic, database schema, validation schemas, unit tests, web & mobile UI components.
+- **Human Modifications:** Trương Công Bình định hướng kiến trúc mã định danh bảo vệ quyền riêng tư thay thế tìm kiếm qua email truyền thống.
+- **Verification Method:**
+  - `npm test -w @circle/backend`: 8/8 test suites pass, 123/123 tests pass 100%.
+  - `npm run build -w @circle/web`: Next.js 14 production build pass 100% (9 static routes).
+  - `cd apps/mobile && npx tsc --noEmit`: 0 TypeScript errors.
+  - `cd apps/web && npx tsc --noEmit`: 0 TypeScript errors.
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** Bảo vệ quyền riêng tư người dùng, không để lộ email trong API tìm kiếm công khai, zero secret leaks.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A.
+  - **Resolution / Fix:** N/A.
+- **Commit:** Pending
+- **PR:** #85 (Target PR for Issue #84)
+

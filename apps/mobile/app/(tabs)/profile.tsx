@@ -53,6 +53,7 @@ export default function ProfileTab() {
 
   const isDark = resolvedTheme === 'dark';
   const displayName = user?.profile?.displayName || user?.email?.split('@')[0] || t.auth.guest;
+  const handle = user?.profile?.handle || user?.email?.split('@')[0];
   const avatarUrl = user?.profile?.avatarUrl;
   const bio = user?.profile?.bio;
   const dateOfBirth = user?.profile?.dateOfBirth;
@@ -156,6 +157,12 @@ export default function ProfileTab() {
           <Text style={[styles.nameText, { color: colors.text }]}>
             {displayName}
           </Text>
+
+          <View style={[styles.handleBadge, { backgroundColor: `${colors.primary}15` }]}>
+            <Text style={[styles.handleText, { color: colors.primary }]}>
+              @{handle}
+            </Text>
+          </View>
 
           {/* Bio Box */}
           <Text style={[styles.bioSubText, { color: colors.subtle }]}>
@@ -458,7 +465,18 @@ const styles = StyleSheet.create({
     borderColor: '#FFFFFF',
   },
   avatarText: { fontSize: 28, fontWeight: '800' },
-  nameText: { fontSize: 20, fontWeight: '800', marginBottom: 4 },
+  nameText: { fontSize: 20, fontWeight: '800', marginBottom: 2 },
+  handleBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 10,
+    marginBottom: 8,
+  },
+  handleText: {
+    fontSize: 12,
+    fontWeight: '700',
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+  },
   dobBadge: {
     paddingHorizontal: 12,
     paddingVertical: 4,
