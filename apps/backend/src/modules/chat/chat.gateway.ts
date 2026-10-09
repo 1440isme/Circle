@@ -342,4 +342,13 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   isUserOnline(userId: string): boolean {
     return (this.userSockets.get(userId)?.size ?? 0) > 0;
   }
+
+  /**
+   * Emits a real-time event to a specific user's private socket room
+   */
+  emitToUser(userId: string, event: string, payload: any) {
+    if (this.server) {
+      this.server.to(`user:${userId}`).emit(event, payload);
+    }
+  }
 }

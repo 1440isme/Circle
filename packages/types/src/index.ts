@@ -457,4 +457,45 @@ export interface CreateReportInput {
   details?: string | null;
 }
 
+// =============================================================================
+// FRIENDSHIP & SOCIAL CONNECTIONS CONTRACTS (UC06)
+// =============================================================================
+
+export type FriendRelationshipStatus = 'NONE' | 'FRIEND' | 'PENDING_SENT' | 'PENDING_RECEIVED' | 'BLOCKED';
+
+export interface FriendItem {
+  id: string;
+  friendshipId: string;
+  email: string;
+  displayName: string;
+  avatarUrl?: string | null;
+  bio?: string | null;
+  since: string;
+}
+
+export interface FriendRequestItem {
+  id: string;
+  userId: string;
+  email: string;
+  displayName: string;
+  avatarUrl?: string | null;
+  bio?: string | null;
+  createdAt: string;
+}
+
+export interface FriendSearchResult {
+  id: string;
+  email: string;
+  displayName: string;
+  avatarUrl?: string | null;
+  bio?: string | null;
+  relationship: FriendRelationshipStatus;
+  friendshipId?: string | null;
+}
+
+export interface SendFriendRequestInput {
+  targetUserId: string;
+}
+
+
 

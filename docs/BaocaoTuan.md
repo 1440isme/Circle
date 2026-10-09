@@ -113,3 +113,115 @@
 - Thiết lập Git/GitHub, quy chuẩn Branch/PR và luồng CI cơ bản.
 - Xây dựng Authentication/Authorization với JWT, Refresh Token và RBAC.
 - Xây dựng các chức năng tài khoản cơ bản (đăng ký, đăng nhập, hồ sơ cá nhân).
+
+---
+
+### Giai đoạn: Tuần 4 (07/09/2026 – 13/09/2026)
+
+**Thành viên thực hiện:** Trương Công Bình, Ninh Thị Mỹ Hạnh
+
+1. **Những việc đã làm được:**
+
+- Thiết lập cấu trúc Monorepo Workspace quản lý tập trung Backend, Web, Mobile và thư viện chia sẻ dùng chung (`@circle/shared`, `@circle/types`).
+- Thiết lập Backend với NestJS, TypeScript, Prisma ORM và hệ quản trị cơ sở dữ liệu PostgreSQL 16.
+- Khởi tạo ứng dụng Web với Next.js 14 (App Router, TailwindCSS) và ứng dụng Mobile với React Native / Expo.
+- Thiết lập Docker Compose cho môi trường phát triển cục bộ (chạy container hóa PostgreSQL 16 và Redis 7).
+- Thiết lập quy trình Git/GitHub, chiến lược phân nhánh (Branching strategy), quy chuẩn Conventional Commits, quy định bắt buộc Review PR chéo (Mandatory Peer Review) và quy trình CI cơ bản với GitHub Actions.
+- Xây dựng hệ thống Xác thực & Phân quyền (Authentication/Authorization) hoàn chỉnh: Đăng ký tài khoản, Đăng nhập, cơ chế luân chuyển JWT Access Token và Refresh Token an toàn, mã hóa mật khẩu bằng bcrypt và phân quyền RBAC qua RoleGuard (`@Roles()`).
+- Xây dựng các chức năng tài khoản cơ bản: API lấy thông tin tài khoản hiện tại (`/auth/me`), hồ sơ người dùng (`UserProfile`), cập nhật thông tin cá nhân cơ bản trên cả Web và Mobile.
+
+2. **Những việc chưa làm được:**
+
+- Không có. Nhóm đã hoàn thành toàn bộ các công việc và sản phẩm dự kiến của Tuần 4 theo đúng kế hoạch đề ra (Backend Foundation, Database Migration, Authentication API, Web/Mobile Skeleton, Docker, Git Workflow, CI cơ bản), không có công việc tồn đọng bị kéo dài sang tuần sau.
+
+3. **Những vướng mắc, khó khăn:**
+
+- Việc đồng bộ hóa môi trường phát triển giữa các nền tảng (Node.js, Docker, React Native Expo) trên hệ điều hành của hai thành viên cần được cấu hình chuẩn hóa qua Docker để tránh lỗi phát sinh do khác biệt phiên bản.
+- Cấu hình quản lý Refresh Token an toàn (sử dụng httpOnly Cookie trên Web và SecureStore trên Mobile) đòi hỏi thiết lập cơ chế xử lý linh hoạt cho cả hai nền tảng client.
+
+4. **Câu hỏi (nếu có):**
+
+- Báo cáo GVHD về việc hoàn thành khởi tạo hạ tầng mã nguồn và hệ thống xác thực Auth/RBAC, xin ý kiến về cấu trúc phân chia module nghiệp vụ của giai đoạn tiếp theo.
+
+5. **Những việc sẽ làm trong tuần tiếp theo:**
+
+- Xây dựng hoàn thiện quản lý hồ sơ cá nhân và bạn bè.
+- Xây dựng tạo, tham gia và quản lý Circle.
+- Xây dựng phân quyền thành viên trong Circle.
+- Thiết lập WebSocket/Socket.IO Gateway.
+- Bắt đầu phát triển Chat nhóm cốt lõi và tích hợp lưu trữ media với Cloudflare R2.
+
+---
+
+### Giai đoạn: Tuần 5 (14/09/2026 – 20/09/2026)
+
+**Thành viên thực hiện:** Trương Công Bình, Ninh Thị Mỹ Hạnh
+
+1. **Những việc đã làm được:**
+
+- Xây dựng hoàn thiện chức năng Quản lý hồ sơ cá nhân và Bạn bè: API tìm kiếm người dùng, gửi lời mời kết bạn, chấp nhận/từ chối lời mời và quản lý danh sách bạn bè.
+- Xây dựng Không gian nhóm cốt lõi (Circle Core): Thiết kế và áp dụng Migration Prisma cho các bảng `Circle`, `CircleMember`, `CircleInvite`; triển khai API tạo Circle (tự động thiết lập người tạo là Owner và khởi tạo kênh chat mặc định `#general`), cập nhật thông tin Circle, tra cứu danh sách Circle của người dùng.
+- Xây dựng cơ chế Phân quyền thành viên trong Circle: Phân tách rõ vai trò Circle Owner và Circle Member; tạo mã mời (Invite Code) và liên kết tham gia nhóm (Invite Link); xét duyệt yêu cầu gia nhập; đổi biệt danh (nickname) thành viên nội bộ trong nhóm (`UC20`).
+- Thiết lập hạ tầng WebSocket/Socket.IO Gateway ở Backend: Xây dựng cơ chế xác thực JWT qua Socket handshake, quản lý room thời gian thực theo từng `circle_id`.
+- Tích hợp dịch vụ lưu trữ đám mây Cloudflare R2 (tương thích S3 API): Xây dựng API sinh Presigned URL an toàn phục vụ việc tải lên ảnh đại diện và tệp đính kèm.
+
+2. **Những việc chưa làm được:**
+
+- Các công việc thuộc giai đoạn Tuần 5 – 6 chưa hoàn tất trong Tuần 5 và được kéo dài sang Tuần 6 để tiếp tục hoàn thiện, bao gồm:
+  - Hệ thống Chat nhóm thời gian thực (gửi/nhận tin nhắn văn bản, hình ảnh, video, tập tin đính kèm và tin nhắn thoại - Voice message) mới hoàn thiện cấu trúc dữ liệu và API cơ bản, chưa hoàn thiện tích hợp đầy đủ Socket Events thời gian thực hai chiều trên cả Web và Mobile.
+  - Các tính năng nâng cao trong chat nhóm: Trả lời tin nhắn (Reply), Thả cảm xúc tin nhắn (Reaction) và Ghim tin nhắn (`UC13`).
+  - Giao diện khung chat ảo hóa (Virtual Message List) cuộn mượt mà trên Web và Mobile.
+
+3. **Những vướng mắc, khó khăn:**
+
+- Cơ chế phân quyền trong Circle cần được kiểm soát chặt chẽ tại tầng Socket Gateway để đảm bảo chỉ những thành viên đang hoạt động trong Circle mới được quyền tham gia room và lắng nghe sự kiện chat.
+- Việc xử lý tải lên media qua Presigned URL trực tiếp từ client lên Cloudflare R2 cần cấu hình CORS và chính sách bucket chặt chẽ để đảm bảo an toàn dữ liệu.
+
+4. **Câu hỏi (nếu có):**
+
+- Xin ý kiến góp ý của GVHD về kiến trúc định tuyến sự kiện Socket.IO Gateway theo từng Circle và giải pháp lưu trữ media đám mây qua Cloudflare R2.
+
+5. **Những việc sẽ làm trong tuần tiếp theo:**
+
+- Hoàn thiện toàn diện hệ thống Chat nhóm thời gian thực (gửi tin nhắn văn bản, hình ảnh, video, tệp tin và voice message) qua Socket.IO.
+- Xây dựng tính năng Reply (trả lời tin nhắn), Message Reaction (thả cảm xúc) và Ghim tin nhắn (`UC13`).
+- Hoàn thiện giao diện khung chat ảo hóa cuộn mượt mà và trình phát Media/Voice Message trên Web và Mobile.
+- Hoàn thiện các thao tác quản trị nhóm nâng cao: Rời nhóm, Chuyển nhượng quyền Owner (`UC25`), Giải tán nhóm (`UC26`).
+- Thực hiện kiểm thử chéo (Cross-Testing & Peer Review) giữa hai thành viên để nghiệm thu toàn bộ Module 3 (Circle Core) và Module 4 (Chat Realtime & Media).
+
+---
+
+### Giai đoạn: Tuần 6 (21/09/2026 – 27/09/2026)
+
+**Thành viên thực hiện:** Trương Công Bình, Ninh Thị Mỹ Hạnh
+
+1. **Những việc đã làm được:**
+
+- Hoàn thiện toàn diện hệ thống Chat nhóm thời gian thực qua Socket.IO: phát và nhận tin nhắn tức thì theo kênh trong Circle, cập nhật trạng thái tin nhắn theo thời gian thực.
+- Xây dựng hoàn chỉnh gửi tin nhắn đa phương tiện: hỗ trợ gửi ảnh, video, tệp tin tài liệu (giới hạn tối đa 25MB) và ghi âm / phát tin nhắn thoại (Voice Message) trực tiếp trong khung chat thông qua Cloudflare R2.
+- Xây dựng tính năng Reply (trả lời trích dẫn tin nhắn) và Reaction (thả cảm xúc emoji trên tin nhắn) đồng bộ thời gian thực cho toàn bộ thành viên trong Circle.
+- Xây dựng tính năng Ghim và Bỏ ghim tin nhắn (`UC13`) lên đầu đoạn chat nhóm.
+- Hoàn thiện giao diện khung chat ảo hóa (Virtual Message List) cuộn mượt mà không giật lag trên cả Web Next.js và ứng dụng Mobile React Native/Expo.
+- Hoàn thiện các nghiệp vụ quản trị Circle nâng cao: Chặn Owner tự ý rời nhóm nếu chưa chuyển quyền (`UC22`), Chuyển nhượng quyền Owner (`UC25`), Giải tán Circle (`UC26`).
+- Thực hiện kiểm thử chéo (Cross-Testing) và Review mã nguồn chéo (Peer Review PR) đạt 100% tiêu chí nghiệm thu (DoD) cho toàn bộ Module 3 (Circle Core) và Module 4 (Chat Realtime & Media Storage).
+
+2. **Những việc chưa làm được:**
+
+- Không có. Nhóm đã hoàn thành toàn bộ các công việc và sản phẩm dự kiến của giai đoạn Tuần 5 – 6 theo đúng kế hoạch đề ra (hoàn thành đầy đủ: API Account/Friend/Circle, phân quyền Circle, Chat nhóm realtime qua Socket.IO, lưu trữ media Cloudflare R2, Reply/Reaction, Pin message, giao diện Web và Mobile), không có công việc tồn đọng bị kéo dài sang giai đoạn sau.
+
+3. **Những vướng mắc, khó khăn:**
+
+- Xử lý đồng bộ hóa danh sách tin nhắn khi người dùng cuộn trang tải thêm tin nhắn cũ (Cursor-based pagination) kết hợp đồng thời với tin nhắn mới tới qua WebSocket cần tối ưu kỹ lưỡng để tránh hiện tượng giật màn hình hoặc nhảy thanh cuộn.
+- Việc ghi âm và phát âm thanh Voice message trên ứng dụng di động React Native cần xử lý quyền microphone và quản lý trạng thái âm thanh hệ thống để đạt độ tương thích cao.
+
+4. **Câu hỏi (nếu có):**
+
+- Báo cáo GVHD về việc hoàn thành Module 3 (Không gian nhóm Circle) và Module 4 (Chat nhóm thời gian thực), xin ý kiến định hướng về việc triển khai tính năng Moments chia sẻ khoảnh khắc và PoC WebRTC Video Call ở giai đoạn Tuần 7 – 8.
+
+5. **Những việc sẽ làm trong tuần tiếp theo:**
+
+- Bước sang giai đoạn Tuần 7 – 8 theo kế hoạch:
+  - Nghiên cứu và xây dựng tính năng Khoảnh khắc nội bộ (Moments): đăng ảnh khoảnh khắc, khay hiển thị Moments, cơ chế lựa chọn Circle được xem nội dung chia sẻ (Circle-based Privacy).
+  - Nghiên cứu kiến trúc WebRTC và thực hiện PoC (Proof of Concept) cho tính năng Gọi thoại / Gọi video nhóm (Voice Call / Video Call).
+  - Thiết lập máy chủ Coturn (STUN/TURN) và xây dựng WebRTC Signaling Gateway qua Socket.IO.
+  - Kiểm thử quyền truy cập camera/microphone, kết nối P2P, cơ chế reconnect và các trường hợp lỗi kết nối.

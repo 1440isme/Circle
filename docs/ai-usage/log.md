@@ -3733,3 +3733,82 @@
 - **Commit:** `3d7f4b8`
 - **PR:** #80
 
+---
+
+## AI-0092: Triển khai Hoàn thiện Phân hệ Quản lý Kết nối Bạn bè (UC06 - Manage Friend Connections)
+
+- **Date:** 2026-10-09 09:58:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh (23110210) & Trương Công Bình (23110184)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (Medium)
+- **Related Issue:** #82 ([SUB-FEAT]: US-FRIEND-001 — Quản lý kết nối bạn bè (UC06): Tìm kiếm người dùng, gửi/chấp nhận/từ chối lời mời & quản lý danh sách bạn bè (Parent: #19))
+- **Purpose:** Triển khai trọn vẹn và toàn diện Module 2 - Quản lý Kết nối Bạn bè (Use Case `UC06: Manage Friend Connections`) theo chuẩn đặc tả SRS/SDD, `PROJECT_GOD.md` và Kế hoạch 15 tuần:
+  1. **Shared Contracts & Zod Validator:** Định nghĩa các kiểu quan hệ `FriendRelationshipStatus` (`NONE`, `FRIEND`, `PENDING_SENT`, `PENDING_RECEIVED`, `BLOCKED`), `FriendItem`, `FriendRequestItem`, `FriendSearchResult`, và Zod validator `createFriendSchemas` hỗ trợ đa ngôn ngữ tại `packages/shared/src/validators/friend.validator.ts`.
+  2. **Bilingual Localization (vi/en):** Bổ sung đầy đủ namespace `t.friend.*` và validation strings trong cả `packages/shared/src/locales/vi.ts` và `en.ts`, đảm bảo 100% Zero Hardcoded Strings.
+  3. **Backend FriendsModule (`apps/backend`):** Xây dựng `FriendsService` và `FriendsController` với đầy đủ nghiệp vụ:
+     - `GET /api/v1/friends`: Tra cứu danh sách bạn bè đã chấp nhận (status `ACCEPTED`), bao gồm thông tin hồ sơ và thời điểm kết nối.
+     - `GET /api/v1/friends/search?q=...`: Tìm kiếm người dùng theo email hoặc tên hiển thị (loại trừ bản thân), kèm trạng thái quan hệ tương đối tức thời (`FRIEND`, `PENDING_SENT`, `PENDING_RECEIVED`, `NONE`).
+     - `GET /api/v1/friends/requests/received`: Tra cứu danh sách lời mời kết bạn đang chờ nhận.
+     - `GET /api/v1/friends/requests/sent`: Tra cứu danh sách lời mời kết bạn đang chờ gửi đi.
+     - `POST /api/v1/friends/requests`: Gửi lời mời kết bạn, kiểm tra chống tự kết bạn chính mình, chống trùng lặp, tự động chấp nhận nếu đối phương đã gửi lời mời trước đó, tạo bản ghi `Notification` trong cơ sở dữ liệu và phát sự kiện Socket realtime `friend:request_received`.
+     - `POST /api/v1/friends/requests/:id/accept`: Chấp nhận lời mời kết bạn, kích hoạt thông báo và socket `friend:request_accepted`.
+     - `POST /api/v1/friends/requests/:id/reject`: Từ chối lời mời kết bạn.
+     - `DELETE /api/v1/friends/requests/:id`: Hủy lời mời kết bạn đã gửi.
+     - `DELETE /api/v1/friends/:friendId`: Hủy kết bạn (Unfriend), gửi socket event `friend:removed`.
+  4. **Socket Realtime Gateway (`ChatGateway`):** Bổ sung phương thức `emitToUser(userId, event, payload)` giúp phát sự kiện trực tiếp vào phòng cá nhân `user:${userId}`.
+  5. **Web Client Integration (`apps/web`):**
+     - Xây dựng `use-friend-queries.ts` với TanStack Query cache invalidation tối ưu.
+     - Quản lý trạng thái mở modal qua Zustand `friend.store.ts`.
+     - Xây dựng modal `FriendsModal.tsx` theo chuẩn Apple HIG với 3 tab: Bạn bè, Lời mời (phân nhánh Đã nhận / Đã gửi), và Tìm kiếm bạn bè với bộ lọc tức thời.
+     - Tích hợp nút Bạn bè kèm huy hiệu thông báo số lượng lời mời đang chờ (`receivedRequests.length`) trên thanh Header, menu dropdown người dùng và Sidebar.
+  6. **Mobile App Integration (`apps/mobile`):**
+     - Xây dựng hook `use-friend-queries.ts` tương thích Expo / React Native.
+     - Xây dựng modal `FriendsModal.tsx` cho mobile với giao diện Liquid Tab, hỗ trợ Dark/Light Theme.
+     - Tích hợp nút Bạn bè và huy hiệu thông báo trong `profile.tsx`.
+- **Prompt Summary:** "Giờ hãy làm module 2 chức năng Kết bạn & Bạn bè (UC06): Tìm kiếm bạn bè theo email/tên; gửi, chấp nhận, từ chối lời mời hoặc hủy kết bạn; danh sách bạn bè hiện tại"
+- **Files Affected:**
+  - `packages/types/src/index.ts`
+  - `packages/shared/src/index.ts`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `packages/shared/src/validators/friend.validator.ts`
+  - `apps/backend/src/app.module.ts`
+  - `apps/backend/src/modules/chat/chat.gateway.ts`
+  - `apps/backend/src/modules/friends/friends.module.ts`
+  - `apps/backend/src/modules/friends/friends.controller.ts`
+  - `apps/backend/src/modules/friends/friends.service.ts`
+  - `apps/backend/src/modules/friends/friends.service.spec.ts`
+  - `apps/web/src/app/page.tsx`
+  - `apps/web/src/stores/friend.store.ts`
+  - `apps/web/src/hooks/use-friend-queries.ts`
+  - `apps/web/src/components/friend/FriendsModal.tsx`
+  - `apps/web/src/components/header/Header.tsx`
+  - `apps/web/src/components/navigation/Sidebar.tsx`
+  - `apps/mobile/src/hooks/use-friend-queries.ts`
+  - `apps/mobile/src/components/friend/FriendsModal.tsx`
+  - `apps/mobile/app/(tabs)/profile.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% backend module, test suite, shared contracts, web components và mobile modal.
+- **Human Modifications:** Kỹ sư chỉ đạo yêu cầu hoàn thiện trọn gói nghiệp vụ UC06 theo đặc tả đồ án.
+- **Verification Method:**
+  - `npm test -w @circle/backend`: 138/138 unit tests pass 100% (9/9 test suites), trong đó 19/19 test cases mới của `friends.service.spec.ts` pass tuyệt đối.
+  - `npm run build -w @circle/types` & `npm run build -w @circle/shared`: 0 errors.
+  - `npm run build -w @circle/backend`: NestJS build thành công 100%.
+  - `npm run build -w @circle/web`: Next.js 14 production build hoàn tất 9/9 trang tĩnh với 0 lỗi.
+  - `npx tsc --noEmit` trong `apps/mobile`: 0 errors.
+- **Official Source Checked:** `PROJECT_GOD.md`, `docs/requirements/use-cases.md` (Bảng 2.6: UC06), `agentic/RULES.md`.
+- **Security & License Check:** Bảo mật an toàn: xác thực JWT Guard toàn diện, không rò rỉ private data, chặn tự kết bạn, Zod validation nghiêm ngặt.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:**
+    1. Trong file unit test `friends.service.spec.ts`, khai báo biến `prisma` và `chatGateway` chưa dùng gây lỗi `TS6133: declared but its value is never read`, đồng thời truy cập `result[0]` trong mảng không có non-null assertion gây lỗi `TS2532: Object is possibly undefined`.
+    2. Trong `FriendsModal.tsx` của `apps/mobile`, sử dụng nhầm khóa token màu `colors.background` thay vì `colors.canvas`, và `colors.error` thay vì `colors.danger`.
+  - **Root Cause:**
+    1. Chế độ TypeScript strict của NestJS tsconfig bật các cờ kiểm tra nghiêm ngặt `noUnusedLocals` và `strictNullChecks`.
+    2. Theme token của CIRCLE trong `ColorTokens` quy ước là `canvas` và `danger/coral`, không dùng `background/error`.
+  - **Resolution / Fix:**
+    1. Đã dọn dẹp biến thừa trong unit test và thêm non-null assertion `!` trên các truy cập mảng.
+    2. Đã thay thế toàn bộ `colors.background` thành `colors.canvas`, và `colors.error` thành `colors.danger`.
+- **Commit:** `5538c9c`
+- **PR:** pending
+
+
