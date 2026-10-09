@@ -3808,7 +3808,7 @@
   - **Resolution / Fix:**
     1. Đã dọn dẹp biến thừa trong unit test và thêm non-null assertion `!` trên các truy cập mảng.
     2. Đã thay thế toàn bộ `colors.background` thành `colors.canvas`, và `colors.error` thành `colors.danger`.
-- **Commit:** `5538c9c`
-- **PR:** pending
+- **Commit:** `8a009f3`
+- **PR:** #83
 
 
