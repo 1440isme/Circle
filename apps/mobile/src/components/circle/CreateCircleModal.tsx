@@ -81,8 +81,10 @@ export function CreateCircleModal() {
   const filteredFriends = selectableFriends.filter((f) => {
     const q = friendSearch.toLowerCase().trim();
     if (!q) return true;
+    const cleanQ = q.replace(/^@/, '');
     return (
       f.displayName.toLowerCase().includes(q) ||
+      (f.handle && f.handle.toLowerCase().includes(cleanQ)) ||
       f.email.toLowerCase().includes(q)
     );
   });
@@ -359,6 +361,12 @@ export function CreateCircleModal() {
                               style={[styles.friendName, { color: colors.text }]}
                             >
                               {f.displayName}
+                            </Text>
+                            <Text
+                              numberOfLines={1}
+                              style={[styles.friendHandle, { color: colors.primary }]}
+                            >
+                              @{f.handle || f.email.split('@')[0]}
                             </Text>
                           </View>
                         </View>
@@ -648,6 +656,12 @@ const styles = StyleSheet.create({
   friendName: {
     fontSize: 13,
     fontWeight: '600',
+  },
+  friendHandle: {
+    fontSize: 11,
+    fontWeight: '600',
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    marginTop: 1,
   },
   friendEmail: {
     fontSize: 11,

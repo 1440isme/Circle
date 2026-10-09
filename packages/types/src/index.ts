@@ -351,6 +351,7 @@ export interface SelectableFriendItem {
   id: string;
   email: string;
   displayName: string;
+  handle?: string | null;
   avatarUrl?: string | null;
 }
 

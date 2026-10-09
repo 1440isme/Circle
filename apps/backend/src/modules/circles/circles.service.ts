@@ -276,6 +276,7 @@ export class CirclesService {
           id: friend.id,
           email: friend.email,
           displayName: friend.profile?.displayName || friend.email.split('@')[0] || friend.email,
+          handle: friend.profile?.handle || null,
           avatarUrl: friend.profile?.avatarUrl || null,
         };
       });
@@ -296,6 +297,7 @@ export class CirclesService {
       id: u.id,
       email: u.email,
       displayName: u.profile?.displayName || u.email.split('@')[0] || u.email,
+      handle: u.profile?.handle || null,
       avatarUrl: u.profile?.avatarUrl || null,
     }));
   }

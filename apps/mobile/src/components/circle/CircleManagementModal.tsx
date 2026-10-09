@@ -586,8 +586,10 @@ export function CircleManagementModal() {
     if (isAlreadyMember) return false;
     const q = friendSearch.toLowerCase().trim();
     if (!q) return true;
+    const cleanQ = q.replace(/^@/, '');
     return (
       f.displayName.toLowerCase().includes(q) ||
+      (f.handle && f.handle.toLowerCase().includes(cleanQ)) ||
       f.email.toLowerCase().includes(q)
     );
   });
@@ -2055,7 +2057,9 @@ export function CircleManagementModal() {
                               </View>
                               <View style={{ flex: 1 }}>
                                 <Text style={[styles.memberName, { color: colors.text }]}>{f.displayName}</Text>
-                                <Text style={[styles.subtleText, { color: colors.subtle }]}>{f.email}</Text>
+                                <Text style={[styles.handleSubText, { color: colors.primary }]}>
+                                  @{f.handle || f.email.split('@')[0]}
+                                </Text>
                               </View>
                             </View>
                             <View
@@ -2545,6 +2549,12 @@ const styles = StyleSheet.create({
   },
   subtleText: {
     fontSize: 11,
+  },
+  handleSubText: {
+    fontSize: 11,
+    fontWeight: '600',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    marginTop: 1,
   },
   roleBadge: {
     flexDirection: 'row',

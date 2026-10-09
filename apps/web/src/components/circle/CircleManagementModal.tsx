@@ -261,8 +261,10 @@ export const CircleManagementModal: React.FC = () => {
   const filteredFriends = availableFriends.filter((f) => {
     const term = friendSearch.toLowerCase().trim();
     if (!term) return true;
+    const cleanTerm = term.replace(/^@/, '');
     return (
       f.displayName.toLowerCase().includes(term) ||
+      (f.handle && f.handle.toLowerCase().includes(cleanTerm)) ||
       f.email.toLowerCase().includes(term)
     );
   });
@@ -1207,9 +1209,14 @@ export const CircleManagementModal: React.FC = () => {
                                     initials
                                   )}
                                 </div>
-                                <p className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text truncate">
-                                  {f.displayName}
-                                </p>
+                                <div className="min-w-0">
+                                  <p className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text truncate">
+                                    {f.displayName}
+                                  </p>
+                                  <p className="text-[10px] font-mono text-circle-primary truncate">
+                                    @{f.handle || f.email.split('@')[0]}
+                                  </p>
+                                </div>
                               </div>
                               <div className="text-circle-primary shrink-0 pl-2">
                                 {isSelected ? (

@@ -66,8 +66,10 @@ export const CreateCircleModal: React.FC = () => {
   const filteredFriends = selectableFriends.filter((f) => {
     const query = friendSearch.toLowerCase().trim();
     if (!query) return true;
+    const cleanQuery = query.replace(/^@/, '');
     return (
       f.displayName.toLowerCase().includes(query) ||
+      (f.handle && f.handle.toLowerCase().includes(cleanQuery)) ||
       f.email.toLowerCase().includes(query)
     );
   });
@@ -251,6 +253,9 @@ export const CreateCircleModal: React.FC = () => {
                         <div className="truncate">
                           <p className="text-xs font-semibold truncate">
                             {friend.displayName}
+                          </p>
+                          <p className="text-[10px] font-mono text-circle-sage dark:text-circle-primary truncate">
+                            @{friend.handle || friend.email.split('@')[0]}
                           </p>
                         </div>
                       </div>
