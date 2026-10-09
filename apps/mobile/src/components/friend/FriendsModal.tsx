@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Modal,
   View,
@@ -22,6 +22,7 @@ import {
   Clock,
   ArrowDownLeft,
   ArrowUpRight,
+  Sparkles,
 } from 'lucide-react-native';
 import { useThemeStore } from '../../stores/theme.store';
 import { useLanguageStore } from '../../stores/language.store';
@@ -56,6 +57,14 @@ export function FriendsModal({ visible, onClose }: FriendsModalProps) {
   const [requestsSubTab, setRequestsSubTab] = useState<'received' | 'sent'>('received');
   const [searchQuery, setSearchQuery] = useState('');
   const [submittedQuery, setSubmittedQuery] = useState('');
+
+  // Auto-debounce typing
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSubmittedQuery(searchQuery.trim());
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   // Queries
   const { data: friends = [], isLoading: isLoadingFriends } = useFriendsQuery();
@@ -389,75 +398,88 @@ export function FriendsModal({ visible, onClose }: FriendsModalProps) {
 
                 {isSearching ? (
                   <ActivityIndicator size="small" color={colors.primary} style={styles.loader} />
-                ) : submittedQuery && searchResults.length === 0 ? (
+                ) : searchResults.length === 0 ? (
                   <View style={styles.emptyBox}>
                     <Search size={36} color={colors.subtle} style={{ opacity: 0.5, marginBottom: 8 }} />
-                    <Text style={[styles.emptyTitle, { color: colors.subtle }]}>{t.friend.noSearchResults}</Text>
+                    <Text style={[styles.emptyTitle, { color: colors.subtle }]}>
+                      {submittedQuery ? t.friend.noSearchResults : t.friend.searchPrompt}
+                    </Text>
                   </View>
                 ) : (
-                  searchResults.map((user) => (
-                    <View
-                      key={user.id}
-                      style={[styles.friendCard, { backgroundColor: colors.canvas, borderColor: colors.hairline }]}
-                    >
-                      <View style={styles.cardLeft}>
-                        {user.avatarUrl ? (
-                          <RNImage source={{ uri: user.avatarUrl }} style={styles.avatar} />
-                        ) : (
-                          <View style={[styles.avatarFallback, { backgroundColor: colors.wash }]}>
-                            <Text style={[styles.avatarInitials, { color: colors.primary }]}>
-                              {getInitials(user.displayName)}
+                  <View style={{ gap: 8 }}>
+                    <View style={styles.sectionHeaderRow}>
+                      {!submittedQuery && <Sparkles size={13} color={colors.primary} style={{ marginRight: 4 }} />}
+                      <Text style={[styles.sectionHeaderText, { color: colors.subtle }]}>
+                        {submittedQuery
+                          ? `${t.friend.searchResultsTitle} (${searchResults.length})`
+                          : t.friend.suggestedFriends}
+                      </Text>
+                    </View>
+
+                    {searchResults.map((user) => (
+                      <View
+                        key={user.id}
+                        style={[styles.friendCard, { backgroundColor: colors.canvas, borderColor: colors.hairline }]}
+                      >
+                        <View style={styles.cardLeft}>
+                          {user.avatarUrl ? (
+                            <RNImage source={{ uri: user.avatarUrl }} style={styles.avatar} />
+                          ) : (
+                            <View style={[styles.avatarFallback, { backgroundColor: colors.wash }]}>
+                              <Text style={[styles.avatarInitials, { color: colors.primary }]}>
+                                {getInitials(user.displayName)}
+                              </Text>
+                            </View>
+                          )}
+                          <View style={styles.cardInfo}>
+                            <Text style={[styles.cardName, { color: colors.text }]} numberOfLines={1}>
+                              {user.displayName}
+                            </Text>
+                            <Text style={[styles.cardEmail, { color: colors.subtle }]} numberOfLines={1}>
+                              {user.email}
+                            </Text>
+                          </View>
+                        </View>
+
+                        {user.relationship === 'FRIEND' && (
+                          <View style={[styles.statusBadge, { backgroundColor: colors.wash }]}>
+                            <Text style={[styles.statusBadgeText, { color: colors.primary }]}>
+                              {t.friend.alreadyFriends}
                             </Text>
                           </View>
                         )}
-                        <View style={styles.cardInfo}>
-                          <Text style={[styles.cardName, { color: colors.text }]} numberOfLines={1}>
-                            {user.displayName}
-                          </Text>
-                          <Text style={[styles.cardEmail, { color: colors.subtle }]} numberOfLines={1}>
-                            {user.email}
-                          </Text>
-                        </View>
+
+                        {user.relationship === 'PENDING_SENT' && (
+                          <View style={[styles.statusBadge, { borderColor: colors.hairline, borderWidth: 1 }]}>
+                            <Text style={[styles.statusBadgeText, { color: colors.subtle }]}>
+                              {t.friend.requestSent}
+                            </Text>
+                          </View>
+                        )}
+
+                        {user.relationship === 'PENDING_RECEIVED' && user.friendshipId && (
+                          <TouchableOpacity
+                            onPress={() => acceptMutation.mutate(user.friendshipId!)}
+                            style={[styles.acceptBtn, { backgroundColor: colors.primary }]}
+                          >
+                            <Check size={14} color={colors.onPrimary} />
+                          </TouchableOpacity>
+                        )}
+
+                        {user.relationship === 'NONE' && (
+                          <TouchableOpacity
+                            onPress={() => sendMutation.mutate(user.id)}
+                            style={[styles.addFriendBtn, { backgroundColor: colors.primary }]}
+                          >
+                            <UserPlus size={14} color={colors.onPrimary} style={{ marginRight: 4 }} />
+                            <Text style={[styles.addFriendText, { color: colors.onPrimary }]}>
+                              {t.friend.addFriend}
+                            </Text>
+                          </TouchableOpacity>
+                        )}
                       </View>
-
-                      {user.relationship === 'FRIEND' && (
-                        <View style={[styles.statusBadge, { backgroundColor: colors.wash }]}>
-                          <Text style={[styles.statusBadgeText, { color: colors.primary }]}>
-                            {t.friend.alreadyFriends}
-                          </Text>
-                        </View>
-                      )}
-
-                      {user.relationship === 'PENDING_SENT' && (
-                        <View style={[styles.statusBadge, { borderColor: colors.hairline, borderWidth: 1 }]}>
-                          <Text style={[styles.statusBadgeText, { color: colors.subtle }]}>
-                            {t.friend.requestSent}
-                          </Text>
-                        </View>
-                      )}
-
-                      {user.relationship === 'PENDING_RECEIVED' && user.friendshipId && (
-                        <TouchableOpacity
-                          onPress={() => acceptMutation.mutate(user.friendshipId!)}
-                          style={[styles.acceptBtn, { backgroundColor: colors.primary }]}
-                        >
-                          <Check size={14} color={colors.onPrimary} />
-                        </TouchableOpacity>
-                      )}
-
-                      {user.relationship === 'NONE' && (
-                        <TouchableOpacity
-                          onPress={() => sendMutation.mutate(user.id)}
-                          style={[styles.addFriendBtn, { backgroundColor: colors.primary }]}
-                        >
-                          <UserPlus size={14} color={colors.onPrimary} style={{ marginRight: 4 }} />
-                          <Text style={[styles.addFriendText, { color: colors.onPrimary }]}>
-                            {t.friend.addFriend}
-                          </Text>
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                  ))
+                    ))}
+                  </View>
                 )}
               </View>
             )}
@@ -699,6 +721,16 @@ const styles = StyleSheet.create({
   },
   addFriendText: {
     fontSize: 11,
+    fontWeight: '600',
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    marginBottom: 4,
+  },
+  sectionHeaderText: {
+    fontSize: 12,
     fontWeight: '600',
   },
 });

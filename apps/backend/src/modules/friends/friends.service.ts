@@ -167,23 +167,25 @@ export class FriendsService {
   /**
    * Searches users by email or display name and returns relationship status relative to userId
    */
-  async searchUsers(userId: string, rawQuery: string): Promise<FriendSearchResult[]> {
+  async searchUsers(userId: string, rawQuery?: string): Promise<FriendSearchResult[]> {
     const query = rawQuery?.trim();
-    if (!query || query.length < 1) {
-      return [];
-    }
 
-    // 1. Find candidate users
+    // 1. Find candidate users (filtered by query if provided, or suggested platform users if empty)
     const matchedUsers = await this.prisma.user.findMany({
       where: {
         id: { not: userId },
         deletedAt: null,
-        OR: [
-          { email: { contains: query, mode: 'insensitive' } },
-          { profile: { displayName: { contains: query, mode: 'insensitive' } } },
-        ],
+        ...(query
+          ? {
+              OR: [
+                { email: { contains: query, mode: 'insensitive' } },
+                { profile: { displayName: { contains: query, mode: 'insensitive' } } },
+              ],
+            }
+          : {}),
       },
       take: 20,
+      orderBy: { createdAt: 'desc' },
       select: {
         id: true,
         email: true,

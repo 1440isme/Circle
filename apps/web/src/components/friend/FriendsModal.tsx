@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   Users,
@@ -13,9 +13,10 @@ import {
   Clock,
   ArrowDownLeft,
   ArrowUpRight,
+  Sparkles,
 } from 'lucide-react';
 import { useLanguageStore } from '../../stores/language.store';
-import { useFriendStore, FriendModalTab } from '../../stores/friend.store';
+import { useFriendStore } from '../../stores/friend.store';
 import {
   useFriendsQuery,
   useReceivedFriendRequestsQuery,
@@ -38,14 +39,31 @@ export const FriendsModal: React.FC = () => {
   const t = useLanguageStore((s) => s.t);
   const isOpen = useFriendStore((s) => s.isFriendsModalOpen);
   const activeTab = useFriendStore((s) => s.activeTab);
+  const initialSearchQuery = useFriendStore((s) => s.initialSearchQuery);
   const setOpen = useFriendStore((s) => s.setFriendsModalOpen);
   const setActiveTab = useFriendStore((s) => s.setActiveTab);
 
   // Search input state
-  const [searchQuery, setSearchQuery] = useState('');
-  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(initialSearchQuery || '');
+  const [debouncedQuery, setDebouncedQuery] = useState(initialSearchQuery || '');
   const [filterFriendText, setFilterFriendText] = useState('');
   const [requestsSubTab, setRequestsSubTab] = useState<'received' | 'sent'>('received');
+
+  // Sync initial query when opened
+  useEffect(() => {
+    if (isOpen) {
+      setSearchQuery(initialSearchQuery || '');
+      setDebouncedQuery(initialSearchQuery || '');
+    }
+  }, [isOpen, initialSearchQuery]);
+
+  // Reactive auto-debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQuery(searchQuery.trim());
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   // Queries
   const { data: friends = [], isLoading: isLoadingFriends } = useFriendsQuery();
@@ -447,86 +465,96 @@ export const FriendsModal: React.FC = () => {
                 <Loader2 className="h-8 w-8 animate-spin mb-2" />
                 <p className="text-sm">{t.friend.searching}</p>
               </div>
-            ) : debouncedQuery && searchResults.length === 0 ? (
+            ) : searchResults.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center text-circle-slate dark:text-circle-dark-muted">
                 <Search className="h-8 w-8 mb-2 opacity-50" />
-                <p className="text-sm font-medium">{t.friend.noSearchResults}</p>
-              </div>
-            ) : !debouncedQuery ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center text-circle-slate dark:text-circle-dark-muted">
-                <UserPlus className="h-8 w-8 mb-2 opacity-50" />
-                <p className="text-xs max-w-sm">{t.friend.searchPrompt}</p>
+                <p className="text-sm font-medium">
+                  {debouncedQuery ? t.friend.noSearchResults : t.friend.searchPrompt}
+                </p>
               </div>
             ) : (
-              <div className="space-y-2.5">
-                {searchResults.map((user) => (
-                  <div
-                    key={user.id}
-                    className="flex items-center justify-between p-3.5 rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface shadow-sm"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      {user.avatarUrl ? (
-                        <img
-                          src={user.avatarUrl}
-                          alt={user.displayName}
-                          className="h-10 w-10 rounded-full object-cover border border-circle-hairline dark:border-circle-dark-hairline"
-                        />
-                      ) : (
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-circle-wash dark:bg-circle-dark-wash text-circle-sage dark:text-circle-primary font-bold text-sm">
-                          {getInitials(user.displayName)}
+              <div className="space-y-3">
+                <div className="flex items-center gap-1.5 px-1 text-xs font-semibold text-circle-slate dark:text-circle-dark-muted">
+                  {debouncedQuery ? (
+                    <span>{t.friend.searchResultsTitle} ({searchResults.length})</span>
+                  ) : (
+                    <>
+                      <Sparkles className="h-3.5 w-3.5 text-circle-sage dark:text-circle-primary" />
+                      <span>{t.friend.suggestedFriends}</span>
+                    </>
+                  )}
+                </div>
+
+                <div className="space-y-2.5">
+                  {searchResults.map((user) => (
+                    <div
+                      key={user.id}
+                      className="flex items-center justify-between p-3.5 rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface shadow-sm"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        {user.avatarUrl ? (
+                          <img
+                            src={user.avatarUrl}
+                            alt={user.displayName}
+                            className="h-10 w-10 rounded-full object-cover border border-circle-hairline dark:border-circle-dark-hairline"
+                          />
+                        ) : (
+                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-circle-wash dark:bg-circle-dark-wash text-circle-sage dark:text-circle-primary font-bold text-sm">
+                            {getInitials(user.displayName)}
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <h4 className="text-sm font-semibold text-circle-charcoal dark:text-circle-dark-text truncate">
+                            {user.displayName}
+                          </h4>
+                          <p className="text-xs text-circle-slate dark:text-circle-dark-muted truncate">
+                            {user.email}
+                          </p>
                         </div>
-                      )}
-                      <div className="min-w-0">
-                        <h4 className="text-sm font-semibold text-circle-charcoal dark:text-circle-dark-text truncate">
-                          {user.displayName}
-                        </h4>
-                        <p className="text-xs text-circle-slate dark:text-circle-dark-muted truncate">
-                          {user.email}
-                        </p>
+                      </div>
+
+                      <div className="shrink-0 ml-3">
+                        {user.relationship === 'FRIEND' && (
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-circle-wash dark:bg-circle-dark-wash px-3 py-1.5 text-xs font-semibold text-circle-sage dark:text-circle-primary">
+                            <Check className="h-3.5 w-3.5" />
+                            <span>{t.friend.alreadyFriends}</span>
+                          </span>
+                        )}
+
+                        {user.relationship === 'PENDING_SENT' && (
+                          <span className="inline-flex items-center gap-1.5 rounded-full border border-circle-hairline dark:border-circle-dark-hairline px-3 py-1.5 text-xs font-semibold text-circle-slate dark:text-circle-dark-muted">
+                            <Clock className="h-3.5 w-3.5" />
+                            <span>{t.friend.requestSent}</span>
+                          </span>
+                        )}
+
+                        {user.relationship === 'PENDING_RECEIVED' && user.friendshipId && (
+                          <button
+                            type="button"
+                            onClick={() => acceptMutation.mutate(user.friendshipId!)}
+                            disabled={acceptMutation.isPending}
+                            className="flex items-center gap-1.5 rounded-full bg-circle-sage px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-circle-sage/90 disabled:opacity-50 transition-colors"
+                          >
+                            <Check className="h-3.5 w-3.5" />
+                            <span>{t.friend.accept}</span>
+                          </button>
+                        )}
+
+                        {user.relationship === 'NONE' && (
+                          <button
+                            type="button"
+                            onClick={() => sendMutation.mutate(user.id)}
+                            disabled={sendMutation.isPending}
+                            className="flex items-center gap-1.5 rounded-full bg-circle-primary px-3.5 py-1.5 text-xs font-semibold text-circle-charcoal shadow-sm hover:bg-circle-primary/90 disabled:opacity-50 transition-colors"
+                          >
+                            <UserPlus className="h-3.5 w-3.5" />
+                            <span>{t.friend.addFriend}</span>
+                          </button>
+                        )}
                       </div>
                     </div>
-
-                    <div className="shrink-0 ml-3">
-                      {user.relationship === 'FRIEND' && (
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-circle-wash dark:bg-circle-dark-wash px-3 py-1.5 text-xs font-semibold text-circle-sage dark:text-circle-primary">
-                          <Check className="h-3.5 w-3.5" />
-                          <span>{t.friend.alreadyFriends}</span>
-                        </span>
-                      )}
-
-                      {user.relationship === 'PENDING_SENT' && (
-                        <span className="inline-flex items-center gap-1.5 rounded-full border border-circle-hairline dark:border-circle-dark-hairline px-3 py-1.5 text-xs font-semibold text-circle-slate dark:text-circle-dark-muted">
-                          <Clock className="h-3.5 w-3.5" />
-                          <span>{t.friend.requestSent}</span>
-                        </span>
-                      )}
-
-                      {user.relationship === 'PENDING_RECEIVED' && user.friendshipId && (
-                        <button
-                          type="button"
-                          onClick={() => acceptMutation.mutate(user.friendshipId!)}
-                          disabled={acceptMutation.isPending}
-                          className="flex items-center gap-1.5 rounded-full bg-circle-sage px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-circle-sage/90 disabled:opacity-50 transition-colors"
-                        >
-                          <Check className="h-3.5 w-3.5" />
-                          <span>{t.friend.accept}</span>
-                        </button>
-                      )}
-
-                      {user.relationship === 'NONE' && (
-                        <button
-                          type="button"
-                          onClick={() => sendMutation.mutate(user.id)}
-                          disabled={sendMutation.isPending}
-                          className="flex items-center gap-1.5 rounded-full bg-circle-primary px-3.5 py-1.5 text-xs font-semibold text-circle-charcoal shadow-sm hover:bg-circle-primary/90 disabled:opacity-50 transition-colors"
-                        >
-                          <UserPlus className="h-3.5 w-3.5" />
-                          <span>{t.friend.addFriend}</span>
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             )}
           </div>

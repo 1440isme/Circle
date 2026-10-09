@@ -3811,4 +3811,47 @@
 - **Commit:** `8a009f3`
 - **PR:** #83
 
+---
+
+## AI-0093: Tối ưu Tìm kiếm Bạn bè & Hiển thị Gợi ý Kết bạn Tức thì (Web & Mobile)
+
+- **Date:** 2026-10-09 10:28:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #82 (Module 2: Kết bạn & Bạn bè UC06)
+- **Purpose:** Khắc phục trải nghiệm người dùng khi tìm kiếm bạn bè trên Web và Mobile:
+  1. Hỗ trợ hiển thị danh sách "Gợi ý kết bạn" (Suggested Connections) ngay khi mở tab Tìm kiếm mà không bắt buộc người dùng phải gõ từ khóa.
+  2. Bổ sung cơ chế tự động tìm kiếm tức thì theo thời gian thực (reactive auto-debounce 300ms) khi người dùng gõ phím, không cần thao tác bấm nút Tìm kiếm hoặc Enter thủ công.
+  3. Liên kết thanh tìm kiếm toàn cục ở Header trên Web với `FriendsModal` (tự động chuyển sang tab Tìm kiếm kèm từ khóa đã nhập).
+  4. Cập nhật backend `FriendsService.searchUsers` cho phép truy vấn không truyền query để trả về gợi ý người dùng gần đây trên nền tảng (`id != userId`).
+- **Prompt Summary:** Khắc phục lỗi "sao tôi ko tìm được bạn bè" và nâng cấp trải nghiệm tìm kiếm gợi ý kết bạn.
+- **Files Affected:**
+  - `apps/backend/src/modules/friends/friends.service.ts`
+  - `apps/backend/src/modules/friends/friends.service.spec.ts`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `apps/web/src/hooks/use-friend-queries.ts`
+  - `apps/web/src/stores/friend.store.ts`
+  - `apps/web/src/components/friend/FriendsModal.tsx`
+  - `apps/web/src/components/header/Header.tsx`
+  - `apps/mobile/src/hooks/use-friend-queries.ts`
+  - `apps/mobile/src/components/friend/FriendsModal.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% backend logic, unit tests, web/mobile components và debounce hooks.
+- **Human Modifications:** Người dùng phản ánh trải nghiệm tìm kiếm bạn bè chưa hiển thị kết quả trực quan khi chưa có thao tác submit.
+- **Verification Method:**
+  - `npm test -w @circle/backend`: 138/138 unit tests pass 100% (9/9 test suites).
+  - `npm run build -w @circle/web`: Next.js production build pass 100% (9/9 static routes).
+  - `npx tsc --noEmit` trong `apps/mobile`: 0 errors.
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn, bảo mật dữ liệu người dùng và không làm rò rỉ thông tin nhạy cảm.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A.
+  - **Resolution / Fix:** N/A.
+- **Commit:** Pending
+- **PR:** #83
+
+
 

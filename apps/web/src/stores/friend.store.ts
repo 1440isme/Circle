@@ -5,14 +5,16 @@ export type FriendModalTab = 'friends' | 'requests' | 'search';
 interface FriendState {
   isFriendsModalOpen: boolean;
   activeTab: FriendModalTab;
-  setFriendsModalOpen: (open: boolean, tab?: FriendModalTab) => void;
+  initialSearchQuery: string;
+  setFriendsModalOpen: (open: boolean, tab?: FriendModalTab, query?: string) => void;
   setActiveTab: (tab: FriendModalTab) => void;
 }
 
 export const useFriendStore = create<FriendState>((set) => ({
   isFriendsModalOpen: false,
   activeTab: 'friends',
-  setFriendsModalOpen: (open, tab = 'friends') =>
-    set({ isFriendsModalOpen: open, activeTab: tab }),
+  initialSearchQuery: '',
+  setFriendsModalOpen: (open, tab = 'friends', query = '') =>
+    set({ isFriendsModalOpen: open, activeTab: tab, initialSearchQuery: query }),
   setActiveTab: (tab) => set({ activeTab: tab }),
 }));

@@ -133,10 +133,21 @@ describe('FriendsService', () => {
   });
 
   describe('searchUsers', () => {
-    it('should return empty array if query is empty or blank', async () => {
+    it('should return suggested platform users when query is empty', async () => {
+      mockPrisma.user.findMany.mockResolvedValue([
+        {
+          id: 'u-suggested',
+          email: 'suggested@circle.com',
+          profile: { displayName: 'Suggested User', avatarUrl: null, bio: null },
+        },
+      ]);
+      mockPrisma.friendship.findMany.mockResolvedValue([]);
+
       const result = await service.searchUsers('user-1', '   ');
-      expect(result).toEqual([]);
-      expect(mockPrisma.user.findMany).not.toHaveBeenCalled();
+      expect(result).toHaveLength(1);
+      expect(result[0]!.id).toBe('u-suggested');
+      expect(result[0]!.relationship).toBe('NONE');
+      expect(mockPrisma.user.findMany).toHaveBeenCalled();
     });
 
     it('should return matching users with relationship statuses', async () => {

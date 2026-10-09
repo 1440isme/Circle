@@ -738,6 +738,8 @@ export const vi = {
     noSentRequests: 'Bạn chưa gửi lời mời kết bạn nào.',
     noSearchResults: 'Không tìm thấy người dùng nào phù hợp với từ khóa.',
     searchPrompt: 'Nhập email hoặc tên hiển thị để tìm kiếm bạn bè mới trên CIRCLE.',
+    suggestedFriends: 'Gợi ý kết bạn',
+    searchResultsTitle: 'Kết quả tìm kiếm',
     receivedRequestsTitle: 'Lời mời đã nhận',
     sentRequestsTitle: 'Lời mời đã gửi',
     addFriend: 'Kết bạn',

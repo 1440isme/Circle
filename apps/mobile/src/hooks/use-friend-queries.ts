@@ -52,13 +52,12 @@ export function useSearchFriendsQuery(query: string) {
   return useQuery({
     queryKey: FRIEND_KEYS.search(trimmed),
     queryFn: async () => {
-      if (!trimmed) return [];
-      const res = await mobileApiRequest<FriendSearchResult[]>(
-        `/friends/search?q=${encodeURIComponent(trimmed)}`,
-      );
+      const endpoint = trimmed
+        ? `/friends/search?q=${encodeURIComponent(trimmed)}`
+        : '/friends/search';
+      const res = await mobileApiRequest<FriendSearchResult[]>(endpoint);
       return res.data;
     },
-    enabled: trimmed.length > 0,
     staleTime: 1000 * 10,
   });
 }

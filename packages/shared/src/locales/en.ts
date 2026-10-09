@@ -740,6 +740,8 @@ export const en: TranslationDictionary = {
     noSentRequests: 'No outgoing friend requests.',
     noSearchResults: 'No users found matching your search.',
     searchPrompt: 'Enter an email or display name to find friends on CIRCLE.',
+    suggestedFriends: 'Suggested Connections',
+    searchResultsTitle: 'Search Results',
     receivedRequestsTitle: 'Received Requests',
     sentRequestsTitle: 'Sent Requests',
     addFriend: 'Add Friend',

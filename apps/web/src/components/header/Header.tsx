@@ -44,6 +44,15 @@ export const Header: React.FC = () => {
   const avatarUrl = user?.profile?.avatarUrl;
   const initials = getInitials(displayName);
 
+  const [headerSearch, setHeaderSearch] = useState('');
+
+  const handleGlobalSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isAuthenticated) {
+      setFriendsModalOpen(true, 'search', headerSearch);
+    }
+  };
+
   return (
     <>
       <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-circle-hairline dark:border-circle-dark-hairline bg-white/80 dark:bg-circle-dark-surface/80 px-6 backdrop-blur-md transition-colors">
@@ -76,14 +85,21 @@ export const Header: React.FC = () => {
         </div>
 
         {/* Global Search Bar (Pill shape) */}
-        <div className="relative mx-4 hidden max-w-md flex-1 md:block">
+        <form onSubmit={handleGlobalSearch} className="relative mx-4 hidden max-w-md flex-1 md:block">
           <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-circle-slate dark:text-circle-dark-muted" />
           <input
             type="text"
+            value={headerSearch}
+            onChange={(e) => setHeaderSearch(e.target.value)}
+            onFocus={() => {
+              if (isAuthenticated && !headerSearch) {
+                // optionally user can hit enter or type
+              }
+            }}
             placeholder={t.common.searchPlaceholder}
             className="w-full rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas py-2 pl-10 pr-4 text-sm text-circle-charcoal dark:text-circle-dark-text placeholder:text-circle-slate dark:placeholder:text-circle-dark-muted focus:border-circle-sage focus:bg-white dark:focus:bg-circle-dark-elevated focus:outline-none focus:ring-2 focus:ring-circle-primary/20 transition-all"
           />
-        </div>
+        </form>
 
         {/* Actions, Theme Toggle, Language Switcher & Profile */}
         <div className="flex items-center gap-2.5">
