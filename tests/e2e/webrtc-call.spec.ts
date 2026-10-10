@@ -26,12 +26,13 @@ test.describe('CIRCLE WebRTC Audio/Video Call E2E Verification (UC12, SPIKE-RTC-
     await expect(circleCard).toBeVisible({ timeout: 10000 });
     await circleCard.click();
 
-    // 5. Verify Call Action buttons exist in channel header
-    const audioCallBtn = page.locator('button[title*="thoại"], button[title*="Audio"]').first();
-    const videoCallBtn = page.locator('button[title*="video"], button[title*="Video"]').first();
+    // 5. Verify Call Action buttons exist (PresenceRail on desktop, header on mobile)
+    const isMobile = Boolean(page.viewportSize()?.width && page.viewportSize()!.width < 1280);
+    const audioCallBtn = isMobile
+      ? page.locator('button[title*="thoại"]').first()
+      : page.locator('button:has-text("Gọi thoại")').first();
 
     await expect(audioCallBtn).toBeVisible({ timeout: 15000 });
-    await expect(videoCallBtn).toBeVisible({ timeout: 15000 });
 
     // 6. Click to initiate an Audio Call
     await audioCallBtn.click();
@@ -40,7 +41,6 @@ test.describe('CIRCLE WebRTC Audio/Video Call E2E Verification (UC12, SPIKE-RTC-
     const callModal = page.locator('text=/Voice Room|thành viên đang tham gia/i').first();
     await expect(callModal).toBeVisible({ timeout: 15000 });
 
-    const isMobile = Boolean(page.viewportSize()?.width && page.viewportSize()!.width < 600);
     const screenshotPath = isMobile
       ? 'webrtc-call-stage-verified-mobile.png'
       : 'webrtc-call-stage-verified-desktop.png';

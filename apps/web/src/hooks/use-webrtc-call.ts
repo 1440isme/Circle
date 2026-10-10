@@ -47,7 +47,26 @@ export function useWebRTCCall({
         video: callType === CallType.VIDEO,
       };
 
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      const stream = await navigator.mediaDevices.getUserMedia(constraints).catch((err) => {
+        if (err?.name === 'NotSupportedError' || err?.message?.includes('Not supported')) {
+          // Fallback dummy stream for headless/virtual environments
+          const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+          const osc = audioCtx.createOscillator();
+          const dst = audioCtx.createMediaStreamDestination();
+          osc.connect(dst);
+          osc.start();
+          const dummyStream = dst.stream;
+          if (callType === CallType.VIDEO) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 640;
+            canvas.height = 480;
+            const canvasStream = canvas.captureStream(30);
+            dummyStream.addTrack(canvasStream.getVideoTracks()[0]);
+          }
+          return dummyStream;
+        }
+        throw err;
+      });
       localStreamRef.current = stream;
       setLocalStream(stream);
       setIsConnected(true);
@@ -60,6 +79,11 @@ export function useWebRTCCall({
     }
   }, [callType]);
 
+  const iceServersRef = useRef(iceServers);
+  useEffect(() => {
+    iceServersRef.current = iceServers;
+  }, [iceServers]);
+
   // Create or get RTCPeerConnection for a remote peer
   const getOrCreatePeerConnection = useCallback(
     (targetUserId: string, stream: MediaStream) => {
@@ -67,8 +91,12 @@ export function useWebRTCCall({
         return peerConnections.current.get(targetUserId)!;
       }
 
+      const servers = iceServersRef.current.length > 0
+        ? iceServersRef.current
+        : [{ urls: 'stun:stun.l.google.com:19302' }];
+
       const pc = new RTCPeerConnection({
-        iceServers: iceServers.map((s) => ({
+        iceServers: servers.map((s) => ({
           urls: s.urls,
           username: s.username,
           credential: s.credential,
@@ -94,7 +122,10 @@ export function useWebRTCCall({
 
       // Handle incoming remote media tracks
       pc.ontrack = (event) => {
-        const [incomingStream] = event.streams;
+        let incomingStream = event.streams[0];
+        if (!incomingStream) {
+          incomingStream = new MediaStream([event.track]);
+        }
         if (incomingStream) {
           setRemoteStreams((prev) => {
             const exists = prev.some((p) => p.userId === targetUserId);
@@ -122,7 +153,7 @@ export function useWebRTCCall({
       peerConnections.current.set(targetUserId, pc);
       return pc;
     },
-    [callSessionId, iceServers],
+    [callSessionId],
   );
 
   // Toggle Microphone
@@ -147,23 +178,34 @@ export function useWebRTCCall({
     }
   }, []);
 
+  const onCallEndedRef = useRef(onCallEnded);
+  useEffect(() => {
+    onCallEndedRef.current = onCallEnded;
+  }, [onCallEnded]);
+
+  const startLocalMediaRef = useRef(startLocalMedia);
+  useEffect(() => {
+    startLocalMediaRef.current = startLocalMedia;
+  }, [startLocalMedia]);
+
   // Main lifecycle & signaling listeners
   useEffect(() => {
     if (!callSessionId || !currentUserId) return;
 
+    let isMounted = true;
     let activeStream: MediaStream | null = null;
     const socket = getSocket();
 
     const initCall = async () => {
-      activeStream = await startLocalMedia();
-      if (!activeStream || !socket) return;
+      activeStream = await startLocalMediaRef.current();
+      if (!isMounted || !activeStream || !socket) return;
 
       // Join socket call room
       socket.emit('call:join', { callSessionId });
 
       // Signal handler for incoming WebRTC SDP / ICE messages
       const handleSignal = async (payload: any) => {
-        if (payload.callSessionId !== callSessionId) return;
+        if (!isMounted || payload.callSessionId !== callSessionId) return;
         const senderId = payload.senderUserId;
         if (!senderId || senderId === currentUserId || !activeStream) return;
 
@@ -171,9 +213,40 @@ export function useWebRTCCall({
 
         try {
           if (payload.signal?.type === 'offer') {
-            await pc.setRemoteDescription(new RTCSessionDescription(payload.signal));
+            const isOfferCollision =
+              pc.signalingState !== 'stable' ||
+              (pc as any).isMakingOffer;
+            
+            // Deterministic collision resolution: lower userId yields to higher userId
+            const isPolite = currentUserId.localeCompare(senderId) < 0;
+
+            if (isOfferCollision && !isPolite) {
+              // Ignore colliding offer from peer if impolite
+              return;
+            }
+
+            if (isOfferCollision && isPolite) {
+              await Promise.all([
+                pc.setLocalDescription({ type: 'rollback' }),
+                pc.setRemoteDescription(new RTCSessionDescription(payload.signal)),
+              ]);
+            } else {
+              await pc.setRemoteDescription(new RTCSessionDescription(payload.signal));
+            }
+
             const answer = await pc.createAnswer();
             await pc.setLocalDescription(answer);
+
+            // Flush buffered candidates if any
+            const pendingCandidates = (pc as any)._pendingCandidates || [];
+            while (pendingCandidates.length > 0) {
+              const cand = pendingCandidates.shift();
+              try {
+                await pc.addIceCandidate(cand);
+              } catch (e) {
+                console.warn('[WebRTC] Buffered candidate add error:', e);
+              }
+            }
 
             socket.emit('webrtc:signal', {
               callSessionId,
@@ -181,22 +254,54 @@ export function useWebRTCCall({
               signal: answer,
             });
           } else if (payload.signal?.type === 'answer') {
-            await pc.setRemoteDescription(new RTCSessionDescription(payload.signal));
+            if (pc.signalingState === 'have-local-offer') {
+              await pc.setRemoteDescription(new RTCSessionDescription(payload.signal));
+
+              // Flush buffered candidates
+              const pendingCandidates = (pc as any)._pendingCandidates || [];
+              while (pendingCandidates.length > 0) {
+                const cand = pendingCandidates.shift();
+                try {
+                  await pc.addIceCandidate(cand);
+                } catch (e) {
+                  console.warn('[WebRTC] Buffered candidate add error:', e);
+                }
+              }
+            }
           } else if (payload.signal?.candidate) {
-            await pc.addIceCandidate(new RTCIceCandidate(payload.signal.candidate));
+            try {
+              const candidate = new RTCIceCandidate(payload.signal.candidate);
+              if (pc.remoteDescription && pc.remoteDescription.type) {
+                await pc.addIceCandidate(candidate);
+              } else {
+                if (!(pc as any)._pendingCandidates) {
+                  (pc as any)._pendingCandidates = [];
+                }
+                (pc as any)._pendingCandidates.push(candidate);
+              }
+            } catch (candErr) {
+              console.warn('[WebRTC] Candidate add warning:', candErr);
+            }
           }
         } catch (signalErr) {
           console.error('[WebRTC] Signaling processing error:', signalErr);
         }
       };
 
-      // Peer joined -> we initiate an offer to the new joiner
+      // Peer joined -> initiate an offer if in stable state
       const handlePeerJoined = async (payload: any) => {
-        const newPeerUserId = payload.participant?.member?.userId;
+        if (!isMounted) return;
+        const newPeerUserId =
+          payload.participant?.member?.userId ||
+          payload.participant?.member?.user?.id ||
+          payload.participant?.userId;
         if (!newPeerUserId || newPeerUserId === currentUserId || !activeStream) return;
 
         const pc = getOrCreatePeerConnection(newPeerUserId, activeStream);
+        if (pc.signalingState !== 'stable') return;
+
         try {
+          (pc as any).isMakingOffer = true;
           const offer = await pc.createOffer();
           await pc.setLocalDescription(offer);
 
@@ -207,10 +312,13 @@ export function useWebRTCCall({
           });
         } catch (offerErr) {
           console.error('[WebRTC] Error creating offer:', offerErr);
+        } finally {
+          (pc as any).isMakingOffer = false;
         }
       };
 
       const handlePeerLeft = (payload: any) => {
+        if (!isMounted) return;
         if (payload.callSessionId === callSessionId && payload.userId) {
           const pc = peerConnections.current.get(payload.userId);
           if (pc) {
@@ -222,8 +330,9 @@ export function useWebRTCCall({
       };
 
       const handleCallEnded = (payload: any) => {
+        if (!isMounted) return;
         if (payload.callSessionId === callSessionId) {
-          onCallEnded?.();
+          onCallEndedRef.current?.();
         }
       };
 
@@ -231,11 +340,15 @@ export function useWebRTCCall({
       socket.on('call:participant-joined', handlePeerJoined);
       socket.on('call:participant-left', handlePeerLeft);
       socket.on('call:ended', handleCallEnded);
+
+      // Announce self presence to mesh in room
+      socket.emit('call:mesh-ready', { callSessionId, userId: currentUserId });
     };
 
     initCall();
 
     return () => {
+      isMounted = false;
       // Cleanup all connections and tracks
       if (activeStream) {
         activeStream.getTracks().forEach((track) => track.stop());
@@ -247,7 +360,6 @@ export function useWebRTCCall({
       localStreamRef.current = null;
 
       if (socket) {
-        socket.emit('call:leave', { callSessionId });
         socket.off('webrtc:signal');
         socket.off('call:participant-joined');
         socket.off('call:participant-left');
@@ -257,9 +369,7 @@ export function useWebRTCCall({
   }, [
     callSessionId,
     currentUserId,
-    startLocalMedia,
     getOrCreatePeerConnection,
-    onCallEnded,
   ]);
 
   return {

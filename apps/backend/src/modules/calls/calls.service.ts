@@ -267,7 +267,14 @@ export class CallsService {
   async leaveCall(
     userId: string,
     callSessionId: string,
-  ): Promise<{ success: boolean; callSessionId: string; isCallEnded: boolean }> {
+  ): Promise<{
+    success: boolean;
+    callSessionId: string;
+    circleId: string;
+    isCallEnded: boolean;
+    endedAt?: string;
+    summaryMessage?: any;
+  }> {
     const session = await this.prisma.callSession.findUnique({
       where: { id: callSessionId },
       include: {
@@ -279,6 +286,16 @@ export class CallsService {
 
     if (!session) {
       throw new NotFoundException('Cuộc gọi không tồn tại');
+    }
+
+    if (session.status === CallStatus.ENDED) {
+      return {
+        success: true,
+        callSessionId,
+        circleId: session.circleId,
+        isCallEnded: true,
+        endedAt: session.endedAt?.toISOString(),
+      };
     }
 
     const member = await this.prisma.circleMember.findFirst({
@@ -310,22 +327,170 @@ export class CallsService {
     });
 
     let isCallEnded = false;
+    let endedAt: string | undefined = undefined;
+    let summaryMessage: any = null;
+
     if (remainingActive === 0) {
-      await this.prisma.callSession.update({
-        where: { id: callSessionId },
+      const endedDate = new Date();
+      endedAt = endedDate.toISOString();
+      const updateResult = await this.prisma.callSession.updateMany({
+        where: {
+          id: callSessionId,
+          status: CallStatus.ACTIVE,
+        },
         data: {
           status: CallStatus.ENDED,
-          endedAt: new Date(),
+          endedAt: endedDate,
         },
       });
+
       isCallEnded = true;
+
+      // Only the atomic winner creates the summary message (guaranteed exactly once)
+      if (updateResult.count > 0) {
+        summaryMessage = await this.createCallSummaryMessage(
+          session.circleId,
+          callSessionId,
+          session.callType,
+          session.startedAt,
+          endedDate,
+          userId,
+        );
+      }
     }
 
     return {
       success: true,
       callSessionId,
+      circleId: session.circleId,
       isCallEnded,
+      endedAt,
+      summaryMessage,
     };
+  }
+
+  /**
+   * Automatically creates a call summary message in the primary circle text channel.
+   */
+  private async createCallSummaryMessage(
+    circleId: string,
+    callSessionId: string,
+    callType: CallType | string,
+    startedAt: Date,
+    endedAt: Date,
+    fallbackUserId?: string,
+  ) {
+    try {
+      if (!this.prisma.channel?.findFirst || !this.prisma.circleMember?.findFirst || !this.prisma.message?.create) {
+        return null;
+      }
+
+      const channel = await this.prisma.channel.findFirst({
+        where: { circleId, type: 'TEXT' },
+        orderBy: { createdAt: 'asc' },
+      });
+      if (!channel) return null;
+
+      let member = fallbackUserId
+        ? await this.prisma.circleMember.findFirst({
+            where: { circleId, userId: fallbackUserId },
+          })
+        : null;
+
+      if (!member) {
+        member = await this.prisma.circleMember.findFirst({
+          where: { circleId },
+          orderBy: { role: 'asc' },
+        });
+      }
+
+      if (!member) return null;
+
+      const durationSeconds = Math.max(
+        0,
+        Math.round((endedAt.getTime() - new Date(startedAt).getTime()) / 1000),
+      );
+
+      const summaryPayload = {
+        type: 'CALL_SUMMARY',
+        callSessionId,
+        callType,
+        durationSeconds,
+        startedAt: new Date(startedAt).toISOString(),
+        endedAt: endedAt.toISOString(),
+      };
+
+      const rawMessage = await this.prisma.message.create({
+        data: {
+          channelId: channel.id,
+          memberId: member.id,
+          type: 'TEXT',
+          content: `[CALL_SUMMARY]:${JSON.stringify(summaryPayload)}`,
+        },
+        include: {
+          sender: { include: { user: { include: { profile: true } } } },
+          replyTo: { include: { sender: { include: { user: { include: { profile: true } } } } } },
+          reactions: { include: { member: { include: { user: { include: { profile: true } } } } } },
+          pinnedRecord: true,
+          receipts: { include: { user: { include: { profile: true } } } },
+        },
+      });
+
+      return {
+        id: rawMessage.id,
+        channelId: rawMessage.channelId,
+        memberId: rawMessage.memberId,
+        type: rawMessage.type,
+        content: rawMessage.content,
+        fileUrl: rawMessage.fileUrl,
+        fileName: rawMessage.fileName,
+        fileSize: rawMessage.fileSize,
+        audioDuration: rawMessage.audioDuration,
+        replyToId: rawMessage.replyToId,
+        sentAt: rawMessage.sentAt.toISOString(),
+        updatedAt: rawMessage.updatedAt.toISOString(),
+        sender: rawMessage.sender
+          ? {
+              id: rawMessage.sender.id,
+              circleId: rawMessage.sender.circleId,
+              userId: rawMessage.sender.userId,
+              role: rawMessage.sender.role,
+              nickname: rawMessage.sender.nickname,
+              joinedAt: rawMessage.sender.joinedAt.toISOString(),
+              updatedAt: rawMessage.sender.updatedAt.toISOString(),
+              user: rawMessage.sender.user
+                ? {
+                    id: rawMessage.sender.user.id,
+                    email: rawMessage.sender.user.email,
+                    isActivated: rawMessage.sender.user.isActivated,
+                    globalRole: rawMessage.sender.user.globalRole,
+                    createdAt: rawMessage.sender.user.createdAt.toISOString(),
+                    updatedAt: rawMessage.sender.user.updatedAt.toISOString(),
+                    profile: rawMessage.sender.user.profile
+                      ? {
+                          id: rawMessage.sender.user.profile.id,
+                          userId: rawMessage.sender.user.profile.userId,
+                          displayName: rawMessage.sender.user.profile.displayName,
+                          avatarUrl: rawMessage.sender.user.profile.avatarUrl,
+                          bio: rawMessage.sender.user.profile.bio,
+                          dateOfBirth:
+                            rawMessage.sender.user.profile.dateOfBirth?.toISOString() || null,
+                          updatedAt: rawMessage.sender.user.profile.updatedAt.toISOString(),
+                        }
+                      : null,
+                  }
+                : undefined,
+            }
+          : undefined,
+        reactions: [],
+        reactionCounts: {},
+        userReactions: [],
+        isPinned: false,
+      };
+    } catch (err: any) {
+      this.logger.error(`Error creating call summary message: ${err.message}`);
+      return null;
+    }
   }
 
   /**
@@ -334,7 +499,13 @@ export class CallsService {
   async endCall(
     userId: string,
     callSessionId: string,
-  ): Promise<{ success: boolean; callSessionId: string; endedAt: string }> {
+  ): Promise<{
+    success: boolean;
+    callSessionId: string;
+    circleId: string;
+    endedAt: string;
+    summaryMessage?: any;
+  }> {
     const session = await this.prisma.callSession.findUnique({
       where: { id: callSessionId },
     });
@@ -351,6 +522,15 @@ export class CallsService {
       throw new ForbiddenException('Bạn không có quyền kết thúc cuộc gọi này');
     }
 
+    if (session.status === CallStatus.ENDED) {
+      return {
+        success: true,
+        callSessionId,
+        circleId: session.circleId,
+        endedAt: session.endedAt?.toISOString() || new Date().toISOString(),
+      };
+    }
+
     const endedAt = new Date();
 
     // Mark all participants left
@@ -364,18 +544,36 @@ export class CallsService {
       },
     });
 
-    await this.prisma.callSession.update({
-      where: { id: callSessionId },
+    const updateResult = await this.prisma.callSession.updateMany({
+      where: {
+        id: callSessionId,
+        status: CallStatus.ACTIVE,
+      },
       data: {
         status: CallStatus.ENDED,
         endedAt,
       },
     });
 
+    let summaryMessage: any = null;
+    if (updateResult.count > 0) {
+      // Create call summary message exactly once
+      summaryMessage = await this.createCallSummaryMessage(
+        session.circleId,
+        callSessionId,
+        session.callType,
+        session.startedAt,
+        endedAt,
+        userId,
+      );
+    }
+
     return {
       success: true,
       callSessionId,
+      circleId: session.circleId,
       endedAt: endedAt.toISOString(),
+      summaryMessage,
     };
   }
 

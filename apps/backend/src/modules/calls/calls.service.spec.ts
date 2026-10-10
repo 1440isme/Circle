@@ -18,6 +18,7 @@ describe('CallsService', () => {
       findMany: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
     },
     callParticipant: {
       findFirst: jest.fn(),
@@ -155,6 +156,7 @@ describe('CallsService', () => {
       mockPrisma.callSession.findUnique.mockResolvedValue({
         id: 'call_1',
         circleId: 'circle_1',
+        status: CallStatus.ACTIVE,
       });
       mockPrisma.circleMember.findFirst.mockResolvedValue({
         id: 'mem_1',
@@ -163,14 +165,15 @@ describe('CallsService', () => {
       });
       mockPrisma.callParticipant.updateMany.mockResolvedValue({ count: 1 });
       mockPrisma.callParticipant.count.mockResolvedValue(0); // 0 remaining
-      mockPrisma.callSession.update.mockResolvedValue({});
+      mockPrisma.callSession.updateMany.mockResolvedValue({ count: 1 });
 
       const res = await service.leaveCall('user_1', 'call_1');
 
       expect(res.success).toBe(true);
       expect(res.isCallEnded).toBe(true);
-      expect(mockPrisma.callSession.update).toHaveBeenCalledWith(
+      expect(mockPrisma.callSession.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
+          where: expect.objectContaining({ status: CallStatus.ACTIVE }),
           data: expect.objectContaining({ status: CallStatus.ENDED }),
         }),
       );
@@ -182,6 +185,7 @@ describe('CallsService', () => {
       mockPrisma.callSession.findUnique.mockResolvedValue({
         id: 'call_1',
         circleId: 'circle_1',
+        status: CallStatus.ACTIVE,
       });
       mockPrisma.circleMember.findFirst.mockResolvedValue({
         id: 'mem_1',
@@ -189,13 +193,13 @@ describe('CallsService', () => {
         circleId: 'circle_1',
       });
       mockPrisma.callParticipant.updateMany.mockResolvedValue({ count: 2 });
-      mockPrisma.callSession.update.mockResolvedValue({});
+      mockPrisma.callSession.updateMany.mockResolvedValue({ count: 1 });
 
       const res = await service.endCall('user_1', 'call_1');
 
       expect(res.success).toBe(true);
       expect(res.endedAt).toBeDefined();
-      expect(mockPrisma.callSession.update).toHaveBeenCalled();
+      expect(mockPrisma.callSession.updateMany).toHaveBeenCalled();
     });
   });
 });

@@ -69,8 +69,9 @@ export function useActiveCallQuery(circleId: string | null) {
     };
 
     const handleEnded = (payload: any) => {
-      if (payload.circleId === circleId) {
+      if (!payload || !payload.circleId || payload.circleId === circleId || (query.data && query.data.id === payload.callSessionId)) {
         queryClient.setQueryData(CALL_KEYS.active(circleId), null);
+        queryClient.invalidateQueries({ queryKey: CALL_KEYS.active(circleId) });
       }
     };
 
@@ -78,18 +79,27 @@ export function useActiveCallQuery(circleId: string | null) {
       queryClient.invalidateQueries({ queryKey: CALL_KEYS.active(circleId) });
     };
 
+    const handleChatMessage = (msg: any) => {
+      if (msg?.content?.startsWith('[CALL_SUMMARY]:')) {
+        queryClient.setQueryData(CALL_KEYS.active(circleId), null);
+        queryClient.invalidateQueries({ queryKey: CALL_KEYS.active(circleId) });
+      }
+    };
+
     socket.on('call:incoming', handleIncoming);
     socket.on('call:ended', handleEnded);
     socket.on('call:participant-joined', handleParticipantChange);
     socket.on('call:participant-left', handleParticipantChange);
+    socket.on('chat:message', handleChatMessage);
 
     return () => {
       socket.off('call:incoming', handleIncoming);
       socket.off('call:ended', handleEnded);
       socket.off('call:participant-joined', handleParticipantChange);
       socket.off('call:participant-left', handleParticipantChange);
+      socket.off('chat:message', handleChatMessage);
     };
-  }, [circleId, queryClient]);
+  }, [circleId, queryClient, query.data]);
 
   return query;
 }
@@ -143,7 +153,7 @@ export function useJoinCallMutation() {
           method: 'POST',
         },
       );
-      return res.data;
+      return (res as any)?.data || res;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: CALL_KEYS.all });
@@ -165,9 +175,12 @@ export function useLeaveCallMutation() {
           method: 'POST',
         },
       );
-      return res.data;
+      return (res as any)?.data || res;
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
+      if (data?.isCallEnded) {
+        queryClient.setQueriesData({ queryKey: [...CALL_KEYS.all, 'active'] }, null);
+      }
       queryClient.invalidateQueries({ queryKey: CALL_KEYS.all });
     },
   });
@@ -187,9 +200,10 @@ export function useEndCallMutation() {
           method: 'POST',
         },
       );
-      return res.data;
+      return (res as any)?.data || res;
     },
     onSuccess: () => {
+      queryClient.setQueriesData({ queryKey: [...CALL_KEYS.all, 'active'] }, null);
       queryClient.invalidateQueries({ queryKey: CALL_KEYS.all });
     },
   });

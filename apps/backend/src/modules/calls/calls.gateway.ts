@@ -4,6 +4,8 @@ import {
   SubscribeMessage,
   ConnectedSocket,
   MessageBody,
+  OnGatewayConnection,
+  OnGatewayDisconnect,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { Injectable, Logger } from '@nestjs/common';
@@ -18,13 +20,46 @@ import { CallType } from '@circle/types';
   namespace: '/',
 })
 @Injectable()
-export class CallsGateway {
+export class CallsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server!: Server;
 
   private readonly logger = new Logger(CallsGateway.name);
+  private socketCallSessions = new Map<string, Set<string>>();
 
   constructor(private readonly callsService: CallsService) {}
+
+  handleConnection(client: Socket) {
+    this.socketCallSessions.set(client.id, new Set());
+  }
+
+  async handleDisconnect(client: Socket) {
+    const sessions = this.socketCallSessions.get(client.id);
+    this.socketCallSessions.delete(client.id);
+    const userId = client.data?.userId;
+    if (!userId || !sessions || sessions.size === 0) return;
+
+    for (const callSessionId of sessions) {
+      try {
+        const result = await this.callsService.leaveCall(userId, callSessionId);
+        client.to(`call:${callSessionId}`).emit('call:participant-left', {
+          callSessionId,
+          userId,
+        });
+
+        if (result.isCallEnded) {
+          this.broadcastCallEnded(
+            result.circleId,
+            callSessionId,
+            result.endedAt || new Date().toISOString(),
+            result.summaryMessage,
+          );
+        }
+      } catch (err: any) {
+        this.logger.debug(`Cleanup on disconnect for call ${callSessionId}: ${err.message}`);
+      }
+    }
+  }
 
   /**
    * Initiates a call and broadcasts an incoming call alert to the Circle room.
@@ -49,6 +84,7 @@ export class CallsGateway {
 
       // Join socket to call room
       client.join(`call:${result.callSession.id}`);
+      this.socketCallSessions.get(client.id)?.add(result.callSession.id);
 
       // Broadcast incoming call event to all members in the circle room
       client.to(`circle:${data.circleId}`).emit('call:incoming', {
@@ -76,6 +112,33 @@ export class CallsGateway {
   }
 
   /**
+   * Broadcasts incoming call notification to all circle members.
+   */
+  broadcastIncomingCall(
+    circleId: string,
+    payload: {
+      callSessionId: string;
+      circleId: string;
+      circleName: string;
+      callType: CallType;
+      caller: {
+        userId: string;
+        displayName: string;
+        avatarUrl: string | null;
+      };
+      startedAt: Date | string;
+    },
+    excludeSocketId?: string,
+  ) {
+    if (!this.server) return;
+    if (excludeSocketId) {
+      this.server.to(`circle:${circleId}`).except(excludeSocketId).emit('call:incoming', payload);
+    } else {
+      this.server.to(`circle:${circleId}`).emit('call:incoming', payload);
+    }
+  }
+
+  /**
    * Handles user joining an ongoing call room.
    */
   @SubscribeMessage('call:join')
@@ -96,6 +159,7 @@ export class CallsGateway {
 
       // Join the socket room for this call session
       client.join(`call:${data.callSessionId}`);
+      this.socketCallSessions.get(client.id)?.add(data.callSessionId);
 
       // Notify existing participants in the call room
       client.to(`call:${data.callSessionId}`).emit('call:participant-joined', {
@@ -150,6 +214,44 @@ export class CallsGateway {
   }
 
   /**
+   * Relays mesh-ready presence to peers in call room.
+   */
+  @SubscribeMessage('call:mesh-ready')
+  handleMeshReady(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { callSessionId: string; userId: string },
+  ) {
+    if (!data?.callSessionId) return { success: false };
+    client.to(`call:${data.callSessionId}`).emit('call:mesh-ready', {
+      callSessionId: data.callSessionId,
+      userId: data.userId || client.data.userId,
+    });
+    return { success: true };
+  }
+
+  /**
+   * Broadcasts call ended event to circle & call room, and publishes chat summary if available.
+   */
+  broadcastCallEnded(
+    circleId: string,
+    callSessionId: string,
+    endedAt: string,
+    summaryMessage?: any,
+  ) {
+    if (!this.server) return;
+    const payload = { callSessionId, circleId, endedAt };
+    this.server.to(`call:${callSessionId}`).emit('call:ended', payload);
+    this.server.to(`circle:${circleId}`).emit('call:ended', payload);
+    this.server.emit('call:ended', payload);
+
+    if (summaryMessage && summaryMessage.channelId) {
+      this.server
+        .to(`channel:${summaryMessage.channelId}`)
+        .emit('chat:message', summaryMessage);
+    }
+  }
+
+  /**
    * Handles user leaving an ongoing call session.
    */
   @SubscribeMessage('call:leave')
@@ -163,6 +265,7 @@ export class CallsGateway {
     }
 
     try {
+      this.socketCallSessions.get(client.id)?.delete(data.callSessionId);
       const result = await this.callsService.leaveCall(
         userId,
         data.callSessionId,
@@ -178,10 +281,12 @@ export class CallsGateway {
       });
 
       if (result.isCallEnded) {
-        this.server.to(`call:${data.callSessionId}`).emit('call:ended', {
-          callSessionId: data.callSessionId,
-          endedAt: new Date().toISOString(),
-        });
+        this.broadcastCallEnded(
+          result.circleId,
+          data.callSessionId,
+          result.endedAt || new Date().toISOString(),
+          result.summaryMessage,
+        );
       }
 
       this.logger.debug(
@@ -209,16 +314,18 @@ export class CallsGateway {
     }
 
     try {
+      this.socketCallSessions.get(client.id)?.delete(data.callSessionId);
       const result = await this.callsService.endCall(
         userId,
         data.callSessionId,
       );
 
-      // Broadcast call end to all participants in call room
-      this.server.to(`call:${data.callSessionId}`).emit('call:ended', {
-        callSessionId: data.callSessionId,
-        endedAt: result.endedAt,
-      });
+      this.broadcastCallEnded(
+        result.circleId,
+        data.callSessionId,
+        result.endedAt,
+        result.summaryMessage,
+      );
 
       this.logger.debug(
         `Call session ${data.callSessionId} ended by user ${userId}`,
