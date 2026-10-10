@@ -42,8 +42,14 @@ Every artifact in CIRCLE must be connected across the traceability chain:
 
 ## 3. Issue & Pull Request Governance
 
-- **1 Issue = 1 PR:** Every change, feature, bug fix, or task must have an Issue and a corresponding PR targeting `dev`.
-- **Hierarchy:** Weekly Goal Issues (`[GOAL-WXX]: ...`) track weekly milestones; sub-issues track granular tasks.
+- **Strict 1 Issue = 1 PR Invariant:** 
+  - Every pull request MUST have exactly one dedicated GitHub Issue created BEFORE coding/branching.
+  - Zero unlinked / floating PRs. Never open a PR without an issue number in the title (`(#<issue-id>)`) and `Fixes #<issue-id>` in the body.
+  - Never reuse a single issue for multiple independent PRs; if further changes or fixes are needed, open a new task/bug issue.
+- **Project OS Traceability Hierarchy:**
+  - **Level 1 (Root):** Epic Goals (`[GOAL-WXX]: ...`) representing weekly milestones.
+  - **Level 2 (Sub-issues):** Granular deliverable issues linked via GitHub Sub-issues API (`parent: #<epic-id>`).
+  - **Level 3 (PRs):** Implementation PRs linked directly to their Level 2 issue via GitHub's native `Linked pull requests` field.
 - **Description Standard (What — Why — Done When):** Both Issues and PRs must explicitly define:
   1. **What:** Exact problem or change description.
   2. **Why:** Technical/business justification and value for group activity.
