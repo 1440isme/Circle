@@ -3733,3 +3733,44 @@
 - **Commit:** `3d7f4b8`
 - **PR:** #80
 
+---
+
+## AI-0093: Hoàn thiện Bộ Báo cáo Tiến độ Hàng tuần W01–W08 (Hard Gate G2, TASK-EVIDENCE-001)
+
+- **Date:** 2026-10-10 23:30:00 +07:00
+- **Developer:** Trương Công Bình (23110184) & Ninh Thị Mỹ Hạnh (23110210)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #13 ([SUB-TASK]: TASK-EVIDENCE-001 — Weekly Reports W01-W05 Evidence Package & Rubric Audit 01) & Parent Epic #19
+- **Purpose:**
+  1. Tổng hợp, chuẩn hóa và đóng gói toàn diện hệ thống báo cáo tiến độ kỹ thuật từ Tuần 01 đến Tuần 08 (`docs/evidence/weekly-reports/W01.md` đến `W08.md`).
+  2. Cập nhật tài liệu quy trình nộp báo cáo Dual-Track Timeline (`agentic/memory/reporting-workflow.md`) phục vụ thẩm định Hội đồng và lưu kho minh chứng Rubric Level 5 (Hard Gate G2).
+  3. Cập nhật nhật ký tiến độ tập trung `docs/BaocaoTuan.md` và `docs/evidence/weekly-reports/README.md`.
+- **Prompt Summary:** Tách gói báo cáo tiến độ tuần W01–W08 thành một nhánh và PR độc lập để nộp duyệt song song với module WebRTC calling.
+- **Files Affected:**
+  - `docs/BaocaoTuan.md`
+  - `docs/evidence/weekly-reports/README.md`
+  - `docs/evidence/weekly-reports/W01.md`
+  - `docs/evidence/weekly-reports/W02.md`
+  - `docs/evidence/weekly-reports/W03.md`
+  - `docs/evidence/weekly-reports/W04.md`
+  - `docs/evidence/weekly-reports/W05.md`
+  - `docs/evidence/weekly-reports/W06.md`
+  - `docs/evidence/weekly-reports/W07.md`
+  - `docs/evidence/weekly-reports/W08.md`
+  - `agentic/memory/reporting-workflow.md`
+  - `agentic/memory/MEMORY.md`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** Hỗ trợ chuẩn hóa định dạng Markdown theo đúng mẫu biểu quy định của Khoa CNTT - HCMUTE.
+- **Human Modifications:** Trương Công Bình & Ninh Thị Mỹ Hạnh trực tiếp rà soát, điền nội dung thực tế các đầu việc đã triển khai qua từng tuần, các khó khăn và khai báo AI usage.
+- **Verification Method:** `./scripts/check-agent-map.sh` (95/95 files pass).
+- **Official Source Checked:** `PROJECT_GOD.md` (Hard Gate G2), Mẫu báo cáo tiến độ của Khoa CNTT - HCMUTE.
+- **Security & License Check:** An toàn, không chứa secret/token.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A.
+  - **Resolution / Fix:** N/A.
+- **Commit:** Pending
+- **PR:** Pending
+
+
