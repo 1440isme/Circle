@@ -46,6 +46,14 @@ Every artifact in CIRCLE must be connected across the traceability chain:
   - Every pull request MUST have exactly one dedicated GitHub Issue created BEFORE coding/branching.
   - Zero unlinked / floating PRs. Never open a PR without an issue number in the title (`(#<issue-id>)`) and `Fixes #<issue-id>` in the body.
   - Never reuse a single issue for multiple independent PRs; if further changes or fixes are needed, open a new task/bug issue.
+- **AI Agent "Push" Workflow Interpretation (Hiểu lệnh "Push" của kỹ sư):**
+  - Khi kỹ sư đưa ra chỉ thị: *"push", "push lên", "push lên chưa"*, Agent hiểu rằng đây là tín hiệu chốt giao phẩm (deliverable lifecycle) và bắt buộc phải tuần tự thực hiện trọn vẹn:
+    1. Kiểm tra trạng thái GitHub Issue tương ứng (nếu chưa có thì tạo ngay và liên kết vào Epic cha).
+    2. Kiểm tra tên nhánh theo chuẩn `<type>/<issue-id>-<slug>`.
+    3. Chạy pre-commit verification và commit có sign-off kèm issue id.
+    4. Push nhánh lên remote.
+    5. Mở Pull Request trỏ vào `develop`, gắn `Closes #<id>`, metadata truy vết và gán Peer Review.
+  - Nghiêm cấm chạy `git push` chay mà bỏ qua Issue hoặc PR.
 - **Project OS Traceability Hierarchy:**
   - **Level 1 (Root):** Epic Goals (`[GOAL-WXX]: ...`) representing weekly milestones.
   - **Level 2 (Sub-issues):** Granular deliverable issues linked via GitHub Sub-issues API (`parent: #<epic-id>`).

@@ -45,6 +45,15 @@ When conflicts or ambiguities arise, you must strictly follow this priority orde
   - **Zero Floating PRs:** Opening a PR without an existing issue or bundling multiple separate PRs into a single general issue is **STRICTLY PROHIBITED**.
   - Every branch name must follow `<type>/<issue-id>-<slug>`, and every PR title must include `(#<issue-id>)`.
   - The PR body must explicitly contain `Fixes #<issue-id>` or `Closes #<issue-id>` to automatically link and close the issue upon merge.
+- **AI Agent "Push" Command Contract (Quy ước khi User bảo "Push" / "Push lên chưa"):**
+  - Khi người dùng yêu cầu "push", "push lên", "push lên chưa", AI Agent **KHÔNG ĐƯỢC CHỈ CHẠY `git push` ĐƠN THUẦN**.
+  - AI Agent **BẮT BUỘC PHẢI THỰC HIỆN TOÀN BỘ 5 BƯỚC QUY TRÌNH:**
+    1. **Check Issue:** Kiểm tra xem đã có GitHub Issue đại diện cho phần việc này chưa? Nếu chưa có, **TẠO ISSUE NGAY** và gắn làm Sub-issue của Epic Goal tương ứng (`parent: #<epic-id>`).
+    2. **Check Branch:** Kiểm tra nhánh hiện tại có đúng chuẩn `<type>/<issue-id>-<slug>` không? Nếu chưa, tạo nhánh đúng chuẩn.
+    3. **Pre-commit Verification & Commit:** Kiểm tra verification (tests, lint, agent-map), commit có sign-off `-s` với message chuẩn `... (#<issue-id>)`.
+    4. **Push Remote:** Đẩy nhánh lên GitHub remote (`git push -u origin <branch>`).
+    5. **Open Pull Request (Target `develop`):** Mở PR với tiêu đề chứa `(#<issue-id>)`, body chứa `Closes #<issue-id>` và metadata truy vết `> **Tracing:** Sub-task of Issue #... | Parent Epic: #...`, gán reviewers/assignees.
+  - **Tuyệt đối không bao giờ commit hay push mà thiếu Issue hoặc bỏ qua bước tạo PR.**
 - **Issue Hierarchy & Project Board Integrity:**
   - Root level on Project Board contains ONLY Epic Goals (`[GOAL-WXX]: ...`).
   - All feature/task issues MUST be linked as native Sub-issues under their respective Epic Goal (`parent: #<epic-id>`).
