@@ -39,9 +39,25 @@ When conflicts or ambiguities arise, you must strictly follow this priority orde
 
 ## 3. Git, Branching & Peer Review Rules
 
-- **Issue-First Rule:** Every single task, bug fix, feature, or refactor **MUST be tracked by a GitHub Issue** before any work begins.
-- **Issue Hierarchy:** Weekly Goal Issues (`[GOAL-WXX]: ...`) track sprint milestones; child task issues track concrete deliverables.
-- **1 Issue = 1 PR:** Every issue has a corresponding PR targeting the **`dev`** branch (Staging/Integration).
+- **Issue-First Rule (Absolute):** Every single task, bug fix, feature, chore, or refactor **MUST have a GitHub Issue created FIRST** before any branch is cut or any PR is opened.
+- **Strict 1 Issue = 1 PR Invariant:** 
+  - Every PR **MUST correspond 1-1 with exactly one dedicated GitHub Issue**.
+  - **Zero Floating PRs:** Opening a PR without an existing issue or bundling multiple separate PRs into a single general issue is **STRICTLY PROHIBITED**.
+  - Every branch name must follow `<type>/<issue-id>-<slug>`, and every PR title must include `(#<issue-id>)`.
+  - The PR body must explicitly contain `Fixes #<issue-id>` or `Closes #<issue-id>` to automatically link and close the issue upon merge.
+- **AI Agent "Push" Intent Contract:**
+  - Whenever the engineer prompts *"push", "push lên", "push it", "push chưa"*, the AI Agent **MUST NEVER merely execute a raw `git push`**.
+  - The AI Agent **MUST systematically verify and execute the complete 5-step deliverable lifecycle**:
+    1. **Check Issue:** Verify if a dedicated GitHub Issue already exists for this work. If absent, **CREATE THE ISSUE IMMEDIATELY** and attach it as a Sub-issue under the corresponding Epic Goal (`parent: #<epic-id>`).
+    2. **Check Branch:** Verify that the current branch strictly follows `<type>/<issue-id>-<slug>`. Switch/create if needed.
+    3. **Pre-commit Verification & Commit:** Run automated verification (`./scripts/check-agent-map.sh`, lints, tests), then create an ECA-signed commit (`git commit -s`) referencing the issue ID in the title `(#<issue-id>)`.
+    4. **Push Remote:** Push the branch to GitHub remote (`git push -u origin <branch>`).
+    5. **Open Pull Request (Target `develop`):** Create the PR targeting `develop`, include `(#<issue-id>)` in the title, `Closes #<issue-id>` in the body, embed two-way traceability metadata (`> **Tracing:** Sub-task of Issue #... | Parent Epic: #...`), and assign peer review.
+  - Committing or pushing without a dedicated issue, or skipping the Pull Request step, is strictly prohibited.
+- **Issue Hierarchy & Project Board Integrity:**
+  - Root level on Project Board contains ONLY Epic Goals (`[GOAL-WXX]: ...`).
+  - All feature/task issues MUST be linked as native Sub-issues under their respective Epic Goal (`parent: #<epic-id>`).
+  - PRs automatically link to their parent Sub-issue via GitHub's native `Linked pull requests` field, maintaining a clean 3-tier hierarchy: **Epic Goal ➔ Sub-issue ➔ Pull Request**.
 - **Environment Discipline:** `main` is production (releases only). `dev` (`develop`) is integration. All feature/fix branches branch from `dev` and **MUST merge into `dev`**.
 - **Description Standard:** Both Issues and PRs must explicitly answer: **What** (what changed), **Why** (reason/value), and **Done When** (acceptance criteria / verification proof).
 - **Never commit directly to `main` or `develop`.**

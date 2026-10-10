@@ -42,19 +42,33 @@ Every artifact in CIRCLE must be connected across the traceability chain:
 
 ## 3. Issue & Pull Request Governance
 
-- **1 Issue = 1 PR:** Every change, feature, bug fix, or task must have an Issue and a corresponding PR targeting `dev`.
-- **Hierarchy:** Weekly Goal Issues (`[GOAL-WXX]: ...`) track weekly milestones; sub-issues track granular tasks.
+- **Strict 1 Issue = 1 PR Invariant:** 
+  - Every pull request MUST have exactly one dedicated GitHub Issue created BEFORE coding/branching.
+  - Zero unlinked / floating PRs. Never open a PR without an issue number in the title (`(#<issue-id>)`) and `Fixes #<issue-id>` in the body.
+  - Never reuse a single issue for multiple independent PRs; if further changes or fixes are needed, open a new task/bug issue.
+- **AI Agent "Push" Workflow Interpretation:**
+  - When the engineer issues commands such as *"push", "push lên", "push it", "push chưa"*, the AI Agent interprets this as an instruction to finalize the deliverable lifecycle:
+    1. **Verify / Create Issue:** Confirm a dedicated GitHub Issue exists (or create one and link it to the parent Epic Goal).
+    2. **Branch Check:** Confirm branch naming conforms to `<type>/<issue-id>-<slug>`.
+    3. **Pre-commit Verification:** Run automated pre-commit checks and commit with sign-off (`-s`) citing the issue ID.
+    4. **Push Remote:** Push the branch to GitHub remote.
+    5. **Open Pull Request:** Open a PR targeting `develop` with `Closes #<id>`, embedding traceability metadata and requesting peer review.
+  - Raw unlinked `git push` without an issue or PR is strictly forbidden.
+- **Project OS Traceability Hierarchy:**
+  - **Level 1 (Root):** Epic Goals (`[GOAL-WXX]: ...`) representing weekly milestones.
+  - **Level 2 (Sub-issues):** Granular deliverable issues linked via GitHub Sub-issues API (`parent: #<epic-id>`).
+  - **Level 3 (PRs):** Implementation PRs linked directly to their Level 2 issue via GitHub's native `Linked pull requests` field.
 - **Description Standard (What — Why — Done When):** Both Issues and PRs must explicitly define:
   1. **What:** Exact problem or change description.
   2. **Why:** Technical/business justification and value for group activity.
   3. **Done When:** Objective Acceptance Criteria (DoD) or verification evidence (test outputs, screenshots).
 - **Mandatory Peer Review:** Ping the peer developer (**Bình ⇄ Hạnh**). Self-merging is strictly prohibited. At least 1 review approval with technical comments is mandatory before merge.
-- **Automated Peer Review & Auto-Merge Lifecycle (Pair-Programming với AI Agent):** Khi kỹ sư (**Bình** hoặc **Hạnh**) yêu cầu AI Agent review một Pull Request:
-  1. *Tự động đối soát & kiểm tra:* Agent tự động đọc git diff của PR, đối chiếu với Acceptance Criteria trong Issue liên kết, kiểm tra 10 Hard Gates, chạy `./scripts/check-agent-map.sh` và các bộ kiểm thử tự động.
-  2. *Tự động đăng nhận xét (Review Comment):* Đăng tải chi tiết báo cáo Peer Review lên PR qua `gh pr review <number> --comment -F <file>`.
-  3. *Theo dõi phản hồi & tái kiểm tra:* Rà soát các commit sửa đổi mới nhất của tác giả khi có comment phản hồi.
-  4. *Tự động phê duyệt (Formal Approve):* Khi toàn bộ các điểm góp ý được hoàn thiện và thỏa mãn 100% Definition of Done (DoD), Agent tự động thực hiện `gh pr review <number> --approve -F <file>`.
-  5. *Tự động Merge PR (Auto-Merge):* Ngay sau khi PR đã được phê duyệt hợp lệ (Approved), Agent tự động thực thi lệnh merge PR vào nhánh `develop` (`gh pr merge <number> --merge --delete-branch`), sau đó đồng bộ kéo mã nguồn mới về môi trường local (`git pull origin develop`).
+- **Automated Peer Review & Auto-Merge Lifecycle (AI Pair-Programming):** When an engineer requests an AI agent to review a PR:
+  1. *Automated Verification:* Inspect git diff, verify against Acceptance Criteria in the linked issue, validate the 10 Hard Gates, run `./scripts/check-agent-map.sh`, and run automated test suites.
+  2. *Structured Review Comment:* Submit detailed peer review feedback via `gh pr review <number> --comment -F <file>`.
+  3. *Review Fixes:* Re-evaluate code revisions following author updates.
+  4. *Formal Approval:* Once all criteria and Definition of Done (DoD) are 100% satisfied, approve via `gh pr review <number> --approve -F <file>`.
+  5. *Automated Merge:* After formal approval is recorded, merge the PR into `develop` (`gh pr merge <number> --merge --delete-branch`) and synchronize local repository (`git pull origin develop`).
 
 ---
 
