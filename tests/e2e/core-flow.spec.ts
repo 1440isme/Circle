@@ -14,7 +14,7 @@ test.describe('CIRCLE Core End-to-End Workflow', () => {
 
     if (isLoginPage) {
       // 2. Perform Login with demo / test credentials
-      await page.fill('input[type="email"]', 'binh@circle.local');
+      await page.fill('input[type="email"]', 'testuser@circle.local');
       await page.fill('input[type="password"]', 'Password123@!');
       await page.click('button[type="submit"]');
 
