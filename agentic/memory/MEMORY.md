@@ -8,6 +8,7 @@ Load this index + the relevant topic file; do not re-derive facts every session.
 - [Gotchas](gotchas.md) — Known traps, pitfalls, and framework quirks (Prisma + Neon pooling, Expo WebRTC, Socket.IO auth).
 - [Verified facts](verified-facts.md) — Technical realities confirmed by inspecting code and dependencies.
 - [Decisions](decisions.md) — Summary of key Architectural Decision Records (ADRs).
+- [Reporting Workflow](reporting-workflow.md) — Quy định báo cáo kép (GVHD 2 tuần/lần vs. Khoa 1 tuần/lần, lệch track 4 tuần, cấu trúc 4 mục).
 
 ---
 
