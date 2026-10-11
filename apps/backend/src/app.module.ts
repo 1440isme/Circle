@@ -8,6 +8,7 @@ import { CirclesModule } from './modules/circles/circles.module';
 import { MomentsModule } from './modules/moments/moments.module';
 import { ChatModule } from './modules/chat/chat.module';
 import { StorageModule } from './modules/storage/storage.module';
+import { CallsModule } from './modules/calls/calls.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 
@@ -24,6 +25,7 @@ import { RolesGuard } from './common/guards/roles.guard';
     MomentsModule,
     ChatModule,
     StorageModule,
+    CallsModule,
   ],
   providers: [
     {

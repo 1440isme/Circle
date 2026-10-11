@@ -10,6 +10,8 @@ interface CircleState {
   isJoinModalOpen: boolean;
   isManageModalOpen: boolean;
   manageActiveTab: 'chatInfo' | 'members' | 'privacySupport' | 'circleSettings' | 'supportReports' | 'settings' | 'invites' | 'requests';
+  activeCallStageSession: any | null;
+  setActiveCallStageSession: (session: any | null) => void;
   setActiveCircleId: (id: string | null) => void;
   setActiveCircle: (circle: CircleEntity | null) => void;
   setActiveCircleView: (view: string) => void;
@@ -27,6 +29,8 @@ export const useCircleStore = create<CircleState>((set) => ({
   activeCircle: null,
   activeCircleView: 'general',
   activeChannelId: null,
+  activeCallStageSession: null,
+  setActiveCallStageSession: (session) => set({ activeCallStageSession: session }),
   isCreateModalOpen: false,
   isJoinModalOpen: false,
   isManageModalOpen: false,
