@@ -457,4 +457,101 @@ export interface CreateReportInput {
   details?: string | null;
 }
 
+// =============================================================================
+// 10. WEBRTC & REALTIME CALL CONTRACTS (UC12, SPIKE-RTC-001)
+// =============================================================================
+
+export interface IceServerConfig {
+  urls: string | string[];
+  username?: string;
+  credential?: string;
+}
+
+export interface IceServersResponse {
+  iceServers: IceServerConfig[];
+}
+
+export interface CallParticipantEntity {
+  id: string;
+  callSessionId: string;
+  memberId: string;
+  joinedAt: string;
+  leftAt?: string | null;
+  member?: {
+    id: string;
+    userId: string;
+    role: MemberRole;
+    nickname?: string | null;
+    user?: {
+      id: string;
+      email: string;
+      profile?: {
+        displayName: string;
+        avatarUrl?: string | null;
+      } | null;
+    };
+  };
+}
+
+export interface CallSessionDetailEntity extends CallSessionEntity {
+  circle?: {
+    id: string;
+    name: string;
+    handle: string;
+    avatarUrl?: string | null;
+  };
+  participants: CallParticipantEntity[];
+}
+
+export interface InitiateCallInput {
+  circleId: string;
+  callType?: CallType;
+}
+
+export interface InitiateCallResponse {
+  callSession: CallSessionDetailEntity;
+  iceServers: IceServerConfig[];
+}
+
+export interface CallIncomingEventPayload {
+  callSessionId: string;
+  circleId: string;
+  circleName: string;
+  callType: CallType;
+  caller: {
+    userId: string;
+    displayName: string;
+    avatarUrl?: string | null;
+  };
+  startedAt: string;
+}
+
+export interface CallParticipantJoinedPayload {
+  callSessionId: string;
+  circleId: string;
+  participant: CallParticipantEntity;
+}
+
+export interface CallParticipantLeftPayload {
+  callSessionId: string;
+  circleId: string;
+  userId: string;
+  memberId: string;
+}
+
+export interface CallEndedPayload {
+  callSessionId: string;
+  circleId: string;
+  endedAt: string;
+  durationSeconds?: number;
+}
+
+export interface WebRtcSignalPayload {
+  callSessionId: string;
+  targetUserId?: string;
+  senderUserId?: string;
+  signal: any;
+}
+
+
 

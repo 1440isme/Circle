@@ -9,6 +9,8 @@ import {
   Clock,
   Check,
   AlertCircle,
+  Video,
+  PhoneCall,
 } from 'lucide-react';
 import { MessageEntity, MessageType } from '@circle/types';
 import { useLanguageStore } from '../../stores/language.store';
@@ -118,6 +120,29 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     }
   };
 
+  const isCallSummary = message.content?.startsWith('[CALL_SUMMARY]:');
+  let callSummaryData: {
+    callType: 'AUDIO' | 'VIDEO';
+    durationSeconds: number;
+    startedAt: string;
+    endedAt: string;
+  } | null = null;
+
+  if (isCallSummary) {
+    try {
+      callSummaryData = JSON.parse(message.content!.replace('[CALL_SUMMARY]:', ''));
+    } catch {}
+  }
+
+  const formatDuration = (sec: number) => {
+    if (sec < 60) return t.calls.durationSeconds.replace('{sec}', String(sec));
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return s > 0
+      ? t.calls.durationMinutesSeconds.replace('{min}', String(m)).replace('{sec}', String(s))
+      : t.calls.durationMinutes.replace('{min}', String(m));
+  };
+
   const hasReactions =
     message.reactionCounts && Object.keys(message.reactionCounts).length > 0;
 
@@ -177,17 +202,51 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               <span className="truncate opacity-90">
                 {replyTarget.content ||
                   (replyTarget.type === MessageType.FILE ? `[${t.chat.fileDownload}]` : '') ||
-                  'Tin nhắn'}
+                  t.calls.messageFallback}
               </span>
             </div>
           )}
 
-          {/* Message Text Content */}
-          {message.content && (
+          {/* Message Content: Call Summary vs Standard Text */}
+          {isCallSummary && callSummaryData ? (
+            <div className="flex items-center gap-3 py-1 pr-1">
+              <div
+                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
+                  isSenderMe
+                    ? 'bg-white/20 text-white'
+                    : callSummaryData.callType === 'VIDEO'
+                    ? 'bg-indigo-500/15 text-indigo-500 dark:text-indigo-400'
+                    : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                }`}
+              >
+                {callSummaryData.callType === 'VIDEO' ? (
+                  <Video className="h-4.5 w-4.5" />
+                ) : (
+                  <PhoneCall className="h-4.5 w-4.5" />
+                )}
+              </div>
+              <div className="flex flex-col min-w-0">
+                <span className="text-xs sm:text-sm font-bold truncate">
+                  {callSummaryData.callType === 'VIDEO'
+                    ? t.calls.videoCallEnded
+                    : t.calls.audioCallEnded}
+                </span>
+                <span
+                  className={`text-[11px] font-medium ${
+                    isSenderMe
+                      ? 'text-white/80'
+                      : 'text-circle-slate dark:text-circle-dark-muted'
+                  }`}
+                >
+                  {t.calls.durationLabel.replace('{duration}', formatDuration(callSummaryData.durationSeconds || 0))}
+                </span>
+              </div>
+            </div>
+          ) : message.content ? (
             <div className="text-xs sm:text-sm whitespace-pre-wrap break-words leading-relaxed font-normal">
               {message.content}
             </div>
-          )}
+          ) : null}
 
           {/* Attachment: Image */}
           {isImageAttachment && message.fileUrl && (

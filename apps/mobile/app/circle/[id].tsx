@@ -37,6 +37,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ArrowLeft,
   Settings,
+  Phone,
+  Video,
   Users,
   MessageSquare,
   Camera,
@@ -872,6 +874,18 @@ export default function CircleWorkspaceScreen() {
     }
   };
 
+  const handleCallComingSoon = (type: 'audio' | 'video') => {
+    triggerHapticFeedback();
+    const title = type === 'video'
+      ? (locale === 'vi' ? 'Cuộc gọi Video' : 'Video Call')
+      : (locale === 'vi' ? 'Cuộc gọi Thoại' : 'Voice Call');
+    const message = locale === 'vi'
+      ? 'Tính năng gọi thoại & video đang phát triển cho Mobile (Coming Soon).\n\nBạn có thể trải nghiệm gọi trực tiếp ngay bây giờ trên phiên bản Web (Next.js) hoặc ứng dụng Android!'
+      : 'Voice & Video Calling is coming soon for Mobile.\n\nYou can currently enjoy realtime calling directly on the Web (Next.js) platform or Android app!';
+
+    Alert.alert(title, message, [{ text: 'OK', style: 'default' }]);
+  };
+
   const handlePickImage = async () => {
     try {
       const res = await ImagePicker.launchImageLibraryAsync({
@@ -1000,32 +1014,42 @@ export default function CircleWorkspaceScreen() {
             <ArrowLeft size={20} color={colors.text} />
           </TouchableOpacity>
 
-          <View style={[styles.miniAvatar, { backgroundColor: colors.primary }]}>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={handleOpenSettings}
+            style={[styles.miniAvatar, { backgroundColor: colors.primary }]}
+          >
             <Text style={[styles.miniAvatarText, { color: colors.onPrimary }]}>
               {getInitials(circle.name)}
             </Text>
-          </View>
+          </TouchableOpacity>
 
-          <View style={styles.headerTitleBlock}>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={handleOpenSettings}
+            style={styles.headerTitleBlock}
+          >
             <Text numberOfLines={1} style={[styles.headerTitle, { color: colors.text }]}>
               {circle.name}
             </Text>
-          </View>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.headerRight}>
           <TouchableOpacity
-            onPress={handleShareInviteCode}
+            onPress={() => handleCallComingSoon('audio')}
             style={[styles.iconButton, { backgroundColor: colors.wash }]}
+            accessibilityLabel="Voice Call"
           >
-            <Share2 size={18} color={colors.text} />
+            <Phone size={18} color={colors.text} />
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={handleOpenSettings}
+            onPress={() => handleCallComingSoon('video')}
             style={[styles.iconButton, { backgroundColor: colors.wash }]}
+            accessibilityLabel="Video Call"
           >
-            <Settings size={18} color={colors.text} />
+            <Video size={18} color={colors.text} />
           </TouchableOpacity>
         </View>
       </View>
@@ -1493,7 +1517,11 @@ export default function CircleWorkspaceScreen() {
       {activeTab === 'tools' && (
         <ScrollView contentContainerStyle={styles.toolsContainer} showsVerticalScrollIndicator={false}>
           {/* Tool 1: Realtime Voice Stage */}
-          <View style={[styles.toolCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => handleCallComingSoon('audio')}
+            style={[styles.toolCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
+          >
             <View style={[styles.toolIcon, { backgroundColor: `${colors.primary}20` }]}>
               <Radio size={24} color={colors.primary} />
             </View>
@@ -1505,7 +1533,7 @@ export default function CircleWorkspaceScreen() {
                 {t.home.noVoiceStageOpen}
               </Text>
             </View>
-          </View>
+          </TouchableOpacity>
 
           {/* Tool 2: Photo Album */}
           <View style={[styles.toolCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
