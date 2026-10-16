@@ -19,19 +19,19 @@ export default function HomePage() {
 
   return (
     <AuthGuard mode="require-auth">
-      <div className="min-h-screen flex flex-col bg-circle-canvas dark:bg-circle-dark-canvas text-circle-charcoal dark:text-circle-dark-text transition-colors">
+      <div className="min-h-screen flex flex-col bg-white dark:bg-circle-dark-surface text-circle-charcoal dark:text-circle-dark-text transition-colors">
         <Header />
-        <div className="flex-1 flex justify-center w-full">
+        <div className="flex-1 flex w-full">
           {activeCircle ? (
-            /* Active Circle Workspace: 3-column Layout (Channels, Feed & Chat, Members) */
-            <div className="flex w-full max-w-[1360px] justify-between">
+            /* Active Circle Workspace: Flat seamless 3-column layout sharing unified background with zero border barriers */
+            <div className="flex w-full">
               <Sidebar />
               <FeedStream />
               <PresenceRail />
             </div>
           ) : (
-            /* Home Hub: Clean Focused Single-Column Layout (Welcome & Circles Grid) */
-            <div className="flex w-full max-w-4xl justify-center px-4 py-8">
+            /* Home Hub: Clean Focused Single-Column Layout */
+            <div className="flex-1 flex justify-center px-4 py-8 max-w-5xl mx-auto w-full">
               <FeedStream />
             </div>
           )}

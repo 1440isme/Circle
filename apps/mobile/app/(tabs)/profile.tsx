@@ -13,10 +13,8 @@ import {
 import { useRouter } from 'expo-router';
 import {
   User,
-  Mail,
   Shield,
   LogOut,
-  CheckCircle2,
   Edit3,
   Camera,
   Quote,
@@ -25,12 +23,15 @@ import {
   Laptop,
   Globe,
   Sliders,
+  ChevronRight,
 } from 'lucide-react-native';
 import { useThemeStore } from '../../src/stores/theme.store';
 import { useLanguageStore } from '../../src/stores/language.store';
 import { useAuthStore } from '../../src/stores/auth.store';
 import { Button } from '../../src/components/common/Button';
 import { EditProfileModal } from '../../src/components/profile/EditProfileModal';
+import { SystemSettingsModal } from '../../src/components/settings/SystemSettingsModal';
+import { useSessionsQuery } from '../../src/hooks/use-session-queries';
 import {
   checkBiometricStatus,
   isBiometricUnlockEnabled,
@@ -60,6 +61,9 @@ export default function ProfileTab() {
   const [modalMode, setModalMode] = useState<'edit' | 'avatar'>('edit');
   const [hasBiometrics, setHasBiometrics] = useState(false);
   const [biometricEnabled, setBiometricEnabled] = useState(false);
+  const [isSettingsModalVisible, setIsSettingsModalVisible] = useState(false);
+  const [settingsModalTab, setSettingsModalTab] = useState<'general' | 'sessions'>('general');
+  const { data: sessions = [] } = useSessionsQuery();
 
   useEffect(() => {
     async function loadBiometrics() {
@@ -194,12 +198,22 @@ export default function ProfileTab() {
             },
           ]}
         >
-          <View style={styles.sectionTitleRow}>
-            <Sliders size={14} color={colors.primary} />
-            <Text style={[styles.sectionTitle, { color: colors.text, marginBottom: 0 }]}>
-              {locale === 'vi' ? 'Cài đặt hệ thống' : 'System Settings'}
-            </Text>
-          </View>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => {
+              setSettingsModalTab('general');
+              setIsSettingsModalVisible(true);
+            }}
+            style={styles.sectionTitleRow}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Sliders size={14} color={colors.primary} />
+              <Text style={[styles.sectionTitle, { color: colors.text, marginBottom: 0 }]}>
+                {t.common.systemSettings}
+              </Text>
+            </View>
+            <ChevronRight size={14} color={colors.subtle} />
+          </TouchableOpacity>
 
           {/* Theme Switcher Row */}
           <View style={[styles.settingRow, { borderBottomWidth: 1, borderBottomColor: colors.hairline }]}>
@@ -273,7 +287,7 @@ export default function ProfileTab() {
           </View>
 
           {/* Language Switcher Row */}
-          <View style={styles.settingRow}>
+          <View style={[styles.settingRow, { borderBottomWidth: 1, borderBottomColor: colors.hairline }]}>
             <Text style={[styles.settingLabel, { color: colors.text }]}>
               {t.common.language}
             </Text>
@@ -319,50 +333,24 @@ export default function ProfileTab() {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
 
-        {/* Security & Token Info */}
-        <View
-          style={[
-            styles.infoCard,
-            {
-              backgroundColor: colors.surface,
-              borderColor: colors.hairline,
-            },
-          ]}
-        >
-          <Text style={[styles.sectionTitle, { color: colors.subtle }]}>
-            {t.common.dualTokenSecurity}
-          </Text>
-
-          <View style={styles.infoRow}>
-            <View style={styles.infoLeft}>
-              <CheckCircle2 size={16} color={colors.success} />
-              <Text style={[styles.infoLabel, { color: colors.text }]}>
-                {t.home.dualTokenSecured}
-              </Text>
-            </View>
-          </View>
-
-          <View style={[styles.infoRow, { borderTopWidth: 1, borderTopColor: colors.hairline }]}>
-            <View style={styles.infoLeft}>
-              <Mail size={16} color={colors.primary} />
-              <Text style={[styles.infoLabel, { color: colors.text }]}>
-                {t.auth.email}: {user?.email}
-              </Text>
-            </View>
-          </View>
-
+          {/* Mở khóa sinh trắc học (Merged into System Settings) */}
           {hasBiometrics && (
-            <View style={[styles.infoRow, { borderTopWidth: 1, borderTopColor: colors.hairline, justifyContent: 'space-between' }]}>
-              <View style={[styles.infoLeft, { flex: 1, paddingRight: 10 }]}>
-                <Shield size={16} color={colors.primary} />
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.infoLabel, { color: colors.text }]}>
+            <View
+              style={[
+                styles.settingRow,
+                {
+                  borderBottomWidth: 1,
+                  borderBottomColor: colors.hairline,
+                  justifyContent: 'space-between',
+                },
+              ]}
+            >
+              <View style={{ flex: 1, paddingRight: 10 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Shield size={14} color={colors.text} />
+                  <Text style={[styles.settingLabel, { color: colors.text }]}>
                     {t.auth.biometricTitle}
-                  </Text>
-                  <Text style={{ fontSize: 11, color: colors.subtle, marginTop: 2 }}>
-                    {t.auth.biometricDesc}
                   </Text>
                 </View>
               </View>
@@ -374,6 +362,33 @@ export default function ProfileTab() {
               />
             </View>
           )}
+
+          {/* Active Sessions Row (Quản lý phiên đăng nhập) */}
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => {
+              setSettingsModalTab('sessions');
+              setIsSettingsModalVisible(true);
+            }}
+            style={styles.settingRow}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Laptop size={15} color={colors.text} />
+              <Text style={[styles.settingLabel, { color: colors.text }]}>
+                {t.common.sessionsTab || 'Phiên đăng nhập'}
+              </Text>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              {sessions.length > 0 && (
+                <View style={[styles.sessionCountBadge, { backgroundColor: colors.wash }]}>
+                  <Text style={[styles.sessionCountText, { color: colors.text }]}>
+                    {sessions.length}
+                  </Text>
+                </View>
+              )}
+              <ChevronRight size={15} color={colors.subtle} />
+            </View>
+          </TouchableOpacity>
         </View>
 
         {/* Logout Button */}
@@ -400,6 +415,13 @@ export default function ProfileTab() {
         visible={isEditModalVisible}
         initialMode={modalMode}
         onClose={() => setIsEditModalVisible(false)}
+      />
+
+      {/* System Settings Modal (General & Active Sessions) */}
+      <SystemSettingsModal
+        visible={isSettingsModalVisible}
+        defaultTab={settingsModalTab}
+        onClose={() => setIsSettingsModalVisible(false)}
       />
     </View>
   );
@@ -585,4 +607,13 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   logoutText: { fontSize: 14, fontWeight: '700' },
+  sessionCountBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  sessionCountText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
 });

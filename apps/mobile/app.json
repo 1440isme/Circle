@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "CIRCLE",
-    "slug": "circle-mobile",
+    "slug": "iam1440",
     "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -42,8 +42,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "2071e342-b580-48d2-9654-662c3743cd93"
+        "projectId": "bd92a382-d3d4-43d9-b20c-73bfff4a0076"
       }
-    }
+    },
+    "owner": "iam1440"
   }
 }

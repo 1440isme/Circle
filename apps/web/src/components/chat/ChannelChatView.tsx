@@ -179,6 +179,8 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
   };
 
   const handleTogglePin = (messageId: string, isPinned: boolean) => {
+    const targetMsg = messages.find((m) => m.id === messageId);
+    if (targetMsg?.content?.startsWith('[CALL_SUMMARY]:')) return;
     pinMessageMutation.mutate({ messageId, isPinned });
   };
 
@@ -195,33 +197,26 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full min-h-0 rounded-3xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface shadow-circle-card overflow-hidden transition-colors">
-      {/* Channel Header Bar with Call Actions */}
-      <div className="flex items-center justify-between px-4 py-2.5 border-b border-circle-hairline dark:border-circle-dark-hairline bg-white/80 dark:bg-circle-dark-surface/80 backdrop-blur-md z-10">
+    <div className="flex-1 flex flex-col h-full min-h-0 bg-white dark:bg-circle-dark-surface overflow-hidden transition-colors">
+      {/* Channel Header Bar with Call Actions: seamless background without dividing line */}
+      <div className="flex items-center justify-between px-4 py-3 bg-white dark:bg-circle-dark-surface z-10 shrink-0">
         <div className="flex items-center gap-2 min-w-0">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-circle-wash dark:bg-circle-dark-wash text-circle-sage dark:text-circle-primary font-bold">
-            <Hash className="h-4 w-4" />
-          </div>
+          <Hash className="h-4.5 w-4.5 shrink-0 text-circle-slate dark:text-circle-dark-muted" />
           <div className="min-w-0">
             <h3 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text truncate">
               {channelName}
             </h3>
-            {channelTopic && (
-              <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted truncate hidden sm:block">
-                {channelTopic}
-              </p>
-            )}
           </div>
         </div>
 
-        {/* Channel Action Controls: Mobile Call icons (hidden on desktop because column 3 is present) & Pinned */}
+        {/* Channel Action Controls: Mobile Call icons & Pinned */}
         <div className="flex items-center gap-1.5 shrink-0">
           <div className="flex xl:hidden items-center gap-1">
             <button
               type="button"
               onClick={() => handleStartCall(CallType.AUDIO)}
               disabled={initiateCallMutation.isPending}
-              className="flex h-8 w-8 items-center justify-center rounded-full text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors active:scale-95 shadow-2xs"
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas transition-colors active:scale-95"
               title={t.calls.startAudioCallTooltip}
             >
               <Phone className="h-4 w-4" />
@@ -230,7 +225,7 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
               type="button"
               onClick={() => handleStartCall(CallType.VIDEO)}
               disabled={initiateCallMutation.isPending}
-              className="flex h-8 w-8 items-center justify-center rounded-full text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors active:scale-95 shadow-2xs"
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas transition-colors active:scale-95"
               title={t.calls.startVideoCallTooltip}
             >
               <Video className="h-4 w-4" />
@@ -240,7 +235,7 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
           <button
             type="button"
             onClick={() => setIsPinnedModalOpen(true)}
-            className="flex h-8 w-8 items-center justify-center rounded-full text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors active:scale-95 shadow-2xs"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas transition-colors active:scale-95"
             title={t.chat.pinnedBadge}
           >
             <Pin className="h-4 w-4" />
@@ -250,23 +245,33 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
 
       {/* Network Reconnection Banner */}
       {!isSocketConnected && (
-        <div className="flex items-center justify-center gap-2 bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 py-1.5 px-4 text-xs font-medium border-b border-amber-500/20 animate-pulse transition-all">
+        <div className="flex items-center justify-center gap-2 bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 py-1.5 px-4 text-xs font-medium animate-pulse transition-all">
           <WifiOff className="h-3.5 w-3.5" />
           <span>{t.chat.reconnecting}</span>
         </div>
       )}
 
-      {/* Pinned Messages Bar (ONLY shown when pinned messages exist) */}
+      {/* Pinned Messages Bar (Subtle pill, no border divider) */}
       {pinnedMessages.length > 0 && (
-        <div className="flex items-center justify-between border-b border-circle-hairline dark:border-circle-dark-hairline px-4 py-2 bg-circle-wash/60 dark:bg-circle-dark-wash/60 backdrop-blur-sm z-10 text-xs">
-          <div className="flex items-center gap-2 text-circle-charcoal dark:text-circle-dark-text font-medium truncate min-w-0 pr-2">
+        <div className="flex items-center justify-between mx-4 mb-2 rounded-xl px-3 py-1.5 bg-circle-wash/60 dark:bg-circle-dark-wash/60 z-10 text-xs">
+          <div
+            onClick={() => {
+              const latest = pinnedMessages[pinnedMessages.length - 1];
+              if (latest?.id) {
+                const el = document.getElementById(`message-${latest.id}`);
+                el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }
+            }}
+            className="flex items-center gap-2 text-circle-charcoal dark:text-circle-dark-text font-medium truncate min-w-0 pr-2 cursor-pointer hover:opacity-80 transition-opacity"
+            title={t.chat.pinnedBadge}
+          >
             <Pin className="h-3.5 w-3.5 fill-circle-primary text-circle-primary shrink-0" />
             <span className="truncate">{pinnedMessages[pinnedMessages.length - 1]?.content || t.chat.pinnedBadge}</span>
           </div>
           <button
             type="button"
             onClick={() => setIsPinnedModalOpen(true)}
-            className="flex items-center gap-1 shrink-0 rounded-full bg-white dark:bg-circle-dark-surface border border-circle-hairline dark:border-circle-dark-hairline px-2.5 py-1 text-[11px] font-semibold text-circle-sage dark:text-circle-primary hover:bg-circle-primary/10 transition-colors shadow-xs"
+            className="flex items-center gap-1 shrink-0 rounded-md bg-white dark:bg-circle-dark-surface px-2.5 py-1 text-[11px] font-semibold text-circle-sage dark:text-circle-primary hover:bg-circle-primary/10 transition-colors shadow-2xs"
           >
             <span>{pinnedMessages.length} {t.chat.pinnedBadge}</span>
           </button>
@@ -325,6 +330,10 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
         pinnedMessages={pinnedMessages}
         isLoading={isLoadingPins}
         onUnpin={(messageId) => handleTogglePin(messageId, true)}
+        onJumpToMessage={(messageId) => {
+          const el = document.getElementById(`message-${messageId}`);
+          el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }}
       />
 
       {/* Realtime Incoming Call Ringing Dialog */}

@@ -60,6 +60,23 @@ flowchart TD
 - Tông màu lấy cảm hứng từ thảo mộc thiên nhiên (bạc hà, cây xô thơm, đất nung ấm, đào mơ), tạo cảm giác ấm cúng, chữa lành và thư giãn tinh thần.
 - Biểu tượng hình tròn xuyên suốt — từ avatar thành viên đến chỉ báo trạng thái nhịp thở trực tuyến (*Breathing Pulse Presence Dot*).
 
+### 1.4. Triết lý Tinh chỉnh Flat Liền mạch & Bo tròn Chọn lọc (Apple HIG & Meta Design System)
+Nhằm khắc phục triệt để tình trạng "lạm dụng bo tròn" (*Over-pillification*) cũng như tránh cực đoan hóa giao diện thành các hình hộp vuông vức thô kệch, CIRCLE tuân thủ chặt chẽ 3 chuẩn mực thiết kế:
+
+1. **Flat Liền mạch — Không phân tầng Layout UI (Seamless Borderless Canvas):**
+   - **Đồng nhất màu nền:** Toàn bộ không gian làm việc (Header, Sidebar, Center Stream/Chat, Presence Rail) chia sẻ chung một màu nền bề mặt duy nhất (`bg-white` ở Light Mode, `bg-circle-dark-surface` ở Dark Mode).
+   - **Xóa bỏ các dải phân cách chia cắt:** Không sử dụng các đường viền cứng nhắc (`border-r`, `border-l`) để ngăn cắt 3 cột tương tác.
+   - **Duy trì bố cục tự nhiên:** Các container vẫn giữ nguyên vị trí, kích thước và phân cấp qua độ rộng (`w-72`, `flex-1`, `w-80`) cùng khoảng thở đệm (*padding & white-space*), đem lại cảm giác thoáng đãng, liền lạc và tự nhiên như các ứng dụng native macOS Sonoma/Sequoia và Meta Threads.
+
+2. **Quy tắc Bo tròn Chọn lọc (Selective Rounding & Line Partitioning):**
+   - **Component cha không bo tròn thừa thãi:** Các khung bao nhóm lựa chọn (như Segmented Tabs, Bộ chọn Theme, Bộ chọn Ngôn ngữ) không dùng khung bao bong bóng bo tròn lồng nhau; các lựa chọn bên trong được phân cách mạch lạc bằng đường line siêu mỏng (`divide-x` hoặc `border-b hairline`).
+   - **Component được select/active luôn bo tròn nổi bật:** Khi một tùy chọn được kích hoạt, phần tử đó lập tức mang hình thái bo góc mềm mại (`rounded-xl` hoặc `rounded-lg` với nền tương phản `bg-circle-wash` / `bg-white shadow-xs`), tạo cảm giác xúc giác chạm nổi tinh tế.
+   - **Component tương tác độc lập (Standalone) vẫn phải bo tròn:** Các thành phần đứng độc lập như nút hành động chính (`rounded-xl`), thanh tìm kiếm Spotlight (`rounded-xl`), nút đóng/hủy (`rounded-xl` / `rounded-full`), avatar (`rounded-full`) và Modal Dialog Sheet (`rounded-2xl`) tuyệt đối không để góc vuông 90 độ, duy trì ngôn ngữ thiết kế công thái học hiện đại.
+
+3. **Ngôn ngữ Thiết kế Icon-First:**
+   - **Tối ưu không gian & tinh tế thị giác:** Ở các chi tiết nhỏ, công cụ điều khiển phụ hoặc thanh công cụ (Header, Chat actions, Theme picker), ưu tiên ngôn ngữ **Icon-First** thay vì luôn đính kèm chữ dài dòng bên cạnh icon.
+   - **Biểu tượng tự thân nhận diện:** Biểu tượng Mặt trời/Mặt trăng/Thiết bị, Chuông thông báo, Tia sáng điều muốn nói... giúp người dùng nhận biết ngay tính năng qua thị giác trực giác, kết hợp `title` tooltip và `aria-label` để đảm bảo trải nghiệm tiếp cận chuẩn mực.
+
 ---
 
 ## 2. Hệ thống Design Tokens (Design Tokens Specification)
@@ -127,18 +144,33 @@ CIRCLE chọn font chữ độc quyền là **`Inter`** (thiết kế bởi Rasm
 
 ---
 
-### 2.3. Bán kính Bo góc (Continuous Squircle Radii)
+### 2.3. Cân bằng Bán kính Bo góc & Cấu trúc Flat (Squircle Curvature vs. Flat Geometry)
 
-Áp dụng phong cách bo góc mượt mà kiểu iOS/macOS (Squircle curvature) thay cho các góc vuông sắc nhọn:
+Áp dụng nguyên tắc phân định rạch ròi giữa các thành phần hữu cơ biểu cảm (Bo góc Squircle) và các thành phần chức năng cấu trúc (Flat Geometry):
 
+#### Bảng Quy chuẩn Token Bán kính Bo góc
 | Token | Giá trị | Ứng dụng cụ thể |
 |---|---|---|
-| `rounded-sm` | `0.5rem` (8px) | Checkbox, tooltips nhỏ, hình ảnh đính kèm thumbnail |
-| `rounded-md` | `0.75rem` (12px) | Menu dropdown, popover menu, tag item |
-| `rounded-xl` | `1.25rem` (20px) | Bong bóng chat nhóm, ô nhập liệu tin nhắn (input bar) |
-| `rounded-2xl` | `1.5rem` (24px) | Thẻ bài viết (post card), widget mini, danh sách thành viên |
-| `rounded-3xl` | `2.0rem` (32px) | Khung Modal dialog, Bottom Sheet (Mobile), Panel gọi video |
-| `rounded-full` | `9999px` | Nút bấm (Pill buttons), chip bộ lọc, avatar thành viên, badge |
+| `rounded-none` | `0px` | Các đường phân chia, hàng danh sách nội bộ trong Inset Grouped, bảng dữ liệu |
+| `rounded-sm` | `0.375rem` (6px) | Checkbox, badge nhỏ, phím tắt kbd |
+| `rounded-md` | `0.5rem` (8px) | Sub-controls, segmented control items, thumbnail ảnh, input field nhỏ |
+| `rounded-lg` | `0.625rem` (10px) | Ô nhập form chuẩn (Text inputs, Textarea), dropdown items |
+| `rounded-xl` | `0.875rem` (14px) | Inset Grouped container (Khung cài đặt, Menu popover, Panel cấu hình) |
+| `rounded-2xl` | `1.25rem` (20px) | Bong bóng chat nhóm, thẻ bài viết (post card) |
+| `rounded-3xl` | `1.75rem` (28px) | Khung Modal dialog, Bottom Sheet (Mobile), Panel gọi video |
+| `rounded-full` | `9999px` | Avatar thành viên, online indicator pulse, nút hành động nổi (Floating CTA), Pill badge |
+
+#### Ranh giới Phân định: "Ở đâu Bo tròn — Ở đâu Phẳng (Flat)"
+| Nhóm Thành phần | Định dạng | Rationale & Quy cách áp dụng |
+|---|---|---|
+| **Avatar & Presence Pulse** | **Bo tròn hoàn toàn** (`rounded-full`) | Giữ trọn bản sắc "Vòng tròn thân mật" (Circle-Centric) và sự mềm mại của con người |
+| **Bong bóng Chat (Chat Bubbles)** | **Squircle hữu cơ** (`rounded-2xl`) | Mang lại cảm giác hội thoại tự nhiên, ấm cúng và gần gũi |
+| **Nút bấm Hành động Chính (CTA Pill)** | **Pill tròn** (`rounded-full`) | Điểm nhấn thị giác độc lập mời gọi tương tác |
+| **Bảng Cài đặt (Settings Panels)** | **Flat Inset Grouped** (`rounded-xl` vỏ ngoài, hàng con phẳng) | Học hỏi Apple System Settings & Meta: Nhóm các tùy chọn vào khung phẳng, các hàng bên trong phẳng tuyệt đối với hairline phân cách 1px, không băm nhỏ thành từng viên thuốc trôi nổi |
+| **Bộ chọn Tùy chọn (Theme/Language Selectors)** | **Flat Segmented Track** (`rounded-lg` viền phẳng) | Ray trượt phẳng nằm gọn gàng bên trong hàng cài đặt, trạng thái active phẳng có border sắc nét |
+| **Thẻ Thiết bị / Phiên đăng nhập** | **Flat Card List** (`rounded-lg` phẳng, hairline border) | Hiển thị thông số kỹ thuật (IP, Browser, OS, Thời gian) rõ ràng, trung thực, dễ quét mắt |
+| **Ô Nhập Liệu Form (Inputs & Textareas)** | **Flat Structured** (`rounded-lg`, border 1px) | Thay thế các ô nhập `rounded-full` phình to; tạo cảm giác công cụ làm việc gọn gàng và đáng tin cậy |
+| **Menu Popover / Dropdown Avatar** | **Flat Crisp Popover** (`rounded-xl`, flat item rows) | Các mục trong menu phẳng tuyệt đối, hiệu ứng hover trải đều toàn hàng (`rounded-lg` nội bộ), không bubble lồi lõm |
 
 ---
 
@@ -306,6 +338,24 @@ Một tính năng văn hóa độc đáo của CIRCLE giúp các thành viên ch
   - Video feed bo tròn `rounded-3xl` với tỷ lệ khung hình tự nhiên.
   - Thanh công cụ điều khiển cuộc gọi nổi ở đáy màn hình dạng viên thuốc kính mờ đen sâu (`rgba(36, 51, 44, 0.85)` + `backdrop-blur-xl`), các nút chức năng (Mic, Camera, Màn hình, Rời phòng) dạng hình tròn tối giản với icon sáng rõ.
   - Sóng âm thanh giọng nói (*Audio Visualizer Wave*) sử dụng màu `#78C6A3` nhảy múa mềm mại khi thành viên cất lời.
+
+---
+
+### 4.5. Trung tâm Cài đặt Hệ thống Hợp nhất (Unified System Settings Specification)
+Khắc phục sự phân mảnh khi cài đặt giao diện bị giấu lẫn trong popup chỉnh sửa người dùng:
+
+- **Tách bạch Rạch ròi 2 Khu vực:**
+  - **Hồ sơ Cá nhân (`EditProfileModal`):** Dành riêng cho danh tính người dùng — Avatar, Tên hiển thị (`displayName`), Biệt danh định danh duy nhất (`handle`), Tiểu sử (`bio`), Ngày tháng năm sinh (`dateOfBirth`).
+  - **Cài đặt Hệ thống (`SystemSettingsModal`):** Nằm trực tiếp trong Popover Menu khi click Avatar ở Header, tập trung toàn bộ cấu hình nền tảng:
+    1. **Chế độ Giao diện (Theme):** Sáng (*Light*), Tối (*Dark*), Đồng bộ Hệ thống (*System*).
+    2. **Ngôn ngữ Hiển thị (Language):** Tiếng Việt (`vi`) & English (`en`).
+    3. **Thiết bị & Phiên Đăng nhập (Active Sessions):** Quản lý trạng thái đăng nhập, định danh thiết bị, IP, thời gian hoạt động và thu hồi phiên từ xa.
+- **Quy chuẩn Thiết kế Flat Inset Grouped (Apple macOS & Meta Settings):**
+  - Khung Modal dạng phẳng thanh lịch, viền siêu mảnh `1px` (`border-circle-hairline dark:border-circle-dark-hairline`), loại bỏ bóng đổ nặng nề.
+  - **Điều hướng Tab Phẳng (Flat Segmented Tabs):** Tab chuyển đổi giữa "Cài đặt chung" và "Phiên đăng nhập" nằm phẳng, có vạch chỉ báo hoặc nền phẳng nhẹ khi active, không dùng nút viên thuốc bồng bềnh.
+  - **Inset Grouped Card:** Nhóm các thiết lập vào khung nền phẳng `bg-circle-canvas/60 dark:bg-circle-dark-canvas/60` bo nhẹ `rounded-xl`, các hàng con phẳng ngăn cách bằng hairline `1px`.
+  - **Flat Segmented Theme Selector:** Ray trượt phẳng viền mảnh, icon và text đổi màu sắc nét theo trạng thái được chọn.
+  - **Flat Session Item Row:** Hàng thiết bị hiển thị icon máy tính/điện thoại phẳng, metadata monospace cho IP, trạng thái "Thiết bị này / Đang hoạt động" dạng thẻ dẹt tinh gọn, nút đăng xuất thiết bị phẳng `rounded-lg`.
 
 ---
 

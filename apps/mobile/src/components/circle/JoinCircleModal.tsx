@@ -15,6 +15,7 @@ import { useThemeStore } from '../../stores/theme.store';
 import { useLanguageStore } from '../../stores/language.store';
 import { useCircleStore } from '../../stores/circle.store';
 import { useJoinCircleMutation } from '../../hooks/use-circle-queries';
+import { useEdgeSwipeDismiss } from '../../hooks/use-edge-swipe';
 import { createCircleSchemas } from '@circle/shared';
 
 export function JoinCircleModal() {
@@ -38,6 +39,8 @@ export function JoinCircleModal() {
     setServerError(null);
     setVisible(false);
   };
+
+  const edgePan = useEdgeSwipeDismiss({ onDismiss: handleClose });
 
   const handleCodeChange = (text: string) => {
     const formatted = text.toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -86,6 +89,7 @@ export function JoinCircleModal() {
         />
 
         <View
+          {...edgePan.panHandlers}
           style={[
             styles.dialogContainer,
             {

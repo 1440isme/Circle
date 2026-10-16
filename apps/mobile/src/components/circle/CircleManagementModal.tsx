@@ -67,6 +67,7 @@ import {
   useCreateReportMutation,
 } from '../../hooks/use-circle-queries';
 import { getStorageItem, setStorageItem } from '../../services/storage';
+import { useEdgeSwipeDismiss } from '../../hooks/use-edge-swipe';
 import { MemberRole } from '@circle/types';
 
 function getInitials(name: string): string {
@@ -173,6 +174,16 @@ export function CircleManagementModal() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
+
+  const edgePan = useEdgeSwipeDismiss({
+    onDismiss: () => {
+      if (activeTab !== 'menu') {
+        setActiveTab('menu');
+      } else {
+        handleClose();
+      }
+    },
+  });
 
   // Sync state when modal opens or circle changes
   useEffect(() => {
@@ -628,6 +639,7 @@ export function CircleManagementModal() {
         />
 
         <View
+          {...edgePan.panHandlers}
           style={[
             styles.sheetContainer,
             {
@@ -701,17 +713,15 @@ export function CircleManagementModal() {
              ========================================================================= */}
           {activeTab === 'menu' && (
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.tabContent}>
-              {/* Group 1: 5 Main Settings Rows (Clean Titles Only) */}
+              {/* Group 1: 5 Main Settings Rows (Clean Flat, Icons Only without bounding boxes) */}
               <View style={[styles.menuSectionCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
                 {/* 1. Thông tin đoạn chat */}
                 <TouchableOpacity
                   activeOpacity={0.7}
                   onPress={() => setActiveTab('chatInfo')}
-                  style={[styles.menuRowItem, { borderBottomColor: colors.hairline, borderBottomWidth: 1 }]}
+                  style={[styles.menuRowItem, { borderBottomColor: colors.hairline, borderBottomWidth: StyleSheet.hairlineWidth }]}
                 >
-                  <View style={[styles.menuIconBox, { backgroundColor: `${colors.primary}18` }]}>
-                    <MessageSquare size={18} color={colors.primary} />
-                  </View>
+                  <MessageSquare size={18} color={colors.text} />
                   <View style={styles.menuRowContent}>
                     <Text style={[styles.menuRowTitle, { color: colors.text }]}>
                       {t.circle.chatInfoTab || 'Thông tin đoạn chat'}
@@ -724,11 +734,9 @@ export function CircleManagementModal() {
                 <TouchableOpacity
                   activeOpacity={0.7}
                   onPress={() => setActiveTab('members')}
-                  style={[styles.menuRowItem, { borderBottomColor: colors.hairline, borderBottomWidth: 1 }]}
+                  style={[styles.menuRowItem, { borderBottomColor: colors.hairline, borderBottomWidth: StyleSheet.hairlineWidth }]}
                 >
-                  <View style={[styles.menuIconBox, { backgroundColor: `${colors.info || colors.primary}18` }]}>
-                    <Users size={18} color={colors.info || colors.primary} />
-                  </View>
+                  <Users size={18} color={colors.text} />
                   <View style={styles.menuRowContent}>
                     <Text style={[styles.menuRowTitle, { color: colors.text }]}>
                       {t.circle.settingsTabMembers || 'Thành viên'}
@@ -746,11 +754,9 @@ export function CircleManagementModal() {
                 <TouchableOpacity
                   activeOpacity={0.7}
                   onPress={() => setActiveTab('privacySupport')}
-                  style={[styles.menuRowItem, { borderBottomColor: colors.hairline, borderBottomWidth: 1 }]}
+                  style={[styles.menuRowItem, { borderBottomColor: colors.hairline, borderBottomWidth: StyleSheet.hairlineWidth }]}
                 >
-                  <View style={[styles.menuIconBox, { backgroundColor: `${colors.success || '#10B981'}18` }]}>
-                    <Bell size={18} color={colors.success || '#10B981'} />
-                  </View>
+                  <Bell size={18} color={colors.text} />
                   <View style={styles.menuRowContent}>
                     <Text style={[styles.menuRowTitle, { color: colors.text }]}>
                       {t.circle.notificationsAndPrivacyTab || 'Thông báo & Quyền riêng tư'}
@@ -763,11 +769,9 @@ export function CircleManagementModal() {
                 <TouchableOpacity
                   activeOpacity={0.7}
                   onPress={() => setActiveTab('circleSettings')}
-                  style={[styles.menuRowItem, { borderBottomColor: colors.hairline, borderBottomWidth: 1 }]}
+                  style={[styles.menuRowItem, { borderBottomColor: colors.hairline, borderBottomWidth: StyleSheet.hairlineWidth }]}
                 >
-                  <View style={[styles.menuIconBox, { backgroundColor: `${colors.warning || '#F59E0B'}18` }]}>
-                    <Sliders size={18} color={colors.warning || '#F59E0B'} />
-                  </View>
+                  <Sliders size={18} color={colors.text} />
                   <View style={styles.menuRowContent}>
                     <Text style={[styles.menuRowTitle, { color: colors.text }]}>
                       {t.circle.circleSettingsTab || 'Thiết lập Vòng tròn'}
@@ -789,9 +793,7 @@ export function CircleManagementModal() {
                   onPress={() => setActiveTab('supportReports')}
                   style={styles.menuRowItem}
                 >
-                  <View style={[styles.menuIconBox, { backgroundColor: `${colors.danger || '#EF4444'}18` }]}>
-                    <HelpCircle size={18} color={colors.danger || '#EF4444'} />
-                  </View>
+                  <HelpCircle size={18} color={colors.text} />
                   <View style={styles.menuRowContent}>
                     <Text style={[styles.menuRowTitle, { color: colors.text }]}>
                       {t.circle.supportAndReportsTab || 'Trợ giúp & Báo cáo'}
@@ -808,9 +810,7 @@ export function CircleManagementModal() {
                   onPress={handleShareInvite}
                   style={styles.menuRowItem}
                 >
-                  <View style={[styles.menuIconBox, { backgroundColor: `${colors.primary}18` }]}>
-                    <Share2 size={18} color={colors.primary} />
-                  </View>
+                  <Share2 size={18} color={colors.text} />
                   <View style={styles.menuRowContent}>
                     <Text style={[styles.menuRowTitle, { color: colors.text }]}>
                       {t.circle.inviteCodeLabel || 'Mã mời'}: {inviteCode || '------'}
@@ -1050,7 +1050,7 @@ export function CircleManagementModal() {
                           key={m.id}
                           style={[
                             styles.memberItem,
-                            { backgroundColor: colors.surface, borderColor: colors.hairline },
+                            { borderBottomColor: colors.hairline },
                           ]}
                         >
                           <View style={styles.memberLeft}>
@@ -1107,13 +1107,7 @@ export function CircleManagementModal() {
                                   {t.circle.memberRoleAdmin || 'Quản trị viên'}
                                 </Text>
                               </View>
-                            ) : (
-                              <View style={[styles.roleBadge, { backgroundColor: colors.wash }]}>
-                                <Text style={[styles.roleText, { color: colors.subtle }]}>
-                                  {t.circle.memberRoleMember || 'Thành viên'}
-                                </Text>
-                              </View>
-                            )}
+                            ) : null}
 
                             {/* Owner Controls (Transfer & Kick) */}
                             {isOwner && !isMemberOwner && !isSelf && (
@@ -1212,7 +1206,7 @@ export function CircleManagementModal() {
                 </View>
 
                 {/* 1. Tắt thông báo về đoạn chat (Opens duration popup on toggle) */}
-                <View style={[styles.preferenceRow, { backgroundColor: colors.wash, borderColor: colors.hairline }]}>
+                <View style={[styles.preferenceRow, { borderBottomColor: colors.hairline }]}>
                   <View style={{ flex: 1, paddingRight: 10 }}>
                     <Text style={[styles.prefTitle, { color: colors.text }]}>
                       {t.circle.muteChat || 'Tắt thông báo về đoạn chat'}
@@ -1236,7 +1230,7 @@ export function CircleManagementModal() {
                     <TouchableOpacity
                       activeOpacity={0.7}
                       onPress={() => setIsMsgLevelModalOpen(true)}
-                      style={[styles.preferenceRow, { backgroundColor: colors.wash, borderColor: colors.hairline }]}
+                      style={[styles.preferenceRow, { borderBottomColor: colors.hairline }]}
                     >
                       <View style={{ flex: 1 }}>
                         <Text style={[styles.prefTitle, { color: colors.text }]}>
@@ -1250,7 +1244,7 @@ export function CircleManagementModal() {
                     </TouchableOpacity>
 
                     {/* Tắt thông báo cuộc gọi */}
-                    <View style={[styles.preferenceRow, { backgroundColor: colors.wash, borderColor: colors.hairline }]}>
+                    <View style={[styles.preferenceRow, { borderBottomColor: colors.hairline }]}>
                       <View style={{ flex: 1, paddingRight: 10 }}>
                         <Text style={[styles.prefTitle, { color: colors.text }]}>
                           {t.circle.muteCalls || 'Tắt thông báo về cuộc gọi'}
@@ -1269,7 +1263,7 @@ export function CircleManagementModal() {
                 <TouchableOpacity
                   activeOpacity={0.7}
                   onPress={() => setIsManageMutedMembersOpen(true)}
-                  style={[styles.preferenceRow, { backgroundColor: colors.wash, borderColor: colors.hairline }]}
+                  style={[styles.preferenceRow, { borderBottomColor: 'transparent', borderBottomWidth: 0 }]}
                 >
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.prefTitle, { color: colors.text }]}>
@@ -1286,14 +1280,14 @@ export function CircleManagementModal() {
               {/* Section 2: Quyền riêng tư */}
               <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
                 <View style={styles.sectionHeaderRow}>
-                  <ShieldCheck size={16} color={colors.primary} />
+                  <ShieldCheck size={16} color={colors.text} />
                   <Text style={[styles.cardTitle, { color: colors.text }]}>
                     {t.circle.privacySection || 'Quyền riêng tư'}
                   </Text>
                 </View>
 
                 {/* Read Receipts */}
-                <View style={[styles.preferenceRow, { backgroundColor: colors.wash, borderColor: colors.hairline }]}>
+                <View style={[styles.preferenceRow, { borderBottomColor: colors.hairline }]}>
                   <View style={{ flex: 1, paddingRight: 10 }}>
                     <Text style={[styles.prefTitle, { color: colors.text }]}>
                       {t.circle.readReceiptsTitle || 'Thông báo đã đọc (Đã xem)'}
@@ -1307,7 +1301,7 @@ export function CircleManagementModal() {
                 </View>
 
                 {/* Typing Indicator */}
-                <View style={[styles.preferenceRow, { backgroundColor: colors.wash, borderColor: colors.hairline }]}>
+                <View style={[styles.preferenceRow, { borderBottomColor: colors.hairline }]}>
                   <View style={{ flex: 1, paddingRight: 10 }}>
                     <Text style={[styles.prefTitle, { color: colors.text }]}>
                       {t.circle.typingIndicatorTitle || 'Chỉ báo đang nhập'}
@@ -1321,7 +1315,7 @@ export function CircleManagementModal() {
                 </View>
 
                 {/* AI Assistance */}
-                <View style={[styles.preferenceRow, { backgroundColor: colors.wash, borderColor: colors.hairline }]}>
+                <View style={[styles.preferenceRow, { borderBottomColor: 'transparent', borderBottomWidth: 0 }]}>
                   <View style={{ flex: 1, paddingRight: 10 }}>
                     <Text style={[styles.prefTitle, { color: colors.text }]}>
                       {t.circle.aiAssistanceTitle || 'Cho phép AI xử lý nội dung tin nhắn'}
@@ -1348,18 +1342,12 @@ export function CircleManagementModal() {
                 <View
                   style={[
                     styles.preferenceRow,
-                    {
-                      backgroundColor: colors.wash,
-                      borderColor: formIsPrivate ? colors.primary : colors.hairline,
-                    },
+                    { borderBottomColor: colors.hairline },
                   ]}
                 >
                   <View style={{ flex: 1, paddingRight: 10 }}>
                     <Text style={[styles.prefTitle, { color: colors.text }]}>
                       {t.circle.requireApprovalTitle || 'Cần trưởng nhóm phê duyệt'}
-                    </Text>
-                    <Text style={[styles.prefDesc, { color: colors.subtle }]}>
-                      {t.circle.requireApprovalDesc || 'Trưởng nhóm cần phê duyệt tất cả yêu cầu tham gia'}
                     </Text>
                   </View>
                   <Switch
@@ -1378,7 +1366,7 @@ export function CircleManagementModal() {
                     setTempCapacityInput(formMaxMembers ? String(formMaxMembers) : '');
                     setIsCapacityModalOpen(true);
                   }}
-                  style={[styles.preferenceRow, { backgroundColor: colors.wash, borderColor: colors.hairline }]}
+                  style={[styles.preferenceRow, { borderBottomColor: 'transparent', borderBottomWidth: 0 }]}
                 >
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.prefTitle, { color: colors.text }]}>
@@ -1402,7 +1390,7 @@ export function CircleManagementModal() {
                 </View>
 
                 {/* 1. Mã mời tham gia */}
-                <View style={[styles.codeRow, { backgroundColor: colors.wash, borderColor: colors.hairline }]}>
+                <View style={[styles.preferenceRow, { borderBottomColor: colors.hairline }]}>
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.codeLabel, { color: colors.subtle }]}>
                       {t.circle.inviteCodeLabel || 'Mã mời'}:
@@ -1421,7 +1409,7 @@ export function CircleManagementModal() {
                 </View>
 
                 {/* 2. Liên kết tham gia */}
-                <View style={[styles.codeRow, { backgroundColor: colors.wash, borderColor: colors.hairline }]}>
+                <View style={[styles.preferenceRow, { borderBottomColor: 'transparent', borderBottomWidth: 0 }]}>
                   <View style={{ flex: 1, paddingRight: 8 }}>
                     <Text style={[styles.codeLabel, { color: colors.subtle }]}>
                       {t.circle.linkTitle || 'Liên kết'}:
@@ -1476,14 +1464,11 @@ export function CircleManagementModal() {
                 <TouchableOpacity
                   activeOpacity={0.7}
                   onPress={() => setIsReportUserOpen(true)}
-                  style={[styles.preferenceRow, { backgroundColor: colors.wash, borderColor: colors.hairline }]}
+                  style={[styles.preferenceRow, { borderBottomColor: colors.hairline }]}
                 >
                   <View style={{ flex: 1, paddingRight: 10 }}>
                     <Text style={[styles.prefTitle, { color: colors.text }]}>
                       {t.circle.reportUserTitle || 'Báo cáo người dùng'}
-                    </Text>
-                    <Text style={[styles.prefDesc, { color: colors.subtle }]}>
-                      Báo cáo thành viên có hành vi quấy rối, vi phạm
                     </Text>
                   </View>
                   <ChevronRight size={16} color={colors.subtle} />
@@ -1493,21 +1478,18 @@ export function CircleManagementModal() {
                 <TouchableOpacity
                   activeOpacity={0.7}
                   onPress={() => setIsReportOpen(true)}
-                  style={[styles.preferenceRow, { backgroundColor: colors.wash, borderColor: colors.hairline }]}
+                  style={[styles.preferenceRow, { borderBottomColor: colors.hairline }]}
                 >
                   <View style={{ flex: 1, paddingRight: 10 }}>
                     <Text style={[styles.prefTitle, { color: colors.text }]}>
                       {t.circle.reportCircleTitle || 'Báo cáo Vòng tròn'}
-                    </Text>
-                    <Text style={[styles.prefDesc, { color: colors.subtle }]}>
-                      Báo cáo nội dung không phù hợp trong nhóm
                     </Text>
                   </View>
                   <ChevronRight size={16} color={colors.subtle} />
                 </TouchableOpacity>
 
                 {/* 3. Quy tắc cộng đồng Accordion */}
-                <View style={[styles.preferenceRowColumn, { backgroundColor: colors.wash, borderColor: colors.hairline }]}>
+                <View style={[styles.preferenceRowColumn, { borderBottomColor: 'transparent', borderBottomWidth: 0 }]}>
                   <View style={styles.labelRowBetween}>
                     <Text style={[styles.prefTitle, { color: colors.text }]}>
                       {t.circle.helpCenterTitle || 'Quy tắc cộng đồng'}
@@ -2476,16 +2458,15 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   memberList: {
-    gap: 10,
     paddingBottom: 24,
   },
   memberItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 12,
-    borderRadius: 18,
-    borderWidth: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   memberLeft: {
     flexDirection: 'row',
@@ -2574,14 +2555,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 12,
-    borderRadius: 14,
-    borderWidth: 1,
+    paddingVertical: 13,
+    paddingHorizontal: 4,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   preferenceRowColumn: {
-    padding: 12,
-    borderRadius: 14,
-    borderWidth: 1,
+    paddingVertical: 13,
+    paddingHorizontal: 4,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     gap: 8,
   },
   prefTitle: {

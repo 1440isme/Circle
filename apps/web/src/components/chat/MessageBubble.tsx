@@ -10,7 +10,7 @@ import {
   Check,
   AlertCircle,
   Video,
-  PhoneCall,
+  Phone,
 } from 'lucide-react';
 import { MessageEntity, MessageType } from '@circle/types';
 import { useLanguageStore } from '../../stores/language.store';
@@ -24,10 +24,12 @@ interface MessageBubbleProps {
   isSingleInCluster?: boolean;
   isLatestSentByMe?: boolean;
   isLatestMessage?: boolean;
+  isHighlighted?: boolean;
   onReply: (message: MessageEntity) => void;
   onReact: (messageId: string, emoji: string) => void;
   onTogglePin: (messageId: string, isPinned: boolean) => void;
   onRetry?: (message: MessageEntity) => void;
+  onJumpToMessage?: (messageId: string) => void;
 }
 
 const QUICK_EMOJIS = ['👍', '❤️', '😂', '🔥', '🎉'];
@@ -41,10 +43,12 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   isSingleInCluster = true,
   isLatestSentByMe = false,
   isLatestMessage = false,
+  isHighlighted = false,
   onReply,
   onReact,
   onTogglePin,
   onRetry,
+  onJumpToMessage,
 }) => {
   const t = useLanguageStore((s) => s.t);
   const locale = useLanguageStore((s) => s.locale);
@@ -148,6 +152,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
   return (
     <div
+      id={`message-${message.id}`}
       className={`group relative flex flex-col transition-all w-full ${
         isSenderMe ? 'items-end' : 'items-start'
       }`}
@@ -179,12 +184,23 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             isSenderMe
               ? 'bg-circle-primary text-white dark:bg-circle-dark-primary dark:text-circle-dark-canvas'
               : 'bg-white dark:bg-circle-dark-surface text-circle-charcoal dark:text-circle-dark-text border border-circle-hairline dark:border-circle-dark-hairline'
-          } ${message.isPinned ? 'ring-2 ring-amber-400/40' : ''}`}
+          } ${message.isPinned ? 'ring-2 ring-amber-400/40' : ''} ${
+            isHighlighted
+              ? 'ring-2 ring-circle-primary dark:ring-circle-dark-primary shadow-lg scale-[1.02] bg-circle-primary/10 transition-all duration-300'
+              : ''
+          }`}
         >
-          {/* Reply Quote Banner - Flat rounded container, NO side borders */}
+          {/* Reply Quote Banner - Click to jump smoothly to replied message */}
           {hasValidReply && replyTarget && (
             <div
-              className={`flex items-center gap-2 mb-1.5 rounded-xl px-2.5 py-1 text-xs max-w-full ${
+              onClick={(e) => {
+                e.stopPropagation();
+                if (replyTargetId && onJumpToMessage) {
+                  onJumpToMessage(replyTargetId);
+                }
+              }}
+              title={t.chat.replyAction}
+              className={`flex items-center gap-2 mb-1.5 rounded-xl px-2.5 py-1 text-xs max-w-full cursor-pointer hover:opacity-80 active:scale-[0.98] transition-all select-none ${
                 isSenderMe
                   ? 'bg-white/20 dark:bg-black/20 text-white/95 dark:text-circle-dark-canvas/95'
                   : 'bg-circle-wash/70 dark:bg-circle-dark-wash text-circle-primary dark:text-circle-dark-muted'
@@ -209,22 +225,24 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
           {/* Message Content: Call Summary vs Standard Text */}
           {isCallSummary && callSummaryData ? (
-            <div className="flex items-center gap-3 py-1 pr-1">
-              <div
-                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
-                  isSenderMe
-                    ? 'bg-white/20 text-white'
-                    : callSummaryData.callType === 'VIDEO'
-                    ? 'bg-indigo-500/15 text-indigo-500 dark:text-indigo-400'
-                    : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
-                }`}
-              >
-                {callSummaryData.callType === 'VIDEO' ? (
-                  <Video className="h-4.5 w-4.5" />
-                ) : (
-                  <PhoneCall className="h-4.5 w-4.5" />
-                )}
-              </div>
+            <div className="flex items-center gap-2.5 py-1 pr-1">
+              {callSummaryData.callType === 'VIDEO' ? (
+                <Video
+                  className={`h-5 w-5 shrink-0 ${
+                    isSenderMe
+                      ? 'text-white'
+                      : 'text-indigo-500 dark:text-indigo-400'
+                  }`}
+                />
+              ) : (
+                <Phone
+                  className={`h-5 w-5 shrink-0 ${
+                    isSenderMe
+                      ? 'text-white'
+                      : 'text-emerald-600 dark:text-emerald-400'
+                  }`}
+                />
+              )}
               <div className="flex flex-col min-w-0">
                 <span className="text-xs sm:text-sm font-bold truncate">
                   {callSummaryData.callType === 'VIDEO'
@@ -353,19 +371,21 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             <Reply className="h-3.5 w-3.5 scale-x-[-1]" />
           </button>
 
-          {/* Pin / Unpin Action */}
-          <button
-            type="button"
-            onClick={() => onTogglePin(message.id, !!message.isPinned)}
-            className={`flex h-6 w-6 items-center justify-center rounded-full transition-colors ${
-              message.isPinned
-                ? 'text-amber-500 hover:bg-amber-100/60 dark:hover:bg-amber-950/30'
-                : 'text-circle-slate dark:text-circle-dark-muted hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas hover:text-amber-500'
-            }`}
-            title={message.isPinned ? t.chat.unpinAction : t.chat.pinAction}
-          >
-            <Pin className={`h-3.5 w-3.5 ${message.isPinned ? 'fill-amber-500' : ''}`} />
-          </button>
+          {/* Pin / Unpin Action (Forbidden for call summaries) */}
+          {!isCallSummary && (
+            <button
+              type="button"
+              onClick={() => onTogglePin(message.id, !!message.isPinned)}
+              className={`flex h-6 w-6 items-center justify-center rounded-full transition-colors ${
+                message.isPinned
+                  ? 'text-amber-500 hover:bg-amber-100/60 dark:hover:bg-amber-950/30'
+                  : 'text-circle-slate dark:text-circle-dark-muted hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas hover:text-amber-500'
+              }`}
+              title={message.isPinned ? t.chat.unpinAction : t.chat.pinAction}
+            >
+              <Pin className={`h-3.5 w-3.5 ${message.isPinned ? 'fill-amber-500' : ''}`} />
+            </button>
+          )}
         </div>
       </div>
 

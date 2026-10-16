@@ -548,12 +548,24 @@ export function useChannelMessagesQuery(channelId: string | null) {
       );
     };
 
+    const handlePin = () => {
+      queryClient.invalidateQueries({ queryKey: ['messages', 'channel', channelId] });
+      queryClient.invalidateQueries({ queryKey: ['messages', 'channel', channelId, 'pins'] });
+    };
+
+    const handleUnpin = () => {
+      queryClient.invalidateQueries({ queryKey: ['messages', 'channel', channelId] });
+      queryClient.invalidateQueries({ queryKey: ['messages', 'channel', channelId, 'pins'] });
+    };
+
     getMobileSocket().then((socket) => {
       if (!socket || isCancelled) return;
       activeSocket = socket;
       socket.on('chat:message', handleNewMessage);
       socket.on('chat:reaction', handleReaction);
       socket.on('chat:user-read', handleUserRead);
+      socket.on('chat:pin', handlePin);
+      socket.on('chat:unpin', handleUnpin);
     });
 
     return () => {
@@ -562,6 +574,8 @@ export function useChannelMessagesQuery(channelId: string | null) {
         activeSocket.off('chat:message', handleNewMessage);
         activeSocket.off('chat:reaction', handleReaction);
         activeSocket.off('chat:user-read', handleUserRead);
+        activeSocket.off('chat:pin', handlePin);
+        activeSocket.off('chat:unpin', handleUnpin);
       }
       leaveMobileChannelRoom(channelId);
     };
@@ -776,20 +790,48 @@ export function useReactMessageMutation(channelId: string | null) {
   });
 }
 
+export function usePinnedMessagesQuery(channelId: string | null) {
+  return useQuery({
+    queryKey: ['messages', 'channel', channelId, 'pins'],
+    queryFn: async () => {
+      if (!channelId) return [];
+      const res = await mobileApiRequest<MessageEntity[]>(`/channels/${channelId}/pins`);
+      return res.data;
+    },
+    enabled: !!channelId,
+  });
+}
+
 export function usePinMessageMutation(channelId: string | null) {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ messageId, isPinned }: { messageId: string; isPinned: boolean }) => {
+      // isPinned is the CURRENT pin state of the message
       const method = isPinned ? 'DELETE' : 'POST';
       const res = await mobileApiRequest<any>(`/messages/${messageId}/pin`, {
         method,
       });
-      return res.data;
+      return { messageId, isPinned: !isPinned, data: res.data };
     },
-    onSuccess: () => {
+    onSuccess: ({ messageId, isPinned }) => {
       if (channelId) {
-        queryClient.invalidateQueries({ queryKey: ['messages', 'channel', channelId] });
+        queryClient.invalidateQueries({ queryKey: ['messages', 'channel', channelId, 'pins'] });
+        queryClient.setQueryData<InfiniteData<CursorPaginatedMessages>>(
+          ['messages', 'channel', channelId],
+          (oldData) => {
+            if (!oldData) return oldData;
+            return {
+              ...oldData,
+              pages: oldData.pages.map((page) => ({
+                ...page,
+                messages: page.messages.map((m) =>
+                  m.id === messageId ? { ...m, isPinned } : m,
+                ),
+              })),
+            };
+          },
+        );
       }
     },
   });

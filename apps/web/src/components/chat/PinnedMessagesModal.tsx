@@ -11,6 +11,7 @@ interface PinnedMessagesModalProps {
   pinnedMessages: MessageEntity[];
   isLoading: boolean;
   onUnpin: (messageId: string) => void;
+  onJumpToMessage?: (messageId: string) => void;
 }
 
 export const PinnedMessagesModal: React.FC<PinnedMessagesModalProps> = ({
@@ -19,6 +20,7 @@ export const PinnedMessagesModal: React.FC<PinnedMessagesModalProps> = ({
   pinnedMessages,
   isLoading,
   onUnpin,
+  onJumpToMessage,
 }) => {
   const t = useLanguageStore((s) => s.t);
   const locale = useLanguageStore((s) => s.locale);
@@ -81,7 +83,13 @@ export const PinnedMessagesModal: React.FC<PinnedMessagesModalProps> = ({
               return (
                 <div
                   key={msg.id}
-                  className="flex items-start justify-between gap-3 rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/40 dark:bg-circle-dark-canvas/40 p-3 hover:bg-circle-canvas transition-colors"
+                  onClick={() => {
+                    if (onJumpToMessage) {
+                      onJumpToMessage(msg.id);
+                      onClose();
+                    }
+                  }}
+                  className="flex items-start justify-between gap-3 rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/40 dark:bg-circle-dark-canvas/40 p-3 hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas/70 cursor-pointer transition-colors"
                 >
                   <div className="flex items-start gap-2.5 min-w-0 flex-1">
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-circle-primary/10 text-circle-sage dark:text-circle-primary font-bold text-xs uppercase overflow-hidden">
