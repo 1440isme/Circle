@@ -636,6 +636,9 @@ const MobileSwipeMessageBubble = React.memo(function MobileSwipeMessageBubble({
                 borderColor: colors.primary,
                 transform: [{ scale: 1.02 }],
               },
+              hasReactions && {
+                marginBottom: 6,
+              },
             ]}
           >
             {/* Reply Quote Banner - Separate Touchable to prevent double-tap gesture collision */}
@@ -811,7 +814,7 @@ const MobileSwipeMessageBubble = React.memo(function MobileSwipeMessageBubble({
 
             </TouchableOpacity>
 
-            {/* Overlapping Reaction Badge: Anchored cleanly to bubble bottom corner */}
+            {/* Overlapping Reaction Badge: Anchored cleanly to bubble bottom-right corner (synchronized with Web) */}
             {hasReactions && (
               <View
                 style={[
@@ -819,19 +822,12 @@ const MobileSwipeMessageBubble = React.memo(function MobileSwipeMessageBubble({
                   {
                     backgroundColor: colors.surface,
                     borderColor: colors.hairline,
-                    ...(isSenderMe ? { right: 8 } : { left: 8 }),
+                    right: 6,
                   },
                 ]}
               >
-                {Object.entries(msg.reactionCounts).map(([emoji, count]: [string, any]) => (
-                  <View key={emoji} style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
-                    <Emoji emoji={emoji} size={13} />
-                    {Number(count) > 1 && (
-                      <Text style={{ fontSize: 10, fontWeight: '700', color: colors.text }}>
-                        {count}
-                      </Text>
-                    )}
-                  </View>
+                {Object.keys(msg.reactionCounts).map((emoji: string) => (
+                  <Emoji key={emoji} emoji={emoji} size={14} />
                 ))}
               </View>
             )}
@@ -3428,19 +3424,20 @@ const styles = StyleSheet.create({
   },
   reactionsBadgePill: {
     position: 'absolute',
-    bottom: -9,
+    bottom: -8,
+    right: 6,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 7,
-    paddingVertical: 2.5,
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
     borderRadius: 12,
     borderWidth: 1,
     zIndex: 10,
-    elevation: 3,
+    elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.12,
+    shadowOpacity: 0.1,
     shadowRadius: 2,
   },
   actionEmojiMoreBtn: {

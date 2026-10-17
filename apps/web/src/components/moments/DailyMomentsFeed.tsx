@@ -129,7 +129,10 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
     <div className="flex-1 w-full h-full overflow-y-auto snap-y snap-mandatory custom-scrollbar scroll-smooth flex flex-col relative bg-white dark:bg-circle-dark-surface">
       {/* Loading Skeleton */}
       {isLoading && moments.length === 0 && (
-        <div className="w-full max-w-[min(540px,calc(100vh-220px))] px-4 sm:px-6 mx-auto flex flex-col gap-6 py-4">
+        <div
+          style={{ maxWidth: 'min(100%, calc(100vh - 170px))' }}
+          className="w-full px-4 sm:px-6 mx-auto flex flex-col gap-6 py-4"
+        >
           {[1, 2].map((i) => (
             <div
               key={i}
@@ -172,9 +175,12 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
             return (
               <article
                 key={moment.id}
-                className="snap-start snap-always w-full min-h-[calc(100vh-80px)] flex flex-col items-center justify-center p-3 sm:p-5 transition-colors border-b border-circle-hairline/40 dark:border-circle-dark-hairline/40"
+                className="snap-start snap-always w-full min-h-[calc(100vh-80px)] flex flex-col items-center justify-center p-2 sm:p-4 transition-colors border-b border-circle-hairline/40 dark:border-circle-dark-hairline/40"
               >
-                <div className="w-full max-w-[min(540px,calc(100vh-220px))] flex flex-col gap-3 justify-center">
+                <div
+                  style={{ maxWidth: 'min(100%, calc(100vh - 170px))' }}
+                  className="w-full flex flex-col gap-3 justify-center mx-auto"
+                >
                   {/* Author Info Bar (Padded) */}
                   <div className="flex items-center justify-between px-2">
                     <div className="flex items-center gap-3">
