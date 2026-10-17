@@ -34,6 +34,8 @@ const triggerSelectionHaptic = () => {
     Haptics.selectionAsync();
   } catch {}
 };
+
+const triggerHapticFeedback = triggerLightHaptic;
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -634,7 +636,6 @@ const MobileSwipeMessageBubble = React.memo(function MobileSwipeMessageBubble({
                 borderColor: colors.primary,
                 transform: [{ scale: 1.02 }],
               },
-              },
             ]}
           >
             {/* Reply Quote Banner - Separate Touchable to prevent double-tap gesture collision */}
@@ -1012,7 +1013,6 @@ export default function CircleWorkspaceScreen() {
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
   const [messageInput, setMessageInput] = useState('');
   const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
-  const { width: screenWidth } = useWindowDimensions();
   const [isUploadingMedia, setIsUploadingMedia] = useState(false);
   const [previewingImageUrl, setPreviewingImageUrl] = useState<string | null>(null);
   const [previewSwapped, setPreviewSwapped] = useState(false);

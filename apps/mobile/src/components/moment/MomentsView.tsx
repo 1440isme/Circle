@@ -182,7 +182,7 @@ interface MomentVideoPlayerProps {
 }
 
 const MomentVideoPlayer: React.FC<MomentVideoPlayerProps> = ({ uri, isMuted = true, style }) => {
-  const player = useVideoPlayer(uri, (p) => {
+  const player = useVideoPlayer(uri, (p: any) => {
     p.loop = true;
     p.muted = isMuted;
     p.play();
