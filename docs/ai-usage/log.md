@@ -3848,5 +3848,5 @@
   - **Error Description:** (1) PanResponder bị xung đột thao tác cuộn dọc với FlatList trên Mobile. (2) Typo thẻ video trong chat embed hiển thị loa âm thanh dù GIF không có tiếng.
   - **Root Cause:** (1) Thiếu ngưỡng `Math.abs(dx) > 10` để giải phóng gesture responder cho FlatList. (2) Component nhầm lẫn thuộc tính controls giữa video thông thường và silent animated GIF.
   - **Resolution / Fix:** (1) Thêm ngưỡng xác định hướng gesture để phân biệt drag góc PiP với cuộn feed. (2) Cấu hình `<video>` ở chế độ `autoPlay`, `loop`, `muted`, `playsInline` và bỏ nút loa.
-- **Commit:** `80d6050`
-- **PR:** Pending
+- **Commit:** `700ced7`
+- **PR:** #91
