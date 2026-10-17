@@ -8,6 +8,7 @@ import { useCircleStore } from '@/stores/circle.store';
 import { useMomentsFeedQuery, useCircleMomentsQuery } from '@/hooks/use-moment-queries';
 import { CreateMomentModal } from './CreateMomentModal';
 import { StoryViewerModal } from './StoryViewerModal';
+import { parseMomentPhotos } from '@/lib/moment-photos';
 
 interface MomentsTrayProps {
   circleId?: string;
@@ -78,6 +79,12 @@ export const MomentsTray: React.FC<MomentsTrayProps> = ({ circleId }) => {
         {moments.map((moment, index) => {
           const authorName = moment.author?.profile?.displayName || 'User';
           const authorInitial = authorName.slice(0, 2).toUpperCase();
+          const mainUrl = parseMomentPhotos(moment.photoUrl).mainUrl;
+          const isVideo =
+            moment.mediaType === 'VIDEO' ||
+            mainUrl.includes('.webm') ||
+            mainUrl.includes('.mp4') ||
+            mainUrl.startsWith('data:video/');
 
           return (
             <button
@@ -89,16 +96,16 @@ export const MomentsTray: React.FC<MomentsTrayProps> = ({ circleId }) => {
               <div className="p-0.5 rounded-full bg-gradient-to-tr from-amber-500 via-rose-500 to-circle-primary group-hover:scale-105 transition-transform shadow-sm">
                 <div className="p-0.5 rounded-full bg-white dark:bg-circle-dark-surface">
                   <div className="h-13 w-13 rounded-full bg-circle-charcoal text-white font-bold text-xs flex items-center justify-center overflow-hidden">
-                    {moment.photoUrl ? (
-                      moment.mediaType === 'VIDEO' || moment.photoUrl.startsWith('data:video/') ? (
+                    {mainUrl ? (
+                      isVideo ? (
                         <video
-                          src={moment.photoUrl}
+                          src={mainUrl}
                           className="h-full w-full object-cover pointer-events-none"
                           muted
                         />
                       ) : (
                         <img
-                          src={moment.photoUrl}
+                          src={mainUrl}
                           alt={authorName}
                           className="h-full w-full object-cover"
                         />

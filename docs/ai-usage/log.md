@@ -3738,7 +3738,7 @@
 ## AI-0095: Implement Unique User Handle (Nickname) & Privacy-Preserving User Discovery
 
 - **Date:** 2026-10-09 14:35:00 +07:00
-- **Developer:** Trương Công Bình (23110184)
+- **Developer:** Ninh Thị Mỹ Hạnh (23110210)
 - **Tool:** Antigravity IDE
 - **Model:** Gemini 3.8 Flash (High)
 - **Related Issue:** #84 ([SUB-FEAT]: US-USER-001 — Quản lý Nickname / User Handle định danh duy nhất & tìm kiếm bảo mật)
@@ -3782,3 +3782,71 @@
 - **Commit:** `eab6bcc`
 - **PR:** #85 (https://github.com/1440isme/Circle/pull/85)
 
+---
+
+## AI-0096: Moments Dual Camera Experience, Chat Card Lightbox, Reactions Rules & Web PiP Parity
+
+- **Date:** 2026-10-11 to 2026-10-17
+- **Developer:** Ninh Thị Mỹ Hạnh (23110210)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #90 ([SUB-FEAT]: US-MOMENT-002 — Moments Dual Camera Experience, Chat Card Lightbox, Reactions Rules & Web PiP Parity)
+- **Purpose:**
+  1. **Camera Dual View & Tương tác PiP mượt mà (Mobile React Native Expo):**
+     - Loại bỏ toàn bộ 4 ký hiệu góc ngắm (corner indicator) trong viewfinder camera để khung chụp sạch sẽ, viền bo sát lề màn hình.
+     - Phát triển cơ chế vuốt/kéo thả PiP (`PanResponder` / pointer gesture) tự do trên cả chế độ camera live lẫn review sau khi chụp, tự động snap mượt mà (spring animation) vào 1 trong 4 góc gần nhất (`top-left`, `top-right`, `bottom-right`, `bottom-left`).
+     - Giữ nguyên vị trí góc PiP đã chọn khi chụp, khi xem lại, và khi đổi qua lại giữa camera trước/sau (không bị nhảy về góc mặc định).
+     - Tối ưu phân cấp z-index: PiP nằm dưới các nút tiện ích Flash, Zoom và thanh nhập caption.
+     - Hỗ trợ chạm (Tap) vào khung PiP để hoán đổi nhanh giữa camera trước và sau.
+     - Cố định kích thước camera và viewport khi bàn phím ảo hiển thị (Keyboard avoidance), tự động dịch khung ảnh & caption lên trên để không che khuất nội dung, ẩn floating dock khi mở bàn phím.
+  2. **Điều khiển Camera & Tinh chỉnh Phần cứng:**
+     - **Đèn Flash camera trước:** Thay thế flash phần cứng bằng hiệu ứng chớp sáng trắng toàn màn hình (Screen Flash modal overlay), chỉ nháy sáng tại khoảnh khắc bấm chụp để tiết kiệm pin.
+     - **Dual Camera Mode Lock:** Tự động khóa quay video (chỉ cho phép chụp ảnh) khi đang bật chế độ Dual Camera.
+     - **Selfie Zoom Indicator:** Camera trước ở mức zoom < 1x hiển thị icon khung góc rộng thay vì số; khi zoom ≥ 1x hiển thị số phóng đại tiêu cự bình thường. Cân chỉnh tiêu cự selfie mặc định 0.85x tự nhiên.
+     - **Giới hạn chú thích (Caption):** Ràng buộc tối đa 2 dòng / 80 ký tự, tự động co giãn ôm sát nội dung văn bản.
+  3. **Hiển thị Thẻ Khoảnh khắc trong Nhóm Chat & Lightbox (Chat Embed):**
+     - Định dạng thẻ khoảnh khắc trong tin nhắn nhóm chat dạng khung vuông 1:1 (`aspectRatio: 1`), loại bỏ padding thừa và viền xám không đồng bộ.
+     - Bỏ các thông tin tag rườm rà, đặt caption căn giữa phía dưới ảnh với gradient phủ nhẹ dễ đọc.
+     - Hỗ trợ xem ảnh phóng to toàn màn hình (Dual Camera Lightbox modal) trực tiếp khi bấm vào tin nhắn ảnh trong chat, hỗ trợ khung PiP nổi và hoán đổi góc trước/sau.
+     - Đồng bộ phát GIF khoảnh khắc: Chạy lặp vô tận ở chế độ im lặng (`muted`), gỡ bỏ hoàn toàn nút bật/tắt âm thanh (loa) không phù hợp.
+  4. **Quy tắc Thả cảm xúc & Quyền riêng tư (Reactions Rules & Author Stack):**
+     - **Giới hạn phản ứng:** Mỗi người dùng chỉ được thả tối đa 1 cảm xúc cho mỗi khoảnh khắc (bấm cảm xúc mới sẽ thay thế cảm xúc cũ, bấm lại cảm xúc cũ sẽ hủy bỏ).
+     - **Quy tắc tác giả:** Tác giả không được tự thả cảm xúc cho khoảnh khắc của chính mình.
+     - **Bảo mật số lượng tim:** Chỉ tác giả bài đăng mới được quyền xem tổng số lượng cảm xúc và danh sách người thả; người xem khác không xem được tổng số lượng.
+     - **Author Reactors Stack:** Ẩn hoàn toàn thanh nút cảm xúc đối với tác giả, thay bằng cụm xếp lớp 5 avatar gần nhất kèm huy hiệu emoji tròn nhỏ ở góc dưới mỗi avatar biểu thị cảm xúc của người đó.
+     - **Modal danh sách chi tiết:** Bấm vào cụm avatar sẽ mở modal danh sách chi tiết người bày tỏ cảm xúc (`MomentReactorsModal.tsx`), hỗ trợ lọc theo từng emoji, hiển thị thời gian tương đối và danh tính rõ ràng.
+  5. **Đồng bộ Dual Camera PiP trên Web (`apps/web`):**
+     - Xây dựng parser tiện ích `parseMomentPhotos` tách chuỗi URI `${mainUrl}#pip=${encodeURIComponent(pipUrl)}#corner=${cornerIndex}`.
+     - Phát triển component `MomentPipView.tsx` tương tác kéo thả snap 4 góc, chạm hoán đổi (swap) trước/sau và hover indicator.
+     - Tích hợp mượt mà vào `DailyMomentsFeed.tsx`, `StoryViewerModal.tsx` (chặn nổi bọt sự kiện pointer để không nhảy story) và làm sạch avatar URL trong `MomentsTray.tsx`.
+- **Prompt Summary:** Tinh chỉnh toàn diện trải nghiệm Moments: Camera Dual PiP kéo thả 4 góc mượt mà, flash màn hình trước, zoom selfie <1x khung góc rộng, embed tin nhắn chat khung vuông 1:1 lightbox, giới hạn 1 cảm xúc/người, tác giả không tự thả tim và xem cụm 5 avatar kèm chi tiết người thả, đồng bộ hiển thị Dual Camera PiP trên Web.
+- **Files Affected:**
+  - `apps/mobile/src/components/moment/MomentsView.tsx`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `apps/backend/src/modules/moments/moments.service.ts`
+  - `apps/backend/src/modules/moments/moments.service.spec.ts`
+  - `apps/web/src/lib/moment-photos.ts` (New)
+  - `apps/web/src/components/moments/MomentPipView.tsx` (New)
+  - `apps/web/src/components/moments/MomentReactorsModal.tsx` (New)
+  - `apps/web/src/components/chat/MomentCardChatEmbed.tsx` (New)
+  - `apps/web/src/components/chat/MessageBubble.tsx`
+  - `apps/web/src/components/moments/DailyMomentsFeed.tsx`
+  - `apps/web/src/components/moments/StoryViewerModal.tsx`
+  - `apps/web/src/components/moments/MomentsTray.tsx`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% logic gesture/animation PanResponder, Screen Flash modal, Dual Lightbox modal, Reactions rules, Author Reactors Stack UI và Web Dual PiP component.
+- **Human Modifications:** Ninh Thị Mỹ Hạnh trực tiếp thử nghiệm và chỉ đạo hoàn thiện toàn bộ các chi tiết UX/UI trên Mobile & Web, từ camera viewfinder đến thẻ chat, logic cảm xúc và hiển thị Dual PiP trên Web.
+- **Verification Method:**
+  - `npm test -- apps/backend/src/modules/moments/moments.service.spec.ts`: 22 passed, 22 total.
+  - `cd apps/mobile && npx tsc --noEmit`: 0 TypeScript errors.
+  - `cd apps/web && npx tsc --noEmit`: 0 TypeScript errors.
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn, không chứa secret, tuân thủ nghiêm ngặt quyền riêng tư người dùng.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** (1) PanResponder bị xung đột thao tác cuộn dọc với FlatList trên Mobile. (2) Typo thẻ video trong chat embed hiển thị loa âm thanh dù GIF không có tiếng.
+  - **Root Cause:** (1) Thiếu ngưỡng `Math.abs(dx) > 10` để giải phóng gesture responder cho FlatList. (2) Component nhầm lẫn thuộc tính controls giữa video thông thường và silent animated GIF.
+  - **Resolution / Fix:** (1) Thêm ngưỡng xác định hướng gesture để phân biệt drag góc PiP với cuộn feed. (2) Cấu hình `<video>` ở chế độ `autoPlay`, `loop`, `muted`, `playsInline` và bỏ nút loa.
+- **Commit:** `80d6050`
+- **PR:** Pending

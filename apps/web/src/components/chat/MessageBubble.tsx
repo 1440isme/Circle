@@ -12,6 +12,10 @@ import {
 } from 'lucide-react';
 import { MessageEntity, MessageType } from '@circle/types';
 import { useLanguageStore } from '../../stores/language.store';
+import {
+  MomentCardChatEmbed,
+  parseMomentReplyMetadata,
+} from './MomentCardChatEmbed';
 
 interface MessageBubbleProps {
   message: MessageEntity;
@@ -48,6 +52,12 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   const locale = useLanguageStore((s) => s.locale);
   const [showTimestamp, setShowTimestamp] = useState(false);
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+
+  const momentMeta = parseMomentReplyMetadata(message.fileName);
+  const isMomentReply = Boolean(
+    momentMeta || (message.fileUrl && message.fileUrl.includes('#pip=')),
+  );
 
   const replyTargetId =
     typeof message.replyTo === 'string'
@@ -96,11 +106,15 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
+  const fileUrlStr = message.fileUrl || '';
+  const cleanFileUrl = fileUrlStr.split('#')[0].split('?')[0];
   const isImageAttachment =
     message.type === MessageType.FILE &&
-    message.fileUrl &&
-    (message.fileUrl.startsWith('data:image/') ||
-      /\.(jpeg|jpg|gif|png|webp|svg)($|\?)/i.test(message.fileUrl));
+    Boolean(message.fileUrl) &&
+    (isMomentReply ||
+      fileUrlStr.startsWith('data:image/') ||
+      /\.(jpeg|jpg|gif|png|webp|svg)$/i.test(cleanFileUrl) ||
+      fileUrlStr.includes('#pip='));
 
   // Determine corner radius styles for smart stacking
   const getBubbleRadius = () => {
@@ -150,10 +164,18 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       <div className="relative inline-block w-fit max-w-full">
         <div
           onClick={() => setShowTimestamp((prev) => !prev)}
-          className={`relative cursor-pointer select-text px-4 py-2.5 transition-all shadow-sm w-fit max-w-full ${getBubbleRadius()} ${
-            isSenderMe
-              ? 'bg-circle-primary text-white dark:bg-circle-dark-primary dark:text-circle-dark-canvas'
-              : 'bg-white dark:bg-circle-dark-surface text-circle-charcoal dark:text-circle-dark-text border border-circle-hairline dark:border-circle-dark-hairline'
+          className={`relative cursor-pointer select-text transition-all shadow-sm w-fit max-w-full ${getBubbleRadius()} ${
+            isMomentReply && !message.content
+              ? 'p-0 bg-transparent border-0 shadow-none'
+              : isMomentReply && message.content
+              ? 'p-1.5 ' +
+                (isSenderMe
+                  ? 'bg-circle-primary text-white dark:bg-circle-dark-primary dark:text-circle-dark-canvas'
+                  : 'bg-white dark:bg-circle-dark-surface text-circle-charcoal dark:text-circle-dark-text border border-circle-hairline dark:border-circle-dark-hairline')
+              : 'px-4 py-2.5 ' +
+                (isSenderMe
+                  ? 'bg-circle-primary text-white dark:bg-circle-dark-primary dark:text-circle-dark-canvas'
+                  : 'bg-white dark:bg-circle-dark-surface text-circle-charcoal dark:text-circle-dark-text border border-circle-hairline dark:border-circle-dark-hairline')
           } ${message.isPinned ? 'ring-2 ring-amber-400/40' : ''}`}
         >
           {/* Reply Quote Banner - Flat rounded container, NO side borders */}
@@ -176,25 +198,55 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               </span>
               <span className="truncate opacity-90">
                 {replyTarget.content ||
+                  (() => {
+                    const meta = parseMomentReplyMetadata(
+                      (replyTarget as any).fileName,
+                    );
+                    if (meta) {
+                      return meta.caption
+                        ? `📸 "${meta.caption}"`
+                        : `📸 Khoảnh khắc của ${meta.authorName}`;
+                    }
+                    return null;
+                  })() ||
                   (replyTarget.type === MessageType.FILE ? `[${t.chat.fileDownload}]` : '') ||
                   'Tin nhắn'}
               </span>
             </div>
           )}
 
+          {/* Moment Card Chat Embed (Đồng bộ chuẩn vuông 1:1, PiP, góc trên phải với app) */}
+          {isMomentReply && message.fileUrl && (
+            <div className={message.content ? 'mb-1.5' : ''} onClick={(e) => e.stopPropagation()}>
+              <MomentCardChatEmbed
+                fileUrl={message.fileUrl}
+                metadata={momentMeta}
+                fallbackCreatedAt={message.sentAt}
+                locale={locale}
+              />
+            </div>
+          )}
+
           {/* Message Text Content */}
           {message.content && (
-            <div className="text-xs sm:text-sm whitespace-pre-wrap break-words leading-relaxed font-normal">
+            <div
+              className={`text-xs sm:text-sm whitespace-pre-wrap break-words leading-relaxed font-normal ${
+                isMomentReply ? 'px-2 pt-1 pb-1 font-medium' : ''
+              }`}
+            >
               {message.content}
             </div>
           )}
 
-          {/* Attachment: Image */}
-          {isImageAttachment && message.fileUrl && (
+          {/* Attachment: Image (Standard Non-Moment Image) */}
+          {!isMomentReply && isImageAttachment && message.fileUrl && (
             <div className="mt-2" onClick={(e) => e.stopPropagation()}>
               <button
                 type="button"
-                onClick={() => setIsImageModalOpen(true)}
+                onClick={() => {
+                  setPreviewImageUrl(message.fileUrl!);
+                  setIsImageModalOpen(true);
+                }}
                 className="group/img relative max-w-sm overflow-hidden rounded-2xl border border-white/20 dark:border-black/20 shadow-sm hover:opacity-95 transition-opacity"
               >
                 <img
@@ -203,20 +255,23 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                   className="max-h-72 w-auto object-cover rounded-2xl"
                 />
               </button>
+            </div>
+          )}
 
-              {/* Lightbox Modal */}
-              {isImageModalOpen && (
-                <div
-                  className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
-                  onClick={() => setIsImageModalOpen(false)}
-                >
-                  <img
-                    src={message.fileUrl}
-                    alt={message.fileName || 'Attachment'}
-                    className="max-h-[90vh] max-w-[90vw] object-contain rounded-2xl shadow-2xl"
-                  />
-                </div>
-              )}
+          {/* Lightbox Modal */}
+          {isImageModalOpen && (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm p-4 animate-in fade-in duration-150"
+              onClick={() => {
+                setIsImageModalOpen(false);
+                setPreviewImageUrl(null);
+              }}
+            >
+              <img
+                src={previewImageUrl || message.fileUrl!}
+                alt={message.fileName || 'Attachment'}
+                className="max-h-[90vh] max-w-[90vw] object-contain rounded-2xl shadow-2xl select-none"
+              />
             </div>
           )}
 

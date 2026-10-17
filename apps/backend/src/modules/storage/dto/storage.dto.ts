@@ -13,4 +13,5 @@ export class DirectUploadDto implements DirectUploadInput {
   fileName!: string;
   contentType!: string;
   base64Data!: string;
+  key?: string;
 }

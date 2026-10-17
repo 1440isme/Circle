@@ -26,12 +26,15 @@ export class MomentsService {
    */
   private transformMoments(moments: any[], currentUserId: string): MomentEntity[] {
     return moments.map((m) => {
+      const isAuthor = m.authorId === currentUserId;
       const reactionCounts: Record<string, number> = {};
       let userReaction: string | null = null;
 
       if (Array.isArray(m.reactions)) {
         for (const r of m.reactions) {
-          reactionCounts[r.emoji] = (reactionCounts[r.emoji] || 0) + 1;
+          if (isAuthor) {
+            reactionCounts[r.emoji] = (reactionCounts[r.emoji] || 0) + 1;
+          }
           if (r.userId === currentUserId) {
             userReaction = r.emoji;
           }
@@ -74,13 +77,13 @@ export class MomentsService {
                 : undefined,
             }))
           : [],
-        reactions: Array.isArray(m.reactions)
+        reactions: isAuthor && Array.isArray(m.reactions)
           ? m.reactions.map((r: any) => ({
               id: r.id,
               momentId: r.momentId,
               userId: r.userId,
               emoji: r.emoji,
-              createdAt: r.createdAt.toISOString(),
+              createdAt: r.createdAt instanceof Date ? r.createdAt.toISOString() : (r.createdAt ? new Date(r.createdAt).toISOString() : new Date().toISOString()),
               user: r.user
                 ? {
                     id: r.user.id,
@@ -90,7 +93,7 @@ export class MomentsService {
                 : undefined,
             }))
           : [],
-        reactionCounts,
+        reactionCounts: isAuthor ? reactionCounts : {},
         userReaction,
       };
     });
@@ -216,6 +219,7 @@ export class MomentsService {
           },
         },
         reactions: {
+          orderBy: { createdAt: 'desc' },
           include: {
             user: {
               select: {
@@ -286,6 +290,7 @@ export class MomentsService {
           },
         },
         reactions: {
+          orderBy: { createdAt: 'desc' },
           include: {
             user: {
               select: {
@@ -328,38 +333,61 @@ export class MomentsService {
       throw new NotFoundException(dict.auth.userNotFound);
     }
 
-    // Verify user has access to this moment (member of at least one visible circle or author)
-    const circleIds = moment.visibilities.map((v) => v.circleId);
-    if (moment.authorId !== userId) {
-      const membership = await this.prisma.circleMember.findFirst({
-        where: {
-          userId,
-          circleId: { in: circleIds },
-        },
-        select: { id: true },
-      });
-
-      if (!membership) {
-        throw new ForbiddenException(dict.circle.privateForbidden);
-      }
+    // Author cannot react to their own moment
+    if (moment.authorId === userId) {
+      throw new ForbiddenException(
+        locale === 'vi'
+          ? 'Người đăng bài không thể tự thả cảm xúc cho khoảnh khắc của chính mình'
+          : 'Authors cannot react to their own moments',
+      );
     }
 
-    // Check if reaction already exists
-    const existing = await this.prisma.momentReaction.findUnique({
+    // Verify user has access to this moment (member of at least one visible circle)
+    const circleIds = moment.visibilities.map((v) => v.circleId);
+    const membership = await this.prisma.circleMember.findFirst({
       where: {
-        momentId_userId_emoji: {
-          momentId,
-          userId,
-          emoji,
-        },
+        userId,
+        circleId: { in: circleIds },
+      },
+      select: { id: true },
+    });
+
+    if (!membership) {
+      throw new ForbiddenException(dict.circle.privateForbidden);
+    }
+
+    // Check if user already has any reaction on this moment (1 reaction per user rule)
+    const existingList = await this.prisma.momentReaction.findMany({
+      where: {
+        momentId,
+        userId,
       },
     });
 
-    if (existing) {
-      await this.prisma.momentReaction.delete({
-        where: { id: existing.id },
+    if (existingList.length > 0) {
+      const matchSame = existingList.find((r) => r.emoji === emoji);
+      // Clean up previous reaction(s) to guarantee exactly 1 reaction per user
+      await this.prisma.momentReaction.deleteMany({
+        where: {
+          momentId,
+          userId,
+        },
       });
-      return { reacted: false, emoji };
+
+      if (matchSame) {
+        // Tapped same emoji -> toggled off
+        return { reacted: false, emoji };
+      } else {
+        // Tapped different emoji -> switch to new emoji
+        await this.prisma.momentReaction.create({
+          data: {
+            momentId,
+            userId,
+            emoji,
+          },
+        });
+        return { reacted: true, emoji };
+      }
     } else {
       await this.prisma.momentReaction.create({
         data: {
@@ -474,12 +502,23 @@ export class MomentsService {
       });
     }
 
-    // 5. Build moment quote title
+    // 5. Build moment quote title and structured metadata
     const momentAuthorName =
       moment.author?.profile?.displayName || moment.author?.email?.split('@')[0] || 'User';
+    const momentAuthorAvatar = moment.author?.profile?.avatarUrl || null;
     const quoteTitle = moment.caption
       ? `Khoảnh khắc: "${moment.caption}"`
       : dict.moments.quoteMomentAuthor.replace('{author}', momentAuthorName);
+
+    const momentMetadata = JSON.stringify({
+      type: 'MOMENT_REPLY',
+      momentId: moment.id,
+      authorName: momentAuthorName,
+      authorAvatar: momentAuthorAvatar,
+      caption: moment.caption || null,
+      createdAt: moment.createdAt ? (typeof moment.createdAt.toISOString === 'function' ? moment.createdAt.toISOString() : String(moment.createdAt)) : new Date().toISOString(),
+      fallbackTitle: quoteTitle,
+    });
 
     // 6. Create Message in Circle's Channel
     const rawMessage = await this.prisma.message.create({
@@ -489,7 +528,7 @@ export class MomentsService {
         type: 'FILE',
         content: dto.message.trim(),
         fileUrl: moment.photoUrl,
-        fileName: quoteTitle,
+        fileName: momentMetadata,
         fileSize: 0,
       },
       include: {

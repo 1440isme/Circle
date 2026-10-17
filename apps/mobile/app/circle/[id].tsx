@@ -17,6 +17,7 @@ import {
   Animated,
   Vibration,
   Keyboard,
+  useWindowDimensions,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 
@@ -67,6 +68,7 @@ import {
   AlertCircle,
   WifiOff,
   ArrowUpCircle,
+  RefreshCw,
 } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useThemeStore } from '../../src/stores/theme.store';
@@ -88,7 +90,7 @@ import { getStorageItem } from '../../src/services/storage';
 import { useQueryClient, InfiniteData } from '@tanstack/react-query';
 import { MessageType, CursorPaginatedMessages } from '@circle/types';
 import { CircleManagementModal } from '../../src/components/circle/CircleManagementModal';
-import { MomentsView } from '../../src/components/moment/MomentsView';
+import { MomentsView, parseMomentPhotos, MomentFeedPipView, formatMomentRelativeTime } from '../../src/components/moment/MomentsView';
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -179,6 +181,167 @@ function buildMobileClusters(
 
 const QUICK_EMOJIS = ['👍', '❤️', '😂', '🔥', '🎉'];
 
+interface MomentReplyMetadata {
+  type: string;
+  momentId?: string;
+  authorName?: string;
+  authorAvatar?: string | null;
+  caption?: string | null;
+  createdAt?: string;
+  fallbackTitle?: string;
+}
+
+function parseMomentReplyMetadata(fileName?: string | null): MomentReplyMetadata | null {
+  if (!fileName) return null;
+  if (fileName.startsWith('{') && fileName.includes('"MOMENT_REPLY"')) {
+    try {
+      const parsed = JSON.parse(fileName);
+      if (parsed.type === 'MOMENT_REPLY') {
+        return parsed;
+      }
+    } catch {}
+  }
+  if (fileName.startsWith('Khoảnh khắc: ') || fileName.startsWith('Khoảnh khắc của ')) {
+    let caption: string | null = null;
+    let authorName: string | null = null;
+    if (fileName.startsWith('Khoảnh khắc: "')) {
+      const match = fileName.match(/Khoảnh khắc: "(.*)"/);
+      caption = match ? match[1] : null;
+    } else {
+      authorName = fileName.replace('Khoảnh khắc của ', '').trim();
+    }
+    return {
+      type: 'MOMENT_REPLY',
+      authorName: authorName || 'Thành viên',
+      caption,
+      fallbackTitle: fileName,
+    };
+  }
+  return null;
+}
+
+function MomentCardChatEmbed({
+  fileUrl,
+  metadata,
+  fallbackCreatedAt,
+  onPress,
+  colors,
+}: {
+  fileUrl: string;
+  metadata: MomentReplyMetadata | null;
+  fallbackCreatedAt?: string | null;
+  onPress?: () => void;
+  colors: any;
+}) {
+  const { mainUrl, pipUrl, cornerIndex } = parseMomentPhotos(fileUrl);
+  const [isSwapped, setIsSwapped] = useState(false);
+  const locale = useLanguageStore((s) => s.locale);
+
+  const displayMain = isSwapped ? (pipUrl || mainUrl) : mainUrl;
+  const displayPip = isSwapped ? mainUrl : pipUrl;
+
+  const authorName = metadata?.authorName || 'Thành viên';
+  const authorAvatar = metadata?.authorAvatar;
+  const caption = metadata?.caption;
+  const targetDate = metadata?.createdAt || fallbackCreatedAt;
+  const timeFormatted = targetDate ? formatMomentRelativeTime(targetDate, locale) : null;
+
+  // PIP offset positioning in 220x220 square card
+  const pipCoords = useMemo(() => {
+    const margin = 8;
+    switch (cornerIndex % 4) {
+      case 0:
+        return { top: margin, left: margin };
+      case 1:
+        return { top: margin, right: margin };
+      case 2:
+        return { bottom: margin, right: margin };
+      case 3:
+        return { bottom: margin, left: margin };
+      default:
+        return { top: margin, left: margin };
+    }
+  }, [cornerIndex]);
+
+
+
+  return (
+    <TouchableOpacity
+      activeOpacity={0.9}
+      onPress={onPress}
+      style={styles.momentCardPhotoFrame}
+    >
+      {displayMain ? (
+        <RNImage
+          source={{ uri: displayMain }}
+          style={styles.momentCardPhotoMain}
+          resizeMode="cover"
+        />
+      ) : (
+        <View style={styles.momentCardPhotoEmpty}>
+          <ImageIcon size={32} color="rgba(255, 255, 255, 0.5)" />
+        </View>
+      )}
+
+      {/* Author Name & Time Overlay directly on top of photo */}
+      <View style={styles.momentCardTopOverlay} pointerEvents="none">
+        {authorAvatar ? (
+          <RNImage source={{ uri: authorAvatar }} style={styles.momentCardOverlayAvatar} />
+        ) : (
+          <View style={[styles.momentCardOverlayAvatarPlaceholder, { backgroundColor: colors.primary }]}>
+            <Text style={styles.momentCardOverlayAvatarText}>
+              {getInitials(authorName)}
+            </Text>
+          </View>
+        )}
+        <View style={{ maxWidth: 110 }}>
+          <Text numberOfLines={1} style={styles.momentCardOverlayAuthorName}>
+            {authorName}
+          </Text>
+          {timeFormatted ? (
+            <Text style={styles.momentCardOverlayTimeText}>
+              {timeFormatted}
+            </Text>
+          ) : null}
+        </View>
+      </View>
+
+      {/* PIP Floating Mini Thumbnail */}
+      {displayPip ? (
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={() => {
+            triggerHapticFeedback();
+            setIsSwapped((prev) => !prev);
+          }}
+          style={[
+            styles.momentCardPipBox,
+            pipCoords,
+            { borderColor: colors.primary },
+          ]}
+        >
+          <RNImage
+            source={{ uri: displayPip }}
+            style={styles.momentCardPipImage}
+            resizeMode="cover"
+          />
+        </TouchableOpacity>
+      ) : null}
+
+      {/* Moment Caption Overlay */}
+      {caption ? (
+        <View style={styles.momentCardCaptionContainer} pointerEvents="none">
+          <View style={styles.momentCardCaptionPill}>
+            <Text numberOfLines={2} ellipsizeMode="tail" style={styles.momentCardCaptionText}>
+              {caption}
+            </Text>
+          </View>
+        </View>
+      ) : null}
+    </TouchableOpacity>
+  );
+}
+
 interface MobileSwipeMessageBubbleProps {
   msg: any;
   allMessages?: any[];
@@ -238,6 +401,10 @@ function MobileSwipeMessageBubble({
         replyTarget.fileName ||
         replyTarget.fileUrl),
   );
+
+  const hasText = Boolean(msg.content && msg.content.trim());
+  const hasImage = Boolean(msg.fileUrl);
+  const isMediaOnly = hasImage && !hasText && !hasValidReply;
 
   const panResponder = useRef(
     PanResponder.create({
@@ -367,6 +534,18 @@ function MobileSwipeMessageBubble({
               isSenderMe
                 ? { backgroundColor: colors.primary, alignSelf: 'flex-end' }
                 : { backgroundColor: colors.surface, borderColor: colors.hairline, alignSelf: 'flex-start' },
+              isMediaOnly && {
+                backgroundColor: 'transparent',
+                borderColor: 'transparent',
+                borderWidth: 0,
+                paddingHorizontal: 0,
+                paddingVertical: 0,
+              },
+              hasImage && hasText && {
+                paddingHorizontal: 6,
+                paddingTop: 6,
+                paddingBottom: 8,
+              },
             ]}
           >
             {/* Reply Quote Banner - Beautiful horizontal inline pill matching Web */}
@@ -416,34 +595,56 @@ function MobileSwipeMessageBubble({
                   {replyTarget.content ||
                     replyTarget.text ||
                     replyTarget.message ||
-                    (replyTarget.fileName ? `📎 ${replyTarget.fileName}` : '') ||
+                    (() => {
+                      const meta = parseMomentReplyMetadata(replyTarget.fileName);
+                      if (meta) {
+                        return meta.caption ? `📸 "${meta.caption}"` : `📸 Khoảnh khắc của ${meta.authorName}`;
+                      }
+                      return replyTarget.fileName ? `📎 ${replyTarget.fileName}` : '';
+                    })() ||
                     (replyTarget.fileUrl ? '📷 [Hình ảnh/Tệp tin]' : '') ||
                     'Tin nhắn'}
                 </Text>
               </View>
             )}
 
-            {/* Image Attachment */}
-            {Boolean(msg.fileUrl) && (
-              <TouchableOpacity
-                activeOpacity={0.9}
-                onPress={() => onPreviewImage?.(msg.fileUrl)}
-                style={styles.bubbleImageWrapper}
-              >
-                <RNImage
-                  source={{ uri: msg.fileUrl }}
-                  style={styles.bubbleImageContent}
-                  resizeMode="cover"
-                />
-              </TouchableOpacity>
-            )}
+            {/* Image / Moment Card Attachment */}
+            {Boolean(msg.fileUrl) && (() => {
+              const momentMeta = parseMomentReplyMetadata(msg.fileName);
+              const isMomentReply = Boolean(momentMeta || (msg.fileUrl && msg.fileUrl.includes('#pip=')));
+              if (isMomentReply) {
+                return (
+                  <MomentCardChatEmbed
+                    fileUrl={msg.fileUrl}
+                    metadata={momentMeta}
+                    fallbackCreatedAt={msg.sentAt || msg.createdAt}
+                    onPress={() => onPreviewImage?.(msg.fileUrl)}
+                    colors={colors}
+                  />
+                );
+              }
+              return (
+                <TouchableOpacity
+                  activeOpacity={0.9}
+                  onPress={() => onPreviewImage?.(msg.fileUrl)}
+                  style={styles.bubbleImageWrapper}
+                >
+                  <RNImage
+                    source={{ uri: msg.fileUrl }}
+                    style={styles.bubbleImageContent}
+                    resizeMode="cover"
+                  />
+                </TouchableOpacity>
+              );
+            })()}
 
             {/* Message Text Content */}
-            {Boolean(msg.content && msg.content.trim()) && (
+            {hasText && (
               <Text
                 style={[
                   styles.messageText,
                   { color: isSenderMe ? colors.onPrimary : colors.text },
+                  hasImage && { paddingHorizontal: 6, paddingTop: 4 },
                 ]}
               >
                 {msg.content}
@@ -614,8 +815,25 @@ export default function CircleWorkspaceScreen() {
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
   const [messageInput, setMessageInput] = useState('');
   const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
+  const { width: screenWidth } = useWindowDimensions();
   const [isUploadingMedia, setIsUploadingMedia] = useState(false);
   const [previewingImageUrl, setPreviewingImageUrl] = useState<string | null>(null);
+  const [previewSwapped, setPreviewSwapped] = useState(false);
+  const [previewCorner, setPreviewCorner] = useState<number>(0);
+
+  const previewParsed = useMemo(() => {
+    if (!previewingImageUrl) return null;
+    return parseMomentPhotos(previewingImageUrl);
+  }, [previewingImageUrl]);
+
+  const dualPreviewSize = useMemo(() => Math.min(screenWidth - 32, 420), [screenWidth]);
+
+  const handleOpenImagePreview = (url: string) => {
+    const parsed = parseMomentPhotos(url);
+    setPreviewCorner(parsed.cornerIndex || 0);
+    setPreviewSwapped(false);
+    setPreviewingImageUrl(url);
+  };
   const [isSocketConnected, setIsSocketConnected] = useState(true);
   const [replyingMessage, setReplyingMessage] = useState<any | null>(null);
   const [activeActionMessage, setActiveActionMessage] = useState<any | null>(null);
@@ -1195,7 +1413,7 @@ export default function CircleWorkspaceScreen() {
                                 onLongPress={() => setActiveActionMessage(msg)}
                                 onSwipeReply={() => setReplyingMessage(msg)}
                                 onRetry={handleRetry}
-                                onPreviewImage={(url) => setPreviewingImageUrl(url)}
+                                onPreviewImage={handleOpenImagePreview}
                               />
                             );
                           })}
@@ -1267,7 +1485,7 @@ export default function CircleWorkspaceScreen() {
                                   onLongPress={() => setActiveActionMessage(msg)}
                                   onSwipeReply={() => setReplyingMessage(msg)}
                                   onRetry={handleRetry}
-                                  onPreviewImage={(url) => setPreviewingImageUrl(url)}
+                                  onPreviewImage={handleOpenImagePreview}
                                 />
                               );
                             })}
@@ -1655,20 +1873,93 @@ export default function CircleWorkspaceScreen() {
         animationType="fade"
         onRequestClose={() => setPreviewingImageUrl(null)}
       >
-        <View style={[styles.fullScreenModalBg, { backgroundColor: colors.canvas }]}>
-          <TouchableOpacity
-            style={[styles.closeFullImgBtn, { backgroundColor: colors.surface }]}
-            onPress={() => setPreviewingImageUrl(null)}
-          >
-            <X size={20} color={colors.text} />
-          </TouchableOpacity>
-          {previewingImageUrl && (
-            <RNImage
-              source={{ uri: previewingImageUrl }}
-              style={styles.fullScreenImg}
-              resizeMode="contain"
-            />
-          )}
+        <View style={[styles.fullScreenModalBg, { backgroundColor: 'rgba(0, 0, 0, 0.95)' }]}>
+          {/* Top Header Bar */}
+          <View style={styles.fullScreenHeaderRow}>
+            <View />
+
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              {Boolean(previewParsed?.pipUrl) && (
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  style={[styles.fullScreenActionBtn, { backgroundColor: 'rgba(255, 255, 255, 0.2)' }]}
+                  onPress={() => {
+                    triggerHapticFeedback();
+                    setPreviewSwapped((prev) => !prev);
+                  }}
+                >
+                  <RefreshCw size={18} color="#FFFFFF" />
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                activeOpacity={0.7}
+                style={[styles.fullScreenActionBtn, { backgroundColor: 'rgba(255, 255, 255, 0.2)' }]}
+                onPress={() => setPreviewingImageUrl(null)}
+              >
+                <X size={20} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Main Content: Dual Photo or Standard Image */}
+          {previewingImageUrl && (() => {
+            if (previewParsed?.pipUrl) {
+              const displayMain = previewSwapped ? previewParsed.pipUrl : previewParsed.mainUrl;
+              const displayPip = previewSwapped ? previewParsed.mainUrl : previewParsed.pipUrl;
+              return (
+                <View style={styles.dualPreviewWrapper}>
+                  <View
+                    style={[
+                      styles.dualPreviewContainer,
+                      {
+                        width: dualPreviewSize,
+                        height: dualPreviewSize,
+                      },
+                    ]}
+                  >
+                    <RNImage
+                      source={{ uri: displayMain }}
+                      style={styles.dualPreviewMainImg}
+                      resizeMode="cover"
+                    />
+
+                    {/* Draggable & Tappable PIP View with Physics */}
+                    <MomentFeedPipView
+                      pipUrl={displayPip}
+                      initialCornerIndex={previewCorner}
+                      momentSize={dualPreviewSize}
+                      primaryColor={colors.primary}
+                      onSwap={() => {
+                        triggerHapticFeedback();
+                        setPreviewSwapped((prev) => !prev);
+                      }}
+                      onCornerChange={(newCorner) => setPreviewCorner(newCorner)}
+                    />
+                  </View>
+                </View>
+              );
+            }
+
+            return (
+              <View style={styles.dualPreviewWrapper}>
+                <View
+                  style={[
+                    styles.dualPreviewContainer,
+                    {
+                      width: dualPreviewSize,
+                      height: dualPreviewSize,
+                    },
+                  ]}
+                >
+                  <RNImage
+                    source={{ uri: previewingImageUrl }}
+                    style={styles.dualPreviewMainImg}
+                    resizeMode="cover"
+                  />
+                </View>
+              </View>
+            );
+          })()}
         </View>
       </Modal>
 
@@ -2161,7 +2452,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   bubbleImageWrapper: {
-    borderRadius: 14,
+    borderRadius: 18,
     overflow: 'hidden',
     marginBottom: 4,
     width: 220,
@@ -2170,6 +2461,176 @@ const styles = StyleSheet.create({
   bubbleImageContent: {
     width: '100%',
     height: '100%',
+    borderRadius: 18,
+  },
+  momentCardContainer: {
+    width: 230,
+    borderRadius: 18,
+    borderWidth: 1,
+    overflow: 'hidden',
+    marginBottom: 6,
+    padding: 8,
+    gap: 6,
+  },
+  momentCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  momentCardAuthorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    flex: 1,
+  },
+  momentCardAvatar: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+  },
+  momentCardAvatarPlaceholder: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  momentCardAvatarText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  momentCardAuthorName: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  momentBadgePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 8,
+  },
+  momentBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 8.5,
+    fontWeight: '800',
+    letterSpacing: 0.2,
+  },
+  momentCardTimeText: {
+    color: 'rgba(255, 255, 255, 0.65)',
+    fontSize: 9.5,
+    fontWeight: '500',
+  },
+  momentCardPhotoFrame: {
+    width: 220,
+    height: 220,
+    borderRadius: 18,
+    overflow: 'hidden',
+    position: 'relative',
+    backgroundColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 0,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  momentCardTopOverlay: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    paddingHorizontal: 7,
+    paddingVertical: 3.5,
+    borderRadius: 12,
+    zIndex: 5,
+  },
+  momentCardOverlayAvatar: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+  },
+  momentCardOverlayAvatarPlaceholder: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  momentCardOverlayAvatarText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '800',
+  },
+  momentCardOverlayAuthorName: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  momentCardOverlayTimeText: {
+    color: 'rgba(255, 255, 255, 0.75)',
+    fontSize: 8.5,
+    fontWeight: '500',
+  },
+  momentCardPhotoMain: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 18,
+  },
+  momentCardPhotoEmpty: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  momentCardPipBox: {
+    position: 'absolute',
+    width: 60,
+    height: 60,
+    borderRadius: 14,
+    borderWidth: 2,
+    overflow: 'hidden',
+    backgroundColor: 'transparent',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.35,
+    shadowRadius: 5,
+    elevation: 4,
+    zIndex: 5,
+  },
+  momentCardPipImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 12,
+  },
+  momentCardCaptionContainer: {
+    position: 'absolute',
+    bottom: 6,
+    left: 8,
+    right: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 15,
+    elevation: 8,
+  },
+  momentCardCaptionPill: {
+    maxWidth: '90%',
+    alignSelf: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  momentCardCaptionText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   timestampRow: {
     flexDirection: 'row',
@@ -2281,9 +2742,66 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  fullScreenHeaderRow: {
+    position: 'absolute',
+    top: 50,
+    left: 20,
+    right: 20,
+    zIndex: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  fullScreenActionBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  dualBadgeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  dualBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  dualPreviewWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dualPreviewContainer: {
+    borderRadius: 28,
+    overflow: 'hidden',
+    position: 'relative',
+    backgroundColor: '#1E293B',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  dualPreviewMainImg: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 28,
+  },
+  dualPreviewHintText: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 13,
+    fontWeight: '500',
+    marginTop: 18,
+    textAlign: 'center',
+  },
   fullScreenImg: {
     width: '100%',
     height: '80%',
+    borderRadius: 28,
   },
   loadEarlierContainer: {
     alignItems: 'center',

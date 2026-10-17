@@ -13,8 +13,6 @@ import {
   Sparkles,
   Pause,
   Play,
-  Volume2,
-  VolumeX,
   Send,
   MessageCircle,
   CheckCircle2,
@@ -28,6 +26,9 @@ import {
   useDeleteMomentMutation,
   useReplyMomentMutation,
 } from '@/hooks/use-moment-queries';
+import { MomentReactorsModal } from './MomentReactorsModal';
+import { MomentPipView } from './MomentPipView';
+import { parseMomentPhotos } from '@/lib/moment-photos';
 
 interface StoryViewerModalProps {
   moments: MomentEntity[];
@@ -39,6 +40,13 @@ interface StoryViewerModalProps {
 const EMOJI_OPTIONS = ['❤️', '😂', '🔥', '👏', '😍'];
 const STORY_DURATION_MS = 5000;
 
+const STORY_VIEWER_CORNERS: Record<number, string> = {
+  0: 'top-16 left-4',
+  1: 'top-16 right-4',
+  2: 'bottom-28 right-4',
+  3: 'bottom-28 left-4',
+};
+
 export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
   moments,
   initialIndex = 0,
@@ -47,10 +55,13 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
 }) => {
   const { user } = useAuth();
   const t = useLanguageStore((s) => s.t);
+  const locale = useLanguageStore((s) => s.locale);
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [isPaused, setIsPaused] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [isMuted, setIsMuted] = useState(false);
+  const [isReactorsOpen, setIsReactorsOpen] = useState(false);
+  const [swappedMoments, setSwappedMoments] = useState<Record<string, boolean>>({});
+  const [viewerPipCorners, setViewerPipCorners] = useState<Record<string, number>>({});
 
   const videoPlayerRef = useRef<HTMLVideoElement>(null);
 
@@ -66,9 +77,20 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
   const currentMoment = moments[currentIndex];
   const isAuthor = currentMoment?.authorId === user?.id;
 
+  const { mainUrl, pipUrl, cornerIndex: defaultCorner } = parseMomentPhotos(currentMoment?.photoUrl);
+  const isSwapped = Boolean(currentMoment && swappedMoments[currentMoment.id]);
+  const displayMain = isSwapped ? pipUrl : mainUrl;
+  const displayPip = isSwapped ? mainUrl : pipUrl;
+  const activeCornerIndex =
+    currentMoment && viewerPipCorners[currentMoment.id] !== undefined
+      ? viewerPipCorners[currentMoment.id]
+      : defaultCorner;
+
   const isVideo =
     currentMoment?.mediaType === 'VIDEO' ||
-    Boolean(currentMoment?.photoUrl?.startsWith('data:video/'));
+    Boolean(displayMain?.includes('.webm')) ||
+    Boolean(displayMain?.includes('.mp4')) ||
+    Boolean(displayMain?.startsWith('data:video/'));
 
   // Sync initial index and circle selection
   useEffect(() => {
@@ -186,6 +208,7 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
   };
 
   const handleReact = async (emoji: string) => {
+    if (!currentMoment || isAuthor) return;
     try {
       await reactMutation.mutateAsync({
         momentId: currentMoment.id,
@@ -260,6 +283,11 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
                   <h4 className="text-xs font-bold text-white truncate">
                     {currentMoment.author?.profile?.displayName || 'User'}
                   </h4>
+                  {isVideo && (
+                    <span className="bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-full text-[10px] font-bold text-white border border-white/20">
+                      GIF
+                    </span>
+                  )}
                   <span className="text-[10px] text-white/70">
                     {new Date(currentMoment.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
@@ -273,18 +301,6 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
-              {/* Sound toggle for video */}
-              {isVideo && (
-                <button
-                  type="button"
-                  onClick={() => setIsMuted((m) => !m)}
-                  className="p-1.5 rounded-full text-white/80 hover:text-white hover:bg-white/10 transition-colors"
-                  title={isMuted ? 'Bật âm thanh' : 'Tắt âm thanh'}
-                >
-                  {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-                </button>
-              )}
-
               {/* Pause/Play toggle */}
               <button
                 type="button"
@@ -321,29 +337,60 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
         </div>
 
         {/* Center Media Area with Left/Right Click Navigators */}
-        <div className="relative flex-1 flex items-center justify-center overflow-hidden bg-black">
-          {isVideo ? (
-            <video
-              ref={videoPlayerRef}
-              src={currentMoment.photoUrl}
-              autoPlay
-              playsInline
-              loop={false}
-              muted={isMuted}
-              onTimeUpdate={() => {
-                const vid = videoPlayerRef.current;
-                if (vid && vid.duration) {
-                  setProgress((vid.currentTime / vid.duration) * 100);
+        <div className="relative flex-1 flex items-center justify-center overflow-hidden bg-black select-none">
+          {displayMain ? (
+            isVideo ? (
+              <video
+                ref={videoPlayerRef}
+                key={displayMain}
+                src={displayMain}
+                autoPlay
+                playsInline
+                loop={false}
+                muted
+                onTimeUpdate={() => {
+                  const vid = videoPlayerRef.current;
+                  if (vid && vid.duration) {
+                    setProgress((vid.currentTime / vid.duration) * 100);
+                  }
+                }}
+                onEnded={handleNext}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <img
+                key={displayMain}
+                src={displayMain}
+                alt={currentMoment?.caption || 'Moment'}
+                className="w-full h-full object-cover"
+              />
+            )
+          ) : null}
+
+          {/* Dual Camera PiP Floating Thumbnail */}
+          {displayPip && (
+            <MomentPipView
+              key={`${currentMoment?.id}-${isSwapped ? 'swapped' : 'normal'}`}
+              pipUrl={displayPip}
+              initialCornerIndex={activeCornerIndex}
+              cornerClasses={STORY_VIEWER_CORNERS}
+              sizeClasses="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl"
+              onSwap={() => {
+                if (currentMoment) {
+                  setSwappedMoments((prev) => ({
+                    ...prev,
+                    [currentMoment.id]: !prev[currentMoment.id],
+                  }));
                 }
               }}
-              onEnded={handleNext}
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <img
-              src={currentMoment.photoUrl}
-              alt={currentMoment.caption || 'Moment'}
-              className="w-full h-full object-cover"
+              onCornerChange={(newCorner) => {
+                if (currentMoment) {
+                  setViewerPipCorners((prev) => ({
+                    ...prev,
+                    [currentMoment.id]: newCorner,
+                  }));
+                }
+              }}
             />
           )}
 
@@ -387,32 +434,77 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
             </p>
           )}
 
-          {/* Reactions Bar */}
-          <div className="flex items-center justify-between gap-1 bg-white/10 backdrop-blur-md rounded-full px-3 py-1.5 border border-white/15">
-            {EMOJI_OPTIONS.map((emoji) => {
-              const isSelected = currentMoment.userReaction === emoji;
-              const count = currentMoment.reactionCounts?.[emoji] || 0;
+          {/* Reactions Bar / Author Reactors Stack */}
+          {isAuthor ? (
+            <button
+              type="button"
+              onClick={() => {
+                setIsPaused(true);
+                setIsReactorsOpen(true);
+              }}
+              className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/20 transition-all group self-start"
+              title={locale === 'vi' ? 'Xem danh sách người thả cảm xúc' : 'View reactions'}
+            >
+              {currentMoment.reactions && currentMoment.reactions.length > 0 ? (
+                <>
+                  <div className="flex items-center -space-x-2 overflow-hidden py-0.5">
+                    {currentMoment.reactions.slice(0, 5).map((r, idx) => (
+                      <div
+                        key={r.id || idx}
+                        className="relative inline-block"
+                        style={{ zIndex: 10 - idx }}
+                      >
+                        <div className="h-6 w-6 rounded-full border-2 border-white/80 bg-circle-primary text-circle-charcoal text-[9px] font-bold flex items-center justify-center overflow-hidden shrink-0 shadow-sm">
+                          {r.user?.avatarUrl ? (
+                            <img
+                              src={r.user.avatarUrl}
+                              alt={r.user.displayName}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <span>{r.user?.displayName?.slice(0, 2).toUpperCase() || 'U'}</span>
+                          )}
+                        </div>
+                        <div className="absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full bg-black/80 border border-white/30 flex items-center justify-center text-[8px] shadow-xs">
+                          {r.emoji}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <span className="text-xs font-bold text-white pl-1 group-hover:text-circle-primary transition-colors">
+                    {currentMoment.reactions.length} {locale === 'vi' ? 'cảm xúc' : 'reactions'}
+                  </span>
+                </>
+              ) : (
+                <div className="flex items-center gap-1.5 text-xs text-white/70 font-medium">
+                  <span>❤️</span>
+                  <span>{locale === 'vi' ? 'Chưa có cảm xúc' : 'No reactions yet'}</span>
+                </div>
+              )}
+            </button>
+          ) : (
+            <div className="flex items-center justify-between gap-1 bg-white/10 backdrop-blur-md rounded-full px-3 py-1.5 border border-white/15">
+              {EMOJI_OPTIONS.map((emoji) => {
+                const isSelected = currentMoment.userReaction === emoji;
 
-              return (
-                <button
-                  key={emoji}
-                  type="button"
-                  onClick={() => handleReact(emoji)}
-                  className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-base transition-all active:scale-125 ${
-                    isSelected
-                      ? 'bg-circle-primary/30 border border-circle-primary/60 scale-110 shadow-sm'
-                      : 'hover:bg-white/10 opacity-80 hover:opacity-100'
-                  }`}
-                  title={emoji}
-                >
-                  <span>{emoji}</span>
-                  {count > 0 && (
-                    <span className="text-[10px] font-bold text-white/90">{count}</span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
+                return (
+                  <button
+                    key={emoji}
+                    type="button"
+                    onClick={() => handleReact(emoji)}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-base transition-all active:scale-125 ${
+                      isSelected
+                        ? 'bg-circle-primary/30 border border-circle-primary/60 scale-110 shadow-sm'
+                        : 'hover:bg-white/10 opacity-80 hover:opacity-100'
+                    }`}
+                    title={emoji}
+                  >
+                    <span>{emoji}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
           {/* Quick Reply Form to Circle Group Chat */}
           <form onSubmit={handleSendReply} className="space-y-1.5">
@@ -463,6 +555,16 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
           </form>
         </div>
       </div>
+
+      {/* Moment Reactors List Modal */}
+      <MomentReactorsModal
+        isOpen={isReactorsOpen}
+        onClose={() => {
+          setIsReactorsOpen(false);
+          setIsPaused(false);
+        }}
+        moment={currentMoment}
+      />
     </div>
   );
 };

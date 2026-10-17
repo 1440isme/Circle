@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { getStoredTokens } from '../lib/auth-storage';
 import { useLanguageStore } from '../stores/language.store';
-import { StorageFolder, PresignedUploadResponse, ApiResponse } from '@circle/types';
+import { StorageFolder, PresignedUploadResponse, DirectUploadResponse, ApiResponse } from '@circle/types';
 import { optimizeImage, ImageOptimizationOptions } from '../lib/image-optimizer';
 
 interface UploadOptions {
@@ -89,7 +89,7 @@ export function useUploadMedia() {
         }
 
         const presignedData: ApiResponse<PresignedUploadResponse> = await presignedRes.json();
-        const { uploadUrl, publicUrl, key, method, headers } = presignedData.data;
+        let { uploadUrl, publicUrl, key, method, headers } = presignedData.data;
 
         // Step 3: Upload file
         if (method === 'PUT') {
@@ -127,11 +127,18 @@ export function useUploadMedia() {
               fileName: resolvedFileName,
               contentType,
               base64Data,
+              key,
             }),
           });
 
           if (!directRes.ok) {
             throw new Error(t.storage.uploadFailed);
+          }
+
+          const directJson: ApiResponse<DirectUploadResponse> = await directRes.json();
+          if (directJson?.data?.publicUrl) {
+            publicUrl = directJson.data.publicUrl;
+            key = directJson.data.key;
           }
         }
 

@@ -25,8 +25,17 @@ export async function uploadMobileMedia({
   fileName,
   contentType = 'image/jpeg',
 }: MobileUploadOptions): Promise<{ publicUrl: string; key: string }> {
+  const ext = contentType.includes('mp4')
+    ? 'mp4'
+    : contentType.includes('webm')
+      ? 'webm'
+      : contentType.includes('gif')
+        ? 'gif'
+        : contentType.includes('png')
+          ? 'png'
+          : 'jpg';
   const resolvedFileName =
-    fileName || `mobile_${folder}_${Date.now()}.${contentType.includes('png') ? 'png' : 'jpg'}`;
+    fileName || `mobile_${folder}_${Date.now()}.${ext}`;
 
   // If already an HTTP/HTTPS URL, return directly
   if (uri && (uri.startsWith('http://') || uri.startsWith('https://'))) {
@@ -36,7 +45,9 @@ export async function uploadMobileMedia({
   // 1. Resolve base64 payload
   let base64Payload = base64;
   if (!base64Payload && uri && uri.startsWith('data:')) {
-    base64Payload = uri.replace(/^data:[^;]+;base64,/, '');
+    base64Payload = uri.includes(';base64,')
+      ? uri.split(';base64,')[1]!
+      : uri.replace(/^data:[^;]+;base64,/, '');
   }
 
   // If still no base64 and we have a local file:// uri, convert blob to base64 for reliable transfer
@@ -48,7 +59,11 @@ export async function uploadMobileMedia({
         const reader = new FileReader();
         reader.onloadend = () => {
           const result = (reader.result as string) || '';
-          resolve(result.replace(/^data:[^;]+;base64,/, ''));
+          resolve(
+            result.includes(';base64,')
+              ? result.split(';base64,')[1]!
+              : result.replace(/^data:[^;]+;base64,/, ''),
+          );
         };
         reader.onerror = reject;
         reader.readAsDataURL(blob);

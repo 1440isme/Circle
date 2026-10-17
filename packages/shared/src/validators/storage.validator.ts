@@ -31,6 +31,7 @@ export const directUploadSchema = z.object({
   fileName: z.string().min(1).max(255),
   contentType: z.string().min(1).max(100),
   base64Data: z.string().min(1, 'Dữ liệu tệp không được để trống'),
+  key: z.string().max(500).optional(),
 });
 
 export type DirectUploadInput = z.infer<typeof directUploadSchema>;
