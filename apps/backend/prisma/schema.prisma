@@ -165,6 +165,7 @@ model Circle {
   inviteCode  String    @unique
   isPrivate   Boolean   @default(false)
   maxMembers  Int?
+  themeColor  String?   @default("sage")
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?

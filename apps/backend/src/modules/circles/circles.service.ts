@@ -2,13 +2,17 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  forwardRef,
+  Inject,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { MemberRole, ChannelType, FriendshipStatus } from '@prisma/client';
 import * as crypto from 'crypto';
 import { PrismaService } from '../../database/prisma.service';
 import { RedisService } from '../../database/redis.service';
+import { ChatGateway } from '../chat/chat.gateway';
 import {
   CreateCircleInput,
   UpdateCircleInput,
@@ -27,6 +31,9 @@ export class CirclesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
+    @Optional()
+    @Inject(forwardRef(() => ChatGateway))
+    private readonly chatGateway?: ChatGateway,
   ) {}
 
   /**
@@ -357,6 +364,7 @@ export class CirclesService {
       nickname: circle.members[0]?.nickname || null,
       memberCount: circle._count.members,
       channels: circle.channels,
+      themeColor: circle.themeColor || 'sage',
     }));
 
     return {
@@ -426,6 +434,7 @@ export class CirclesService {
         role: currentMember?.role,
         memberCount: circle._count.members,
         channels: circle.channels,
+        themeColor: circle.themeColor || 'sage',
         members: circle.members.map((m) => ({
           id: m.id,
           userId: m.userId,
@@ -456,7 +465,17 @@ export class CirclesService {
       },
     });
 
-    if (!membership || membership.role !== MemberRole.OWNER) {
+    if (!membership) {
+      throw new ForbiddenException(t.circle.updateForbidden);
+    }
+
+    const isMetadataUpdate =
+      input.name !== undefined ||
+      input.avatarUrl !== undefined ||
+      input.isPrivate !== undefined ||
+      input.maxMembers !== undefined;
+
+    if (isMetadataUpdate && membership.role !== MemberRole.OWNER && membership.role !== MemberRole.ADMIN) {
       throw new ForbiddenException(t.circle.updateForbidden);
     }
 
@@ -467,16 +486,27 @@ export class CirclesService {
         ...(input.avatarUrl !== undefined && { avatarUrl: input.avatarUrl || null }),
         ...(input.isPrivate !== undefined && { isPrivate: input.isPrivate }),
         ...(input.maxMembers !== undefined && { maxMembers: input.maxMembers }),
+        ...(input.themeColor !== undefined && { themeColor: input.themeColor }),
       },
     });
 
     await this.invalidateMembershipCache(circleId, [userId]);
 
+    if (input.themeColor !== undefined && this.chatGateway) {
+      this.chatGateway.broadcastCircleTheme(circleId, {
+        circleId,
+        themeColor: updatedCircle.themeColor || 'sage',
+      });
+    }
+
     return {
       success: true,
       statusCode: 200,
       message: t.circle.updateSuccess,
-      data: updatedCircle,
+      data: {
+        ...updatedCircle,
+        themeColor: updatedCircle.themeColor || 'sage',
+      },
     };
   }
 

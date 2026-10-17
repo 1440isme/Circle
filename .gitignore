@@ -27,8 +27,11 @@ Thumbs.db
 # IDE
 .idea/
 .vscode/
+ui-kit-liquid-glass/
+ui-kit/
 
-# Temporary
+# Root Screenshots & Temporary
+/*.png
 tmp/
 temp/
 uploads/
@@ -46,3 +49,4 @@ apps/backend/uploads/
 playwright-report/
 test-results/
 tests/e2e/*.png
+tests/e2e/screenshots/

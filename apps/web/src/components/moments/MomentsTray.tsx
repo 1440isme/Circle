@@ -132,7 +132,7 @@ export const MomentsTray: React.FC<MomentsTrayProps> = ({ circleId }) => {
         {/* Empty State Banner Hint */}
         {!isLoading && moments.length === 0 && (
           <div className="flex items-center gap-2 pl-3 py-2 text-xs text-circle-slate dark:text-circle-dark-muted">
-            <Sparkles className="h-4 w-4 text-amber-500 shrink-0" />
+            <Sparkles className="h-4 w-4 text-circle-slate dark:text-circle-dark-muted shrink-0" />
             <span className="text-[11px]">
               {targetCircleId ? t.moments.emptyCircleTitle : t.moments.emptyFeedDesc}
             </span>

@@ -17,7 +17,7 @@ interface AuthState {
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   isAuthenticated: false,
-  isLoading: true,
+  isLoading: false,
 
   setAuth: (user: AuthUserData, tokens: AuthTokens) => {
     saveTokens(tokens);
@@ -32,10 +32,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   setUser: (user: AuthUserData | null) => {
     if (user) {
       saveUser(user);
-      set({ user, isAuthenticated: true });
+      set({ user, isAuthenticated: true, isLoading: false });
     } else {
       clearAuthStorage();
-      set({ user: null, isAuthenticated: false });
+      set({ user: null, isAuthenticated: false, isLoading: false });
     }
   },
 
@@ -60,7 +60,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const { accessToken, refreshToken } = getStoredTokens();
 
     if (cachedUser) {
-      set({ user: cachedUser, isAuthenticated: true });
+      set({ user: cachedUser, isAuthenticated: true, isLoading: false });
     }
 
     if (accessToken || refreshToken) {

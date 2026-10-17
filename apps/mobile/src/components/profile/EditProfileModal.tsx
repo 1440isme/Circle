@@ -17,6 +17,7 @@ import { X, User, Image as ImageIcon, Camera, Calendar } from 'lucide-react-nati
 import { useThemeStore } from '../../stores/theme.store';
 import { useLanguageStore } from '../../stores/language.store';
 import { useAuthStore } from '../../stores/auth.store';
+import { useEdgeSwipeDismiss } from '../../hooks/use-edge-swipe';
 
 interface EditProfileModalProps {
   visible: boolean;
@@ -45,6 +46,7 @@ export function EditProfileModal({ visible, initialMode = 'edit', onClose }: Edi
   const { user, updateProfile } = useAuthStore();
 
   const [mode, setMode] = useState<'edit' | 'avatar'>(initialMode);
+  const edgePan = useEdgeSwipeDismiss({ onDismiss: onClose });
   const [displayName, setDisplayName] = useState('');
   const [handle, setHandle] = useState('');
   const [bio, setBio] = useState('');
@@ -144,6 +146,7 @@ export function EditProfileModal({ visible, initialMode = 'edit', onClose }: Edi
         style={styles.modalOverlay}
       >
         <View
+          {...edgePan.panHandlers}
           style={[
             styles.sheetContainer,
             {
@@ -155,13 +158,6 @@ export function EditProfileModal({ visible, initialMode = 'edit', onClose }: Edi
           {/* Header */}
           <View style={[styles.headerRow, { borderBottomColor: colors.hairline }]}>
             <View style={styles.headerLeft}>
-              <View style={[styles.headerIconBox, { backgroundColor: `${colors.primary}20` }]}>
-                {mode === 'avatar' ? (
-                  <Camera size={18} color={colors.primary} />
-                ) : (
-                  <User size={18} color={colors.primary} />
-                )}
-              </View>
               <Text style={[styles.headerTitle, { color: colors.text }]}>
                 {mode === 'avatar' ? t.auth.changeAvatarTitle : t.auth.editProfile}
               </Text>

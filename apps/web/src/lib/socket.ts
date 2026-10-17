@@ -157,3 +157,12 @@ export function queryCircleOnlineUsers(
   }
 }
 
+/**
+ * Emit circle theme color update in realtime.
+ */
+export function sendCircleThemeUpdate(circleId: string, themeColor: string): void {
+  const s = getSocket();
+  if (s && circleId) {
+    s.emit('circle:update-theme', { circleId, themeColor });
+  }
+}

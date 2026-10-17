@@ -128,3 +128,13 @@ export async function sendMobileMessageRead(
     s.emit('chat:read', { channelId, messageId });
   }
 }
+
+export async function sendMobileCircleThemeUpdate(
+  circleId: string,
+  themeColor: string,
+): Promise<void> {
+  const s = await getMobileSocket();
+  if (s && circleId) {
+    s.emit('circle:update-theme', { circleId, themeColor });
+  }
+}

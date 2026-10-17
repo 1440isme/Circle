@@ -12,25 +12,24 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
-  User,
-  Mail,
   Shield,
   LogOut,
-  CheckCircle2,
   Edit3,
   Camera,
-  Quote,
-  Sun,
-  Moon,
   Laptop,
   Globe,
   Sliders,
+  ChevronRight,
+  Palette,
+  HelpCircle,
+  ArrowLeft,
 } from 'lucide-react-native';
 import { useThemeStore } from '../../src/stores/theme.store';
 import { useLanguageStore } from '../../src/stores/language.store';
 import { useAuthStore } from '../../src/stores/auth.store';
-import { Button } from '../../src/components/common/Button';
 import { EditProfileModal } from '../../src/components/profile/EditProfileModal';
+import { SystemSettingsSubViewContent } from '../../src/components/settings/SystemSettingsModal';
+import { useSessionsQuery } from '../../src/hooks/use-session-queries';
 import {
   checkBiometricStatus,
   isBiometricUnlockEnabled,
@@ -46,7 +45,7 @@ function getInitials(name: string): string {
 
 export default function ProfileTab() {
   const router = useRouter();
-  const { colors, theme, resolvedTheme, setTheme } = useThemeStore();
+  const { colors, theme, resolvedTheme, setTheme, uiStyle } = useThemeStore();
   const { locale, setLocale, t } = useLanguageStore();
   const { user, logout } = useAuthStore();
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
@@ -61,6 +60,10 @@ export default function ProfileTab() {
   const [modalMode, setModalMode] = useState<'edit' | 'avatar'>('edit');
   const [hasBiometrics, setHasBiometrics] = useState(false);
   const [biometricEnabled, setBiometricEnabled] = useState(false);
+  const [activeSettingsSubView, setActiveSettingsSubView] = useState<
+    'appearance' | 'sessions' | 'language' | 'help' | null
+  >(null);
+  const { data: sessions = [] } = useSessionsQuery();
 
   useEffect(() => {
     async function loadBiometrics() {
@@ -116,6 +119,41 @@ export default function ProfileTab() {
       ],
     );
   };
+
+  const getSubHeaderTitle = (view: 'appearance' | 'sessions' | 'language' | 'help') => {
+    switch (view) {
+      case 'appearance':
+        return locale === 'vi' ? 'Giao diện' : 'Appearance';
+      case 'sessions':
+        return locale === 'vi' ? 'Phiên đăng nhập' : 'Sessions';
+      case 'language':
+        return locale === 'vi' ? 'Ngôn ngữ' : 'Language';
+      case 'help':
+        return locale === 'vi' ? 'Trợ giúp & Giới thiệu' : 'Help & Support';
+    }
+  };
+
+  // If viewing a setting subview inline on the profile screen (NO POPUP MODAL)
+  if (activeSettingsSubView !== null) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.canvas }]}>
+        <View style={[styles.headerBar, { backgroundColor: colors.canvas }]}>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => setActiveSettingsSubView(null)}
+            style={[styles.headerBackBtn, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
+          >
+            <ArrowLeft size={18} color={colors.text} />
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, { color: colors.text, fontSize: 18 }]}>
+            {getSubHeaderTitle(activeSettingsSubView)}
+          </Text>
+          <View style={{ width: 36 }} />
+        </View>
+        <SystemSettingsSubViewContent subView={activeSettingsSubView} />
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: colors.canvas }]}>
@@ -191,196 +229,128 @@ export default function ProfileTab() {
           </TouchableOpacity>
         </View>
 
-        {/* System Settings Section (Cài đặt hệ thống) */}
-        <View
-          style={[
-            styles.infoCard,
-            {
-              backgroundColor: colors.surface,
-              borderColor: colors.hairline,
-            },
-          ]}
-        >
-          <View style={styles.sectionTitleRow}>
-            <Sliders size={14} color={colors.primary} />
-            <Text style={[styles.sectionTitle, { color: colors.text, marginBottom: 0 }]}>
-              {locale === 'vi' ? 'Cài đặt hệ thống' : 'System Settings'}
-            </Text>
-          </View>
-
-          {/* Theme Switcher Row */}
-          <View style={[styles.settingRow, { borderBottomWidth: 1, borderBottomColor: colors.hairline }]}>
-            <Text style={[styles.settingLabel, { color: colors.text }]}>
-              {t.common.theme}
-            </Text>
-            <View style={styles.themeButtonsGroup}>
-              <TouchableOpacity
-                onPress={() => setTheme('light')}
-                style={[
-                  styles.themeOptionBtn,
-                  {
-                    backgroundColor: theme === 'light' ? colors.primary : colors.wash,
-                    borderColor: theme === 'light' ? colors.primary : colors.hairline,
-                  },
-                ]}
-              >
-                <Sun size={14} color={theme === 'light' ? colors.onPrimary : colors.text} />
-                <Text
-                  style={[
-                    styles.themeOptionText,
-                    { color: theme === 'light' ? colors.onPrimary : colors.text },
-                  ]}
-                >
-                  {t.common.themeLight}
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={() => setTheme('dark')}
-                style={[
-                  styles.themeOptionBtn,
-                  {
-                    backgroundColor: theme === 'dark' ? colors.primary : colors.wash,
-                    borderColor: theme === 'dark' ? colors.primary : colors.hairline,
-                  },
-                ]}
-              >
-                <Moon size={14} color={theme === 'dark' ? colors.onPrimary : colors.text} />
-                <Text
-                  style={[
-                    styles.themeOptionText,
-                    { color: theme === 'dark' ? colors.onPrimary : colors.text },
-                  ]}
-                >
-                  {t.common.themeDark}
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={() => setTheme('system')}
-                style={[
-                  styles.themeOptionBtn,
-                  {
-                    backgroundColor: theme === 'system' ? colors.primary : colors.wash,
-                    borderColor: theme === 'system' ? colors.primary : colors.hairline,
-                  },
-                ]}
-              >
-                <Laptop size={14} color={theme === 'system' ? colors.onPrimary : colors.text} />
-                <Text
-                  style={[
-                    styles.themeOptionText,
-                    { color: theme === 'system' ? colors.onPrimary : colors.text },
-                  ]}
-                >
-                  {t.common.themeSystem}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Language Switcher Row */}
-          <View style={styles.settingRow}>
-            <Text style={[styles.settingLabel, { color: colors.text }]}>
-              {t.common.language}
-            </Text>
-            <View style={styles.langButtonsGroup}>
-              <TouchableOpacity
-                onPress={() => setLocale('vi')}
-                style={[
-                  styles.langOptionBtn,
-                  {
-                    backgroundColor: locale === 'vi' ? colors.primary : colors.wash,
-                    borderColor: locale === 'vi' ? colors.primary : colors.hairline,
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.langOptionText,
-                    { color: locale === 'vi' ? colors.onPrimary : colors.text },
-                  ]}
-                >
-                  {t.common.vietnamese}
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={() => setLocale('en')}
-                style={[
-                  styles.langOptionBtn,
-                  {
-                    backgroundColor: locale === 'en' ? colors.primary : colors.wash,
-                    borderColor: locale === 'en' ? colors.primary : colors.hairline,
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.langOptionText,
-                    { color: locale === 'en' ? colors.onPrimary : colors.text },
-                  ]}
-                >
-                  {t.common.english}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-
-        {/* Security & Token Info */}
-        <View
-          style={[
-            styles.infoCard,
-            {
-              backgroundColor: colors.surface,
-              borderColor: colors.hairline,
-            },
-          ]}
-        >
-          <Text style={[styles.sectionTitle, { color: colors.subtle }]}>
-            {t.common.dualTokenSecurity}
+        {/* System Settings Section (Embedded directly on Profile page, single unified source) */}
+        <View style={styles.settingsSectionWrapper}>
+          <Text style={[styles.sectionGroupTitle, { color: colors.subtle }]}>
+            {t.common.systemSettings || 'CÀI ĐẶT HỆ THỐNG'}
           </Text>
+          <View style={[styles.settingsCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+            {/* 1. Giao diện */}
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => setActiveSettingsSubView('appearance')}
+              style={[styles.menuRowItem, { borderBottomColor: colors.hairline, borderBottomWidth: StyleSheet.hairlineWidth }]}
+            >
+              <Palette size={20} color={colors.text} />
+              <View style={styles.menuRowInfo}>
+                <Text style={[styles.menuRowTitle, { color: colors.text }]}>
+                  {locale === 'vi' ? 'Giao diện' : 'Appearance'}
+                </Text>
+                <Text style={[styles.menuRowSubtitle, { color: colors.subtle }]}>
+                  {uiStyle === 'flat' ? 'Flat Design' : 'Liquid Glass'} • {theme === 'dark' ? (locale === 'vi' ? 'Tối' : 'Dark') : theme === 'light' ? (locale === 'vi' ? 'Sáng' : 'Light') : (locale === 'vi' ? 'Hệ thống' : 'System')}
+                </Text>
+              </View>
+              <ChevronRight size={18} color={colors.subtle} />
+            </TouchableOpacity>
 
-          <View style={styles.infoRow}>
-            <View style={styles.infoLeft}>
-              <CheckCircle2 size={16} color={colors.success} />
-              <Text style={[styles.infoLabel, { color: colors.text }]}>
-                {t.home.dualTokenSecured}
-              </Text>
-            </View>
-          </View>
-
-          <View style={[styles.infoRow, { borderTopWidth: 1, borderTopColor: colors.hairline }]}>
-            <View style={styles.infoLeft}>
-              <Mail size={16} color={colors.primary} />
-              <Text style={[styles.infoLabel, { color: colors.text }]}>
-                {t.auth.email}: {user?.email}
-              </Text>
-            </View>
-          </View>
-
-          {hasBiometrics && (
-            <View style={[styles.infoRow, { borderTopWidth: 1, borderTopColor: colors.hairline, justifyContent: 'space-between' }]}>
-              <View style={[styles.infoLeft, { flex: 1, paddingRight: 10 }]}>
-                <Shield size={16} color={colors.primary} />
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.infoLabel, { color: colors.text }]}>
-                    {t.auth.biometricTitle}
+            {/* 2. Đăng nhập vân tay / Face ID (Single unified setting) */}
+            <View
+              style={[
+                styles.menuRowItem,
+                {
+                  borderBottomColor: colors.hairline,
+                  borderBottomWidth: StyleSheet.hairlineWidth,
+                  justifyContent: 'space-between',
+                },
+              ]}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
+                <Shield size={20} color={colors.text} />
+                <View style={{ flex: 1, paddingRight: 8 }}>
+                  <Text style={[styles.menuRowTitle, { color: colors.text }]}>
+                    {t.auth.biometricTitle || 'Đăng nhập vân tay'}
                   </Text>
-                  <Text style={{ fontSize: 11, color: colors.subtle, marginTop: 2 }}>
-                    {t.auth.biometricDesc}
+                  <Text style={[styles.menuRowSubtitle, { color: colors.subtle }]}>
+                    {hasBiometrics
+                      ? biometricEnabled
+                        ? (locale === 'vi' ? 'Đang bật bảo vệ vân tay / Face ID' : 'Biometric unlock enabled')
+                        : (locale === 'vi' ? 'Bảo vệ tài khoản khi mở ứng dụng' : 'Protect app with biometric unlock')
+                      : (locale === 'vi' ? 'Thiết bị không hỗ trợ cảm biến' : 'Biometric hardware unavailable')}
                   </Text>
                 </View>
               </View>
               <Switch
+                disabled={!hasBiometrics}
                 value={biometricEnabled}
                 onValueChange={handleToggleBiometric}
                 trackColor={{ false: colors.wash, true: colors.primary }}
                 thumbColor={colors.surface}
               />
             </View>
-          )}
+
+            {/* 3. Phiên đăng nhập */}
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => setActiveSettingsSubView('sessions')}
+              style={[styles.menuRowItem, { borderBottomColor: colors.hairline, borderBottomWidth: StyleSheet.hairlineWidth }]}
+            >
+              <Laptop size={20} color={colors.text} />
+              <View style={styles.menuRowInfo}>
+                <Text style={[styles.menuRowTitle, { color: colors.text }]}>
+                  {locale === 'vi' ? 'Phiên đăng nhập' : 'Sessions'}
+                </Text>
+                <Text style={[styles.menuRowSubtitle, { color: colors.subtle }]}>
+                  {sessions.length > 0
+                    ? (locale === 'vi' ? `${sessions.length} thiết bị hoạt động` : `${sessions.length} active devices`)
+                    : (locale === 'vi' ? 'Quản lý thiết bị' : 'Device management')}
+                </Text>
+              </View>
+              {sessions.length > 0 && (
+                <View style={[styles.badgePill, { backgroundColor: colors.wash, marginRight: 6 }]}>
+                  <Text style={[styles.badgePillText, { color: colors.text }]}>
+                    {sessions.length}
+                  </Text>
+                </View>
+              )}
+              <ChevronRight size={18} color={colors.subtle} />
+            </TouchableOpacity>
+
+            {/* 4. Ngôn ngữ */}
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => setActiveSettingsSubView('language')}
+              style={[styles.menuRowItem, { borderBottomColor: colors.hairline, borderBottomWidth: StyleSheet.hairlineWidth }]}
+            >
+              <Globe size={20} color={colors.text} />
+              <View style={styles.menuRowInfo}>
+                <Text style={[styles.menuRowTitle, { color: colors.text }]}>
+                  {locale === 'vi' ? 'Ngôn ngữ' : 'Language'}
+                </Text>
+                <Text style={[styles.menuRowSubtitle, { color: colors.subtle }]}>
+                  {locale === 'vi' ? 'Tiếng Việt' : 'English'}
+                </Text>
+              </View>
+              <ChevronRight size={18} color={colors.subtle} />
+            </TouchableOpacity>
+
+            {/* 5. Trợ giúp & Giới thiệu */}
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => setActiveSettingsSubView('help')}
+              style={styles.menuRowItem}
+            >
+              <HelpCircle size={20} color={colors.text} />
+              <View style={styles.menuRowInfo}>
+                <Text style={[styles.menuRowTitle, { color: colors.text }]}>
+                  {locale === 'vi' ? 'Trợ giúp' : 'Help & Support'}
+                </Text>
+                <Text style={[styles.menuRowSubtitle, { color: colors.subtle }]}>
+                  {locale === 'vi' ? 'Thông tin ứng dụng CIRCLE' : 'About CIRCLE & Support'}
+                </Text>
+              </View>
+              <ChevronRight size={18} color={colors.subtle} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Logout Button */}
@@ -518,80 +488,64 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   roleText: { fontSize: 11, fontWeight: '700' },
-  infoCard: {
-    borderRadius: 22,
-    padding: 16,
+  headerBackBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
   },
-  sectionTitle: {
+  settingsSectionWrapper: {
+    width: '100%',
+    gap: 8,
+  },
+  sectionGroupTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    marginLeft: 4,
+    textTransform: 'uppercase',
+  },
+  settingsCard: {
+    borderRadius: 20,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  menuRowItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  rowIconContainer: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  menuRowInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  menuRowTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  menuRowSubtitle: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  badgePill: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+  },
+  badgePillText: {
     fontSize: 11,
     fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 12,
   },
-  sectionTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 12,
-  },
-  settingRow: {
-    paddingVertical: 12,
-    gap: 8,
-  },
-  settingLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  themeButtonsGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  themeOptionBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 8,
-    borderRadius: 14,
-    borderWidth: 1,
-  },
-  themeOptionText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  langButtonsGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  langOptionBtn: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 8,
-    borderRadius: 14,
-    borderWidth: 1,
-  },
-  langOptionText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 10,
-  },
-  infoLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  infoLabel: { fontSize: 13, fontWeight: '500' },
   logoutBtn: {
     flexDirection: 'row',
     alignItems: 'center',

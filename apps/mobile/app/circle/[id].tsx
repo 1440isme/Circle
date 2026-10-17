@@ -15,22 +15,23 @@ import {
   Modal,
   PanResponder,
   Animated,
-  Vibration,
   Keyboard,
   useWindowDimensions,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
+import * as Haptics from 'expo-haptics';
 
-const triggerHapticFeedback = () => {
+const triggerLightHaptic = () => {
   try {
-    Vibration.vibrate(1);
-    if (Platform.OS === 'ios') {
-      setTimeout(() => {
-        try {
-          Vibration.cancel();
-        } catch {}
-      }, 20);
-    }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  } catch {}
+};
+
+const triggerSelectionHaptic = () => {
+  try {
+    Haptics.selectionAsync();
   } catch {}
 };
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -38,6 +39,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ArrowLeft,
   Settings,
+  Phone,
+  Video,
   Users,
   MessageSquare,
   Camera,
@@ -60,6 +63,7 @@ import {
   KeyRound,
   FileSpreadsheet,
   Plus,
+  UserPlus,
   X,
   Pin,
   Reply,
@@ -69,9 +73,13 @@ import {
   WifiOff,
   ArrowUpCircle,
   RefreshCw,
+  ChevronRight,
+  ChevronDown,
+  Mic,
 } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { useThemeStore } from '../../src/stores/theme.store';
+import { useThemeStore, MessageBubbleThemes, MessageTheme } from '../../src/stores/theme.store';
+import { getGlassTheme } from '../../src/constants/glass-theme';
 import { useLanguageStore } from '../../src/stores/language.store';
 import { useAuthStore } from '../../src/stores/auth.store';
 import { useCircleStore } from '../../src/stores/circle.store';
@@ -82,8 +90,11 @@ import {
   useSendMessageMutation,
   useReactMessageMutation,
   usePinMessageMutation,
+  usePinnedMessagesQuery,
   useMobileChannelTyping,
+  useMyCirclesQuery,
 } from '../../src/hooks/use-circle-queries';
+import { useEdgeSwipeDismiss } from '../../src/hooks/use-edge-swipe';
 import { uploadMobileMedia } from '../../src/services/storage-upload.service';
 import { subscribeSocketConnection, sendMobileMessageRead } from '../../src/services/socket';
 import { getStorageItem } from '../../src/services/storage';
@@ -91,6 +102,12 @@ import { useQueryClient, InfiniteData } from '@tanstack/react-query';
 import { MessageType, CursorPaginatedMessages } from '@circle/types';
 import { CircleManagementModal } from '../../src/components/circle/CircleManagementModal';
 import { MomentsView, parseMomentPhotos, MomentFeedPipView, formatMomentRelativeTime } from '../../src/components/moment/MomentsView';
+import { CreateCircleModal } from '../../src/components/circle/CreateCircleModal';
+import { JoinCircleModal } from '../../src/components/circle/JoinCircleModal';
+import { PinnedMessagesModal } from '../../src/components/chat/PinnedMessagesModal';
+import { Emoji } from '../../src/components/ui/Emoji';
+import { FullEmojiPickerModal } from '../../src/components/ui/FullEmojiPickerModal';
+import { PROMINENT_QUICK_EMOJIS } from '@circle/shared';
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -353,16 +370,19 @@ interface MobileSwipeMessageBubbleProps {
   isLatestMessage?: boolean;
   showTimestamp: boolean;
   hasReactions: boolean;
+  isHighlighted?: boolean;
   colors: any;
   t: any;
+  circleTheme?: string | null;
   onToggleTimestamp: () => void;
   onLongPress: () => void;
   onSwipeReply: () => void;
   onRetry?: (msg: any) => void;
   onPreviewImage?: (url: string) => void;
+  onJumpToMessage?: (messageId: string) => void;
 }
 
-function MobileSwipeMessageBubble({
+const MobileSwipeMessageBubble = React.memo(function MobileSwipeMessageBubble({
   msg,
   allMessages,
   isSenderMe,
@@ -371,18 +391,55 @@ function MobileSwipeMessageBubble({
   isSingle,
   isLatestSentByMe = false,
   isLatestMessage = false,
+  isHighlighted = false,
   showTimestamp,
   hasReactions,
   colors,
   t,
+  circleTheme,
   onToggleTimestamp,
   onLongPress,
   onSwipeReply,
   onRetry,
   onPreviewImage,
+  onJumpToMessage,
 }: MobileSwipeMessageBubbleProps) {
   const translateX = useRef(new Animated.Value(0)).current;
   const hasVibratedOnSwipe = useRef(false);
+
+  const resolvedTheme = useThemeStore((s) => s.resolvedTheme);
+  const isDark = resolvedTheme === 'dark';
+  const themeKey = ((circleTheme as MessageTheme) || 'sage') as MessageTheme;
+  const bubbleThemeConfig = MessageBubbleThemes[themeKey] || MessageBubbleThemes.sage;
+  const activeBubbleTheme = isDark ? bubbleThemeConfig.dark : bubbleThemeConfig.light;
+  const senderBubbleBg = activeBubbleTheme.bg;
+  const senderTextColor = activeBubbleTheme.text;
+  const otherBubbleBg = activeBubbleTheme.otherBg || colors.surface;
+  const otherBorderColor = activeBubbleTheme.otherBorder || colors.hairline;
+  const otherTextColor = activeBubbleTheme.otherText || colors.text;
+  const otherAccentColor = activeBubbleTheme.otherAccent || colors.primary;
+  const otherReplyBg = activeBubbleTheme.otherReplyBg || colors.wash;
+
+  const renderMobileContentWithMentions = (content: string) => {
+    const parts = content.split(/(@[a-zA-Z0-9_\.\u00C0-\u024F\u1EA0-\u1EF9]+)/g);
+    return parts.map((part, index) => {
+      if (part.startsWith('@') && part.length > 1) {
+        return (
+          <Text
+            key={index}
+            style={{
+              fontWeight: '700',
+              color: isSenderMe ? senderTextColor : otherAccentColor,
+              textDecorationLine: isSenderMe ? 'underline' : 'none',
+            }}
+          >
+            {part}
+          </Text>
+        );
+      }
+      return <Text key={index}>{part}</Text>;
+    });
+  };
 
   const rawReplyId = typeof msg.replyTo === 'string' ? msg.replyTo : (msg.replyTo?.id || msg.replyToId);
   const replyTarget =
@@ -406,12 +463,40 @@ function MobileSwipeMessageBubble({
   const hasImage = Boolean(msg.fileUrl);
   const isMediaOnly = hasImage && !hasText && !hasValidReply;
 
+  let callSummaryData: { callType?: 'AUDIO' | 'VIDEO'; durationSeconds?: number } | null = null;
+  const isCallSummary = Boolean(
+    msg.content &&
+      (typeof msg.content === 'string' &&
+        (msg.content.startsWith('[CALL_SUMMARY]:') || msg.content.includes('"callType"'))),
+  );
+
+  if (isCallSummary && msg.content) {
+    try {
+      const rawJson = typeof msg.content === 'string'
+        ? msg.content.replace('[CALL_SUMMARY]:', '').trim()
+        : msg.content;
+      callSummaryData = typeof rawJson === 'string' ? JSON.parse(rawJson) : rawJson;
+    } catch {
+      callSummaryData = null;
+    }
+  }
+
+  const formatDurationText = (sec = 0) => {
+    if (sec <= 0) return t.calls?.callEnded || 'Đã kết thúc';
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    if (m === 0) return `${s} giây`;
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  };
+
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => false,
+      onStartShouldSetPanResponderCapture: () => false,
       onMoveShouldSetPanResponder: (_, gestureState) => {
         return gestureState.dx > 25 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 2;
       },
+      onMoveShouldSetPanResponderCapture: () => false,
       onPanResponderTerminationRequest: () => true,
       onPanResponderMove: (_, gestureState) => {
         if (gestureState.dx > 0) {
@@ -419,7 +504,7 @@ function MobileSwipeMessageBubble({
           translateX.setValue(cappedDx);
           if (gestureState.dx > 35 && !hasVibratedOnSwipe.current) {
             hasVibratedOnSwipe.current = true;
-            triggerHapticFeedback();
+            triggerSelectionHaptic();
           } else if (gestureState.dx <= 35) {
             hasVibratedOnSwipe.current = false;
           }
@@ -506,14 +591,7 @@ function MobileSwipeMessageBubble({
             alignSelf: isSenderMe ? 'flex-end' : 'flex-start',
           }}
         >
-          <TouchableOpacity
-            activeOpacity={0.88}
-            onPress={onToggleTimestamp}
-            onLongPress={() => {
-              triggerHapticFeedback();
-              onLongPress();
-            }}
-            delayLongPress={280}
+          <View
             style={[
               styles.messageBubble,
               isSenderMe
@@ -532,8 +610,13 @@ function MobileSwipeMessageBubble({
                 ? styles.lastBubbleOther
                 : styles.middleBubbleOther,
               isSenderMe
-                ? { backgroundColor: colors.primary, alignSelf: 'flex-end' }
-                : { backgroundColor: colors.surface, borderColor: colors.hairline, alignSelf: 'flex-start' },
+                ? { backgroundColor: senderBubbleBg, alignSelf: 'flex-end' }
+                : {
+                    backgroundColor: otherBubbleBg,
+                    borderColor: otherBorderColor,
+                    borderWidth: 1,
+                    alignSelf: 'flex-start',
+                  },
               isMediaOnly && {
                 backgroundColor: 'transparent',
                 borderColor: 'transparent',
@@ -546,24 +629,42 @@ function MobileSwipeMessageBubble({
                 paddingTop: 6,
                 paddingBottom: 8,
               },
+              isHighlighted && {
+                borderWidth: 2,
+                borderColor: colors.primary,
+                transform: [{ scale: 1.02 }],
+              },
+              },
             ]}
           >
-            {/* Reply Quote Banner - Beautiful horizontal inline pill matching Web */}
+            {/* Reply Quote Banner - Separate Touchable to prevent double-tap gesture collision */}
             {hasValidReply && replyTarget && (
-              <View
+              <TouchableOpacity
+                activeOpacity={0.7}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                onPress={() => {
+                  const targetId =
+                    rawReplyId ||
+                    (replyTarget as any)?.id ||
+                    msg.replyToId ||
+                    (typeof msg.replyTo === 'object' ? (msg.replyTo as any)?.id : msg.replyTo);
+                  if (targetId && onJumpToMessage) {
+                    onJumpToMessage(targetId);
+                  }
+                }}
                 style={[
                   styles.replyQuoteBox,
                   {
                     backgroundColor: isSenderMe
-                      ? 'rgba(0, 0, 0, 0.15)'
-                      : colors.wash,
+                      ? (activeBubbleTheme.replyBg || 'rgba(0, 0, 0, 0.15)')
+                      : otherReplyBg,
                   },
                 ]}
               >
                 <View style={{ transform: [{ scaleX: -1 }], marginRight: 4 }}>
                   <Reply
                     size={11}
-                    color={isSenderMe ? colors.onPrimary : colors.primary}
+                    color={isSenderMe ? senderTextColor : otherAccentColor}
                     style={{ opacity: 0.85 }}
                   />
                 </View>
@@ -571,7 +672,7 @@ function MobileSwipeMessageBubble({
                   numberOfLines={1}
                   style={[
                     styles.replyQuoteAuthor,
-                    { color: isSenderMe ? colors.onPrimary : colors.primary },
+                    { color: isSenderMe ? senderTextColor : otherAccentColor },
                   ]}
                 >
                   {(
@@ -589,7 +690,7 @@ function MobileSwipeMessageBubble({
                   numberOfLines={1}
                   style={[
                     styles.replyQuoteText,
-                    { color: isSenderMe ? colors.onPrimary : colors.subtle },
+                    { color: isSenderMe ? senderTextColor : colors.subtle, opacity: isSenderMe ? 0.85 : 1 },
                   ]}
                 >
                   {replyTarget.content ||
@@ -605,68 +706,135 @@ function MobileSwipeMessageBubble({
                     (replyTarget.fileUrl ? '📷 [Hình ảnh/Tệp tin]' : '') ||
                     'Tin nhắn'}
                 </Text>
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity
+              activeOpacity={0.88}
+              onPress={onToggleTimestamp}
+              onLongPress={() => {
+                triggerLightHaptic();
+                onLongPress();
+              }}
+              delayLongPress={280}
+            >
+              {/* Image / Moment Card Attachment */}
+              {Boolean(msg.fileUrl) && (() => {
+                const momentMeta = parseMomentReplyMetadata(msg.fileName);
+                const isMomentReply = Boolean(momentMeta || (msg.fileUrl && msg.fileUrl.includes('#pip=')));
+                if (isMomentReply) {
+                  return (
+                    <MomentCardChatEmbed
+                      fileUrl={msg.fileUrl}
+                      metadata={momentMeta}
+                      fallbackCreatedAt={msg.sentAt || msg.createdAt}
+                      onPress={() => onPreviewImage?.(msg.fileUrl)}
+                      colors={colors}
+                    />
+                  );
+                }
+                return (
+                  <TouchableOpacity
+                    activeOpacity={0.9}
+                    onPress={() => onPreviewImage?.(msg.fileUrl)}
+                    style={styles.bubbleImageWrapper}
+                  >
+                    <RNImage
+                      source={{ uri: msg.fileUrl }}
+                      style={styles.bubbleImageContent}
+                      resizeMode="cover"
+                    />
+                  </TouchableOpacity>
+                );
+              })()}
+
+              {/* Message Content: Call Summary vs Standard Text */}
+              {callSummaryData ? (
+                <View style={styles.callNotificationRow}>
+                  {callSummaryData.callType === 'VIDEO' ? (
+                    <Video
+                      size={20}
+                      color={isSenderMe ? senderTextColor : colors.text}
+                    />
+                  ) : (
+                    <Phone
+                      size={20}
+                      color={isSenderMe ? senderTextColor : colors.text}
+                    />
+                  )}
+                  <View style={{ flexShrink: 1 }}>
+                    <Text
+                      style={[
+                        styles.callNotificationTitle,
+                        { color: isSenderMe ? senderTextColor : colors.text },
+                      ]}
+                    >
+                      {callSummaryData.callType === 'VIDEO'
+                        ? (t.calls?.videoCallEnded || 'Cuộc gọi video kết thúc')
+                        : (t.calls?.audioCallEnded || 'Cuộc gọi thoại kết thúc')}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.callNotificationDuration,
+                        { color: isSenderMe ? senderTextColor : colors.subtle, opacity: isSenderMe ? 0.85 : 1 },
+                      ]}
+                    >
+                      {formatDurationText(callSummaryData.durationSeconds || 0)}
+                    </Text>
+                  </View>
+                </View>
+              ) : Boolean(msg.content && msg.content.trim()) ? (
+                <Text
+                  style={[
+                    styles.messageText,
+                    { color: isSenderMe ? senderTextColor : otherTextColor },
+                    hasImage && { paddingHorizontal: 6, paddingTop: 4 },
+                  ]}
+                >
+                  {renderMobileContentWithMentions(msg.content)}
+                </Text>
+              ) : null}
+
+
+            {/* Pinned Bubble Indicator */}
+            {Boolean(msg.isPinned) && (
+              <View
+                style={[
+                  styles.pinnedBubblePill,
+                  { backgroundColor: isSenderMe ? 'rgba(0,0,0,0.2)' : colors.wash },
+                ]}
+              >
+                <Pin size={10} color={isSenderMe ? senderTextColor : colors.warning} fill={isSenderMe ? senderTextColor : colors.warning} />
               </View>
             )}
 
-            {/* Image / Moment Card Attachment */}
-            {Boolean(msg.fileUrl) && (() => {
-              const momentMeta = parseMomentReplyMetadata(msg.fileName);
-              const isMomentReply = Boolean(momentMeta || (msg.fileUrl && msg.fileUrl.includes('#pip=')));
-              if (isMomentReply) {
-                return (
-                  <MomentCardChatEmbed
-                    fileUrl={msg.fileUrl}
-                    metadata={momentMeta}
-                    fallbackCreatedAt={msg.sentAt || msg.createdAt}
-                    onPress={() => onPreviewImage?.(msg.fileUrl)}
-                    colors={colors}
-                  />
-                );
-              }
-              return (
-                <TouchableOpacity
-                  activeOpacity={0.9}
-                  onPress={() => onPreviewImage?.(msg.fileUrl)}
-                  style={styles.bubbleImageWrapper}
-                >
-                  <RNImage
-                    source={{ uri: msg.fileUrl }}
-                    style={styles.bubbleImageContent}
-                    resizeMode="cover"
-                  />
-                </TouchableOpacity>
-              );
-            })()}
+            </TouchableOpacity>
 
-            {/* Message Text Content */}
-            {hasText && (
-              <Text
-                style={[
-                  styles.messageText,
-                  { color: isSenderMe ? colors.onPrimary : colors.text },
-                  hasImage && { paddingHorizontal: 6, paddingTop: 4 },
-                ]}
-              >
-                {msg.content}
-              </Text>
-            )}
-
-            {/* Overlapping Reaction Badge */}
+            {/* Overlapping Reaction Badge: Anchored cleanly to bubble bottom corner */}
             {hasReactions && (
               <View
                 style={[
                   styles.reactionsBadgePill,
-                  { backgroundColor: colors.surface, borderColor: colors.hairline },
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.hairline,
+                    ...(isSenderMe ? { right: 8 } : { left: 8 }),
+                  },
                 ]}
               >
-                {Object.keys(msg.reactionCounts).map((emoji) => (
-                  <Text key={emoji} style={styles.reactionEmojiText}>
-                    {emoji}
-                  </Text>
+                {Object.entries(msg.reactionCounts).map(([emoji, count]: [string, any]) => (
+                  <View key={emoji} style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+                    <Emoji emoji={emoji} size={13} />
+                    {Number(count) > 1 && (
+                      <Text style={{ fontSize: 10, fontWeight: '700', color: colors.text }}>
+                        {count}
+                      </Text>
+                    )}
+                  </View>
                 ))}
               </View>
             )}
-          </TouchableOpacity>
+          </View>
         </Animated.View>
       </View>
 
@@ -794,7 +962,7 @@ function MobileSwipeMessageBubble({
       )}
     </View>
   );
-}
+});
 
 export default function CircleWorkspaceScreen() {
   const queryClient = useQueryClient();
@@ -803,13 +971,42 @@ export default function CircleWorkspaceScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const circleId = id || '';
 
-  const { colors, resolvedTheme } = useThemeStore();
+  const { colors, resolvedTheme, uiStyle } = useThemeStore();
   const { t, locale } = useLanguageStore();
   const user = useAuthStore((s) => s.user);
   const isDark = resolvedTheme === 'dark';
+  const isGlass = uiStyle === 'glass';
+  const glassTheme = getGlassTheme(isDark, uiStyle);
 
   const setActiveCircle = useCircleStore((s) => s.setActiveCircle);
   const setManageModalVisible = useCircleStore((s) => s.setManageModalVisible);
+  const setCreateModalVisible = useCircleStore((s) => s.setCreateModalVisible);
+  const setJoinModalVisible = useCircleStore((s) => s.setJoinModalVisible);
+
+  const { width: screenWidth } = useWindowDimensions();
+  const horizontalPagerRef = useRef<ScrollView>(null);
+  const TAB_ORDER: WorkspaceTab[] = useMemo(() => ['chat', 'moments', 'tools'], []);
+
+  const [circleSwitcherVisible, setCircleSwitcherVisible] = useState(false);
+
+  const { data: myCircles = [] } = useMyCirclesQuery();
+
+  const handleTabSelect = (tab: WorkspaceTab) => {
+    setActiveTab(tab);
+    const index = TAB_ORDER.indexOf(tab);
+    if (index !== -1) {
+      horizontalPagerRef.current?.scrollTo({ x: index * screenWidth, animated: true });
+    }
+  };
+
+  const handleHorizontalScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const offsetX = event.nativeEvent.contentOffset.x;
+    const pageIndex = Math.round(offsetX / screenWidth);
+    const nextTab = TAB_ORDER[pageIndex];
+    if (nextTab && nextTab !== activeTab) {
+      setActiveTab(nextTab);
+    }
+  };
 
   const [activeTab, setActiveTab] = useState<WorkspaceTab>('chat');
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
@@ -838,6 +1035,10 @@ export default function CircleWorkspaceScreen() {
   const [replyingMessage, setReplyingMessage] = useState<any | null>(null);
   const [activeActionMessage, setActiveActionMessage] = useState<any | null>(null);
   const [activeTimestampMessageId, setActiveTimestampMessageId] = useState<string | null>(null);
+  const [isPinnedModalVisible, setIsPinnedModalVisible] = useState(false);
+  const [isFullEmojiModalVisible, setIsFullEmojiModalVisible] = useState(false);
+  const [targetReactMessageId, setTargetReactMessageId] = useState<string | null>(null);
+  const [headerHeight, setHeaderHeight] = useState(Platform.OS === 'ios' ? 128 : 112);
 
   const scrollViewRef = useRef<ScrollView>(null);
 
@@ -850,6 +1051,43 @@ export default function CircleWorkspaceScreen() {
   // Queries & Mutations
   const { data: circle, isLoading: isLoadingCircle } = useCircleDetailQuery(circleId);
   const { data: members = [] } = useCircleMembersQuery(circleId);
+
+  // Synchronized Circle Theme Color (Pastel)
+  const currentCircleTheme = (((circle as any)?.themeColor || 'sage') as MessageTheme);
+  const circleThemeConfig = MessageBubbleThemes[currentCircleTheme] || MessageBubbleThemes.sage;
+  const activeCircleBubbleTheme = isDark ? circleThemeConfig.dark : circleThemeConfig.light;
+
+  // Mention State & Candidates
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const [mentionStartIndex, setMentionStartIndex] = useState<number | null>(null);
+
+  const mentionCandidates = useMemo(() => {
+    if (mentionQuery === null) return [];
+    const q = mentionQuery.toLowerCase();
+    const list: string[] = [];
+    if ('all'.includes(q) || 'mọi người'.includes(q)) {
+      list.push('all');
+    }
+    const memberNames: string[] = [];
+    members.forEach((m: any) => {
+      const name = m.nickname || m.user?.profile?.displayName || m.user?.email?.split('@')[0];
+      if (name && !memberNames.includes(name)) {
+        memberNames.push(name);
+      }
+    });
+    const filtered = memberNames.filter((name) => name.toLowerCase().includes(q));
+    return [...list, ...filtered].slice(0, 8);
+  }, [mentionQuery, members]);
+
+  const handleSelectMention = (name: string) => {
+    if (mentionStartIndex === null) return;
+    const before = messageInput.slice(0, mentionStartIndex);
+    const after = messageInput.slice(mentionStartIndex + 1 + (mentionQuery?.length || 0));
+    const newText = `${before}@${name} ${after}`;
+    setMessageInput(newText);
+    setMentionQuery(null);
+    setMentionStartIndex(null);
+  };
 
   // Active channel resolution
   const channels = circle?.channels || [];
@@ -871,6 +1109,8 @@ export default function CircleWorkspaceScreen() {
   const sendMessageMutation = useSendMessageMutation(currentChannelId);
   const reactMessageMutation = useReactMessageMutation(currentChannelId);
   const pinMessageMutation = usePinMessageMutation(currentChannelId);
+  const { data: pinnedMessages = [] } = usePinnedMessagesQuery(currentChannelId);
+  const edgePan = useEdgeSwipeDismiss({ onDismiss: () => router.back() });
   const { typingUsers, reportTyping } = useMobileChannelTyping(currentChannelId);
 
   // Mark message as read when channel is viewed or new messages arrive
@@ -1029,12 +1269,75 @@ export default function CircleWorkspaceScreen() {
   const prevLastMessageIdRef = useRef<string | null>(null);
   const isFirstLoadRef = useRef(true);
   const isNearBottomRef = useRef(true);
+  const messageRefs = useRef<Record<string, View | null>>({});
+  const chatContainerRef = useRef<View | null>(null);
+  const messagesContentRef = useRef<View | null>(null);
+  const currentScrollYRef = useRef(0);
+  const scrollViewPageYRef = useRef<number | undefined>(undefined);
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
 
   const handleScroll = (event: any) => {
     const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+    currentScrollYRef.current = contentOffset.y;
     const paddingToBottom = 160;
     isNearBottomRef.current =
       layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom;
+  };
+
+  const handleJumpToMessage = (targetMessageId: string) => {
+    if (!targetMessageId) return;
+    const targetNode = messageRefs.current[targetMessageId];
+    if (!targetNode || !scrollViewRef.current) return;
+
+    Keyboard.dismiss();
+
+    const triggerHighlight = () => {
+      setHighlightedMessageId(targetMessageId);
+      setTimeout(() => {
+        setHighlightedMessageId((curr) => (curr === targetMessageId ? null : curr));
+      }, 1800);
+    };
+
+    const performScroll = (targetY: number) => {
+      const scrollTarget = Math.max(0, targetY - 60);
+      scrollViewRef.current?.scrollTo({ y: scrollTarget, animated: true });
+      triggerHighlight();
+      // Second attempt ensures position settles after keyboard dismissal or layout adjustments
+      setTimeout(() => {
+        scrollViewRef.current?.scrollTo({ y: scrollTarget, animated: true });
+      }, 120);
+    };
+
+    const fallbackMeasure = () => {
+      if (chatContainerRef.current?.measureInWindow && (targetNode as any)?.measureInWindow) {
+        chatContainerRef.current.measureInWindow((_cx: number, containerY: number) => {
+          (targetNode as any).measureInWindow((_tx: number, targetNodeY: number) => {
+            const messageContentY = currentScrollYRef.current + (targetNodeY - containerY);
+            performScroll(messageContentY);
+          });
+        });
+      } else {
+        triggerHighlight();
+      }
+    };
+
+    try {
+      if (messagesContentRef.current && (targetNode as any)?.measureLayout) {
+        (targetNode as any).measureLayout(
+          messagesContentRef.current,
+          (_left: number, top: number) => {
+            performScroll(top);
+          },
+          () => {
+            fallbackMeasure();
+          }
+        );
+      } else {
+        fallbackMeasure();
+      }
+    } catch {
+      fallbackMeasure();
+    }
   };
 
   useEffect(() => {
@@ -1090,6 +1393,17 @@ export default function CircleWorkspaceScreen() {
     }
   };
 
+  const handleCallComingSoon = (type: 'audio' | 'video') => {
+    const title = type === 'video'
+      ? (locale === 'vi' ? 'Cuộc gọi Video' : 'Video Call')
+      : (locale === 'vi' ? 'Cuộc gọi Thoại' : 'Voice Call');
+    const message = locale === 'vi'
+      ? 'Tính năng gọi thoại & video đang phát triển cho Mobile (Coming Soon).\n\nBạn có thể trải nghiệm gọi trực tiếp ngay bây giờ trên phiên bản Web (Next.js) hoặc ứng dụng Android!'
+      : 'Voice & Video Calling is coming soon for Mobile.\n\nYou can currently enjoy realtime calling directly on the Web (Next.js) platform or Android app!';
+
+    Alert.alert(title, message, [{ text: 'OK', style: 'default' }]);
+  };
+
   const handlePickImage = async () => {
     try {
       const res = await ImagePicker.launchImageLibraryAsync({
@@ -1115,6 +1429,8 @@ export default function CircleWorkspaceScreen() {
     setMessageInput('');
     setSelectedImageUri(null);
     setReplyingMessage(null);
+    setMentionQuery(null);
+    setMentionStartIndex(null);
     reportTyping(false, user?.profile?.displayName || user?.email);
     isNearBottomRef.current = true;
 
@@ -1170,6 +1486,16 @@ export default function CircleWorkspaceScreen() {
   };
 
   const handleTogglePin = (messageId: string, isPinned: boolean) => {
+    const target = messages.find((m: any) => m.id === messageId);
+    const isCall = Boolean(
+      target?.content &&
+        (typeof target.content === 'string' &&
+          (target.content.startsWith('[CALL_SUMMARY]:') || target.content.includes('"callType"'))),
+    );
+    if (isCall) {
+      setActiveActionMessage(null);
+      return;
+    }
     pinMessageMutation.mutate({ messageId, isPinned });
     setActiveActionMessage(null);
   };
@@ -1205,121 +1531,336 @@ export default function CircleWorkspaceScreen() {
 
   return (
     <KeyboardAvoidingView
+      {...edgePan.panHandlers}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={[styles.container, { backgroundColor: colors.canvas }]}
     >
-      {/* Top Header Bar */}
-      <View style={[styles.headerBar, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
-        <View style={styles.headerLeft}>
+      {/* Unlimited Floating Frosted Header Bar (Row 1: Symmetrical Nav + Row 2: Centered Sub-header Title) */}
+      <View
+        style={styles.floatingHeaderWrapper}
+        onLayout={(e) => {
+          const h = e.nativeEvent.layout.height;
+          if (h > 0 && Math.abs(h - headerHeight) > 2) {
+            setHeaderHeight(h);
+          }
+        }}
+        pointerEvents="box-none"
+      >
+        {/* Header Background Layer: Dynamic Frosted Glass in Glass Mode vs Clean Solid Surface in Flat Mode */}
+        {isGlass ? (
+          <BlurView
+            intensity={isDark ? 55 : 45}
+            tint={glassTheme.blur.tint}
+            style={[
+              StyleSheet.absoluteFill,
+              styles.floatingHeaderBlur,
+              {
+                backgroundColor: isDark ? 'rgba(15,15,20,0.72)' : 'rgba(255,255,255,0.78)',
+              },
+            ]}
+            pointerEvents="none"
+          />
+        ) : (
+          <View
+            style={[
+              StyleSheet.absoluteFill,
+              {
+                backgroundColor: colors.surface,
+                borderBottomWidth: StyleSheet.hairlineWidth,
+                borderBottomColor: colors.hairline,
+              },
+            ]}
+            pointerEvents="none"
+          />
+        )}
+
+        {/* Row 1: Symmetrical Floating Navigation Anchors (Back, 3-Tab Capsule, Circle Switcher) */}
+        <View style={styles.floatingNavRow} pointerEvents="box-none">
+          {/* Left Anchor: Round Back Button */}
           <TouchableOpacity
+            activeOpacity={0.7}
             onPress={() => router.back()}
-            style={[styles.iconButton, { backgroundColor: colors.wash }]}
+            style={[
+              styles.floatingNavBtn,
+              {
+                backgroundColor: isGlass
+                  ? (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)')
+                  : colors.wash,
+                borderColor: isGlass
+                  ? (isDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.06)')
+                  : colors.hairline,
+              },
+            ]}
+            accessibilityLabel="Go back"
           >
-            <ArrowLeft size={20} color={colors.text} />
+            <ArrowLeft size={18} color={colors.text} />
           </TouchableOpacity>
 
-          <View style={[styles.miniAvatar, { backgroundColor: colors.primary }]}>
-            <Text style={[styles.miniAvatarText, { color: colors.onPrimary }]}>
+          {/* Center Anchor: Symmetrical 3-Tab Segmented Capsule (Chat | Moments | Tools) */}
+          <View style={styles.floatingCenterTabs} pointerEvents="box-none">
+            {isGlass ? (
+              <BlurView
+                intensity={glassTheme.blur.intensity}
+                tint={glassTheme.blur.tint}
+                style={[
+                  styles.tabSliderTrack,
+                  {
+                    backgroundColor: glassTheme.colors.glassBg,
+                    borderColor: glassTheme.colors.glassBorder,
+                  },
+                ]}
+                pointerEvents="auto"
+              >
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => handleTabSelect('chat')}
+                  style={[
+                    styles.tabSliderItem,
+                    activeTab === 'chat'
+                      ? [styles.tabSliderItemActive, { backgroundColor: isDark ? 'rgba(255,255,255,0.16)' : 'rgba(0,0,0,0.08)' }]
+                      : styles.tabSliderItemFaded,
+                  ]}
+                >
+                  <MessageSquare
+                    size={16}
+                    color={activeTab === 'chat' ? colors.primary : colors.subtle}
+                  />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => handleTabSelect('moments')}
+                  style={[
+                    styles.tabSliderItem,
+                    activeTab === 'moments'
+                      ? [styles.tabSliderItemActive, { backgroundColor: isDark ? 'rgba(255,255,255,0.16)' : 'rgba(0,0,0,0.08)' }]
+                      : styles.tabSliderItemFaded,
+                  ]}
+                >
+                  <Camera
+                    size={16}
+                    color={activeTab === 'moments' ? colors.primary : colors.subtle}
+                  />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => handleTabSelect('tools')}
+                  style={[
+                    styles.tabSliderItem,
+                    activeTab === 'tools'
+                      ? [styles.tabSliderItemActive, { backgroundColor: isDark ? 'rgba(255,255,255,0.16)' : 'rgba(0,0,0,0.08)' }]
+                      : styles.tabSliderItemFaded,
+                  ]}
+                >
+                  <Layers
+                    size={16}
+                    color={activeTab === 'tools' ? colors.primary : colors.subtle}
+                  />
+                </TouchableOpacity>
+              </BlurView>
+            ) : (
+              <View
+                style={[
+                  styles.tabSliderTrack,
+                  {
+                    backgroundColor: colors.wash,
+                    borderColor: colors.hairline,
+                    shadowOpacity: 0,
+                    elevation: 0,
+                  },
+                ]}
+                pointerEvents="auto"
+              >
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => handleTabSelect('chat')}
+                  style={[
+                    styles.tabSliderItem,
+                    activeTab === 'chat'
+                      ? [styles.tabSliderItemActive, { backgroundColor: colors.surface }]
+                      : styles.tabSliderItemFaded,
+                  ]}
+                >
+                  <MessageSquare
+                    size={16}
+                    color={activeTab === 'chat' ? colors.primary : colors.subtle}
+                  />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => handleTabSelect('moments')}
+                  style={[
+                    styles.tabSliderItem,
+                    activeTab === 'moments'
+                      ? [styles.tabSliderItemActive, { backgroundColor: colors.surface }]
+                      : styles.tabSliderItemFaded,
+                  ]}
+                >
+                  <Camera
+                    size={16}
+                    color={activeTab === 'moments' ? colors.primary : colors.subtle}
+                  />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => handleTabSelect('tools')}
+                  style={[
+                    styles.tabSliderItem,
+                    activeTab === 'tools'
+                      ? [styles.tabSliderItemActive, { backgroundColor: colors.surface }]
+                      : styles.tabSliderItemFaded,
+                  ]}
+                >
+                  <Layers
+                    size={16}
+                    color={activeTab === 'tools' ? colors.primary : colors.subtle}
+                  />
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+
+          {/* Right Anchor: Circular Active Circle Avatar Button */}
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => setCircleSwitcherVisible(true)}
+            style={[styles.floatingCircleAvatarBtn, { backgroundColor: colors.primary }]}
+            accessibilityLabel="Circle Switcher"
+          >
+            <Text style={[styles.floatingCircleAvatarText, { color: colors.onPrimary }]}>
               {getInitials(circle.name)}
             </Text>
-          </View>
+          </TouchableOpacity>
+        </View>
 
-          <View style={styles.headerTitleBlock}>
-            <Text numberOfLines={1} style={[styles.headerTitle, { color: colors.text }]}>
-              {circle.name}
+        {/* Row 2: Sub-header Centered Title Pill (Chat & Tools) - Clicking opens settings */}
+        {activeTab !== 'moments' && (
+          <View style={styles.floatingSubHeaderRow} pointerEvents="box-none">
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={handleOpenSettings}
+              style={[
+                styles.floatingTitlePill,
+                {
+                  backgroundColor: isGlass
+                    ? (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)')
+                    : colors.surface,
+                  borderColor: isGlass
+                    ? (isDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.07)')
+                    : colors.hairline,
+                  shadowOpacity: isGlass ? 0.05 : 0,
+                  elevation: isGlass ? 2 : 0,
+                },
+              ]}
+              accessibilityLabel="Circle Settings"
+            >
+              <Text numberOfLines={1} style={[styles.floatingTitleText, { color: colors.text }]}>
+                {circle.name}
+              </Text>
+              <ChevronDown size={13} color={colors.subtle} style={{ marginLeft: 3 }} />
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Row 3 (Conditional): Pinned Messages Banner */}
+        {activeTab === 'chat' && pinnedMessages.length > 0 && (
+          <View
+            style={[
+              styles.pinnedBanner,
+              {
+                backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.03)',
+                borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+              },
+            ]}
+          >
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => {
+                const latestPin = pinnedMessages[pinnedMessages.length - 1];
+                if (latestPin?.id) handleJumpToMessage(latestPin.id);
+              }}
+              style={styles.pinnedBannerLeft}
+            >
+              <Pin size={12} color={colors.primary} />
+              <Text numberOfLines={1} style={[styles.pinnedBannerText, { color: colors.subtle }]}>
+                {pinnedMessages[pinnedMessages.length - 1]?.content || t.chat.pinnedBadge}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => setIsPinnedModalVisible(true)}
+              style={[
+                styles.pinnedCountBadge,
+                { backgroundColor: colors.wash, borderColor: colors.hairline, borderWidth: StyleSheet.hairlineWidth },
+              ]}
+            >
+              <Text style={[styles.pinnedCountText, { color: colors.primary }]}>
+                {pinnedMessages.length} {t.chat.pinnedBadge}
+              </Text>
+              <ChevronRight size={11} color={colors.primary} style={{ marginLeft: 2 }} />
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Network Reconnection Notice */}
+        {!isSocketConnected && (
+          <View style={[styles.reconnectBanner, { backgroundColor: colors.wash, borderColor: colors.hairline }]}>
+            <WifiOff size={13} color={colors.subtle} style={{ marginRight: 6 }} />
+            <Text style={[styles.reconnectText, { color: colors.subtle }]}>
+              {t.chat.reconnecting}
             </Text>
           </View>
-        </View>
-
-        <View style={styles.headerRight}>
-          <TouchableOpacity
-            onPress={handleShareInviteCode}
-            style={[styles.iconButton, { backgroundColor: colors.wash }]}
-          >
-            <Share2 size={18} color={colors.text} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={handleOpenSettings}
-            style={[styles.iconButton, { backgroundColor: colors.wash }]}
-          >
-            <Settings size={18} color={colors.text} />
-          </TouchableOpacity>
-        </View>
+        )}
       </View>
 
-      {/* Network Reconnection Banner */}
-      {!isSocketConnected && (
-        <View style={[styles.reconnectBanner, { backgroundColor: colors.wash, borderColor: colors.hairline }]}>
-          <WifiOff size={13} color={colors.subtle} style={{ marginRight: 6 }} />
-          <Text style={[styles.reconnectText, { color: colors.subtle }]}>
-            {t.chat.reconnecting}
-          </Text>
-        </View>
-      )}
-
-      {/* Internal Navigation Tabs: 3 Tabs (Icons Only) */}
-      <View style={[styles.segmentedBar, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
-        <TouchableOpacity
-          activeOpacity={0.7}
-          onPress={() => setActiveTab('chat')}
-          style={[
-            styles.segmentItem,
-            activeTab === 'chat' && [styles.activeSegmentItem, { borderBottomColor: colors.primary }],
-          ]}
-        >
-          <MessageSquare
-            size={20}
-            color={activeTab === 'chat' ? colors.primary : colors.subtle}
-          />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          activeOpacity={0.7}
-          onPress={() => setActiveTab('moments')}
-          style={[
-            styles.segmentItem,
-            activeTab === 'moments' && [styles.activeSegmentItem, { borderBottomColor: colors.primary }],
-          ]}
-        >
-          <Camera
-            size={20}
-            color={activeTab === 'moments' ? colors.primary : colors.subtle}
-          />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          activeOpacity={0.7}
-          onPress={() => setActiveTab('tools')}
-          style={[
-            styles.segmentItem,
-            activeTab === 'tools' && [styles.activeSegmentItem, { borderBottomColor: colors.primary }],
-          ]}
-        >
-          <Layers
-            size={20}
-            color={activeTab === 'tools' ? colors.primary : colors.subtle}
-          />
-        </TouchableOpacity>
-      </View>
-
-      {/* TAB 1: TRÒ CHUYỆN TRỰC TIẾP TRONG CIRCLE */}
-      {activeTab === 'chat' && (
-        <View style={styles.chatContainer}>
-          {/* Messages list */}
+      {/* Horizontal Pager for Chat / Moments / Tools (Instagram-style smooth swipe) */}
+      <ScrollView
+        ref={horizontalPagerRef}
+        horizontal
+        pagingEnabled
+        directionalLockEnabled
+        showsHorizontalScrollIndicator={false}
+        onMomentumScrollEnd={handleHorizontalScrollEnd}
+        keyboardShouldPersistTaps="always"
+        style={{ flex: 1 }}
+        contentContainerStyle={{ flexGrow: 1 }}
+      >
+        {/* TAB 1: TRÒ CHUYỆN TRỰC TIẾP TRONG CIRCLE */}
+        <View style={{ width: screenWidth, flex: 1 }}>
+          <View
+            ref={chatContainerRef}
+            collapsable={false}
+            style={styles.chatContainer}
+            onLayout={() => {
+              chatContainerRef.current?.measureInWindow((_x, y) => {
+                if (typeof y === 'number' && !isNaN(y)) {
+                  scrollViewPageYRef.current = y;
+                }
+              });
+            }}
+          >
+          {/* Messages list with top padding clearing the floating header */}
           <ScrollView
             ref={scrollViewRef}
             style={styles.messagesList}
-            contentContainerStyle={styles.messagesScrollContent}
+            contentContainerStyle={[styles.messagesScrollContent, { paddingTop: headerHeight + 8 }]}
             showsVerticalScrollIndicator={false}
             onScroll={handleScroll}
-            scrollEventThrottle={16}
+            scrollEventThrottle={32}
+            removeClippedSubviews={Platform.OS === 'android'}
+            keyboardDismissMode="on-drag"
+            keyboardShouldPersistTaps="always"
+            nestedScrollEnabled={true}
             onContentSizeChange={() => {
               if (isFirstLoadRef.current || isNearBottomRef.current) {
                 scrollViewRef.current?.scrollToEnd({ animated: !isFirstLoadRef.current });
               }
             }}
           >
+            <View ref={messagesContentRef} collapsable={false} style={{ width: '100%' }}>
             {/* Load Earlier Messages Button */}
             {hasNextPage && (
               <View style={styles.loadEarlierContainer}>
@@ -1395,26 +1936,37 @@ export default function CircleWorkspaceScreen() {
                               msg.reactionCounts && Object.keys(msg.reactionCounts).length > 0;
 
                             return (
-                              <MobileSwipeMessageBubble
+                              <View
                                 key={msg.id ? `bubble-me-${msg.id}` : `bubble-temp-${msg.tempId || msgIdx}`}
-                                msg={msg}
-                                allMessages={messages}
-                                isSenderMe={true}
-                                isFirst={isFirst}
-                                isLast={isLast}
-                                isSingle={isSingle}
-                                isLatestSentByMe={Boolean(lastMessageByMeId && msg.id === lastMessageByMeId)}
-                                isLatestMessage={Boolean(lastMessageId && msg.id === lastMessageId)}
-                                showTimestamp={showTimestamp}
-                                hasReactions={hasReactions}
-                                colors={colors}
-                                t={t}
-                                onToggleTimestamp={() => handleToggleTimestamp(msg.id)}
-                                onLongPress={() => setActiveActionMessage(msg)}
-                                onSwipeReply={() => setReplyingMessage(msg)}
-                                onRetry={handleRetry}
-                                onPreviewImage={handleOpenImagePreview}
-                              />
+                                collapsable={false}
+                                ref={(node) => {
+                                  if (msg.id) messageRefs.current[msg.id] = node;
+                                }}
+                                style={{ width: '100%', alignItems: 'flex-end' }}
+                              >
+                                <MobileSwipeMessageBubble
+                                  msg={msg}
+                                  allMessages={messages}
+                                  isSenderMe={true}
+                                  isFirst={isFirst}
+                                  isLast={isLast}
+                                  isSingle={isSingle}
+                                  isLatestSentByMe={Boolean(lastMessageByMeId && msg.id === lastMessageByMeId)}
+                                  isLatestMessage={Boolean(lastMessageId && msg.id === lastMessageId)}
+                                  isHighlighted={highlightedMessageId === msg.id}
+                                  showTimestamp={showTimestamp}
+                                  hasReactions={hasReactions}
+                                  colors={colors}
+                                  t={t}
+                                  circleTheme={currentCircleTheme}
+                                  onToggleTimestamp={() => handleToggleTimestamp(msg.id)}
+                                  onLongPress={() => setActiveActionMessage(msg)}
+                                  onSwipeReply={() => setReplyingMessage(msg)}
+                                  onRetry={handleRetry}
+                                  onPreviewImage={handleOpenImagePreview}
+                                  onJumpToMessage={handleJumpToMessage}
+                                />
+                              </View>
                             );
                           })}
                         </View>
@@ -1468,25 +2020,36 @@ export default function CircleWorkspaceScreen() {
                                 msg.reactionCounts && Object.keys(msg.reactionCounts).length > 0;
 
                               return (
-                                <MobileSwipeMessageBubble
+                                <View
                                   key={msg.id ? `bubble-other-${msg.id}` : `bubble-temp-${msg.tempId || msgIdx}`}
-                                  msg={msg}
-                                  allMessages={messages}
-                                  isSenderMe={false}
-                                  isFirst={isFirst}
-                                  isLast={isLast}
-                                  isSingle={isSingle}
-                                  isLatestMessage={Boolean(lastMessageId && msg.id === lastMessageId)}
-                                  showTimestamp={showTimestamp}
-                                  hasReactions={hasReactions}
-                                  colors={colors}
-                                  t={t}
-                                  onToggleTimestamp={() => handleToggleTimestamp(msg.id)}
-                                  onLongPress={() => setActiveActionMessage(msg)}
-                                  onSwipeReply={() => setReplyingMessage(msg)}
-                                  onRetry={handleRetry}
-                                  onPreviewImage={handleOpenImagePreview}
-                                />
+                                  collapsable={false}
+                                  ref={(node) => {
+                                    if (msg.id) messageRefs.current[msg.id] = node;
+                                  }}
+                                  style={{ width: '100%', alignItems: 'flex-start' }}
+                                >
+                                  <MobileSwipeMessageBubble
+                                    msg={msg}
+                                    allMessages={messages}
+                                    isSenderMe={false}
+                                    isFirst={isFirst}
+                                    isLast={isLast}
+                                    isSingle={isSingle}
+                                    isLatestMessage={Boolean(lastMessageId && msg.id === lastMessageId)}
+                                    isHighlighted={highlightedMessageId === msg.id}
+                                    showTimestamp={showTimestamp}
+                                    hasReactions={hasReactions}
+                                    colors={colors}
+                                    t={t}
+                                    circleTheme={currentCircleTheme}
+                                    onToggleTimestamp={() => handleToggleTimestamp(msg.id)}
+                                    onLongPress={() => setActiveActionMessage(msg)}
+                                    onSwipeReply={() => setReplyingMessage(msg)}
+                                    onRetry={handleRetry}
+                                    onPreviewImage={handleOpenImagePreview}
+                                    onJumpToMessage={handleJumpToMessage}
+                                  />
+                                </View>
                               );
                             })}
                           </View>
@@ -1538,6 +2101,7 @@ export default function CircleWorkspaceScreen() {
                 </View>
               ))
             )}
+            </View>
           </ScrollView>
 
           {/* Floating Rounded Composer Area */}
@@ -1603,15 +2167,18 @@ export default function CircleWorkspaceScreen() {
               <View
                 style={[
                   styles.replyPreviewBar,
-                  { backgroundColor: colors.surface, borderColor: colors.hairline },
+                  {
+                    backgroundColor: activeCircleBubbleTheme.composerReplyBg,
+                    borderColor: activeCircleBubbleTheme.border || colors.hairline,
+                  },
                 ]}
               >
                 <View style={styles.replyPreviewLeft}>
                   <View style={{ transform: [{ scaleX: -1 }], marginRight: 2 }}>
-                    <Reply size={15} color={colors.primary} />
+                    <Reply size={15} color={activeCircleBubbleTheme.text} />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={[styles.replyPreviewAuthor, { color: colors.primary }]}>
+                    <Text style={[styles.replyPreviewAuthor, { color: activeCircleBubbleTheme.text }]}>
                       {t.chat.replyingTo.replace(
                         '{name}',
                         replyingMessage.sender?.nickname ||
@@ -1637,155 +2204,242 @@ export default function CircleWorkspaceScreen() {
               </View>
             )}
 
-            {/* Rounded Floating Composer Bar with embedded Send Button */}
-            <View
-              style={[
-                styles.composerBar,
-                {
-                  backgroundColor: colors.surface,
-                  borderColor: colors.hairline,
-                },
-              ]}
-            >
-              <TouchableOpacity
-                activeOpacity={0.7}
-                onPress={handlePickImage}
-                disabled={isUploadingMedia || sendMessageMutation.isPending}
-                style={[styles.imagePickBtn, { backgroundColor: colors.wash }]}
-              >
-                <ImageIcon size={18} color={colors.primary} />
-              </TouchableOpacity>
-
-              <TextInput
-                value={messageInput}
-                onChangeText={(text) => {
-                  setMessageInput(text);
-                  if (circleId) {
-                    getStorageItem(`circle_${circleId}_typing_indicator`).then((v) => {
-                      if (v === 'false') return;
-                      reportTyping(text.length > 0, user?.profile?.displayName || user?.email);
-                    });
-                  } else {
-                    reportTyping(text.length > 0, user?.profile?.displayName || user?.email);
-                  }
-                }}
-                placeholder={t.chat.composerPlaceholder.replace('#{channel}', currentChannel?.name || 'chat')}
-                placeholderTextColor={colors.subtle}
-                style={[styles.composerInput, { color: colors.text }]}
-                multiline
-              />
-              <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={handleSendMessage}
-                disabled={(!messageInput.trim() && !selectedImageUri) || sendMessageMutation.isPending || isUploadingMedia}
+            {/* Mention Suggestions Horizontal Bar (Minimalism: Name only) */}
+            {mentionCandidates.length > 0 && (
+              <View
                 style={[
-                  styles.sendBtn,
+                  styles.mentionContainer,
                   {
-                    backgroundColor:
-                      (messageInput.trim() || selectedImageUri) && !sendMessageMutation.isPending && !isUploadingMedia
-                        ? colors.primary
-                        : colors.wash,
+                    backgroundColor: colors.surface,
+                    borderColor: colors.hairline,
                   },
                 ]}
               >
-                {sendMessageMutation.isPending || isUploadingMedia ? (
-                  <ActivityIndicator size="small" color={colors.onPrimary} />
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.mentionScrollContent}
+                  keyboardShouldPersistTaps="always"
+                >
+                  {mentionCandidates.map((name) => (
+                    <TouchableOpacity
+                      key={name}
+                      activeOpacity={0.7}
+                      onPress={() => handleSelectMention(name)}
+                      style={[styles.mentionPill, { backgroundColor: colors.wash, borderColor: colors.hairline }]}
+                    >
+                      <Text style={[styles.mentionPillText, { color: colors.primary }]}>@{name}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+
+            {/* Apple-Style Separated Input Bar: Left Input Capsule + Right Standalone Action Button */}
+            <View style={styles.composerRow}>
+              {/* Left Input Capsule: (+) icon, Image icon, Text field, and Sticker/Emoji on far right */}
+              <View
+                style={[
+                  styles.composerInputCapsule,
+                  {
+                    backgroundColor: isGlass
+                      ? (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.85)')
+                      : colors.surface,
+                    borderColor: isGlass
+                      ? (isDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.08)')
+                      : colors.hairline,
+                  },
+                ]}
+              >
+                {/* Action 1: (+) Outline Coral Plus Button */}
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={handlePickImage}
+                  style={styles.plusOutlineCircle}
+                  accessibilityLabel="Add attachment"
+                >
+                  <Plus size={13} color="#EF4444" strokeWidth={2.5} />
+                </TouchableOpacity>
+
+                {/* Action 2: Image / Photo Icon */}
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={handlePickImage}
+                  disabled={isUploadingMedia || sendMessageMutation.isPending}
+                  style={styles.capsuleIconBtn}
+                  accessibilityLabel="Attach Photo"
+                >
+                  <ImageIcon size={19} color={colors.text} />
+                </TouchableOpacity>
+
+                {/* Text Input Field (Flex-1) */}
+                <TextInput
+                  value={messageInput}
+                  onChangeText={(text) => {
+                    setMessageInput(text);
+                    if (circleId) {
+                      getStorageItem(`circle_${circleId}_typing_indicator`).then((v) => {
+                        if (v === 'false') return;
+                        reportTyping(text.length > 0, user?.profile?.displayName || user?.email);
+                      });
+                    } else {
+                      reportTyping(text.length > 0, user?.profile?.displayName || user?.email);
+                    }
+
+                    const lastAtIndex = text.lastIndexOf('@');
+                    if (lastAtIndex !== -1) {
+                      const queryAfterAt = text.slice(lastAtIndex + 1);
+                      const charBeforeAt = lastAtIndex > 0 ? text[lastAtIndex - 1] : ' ';
+                      const isValidPrefix = charBeforeAt === ' ' || charBeforeAt === '\n' || lastAtIndex === 0;
+                      if (isValidPrefix && !/\s/.test(queryAfterAt) && queryAfterAt.length <= 25) {
+                        setMentionQuery(queryAfterAt);
+                        setMentionStartIndex(lastAtIndex);
+                      } else {
+                        setMentionQuery(null);
+                        setMentionStartIndex(null);
+                      }
+                    } else {
+                      setMentionQuery(null);
+                      setMentionStartIndex(null);
+                    }
+                  }}
+                  placeholder={t.chat.composerPlaceholder.replace('#{channel}', currentChannel?.name || 'chat')}
+                  placeholderTextColor={colors.subtle}
+                  style={[styles.composerInput, { color: colors.text }]}
+                  multiline
+                />
+
+                {/* Action 3: Emoji / Sticker Button (Far right inside capsule) */}
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    setTargetReactMessageId(null);
+                    setIsFullEmojiModalVisible(true);
+                  }}
+                  style={styles.capsuleIconBtn}
+                  accessibilityLabel="Choose Emoji"
+                >
+                  <Smile size={19} color={colors.text} />
+                </TouchableOpacity>
+              </View>
+
+              {/* Right Standalone Action Button: Mic (when empty) vs Send (when typing) */}
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={
+                  (messageInput.trim() || selectedImageUri)
+                    ? handleSendMessage
+                    : () => {
+                        triggerLightHaptic();
+                        Alert.alert(
+                          'Tin nhắn thoại',
+                          'Tính năng ghi âm tin nhắn thoại (Voice Message) đang sẵn sàng trong bản cập nhật kế tiếp.',
+                        );
+                      }
+                }
+                disabled={Boolean((messageInput.trim() || selectedImageUri) && (sendMessageMutation.isPending || isUploadingMedia))}
+                style={[
+                  styles.standaloneActionBtn,
+                  (messageInput.trim() || selectedImageUri)
+                    ? { backgroundColor: activeCircleBubbleTheme.sendBtnBg }
+                    : {
+                        backgroundColor: isGlass
+                          ? (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.85)')
+                          : colors.surface,
+                        borderColor: isGlass
+                          ? (isDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.08)')
+                          : colors.hairline,
+                        borderWidth: 1.2,
+                      },
+                ]}
+                accessibilityLabel={(messageInput.trim() || selectedImageUri) ? 'Send Message' : 'Record Voice Message'}
+              >
+                {(messageInput.trim() || selectedImageUri) ? (
+                  sendMessageMutation.isPending || isUploadingMedia ? (
+                    <ActivityIndicator size="small" color={activeCircleBubbleTheme.sendBtnText} />
+                  ) : (
+                    <Send size={18} color={activeCircleBubbleTheme.sendBtnText} />
+                  )
                 ) : (
-                  <Send
-                    size={17}
-                    color={(messageInput.trim() || selectedImageUri) ? colors.onPrimary : colors.subtle}
-                  />
+                  <Mic size={20} color="#EF4444" />
                 )}
               </TouchableOpacity>
             </View>
           </View>
         </View>
-      )}
+      </View>
 
-      {/* TAB 2: KHOẢNH KHẮC THƯỜNG NGÀY (AUTHENTIC MOMENTS VIEW) */}
-      {activeTab === 'moments' && (
-        <MomentsView circleId={circleId} circleName={circle.name} />
-      )}
+        {/* TAB 2: KHOẢNH KHẮC THƯỜNG NGÀY (AUTHENTIC MOMENTS VIEW) */}
+        <View style={{ width: screenWidth, flex: 1, paddingTop: headerHeight }}>
+          <MomentsView circleId={circleId} circleName={circle.name} isActive={activeTab === 'moments'} />
+        </View>
 
-      {/* TAB 3: TIỆN ÍCH NHÓM */}
-      {activeTab === 'tools' && (
-        <ScrollView contentContainerStyle={styles.toolsContainer} showsVerticalScrollIndicator={false}>
-          {/* Tool 1: Realtime Voice Stage */}
-          <View style={[styles.toolCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
-            <View style={[styles.toolIcon, { backgroundColor: `${colors.primary}20` }]}>
-              <Radio size={24} color={colors.primary} />
-            </View>
-            <View style={styles.toolInfo}>
-              <Text style={[styles.toolTitle, { color: colors.text }]}>
-                {t.nav.groupCall}
-              </Text>
-              <Text style={[styles.toolDesc, { color: colors.subtle }]}>
-                {t.home.noVoiceStageOpen}
-              </Text>
-            </View>
-          </View>
+        {/* TAB 3: TIỆN ÍCH NHÓM */}
+        <View style={{ width: screenWidth, flex: 1 }}>
+          <ScrollView contentContainerStyle={[styles.toolsContainer, { paddingTop: headerHeight + 12 }]} showsVerticalScrollIndicator={false}>
+            <View style={[styles.toolsCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+              {/* Tool 1: Realtime Voice Stage */}
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => handleCallComingSoon('audio')}
+                style={[styles.toolRow, { borderBottomColor: colors.hairline }]}
+              >
+                <Radio size={20} color={colors.text} />
+                <View style={styles.toolInfo}>
+                  <Text style={[styles.toolTitle, { color: colors.text }]}>
+                    {t.nav.groupCall}
+                  </Text>
+                </View>
+                <ChevronRight size={16} color={colors.subtle} />
+              </TouchableOpacity>
 
-          {/* Tool 2: Photo Album */}
-          <View style={[styles.toolCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
-            <View style={[styles.toolIcon, { backgroundColor: `${colors.warning}20` }]}>
-              <ImageIcon size={24} color={colors.warning} />
-            </View>
-            <View style={styles.toolInfo}>
-              <Text style={[styles.toolTitle, { color: colors.text }]}>
-                {t.nav.photoAlbum}
-              </Text>
-              <Text style={[styles.toolDesc, { color: colors.subtle }]}>
-                {t.home.circleFeedSubtitle}
-              </Text>
-            </View>
-          </View>
+              {/* Tool 2: Photo Album */}
+              <View style={[styles.toolRow, { borderBottomColor: colors.hairline }]}>
+                <ImageIcon size={20} color={colors.text} />
+                <View style={styles.toolInfo}>
+                  <Text style={[styles.toolTitle, { color: colors.text }]}>
+                    {t.nav.photoAlbum}
+                  </Text>
+                </View>
+                <ChevronRight size={16} color={colors.subtle} />
+              </View>
 
-          {/* Tool 3: Calendar Events */}
-          <View style={[styles.toolCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
-            <View style={[styles.toolIcon, { backgroundColor: `${colors.info}20` }]}>
-              <Calendar size={24} color={colors.info} />
-            </View>
-            <View style={styles.toolInfo}>
-              <Text style={[styles.toolTitle, { color: colors.text }]}>
-                {t.nav.calendarEvents}
-              </Text>
-              <Text style={[styles.toolDesc, { color: colors.subtle }]}>
-                {t.home.upcomingEventsEmpty}
-              </Text>
-            </View>
-          </View>
+              {/* Tool 3: Calendar Events */}
+              <View style={[styles.toolRow, { borderBottomColor: colors.hairline }]}>
+                <Calendar size={20} color={colors.text} />
+                <View style={styles.toolInfo}>
+                  <Text style={[styles.toolTitle, { color: colors.text }]}>
+                    {t.nav.calendarEvents}
+                  </Text>
+                </View>
+                <ChevronRight size={16} color={colors.subtle} />
+              </View>
 
-          {/* Tool 4: Planning Sheet */}
-          <View style={[styles.toolCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
-            <View style={[styles.toolIcon, { backgroundColor: `${colors.success}20` }]}>
-              <FileSpreadsheet size={24} color={colors.success} />
-            </View>
-            <View style={styles.toolInfo}>
-              <Text style={[styles.toolTitle, { color: colors.text }]}>
-                {t.nav.planningSheet}
-              </Text>
-              <Text style={[styles.toolDesc, { color: colors.subtle }]}>
-                {t.nav.planningSheet}
-              </Text>
-            </View>
-          </View>
+              {/* Tool 4: Planning Sheet */}
+              <View style={[styles.toolRow, { borderBottomColor: colors.hairline }]}>
+                <FileSpreadsheet size={20} color={colors.text} />
+                <View style={styles.toolInfo}>
+                  <Text style={[styles.toolTitle, { color: colors.text }]}>
+                    {t.nav.planningSheet}
+                  </Text>
+                </View>
+                <ChevronRight size={16} color={colors.subtle} />
+              </View>
 
-          {/* Tool 5: Lucky Wheel */}
-          <View style={[styles.toolCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
-            <View style={[styles.toolIcon, { backgroundColor: `${colors.peach}40` }]}>
-              <Sparkles size={24} color={colors.warning} />
+              {/* Tool 5: Lucky Wheel */}
+              <View style={[styles.toolRow, { borderBottomColor: 'transparent', borderBottomWidth: 0 }]}>
+                <Sparkles size={20} color={colors.text} />
+                <View style={styles.toolInfo}>
+                  <Text style={[styles.toolTitle, { color: colors.text }]}>
+                    {t.nav.luckyWheel}
+                  </Text>
+                </View>
+                <ChevronRight size={16} color={colors.subtle} />
+              </View>
             </View>
-            <View style={styles.toolInfo}>
-              <Text style={[styles.toolTitle, { color: colors.text }]}>
-                {t.nav.luckyWheel}
-              </Text>
-              <Text style={[styles.toolDesc, { color: colors.subtle }]}>
-                {t.nav.luckyWheel}
-              </Text>
-            </View>
-          </View>
-        </ScrollView>
-      )}
+          </ScrollView>
+        </View>
+      </ScrollView>
 
       {/* Floating Action Menu Modal on Long Press */}
       <Modal
@@ -1800,31 +2454,40 @@ export default function CircleWorkspaceScreen() {
           onPress={() => setActiveActionMessage(null)}
         >
           <BlurView
-            intensity={Platform.OS === 'ios' ? 25 : 50}
-            tint={isDark ? 'dark' : 'light'}
-            style={StyleSheet.absoluteFill}
-          />
-          <View
+            intensity={glassTheme.blur.intensity + 10}
+            tint={glassTheme.blur.tint}
             style={[
               styles.actionMenuCard,
               {
-                backgroundColor: colors.surface,
-                borderColor: colors.hairline,
+                backgroundColor: glassTheme.colors.glassBgSheet,
+                borderColor: glassTheme.colors.glassBorder,
               },
             ]}
           >
-            {/* Quick Emojis Row */}
+            {/* Quick Emojis Row: 3 prominent emojis + Full Emoji Picker toggle */}
             <View style={styles.actionEmojisRow}>
-              {QUICK_EMOJIS.map((emoji) => (
+              {PROMINENT_QUICK_EMOJIS.map((emoji) => (
                 <TouchableOpacity
                   key={emoji}
                   activeOpacity={0.7}
                   onPress={() => handleReact(activeActionMessage.id, emoji)}
                   style={styles.actionEmojiBtn}
                 >
-                  <Text style={styles.actionEmojiText}>{emoji}</Text>
+                  <Emoji emoji={emoji} size={24} />
                 </TouchableOpacity>
               ))}
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => {
+                  setTargetReactMessageId(activeActionMessage.id);
+                  setActiveActionMessage(null);
+                  setIsFullEmojiModalVisible(true);
+                }}
+                style={[styles.actionEmojiMoreBtn, { backgroundColor: colors.wash, borderColor: colors.hairline }]}
+                accessibilityLabel="More Emojis"
+              >
+                <Smile size={18} color={colors.text} />
+              </TouchableOpacity>
             </View>
 
             <View style={[styles.actionDivider, { backgroundColor: colors.hairline }]} />
@@ -1845,24 +2508,27 @@ export default function CircleWorkspaceScreen() {
                 <Text style={[styles.actionBtnItemText, { color: colors.text }]}>{t.chat.replyAction}</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity
-                activeOpacity={0.7}
-                onPress={() =>
-                  handleTogglePin(activeActionMessage.id, !activeActionMessage.isPinned)
-                }
-                style={[styles.actionBtnItem, { backgroundColor: colors.wash }]}
-              >
-                <Pin
-                  size={16}
-                  color={activeActionMessage?.isPinned ? colors.warning : colors.subtle}
-                  fill={activeActionMessage?.isPinned ? colors.warning : 'transparent'}
-                />
-                <Text style={[styles.actionBtnItemText, { color: colors.text }]}>
-                  {activeActionMessage?.isPinned ? t.chat.unpinAction : t.chat.pinAction}
-                </Text>
-              </TouchableOpacity>
+              {!activeActionMessage?.content?.startsWith?.('[CALL_SUMMARY]:') &&
+                !activeActionMessage?.content?.includes?.('"callType"') && (
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    onPress={() =>
+                      handleTogglePin(activeActionMessage.id, Boolean(activeActionMessage.isPinned))
+                    }
+                    style={[styles.actionBtnItem, { backgroundColor: colors.wash }]}
+                  >
+                    <Pin
+                      size={16}
+                      color={activeActionMessage?.isPinned ? colors.warning : colors.subtle}
+                      fill={activeActionMessage?.isPinned ? colors.warning : 'transparent'}
+                    />
+                    <Text style={[styles.actionBtnItemText, { color: colors.text }]}>
+                      {activeActionMessage?.isPinned ? t.chat.unpinAction : t.chat.pinAction}
+                    </Text>
+                  </TouchableOpacity>
+                )}
             </View>
-          </View>
+          </BlurView>
         </TouchableOpacity>
       </Modal>
 
@@ -1963,8 +2629,164 @@ export default function CircleWorkspaceScreen() {
         </View>
       </Modal>
 
+      {/* Circle Switcher Sheet Modal (same as homepage) */}
+      <Modal
+        visible={circleSwitcherVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCircleSwitcherVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalBackdrop}
+          activeOpacity={1}
+          onPress={() => setCircleSwitcherVisible(false)}
+        >
+          <BlurView
+            intensity={glassTheme.blur.intensity + 20}
+            tint={glassTheme.blur.tint}
+            style={[
+              styles.switcherSheet,
+              {
+                backgroundColor: glassTheme.colors.glassBg,
+                borderColor: glassTheme.colors.glassBorder,
+              },
+            ]}
+          >
+            <View style={[styles.sheetHandle, { backgroundColor: colors.hairline }]} />
+            <View style={styles.switcherHeader}>
+              <Text style={[styles.switcherTitle, { color: colors.text }]}>
+                {t.nav.yourCircles}
+              </Text>
+              <TouchableOpacity
+                onPress={() => setCircleSwitcherVisible(false)}
+                style={[styles.closeBtn, { backgroundColor: colors.wash }]}
+              >
+                <Text style={{ color: colors.subtle, fontWeight: '700' }}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={{ maxHeight: 280 }} showsVerticalScrollIndicator={false}>
+              {myCircles.map((c: any) => {
+                const isSelected = c.id === circleId;
+                return (
+                  <TouchableOpacity
+                    key={c.id}
+                    activeOpacity={0.75}
+                    onPress={() => {
+                      setActiveCircle(c);
+                      setCircleSwitcherVisible(false);
+                      if (c.id !== circleId) {
+                        router.replace({
+                          pathname: '/circle/[id]' as any,
+                          params: { id: c.id },
+                        });
+                      }
+                    }}
+                    style={[
+                      styles.circleSwitcherItem,
+                      {
+                        backgroundColor: isSelected ? `${colors.primary}15` : colors.wash,
+                        borderColor: isSelected ? colors.primary : colors.hairline,
+                      },
+                    ]}
+                  >
+                    <View style={[styles.switcherAvatar, { backgroundColor: colors.primary }]}>
+                      <Text style={[styles.switcherAvatarText, { color: colors.onPrimary }]}>
+                        {getInitials(c.name)}
+                      </Text>
+                    </View>
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text
+                        numberOfLines={1}
+                        style={[styles.switcherCircleName, { color: colors.text }]}
+                      >
+                        {c.name}
+                      </Text>
+                      {c.description ? (
+                        <Text
+                          numberOfLines={1}
+                          style={[styles.switcherCircleHandle, { color: colors.subtle }]}
+                        >
+                          {c.description}
+                        </Text>
+                      ) : null}
+                    </View>
+                    {isSelected && (
+                      <View style={[styles.checkDot, { backgroundColor: colors.primary }]} />
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            <View style={styles.switcherActions}>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => {
+                  setCircleSwitcherVisible(false);
+                  setCreateModalVisible(true);
+                }}
+                style={[styles.switcherActionBtn, { backgroundColor: colors.primary }]}
+              >
+                <Plus size={16} color={colors.onPrimary} strokeWidth={2.4} />
+                <Text style={[styles.switcherActionBtnText, { color: colors.onPrimary }]}>
+                  {t.home.createCircleBtn}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => {
+                  setCircleSwitcherVisible(false);
+                  setJoinModalVisible(true);
+                }}
+                style={[
+                  styles.switcherActionBtnSecondary,
+                  { borderColor: colors.hairline, backgroundColor: colors.wash },
+                ]}
+              >
+                <KeyRound size={15} color={colors.text} />
+                <Text
+                  style={[styles.switcherActionBtnSecondaryText, { color: colors.text }]}
+                >
+                  {t.home.joinWithCodeBtn}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </BlurView>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Create & Join Circle Modals */}
+      <CreateCircleModal />
+      <JoinCircleModal />
+
       {/* Circle Management Modal */}
       <CircleManagementModal />
+
+      {/* Pinned Messages Modal */}
+      <PinnedMessagesModal
+        visible={isPinnedModalVisible}
+        onClose={() => setIsPinnedModalVisible(false)}
+        pinnedMessages={pinnedMessages}
+        onJumpToMessage={handleJumpToMessage}
+        onTogglePin={handleTogglePin}
+        colors={colors}
+        t={t}
+      />
+
+      {/* Full Comprehensive Emoji Picker Modal */}
+      <FullEmojiPickerModal
+        visible={isFullEmojiModalVisible}
+        onClose={() => setIsFullEmojiModalVisible(false)}
+        onSelectEmoji={(emoji) => {
+          if (targetReactMessageId) {
+            handleReact(targetReactMessageId, emoji);
+          } else {
+            setMessageInput((prev) => prev + emoji);
+          }
+        }}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -1996,52 +2818,181 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
-  headerBar: {
+  floatingHeaderWrapper: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 50,
+    paddingTop: Platform.OS === 'ios' ? 52 : 36,
+    paddingBottom: 6,
+    overflow: 'hidden',
+  },
+  floatingHeaderBlur: {
+    borderBottomWidth: 0,
+  },
+  floatingNavRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'ios' ? 54 : 36,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
+    height: 44,
   },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    flex: 1,
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  iconButton: {
+  floatingNavBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
   },
-  miniAvatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 15,
+  floatingCenterTabs: {
     alignItems: 'center',
     justifyContent: 'center',
   },
-  miniAvatarText: {
-    fontSize: 14,
+  tabSliderTrack: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    borderRadius: 22,
+    borderWidth: 1,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+  },
+  tabSliderItem: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 16,
+  },
+  tabSliderItemActive: {
+    opacity: 1,
+    transform: [{ scale: 1.05 }],
+  },
+  tabSliderItemFaded: {
+    opacity: 0.45,
+    transform: [{ scale: 0.95 }],
+  },
+  floatingCircleAvatarBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  floatingCircleAvatarText: {
+    fontSize: 12,
     fontWeight: '800',
   },
-  headerTitleBlock: {
+  floatingSubHeaderRow: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 4,
+    paddingBottom: 4,
+  },
+  floatingTitlePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+    borderRadius: 18,
+    maxWidth: '75%',
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  floatingTitleText: {
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+  },
+  pinnedBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginHorizontal: 16,
+    marginBottom: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  pinnedBannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     flex: 1,
-    gap: 1,
+    paddingRight: 8,
   },
-  headerTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    letterSpacing: -0.3,
+  pinnedBannerText: {
+    fontSize: 12,
+    fontWeight: '400',
+  },
+  pinnedCountBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+  },
+  pinnedCountText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  callNotificationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 2,
+  },
+  callNotificationTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  callNotificationDuration: {
+    fontSize: 11,
+    fontWeight: '500',
+    marginTop: 1,
+  },
+  pinnedBubblePill: {
+    position: 'absolute',
+    top: -6,
+    right: -4,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  toolsCard: {
+    borderRadius: 20,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  toolRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: 12,
   },
   segmentedBar: {
     flexDirection: 'row',
@@ -2166,43 +3117,43 @@ const styles = StyleSheet.create({
     maxWidth: '100%',
   },
   singleBubbleMe: {
-    borderRadius: 18,
-    borderBottomRightRadius: 4,
+    borderRadius: 20,
+    borderBottomRightRadius: 6,
   },
   firstBubbleMe: {
-    borderRadius: 18,
+    borderRadius: 20,
     borderBottomRightRadius: 6,
   },
   middleBubbleMe: {
-    borderRadius: 18,
+    borderRadius: 20,
     borderTopRightRadius: 6,
     borderBottomRightRadius: 6,
   },
   lastBubbleMe: {
-    borderRadius: 18,
+    borderRadius: 20,
     borderTopRightRadius: 6,
-    borderBottomRightRadius: 4,
+    borderBottomRightRadius: 6,
   },
   singleBubbleOther: {
-    borderRadius: 18,
-    borderBottomLeftRadius: 4,
+    borderRadius: 20,
+    borderBottomLeftRadius: 6,
     borderWidth: 1,
   },
   firstBubbleOther: {
-    borderRadius: 18,
+    borderRadius: 20,
     borderBottomLeftRadius: 6,
     borderWidth: 1,
   },
   middleBubbleOther: {
-    borderRadius: 18,
+    borderRadius: 20,
     borderTopLeftRadius: 6,
     borderBottomLeftRadius: 6,
     borderWidth: 1,
   },
   lastBubbleOther: {
-    borderRadius: 18,
+    borderRadius: 20,
     borderTopLeftRadius: 6,
-    borderBottomLeftRadius: 4,
+    borderBottomLeftRadius: 6,
     borderWidth: 1,
   },
   messageText: {
@@ -2280,17 +3231,28 @@ const styles = StyleSheet.create({
   },
   reactionsBadgePill: {
     position: 'absolute',
-    bottom: -6,
-    right: 4,
+    bottom: -9,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-    borderRadius: 10,
+    gap: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
+    borderRadius: 12,
     borderWidth: 1,
-    elevation: 0,
-    shadowOpacity: 0,
+    zIndex: 10,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.12,
+    shadowRadius: 2,
+  },
+  actionEmojiMoreBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
   },
   reactionEmojiText: {
     fontSize: 11,
@@ -2337,6 +3299,79 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginLeft: 8,
   },
+  mentionContainer: {
+    marginBottom: 4,
+    borderRadius: 16,
+    borderWidth: 1,
+    overflow: 'hidden',
+    paddingVertical: 5,
+    paddingHorizontal: 8,
+  },
+  mentionScrollContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  mentionPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  mentionPillText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  composerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    width: '100%',
+  },
+  composerInputCapsule: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 26,
+    borderWidth: 1.2,
+    paddingLeft: 8,
+    paddingRight: 10,
+    paddingVertical: 3,
+    minHeight: 48,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    elevation: 2,
+    gap: 6,
+  },
+  plusOutlineCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#EF4444',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  capsuleIconBtn: {
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  standaloneActionBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 5,
+    elevation: 2,
+  },
   composerBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2357,7 +3392,7 @@ const styles = StyleSheet.create({
     flex: 1,
     maxHeight: 90,
     paddingVertical: 6,
-    paddingRight: 6,
+    paddingRight: 4,
     fontSize: 14,
   },
   sendBtn: {
@@ -2408,8 +3443,9 @@ const styles = StyleSheet.create({
   actionMenuCard: {
     width: '100%',
     maxWidth: 320,
-    borderRadius: 24,
+    borderRadius: 20,
     borderWidth: 1,
+    overflow: 'hidden',
     padding: 14,
     gap: 12,
     shadowColor: '#000',
@@ -2840,6 +3876,108 @@ const styles = StyleSheet.create({
   },
   dateSeparatorText: {
     fontSize: 11,
+    fontWeight: '600',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'flex-end',
+  },
+  switcherSheet: {
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    borderWidth: 1,
+    overflow: 'hidden',
+    paddingTop: 12,
+    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
+    paddingHorizontal: 16,
+    maxHeight: '80%',
+  },
+  sheetHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 8,
+  },
+  switcherHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  switcherTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+  },
+  closeBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  circleSwitcherItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 18,
+    borderWidth: 1,
+    marginBottom: 8,
+    gap: 12,
+  },
+  switcherAvatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  switcherAvatarText: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  switcherCircleName: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  switcherCircleHandle: {
+    fontSize: 11,
+    marginTop: 1,
+  },
+  checkDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  switcherActions: {
+    gap: 8,
+    marginTop: 8,
+  },
+  switcherActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 46,
+    borderRadius: 23,
+    gap: 8,
+  },
+  switcherActionBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  switcherActionBtnSecondary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 46,
+    borderRadius: 23,
+    borderWidth: 1,
+    gap: 8,
+  },
+  switcherActionBtnSecondaryText: {
+    fontSize: 13,
     fontWeight: '600',
   },
 });

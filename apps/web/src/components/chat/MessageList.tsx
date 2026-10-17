@@ -17,6 +17,7 @@ interface MessageListProps {
   onReact: (messageId: string, emoji: string) => void;
   onTogglePin: (messageId: string, isPinned: boolean) => void;
   onRetry?: (message: MessageEntity) => void;
+  onJumpToMessage?: (messageId: string) => void;
 }
 
 interface MessageCluster {
@@ -39,11 +40,28 @@ export const MessageList: React.FC<MessageListProps> = ({
   onReact,
   onTogglePin,
   onRetry,
+  onJumpToMessage,
 }) => {
   const t = useLanguageStore((s) => s.t);
   const locale = useLanguageStore((s) => s.locale);
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [highlightedMessageId, setHighlightedMessageId] = React.useState<string | null>(null);
+
+  const handleJumpToMessage = (targetId: string) => {
+    if (!targetId) return;
+    const element = document.getElementById(`message-${targetId}`);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setHighlightedMessageId(targetId);
+      setTimeout(() => {
+        setHighlightedMessageId((curr) => (curr === targetId ? null : curr));
+      }, 1800);
+    } else if (onJumpToMessage) {
+      onJumpToMessage(targetId);
+    }
+  };
+
   const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
   const lastMessageId = lastMessage ? lastMessage.id : null;
   const lastMessageByMeId = [...messages]
@@ -287,10 +305,12 @@ export const MessageList: React.FC<MessageListProps> = ({
                             isSingleInCluster={cluster.messages.length === 1}
                             isLatestSentByMe={Boolean(lastMessageByMeId && msg.id === lastMessageByMeId)}
                             isLatestMessage={Boolean(lastMessageId && msg.id === lastMessageId)}
+                            isHighlighted={highlightedMessageId === msg.id}
                             onReply={onReply}
                             onReact={onReact}
                             onTogglePin={onTogglePin}
                             onRetry={onRetry}
+                            onJumpToMessage={handleJumpToMessage}
                           />
                         ))}
                       </div>
@@ -341,10 +361,12 @@ export const MessageList: React.FC<MessageListProps> = ({
                                 isLastInCluster={msgIdx === cluster.messages.length - 1}
                                 isSingleInCluster={cluster.messages.length === 1}
                                 isLatestMessage={Boolean(lastMessageId && msg.id === lastMessageId)}
+                                isHighlighted={highlightedMessageId === msg.id}
                                 onReply={onReply}
                                 onReact={onReact}
                                 onTogglePin={onTogglePin}
                                 onRetry={onRetry}
+                                onJumpToMessage={handleJumpToMessage}
                               />
                             ))}
                           </div>

@@ -403,6 +403,22 @@ describe('CirclesService — Unit Tests (US-CIRCLE-001 & US-CIRCLE-002)', () => 
       expect(mockPrisma.circle.update).toHaveBeenCalled();
     });
 
+    it('should allow ADMIN to update Circle metadata', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValue({
+        id: 'm-2',
+        role: MemberRole.ADMIN,
+      });
+
+      mockPrisma.circle.update.mockResolvedValue({
+        id: circleId,
+        name: 'Admin Updated Name',
+      });
+
+      const result = await service.update(circleId, userId, { name: 'Admin Updated Name' });
+      expect(result.success).toBe(true);
+      expect(mockPrisma.circle.update).toHaveBeenCalled();
+    });
+
     it('should forbid regular MEMBER from updating Circle metadata', async () => {
       mockPrisma.circleMember.findUnique.mockResolvedValue({
         id: 'm-1',
@@ -412,6 +428,22 @@ describe('CirclesService — Unit Tests (US-CIRCLE-001 & US-CIRCLE-002)', () => 
       await expect(
         service.update(circleId, userId, { name: 'Hacked Name' }),
       ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should allow regular MEMBER to update Circle themeColor', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValue({
+        id: 'm-1',
+        role: MemberRole.MEMBER,
+      });
+      mockPrisma.circle.update.mockResolvedValue({
+        id: circleId,
+        themeColor: 'ocean',
+      });
+
+      const result = await service.update(circleId, userId, { themeColor: 'ocean' });
+      expect(result.success).toBe(true);
+      expect(result.data.themeColor).toBe('ocean');
+      expect(mockPrisma.circle.update).toHaveBeenCalled();
     });
   });
 

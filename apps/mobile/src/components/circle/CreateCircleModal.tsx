@@ -29,6 +29,7 @@ import {
   useCreateCircleMutation,
   useSelectableFriendsQuery,
 } from '../../hooks/use-circle-queries';
+import { useEdgeSwipeDismiss } from '../../hooks/use-edge-swipe';
 import { createCircleSchemas } from '@circle/shared';
 
 function getInitials(name: string): string {
@@ -46,6 +47,18 @@ export function CreateCircleModal() {
   const visible = useCircleStore((s) => s.createModalVisible);
   const setVisible = useCircleStore((s) => s.setCreateModalVisible);
 
+  const handleClose = () => {
+    setName('');
+    setIsPrivate(false);
+    setSelectedFriendIds([]);
+    setFriendSearch('');
+    setFieldErrors({});
+    setServerError(null);
+    setVisible(false);
+  };
+
+  const edgePan = useEdgeSwipeDismiss({ onDismiss: handleClose });
+
   const [name, setName] = useState('');
   const [isPrivate, setIsPrivate] = useState(false);
   const [selectedFriendIds, setSelectedFriendIds] = useState<string[]>([]);
@@ -56,16 +69,6 @@ export function CreateCircleModal() {
   const createCircleMutation = useCreateCircleMutation();
   const { data: selectableFriends = [], isLoading: isLoadingFriends } =
     useSelectableFriendsQuery();
-
-  const handleClose = () => {
-    setName('');
-    setIsPrivate(false);
-    setSelectedFriendIds([]);
-    setFriendSearch('');
-    setFieldErrors({});
-    setServerError(null);
-    setVisible(false);
-  };
 
   const handleToggleFriend = (friendId: string) => {
     setSelectedFriendIds((prev) =>
@@ -138,6 +141,7 @@ export function CreateCircleModal() {
         />
 
         <View
+          {...edgePan.panHandlers}
           style={[
             styles.sheetContainer,
             {
