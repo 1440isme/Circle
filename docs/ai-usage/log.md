@@ -4207,8 +4207,8 @@
   - **Error Description:** Next.js dev server báo lỗi `__webpack_modules__[moduleId] is not a function` khi module shared vừa build lại mà dev server chưa load cache mới; selector tab thiết lập vòng tròn trong file test Playwright ban đầu click nhầm vào button sidebar nền bị backdrop chặn; `CirclesService.findUserCircles` và `findByIdOrHandle` bỏ sót trường `themeColor` trong DTO trả về khiến client bị mất theme khi refetch; selector `:not([data-circle-theme]):not([data-msg-theme])` trong `globals.css` đè biến CSS của các phần tử con về mặc định sage; hàm `handleThemeColorChange` trong `CircleManagementModal.tsx` gọi `setActiveCircle` mà chưa trích xuất hàm này từ store dẫn đến lỗi `ReferenceError: setActiveCircle is not defined`.
   - **Root Cause:** Next.js webpack cache giữ reference cũ của package shared; Playwright locator `button:has-text("Thiết lập")` thiếu scoping vào container modal `.fixed.z-50`; service backend chỉ lưu vào database nhưng chưa map `themeColor` ra object trả về; selector CSS phủ định áp dụng lên mọi phần tử con bên trong container có theme; thiếu khai báo selector `setActiveCircle` từ `useCircleStore`.
   - **Resolution / Fix:** Khởi động lại Next.js dev server fresh; scope chính xác locator trong Playwright test vào modal `.fixed.z-50`; bổ sung `themeColor: circle.themeColor || 'sage'` vào cả 2 endpoint truy vấn của `CirclesService`; chuyển đổi `:not([data-circle-theme])` sang định nghĩa biến mặc định tại `:root` và `html.dark` giúp biến CSS kế thừa tự nhiên; khai báo bổ sung `const setActiveCircle = useCircleStore((s) => s.setActiveCircle)` và cập nhật optimistic state cho activeCircle.
-- **Commit:** `137e2c1`
-- **PR:** Pending
+- **Commit:** `400c8c3`
+- **PR:** #92 (https://github.com/1440isme/Circle/pull/92)
 
 
 
