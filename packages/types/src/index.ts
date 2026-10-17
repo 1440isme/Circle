@@ -143,6 +143,7 @@ export interface CircleEntity extends BaseEntity {
   inviteCode: string;
   isPrivate: boolean;
   maxMembers?: number | null;
+  themeColor?: string | null;
 }
 
 export interface CircleDetailResponse extends CircleEntity {

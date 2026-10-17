@@ -523,6 +523,8 @@ export const en: TranslationDictionary = {
     nicknameUpdated: 'Nickname updated successfully!',
     realNameLabel: 'User Name',
     circleSettingsTab: 'Circle Setup',
+    chatThemeTitle: 'Chat Theme Color (Pastel)',
+    chatThemeDesc: 'This pastel theme will be synchronized across message bubbles, reply quotes, and send buttons for all members in this Circle.',
     addMemberBtn: 'Add Members',
     addMembersTitle: 'Add Friends to Circle',
     addMembersSubtitle: 'Select friends to add directly to this Circle',

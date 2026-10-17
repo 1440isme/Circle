@@ -75,6 +75,7 @@ export function createCircleSchemas(locale: Locale = 'vi') {
       .or(z.literal('')),
     isPrivate: z.boolean().optional(),
     maxMembers: z.number().int().min(2).max(1000).optional().nullable(),
+    themeColor: z.string().optional().nullable(),
   });
 
   const joinCircleSchema = z.object({

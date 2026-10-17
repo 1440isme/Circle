@@ -37,13 +37,31 @@ export const useCircleStore = create<CircleState>((set) => ({
   manageActiveTab: 'settings',
   setActiveCircleId: (id) => set({ activeCircleId: id }),
   setActiveCircle: (circle) => {
-    const channels = (circle as any)?.channels;
-    const defaultChannelId = channels && channels.length > 0 ? channels[0].id : null;
-    set({
-      activeCircle: circle,
-      activeCircleId: circle ? circle.id : null,
-      activeCircleView: 'general',
-      activeChannelId: defaultChannelId,
+    set((state) => {
+      if (!circle) {
+        return {
+          activeCircle: null,
+          activeCircleId: null,
+          activeChannelId: null,
+        };
+      }
+      const mergedCircle =
+        state.activeCircle && state.activeCircle.id === circle.id
+          ? { ...state.activeCircle, ...circle }
+          : circle;
+      const channels = (mergedCircle as any)?.channels;
+      const defaultChannelId =
+        channels && channels.length > 0
+          ? state.activeChannelId && channels.some((c: any) => c.id === state.activeChannelId)
+            ? state.activeChannelId
+            : channels[0].id
+          : null;
+      return {
+        activeCircle: mergedCircle,
+        activeCircleId: mergedCircle.id,
+        activeCircleView: state.activeCircleId === mergedCircle.id ? state.activeCircleView : 'general',
+        activeChannelId: defaultChannelId,
+      };
     });
   },
   setActiveCircleView: (view) => set({ activeCircleView: view }),

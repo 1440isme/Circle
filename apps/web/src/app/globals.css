@@ -7,8 +7,8 @@
 }
 
 body {
-  color: #24332C;
-  background: #F7FAF8;
+  color: #17171A;
+  background: #FFFFFF;
   font-family: var(--font-inter), system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -16,39 +16,145 @@ body {
 }
 
 .dark body {
-  color: #E8EFEA;
-  background-color: #0E1512;
+  color: #F2F2F4;
+  background-color: #131316;
 }
 
-/* Apple Frosted Glass / Liquid Glass utilities */
+/* ============================================================
+ * Design Tokens: Flat Design (Mặc định) & Liquid Glass
+ * Tích hợp 100% quy định thiết kế trong 2 file mẫu:
+ * 1. Flat Design Language Demo (Nền trung tính, 1 accent xanh lá cây nhạt)
+ * 2. Liquid Glass UI Kit Demo (Apple HIG, 2 lớp rõ rệt, concentric radii)
+ * ============================================================ */
+:root,
+[data-theme="light"] {
+  /* Flat Design Tokens */
+  --mk-bg: #FFFFFF;
+  --mk-surface: #F5F5F6;
+  --mk-surface-muted: #EBEBEE;
+  --mk-text: #17171A;
+  --mk-muted: #6E6E76;
+  --mk-border: #E3E3E8;
+  --mk-accent: #10B981;
+  --mk-on-accent: #FFFFFF;
+  --mk-danger: #DC2626;
+  --mk-good: #15803D;
+  --mk-shadow: 0 1px 2px rgb(0 0 0 / 0.06), 0 4px 16px rgb(0 0 0 / 0.06);
+  --mk-chat-max-width: 680px;
+
+  /* Liquid Glass Tokens (Neutral base with Circle green accent) */
+  --glass-blur: 22px;
+  --glass-saturate: 180%;
+  --glass-bg: rgba(255, 255, 255, 0.65);
+  --glass-bg-sheet: rgba(255, 255, 255, 0.90);
+  --glass-bg-strong: rgba(255, 255, 255, 0.95);
+  --glass-border: rgba(227, 227, 232, 0.75);
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  --glass-shadow: 0 14px 34px rgba(0, 0, 0, 0.08);
+  --glass-ink: #17171A;
+  --glass-ink-muted: rgba(23, 23, 26, 0.62);
+  --glass-accent: #10B981;
+  --glass-warning: #F59E0B;
+}
+
+.dark,
+[data-theme="dark"] {
+  /* Flat Design Tokens */
+  --mk-bg: #131316;
+  --mk-surface: #1D1D21;
+  --mk-surface-muted: #2A2A30;
+  --mk-text: #F2F2F4;
+  --mk-muted: #A1A1AA;
+  --mk-border: #2E2E35;
+  --mk-accent: #34D399;
+  --mk-on-accent: #131316;
+  --mk-danger: #F87171;
+  --mk-good: #4ADE80;
+  --mk-shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 4px 16px rgb(0 0 0 / 0.3);
+
+  /* Liquid Glass Tokens (Neutral base with Circle mint accent) */
+  --glass-blur: 22px;
+  --glass-saturate: 180%;
+  --glass-bg: rgba(29, 29, 33, 0.70);
+  --glass-bg-sheet: rgba(24, 24, 28, 0.92);
+  --glass-bg-strong: rgba(32, 32, 38, 0.96);
+  --glass-border: rgba(255, 255, 255, 0.15);
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  --glass-shadow: 0 14px 34px rgba(0, 0, 0, 0.35);
+  --glass-ink: #F2F2F4;
+  --glass-ink-muted: rgba(242, 242, 244, 0.62);
+  --glass-accent: #34D399;
+  --glass-warning: #FBBF24;
+}
+
+.glass {
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-highlight), var(--glass-shadow);
+  color: var(--glass-ink);
+}
+
+.glass-sheet {
+  background: var(--glass-bg-sheet);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-highlight), var(--glass-shadow);
+  color: var(--glass-ink);
+}
+
+.glass-clear {
+  background: rgba(255, 255, 255, 0.22);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  backdrop-filter: blur(16px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  color: var(--glass-ink);
+}
+
+.dark .glass-clear {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
 .frosted-glass {
-  background: rgba(255, 255, 255, 0.82);
-  backdrop-filter: blur(16px) saturate(180%);
-  -webkit-backdrop-filter: blur(16px) saturate(180%);
-  border-bottom: 1px solid rgba(229, 236, 232, 0.7);
-}
-
-.dark .frosted-glass {
-  background: rgba(22, 32, 27, 0.82);
-  backdrop-filter: blur(16px) saturate(180%);
-  -webkit-backdrop-filter: blur(16px) saturate(180%);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  border-bottom: 1px solid var(--glass-border);
+  box-shadow: var(--glass-highlight);
 }
 
 .liquid-glass-pill {
-  background: rgba(247, 250, 248, 0.75);
-  backdrop-filter: blur(20px) saturate(190%);
-  -webkit-backdrop-filter: blur(20px) saturate(190%);
-  border: 1px solid rgba(229, 236, 232, 0.8);
-  box-shadow: 0 10px 30px -4px rgba(36, 51, 44, 0.08);
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-highlight), var(--glass-shadow);
 }
 
-.dark .liquid-glass-pill {
-  background: rgba(14, 21, 18, 0.80);
-  backdrop-filter: blur(20px) saturate(190%);
-  -webkit-backdrop-filter: blur(20px) saturate(190%);
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  box-shadow: 0 10px 30px -4px rgba(0, 0, 0, 0.4);
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass,
+  .glass-sheet,
+  .glass-clear,
+  .frosted-glass,
+  .liquid-glass-pill {
+    background: var(--glass-bg-strong);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .glass,
+  .glass-sheet,
+  .glass-clear,
+  .frosted-glass,
+  .liquid-glass-pill {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background: var(--glass-bg-strong);
+  }
 }
 
 /* Subtle, unobtrusive scrollbar */
@@ -76,4 +182,363 @@ body {
 
 .dark ::-webkit-scrollbar-thumb:hover {
   background: rgba(143, 162, 152, 0.45);
+}
+
+/* ============================================================
+ * FLAT DESIGN ADAPTIVE OVERRIDES (Khi chọn phong cách Flat Design)
+ * Chuẩn Muse: phẳng, bề mặt đặc neutral, viền 1px, shadow nhẹ 2 lớp, không blur
+ * ============================================================ */
+html[data-ui-style="flat"] .glass,
+html[data-ui-style="flat"] .frosted-glass,
+html:not([data-ui-style="glass"]) .glass,
+html:not([data-ui-style="glass"]) .frosted-glass {
+  background: var(--mk-surface) !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  border: 1px solid var(--mk-border) !important;
+  box-shadow: var(--mk-shadow) !important;
+}
+
+html[data-ui-style="flat"] .glass-sheet,
+html:not([data-ui-style="glass"]) .glass-sheet {
+  background: var(--mk-bg) !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  border: 1px solid var(--mk-border) !important;
+  box-shadow: var(--mk-shadow) !important;
+}
+
+html[data-ui-style="flat"] .glass-clear,
+html:not([data-ui-style="glass"]) .glass-clear {
+  background: var(--mk-surface-muted) !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  border: 1px solid var(--mk-border) !important;
+  box-shadow: none !important;
+}
+
+html[data-ui-style="flat"] .liquid-glass-pill,
+html:not([data-ui-style="glass"]) .liquid-glass-pill {
+  background: var(--mk-surface) !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  border: 1px solid var(--mk-border) !important;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.05) !important;
+}
+
+/* ============================================================
+ * CIRCLE PASTEL CHAT THEMES (Per-Circle Synchronized Theme)
+ * Đồng bộ màu bong bóng tin nhắn, ô trả lời, ô soạn thảo và nút gửi
+ * ============================================================ */
+:root {
+  --circle-theme-bubble-bg: #D1FAE5;
+  --circle-theme-bubble-text: #065F46;
+  --circle-theme-bubble-border: #A7F3D0;
+  --circle-theme-reply-bg: rgba(6, 95, 70, 0.08);
+  --circle-theme-composer-reply-bg: rgba(16, 185, 129, 0.12);
+  --circle-theme-composer-reply-text: #059669;
+  --circle-theme-btn-bg: #10B981;
+  --circle-theme-btn-text: #FFFFFF;
+  --circle-theme-other-bg: #F4FBF7;
+  --circle-theme-other-text: #1C1917;
+  --circle-theme-other-border: #D1FAE5;
+  --circle-theme-other-accent: #059669;
+  --circle-theme-other-reply-bg: rgba(5, 150, 105, 0.08);
+  --circle-theme-other-mention-bg: rgba(5, 150, 105, 0.12);
+  --circle-theme-other-mention-text: #065F46;
+}
+html.dark,
+html[data-theme="dark"] {
+  --circle-theme-bubble-bg: #064E3B;
+  --circle-theme-bubble-text: #ECFDF5;
+  --circle-theme-bubble-border: #047857;
+  --circle-theme-reply-bg: rgba(255, 255, 255, 0.12);
+  --circle-theme-composer-reply-bg: rgba(6, 78, 59, 0.45);
+  --circle-theme-composer-reply-text: #34D399;
+  --circle-theme-btn-bg: #34D399;
+  --circle-theme-btn-text: #131316;
+  --circle-theme-other-bg: #15221B;
+  --circle-theme-other-text: #F3F4F6;
+  --circle-theme-other-border: #1E3A2B;
+  --circle-theme-other-accent: #34D399;
+  --circle-theme-other-reply-bg: rgba(52, 211, 153, 0.1);
+  --circle-theme-other-mention-bg: rgba(52, 211, 153, 0.15);
+  --circle-theme-other-mention-text: #6EE7B7;
+}
+
+[data-circle-theme="sage"],
+html[data-msg-theme="sage"] {
+  --circle-theme-bubble-bg: #D1FAE5;
+  --circle-theme-bubble-text: #065F46;
+  --circle-theme-bubble-border: #A7F3D0;
+  --circle-theme-reply-bg: rgba(6, 95, 70, 0.08);
+  --circle-theme-composer-reply-bg: rgba(16, 185, 129, 0.12);
+  --circle-theme-composer-reply-text: #059669;
+  --circle-theme-btn-bg: #10B981;
+  --circle-theme-btn-text: #FFFFFF;
+  --circle-theme-other-bg: #F4FBF7;
+  --circle-theme-other-text: #1C1917;
+  --circle-theme-other-border: #D1FAE5;
+  --circle-theme-other-accent: #059669;
+  --circle-theme-other-reply-bg: rgba(5, 150, 105, 0.08);
+  --circle-theme-other-mention-bg: rgba(5, 150, 105, 0.12);
+  --circle-theme-other-mention-text: #065F46;
+}
+html.dark [data-circle-theme="sage"],
+html[data-theme="dark"] [data-circle-theme="sage"],
+html.dark[data-msg-theme="sage"],
+html[data-theme="dark"][data-msg-theme="sage"] {
+  --circle-theme-bubble-bg: #064E3B;
+  --circle-theme-bubble-text: #ECFDF5;
+  --circle-theme-bubble-border: #047857;
+  --circle-theme-reply-bg: rgba(255, 255, 255, 0.12);
+  --circle-theme-composer-reply-bg: rgba(6, 78, 59, 0.45);
+  --circle-theme-composer-reply-text: #34D399;
+  --circle-theme-btn-bg: #34D399;
+  --circle-theme-btn-text: #131316;
+  --circle-theme-other-bg: #15221B;
+  --circle-theme-other-text: #F3F4F6;
+  --circle-theme-other-border: #1E3A2B;
+  --circle-theme-other-accent: #34D399;
+  --circle-theme-other-reply-bg: rgba(52, 211, 153, 0.1);
+  --circle-theme-other-mention-bg: rgba(52, 211, 153, 0.15);
+  --circle-theme-other-mention-text: #6EE7B7;
+}
+
+/* Ocean Pastel */
+[data-circle-theme="ocean"],
+html[data-msg-theme="ocean"] {
+  --circle-theme-bubble-bg: #E0F2FE;
+  --circle-theme-bubble-text: #075985;
+  --circle-theme-bubble-border: #BAE6FD;
+  --circle-theme-reply-bg: rgba(7, 89, 133, 0.08);
+  --circle-theme-composer-reply-bg: rgba(14, 165, 233, 0.12);
+  --circle-theme-composer-reply-text: #0284C7;
+  --circle-theme-btn-bg: #0284C7;
+  --circle-theme-btn-text: #FFFFFF;
+  --circle-theme-other-bg: #F0F9FF;
+  --circle-theme-other-text: #1C1917;
+  --circle-theme-other-border: #BAE6FD;
+  --circle-theme-other-accent: #0284C7;
+  --circle-theme-other-reply-bg: rgba(2, 132, 199, 0.08);
+  --circle-theme-other-mention-bg: rgba(2, 132, 199, 0.12);
+  --circle-theme-other-mention-text: #0369A1;
+}
+html.dark [data-circle-theme="ocean"],
+html[data-theme="dark"] [data-circle-theme="ocean"],
+html.dark[data-msg-theme="ocean"],
+html[data-theme="dark"][data-msg-theme="ocean"] {
+  --circle-theme-bubble-bg: #0C4A6E;
+  --circle-theme-bubble-text: #F0F9FF;
+  --circle-theme-bubble-border: #0369A1;
+  --circle-theme-reply-bg: rgba(255, 255, 255, 0.12);
+  --circle-theme-composer-reply-bg: rgba(12, 74, 110, 0.45);
+  --circle-theme-composer-reply-text: #38BDF8;
+  --circle-theme-btn-bg: #38BDF8;
+  --circle-theme-btn-text: #131316;
+  --circle-theme-other-bg: #0F1F2C;
+  --circle-theme-other-text: #F3F4F6;
+  --circle-theme-other-border: #133954;
+  --circle-theme-other-accent: #38BDF8;
+  --circle-theme-other-reply-bg: rgba(56, 189, 248, 0.1);
+  --circle-theme-other-mention-bg: rgba(56, 189, 248, 0.15);
+  --circle-theme-other-mention-text: #7DD3FC;
+}
+
+/* Lavender Pastel */
+[data-circle-theme="lavender"],
+html[data-msg-theme="lavender"] {
+  --circle-theme-bubble-bg: #F3E8FF;
+  --circle-theme-bubble-text: #6B21A8;
+  --circle-theme-bubble-border: #E9D5FF;
+  --circle-theme-reply-bg: rgba(107, 33, 168, 0.08);
+  --circle-theme-composer-reply-bg: rgba(147, 51, 234, 0.12);
+  --circle-theme-composer-reply-text: #7C3AED;
+  --circle-theme-btn-bg: #9333EA;
+  --circle-theme-btn-text: #FFFFFF;
+  --circle-theme-other-bg: #FAF5FF;
+  --circle-theme-other-text: #1C1917;
+  --circle-theme-other-border: #E9D5FF;
+  --circle-theme-other-accent: #7C3AED;
+  --circle-theme-other-reply-bg: rgba(124, 58, 237, 0.08);
+  --circle-theme-other-mention-bg: rgba(124, 58, 237, 0.12);
+  --circle-theme-other-mention-text: #6D28D9;
+}
+html.dark [data-circle-theme="lavender"],
+html[data-theme="dark"] [data-circle-theme="lavender"],
+html.dark[data-msg-theme="lavender"],
+html[data-theme="dark"][data-msg-theme="lavender"] {
+  --circle-theme-bubble-bg: #581C87;
+  --circle-theme-bubble-text: #FAF5FF;
+  --circle-theme-bubble-border: #7E22CE;
+  --circle-theme-reply-bg: rgba(255, 255, 255, 0.12);
+  --circle-theme-composer-reply-bg: rgba(88, 28, 135, 0.45);
+  --circle-theme-composer-reply-text: #C084FC;
+  --circle-theme-btn-bg: #C084FC;
+  --circle-theme-btn-text: #131316;
+  --circle-theme-other-bg: #1F1528;
+  --circle-theme-other-text: #F3F4F6;
+  --circle-theme-other-border: #3B2054;
+  --circle-theme-other-accent: #C084FC;
+  --circle-theme-other-reply-bg: rgba(192, 132, 252, 0.1);
+  --circle-theme-other-mention-bg: rgba(192, 132, 252, 0.15);
+  --circle-theme-other-mention-text: #D8B4FE;
+}
+
+/* Sunset Pastel */
+[data-circle-theme="sunset"],
+html[data-msg-theme="sunset"] {
+  --circle-theme-bubble-bg: #FFEDD5;
+  --circle-theme-bubble-text: #9A3412;
+  --circle-theme-bubble-border: #FED7AA;
+  --circle-theme-reply-bg: rgba(154, 52, 18, 0.08);
+  --circle-theme-composer-reply-bg: rgba(234, 88, 12, 0.12);
+  --circle-theme-composer-reply-text: #C2410C;
+  --circle-theme-btn-bg: #EA580C;
+  --circle-theme-btn-text: #FFFFFF;
+  --circle-theme-other-bg: #FFF7ED;
+  --circle-theme-other-text: #1C1917;
+  --circle-theme-other-border: #FED7AA;
+  --circle-theme-other-accent: #EA580C;
+  --circle-theme-other-reply-bg: rgba(234, 88, 12, 0.08);
+  --circle-theme-other-mention-bg: rgba(234, 88, 12, 0.12);
+  --circle-theme-other-mention-text: #C2410C;
+}
+html.dark [data-circle-theme="sunset"],
+html[data-theme="dark"] [data-circle-theme="sunset"],
+html.dark[data-msg-theme="sunset"],
+html[data-theme="dark"][data-msg-theme="sunset"] {
+  --circle-theme-bubble-bg: #7C2D12;
+  --circle-theme-bubble-text: #FFF7ED;
+  --circle-theme-bubble-border: #C2410C;
+  --circle-theme-reply-bg: rgba(255, 255, 255, 0.12);
+  --circle-theme-composer-reply-bg: rgba(124, 45, 18, 0.45);
+  --circle-theme-composer-reply-text: #FB923C;
+  --circle-theme-btn-bg: #FB923C;
+  --circle-theme-btn-text: #131316;
+  --circle-theme-other-bg: #271711;
+  --circle-theme-other-text: #F3F4F6;
+  --circle-theme-other-border: #4A2315;
+  --circle-theme-other-accent: #FB923C;
+  --circle-theme-other-reply-bg: rgba(251, 146, 60, 0.1);
+  --circle-theme-other-mention-bg: rgba(251, 146, 60, 0.15);
+  --circle-theme-other-mention-text: #FDBA74;
+}
+
+/* Rose Pastel */
+[data-circle-theme="rose"],
+html[data-msg-theme="rose"] {
+  --circle-theme-bubble-bg: #FCE7F3;
+  --circle-theme-bubble-text: #9D174D;
+  --circle-theme-bubble-border: #FBCFE8;
+  --circle-theme-reply-bg: rgba(157, 23, 77, 0.08);
+  --circle-theme-composer-reply-bg: rgba(219, 39, 119, 0.12);
+  --circle-theme-composer-reply-text: #BE185D;
+  --circle-theme-btn-bg: #DB2777;
+  --circle-theme-btn-text: #FFFFFF;
+  --circle-theme-other-bg: #FFF1F2;
+  --circle-theme-other-text: #1C1917;
+  --circle-theme-other-border: #FECDD3;
+  --circle-theme-other-accent: #E11D48;
+  --circle-theme-other-reply-bg: rgba(225, 29, 72, 0.08);
+  --circle-theme-other-mention-bg: rgba(225, 29, 72, 0.12);
+  --circle-theme-other-mention-text: #BE123C;
+}
+html.dark [data-circle-theme="rose"],
+html[data-theme="dark"] [data-circle-theme="rose"],
+html.dark[data-msg-theme="rose"],
+html[data-theme="dark"][data-msg-theme="rose"] {
+  --circle-theme-bubble-bg: #831843;
+  --circle-theme-bubble-text: #FDF2F8;
+  --circle-theme-bubble-border: #BE185D;
+  --circle-theme-reply-bg: rgba(255, 255, 255, 0.12);
+  --circle-theme-composer-reply-bg: rgba(131, 24, 67, 0.45);
+  --circle-theme-composer-reply-text: #F472B6;
+  --circle-theme-btn-bg: #F472B6;
+  --circle-theme-btn-text: #131316;
+  --circle-theme-other-bg: #271219;
+  --circle-theme-other-text: #F3F4F6;
+  --circle-theme-other-border: #4C1628;
+  --circle-theme-other-accent: #FB7185;
+  --circle-theme-other-reply-bg: rgba(251, 113, 133, 0.1);
+  --circle-theme-other-mention-bg: rgba(251, 113, 133, 0.15);
+  --circle-theme-other-mention-text: #FDA4AF;
+}
+
+/* Minimal Pastel */
+[data-circle-theme="minimal"],
+html[data-msg-theme="minimal"] {
+  --circle-theme-bubble-bg: #F1F5F9;
+  --circle-theme-bubble-text: #1E293B;
+  --circle-theme-bubble-border: #E2E8F0;
+  --circle-theme-reply-bg: rgba(30, 41, 59, 0.08);
+  --circle-theme-composer-reply-bg: rgba(71, 85, 105, 0.12);
+  --circle-theme-composer-reply-text: #334155;
+  --circle-theme-btn-bg: #475569;
+  --circle-theme-btn-text: #FFFFFF;
+  --circle-theme-other-bg: #F8FAFC;
+  --circle-theme-other-text: #1C1917;
+  --circle-theme-other-border: #E2E8F0;
+  --circle-theme-other-accent: #475569;
+  --circle-theme-other-reply-bg: rgba(71, 85, 105, 0.08);
+  --circle-theme-other-mention-bg: rgba(71, 85, 105, 0.12);
+  --circle-theme-other-mention-text: #334155;
+}
+html.dark [data-circle-theme="minimal"],
+html[data-theme="dark"] [data-circle-theme="minimal"],
+html.dark[data-msg-theme="minimal"],
+html[data-theme="dark"][data-msg-theme="minimal"] {
+  --circle-theme-bubble-bg: #1E293B;
+  --circle-theme-bubble-text: #F8FAFC;
+  --circle-theme-bubble-border: #334155;
+  --circle-theme-reply-bg: rgba(255, 255, 255, 0.12);
+  --circle-theme-composer-reply-bg: rgba(30, 41, 59, 0.5);
+  --circle-theme-composer-reply-text: #94A3B8;
+  --circle-theme-btn-bg: #94A3B8;
+  --circle-theme-btn-text: #131316;
+  --circle-theme-other-bg: #14171F;
+  --circle-theme-other-text: #F3F4F6;
+  --circle-theme-other-border: #262B38;
+  --circle-theme-other-accent: #94A3B8;
+  --circle-theme-other-reply-bg: rgba(148, 163, 184, 0.1);
+  --circle-theme-other-mention-bg: rgba(148, 163, 184, 0.15);
+  --circle-theme-other-mention-text: #CBD5E1;
+}
+
+/* Applied Synchronized Chat Theme Classes */
+.msg-bubble-me {
+  background-color: var(--circle-theme-bubble-bg) !important;
+  color: var(--circle-theme-bubble-text) !important;
+  border: 1px solid var(--circle-theme-bubble-border) !important;
+}
+.msg-bubble-other {
+  background-color: var(--circle-theme-other-bg) !important;
+  color: var(--circle-theme-other-text) !important;
+  border: 1px solid var(--circle-theme-other-border) !important;
+}
+.msg-bubble-reply-quote-me {
+  background-color: var(--circle-theme-reply-bg) !important;
+  color: var(--circle-theme-bubble-text) !important;
+}
+.msg-bubble-reply-quote-other {
+  background-color: var(--circle-theme-other-reply-bg) !important;
+  color: var(--circle-theme-other-text) !important;
+}
+.msg-bubble-reply-author-other {
+  color: var(--circle-theme-other-accent) !important;
+}
+.msg-bubble-mention-other {
+  background-color: var(--circle-theme-other-mention-bg) !important;
+  color: var(--circle-theme-other-mention-text) !important;
+}
+.chat-composer-reply-banner {
+  background-color: var(--circle-theme-composer-reply-bg) !important;
+  border-color: var(--circle-theme-bubble-border) !important;
+}
+.chat-composer-reply-author {
+  color: var(--circle-theme-composer-reply-text) !important;
+}
+.chat-composer-send-btn-active {
+  background-color: var(--circle-theme-btn-bg) !important;
+  color: var(--circle-theme-btn-text) !important;
 }

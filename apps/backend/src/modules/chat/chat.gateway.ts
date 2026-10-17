@@ -336,6 +336,24 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
+  @SubscribeMessage('circle:update-theme')
+  async handleUpdateCircleTheme(
+    @ConnectedSocket() _client: Socket,
+    @MessageBody() data: { circleId: string; themeColor: string },
+  ) {
+    if (!data?.circleId || !data?.themeColor) return;
+    this.server?.to(`circle:${data.circleId}`).emit('circle:theme_updated', {
+      circleId: data.circleId,
+      themeColor: data.themeColor,
+    });
+  }
+
+  broadcastCircleTheme(circleId: string, payload: { circleId: string; themeColor: string }) {
+    if (this.server) {
+      this.server.to(`circle:${circleId}`).emit('circle:theme_updated', payload);
+    }
+  }
+
   /**
    * Helper to check if a user is currently online
    */

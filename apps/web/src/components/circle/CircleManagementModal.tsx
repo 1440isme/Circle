@@ -42,10 +42,12 @@ import {
   Volume2,
   ChevronDown,
   Trash2,
+  Palette,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useLanguageStore } from '@/stores/language.store';
 import { useCircleStore } from '@/stores/circle.store';
+import { sendCircleThemeUpdate } from '@/lib/socket';
 import {
   useCircleMembersQuery,
   useCircleJoinRequestsQuery,
@@ -62,6 +64,7 @@ import {
 } from '@/hooks/use-circle-queries';
 import { useUploadMedia } from '@/hooks/use-upload-media';
 import { MemberRole } from '@circle/types';
+import { MessageBubbleThemes, MessageTheme } from '@circle/shared';
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -88,6 +91,7 @@ export const CircleManagementModal: React.FC = () => {
   const isManageModalOpen = useCircleStore((s) => s.isManageModalOpen);
   const manageActiveTab = useCircleStore((s) => s.manageActiveTab);
   const setManageModalOpen = useCircleStore((s) => s.setManageModalOpen);
+  const setActiveCircle = useCircleStore((s) => s.setActiveCircle);
 
   const { uploadMedia, isUploading: isUploadingMedia } = useUploadMedia();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -166,6 +170,7 @@ export const CircleManagementModal: React.FC = () => {
   const [formIsPrivate, setFormIsPrivate] = useState(false);
   const [formMaxMembers, setFormMaxMembers] = useState<number | null>(null);
   const [isCustomCapacity, setIsCustomCapacity] = useState<boolean>(false);
+  const [formThemeColor, setFormThemeColor] = useState<MessageTheme>('sage');
 
   // Sync tab & form values when opened or activeCircle changes
   useEffect(() => {
@@ -199,6 +204,7 @@ export const CircleManagementModal: React.FC = () => {
       setFormIsPrivate(Boolean(activeCircle.isPrivate));
       setFormMaxMembers(activeCircle.maxMembers ?? null);
       setIsCustomCapacity(activeCircle.maxMembers !== null);
+      setFormThemeColor(((activeCircle as any).themeColor as MessageTheme) || 'sage');
 
       // Load personal preferences from localStorage if available
       try {
@@ -247,11 +253,20 @@ export const CircleManagementModal: React.FC = () => {
   const { data: members = [], isLoading: isLoadingMembers } = useCircleMembersQuery(circleId);
   const { data: selectableFriends = [], isLoading: isLoadingFriends } = useSelectableFriendsQuery();
 
-  // Check caller role in active circle (2-role hierarchy: OWNER and MEMBER)
   const currentMember = members.find((m) => m.userId === user?.id);
-  const isOwner = currentMember?.role === MemberRole.OWNER;
+  const isOwner =
+    currentMember?.role === MemberRole.OWNER ||
+    (activeCircle as any)?.role === 'OWNER' ||
+    (activeCircle as any)?.role === MemberRole.OWNER ||
+    (activeCircle as any)?.creatorId === user?.id ||
+    (activeCircle as any)?.ownerId === user?.id;
+  const isOwnerOrAdmin =
+    isOwner ||
+    currentMember?.role === MemberRole.ADMIN ||
+    (activeCircle as any)?.role === 'ADMIN' ||
+    (activeCircle as any)?.role === MemberRole.ADMIN;
 
-  const { data: joinRequests = [] } = useCircleJoinRequestsQuery(circleId, isOwner);
+  const { data: joinRequests = [] } = useCircleJoinRequestsQuery(circleId, isOwnerOrAdmin);
 
   // Filter friends who are NOT already in the circle
   const availableFriends = selectableFriends.filter(
@@ -444,6 +459,25 @@ export const CircleManagementModal: React.FC = () => {
       });
     } catch (err: any) {
       setErrorMessage(err?.message || t.circle.createError);
+    }
+  };
+
+  const handleThemeColorChange = async (color: MessageTheme) => {
+    setFormThemeColor(color);
+    if (activeCircle) {
+      setActiveCircle({ ...activeCircle, themeColor: color });
+    }
+    if (circleId) {
+      sendCircleThemeUpdate(circleId, color);
+    }
+    try {
+      await updateCircleMutation.mutateAsync({
+        themeColor: color,
+      });
+      setSuccessMessage('Đã cập nhật màu chủ đề đoạn chat!');
+      setTimeout(() => setSuccessMessage(null), 2500);
+    } catch (err: any) {
+      setErrorMessage(err?.message || 'Không thể cập nhật màu chủ đề.');
     }
   };
 
@@ -695,8 +729,8 @@ export const CircleManagementModal: React.FC = () => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/40 backdrop-blur-xs animate-fadeIn">
-      {/* Khung cố định (Modern Apple Sheet rounded-2xl) */}
-      <div className="relative w-full max-w-4xl h-[640px] max-h-[92vh] bg-white dark:bg-circle-dark-surface rounded-2xl shadow-2xl border border-circle-hairline dark:border-circle-dark-hairline flex flex-col md:flex-row overflow-hidden text-circle-charcoal dark:text-circle-dark-text">
+      {/* Khung cố định (Liquid Glass Sheet rounded-[28px]) */}
+      <div className="relative w-full max-w-4xl h-[640px] max-h-[92vh] glass-sheet rounded-[28px] shadow-2xl flex flex-col md:flex-row overflow-hidden text-circle-charcoal dark:text-circle-dark-text">
         
         {/* =========================================================================
             CỘT TRÁI CỐ ĐỊNH (FIXED LEFT NAVIGATION FRAME)
@@ -1339,8 +1373,8 @@ export const CircleManagementModal: React.FC = () => {
                               {/* Role Badge & Actions */}
                               <div className="flex items-center gap-2 flex-shrink-0">
                                 {m.role === MemberRole.OWNER ? (
-                                  <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/50">
-                                    <Crown className="h-3 w-3 text-amber-600 dark:text-amber-400" />
+                                  <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold bg-circle-canvas dark:bg-circle-dark-canvas text-circle-charcoal dark:text-circle-dark-text border border-circle-hairline dark:border-circle-dark-hairline">
+                                    <Crown className="h-3 w-3 text-circle-slate dark:text-circle-dark-muted" />
                                     <span>{t.circle.memberRoleOwner}</span>
                                   </span>
                                 ) : (
@@ -1354,7 +1388,7 @@ export const CircleManagementModal: React.FC = () => {
                                     <button
                                       onClick={() => setConfirmTransferMemberId(m.id)}
                                       title={t.circle.transferOwnership}
-                                      className="p-1.5 rounded-lg border border-circle-hairline dark:border-circle-dark-hairline hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas text-amber-600 dark:text-amber-400 transition-colors"
+                                      className="p-1.5 rounded-lg border border-circle-hairline dark:border-circle-dark-hairline hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas text-circle-slate dark:text-circle-dark-muted transition-colors"
                                     >
                                       <Crown className="h-4 w-4" />
                                     </button>
@@ -1556,8 +1590,8 @@ export const CircleManagementModal: React.FC = () => {
                       <div className="flex items-center justify-between gap-4 py-2.5 animate-fade-in border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60">
                         <div className="flex items-center gap-2">
                           <div className="flex items-center gap-1">
-                            <Phone className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                            <Video className="h-4 w-4 text-indigo-500 dark:text-indigo-400 shrink-0" />
+                            <Phone className="h-4 w-4 text-circle-slate dark:text-circle-dark-muted shrink-0" />
+                            <Video className="h-4 w-4 text-circle-slate dark:text-circle-dark-muted shrink-0" />
                           </div>
                           <span className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text">
                             {t.circle.muteCalls || 'Tắt thông báo về cuộc gọi'}
@@ -1585,7 +1619,7 @@ export const CircleManagementModal: React.FC = () => {
                   <div className="py-2.5 space-y-2 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60">
                     <div className="flex items-center justify-between gap-4">
                       <div className="flex items-center gap-2">
-                        <VolumeX className="h-4 w-4 text-amber-500 shrink-0" />
+                        <VolumeX className="h-4 w-4 text-circle-slate dark:text-circle-dark-muted shrink-0" />
                         <span className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text">
                           {t.circle.muteMemberNotificationsTitle || 'Tắt thông báo từ thành viên'}
                         </span>
@@ -1772,6 +1806,44 @@ export const CircleManagementModal: React.FC = () => {
                ========================================================================= */}
             {activeTab === 'circleSettings' && (
               <div className="space-y-6">
+                {/* Section 0: Màu chủ đề đoạn chat */}
+                <div className="space-y-3 pb-5 border-b border-circle-hairline/60 dark:border-circle-dark-hairline/60">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-circle-slate dark:text-circle-dark-muted flex items-center gap-1.5">
+                      <Palette className="h-3.5 w-3.5 text-circle-primary" />
+                      <span>{t.circle.chatThemeTitle || 'Màu chủ đề'}</span>
+                    </h4>
+                    <span className="text-[11px] font-semibold text-circle-primary">
+                      {MessageBubbleThemes[formThemeColor]?.name}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-3 py-2 flex-wrap">
+                    {(Object.keys(MessageBubbleThemes) as MessageTheme[]).map((key) => {
+                      const item = MessageBubbleThemes[key];
+                      const isSelected = formThemeColor === key;
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => handleThemeColorChange(key)}
+                          title={item.name}
+                          className="relative p-1 rounded-full flex items-center justify-center transition-transform hover:scale-110 active:scale-95 focus:outline-hidden"
+                        >
+                          <span
+                            className="h-8 w-8 rounded-full transition-all flex items-center justify-center shadow-xs"
+                            style={{
+                              backgroundColor: item.color,
+                              outline: isSelected ? `2.5px solid ${item.color}` : 'none',
+                              outlineOffset: '2.5px',
+                            }}
+                          />
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 {/* Section 1: Approval toggle & Capacity Selector */}
                 <div className="space-y-1">
                   <h4 className="text-xs font-bold uppercase tracking-wider text-circle-slate dark:text-circle-dark-muted flex items-center gap-1.5 pb-1">

@@ -11,9 +11,13 @@ import {
   AlertCircle,
   Video,
   Phone,
+  Smile,
 } from 'lucide-react';
 import { MessageEntity, MessageType } from '@circle/types';
+import { PROMINENT_QUICK_EMOJIS } from '@circle/shared';
 import { useLanguageStore } from '../../stores/language.store';
+import { Emoji } from '../ui/Emoji';
+import { FullEmojiPickerModal } from '../ui/FullEmojiPickerModal';
 
 interface MessageBubbleProps {
   message: MessageEntity;
@@ -54,6 +58,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   const locale = useLanguageStore((s) => s.locale);
   const [showTimestamp, setShowTimestamp] = useState(false);
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
+  const [isFullEmojiOpen, setIsFullEmojiOpen] = useState(false);
 
   const replyTargetId =
     typeof message.replyTo === 'string'
@@ -147,6 +152,27 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       : t.calls.durationMinutes.replace('{min}', String(m));
   };
 
+  const renderContentWithMentions = (text: string) => {
+    const parts = text.split(/(@[a-zA-Z0-9_\.\u00C0-\u024F\u1EA0-\u1EF9]+)/g);
+    return parts.map((part, i) => {
+      if (part.startsWith('@') && part.length > 1) {
+        return (
+          <span
+            key={i}
+            className={`font-semibold rounded px-1.5 py-0.5 ${
+              isSenderMe
+                ? 'bg-black/10 dark:bg-white/15 text-current'
+                : 'msg-bubble-mention-other'
+            }`}
+          >
+            {part}
+          </span>
+        );
+      }
+      return part;
+    });
+  };
+
   const hasReactions =
     message.reactionCounts && Object.keys(message.reactionCounts).length > 0;
 
@@ -159,8 +185,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     >
       {/* Pinned indicator badge */}
       {message.isPinned && (
-        <div className="flex items-center gap-1 text-[10px] font-medium text-amber-600 dark:text-amber-400 mb-1 px-1">
-          <Pin className="h-3 w-3 fill-amber-500 text-amber-500" />
+        <div className="flex items-center gap-1 text-[10px] font-medium text-circle-slate dark:text-circle-dark-muted mb-1 px-1">
+          <Pin className="h-3 w-3" />
           <span>{t.chat.pinnedBadge}</span>
         </div>
       )}
@@ -182,8 +208,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           onClick={() => setShowTimestamp((prev) => !prev)}
           className={`relative cursor-pointer select-text px-4 py-2.5 transition-all shadow-sm w-fit max-w-full ${getBubbleRadius()} ${
             isSenderMe
-              ? 'bg-circle-primary text-white dark:bg-circle-dark-primary dark:text-circle-dark-canvas'
-              : 'bg-white dark:bg-circle-dark-surface text-circle-charcoal dark:text-circle-dark-text border border-circle-hairline dark:border-circle-dark-hairline'
+              ? 'msg-bubble-me'
+              : 'msg-bubble-other'
           } ${message.isPinned ? 'ring-2 ring-amber-400/40' : ''} ${
             isHighlighted
               ? 'ring-2 ring-circle-primary dark:ring-circle-dark-primary shadow-lg scale-[1.02] bg-circle-primary/10 transition-all duration-300'
@@ -202,12 +228,12 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               title={t.chat.replyAction}
               className={`flex items-center gap-2 mb-1.5 rounded-xl px-2.5 py-1 text-xs max-w-full cursor-pointer hover:opacity-80 active:scale-[0.98] transition-all select-none ${
                 isSenderMe
-                  ? 'bg-white/20 dark:bg-black/20 text-white/95 dark:text-circle-dark-canvas/95'
-                  : 'bg-circle-wash/70 dark:bg-circle-dark-wash text-circle-primary dark:text-circle-dark-muted'
+                  ? 'msg-bubble-reply-quote-me'
+                  : 'msg-bubble-reply-quote-other'
               }`}
             >
               <Reply className="h-3 w-3 shrink-0 scale-x-[-1] opacity-75" />
-              <span className="font-semibold shrink-0">
+              <span className={`font-semibold shrink-0 ${isSenderMe ? '' : 'msg-bubble-reply-author-other'}`}>
                 {replyTarget.sender?.nickname ||
                   replyTarget.sender?.user?.profile?.displayName ||
                   (replyTarget.sender as any)?.profile?.displayName ||
@@ -230,16 +256,16 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 <Video
                   className={`h-5 w-5 shrink-0 ${
                     isSenderMe
-                      ? 'text-white'
-                      : 'text-indigo-500 dark:text-indigo-400'
+                      ? 'text-current'
+                      : 'text-circle-slate dark:text-circle-dark-muted'
                   }`}
                 />
               ) : (
                 <Phone
                   className={`h-5 w-5 shrink-0 ${
                     isSenderMe
-                      ? 'text-white'
-                      : 'text-emerald-600 dark:text-emerald-400'
+                      ? 'text-current'
+                      : 'text-circle-slate dark:text-circle-dark-muted'
                   }`}
                 />
               )}
@@ -252,7 +278,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 <span
                   className={`text-[11px] font-medium ${
                     isSenderMe
-                      ? 'text-white/80'
+                      ? 'text-current opacity-85'
                       : 'text-circle-slate dark:text-circle-dark-muted'
                   }`}
                 >
@@ -262,7 +288,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             </div>
           ) : message.content ? (
             <div className="text-xs sm:text-sm whitespace-pre-wrap break-words leading-relaxed font-normal">
-              {message.content}
+              {renderContentWithMentions(message.content)}
             </div>
           ) : null}
 
@@ -303,11 +329,17 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               onClick={(e) => e.stopPropagation()}
               className={`mt-2 inline-flex items-center gap-3 rounded-xl p-2.5 max-w-sm shadow-sm ${
                 isSenderMe
-                  ? 'bg-white/15 dark:bg-black/15 text-white dark:text-circle-charcoal'
+                  ? 'bg-black/5 dark:bg-white/10 text-current border border-black/10 dark:border-white/10'
                   : 'bg-circle-canvas dark:bg-circle-dark-canvas text-circle-charcoal dark:text-circle-dark-text'
               }`}
             >
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-circle-primary/20 text-circle-primary">
+              <div
+                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+                  isSenderMe
+                    ? 'bg-black/10 dark:bg-white/15 text-current'
+                    : 'bg-black/5 dark:bg-white/5 text-circle-slate dark:text-circle-dark-muted'
+                }`}
+              >
                 <FileText className="h-4 w-4" />
               </div>
               <div className="flex-1 min-w-0">
@@ -323,7 +355,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 download={message.fileName || 'download'}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex h-7 w-7 items-center justify-center rounded-full bg-white/20 hover:bg-white/30 transition-colors"
+                className="flex h-7 w-7 items-center justify-center rounded-full bg-black/10 dark:bg-white/20 hover:bg-black/15 dark:hover:bg-white/30 text-current transition-colors"
                 title={t.chat.fileDownload}
               >
                 <Download className="h-3.5 w-3.5" />
@@ -331,11 +363,11 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             </div>
           )}
 
-          {/* Overlapping Reaction Badge (Bottom-Right Corner, Icons Only, No Counts, Flat) */}
+          {/* Overlapping Reaction Badge (Bottom-Right Corner, High-Quality Vector Emojis, No Counts, Flat) */}
           {hasReactions && (
-            <div className="absolute -bottom-2 right-1.5 flex items-center gap-0.5 rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-white/95 dark:bg-circle-dark-surface px-1.5 py-0.5 text-xs select-none">
+            <div className="absolute -bottom-2 right-1.5 flex items-center gap-1 rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-white/95 dark:bg-circle-dark-surface px-1.5 py-0.5 shadow-2xs select-none">
               {Object.keys(message.reactionCounts!).map((emoji) => (
-                <span key={emoji} className="text-[12px] leading-none">{emoji}</span>
+                <Emoji key={emoji} emoji={emoji} size={14} />
               ))}
             </div>
           )}
@@ -347,18 +379,27 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             isSenderMe ? 'right-0' : 'left-0'
           }`}
         >
-          {/* Quick Emoji Buttons */}
+          {/* Quick Emoji Buttons (High-Quality Vector Emojis) */}
           <div className="flex items-center gap-0.5 pr-1 border-r border-circle-hairline dark:border-circle-dark-hairline">
-            {QUICK_EMOJIS.map((emoji) => (
+            {PROMINENT_QUICK_EMOJIS.map((emoji) => (
               <button
                 key={emoji}
                 type="button"
                 onClick={() => onReact(message.id, emoji)}
-                className="flex h-6 w-6 items-center justify-center rounded-full hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-xs transition-transform hover:scale-125"
+                className="flex h-6 w-6 items-center justify-center rounded-full hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-transform hover:scale-125"
+                title={emoji}
               >
-                {emoji}
+                <Emoji emoji={emoji} size={16} />
               </button>
             ))}
+            <button
+              type="button"
+              onClick={() => setIsFullEmojiOpen(true)}
+              className="flex h-6 w-6 items-center justify-center rounded-full text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash hover:text-circle-charcoal dark:hover:text-white transition-colors"
+              title="Thêm biểu cảm khác"
+            >
+              <Smile className="h-3.5 w-3.5" />
+            </button>
           </div>
 
           {/* Reply Action */}
@@ -378,12 +419,12 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               onClick={() => onTogglePin(message.id, !!message.isPinned)}
               className={`flex h-6 w-6 items-center justify-center rounded-full transition-colors ${
                 message.isPinned
-                  ? 'text-amber-500 hover:bg-amber-100/60 dark:hover:bg-amber-950/30'
-                  : 'text-circle-slate dark:text-circle-dark-muted hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas hover:text-amber-500'
+                  ? 'text-circle-charcoal dark:text-circle-dark-text bg-circle-canvas dark:bg-circle-dark-canvas'
+                  : 'text-circle-slate dark:text-circle-dark-muted hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas hover:text-circle-charcoal dark:hover:text-circle-dark-text'
               }`}
               title={message.isPinned ? t.chat.unpinAction : t.chat.pinAction}
             >
-              <Pin className={`h-3.5 w-3.5 ${message.isPinned ? 'fill-amber-500' : ''}`} />
+              <Pin className={`h-3.5 w-3.5 ${message.isPinned ? 'fill-current' : ''}`} />
             </button>
           )}
         </div>
@@ -496,6 +537,13 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           </div>
         ) : null
       )}
+
+      {/* Full Emoji Picker Modal */}
+      <FullEmojiPickerModal
+        isOpen={isFullEmojiOpen}
+        onClose={() => setIsFullEmojiOpen(false)}
+        onSelectEmoji={(emoji) => onReact(message.id, emoji)}
+      />
     </div>
   );
 };

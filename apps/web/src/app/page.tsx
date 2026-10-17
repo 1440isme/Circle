@@ -19,19 +19,19 @@ export default function HomePage() {
 
   return (
     <AuthGuard mode="require-auth">
-      <div className="min-h-screen flex flex-col bg-white dark:bg-circle-dark-surface text-circle-charcoal dark:text-circle-dark-text transition-colors">
+      <div className="h-screen w-full flex flex-col bg-white dark:bg-circle-dark-surface text-circle-charcoal dark:text-circle-dark-text overflow-hidden transition-colors relative">
         <Header />
-        <div className="flex-1 flex w-full">
+        <div className="flex-1 flex w-full h-screen overflow-hidden">
           {activeCircle ? (
-            /* Active Circle Workspace: Flat seamless 3-column layout sharing unified background with zero border barriers */
-            <div className="flex w-full">
+            /* Active Circle Workspace: 3 columns stick together in the center of the screen */
+            <div className="flex w-full max-w-[1400px] h-screen justify-center mx-auto overflow-hidden">
               <Sidebar />
               <FeedStream />
               <PresenceRail />
             </div>
           ) : (
             /* Home Hub: Clean Focused Single-Column Layout */
-            <div className="flex-1 flex justify-center px-4 py-8 max-w-5xl mx-auto w-full">
+            <div className="flex-1 flex justify-center px-4 pt-16 pb-8 max-w-5xl mx-auto w-full h-screen overflow-y-auto">
               <FeedStream />
             </div>
           )}

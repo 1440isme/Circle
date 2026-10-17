@@ -521,6 +521,8 @@ export const vi = {
     nicknameUpdated: 'Cập nhật biệt danh thành công!',
     realNameLabel: 'Tên người dùng',
     circleSettingsTab: 'Thiết lập Vòng tròn',
+    chatThemeTitle: 'Màu chủ đề đoạn chat (Pastel)',
+    chatThemeDesc: 'Màu pastel này sẽ được đồng bộ cho bong bóng tin nhắn, ô trả lời và nút gửi cho tất cả thành viên trong Vòng tròn này.',
     addMemberBtn: 'Thêm thành viên',
     addMembersTitle: 'Thêm bạn bè vào Vòng tròn',
     addMembersSubtitle: 'Chọn bạn bè để thêm ngay vào Vòng tròn',

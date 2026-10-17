@@ -558,6 +558,18 @@ export function useChannelMessagesQuery(channelId: string | null) {
       queryClient.invalidateQueries({ queryKey: ['messages', 'channel', channelId, 'pins'] });
     };
 
+    const handleThemeUpdated = (payload: { circleId: string; themeColor: string }) => {
+      queryClient.invalidateQueries({ queryKey: CIRCLE_KEYS.detail(payload.circleId) });
+      queryClient.invalidateQueries({ queryKey: CIRCLE_KEYS.lists() });
+      const currentCircle = useCircleStore.getState().activeCircle;
+      if (currentCircle && currentCircle.id === payload.circleId) {
+        useCircleStore.getState().setActiveCircle({
+          ...currentCircle,
+          themeColor: payload.themeColor as any,
+        });
+      }
+    };
+
     getMobileSocket().then((socket) => {
       if (!socket || isCancelled) return;
       activeSocket = socket;
@@ -566,6 +578,7 @@ export function useChannelMessagesQuery(channelId: string | null) {
       socket.on('chat:user-read', handleUserRead);
       socket.on('chat:pin', handlePin);
       socket.on('chat:unpin', handleUnpin);
+      socket.on('circle:theme_updated', handleThemeUpdated);
     });
 
     return () => {
@@ -576,6 +589,7 @@ export function useChannelMessagesQuery(channelId: string | null) {
         activeSocket.off('chat:user-read', handleUserRead);
         activeSocket.off('chat:pin', handlePin);
         activeSocket.off('chat:unpin', handleUnpin);
+        activeSocket.off('circle:theme_updated', handleThemeUpdated);
       }
       leaveMobileChannelRoom(channelId);
     };

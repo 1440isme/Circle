@@ -81,7 +81,7 @@ export const PresenceRail: React.FC = () => {
   const roleLabel = user?.globalRole === 'ADMIN' ? t.auth.admin : t.auth.member;
 
   return (
-    <aside className="hidden xl:flex w-80 shrink-0 flex-col gap-4 bg-white dark:bg-circle-dark-surface p-3.5 h-[calc(100vh-4rem)] sticky top-16 overflow-y-auto transition-colors">
+    <aside className="hidden xl:flex w-76 shrink-0 flex-col gap-4 bg-white dark:bg-circle-dark-surface p-3 pt-3 h-screen sticky top-0 overflow-y-auto transition-colors border-l border-circle-hairline/60 dark:border-circle-dark-hairline/60">
 
       {/* Active Circle Members Rail (Flat container without visible border barrier) */}
       {activeCircle && (
@@ -140,7 +140,7 @@ export const PresenceRail: React.FC = () => {
                   </div>
 
                   {m.role === MemberRole.OWNER && (
-                    <Crown className="h-3.5 w-3.5 text-amber-500 flex-shrink-0" />
+                    <Crown className="h-3.5 w-3.5 text-circle-slate dark:text-circle-dark-muted flex-shrink-0" />
                   )}
                 </div>
               );
@@ -263,18 +263,18 @@ export const PresenceRail: React.FC = () => {
                 type="button"
                 onClick={() => handleStartCall(CallType.AUDIO)}
                 disabled={initiateCallMutation.isPending}
-                className="flex items-center justify-center gap-1.5 rounded-lg border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface hover:bg-emerald-500/10 hover:border-emerald-500/30 hover:text-emerald-600 dark:hover:text-emerald-400 py-1.5 px-2 text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text transition-all active:scale-98 disabled:opacity-50"
+                className="flex items-center justify-center gap-1.5 rounded-lg border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas py-1.5 px-2 text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text transition-all active:scale-98 disabled:opacity-50"
               >
-                <Phone className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                <Phone className="h-3.5 w-3.5 text-circle-slate dark:text-circle-dark-muted" />
                 <span>{t.calls.startAudioCall}</span>
               </button>
               <button
                 type="button"
                 onClick={() => handleStartCall(CallType.VIDEO)}
                 disabled={initiateCallMutation.isPending}
-                className="flex items-center justify-center gap-1.5 rounded-lg border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface hover:bg-indigo-500/10 hover:border-indigo-500/30 hover:text-indigo-600 dark:hover:text-indigo-400 py-1.5 px-2 text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text transition-all active:scale-98 disabled:opacity-50"
+                className="flex items-center justify-center gap-1.5 rounded-lg border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas py-1.5 px-2 text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text transition-all active:scale-98 disabled:opacity-50"
               >
-                <Video className="h-3.5 w-3.5 text-indigo-500 dark:text-indigo-400" />
+                <Video className="h-3.5 w-3.5 text-circle-slate dark:text-circle-dark-muted" />
                 <span>{t.calls.startVideoCall}</span>
               </button>
             </div>

@@ -228,7 +228,7 @@ export const FeedStream: React.FC = () => {
   // Flush column aligned perfectly with Sidebar and PresenceRail!
   // =========================================================================
   return (
-    <main className="flex-1 flex flex-col h-[calc(100vh-4rem)] max-h-[calc(100vh-4rem)] overflow-hidden relative">
+    <main className="flex-1 flex flex-col h-screen max-h-screen overflow-hidden relative min-w-0">
       {activeCircleView === 'moments' ? (
         <DailyMomentsFeed circleId={activeCircle.id} />
       ) : currentChannel ? (

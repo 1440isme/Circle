@@ -9,15 +9,21 @@ import {
   X,
   FileText,
   Loader2,
+  Plus,
+  Mic,
 } from 'lucide-react';
 import { MessageEntity, MessageType } from '@circle/types';
 import { useLanguageStore } from '../../stores/language.store';
+import { useThemeStore } from '../../stores/theme.store';
 import { useUploadMedia } from '../../hooks/use-upload-media';
 import { createPreviewUrl, revokePreviewUrl } from '../../lib/image-optimizer';
+import { Emoji } from '../ui/Emoji';
+import { FullEmojiPickerModal } from '../ui/FullEmojiPickerModal';
 
 interface ChatComposerProps {
   channelId: string;
   channelName: string;
+  members?: any[];
   replyingMessage: MessageEntity | null;
   onCancelReply: () => void;
   onSendMessage: (data: {
@@ -36,15 +42,21 @@ const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024; // 25 MB
 
 export const ChatComposer: React.FC<ChatComposerProps> = ({
   channelName,
+  members = [],
   replyingMessage,
   onCancelReply,
   onSendMessage,
   reportTyping,
 }) => {
   const t = useLanguageStore((s) => s.t);
+  const uiStyle = useThemeStore((s) => s.uiStyle);
+  const isGlass = uiStyle === 'glass';
   const [content, setContent] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const [mentionStartIndex, setMentionStartIndex] = useState<number | null>(null);
+  const [mentionSelectedIndex, setMentionSelectedIndex] = useState(0);
   const [attachedFile, setAttachedFile] = useState<{
     file: File;
     previewUrl: string;
@@ -113,12 +125,71 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
     e.target.value = '';
   };
 
+  // Mention candidates computation
+  const mentionCandidates = React.useMemo(() => {
+    if (mentionQuery === null) return [];
+    const q = mentionQuery.toLowerCase();
+    const list: string[] = [];
+    if ('all'.includes(q) || 'mọi người'.includes(q)) {
+      list.push('all');
+    }
+    const names: string[] = [];
+    members?.forEach((m: any) => {
+      const name = m.nickname || m.user?.profile?.displayName || m.user?.email?.split('@')[0];
+      if (name && !names.includes(name)) {
+        names.push(name);
+      }
+    });
+    const filtered = names.filter((n) => n.toLowerCase().includes(q));
+    return [...list, ...filtered].slice(0, 8);
+  }, [mentionQuery, members]);
+
+  useEffect(() => {
+    setMentionSelectedIndex(0);
+  }, [mentionQuery]);
+
+  const handleSelectMention = (name: string) => {
+    if (mentionStartIndex === null) return;
+    const cursorPos = textareaRef.current ? textareaRef.current.selectionStart : content.length;
+    const before = content.slice(0, mentionStartIndex);
+    const after = content.slice(cursorPos);
+    const newContent = `${before}@${name} ${after}`;
+    setContent(newContent);
+    setMentionQuery(null);
+    setMentionStartIndex(null);
+
+    // Restore focus and cursor position
+    setTimeout(() => {
+      if (textareaRef.current) {
+        const nextPos = before.length + name.length + 2; // '@' + name + ' '
+        textareaRef.current.focus();
+        textareaRef.current.setSelectionRange(nextPos, nextPos);
+      }
+    }, 10);
+  };
+
   const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setContent(e.target.value);
-    if (e.target.value.length > 0) {
+    const val = e.target.value;
+    setContent(val);
+    if (val.length > 0) {
       reportTyping(true);
     } else {
       reportTyping(false);
+    }
+
+    // Detect mention trigger (@name query)
+    const cursorPos = e.target.selectionStart ?? val.length;
+    const textBeforeCursor = val.slice(0, cursorPos);
+    const match = textBeforeCursor.match(/(?:^|\s)@([a-zA-Z0-9_\.\u00C0-\u024F\u1EA0-\u1EF9]*)$/);
+
+    if (match) {
+      const query = match[1];
+      const atIndex = textBeforeCursor.lastIndexOf('@');
+      setMentionQuery(query);
+      setMentionStartIndex(atIndex);
+    } else {
+      setMentionQuery(null);
+      setMentionStartIndex(null);
     }
   };
 
@@ -160,6 +231,8 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
       onCancelReply();
       reportTyping(false);
       setShowEmojiPicker(false);
+      setMentionQuery(null);
+      setMentionStartIndex(null);
     } catch (err: any) {
       alert(err.message || 'Failed to send message');
     } finally {
@@ -168,6 +241,30 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (mentionCandidates.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setMentionSelectedIndex((prev) => (prev + 1) % mentionCandidates.length);
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setMentionSelectedIndex((prev) => (prev - 1 + mentionCandidates.length) % mentionCandidates.length);
+        return;
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        handleSelectMention(mentionCandidates[mentionSelectedIndex]);
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setMentionQuery(null);
+        setMentionStartIndex(null);
+        return;
+      }
+    }
+
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -200,9 +297,9 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
 
       {/* Reply Quote Banner */}
       {replyingMessage && (
-        <div className="mb-2 flex items-center justify-between rounded-xl bg-circle-canvas dark:bg-circle-dark-elevated px-3 py-1.5 text-xs border border-circle-hairline dark:border-circle-dark-hairline animate-in fade-in duration-150">
+        <div className="mb-2 flex items-center justify-between rounded-xl chat-composer-reply-banner px-3 py-1.5 text-xs border animate-in fade-in duration-150">
           <div className="flex items-center gap-2 truncate">
-            <span className="font-semibold text-circle-sage dark:text-circle-primary">
+            <span className="font-semibold chat-composer-reply-author">
               {t.chat.replyingTo.replace(
                 '{name}',
                 replyingMessage.sender?.nickname ||
@@ -210,7 +307,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
                   t.auth.guest,
               )}
             </span>
-            <span className="text-circle-slate dark:text-circle-dark-muted truncate">
+            <span className="text-circle-slate dark:text-circle-dark-muted truncate opacity-85">
               {replyingMessage.type === MessageType.FILE
                 ? `[${t.chat.fileDownload}]`
                 : replyingMessage.content}
@@ -259,89 +356,120 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
         </div>
       )}
 
-      {/* Emoji Quick Drawer */}
-      {showEmojiPicker && (
-        <div className="absolute bottom-full mb-2 left-4 z-30 flex flex-wrap gap-1.5 rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-2 shadow-circle-modal max-w-xs animate-in zoom-in-95 duration-100">
-          {EMOJI_LIST.map((emoji) => (
+      {/* Comprehensive Full Emoji Picker Modal */}
+      <FullEmojiPickerModal
+        isOpen={showEmojiPicker}
+        onClose={() => setShowEmojiPicker(false)}
+        onSelectEmoji={(emoji) => handleAddEmoji(emoji)}
+      />
+
+      {/* Mention Autocomplete Popup (Minimalism: Name only) */}
+      {mentionCandidates.length > 0 && (
+        <div className="absolute bottom-full mb-2 left-4 z-30 w-52 max-h-48 overflow-y-auto rounded-xl border border-circle-hairline bg-white/95 dark:bg-circle-dark-surface/95 dark:border-circle-dark-hairline backdrop-blur-md shadow-lg py-1 animate-in fade-in duration-100">
+          {mentionCandidates.map((name, idx) => (
             <button
-              key={emoji}
+              key={name}
               type="button"
-              onClick={() => handleAddEmoji(emoji)}
-              className="flex h-8 w-8 items-center justify-center rounded-xl hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-base transition-transform hover:scale-125"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                handleSelectMention(name);
+              }}
+              className={`w-full text-left px-3 py-1.5 text-xs truncate transition-colors ${
+                idx === mentionSelectedIndex
+                  ? 'bg-circle-wash dark:bg-circle-dark-wash text-circle-primary font-semibold'
+                  : 'text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas'
+              }`}
             >
-              {emoji}
+              @{name}
             </button>
           ))}
         </div>
       )}
 
-      {/* Composer Input Area */}
-      <div className="flex items-end gap-2 rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas/60 p-2 focus-within:border-circle-sage/80 dark:focus-within:border-circle-primary/80 transition-all">
-        {/* Attachment Buttons */}
-        <div className="flex items-center gap-0.5 pb-1">
+      {/* Apple-Style Separated Input Bar: Left Input Capsule + Right Standalone Action Button */}
+      <div className="flex items-center gap-2.5 w-full">
+        {/* Left Input Capsule: (+) icon, Image icon, Text field, and Sticker/Emoji on far right */}
+        <div
+          className={`flex-1 flex items-center gap-2 rounded-full border px-3 py-1.5 min-h-[48px] transition-all ${
+            isGlass
+              ? 'backdrop-blur-md bg-white/80 dark:bg-circle-dark-surface/80 border-white/60 dark:border-white/10 shadow-xs'
+              : 'bg-white dark:bg-circle-dark-surface border-circle-hairline dark:border-circle-dark-hairline shadow-2xs'
+          }`}
+        >
+          {/* Action 1: (+) Outline Coral Plus Button */}
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="flex h-8 w-8 items-center justify-center rounded-full text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash hover:text-circle-sage dark:hover:text-circle-primary transition-colors"
+            className="flex h-7 w-7 items-center justify-center rounded-full border-[1.5px] border-circle-coral text-circle-coral hover:bg-circle-coral/10 transition-all shrink-0 active:scale-95"
             title={t.chat.attachFile}
           >
-            <Paperclip className="h-4 w-4" />
+            <Plus className="h-4 w-4 stroke-[2.5]" />
           </button>
+
+          {/* Action 2: Image / Photo Icon */}
           <button
             type="button"
             onClick={() => imageInputRef.current?.click()}
-            className="flex h-8 w-8 items-center justify-center rounded-full text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash hover:text-circle-sage dark:hover:text-circle-primary transition-colors"
+            className="flex h-7 w-7 items-center justify-center text-circle-charcoal dark:text-circle-dark-text hover:text-circle-coral dark:hover:text-circle-coral transition-colors shrink-0 active:scale-95"
             title={t.chat.attachImage}
           >
-            <ImageIcon className="h-4 w-4" />
+            <ImageIcon className="h-5 w-5" />
           </button>
-        </div>
 
-        {/* Text Area */}
-        <textarea
-          ref={textareaRef}
-          rows={1}
-          value={content}
-          onChange={handleContentChange}
-          onKeyDown={handleKeyDown}
-          placeholder={t.chat.composerPlaceholder.replace('{channel}', channelName)}
-          className="flex-1 max-h-32 min-h-[36px] resize-none bg-transparent py-1.5 text-xs sm:text-sm text-circle-charcoal dark:text-circle-dark-text placeholder:text-circle-slate dark:placeholder:text-circle-dark-muted focus:outline-none leading-relaxed"
-        />
+          {/* Text Area (Flex-1) */}
+          <textarea
+            ref={textareaRef}
+            rows={1}
+            value={content}
+            onChange={handleContentChange}
+            onKeyDown={handleKeyDown}
+            placeholder={t.chat.composerPlaceholder.replace('{channel}', channelName)}
+            className="flex-1 max-h-28 resize-none bg-transparent py-1.5 text-xs sm:text-sm text-circle-charcoal dark:text-circle-dark-text placeholder:text-circle-slate dark:placeholder:text-circle-dark-muted focus:outline-none leading-relaxed"
+          />
 
-        {/* Emoji Button */}
-        <div className="flex items-center gap-1 pb-1">
+          {/* Action 3: Emoji / Sticker Button (Far right inside capsule) */}
           <button
             type="button"
             onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-            className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors ${
+            className={`flex h-7 w-7 items-center justify-center transition-colors shrink-0 active:scale-95 ${
               showEmojiPicker
-                ? 'bg-circle-wash text-circle-sage dark:bg-circle-dark-wash dark:text-circle-primary'
-                : 'text-circle-slate dark:text-circle-dark-muted hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas'
+                ? 'text-circle-coral'
+                : 'text-circle-charcoal dark:text-circle-dark-text hover:text-circle-coral dark:hover:text-circle-coral'
             }`}
             title={t.chat.reactAction}
           >
-            <Smile className="h-4 w-4" />
-          </button>
-
-          {/* Send Button */}
-          <button
-            type="button"
-            onClick={handleSend}
-            disabled={(!content.trim() && !attachedFile) || isSubmitting || isUploading}
-            className={`flex h-8 w-8 items-center justify-center rounded-full transition-all ${
-              (content.trim() || attachedFile) && !isSubmitting && !isUploading
-                ? 'bg-circle-primary text-circle-charcoal shadow-sm hover:bg-circle-sage hover:text-white active:scale-95'
-                : 'bg-circle-canvas dark:bg-circle-dark-canvas text-circle-slate dark:text-circle-dark-muted opacity-40 cursor-not-allowed'
-            }`}
-            title={t.chat.sendBtn}
-          >
-            {isSubmitting || isUploading ? (
-              <Loader2 className="h-4 w-4 animate-spin text-circle-charcoal" />
-            ) : (
-              <Send className="h-4 w-4" />
-            )}
+            <Smile className="h-5 w-5" />
           </button>
         </div>
+
+        {/* Right Standalone Action Button: Mic (when empty) vs Send (when typing) */}
+        <button
+          type="button"
+          onClick={
+            content.trim() || attachedFile
+              ? handleSend
+              : () => alert('Tính năng ghi âm tin nhắn thoại (Voice Message) đang sẵn sàng trong bản cập nhật kế tiếp.')
+          }
+          disabled={(content.trim() || attachedFile) ? (isSubmitting || isUploading) : false}
+          className={`flex h-12 w-12 items-center justify-center rounded-full shrink-0 transition-all active:scale-95 ${
+            content.trim() || attachedFile
+              ? 'chat-composer-send-btn-active shadow-sm'
+              : isGlass
+              ? 'backdrop-blur-md bg-white/80 dark:bg-circle-dark-surface/80 border border-white/60 dark:border-white/10 shadow-xs text-circle-coral hover:bg-white dark:hover:bg-circle-dark-surface'
+              : 'bg-white dark:bg-circle-dark-surface border border-circle-hairline dark:border-circle-dark-hairline shadow-2xs text-circle-coral hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas'
+          }`}
+          title={(content.trim() || attachedFile) ? t.chat.sendBtn : 'Ghi âm tin nhắn thoại'}
+        >
+          {content.trim() || attachedFile ? (
+            isSubmitting || isUploading ? (
+              <Loader2 className="h-5 w-5 animate-spin text-circle-charcoal" />
+            ) : (
+              <Send className="h-5 w-5" />
+            )
+          ) : (
+            <Mic className="h-5 w-5 text-circle-coral" />
+          )}
+        </button>
       </div>
     </div>
   );

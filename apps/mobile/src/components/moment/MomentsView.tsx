@@ -57,6 +57,7 @@ import {
 } from '../../hooks/use-circle-queries';
 import { uploadMobileMedia } from '../../services/storage-upload.service';
 import { resolveMobileMediaUrl } from '../../services/api';
+import { Emoji } from '../ui/Emoji';
 
 
 const { width: SCREEN_WIDTH, height: WINDOW_HEIGHT } = Dimensions.get('window');
@@ -102,6 +103,7 @@ function getInitials(name: string): string {
 interface MomentsViewProps {
   circleId: string;
   circleName: string;
+  isActive?: boolean;
 }
 
 type FeedItem =
@@ -109,11 +111,12 @@ type FeedItem =
   | { type: 'empty'; id: string }
   | { type: 'moment'; id: string; data: any; index: number };
 
-export function MomentsView({ circleId, circleName }: MomentsViewProps) {
-  const { colors, resolvedTheme } = useThemeStore();
+export function MomentsView({ circleId, circleName, isActive = true }: MomentsViewProps) {
+  const { colors, resolvedTheme, uiStyle } = useThemeStore();
   const t = useLanguageStore((s) => s.t);
   const user = useAuthStore((s) => s.user);
   const isDark = resolvedTheme === 'dark';
+  const isGlass = uiStyle === 'glass';
 
   const flatListRef = useRef<FlatList<FeedItem>>(null);
   const cameraRef = useRef<CameraView>(null);
@@ -179,8 +182,8 @@ export function MomentsView({ circleId, circleName }: MomentsViewProps) {
   const [currentPageIndex, setCurrentPageIndex] = useState<number>(0);
   const [isActionMenuOpen, setIsActionMenuOpen] = useState<boolean>(false);
 
-  // Layout calculations: Fixed top header (56px)
-  const topHeaderHeight = 56;
+  // Layout calculations: Fixed top header (36px, synchronized with Chat Layer 2)
+  const topHeaderHeight = 36;
   const listHeight = Math.max(containerHeight - topHeaderHeight, 300);
 
   // Bố cục khung ảnh to sát viền, dịch xuống nhẹ và cân đối
@@ -220,6 +223,7 @@ export function MomentsView({ circleId, circleName }: MomentsViewProps) {
 
   // Real Camera Shutter Action (100% Realtime, Instant & Không bị giật nhảy cam)
   const handleSnapPhoto = async () => {
+    if (!isActive) return;
     if (!permission?.granted) {
       const res = await requestPermission();
       if (!res.granted) {
@@ -547,6 +551,31 @@ export function MomentsView({ circleId, circleName }: MomentsViewProps) {
                     </TouchableOpacity>
                   )}
                 </>
+              ) : !isActive ? (
+                <View
+                  style={[
+                    StyleSheet.absoluteFill,
+                    {
+                      backgroundColor: '#0f1713',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 12,
+                    },
+                  ]}
+                >
+                  <Camera size={36} color="rgba(255, 255, 255, 0.4)" />
+                  <Text
+                    style={{
+                      color: 'rgba(255, 255, 255, 0.65)',
+                      fontSize: 13,
+                      fontWeight: '600',
+                      textAlign: 'center',
+                      paddingHorizontal: 24,
+                    }}
+                  >
+                    Chuyển sang tab Khoảnh khắc để mở máy ảnh
+                  </Text>
+                </View>
               ) : permission?.granted ? (
                 <>
                   {isDualMode && !isExpoGo ? (
@@ -1044,7 +1073,7 @@ export function MomentsView({ circleId, circleName }: MomentsViewProps) {
                   onPress={() => handleReactMoment(m.id, emoji)}
                   style={[styles.reactionMiniPill, { backgroundColor: colors.wash }]}
                 >
-                  <Text style={styles.reactionEmojiText}>{emoji}</Text>
+                  <Emoji emoji={emoji} size={18} />
                 </TouchableOpacity>
               ))}
             </View>
@@ -1066,42 +1095,35 @@ export function MomentsView({ circleId, circleName }: MomentsViewProps) {
     >
       {/* =========================================================================
           CỐ ĐỊNH THANH TIÊU ĐỀ TRÊN CÙNG (FIXED TOP HEADER - TO HƠN)
-          - Trang 0: Số lượng bạn bè
-          - Trang >= 1: Bộ lọc mọi người dạng sổ mũi tên lên xuống ngay tại chỗ
+          - Tầng 2: Đồng bộ 100% bố cục layout và ngôn ngữ thiết kế (Flat vs Glass) với 2 tab còn lại
          ========================================================================= */}
       <View style={[styles.fixedTopHeader, { height: topHeaderHeight }]}>
-        {currentPageIndex === 0 ? (
-          /* Header ở Trang 0 (Camera): Số lượng bạn bè (TO RÕ RÀNG) */
-          <View style={[styles.friendsCountBadge, { backgroundColor: `${colors.primary}20` }]}>
-            <Users size={16} color={colors.primary} />
-            <Text style={[styles.friendsCountText, { color: colors.primary }]}>
-              {members.length > 0 ? `${members.length} bạn bè` : 'Bạn bè'}
-            </Text>
-          </View>
-        ) : (
-          /* Header ở Trang >= 1 (Khoảnh khắc): Bộ lọc dạng sổ mũi tên lên/xuống ngay tại chỗ */
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => setIsFilterDropdownOpen(!isFilterDropdownOpen)}
-            style={[
-              styles.memberFilterPill,
-              {
-                backgroundColor: isFilterDropdownOpen ? `${colors.primary}25` : colors.wash,
-                borderColor: isFilterDropdownOpen ? colors.primary : colors.hairline,
-              },
-            ]}
-          >
-            <Filter size={15} color={colors.primary} />
-            <Text numberOfLines={1} style={[styles.memberFilterPillText, { color: colors.primary }]}>
-              {selectedFilterName}
-            </Text>
-            {isFilterDropdownOpen ? (
-              <ChevronUp size={16} color={colors.primary} />
-            ) : (
-              <ChevronDown size={16} color={colors.primary} />
-            )}
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() => setIsFilterDropdownOpen(!isFilterDropdownOpen)}
+          style={[
+            styles.friendsPill,
+            {
+              backgroundColor: isGlass
+                ? (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)')
+                : colors.surface,
+              borderColor: isGlass
+                ? (isDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.07)')
+                : colors.hairline,
+              shadowOpacity: isGlass ? 0.05 : 0,
+              elevation: isGlass ? 2 : 0,
+            },
+          ]}
+          accessibilityLabel="Lọc bạn bè"
+        >
+          <Users size={13} color={colors.subtle} />
+          <Text numberOfLines={1} style={[styles.friendsPillText, { color: colors.text }]}>
+            {selectedMemberId === 'all'
+              ? (members.length > 0 ? `${members.length} bạn bè` : 'Bạn bè')
+              : selectedFilterName}
+          </Text>
+          <ChevronDown size={13} color={colors.subtle} style={{ marginLeft: 2 }} />
+        </TouchableOpacity>
 
         {replyingToAuthor && currentPageIndex === 0 && (
           <View style={[styles.replyingBadge, { backgroundColor: `${colors.warning}20` }]}>
@@ -1569,43 +1591,33 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
     paddingHorizontal: 16,
-    paddingTop: 8,
+    paddingTop: 4,
     paddingBottom: 4,
     zIndex: 20,
   },
-  friendsCountBadge: {
+  friendsPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 18,
-    paddingVertical: 7,
-    borderRadius: 20,
+    justifyContent: 'center',
+    gap: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+    borderRadius: 18,
+    maxWidth: '75%',
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 6,
   },
-  friendsCountText: {
-    fontSize: 14,
-    fontWeight: '800',
-    letterSpacing: -0.2,
-  },
-  memberFilterPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 18,
-    paddingVertical: 7,
-    borderRadius: 20,
-    borderWidth: 1.2,
-    maxWidth: 180,
-  },
-  memberFilterPillText: {
-    fontSize: 14,
-    fontWeight: '800',
+  friendsPillText: {
+    fontSize: 13,
+    fontWeight: '700',
     letterSpacing: -0.2,
   },
   inlineDropdownWrapper: {
     position: 'absolute',
-    top: 56,
+    top: 40,
     left: 0,
     right: 0,
     bottom: 0,

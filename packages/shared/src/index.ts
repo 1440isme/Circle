@@ -25,3 +25,6 @@ export * from "./locales";
 // Design Tokens & Theme Colors (SSOT for Web & Mobile)
 export * from "./theme/colors";
 
+// Full Comprehensive Emoji Catalog
+export * from "./constants/emojis";
+

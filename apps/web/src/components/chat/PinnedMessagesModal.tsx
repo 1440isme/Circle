@@ -29,12 +29,12 @@ export const PinnedMessagesModal: React.FC<PinnedMessagesModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-150">
-      <div className="w-full max-w-lg rounded-3xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface shadow-circle-modal overflow-hidden flex flex-col max-h-[80vh]">
+      <div className="w-full max-w-lg rounded-[28px] glass-sheet shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-circle-hairline dark:border-circle-dark-hairline px-6 py-4">
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-500/10 text-amber-500">
-              <Pin className="h-4 w-4 fill-amber-500" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-circle-canvas dark:bg-circle-dark-canvas text-circle-slate dark:text-circle-dark-muted">
+              <Pin className="h-4 w-4" />
             </div>
             <h3 className="text-base font-bold text-circle-charcoal dark:text-circle-dark-text">
               {t.chat.pinnedMessagesTitle.replace('{count}', String(pinnedMessages.length))}

@@ -12,10 +12,12 @@ import {
   MessageCircle,
   Send,
   CheckCircle2,
+  Smile,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useLanguageStore } from '@/stores/language.store';
 import { useCircleStore } from '@/stores/circle.store';
+import { PROMINENT_QUICK_EMOJIS } from '@circle/shared';
 import {
   useMomentsFeedQuery,
   useCircleMomentsQuery,
@@ -24,12 +26,14 @@ import {
   useReplyMomentMutation,
 } from '@/hooks/use-moment-queries';
 import { CreateMomentModal } from './CreateMomentModal';
+import { Emoji } from '@/components/ui/Emoji';
+import { FullEmojiPickerModal } from '@/components/ui/FullEmojiPickerModal';
 
 interface DailyMomentsFeedProps {
   circleId?: string;
 }
 
-const EMOJI_OPTIONS = ['❤️', '🔥', '😂', '👏', '😍'];
+const EMOJI_OPTIONS = PROMINENT_QUICK_EMOJIS;
 
 export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) => {
   const { user } = useAuth();
@@ -57,6 +61,7 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
   const [expandedReplyId, setExpandedReplyId] = useState<string | null>(null);
   const [replyTexts, setReplyTexts] = useState<Record<string, string>>({});
   const [replySuccessMap, setReplySuccessMap] = useState<Record<string, boolean>>({});
+  const [fullEmojiTargetMomentId, setFullEmojiTargetMomentId] = useState<string | null>(null);
 
   const handleToggleSound = (momentId: string) => {
     setUnmutedVideoIds((prev) => ({
@@ -120,10 +125,10 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
   };
 
   return (
-    <div className="flex-1 w-full h-full overflow-y-auto custom-scrollbar flex flex-col relative bg-white dark:bg-circle-dark-surface">
+    <div className="flex-1 w-full h-full overflow-y-auto snap-y snap-mandatory custom-scrollbar scroll-smooth flex flex-col relative bg-white dark:bg-circle-dark-surface">
       {/* Loading Skeleton */}
       {isLoading && moments.length === 0 && (
-        <div className="flex flex-col gap-6 py-4">
+        <div className="w-full max-w-4xl px-4 sm:px-6 mx-auto flex flex-col gap-6 py-4">
           {[1, 2].map((i) => (
             <div
               key={i}
@@ -136,15 +141,15 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
                   <div className="h-2.5 w-16 bg-circle-canvas dark:bg-circle-dark-canvas rounded" />
                 </div>
               </div>
-              <div className="aspect-[4/5] w-full bg-circle-canvas/60 dark:bg-circle-dark-canvas/60" />
+              <div className="aspect-square w-full bg-circle-canvas/60 dark:bg-circle-dark-canvas/60 rounded-3xl" />
             </div>
           ))}
         </div>
       )}
 
-      {/* Vertical Feed Stream: Flush Edge-to-Edge photos matching chat column width */}
+      {/* Vertical Feed Stream: Snaps to 1 photo per view, responsive balanced width */}
       {moments.length > 0 ? (
-        <div className="flex flex-col pb-24">
+        <div className="flex flex-col w-full pb-20">
           {moments.map((moment) => {
             const authorName = moment.author?.profile?.displayName || 'Bạn bè';
             const authorAvatar = moment.author?.profile?.avatarUrl;
@@ -157,50 +162,51 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
             return (
               <article
                 key={moment.id}
-                className="w-full border-b border-circle-hairline/80 dark:border-circle-dark-hairline/80 py-4 flex flex-col gap-3 transition-colors"
+                className="snap-start snap-always w-full min-h-[calc(100vh-80px)] flex flex-col items-center justify-center p-4 sm:p-6 transition-colors border-b border-circle-hairline/40 dark:border-circle-dark-hairline/40"
               >
-                {/* Author Info Bar (Padded) */}
-                <div className="flex items-center justify-between px-4 sm:px-6">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-full bg-circle-primary text-circle-charcoal font-bold text-xs flex items-center justify-center overflow-hidden shadow-sm">
-                      {authorAvatar ? (
-                        <img
-                          src={authorAvatar}
-                          alt={authorName}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        authorInitial
+                <div className="w-full max-w-4xl flex flex-col gap-3 justify-center">
+                  {/* Author Info Bar (Padded) */}
+                  <div className="flex items-center justify-between px-2">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-full bg-circle-primary text-circle-charcoal font-bold text-xs flex items-center justify-center overflow-hidden shadow-sm">
+                        {authorAvatar ? (
+                          <img
+                            src={authorAvatar}
+                            alt={authorName}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          authorInitial
+                        )}
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
+                          {authorName}
+                        </h4>
+                        <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted font-medium">
+                          {formatMomentTime(moment.createdAt)}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      {/* Delete button (Author only) */}
+                      {isAuthor && (
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(moment.id)}
+                          className="p-2 rounded-full hover:bg-rose-500/10 text-circle-slate dark:text-circle-dark-muted hover:text-rose-500 transition-colors"
+                          title={t.moments.deleteTitle}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
                       )}
                     </div>
-                    <div>
-                      <h4 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
-                        {authorName}
-                      </h4>
-                      <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted font-medium">
-                        {formatMomentTime(moment.createdAt)}
-                      </p>
-                    </div>
                   </div>
 
-                  <div className="flex items-center gap-1.5">
-                    {/* Delete button (Author only) */}
-                    {isAuthor && (
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(moment.id)}
-                        className="p-2 rounded-full hover:bg-rose-500/10 text-circle-slate dark:text-circle-dark-muted hover:text-rose-500 transition-colors"
-                        title={t.moments.deleteTitle}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Media Container: Subtle rounded (rounded-2xl) spanning Column 2 */}
-                <div className="px-3 sm:px-4">
-                  <div className="relative aspect-[4/5] sm:aspect-square w-full overflow-hidden rounded-2xl bg-stone-900 select-none shadow-sm">
+                  {/* Media Container: Guaranteed 1:1 square aspect ratio matching card width */}
+                  <div className="w-full">
+                    <div className="relative aspect-square w-full overflow-hidden rounded-3xl bg-stone-900 select-none shadow-md">
                     {isVideo ? (
                       <video
                         src={moment.photoUrl}
@@ -264,7 +270,7 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
                             }`}
                             title={emoji}
                           >
-                            <span>{emoji}</span>
+                            <Emoji emoji={emoji} size={18} />
                             {count > 0 && (
                               <span className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
                                 {count}
@@ -273,6 +279,14 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
                           </button>
                         );
                       })}
+                      <button
+                        type="button"
+                        onClick={() => setFullEmojiTargetMomentId(moment.id)}
+                        className="flex items-center justify-center h-7 w-7 rounded-full text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash hover:text-circle-charcoal dark:hover:text-white transition-colors"
+                        title="Thêm biểu cảm khác"
+                      >
+                        <Smile className="h-3.5 w-3.5" />
+                      </button>
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -334,6 +348,7 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
                     </div>
                   )}
                 </div>
+                </div>
               </article>
             );
           })}
@@ -375,6 +390,17 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
         isOpen={isCreateOpen}
         circleId={targetCircleId || undefined}
         onClose={() => setIsCreateOpen(false)}
+      />
+
+      {/* Full Comprehensive Emoji Picker Modal */}
+      <FullEmojiPickerModal
+        isOpen={Boolean(fullEmojiTargetMomentId)}
+        onClose={() => setFullEmojiTargetMomentId(null)}
+        onSelectEmoji={(emoji) => {
+          if (fullEmojiTargetMomentId) {
+            handleReact(fullEmojiTargetMomentId, emoji);
+          }
+        }}
       />
     </div>
   );

@@ -33,19 +33,19 @@ const NavItem: React.FC<NavItemProps> = ({ icon, label, count, active, onClick }
   <button
     type="button"
     onClick={onClick}
-    className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-xs sm:text-sm font-medium transition-all ${
+    className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-xs sm:text-sm font-medium transition-all text-left ${
       active
         ? 'bg-circle-wash dark:bg-circle-dark-wash text-circle-sage dark:text-circle-primary font-bold shadow-xs'
         : 'text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas hover:text-circle-sage dark:hover:text-circle-primary'
     }`}
   >
-    <div className="flex items-center gap-2.5">
-      <span className={active ? 'text-circle-sage dark:text-circle-primary' : 'text-circle-slate dark:text-circle-dark-muted'}>{icon}</span>
-      <span>{label}</span>
+    <div className="flex items-center gap-2.5 text-left min-w-0">
+      <span className={`shrink-0 ${active ? 'text-circle-sage dark:text-circle-primary' : 'text-circle-slate dark:text-circle-dark-muted'}`}>{icon}</span>
+      <span className="text-left leading-snug">{label}</span>
     </div>
     {count !== undefined && (
       <span
-        className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold ${
+        className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold shrink-0 ${
           active ? 'bg-circle-sage text-white' : 'bg-circle-canvas dark:bg-circle-dark-elevated text-circle-slate dark:text-circle-dark-muted'
         }`}
       >
@@ -77,7 +77,7 @@ export const Sidebar: React.FC = () => {
   };
 
   return (
-    <aside className="hidden md:flex w-72 shrink-0 flex-col gap-4 bg-white dark:bg-circle-dark-surface p-3.5 h-[calc(100vh-4rem)] sticky top-16 overflow-y-auto transition-colors">
+    <aside className="hidden md:flex w-64 shrink-0 flex-col gap-4 bg-white dark:bg-circle-dark-surface p-3 pt-3 h-screen sticky top-0 overflow-y-auto transition-colors border-r border-circle-hairline/60 dark:border-circle-dark-hairline/60">
       {/* Circle Switcher Section (Flat, borderless container) */}
       <div className="p-1 transition-colors">
         <div className="flex items-center justify-between mb-2">
