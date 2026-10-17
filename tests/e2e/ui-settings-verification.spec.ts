@@ -6,12 +6,15 @@ test.describe('UI Flat Verification & System Settings', () => {
     await page.waitForTimeout(1000);
     await page.screenshot({ path: 'tests/e2e/screenshots/01-login-light.png' });
 
-    // Login
-    await page.fill('input[type="email"]', 'testuser@circle.local');
-    await page.fill('input[type="password"]', 'Password123@!');
-    await page.click('button[type="submit"]');
+    // Login if on login page
+    const emailInput = page.locator('input[type="email"]');
+    if (await emailInput.isVisible()) {
+      await emailInput.fill('testuser@circle.local');
+      await page.fill('input[type="password"]', 'Password123@!');
+      await page.click('button[type="submit"]');
+      await page.waitForTimeout(2000);
+    }
 
-    await page.waitForTimeout(2000);
     await page.screenshot({ path: 'tests/e2e/screenshots/02-home-light.png' });
 
     // Verify default UI style and message theme on root element

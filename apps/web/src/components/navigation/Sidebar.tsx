@@ -228,8 +228,11 @@ export const Sidebar: React.FC = () => {
           />
         </div>
 
+        {/* Divider line between navigation and group utilities */}
+        <div className="border-t border-circle-hairline/80 dark:border-circle-dark-hairline/80 my-1 mx-1" />
+
         {/* Group Tools & Utilities (Borderless section with natural spacing) */}
-        <div className="flex flex-col gap-1 pt-3">
+        <div className="flex flex-col gap-1 pt-1">
           <span className="px-3 text-xs font-semibold tracking-wider text-circle-slate dark:text-circle-dark-muted uppercase mb-1">
             {t.nav.groupTools}
           </span>

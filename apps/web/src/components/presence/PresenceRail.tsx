@@ -162,6 +162,9 @@ export const PresenceRail: React.FC = () => {
         </div>
       )}
 
+      {/* Divider line between members list and voice stage */}
+      <div className="border-t border-circle-hairline/80 dark:border-circle-dark-hairline/80 my-1 mx-1" />
+
       {/* Voice & Video Stage Status (Flat container without visible border barrier) */}
       <div className="p-1 transition-all">
         <div className="flex items-center justify-between mb-2 px-1">

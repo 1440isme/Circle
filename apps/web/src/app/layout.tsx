@@ -22,7 +22,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="vi" className={inter.variable} suppressHydrationWarning>
+    <html lang="vi" data-ui-style="flat" data-msg-theme="sage" className={inter.variable} suppressHydrationWarning>
       <head>
         <script
           dangerouslySetInnerHTML={{
@@ -36,6 +36,10 @@ export default function RootLayout({
                   } else {
                     document.documentElement.classList.remove('dark');
                   }
+                  var uiStyle = localStorage.getItem('circle_ui_style') || 'flat';
+                  document.documentElement.setAttribute('data-ui-style', uiStyle);
+                  var msgTheme = localStorage.getItem('circle_msg_theme') || 'sage';
+                  document.documentElement.setAttribute('data-msg-theme', msgTheme);
                 } catch (e) {}
               })();
             `,
