@@ -80,3 +80,18 @@ export const useThemeStore = create<ThemeState>((set) => {
     },
   };
 });
+
+// Auto-hydrate theme & UI style from storage on load
+useThemeStore.getState().initTheme().catch(() => {});
+
+// Listen for dynamic system color scheme changes
+Appearance.addChangeListener(({ colorScheme }) => {
+  const state = useThemeStore.getState();
+  if (state.theme === 'system') {
+    const resolved = colorScheme === 'dark' ? 'dark' : 'light';
+    useThemeStore.setState({
+      resolvedTheme: resolved,
+      colors: CircleColors[resolved],
+    });
+  }
+});

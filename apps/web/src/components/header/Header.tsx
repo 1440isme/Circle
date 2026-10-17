@@ -52,17 +52,17 @@ export const Header: React.FC = () => {
           <Link
             href="/"
             onClick={() => setActiveCircle(null)}
-            className={`flex items-center gap-1.5 pl-1 pr-2.5 py-1 rounded-full border transition-all select-none group active:scale-95 ${
+            className={`inline-flex h-9 sm:h-10 items-center gap-2 pl-1 sm:pl-1.5 pr-3.5 sm:pr-4 rounded-full border transition-all select-none group active:scale-95 ${
               isGlass
                 ? 'backdrop-blur-md bg-white/80 dark:bg-circle-dark-surface/80 border-white/60 dark:border-white/10 shadow-sm hover:shadow-md hover:bg-white/90 dark:hover:bg-circle-dark-surface/90 hover:scale-[1.02]'
                 : 'bg-white dark:bg-circle-dark-surface border-circle-hairline dark:border-circle-dark-hairline shadow-xs hover:border-circle-slate dark:hover:border-circle-dark-muted'
             }`}
             title={t.common.appName}
           >
-            <div className="flex h-6.5 w-6.5 items-center justify-center rounded-full bg-circle-primary text-circle-charcoal shadow-xs transition-transform group-hover:scale-105">
-              <span className="text-xs font-black">C</span>
+            <div className="flex h-7 w-7 sm:h-7.5 sm:w-7.5 min-w-[28px] sm:min-w-[30px] aspect-square shrink-0 items-center justify-center rounded-full bg-circle-primary text-circle-charcoal shadow-xs transition-transform group-hover:scale-105">
+              <span className="text-xs sm:text-sm font-black leading-none select-none">C</span>
             </div>
-            <span className="text-sm font-bold tracking-tight text-circle-charcoal dark:text-circle-dark-text">
+            <span className="text-sm sm:text-[15px] font-bold tracking-tight text-circle-charcoal dark:text-circle-dark-text">
               {t.common.appName}
             </span>
           </Link>

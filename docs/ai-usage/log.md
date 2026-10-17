@@ -4329,3 +4329,49 @@
 - **Commit:** `700ced7`
 - **PR:** #91
 
+---
+
+## AI-0102: Tinh chỉnh Toàn diện Header, Chat Composer Trung tính, Khắc phục Persistence Theme Mobile & Khởi tạo Migration CSDL
+
+- **Date:** 2026-10-17 23:50:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #89 ([SUB-FEAT]: US-DESIGN-002 — Liquid Glass vs Flat Unified Style System, Pastel Themes, Header & Composer Refinements)
+- **Purpose:** Xử lý toàn diện các vấn đề hậu merge và hoàn thiện trải nghiệm UI/UX đa nền tảng theo chỉ đạo của Trương Công Bình:
+  (1) Khắc phục lỗi sập CSDL backend do cột `UserProfile.handle` chưa có migration trong PostgreSQL (`circle_dev`), khởi tạo và thực thi migration `20261017132800_add_user_profile_handle` đồng bộ schema.
+  (2) Chuyển toàn bộ các nút hành động trên thanh nhập tin nhắn (nút `(+)` và nút ghi âm `Mic`) sang màu trung tính (`colors.subtle`, `text-circle-slate`) trên cả Web (`ChatComposer.tsx`) và Mobile (`[id].tsx`), loại bỏ màu đỏ (màu đỏ chỉ dành cho thao tác nguy hiểm/hủy diệt, không phải nhận diện thương hiệu Circle).
+  (3) Khôi phục tỷ lệ hoàn hảo hình tròn cho logo chữ 'C' (`h-7 w-7 min-w-[28px] sm:min-w-[30px] aspect-square rounded-full shrink-0`) trên Web Header (`Header.tsx`), đồng thời đồng bộ chiều cao và độ lớn của viên thuốc thương hiệu với nút avatar và thông báo (`h-9 sm:h-10`) tạo sự cân bằng đối xứng tuyệt đối.
+  (4) Khắc phục triệt để lỗi mất cài đặt ngôn ngữ thiết kế (`uiStyle: 'glass' | 'flat'`) trên Mobile bằng cách tự động kích hoạt `initTheme()` ngay khi nạp ứng dụng và lắng nghe `Appearance.addChangeListener`, đồng thời chèn thuộc tính mặc định vào thẻ `<html>` và script inline trên Web tránh hiện tượng FOUC.
+  (5) Hợp nhất Tầng 2 Header Workspace Mobile thành một component viên thuốc duy nhất dùng chung xuyên suốt cả 3 tab (Chat, Moments, Tools), loại bỏ component `fixedTopHeader` trùng lặp trong `MomentsView.tsx`, giữ nguyên vị trí, khung viền và hình dáng viên thuốc khi vuốt ngang, chỉ đổi nội dung nhãn (Tên nhóm ↔ X bạn bè) và mở dropdown lọc thành viên mượt mà.
+  (6) Tái thiết kế dải tin nhắn ghim (Pinned Messages) trên Mobile: đưa ra khỏi header chính để giữ header cố định đúng 2 tầng xuyên suốt cả 3 tab không bị giật layout, đặt dải ghim trôi nổi tinh tế bên trong Tab 1 Chat.
+- **Prompt Summary:** Yêu cầu sửa lỗi sập backend, đổi nút + và voice sang màu trung tính cho cả web và mobile, sửa logo tròn C trên web không bị bóp méo và pill cùng độ lớn với avatar/thông báo, lưu cài đặt giao diện liquid/flat trên mobile không bị reset, hợp nhất tầng 2 header mobile thành 1 component chung mượt mà khi vuốt 3 tab, thiết kế lại ghim tin nhắn để header cố định đúng 2 tầng.
+- **Files Affected:**
+  - `apps/backend/prisma/migrations/20261017132800_add_user_profile_handle/migration.sql`
+  - `apps/mobile/src/stores/theme.store.ts`
+  - `apps/mobile/app/_layout.tsx`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `apps/mobile/src/components/moment/MomentsView.tsx`
+  - `apps/web/src/components/chat/ChatComposer.tsx`
+  - `apps/web/src/components/header/Header.tsx`
+  - `apps/web/src/app/layout.tsx`
+  - `tests/e2e/ui-settings-verification.spec.ts`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% mã nguồn migration SQL, các chỉnh sửa layout/styling CSS Tailwind, Zustand store auto-init, và React Native component synchronization.
+- **Human Modifications:** Trương Công Bình trực tiếp thẩm định bố cục UI, phát hiện các điểm bất cập hậu merge (màu đỏ nút composer, méo logo, reset setting mobile, nhảy header tầng 2, ghim 3 tầng) và đưa ra giải pháp thiết kế định hướng.
+- **Verification Method:**
+  - Backend: `npm test -w @circle/backend` (142/142 unit tests passed).
+  - Database: `npx prisma migrate deploy` thành công, kiểm chứng truy vấn `UserProfile.handle` hoạt động trơn tru.
+  - Web: `npx tsc --noEmit -p apps/web/tsconfig.json` (0 errors), `npm run build -w @circle/web` (production build thành công, 9/9 pages generated).
+  - Mobile: `npx tsc --noEmit -p apps/mobile/tsconfig.json` (0 errors).
+  - Playwright E2E: `npx playwright test tests/e2e/ui-settings-verification.spec.ts` (4/4 tests passed).
+  - Integrity check: `./scripts/check-agent-map.sh` (95/95 framework files passed, 0 broken references).
+- **Official Source Checked:** `PROJECT_GOD.md` (DoD, G1 Working Product, G3 Automated Tests, G8 Security & Hygiene), Apple HIG Design Guidelines.
+- **Security & License Check:** An toàn, không chứa secret/credential.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** (1) Nhập đúp icon `Users` trong `[id].tsx`. (2) Dùng `...StyleSheet.absoluteFillObject` thay vì tọa độ absolute trong React Native StyleSheet. (3) Playwright test kiểm tra attribute trước khi Next.js client hydrate.
+  - **Root Cause:** (1) Import trùng khi bổ sung icon. (2) Typo tên property StyleSheet. (3) Thiếu attribute SSR ban đầu trên thẻ html.
+  - **Resolution / Fix:** (1) Xóa import đúp. (2) Dùng `position: 'absolute', top: 0, left: 0, right: 0, bottom: 0`. (3) Thiết lập `data-ui-style="flat"` và script inline trong `apps/web/src/app/layout.tsx`.
+- **Commit:** Pending
+- **PR:** Pending
+

@@ -396,21 +396,21 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
               : 'bg-white dark:bg-circle-dark-surface border-circle-hairline dark:border-circle-dark-hairline shadow-2xs'
           }`}
         >
-          {/* Action 1: (+) Outline Coral Plus Button */}
+          {/* Action 1: (+) Outline Neutral Plus Button */}
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="flex h-7 w-7 items-center justify-center rounded-full border-[1.5px] border-circle-coral text-circle-coral hover:bg-circle-coral/10 transition-all shrink-0 active:scale-95"
+            className="flex h-7 w-7 items-center justify-center rounded-full border-[1.5px] border-circle-slate/35 dark:border-circle-dark-hairline text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text hover:border-circle-charcoal/50 hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-all shrink-0 active:scale-95"
             title={t.chat.attachFile}
           >
-            <Plus className="h-4 w-4 stroke-[2.5]" />
+            <Plus className="h-4 w-4 stroke-[2.2]" />
           </button>
 
           {/* Action 2: Image / Photo Icon */}
           <button
             type="button"
             onClick={() => imageInputRef.current?.click()}
-            className="flex h-7 w-7 items-center justify-center text-circle-charcoal dark:text-circle-dark-text hover:text-circle-coral dark:hover:text-circle-coral transition-colors shrink-0 active:scale-95"
+            className="flex h-7 w-7 items-center justify-center text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text transition-colors shrink-0 active:scale-95"
             title={t.chat.attachImage}
           >
             <ImageIcon className="h-5 w-5" />
@@ -433,8 +433,8 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
             onClick={() => setShowEmojiPicker(!showEmojiPicker)}
             className={`flex h-7 w-7 items-center justify-center transition-colors shrink-0 active:scale-95 ${
               showEmojiPicker
-                ? 'text-circle-coral'
-                : 'text-circle-charcoal dark:text-circle-dark-text hover:text-circle-coral dark:hover:text-circle-coral'
+                ? 'text-circle-primary font-bold'
+                : 'text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text'
             }`}
             title={t.chat.reactAction}
           >
@@ -455,8 +455,8 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
             content.trim() || attachedFile
               ? 'chat-composer-send-btn-active shadow-sm'
               : isGlass
-              ? 'backdrop-blur-md bg-white/80 dark:bg-circle-dark-surface/80 border border-white/60 dark:border-white/10 shadow-xs text-circle-coral hover:bg-white dark:hover:bg-circle-dark-surface'
-              : 'bg-white dark:bg-circle-dark-surface border border-circle-hairline dark:border-circle-dark-hairline shadow-2xs text-circle-coral hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas'
+              ? 'backdrop-blur-md bg-white/80 dark:bg-circle-dark-surface/80 border border-white/60 dark:border-white/10 shadow-xs text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text hover:bg-white dark:hover:bg-circle-dark-surface'
+              : 'bg-white dark:bg-circle-dark-surface border border-circle-hairline dark:border-circle-dark-hairline shadow-2xs text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas'
           }`}
           title={(content.trim() || attachedFile) ? t.chat.sendBtn : 'Ghi âm tin nhắn thoại'}
         >
@@ -467,7 +467,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
               <Send className="h-5 w-5" />
             )
           ) : (
-            <Mic className="h-5 w-5 text-circle-coral" />
+            <Mic className="h-5 w-5 text-circle-slate dark:text-circle-dark-muted" />
           )}
         </button>
       </div>

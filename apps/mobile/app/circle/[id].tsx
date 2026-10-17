@@ -1038,6 +1038,8 @@ export default function CircleWorkspaceScreen() {
   const [isPinnedModalVisible, setIsPinnedModalVisible] = useState(false);
   const [isFullEmojiModalVisible, setIsFullEmojiModalVisible] = useState(false);
   const [targetReactMessageId, setTargetReactMessageId] = useState<string | null>(null);
+  const [momentsMemberFilter, setMomentsMemberFilter] = useState<string | 'all'>('all');
+  const [isMomentsFilterOpen, setIsMomentsFilterOpen] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(Platform.OS === 'ios' ? 128 : 112);
 
   const scrollViewRef = useRef<ScrollView>(null);
@@ -1736,74 +1738,54 @@ export default function CircleWorkspaceScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Row 2: Sub-header Centered Title Pill (Chat & Tools) - Clicking opens settings */}
-        {activeTab !== 'moments' && (
-          <View style={styles.floatingSubHeaderRow} pointerEvents="box-none">
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={handleOpenSettings}
-              style={[
-                styles.floatingTitlePill,
-                {
-                  backgroundColor: isGlass
-                    ? (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)')
-                    : colors.surface,
-                  borderColor: isGlass
-                    ? (isDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.07)')
-                    : colors.hairline,
-                  shadowOpacity: isGlass ? 0.05 : 0,
-                  elevation: isGlass ? 2 : 0,
-                },
-              ]}
-              accessibilityLabel="Circle Settings"
-            >
-              <Text numberOfLines={1} style={[styles.floatingTitleText, { color: colors.text }]}>
-                {circle.name}
-              </Text>
-              <ChevronDown size={13} color={colors.subtle} style={{ marginLeft: 3 }} />
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Row 3 (Conditional): Pinned Messages Banner */}
-        {activeTab === 'chat' && pinnedMessages.length > 0 && (
-          <View
+        {/* Row 2: Unified Sub-header Centered Title Pill across all 3 tabs */}
+        <View style={styles.floatingSubHeaderRow} pointerEvents="box-none">
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => {
+              if (activeTab === 'moments') {
+                setIsMomentsFilterOpen(!isMomentsFilterOpen);
+              } else {
+                handleOpenSettings();
+              }
+            }}
             style={[
-              styles.pinnedBanner,
+              styles.floatingTitlePill,
               {
-                backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.03)',
-                borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+                backgroundColor: isGlass
+                  ? (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)')
+                  : colors.surface,
+                borderColor: isGlass
+                  ? (isDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.07)')
+                  : colors.hairline,
+                shadowOpacity: isGlass ? 0.05 : 0,
+                elevation: isGlass ? 2 : 0,
               },
             ]}
+            accessibilityLabel={activeTab === 'moments' ? 'Lọc bạn bè' : 'Circle Settings'}
           >
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => {
-                const latestPin = pinnedMessages[pinnedMessages.length - 1];
-                if (latestPin?.id) handleJumpToMessage(latestPin.id);
-              }}
-              style={styles.pinnedBannerLeft}
-            >
-              <Pin size={12} color={colors.primary} />
-              <Text numberOfLines={1} style={[styles.pinnedBannerText, { color: colors.subtle }]}>
-                {pinnedMessages[pinnedMessages.length - 1]?.content || t.chat.pinnedBadge}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => setIsPinnedModalVisible(true)}
-              style={[
-                styles.pinnedCountBadge,
-                { backgroundColor: colors.wash, borderColor: colors.hairline, borderWidth: StyleSheet.hairlineWidth },
-              ]}
-            >
-              <Text style={[styles.pinnedCountText, { color: colors.primary }]}>
-                {pinnedMessages.length} {t.chat.pinnedBadge}
-              </Text>
-              <ChevronRight size={11} color={colors.primary} style={{ marginLeft: 2 }} />
-            </TouchableOpacity>
-          </View>
-        )}
+            {activeTab === 'moments' ? (
+              <>
+                <Users size={13} color={colors.subtle} style={{ marginRight: 5 }} />
+                <Text numberOfLines={1} style={[styles.floatingTitleText, { color: colors.text }]}>
+                  {momentsMemberFilter === 'all'
+                    ? (members.length > 0 ? `${members.length} bạn bè` : 'Bạn bè')
+                    : (members.find((m: any) => (m.userId || m.id) === momentsMemberFilter)?.nickname ||
+                       members.find((m: any) => (m.userId || m.id) === momentsMemberFilter)?.user?.profile?.displayName ||
+                       'Bạn bè')}
+                </Text>
+                <ChevronDown size={13} color={colors.subtle} style={{ marginLeft: 3 }} />
+              </>
+            ) : (
+              <>
+                <Text numberOfLines={1} style={[styles.floatingTitleText, { color: colors.text }]}>
+                  {circle.name}
+                </Text>
+                <ChevronDown size={13} color={colors.subtle} style={{ marginLeft: 3 }} />
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
 
         {/* Network Reconnection Notice */}
         {!isSocketConnected && (
@@ -1846,7 +1828,10 @@ export default function CircleWorkspaceScreen() {
           <ScrollView
             ref={scrollViewRef}
             style={styles.messagesList}
-            contentContainerStyle={[styles.messagesScrollContent, { paddingTop: headerHeight + 8 }]}
+            contentContainerStyle={[
+              styles.messagesScrollContent,
+              { paddingTop: headerHeight + (pinnedMessages.length > 0 ? 46 : 8) },
+            ]}
             showsVerticalScrollIndicator={false}
             onScroll={handleScroll}
             scrollEventThrottle={32}
@@ -2104,6 +2089,58 @@ export default function CircleWorkspaceScreen() {
             </View>
           </ScrollView>
 
+          {/* Floating Pinned Message Pill (Tab 1 Chat Only, strictly below 2-layer Header) */}
+          {pinnedMessages.length > 0 && (
+            <View
+              style={[
+                styles.floatingPinnedBannerWrapper,
+                { top: headerHeight + 6 },
+              ]}
+              pointerEvents="box-none"
+            >
+              <View
+                style={[
+                  styles.pinnedBanner,
+                  {
+                    backgroundColor: isGlass
+                      ? (isDark ? 'rgba(30, 30, 35, 0.88)' : 'rgba(255, 255, 255, 0.92)')
+                      : colors.surface,
+                    borderColor: isGlass
+                      ? (isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)')
+                      : colors.hairline,
+                  },
+                ]}
+              >
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    const latestPin = pinnedMessages[pinnedMessages.length - 1];
+                    if (latestPin?.id) handleJumpToMessage(latestPin.id);
+                  }}
+                  style={styles.pinnedBannerLeft}
+                >
+                  <Pin size={12} color={colors.primary} />
+                  <Text numberOfLines={1} style={[styles.pinnedBannerText, { color: colors.subtle }]}>
+                    {pinnedMessages[pinnedMessages.length - 1]?.content || t.chat.pinnedBadge}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => setIsPinnedModalVisible(true)}
+                  style={[
+                    styles.pinnedCountBadge,
+                    { backgroundColor: colors.wash, borderColor: colors.hairline, borderWidth: StyleSheet.hairlineWidth },
+                  ]}
+                >
+                  <Text style={[styles.pinnedCountText, { color: colors.primary }]}>
+                    {pinnedMessages.length} {t.chat.pinnedBadge}
+                  </Text>
+                  <ChevronRight size={11} color={colors.primary} style={{ marginLeft: 2 }} />
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
           {/* Floating Rounded Composer Area */}
           <View
             style={[
@@ -2251,14 +2288,14 @@ export default function CircleWorkspaceScreen() {
                   },
                 ]}
               >
-                {/* Action 1: (+) Outline Coral Plus Button */}
+                {/* Action 1: (+) Outline Neutral Plus Button */}
                 <TouchableOpacity
                   activeOpacity={0.7}
                   onPress={handlePickImage}
-                  style={styles.plusOutlineCircle}
+                  style={[styles.plusOutlineCircle, { borderColor: colors.subtle }]}
                   accessibilityLabel="Add attachment"
                 >
-                  <Plus size={13} color="#EF4444" strokeWidth={2.5} />
+                  <Plus size={13} color={colors.subtle} strokeWidth={2.2} />
                 </TouchableOpacity>
 
                 {/* Action 2: Image / Photo Icon */}
@@ -2269,7 +2306,7 @@ export default function CircleWorkspaceScreen() {
                   style={styles.capsuleIconBtn}
                   accessibilityLabel="Attach Photo"
                 >
-                  <ImageIcon size={19} color={colors.text} />
+                  <ImageIcon size={19} color={colors.subtle} />
                 </TouchableOpacity>
 
                 {/* Text Input Field (Flex-1) */}
@@ -2319,7 +2356,7 @@ export default function CircleWorkspaceScreen() {
                   style={styles.capsuleIconBtn}
                   accessibilityLabel="Choose Emoji"
                 >
-                  <Smile size={19} color={colors.text} />
+                  <Smile size={19} color={colors.subtle} />
                 </TouchableOpacity>
               </View>
 
@@ -2361,7 +2398,7 @@ export default function CircleWorkspaceScreen() {
                     <Send size={18} color={activeCircleBubbleTheme.sendBtnText} />
                   )
                 ) : (
-                  <Mic size={20} color="#EF4444" />
+                  <Mic size={20} color={colors.subtle} />
                 )}
               </TouchableOpacity>
             </View>
@@ -2371,7 +2408,13 @@ export default function CircleWorkspaceScreen() {
 
         {/* TAB 2: KHOẢNH KHẮC THƯỜNG NGÀY (AUTHENTIC MOMENTS VIEW) */}
         <View style={{ width: screenWidth, flex: 1, paddingTop: headerHeight }}>
-          <MomentsView circleId={circleId} circleName={circle.name} isActive={activeTab === 'moments'} />
+          <MomentsView
+            circleId={circleId}
+            circleName={circle.name}
+            isActive={activeTab === 'moments'}
+            selectedMemberId={momentsMemberFilter}
+            onSelectMemberId={setMomentsMemberFilter}
+          />
         </View>
 
         {/* TAB 3: TIỆN ÍCH NHÓM */}
@@ -2787,6 +2830,102 @@ export default function CircleWorkspaceScreen() {
           }
         }}
       />
+
+      {/* Inline Member Filter Dropdown for Moments Tab */}
+      {isMomentsFilterOpen && activeTab === 'moments' && (
+        <View style={styles.momentsFilterDropdownOverlay}>
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={() => setIsMomentsFilterOpen(false)}
+            style={StyleSheet.absoluteFill}
+          />
+          <View
+            style={[
+              styles.momentsFilterDropdownMenu,
+              {
+                top: headerHeight + 4,
+                backgroundColor: isGlass
+                  ? (isDark ? 'rgba(30,30,35,0.96)' : 'rgba(255,255,255,0.96)')
+                  : colors.surface,
+                borderColor: isGlass
+                  ? (isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.08)')
+                  : colors.hairline,
+              },
+            ]}
+          >
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 240 }}>
+              {/* Option: Mọi người */}
+              <TouchableOpacity
+                activeOpacity={0.75}
+                onPress={() => {
+                  setMomentsMemberFilter('all');
+                  setIsMomentsFilterOpen(false);
+                }}
+                style={[
+                  styles.dropdownFilterItem,
+                  {
+                    backgroundColor: momentsMemberFilter === 'all' ? `${colors.primary}18` : 'transparent',
+                    borderBottomColor: colors.hairline,
+                  },
+                ]}
+              >
+                <View style={[styles.dropdownFilterAvatar, { backgroundColor: `${colors.primary}20` }]}>
+                  <Users size={16} color={colors.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.dropdownFilterTitle, { color: colors.text }]}>Mọi người</Text>
+                  <Text style={[styles.dropdownFilterSub, { color: colors.subtle }]}>
+                    Tất cả khoảnh khắc của nhóm
+                  </Text>
+                </View>
+                {momentsMemberFilter === 'all' && <Check size={16} color={colors.primary} />}
+              </TouchableOpacity>
+
+              {/* Members */}
+              {members.map((m: any) => {
+                const mId = m.userId || m.id || m.user?.id;
+                const mName = m.nickname || m.user?.profile?.displayName || m.user?.email?.split('@')[0] || 'Thành viên';
+                const avatar = m.user?.profile?.avatarUrl || m.profile?.avatarUrl;
+                const isSelected = momentsMemberFilter === mId;
+                return (
+                  <TouchableOpacity
+                    key={mId}
+                    activeOpacity={0.75}
+                    onPress={() => {
+                      setMomentsMemberFilter(mId);
+                      setIsMomentsFilterOpen(false);
+                    }}
+                    style={[
+                      styles.dropdownFilterItem,
+                      {
+                        backgroundColor: isSelected ? `${colors.primary}18` : 'transparent',
+                        borderBottomColor: colors.hairline,
+                      },
+                    ]}
+                  >
+                    <View style={[styles.dropdownFilterAvatar, { backgroundColor: colors.wash }]}>
+                      {avatar ? (
+                        <RNImage source={{ uri: avatar }} style={{ width: 28, height: 28, borderRadius: 14 }} />
+                      ) : (
+                        <Text style={[styles.dropdownFilterAvatarText, { color: colors.text }]}>
+                          {mName.substring(0, 2).toUpperCase()}
+                        </Text>
+                      )}
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text numberOfLines={1} style={[styles.dropdownFilterTitle, { color: colors.text }]}>{mName}</Text>
+                      <Text style={[styles.dropdownFilterSub, { color: colors.subtle }]}>
+                        {m.role === 'OWNER' ? 'Trưởng nhóm' : m.role === 'ADMIN' ? 'Quản trị viên' : 'Thành viên'}
+                      </Text>
+                    </View>
+                    {isSelected && <Check size={16} color={colors.primary} />}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      )}
     </KeyboardAvoidingView>
   );
 }
@@ -2923,16 +3062,74 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: -0.2,
   },
+  floatingPinnedBannerWrapper: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    zIndex: 35,
+  },
   pinnedBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginHorizontal: 16,
-    marginBottom: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
     borderWidth: StyleSheet.hairlineWidth,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  momentsFilterDropdownOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 60,
+    alignItems: 'center',
+  },
+  momentsFilterDropdownMenu: {
+    position: 'absolute',
+    width: 270,
+    borderRadius: 18,
+    borderWidth: 1,
+    paddingVertical: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
+    overflow: 'hidden',
+  },
+  dropdownFilterItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  dropdownFilterAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  dropdownFilterAvatarText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  dropdownFilterTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  dropdownFilterSub: {
+    fontSize: 11,
   },
   pinnedBannerLeft: {
     flexDirection: 'row',
@@ -3350,7 +3547,6 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: '#EF4444',
     alignItems: 'center',
     justifyContent: 'center',
   },
