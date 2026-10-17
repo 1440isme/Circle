@@ -4372,6 +4372,42 @@
   - **Error Description:** (1) Nhập đúp icon `Users` trong `[id].tsx`. (2) Dùng `...StyleSheet.absoluteFillObject` thay vì tọa độ absolute trong React Native StyleSheet. (3) Playwright test kiểm tra attribute trước khi Next.js client hydrate.
   - **Root Cause:** (1) Import trùng khi bổ sung icon. (2) Typo tên property StyleSheet. (3) Thiếu attribute SSR ban đầu trên thẻ html.
   - **Resolution / Fix:** (1) Xóa import đúp. (2) Dùng `position: 'absolute', top: 0, left: 0, right: 0, bottom: 0`. (3) Thiết lập `data-ui-style="flat"` và script inline trong `apps/web/src/app/layout.tsx`.
-- **Commit:** Pending
-- **PR:** Pending
+- **Commit:** 4ecc3ab
+- **PR:** #93
+
+---
+
+### AI-0103 — 2026-10-18T00:20:00+07:00
+
+- **Engineer:** Trương Công Bình (23110184)
+- **Role:** Full-stack Engineer
+- **AI Tool:** Antigravity IDE (Gemini 2.5 Pro)
+- **Workflow / Skill:** `implement-feature`, `debug`, `pre-completion-verification`, `ai-log-entry`
+- **Intent / Context:** Đồng bộ ranh giới cột 1 và cột 3 trên web, điều tra & xử lý triệt để lỗi chụp Dual Camera trên mobile cho các thiết bị không có phần cứng MultiCam đồng thời, cân đối responsive Moment feed web trên màn hình FullHD (1080p) vs 2K, và đồng bộ padding hộp bo tròn cài đặt nhóm trên mobile.
+- **Implementation Details:**
+  (1) Bổ sung đường phân cách hairline mờ `border-circle-hairline/80 dark:border-circle-dark-hairline/80` giữa Tiện ích nhóm (`groupTools`) và phần điều hướng chính tại Cột 1 Web (`Sidebar.tsx`).
+  (2) Bổ sung đường phân cách hairline mờ `border-circle-hairline/80 dark:border-circle-dark-hairline/80` giữa Danh sách thành viên và Phòng thoại thời gian thực tại Cột 3 Web (`PresenceRail.tsx`).
+  (3) Điều tra & giải quyết dứt điểm lỗi Dual Camera trên máy mobile không có chip ISP hỗ trợ đa luồng đồng thời (`FEATURE_CAMERA_CONCURRENT`): Trước đây biến `hasNativeDualCam` được gán tĩnh theo việc có import native module hay không, dẫn tới trên development build mọi máy Android đều coi là hỗ trợ, khiến máy Bình bị treo/lỗi session và không rơi vào nhánh sequential fallback. Đã bổ sung hook kiểm tra phần cứng bất đồng bộ `isHardwareConcurrentSupported` qua `dualCam.isSupported()`, chỉ bật viewfinder đồng thời trên thiết bị có hỗ trợ phần cứng; các thiết bị khác sẽ dùng `CameraView` với khung ngắm PiP trôi nổi và chụp kép tuần tự tốc độ cao (Sequential Dual Shot) sử dụng URI ảnh trực tiếp nhẹ nhàng, không gây tràn RAM/treo camera.
+  (4) Cân đối responsive cho Feed Moment trên Web (`DailyMomentsFeed.tsx`): thay thế chiều rộng cố định `max-w-4xl` (896px - gây quá khổ trên màn hình FullHD 1080p) bằng công thức co giãn theo chiều cao màn hình `max-w-[min(540px,calc(100vh-220px))]`. Nhờ đó trên cả màn hình 2K lẫn 1080p FullHD và màn laptop 768p, ảnh vuông 1:1, thanh tác giả, chú thích và dải thả biểu cảm đều hiển thị trọn vẹn 100% trong khung nhìn mà không bị cắt góc.
+  (5) Chuẩn hóa padding và bán kính bo góc các hộp cài đặt nhóm trên Mobile (`CircleManagementModal.tsx`): đưa `preferenceRow` và `preferenceRowColumn` từ `paddingHorizontal: 4` lên `paddingHorizontal: 16, paddingVertical: 14`, nâng bán kính bo góc `menuSectionCard` lên 20px, đồng bộ padding mục chọn màu chủ đề về 16px, loại bỏ hiện tượng lệch lề sát viền, nhất quán tuyệt đối trải nghiệm người dùng trên mọi element.
+- **Prompt Summary:** Yêu cầu thêm đường ranh giới tiện ích nhóm cột 1 và phòng thoại/thành viên cột 3 web, điều tra sửa lỗi máy Bình không chụp được dual cam mobile, cân đối responsive feed moment 1080p vs 2K để không bị che khuất 4 góc thông tin, và đồng bộ padding hộp bo tròn thông báo & quyền riêng tư trong setting nhóm mobile.
+- **Files Affected:**
+  - `apps/web/src/components/navigation/Sidebar.tsx`
+  - `apps/web/src/components/presence/PresenceRail.tsx`
+  - `apps/mobile/src/components/moment/MomentsView.tsx`
+  - `apps/web/src/components/moments/DailyMomentsFeed.tsx`
+  - `apps/mobile/src/components/circle/CircleManagementModal.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% code kiểm tra phần cứng camera `isHardwareConcurrentSupported`, fallback tuần hoàn camera, responsive scaling `max-w-[min(540px,calc(100vh-220px))]`, divider CSS Tailwind và chuẩn hóa styling StyleSheet.
+- **Human Modifications:** Trương Công Bình thẩm định trực quan các tỷ lệ màn hình 2K vs 1080p, phát hiện sự chênh lệch hành vi giữa 2 thiết bị di động thực tế và hướng dẫn giải pháp chuẩn hóa padding thống nhất.
+- **Verification Method:**
+  - Web: `npx tsc --noEmit` (0 errors).
+  - Mobile: `cd apps/mobile && npm run typecheck` (0 errors).
+  - Integrity check: `./scripts/check-agent-map.sh` (95/95 files passed).
+  - AI log check: `./scripts/verify-ai-log.sh` (passed).
+- **Official Source Checked:** `PROJECT_GOD.md` (DoD, G1, G8), Android CameraX Multi-Camera Guide (`FEATURE_CAMERA_CONCURRENT`).
+- **Security & License Check:** An toàn, không chứa secret/credential.
+- **AI Errors / Hallucinations Found:** Không có.
+- **Commit:** b63b73d
+- **PR:** #93
 

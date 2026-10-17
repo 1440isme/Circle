@@ -88,6 +88,7 @@ const isExpoGo =
 let DualCameraFrontView: any = null;
 let DualCameraBackView: any = null;
 let takeDualPictureAsync: any = null;
+let checkDualCameraHardwareSupportedAsync: (() => Promise<boolean>) | null = null;
 
 if (!isExpoGo) {
   try {
@@ -96,6 +97,7 @@ if (!isExpoGo) {
     DualCameraFrontView = dualCam?.DualCameraFrontView;
     DualCameraBackView = dualCam?.DualCameraBackView;
     takeDualPictureAsync = dualCam?.takePictureAsync;
+    checkDualCameraHardwareSupportedAsync = dualCam?.isSupported;
   } catch {
     // Native module 'ExpoDualCamera' not present in this client
   }
@@ -533,6 +535,29 @@ export function MomentsView({
   const [cameraFacing, setCameraFacing] = useState<CameraType>('front');
   const [flashMode, setFlashMode] = useState<boolean>(false);
   const [isDualMode, setIsDualMode] = useState<boolean>(false);
+  const [isHardwareConcurrentSupported, setIsHardwareConcurrentSupported] = useState<boolean>(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    if (checkDualCameraHardwareSupportedAsync) {
+      checkDualCameraHardwareSupportedAsync()
+        .then((supported) => {
+          if (isMounted) {
+            setIsHardwareConcurrentSupported(Boolean(supported));
+          }
+        })
+        .catch(() => {
+          if (isMounted) {
+            setIsHardwareConcurrentSupported(false);
+          }
+        });
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const canUseNativeConcurrent = hasNativeDualCam && isHardwareConcurrentSupported;
   // Zoom camera:
   // Cam trước: Dưới 1x (< 0.04) là góc rộng toàn cảm biến (dạng khung icon), 0.06 tương ứng chuẩn 1.0x (đỡ gần, tự nhiên), phóng đại lên tới 5x (0.85)
   // Cam sau: 0.00 tương ứng 0.5x (siêu rộng), 0.12 tương ứng 1.0x, 0.95 tương ứng 5.0x
@@ -907,24 +932,31 @@ export function MomentsView({
     try {
       setIsTakingPhoto(true);
 
-      if (isDualMode && hasNativeDualCam) {
-        // Dual Mode trên Development Build: Chụp đồng thời 2 camera thật từ expo-dual-camera
-        if (flashMode && cameraFacing === 'front') {
-          setIsScreenFlashing(true);
-          await new Promise((r) => setTimeout(r, 350));
+      if (isDualMode && canUseNativeConcurrent && takeDualPictureAsync) {
+        // Dual Mode trên thiết bị có hỗ trợ concurrent camera thật (MultiCam):
+        try {
+          if (flashMode && cameraFacing === 'front') {
+            setIsScreenFlashing(true);
+            await new Promise((r) => setTimeout(r, 350));
+          }
+          const dualResult = await takeDualPictureAsync({ quality: 0.78 });
+          await new Promise((r) => setTimeout(r, 100));
+          setIsScreenFlashing(false);
+          if (dualResult?.frontUri && dualResult?.backUri) {
+            const mainUrl = cameraFacing === 'back' ? dualResult.backUri : dualResult.frontUri;
+            const counterpartUrl = cameraFacing === 'back' ? dualResult.frontUri : dualResult.backUri;
+            setCapturedPhotoUrl(mainUrl);
+            setDualPipPhotoUrl(counterpartUrl);
+            setCapturedMediaType('IMAGE');
+            return;
+          }
+        } catch (dualErr) {
+          console.warn('Native concurrent dual camera failed, smoothly falling back to sequential shot:', dualErr);
+          setIsScreenFlashing(false);
         }
-        const dualResult = await takeDualPictureAsync({ quality: 0.78 });
-        await new Promise((r) => setTimeout(r, 100));
-        setIsScreenFlashing(false);
-        if (dualResult?.frontUri && dualResult?.backUri) {
-          const mainUrl = cameraFacing === 'back' ? dualResult.backUri : dualResult.frontUri;
-          const counterpartUrl = cameraFacing === 'back' ? dualResult.frontUri : dualResult.backUri;
-          setCapturedPhotoUrl(mainUrl);
-          setDualPipPhotoUrl(counterpartUrl);
-        } else {
-          Alert.alert(t.common.appName, 'Không thể chụp ảnh chế độ Dual, vui lòng thử lại.');
-        }
-      } else if (isDualMode && cameraRef.current) {
+      }
+
+      if (isDualMode && cameraRef.current) {
         // Dual Mode (Fallback): Chụp kép 2 camera thật liên tiếp (Sequential Dual Shot)
         if (flashMode && cameraFacing === 'front') {
           setIsScreenFlashing(true);
@@ -935,13 +967,10 @@ export function MomentsView({
           quality: 0.78,
           exif: false,
           skipProcessing: false,
-          base64: true,
         });
         await new Promise((r) => setTimeout(r, 100));
         setIsScreenFlashing(false);
-        const shot1Url = shot1?.base64
-          ? `data:image/jpeg;base64,${shot1.base64}`
-          : shot1?.uri || null;
+        const shot1Url = shot1?.uri || (shot1?.base64 ? `data:image/jpeg;base64,${shot1.base64}` : null);
 
         if (!shot1Url) {
           throw new Error('Không thể chụp ảnh từ camera 1');
@@ -952,20 +981,21 @@ export function MomentsView({
         setCameraFacing(secondFacing);
 
         // Đợi native camera session khởi tạo góc thứ 2
-        await new Promise((resolve) => setTimeout(resolve, 450));
+        await new Promise((resolve) => setTimeout(resolve, 500));
 
         let shot2Url = shot1Url;
         try {
-          const shot2 = await cameraRef.current.takePictureAsync({
-            quality: 0.78,
-            exif: false,
-            skipProcessing: false,
-            base64: true,
-          });
-          if (shot2?.base64) {
-            shot2Url = `data:image/jpeg;base64,${shot2.base64}`;
-          } else if (shot2?.uri) {
-            shot2Url = shot2.uri;
+          if (cameraRef.current) {
+            const shot2 = await cameraRef.current.takePictureAsync({
+              quality: 0.78,
+              exif: false,
+              skipProcessing: false,
+            });
+            if (shot2?.uri) {
+              shot2Url = shot2.uri;
+            } else if (shot2?.base64) {
+              shot2Url = `data:image/jpeg;base64,${shot2.base64}`;
+            }
           }
         } catch (e) {
           console.warn('Shot 2 capture error:', e);
@@ -1405,8 +1435,8 @@ export function MomentsView({
                 </View>
               ) : permission?.granted ? (
                 <>
-                  {isDualMode && hasNativeDualCam ? (
-                    /* Dual Mode trên Development Build: Live thật đồng thời cả 2 camera (trước + sau) bằng expo-dual-camera */
+                  {isDualMode && canUseNativeConcurrent ? (
+                    /* Dual Mode trên Development Build có hỗ trợ hardware concurrent: Live thật đồng thời cả 2 camera bằng expo-dual-camera */
                     <>
                       {cameraFacing === 'back' ? (
                         <>

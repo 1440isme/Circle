@@ -865,7 +865,7 @@ export function CircleManagementModal() {
                     MÀU CHỦ ĐỀ
                   </Text>
                 </View>
-                <View style={[styles.menuSectionCard, { backgroundColor: colors.surface, borderColor: colors.hairline, padding: 14 }]}>
+                <View style={[styles.menuSectionCard, { backgroundColor: colors.surface, borderColor: colors.hairline, padding: 16 }]}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                     {(Object.keys(MessageBubbleThemes) as MessageTheme[]).map((key) => {
                       const item = MessageBubbleThemes[key];
@@ -1480,7 +1480,7 @@ export function CircleManagementModal() {
                 <Text style={[styles.sectionGroupTitle, { color: colors.subtle }]}>
                   MÀU CHỦ ĐỀ
                 </Text>
-                <View style={[styles.menuSectionCard, { backgroundColor: colors.surface, borderColor: colors.hairline, padding: 14 }]}>
+                <View style={[styles.menuSectionCard, { backgroundColor: colors.surface, borderColor: colors.hairline, padding: 16 }]}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
                     {(Object.keys(MessageBubbleThemes) as MessageTheme[]).map((key) => {
                       const item = MessageBubbleThemes[key];
@@ -2478,7 +2478,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   menuSectionCard: {
-    borderRadius: 16,
+    borderRadius: 20,
     borderWidth: 1,
     overflow: 'hidden',
   },
@@ -2828,13 +2828,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 13,
-    paddingHorizontal: 4,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   preferenceRowColumn: {
-    paddingVertical: 13,
-    paddingHorizontal: 4,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
     gap: 8,
   },
