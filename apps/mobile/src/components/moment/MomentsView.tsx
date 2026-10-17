@@ -16,13 +16,29 @@ import {
   Share as RNShare,
   NativeSyntheticEvent,
   NativeScrollEvent,
+  Animated,
+  Easing,
+  PanResponder,
+  KeyboardAvoidingView,
+  Vibration,
+  Keyboard,
+  GestureResponderEvent,
 } from 'react-native';
+import Svg, { Circle } from 'react-native-svg';
 import { BlurView } from 'expo-blur';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
-import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
+import { CameraView, CameraType, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
+import { VideoView, useVideoPlayer } from 'expo-video';
+
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+const SHUTTER_SIZE = 92;
+const PROGRESS_STROKE_WIDTH = 5;
+const PROGRESS_RADIUS = (SHUTTER_SIZE - PROGRESS_STROKE_WIDTH) / 2;
+const PROGRESS_CIRCUMFERENCE = 2 * Math.PI * PROGRESS_RADIUS;
 
 import {
   Camera,
+  Video as VideoIcon,
   RefreshCw,
   Zap,
   ZapOff,
@@ -44,6 +60,8 @@ import {
   Filter,
   Check,
   Layers,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react-native';
 import { useThemeStore } from '../../stores/theme.store';
 import { useLanguageStore } from '../../stores/language.store';
@@ -83,15 +101,72 @@ if (!isExpoGo) {
   }
 }
 
-function parseMomentPhotos(rawUrl?: string | null): { mainUrl: string; pipUrl: string | null } {
-  if (!rawUrl) return { mainUrl: '', pipUrl: null };
+const hasNativeDualCam = !isExpoGo && Boolean(DualCameraFrontView) && Boolean(DualCameraBackView);
+
+export function parseMomentPhotos(rawUrl?: string | null): { mainUrl: string; pipUrl: string | null; cornerIndex: number } {
+  if (!rawUrl) return { mainUrl: '', pipUrl: null, cornerIndex: 0 };
   if (rawUrl.includes('#pip=')) {
     const parts = rawUrl.split('#pip=');
     const main = resolveMobileMediaUrl(parts[0] || '');
-    const pip = resolveMobileMediaUrl(decodeURIComponent(parts[1] || ''));
-    return { mainUrl: main, pipUrl: pip || null };
+    const pipPart = decodeURIComponent(parts[1] || '');
+    let pip = pipPart;
+    let cornerIndex = 0;
+    if (pipPart.includes('#corner=')) {
+      const pipSplit = pipPart.split('#corner=');
+      pip = pipSplit[0] || '';
+      cornerIndex = parseInt(pipSplit[1] || '0', 10) || 0;
+    }
+    return {
+      mainUrl: main,
+      pipUrl: resolveMobileMediaUrl(pip) || null,
+      cornerIndex,
+    };
   }
-  return { mainUrl: resolveMobileMediaUrl(rawUrl), pipUrl: null };
+  return { mainUrl: resolveMobileMediaUrl(rawUrl), pipUrl: null, cornerIndex: 0 };
+}
+
+export function formatMomentRelativeTime(dateInput?: string | Date | null, locale: string = 'vi'): string {
+  if (!dateInput) return '';
+  const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
+  if (isNaN(date.getTime())) return '';
+
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffSec = Math.floor(diffMs / 1000);
+
+  // Vừa xong / just now
+  if (diffSec < 60 && diffSec >= -10) {
+    return locale === 'vi' ? 'vừa xong' : 'just now';
+  }
+
+  const diffMin = Math.floor(diffSec / 60);
+  const diffHour = Math.floor(diffMin / 60);
+
+  // Cùng ngày hôm nay: ví dụ "29 p trước" hoặc "2 giờ trước"
+  const isSameDay = date.toDateString() === now.toDateString();
+
+  if (isSameDay) {
+    if (diffMin < 60) {
+      return locale === 'vi' ? `${Math.max(1, diffMin)} p trước` : `${Math.max(1, diffMin)}m ago`;
+    }
+    return locale === 'vi' ? `${diffHour} giờ trước` : `${diffHour}h ago`;
+  }
+
+  // Khác ngày hôm nay (1, 2 ngày sau hoặc trước đó): hiển thị ngày cụ thể "15 tháng 10"
+  const isSameYear = date.getFullYear() === now.getFullYear();
+  if (locale === 'vi') {
+    const day = date.getDate();
+    const month = date.getMonth() + 1;
+    if (isSameYear) {
+      return `${day} tháng ${month}`;
+    }
+    return `${day} thg ${month}, ${date.getFullYear()}`;
+  }
+
+  if (isSameYear) {
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 function getInitials(name: string): string {
@@ -99,6 +174,250 @@ function getInitials(name: string): string {
   if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
+
+interface MomentVideoPlayerProps {
+  uri: string;
+  isMuted?: boolean;
+  style?: any;
+}
+
+const MomentVideoPlayer: React.FC<MomentVideoPlayerProps> = ({ uri, isMuted = true, style }) => {
+  const player = useVideoPlayer(uri, (p: any) => {
+    p.loop = true;
+    p.muted = isMuted;
+    p.play();
+  });
+
+  useEffect(() => {
+    player.muted = isMuted;
+  }, [player, isMuted]);
+
+  return (
+    <VideoView
+      player={player}
+      style={style}
+      contentFit="cover"
+      nativeControls={false}
+    />
+  );
+};
+
+export interface MomentFeedPipViewProps {
+  pipUrl: string;
+  initialCornerIndex: number;
+  momentSize: number;
+  primaryColor: string;
+  onDragStart?: () => void;
+  onDragEnd?: () => void;
+  onSwap: () => void;
+  onCornerChange?: (newCornerIndex: number) => void;
+}
+
+export const MomentFeedPipView: React.FC<MomentFeedPipViewProps> = ({
+  pipUrl,
+  initialCornerIndex,
+  momentSize,
+  primaryColor,
+  onDragStart,
+  onDragEnd,
+  onSwap,
+  onCornerChange,
+}) => {
+  const PIP_SIZE = 92;
+  const margin = 14;
+
+  const [actualSize, setActualSize] = useState(momentSize);
+  const actualSizeRef = useRef(momentSize);
+  actualSizeRef.current = actualSize;
+
+  const getCornerCoords = (idx: number, size = actualSizeRef.current) => {
+    const maxOffset = Math.max(size - PIP_SIZE - margin, margin);
+    switch (idx % 4) {
+      case 0:
+        return { x: margin, y: margin }; // Top-Left
+      case 1:
+        return { x: maxOffset, y: margin }; // Top-Right
+      case 2:
+        return { x: maxOffset, y: maxOffset }; // Bottom-Right
+      case 3:
+        return { x: margin, y: maxOffset }; // Bottom-Left
+      default:
+        return { x: margin, y: margin };
+    }
+  };
+
+  const currentCornerRef = useRef(initialCornerIndex % 4);
+  const startCoords = getCornerCoords(initialCornerIndex, momentSize);
+  const pan = useRef(new Animated.ValueXY(startCoords)).current;
+  const scale = useRef(new Animated.Value(1)).current;
+  const lastCoordRef = useRef(startCoords);
+  const dragOriginRef = useRef({ x: 0, y: 0 });
+  const isPickedUpRef = useRef(false);
+
+  useEffect(() => {
+    if (momentSize > 0 && Math.abs(momentSize - actualSizeRef.current) > 1) {
+      setActualSize(momentSize);
+      actualSizeRef.current = momentSize;
+      const target = getCornerCoords(currentCornerRef.current, momentSize);
+      lastCoordRef.current = target;
+      pan.setValue(target);
+    }
+  }, [momentSize]);
+
+  const animateToCorner = (targetIdx: number) => {
+    const target = getCornerCoords(targetIdx, actualSizeRef.current);
+    currentCornerRef.current = targetIdx;
+    lastCoordRef.current = target;
+    onCornerChange?.(targetIdx);
+    Animated.parallel([
+      Animated.spring(pan, {
+        toValue: target,
+        useNativeDriver: false,
+        friction: 9,
+        tension: 50,
+        velocity: 0,
+      }),
+      Animated.spring(scale, {
+        toValue: 1,
+        useNativeDriver: false,
+        friction: 7,
+      }),
+    ]).start();
+  };
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponderCapture: () => true,
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        return Math.abs(gestureState.dx) > 2 || Math.abs(gestureState.dy) > 2;
+      },
+      onMoveShouldSetPanResponderCapture: (_, gestureState) => {
+        return Math.abs(gestureState.dx) > 2 || Math.abs(gestureState.dy) > 2;
+      },
+      onPanResponderTerminationRequest: () => false,
+      onPanResponderGrant: () => {
+        onDragStart?.();
+        isPickedUpRef.current = false;
+        dragOriginRef.current = { x: 0, y: 0 };
+      },
+      onPanResponderMove: (_, gestureState) => {
+        const maxOffset = Math.max(actualSizeRef.current - PIP_SIZE - margin, margin);
+        if (!isPickedUpRef.current && (Math.abs(gestureState.dx) > 3 || Math.abs(gestureState.dy) > 3)) {
+          isPickedUpRef.current = true;
+          dragOriginRef.current = { x: gestureState.dx, y: gestureState.dy };
+          try { Vibration.vibrate(20); } catch {}
+          Animated.spring(scale, {
+            toValue: 1.06,
+            useNativeDriver: false,
+            friction: 6,
+          }).start();
+        }
+        if (isPickedUpRef.current) {
+          const deltaX = gestureState.dx - dragOriginRef.current.x;
+          const deltaY = gestureState.dy - dragOriginRef.current.y;
+          const newX = Math.max(margin, Math.min(lastCoordRef.current.x + deltaX, maxOffset));
+          const newY = Math.max(margin, Math.min(lastCoordRef.current.y + deltaY, maxOffset));
+          pan.setValue({ x: newX, y: newY });
+        }
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        onDragEnd?.();
+        const maxOffset = Math.max(actualSizeRef.current - PIP_SIZE - margin, margin);
+        const movedDistance = Math.hypot(gestureState.dx, gestureState.dy);
+        if (!isPickedUpRef.current || movedDistance < 8) {
+          // Tap -> swap
+          isPickedUpRef.current = false;
+          try { Vibration.vibrate(15); } catch {}
+          onSwap();
+          return;
+        }
+
+        // Snap to closest corner
+        isPickedUpRef.current = false;
+        const deltaX = gestureState.dx - dragOriginRef.current.x;
+        const deltaY = gestureState.dy - dragOriginRef.current.y;
+        const currentX = Math.max(margin, Math.min(lastCoordRef.current.x + deltaX, maxOffset));
+        const currentY = Math.max(margin, Math.min(lastCoordRef.current.y + deltaY, maxOffset));
+
+        const corners = [
+          { idx: 0, x: margin, y: margin },
+          { idx: 1, x: maxOffset, y: margin },
+          { idx: 2, x: maxOffset, y: maxOffset },
+          { idx: 3, x: margin, y: maxOffset },
+        ];
+
+        let closestCorner = 0;
+        let minDistance = Infinity;
+        corners.forEach((c) => {
+          const d = Math.hypot(currentX - c.x, currentY - c.y);
+          if (d < minDistance) {
+            minDistance = d;
+            closestCorner = c.idx;
+          }
+        });
+
+        const mid = (margin + maxOffset) / 2;
+        if (gestureState.vx > 0.4) {
+          closestCorner = currentY > mid ? 2 : 1;
+        } else if (gestureState.vx < -0.4) {
+          closestCorner = currentY > mid ? 3 : 0;
+        } else if (gestureState.vy > 0.4) {
+          closestCorner = currentX > mid ? 2 : 3;
+        } else if (gestureState.vy < -0.4) {
+          closestCorner = currentX > mid ? 1 : 0;
+        }
+
+        try { Vibration.vibrate(18); } catch {}
+        animateToCorner(closestCorner);
+      },
+      onPanResponderTerminate: () => {
+        onDragEnd?.();
+        isPickedUpRef.current = false;
+        animateToCorner(currentCornerRef.current);
+      },
+    })
+  ).current;
+
+  return (
+    <View
+      style={[StyleSheet.absoluteFill, { zIndex: 10 }]}
+      pointerEvents="box-none"
+      onLayout={(e) => {
+        const { width } = e.nativeEvent.layout;
+        if (width > 0 && Math.abs(width - actualSizeRef.current) > 2) {
+          setActualSize(width);
+          actualSizeRef.current = width;
+          const target = getCornerCoords(currentCornerRef.current, width);
+          lastCoordRef.current = target;
+          pan.setValue(target);
+        }
+      }}
+    >
+      <Animated.View
+        {...panResponder.panHandlers}
+        style={[
+          styles.pipFloatingBox,
+          {
+            zIndex: 10,
+            elevation: 6,
+            borderColor: primaryColor,
+            transform: [
+              ...pan.getTranslateTransform(),
+              { scale },
+            ],
+          },
+        ]}
+      >
+        <RNImage source={{ uri: pipUrl }} style={styles.pipFloatingImage} resizeMode="cover" />
+        <View style={[styles.pipSwapOverlay, { backgroundColor: 'rgba(0,0,0,0.65)' }]} pointerEvents="none">
+          <RefreshCw size={9} color="#FFFFFF" />
+          <Text style={styles.pipBadgeText}>Chạm đổi</Text>
+        </View>
+      </Animated.View>
+    </View>
+  );
+};
 
 interface MomentsViewProps {
   circleId: string;
@@ -113,17 +432,77 @@ type FeedItem =
 
 export function MomentsView({ circleId, circleName, isActive = true }: MomentsViewProps) {
   const { colors, resolvedTheme, uiStyle } = useThemeStore();
-  const t = useLanguageStore((s) => s.t);
+  const { t, locale } = useLanguageStore();
   const user = useAuthStore((s) => s.user);
   const isDark = resolvedTheme === 'dark';
   const isGlass = uiStyle === 'glass';
 
   const flatListRef = useRef<FlatList<FeedItem>>(null);
   const cameraRef = useRef<CameraView>(null);
+  const stableContainerHeightRef = useRef<number>(WINDOW_HEIGHT - 170);
   const [containerHeight, setContainerHeight] = useState<number>(WINDOW_HEIGHT - 170);
+  const isKeyboardOpenRef = useRef<boolean>(false);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState<boolean>(false);
+  const keyboardShiftAnim = useRef(new Animated.Value(0)).current;
 
-  // Real Camera Permissions from expo-camera
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, (e) => {
+      isKeyboardOpenRef.current = true;
+      setIsKeyboardVisible(true);
+      // Nâng nhẹ ảnh và khung chụp lên trên khi bàn phím mở để không bị che khuất ô nhập tin nhắn
+      Animated.timing(keyboardShiftAnim, {
+        toValue: -90,
+        duration: e?.duration || 250,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start();
+    });
+    const hideSub = Keyboard.addListener(hideEvent, (e) => {
+      isKeyboardOpenRef.current = false;
+      setIsKeyboardVisible(false);
+      // Trả ảnh và khung chụp về vị trí ban đầu
+      Animated.timing(keyboardShiftAnim, {
+        toValue: 0,
+        duration: e?.duration || 200,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start();
+    });
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, [keyboardShiftAnim]);
+
+  // Real Camera & Mic Permissions from expo-camera
   const [permission, requestPermission] = useCameraPermissions();
+  const [micPermission, requestMicPermission] = useMicrophonePermissions();
+
+  // Video recording & mode states
+  const [captureMode, setCaptureMode] = useState<'picture' | 'video'>('picture');
+  const [isRecordingVideo, setIsRecordingVideo] = useState<boolean>(false);
+  const recordingProgressAnim = useRef(new Animated.Value(0)).current;
+  const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isRecordingRef = useRef<boolean>(false);
+  const pressStartTimeRef = useRef<number>(0);
+  const longPressTriggeredRef = useRef<boolean>(false);
+  const [capturedMediaType, setCapturedMediaType] = useState<'IMAGE' | 'VIDEO'>('IMAGE');
+
+  const progressStrokeOffset = recordingProgressAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [PROGRESS_CIRCUMFERENCE, 0],
+  });
+
+  useEffect(() => {
+    return () => {
+      if (recordingTimerRef.current) {
+        clearTimeout(recordingTimerRef.current);
+      }
+    };
+  }, []);
 
   // Queries & Mutations
   const { data: moments = [], isLoading: isLoadingMoments } = useCircleMomentsQuery(circleId);
@@ -136,75 +515,359 @@ export function MomentsView({ circleId, circleName, isActive = true }: MomentsVi
   const [selectedMemberId, setSelectedMemberId] = useState<string | 'all'>('all');
   const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState<boolean>(false);
 
+  // Reactors List Modal (Author only)
+  const [selectedMomentForReactors, setSelectedMomentForReactors] = useState<any | null>(null);
+  const [reactorEmojiFilter, setReactorEmojiFilter] = useState<string>('ALL');
+
   // Real Camera Viewfinder States (Moment UI & Dual View)
   const [cameraFacing, setCameraFacing] = useState<CameraType>('front');
   const [flashMode, setFlashMode] = useState<boolean>(false);
   const [isDualMode, setIsDualMode] = useState<boolean>(false);
-  const [zoomOption, setZoomOption] = useState<'0.5x' | '1x'>('1x');
+  // Zoom camera:
+  // Cam trước: Dưới 1x (< 0.04) là góc rộng toàn cảm biến (dạng khung icon), 0.06 tương ứng chuẩn 1.0x (đỡ gần, tự nhiên), phóng đại lên tới 5x (0.85)
+  // Cam sau: 0.00 tương ứng 0.5x (siêu rộng), 0.12 tương ứng 1.0x, 0.95 tương ứng 5.0x
+  const [cameraZoom, setCameraZoom] = useState<number>(0.06); // Mặc định ở 1x (0.06) cho cam trước
+  const [isPinchingCamera, setIsPinchingCamera] = useState<boolean>(false);
+  const pinchStartDistanceRef = useRef<number | null>(null);
+  const pinchStartZoomRef = useRef<number>(0.0);
   const [availableLenses, setAvailableLenses] = useState<string[]>([]);
 
-  // Xác định lens thực tế từ danh sách trả về của thiết bị
-  const ultraWideLens = availableLenses.find((lens) => lens === 'Back Ultra Wide Camera');
-  const standardLens = availableLenses.find((lens) => lens === 'Back Camera');
-  const frontLens = availableLenses.find((lens) => lens === 'Front Camera');
+  // Hiển thị giá trị tiêu cự thực tế góc trên bên phải chạy theo độ zoom của cam:
+  // - Cam trước: dưới 1x là dạng khung icon (góc rộng hơn), từ 1x trở lên ghi số bình thường (1x, 1.5x, 2x...)
+  // - Cam sau: ghi số bình thường (0.5x, 1x, 2x...)
+  const displayZoomText = (() => {
+    if (cameraFacing === 'front') {
+      // Dưới 1x (< 0.04): là góc rộng hơn (hiển thị biểu tượng khung)
+      if (cameraZoom < 0.04) return '';
+      // Từ 1x trở lên:
+      const factor = 1.0 + ((cameraZoom - 0.06) / (0.85 - 0.06)) * 4.0;
+      if (Math.abs(factor - 1.0) < 0.08) return '1x';
+      if (Math.abs(factor - 2.0) < 0.08) return '2x';
+      return `${factor.toFixed(1)}x`;
+    }
 
-  // Lens được chọn chính xác theo hướng camera và mức zoom
-  const selectedLensName =
-    cameraFacing === 'back'
-      ? zoomOption === '0.5x' && ultraWideLens
-        ? ultraWideLens
-        : standardLens || 'Back Camera'
-      : frontLens || 'Front Camera';
+    // Cam sau: 0.00 tương ứng 0.5x (siêu rộng), 0.12 tương ứng 1.0x, 0.95 tương ứng 5.0x
+    if (cameraZoom <= 0.02) return '0.5x';
+    let factor = 1.0;
+    if (cameraZoom < 0.12) {
+      factor = 0.5 + (cameraZoom / 0.12) * 0.5;
+    } else {
+      factor = 1.0 + ((cameraZoom - 0.12) / (0.95 - 0.12)) * 4.0;
+    }
+    if (Math.abs(factor - 0.5) < 0.05) return '0.5x';
+    if (Math.abs(factor - 1.0) < 0.06) return '1x';
+    return `${factor.toFixed(1)}x`;
+  })();
 
-  // Mức zoom cho camera:
-  // - Camera sau: zoom = 0 (dùng thấu kính quang học vật lý Back Camera vs Back Ultra Wide Camera)
-  // - Camera trước (theo cơ chế Apple & Locket):
-  //    + '0.5x': zoom = 0 (mở trọn vẹn 100% cảm biến góc rộng 23mm)
-  //    + '1x': zoom = 0.04 (crop nhẹ vừa phải, tự nhiên, không bị quá gần mặt)
-  const cameraZoom = cameraFacing === 'front' ? (zoomOption === '0.5x' ? 0 : 0.04) : 0;
+  // PanResponder bắt cử chỉ 2 ngón tay (Pinch to zoom) trên toàn bộ khung ngắm camera
+  // Khử rung sai số (deadband/smoothing) và giới hạn độ zoom tối đa an toàn [0, 0.90]
+  const cameraPinchPanResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: (evt) => evt.nativeEvent.touches.length === 2,
+      onMoveShouldSetPanResponder: (evt) => evt.nativeEvent.touches.length === 2,
+      onPanResponderTerminationRequest: () => true,
+      onPanResponderGrant: (evt) => {
+        const touches = evt.nativeEvent.touches;
+        if (touches.length === 2) {
+          setIsPinchingCamera(true);
+          const dx = touches[0].pageX - touches[1].pageX;
+          const dy = touches[0].pageY - touches[1].pageY;
+          pinchStartDistanceRef.current = Math.sqrt(dx * dx + dy * dy);
+          pinchStartZoomRef.current = cameraZoom;
+        }
+      },
+      onPanResponderMove: (evt) => {
+        const touches = evt.nativeEvent.touches;
+        if (touches.length === 2 && pinchStartDistanceRef.current && pinchStartDistanceRef.current > 0) {
+          const dx = touches[0].pageX - touches[1].pageX;
+          const dy = touches[0].pageY - touches[1].pageY;
+          const currentDistance = Math.sqrt(dx * dx + dy * dy);
+          const ratio = currentDistance / pinchStartDistanceRef.current;
+          // Khử rung sai số nhỏ dưới 2% để chuyển động êm ái
+          if (Math.abs(ratio - 1) < 0.02) return;
+          const delta = (ratio - 1) * 0.32;
+          // Giới hạn độ zoom tối đa an toàn [0, 0.90] giúp phóng to thu nhỏ mượt mà
+          const nextZoom = Math.max(0, Math.min(pinchStartZoomRef.current + delta, 0.90));
+          setCameraZoom(nextZoom);
+        }
+      },
+      onPanResponderRelease: () => {
+        pinchStartDistanceRef.current = null;
+        setIsPinchingCamera(false);
+      },
+      onPanResponderTerminate: () => {
+        pinchStartDistanceRef.current = null;
+        setIsPinchingCamera(false);
+      },
+    })
+  ).current;
 
-  const [isTakingPhoto, setIsTakingPhoto] = useState<boolean>(false);
+  // Layout calculations: Fixed top header (36px, synchronized with Chat Layer 2)
+  const topHeaderHeight = 36;
+  const listHeight = Math.max(containerHeight - topHeaderHeight, 300);
 
-  // Captured Photo State for review & sending
+  // Bố cục khung ảnh to tràn viền sát lề (chỉ chừa 6px mỗi mép)
+  const momentCardWidth = SCREEN_WIDTH - 12;
+  const momentFrameSize = Math.min(
+    momentCardWidth,
+    listHeight > 0 ? listHeight - 195 : 380
+  );
+
+  // Dual Camera PIP position state (4 corners: top-left -> top-right -> bottom-right -> bottom-left)
+  const PIP_SIZE = 92;
+  const [pipCornerIndex, setPipCornerIndex] = useState<number>(0);
+  const pipCornerIndexRef = useRef<number>(0);
+  const pipPan = useRef(new Animated.ValueXY({ x: 14, y: 14 })).current;
+  const pipScale = useRef(new Animated.Value(1)).current;
+  const currentPipCoordRef = useRef({ x: 14, y: 14 });
+  const isPipPickedUpRef = useRef<boolean>(false);
+  const pipLongPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Captured Photo State for review & sending (Declared early so refs can track them)
   const [capturedPhotoUrl, setCapturedPhotoUrl] = useState<string | null>(null);
   const [dualPipPhotoUrl, setDualPipPhotoUrl] = useState<string | null>(null);
+  const capturedPhotoUrlRef = useRef<string | null>(null);
+  const dualPipPhotoUrlRef = useRef<string | null>(null);
+  capturedPhotoUrlRef.current = capturedPhotoUrl;
+  dualPipPhotoUrlRef.current = dualPipPhotoUrl;
+
+  // Track camera facing in ref to avoid stale closure
+  const cameraFacingRef = useRef<CameraType>(cameraFacing);
+  cameraFacingRef.current = cameraFacing;
+
+  // Tính toán 4 góc trong phạm vi khung ảnh momentFrameSize
+  const getPipCornerCoords = (cornerIdx: number) => {
+    const margin = 14;
+    const maxOffset = Math.max(momentFrameSize - PIP_SIZE - margin, margin);
+    switch (cornerIdx % 4) {
+      case 0:
+        return { x: margin, y: margin }; // Góc trên - trái
+      case 1:
+        return { x: maxOffset, y: margin }; // Góc trên - phải
+      case 2:
+        return { x: maxOffset, y: maxOffset }; // Góc dưới - phải
+      case 3:
+        return { x: margin, y: maxOffset }; // Góc dưới - trái
+      default:
+        return { x: margin, y: margin };
+    }
+  };
+
+  const animatePipToCorner = (targetIdx: number) => {
+    const target = getPipCornerCoords(targetIdx);
+    pipCornerIndexRef.current = targetIdx;
+    setPipCornerIndex(targetIdx);
+    currentPipCoordRef.current = target;
+    Animated.parallel([
+      Animated.spring(pipPan, {
+        toValue: target,
+        useNativeDriver: false,
+        friction: 9,
+        tension: 50,
+        velocity: 0,
+      }),
+      Animated.spring(pipScale, {
+        toValue: 1,
+        useNativeDriver: false,
+        friction: 7,
+      }),
+    ]).start();
+  };
+
+  const pipDragOriginRef = useRef({ x: 0, y: 0 });
+
+  // PanResponder cho khung PIP (Chạm nhanh: hoán đổi trước/sau; Nhấn giữ 180ms hoặc vuốt ngón tay: nhấc lên kéo thả 4 góc)
+  const pipSwipePanResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponderCapture: () => true,
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        return Math.abs(gestureState.dx) > 2 || Math.abs(gestureState.dy) > 2;
+      },
+      onMoveShouldSetPanResponderCapture: (_, gestureState) => {
+        return Math.abs(gestureState.dx) > 2 || Math.abs(gestureState.dy) > 2;
+      },
+      onPanResponderTerminationRequest: () => false,
+      onPanResponderGrant: () => {
+        (flatListRef.current as any)?.setNativeProps?.({ scrollEnabled: false });
+        isPipPickedUpRef.current = false;
+        pipDragOriginRef.current = { x: 0, y: 0 };
+        // Lấy toạ độ xuất phát chính xác từ góc hiện tại
+        const startPos = getPipCornerCoords(pipCornerIndexRef.current);
+        currentPipCoordRef.current = startPos;
+        pipPan.stopAnimation((value) => {
+          if (value && typeof value.x === 'number' && typeof value.y === 'number') {
+            currentPipCoordRef.current = value;
+          }
+        });
+
+        if (pipLongPressTimerRef.current) clearTimeout(pipLongPressTimerRef.current);
+        pipLongPressTimerRef.current = setTimeout(() => {
+          isPipPickedUpRef.current = true;
+          try { Vibration.vibrate(25); } catch {}
+          Animated.spring(pipScale, {
+            toValue: 1.06,
+            useNativeDriver: false,
+            friction: 6,
+          }).start();
+        }, 180);
+      },
+      onPanResponderMove: (_, gestureState) => {
+        // Nhấc khung ảnh nổi lên êm ái khi phát hiện vuốt ngón tay
+        if (!isPipPickedUpRef.current && (Math.abs(gestureState.dx) > 3 || Math.abs(gestureState.dy) > 3)) {
+          isPipPickedUpRef.current = true;
+          pipDragOriginRef.current = { x: gestureState.dx, y: gestureState.dy };
+          if (pipLongPressTimerRef.current) {
+            clearTimeout(pipLongPressTimerRef.current);
+            pipLongPressTimerRef.current = null;
+          }
+          try { Vibration.vibrate(20); } catch {}
+          Animated.spring(pipScale, {
+            toValue: 1.06,
+            useNativeDriver: false,
+            friction: 6,
+          }).start();
+        }
+
+        if (isPipPickedUpRef.current) {
+          const margin = 14;
+          const maxOffset = Math.max(momentFrameSize - PIP_SIZE - margin, margin);
+          const deltaX = gestureState.dx - pipDragOriginRef.current.x;
+          const deltaY = gestureState.dy - pipDragOriginRef.current.y;
+          const newX = Math.max(margin, Math.min(currentPipCoordRef.current.x + deltaX, maxOffset));
+          const newY = Math.max(margin, Math.min(currentPipCoordRef.current.y + deltaY, maxOffset));
+          pipPan.setValue({ x: newX, y: newY });
+        }
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        (flatListRef.current as any)?.setNativeProps?.({ scrollEnabled: true });
+        if (pipLongPressTimerRef.current) {
+          clearTimeout(pipLongPressTimerRef.current);
+          pipLongPressTimerRef.current = null;
+        }
+
+        const movedDistance = Math.hypot(gestureState.dx, gestureState.dy);
+        if (!isPipPickedUpRef.current || movedDistance < 8) {
+          // Chạm nhanh: Ngay lập tức đổi camera (live) hoặc hoán đổi ảnh trước/sau (sau khi chụp)
+          isPipPickedUpRef.current = false;
+          try { Vibration.vibrate(15); } catch {}
+          Animated.spring(pipScale, {
+            toValue: 1,
+            useNativeDriver: false,
+            friction: 7,
+          }).start();
+
+          const curMain = capturedPhotoUrlRef.current;
+          const curPip = dualPipPhotoUrlRef.current;
+          if (curMain && curPip) {
+            setCapturedPhotoUrl(curPip);
+            setDualPipPhotoUrl(curMain);
+          } else {
+            setCameraFacing((prev) => (prev === 'front' ? 'back' : 'front'));
+          }
+          return;
+        }
+
+        // Đã kéo thả nhấc lên: Snap êm ái vào góc gần nhất trong cả 4 góc (khoảng cách Euclidean)
+        isPipPickedUpRef.current = false;
+        const margin = 14;
+        const maxOffset = Math.max(momentFrameSize - PIP_SIZE - margin, margin);
+        const deltaX = gestureState.dx - pipDragOriginRef.current.x;
+        const deltaY = gestureState.dy - pipDragOriginRef.current.y;
+        const currentX = Math.max(margin, Math.min(currentPipCoordRef.current.x + deltaX, maxOffset));
+        const currentY = Math.max(margin, Math.min(currentPipCoordRef.current.y + deltaY, maxOffset));
+
+        const corners = [
+          { idx: 0, x: margin, y: margin },       // Top-Left
+          { idx: 1, x: maxOffset, y: margin },    // Top-Right
+          { idx: 2, x: maxOffset, y: maxOffset }, // Bottom-Right
+          { idx: 3, x: margin, y: maxOffset },    // Bottom-Left
+        ];
+
+        let closestCorner = 0;
+        let minDistance = Infinity;
+        corners.forEach((c) => {
+          const d = Math.hypot(currentX - c.x, currentY - c.y);
+          if (d < minDistance) {
+            minDistance = d;
+            closestCorner = c.idx;
+          }
+        });
+
+        // Nếu có lực vẩy mạnh (velocity) theo phương X hoặc Y, ưu tiên hất theo hướng đó
+        const mid = (margin + maxOffset) / 2;
+        if (gestureState.vx > 0.4) {
+          closestCorner = currentY > mid ? 2 : 1;
+        } else if (gestureState.vx < -0.4) {
+          closestCorner = currentY > mid ? 3 : 0;
+        } else if (gestureState.vy > 0.4) {
+          closestCorner = currentX > mid ? 2 : 3;
+        } else if (gestureState.vy < -0.4) {
+          closestCorner = currentX > mid ? 1 : 0;
+        }
+
+        try { Vibration.vibrate(18); } catch {}
+        animatePipToCorner(closestCorner);
+      },
+      onPanResponderTerminate: () => {
+        (flatListRef.current as any)?.setNativeProps?.({ scrollEnabled: true });
+        if (pipLongPressTimerRef.current) {
+          clearTimeout(pipLongPressTimerRef.current);
+          pipLongPressTimerRef.current = null;
+        }
+        isPipPickedUpRef.current = false;
+        animatePipToCorner(pipCornerIndexRef.current);
+      },
+    })
+  ).current;
+
+  const [isTakingPhoto, setIsTakingPhoto] = useState<boolean>(false);
+  const [isScreenFlashing, setIsScreenFlashing] = useState<boolean>(false);
+
   const [captionText, setCaptionText] = useState<string>('');
   const [replyingToAuthor, setReplyingToAuthor] = useState<string | null>(null);
-  const [swappedMoments, setSwappedMoments] = useState<Record<string, boolean>>({});
 
-  // Chat Reply Modal State
-  const [isChatReplyOpen, setIsChatReplyOpen] = useState<boolean>(false);
-  const [chatReplyMomentId, setChatReplyMomentId] = useState<string | null>(null);
-  const [chatReplyAuthorName, setChatReplyAuthorName] = useState<string>('');
+  // Giới hạn cứng nội dung độ dài chữ tối đa 2 dòng (80 ký tự)
+  const maxCaptionLength = replyingToAuthor
+    ? Math.max(30, 80 - (replyingToAuthor.length + 11))
+    : 80;
+
+  const handleCaptionChange = (val: string) => {
+    let sanitized = val;
+    const lines = val.split('\n');
+    if (lines.length > 2) {
+      sanitized = lines.slice(0, 2).join('\n');
+    }
+    if (sanitized.length > maxCaptionLength) {
+      sanitized = sanitized.slice(0, maxCaptionLength);
+    }
+    setCaptionText(sanitized);
+  };
+  const [swappedMoments, setSwappedMoments] = useState<Record<string, boolean>>({});
+  // Lưu góc PIP người xem đã tự chỉnh cho từng khoảnh khắc (momentId -> cornerIndex)
+  const [viewerPipCorners, setViewerPipCorners] = useState<Record<string, number>>({});
+
+  // Chat Reply Inline State (thay thế popup cầu kì bằng thanh nhập trực tiếp trên ảnh)
+  const [activeReplyMomentId, setActiveReplyMomentId] = useState<string | null>(null);
+  const [activeReplyAuthorName, setActiveReplyAuthorName] = useState<string>('');
   const [chatReplyText, setChatReplyText] = useState<string>('');
 
   // Page Tracking & Action Menu State
   const [currentPageIndex, setCurrentPageIndex] = useState<number>(0);
   const [isActionMenuOpen, setIsActionMenuOpen] = useState<boolean>(false);
 
-  // Layout calculations: Fixed top header (36px, synchronized with Chat Layer 2)
-  const topHeaderHeight = 36;
-  const listHeight = Math.max(containerHeight - topHeaderHeight, 300);
 
-  // Bố cục khung ảnh to sát viền, dịch xuống nhẹ và cân đối
-  const momentFrameSize = Math.min(
-    SCREEN_WIDTH - 20,
-    listHeight > 0 ? listHeight - 210 : 340,
-    340
-  );
-
-  const momentCardWidth = SCREEN_WIDTH - 20;
 
   // Lọc moments theo thành viên được chọn (hỗ trợ cả authorId và userId)
   const filteredMoments = selectedMemberId === 'all'
     ? moments
     : moments.filter(
-        (m: any) =>
-          m.authorId === selectedMemberId ||
-          m.author?.id === selectedMemberId ||
-          m.userId === selectedMemberId ||
-          m.user?.id === selectedMemberId
-      );
+      (m: any) =>
+        m.authorId === selectedMemberId ||
+        m.author?.id === selectedMemberId ||
+        m.userId === selectedMemberId ||
+        m.user?.id === selectedMemberId
+    );
 
   // Tên thành viên đang được lọc
   const selectedMember: any = members.find(
@@ -235,9 +898,15 @@ export function MomentsView({ circleId, circleName, isActive = true }: MomentsVi
     try {
       setIsTakingPhoto(true);
 
-      if (isDualMode && !isExpoGo) {
+      if (isDualMode && hasNativeDualCam) {
         // Dual Mode trên Development Build: Chụp đồng thời 2 camera thật từ expo-dual-camera
+        if (flashMode && cameraFacing === 'front') {
+          setIsScreenFlashing(true);
+          await new Promise((r) => setTimeout(r, 350));
+        }
         const dualResult = await takeDualPictureAsync({ quality: 0.78 });
+        await new Promise((r) => setTimeout(r, 100));
+        setIsScreenFlashing(false);
         if (dualResult?.frontUri && dualResult?.backUri) {
           const mainUrl = cameraFacing === 'back' ? dualResult.backUri : dualResult.frontUri;
           const counterpartUrl = cameraFacing === 'back' ? dualResult.frontUri : dualResult.backUri;
@@ -246,8 +915,12 @@ export function MomentsView({ circleId, circleName, isActive = true }: MomentsVi
         } else {
           Alert.alert(t.common.appName, 'Không thể chụp ảnh chế độ Dual, vui lòng thử lại.');
         }
-      } else if (isDualMode && isExpoGo && cameraRef.current) {
-        // Dual Mode trên Expo Go: Chụp kép 2 camera thật liên tiếp (Sequential Dual Shot)
+      } else if (isDualMode && cameraRef.current) {
+        // Dual Mode (Fallback): Chụp kép 2 camera thật liên tiếp (Sequential Dual Shot)
+        if (flashMode && cameraFacing === 'front') {
+          setIsScreenFlashing(true);
+          await new Promise((r) => setTimeout(r, 350));
+        }
         // 1. Chụp bức ảnh 1 từ camera chính
         const shot1 = await cameraRef.current.takePictureAsync({
           quality: 0.78,
@@ -255,6 +928,8 @@ export function MomentsView({ circleId, circleName, isActive = true }: MomentsVi
           skipProcessing: false,
           base64: true,
         });
+        await new Promise((r) => setTimeout(r, 100));
+        setIsScreenFlashing(false);
         const shot1Url = shot1?.base64
           ? `data:image/jpeg;base64,${shot1.base64}`
           : shot1?.uri || null;
@@ -293,8 +968,15 @@ export function MomentsView({ circleId, circleName, isActive = true }: MomentsVi
         // 4. Lưu cả 2 ảnh CHỤP THẬT từ 2 camera của máy
         setCapturedPhotoUrl(shot1Url);
         setDualPipPhotoUrl(shot2Url);
+        setCapturedMediaType('IMAGE');
       } else if (cameraRef.current) {
         // Normal Mode: Chụp bằng expo-camera
+        if (flashMode && cameraFacing === 'front') {
+          // Bật Screen Flash (sáng màn hình) 350ms để cảm biến thu sáng mặt
+          setIsScreenFlashing(true);
+          await new Promise((r) => setTimeout(r, 350));
+        }
+
         const photo = await cameraRef.current.takePictureAsync({
           quality: 0.78,
           exif: false,
@@ -302,24 +984,108 @@ export function MomentsView({ circleId, circleName, isActive = true }: MomentsVi
           base64: true,
         });
 
+        await new Promise((r) => setTimeout(r, 100));
+        setIsScreenFlashing(false);
+
         const mainUrl = photo?.base64
           ? `data:image/jpeg;base64,${photo.base64}`
           : photo?.uri || null;
         if (mainUrl) {
           setCapturedPhotoUrl(mainUrl);
           setDualPipPhotoUrl(null);
+          setCapturedMediaType('IMAGE');
         }
       }
     } catch (err: any) {
+      setIsScreenFlashing(false);
       console.warn('Real camera capture error:', err);
       Alert.alert(t.common.appName, 'Không thể chụp ảnh, vui lòng thử lại.');
     } finally {
       setIsTakingPhoto(false);
+      setIsScreenFlashing(false);
+    }
+  };
+
+  // Dừng quay GIF
+  const handleStopRecording = () => {
+    if (!isRecordingRef.current) return;
+    if (recordingTimerRef.current) {
+      clearTimeout(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+    recordingProgressAnim.stopAnimation();
+    recordingProgressAnim.setValue(0);
+    try {
+      cameraRef.current?.stopRecording();
+    } catch (err) {
+      console.warn('stopRecording error:', err);
+    }
+  };
+
+  // Bắt đầu quay GIF 5s khi giữ nút tròn (khoá khi đang bật Dual Cam)
+  const handleStartRecording = async () => {
+    if (isRecordingRef.current || isDualMode) return;
+
+    if (!permission?.granted) {
+      const res = await requestPermission();
+      if (!res.granted) {
+        Alert.alert(t.common.appName, 'Cần cấp quyền Camera để ghi lại khoảnh khắc.');
+        return;
+      }
+    }
+
+    try {
+      if (captureMode !== 'video') {
+        setCaptureMode('video');
+        await new Promise((r) => setTimeout(r, 200));
+      }
+
+      setIsRecordingVideo(true);
+      isRecordingRef.current = true;
+
+      // Animate circular progress ring smoothly over 5 seconds
+      recordingProgressAnim.setValue(0);
+      Animated.timing(recordingProgressAnim, {
+        toValue: 1,
+        duration: 5000,
+        easing: Easing.linear,
+        useNativeDriver: false,
+      }).start();
+
+      if (recordingTimerRef.current) clearTimeout(recordingTimerRef.current);
+      recordingTimerRef.current = setTimeout(() => {
+        handleStopRecording();
+      }, 5000);
+
+      const videoResult = await cameraRef.current?.recordAsync({ maxDuration: 5 });
+      if (videoResult?.uri) {
+        setCapturedPhotoUrl(videoResult.uri);
+        setCapturedMediaType('VIDEO');
+        setDualPipPhotoUrl(null);
+      }
+    } catch (err: any) {
+      console.warn('GIF recording error:', err);
+      Alert.alert(t.common.appName, 'Không thể tạo GIF, vui lòng thử lại.');
+    } finally {
+      setIsRecordingVideo(false);
+      isRecordingRef.current = false;
+      recordingProgressAnim.stopAnimation();
+      recordingProgressAnim.setValue(0);
+      if (recordingTimerRef.current) {
+        clearTimeout(recordingTimerRef.current);
+        recordingTimerRef.current = null;
+      }
     }
   };
 
   const handleFlipCamera = () => {
-    setCameraFacing((prev) => (prev === 'front' ? 'back' : 'front'));
+    setCameraFacing((prev) => {
+      const next = prev === 'front' ? 'back' : 'front';
+      // Cam trước: mặc định ở 1x (0.06)
+      // Cam sau: mặc định ở 1x (0.12)
+      setCameraZoom(next === 'front' ? 0.06 : 0.12);
+      return next;
+    });
   };
 
   const handleToggleFlash = () => {
@@ -327,7 +1093,18 @@ export function MomentsView({ circleId, circleName, isActive = true }: MomentsVi
   };
 
   const handleToggleZoom = () => {
-    setZoomOption((prev) => (prev === '1x' ? '0.5x' : '1x'));
+    try {
+      Vibration.vibrate(15);
+    } catch {}
+    if (cameraFacing === 'front') {
+      // Cam trước:
+      // - Nếu đang ở góc rộng < 1x (dưới 1x là dạng khung): bấm chuyển lên 1x (0.06 - ghi số '1x')
+      // - Nếu đang ở 1x trở lên: bấm chuyển xuống góc rộng hơn (0.0 - dạng khung)
+      setCameraZoom((prev) => (prev < 0.04 ? 0.06 : 0.0));
+    } else {
+      // Cam sau: toggle giữa góc siêu rộng 0.5x (0.0) và chuẩn 1x (0.12)
+      setCameraZoom((prev) => (prev <= 0.05 ? 0.12 : 0.0));
+    }
   };
 
   const handleToggleDualMode = () => {
@@ -339,6 +1116,8 @@ export function MomentsView({ circleId, circleName, isActive = true }: MomentsVi
     setDualPipPhotoUrl(null);
     setCaptionText('');
     setReplyingToAuthor(null);
+    setCapturedMediaType('IMAGE');
+    setIsRecordingVideo(false);
   };
 
   const handleSendMoment = async () => {
@@ -347,15 +1126,17 @@ export function MomentsView({ circleId, circleName, isActive = true }: MomentsVi
     try {
       setIsTakingPhoto(true);
 
-      // Upload main photo to Cloudflare R2 / Storage
+      const isVideo = capturedMediaType === 'VIDEO';
+
+      // Upload main photo or video to Cloudflare R2 / Storage
       const uploadedMain = await uploadMobileMedia({
         folder: 'moments',
         uri: capturedPhotoUrl,
-        contentType: 'image/jpeg',
+        contentType: isVideo ? 'video/mp4' : 'image/jpeg',
       });
 
       let uploadedPipUrl: string | null = null;
-      if (dualPipPhotoUrl) {
+      if (dualPipPhotoUrl && !isVideo) {
         const uploadedPip = await uploadMobileMedia({
           folder: 'moments',
           uri: dualPipPhotoUrl,
@@ -365,11 +1146,12 @@ export function MomentsView({ circleId, circleName, isActive = true }: MomentsVi
       }
 
       const finalPhotoUrl = uploadedPipUrl
-        ? `${uploadedMain.publicUrl}#pip=${encodeURIComponent(uploadedPipUrl)}`
+        ? `${uploadedMain.publicUrl}#pip=${encodeURIComponent(`${uploadedPipUrl}#corner=${pipCornerIndex}`)}`
         : uploadedMain.publicUrl;
 
       await createMomentMutation.mutateAsync({
         photoUrl: finalPhotoUrl,
+        mediaType: capturedMediaType,
         caption: replyingToAuthor
           ? `Trả lời @${replyingToAuthor}: ${captionText.trim()}`
           : captionText.trim() || undefined,
@@ -379,6 +1161,7 @@ export function MomentsView({ circleId, circleName, isActive = true }: MomentsVi
       setDualPipPhotoUrl(null);
       setCaptionText('');
       setReplyingToAuthor(null);
+      setCapturedMediaType('IMAGE');
       // Snap down to the first moment page to see the newly posted moment
       setTimeout(() => {
         flatListRef.current?.scrollToIndex({ index: 1, animated: true });
@@ -399,31 +1182,40 @@ export function MomentsView({ circleId, circleName, isActive = true }: MomentsVi
   };
 
   const handleOpenChatReply = (momentId: string, authorName: string) => {
-    setChatReplyMomentId(momentId);
-    setChatReplyAuthorName(authorName);
-    setChatReplyText('');
-    setIsChatReplyOpen(true);
+    if (activeReplyMomentId === momentId) {
+      setActiveReplyMomentId(null);
+      setChatReplyText('');
+      Keyboard.dismiss();
+    } else {
+      setActiveReplyMomentId(momentId);
+      setActiveReplyAuthorName(authorName);
+      setChatReplyText('');
+    }
   };
 
-  const handleSendChatReply = async () => {
-    if (!chatReplyMomentId || !chatReplyText.trim() || replyMomentMutation.isPending) return;
+  const handleSendChatReply = async (momentId: string) => {
+    if (!momentId || !chatReplyText.trim() || replyMomentMutation.isPending) return;
 
     try {
       await replyMomentMutation.mutateAsync({
-        momentId: chatReplyMomentId,
+        momentId,
         message: chatReplyText.trim(),
         targetCircleId: circleId,
       });
-      setIsChatReplyOpen(false);
+      setActiveReplyMomentId(null);
       setChatReplyText('');
-      setChatReplyMomentId(null);
-      Alert.alert(t.common.appName, 'Đã gửi tin nhắn trích dẫn ảnh vào nhóm chat!');
+      Keyboard.dismiss();
+      Alert.alert(t.common.appName, 'Đã gửi phản hồi vào nhóm chat!');
     } catch (err: any) {
       Alert.alert(t.common.appName, err?.message || t.common.unknownError);
     }
   };
 
   const handleReactMoment = (momentId: string, emoji: string) => {
+    const target = moments.find((it: any) => it.id === momentId);
+    if (target && (target.authorId === user?.id || (target as any).userId === user?.id)) {
+      return;
+    }
     reactMomentMutation.mutate({ momentId, emoji });
   };
 
@@ -464,10 +1256,10 @@ export function MomentsView({ circleId, circleName, isActive = true }: MomentsVi
   const currentAuthorName =
     currentFeedItem.type === 'moment'
       ? currentFeedItem.data?.author?.profile?.displayName ||
-        currentFeedItem.data?.author?.email ||
-        currentFeedItem.data?.user?.profile?.displayName ||
-        currentFeedItem.data?.user?.email ||
-        'Thành viên'
+      currentFeedItem.data?.author?.email ||
+      currentFeedItem.data?.user?.profile?.displayName ||
+      currentFeedItem.data?.user?.email ||
+      'Thành viên'
       : user?.profile?.displayName || 'Bạn';
 
   const handleSharePhoto = async () => {
@@ -516,9 +1308,15 @@ export function MomentsView({ circleId, circleName, isActive = true }: MomentsVi
     if (item.type === 'camera') {
       return (
         <View style={[styles.pageContainer, { height: listHeight }]}>
-          <View style={styles.cameraContent}>
-            {/* Moment 1:1 Viewfinder Window (To sát viền, vị trí cố định) */}
+          <Animated.View
+            style={[
+              styles.cameraContent,
+              { transform: [{ translateY: keyboardShiftAnim }] },
+            ]}
+          >
+            {/* Moment 1:1 Viewfinder Window (To sát viền, hỗ trợ zoom bằng 2 ngón tay) */}
             <View
+              {...cameraPinchPanResponder.panHandlers}
               style={[
                 styles.momentWindow,
                 {
@@ -531,24 +1329,31 @@ export function MomentsView({ circleId, circleName, isActive = true }: MomentsVi
             >
               {capturedPhotoUrl ? (
                 <>
-                  <RNImage source={{ uri: capturedPhotoUrl }} style={styles.momentWindowImage} resizeMode="cover" />
-                  {/* Nếu chụp ở chế độ Dual Cam, hiển thị ảnh PiP góc có thao tác chạm đổi */}
-                  {dualPipPhotoUrl && (
-                    <TouchableOpacity
-                      activeOpacity={0.85}
-                      onPress={() => {
-                        const temp = capturedPhotoUrl;
-                        setCapturedPhotoUrl(dualPipPhotoUrl);
-                        setDualPipPhotoUrl(temp);
-                      }}
-                      style={[styles.pipFloatingBox, { borderColor: colors.primary }]}
+                  {capturedMediaType === 'VIDEO' ? (
+                    <MomentVideoPlayer uri={capturedPhotoUrl} style={styles.momentWindowImage} />
+                  ) : (
+                    <RNImage source={{ uri: capturedPhotoUrl }} style={styles.momentWindowImage} resizeMode="cover" />
+                  )}
+                  {/* Nếu chụp ở chế độ Dual Cam, hiển thị ảnh PiP tại đúng góc đã chọn lúc chụp, hỗ trợ vuốt đổi góc và chạm đổi trước/sau */}
+                  {dualPipPhotoUrl && capturedMediaType !== 'VIDEO' && (
+                    <Animated.View
+                      {...pipSwipePanResponder.panHandlers}
+                      style={[
+                        styles.pipFloatingBox,
+                        {
+                          borderColor: colors.primary,
+                          transform: [
+                            ...pipPan.getTranslateTransform(),
+                            { scale: pipScale },
+                          ],
+                        },
+                      ]}
                     >
                       <RNImage source={{ uri: dualPipPhotoUrl }} style={styles.momentWindowImage} resizeMode="cover" />
-                      <View style={[styles.pipFlipBtn, { backgroundColor: 'rgba(0,0,0,0.75)' }]}>
+                      <View style={[styles.pipFlipBtn, { backgroundColor: 'rgba(0,0,0,0.6)' }]} pointerEvents="none">
                         <RefreshCw size={10} color="#FFFFFF" />
-                        <Text style={styles.pipFlipBtnText}>Chạm đổi</Text>
                       </View>
-                    </TouchableOpacity>
+                    </Animated.View>
                   )}
                 </>
               ) : !isActive ? (
@@ -578,7 +1383,7 @@ export function MomentsView({ circleId, circleName, isActive = true }: MomentsVi
                 </View>
               ) : permission?.granted ? (
                 <>
-                  {isDualMode && !isExpoGo ? (
+                  {isDualMode && hasNativeDualCam ? (
                     /* Dual Mode trên Development Build: Live thật đồng thời cả 2 camera (trước + sau) bằng expo-dual-camera */
                     <>
                       {cameraFacing === 'back' ? (
@@ -586,29 +1391,30 @@ export function MomentsView({ circleId, circleName, isActive = true }: MomentsVi
                           {/* Khung lớn chính: Camera sau Live */}
                           <DualCameraBackView
                             style={StyleSheet.absoluteFill}
-                            lens={zoomOption === '0.5x' ? 'ultraWide' : 'wide'}
+                            lens={cameraZoom <= 0.05 ? 'ultraWide' : 'wide'}
+                            zoom={cameraZoom}
                             flash={flashMode ? 'on' : 'off'}
-                            enableTorch={flashMode}
+                            enableTorch={false}
                           />
-                          {/* Khung PiP nổi góc trên trái: Camera trước Live */}
-                          <TouchableOpacity
-                            activeOpacity={0.85}
-                            onPress={handleFlipCamera}
-                            style={[styles.pipFloatingBox, { borderColor: colors.primary }]}
+                          {/* Khung PiP nổi vuông: Camera trước Live, vuốt để chạy 4 góc, chạm để đổi camera */}
+                          <Animated.View
+                            {...pipSwipePanResponder.panHandlers}
+                            style={[
+                              styles.pipFloatingBox,
+                              {
+                                borderColor: colors.primary,
+                                transform: [
+                                  ...pipPan.getTranslateTransform(),
+                                  { scale: pipScale },
+                                ],
+                              },
+                            ]}
                           >
-                            <DualCameraFrontView style={styles.momentWindowImage} mirror={true} />
-                            {/* Badge hiển thị loại góc camera trên PiP */}
-                            <View style={styles.pipTypeBadge}>
-                              <Text style={styles.pipTypeBadgeText}>Selfie</Text>
+                            <DualCameraFrontView style={styles.momentWindowImage} mirror={true} pointerEvents="none" />
+                            <View style={[styles.pipFlipBtn, { backgroundColor: colors.primary }]} pointerEvents="none">
+                              <RefreshCw size={11} color={colors.onPrimary} />
                             </View>
-                            {/* Thao tác Lật vai trò cam trực tiếp trên khung nhỏ */}
-                            <View style={[styles.pipFlipBtn, { backgroundColor: colors.primary }]}>
-                              <RefreshCw size={10} color={colors.onPrimary} />
-                              <Text style={[styles.pipFlipBtnText, { color: colors.onPrimary }]}>
-                                Lật cam
-                              </Text>
-                            </View>
-                          </TouchableOpacity>
+                          </Animated.View>
                         </>
                       ) : (
                         <>
@@ -618,47 +1424,48 @@ export function MomentsView({ circleId, circleName, isActive = true }: MomentsVi
                             mirror={true}
                             zoom={cameraZoom}
                           />
-                          {/* Khung PiP nổi góc trên trái: Camera sau Live */}
-                          <TouchableOpacity
-                            activeOpacity={0.85}
-                            onPress={handleFlipCamera}
-                            style={[styles.pipFloatingBox, { borderColor: colors.primary }]}
+                          {/* Khung PiP nổi vuông: Camera sau Live, vuốt để chạy 4 góc, chạm để đổi camera */}
+                          <Animated.View
+                            {...pipSwipePanResponder.panHandlers}
+                            style={[
+                              styles.pipFloatingBox,
+                              {
+                                borderColor: colors.primary,
+                                transform: [
+                                  ...pipPan.getTranslateTransform(),
+                                  { scale: pipScale },
+                                ],
+                              },
+                            ]}
                           >
                             <DualCameraBackView
                               style={styles.momentWindowImage}
-                              lens={zoomOption === '0.5x' ? 'ultraWide' : 'wide'}
+                              lens={cameraZoom <= 0.05 ? 'ultraWide' : 'wide'}
+                              pointerEvents="none"
                             />
-                            {/* Badge hiển thị loại góc camera trên PiP */}
-                            <View style={styles.pipTypeBadge}>
-                              <Text style={styles.pipTypeBadgeText}>Cam sau</Text>
+                            <View style={[styles.pipFlipBtn, { backgroundColor: colors.primary }]} pointerEvents="none">
+                              <RefreshCw size={11} color={colors.onPrimary} />
                             </View>
-                            {/* Thao tác Lật vai trò cam trực tiếp trên khung nhỏ */}
-                            <View style={[styles.pipFlipBtn, { backgroundColor: colors.primary }]}>
-                              <RefreshCw size={10} color={colors.onPrimary} />
-                              <Text style={[styles.pipFlipBtnText, { color: colors.onPrimary }]}>
-                                Lật cam
-                              </Text>
-                            </View>
-                          </TouchableOpacity>
+                          </Animated.View>
                         </>
                       )}
                     </>
                   ) : (
-                    /* Normal Mode HOẶC Dual Mode trên Expo Go */
+                    /* Normal Mode HOẶC Dual Mode khi không có native dual cam */
                     <>
                       <View style={StyleSheet.absoluteFill}>
                         <CameraView
-                          key={cameraFacing === 'back' ? `${cameraFacing}-${zoomOption}` : cameraFacing}
+                          key={`${cameraFacing}-${captureMode}`}
                           ref={cameraRef}
                           style={StyleSheet.absoluteFill}
                           facing={cameraFacing}
                           mirror={cameraFacing === 'front'}
                           flash={flashMode ? 'on' : 'off'}
-                          enableTorch={flashMode}
+                          enableTorch={false}
                           zoom={cameraZoom}
                           autofocus="on"
-                          mode="picture"
-                          selectedLens={selectedLensName}
+                          mode={captureMode === 'video' ? 'video' : 'picture'}
+                          mute={captureMode === 'video'}
                           onAvailableLensesChanged={(event: any) => {
                             const list = event?.lenses || event?.nativeEvent?.lenses;
                             if (list && list.length > 0) {
@@ -671,16 +1478,29 @@ export function MomentsView({ circleId, circleName, isActive = true }: MomentsVi
                               if (lenses && lenses.length > 0) {
                                 setAvailableLenses(lenses);
                               }
-                            } catch {}
+                            } catch { }
                           }}
                         />
                       </View>
 
-                      {/* Trên Expo Go khi bật Dual Mode: Hiển thị khung PiP chuyển đổi nhanh góc ngắm */}
-                      {isDualMode && isExpoGo && (
-                        <TouchableOpacity
-                          activeOpacity={0.85}
-                          onPress={handleFlipCamera}
+                      {/* In-viewfinder Screen Flash Whiteout */}
+                      {isScreenFlashing && (
+                        <View
+                          pointerEvents="none"
+                          style={[
+                            StyleSheet.absoluteFill,
+                            {
+                              backgroundColor: '#FFFFFF',
+                              zIndex: 99,
+                            },
+                          ]}
+                        />
+                      )}
+
+                      {/* Khi bật Dual Mode: Hiển thị khung PiP vuông, vuốt để chạy 4 góc, chạm để đổi camera */}
+                      {isDualMode && (
+                        <Animated.View
+                          {...pipSwipePanResponder.panHandlers}
                           style={[
                             styles.pipFloatingBox,
                             {
@@ -688,25 +1508,18 @@ export function MomentsView({ circleId, circleName, isActive = true }: MomentsVi
                               backgroundColor: 'rgba(20,20,20,0.85)',
                               alignItems: 'center',
                               justifyContent: 'center',
+                              transform: [
+                                ...pipPan.getTranslateTransform(),
+                                { scale: pipScale },
+                              ],
                             },
                           ]}
                         >
-                          <Camera size={22} color={colors.primary} />
-                          <Text style={[styles.pipTypeBadgeText, { marginTop: 4, textAlign: 'center', fontSize: 10 }]}>
-                            {cameraFacing === 'back' ? 'Góc Selfie' : 'Góc Sau'}
-                          </Text>
-                          <View style={styles.pipTypeBadge}>
-                            <Text style={styles.pipTypeBadgeText}>
-                              {cameraFacing === 'back' ? 'Selfie' : 'Cam sau'}
-                            </Text>
+                          <Camera size={26} color={colors.primary} pointerEvents="none" />
+                          <View style={[styles.pipFlipBtn, { backgroundColor: colors.primary }]} pointerEvents="none">
+                            <RefreshCw size={11} color={colors.onPrimary} />
                           </View>
-                          <View style={[styles.pipFlipBtn, { backgroundColor: colors.primary }]}>
-                            <RefreshCw size={10} color={colors.onPrimary} />
-                            <Text style={[styles.pipFlipBtnText, { color: colors.onPrimary }]}>
-                              Chạm đổi
-                            </Text>
-                          </View>
-                        </TouchableOpacity>
+                        </Animated.View>
                       )}
                     </>
                   )}
@@ -734,13 +1547,8 @@ export function MomentsView({ circleId, circleName, isActive = true }: MomentsVi
 
               {!capturedPhotoUrl && (
                 <>
-                  <View style={[styles.cornerGuide, styles.cornerTopLeft, { borderColor: 'rgba(255,255,255,0.7)' }]} />
-                  <View style={[styles.cornerGuide, styles.cornerTopRight, { borderColor: 'rgba(255,255,255,0.7)' }]} />
-                  <View style={[styles.cornerGuide, styles.cornerBottomLeft, { borderColor: 'rgba(255,255,255,0.7)' }]} />
-                  <View style={[styles.cornerGuide, styles.cornerBottomRight, { borderColor: 'rgba(255,255,255,0.7)' }]} />
-
-                  {/* Top Overlay Controls inside Camera: Flash (Left), Facing/Dual Mode (Center), Zoom 0.5x->1x (Right - Đối xứng Flash) */}
-                  <View style={styles.cameraInnerTopBar}>
+                  {/* Top Overlay Controls inside Camera: Flash (Left), Zoom (Right) */}
+                  <View style={styles.cameraInnerTopBar} pointerEvents="box-none">
                     <TouchableOpacity
                       activeOpacity={0.8}
                       onPress={handleToggleFlash}
@@ -753,49 +1561,61 @@ export function MomentsView({ circleId, circleName, isActive = true }: MomentsVi
                       )}
                     </TouchableOpacity>
 
-                    <View style={[styles.cameraModePill, { backgroundColor: 'rgba(0,0,0,0.55)' }]}>
-                      <Text style={styles.cameraModePillText}>
-                        {isDualMode
-                          ? 'Song song (Dual View)'
-                          : cameraFacing === 'front'
-                          ? 'Camera trước'
-                          : 'Camera sau'}
-                      </Text>
-                    </View>
-
-                    {/* Nút Zoom 0.5x -> 1x đối xứng Flash góc trên phải */}
+                    {/* Nút Zoom theo tiêu cự: Cam trước dưới 1x là dạng khung (góc rộng), từ 1x trở lên ghi số */}
                     <TouchableOpacity
                       activeOpacity={0.8}
                       onPress={handleToggleZoom}
-                      style={[styles.cameraMiniBtn, { backgroundColor: 'rgba(0,0,0,0.55)' }]}
+                      style={[
+                        styles.cameraMiniBtn,
+                        {
+                          backgroundColor: 'rgba(0,0,0,0.55)',
+                          minWidth: 36,
+                          paddingHorizontal: 4,
+                        },
+                      ]}
                     >
-                      <Text style={styles.zoomBtnText}>{zoomOption}</Text>
+                      {cameraFacing === 'front' && cameraZoom < 0.04 ? (
+                        <Maximize2 size={16} color="#FFFFFF" strokeWidth={2.2} />
+                      ) : (
+                        <Text style={styles.zoomBtnText}>{displayZoomText}</Text>
+                      )}
                     </TouchableOpacity>
                   </View>
                 </>
               )}
 
-              {/* Caption Overlay on Captured Photo */}
+              {/* Caption Overlay on Captured Photo (Giới hạn cứng tối đa 2 dòng / 80 ký tự) */}
               {capturedPhotoUrl && (
-                <View style={styles.capturedCaptionOverlay}>
+                <View style={styles.capturedCaptionOverlay} pointerEvents="box-none">
                   <View style={styles.captionInputPill}>
                     <TextInput
                       value={captionText}
-                      onChangeText={setCaptionText}
+                      onChangeText={handleCaptionChange}
                       placeholder="Thêm tin nhắn gửi bạn bè..."
                       placeholderTextColor="rgba(255,255,255,0.7)"
-                      maxLength={140}
+                      maxLength={maxCaptionLength}
+                      multiline={true}
+                      numberOfLines={2}
+                      autoFocus={false}
+                      returnKeyType="done"
+                      blurOnSubmit={true}
+                      onSubmitEditing={() => Keyboard.dismiss()}
                       style={styles.captionTextInput}
                     />
+                    {captionText.length >= 50 && (
+                      <Text style={styles.captionLimitCounter}>
+                        {captionText.length}/{maxCaptionLength}
+                      </Text>
+                    )}
                   </View>
                 </View>
               )}
             </View>
 
-            {/* Fixed Height Controls Area Below Viewfinder (Khoảng cách bằng khoảng cách trên, nút TO NỮA) */}
+            {/* Fixed Height Controls Area Below Viewfinder */}
             <View style={styles.fixedControlsArea}>
               {capturedPhotoUrl ? (
-                /* Review actions when photo is captured */
+                /* Review actions when photo or video is captured */
                 <View style={[styles.reviewActionsBar, { width: momentFrameSize }]}>
                   <TouchableOpacity
                     activeOpacity={0.8}
@@ -803,7 +1623,9 @@ export function MomentsView({ circleId, circleName, isActive = true }: MomentsVi
                     style={[styles.reviewActionBtn, { backgroundColor: colors.wash, borderColor: colors.hairline }]}
                   >
                     <RotateCcw size={20} color={colors.text} />
-                    <Text style={[styles.reviewBtnText, { color: colors.text }]}>Chụp lại</Text>
+                    <Text style={[styles.reviewBtnText, { color: colors.text }]}>
+                      {capturedMediaType === 'VIDEO' ? 'Quay lại GIF' : 'Chụp lại'}
+                    </Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -825,39 +1647,102 @@ export function MomentsView({ circleId, circleName, isActive = true }: MomentsVi
                   </TouchableOpacity>
                 </View>
               ) : (
-                /* Shutter controls bar on Page 0: TO NỮA (90px) */
                 <View style={styles.shutterControlsBar}>
                   {/* Left Button: Nút bật/tắt Hiển thị song song (Dual View) */}
                   <TouchableOpacity
                     activeOpacity={0.8}
                     onPress={handleToggleDualMode}
+                    disabled={isRecordingVideo}
                     style={[
                       styles.sideControlBtn,
                       {
                         backgroundColor: isDualMode ? `${colors.primary}25` : colors.surface,
                         borderColor: isDualMode ? colors.primary : colors.hairline,
+                        opacity: isRecordingVideo ? 0.3 : 1,
                       },
                     ]}
                   >
                     <Layers size={26} color={isDualMode ? colors.primary : colors.text} />
                   </TouchableOpacity>
 
-                  {/* Center Button: Authentic Moment Double-Ring Shutter (TO NỮA: 90px) */}
+                  {/* Center Button: Single Round Shutter Button with Circular Progress Ring Countdown */}
                   <TouchableOpacity
                     activeOpacity={0.85}
                     disabled={isTakingPhoto}
-                    onPress={handleSnapPhoto}
+                    onPressIn={() => {
+                      pressStartTimeRef.current = Date.now();
+                    }}
+                    delayLongPress={200}
+                    onLongPress={() => {
+                      if (isDualMode) return;
+                      longPressTriggeredRef.current = true;
+                      handleStartRecording();
+                    }}
+                    onPressOut={() => {
+                      if (longPressTriggeredRef.current) {
+                        longPressTriggeredRef.current = false;
+                        handleStopRecording();
+                      }
+                    }}
+                    onPress={() => {
+                      if (longPressTriggeredRef.current || isRecordingVideo) return;
+                      handleSnapPhoto();
+                    }}
                     style={[
                       styles.momentMainShutterOuter,
                       {
-                        borderColor: colors.primary,
+                        borderColor: isRecordingVideo ? 'transparent' : colors.primary,
                         backgroundColor: isDark ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.7)',
+                        transform: [{ scale: isRecordingVideo ? 1.08 : 1 }],
                       },
                     ]}
                   >
-                    <View style={[styles.momentMainShutterInner, { backgroundColor: colors.primary }]}>
+                    {/* Circular Progress Ring when recording GIF (0 to 5s) */}
+                    {isRecordingVideo && (
+                      <View style={styles.svgProgressContainer} pointerEvents="none">
+                        <Svg
+                          width={SHUTTER_SIZE}
+                          height={SHUTTER_SIZE}
+                          style={{ transform: [{ rotate: '-90deg' }] }}
+                        >
+                          {/* Track circle */}
+                          <Circle
+                            cx={SHUTTER_SIZE / 2}
+                            cy={SHUTTER_SIZE / 2}
+                            r={PROGRESS_RADIUS}
+                            stroke={isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.12)'}
+                            strokeWidth={PROGRESS_STROKE_WIDTH}
+                            fill="none"
+                          />
+                          {/* Animated countdown progress ring */}
+                          <AnimatedCircle
+                            cx={SHUTTER_SIZE / 2}
+                            cy={SHUTTER_SIZE / 2}
+                            r={PROGRESS_RADIUS}
+                            stroke="#EF4444"
+                            strokeWidth={PROGRESS_STROKE_WIDTH}
+                            strokeDasharray={PROGRESS_CIRCUMFERENCE}
+                            strokeDashoffset={progressStrokeOffset}
+                            strokeLinecap="round"
+                            fill="none"
+                          />
+                        </Svg>
+                      </View>
+                    )}
+
+                    <View
+                      style={[
+                        styles.momentMainShutterInner,
+                        {
+                          backgroundColor: isRecordingVideo ? '#EF4444' : colors.primary,
+
+                        },
+                      ]}
+                    >
                       {isTakingPhoto ? (
                         <ActivityIndicator color={colors.onPrimary} size="small" />
+                      ) : isRecordingVideo ? (
+                        <View style={styles.recordingStopSquare} />
                       ) : (
                         <Camera size={32} color={colors.onPrimary} />
                       )}
@@ -868,7 +1753,15 @@ export function MomentsView({ circleId, circleName, isActive = true }: MomentsVi
                   <TouchableOpacity
                     activeOpacity={0.8}
                     onPress={handleFlipCamera}
-                    style={[styles.sideControlBtn, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
+                    disabled={isRecordingVideo}
+                    style={[
+                      styles.sideControlBtn,
+                      {
+                        backgroundColor: colors.surface,
+                        borderColor: colors.hairline,
+                        opacity: isRecordingVideo ? 0.3 : 1,
+                      },
+                    ]}
                   >
                     <RefreshCw size={26} color={colors.text} />
                   </TouchableOpacity>
@@ -892,7 +1785,7 @@ export function MomentsView({ circleId, circleName, isActive = true }: MomentsVi
               <Text style={[styles.historyCueText, { color: colors.text }]}>Lịch sử</Text>
               <ChevronDown size={18} color={colors.subtle} />
             </TouchableOpacity>
-          </View>
+          </Animated.View>
         </View>
       );
     }
@@ -948,27 +1841,26 @@ export function MomentsView({ circleId, circleName, isActive = true }: MomentsVi
       'Thành viên';
     const authorAvatar = m.author?.profile?.avatarUrl || m.user?.profile?.avatarUrl;
     const rawPhotoSrc = m.photoUrl || m.imageUrl;
-    const { mainUrl, pipUrl } = parseMomentPhotos(rawPhotoSrc);
+    const { mainUrl, pipUrl, cornerIndex } = parseMomentPhotos(rawPhotoSrc);
     const isSwapped = Boolean(swappedMoments[m.id]);
     const displayMain = isSwapped ? (pipUrl || mainUrl) : mainUrl;
     const displayPip = isSwapped ? mainUrl : pipUrl;
 
-    const formattedDate = new Date(m.createdAt).toLocaleDateString([], {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    const formattedDate = formatMomentRelativeTime(m.createdAt, locale);
+
+    const isReplyingThisMoment = activeReplyMomentId === m.id;
+    const isAuthor = m.authorId === user?.id || (m as any).userId === user?.id;
 
     return (
       <View style={[styles.pageContainer, { height: listHeight }]}>
-        <View
+        <Animated.View
           style={[
             styles.momentFeedCard,
             {
               width: momentCardWidth,
               backgroundColor: colors.surface,
-              borderColor: colors.hairline,
+              borderColor: isReplyingThisMoment ? colors.primary : colors.hairline,
+              transform: [{ translateY: isReplyingThisMoment ? keyboardShiftAnim : 0 }],
             },
           ]}
         >
@@ -1001,43 +1893,112 @@ export function MomentsView({ circleId, circleName, isActive = true }: MomentsVi
             </View>
           </View>
 
-          {/* 1:1 Rounded Square Photo with In-photo Caption Overlay & Dual View PiP */}
+          {/* 1:1 Rounded Square Photo / Video with In-photo Caption Overlay & Dual View PiP */}
           <View style={[styles.momentPhotoFrame, { backgroundColor: colors.wash }]}>
             {displayMain ? (
-              <RNImage source={{ uri: displayMain }} style={styles.momentPhotoImage} resizeMode="cover" />
+              m.mediaType === 'VIDEO' || displayMain.includes('.mp4') || displayMain.includes('.webm') ? (
+                <>
+                  <MomentVideoPlayer uri={displayMain} style={styles.momentPhotoImage} />
+                  <View style={styles.feedGifBadge}>
+                    <Text style={styles.feedGifBadgeText}>GIF</Text>
+                  </View>
+                </>
+              ) : (
+                <RNImage source={{ uri: displayMain }} style={styles.momentPhotoImage} resizeMode="cover" />
+              )
             ) : (
               <View style={styles.noPhotoPlaceholder}>
                 <ImageIcon size={36} color={colors.subtle} />
               </View>
             )}
 
-            {/* Khung nổi Dual View PiP trong Feed (Có hỗ trợ chạm để hoán đổi) */}
+            {/* Khung nổi Dual View PiP trong Feed: Khởi tạo đúng góc khi chụp và hỗ trợ người xem vuốt 4 góc & chạm đổi trước/sau */}
             {displayPip && (
-              <TouchableOpacity
-                activeOpacity={0.9}
-                onPress={() => {
+              <MomentFeedPipView
+                key={`${m.id}-${isSwapped ? 'swapped' : 'normal'}`}
+                pipUrl={displayPip}
+                initialCornerIndex={viewerPipCorners[m.id] ?? cornerIndex}
+                momentSize={momentCardWidth - 16}
+                primaryColor={colors.primary}
+                onDragStart={() => {
+                  (flatListRef.current as any)?.setNativeProps?.({ scrollEnabled: false });
+                }}
+                onDragEnd={() => {
+                  (flatListRef.current as any)?.setNativeProps?.({ scrollEnabled: true });
+                }}
+                onCornerChange={(newCorner) => {
+                  setViewerPipCorners((prev) => ({
+                    ...prev,
+                    [m.id]: newCorner,
+                  }));
+                }}
+                onSwap={() => {
                   setSwappedMoments((prev) => ({
                     ...prev,
                     [m.id]: !prev[m.id],
                   }));
                 }}
-                style={[styles.pipFloatingBoxFeed, { borderColor: colors.primary }]}
-              >
-                <RNImage source={{ uri: displayPip }} style={styles.momentPhotoImage} resizeMode="cover" />
-                <View style={[styles.pipSwapOverlay, { backgroundColor: 'rgba(0,0,0,0.65)' }]}>
-                  <RefreshCw size={9} color="#FFFFFF" />
-                  <Text style={styles.pipBadgeText}>Chạm đổi</Text>
-                </View>
-              </TouchableOpacity>
+              />
             )}
 
-            {m.caption ? (
-              <View style={styles.photoCaptionPill}>
-                <Text numberOfLines={3} style={styles.photoCaptionText}>
-                  {m.caption}
-                </Text>
+            {/* Chú thích của khoảnh khắc (co theo độ dài chữ, tối đa 2 dòng, nổi trên PiP) */}
+            {m.caption && !isReplyingThisMoment ? (
+              <View style={styles.photoCaptionContainer} pointerEvents="none">
+                <View style={styles.photoCaptionPill}>
+                  <Text numberOfLines={2} ellipsizeMode="tail" style={styles.photoCaptionText}>
+                    {m.caption}
+                  </Text>
+                </View>
               </View>
             ) : null}
+
+            {/* Ô nhập phản hồi trực tiếp trên ảnh (thay thế popup cầu kì) */}
+            {isReplyingThisMoment && (
+              <View style={styles.feedReplyOverlay} pointerEvents="box-none">
+                <View style={styles.feedReplyPill}>
+                  <TextInput
+                    value={chatReplyText}
+                    onChangeText={setChatReplyText}
+                    placeholder={`Phản hồi ${authorName}...`}
+                    placeholderTextColor="rgba(255,255,255,0.7)"
+                    maxLength={500}
+                    autoFocus={true}
+                    returnKeyType="send"
+                    blurOnSubmit={true}
+                    onSubmitEditing={() => handleSendChatReply(m.id)}
+                    style={styles.feedReplyTextInput}
+                  />
+
+                  <TouchableOpacity
+                    disabled={!chatReplyText.trim() || replyMomentMutation.isPending}
+                    onPress={() => handleSendChatReply(m.id)}
+                    style={[
+                      styles.feedReplySendBtn,
+                      {
+                        backgroundColor: chatReplyText.trim() ? colors.primary : 'rgba(255,255,255,0.2)',
+                      },
+                    ]}
+                  >
+                    {replyMomentMutation.isPending ? (
+                      <ActivityIndicator size="small" color={colors.onPrimary} />
+                    ) : (
+                      <Send size={15} color={chatReplyText.trim() ? colors.onPrimary : 'rgba(255,255,255,0.6)'} />
+                    )}
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={() => {
+                      setActiveReplyMomentId(null);
+                      setChatReplyText('');
+                      Keyboard.dismiss();
+                    }}
+                    style={{ padding: 4 }}
+                  >
+                    <X size={16} color="rgba(255,255,255,0.7)" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
           </View>
 
           {/* Card Bottom: Reply Into Chat + Reply With Photo + Quick Emoji Reactions */}
@@ -1046,10 +2007,17 @@ export function MomentsView({ circleId, circleName, isActive = true }: MomentsVi
               <TouchableOpacity
                 activeOpacity={0.75}
                 onPress={() => handleOpenChatReply(m.id, authorName)}
-                style={[styles.replyWithPhotoBtn, { backgroundColor: colors.wash }]}
+                style={[
+                  styles.replyWithPhotoBtn,
+                  {
+                    backgroundColor: isReplyingThisMoment ? `${colors.primary}25` : colors.wash,
+                    borderColor: isReplyingThisMoment ? colors.primary : 'transparent',
+                    borderWidth: isReplyingThisMoment ? 1 : 0,
+                  },
+                ]}
               >
-                <MessageCircle size={14} color={colors.primary} />
-                <Text style={[styles.replyWithPhotoText, { color: colors.text }]}>
+                <MessageCircle size={14} color={isReplyingThisMoment ? colors.primary : colors.text} />
+                <Text style={[styles.replyWithPhotoText, { color: isReplyingThisMoment ? colors.primary : colors.text }]}>
                   Phản hồi
                 </Text>
               </TouchableOpacity>
@@ -1066,19 +2034,90 @@ export function MomentsView({ circleId, circleName, isActive = true }: MomentsVi
               </TouchableOpacity>
             </View>
 
-            <View style={styles.reactionEmojisBar}>
-              {['❤️', '🔥', '👏', '🥰'].map((emoji) => (
-                <TouchableOpacity
-                  key={emoji}
-                  onPress={() => handleReactMoment(m.id, emoji)}
-                  style={[styles.reactionMiniPill, { backgroundColor: colors.wash }]}
-                >
-                  <Emoji emoji={emoji} size={18} />
-                </TouchableOpacity>
-              ))}
-            </View>
+            {isAuthor ? (
+              <TouchableOpacity
+                activeOpacity={0.75}
+                onPress={() => {
+                  setSelectedMomentForReactors(m);
+                  setReactorEmojiFilter('ALL');
+                }}
+                style={[styles.authorReactorsBtn, { backgroundColor: colors.wash }]}
+              >
+                {m.reactions && m.reactions.length > 0 ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <View style={styles.authorAvatarStack}>
+                      {m.reactions.slice(0, 5).map((r: any, idx: number) => {
+                        const reactorAvatar = r.user?.avatarUrl;
+                        const reactorName = r.user?.displayName || 'User';
+
+                        return (
+                          <View
+                            key={r.id || idx}
+                            style={[
+                              styles.authorStackItem,
+                              { marginLeft: idx === 0 ? 0 : -8, zIndex: 10 - idx },
+                            ]}
+                          >
+                            <View style={[styles.authorStackAvatar, { backgroundColor: colors.primary }]}>
+                              {reactorAvatar ? (
+                                <RNImage
+                                  source={{ uri: resolveMobileMediaUrl(reactorAvatar) }}
+                                  style={styles.authorStackAvatarImg}
+                                />
+                              ) : (
+                                <Text style={styles.authorStackAvatarText}>
+                                  {getInitials(reactorName)}
+                                </Text>
+                              )}
+                            </View>
+                            {/* Small circular badge at bottom-right of avatar with emoji */}
+                            <View style={[styles.authorStackEmojiBadge, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+                              <Text style={styles.authorStackEmojiText}>{r.emoji}</Text>
+                            </View>
+                          </View>
+                        );
+                      })}
+                    </View>
+                    <Text style={[styles.authorReactorsCountText, { color: colors.text }]}>
+                      {m.reactions.length} {locale === 'vi' ? 'cảm xúc' : 'reactions'}
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <Text style={{ fontSize: 13 }}>❤️</Text>
+                    <Text style={[styles.authorNoReactionsText, { color: colors.subtle }]}>
+                      {locale === 'vi' ? 'Chưa có cảm xúc' : 'No reactions yet'}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.reactionEmojisBar}>
+                {['❤️', '🔥', '👏', '🥰'].map((emoji) => {
+                  const isSelected = m.userReaction === emoji;
+
+                  return (
+                    <TouchableOpacity
+                      key={emoji}
+                      onPress={() => handleReactMoment(m.id, emoji)}
+                      activeOpacity={0.7}
+                      style={[
+                        styles.reactionMiniPill,
+                        {
+                          backgroundColor: isSelected ? `${colors.primary}30` : colors.wash,
+                          borderColor: isSelected ? colors.primary : 'transparent',
+                          borderWidth: isSelected ? 1 : 0,
+                        },
+                      ]}
+                    >
+                      <Emoji emoji={emoji} size={18} />
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
           </View>
-        </View>
+        </Animated.View>
       </View>
     );
   };
@@ -1088,8 +2127,17 @@ export function MomentsView({ circleId, circleName, isActive = true }: MomentsVi
       style={styles.container}
       onLayout={(e) => {
         const h = e.nativeEvent.layout.height;
-        if (h > 0 && Math.abs(h - containerHeight) > 5) {
-          setContainerHeight(h);
+        // Giữ cố định kích thước khung giao diện, không để bàn phím làm co cụm / biến dạng layout
+        if (h > 250) {
+          if (!isKeyboardOpenRef.current) {
+            // Chỉ cập nhật giảm khi thực sự đổi chiều màn hình, không giảm do bàn phím đẩy lên
+            if (h >= stableContainerHeightRef.current || Math.abs(h - stableContainerHeightRef.current) < 80) {
+              stableContainerHeightRef.current = Math.max(stableContainerHeightRef.current, h);
+              if (Math.abs(h - containerHeight) > 5 && h >= containerHeight) {
+                setContainerHeight(h);
+              }
+            }
+          }
         }
       }}
     >
@@ -1242,6 +2290,7 @@ export function MomentsView({ circleId, circleName, isActive = true }: MomentsVi
         keyExtractor={(item) => item.id}
         renderItem={renderFeedItem}
         pagingEnabled
+        scrollEnabled={!isPinchingCamera}
         decelerationRate="fast"
         showsVerticalScrollIndicator={false}
         onMomentumScrollEnd={handleScrollEnd}
@@ -1257,17 +2306,19 @@ export function MomentsView({ circleId, circleName, isActive = true }: MomentsVi
           - Nút bên trái: "Lịch sử" (History)
           - Nút chính giữa: Cố định kích thước (Trang 0: Home, Trang >= 1: Camera)
           - Nút bên phải: "Tùy chọn chia sẻ & Quản lý ảnh" (Share / Action Button)
+          - Tự động ẩn khi mở bàn phím để không bị đẩy lên trên
          ========================================================================= */}
-      <View pointerEvents="box-none" style={styles.floatingDockContainer}>
-        <View
-          style={[
-            styles.floatingDockBar,
-            {
-              backgroundColor: isDark ? 'rgba(25, 25, 25, 0.92)' : 'rgba(255, 255, 255, 0.95)',
-              borderColor: colors.hairline,
-            },
-          ]}
-        >
+      {!isKeyboardVisible && (
+        <View pointerEvents="box-none" style={styles.floatingDockContainer}>
+          <View
+            style={[
+              styles.floatingDockBar,
+              {
+                backgroundColor: isDark ? 'rgba(25, 25, 25, 0.92)' : 'rgba(255, 255, 255, 0.95)',
+                borderColor: colors.hairline,
+              },
+            ]}
+          >
           {/* Nút bên trái: Lịch sử */}
           <TouchableOpacity
             activeOpacity={0.8}
@@ -1314,6 +2365,7 @@ export function MomentsView({ circleId, circleName, isActive = true }: MomentsVi
           </TouchableOpacity>
         </View>
       </View>
+      )}
 
       {/* =========================================================================
           ACTION MENU MODAL (POPOVER / BOTTOM SHEET) GẮN LIỀN VỚI ẢNH ĐANG HIỂN THỊ
@@ -1475,106 +2527,185 @@ export function MomentsView({ circleId, circleName, isActive = true }: MomentsVi
         </TouchableOpacity>
       </Modal>
 
-      {/* Modal Phản hồi khoảnh khắc vào nhóm chat */}
+      {/* Screen Flash: Chớp sáng trắng toàn màn hình khi chụp camera trước (dùng Modal để vượt qua SurfaceView camera trên Android) */}
       <Modal
-        visible={isChatReplyOpen}
+        visible={isScreenFlashing}
+        transparent={true}
+        animationType="none"
+        statusBarTranslucent={true}
+        onRequestClose={() => {}}
+      >
+        <View style={{ flex: 1, backgroundColor: '#FFFFFF' }} />
+      </Modal>
+
+      {/* =========================================================================
+          MOMENT REACTORS MODAL (Danh sách người thả cảm xúc - Author only)
+         ========================================================================= */}
+      <Modal
+        visible={Boolean(selectedMomentForReactors)}
         transparent
-        animationType="fade"
-        onRequestClose={() => setIsChatReplyOpen(false)}
+        animationType="slide"
+        onRequestClose={() => setSelectedMomentForReactors(null)}
       >
         <TouchableOpacity
           activeOpacity={1}
-          onPress={() => setIsChatReplyOpen(false)}
-          style={styles.actionModalOverlay}
+          onPress={() => setSelectedMomentForReactors(null)}
+          style={styles.reactorsBackdrop}
         >
-          <BlurView
-            intensity={Platform.OS === 'ios' ? 45 : 85}
-            tint={isDark ? 'dark' : 'light'}
-            style={StyleSheet.absoluteFill}
-          />
-
           <TouchableOpacity
             activeOpacity={1}
-            style={[
-              styles.actionModalSheet,
-              {
-                backgroundColor: colors.sheetBg,
-                borderColor: colors.glassBorder,
-              },
-            ]}
+            onPress={(e) => e.stopPropagation()}
+            style={[styles.reactorsSheet, { backgroundColor: colors.surface }]}
           >
-            <View style={[styles.actionSheetHandle, { backgroundColor: colors.hairline }]} />
-
-            <View style={styles.actionSheetHeader}>
-              <View style={styles.actionHeaderLeft}>
-                <View style={[styles.actionIconBox, { backgroundColor: `${colors.primary}20`, width: 38, height: 38 }]}>
-                  <MessageCircle size={18} color={colors.primary} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.actionSheetTitle, { color: colors.text, fontSize: 15 }]}>
-                    Phản hồi vào {circleName}
-                  </Text>
-                  <Text style={[styles.actionSheetSub, { color: colors.subtle }]}>
-                    Trích dẫn khoảnh khắc của {chatReplyAuthorName}
+            {/* Header */}
+            <View style={[styles.reactorsHeader, { borderBottomColor: colors.hairline }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={[styles.reactorsTitle, { color: colors.text }]}>
+                  {locale === 'vi' ? 'Lượt bày tỏ cảm xúc' : 'Reactions'}
+                </Text>
+                <View style={[styles.reactorsCountBadge, { backgroundColor: `${colors.primary}25` }]}>
+                  <Text style={[styles.reactorsCountBadgeText, { color: colors.primary }]}>
+                    {selectedMomentForReactors?.reactions?.length || 0}
                   </Text>
                 </View>
               </View>
 
               <TouchableOpacity
-                onPress={() => setIsChatReplyOpen(false)}
-                style={[styles.actionCloseBtn, { backgroundColor: colors.wash }]}
+                activeOpacity={0.7}
+                onPress={() => setSelectedMomentForReactors(null)}
+                style={[styles.reactorsCloseBtn, { backgroundColor: colors.wash }]}
               >
-                <X size={16} color={colors.subtle} />
+                <X size={16} color={colors.text} />
               </TouchableOpacity>
             </View>
 
-            <View style={{ paddingHorizontal: 16, paddingBottom: 24, gap: 12 }}>
-              <TextInput
-                value={chatReplyText}
-                onChangeText={setChatReplyText}
-                placeholder="Nhập tin nhắn gửi vào nhóm chat..."
-                placeholderTextColor={colors.subtle}
-                multiline
-                maxLength={2000}
-                style={{
-                  backgroundColor: colors.surface,
-                  borderColor: colors.hairline,
-                  borderWidth: 1,
-                  borderRadius: 16,
-                  padding: 14,
-                  fontSize: 14,
-                  color: colors.text,
-                  minHeight: 90,
-                  textAlignVertical: 'top',
-                }}
-              />
+            {/* Emoji Filter Chips */}
+            {(() => {
+              const reactions = selectedMomentForReactors?.reactions || [];
+              const emojiCounts: Record<string, number> = {};
+              reactions.forEach((r: any) => {
+                emojiCounts[r.emoji] = (emojiCounts[r.emoji] || 0) + 1;
+              });
+              const uniqueEmojis = Object.keys(emojiCounts);
 
-              <TouchableOpacity
-                disabled={!chatReplyText.trim() || replyMomentMutation.isPending}
-                onPress={handleSendChatReply}
-                style={{
-                  backgroundColor: colors.primary,
-                  borderRadius: 14,
-                  paddingVertical: 14,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexDirection: 'row',
-                  gap: 8,
-                  opacity: !chatReplyText.trim() || replyMomentMutation.isPending ? 0.5 : 1,
-                }}
-              >
-                {replyMomentMutation.isPending ? (
-                  <ActivityIndicator color={colors.onPrimary} size="small" />
-                ) : (
-                  <>
-                    <Send size={16} color={colors.onPrimary} />
-                    <Text style={{ color: colors.onPrimary, fontWeight: '700', fontSize: 14 }}>
-                      Gửi vào nhóm chat
-                    </Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            </View>
+              if (reactions.length === 0) return null;
+
+              return (
+                <View style={[styles.reactorsFilterRow, { borderBottomColor: colors.hairline }]}>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingHorizontal: 16 }}>
+                    <TouchableOpacity
+                      onPress={() => setReactorEmojiFilter('ALL')}
+                      style={[
+                        styles.reactorsFilterChip,
+                        {
+                          backgroundColor: reactorEmojiFilter === 'ALL' ? colors.primary : colors.wash,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.reactorsFilterChipText,
+                          { color: reactorEmojiFilter === 'ALL' ? '#FFFFFF' : colors.text },
+                        ]}
+                      >
+                        {locale === 'vi' ? 'Tất cả' : 'All'} ({reactions.length})
+                      </Text>
+                    </TouchableOpacity>
+
+                    {uniqueEmojis.map((emoji) => (
+                      <TouchableOpacity
+                        key={emoji}
+                        onPress={() => setReactorEmojiFilter(emoji)}
+                        style={[
+                          styles.reactorsFilterChip,
+                          {
+                            backgroundColor: reactorEmojiFilter === emoji ? `${colors.primary}25` : colors.wash,
+                            borderColor: reactorEmojiFilter === emoji ? colors.primary : 'transparent',
+                            borderWidth: 1,
+                          },
+                        ]}
+                      >
+                        <Text style={{ fontSize: 13 }}>{emoji}</Text>
+                        <Text
+                          style={[
+                            styles.reactorsFilterChipText,
+                            { color: reactorEmojiFilter === emoji ? colors.primary : colors.text },
+                          ]}
+                        >
+                          {emojiCounts[emoji]}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              );
+            })()}
+
+            {/* Reactors List */}
+            <ScrollView style={styles.reactorsList} contentContainerStyle={{ padding: 16, gap: 12 }}>
+              {(() => {
+                const reactions = selectedMomentForReactors?.reactions || [];
+                const filtered =
+                  reactorEmojiFilter === 'ALL'
+                    ? reactions
+                    : reactions.filter((r: any) => r.emoji === reactorEmojiFilter);
+
+                if (filtered.length === 0) {
+                  return (
+                    <View style={{ paddingVertical: 40, alignItems: 'center', gap: 8 }}>
+                      <Text style={{ fontSize: 32 }}>❤️</Text>
+                      <Text style={{ fontSize: 13, color: colors.subtle }}>
+                        {locale === 'vi' ? 'Chưa có lượt cảm xúc nào' : 'No reactions yet'}
+                      </Text>
+                    </View>
+                  );
+                }
+
+                return filtered.map((r: any) => {
+                  const displayName = r.user?.displayName || 'Người dùng';
+                  const avatarUrl = r.user?.avatarUrl;
+                  const relativeTime = formatMomentRelativeTime(r.createdAt, locale);
+
+                  return (
+                    <View key={r.id} style={styles.reactorItemRow}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
+                        <View style={{ position: 'relative' }}>
+                          <View style={[styles.reactorItemAvatar, { backgroundColor: colors.primary }]}>
+                            {avatarUrl ? (
+                              <RNImage
+                                source={{ uri: resolveMobileMediaUrl(avatarUrl) }}
+                                style={styles.reactorItemAvatarImg}
+                              />
+                            ) : (
+                              <Text style={styles.reactorItemAvatarText}>
+                                {getInitials(displayName)}
+                              </Text>
+                            )}
+                          </View>
+                          {/* Mini emoji on bottom right of avatar */}
+                          <View style={[styles.reactorItemAvatarEmoji, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+                            <Text style={{ fontSize: 9 }}>{r.emoji}</Text>
+                          </View>
+                        </View>
+
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.reactorItemName, { color: colors.text }]} numberOfLines={1}>
+                            {displayName}
+                          </Text>
+                          <Text style={[styles.reactorItemTime, { color: colors.subtle }]}>
+                            {relativeTime}
+                          </Text>
+                        </View>
+                      </View>
+
+                      <View style={[styles.reactorEmojiPill, { backgroundColor: colors.wash }]}>
+                        <Text style={{ fontSize: 16 }}>{r.emoji}</Text>
+                      </View>
+                    </View>
+                  );
+                });
+              })()}
+            </ScrollView>
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
@@ -1694,7 +2825,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   momentWindow: {
-    borderRadius: 32,
+    borderRadius: 28,
     borderWidth: 1.5,
     overflow: 'hidden',
     position: 'relative',
@@ -1791,6 +2922,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    zIndex: 35,
+    elevation: 20,
   },
   cameraMiniBtn: {
     width: 32,
@@ -1817,37 +2950,42 @@ const styles = StyleSheet.create({
   },
   pipFloatingBox: {
     position: 'absolute',
-    top: 54,
-    left: 14,
-    width: 86,
-    height: 114,
+    top: 0,
+    left: 0,
+    width: 92,
+    height: 92,
     borderRadius: 18,
     borderWidth: 2.5,
     overflow: 'hidden',
-    backgroundColor: '#000000',
+    backgroundColor: 'transparent',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.5,
     shadowRadius: 10,
-    elevation: 12,
-    zIndex: 25,
+    elevation: 6,
+    zIndex: 10,
+  },
+    pipFloatingImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 15.5,
   },
   pipFloatingBoxFeed: {
     position: 'absolute',
     top: 14,
     left: 14,
-    width: 86,
-    height: 114,
+    width: 92,
+    height: 92,
     borderRadius: 18,
     borderWidth: 2.5,
     overflow: 'hidden',
-    backgroundColor: '#000000',
+    backgroundColor: 'transparent',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.5,
     shadowRadius: 10,
-    elevation: 12,
-    zIndex: 25,
+    elevation: 8,
+    zIndex: 15,
   },
   pipTypeBadge: {
     position: 'absolute',
@@ -1865,16 +3003,13 @@ const styles = StyleSheet.create({
   },
   pipFlipBtn: {
     position: 'absolute',
-    bottom: 5,
-    left: 5,
-    right: 5,
-    paddingVertical: 3,
-    paddingHorizontal: 4,
-    borderRadius: 8,
-    flexDirection: 'row',
+    bottom: 6,
+    right: 6,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
   },
   pipFlipBtnText: {
     color: '#FFFFFF',
@@ -1918,6 +3053,10 @@ const styles = StyleSheet.create({
     bottom: 16,
     left: 16,
     right: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 35,
+    elevation: 20,
   },
   captionInputPill: {
     backgroundColor: 'rgba(0, 0, 0, 0.65)',
@@ -1926,18 +3065,47 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 180,
+    maxWidth: '92%',
+    alignSelf: 'center',
   },
   captionTextInput: {
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '500',
+    textAlign: 'center',
+    width: '100%',
+    maxHeight: 46,
+  },
+  captionLimitCounter: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 10,
+    fontWeight: '600',
+    marginTop: 2,
   },
   fixedControlsArea: {
-    height: 94,
-    marginTop: 14,
+    minHeight: 94,
+    marginTop: 8,
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
+  },
+  svgProgressContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  recordingStopSquare: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    backgroundColor: '#FFFFFF',
   },
   shutterControlsBar: {
     flexDirection: 'row',
@@ -1959,12 +3127,13 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   momentMainShutterOuter: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
+    width: SHUTTER_SIZE,
+    height: SHUTTER_SIZE,
+    borderRadius: SHUTTER_SIZE / 2,
     borderWidth: 5,
     alignItems: 'center',
     justifyContent: 'center',
+    position: 'relative',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.35,
@@ -2021,7 +3190,7 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 4,
     paddingHorizontal: 8,
-    marginTop: 18,
+    marginTop: 10,
   },
   historyCueThumb: {
     width: 26,
@@ -2035,9 +3204,9 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
   },
   momentFeedCard: {
-    borderRadius: 28,
+    borderRadius: 26,
     borderWidth: 1.2,
-    padding: 10,
+    padding: 8,
     gap: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
@@ -2092,7 +3261,7 @@ const styles = StyleSheet.create({
   momentPhotoFrame: {
     width: '100%',
     aspectRatio: 1,
-    borderRadius: 22,
+    borderRadius: 20,
     overflow: 'hidden',
     position: 'relative',
     alignItems: 'center',
@@ -2102,25 +3271,87 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
+  feedGifBadge: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  feedGifBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
   noPhotoPlaceholder: {
     alignItems: 'center',
     justifyContent: 'center',
   },
-  photoCaptionPill: {
+  photoCaptionContainer: {
     position: 'absolute',
     bottom: 12,
-    left: 12,
-    right: 12,
+    left: 14,
+    right: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 25,
+    elevation: 15,
+  },
+  photoCaptionPill: {
+    maxWidth: '92%',
+    alignSelf: 'center',
     backgroundColor: 'rgba(0,0,0,0.65)',
     borderRadius: 16,
     paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingVertical: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   photoCaptionText: {
     color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '600',
     lineHeight: 18,
+    textAlign: 'center',
+  },
+  feedReplyOverlay: {
+    position: 'absolute',
+    bottom: 12,
+    left: 12,
+    right: 12,
+    zIndex: 40,
+    elevation: 25,
+  },
+  feedReplyPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.78)',
+    borderRadius: 22,
+    paddingLeft: 14,
+    paddingRight: 6,
+    paddingVertical: 4,
+    borderWidth: 1.2,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
+    gap: 8,
+  },
+  feedReplyTextInput: {
+    flex: 1,
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '500',
+    paddingVertical: 4,
+  },
+  feedReplySendBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   momentFeedFooter: {
     flexDirection: 'row',
@@ -2148,12 +3379,181 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   reactionMiniPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 10,
   },
   reactionEmojiText: {
     fontSize: 15,
+  },
+  reactionCountText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  authorReactorsBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  authorAvatarStack: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  authorStackItem: {
+    position: 'relative',
+  },
+  authorStackAvatar: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  authorStackAvatarImg: {
+    width: '100%',
+    height: '100%',
+  },
+  authorStackAvatarText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#000000',
+  },
+  authorStackEmojiBadge: {
+    position: 'absolute',
+    bottom: -3,
+    right: -3,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  authorStackEmojiText: {
+    fontSize: 8,
+  },
+  authorReactorsCountText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  authorNoReactionsText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  reactorsBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'flex-end',
+  },
+  reactorsSheet: {
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    maxHeight: '80%',
+    paddingBottom: 24,
+  },
+  reactorsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+  },
+  reactorsTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  reactorsCountBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  reactorsCountBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  reactorsCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  reactorsFilterRow: {
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+  },
+  reactorsFilterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
+  },
+  reactorsFilterChipText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  reactorsList: {
+    maxHeight: 380,
+  },
+  reactorItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+  },
+  reactorItemAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  reactorItemAvatarImg: {
+    width: '100%',
+    height: '100%',
+  },
+  reactorItemAvatarText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#000000',
+  },
+  reactorItemAvatarEmoji: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  reactorItemName: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  reactorItemTime: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+  reactorEmojiPill: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   emptyHistoryBox: {
     padding: 32,

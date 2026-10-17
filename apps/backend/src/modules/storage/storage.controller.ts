@@ -61,8 +61,10 @@ export class StorageController {
       throw new BadRequestException(t.storage.invalidFileType);
     }
 
-    // Strip optional data:image/png;base64, prefix
-    const base64Clean = dto.base64Data.replace(/^data:[^;]+;base64,/, '');
+    // Strip optional data:mime/type;base64, prefix (including parameters like codecs=vp8,opus)
+    const base64Clean = dto.base64Data.includes(';base64,')
+      ? dto.base64Data.split(';base64,')[1]!
+      : dto.base64Data.replace(/^data:[^;]+;base64,/, '');
     const buffer = Buffer.from(base64Clean, 'base64');
 
     if (buffer.length > 25 * 1024 * 1024) {
@@ -75,6 +77,7 @@ export class StorageController {
       dto.fileName,
       dto.contentType,
       buffer,
+      dto.key,
     );
 
     return {
@@ -99,6 +102,28 @@ export class StorageController {
       throw new NotFoundException('Media file not found');
     }
 
+    const totalSize = item.buffer.length;
+    const range = req.headers.range;
+
+    if (range) {
+      const parts = range.replace(/bytes=/, '').split('-');
+      const start = parseInt(parts[0] || '0', 10) || 0;
+      const end = parts[1] ? parseInt(parts[1], 10) : totalSize - 1;
+      const chunksize = end - start + 1;
+      const chunk = item.buffer.subarray(start, end + 1);
+
+      res.status(HttpStatus.PARTIAL_CONTENT);
+      res.setHeader('Content-Range', `bytes ${start}-${end}/${totalSize}`);
+      res.setHeader('Accept-Ranges', 'bytes');
+      res.setHeader('Content-Length', chunksize);
+      res.setHeader('Content-Type', item.contentType);
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      res.send(chunk);
+      return;
+    }
+
+    res.setHeader('Accept-Ranges', 'bytes');
+    res.setHeader('Content-Length', totalSize);
     res.setHeader('Content-Type', item.contentType);
     res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
     res.send(item.buffer);

@@ -153,6 +153,15 @@ export function createAuthSchemas(locale: Locale = 'vi') {
     });
 
   const updateProfileSchema = z.object({
+    handle: z
+      .string()
+      .trim()
+      .toLowerCase()
+      .min(3, v.userHandleMinLength)
+      .max(30, v.userHandleMaxLength)
+      .regex(/^[a-z0-9_]+$/, v.userHandleInvalid)
+      .nullable()
+      .optional(),
     displayName: z
       .string()
       .trim()

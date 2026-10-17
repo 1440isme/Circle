@@ -1,9 +1,9 @@
 'use client';
 
-import React from 'react';
-import { X, Pin, FileText, Download } from 'lucide-react';
+import { X, Pin, FileText, Download, Camera } from 'lucide-react';
 import { MessageEntity, MessageType } from '@circle/types';
 import { useLanguageStore } from '../../stores/language.store';
+import { parseMomentReplyMetadata } from './MomentCardChatEmbed';
 
 interface PinnedMessagesModalProps {
   isOpen: boolean;
@@ -117,12 +117,27 @@ export const PinnedMessagesModal: React.FC<PinnedMessagesModalProps> = ({
                           {msg.content}
                         </p>
                       )}
-                      {msg.type === MessageType.FILE && msg.fileUrl && (
-                        <div className="mt-1 flex items-center gap-1.5 text-xs text-circle-slate">
-                          <FileText className="h-3.5 w-3.5 text-circle-sage" />
-                          <span className="truncate">{msg.fileName || 'Attachment'}</span>
-                        </div>
-                      )}
+                      {msg.type === MessageType.FILE && msg.fileUrl && (() => {
+                        const momentMeta = parseMomentReplyMetadata(msg.fileName);
+                        if (momentMeta) {
+                          return (
+                            <div className="mt-1 flex items-center gap-1.5 text-xs text-circle-primary font-medium">
+                              <Camera className="h-3.5 w-3.5 text-circle-primary" />
+                              <span className="truncate">
+                                {momentMeta.caption
+                                  ? `📸 "${momentMeta.caption}"`
+                                  : `📸 Khoảnh khắc của ${momentMeta.authorName}`}
+                              </span>
+                            </div>
+                          );
+                        }
+                        return (
+                          <div className="mt-1 flex items-center gap-1.5 text-xs text-circle-slate">
+                            <FileText className="h-3.5 w-3.5 text-circle-sage" />
+                            <span className="truncate">{msg.fileName || 'Attachment'}</span>
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
 

@@ -57,6 +57,8 @@ describe('AuthService — Full Test Suite (TC-AUTH-001 to TC-AUTH-006)', () => {
       userProfile: {
         upsert: jest.fn(),
         findUnique: jest.fn(),
+        findFirst: jest.fn(),
+        findMany: jest.fn(),
         update: jest.fn(),
       },
       $transaction: jest.fn((callback) => callback(prisma)),
@@ -555,6 +557,94 @@ describe('AuthService — Full Test Suite (TC-AUTH-001 to TC-AUTH-006)', () => {
       const result = await service.register(dto as any, undefined, '127.0.0.1', 'vi');
       expect(result).toBeDefined();
       expect(turnstileService.validateToken).toHaveBeenCalledWith('valid-turnstile-token', '127.0.0.1');
+    });
+  });
+
+  describe('Unique Nickname / User Handle & Privacy-Preserving Discovery (TC-AUTH-HANDLE-001 to 004)', () => {
+    it('TC-AUTH-HANDLE-001: should auto-generate unique default handle on registration', async () => {
+      turnstileService.isEnabled.mockReturnValue(false);
+      prisma.user.findUnique.mockResolvedValue(null);
+      prisma.userProfile.findUnique.mockResolvedValue(null);
+      prisma.user.create.mockImplementation(({ data }: any) =>
+        Promise.resolve({
+          ...mockUser,
+          profile: {
+            ...mockUser.profile,
+            handle: data.profile.create.handle,
+          },
+        }),
+      );
+
+      const dto = {
+        email: 'newuser@example.com',
+        password: 'Password123!',
+        displayName: 'Công Bình',
+      };
+
+      const result = await service.register(dto as any, undefined, '127.0.0.1', 'vi');
+
+      expect(result.user.profile?.handle).toBeDefined();
+      expect(result.user.profile?.handle).toMatch(/^[a-z0-9_]+$/);
+    });
+
+    it('TC-AUTH-HANDLE-002: should update handle in profile when valid and unique', async () => {
+      prisma.user.findUnique.mockResolvedValue(mockUser);
+      prisma.userProfile.findFirst.mockResolvedValue(null);
+      prisma.userProfile.upsert.mockResolvedValue({
+        ...mockUser.profile,
+        handle: 'congbinh_dev',
+        displayName: 'Cong Binh Dev',
+      });
+
+      const result = await service.updateProfile(
+        mockUser.id,
+        { handle: 'congbinh_dev', displayName: 'Cong Binh Dev' },
+        'vi',
+      );
+
+      expect(result.profile?.handle).toBe('congbinh_dev');
+      expect(prisma.userProfile.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          update: expect.objectContaining({
+            handle: 'congbinh_dev',
+          }),
+        }),
+      );
+    });
+
+    it('TC-AUTH-HANDLE-003: should throw ConflictException when handle is already taken by another user', async () => {
+      prisma.user.findUnique.mockResolvedValue(mockUser);
+      prisma.userProfile.findFirst.mockResolvedValue({
+        id: 'other-profile-id',
+        userId: 'other-user-id',
+        handle: 'taken_handle',
+      });
+
+      await expect(
+        service.updateProfile(mockUser.id, { handle: 'taken_handle' }, 'vi'),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('TC-AUTH-HANDLE-004: should search users by handle/displayName and never leak email', async () => {
+      prisma.user.findMany = jest.fn().mockResolvedValue([
+        {
+          id: 'user-2',
+          email: 'secret_email@example.com',
+          profile: {
+            handle: 'hanhninh',
+            displayName: 'Hạnh Ninh',
+            avatarUrl: 'https://example.com/avatar.jpg',
+            bio: 'Hello CIRCLE',
+          },
+        },
+      ]);
+
+      const results = await service.searchPublicUsers('hanh', mockUser.id);
+
+      expect(results).toHaveLength(1);
+      expect(results[0]!.handle).toBe('hanhninh');
+      expect(results[0]!.displayName).toBe('Hạnh Ninh');
+      expect((results[0] as any).email).toBeUndefined(); // STRICT PRIVACY GUARANTEE
     });
   });
 });

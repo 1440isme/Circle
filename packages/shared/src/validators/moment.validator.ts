@@ -26,7 +26,7 @@ export function createMomentSchemas(locale: Locale = 'vi') {
     caption: z
       .string()
       .trim()
-      .max(280, v.momentCaptionMaxLength)
+      .max(80, v.momentCaptionMaxLength)
       .optional()
       .or(z.literal('')),
     circleIds: z

@@ -4,8 +4,6 @@ import React, { useState } from 'react';
 import {
   Camera,
   Heart,
-  Volume2,
-  VolumeX,
   Trash2,
   Plus,
   Sparkles,
@@ -26,6 +24,10 @@ import {
   useReplyMomentMutation,
 } from '@/hooks/use-moment-queries';
 import { CreateMomentModal } from './CreateMomentModal';
+import { MomentReactorsModal } from './MomentReactorsModal';
+import { MomentPipView } from './MomentPipView';
+import { parseMomentPhotos } from '@/lib/moment-photos';
+import { MomentEntity } from '@circle/types';
 import { Emoji } from '@/components/ui/Emoji';
 import { FullEmojiPickerModal } from '@/components/ui/FullEmojiPickerModal';
 
@@ -43,7 +45,9 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
   const targetCircleId = circleId || activeCircleStore?.id;
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [unmutedVideoIds, setUnmutedVideoIds] = useState<Record<string, boolean>>({});
+  const [reactorsModalMoment, setReactorsModalMoment] = useState<MomentEntity | null>(null);
+  const [swappedMoments, setSwappedMoments] = useState<Record<string, boolean>>({});
+  const [viewerPipCorners, setViewerPipCorners] = useState<Record<string, number>>({});
 
   // Queries
   const { data: feedMoments = [], isLoading: isLoadingFeed } = useMomentsFeedQuery();
@@ -62,13 +66,6 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
   const [replyTexts, setReplyTexts] = useState<Record<string, string>>({});
   const [replySuccessMap, setReplySuccessMap] = useState<Record<string, boolean>>({});
   const [fullEmojiTargetMomentId, setFullEmojiTargetMomentId] = useState<string | null>(null);
-
-  const handleToggleSound = (momentId: string) => {
-    setUnmutedVideoIds((prev) => ({
-      ...prev,
-      [momentId]: !prev[momentId],
-    }));
-  };
 
   const handleSendFeedReply = async (momentId: string, circleId: string) => {
     const text = (replyTexts[momentId] || '').trim();
@@ -92,6 +89,10 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
   };
 
   const handleReact = async (momentId: string, emoji: string) => {
+    const target = moments.find((m) => m.id === momentId);
+    if (target && target.authorId === user?.id) {
+      return;
+    }
     try {
       await reactMutation.mutateAsync({ momentId, emoji });
     } catch {
@@ -155,9 +156,18 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
             const authorAvatar = moment.author?.profile?.avatarUrl;
             const authorInitial = authorName.slice(0, 2).toUpperCase();
             const isAuthor = moment.authorId === user?.id;
+
+            const { mainUrl, pipUrl, cornerIndex } = parseMomentPhotos(moment.photoUrl);
+            const isSwapped = Boolean(swappedMoments[moment.id]);
+            const displayMain = isSwapped ? (pipUrl || mainUrl) : mainUrl;
+            const displayPip = isSwapped ? mainUrl : pipUrl;
+            const activeCornerIndex = viewerPipCorners[moment.id] ?? cornerIndex;
+
             const isVideo =
-              moment.mediaType === 'VIDEO' || Boolean(moment.photoUrl?.startsWith('data:video/'));
-            const isSoundOn = Boolean(unmutedVideoIds[moment.id]);
+              moment.mediaType === 'VIDEO' ||
+              Boolean(displayMain?.includes('.webm')) ||
+              Boolean(displayMain?.includes('.mp4')) ||
+              Boolean(displayMain?.startsWith('data:video/'));
 
             return (
               <article
@@ -205,58 +215,124 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
                   </div>
 
                   {/* Media Container: Guaranteed 1:1 square aspect ratio matching card width */}
+                  {/* Media Container: 1:1 Square Aspect Ratio with Dual Camera PiP */}
                   <div className="w-full">
-                    <div className="relative aspect-square w-full overflow-hidden rounded-3xl bg-stone-900 select-none shadow-md">
-                    {isVideo ? (
-                      <video
-                        src={moment.photoUrl}
-                        autoPlay
-                        loop
-                        playsInline
-                        muted={!isSoundOn}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <img
-                        src={moment.photoUrl}
-                        alt={moment.caption || 'Khoảnh khắc thường ngày'}
-                        className="w-full h-full object-cover"
-                      />
-                    )}
+                    <div className="relative aspect-square w-full overflow-hidden rounded-3xl bg-stone-900 border border-stone-800 dark:border-stone-700/60 shadow-md group select-none">
+                      {displayMain ? (
+                        isVideo ? (
+                          <video
+                            key={displayMain}
+                            src={displayMain}
+                            autoPlay
+                            loop
+                            playsInline
+                            muted
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <img
+                            key={displayMain}
+                            src={displayMain}
+                            alt={moment.caption || 'Khoảnh khắc thường ngày'}
+                            className="w-full h-full object-cover"
+                          />
+                        )
+                      ) : null}
 
-                    {/* Gradient Overlay for Caption readability */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
+                      {/* Dual Camera PiP Floating Thumbnail */}
+                      {displayPip && (
+                        <MomentPipView
+                          key={`${moment.id}-${isSwapped ? 'swapped' : 'normal'}`}
+                          pipUrl={displayPip}
+                          initialCornerIndex={activeCornerIndex}
+                          onSwap={() =>
+                            setSwappedMoments((prev) => ({
+                              ...prev,
+                              [moment.id]: !prev[moment.id],
+                            }))
+                          }
+                          onCornerChange={(newCorner) =>
+                            setViewerPipCorners((prev) => ({
+                              ...prev,
+                              [moment.id]: newCorner,
+                            }))
+                          }
+                        />
+                      )}
 
-                    {/* Sound Toggle (if video) */}
-                    {isVideo && (
+                      {/* Gradient Overlay for Caption readability */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
+
+                      {/* GIF Badge (đồng bộ mobile) */}
+                      {isVideo && (
+                        <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md px-2.5 py-0.5 rounded-full text-[10px] font-bold text-white border border-white/20 shadow-sm z-10 pointer-events-none">
+                          GIF
+                        </div>
+                      )}
+
+                      {/* Caption Overlay */}
+                      {moment.caption && (
+                        <div className="absolute bottom-3 inset-x-3 flex justify-center pointer-events-none z-10">
+                          <div className="bg-black/70 backdrop-blur-md text-white text-xs sm:text-sm font-medium px-4 py-2 rounded-2xl max-w-[92%] text-center border border-white/15 shadow-md">
+                            {moment.caption}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Bottom Reactions & Reply Dock (Padded) */}
+                  <div className="space-y-2 pt-1 px-4 sm:px-6">
+                  <div className="flex items-center justify-between">
+                    {/* If Author: Show top 5 reactors avatar stack with small emoji badge + total count, clicking opens list modal */}
+                    {isAuthor ? (
                       <button
                         type="button"
-                        onClick={() => handleToggleSound(moment.id)}
-                        className="absolute top-3 right-3 h-8 w-8 rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-white flex items-center justify-center hover:bg-black/80 transition-colors shadow-md z-10"
-                        title={isSoundOn ? 'Tắt âm' : 'Bật âm'}
+                        onClick={() => setReactorsModalMoment(moment)}
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-circle-canvas/80 dark:bg-circle-dark-canvas/80 border border-circle-hairline dark:border-circle-dark-hairline hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-all group"
+                        title={locale === 'vi' ? 'Xem danh sách người thả cảm xúc' : 'View reactions'}
                       >
-                        {isSoundOn ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+                        {moment.reactions && moment.reactions.length > 0 ? (
+                          <>
+                            <div className="flex items-center -space-x-2 overflow-hidden py-0.5">
+                              {moment.reactions.slice(0, 5).map((r, idx) => (
+                                <div
+                                  key={r.id || idx}
+                                  className="relative inline-block"
+                                  style={{ zIndex: 10 - idx }}
+                                >
+                                  <div className="h-6 w-6 rounded-full border-2 border-white dark:border-circle-dark-surface bg-circle-primary text-circle-charcoal text-[9px] font-bold flex items-center justify-center overflow-hidden shrink-0 shadow-sm">
+                                    {r.user?.avatarUrl ? (
+                                      <img
+                                        src={r.user.avatarUrl}
+                                        alt={r.user.displayName}
+                                        className="h-full w-full object-cover"
+                                      />
+                                    ) : (
+                                      <span>{r.user?.displayName?.slice(0, 2).toUpperCase() || 'U'}</span>
+                                    )}
+                                  </div>
+                                  <div className="absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full bg-white dark:bg-circle-dark-surface border border-circle-hairline dark:border-circle-dark-hairline flex items-center justify-center text-[8px] shadow-xs">
+                                    {r.emoji}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                            <span className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text pl-1 group-hover:text-circle-primary transition-colors">
+                              {moment.reactions.length} {locale === 'vi' ? 'cảm xúc' : 'reactions'}
+                            </span>
+                          </>
+                        ) : (
+                          <div className="flex items-center gap-1.5 text-xs text-circle-slate dark:text-circle-dark-muted font-medium">
+                            <span>❤️</span>
+                            <span>{locale === 'vi' ? 'Chưa có cảm xúc' : 'No reactions yet'}</span>
+                          </div>
+                        )}
                       </button>
-                    )}
-
-                    {/* Caption Overlay */}
-                    {moment.caption && (
-                      <div className="absolute bottom-3 inset-x-3 flex justify-center pointer-events-none z-10">
-                        <div className="bg-black/70 backdrop-blur-md text-white text-xs sm:text-sm font-medium px-4 py-2 rounded-2xl max-w-[92%] text-center border border-white/15 shadow-md">
-                          {moment.caption}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Bottom Reactions & Reply Dock (Padded) */}
-                <div className="space-y-2 pt-1 px-4 sm:px-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5 bg-circle-canvas/60 dark:bg-circle-dark-canvas/60 p-1.5 rounded-full border border-circle-hairline dark:border-circle-dark-hairline">
-                      {EMOJI_OPTIONS.map((emoji) => {
-                        const isSelected = moment.userReaction === emoji;
-                        const count = moment.reactionCounts?.[emoji] || 0;
+                    ) : (
+                      <div className="flex items-center gap-1.5 bg-circle-canvas/60 dark:bg-circle-dark-canvas/60 p-1.5 rounded-full border border-circle-hairline dark:border-circle-dark-hairline">
+                        {EMOJI_OPTIONS.map((emoji) => {
+                          const isSelected = moment.userReaction === emoji;
 
                         return (
                           <button
@@ -271,11 +347,6 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
                             title={emoji}
                           >
                             <Emoji emoji={emoji} size={18} />
-                            {count > 0 && (
-                              <span className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
-                                {count}
-                              </span>
-                            )}
                           </button>
                         );
                       })}
@@ -288,6 +359,7 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
                         <Smile className="h-3.5 w-3.5" />
                       </button>
                     </div>
+                  )}
 
                     <div className="flex items-center gap-2">
                       <button
@@ -390,6 +462,13 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
         isOpen={isCreateOpen}
         circleId={targetCircleId || undefined}
         onClose={() => setIsCreateOpen(false)}
+      />
+
+      {/* Moment Reactors List Modal */}
+      <MomentReactorsModal
+        isOpen={Boolean(reactorsModalMoment)}
+        onClose={() => setReactorsModalMoment(null)}
+        moment={reactorsModalMoment}
       />
 
       {/* Full Comprehensive Emoji Picker Modal */}

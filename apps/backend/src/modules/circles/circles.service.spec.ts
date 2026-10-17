@@ -265,12 +265,13 @@ describe('CirclesService — Unit Tests (US-CIRCLE-001 & US-CIRCLE-002)', () => 
       expect(result).toHaveLength(1);
       expect(result[0]!.id).toBe('friend-1');
       expect(result[0]!.displayName).toBe('Bạn Thân 1');
+      expect(result[0]!.handle).toBeNull();
     });
 
     it('should fallback to platform users when no accepted friends exist', async () => {
       mockPrisma.friendship.findMany.mockResolvedValueOnce([]);
       mockPrisma.user.findMany.mockResolvedValueOnce([
-        { id: 'user-2', email: 'user2@test.com', profile: { displayName: 'User Hai', avatarUrl: null } },
+        { id: 'user-2', email: 'user2@test.com', profile: { displayName: 'User Hai', handle: 'user_hai', avatarUrl: null } },
       ]);
 
       const result = await service.getSelectableFriends(userId);
@@ -278,6 +279,7 @@ describe('CirclesService — Unit Tests (US-CIRCLE-001 & US-CIRCLE-002)', () => 
       expect(result).toHaveLength(1);
       expect(result[0]!.id).toBe('user-2');
       expect(result[0]!.displayName).toBe('User Hai');
+      expect(result[0]!.handle).toBe('user_hai');
     });
   });
 

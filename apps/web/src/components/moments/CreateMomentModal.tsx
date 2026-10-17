@@ -6,6 +6,7 @@ import {
   Camera,
   Video,
   RotateCcw,
+  FlipHorizontal,
   Send,
   AlertTriangle,
   Check,
@@ -15,13 +16,12 @@ import {
   RefreshCw,
   Play,
   Pause,
-  Volume2,
-  VolumeX,
 } from 'lucide-react';
 import { useLanguageStore } from '@/stores/language.store';
 import { useCircleStore } from '@/stores/circle.store';
 import { useMyCirclesQuery } from '@/hooks/use-circle-queries';
 import { useCreateMomentMutation } from '@/hooks/use-moment-queries';
+import { useUploadMedia } from '@/hooks/use-upload-media';
 
 interface CreateMomentModalProps {
   isOpen: boolean;
@@ -31,7 +31,7 @@ interface CreateMomentModalProps {
 
 type CaptureMode = 'PHOTO' | 'VIDEO';
 
-const MAX_VIDEO_SECONDS = 10;
+const MAX_GIF_SECONDS = 5;
 
 export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
   isOpen,
@@ -42,6 +42,7 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
   const activeCircle = useCircleStore((s) => s.activeCircle);
   const { data: myCircles = [] } = useMyCirclesQuery();
   const createMomentMutation = useCreateMomentMutation();
+  const { uploadMedia, isUploading } = useUploadMedia();
 
   const effectiveCircle =
     activeCircle || (circleId ? myCircles.find((c) => c.id === circleId) : null);
@@ -49,7 +50,8 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
   // Mode & Capture state
   const [mode, setMode] = useState<CaptureMode>('PHOTO');
   const [capturedMedia, setCapturedMedia] = useState<{
-    dataUrl: string;
+    blob: Blob;
+    previewUrl: string;
     type: 'IMAGE' | 'VIDEO';
   } | null>(null);
 
@@ -58,9 +60,12 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
   const streamRef = useRef<MediaStream | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
+  const animFrameRef = useRef<number | null>(null);
+  const canvasStreamRef = useRef<MediaStream | null>(null);
 
   // Camera states
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
+  const [isMirrored, setIsMirrored] = useState(true);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [isCameraReady, setIsCameraReady] = useState(false);
 
@@ -88,11 +93,21 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
       setErrorMessage(null);
       setCameraError(null);
       setMode('PHOTO');
+      setFacingMode('user');
+      setIsMirrored(true);
     }
   }, [isOpen, effectiveCircle, myCircles]);
 
   // Stop camera tracks helper
   const stopCameraStream = useCallback(() => {
+    if (animFrameRef.current) {
+      cancelAnimationFrame(animFrameRef.current);
+      animFrameRef.current = null;
+    }
+    if (canvasStreamRef.current) {
+      canvasStreamRef.current.getTracks().forEach((track) => track.stop());
+      canvasStreamRef.current = null;
+    }
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
@@ -158,7 +173,16 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
 
   // Handle Switch Camera (Front / Back)
   const handleToggleFacingMode = () => {
-    setFacingMode((prev) => (prev === 'user' ? 'environment' : 'user'));
+    setFacingMode((prev) => {
+      const next = prev === 'user' ? 'environment' : 'user';
+      setIsMirrored(next === 'user');
+      return next;
+    });
+  };
+
+  // Toggle Mirroring manually
+  const handleToggleMirror = () => {
+    setIsMirrored((prev) => !prev);
   };
 
   // =========================================================================
@@ -176,25 +200,33 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Flip horizontal if front camera
-    if (facingMode === 'user') {
+    // Flip horizontal if isMirrored
+    if (isMirrored) {
       ctx.translate(canvas.width, 0);
       ctx.scale(-1, 1);
     }
 
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
-
-    stopCameraStream();
-    setCapturedMedia({
-      dataUrl,
-      type: 'IMAGE',
-    });
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) return;
+        const previewUrl = URL.createObjectURL(blob);
+        stopCameraStream();
+        setCapturedMedia({
+          blob,
+          previewUrl,
+          type: 'IMAGE',
+        });
+      },
+      'image/jpeg',
+      0.88,
+    );
   };
 
   // 2. Start Video Recording
   const handleStartRecording = () => {
     const stream = streamRef.current;
+    const video = videoRef.current;
     if (!stream || isRecording) return;
 
     recordedChunksRef.current = [];
@@ -202,9 +234,53 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
     if (!MediaRecorder.isTypeSupported(mimeType)) {
       mimeType = 'video/webm';
     }
+    if (!MediaRecorder.isTypeSupported(mimeType)) {
+      mimeType = 'video/mp4';
+    }
+    if (!MediaRecorder.isTypeSupported(mimeType)) {
+      mimeType = '';
+    }
 
     try {
-      const recorder = new MediaRecorder(stream, { mimeType });
+      let streamToRecord = stream;
+
+      // If mirrored preview, record through a mirrored canvas stream so WYSIWYG
+      if (isMirrored && video) {
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth || 720;
+        canvas.height = video.videoHeight || 1280;
+        const ctx = canvas.getContext('2d');
+
+        if (ctx && typeof canvas.captureStream === 'function') {
+          const fps = 30;
+          const canvasStream = canvas.captureStream(fps);
+          canvasStreamRef.current = canvasStream;
+
+          // 5s GIF is completely silent (no audio tracks needed)
+          const drawLoop = () => {
+            if (ctx && video) {
+              ctx.save();
+              ctx.translate(canvas.width, 0);
+              ctx.scale(-1, 1);
+              ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+              ctx.restore();
+            }
+            animFrameRef.current = requestAnimationFrame(drawLoop);
+          };
+          animFrameRef.current = requestAnimationFrame(drawLoop);
+
+          streamToRecord = canvasStream;
+        }
+      }
+
+      const recorderOptions: MediaRecorderOptions = {
+        videoBitsPerSecond: 1000000, // 1 Mbps for ultra-lightweight 5s GIF
+      };
+      if (mimeType) {
+        recorderOptions.mimeType = mimeType;
+      }
+
+      const recorder = new MediaRecorder(streamToRecord, recorderOptions);
       mediaRecorderRef.current = recorder;
 
       recorder.ondataavailable = (event) => {
@@ -214,29 +290,36 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
       };
 
       recorder.onstop = () => {
-        const blob = new Blob(recordedChunksRef.current, { type: mimeType });
-        const reader = new FileReader();
-        reader.readAsDataURL(blob);
-        reader.onloadend = () => {
-          const base64Data = reader.result as string;
-          stopCameraStream();
-          setCapturedMedia({
-            dataUrl: base64Data,
-            type: 'VIDEO',
-          });
-        };
+        if (animFrameRef.current) {
+          cancelAnimationFrame(animFrameRef.current);
+          animFrameRef.current = null;
+        }
+        if (canvasStreamRef.current) {
+          canvasStreamRef.current.getTracks().forEach((track) => track.stop());
+          canvasStreamRef.current = null;
+        }
+
+        const actualType = mimeType || 'video/webm';
+        const blob = new Blob(recordedChunksRef.current, { type: actualType });
+        const previewUrl = URL.createObjectURL(blob);
+        stopCameraStream();
+        setCapturedMedia({
+          blob,
+          previewUrl,
+          type: 'VIDEO',
+        });
       };
 
       recorder.start(100);
       setIsRecording(true);
       setRecordingSeconds(0);
 
-      // Countdown timer up to MAX_VIDEO_SECONDS
+      // Countdown timer up to MAX_GIF_SECONDS (5s)
       recordingTimerRef.current = setInterval(() => {
         setRecordingSeconds((prev) => {
-          if (prev >= MAX_VIDEO_SECONDS - 1) {
+          if (prev >= MAX_GIF_SECONDS - 1) {
             handleStopRecording();
-            return MAX_VIDEO_SECONDS;
+            return MAX_GIF_SECONDS;
           }
           return prev + 1;
         });
@@ -253,6 +336,11 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
       recordingTimerRef.current = null;
     }
 
+    if (animFrameRef.current) {
+      cancelAnimationFrame(animFrameRef.current);
+      animFrameRef.current = null;
+    }
+
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop();
     }
@@ -261,10 +349,42 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
 
   // 4. Retake (Discard and reopen camera)
   const handleRetake = () => {
+    if (capturedMedia?.previewUrl) {
+      URL.revokeObjectURL(capturedMedia.previewUrl);
+    }
     setCapturedMedia(null);
     setCaption('');
     setErrorMessage(null);
     startCamera();
+  };
+
+  // 5. Flip captured photo horizontally
+  const handleFlipPhoto = () => {
+    if (!capturedMedia || capturedMedia.type !== 'IMAGE') return;
+
+    const img = new Image();
+    img.src = capturedMedia.previewUrl;
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      ctx.translate(canvas.width, 0);
+      ctx.scale(-1, 1);
+      ctx.drawImage(img, 0, 0);
+
+      canvas.toBlob((blob) => {
+        if (!blob) return;
+        URL.revokeObjectURL(capturedMedia.previewUrl);
+        setCapturedMedia({
+          ...capturedMedia,
+          blob,
+          previewUrl: URL.createObjectURL(blob),
+        });
+      }, 'image/jpeg', 0.88);
+    };
   };
 
   // Toggle circle selection
@@ -296,13 +416,29 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
     setIsSubmitting(true);
 
     try {
+      // 1. Upload media to cloud/storage service
+      const fileName =
+        capturedMedia.type === 'VIDEO'
+          ? `moment_${Date.now()}.webm`
+          : `moment_${Date.now()}.jpg`;
+
+      const uploadRes = await uploadMedia({
+        folder: 'moments',
+        file: capturedMedia.blob,
+        fileName,
+      });
+
+      // 2. Submit moment with clean public URL
       await createMomentMutation.mutateAsync({
-        photoUrl: capturedMedia.dataUrl,
+        photoUrl: uploadRes.publicUrl,
         mediaType: capturedMedia.type,
         caption: caption.trim() || undefined,
         circleIds: selectedCircleIds,
       });
 
+      if (capturedMedia.previewUrl) {
+        URL.revokeObjectURL(capturedMedia.previewUrl);
+      }
       stopCameraStream();
       onClose();
     } catch (err: any) {
@@ -389,7 +525,7 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
                   muted
                   className={`w-full h-full object-cover transition-opacity duration-300 ${
                     isCameraReady ? 'opacity-100' : 'opacity-0'
-                  } ${facingMode === 'user' ? 'scale-x-[-1]' : ''}`}
+                  } ${isMirrored ? 'scale-x-[-1]' : ''}`}
                 />
 
                 {/* Camera Permission / Error Fallback */}
@@ -413,15 +549,31 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
                 {/* Viewfinder Overlay Controls */}
                 {isCameraReady && !cameraError && (
                   <>
-                    {/* Switch Facing Mode Button */}
-                    <button
-                      type="button"
-                      onClick={handleToggleFacingMode}
-                      className="absolute top-4 right-4 z-10 h-10 w-10 rounded-full bg-black/50 text-white flex items-center justify-center backdrop-blur-md border border-white/20 hover:bg-black/70 transition-all active:scale-95"
-                      title={t.moments.switchCamera}
-                    >
-                      <RotateCcw className="h-4 w-4" />
-                    </button>
+                    <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
+                      {/* Mirror Toggle Button */}
+                      <button
+                        type="button"
+                        onClick={handleToggleMirror}
+                        className={`h-10 w-10 rounded-full flex items-center justify-center backdrop-blur-md border border-white/20 transition-all active:scale-95 ${
+                          isMirrored
+                            ? 'bg-circle-primary text-circle-charcoal shadow-sm'
+                            : 'bg-black/50 text-white hover:bg-black/70'
+                        }`}
+                        title={t.moments.flipHorizontal || 'Lật gương'}
+                      >
+                        <FlipHorizontal className="h-4 w-4" />
+                      </button>
+
+                      {/* Switch Facing Mode Button */}
+                      <button
+                        type="button"
+                        onClick={handleToggleFacingMode}
+                        className="h-10 w-10 rounded-full bg-black/50 text-white flex items-center justify-center backdrop-blur-md border border-white/20 hover:bg-black/70 transition-all active:scale-95"
+                        title={t.moments.switchCamera}
+                      >
+                        <RotateCcw className="h-4 w-4" />
+                      </button>
+                    </div>
 
                     {/* Recording Time Pill */}
                     {isRecording && (
@@ -430,7 +582,7 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
                         <span>
                           {t.moments.recordingTime.replace(
                             '{time}',
-                            `${recordingSeconds}/${MAX_VIDEO_SECONDS}`,
+                            `${recordingSeconds}/${MAX_GIF_SECONDS}`,
                           )}
                         </span>
                       </div>
@@ -481,15 +633,16 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
               <div className="relative aspect-[3/4] max-h-[360px] w-full mx-auto rounded-3xl overflow-hidden bg-black border border-white/20 shadow-lg flex items-center justify-center">
                 {capturedMedia.type === 'IMAGE' ? (
                   <img
-                    src={capturedMedia.dataUrl}
+                    src={capturedMedia.previewUrl}
                     alt="Captured Moment"
                     className="w-full h-full object-cover"
                   />
                 ) : (
                   <video
-                    src={capturedMedia.dataUrl}
+                    src={capturedMedia.previewUrl}
                     autoPlay
                     loop
+                    muted
                     playsInline
                     className="w-full h-full object-cover"
                   />
@@ -519,6 +672,19 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
                   <RefreshCw className="h-3.5 w-3.5" />
                   <span>{t.moments.retake}</span>
                 </button>
+
+                {/* Flip Photo Button */}
+                {capturedMedia.type === 'IMAGE' && (
+                  <button
+                    type="button"
+                    onClick={handleFlipPhoto}
+                    className="absolute bottom-3 right-3 flex items-center gap-1.5 rounded-full bg-black/70 hover:bg-black text-white px-3.5 py-1.5 text-xs font-semibold backdrop-blur-md border border-white/20 shadow-md transition-all active:scale-95"
+                    title={t.moments.flipHorizontal || 'Lật ảnh'}
+                  >
+                    <FlipHorizontal className="h-3.5 w-3.5" />
+                    <span>{t.moments.flipHorizontal || 'Lật ảnh'}</span>
+                  </button>
+                )}
               </div>
 
               {/* Caption Input */}
@@ -527,14 +693,14 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
                   <label htmlFor="caption" className="font-medium">
                     {t.moments.captionLabel}
                   </label>
-                  <span>{caption.length}/280</span>
+                  <span>{caption.length}/80</span>
                 </div>
                 <input
                   id="caption"
                   type="text"
-                  maxLength={280}
+                  maxLength={80}
                   value={caption}
-                  onChange={(e) => setCaption(e.target.value)}
+                  onChange={(e) => setCaption(e.target.value.slice(0, 80))}
                   placeholder={t.moments.captionPlaceholder}
                   className="w-full rounded-2xl border border-white/20 bg-white/10 px-4 py-2.5 text-xs sm:text-sm text-white placeholder:text-white/40 focus:border-circle-primary focus:outline-none transition-colors"
                 />
@@ -624,11 +790,11 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmitting || selectedCircleIds.length === 0}
+                  disabled={isSubmitting || isUploading || createMomentMutation.isPending || selectedCircleIds.length === 0}
                   className="flex items-center gap-2 rounded-full bg-circle-primary text-circle-charcoal px-6 py-2.5 text-xs sm:text-sm font-bold shadow-lg hover:bg-circle-sage hover:text-white transition-all active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Send className="h-4 w-4" />
-                  <span>{isSubmitting ? t.moments.submitting : t.moments.submitShare}</span>
+                  <span>{isSubmitting || isUploading || createMomentMutation.isPending ? t.moments.submitting : t.moments.submitShare}</span>
                 </button>
               </div>
             </form>

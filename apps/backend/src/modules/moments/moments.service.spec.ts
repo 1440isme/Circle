@@ -28,8 +28,10 @@ describe('MomentsService', () => {
     },
     momentReaction: {
       findUnique: jest.fn(),
+      findMany: jest.fn(),
       create: jest.fn(),
       delete: jest.fn(),
+      deleteMany: jest.fn(),
     },
   };
 
@@ -142,22 +144,22 @@ describe('MomentsService', () => {
       expect(mockPrisma.moment.findMany).not.toHaveBeenCalled();
     });
 
-    it('should fetch and return transformed moments with reactions for user circles', async () => {
+    it('should fetch and return transformed moments with reactions for user circles when user is author', async () => {
       mockPrisma.circleMember.findMany.mockResolvedValue([{ circleId: 'circle-1' }]);
 
       mockPrisma.moment.findMany.mockResolvedValue([
         {
           id: 'moment-1',
-          authorId: 'user-2',
+          authorId: 'user-1',
           photoUrl: 'https://img.com/2.jpg',
           mediaType: 'IMAGE',
           caption: 'Feed moment',
           capturedAt: new Date('2026-09-29T11:00:00Z'),
           createdAt: new Date('2026-09-29T11:00:00Z'),
           author: {
-            id: 'user-2',
-            email: 'user2@example.com',
-            profile: { displayName: 'User Two', avatarUrl: null },
+            id: 'user-1',
+            email: 'user1@example.com',
+            profile: { displayName: 'User One', avatarUrl: null },
           },
           visibilities: [
             {
@@ -180,6 +182,45 @@ describe('MomentsService', () => {
       expect(feed).toHaveLength(1);
       expect(feed[0]!.reactionCounts).toEqual({ '❤️': 2, '🔥': 1 });
       expect(feed[0]!.userReaction).toBe('❤️');
+    });
+
+    it('should hide reaction counts and reaction list from non-author viewers', async () => {
+      mockPrisma.circleMember.findMany.mockResolvedValue([{ circleId: 'circle-1' }]);
+
+      mockPrisma.moment.findMany.mockResolvedValue([
+        {
+          id: 'moment-1',
+          authorId: 'user-author',
+          photoUrl: 'https://img.com/2.jpg',
+          mediaType: 'IMAGE',
+          caption: 'Feed moment',
+          capturedAt: new Date('2026-09-29T11:00:00Z'),
+          createdAt: new Date('2026-09-29T11:00:00Z'),
+          author: {
+            id: 'user-author',
+            email: 'author@example.com',
+            profile: { displayName: 'Author', avatarUrl: null },
+          },
+          visibilities: [
+            {
+              id: 'vis-1',
+              momentId: 'moment-1',
+              circleId: 'circle-1',
+              createdAt: new Date(),
+              circle: { id: 'circle-1', name: 'Family', avatarUrl: null },
+            },
+          ],
+          reactions: [
+            { id: 'r-1', momentId: 'moment-1', userId: 'user-viewer', emoji: '🔥', createdAt: new Date() },
+          ],
+        },
+      ]);
+
+      const feed = await service.getFeed('user-viewer');
+      expect(feed).toHaveLength(1);
+      expect(feed[0]!.reactionCounts).toEqual({});
+      expect(feed[0]!.userReaction).toBe('🔥');
+      expect(feed[0]!.reactions).toEqual([]);
     });
   });
 
@@ -218,6 +259,17 @@ describe('MomentsService', () => {
       await expect(service.react('user-1', 'm-none', '❤️')).rejects.toThrow(NotFoundException);
     });
 
+    it('should throw ForbiddenException if author attempts to react to their own moment', async () => {
+      mockPrisma.moment.findUnique.mockResolvedValue({
+        id: 'm-1',
+        authorId: 'user-1',
+        deletedAt: null,
+        visibilities: [{ circleId: 'circle-1' }],
+      });
+
+      await expect(service.react('user-1', 'm-1', '❤️')).rejects.toThrow(ForbiddenException);
+    });
+
     it('should throw ForbiddenException if user cannot view the moment', async () => {
       mockPrisma.moment.findUnique.mockResolvedValue({
         id: 'm-1',
@@ -238,7 +290,7 @@ describe('MomentsService', () => {
         visibilities: [{ circleId: 'circle-1' }],
       });
       mockPrisma.circleMember.findFirst.mockResolvedValue({ id: 'mem-1' });
-      mockPrisma.momentReaction.findUnique.mockResolvedValue(null);
+      mockPrisma.momentReaction.findMany.mockResolvedValue([]);
       mockPrisma.momentReaction.create.mockResolvedValue({ id: 'r-new' });
 
       const res = await service.react('user-1', 'm-1', '❤️');
@@ -248,7 +300,7 @@ describe('MomentsService', () => {
       });
     });
 
-    it('should toggle off existing reaction', async () => {
+    it('should toggle off existing reaction when tapping same emoji', async () => {
       mockPrisma.moment.findUnique.mockResolvedValue({
         id: 'm-1',
         authorId: 'user-author',
@@ -256,12 +308,33 @@ describe('MomentsService', () => {
         visibilities: [{ circleId: 'circle-1' }],
       });
       mockPrisma.circleMember.findFirst.mockResolvedValue({ id: 'mem-1' });
-      mockPrisma.momentReaction.findUnique.mockResolvedValue({ id: 'r-existing' });
+      mockPrisma.momentReaction.findMany.mockResolvedValue([{ id: 'r-existing', emoji: '❤️' }]);
 
       const res = await service.react('user-1', 'm-1', '❤️');
       expect(res).toEqual({ reacted: false, emoji: '❤️' });
-      expect(mockPrisma.momentReaction.delete).toHaveBeenCalledWith({
-        where: { id: 'r-existing' },
+      expect(mockPrisma.momentReaction.deleteMany).toHaveBeenCalledWith({
+        where: { momentId: 'm-1', userId: 'user-1' },
+      });
+    });
+
+    it('should replace existing reaction with new emoji (1 reaction per user)', async () => {
+      mockPrisma.moment.findUnique.mockResolvedValue({
+        id: 'm-1',
+        authorId: 'user-author',
+        deletedAt: null,
+        visibilities: [{ circleId: 'circle-1' }],
+      });
+      mockPrisma.circleMember.findFirst.mockResolvedValue({ id: 'mem-1' });
+      mockPrisma.momentReaction.findMany.mockResolvedValue([{ id: 'r-existing', emoji: '❤️' }]);
+      mockPrisma.momentReaction.create.mockResolvedValue({ id: 'r-new' });
+
+      const res = await service.react('user-1', 'm-1', '🔥');
+      expect(res).toEqual({ reacted: true, emoji: '🔥' });
+      expect(mockPrisma.momentReaction.deleteMany).toHaveBeenCalledWith({
+        where: { momentId: 'm-1', userId: 'user-1' },
+      });
+      expect(mockPrisma.momentReaction.create).toHaveBeenCalledWith({
+        data: { momentId: 'm-1', userId: 'user-1', emoji: '🔥' },
       });
     });
   });
@@ -426,7 +499,7 @@ describe('MomentsService', () => {
             type: 'FILE',
             content: 'Ảnh này chụp ở đâu thế?',
             fileUrl: 'https://images.unsplash.com/photo-1.jpg',
-            fileName: 'Khoảnh khắc: "Chuyến đi tuyệt vời"',
+            fileName: expect.stringContaining('"type":"MOMENT_REPLY"'),
           }),
         }),
       );

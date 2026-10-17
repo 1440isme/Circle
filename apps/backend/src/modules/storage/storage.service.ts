@@ -245,8 +245,12 @@ export class StorageService {
     fileName: string,
     contentType: string,
     buffer: Buffer,
+    customKey?: string,
   ): Promise<DirectUploadResponse> {
-    const key = this.generateKey(folder, fileName, userId);
+    const key =
+      customKey && customKey.startsWith(`${folder}/`)
+        ? customKey
+        : this.generateKey(folder, fileName, userId);
     this.localBufferStore.set(key, {
       buffer,
       contentType,
@@ -293,6 +297,8 @@ export class StorageService {
         if (ext === '.png') contentType = 'image/png';
         else if (ext === '.webp') contentType = 'image/webp';
         else if (ext === '.mp4') contentType = 'video/mp4';
+        else if (ext === '.webm') contentType = 'video/webm';
+        else if (ext === '.mov') contentType = 'video/quicktime';
 
         const item = { buffer, contentType };
         this.localBufferStore.set(key, { ...item, createdAt: new Date() });

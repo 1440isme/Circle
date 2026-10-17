@@ -20,7 +20,7 @@ import { ResendOtpDto } from './dto/resend-otp.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
-import { AuthResponseData, AuthTokens, AuthUserData, GlobalRole, SessionEntity } from '@circle/types';
+import { AuthResponseData, AuthTokens, AuthUserData, GlobalRole, PublicUserEntity, SessionEntity } from '@circle/types';
 import { Locale, locales } from '@circle/shared';
 import { TurnstileService } from './turnstile.service';
 
@@ -63,6 +63,33 @@ export class AuthService {
    */
   generateNumericOtp(): string {
     return crypto.randomInt(100000, 1000000).toString();
+  }
+
+  /**
+   * Generates a unique default user handle identifier (e.g. user_e7b1a2).
+   */
+  async generateDefaultHandle(displayName: string): Promise<string> {
+    const baseSlug = displayName
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, '_')
+      .replace(/^_+|_+$/g, '')
+      .slice(0, 15);
+
+    const prefix = baseSlug.length >= 2 ? baseSlug : 'user';
+
+    for (let attempts = 0; attempts < 10; attempts++) {
+      const suffix = crypto.randomBytes(3).toString('hex');
+      const candidate = `${prefix}_${suffix}`;
+      const existing = await this.prisma.userProfile.findUnique({
+        where: { handle: candidate },
+      });
+      if (!existing) {
+        return candidate;
+      }
+    }
+    return `user_${Date.now().toString(36)}`;
   }
 
   /**
@@ -143,6 +170,7 @@ export class AuthService {
     }
 
     const passwordHash = await this.hashPassword(dto.password);
+    const defaultHandle = await this.generateDefaultHandle(dto.displayName);
 
     const user = await this.prisma.$transaction(async (tx) => {
       const newUser = await tx.user.create({
@@ -153,6 +181,7 @@ export class AuthService {
           globalRole: GlobalRole.USER,
           profile: {
             create: {
+              handle: defaultHandle,
               displayName: dto.displayName.trim(),
             },
           },
@@ -610,33 +639,55 @@ export class AuthService {
   }
 
   /**
-   * Updates user profile (displayName, avatarUrl, bio, coverUrl, dateOfBirth).
+   * Updates user profile (handle/nickname, displayName, avatarUrl, bio, dateOfBirth).
    */
   async updateProfile(
     userId: string,
     dto: UpdateProfileDto,
     locale: Locale = 'vi',
   ): Promise<AuthUserData> {
+    const t = locales[locale] || locales.vi;
+
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: { profile: true },
     });
 
     if (!user || user.deletedAt) {
-      const t = locales[locale] || locales.vi;
       throw new UnauthorizedException(t.auth.accountInactiveOrNotFound);
+    }
+
+    let normalizedHandle: string | undefined = undefined;
+    if (dto.handle !== undefined) {
+      if (dto.handle === null || dto.handle.trim() === '') {
+        normalizedHandle = user.profile?.handle || (await this.generateDefaultHandle(user.profile?.displayName || 'user'));
+      } else {
+        const cleaned = dto.handle.trim().toLowerCase().replace(/^@/, '');
+        const existing = await this.prisma.userProfile.findFirst({
+          where: {
+            handle: cleaned,
+            userId: { not: userId },
+          },
+        });
+        if (existing) {
+          throw new ConflictException(t.auth.handleTaken);
+        }
+        normalizedHandle = cleaned;
+      }
     }
 
     const updatedProfile = await this.prisma.userProfile.upsert({
       where: { userId },
       create: {
         userId,
+        handle: normalizedHandle || (await this.generateDefaultHandle(dto.displayName || 'user')),
         displayName: dto.displayName || user.email.split('@')[0] || 'User',
         avatarUrl: dto.avatarUrl,
         bio: dto.bio,
         dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : null,
       },
       update: {
+        ...(normalizedHandle !== undefined && { handle: normalizedHandle }),
         ...(dto.displayName !== undefined && { displayName: dto.displayName }),
         ...(dto.avatarUrl !== undefined && { avatarUrl: dto.avatarUrl }),
         ...(dto.bio !== undefined && { bio: dto.bio }),
@@ -656,6 +707,64 @@ export class AuthService {
         updatedAt: updatedProfile.updatedAt.toISOString(),
       },
     };
+  }
+
+  /**
+   * Searches users by @handle or displayName.
+   * STRICT PRIVACY GUARANTEE: Never searches by or returns email addresses.
+   */
+  async searchPublicUsers(
+    query?: string,
+    currentUserId?: string,
+  ): Promise<PublicUserEntity[]> {
+    const trimmed = (query || '').trim().replace(/^@/, '');
+
+    const users = await this.prisma.user.findMany({
+      where: {
+        isActivated: true,
+        deletedAt: null,
+        ...(currentUserId && { id: { not: currentUserId } }),
+        ...(trimmed
+          ? {
+              OR: [
+                {
+                  profile: {
+                    handle: {
+                      contains: trimmed,
+                      mode: 'insensitive',
+                    },
+                  },
+                },
+                {
+                  profile: {
+                    displayName: {
+                      contains: trimmed,
+                      mode: 'insensitive',
+                    },
+                  },
+                },
+              ],
+            }
+          : {}),
+      },
+      include: {
+        profile: true,
+      },
+      take: 20,
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    return users
+      .filter((u) => u.profile)
+      .map((u) => ({
+        id: u.id,
+        handle: u.profile?.handle || `user_${u.id.slice(-6)}`,
+        displayName: u.profile?.displayName || 'User',
+        avatarUrl: u.profile?.avatarUrl || null,
+        bio: u.profile?.bio || null,
+      }));
   }
 
   /**
