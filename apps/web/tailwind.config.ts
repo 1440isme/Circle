@@ -4,28 +4,28 @@ import type { Config } from 'tailwindcss';
 // Update both whenever theme tokens change.
 const circleColors = {
   light: {
-    primary: '#658C77',
-    sage: '#4A6B5D',
-    wash: '#EBF1ED',
+    primary: '#10B981', // Emerald green
+    sage: '#059669',
+    wash: 'rgba(16, 185, 129, 0.08)',
     peach: '#E89D71',
-    charcoal: '#1F2923',
-    slate: '#6B7C72',
-    canvas: '#FAF8F5',
-    surface: '#FFFFFF',
-    ivory: '#FAF8F5',
-    hairline: '#E5E9E7',
-    coral: '#E05A47',
+    charcoal: '#17171A', // Neutral dark text
+    slate: '#6E6E76', // Neutral gray
+    canvas: '#FFFFFF', // Neutral clean white canvas
+    surface: '#F5F5F6', // Neutral surface
+    ivory: '#FFFFFF',
+    hairline: '#E3E3E8', // Neutral 1px border
+    coral: '#DC2626',
   },
   dark: {
-    canvas: '#0E1512',
-    surface: '#16201B',
-    elevated: '#1E2C25',
-    warm: '#241E18',
-    hairline: '#24352C',
-    text: '#E8EFEA',
-    muted: '#8FA298',
-    wash: 'rgba(120, 198, 163, 0.15)',
-    primary: '#78C6A3',
+    canvas: '#131316', // Deep neutral obsidian
+    surface: '#1D1D21', // Neutral dark surface
+    elevated: '#2A2A30', // Neutral dark elevated
+    warm: '#1D1D21',
+    hairline: '#2E2E35', // Neutral dark border
+    text: '#F2F2F4', // Crisp clean white
+    muted: '#A1A1AA', // Neutral gray
+    wash: 'rgba(52, 211, 153, 0.12)',
+    primary: '#34D399', // Mint green
   },
 };
 

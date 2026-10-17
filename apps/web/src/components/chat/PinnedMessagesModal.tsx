@@ -11,6 +11,7 @@ interface PinnedMessagesModalProps {
   pinnedMessages: MessageEntity[];
   isLoading: boolean;
   onUnpin: (messageId: string) => void;
+  onJumpToMessage?: (messageId: string) => void;
 }
 
 export const PinnedMessagesModal: React.FC<PinnedMessagesModalProps> = ({
@@ -19,6 +20,7 @@ export const PinnedMessagesModal: React.FC<PinnedMessagesModalProps> = ({
   pinnedMessages,
   isLoading,
   onUnpin,
+  onJumpToMessage,
 }) => {
   const t = useLanguageStore((s) => s.t);
   const locale = useLanguageStore((s) => s.locale);
@@ -27,12 +29,12 @@ export const PinnedMessagesModal: React.FC<PinnedMessagesModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-150">
-      <div className="w-full max-w-lg rounded-3xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface shadow-circle-modal overflow-hidden flex flex-col max-h-[80vh]">
+      <div className="w-full max-w-lg rounded-[28px] glass-sheet shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-circle-hairline dark:border-circle-dark-hairline px-6 py-4">
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-500/10 text-amber-500">
-              <Pin className="h-4 w-4 fill-amber-500" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-circle-canvas dark:bg-circle-dark-canvas text-circle-slate dark:text-circle-dark-muted">
+              <Pin className="h-4 w-4" />
             </div>
             <h3 className="text-base font-bold text-circle-charcoal dark:text-circle-dark-text">
               {t.chat.pinnedMessagesTitle.replace('{count}', String(pinnedMessages.length))}
@@ -81,7 +83,13 @@ export const PinnedMessagesModal: React.FC<PinnedMessagesModalProps> = ({
               return (
                 <div
                   key={msg.id}
-                  className="flex items-start justify-between gap-3 rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/40 dark:bg-circle-dark-canvas/40 p-3 hover:bg-circle-canvas transition-colors"
+                  onClick={() => {
+                    if (onJumpToMessage) {
+                      onJumpToMessage(msg.id);
+                      onClose();
+                    }
+                  }}
+                  className="flex items-start justify-between gap-3 rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/40 dark:bg-circle-dark-canvas/40 p-3 hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas/70 cursor-pointer transition-colors"
                 >
                   <div className="flex items-start gap-2.5 min-w-0 flex-1">
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-circle-primary/10 text-circle-sage dark:text-circle-primary font-bold text-xs uppercase overflow-hidden">

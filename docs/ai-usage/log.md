@@ -3822,4 +3822,397 @@
 - **Commit:** Pending
 - **PR:** Pending
 
+---
+
+## AI-0094: Tinh chỉnh Ngôn ngữ Thiết kế Flat UI/UX & Hợp nhất Cài đặt Hệ thống (US-DESIGN-001)
+
+- **Date:** 2026-10-11 22:12:00 +07:00
+- **Developer:** Trương Công Bình (23110184) & Ninh Thị Mỹ Hạnh (23110210)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash
+- **Related Issue:** #89 ([SUB-FEAT]: US-DESIGN-001 — Flat UI/UX Refinement & Unified System Settings) & Parent Epic #20
+- **Purpose:**
+  1. Cập nhật và bổ sung đặc tả Ngôn ngữ Thiết kế trong `docs/design.md`: Thừa hưởng triết lý Flat Liền mạch (Seamless Borderless Canvas), Bo tròn Chọn lọc (Selective Rounding & Line Partitioning), Icon-First Design và Clean UI (loại bỏ giải thích thừa thãi) từ Apple HIG & Meta.
+  2. Bố cục phẳng liền mạch không phân tầng: Toàn bộ Header, Sidebar, Center Chat/Stream và PresenceRail cùng chung một màu nền bề mặt đồng nhất (`bg-white` ở Light Mode, `bg-circle-dark-surface` ở Dark Mode), xóa bỏ hoàn toàn các dải phân cách giữa 3 cột. Ngoại lệ duy nhất: Header có 1 đường hairline mảnh (`border-b border-circle-hairline dark:border-circle-dark-hairline`) ngăn cách với mặt phẳng nội dung bên dưới.
+  3. Cải tiến Feed Khoảnh khắc (Daily Moments Feed): Khung ảnh/video tràn viền 100% sát cột giữa (tương tự độ rộng khung chat), loại bỏ hoàn toàn badge widget rườm rà ở trên cùng; gắn nút chụp ảnh nổi tròn (`rounded-full h-14 w-14`) cố định ngay chính giữa phía dưới cột 2.
+  4. Nâng cấp Circle Settings Modal (`CircleManagementModal.tsx`): Áp dụng chuẩn Apple Sheet (`rounded-2xl border shadow-2xl`), thanh điều hướng phẳng (active tab là `rounded-xl`), nút đóng `rounded-full`, loại bỏ các dòng chú thích/giải thích thừa thãi dưới tiêu đề rõ nghĩa.
+  5. Xây dựng component `SystemSettingsModal.tsx`: Hợp nhất Chế độ giao diện (Theme: Sáng/Tối/Hệ thống), Ngôn ngữ hiển thị (Tiếng Việt/English), và Quản lý phiên đăng nhập thiết bị (Active Sessions). Cụm lựa chọn phân tách bằng đường line 1px (`divide-x`), khi được chọn sẽ hiển thị bo tròn xúc giác (`rounded-lg bg-white shadow-xs`), các thành phần tương tác độc lập mang hình thái bo tròn hiện đại (`rounded-xl`, `rounded-full`).
+  6. Tái cấu trúc `EditProfileModal.tsx`, `SystemSettingsModal.tsx`, `SessionsManagementModal.tsx`: Bỏ hoàn toàn icon bao tròn trước tiêu đề modal (chỉ giữ tiêu đề thuần túy), loại bỏ nút "Đóng" ở chân modal khi đã có nút 'X' tròn ở góc trên; các bộ chọn chuyển đổi đều được bo góc tinh tế (`rounded-xl` / `rounded-lg`).
+  7. Làm phẳng toàn diện `CircleManagementModal.tsx`: Loại bỏ mọi card lồng nhau (`rounded-3xl border` và `rounded-2xl border bg-circle-canvas/40`), phân cách các khối bằng line mờ thanh lịch; thay thế icon cuộc gọi AI slop thành icon chuẩn `Phone` và `Video`.
+  8. Tinh gọn Clean UI: Lược bỏ toàn bộ các chú thích/phụ đề thừa thãi dưới tên cuộc trò chuyện, phòng thoại video nhóm và các hàng thiết lập.
+- **Prompt Summary:** Tối ưu hóa toàn diện nền tảng theo phong cách Flat hiện đại của Apple và Meta: nền liền mạch không chia cắt layout, header có hairline border là ngoại lệ duy nhất; bỏ icon bao tròn cạnh tiêu đề modal; bỏ nút Đóng ở chân modal khi đã có nút X; bo tròn các selector trong Cài đặt hệ thống; Moments feed tràn viền cột giữa với bo góc ảnh `rounded-2xl`, bỏ badge thường ngày, stick camera tròn ở giữa cột 2; Circle settings làm phẳng hoàn toàn, dùng icon Phone/Video chuẩn; loại bỏ phụ đề thừa thãi để làm sạch UI; tự kiểm chứng trực tiếp bằng Playwright E2E.
+- **Files Affected:**
+  - `docs/design.md`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `apps/web/src/app/page.tsx`
+  - `apps/web/src/components/header/Header.tsx`
+  - `apps/web/src/components/navigation/Sidebar.tsx`
+  - `apps/web/src/components/chat/ChannelChatView.tsx`
+  - `apps/web/src/components/chat/ChatComposer.tsx`
+  - `apps/web/src/components/presence/PresenceRail.tsx`
+  - `apps/web/src/components/moments/DailyMomentsFeed.tsx`
+  - `apps/web/src/components/stream/FeedStream.tsx`
+  - `apps/web/src/components/circle/CircleManagementModal.tsx`
+  - `apps/web/src/components/settings/SystemSettingsModal.tsx`
+  - `apps/web/src/components/profile/EditProfileModal.tsx`
+  - `apps/web/src/components/profile/SessionsManagementModal.tsx`
+  - `apps/mobile/app/(tabs)/profile.tsx`
+  - `tests/e2e/circle-workspace.spec.ts`
+  - `tests/e2e/ui-settings-verification.spec.ts`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% mã nguồn components, kịch bản kiểm thử E2E Playwright, và tài liệu đặc tả thiết kế.
+- **Human Modifications:** Trương Công Bình trực tiếp chỉ đạo định hướng thiết kế và tinh chỉnh chi tiết: giữ hairline border ở Header làm ngoại lệ duy nhất; ảnh moments tràn viền sát cột giữa với góc bo `rounded-2xl`; bỏ badge thường ngày; stick nút chụp ảnh tròn ở giữa cột 2; bỏ icon tròn trước tiêu đề modal; bỏ nút Đóng khi đã có nút X; phẳng hóa toàn bộ Circle Settings; thay icon cuộc gọi AI slop bằng icon Phone/Video tiêu chuẩn; và tinh gọn giải thích thừa thãi để clean UI.
+- **Verification Method:** 
+  - `apps/web` TypeScript compile (`tsc --noEmit`): 0 errors.
+  - Playwright E2E Test Suite (`circle-workspace.spec.ts`, `ui-settings-verification.spec.ts`): 100% pass trên Chromium desktop.
+  - Chụp màn hình và trực tiếp kiểm tra bằng hình ảnh (`view_file`): `11-circle-workspace-light.png`, `13-system-settings-light.png`, `14-circle-workspace-dark.png`, `15-system-settings-dark.png`, `16-moments-feed-dark.png`, `17-moments-feed-light.png`, `18-circle-settings-tab1-chatinfo.png`, `19-circle-settings-tab3-privacy.png`, `20-circle-settings-tab4-settings.png`, `21-circle-settings-tab5-reports.png`, `22-circle-settings-tab3-privacy-dark.png`.
+  - `./scripts/check-agent-map.sh`: 95/95 markdown files liên kết hợp lệ 100%.
+- **Official Source Checked:** `PROJECT_GOD.md` (Hard Gates G1, G3, G10), Apple HIG (macOS System Settings, Flat Canvas), Meta Design System.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks, zero mock data.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** Ban đầu hiểu nhầm việc giảm bo tròn thành làm vuông góc (`rounded-none`), để sót icon tròn trước tiêu đề h1/h3 và nút Đóng thừa ở chân modal; icon cuộc gọi trong Circle Settings dùng `PhoneCall`/`PhoneOff` bị nhận xét là AI slop.
+  - **Root Cause:** Hiểu chưa đúng tinh thần Flat Design của Apple/Meta (phẳng ở cấp độ cấu trúc phân tầng layout nhưng vẫn bo cong mượt mà ở cấp độ nút bấm/ảnh/bộ chọn); chưa tinh giản triệt để các thành phần trang trí thừa thãi.
+  - **Resolution / Fix:** Được người dùng hiệu chỉnh kịp thời; tái thiết kế theo triết lý Seamless Borderless Canvas, loại bỏ mọi icon bao tròn trước tiêu đề modal, loại bỏ nút Đóng thừa ở chân modal, bo cong `rounded-xl` chuẩn chỉnh cho các control bộ chọn, thay icon cuộc gọi thành `Phone` & `Video` tiêu chuẩn, phẳng hóa toàn diện mọi tab của Circle Settings, và chụp ảnh E2E để tự kiểm chứng thị giác 100%.
+- **Commit:** Pending
+- **PR:** Pending
+
+---
+
+## AI-0095: Đồng bộ Thiết kế Flat UI, Bỏ Viền Bao Icon & Bổ sung Cài đặt Phiên Đăng nhập trên Mobile
+
+- **Date:** 2026-10-11 23:25:00 +07:00
+- **Developer:** Trương Công Bình (23110184) & Ninh Thị Mỹ Hạnh (23110210)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash
+- **Related Issue:** #89 ([SUB-FEAT]: US-DESIGN-001 — Flat UI/UX Refinement & Unified System Settings) & Parent Epic #20
+- **Purpose:**
+  1. Loại bỏ khung viền bao quanh icon trên Web:
+     - Header kênh chat (`ChannelChatView.tsx`): Bỏ thẻ bao `flex h-8 w-8 items-center justify-center rounded-lg border`, chỉ hiển thị trực tiếp biểu tượng `<Hash />`.
+     - Bong bóng thông báo cuộc gọi (`MessageBubble.tsx`): Bỏ khối bao `flex h-9 w-9 rounded-xl`, hiển thị trực tiếp biểu tượng `<Video />` và `<Phone />` (thay thế triệt để icon `PhoneCall`).
+  2. Đồng bộ hóa Ngôn ngữ Thiết kế Flat UI trên Mobile (`CircleManagementModal.tsx`):
+     - Loại bỏ hoàn toàn khối bao icon đa màu sắc (`menuIconBox` với màu sắc phân mảnh), hiển thị trực tiếp biểu tượng với tông màu chữ chuẩn `colors.text`.
+     - Phẳng hóa các card cài đặt lồng nhau thành danh sách phân cách bằng đường kẻ mỏng (`borderBottomWidth: StyleSheet.hairlineWidth`), loại bỏ các chuỗi giải thích thừa thãi.
+  3. Bổ sung Quản lý Phiên Đăng nhập & Hợp nhất Cài đặt Hệ thống trên Mobile (`apps/mobile`):
+     - Xây dựng các hàm API (`getUserSessionsApi`, `revokeSessionApi`, `revokeOtherSessionsApi`) và React Query hooks (`useSessionsQuery`, `useRevokeSessionMutation`, `useRevokeOtherSessionsMutation`).
+     - Tạo component `SystemSettingsModal.tsx` trên mobile gồm 2 tab: Cài đặt chung (Theme: Sáng/Tối/Hệ thống; Ngôn ngữ: Tiếng Việt/English) và Phiên đăng nhập (Danh sách thiết bị, loại thiết bị, hệ điều hành, trình duyệt, IP, thời gian đăng nhập, badge "Thiết bị này", nút đăng xuất từng thiết bị và đăng xuất tất cả thiết bị khác).
+     - Kết nối `SystemSettingsModal` vào màn hình Profile (`apps/mobile/app/(tabs)/profile.tsx`) hiển thị kèm badge đếm số lượng phiên hoạt động.
+  4. Bổ sung khóa bản dịch đa ngữ `revokeSessionConfirm` trong `@circle/shared` cho cả tiếng Việt và tiếng Anh.
+- **Prompt Summary:** "hien tai con icon # o tin nhan van con vien bao, tuong tu vay voi thong bao cuoc goi, bo vien bao chi hien thi icon. va ngon ngu thiet ke nay da ap dung tren mobile chua, setting circle tren mobile dang moi mau 1 icon do, chua dong bo voi web, va cung bo vien bao chi hien thi icon thoi, nang cap ux tren mobile nhe. tren mobile chua co setting phien dang nhap, phan setting chua dong bo voi web"
+- **Files Affected:**
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `apps/web/src/components/chat/ChannelChatView.tsx`
+  - `apps/web/src/components/chat/MessageBubble.tsx`
+  - `apps/mobile/src/services/api.ts`
+  - `apps/mobile/src/hooks/use-session-queries.ts`
+  - `apps/mobile/src/components/settings/SystemSettingsModal.tsx`
+  - `apps/mobile/src/components/circle/CircleManagementModal.tsx`
+  - `apps/mobile/app/(tabs)/profile.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% mã nguồn mobile hooks, services, modal settings, và các tinh chỉnh hiển thị icon trên web.
+- **Human Modifications:** Trương Công Bình trực tiếp chỉ đạo: loại bỏ hoàn toàn viền bao bọc icon `#` và icon cuộc gọi; loại bỏ các ô icon màu mè trên mobile Circle Settings; đồng bộ tính năng quản lý phiên đăng nhập lên ứng dụng di động.
+- **Verification Method:**
+  - `packages/shared` build: thành công.
+  - `apps/mobile` TypeScript compile (`tsc --noEmit`): 0 errors.
+  - `apps/web` TypeScript compile (`tsc --noEmit`): 0 errors.
+  - Playwright E2E Test Suite (`circle-workspace.spec.ts`): pass 100% trên Chromium desktop.
+  - Trực tiếp kiểm tra hình ảnh giao diện (`tests/e2e/screenshots/11-circle-workspace-light.png`): icon `#` và icon cuộc gọi hiển thị trực tiếp thanh lịch, không viền bao.
+  - `./scripts/check-agent-map.sh`: 95/95 files OK.
+- **Official Source Checked:** `PROJECT_GOD.md` (Hard Gates G1, G3, G10), Apple Human Interface Guidelines.
+- **Security & License Check:** An toàn tuyệt đối, bảo mật endpoint session revocation với Bearer token, zero secret leaks.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A
+  - **Resolution / Fix:** N/A
+- **Commit:** Pending
+- **PR:** Pending
+
+---
+
+## AI-0096: Chuẩn hóa Toàn diện Mobile UI/UX: Header Trượt Tính Năng, Sửa Lỗi Cuộc Gọi JSON, Ghim Tin Nhắn & Vuốt Cạnh Thoát Container
+
+- **Date:** 2026-10-12 00:08:00 +07:00
+- **Developer:** Trương Công Bình (23110184) & Ninh Thị Mỹ Hạnh (23110210)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash
+- **Related Issue:** #89 ([SUB-FEAT]: US-DESIGN-001 — Flat UI/UX Refinement & Unified System Settings) & Parent Epic #20
+- **Purpose:**
+  1. Chuẩn hóa Circle Settings trên Mobile (`CircleManagementModal.tsx`) theo benchmark tab "Thông báo & Quyền riêng tư":
+     - Loại bỏ toàn bộ viền vuông và nền màu xám (`backgroundColor: colors.wash`) trong các hàng cài đặt của Thiết lập nhóm (`circleSettings`) và Báo cáo (`supportReports`); thay thế bằng cấu trúc danh sách phẳng phân cách bằng đường hairline mỏng (`borderBottomWidth: StyleSheet.hairlineWidth`).
+     - Lược bỏ badge vai trò "Thành viên" thừa thãi trong danh sách thành viên (chỉ giữ Crown cho Trưởng nhóm và Shield cho Quản trị viên).
+     - Phẳng hóa danh sách thành viên (`memberItem`) thành các hàng hairline thanh thoát thay vì card hộp rời rạc.
+  2. Tái cấu trúc Profile Screen & Cài đặt hệ thống (`profile.tsx`):
+     - Loại bỏ hoàn toàn hộp thông tin bảo mật chứa thuật ngữ kỹ thuật khó hiểu (`dualTokenSecurity`, `dualTokenSecured`) và dòng hiển thị địa chỉ email không cần thiết.
+     - Hợp nhất tính năng Mở khóa sinh trắc học (`hasBiometrics` switch) trực tiếp vào hộp Cài đặt hệ thống.
+  3. Khắc phục lỗi hiển thị thông báo cuộc gọi dạng chuỗi JSON thô trong Chat (`[id].tsx`):
+     - Xử lý bóc tách và phân tích dữ liệu tóm tắt cuộc gọi (`[CALL_SUMMARY]:{...}` hoặc JSON object), kết xuất giao diện cuộc gọi trực quan với biểu tượng Phone/Video không viền bao, hiển thị tên trạng thái cuộc gọi và thời lượng định dạng chuẩn.
+  4. Làm phẳng và dọn sạch icon màu mè trong Tiện ích nhóm (`activeTab === 'tools'`):
+     - Xóa bỏ mọi hộp bao icon đa màu sắc (`toolIcon` với background màu mè), hiển thị trực tiếp biểu tượng thanh lịch với màu `colors.text`.
+     - Chuyển đổi sang danh sách phẳng hairline bên trong card tiện ích, loại bỏ mô tả trùng lặp.
+  5. Thiết kế lại Header Vòng tròn & Thanh trượt chọn tính năng trực tiếp ở chính giữa:
+     - Cột trái: Chỉ hiển thị nút Back và Tên nhóm thuần túy (loại bỏ avatar nhỏ cạnh tên).
+     - Cột phải: Loại bỏ 2 nút Call và Video; thay thế bằng biểu tượng avatar tròn chọn/chuyển đổi Vòng tròn (`headerCircleAvatarBtn`) đồng bộ với Homepage.
+     - Chính giữa Header: Thanh trượt chọn tính năng (Chat / Khoảnh khắc / Tiện ích) với animation làm nổi bật icon đang chọn ở giữa và làm mờ (`opacity: 0.35`) các icon còn lại.
+  6. Sửa lỗi tính năng Ghim Tin nhắn trên Mobile:
+     - Bổ sung `usePinnedMessagesQuery` và đăng ký lắng nghe socket events `chat:pin`, `chat:unpin`.
+     - Khắc phục lỗi đảo ngược cờ boolean trong `handleTogglePin` và mutation `usePinMessageMutation`.
+     - Bổ sung banner tin nhắn đã ghim ở đầu khu vực chat và huy hiệu ghim trên bong bóng tin nhắn.
+  7. Nâng cấp trải nghiệm UX: Vuốt từ cạnh trái màn hình sang phải (`useEdgeSwipeDismiss`) để thoát/đóng các modal và container (`CircleManagementModal`, `SystemSettingsModal`, `EditProfileModal`, `CreateCircleModal`, `JoinCircleModal`, và màn hình chi tiết nhóm `[id].tsx`).
+- **Prompt Summary:** "phan setting cua thong bao va quyen rieng tu tren mobile da dung y toi lay do lam chuan, cac setting con lai dang con loi ui dang bi vuong, co mau nen, setting thanh vien con dang du 1 badge thanh vien, trong phan ho so ca nhan - cai dat he thong, k can thiet hien thi cac thong tin ve bao mat ma user se k biet thuat ngu do, k hien thi phan dia chi email, mo khoa sinh trac hoc gop vao box cai dat he thong, tai cau truc lai box cai dat he thong. thong bao cuoc goi tren mobile dang bi loi, in ra text json chu k phai ui, phan tien ich tren mobile van dang con nhieu box bao quanh icon nhieu mau. nut call va video o header circle tren nhom gio k hien thi nua, thay vi do la icon chon circle hien thi o do tuong tu nhu ngoai homepage vay thi icon va ten nhom se chi con hien thi ten nhom thoi, co nghia la cot trai chi hien thi ten nhom, cot phai hien thi icon chon nhom. va chinh giua header nhom gio day se la 1 dang slide luot ngang de chon tinh nang chat/moment/tien ich, co nghia la user vuot ngang se chon tinh nang tuong ung, icon tinh nang dang chon se hien thi o chinh giua header, trong khi vuot chon tinh nang thi icon k nam o chinh giua se hien thi mo animation dang faded, tinh nang ghim tin nhan tren mobile chua hoat dong. toi uu ux tren mobile bang cach vuot canh trai cua man hinh sang ben phai co nghia la thoat box, container dang mo, tuong dong voi nut tro ve"
+- **Files Affected:**
+  - `apps/mobile/src/hooks/use-edge-swipe.ts`
+  - `apps/mobile/src/hooks/use-circle-queries.ts`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `apps/mobile/app/(tabs)/profile.tsx`
+  - `apps/mobile/src/components/circle/CircleManagementModal.tsx`
+  - `apps/mobile/src/components/circle/CreateCircleModal.tsx`
+  - `apps/mobile/src/components/circle/JoinCircleModal.tsx`
+  - `apps/mobile/src/components/profile/EditProfileModal.tsx`
+  - `apps/mobile/src/components/settings/SystemSettingsModal.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% mã nguồn hook vuốt cạnh `useEdgeSwipeDismiss`, logic ghim tin nhắn, render thông báo cuộc gọi, header trượt chọn tính năng, và tái cấu trúc modal/profile.
+- **Human Modifications:** Trương Công Bình trực tiếp chỉ đạo: chuẩn hóa theo tab Thông báo & Quyền riêng tư; bỏ badge Thành viên thừa; bỏ card bảo mật và email; tích hợp sinh trắc học vào cài đặt hệ thống; sửa lỗi hiển thị JSON cuộc gọi; làm phẳng icon tiện ích; thiết kế lại header vòng tròn với thanh trượt tính năng ở giữa; sửa tính năng ghim tin nhắn; bổ sung cử chỉ vuốt cạnh trái để đóng container.
+- **Verification Method:**
+  - `apps/mobile` TypeScript compile (`tsc --noEmit`): 0 errors.
+  - `apps/web` TypeScript compile (`tsc --noEmit`): 0 errors.
+  - Playwright E2E Test Suite (`circle-workspace.spec.ts`): pass 100%.
+  - `./scripts/check-agent-map.sh`: 95/95 files OK.
+- **Official Source Checked:** `PROJECT_GOD.md` (Hard Gates G1, G3, G10), Apple Human Interface Guidelines.
+- **Security & License Check:** An toàn tuyệt đối, bảo mật token & API sessions, zero secret leaks.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A
+  - **Commit:** Pending
+- **PR:** Pending
+
+---
+
+## AI-0097: Nâng cấp Trải nghiệm Tương tác Reply — Bấm vào Trích dẫn để Tự động Cuộn đến Vị trí Tin nhắn Gốc (Web & Mobile)
+
+- **Date:** 2026-10-16 23:05:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (Medium)
+- **Related Issue:** #89 (Flat UI & System Settings Refinement)
+- **Purpose:** Nâng cấp trải nghiệm tương tác với tính năng Trả lời tin nhắn (Reply to message) trên cả nền tảng Web và Mobile theo chuẩn hiện đại:
+  1. Cho phép người dùng bấm/chạm trực tiếp vào phần trích dẫn tin nhắn được trả lời (khung preview màu xám `replyQuoteBox` bên trong bong bóng chat).
+  2. Tự động cuộn mượt mà (`element.scrollIntoView({ behavior: 'smooth', block: 'center' })` trên Web và `measureLayout` / `scrollTo` trên Mobile `ScrollView`) nhảy chính xác đến vị trí của tin nhắn gốc được rep.
+  3. Kích hoạt hiệu ứng làm nổi bật (highlight glow / ring pulse) lên tin nhắn gốc trong khoảng thời gian ~1.8 giây, giúp người dùng nhận biết ngay lập tức vị trí tin nhắn tương tự trải nghiệm trên Telegram / Discord / Messenger.
+  4. Mở rộng tính năng tự động cuộn nhảy đến tin nhắn khi nhấn vào banner Tin nhắn đã ghim (Pinned Messages Bar) và trong Modal Tin nhắn đã ghim (Pinned Messages Modal).
+  5. Đảm bảo toàn bộ hệ thống Web & Mobile vượt qua kiểm tra kiểu TypeScript (`tsc --noEmit`) với 0 lỗi.
+- **Prompt Summary:** "cải thiện tinh năng reply bang cách bấm vào tin nhắn được rep (phần xám trong box tin nhắn) thì nhảy lên (tự động cuộn) đúng vị trí của tin nhắn được rep nhé"
+- **Files Affected:**
+  - `apps/web/src/components/chat/MessageBubble.tsx`
+  - `apps/web/src/components/chat/MessageList.tsx`
+  - `apps/web/src/components/chat/ChannelChatView.tsx`
+  - `apps/web/src/components/chat/PinnedMessagesModal.tsx`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% mã nguồn xử lý tương tác click/tap, cơ chế đo tọa độ và cuộn mượt mà, hiệu ứng highlight tin nhắn trên Web và Mobile.
+- **Human Modifications:** Trương Công Bình trực tiếp chỉ đạo yêu cầu cải thiện tính năng reply: bấm vào phần trích dẫn xám để tự động nhảy lên đúng vị trí tin nhắn được rep.
+- **Verification Method:**
+  - `apps/mobile` TypeScript compile (`npm run typecheck`): 0 errors.
+  - `apps/web` TypeScript compile (`npx tsc --noEmit`): 0 errors.
+  - `./scripts/check-agent-map.sh`: 95/95 files OK.
+- **Official Source Checked:** `PROJECT_GOD.md` (Hard Gates G1, G3, G10), Apple Human Interface Guidelines.
+- **Security & License Check:** An toàn tuyệt đối, không chứa credentials, zero secret leaks.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A
+  - **Resolution / Fix:** N/A
+- **Commit:** Pending
+- **PR:** Pending
+
+---
+
+## AI-0098: Tối ưu Trải nghiệm Mobile Workspace — Vuốt Ngang Instagram-Style, Căn Giữa Cụm Nút Chức Năng, Modal Đổi Circle và Chặn Ghim Thông Báo Cuộc Gọi
+
+- **Date:** 2026-10-16 23:36:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (Medium)
+- **Related Issue:** #89 ([REFACTOR]: System Settings & Workspace Modernization — Mobile Instagram-Style Swiping, Centered Header Switcher, Circle Switcher Sheet, Disallow Call Summary Pin)
+- **Purpose:** Triển khai gói tối ưu hóa UX/UI cho Circle Workspace trên Mobile và Web:
+  1. Ngăn chặn triệt để hành động ghim (Pin) đối với các thông báo kết thúc cuộc gọi (`[CALL_SUMMARY]:...` hoặc có chứa `callType`) trên cả Web (`MessageBubble.tsx`, `ChannelChatView.tsx`) và Mobile (`apps/mobile/app/circle/[id].tsx`), ẩn nút Ghim khỏi menu hành động và từ chối xử lý ghim đối với loại tin nhắn này.
+  2. Khắc phục triệt để hiện tượng cuộn khựng/giật trên Mobile bằng cách:
+     - Tinh chỉnh `useEdgeSwipeDismiss` (`onStartShouldSetPanResponder: () => false` và `onStartShouldSetPanResponderCapture: () => false`) để không chiếm đoạt touch-down của `ScrollView`.
+     - Bọc `MobileSwipeMessageBubble` trong `React.memo` giúp giảm thiểu re-render không cần thiết cho hàng trăm tin nhắn khi có cập nhật trạng thái nhỏ.
+     - Tăng `scrollEventThrottle` lên 32ms, kích hoạt `removeClippedSubviews` trên Android, `keyboardDismissMode="on-drag"` và `nestedScrollEnabled={true}`.
+  3. Căn giữa chuẩn xác (`position: 'absolute'`, `left: 0`, `right: 0`, `bottom: 8`) cụm slider tròn 3 nút chuyển tính năng (Chat / Moments / Tiện ích) giữa màn hình Mobile mà không bị lệch hay xô đẩy bởi tiêu đề nhóm hoặc nút chuyển nhóm.
+  4. Phân tách rõ ràng hành vi tương tác header:
+     - Nhấn vào Tên Circle (bên trái): Mở cài đặt và quản lý Circle (`CircleManagementModal`).
+     - Nhấn vào nút Avatar Circle tròn (bên phải): Mở bảng đổi nhóm (`Circle Switcher Modal`) đồng bộ với trang chủ, hỗ trợ đổi nhóm nhanh, tạo nhóm mới (`CreateCircleModal`), và tham gia bằng mã (`JoinCircleModal`).
+  5. Thiết lập cơ chế lướt vuốt ngang giữa màn hình dạng Instagram (`ScrollView` horizontal `pagingEnabled` với `screenWidth`) cho phép người dùng vuốt chuyển trang mượt mà giữa Trò chuyện, Khoảnh khắc và Tiện ích mà không cần phải với tay bấm nút trên header.
+- **Prompt Summary:** "không cho ghim thông báo cuộc gọi nhé, cảm giác lướt trên mobile đang hơi bị khựng, chưa được mượt, khung tròn 3 nút chat, moment, tiện ích đặt ở giua màn mobile chứ k phải sát nút nhóm bên phải nhé, nút bên phải đó là giống ngoài trang home, là nút chọn nhóm và tạo/tham gia nhóm chứ k phải setting nhóm setting nhóm chỉ là bấm vào tên nhóm bằng text thôi, tôi muốn tăng ux bằng cách lướt giữa màn hình thì sẽ chuyển sang các trang moment, tiện ích giống như ins hiện tại thay vì user phải với tay bấm lên trên cạnh trên màn hình, bạn hiểu ý tôi chứ"
+- **Files Affected:**
+  - `apps/mobile/src/hooks/use-edge-swipe.ts`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `apps/web/src/components/chat/MessageBubble.tsx`
+  - `apps/web/src/components/chat/ChannelChatView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% mã nguồn phân trang ngang Instagram-style, tối ưu hiệu năng cuộn memo/pan-responder, căn giữa tuyệt đối header slider, chặn ghim thông báo cuộc gọi, và tích hợp Circle Switcher Sheet.
+- **Human Modifications:** Trương Công Bình trực tiếp chỉ đạo định hướng cải thiện UX vuốt ngang như Instagram, căn giữa thanh slider và phân biệt rõ nút cài đặt nhóm với nút chuyển đổi nhóm.
+- **Verification Method:**
+  - `apps/mobile` TypeScript compile (`npm run typecheck`): 0 errors.
+  - `apps/web` Next.js production build (`npm run build`): 100% thành công, 0 errors.
+  - `./scripts/check-agent-map.sh`: 95/95 files OK.
+- **Official Source Checked:** `PROJECT_GOD.md` (Hard Gates G1, G3, G10), Apple Human Interface Guidelines, Instagram gesture navigation patterns.
+- **Security & License Check:** An toàn tuyệt đối, không chứa credentials, zero secret leaks.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A
+  - **Resolution / Fix:** N/A
+- **Commit:** `fab2ef9`
+- **PR:** Pending
+
+---
+
+## AI-0099: Tích Hợp Toàn Diện Liquid Glass & Flat Design Language, Tái Cấu Trúc Hệ Thống Theme Neutral & Chat Bubble Themes, Tối Ưu Mobile Workspace
+
+- **Date:** 2026-10-17 12:00:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #89 ([REFACTOR]: System Settings & Workspace Modernization — Liquid Glass & Flat Design Language Dual Integration, Neutral Theme System, Chat Bubble Color Customization, Lazy Moments Camera, and Reply Jump Optimization)
+- **Purpose:** Triển khai toàn bộ các yêu cầu nâng cấp UI/UX theo tiêu chuẩn Liquid Glass UI Kit (Apple HIG) và Flat Design Language chuẩn mực, khắc phục các tồn đọng trên Mobile cho PR #89:
+  1. **Tích hợp Song Song Flat Design (Mặc định) và Liquid Glass UI Kit:**
+     - Lĩnh hội toàn diện 5 nguyên tắc Flat Design (`ui-kit/Flat Design Language Demo.html`): 1 màu accent chủ đạo, bề mặt trung tính (neutral surfaces), viền 1px mảnh, card 16px, bóng đổ nhẹ 2 lớp (subtle 2-layer shadow: `0 1px 2px rgb(0 0 0 / 0.06), 0 4px 16px rgb(0 0 0 / 0.06)`), không lạm dụng blur.
+     - Bảo lưu trọn vẹn Liquid Glass UI Kit (`ui-kit/Liquid Glass UI Kit Demo.html`): hiệu ứng blur hai lớp (Functional Layer 22-50px, specular highlight `inset 0 1px 0`, Content Layer đặc).
+     - Cho phép người dùng linh hoạt lựa chọn phong cách thiết kế trong Cài đặt Hệ thống trên cả Web (`SystemSettingsModal.tsx`) và Mobile (`CircleManagementModal.tsx`), mặc định là **Flat Design**.
+  2. **Tái Cấu Trúc Bảng Màu Sáng / Tối Trung Tính (Khử Triệt Để Ám Xanh):**
+     - Loại bỏ hoàn toàn tone nền ám xanh/rêu gây nhức mắt (`#0E1512` và `#16201B`).
+     - Chuẩn hóa nền canvas và bề mặt sang tone xám trung tính hiện đại chuẩn công nghiệp: Light Canvas `#FFFFFF`, Light Surface `#F5F5F6`, Dark Canvas `#131316`, Dark Surface `#1D1D21`.
+     - Giữ nguyên màu nhận diện thương hiệu CIRCLE là xanh lá cây nhạt/mint (`#10B981` light, `#34D399` dark), chỉ xuất hiện ở các vị trí điểm nhấn quan trọng (active indicator, avatar ring, brand button) thay vì phủ tràn lan toàn bộ nền tảng.
+  3. **Tùy Chọn Màu Bong Bóng Tin Nhắn (Chat Bubble Themes):**
+     - Bổ sung 5 bộ theme màu bong bóng tin nhắn: **Sage Green** (Xanh lá nhạt truyền thống), **Monochrome** (Tối giản đen/xám), **Deep Ocean** (Xanh biển sâu), **Warm Sunset** (Cam hoàng hôn ấm áp), **Soft Lavender** (Tím thạch anh).
+     - Hỗ trợ lưu trữ cấu hình qua `localStorage` trên Web và `AsyncStorage` trên Mobile; hiển thị trực quan swatch màu có kiểm tra trạng thái active.
+  4. **Áp Dụng Nghiêm Ngặt Nguyên Tắc Bo Góc Component (Concentric & Flat Radii):**
+     - Nút bấm, chip, icon box: 10px (`radius-sm`).
+     - Card, modal dialog, grouped setting list: 16px (`radius-md`).
+     - Khung soạn thảo tin nhắn (Composer): 24px (`radius-lg`).
+     - Bong bóng tin nhắn (Message Bubbles): 20px bo viền, 6px ở góc đuôi tin nhắn (20/6 rule) cho cả Web và Mobile (`MobileSwipeMessageBubble`).
+     - Avatar & badge trạng thái: 999px (full pill).
+  5. **Tái thiết kế Circle Settings Modal theo Apple HIG Grouped List:**
+     - Chuẩn hóa thanh điều hướng đơn (tiêu đề thuần text căn giữa, nút back tròn bên trái, nút close tròn bên phải).
+     - Thêm Circle Hero summary card (avatar 64px, tên nhóm, thành viên, vai trò, nút chia sẻ mã mời).
+     - Gom cài đặt vào các Grouped Card bo góc 16px, tiêu đề section viết hoa (12px, font-weight 600) đặt bên ngoài card, đồng bộ icon đơn sắc, vùng chạm chuẩn $\ge 48\text{px}$.
+  6. **Tối ưu Lazy Camera trên Tab Khoảnh khắc:**
+     - Truyền trạng thái `isActive={activeTab === 'moments'}` vào `MomentsView`, ngăn camera phần cứng tự động khởi chạy ngầm khi ở tab Chat hoặc Tiện ích.
+  7. **Dứt điểm lỗi bấm 2 lần mới nhảy lên tin nhắn reply trên Mobile:**
+     - Thiết lập `keyboardShouldPersistTaps="always"` trên cả `horizontalPagerRef` và `scrollViewRef`, ngăn chặn hoàn toàn việc chạm lần 1 bị nuốt do hủy focus bàn phím ở các ScrollView lồng nhau.
+     - Vô hiệu hóa triệt để pha capture của pan responder (`onStartShouldSetPanResponderCapture: () => false`, `onMoveShouldSetPanResponderCapture: () => false`) và mở rộng vùng chạm `hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}`.
+     - Chuẩn hóa bọc toàn bộ danh sách tin nhắn bằng container native `<View ref={messagesContentRef} collapsable={false}>`. Sử dụng `measureLayout` trực tiếp trên container gốc này để đo tuyệt đối offset `top` mà không phụ thuộc vào `currentScrollYRef`.
+     - Bổ sung cơ chế double-attempt scroll sau 120ms đảm bảo vị trí cuộn không bị layout animation của UIKit / bàn phím ghi đè hoặc triệt tiêu.
+  8. **Tối ưu phản hồi xúc giác (Haptics) & Thanh tin nhắn đã ghim (Pinned Banner/Modal):**
+     - Loại bỏ hoàn toàn cơ chế rung thô bạo bằng motor `Vibration.vibrate()`. Tích hợp `expo-haptics` với phản hồi xúc giác nhẹ nhàng chuẩn Apple HIG (`Haptics.selectionAsync()` khi vuốt chạm ngưỡng reply, `Haptics.impactAsync(Light)` khi long-press tin nhắn; triệt tiêu rung ở các thao tác chạm thông thường).
+     - Tinh giản giao diện thanh tin nhắn đã ghim (Pinned Banner) trên cả Web và Mobile: giảm bớt độ tương phản gắt, hạ kích thước viền và font chữ, thay thế các button nổi cộm bằng pill phẳng bán trong suốt thanh thoát.
+     - Xây dựng component `PinnedMessagesModal` trên Mobile cho phép xem danh sách chi tiết các tin nhắn đã ghim, bấm để nhảy tới tin nhắn và hỗ trợ bỏ ghim.
+  9. **Tính năng Mention (@) tinh giản (Minimalism) trên Web & Mobile:**
+     - Web (`ChatComposer.tsx`, `ChannelChatView.tsx`, `MessageBubble.tsx`): Tự động nhận diện khi gõ `@`, gợi ý `@all` cùng các thành viên trong Circle. Giao diện danh sách gợi ý tuân thủ nghiêm ngặt tiêu chí tối giản (minimalism: chỉ hiển thị text tên `@name`, không avatar/badge rườm rà), hỗ trợ điều hướng bàn phím đầy đủ (ArrowUp/Down, Enter, Tab, Escape). Tự động định dạng `@mention` nổi bật nhẹ nhàng trong bóng tin nhắn.
+     - Mobile (`apps/mobile/app/circle/[id].tsx`): Nhận diện `@` theo thời gian thực trong `TextInput`, hiển thị thanh pill ngang tối giản ngay trên khung composer, hỗ trợ chạm trực tiếp không nuốt phím (`keyboardShouldPersistTaps="always"`), tự động chèn `@name ` và đóng gợi ý. Tô sáng `@name` trong `MobileSwipeMessageBubble`.
+  10. **Tái Cấu Trúc Màu Tin Nhắn Theo Từng Vòng Tròn (Per-Circle Pastel Theme Synchronization):**
+      - Bổ sung trường `themeColor String? @default("sage")` vào model `Circle` trong Prisma schema và áp dụng migration database `20261017051638_add_circle_theme_color`.
+      - Cập nhật backend `CirclesService.update()`, shared validator `updateCircleSchema` và types `CircleEntity` để lưu trữ và phân phối màu chủ đề theo từng Circle. Khi Trưởng nhóm thay đổi màu, toàn bộ thành viên trong Circle đều tự động hiển thị cùng màu đó.
+      - Chuyển đổi bộ màu sang 6 tone **Pastel** trang nhã (`sage`, `ocean`, `lavender`, `sunset`, `rose`, `minimal`), đồng bộ 100% các thành phần chat: bong bóng người gửi (`.msg-bubble-me`), trích dẫn phản hồi (`.msg-bubble-reply-quote-me`), banner xem trước phản hồi (`.chat-composer-reply-banner`) và nút gửi tin nhắn (`.chat-composer-send-btn-active`).
+      - Tích hợp bộ chọn 6 màu pastel vào Cài đặt Vòng tròn trên cả Web (`CircleManagementModal.tsx`) và Mobile (`CircleManagementModal.tsx`), đồng bộ trực tiếp vào `MobileSwipeMessageBubble` và composer trên Mobile (`apps/mobile/app/circle/[id].tsx`).
+  11. **Tái Thiết Kế Modal Cài Đặt Hệ Thống 2 Cột Chuẩn Desktop (2-Column Settings UI):**
+      - Tái thiết kế toàn diện `SystemSettingsModal.tsx` trên Web theo đúng thiết kế 2 cột người dùng cung cấp (`media_1792213830009_7d6b3371.png`):
+        - Cột trái (`w-64`): Tiêu đề Cài đặt hệ thống, thanh điều hướng dọc dạng pill gồm "Cài đặt chung", "Giao diện", "Phiên đăng nhập" (kèm badge số phiên), "Ngôn ngữ", "Trợ giúp", cùng nút "Đăng xuất" đỏ ở chân cột.
+        - Cột phải: Header với tiêu đề mục + nút đóng X; Thẻ Thông tin tài khoản (Profile avatar, tên, email, bảo mật kép); Thẻ Gói sử dụng (Usage & Plan với thanh tiến trình active 100%); Thẻ Ngôn ngữ; và Thẻ Chế độ hiển thị với capsule segmented control (Sáng / Tối / Hệ thống).
+      - Loại bỏ cài đặt màu tin nhắn cá nhân khỏi Cài đặt hệ thống để đảm bảo tính đồng bộ theo Circle.
+  12. **Thu Hẹp Cột Thứ 2 & Giới Hạn Feed Khoảnh Khắc (Moments) Trọn Vẹn 1 Màn Hình:**
+      - Giảm độ rộng cột thứ 2 (Sidebar điều hướng kênh) từ `w-72` (288px) về `w-60` (240px) trên Web, khắc phục triệt để hiện tượng layout bị bè ngang quá mức.
+      - Bó hẹp khung Feed Khoảnh khắc (`DailyMomentsFeed.tsx`) với `max-w-[440px] mx-auto` và container ảnh `max-h-[440px]`, đảm bảo 1 bài đăng ảnh cùng tác giả, caption và cảm xúc hiển thị trọn vẹn trong 1 viewport mà không phải cuộn.
+   13. **Khắc Phục Lỗi Đồng Bộ Màu Tin Nhắn Per-Circle & Quyền Quản Trị:**
+       - Phát hiện và sửa lỗi backend `CirclesService`: endpoint `findUserCircles` và `findByIdOrHandle` trước đó bỏ sót trường `themeColor` trong DTO trả về, khiến việc refetch query luôn hoàn lại giá trị mặc định. Bổ sung `themeColor: circle.themeColor || 'sage'` vào cả hai endpoint.
+       - Nâng cấp điều kiện phân quyền tại `CirclesService.update()`: cho phép cả `OWNER` và `ADMIN` cập nhật màu sắc và cấu hình nhóm (`isOwnerOrAdmin`), đồng bộ tương ứng ở client Web & Mobile.
+       - Bổ sung unit test kiểm thử quyền ADMIN cập nhật Circle trong `circles.service.spec.ts` (43/43 tests passed).
+   14. **Tối Giản Hóa Triệt Để Cài Đặt Hệ Thống & Cài Đặt Nhóm (Loại Bỏ Hoàn Toàn General và Chú Thích Ngoặc Đơn):**
+       - Web: Loại bỏ hoàn toàn mục "Cài đặt chung" (`general`) khỏi `SystemSettingsModal.tsx`. Modal mặc định mở trực tiếp vào tab "Giao diện" (`appearance`). Danh mục sidebar chỉ gồm Giao diện, Phiên đăng nhập, Ngôn ngữ, Trợ giúp và Đăng xuất.
+       - Mobile: Tái thiết kế `SystemSettingsModal.tsx` trên Mobile sang kiến trúc 2 tầng (drill-down view) đồng bộ với Web: Tầng 1 gồm các dòng menu tương ứng danh mục cột trái của Web; bấm vào từng dòng sẽ chuyển mượt mà sang Tầng 2 chi tiết với nút `<` quay lại.
+       - Mobile Circle Settings (`CircleManagementModal.tsx`): Bóc tách triệt để cài đặt giao diện cá nhân (Flat/Glass, Light/Dark) ra khỏi cài đặt nhóm. Trong cài đặt nhóm chỉ giữ lại bảng chọn màu pastel per-circle. Xóa bỏ 100% các chú thích ngoặc đơn `(...)` rườm rà như `(Pastel)`, `(Đồng bộ toàn nhóm)`, `(Owner only)`, `(Read receipts)`, `(Typing indicator)`, mang lại phong cách Minimalism thanh thoát.
+   15. **Chuẩn Hóa Tỷ Lệ Độ Rộng 3/5 Cho Bảng Tin Khoảnh Khắc (Moments) & Khung Chat Trên Web:**
+       - Mở rộng container nội dung của cả `DailyMomentsFeed.tsx` và `ChannelChatView.tsx` lên `max-w-[620px] mx-auto w-full`, cân đối chính xác ~3/5 bề ngang của cột giữa, khắc phục tình trạng bị co hẹp quá mức trước đó.
+   16. **Xử Lý Triệt Để Độ Tương Phản Màu & Chữ Sáng / Tối (Light/Dark Contrast Fixes):**
+       - Xóa bỏ các thuộc tính text cứng màu trắng (`text-white`, `rgba(255,255,255,0.85)`, `colors.onPrimary`) trên các bong bóng tin nhắn pastel người gửi (`.msg-bubble-me`), trích dẫn phản hồi, thẻ thông báo tóm tắt cuộc gọi, danh sách tệp đính kèm và thẻ `@mention`.
+       - Thay thế bằng `text-current` và `senderTextColor` tương ứng với biến CSS `--circle-theme-bubble-text`, đảm bảo văn bản, biểu tượng và nhãn thời gian hiển thị tương phản sắc nét, dễ đọc trên cả nền sáng và tối.
+   17. **Xác Minh Tự Động Với Playwright:**
+       - Cập nhật kịch bản Playwright E2E `tests/e2e/ui-settings-verification.spec.ts` kiểm thử toàn diện luồng cài đặt mới, xác minh chuyển đổi theme Flat/Glass, Dark/Light, kiểm tra tương phản và chụp lại các bằng chứng screenshot.
+- **Prompt Summary:** Tích hợp bộ cẩm nang Liquid Glass UI Kit và Flat Design Language, tái cấu trúc hệ màu trung tính không ám xanh, chuyển đổi màu tin nhắn sang pastel và lưu theo từng Circle (đồng bộ toàn bộ thành viên, ô reply, nút gửi), tái thiết kế Modal Cài đặt Hệ thống 2 cột chuẩn desktop (bỏ mục general, drill-down menu cho mobile), đồng bộ cài đặt nhóm (loại bỏ chú thích ngoặc đơn, chỉ giữ màu nhóm), mở rộng feed khoảnh khắc và chat lên 3/5 cột giữa, sửa lỗi tương phản text trắng trong theme pastel/sáng, kiểm thử giao diện bằng Playwright.
+- **Files Affected:**
+  - `package.json`
+  - `apps/backend/prisma/schema.prisma`
+  - `apps/backend/prisma/migrations/20261017051638_add_circle_theme_color/migration.sql`
+  - `apps/backend/src/modules/circles/circles.service.ts`
+  - `apps/backend/src/modules/circles/circles.service.spec.ts`
+  - `packages/shared/src/theme/colors.ts`
+  - `packages/shared/src/validators/circle.validator.ts`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `packages/types/src/index.ts`
+  - `apps/mobile/package.json`
+  - `apps/mobile/src/constants/glass-theme.ts`
+  - `apps/mobile/src/stores/theme.store.ts`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `apps/mobile/app/(tabs)/index.tsx`
+  - `apps/mobile/app/(tabs)/profile.tsx`
+  - `apps/mobile/src/components/chat/PinnedMessagesModal.tsx`
+  - `apps/mobile/src/components/circle/CircleManagementModal.tsx`
+  - `apps/mobile/src/components/settings/SystemSettingsModal.tsx`
+  - `apps/mobile/src/components/moment/MomentsView.tsx`
+  - `apps/web/tailwind.config.ts`
+  - `apps/web/src/app/globals.css`
+  - `apps/web/src/stores/circle.store.ts`
+  - `apps/web/src/stores/theme.store.ts`
+  - `apps/web/src/components/header/Header.tsx`
+  - `apps/web/src/components/navigation/Sidebar.tsx`
+  - `apps/web/src/components/moments/DailyMomentsFeed.tsx`
+  - `apps/web/src/components/chat/ChannelChatView.tsx`
+  - `apps/web/src/components/chat/ChatComposer.tsx`
+  - `apps/web/src/components/chat/MessageBubble.tsx`
+  - `packages/shared/src/constants/emojis.ts`
+  - `packages/shared/src/index.ts`
+  - `apps/web/src/components/ui/FullEmojiPickerModal.tsx`
+  - `apps/mobile/src/components/ui/FullEmojiPickerModal.tsx`
+  - `apps/web/src/lib/socket.ts`
+  - `apps/web/src/components/ui/Emoji.tsx`
+  - `apps/mobile/src/services/socket.ts`
+  - `apps/mobile/src/components/ui/Emoji.tsx`
+  - `apps/backend/src/modules/chat/chat.gateway.ts`
+  - `apps/backend/src/modules/circles/circles.module.ts`
+  - `apps/web/src/app/page.tsx`
+  - `apps/web/src/components/header/Header.tsx`
+  - `apps/web/src/components/navigation/Sidebar.tsx`
+  - `apps/web/src/components/presence/PresenceRail.tsx`
+  - `apps/web/src/components/stream/FeedStream.tsx`
+  - `apps/mobile/src/components/moment/MomentsView.tsx`
+  - `apps/web/src/components/chat/ChatComposer.tsx`
+  - `tests/e2e/ui-settings-verification.spec.ts`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% mã nguồn bộ token neutral và flat design, hệ thống tùy chọn giao diện Flat vs Glass, cấu hình theme bóng tin nhắn pastel per-circle cho mọi thành viên (không chỉ admin), Prisma migration schema, cấu trúc layout 2 cột Desktop Settings Modal, thiết kế khung Cài đặt Hệ thống tích hợp trực tiếp trên trang Hồ sơ cá nhân mobile (`profile.tsx`) dạng drill-down không popup, công tắc đăng nhập vân tay / Face ID duy nhất hợp nhất, loại bỏ nút rời trùng lặp, mở rộng khung chat và feed khoảnh khắc đồng bộ chiều rộng thoáng rộng `max-w-4xl` (~896px) với ảnh giữ nguyên tỉ lệ vuông 1:1 chuẩn mực (`aspect-square w-full`) tăng cả chiều rộng lẫn chiều cao, cuộn snap từng ảnh (`snap-y snap-mandatory`), căn giữa feed khoảnh khắc và căn trái lề chữ tiêu đề, dải chọn màu tin nhắn dạng hình tròn tinh tế không chứa text với viền tròn đồng màu khi được chọn (trên cả web và mobile), cơ chế phát sóng realtime sự kiện đổi màu nhóm qua Socket.IO (`circle:update-theme` & `circle:theme_updated`), đồng bộ bảng màu pastel cho tin nhắn của người khác (`otherBg`, `otherBorder`, `otherAccent`) tách biệt rõ ràng với tin nhắn của bản thân và loại bỏ màu xanh mặc định cũ, xóa bỏ box thành viên đơn độc thừa trong cài đặt nhóm mobile khi thành viên thông thường mở, loại bỏ viền vuông bao quanh icon trong mục Cài đặt hệ thống hồ sơ cá nhân và Giao diện mobile (flat naked icons), đồng bộ 100% màu icon trung tính cho toàn bộ nền tảng cả Web và Mobile (loại bỏ màu xanh/vàng/indigo ở call, presence rail, crown, chỉ giữ màu đỏ cho thao tác nguy hiểm), triển khai hệ thống Emoji toàn diện với 3 emoji nổi bật sẵn có + nút mở Full Emoji Picker Sheet/Modal đa danh mục (Smileys, Gestures, Hearts, Animals, Food, Activities) cho cả Web và Mobile, nâng cấp toàn diện bộ Emoji sang chuẩn Apple Color Emoji 160x160 bóng bẩy cao cấp (qua CDN Apple style `emojicdn.elk.sh`) thay thế Twemoji phẳng 2D, tái thiết kế thanh Header di động kết hợp phương án 1 và 3 thành header vô cực trôi nổi không ranh giới (`borderBottomWidth: 0`) với lớp nền mờ kính `BlurView` cho phép tin nhắn cuộn trượt mờ mềm mại bên dưới, tầng 1 gồm 3 anchor đối xứng hoàn hảo (Nút Back tròn bên trái, Cụm viên con nhộng 3 tab Chat|Moments|Tools ở chính giữa, Nút avatar chuyển Circle bên phải), tầng 2 là chip/pill tên nhóm nổi ở giữa bấm vào để mở Cài đặt nhóm (khi sang tab Khoảnh khắc thì chuyển đổi mượt mà sang số lượng bạn bè và bộ lọc thành viên), đồng bộ bố cục thẻ bạn bè tầng 2 của tab Khoảnh khắc (`MomentsView.tsx`) đồng nhất 100% với Layer 2 của 2 tab còn lại, tái cấu trúc Web Workspace thành bố cục 3 cột stick liền khối căn giữa màn hình (`max-w-[1400px] mx-auto h-screen`), loại bỏ hoàn toàn header truyền thống và ô tìm kiếm, thay bằng floating brand capsule pill `[ C Circle ]` bo sát viền không khoảng thừa sát góc trái trên cùng floating circular user avatar sát góc phải trên và nút chuông thông báo trôi nổi đặt ngay bên trái avatar, nắn thẳng mép trên cùng của cả 3 cột (Sidebar, Stream, PresenceRail) đồng nhất xuất phát từ cùng baseline 12px không lệch dòng, tái thiết kế ô soạn thảo tin nhắn theo chuẩn phong cách Apple iMessage tách nút hành động riêng ra 1 bên: khung con nhộng trái chứa nút (+) viền tròn đỏ/coral, icon ảnh, trường nhập văn bản và nút sticker/emoji ở góc phải bên trong; nút hành động tròn độc lập bên phải chuyển đổi tự nhiên giữa biểu tượng Ghi âm (Mic đỏ khi chưa nhập) và nút Gửi (Send khi có chữ/ảnh) cho cả Web và Mobile, áp dụng nghiêm ngặt ngôn ngữ Flat (solid surfaces, zero blur, hairline borders) và Liquid Glass (frosted blur `intensity={45-55}` / `backdrop-blur-md`, specular highlights) theo đúng lựa chọn của người dùng trên toàn bộ các thành phần mới, sửa lỗi vị trí neo badge emoji dưới góc bong bóng tin nhắn mobile, layout Apple HIG grouped list, lazy camera lifecycle, logic cuộn measureInWindow/measureLayout, expo-haptics, PinnedMessagesModal mobile, mention autocomplete tinh giản, xử lý tương phản chữ/icon và kịch bản kiểm thử E2E Playwright.
+- **Human Modifications:** Trương Công Bình trực tiếp chỉ đạo quy tắc 1 PR = 1 log AI duy nhất (cấm tạo log linh tinh), yêu cầu tích hợp đồng thời cả Flat và Liquid Glass cho người dùng tùy chọn (mặc định Flat), chuyển màu tin nhắn vào Cài đặt Vòng tròn để đồng bộ toàn bộ thành viên cùng màu, chọn màu pastel và đồng bộ toàn bộ ô reply / nút gửi, khôi phục khung chat và bài đăng khoảnh khắc rộng thoáng trở lại (`max-w-4xl`) với ảnh vuông 1:1 tăng đồng thời cả chiều rộng và chiều cao, moment hiển thị 1 ảnh trong 1 lần view và lướt snap tương tự mobile, làm lại giao diện Settings 2 cột theo đúng hình ảnh cung cấp (bỏ General, trên mobile hiển thị dạng drill-down theo danh mục web nhúng thẳng vào trang hồ sơ cá nhân thay vì popup modal, hợp nhất đăng nhập vân tay), dải chọn màu chỉ hiển thị hình tròn màu tinh tế không text mô tả và viền màu được chọn là viền tròn của chính màu đó (áp dụng cho cả mobile và web), khắc phục triệt để lỗi màu chat trên web, sửa phần khoảnh khắc thường ngày trên web căn giữa feed và căn trái lề chữ tiêu đề, đồng bộ realtime màu chat qua Socket.IO không cần reload trang giữa web và mobile, đồng bộ màu pastel cho tin nhắn của người khác hài hòa với theme nhưng khác màu tin nhắn của mình, xóa box thành viên đơn độc thừa trong setting nhóm mobile khi mở ở quyền thành viên thường, xóa viền vuông icon trong setting hồ sơ cá nhân và giao diện mobile, đồng bộ màu icon trung tính cho toàn bộ nền tảng (cả Web và Mobile), sửa lỗi vị trí badge emoji trên mobile và xây dựng hệ thống emoji toàn diện (hiển thị 3 emoji nổi bật sẵn + icon mở full bảng emoji như các nền tảng khác), chốt phương án kết hợp 1 và 3 cho header nhóm (header trôi nổi gồm 3 nút đối xứng, bỏ hoàn toàn khung header cứng, phủ mờ BlurView để tin nhắn cuộn trượt mờ ở dưới, tầng 2 hiển thị tên nhóm bấm vào mở setting, tab moment giữ số lượng bạn bè đồng bộ thiết kế với 2 tab còn lại), nâng cấp bộ emoji sang nguồn Apple xịn loại bỏ cảm giác Twemoji phèn, thiết kế lại Web bỏ header và ô tìm kiếm, 3 cột stick liền mạch căn giữa màn hình, góc trái trên là viên thuốc logo Circle bo sát, góc phải trên là avatar tròn với nút chuông thông báo đặt bên trái avatar, nắn thẳng mép trên cùng của cả 3 cột, thiết kế ô nhắn tin học theo Apple tách nút hành động riêng ra một bên (icon ghi âm mic đỏ khi rỗng và nút gửi khi có text) áp dụng cho cả web và mobile, và đảm bảo tuân thủ 2 ngôn ngữ thiết kế Flat vs Glass rõ rệt theo tùy chọn của user trên cả Mobile và Web.
+- **Verification Method:**
+  - `packages/shared` build (`npm run build`): Thành công 100%, 0 errors.
+  - `apps/backend` Unit Tests (`npm test -w @circle/backend`): 44/44 tests passed 100% (bao gồm quyền mọi MEMBER đổi themeColor vòng tròn).
+  - `apps/mobile` TypeScript typecheck (`npx tsc --noEmit -p apps/mobile/tsconfig.json`): 0 errors (`tsc --noEmit` exit 0).
+  - `apps/web` TypeScript typecheck (`npx tsc --noEmit -p apps/web/tsconfig.json`): 0 errors (`tsc --noEmit` exit 0).
+  - `apps/backend` TypeScript typecheck (`npx tsc --noEmit -p apps/backend/tsconfig.json`): 0 errors (`tsc --noEmit` exit 0).
+  - Playwright E2E Test (`npx playwright test tests/e2e/ui-settings-verification.spec.ts`): Passed 100% (4/4 passed), kiểm tra đầy đủ Flat/Glass modes, neutral themes, pastel circle themes, responsive workspace layout, floating header elements, và visual snapshot verification.
+  - Apple Emoji CDN check: HTTP 200 RGBA PNG 160x160 với cache 30 ngày và native text fallback.
+  - `./scripts/check-agent-map.sh`: 95/95 files OK.
+- **Official Source Checked:** `PROJECT_GOD.md` (Hard Gates G1, G3, G10), Apple Human Interface Guidelines, Apple Color Emoji specifications, `ui-kit/Flat Design Language Demo.html`, `ui-kit-liquid-glass/Liquid Glass UI Kit Demo.html`.
+- **Security & License Check:** An toàn tuyệt đối, không chứa credentials, zero secret leaks.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** Next.js dev server báo lỗi `__webpack_modules__[moduleId] is not a function` khi module shared vừa build lại mà dev server chưa load cache mới; selector tab thiết lập vòng tròn trong file test Playwright ban đầu click nhầm vào button sidebar nền bị backdrop chặn; `CirclesService.findUserCircles` và `findByIdOrHandle` bỏ sót trường `themeColor` trong DTO trả về khiến client bị mất theme khi refetch; selector `:not([data-circle-theme]):not([data-msg-theme])` trong `globals.css` đè biến CSS của các phần tử con về mặc định sage; hàm `handleThemeColorChange` trong `CircleManagementModal.tsx` gọi `setActiveCircle` mà chưa trích xuất hàm này từ store dẫn đến lỗi `ReferenceError: setActiveCircle is not defined`.
+  - **Root Cause:** Next.js webpack cache giữ reference cũ của package shared; Playwright locator `button:has-text("Thiết lập")` thiếu scoping vào container modal `.fixed.z-50`; service backend chỉ lưu vào database nhưng chưa map `themeColor` ra object trả về; selector CSS phủ định áp dụng lên mọi phần tử con bên trong container có theme; thiếu khai báo selector `setActiveCircle` từ `useCircleStore`.
+  - **Resolution / Fix:** Khởi động lại Next.js dev server fresh; scope chính xác locator trong Playwright test vào modal `.fixed.z-50`; bổ sung `themeColor: circle.themeColor || 'sage'` vào cả 2 endpoint truy vấn của `CirclesService`; chuyển đổi `:not([data-circle-theme])` sang định nghĩa biến mặc định tại `:root` và `html.dark` giúp biến CSS kế thừa tự nhiên; khai báo bổ sung `const setActiveCircle = useCircleStore((s) => s.setActiveCircle)` và cập nhật optimistic state cho activeCircle.
+- **Commit:** `400c8c3`
+- **PR:** #92 (https://github.com/1440isme/Circle/pull/92)
+
+
+
+
+
+
 

@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
-import { ApiResponse, AuthResponseData, AuthTokens } from '@circle/types';
+import { ApiResponse, AuthResponseData, AuthTokens, SessionEntity } from '@circle/types';
 import { getAuthTokens, saveAuthTokens, clearAuthTokens } from './storage';
 import { useLanguageStore } from '../stores/language.store';
 
@@ -205,3 +205,51 @@ export async function mobileApiRequest<T>(
 
   return resData;
 }
+
+/**
+ * Fetch all active sessions for current user on mobile
+ */
+export async function getUserSessionsApi(): Promise<SessionEntity[]> {
+  const { refreshToken } = await getAuthTokens();
+  const headers: Record<string, string> = {};
+  if (refreshToken) {
+    headers['x-refresh-token'] = refreshToken;
+  }
+
+  const res = await mobileApiRequest<SessionEntity[]>('/auth/sessions', {
+    method: 'GET',
+    headers,
+  });
+
+  return res.data;
+}
+
+/**
+ * Revoke a specific session on mobile
+ */
+export async function revokeSessionApi(sessionId: string): Promise<{ message: string }> {
+  const res = await mobileApiRequest<{ message: string }>(`/auth/sessions/${sessionId}`, {
+    method: 'DELETE',
+  });
+
+  return res.data;
+}
+
+/**
+ * Revoke all other sessions on mobile
+ */
+export async function revokeOtherSessionsApi(): Promise<{ count: number; message: string }> {
+  const { refreshToken } = await getAuthTokens();
+  const headers: Record<string, string> = {};
+  if (refreshToken) {
+    headers['x-refresh-token'] = refreshToken;
+  }
+
+  const res = await mobileApiRequest<{ count: number; message: string }>('/auth/sessions/other', {
+    method: 'DELETE',
+    headers,
+  });
+
+  return res.data;
+}
+

@@ -67,7 +67,10 @@ import {
   useCreateReportMutation,
 } from '../../hooks/use-circle-queries';
 import { getStorageItem, setStorageItem } from '../../services/storage';
+import { useEdgeSwipeDismiss } from '../../hooks/use-edge-swipe';
 import { MemberRole } from '@circle/types';
+import { MessageBubbleThemes, MessageTheme } from '@circle/shared';
+import { sendMobileCircleThemeUpdate } from '../../services/socket';
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -85,7 +88,16 @@ const AVATAR_PRESETS = [
 ];
 
 export function CircleManagementModal() {
-  const { colors, resolvedTheme } = useThemeStore();
+  const {
+    colors,
+    resolvedTheme,
+    theme,
+    setTheme,
+    uiStyle,
+    setUiStyle,
+    messageTheme,
+    setMessageTheme,
+  } = useThemeStore();
   const t = useLanguageStore((s) => s.t);
   const user = useAuthStore((s) => s.user);
   const isDark = resolvedTheme === 'dark';
@@ -133,6 +145,9 @@ export function CircleManagementModal() {
   const [formMaxMembers, setFormMaxMembers] = useState<number | null>(null);
   const [isCapacityModalOpen, setIsCapacityModalOpen] = useState(false);
   const [tempCapacityInput, setTempCapacityInput] = useState('');
+  const [formThemeColor, setFormThemeColor] = useState<MessageTheme>(
+    ((circle as any)?.themeColor as MessageTheme) || 'sage'
+  );
 
   // Tab 2: Members Subtab ('roster' | 'requests')
   const [membersSubTab, setMembersSubTab] = useState<'roster' | 'requests'>('roster');
@@ -174,6 +189,16 @@ export function CircleManagementModal() {
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
 
+  const edgePan = useEdgeSwipeDismiss({
+    onDismiss: () => {
+      if (activeTab !== 'menu') {
+        setActiveTab('menu');
+      } else {
+        handleClose();
+      }
+    },
+  });
+
   // Sync state when modal opens or circle changes
   useEffect(() => {
     if (visible && circle) {
@@ -183,6 +208,7 @@ export function CircleManagementModal() {
       setFormIsPrivate(Boolean(circle.isPrivate));
       setFormMaxMembers(circle.maxMembers ?? null);
       setTempCapacityInput(circle.maxMembers ? String(circle.maxMembers) : '');
+      setFormThemeColor(((circle as any)?.themeColor as MessageTheme) || 'sage');
       setMembersSubTab('roster');
       setErrorMessage(null);
       setSuccessMessage(null);
@@ -353,6 +379,21 @@ export function CircleManagementModal() {
         isPrivate: formIsPrivate,
         maxMembers: max,
       });
+    } catch (err: any) {
+      setErrorMessage(err?.message || t.circle.createError);
+    }
+  };
+
+  // Tab 4: Theme Color Change (Auto-Save & Realtime Socket Broadcast)
+  const handleThemeColorChange = async (color: MessageTheme) => {
+    setFormThemeColor(color);
+    if (circleId) {
+      sendMobileCircleThemeUpdate(circleId, color);
+    }
+    try {
+      await updateCircleMutation.mutateAsync({
+        themeColor: color,
+      } as any);
     } catch (err: any) {
       setErrorMessage(err?.message || t.circle.createError);
     }
@@ -628,6 +669,7 @@ export function CircleManagementModal() {
         />
 
         <View
+          {...edgePan.panHandlers}
           style={[
             styles.sheetContainer,
             {
@@ -639,24 +681,24 @@ export function CircleManagementModal() {
           {/* Sheet Handle */}
           <View style={[styles.sheetHandle, { backgroundColor: colors.hairline }]} />
 
-          {/* Header */}
-          <View style={styles.header}>
-            <View style={styles.headerLeft}>
-              <View style={[styles.circleBadge, { backgroundColor: `${colors.primary}20` }]}>
-                {circle.avatarUrl ? (
-                  <RNImage source={{ uri: circle.avatarUrl }} style={styles.badgeImage} />
-                ) : (
-                  <Text style={[styles.circleBadgeText, { color: colors.primary }]}>
-                    {getInitials(circle.name)}
-                  </Text>
-                )}
-              </View>
-              <View style={styles.headerTitleGroup}>
-                <Text numberOfLines={1} style={[styles.title, { color: colors.text }]}>
-                  {circle.name}
-                </Text>
-              </View>
-            </View>
+          {/* Top Navigation Bar: Single Unified Clean Bar without nested icons in H1 */}
+          <View style={[styles.header, { borderBottomColor: colors.hairline }]}>
+            {activeTab !== 'menu' ? (
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => setActiveTab('menu')}
+                style={[styles.closeBtn, { backgroundColor: colors.wash }]}
+              >
+                <ArrowLeft size={18} color={colors.text} />
+              </TouchableOpacity>
+            ) : (
+              <View style={{ width: 32, height: 32 }} />
+            )}
+
+            <Text numberOfLines={1} style={[styles.title, { color: colors.text }]}>
+              {activeTab === 'menu' ? (t.nav?.circleSettings || 'Cài đặt Vòng tròn') : getSubHeaderTitle()}
+            </Text>
+
             <TouchableOpacity
               onPress={handleClose}
               style={[styles.closeBtn, { backgroundColor: colors.wash }]}
@@ -664,23 +706,6 @@ export function CircleManagementModal() {
               <X size={18} color={colors.subtle} />
             </TouchableOpacity>
           </View>
-
-          {/* SUB-HEADER WITH BACK BUTTON WHEN IN SUB-VIEWS */}
-          {activeTab !== 'menu' && (
-            <View style={[styles.subHeaderBar, { borderBottomColor: colors.hairline }]}>
-              <TouchableOpacity
-                activeOpacity={0.7}
-                onPress={() => setActiveTab('menu')}
-                style={[styles.backToMenuBtn, { backgroundColor: colors.wash }]}
-              >
-                <ArrowLeft size={18} color={colors.text} />
-              </TouchableOpacity>
-              <Text numberOfLines={1} style={[styles.subHeaderTitle, { color: colors.text }]}>
-                {getSubHeaderTitle()}
-              </Text>
-              <View style={styles.subHeaderPlaceholder} />
-            </View>
-          )}
 
           {/* Feedback Banners */}
           {errorMessage && (
@@ -697,127 +722,243 @@ export function CircleManagementModal() {
           )}
 
           {/* =========================================================================
-              ROOT MENU: CLEAN LIST WITHOUT SUBTITLES (5 DISTINCT SECTIONS)
+              ROOT MENU: APPLE HIG GROUPED LIST LAYOUT WITH HERO CARD
              ========================================================================= */}
           {activeTab === 'menu' && (
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.tabContent}>
-              {/* Group 1: 5 Main Settings Rows (Clean Titles Only) */}
-              <View style={[styles.menuSectionCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
-                {/* 1. Thông tin đoạn chat */}
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() => setActiveTab('chatInfo')}
-                  style={[styles.menuRowItem, { borderBottomColor: colors.hairline, borderBottomWidth: 1 }]}
-                >
-                  <View style={[styles.menuIconBox, { backgroundColor: `${colors.primary}18` }]}>
-                    <MessageSquare size={18} color={colors.primary} />
-                  </View>
-                  <View style={styles.menuRowContent}>
-                    <Text style={[styles.menuRowTitle, { color: colors.text }]}>
-                      {t.circle.chatInfoTab || 'Thông tin đoạn chat'}
+              {/* Circle Identity Hero Card */}
+              <View style={[styles.heroSummaryCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+                <View style={[styles.heroAvatarBox, { backgroundColor: `${colors.primary}20` }]}>
+                  {circle.avatarUrl ? (
+                    <RNImage source={{ uri: circle.avatarUrl }} style={styles.heroAvatarImg} />
+                  ) : (
+                    <Text style={[styles.heroAvatarText, { color: colors.primary }]}>
+                      {getInitials(circle.name)}
+                    </Text>
+                  )}
+                </View>
+                <Text numberOfLines={1} style={[styles.heroCircleName, { color: colors.text }]}>
+                  {circle.name}
+                </Text>
+                <View style={styles.heroMetaRow}>
+                  <Text style={[styles.heroMetaText, { color: colors.subtle }]}>
+                    {members.length} {t.circle.settingsTabMembers || 'thành viên'}
+                  </Text>
+                  <Text style={[styles.heroMetaDot, { color: colors.subtle }]}>•</Text>
+                  <View style={[styles.heroRoleBadge, { backgroundColor: isOwner ? `${colors.warning || '#F59E0B'}20` : colors.wash }]}>
+                    <Text style={[styles.heroRoleText, { color: isOwner ? (colors.warning || '#F59E0B') : colors.text }]}>
+                      {isOwner ? (t.circle.memberRoleOwner || 'Trưởng nhóm') : userRole === 'ADMIN' ? (t.circle.memberRoleAdmin || 'Quản trị viên') : 'Thành viên'}
                     </Text>
                   </View>
-                  <ChevronRight size={18} color={colors.subtle} />
-                </TouchableOpacity>
+                </View>
 
-                {/* 2. Thành viên */}
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() => setActiveTab('members')}
-                  style={[styles.menuRowItem, { borderBottomColor: colors.hairline, borderBottomWidth: 1 }]}
-                >
-                  <View style={[styles.menuIconBox, { backgroundColor: `${colors.info || colors.primary}18` }]}>
-                    <Users size={18} color={colors.info || colors.primary} />
-                  </View>
-                  <View style={styles.menuRowContent}>
-                    <Text style={[styles.menuRowTitle, { color: colors.text }]}>
-                      {t.circle.settingsTabMembers || 'Thành viên'}
+                {/* Quick Invite Code Pill */}
+                {circle.inviteCode && (
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    onPress={handleShareInvite}
+                    style={[styles.heroInvitePill, { backgroundColor: colors.wash, borderColor: colors.hairline }]}
+                  >
+                    <Share2 size={13} color={colors.text} />
+                    <Text style={[styles.heroInvitePillText, { color: colors.text }]}>
+                      {t.circle.inviteCodeLabel || 'Mã mời'}: <Text style={{ fontWeight: '700' }}>{circle.inviteCode}</Text>
                     </Text>
-                  </View>
-                  <View style={styles.menuRowRight}>
-                    <View style={[styles.countBadge, { backgroundColor: colors.wash }]}>
-                      <Text style={[styles.countBadgeText, { color: colors.text }]}>{members.length}</Text>
-                    </View>
-                    <ChevronRight size={18} color={colors.subtle} />
-                  </View>
-                </TouchableOpacity>
-
-                {/* 3. Thông báo & Quyền riêng tư */}
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() => setActiveTab('privacySupport')}
-                  style={[styles.menuRowItem, { borderBottomColor: colors.hairline, borderBottomWidth: 1 }]}
-                >
-                  <View style={[styles.menuIconBox, { backgroundColor: `${colors.success || '#10B981'}18` }]}>
-                    <Bell size={18} color={colors.success || '#10B981'} />
-                  </View>
-                  <View style={styles.menuRowContent}>
-                    <Text style={[styles.menuRowTitle, { color: colors.text }]}>
-                      {t.circle.notificationsAndPrivacyTab || 'Thông báo & Quyền riêng tư'}
-                    </Text>
-                  </View>
-                  <ChevronRight size={18} color={colors.subtle} />
-                </TouchableOpacity>
-
-                {/* 4. Thiết lập Vòng tròn (Owner Settings) */}
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() => setActiveTab('circleSettings')}
-                  style={[styles.menuRowItem, { borderBottomColor: colors.hairline, borderBottomWidth: 1 }]}
-                >
-                  <View style={[styles.menuIconBox, { backgroundColor: `${colors.warning || '#F59E0B'}18` }]}>
-                    <Sliders size={18} color={colors.warning || '#F59E0B'} />
-                  </View>
-                  <View style={styles.menuRowContent}>
-                    <Text style={[styles.menuRowTitle, { color: colors.text }]}>
-                      {t.circle.circleSettingsTab || 'Thiết lập Vòng tròn'}
-                    </Text>
-                  </View>
-                  <View style={styles.menuRowRight}>
-                    {joinRequests.length > 0 && isOwner && (
-                      <View style={[styles.requestCountBadge, { backgroundColor: colors.danger }]}>
-                        <Text style={styles.requestCountText}>{joinRequests.length}</Text>
-                      </View>
-                    )}
-                    <ChevronRight size={18} color={colors.subtle} />
-                  </View>
-                </TouchableOpacity>
-
-                {/* 5. Trợ giúp & Báo cáo */}
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() => setActiveTab('supportReports')}
-                  style={styles.menuRowItem}
-                >
-                  <View style={[styles.menuIconBox, { backgroundColor: `${colors.danger || '#EF4444'}18` }]}>
-                    <HelpCircle size={18} color={colors.danger || '#EF4444'} />
-                  </View>
-                  <View style={styles.menuRowContent}>
-                    <Text style={[styles.menuRowTitle, { color: colors.text }]}>
-                      {t.circle.supportAndReportsTab || 'Trợ giúp & Báo cáo'}
-                    </Text>
-                  </View>
-                  <ChevronRight size={18} color={colors.subtle} />
-                </TouchableOpacity>
+                  </TouchableOpacity>
+                )}
               </View>
 
-              {/* Group 2: Quick Invite Sharing */}
-              <View style={[styles.menuSectionCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={handleShareInvite}
-                  style={styles.menuRowItem}
-                >
-                  <View style={[styles.menuIconBox, { backgroundColor: `${colors.primary}18` }]}>
-                    <Share2 size={18} color={colors.primary} />
+              {/* Group 1: Đoạn chat & Thành viên */}
+              <View style={styles.sectionGroupWrapper}>
+                <Text style={[styles.sectionGroupTitle, { color: colors.subtle }]}>
+                  ĐOẠN CHAT & THÀNH VIÊN
+                </Text>
+                <View style={[styles.menuSectionCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+                  {/* 1. Thông tin đoạn chat */}
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    onPress={() => setActiveTab('chatInfo')}
+                    style={[styles.menuRowItem, { borderBottomColor: colors.hairline, borderBottomWidth: StyleSheet.hairlineWidth }]}
+                  >
+                    <MessageSquare size={18} color={colors.text} />
+                    <View style={styles.menuRowContent}>
+                      <Text style={[styles.menuRowTitle, { color: colors.text }]}>
+                        {t.circle.chatInfoTab || 'Thông tin đoạn chat'}
+                      </Text>
+                    </View>
+                    <ChevronRight size={18} color={colors.subtle} />
+                  </TouchableOpacity>
+
+                  {/* 2. Thành viên */}
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    onPress={() => setActiveTab('members')}
+                    style={[styles.menuRowItem, { borderBottomColor: colors.hairline, borderBottomWidth: StyleSheet.hairlineWidth }]}
+                  >
+                    <Users size={18} color={colors.text} />
+                    <View style={styles.menuRowContent}>
+                      <Text style={[styles.menuRowTitle, { color: colors.text }]}>
+                        {t.circle.settingsTabMembers || 'Thành viên'}
+                      </Text>
+                    </View>
+                    <View style={styles.menuRowRight}>
+                      <View style={[styles.countBadge, { backgroundColor: colors.wash }]}>
+                        <Text style={[styles.countBadgeText, { color: colors.text }]}>{members.length}</Text>
+                      </View>
+                      <ChevronRight size={18} color={colors.subtle} />
+                    </View>
+                  </TouchableOpacity>
+
+                  {/* 3. Thông báo & Quyền riêng tư */}
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    onPress={() => setActiveTab('privacySupport')}
+                    style={styles.menuRowItem}
+                  >
+                    <Bell size={18} color={colors.text} />
+                    <View style={styles.menuRowContent}>
+                      <Text style={[styles.menuRowTitle, { color: colors.text }]}>
+                        {t.circle.notificationsAndPrivacyTab || 'Thông báo & Quyền riêng tư'}
+                      </Text>
+                    </View>
+                    <ChevronRight size={18} color={colors.subtle} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Group 2: Quản trị Vòng tròn (Owner/Admin) */}
+              {isOwnerOrAdmin && (
+                <View style={styles.sectionGroupWrapper}>
+                  <Text style={[styles.sectionGroupTitle, { color: colors.subtle }]}>
+                    QUẢN TRỊ VÒNG TRÒN
+                  </Text>
+                  <View style={[styles.menuSectionCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      onPress={() => setActiveTab('circleSettings')}
+                      style={styles.menuRowItem}
+                    >
+                      <Sliders size={18} color={colors.text} />
+                      <View style={styles.menuRowContent}>
+                        <Text style={[styles.menuRowTitle, { color: colors.text }]}>
+                          {t.circle.circleSettingsTab || 'Thiết lập Vòng tròn'}
+                        </Text>
+                      </View>
+                      <View style={styles.menuRowRight}>
+                        {joinRequests.length > 0 && isOwner && (
+                          <View style={[styles.requestCountBadge, { backgroundColor: colors.danger }]}>
+                            <Text style={styles.requestCountText}>{joinRequests.length}</Text>
+                          </View>
+                        )}
+                        <ChevronRight size={18} color={colors.subtle} />
+                      </View>
+                    </TouchableOpacity>
                   </View>
-                  <View style={styles.menuRowContent}>
-                    <Text style={[styles.menuRowTitle, { color: colors.text }]}>
-                      {t.circle.inviteCodeLabel || 'Mã mời'}: {inviteCode || '------'}
-                    </Text>
+                </View>
+              )}
+
+              {/* Group: Màu chủ đề */}
+              <View style={styles.sectionGroupWrapper}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, paddingHorizontal: 4 }}>
+                  <Text style={[styles.sectionGroupTitle, { color: colors.subtle, marginBottom: 0 }]}>
+                    MÀU CHỦ ĐỀ
+                  </Text>
+                </View>
+                <View style={[styles.menuSectionCard, { backgroundColor: colors.surface, borderColor: colors.hairline, padding: 14 }]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                    {(Object.keys(MessageBubbleThemes) as MessageTheme[]).map((key) => {
+                      const item = MessageBubbleThemes[key];
+                      const isSelected = formThemeColor === key;
+                      return (
+                        <TouchableOpacity
+                          key={key}
+                          activeOpacity={0.7}
+                          onPress={() => handleThemeColorChange(key)}
+                          style={{
+                            width: 38,
+                            height: 38,
+                            borderRadius: 19,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            borderWidth: isSelected ? 2.5 : 0,
+                            borderColor: item.color,
+                          }}
+                        >
+                          <View
+                            style={{
+                              width: isSelected ? 24 : 30,
+                              height: isSelected ? 24 : 30,
+                              borderRadius: isSelected ? 12 : 15,
+                              backgroundColor: item.color,
+                            }}
+                          />
+                        </TouchableOpacity>
+                      );
+                    })}
                   </View>
-                  <ChevronRight size={18} color={colors.subtle} />
-                </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Group 3: Trợ giúp & Báo cáo */}
+              <View style={styles.sectionGroupWrapper}>
+                <Text style={[styles.sectionGroupTitle, { color: colors.subtle }]}>
+                  HỖ TRỢ & BÁO CÁO
+                </Text>
+                <View style={[styles.menuSectionCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    onPress={() => setActiveTab('supportReports')}
+                    style={styles.menuRowItem}
+                  >
+                    <HelpCircle size={18} color={colors.text} />
+                    <View style={styles.menuRowContent}>
+                      <Text style={[styles.menuRowTitle, { color: colors.text }]}>
+                        {t.circle.supportAndReportsTab || 'Trợ giúp & Báo cáo'}
+                      </Text>
+                    </View>
+                    <ChevronRight size={18} color={colors.subtle} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Group 4: Hành động */}
+              <View style={styles.sectionGroupWrapper}>
+                <Text style={[styles.sectionGroupTitle, { color: colors.subtle }]}>
+                  HÀNH ĐỘNG
+                </Text>
+                <View style={[styles.menuSectionCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    onPress={handleLeaveCircle}
+                    style={[
+                      styles.menuRowItem,
+                      isOwner && { borderBottomColor: colors.hairline, borderBottomWidth: StyleSheet.hairlineWidth },
+                    ]}
+                  >
+                    <LogOut size={18} color={colors.coral} />
+                    <View style={styles.menuRowContent}>
+                      <Text style={[styles.menuRowTitle, { color: colors.coral }]}>
+                        {t.circle.leaveCircle || 'Rời Vòng tròn'}
+                      </Text>
+                    </View>
+                    <ChevronRight size={18} color={colors.subtle} />
+                  </TouchableOpacity>
+
+                  {isOwner && (
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      onPress={handleDeleteCircle}
+                      style={styles.menuRowItem}
+                    >
+                      <Trash2 size={18} color={colors.danger} />
+                      <View style={styles.menuRowContent}>
+                        <Text style={[styles.menuRowTitle, { color: colors.danger }]}>
+                          {t.circle.deleteCircle || 'Giải tán Vòng tròn'}
+                        </Text>
+                      </View>
+                      <ChevronRight size={18} color={colors.subtle} />
+                    </TouchableOpacity>
+                  )}
+                </View>
               </View>
             </ScrollView>
           )}
@@ -963,28 +1104,28 @@ export function CircleManagementModal() {
              ========================================================================= */}
           {activeTab === 'members' && (
             <View style={styles.membersContainer}>
-              {/* Segmented Subtabs: Thành viên (X) | Yêu cầu tham gia (Y) */}
-              <View style={[styles.segmentedSubTabs, { backgroundColor: colors.wash, borderColor: colors.hairline }]}>
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  onPress={() => setMembersSubTab('roster')}
-                  style={[
-                    styles.segmentBtn,
-                    membersSubTab === 'roster' && [styles.segmentBtnActive, { backgroundColor: colors.surface, borderColor: colors.hairline }],
-                  ]}
-                >
-                  <Text
+              {/* Segmented Subtabs: Thành viên (X) | Yêu cầu tham gia (Y) - Only for Owner/Admin */}
+              {isOwnerOrAdmin && (
+                <View style={[styles.segmentedSubTabs, { backgroundColor: colors.wash, borderColor: colors.hairline }]}>
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    onPress={() => setMembersSubTab('roster')}
                     style={[
-                      styles.segmentBtnText,
-                      { color: membersSubTab === 'roster' ? colors.primary : colors.subtle },
-                      membersSubTab === 'roster' && { fontWeight: '700' },
+                      styles.segmentBtn,
+                      membersSubTab === 'roster' && [styles.segmentBtnActive, { backgroundColor: colors.surface, borderColor: colors.hairline }],
                     ]}
                   >
-                    {t.circle.settingsTabMembers || 'Thành viên'}
-                  </Text>
-                </TouchableOpacity>
+                    <Text
+                      style={[
+                        styles.segmentBtnText,
+                        { color: membersSubTab === 'roster' ? colors.primary : colors.subtle },
+                        membersSubTab === 'roster' && { fontWeight: '700' },
+                      ]}
+                    >
+                      {t.circle.settingsTabMembers || 'Thành viên'}
+                    </Text>
+                  </TouchableOpacity>
 
-                {isOwnerOrAdmin && (
                   <TouchableOpacity
                     activeOpacity={0.8}
                     onPress={() => setMembersSubTab('requests')}
@@ -1003,8 +1144,8 @@ export function CircleManagementModal() {
                       {t.circle.joinRequestsTitle || 'Yêu cầu tham gia'} ({joinRequests.length})
                     </Text>
                   </TouchableOpacity>
-                )}
-              </View>
+                </View>
+              )}
 
               {/* Action Toolbar: + Thêm thành viên is ALWAYS visible */}
               <View style={styles.memberControlsRow}>
@@ -1050,7 +1191,7 @@ export function CircleManagementModal() {
                           key={m.id}
                           style={[
                             styles.memberItem,
-                            { backgroundColor: colors.surface, borderColor: colors.hairline },
+                            { borderBottomColor: colors.hairline },
                           ]}
                         >
                           <View style={styles.memberLeft}>
@@ -1107,13 +1248,7 @@ export function CircleManagementModal() {
                                   {t.circle.memberRoleAdmin || 'Quản trị viên'}
                                 </Text>
                               </View>
-                            ) : (
-                              <View style={[styles.roleBadge, { backgroundColor: colors.wash }]}>
-                                <Text style={[styles.roleText, { color: colors.subtle }]}>
-                                  {t.circle.memberRoleMember || 'Thành viên'}
-                                </Text>
-                              </View>
-                            )}
+                            ) : null}
 
                             {/* Owner Controls (Transfer & Kick) */}
                             {isOwner && !isMemberOwner && !isSelf && (
@@ -1203,264 +1338,283 @@ export function CircleManagementModal() {
           {activeTab === 'privacySupport' && (
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.tabContent}>
               {/* Section 1: Thông báo */}
-              <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
-                <View style={styles.sectionHeaderRow}>
-                  <Bell size={16} color={colors.primary} />
-                  <Text style={[styles.cardTitle, { color: colors.text }]}>
-                    {t.circle.notificationsTitle || 'Thông báo'}
-                  </Text>
-                </View>
-
-                {/* 1. Tắt thông báo về đoạn chat (Opens duration popup on toggle) */}
-                <View style={[styles.preferenceRow, { backgroundColor: colors.wash, borderColor: colors.hairline }]}>
-                  <View style={{ flex: 1, paddingRight: 10 }}>
-                    <Text style={[styles.prefTitle, { color: colors.text }]}>
-                      {t.circle.muteChat || 'Tắt thông báo về đoạn chat'}
-                    </Text>
-                    {isChatMuted && (
-                      <Text style={[styles.prefDesc, { color: colors.danger, fontWeight: '600' }]}>
-                        Đang tắt: {getMuteDurationLabel(muteDuration)}
+              <View style={styles.sectionGroupWrapper}>
+                <Text style={[styles.sectionGroupTitle, { color: colors.subtle }]}>
+                  {t.circle.notificationsTitle || 'THÔNG BÁO'}
+                </Text>
+                <View style={[styles.menuSectionCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+                  {/* 1. Tắt thông báo về đoạn chat (Opens duration popup on toggle) */}
+                  <View style={[styles.preferenceRow, { borderBottomColor: colors.hairline, borderBottomWidth: StyleSheet.hairlineWidth }]}>
+                    <View style={{ flex: 1, paddingRight: 10 }}>
+                      <Text style={[styles.prefTitle, { color: colors.text }]}>
+                        {t.circle.muteChat || 'Tắt thông báo về đoạn chat'}
                       </Text>
-                    )}
-                  </View>
-                  <Switch
-                    value={isChatMuted}
-                    onValueChange={handleToggleChatMute}
-                    trackColor={{ false: colors.hairline, true: colors.primary }}
-                  />
-                </View>
-
-                {/* When NOT muted: Message level (Popup selector) & Calls Mute */}
-                {!isChatMuted && (
-                  <>
-                    <TouchableOpacity
-                      activeOpacity={0.7}
-                      onPress={() => setIsMsgLevelModalOpen(true)}
-                      style={[styles.preferenceRow, { backgroundColor: colors.wash, borderColor: colors.hairline }]}
-                    >
-                      <View style={{ flex: 1 }}>
-                        <Text style={[styles.prefTitle, { color: colors.text }]}>
-                          {t.circle.messageNotifications || 'Thông báo về tin nhắn'}
+                      {isChatMuted && (
+                        <Text style={[styles.prefDesc, { color: colors.danger, fontWeight: '600' }]}>
+                          Đang tắt: {getMuteDurationLabel(muteDuration)}
                         </Text>
-                        <Text style={[styles.prefDesc, { color: colors.primary, fontWeight: '600' }]}>
-                          {getMsgLevelLabel(messageNotificationLevel)}
-                        </Text>
-                      </View>
-                      <ChevronRight size={16} color={colors.subtle} />
-                    </TouchableOpacity>
-
-                    {/* Tắt thông báo cuộc gọi */}
-                    <View style={[styles.preferenceRow, { backgroundColor: colors.wash, borderColor: colors.hairline }]}>
-                      <View style={{ flex: 1, paddingRight: 10 }}>
-                        <Text style={[styles.prefTitle, { color: colors.text }]}>
-                          {t.circle.muteCalls || 'Tắt thông báo về cuộc gọi'}
-                        </Text>
-                      </View>
-                      <Switch
-                        value={isCallsMuted}
-                        onValueChange={(val) => setIsCallsMuted(val)}
-                        trackColor={{ false: colors.hairline, true: colors.primary }}
-                      />
+                      )}
                     </View>
-                  </>
-                )}
-
-                {/* 2. Tắt thông báo từ thành viên (Popup) */}
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() => setIsManageMutedMembersOpen(true)}
-                  style={[styles.preferenceRow, { backgroundColor: colors.wash, borderColor: colors.hairline }]}
-                >
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.prefTitle, { color: colors.text }]}>
-                      {t.circle.muteMemberNotificationsTitle || 'Tắt thông báo từ thành viên'}
-                    </Text>
-                    <Text style={[styles.prefDesc, { color: colors.subtle }]}>
-                      {mutedMemberIds.length > 0 ? `Đã tắt tiếng ${mutedMemberIds.length} thành viên` : 'Chưa tắt tiếng thành viên nào'}
-                    </Text>
+                    <Switch
+                      value={isChatMuted}
+                      onValueChange={handleToggleChatMute}
+                      trackColor={{ false: colors.hairline, true: colors.primary }}
+                    />
                   </View>
-                  <ChevronRight size={16} color={colors.subtle} />
-                </TouchableOpacity>
+
+                  {/* When NOT muted: Message level (Popup selector) & Calls Mute */}
+                  {!isChatMuted && (
+                    <>
+                      <TouchableOpacity
+                        activeOpacity={0.7}
+                        onPress={() => setIsMsgLevelModalOpen(true)}
+                        style={[styles.preferenceRow, { borderBottomColor: colors.hairline, borderBottomWidth: StyleSheet.hairlineWidth }]}
+                      >
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.prefTitle, { color: colors.text }]}>
+                            {t.circle.messageNotifications || 'Thông báo về tin nhắn'}
+                          </Text>
+                          <Text style={[styles.prefDesc, { color: colors.primary, fontWeight: '600' }]}>
+                            {getMsgLevelLabel(messageNotificationLevel)}
+                          </Text>
+                        </View>
+                        <ChevronRight size={16} color={colors.subtle} />
+                      </TouchableOpacity>
+
+                      {/* Tắt thông báo cuộc gọi */}
+                      <View style={[styles.preferenceRow, { borderBottomColor: colors.hairline, borderBottomWidth: StyleSheet.hairlineWidth }]}>
+                        <View style={{ flex: 1, paddingRight: 10 }}>
+                          <Text style={[styles.prefTitle, { color: colors.text }]}>
+                            {t.circle.muteCalls || 'Tắt thông báo về cuộc gọi'}
+                          </Text>
+                        </View>
+                        <Switch
+                          value={isCallsMuted}
+                          onValueChange={(val) => setIsCallsMuted(val)}
+                          trackColor={{ false: colors.hairline, true: colors.primary }}
+                        />
+                      </View>
+                    </>
+                  )}
+
+                  {/* 2. Tắt thông báo từ thành viên (Popup) */}
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    onPress={() => setIsManageMutedMembersOpen(true)}
+                    style={styles.preferenceRow}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.prefTitle, { color: colors.text }]}>
+                        {t.circle.muteMemberNotificationsTitle || 'Tắt thông báo từ thành viên'}
+                      </Text>
+                      <Text style={[styles.prefDesc, { color: colors.subtle }]}>
+                        {mutedMemberIds.length > 0 ? `Đã tắt tiếng ${mutedMemberIds.length} thành viên` : 'Chưa tắt tiếng thành viên nào'}
+                      </Text>
+                    </View>
+                    <ChevronRight size={16} color={colors.subtle} />
+                  </TouchableOpacity>
+                </View>
               </View>
 
               {/* Section 2: Quyền riêng tư */}
-              <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
-                <View style={styles.sectionHeaderRow}>
-                  <ShieldCheck size={16} color={colors.primary} />
-                  <Text style={[styles.cardTitle, { color: colors.text }]}>
-                    {t.circle.privacySection || 'Quyền riêng tư'}
-                  </Text>
-                </View>
-
-                {/* Read Receipts */}
-                <View style={[styles.preferenceRow, { backgroundColor: colors.wash, borderColor: colors.hairline }]}>
-                  <View style={{ flex: 1, paddingRight: 10 }}>
-                    <Text style={[styles.prefTitle, { color: colors.text }]}>
-                      {t.circle.readReceiptsTitle || 'Thông báo đã đọc (Đã xem)'}
-                    </Text>
+              <View style={styles.sectionGroupWrapper}>
+                <Text style={[styles.sectionGroupTitle, { color: colors.subtle }]}>
+                  {t.circle.privacySection || 'QUYỀN RIÊNG TƯ'}
+                </Text>
+                <View style={[styles.menuSectionCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+                  {/* Read Receipts */}
+                  <View style={[styles.preferenceRow, { borderBottomColor: colors.hairline, borderBottomWidth: StyleSheet.hairlineWidth }]}>
+                    <View style={{ flex: 1, paddingRight: 10 }}>
+                      <Text style={[styles.prefTitle, { color: colors.text }]}>
+                        {t.circle.readReceiptsTitle || 'Thông báo đã xem'}
+                      </Text>
+                    </View>
+                    <Switch
+                      value={readReceipts}
+                      onValueChange={handleToggleReadReceipts}
+                      trackColor={{ false: colors.hairline, true: colors.primary }}
+                    />
                   </View>
-                  <Switch
-                    value={readReceipts}
-                    onValueChange={handleToggleReadReceipts}
-                    trackColor={{ false: colors.hairline, true: colors.primary }}
-                  />
-                </View>
 
-                {/* Typing Indicator */}
-                <View style={[styles.preferenceRow, { backgroundColor: colors.wash, borderColor: colors.hairline }]}>
-                  <View style={{ flex: 1, paddingRight: 10 }}>
-                    <Text style={[styles.prefTitle, { color: colors.text }]}>
-                      {t.circle.typingIndicatorTitle || 'Chỉ báo đang nhập'}
-                    </Text>
+                  {/* Typing Indicator */}
+                  <View style={[styles.preferenceRow, { borderBottomColor: colors.hairline, borderBottomWidth: StyleSheet.hairlineWidth }]}>
+                    <View style={{ flex: 1, paddingRight: 10 }}>
+                      <Text style={[styles.prefTitle, { color: colors.text }]}>
+                        {t.circle.typingIndicatorTitle || 'Chỉ báo đang nhập'}
+                      </Text>
+                    </View>
+                    <Switch
+                      value={showTypingIndicator}
+                      onValueChange={handleToggleTypingIndicator}
+                      trackColor={{ false: colors.hairline, true: colors.primary }}
+                    />
                   </View>
-                  <Switch
-                    value={showTypingIndicator}
-                    onValueChange={handleToggleTypingIndicator}
-                    trackColor={{ false: colors.hairline, true: colors.primary }}
-                  />
-                </View>
 
-                {/* AI Assistance */}
-                <View style={[styles.preferenceRow, { backgroundColor: colors.wash, borderColor: colors.hairline }]}>
-                  <View style={{ flex: 1, paddingRight: 10 }}>
-                    <Text style={[styles.prefTitle, { color: colors.text }]}>
-                      {t.circle.aiAssistanceTitle || 'Cho phép AI xử lý nội dung tin nhắn'}
-                    </Text>
+                  {/* AI Assistance */}
+                  <View style={styles.preferenceRow}>
+                    <View style={{ flex: 1, paddingRight: 10 }}>
+                      <Text style={[styles.prefTitle, { color: colors.text }]}>
+                        {t.circle.aiAssistanceTitle || 'Cho phép AI xử lý nội dung tin nhắn'}
+                      </Text>
+                    </View>
+                    <Switch
+                      value={allowAiProcessing}
+                      onValueChange={handleToggleAiProcessing}
+                      trackColor={{ false: colors.hairline, true: colors.primary }}
+                    />
                   </View>
-                  <Switch
-                    value={allowAiProcessing}
-                    onValueChange={handleToggleAiProcessing}
-                    trackColor={{ false: colors.hairline, true: colors.primary }}
-                  />
                 </View>
               </View>
             </ScrollView>
           )}
 
           {/* =========================================================================
-              SUB-VIEW 4: CIRCLE GROUP SETTINGS (Thiết lập Vòng tròn - Owner Only)
+              SUB-VIEW 4: CIRCLE GROUP SETTINGS (Thiết lập Vòng tròn)
              ========================================================================= */}
           {(activeTab === 'circleSettings' || activeTab === 'settings') && (
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.tabContent}>
-              {/* Section 1: Cần trưởng nhóm phê duyệt & Số lượng thành viên tối đa */}
-              <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
-                {/* Switch Cần trưởng nhóm phê duyệt (Instant Auto-Save) */}
-                <View
-                  style={[
-                    styles.preferenceRow,
-                    {
-                      backgroundColor: colors.wash,
-                      borderColor: formIsPrivate ? colors.primary : colors.hairline,
-                    },
-                  ]}
-                >
-                  <View style={{ flex: 1, paddingRight: 10 }}>
-                    <Text style={[styles.prefTitle, { color: colors.text }]}>
-                      {t.circle.requireApprovalTitle || 'Cần trưởng nhóm phê duyệt'}
-                    </Text>
-                    <Text style={[styles.prefDesc, { color: colors.subtle }]}>
-                      {t.circle.requireApprovalDesc || 'Trưởng nhóm cần phê duyệt tất cả yêu cầu tham gia'}
-                    </Text>
+              {/* Section 0: Màu chủ đề đoạn chat */}
+              <View style={styles.sectionGroupWrapper}>
+                <Text style={[styles.sectionGroupTitle, { color: colors.subtle }]}>
+                  MÀU CHỦ ĐỀ
+                </Text>
+                <View style={[styles.menuSectionCard, { backgroundColor: colors.surface, borderColor: colors.hairline, padding: 14 }]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                    {(Object.keys(MessageBubbleThemes) as MessageTheme[]).map((key) => {
+                      const item = MessageBubbleThemes[key];
+                      const isSelected = formThemeColor === key;
+                      return (
+                        <TouchableOpacity
+                          key={key}
+                          activeOpacity={0.7}
+                          onPress={() => handleThemeColorChange(key)}
+                          style={{
+                            width: 38,
+                            height: 38,
+                            borderRadius: 19,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            borderWidth: isSelected ? 2.5 : 0,
+                            borderColor: item.color,
+                          }}
+                        >
+                          <View
+                            style={{
+                              width: isSelected ? 24 : 30,
+                              height: isSelected ? 24 : 30,
+                              borderRadius: isSelected ? 12 : 15,
+                              backgroundColor: item.color,
+                            }}
+                          />
+                        </TouchableOpacity>
+                      );
+                    })}
                   </View>
-                  <Switch
-                    value={formIsPrivate}
-                    disabled={!isOwner}
-                    onValueChange={handleToggleApproval}
-                    trackColor={{ false: colors.hairline, true: colors.primary }}
-                  />
                 </View>
+              </View>
 
-                {/* Số lượng thành viên tối đa (Opens Capacity Popup) */}
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  disabled={!isOwner}
-                  onPress={() => {
-                    setTempCapacityInput(formMaxMembers ? String(formMaxMembers) : '');
-                    setIsCapacityModalOpen(true);
-                  }}
-                  style={[styles.preferenceRow, { backgroundColor: colors.wash, borderColor: colors.hairline }]}
-                >
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.prefTitle, { color: colors.text }]}>
-                      {t.circle.maxMembersLabel || 'Số lượng thành viên tối đa'}
-                    </Text>
-                    <Text style={[styles.prefDesc, { color: colors.primary, fontWeight: '600' }]}>
-                      {formMaxMembers ? `${formMaxMembers} thành viên` : 'Không giới hạn (Mặc định)'}
-                    </Text>
+              {/* Section 1: Cần trưởng nhóm phê duyệt */}
+              <View style={styles.sectionGroupWrapper}>
+                <Text style={[styles.sectionGroupTitle, { color: colors.subtle }]}>
+                  QUYỀN THAM GIA
+                </Text>
+                <View style={[styles.menuSectionCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+                  {/* Switch Cần trưởng nhóm phê duyệt (Instant Auto-Save) */}
+                  <View
+                    style={styles.preferenceRow}
+                  >
+                    <View style={{ flex: 1, paddingRight: 10 }}>
+                      <Text style={[styles.prefTitle, { color: colors.text }]}>
+                        {t.circle.requireApprovalTitle || 'Cần trưởng nhóm phê duyệt'}
+                      </Text>
+                    </View>
+                    <Switch
+                      value={formIsPrivate}
+                      disabled={!isOwner}
+                      onValueChange={handleToggleApproval}
+                      trackColor={{ false: colors.hairline, true: colors.primary }}
+                    />
                   </View>
-                  {isOwner && <ChevronRight size={16} color={colors.subtle} />}
-                </TouchableOpacity>
+                </View>
               </View>
 
               {/* Section 2: Mã mời & Liên kết tham gia */}
-              <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
-                <View style={styles.sectionHeaderRow}>
-                  <LinkIcon size={16} color={colors.primary} />
-                  <Text style={[styles.cardTitle, { color: colors.text }]}>
-                    {t.circle.inviteCodeAndLink || 'Mã mời & Liên kết tham gia'}
-                  </Text>
-                </View>
-
-                {/* 1. Mã mời tham gia */}
-                <View style={[styles.codeRow, { backgroundColor: colors.wash, borderColor: colors.hairline }]}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.codeLabel, { color: colors.subtle }]}>
-                      {t.circle.inviteCodeLabel || 'Mã mời'}:
-                    </Text>
-                    <Text style={[styles.codeText, { color: colors.text }]}>{inviteCode || '------'}</Text>
-                  </View>
-                  <TouchableOpacity
-                    onPress={handleCopyCode}
-                    style={[styles.smallPrimaryBtn, { backgroundColor: colors.primary }]}
-                  >
-                    {copiedCode ? <Check size={14} color={colors.onPrimary} /> : <Copy size={14} color={colors.onPrimary} />}
-                    <Text style={[styles.smallPrimaryBtnText, { color: colors.onPrimary }]}>
-                      {copiedCode ? (t.circle.copiedInviteCode || 'Đã sao chép') : (t.circle.copyCodeBtn || 'Sao chép mã')}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-
-                {/* 2. Liên kết tham gia */}
-                <View style={[styles.codeRow, { backgroundColor: colors.wash, borderColor: colors.hairline }]}>
-                  <View style={{ flex: 1, paddingRight: 8 }}>
-                    <Text style={[styles.codeLabel, { color: colors.subtle }]}>
-                      {t.circle.linkTitle || 'Liên kết'}:
-                    </Text>
-                    <Text numberOfLines={1} style={[styles.inviteLinkTextClean, { color: colors.text }]}>
-                      {inviteLink}
-                    </Text>
-                  </View>
-                  <View style={{ flexDirection: 'row', gap: 6 }}>
+              <View style={styles.sectionGroupWrapper}>
+                <Text style={[styles.sectionGroupTitle, { color: colors.subtle }]}>
+                  {t.circle.inviteCodeAndLink || 'MÃ MỜI & LIÊN KẾT'}
+                </Text>
+                <View style={[styles.menuSectionCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+                  {/* 1. Mã mời tham gia */}
+                  <View style={[styles.preferenceRow, { borderBottomColor: colors.hairline, borderBottomWidth: StyleSheet.hairlineWidth }]}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.codeLabel, { color: colors.subtle }]}>
+                        {t.circle.inviteCodeLabel || 'Mã mời'}:
+                      </Text>
+                      <Text style={[styles.codeText, { color: colors.text }]}>{inviteCode || '------'}</Text>
+                    </View>
                     <TouchableOpacity
-                      onPress={handleCopyLink}
-                      style={[styles.smallOutlineBtn, { borderColor: colors.hairline, backgroundColor: colors.surface }]}
+                      onPress={handleCopyCode}
+                      style={[styles.smallPrimaryBtn, { backgroundColor: colors.primary }]}
                     >
-                      {copiedLink ? <Check size={14} color={colors.success || '#10B981'} /> : <Copy size={14} color={colors.text} />}
-                      <Text style={[styles.smallOutlineBtnText, { color: colors.text }]}>
-                        {copiedLink ? 'Đã sao chép' : 'Sao chép'}
+                      {copiedCode ? <Check size={14} color={colors.onPrimary} /> : <Copy size={14} color={colors.onPrimary} />}
+                      <Text style={[styles.smallPrimaryBtnText, { color: colors.onPrimary }]}>
+                        {copiedCode ? (t.circle.copiedInviteCode || 'Đã sao chép') : (t.circle.copyCodeBtn || 'Sao chép mã')}
                       </Text>
                     </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={handleShareInvite}
-                      style={[styles.smallOutlineBtn, { borderColor: colors.hairline, backgroundColor: colors.surface }]}
-                    >
-                      <Share2 size={14} color={colors.text} />
-                    </TouchableOpacity>
+                  </View>
+
+                  {/* 2. Liên kết tham gia */}
+                  <View style={styles.preferenceRow}>
+                    <View style={{ flex: 1, paddingRight: 8 }}>
+                      <Text style={[styles.codeLabel, { color: colors.subtle }]}>
+                        {t.circle.linkTitle || 'Liên kết'}:
+                      </Text>
+                      <Text numberOfLines={1} style={[styles.inviteLinkTextClean, { color: colors.text }]}>
+                        {inviteLink}
+                      </Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', gap: 6 }}>
+                      <TouchableOpacity
+                        onPress={handleCopyLink}
+                        style={[styles.smallOutlineBtn, { borderColor: colors.hairline, backgroundColor: colors.surface }]}
+                      >
+                        {copiedLink ? <Check size={14} color={colors.success || '#10B981'} /> : <Copy size={14} color={colors.text} />}
+                        <Text style={[styles.smallOutlineBtnText, { color: colors.text }]}>
+                          {copiedLink ? 'Đã sao chép' : 'Sao chép'}
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={handleShareInvite}
+                        style={[styles.smallOutlineBtn, { borderColor: colors.hairline, backgroundColor: colors.surface }]}
+                      >
+                        <Share2 size={14} color={colors.text} />
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 </View>
               </View>
 
               {/* Section 3: Giải tán Vòng tròn */}
               {isOwner && (
-                <View style={[styles.card, { backgroundColor: `${colors.danger}08`, borderColor: `${colors.danger}30` }]}>
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    onPress={handleDeleteCircle}
-                    style={[styles.dangerFullBtn, { backgroundColor: colors.danger }]}
-                  >
-                    <Trash2 size={16} color="#FFFFFF" />
-                    <Text style={styles.dangerFullBtnText}>{t.circle.deleteCircle || 'Giải tán Vòng tròn'}</Text>
-                  </TouchableOpacity>
+                <View style={styles.sectionGroupWrapper}>
+                  <Text style={[styles.sectionGroupTitle, { color: colors.danger }]}>
+                    {t.circle.dangerZone || 'HÀNH ĐỘNG NGUY HIỂM'}
+                  </Text>
+                  <View style={[styles.menuSectionCard, { backgroundColor: colors.surface, borderColor: `${colors.danger}40` }]}>
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      onPress={handleDeleteCircle}
+                      style={styles.menuRowItem}
+                    >
+                      <Trash2 size={18} color={colors.danger} />
+                      <View style={styles.menuRowContent}>
+                        <Text style={[styles.menuRowTitle, { color: colors.danger }]}>
+                          {t.circle.deleteCircle || 'Giải tán Vòng tròn'}
+                        </Text>
+                      </View>
+                      <ChevronRight size={18} color={colors.subtle} />
+                    </TouchableOpacity>
+                  </View>
                 </View>
               )}
             </ScrollView>
@@ -1471,56 +1625,62 @@ export function CircleManagementModal() {
              ========================================================================= */}
           {activeTab === 'supportReports' && (
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.tabContent}>
-              <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
-                {/* 1. Báo cáo người dùng vi phạm (Opens popup) */}
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() => setIsReportUserOpen(true)}
-                  style={[styles.preferenceRow, { backgroundColor: colors.wash, borderColor: colors.hairline }]}
-                >
-                  <View style={{ flex: 1, paddingRight: 10 }}>
-                    <Text style={[styles.prefTitle, { color: colors.text }]}>
-                      {t.circle.reportUserTitle || 'Báo cáo người dùng'}
-                    </Text>
-                    <Text style={[styles.prefDesc, { color: colors.subtle }]}>
-                      Báo cáo thành viên có hành vi quấy rối, vi phạm
-                    </Text>
-                  </View>
-                  <ChevronRight size={16} color={colors.subtle} />
-                </TouchableOpacity>
+              <View style={styles.sectionGroupWrapper}>
+                <Text style={[styles.sectionGroupTitle, { color: colors.subtle }]}>
+                  BÁO CÁO VI PHẠM
+                </Text>
+                <View style={[styles.menuSectionCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+                  {/* 1. Báo cáo người dùng vi phạm (Opens popup) */}
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    onPress={() => setIsReportUserOpen(true)}
+                    style={[styles.menuRowItem, { borderBottomColor: colors.hairline, borderBottomWidth: StyleSheet.hairlineWidth }]}
+                  >
+                    <UserX size={18} color={colors.text} />
+                    <View style={styles.menuRowContent}>
+                      <Text style={[styles.menuRowTitle, { color: colors.text }]}>
+                        {t.circle.reportUserTitle || 'Báo cáo người dùng vi phạm'}
+                      </Text>
+                    </View>
+                    <ChevronRight size={18} color={colors.subtle} />
+                  </TouchableOpacity>
 
-                {/* 2. Báo cáo Vòng tròn (Opens popup) */}
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() => setIsReportOpen(true)}
-                  style={[styles.preferenceRow, { backgroundColor: colors.wash, borderColor: colors.hairline }]}
-                >
-                  <View style={{ flex: 1, paddingRight: 10 }}>
-                    <Text style={[styles.prefTitle, { color: colors.text }]}>
-                      {t.circle.reportCircleTitle || 'Báo cáo Vòng tròn'}
-                    </Text>
-                    <Text style={[styles.prefDesc, { color: colors.subtle }]}>
-                      Báo cáo nội dung không phù hợp trong nhóm
-                    </Text>
-                  </View>
-                  <ChevronRight size={16} color={colors.subtle} />
-                </TouchableOpacity>
+                  {/* 2. Báo cáo Vòng tròn (Opens popup) */}
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    onPress={() => setIsReportOpen(true)}
+                    style={styles.menuRowItem}
+                  >
+                    <Flag size={18} color={colors.text} />
+                    <View style={styles.menuRowContent}>
+                      <Text style={[styles.menuRowTitle, { color: colors.text }]}>
+                        {t.circle.reportCircleTitle || 'Báo cáo Vòng tròn'}
+                      </Text>
+                    </View>
+                    <ChevronRight size={18} color={colors.subtle} />
+                  </TouchableOpacity>
+                </View>
+              </View>
 
-                {/* 3. Quy tắc cộng đồng Accordion */}
-                <View style={[styles.preferenceRowColumn, { backgroundColor: colors.wash, borderColor: colors.hairline }]}>
+              {/* Quy tắc cộng đồng */}
+              <View style={styles.sectionGroupWrapper}>
+                <Text style={[styles.sectionGroupTitle, { color: colors.subtle }]}>
+                  {t.circle.helpCenterTitle || 'QUY TẮC CỘNG ĐỒNG'}
+                </Text>
+                <View style={[styles.menuSectionCard, { backgroundColor: colors.surface, borderColor: colors.hairline, padding: 16 }]}>
                   <View style={styles.labelRowBetween}>
                     <Text style={[styles.prefTitle, { color: colors.text }]}>
-                      {t.circle.helpCenterTitle || 'Quy tắc cộng đồng'}
+                      Hướng dẫn hoạt động an toàn
                     </Text>
                     <TouchableOpacity onPress={() => setIsHelpOpen(!isHelpOpen)}>
                       <Text style={[styles.linkText, { color: colors.primary }]}>
-                        {isHelpOpen ? 'Thu gọn' : 'Xem hướng dẫn'}
+                        {isHelpOpen ? 'Thu gọn' : 'Chi tiết'}
                       </Text>
                     </TouchableOpacity>
                   </View>
 
                   {isHelpOpen && (
-                    <View style={[styles.guidelinesBox, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+                    <View style={[styles.guidelinesBox, { backgroundColor: colors.wash, borderColor: colors.hairline, marginTop: 12 }]}>
                       <Text style={[styles.guidelineItem, { color: colors.subtle }]}>
                         • Tôn trọng quyền riêng tư và thông tin cá nhân của các thành viên.
                       </Text>
@@ -1533,16 +1693,28 @@ export function CircleManagementModal() {
                     </View>
                   )}
                 </View>
+              </View>
 
-                {/* 4. Rời Vòng tròn */}
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  onPress={handleLeaveCircle}
-                  style={[styles.dangerFullBtn, { backgroundColor: colors.danger, marginTop: 4 }]}
-                >
-                  <LogOut size={16} color="#FFFFFF" />
-                  <Text style={styles.dangerFullBtnText}>{t.circle.leaveCircle || 'Rời Vòng tròn'}</Text>
-                </TouchableOpacity>
+              {/* Rời Vòng tròn */}
+              <View style={styles.sectionGroupWrapper}>
+                <Text style={[styles.sectionGroupTitle, { color: colors.subtle }]}>
+                  HÀNH ĐỘNG
+                </Text>
+                <View style={[styles.menuSectionCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    onPress={handleLeaveCircle}
+                    style={styles.menuRowItem}
+                  >
+                    <LogOut size={18} color={colors.coral} />
+                    <View style={styles.menuRowContent}>
+                      <Text style={[styles.menuRowTitle, { color: colors.coral }]}>
+                        {t.circle.leaveCircle || 'Rời Vòng tròn'}
+                      </Text>
+                    </View>
+                    <ChevronRight size={18} color={colors.subtle} />
+                  </TouchableOpacity>
+                </View>
               </View>
             </ScrollView>
           )}
@@ -1602,7 +1774,7 @@ export function CircleManagementModal() {
                   <View style={{ gap: 8 }}>
                     {[
                       { key: 'all', label: 'Tất cả tin nhắn' },
-                      { key: 'mentions', label: 'Chỉ lượt nhắc (@) và phản hồi' },
+                      { key: 'mentions', label: 'Chỉ lượt nhắc và phản hồi' },
                       { key: 'none', label: 'Không nhận thông báo' },
                     ].map((item) => (
                       <TouchableOpacity
@@ -1633,7 +1805,7 @@ export function CircleManagementModal() {
           )}
 
           {/* =========================================================================
-              POPUP MODAL 3: CAPACITY SELECTOR (Không giới hạn / Nhập số lượng)
+              POPUP MODAL 3: CAPACITY SELECTOR
              ========================================================================= */}
           {isCapacityModalOpen && (
             <Modal transparent animationType="fade" visible={isCapacityModalOpen}>
@@ -1651,7 +1823,7 @@ export function CircleManagementModal() {
                       { backgroundColor: formMaxMembers === null ? `${colors.primary}15` : colors.wash },
                     ]}
                   >
-                    <Text style={[styles.popupOptionText, { color: colors.text }]}>Không giới hạn (Mặc định)</Text>
+                    <Text style={[styles.popupOptionText, { color: colors.text }]}>Không giới hạn</Text>
                     {formMaxMembers === null && <Check size={16} color={colors.primary} />}
                   </TouchableOpacity>
 
@@ -1663,7 +1835,7 @@ export function CircleManagementModal() {
                         keyboardType="number-pad"
                         value={tempCapacityInput}
                         onChangeText={setTempCapacityInput}
-                        placeholder="Nhập số (2 - 10,000)..."
+                        placeholder="Từ 2 đến 10,000..."
                         placeholderTextColor={colors.subtle}
                         style={[
                           styles.input,
@@ -2225,11 +2397,84 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   tabContent: {
-    gap: 14,
-    paddingBottom: 24,
+    gap: 16,
+    paddingBottom: 28,
+  },
+  heroSummaryCard: {
+    padding: 20,
+    borderRadius: 20,
+    borderWidth: 1,
+    alignItems: 'center',
+    gap: 8,
+  },
+  heroAvatarBox: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  heroAvatarImg: {
+    width: '100%',
+    height: '100%',
+  },
+  heroAvatarText: {
+    fontSize: 22,
+    fontWeight: '800',
+  },
+  heroCircleName: {
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+    letterSpacing: -0.3,
+  },
+  heroMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  heroMetaText: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  heroMetaDot: {
+    fontSize: 12,
+  },
+  heroRoleBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  heroRoleText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  heroInvitePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    marginTop: 4,
+  },
+  heroInvitePillText: {
+    fontSize: 12,
+  },
+  sectionGroupWrapper: {
+    gap: 6,
+  },
+  sectionGroupTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    paddingHorizontal: 8,
   },
   menuSectionCard: {
-    borderRadius: 20,
+    borderRadius: 16,
     borderWidth: 1,
     overflow: 'hidden',
   },
@@ -2476,16 +2721,15 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   memberList: {
-    gap: 10,
     paddingBottom: 24,
   },
   memberItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 12,
-    borderRadius: 18,
-    borderWidth: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   memberLeft: {
     flexDirection: 'row',
@@ -2574,14 +2818,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 12,
-    borderRadius: 14,
-    borderWidth: 1,
+    paddingVertical: 13,
+    paddingHorizontal: 4,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   preferenceRowColumn: {
-    padding: 12,
-    borderRadius: 14,
-    borderWidth: 1,
+    paddingVertical: 13,
+    paddingHorizontal: 4,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     gap: 8,
   },
   prefTitle: {
@@ -2617,6 +2861,38 @@ const styles = StyleSheet.create({
   smallPrimaryBtnText: {
     fontSize: 11,
     fontWeight: '700',
+  },
+  miniPillBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 999,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  miniPillText: {
+    fontSize: 11.5,
+    fontWeight: '600',
+  },
+  bubbleThemeItem: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 7,
+    paddingHorizontal: 2,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 4,
+  },
+  bubbleThemeDot: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bubbleThemeName: {
+    fontSize: 10,
+    fontWeight: '500',
   },
   memberMuteRow: {
     flexDirection: 'row',

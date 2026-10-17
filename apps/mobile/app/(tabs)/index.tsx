@@ -22,7 +22,9 @@ import {
   Image as ImageIcon,
   MessageSquare,
 } from 'lucide-react-native';
+import { BlurView } from 'expo-blur';
 import { useThemeStore } from '../../src/stores/theme.store';
+import { getGlassTheme } from '../../src/constants/glass-theme';
 import { useLanguageStore } from '../../src/stores/language.store';
 import { useAuthStore } from '../../src/stores/auth.store';
 import { useCircleStore } from '../../src/stores/circle.store';
@@ -38,11 +40,12 @@ function getInitials(name: string): string {
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { colors, resolvedTheme } = useThemeStore();
+  const { colors, resolvedTheme, uiStyle } = useThemeStore();
   const t = useLanguageStore((s) => s.t);
   const { user } = useAuthStore();
 
   const isDark = resolvedTheme === 'dark';
+  const glassTheme = getGlassTheme(isDark, uiStyle);
   const displayName = user?.profile?.displayName || user?.email?.split('@')[0] || t.auth.guest;
   const initials = getInitials(displayName);
   const roleLabel = user?.globalRole === 'ADMIN' ? t.auth.admin : t.auth.member;
@@ -193,12 +196,14 @@ export default function HomeScreen() {
             activeOpacity={1}
             onPress={() => setCircleSwitcherVisible(false)}
           >
-            <View
+            <BlurView
+              intensity={glassTheme.blur.intensity + 20}
+              tint={glassTheme.blur.tint}
               style={[
                 styles.switcherSheet,
                 {
-                  backgroundColor: colors.surface,
-                  borderColor: colors.hairline,
+                  backgroundColor: glassTheme.colors.glassBgSheet,
+                  borderColor: glassTheme.colors.glassBorder,
                 },
               ]}
             >
@@ -284,7 +289,7 @@ export default function HomeScreen() {
                   </Text>
                 </TouchableOpacity>
               </View>
-            </View>
+            </BlurView>
           </TouchableOpacity>
         </Modal>
 
@@ -710,6 +715,7 @@ const styles = StyleSheet.create({
     borderRadius: 32,
     padding: 20,
     borderWidth: 1.2,
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.25,

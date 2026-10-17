@@ -16,6 +16,7 @@ import {
   usePinnedMessagesQuery,
   useChannelTyping,
 } from '../../hooks/use-chat-queries';
+import { useCircleMembersQuery, useCircleDetailQuery } from '../../hooks/use-circle-queries';
 import { useInitiateCallMutation, useJoinCallMutation } from '../../hooks/use-call-queries';
 import { subscribeSocketConnection, sendMessageRead, getSocket } from '../../lib/socket';
 import { MessageList } from './MessageList';
@@ -38,7 +39,12 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const t = useLanguageStore((s) => s.t);
+  const activeCircle = useCircleStore((s) => s.activeCircle);
+  const setActiveCircle = useCircleStore((s) => s.setActiveCircle);
   const setActiveCallStageSession = useCircleStore((s) => s.setActiveCallStageSession);
+
+  const { data: circleDetail } = useCircleDetailQuery(circleId);
+  const circleTheme = activeCircle?.themeColor || circleDetail?.themeColor || 'sage';
 
   const [replyingMessage, setReplyingMessage] = useState<MessageEntity | null>(null);
   const [isPinnedModalOpen, setIsPinnedModalOpen] = useState(false);
@@ -57,6 +63,7 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
 
   const initiateCallMutation = useInitiateCallMutation();
   const joinCallMutation = useJoinCallMutation();
+  const { data: circleMembers = [] } = useCircleMembersQuery(circleId);
 
   const handleStartCall = async (callType: CallType) => {
     try {
@@ -90,18 +97,28 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
         }
       };
 
+      const handleThemeUpdated = (payload: { circleId: string; themeColor: string }) => {
+        if (payload.circleId === circleId) {
+          if (activeCircle) {
+            setActiveCircle({ ...activeCircle, themeColor: payload.themeColor as any });
+          }
+        }
+      };
+
       socket.on('call:incoming', handleIncomingCall);
       socket.on('call:ended', handleCallEnded);
+      socket.on('circle:theme_updated', handleThemeUpdated);
 
       return () => {
         unsub();
         socket.off('call:incoming', handleIncomingCall);
         socket.off('call:ended', handleCallEnded);
+        socket.off('circle:theme_updated', handleThemeUpdated);
       };
     }
 
     return unsub;
-  }, [circleId, user?.id]);
+  }, [circleId, user?.id, activeCircle, setActiveCircle]);
 
   // Queries & Mutations
   const {
@@ -179,6 +196,8 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
   };
 
   const handleTogglePin = (messageId: string, isPinned: boolean) => {
+    const targetMsg = messages.find((m) => m.id === messageId);
+    if (targetMsg?.content?.startsWith('[CALL_SUMMARY]:')) return;
     pinMessageMutation.mutate({ messageId, isPinned });
   };
 
@@ -195,128 +214,140 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full min-h-0 rounded-3xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface shadow-circle-card overflow-hidden transition-colors">
-      {/* Channel Header Bar with Call Actions */}
-      <div className="flex items-center justify-between px-4 py-2.5 border-b border-circle-hairline dark:border-circle-dark-hairline bg-white/80 dark:bg-circle-dark-surface/80 backdrop-blur-md z-10">
-        <div className="flex items-center gap-2 min-w-0">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-circle-wash dark:bg-circle-dark-wash text-circle-sage dark:text-circle-primary font-bold">
-            <Hash className="h-4 w-4" />
-          </div>
-          <div className="min-w-0">
-            <h3 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text truncate">
-              {channelName}
-            </h3>
-            {channelTopic && (
-              <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted truncate hidden sm:block">
-                {channelTopic}
-              </p>
-            )}
-          </div>
-        </div>
-
-        {/* Channel Action Controls: Mobile Call icons (hidden on desktop because column 3 is present) & Pinned */}
-        <div className="flex items-center gap-1.5 shrink-0">
-          <div className="flex xl:hidden items-center gap-1">
-            <button
-              type="button"
-              onClick={() => handleStartCall(CallType.AUDIO)}
-              disabled={initiateCallMutation.isPending}
-              className="flex h-8 w-8 items-center justify-center rounded-full text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors active:scale-95 shadow-2xs"
-              title={t.calls.startAudioCallTooltip}
-            >
-              <Phone className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => handleStartCall(CallType.VIDEO)}
-              disabled={initiateCallMutation.isPending}
-              className="flex h-8 w-8 items-center justify-center rounded-full text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors active:scale-95 shadow-2xs"
-              title={t.calls.startVideoCallTooltip}
-            >
-              <Video className="h-4 w-4" />
-            </button>
+    <div
+      data-circle-theme={circleTheme}
+      className="flex-1 flex flex-col h-full min-h-0 bg-white dark:bg-circle-dark-surface overflow-hidden transition-colors"
+    >
+      {/* Channel Header Bar with Call Actions: seamless background without dividing line */}
+      <div className="w-full bg-white dark:bg-circle-dark-surface z-10 shrink-0">
+        <div className="w-full max-w-4xl mx-auto flex items-center justify-between px-4 sm:px-6 py-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <Hash className="h-4.5 w-4.5 shrink-0 text-circle-slate dark:text-circle-dark-muted" />
+            <div className="min-w-0">
+              <h3 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text truncate">
+                {channelName}
+              </h3>
+            </div>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setIsPinnedModalOpen(true)}
-            className="flex h-8 w-8 items-center justify-center rounded-full text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors active:scale-95 shadow-2xs"
-            title={t.chat.pinnedBadge}
-          >
-            <Pin className="h-4 w-4" />
-          </button>
+          {/* Channel Action Controls: Mobile Call icons & Pinned */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <div className="flex xl:hidden items-center gap-1">
+              <button
+                type="button"
+                onClick={() => handleStartCall(CallType.AUDIO)}
+                disabled={initiateCallMutation.isPending}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas transition-colors active:scale-95"
+                title={t.calls.startAudioCallTooltip}
+              >
+                <Phone className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => handleStartCall(CallType.VIDEO)}
+                disabled={initiateCallMutation.isPending}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas transition-colors active:scale-95"
+                title={t.calls.startVideoCallTooltip}
+              >
+                <Video className="h-4 w-4" />
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsPinnedModalOpen(true)}
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas transition-colors active:scale-95"
+              title={t.chat.pinnedBadge}
+            >
+              <Pin className="h-4 w-4" />
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Network Reconnection Banner */}
-      {!isSocketConnected && (
-        <div className="flex items-center justify-center gap-2 bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 py-1.5 px-4 text-xs font-medium border-b border-amber-500/20 animate-pulse transition-all">
-          <WifiOff className="h-3.5 w-3.5" />
-          <span>{t.chat.reconnecting}</span>
-        </div>
-      )}
-
-      {/* Pinned Messages Bar (ONLY shown when pinned messages exist) */}
-      {pinnedMessages.length > 0 && (
-        <div className="flex items-center justify-between border-b border-circle-hairline dark:border-circle-dark-hairline px-4 py-2 bg-circle-wash/60 dark:bg-circle-dark-wash/60 backdrop-blur-sm z-10 text-xs">
-          <div className="flex items-center gap-2 text-circle-charcoal dark:text-circle-dark-text font-medium truncate min-w-0 pr-2">
-            <Pin className="h-3.5 w-3.5 fill-circle-primary text-circle-primary shrink-0" />
-            <span className="truncate">{pinnedMessages[pinnedMessages.length - 1]?.content || t.chat.pinnedBadge}</span>
+      {/* Centered Chat Column: Synchronized responsive proportion matching moments feed (max-w-4xl) */}
+      <div className="flex-1 flex flex-col min-h-0 w-full max-w-4xl mx-auto px-2 sm:px-4">
+        {/* Network Reconnection Banner */}
+        {!isSocketConnected && (
+          <div className="flex items-center justify-center gap-2 bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 py-1.5 px-4 text-xs font-medium animate-pulse transition-all">
+            <WifiOff className="h-3.5 w-3.5" />
+            <span>{t.chat.reconnecting}</span>
           </div>
-          <button
-            type="button"
-            onClick={() => setIsPinnedModalOpen(true)}
-            className="flex items-center gap-1 shrink-0 rounded-full bg-white dark:bg-circle-dark-surface border border-circle-hairline dark:border-circle-dark-hairline px-2.5 py-1 text-[11px] font-semibold text-circle-sage dark:text-circle-primary hover:bg-circle-primary/10 transition-colors shadow-xs"
-          >
-            <span>{pinnedMessages.length} {t.chat.pinnedBadge}</span>
-          </button>
-        </div>
-      )}
+        )}
 
-      {/* Messages Scroll Area */}
-      <MessageList
-        messages={messages}
-        currentUserId={user?.id}
-        isLoading={isLoadingMessages}
-        hasMore={hasNextPage}
-        isFetchingNextPage={isFetchingNextPage}
-        onLoadEarlier={() => fetchNextPage()}
-        onReply={handleReply}
-        onReact={handleReact}
-        onTogglePin={handleTogglePin}
-        onRetry={handleRetry}
-      />
+        {/* Pinned Messages Bar (Subtle & gentle top strip) */}
+        {pinnedMessages.length > 0 && (
+          <div className="flex items-center justify-between mx-4 mb-2 rounded-xl px-3 py-1 bg-circle-canvas/60 dark:bg-circle-dark-canvas/60 border border-circle-hairline dark:border-circle-dark-hairline backdrop-blur-sm z-10 text-xs">
+            <div
+              onClick={() => {
+                const latest = pinnedMessages[pinnedMessages.length - 1];
+                if (latest?.id) {
+                  const el = document.getElementById(`message-${latest.id}`);
+                  el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+              }}
+              className="flex items-center gap-2 text-circle-slate dark:text-circle-dark-muted font-normal truncate min-w-0 pr-2 cursor-pointer hover:text-circle-charcoal dark:hover:text-circle-dark-text transition-colors"
+              title={t.chat.pinnedBadge}
+            >
+              <Pin className="h-3 w-3 text-circle-primary shrink-0 opacity-80" />
+              <span className="truncate">{pinnedMessages[pinnedMessages.length - 1]?.content || t.chat.pinnedBadge}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsPinnedModalOpen(true)}
+              className="flex items-center gap-1 shrink-0 rounded-full bg-circle-primary/10 hover:bg-circle-primary/20 text-circle-primary dark:text-circle-primary px-2 py-0.5 text-[11px] font-medium transition-colors"
+            >
+              <span>{pinnedMessages.length} {t.chat.pinnedBadge}</span>
+            </button>
+          </div>
+        )}
 
-      {/* Typing Indicator Bar */}
-      {typingUsers.length > 0 && (
-        <div className="px-5 py-1 text-[11px] text-circle-slate dark:text-circle-dark-muted flex items-center gap-1.5 animate-pulse bg-circle-canvas/30 dark:bg-circle-dark-canvas/30">
-          <span className="flex h-1.5 w-1.5 rounded-full bg-circle-primary animate-ping" />
-          <span>
-            {t.chat.typingIndicator.replace(
-              '{names}',
-              typingUsers.map((u) => u.userName).join(', '),
-            )}
-          </span>
-        </div>
-      )}
+        {/* Messages Scroll Area */}
+        <MessageList
+          messages={messages}
+          currentUserId={user?.id}
+          isLoading={isLoadingMessages}
+          hasMore={hasNextPage}
+          isFetchingNextPage={isFetchingNextPage}
+          onLoadEarlier={() => fetchNextPage()}
+          onReply={handleReply}
+          onReact={handleReact}
+          onTogglePin={handleTogglePin}
+          onRetry={handleRetry}
+        />
 
-      {/* Chat Composer */}
-      <ChatComposer
-        channelId={channelId}
-        channelName={channelName}
-        replyingMessage={replyingMessage}
-        onCancelReply={() => setReplyingMessage(null)}
-        onSendMessage={async (data) => {
-          await sendMessageMutation.mutateAsync(data);
-        }}
-        reportTyping={(isTyping) => {
-          try {
-            const stored = localStorage.getItem(`circle_${circleId}_typing_indicator`);
-            if (stored === 'false') return;
-          } catch {}
-          reportTyping(isTyping, user?.profile?.displayName || user?.email);
-        }}
-      />
+        {/* Typing Indicator Bar */}
+        {typingUsers.length > 0 && (
+          <div className="px-5 py-1 text-[11px] text-circle-slate dark:text-circle-dark-muted flex items-center gap-1.5 animate-pulse bg-circle-canvas/30 dark:bg-circle-dark-canvas/30">
+            <span className="flex h-1.5 w-1.5 rounded-full bg-circle-primary animate-ping" />
+            <span>
+              {t.chat.typingIndicator.replace(
+                '{names}',
+                typingUsers.map((u) => u.userName).join(', '),
+              )}
+            </span>
+          </div>
+        )}
+
+        {/* Chat Composer */}
+        <ChatComposer
+          channelId={channelId}
+          channelName={channelName}
+          members={circleMembers}
+          replyingMessage={replyingMessage}
+          onCancelReply={() => setReplyingMessage(null)}
+          onSendMessage={async (data) => {
+            await sendMessageMutation.mutateAsync(data);
+          }}
+          reportTyping={(isTyping) => {
+            try {
+              const stored = localStorage.getItem(`circle_${circleId}_typing_indicator`);
+              if (stored === 'false') return;
+            } catch {}
+            reportTyping(isTyping, user?.profile?.displayName || user?.email);
+          }}
+        />
+      </div>
 
       {/* Pinned Messages Modal */}
       <PinnedMessagesModal
@@ -325,6 +356,10 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
         pinnedMessages={pinnedMessages}
         isLoading={isLoadingPins}
         onUnpin={(messageId) => handleTogglePin(messageId, true)}
+        onJumpToMessage={(messageId) => {
+          const el = document.getElementById(`message-${messageId}`);
+          el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }}
       />
 
       {/* Realtime Incoming Call Ringing Dialog */}
@@ -333,16 +368,16 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
           <div className="relative w-full max-w-sm overflow-hidden rounded-3xl border border-white/10 bg-circle-charcoal/95 p-6 text-white shadow-2xl animate-scaleUp">
             {/* Header with pulsating icon */}
             <div className="flex flex-col items-center text-center">
-              <div className="relative mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400/40 opacity-75"></span>
+              <div className="relative mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-white/10 text-white">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/20 opacity-75"></span>
                 {incomingCallAlert.callType === CallType.VIDEO ? (
-                  <Video className="relative h-10 w-10 text-emerald-400 animate-bounce" />
+                  <Video className="relative h-10 w-10 text-white animate-bounce" />
                 ) : (
-                  <PhoneCall className="relative h-10 w-10 text-emerald-400 animate-bounce" />
+                  <PhoneCall className="relative h-10 w-10 text-white animate-bounce" />
                 )}
               </div>
 
-              <span className="text-xs font-semibold uppercase tracking-wider text-emerald-400">
+              <span className="text-xs font-semibold uppercase tracking-wider text-white/80">
                 {incomingCallAlert.callType === CallType.VIDEO ? t.calls.incomingVideoCall : t.calls.incomingAudioCall}
               </span>
 
