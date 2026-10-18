@@ -88,6 +88,7 @@ const isExpoGo =
 let DualCameraFrontView: any = null;
 let DualCameraBackView: any = null;
 let takeDualPictureAsync: any = null;
+let checkDualCameraHardwareSupportedAsync: (() => Promise<boolean>) | null = null;
 
 if (!isExpoGo) {
   try {
@@ -96,6 +97,7 @@ if (!isExpoGo) {
     DualCameraFrontView = dualCam?.DualCameraFrontView;
     DualCameraBackView = dualCam?.DualCameraBackView;
     takeDualPictureAsync = dualCam?.takePictureAsync;
+    checkDualCameraHardwareSupportedAsync = dualCam?.isSupported;
   } catch {
     // Native module 'ExpoDualCamera' not present in this client
   }
@@ -423,6 +425,8 @@ interface MomentsViewProps {
   circleId: string;
   circleName: string;
   isActive?: boolean;
+  selectedMemberId?: string | 'all';
+  onSelectMemberId?: (id: string | 'all') => void;
 }
 
 type FeedItem =
@@ -430,7 +434,13 @@ type FeedItem =
   | { type: 'empty'; id: string }
   | { type: 'moment'; id: string; data: any; index: number };
 
-export function MomentsView({ circleId, circleName, isActive = true }: MomentsViewProps) {
+export function MomentsView({
+  circleId,
+  circleName,
+  isActive = true,
+  selectedMemberId: controlledMemberId,
+  onSelectMemberId,
+}: MomentsViewProps) {
   const { colors, resolvedTheme, uiStyle } = useThemeStore();
   const { t, locale } = useLanguageStore();
   const user = useAuthStore((s) => s.user);
@@ -511,8 +521,10 @@ export function MomentsView({ circleId, circleName, isActive = true }: MomentsVi
   const reactMomentMutation = useReactMomentMutation(circleId);
   const replyMomentMutation = useReplyMomentMutation(circleId);
 
-  // Member Filter State (Trang 1..N: Lọc theo mọi người hoặc từng thành viên dạng sổ tại chỗ)
-  const [selectedMemberId, setSelectedMemberId] = useState<string | 'all'>('all');
+  // Member Filter State (Trang 1..N: Lọc theo mọi người hoặc từng thành viên)
+  const [internalMemberId, setInternalMemberId] = useState<string | 'all'>('all');
+  const selectedMemberId = controlledMemberId !== undefined ? controlledMemberId : internalMemberId;
+  const setSelectedMemberId = onSelectMemberId || setInternalMemberId;
   const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState<boolean>(false);
 
   // Reactors List Modal (Author only)
@@ -523,6 +535,29 @@ export function MomentsView({ circleId, circleName, isActive = true }: MomentsVi
   const [cameraFacing, setCameraFacing] = useState<CameraType>('front');
   const [flashMode, setFlashMode] = useState<boolean>(false);
   const [isDualMode, setIsDualMode] = useState<boolean>(false);
+  const [isHardwareConcurrentSupported, setIsHardwareConcurrentSupported] = useState<boolean>(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    if (checkDualCameraHardwareSupportedAsync) {
+      checkDualCameraHardwareSupportedAsync()
+        .then((supported) => {
+          if (isMounted) {
+            setIsHardwareConcurrentSupported(Boolean(supported));
+          }
+        })
+        .catch(() => {
+          if (isMounted) {
+            setIsHardwareConcurrentSupported(false);
+          }
+        });
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const canUseNativeConcurrent = hasNativeDualCam && isHardwareConcurrentSupported;
   // Zoom camera:
   // Cam trước: Dưới 1x (< 0.04) là góc rộng toàn cảm biến (dạng khung icon), 0.06 tương ứng chuẩn 1.0x (đỡ gần, tự nhiên), phóng đại lên tới 5x (0.85)
   // Cam sau: 0.00 tương ứng 0.5x (siêu rộng), 0.12 tương ứng 1.0x, 0.95 tương ứng 5.0x
@@ -602,9 +637,8 @@ export function MomentsView({ circleId, circleName, isActive = true }: MomentsVi
     })
   ).current;
 
-  // Layout calculations: Fixed top header (36px, synchronized with Chat Layer 2)
-  const topHeaderHeight = 36;
-  const listHeight = Math.max(containerHeight - topHeaderHeight, 300);
+  // Layout calculations: full container height (synchronized with unified 2-layer parent header)
+  const listHeight = Math.max(containerHeight, 300);
 
   // Bố cục khung ảnh to tràn viền sát lề (chỉ chừa 6px mỗi mép)
   const momentCardWidth = SCREEN_WIDTH - 12;
@@ -898,24 +932,31 @@ export function MomentsView({ circleId, circleName, isActive = true }: MomentsVi
     try {
       setIsTakingPhoto(true);
 
-      if (isDualMode && hasNativeDualCam) {
-        // Dual Mode trên Development Build: Chụp đồng thời 2 camera thật từ expo-dual-camera
-        if (flashMode && cameraFacing === 'front') {
-          setIsScreenFlashing(true);
-          await new Promise((r) => setTimeout(r, 350));
+      if (isDualMode && canUseNativeConcurrent && takeDualPictureAsync) {
+        // Dual Mode trên thiết bị có hỗ trợ concurrent camera thật (MultiCam):
+        try {
+          if (flashMode && cameraFacing === 'front') {
+            setIsScreenFlashing(true);
+            await new Promise((r) => setTimeout(r, 350));
+          }
+          const dualResult = await takeDualPictureAsync({ quality: 0.78 });
+          await new Promise((r) => setTimeout(r, 100));
+          setIsScreenFlashing(false);
+          if (dualResult?.frontUri && dualResult?.backUri) {
+            const mainUrl = cameraFacing === 'back' ? dualResult.backUri : dualResult.frontUri;
+            const counterpartUrl = cameraFacing === 'back' ? dualResult.frontUri : dualResult.backUri;
+            setCapturedPhotoUrl(mainUrl);
+            setDualPipPhotoUrl(counterpartUrl);
+            setCapturedMediaType('IMAGE');
+            return;
+          }
+        } catch (dualErr) {
+          console.warn('Native concurrent dual camera failed, smoothly falling back to sequential shot:', dualErr);
+          setIsScreenFlashing(false);
         }
-        const dualResult = await takeDualPictureAsync({ quality: 0.78 });
-        await new Promise((r) => setTimeout(r, 100));
-        setIsScreenFlashing(false);
-        if (dualResult?.frontUri && dualResult?.backUri) {
-          const mainUrl = cameraFacing === 'back' ? dualResult.backUri : dualResult.frontUri;
-          const counterpartUrl = cameraFacing === 'back' ? dualResult.frontUri : dualResult.backUri;
-          setCapturedPhotoUrl(mainUrl);
-          setDualPipPhotoUrl(counterpartUrl);
-        } else {
-          Alert.alert(t.common.appName, 'Không thể chụp ảnh chế độ Dual, vui lòng thử lại.');
-        }
-      } else if (isDualMode && cameraRef.current) {
+      }
+
+      if (isDualMode && cameraRef.current) {
         // Dual Mode (Fallback): Chụp kép 2 camera thật liên tiếp (Sequential Dual Shot)
         if (flashMode && cameraFacing === 'front') {
           setIsScreenFlashing(true);
@@ -926,13 +967,10 @@ export function MomentsView({ circleId, circleName, isActive = true }: MomentsVi
           quality: 0.78,
           exif: false,
           skipProcessing: false,
-          base64: true,
         });
         await new Promise((r) => setTimeout(r, 100));
         setIsScreenFlashing(false);
-        const shot1Url = shot1?.base64
-          ? `data:image/jpeg;base64,${shot1.base64}`
-          : shot1?.uri || null;
+        const shot1Url = shot1?.uri || (shot1?.base64 ? `data:image/jpeg;base64,${shot1.base64}` : null);
 
         if (!shot1Url) {
           throw new Error('Không thể chụp ảnh từ camera 1');
@@ -943,20 +981,21 @@ export function MomentsView({ circleId, circleName, isActive = true }: MomentsVi
         setCameraFacing(secondFacing);
 
         // Đợi native camera session khởi tạo góc thứ 2
-        await new Promise((resolve) => setTimeout(resolve, 450));
+        await new Promise((resolve) => setTimeout(resolve, 500));
 
         let shot2Url = shot1Url;
         try {
-          const shot2 = await cameraRef.current.takePictureAsync({
-            quality: 0.78,
-            exif: false,
-            skipProcessing: false,
-            base64: true,
-          });
-          if (shot2?.base64) {
-            shot2Url = `data:image/jpeg;base64,${shot2.base64}`;
-          } else if (shot2?.uri) {
-            shot2Url = shot2.uri;
+          if (cameraRef.current) {
+            const shot2 = await cameraRef.current.takePictureAsync({
+              quality: 0.78,
+              exif: false,
+              skipProcessing: false,
+            });
+            if (shot2?.uri) {
+              shot2Url = shot2.uri;
+            } else if (shot2?.base64) {
+              shot2Url = `data:image/jpeg;base64,${shot2.base64}`;
+            }
           }
         } catch (e) {
           console.warn('Shot 2 capture error:', e);
@@ -1314,6 +1353,19 @@ export function MomentsView({ circleId, circleName, isActive = true }: MomentsVi
               { transform: [{ translateY: keyboardShiftAnim }] },
             ]}
           >
+            {/* Replying Badge when user is replying to a moment */}
+            {replyingToAuthor && (
+              <View style={[styles.replyingBadge, { backgroundColor: `${colors.warning}20`, marginBottom: 8 }]}>
+                <MessageCircle size={13} color={colors.warning} />
+                <Text style={[styles.replyingBadgeText, { color: colors.warning }]}>
+                  Đáp lại: {replyingToAuthor}
+                </Text>
+                <TouchableOpacity onPress={() => setReplyingToAuthor(null)}>
+                  <X size={13} color={colors.warning} />
+                </TouchableOpacity>
+              </View>
+            )}
+
             {/* Moment 1:1 Viewfinder Window (To sát viền, hỗ trợ zoom bằng 2 ngón tay) */}
             <View
               {...cameraPinchPanResponder.panHandlers}
@@ -1383,8 +1435,8 @@ export function MomentsView({ circleId, circleName, isActive = true }: MomentsVi
                 </View>
               ) : permission?.granted ? (
                 <>
-                  {isDualMode && hasNativeDualCam ? (
-                    /* Dual Mode trên Development Build: Live thật đồng thời cả 2 camera (trước + sau) bằng expo-dual-camera */
+                  {isDualMode && canUseNativeConcurrent ? (
+                    /* Dual Mode trên Development Build có hỗ trợ hardware concurrent: Live thật đồng thời cả 2 camera bằng expo-dual-camera */
                     <>
                       {cameraFacing === 'back' ? (
                         <>
@@ -2141,146 +2193,6 @@ export function MomentsView({ circleId, circleName, isActive = true }: MomentsVi
         }
       }}
     >
-      {/* =========================================================================
-          CỐ ĐỊNH THANH TIÊU ĐỀ TRÊN CÙNG (FIXED TOP HEADER - TO HƠN)
-          - Tầng 2: Đồng bộ 100% bố cục layout và ngôn ngữ thiết kế (Flat vs Glass) với 2 tab còn lại
-         ========================================================================= */}
-      <View style={[styles.fixedTopHeader, { height: topHeaderHeight }]}>
-        <TouchableOpacity
-          activeOpacity={0.7}
-          onPress={() => setIsFilterDropdownOpen(!isFilterDropdownOpen)}
-          style={[
-            styles.friendsPill,
-            {
-              backgroundColor: isGlass
-                ? (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)')
-                : colors.surface,
-              borderColor: isGlass
-                ? (isDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.07)')
-                : colors.hairline,
-              shadowOpacity: isGlass ? 0.05 : 0,
-              elevation: isGlass ? 2 : 0,
-            },
-          ]}
-          accessibilityLabel="Lọc bạn bè"
-        >
-          <Users size={13} color={colors.subtle} />
-          <Text numberOfLines={1} style={[styles.friendsPillText, { color: colors.text }]}>
-            {selectedMemberId === 'all'
-              ? (members.length > 0 ? `${members.length} bạn bè` : 'Bạn bè')
-              : selectedFilterName}
-          </Text>
-          <ChevronDown size={13} color={colors.subtle} style={{ marginLeft: 2 }} />
-        </TouchableOpacity>
-
-        {replyingToAuthor && currentPageIndex === 0 && (
-          <View style={[styles.replyingBadge, { backgroundColor: `${colors.warning}20` }]}>
-            <MessageCircle size={13} color={colors.warning} />
-            <Text style={[styles.replyingBadgeText, { color: colors.warning }]}>
-              Đáp lại: {replyingToAuthor}
-            </Text>
-            <TouchableOpacity onPress={() => setReplyingToAuthor(null)}>
-              <X size={13} color={colors.warning} />
-            </TouchableOpacity>
-          </View>
-        )}
-      </View>
-
-      {/* =========================================================================
-          INLINE MEMBER FILTER DROPDOWN (SỔ NGAY TẠI THANH TIÊU ĐỀ TRÊN CÙNG)
-         ========================================================================= */}
-      {isFilterDropdownOpen && currentPageIndex > 0 && (
-        <View style={styles.inlineDropdownWrapper}>
-          <TouchableOpacity
-            activeOpacity={1}
-            onPress={() => setIsFilterDropdownOpen(false)}
-            style={StyleSheet.absoluteFill}
-          />
-          <View
-            style={[
-              styles.inlineDropdownMenu,
-              {
-                backgroundColor: colors.sheetBg,
-                borderColor: colors.glassBorder,
-              },
-            ]}
-          >
-            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 220 }}>
-              {/* Option 1: Tất cả mọi người */}
-              <TouchableOpacity
-                activeOpacity={0.75}
-                onPress={() => handleSelectFilter('all')}
-                style={[
-                  styles.dropdownItem,
-                  {
-                    backgroundColor: selectedMemberId === 'all' ? `${colors.primary}15` : 'transparent',
-                    borderBottomColor: colors.hairline,
-                  },
-                ]}
-              >
-                <View style={[styles.dropdownAvatar, { backgroundColor: `${colors.primary}20` }]}>
-                  <Users size={16} color={colors.primary} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.dropdownItemTitle, { color: colors.text }]}>Mọi người</Text>
-                  <Text style={[styles.dropdownItemSub, { color: colors.subtle }]}>
-                    Tất cả {moments.length} khoảnh khắc
-                  </Text>
-                </View>
-                {selectedMemberId === 'all' && (
-                  <Check size={16} color={colors.primary} />
-                )}
-              </TouchableOpacity>
-
-              {/* Members List */}
-              {members.map((mb: any) => {
-                const memberId = mb.userId || mb.id || mb.user?.id;
-                const displayName = mb.profile?.displayName || mb.user?.profile?.displayName || mb.email || 'Thành viên';
-                const avatarUrl = mb.profile?.avatarUrl || mb.user?.profile?.avatarUrl;
-                const isSelected = selectedMemberId === memberId;
-                const memberMomentsCount = moments.filter(
-                  (m: any) => m.userId === memberId || m.user?.id === memberId
-                ).length;
-
-                return (
-                  <TouchableOpacity
-                    key={memberId}
-                    activeOpacity={0.75}
-                    onPress={() => handleSelectFilter(memberId)}
-                    style={[
-                      styles.dropdownItem,
-                      {
-                        backgroundColor: isSelected ? `${colors.primary}15` : 'transparent',
-                        borderBottomColor: colors.hairline,
-                      },
-                    ]}
-                  >
-                    <View style={[styles.dropdownAvatar, { backgroundColor: `${colors.primary}20` }]}>
-                      {avatarUrl ? (
-                        <RNImage source={{ uri: avatarUrl }} style={styles.dropdownAvatarImg} />
-                      ) : (
-                        <Text style={[styles.dropdownAvatarText, { color: colors.primary }]}>
-                          {getInitials(displayName)}
-                        </Text>
-                      )}
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.dropdownItemTitle, { color: colors.text }]}>{displayName}</Text>
-                      <Text style={[styles.dropdownItemSub, { color: colors.subtle }]}>
-                        {memberMomentsCount} khoảnh khắc
-                      </Text>
-                    </View>
-                    {isSelected && (
-                      <Check size={16} color={colors.primary} />
-                    )}
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </View>
-        </View>
-      )}
-
       {/* =========================================================================
           SNAP PAGING FEED (TRANG 0 = CAMERA, TRANG 1..N = KHOẢNH KHẮC)
          ========================================================================= */}

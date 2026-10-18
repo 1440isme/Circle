@@ -33,7 +33,7 @@ function RootNavigator() {
   const router = useRouter();
   const segments = useSegments();
   const { isAuthenticated, isLoading, initAuth, logout } = useAuthStore();
-  const { colors, resolvedTheme } = useThemeStore();
+  const { colors, resolvedTheme, initTheme } = useThemeStore();
   const t = useLanguageStore((s) => s.t);
 
   const [isBiometricLocked, setIsBiometricLocked] = useState(false);
@@ -41,7 +41,8 @@ function RootNavigator() {
 
   useEffect(() => {
     initAuth();
-  }, [initAuth]);
+    initTheme();
+  }, [initAuth, initTheme]);
 
   // Check biometric unlock state upon authentication
   useEffect(() => {
