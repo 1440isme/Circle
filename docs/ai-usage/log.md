@@ -4531,3 +4531,27 @@
 - **Security & License Check:** An toàn, xin quyền truy cập thư viện theo chuẩn phân quyền hệ điều hành Android/iOS.
 - **Branch:** `feat/94-moments-archive-places-map`
 - **PR:** #95 (Draft)
+
+### AI-0107: Tối ưu hoá triệt để hiệu năng VirtualizedList và Memoize MomentFeedCardItem (#94)
+- **Timestamp:** 2026-10-20T18:05:00+07:00
+- **Task ID:** Issue #94 (Epic #20: Moments & Shared Stories)
+- **Engineers:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Feature / Area:** Mobile Moments Feed List Virtualization Performance Optimization.
+- **Files Affected:**
+  - `apps/mobile/src/components/moment/MomentsView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% mã nguồn tối ưu:
+  - Tách riêng thẻ khoảnh khắc Moment Feed Card thành component độc lập `MomentFeedCardItem = React.memo(...)` tuân thủ đúng khuyến nghị của React Native VirtualizedList.
+  - Bọc `MomentVideoPlayer` và `MomentFeedPipView` vào `React.memo` để tránh render lại toàn bộ video/PiP canvas khi cha re-render.
+  - Áp dụng `useMemo` cho `filteredMoments` và `feedItems`, triệt tiêu việc tạo mảng mới mỗi lần component `MomentsView` cập nhật state (nhập văn bản, chuyển trang, zoom camera...).
+  - Memoize toàn bộ các callback handlers: `handleSetScrollEnabled`, `handleCornerChange`, `handleSwap`, `handleOpenActionMenuForMoment`, `handleReplyWithPhoto`, `handleOpenChatReply`, `handleSendChatReply`, `handleCancelChatReply`, `handleSelectReactors`, `handleReactMoment`, `getItemLayout`.
+  - Cấu hình tinh chỉnh FlatList: `initialNumToRender={1}`, `maxToRenderPerBatch={2}`, `windowSize={3}`, `updateCellsBatchingPeriod={50}`, `getItemLayout={getItemLayout}` và `removeClippedSubviews`.
+  - Triệt tiêu hoàn toàn cảnh báo lag `VirtualizedList: You have a large list that is slow to update (contentLength: 36414, dt: 1994ms)`.
+- **Human Modifications:** Trương Công Bình gửi log cảnh báo `VirtualizedList slow to update` trong quá trình test thực tế trên máy ảo/thiết bị iOS/Android.
+- **Verification Method:**
+  - `npm run typecheck` (`tsc --noEmit`) trong `apps/mobile`: 0 lỗi TypeScript.
+  - `./scripts/check-agent-map.sh`: 95/95 framework files pass (0 broken references).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** Không có rủi ro bảo mật hoặc thư viện bên thứ 3 lạ.
+- **Branch:** `feat/94-moments-archive-places-map`
+- **PR:** #95 (Draft)

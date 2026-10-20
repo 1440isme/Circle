@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -233,7 +233,7 @@ interface MomentVideoPlayerProps {
   style?: any;
 }
 
-const MomentVideoPlayer: React.FC<MomentVideoPlayerProps> = ({ uri, isMuted = true, style }) => {
+const MomentVideoPlayer: React.FC<MomentVideoPlayerProps> = React.memo(({ uri, isMuted = true, style }) => {
   const player = useVideoPlayer(uri, (p: any) => {
     p.loop = true;
     p.muted = isMuted;
@@ -252,7 +252,8 @@ const MomentVideoPlayer: React.FC<MomentVideoPlayerProps> = ({ uri, isMuted = tr
       nativeControls={false}
     />
   );
-};
+});
+MomentVideoPlayer.displayName = 'MomentVideoPlayer';
 
 export interface MomentFeedPipViewProps {
   pipUrl: string;
@@ -265,7 +266,7 @@ export interface MomentFeedPipViewProps {
   onCornerChange?: (newCornerIndex: number) => void;
 }
 
-export const MomentFeedPipView: React.FC<MomentFeedPipViewProps> = ({
+export const MomentFeedPipView: React.FC<MomentFeedPipViewProps> = React.memo(({
   pipUrl,
   initialCornerIndex,
   momentSize,
@@ -469,7 +470,319 @@ export const MomentFeedPipView: React.FC<MomentFeedPipViewProps> = ({
       </Animated.View>
     </View>
   );
-};
+});
+MomentFeedPipView.displayName = 'MomentFeedPipView';
+
+interface MomentFeedCardItemProps {
+  moment: any;
+  listHeight: number;
+  momentCardWidth: number;
+  colors: any;
+  locale: string;
+  currentUserId?: string;
+  members: any[];
+  isSwapped: boolean;
+  viewerPipCorner?: number;
+  isReplyingThisMoment: boolean;
+  keyboardShiftAnim: Animated.Value;
+  chatReplyText: string;
+  isPendingReply: boolean;
+  onOpenActionMenu: (moment: any) => void;
+  onSetScrollEnabled: (enabled: boolean) => void;
+  onCornerChange: (momentId: string, newCorner: number) => void;
+  onSwap: (momentId: string) => void;
+  onOpenChatReply: (momentId: string, authorName: string) => void;
+  onReplyWithPhoto: (authorName: string) => void;
+  onSendChatReply: (momentId: string) => void;
+  onChangeChatReplyText: (text: string) => void;
+  onCancelChatReply: () => void;
+  onSelectReactors: (moment: any) => void;
+  onReactMoment: (momentId: string, emoji: string) => void;
+}
+
+const MomentFeedCardItem: React.FC<MomentFeedCardItemProps> = React.memo(({
+  moment: m,
+  listHeight,
+  momentCardWidth,
+  colors,
+  locale,
+  currentUserId,
+  members,
+  isSwapped,
+  viewerPipCorner,
+  isReplyingThisMoment,
+  keyboardShiftAnim,
+  chatReplyText,
+  isPendingReply,
+  onOpenActionMenu,
+  onSetScrollEnabled,
+  onCornerChange,
+  onSwap,
+  onOpenChatReply,
+  onReplyWithPhoto,
+  onSendChatReply,
+  onChangeChatReplyText,
+  onCancelChatReply,
+  onSelectReactors,
+  onReactMoment,
+}) => {
+  const authorName = resolveAuthorDisplayName(
+    m.authorId || m.author?.id || m.userId || m.user?.id,
+    m.author || m.user,
+    members
+  );
+  const authorAvatar = m.author?.profile?.avatarUrl || m.user?.profile?.avatarUrl;
+  const rawPhotoSrc = m.photoUrl || m.imageUrl;
+  const { mainUrl, pipUrl, cornerIndex } = parseMomentPhotos(rawPhotoSrc);
+  const displayMain = isSwapped ? (pipUrl || mainUrl) : mainUrl;
+  const displayPip = isSwapped ? mainUrl : pipUrl;
+  const formattedDate = formatMomentRelativeTime(m.createdAt, locale);
+  const isAuthor = m.authorId === currentUserId || (m as any).userId === currentUserId;
+
+  return (
+    <View style={[styles.pageContainer, { height: listHeight }]}>
+      <Animated.View
+        style={[
+          styles.momentFeedCard,
+          {
+            width: momentCardWidth,
+            backgroundColor: colors.surface,
+            borderColor: isReplyingThisMoment ? colors.primary : colors.hairline,
+            transform: [{ translateY: isReplyingThisMoment ? keyboardShiftAnim : 0 }],
+          },
+        ]}
+      >
+        {/* Card Top: Author Info */}
+        <View style={styles.momentFeedHeader}>
+          <View style={styles.momentFeedAuthor}>
+            <View style={[styles.authorAvatar, { backgroundColor: `${colors.primary}20` }]}>
+              {authorAvatar ? (
+                <RNImage source={{ uri: resolveMobileMediaUrl(authorAvatar) }} style={styles.authorAvatarImg} />
+              ) : (
+                <Text style={[styles.authorAvatarText, { color: colors.primary }]}>
+                  {getInitials(authorName)}
+                </Text>
+              )}
+            </View>
+            <View>
+              <Text style={[styles.authorDisplayName, { color: colors.text }]}>
+                {authorName}
+              </Text>
+              <Text style={[styles.momentTimeText, { color: colors.subtle }]}>
+                {formattedDate}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* 1:1 Rounded Square Photo / Video with In-photo Caption Overlay & Dual View PiP (Nhấn giữ để mở tùy chọn) */}
+        <TouchableOpacity
+          activeOpacity={1}
+          delayLongPress={220}
+          onLongPress={() => onOpenActionMenu(m)}
+          style={[styles.momentPhotoFrame, { backgroundColor: colors.wash }]}
+        >
+          {displayMain ? (
+            m.mediaType === 'VIDEO' || displayMain.includes('.mp4') || displayMain.includes('.webm') ? (
+              <MomentVideoPlayer uri={displayMain} style={styles.momentPhotoImage} />
+            ) : (
+              <RNImage source={{ uri: displayMain }} style={styles.momentPhotoImage} resizeMode="cover" />
+            )
+          ) : (
+            <View style={styles.noPhotoPlaceholder}>
+              <ImageIcon size={36} color={colors.subtle} />
+            </View>
+          )}
+
+          {/* Khung nổi Dual View PiP trong Feed: Khởi tạo đúng góc khi chụp và hỗ trợ người xem vuốt 4 góc & chạm đổi trước/sau */}
+          {displayPip && (
+            <MomentFeedPipView
+              key={`${m.id}-${isSwapped ? 'swapped' : 'normal'}`}
+              pipUrl={displayPip}
+              initialCornerIndex={viewerPipCorner ?? cornerIndex}
+              momentSize={momentCardWidth - 16}
+              primaryColor={colors.primary}
+              onDragStart={() => onSetScrollEnabled(false)}
+              onDragEnd={() => onSetScrollEnabled(true)}
+              onCornerChange={(newCorner) => onCornerChange(m.id, newCorner)}
+              onSwap={() => onSwap(m.id)}
+            />
+          )}
+
+          {/* Chú thích của khoảnh khắc (co theo độ dài chữ, tối đa 2 dòng, nổi trên PiP) */}
+          {m.caption && !isReplyingThisMoment ? (
+            <View style={styles.photoCaptionContainer} pointerEvents="none">
+              <View style={styles.photoCaptionPill}>
+                <Text numberOfLines={2} ellipsizeMode="tail" style={styles.photoCaptionText}>
+                  {m.caption}
+                </Text>
+              </View>
+            </View>
+          ) : null}
+
+          {/* Ô nhập phản hồi trực tiếp trên ảnh */}
+          {isReplyingThisMoment && (
+            <View style={styles.feedReplyOverlay} pointerEvents="box-none">
+              <View style={styles.feedReplyPill}>
+                <TextInput
+                  value={chatReplyText}
+                  onChangeText={onChangeChatReplyText}
+                  placeholder={`Phản hồi ${authorName}...`}
+                  placeholderTextColor="rgba(255,255,255,0.7)"
+                  maxLength={500}
+                  autoFocus={true}
+                  returnKeyType="send"
+                  blurOnSubmit={true}
+                  onSubmitEditing={() => onSendChatReply(m.id)}
+                  style={styles.feedReplyTextInput}
+                />
+
+                <TouchableOpacity
+                  disabled={!chatReplyText.trim() || isPendingReply}
+                  onPress={() => onSendChatReply(m.id)}
+                  style={[
+                    styles.feedReplySendBtn,
+                    {
+                      backgroundColor: chatReplyText.trim() ? colors.primary : 'rgba(255,255,255,0.2)',
+                    },
+                  ]}
+                >
+                  {isPendingReply ? (
+                    <ActivityIndicator size="small" color={colors.onPrimary} />
+                  ) : (
+                    <Send size={15} color={chatReplyText.trim() ? colors.onPrimary : 'rgba(255,255,255,0.6)'} />
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={onCancelChatReply}
+                  style={{ padding: 4 }}
+                >
+                  <X size={16} color="rgba(255,255,255,0.7)" />
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+        </TouchableOpacity>
+
+        {/* Card Bottom: Reply Into Chat + Reply With Photo + Quick Emoji Reactions */}
+        <View style={[styles.momentFeedFooter, { borderTopColor: colors.hairline }]}>
+          <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+            <TouchableOpacity
+              activeOpacity={0.75}
+              onPress={() => onOpenChatReply(m.id, authorName)}
+              style={[
+                styles.replyWithPhotoBtn,
+                {
+                  backgroundColor: isReplyingThisMoment ? `${colors.primary}25` : colors.wash,
+                  borderColor: isReplyingThisMoment ? colors.primary : 'transparent',
+                  borderWidth: isReplyingThisMoment ? 1 : 0,
+                },
+              ]}
+            >
+              <MessageCircle size={14} color={isReplyingThisMoment ? colors.primary : colors.text} />
+              <Text style={[styles.replyWithPhotoText, { color: isReplyingThisMoment ? colors.primary : colors.text }]}>
+                Phản hồi
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.75}
+              onPress={() => onReplyWithPhoto(authorName)}
+              style={[styles.replyWithPhotoBtn, { backgroundColor: colors.wash }]}
+            >
+              <Camera size={14} color={colors.primary} />
+              <Text style={[styles.replyWithPhotoText, { color: colors.text }]}>
+                Ảnh
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {isAuthor ? (
+            <TouchableOpacity
+              activeOpacity={0.75}
+              onPress={() => onSelectReactors(m)}
+              style={[styles.authorReactorsBtn, { backgroundColor: colors.wash }]}
+            >
+              {m.reactions && m.reactions.length > 0 ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <View style={styles.authorAvatarStack}>
+                    {m.reactions.slice(0, 5).map((r: any, idx: number) => {
+                      const reactorAvatar = r.user?.avatarUrl;
+                      const reactorName = r.user?.displayName || 'User';
+
+                      return (
+                        <View
+                          key={r.id || idx}
+                          style={[
+                            styles.authorStackItem,
+                            { marginLeft: idx === 0 ? 0 : -8, zIndex: 10 - idx },
+                          ]}
+                        >
+                          <View style={[styles.authorStackAvatar, { backgroundColor: colors.primary }]}>
+                            {reactorAvatar ? (
+                              <RNImage
+                                source={{ uri: resolveMobileMediaUrl(reactorAvatar) }}
+                                style={styles.authorStackAvatarImg}
+                              />
+                            ) : (
+                              <Text style={styles.authorStackAvatarText}>
+                                {getInitials(reactorName)}
+                              </Text>
+                            )}
+                          </View>
+                          {/* Small circular badge at bottom-right of avatar with emoji */}
+                          <View style={[styles.authorStackEmojiBadge, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+                            <Text style={styles.authorStackEmojiText}>{r.emoji}</Text>
+                          </View>
+                        </View>
+                      );
+                    })}
+                  </View>
+                  <Text style={[styles.authorReactorsCountText, { color: colors.text }]}>
+                    {m.reactions.length} {locale === 'vi' ? 'cảm xúc' : 'reactions'}
+                  </Text>
+                </View>
+              ) : (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <Text style={{ fontSize: 13 }}>❤️</Text>
+                  <Text style={[styles.authorNoReactionsText, { color: colors.subtle }]}>
+                    {locale === 'vi' ? 'Chưa có cảm xúc' : 'No reactions yet'}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.reactionEmojisBar}>
+              {['❤️', '🔥', '👏', '🥰'].map((emoji) => {
+                const isSelected = m.userReaction === emoji;
+
+                return (
+                  <TouchableOpacity
+                    key={emoji}
+                    onPress={() => onReactMoment(m.id, emoji)}
+                    activeOpacity={0.7}
+                    style={[
+                      styles.reactionMiniPill,
+                      {
+                        backgroundColor: isSelected ? `${colors.primary}30` : colors.wash,
+                        borderColor: isSelected ? colors.primary : 'transparent',
+                        borderWidth: isSelected ? 1 : 0,
+                      },
+                    ]}
+                  >
+                    <Emoji emoji={emoji} size={18} />
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+        </View>
+      </Animated.View>
+    </View>
+  );
+});
+MomentFeedCardItem.displayName = 'MomentFeedCardItem';
 
 interface MomentsViewProps {
   circleId: string;
@@ -1058,16 +1371,18 @@ export function MomentsView({
 
 
   // Lọc moments theo thành viên được chọn và loại bỏ các khoảnh khắc người dùng đã xóa/ẩn khỏi bên mình
-  const filteredMoments = (selectedMemberId === 'all'
-    ? moments
-    : moments.filter(
-      (m: any) =>
-        m.authorId === selectedMemberId ||
-        m.author?.id === selectedMemberId ||
-        m.userId === selectedMemberId ||
-        m.user?.id === selectedMemberId
-    )
-  ).filter((m: any) => !hiddenMomentIds.has(m.id));
+  const filteredMoments = useMemo(() => {
+    const list = selectedMemberId === 'all'
+      ? moments
+      : moments.filter(
+        (m: any) =>
+          m.authorId === selectedMemberId ||
+          m.author?.id === selectedMemberId ||
+          m.userId === selectedMemberId ||
+          m.user?.id === selectedMemberId
+      );
+    return list.filter((m: any) => !hiddenMomentIds.has(m.id));
+  }, [moments, selectedMemberId, hiddenMomentIds]);
 
   // Tên thành viên đang được lọc
   const selectedMember: any = members.find(
@@ -1407,25 +1722,54 @@ export function MomentsView({
   };
 
 
-  const handleReplyWithPhoto = (authorName: string) => {
+  const handleSetScrollEnabled = useCallback((enabled: boolean) => {
+    (flatListRef.current as any)?.setNativeProps?.({ scrollEnabled: enabled });
+  }, []);
+
+  const handleCornerChange = useCallback((momentId: string, newCorner: number) => {
+    setViewerPipCorners((prev) => ({
+      ...prev,
+      [momentId]: newCorner,
+    }));
+  }, []);
+
+  const handleSwap = useCallback((momentId: string) => {
+    setSwappedMoments((prev) => ({
+      ...prev,
+      [momentId]: !prev[momentId],
+    }));
+  }, []);
+
+  const handleSelectReactors = useCallback((moment: any) => {
+    setSelectedMomentForReactors(moment);
+    setReactorEmojiFilter('ALL');
+  }, []);
+
+  const handleCancelChatReply = useCallback(() => {
+    setActiveReplyMomentId(null);
+    setChatReplyText('');
+    Keyboard.dismiss();
+  }, []);
+
+  const handleReplyWithPhoto = useCallback((authorName: string) => {
     setReplyingToAuthor(authorName);
     flatListRef.current?.scrollToIndex({ index: 0, animated: true });
     setCurrentPageIndex(0);
-  };
+  }, []);
 
-  const handleOpenChatReply = (momentId: string, authorName: string) => {
-    if (activeReplyMomentId === momentId) {
-      setActiveReplyMomentId(null);
-      setChatReplyText('');
-      Keyboard.dismiss();
-    } else {
-      setActiveReplyMomentId(momentId);
-      setActiveReplyAuthorName(authorName);
-      setChatReplyText('');
-    }
-  };
+  const handleOpenChatReply = useCallback((momentId: string, authorName: string) => {
+    setActiveReplyMomentId((prev) => {
+      if (prev === momentId) {
+        Keyboard.dismiss();
+        return null;
+      }
+      return momentId;
+    });
+    setActiveReplyAuthorName(authorName);
+    setChatReplyText('');
+  }, []);
 
-  const handleSendChatReply = async (momentId: string) => {
+  const handleSendChatReply = useCallback(async (momentId: string) => {
     if (!momentId || !chatReplyText.trim() || replyMomentMutation.isPending) return;
 
     try {
@@ -1441,15 +1785,15 @@ export function MomentsView({
     } catch (err: any) {
       Alert.alert(t.common.appName, err?.message || t.common.unknownError);
     }
-  };
+  }, [chatReplyText, replyMomentMutation, circleId, t.common.appName, t.common.unknownError]);
 
-  const handleReactMoment = (momentId: string, emoji: string) => {
+  const handleReactMoment = useCallback((momentId: string, emoji: string) => {
     const target = moments.find((it: any) => it.id === momentId);
     if (target && (target.authorId === user?.id || (target as any).userId === user?.id)) {
       return;
     }
     reactMomentMutation.mutate({ momentId, emoji });
-  };
+  }, [moments, user?.id, reactMomentMutation]);
 
   const scrollToFirstMoment = () => {
     setIsFilterDropdownOpen(false);
@@ -1466,7 +1810,7 @@ export function MomentsView({
   const previewPhoto = capturedPhotoUrl || null;
 
   // Prepare full feed items (Page 0 = Camera, Page 1..N = Filtered Moments or Empty)
-  const feedItems: FeedItem[] = [
+  const feedItems: FeedItem[] = useMemo(() => [
     { type: 'camera', id: 'camera-view' },
     ...(filteredMoments.length === 0
       ? [{ type: 'empty' as const, id: 'empty-view' }]
@@ -1476,7 +1820,7 @@ export function MomentsView({
         data: m,
         index: idx,
       }))),
-  ];
+  ], [filteredMoments]);
 
   // Active Moment / Photo Resolution for Action Menu (Hỗ trợ nhấn giữ ảnh bất kỳ hoặc ảnh trang hiện tại)
   const currentFeedItem = feedItems[currentPageIndex] || feedItems[0];
@@ -1618,7 +1962,7 @@ export function MomentsView({
     }
   };
 
-  const handleOpenActionMenuForMoment = (momentItem?: any) => {
+  const handleOpenActionMenuForMoment = useCallback((momentItem?: any) => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     } catch {}
@@ -1626,7 +1970,16 @@ export function MomentsView({
       setSelectedMomentForAction(momentItem);
     }
     setIsActionMenuOpen(true);
-  };
+  }, []);
+
+  const getItemLayout = useCallback(
+    (_: any, index: number) => ({
+      length: listHeight,
+      offset: listHeight * index,
+      index,
+    }),
+    [listHeight]
+  );
 
   const handleScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     if (listHeight <= 0) return;
@@ -1647,7 +2000,8 @@ export function MomentsView({
     }, 200);
   };
 
-  const renderFeedItem = ({ item, index }: { item: FeedItem; index: number }) => {
+  const renderFeedItem = useCallback(
+    ({ item, index }: { item: FeedItem; index: number }) => {
     if (item.type === 'camera') {
       return (
         <View style={[styles.pageContainer, { height: listHeight }]}>
@@ -2189,283 +2543,85 @@ export function MomentsView({
 
     // Single Moment Snap Card (1 card per page, To sát viền)
     const m = item.data;
-    const authorName = resolveAuthorDisplayName(m.authorId || m.author?.id || m.userId || m.user?.id, m.author || m.user, members);
-    const authorAvatar = m.author?.profile?.avatarUrl || m.user?.profile?.avatarUrl;
-    const rawPhotoSrc = m.photoUrl || m.imageUrl;
-    const { mainUrl, pipUrl, cornerIndex } = parseMomentPhotos(rawPhotoSrc);
-    const isSwapped = Boolean(swappedMoments[m.id]);
-    const displayMain = isSwapped ? (pipUrl || mainUrl) : mainUrl;
-    const displayPip = isSwapped ? mainUrl : pipUrl;
-
-    const formattedDate = formatMomentRelativeTime(m.createdAt, locale);
-
-    const isReplyingThisMoment = activeReplyMomentId === m.id;
-    const isAuthor = m.authorId === user?.id || (m as any).userId === user?.id;
-
     return (
-      <View style={[styles.pageContainer, { height: listHeight }]}>
-        <Animated.View
-          style={[
-            styles.momentFeedCard,
-            {
-              width: momentCardWidth,
-              backgroundColor: colors.surface,
-              borderColor: isReplyingThisMoment ? colors.primary : colors.hairline,
-              transform: [{ translateY: isReplyingThisMoment ? keyboardShiftAnim : 0 }],
-            },
-          ]}
-        >
-          {/* Card Top: Author Info + Index Badge */}
-          <View style={styles.momentFeedHeader}>
-            <View style={styles.momentFeedAuthor}>
-              <View style={[styles.authorAvatar, { backgroundColor: `${colors.primary}20` }]}>
-                {authorAvatar ? (
-                  <RNImage source={{ uri: resolveMobileMediaUrl(authorAvatar) }} style={styles.authorAvatarImg} />
-                ) : (
-                  <Text style={[styles.authorAvatarText, { color: colors.primary }]}>
-                    {getInitials(authorName)}
-                  </Text>
-                )}
-              </View>
-              <View>
-                <Text style={[styles.authorDisplayName, { color: colors.text }]}>
-                  {authorName}
-                </Text>
-                <Text style={[styles.momentTimeText, { color: colors.subtle }]}>
-                  {formattedDate}
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          {/* 1:1 Rounded Square Photo / Video with In-photo Caption Overlay & Dual View PiP (Nhấn giữ để mở tùy chọn) */}
-          <TouchableOpacity
-            activeOpacity={1}
-            delayLongPress={220}
-            onLongPress={() => handleOpenActionMenuForMoment(m)}
-            style={[styles.momentPhotoFrame, { backgroundColor: colors.wash }]}
-          >
-            {displayMain ? (
-              m.mediaType === 'VIDEO' || displayMain.includes('.mp4') || displayMain.includes('.webm') ? (
-                <MomentVideoPlayer uri={displayMain} style={styles.momentPhotoImage} />
-              ) : (
-                <RNImage source={{ uri: displayMain }} style={styles.momentPhotoImage} resizeMode="cover" />
-              )
-            ) : (
-              <View style={styles.noPhotoPlaceholder}>
-                <ImageIcon size={36} color={colors.subtle} />
-              </View>
-            )}
-
-            {/* Khung nổi Dual View PiP trong Feed: Khởi tạo đúng góc khi chụp và hỗ trợ người xem vuốt 4 góc & chạm đổi trước/sau */}
-            {displayPip && (
-              <MomentFeedPipView
-                key={`${m.id}-${isSwapped ? 'swapped' : 'normal'}`}
-                pipUrl={displayPip}
-                initialCornerIndex={viewerPipCorners[m.id] ?? cornerIndex}
-                momentSize={momentCardWidth - 16}
-                primaryColor={colors.primary}
-                onDragStart={() => {
-                  (flatListRef.current as any)?.setNativeProps?.({ scrollEnabled: false });
-                }}
-                onDragEnd={() => {
-                  (flatListRef.current as any)?.setNativeProps?.({ scrollEnabled: true });
-                }}
-                onCornerChange={(newCorner) => {
-                  setViewerPipCorners((prev) => ({
-                    ...prev,
-                    [m.id]: newCorner,
-                  }));
-                }}
-                onSwap={() => {
-                  setSwappedMoments((prev) => ({
-                    ...prev,
-                    [m.id]: !prev[m.id],
-                  }));
-                }}
-              />
-            )}
-
-            {/* Chú thích của khoảnh khắc (co theo độ dài chữ, tối đa 2 dòng, nổi trên PiP) */}
-            {m.caption && !isReplyingThisMoment ? (
-              <View style={styles.photoCaptionContainer} pointerEvents="none">
-                <View style={styles.photoCaptionPill}>
-                  <Text numberOfLines={2} ellipsizeMode="tail" style={styles.photoCaptionText}>
-                    {m.caption}
-                  </Text>
-                </View>
-              </View>
-            ) : null}
-
-            {/* Ô nhập phản hồi trực tiếp trên ảnh (thay thế popup cầu kì) */}
-            {isReplyingThisMoment && (
-              <View style={styles.feedReplyOverlay} pointerEvents="box-none">
-                <View style={styles.feedReplyPill}>
-                  <TextInput
-                    value={chatReplyText}
-                    onChangeText={setChatReplyText}
-                    placeholder={`Phản hồi ${authorName}...`}
-                    placeholderTextColor="rgba(255,255,255,0.7)"
-                    maxLength={500}
-                    autoFocus={true}
-                    returnKeyType="send"
-                    blurOnSubmit={true}
-                    onSubmitEditing={() => handleSendChatReply(m.id)}
-                    style={styles.feedReplyTextInput}
-                  />
-
-                  <TouchableOpacity
-                    disabled={!chatReplyText.trim() || replyMomentMutation.isPending}
-                    onPress={() => handleSendChatReply(m.id)}
-                    style={[
-                      styles.feedReplySendBtn,
-                      {
-                        backgroundColor: chatReplyText.trim() ? colors.primary : 'rgba(255,255,255,0.2)',
-                      },
-                    ]}
-                  >
-                    {replyMomentMutation.isPending ? (
-                      <ActivityIndicator size="small" color={colors.onPrimary} />
-                    ) : (
-                      <Send size={15} color={chatReplyText.trim() ? colors.onPrimary : 'rgba(255,255,255,0.6)'} />
-                    )}
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    onPress={() => {
-                      setActiveReplyMomentId(null);
-                      setChatReplyText('');
-                      Keyboard.dismiss();
-                    }}
-                    style={{ padding: 4 }}
-                  >
-                    <X size={16} color="rgba(255,255,255,0.7)" />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
-          </TouchableOpacity>
-
-          {/* Card Bottom: Reply Into Chat + Reply With Photo + Quick Emoji Reactions */}
-          <View style={[styles.momentFeedFooter, { borderTopColor: colors.hairline }]}>
-            <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
-              <TouchableOpacity
-                activeOpacity={0.75}
-                onPress={() => handleOpenChatReply(m.id, authorName)}
-                style={[
-                  styles.replyWithPhotoBtn,
-                  {
-                    backgroundColor: isReplyingThisMoment ? `${colors.primary}25` : colors.wash,
-                    borderColor: isReplyingThisMoment ? colors.primary : 'transparent',
-                    borderWidth: isReplyingThisMoment ? 1 : 0,
-                  },
-                ]}
-              >
-                <MessageCircle size={14} color={isReplyingThisMoment ? colors.primary : colors.text} />
-                <Text style={[styles.replyWithPhotoText, { color: isReplyingThisMoment ? colors.primary : colors.text }]}>
-                  Phản hồi
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                activeOpacity={0.75}
-                onPress={() => handleReplyWithPhoto(authorName)}
-                style={[styles.replyWithPhotoBtn, { backgroundColor: colors.wash }]}
-              >
-                <Camera size={14} color={colors.primary} />
-                <Text style={[styles.replyWithPhotoText, { color: colors.text }]}>
-                  Ảnh
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {isAuthor ? (
-              <TouchableOpacity
-                activeOpacity={0.75}
-                onPress={() => {
-                  setSelectedMomentForReactors(m);
-                  setReactorEmojiFilter('ALL');
-                }}
-                style={[styles.authorReactorsBtn, { backgroundColor: colors.wash }]}
-              >
-                {m.reactions && m.reactions.length > 0 ? (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <View style={styles.authorAvatarStack}>
-                      {m.reactions.slice(0, 5).map((r: any, idx: number) => {
-                        const reactorAvatar = r.user?.avatarUrl;
-                        const reactorName = r.user?.displayName || 'User';
-
-                        return (
-                          <View
-                            key={r.id || idx}
-                            style={[
-                              styles.authorStackItem,
-                              { marginLeft: idx === 0 ? 0 : -8, zIndex: 10 - idx },
-                            ]}
-                          >
-                            <View style={[styles.authorStackAvatar, { backgroundColor: colors.primary }]}>
-                              {reactorAvatar ? (
-                                <RNImage
-                                  source={{ uri: resolveMobileMediaUrl(reactorAvatar) }}
-                                  style={styles.authorStackAvatarImg}
-                                />
-                              ) : (
-                                <Text style={styles.authorStackAvatarText}>
-                                  {getInitials(reactorName)}
-                                </Text>
-                              )}
-                            </View>
-                            {/* Small circular badge at bottom-right of avatar with emoji */}
-                            <View style={[styles.authorStackEmojiBadge, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
-                              <Text style={styles.authorStackEmojiText}>{r.emoji}</Text>
-                            </View>
-                          </View>
-                        );
-                      })}
-                    </View>
-                    <Text style={[styles.authorReactorsCountText, { color: colors.text }]}>
-                      {m.reactions.length} {locale === 'vi' ? 'cảm xúc' : 'reactions'}
-                    </Text>
-                  </View>
-                ) : (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                    <Text style={{ fontSize: 13 }}>❤️</Text>
-                    <Text style={[styles.authorNoReactionsText, { color: colors.subtle }]}>
-                      {locale === 'vi' ? 'Chưa có cảm xúc' : 'No reactions yet'}
-                    </Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-            ) : (
-              <View style={styles.reactionEmojisBar}>
-                {['❤️', '🔥', '👏', '🥰'].map((emoji) => {
-                  const isSelected = m.userReaction === emoji;
-
-                  return (
-                    <TouchableOpacity
-                      key={emoji}
-                      onPress={() => handleReactMoment(m.id, emoji)}
-                      activeOpacity={0.7}
-                      style={[
-                        styles.reactionMiniPill,
-                        {
-                          backgroundColor: isSelected ? `${colors.primary}30` : colors.wash,
-                          borderColor: isSelected ? colors.primary : 'transparent',
-                          borderWidth: isSelected ? 1 : 0,
-                        },
-                      ]}
-                    >
-                      <Emoji emoji={emoji} size={18} />
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            )}
-          </View>
-        </Animated.View>
-      </View>
+      <MomentFeedCardItem
+        key={m.id}
+        moment={m}
+        listHeight={listHeight}
+        momentCardWidth={momentCardWidth}
+        colors={colors}
+        locale={locale}
+        currentUserId={user?.id}
+        members={members}
+        isSwapped={Boolean(swappedMoments[m.id])}
+        viewerPipCorner={viewerPipCorners[m.id]}
+        isReplyingThisMoment={activeReplyMomentId === m.id}
+        keyboardShiftAnim={keyboardShiftAnim}
+        chatReplyText={chatReplyText}
+        isPendingReply={replyMomentMutation.isPending}
+        onOpenActionMenu={handleOpenActionMenuForMoment}
+        onSetScrollEnabled={handleSetScrollEnabled}
+        onCornerChange={handleCornerChange}
+        onSwap={handleSwap}
+        onOpenChatReply={handleOpenChatReply}
+        onReplyWithPhoto={handleReplyWithPhoto}
+        onSendChatReply={handleSendChatReply}
+        onChangeChatReplyText={setChatReplyText}
+        onCancelChatReply={handleCancelChatReply}
+        onSelectReactors={handleSelectReactors}
+        onReactMoment={handleReactMoment}
+      />
     );
-  };
+  }, [
+    listHeight,
+    keyboardShiftAnim,
+    replyingToAuthor,
+    colors,
+    momentFrameSize,
+    capturedPhotoUrl,
+    capturedMediaType,
+    dualPipPhotoUrl,
+    pipSwipePanResponder.panHandlers,
+    pipPan,
+    pipScale,
+    isDualMode,
+    canUseNativeConcurrent,
+    cameraFacing,
+    user?.id,
+    members,
+    user?.profile?.displayName,
+    captionText,
+    isActionProcessing,
+    createMomentMutation.isPending,
+    permission,
+    requestPermission,
+    cameraPinchPanResponder.panHandlers,
+    cameraZoom,
+    flashMode,
+    displayZoomText,
+    momentCardWidth,
+    isRecordingVideo,
+    selectedMemberId,
+    selectedFilterName,
+    circleName,
+    t.moments.emptyCircleTitle,
+    locale,
+    swappedMoments,
+    viewerPipCorners,
+    activeReplyMomentId,
+    chatReplyText,
+    replyMomentMutation.isPending,
+    handleOpenActionMenuForMoment,
+    handleSetScrollEnabled,
+    handleCornerChange,
+    handleSwap,
+    handleOpenChatReply,
+    handleReplyWithPhoto,
+    handleSendChatReply,
+    handleCancelChatReply,
+    handleSelectReactors,
+    handleReactMoment,
+  ]);
 
   return (
     <View
@@ -2615,15 +2771,12 @@ export function MomentsView({
           showsVerticalScrollIndicator={false}
           onMomentumScrollEnd={handleScrollEnd}
           onScrollEndDrag={handleScrollEnd}
-          initialNumToRender={2}
-          maxToRenderPerBatch={3}
+          initialNumToRender={1}
+          maxToRenderPerBatch={2}
           windowSize={3}
+          updateCellsBatchingPeriod={50}
           removeClippedSubviews={Platform.OS === 'android'}
-          getItemLayout={(_, index) => ({
-            length: listHeight,
-            offset: listHeight * index,
-            index,
-          })}
+          getItemLayout={getItemLayout}
         />
       )}
 
