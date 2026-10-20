@@ -269,13 +269,6 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
                       {/* Gradient Overlay for Caption readability */}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
 
-                      {/* GIF Badge (đồng bộ mobile) */}
-                      {isVideo && (
-                        <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md px-2.5 py-0.5 rounded-full text-[10px] font-bold text-white border border-white/20 shadow-sm z-10 pointer-events-none">
-                          GIF
-                        </div>
-                      )}
-
                       {/* Caption Overlay */}
                       {moment.caption && (
                         <div className="absolute bottom-3 inset-x-3 flex justify-center pointer-events-none z-10">

@@ -6,8 +6,22 @@ import { MomentEntity } from '@circle/types';
 export const MOMENT_KEYS = {
   all: ['moments'] as const,
   feed: () => [...MOMENT_KEYS.all, 'feed'] as const,
+  me: () => [...MOMENT_KEYS.all, 'me'] as const,
   circle: (circleId: string) => [...MOMENT_KEYS.all, 'circle', circleId] as const,
 };
+
+export function useMyMomentsQuery() {
+  return useQuery({
+    queryKey: MOMENT_KEYS.me(),
+    queryFn: async () => {
+      const res = await apiRequest<any>('/moments/me');
+      if (Array.isArray(res)) return res as MomentEntity[];
+      if (res && Array.isArray(res.data)) return res.data as MomentEntity[];
+      return [];
+    },
+    staleTime: 1000 * 30,
+  });
+}
 
 export function useMomentsFeedQuery() {
   return useQuery({

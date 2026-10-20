@@ -241,6 +241,62 @@ export class MomentsService {
   }
 
   /**
+   * GET /api/v1/moments/me — Get user's personal moments archive/history (Owner moments)
+   */
+  async getMyMoments(userId: string): Promise<MomentEntity[]> {
+    const moments = await this.prisma.moment.findMany({
+      where: {
+        authorId: userId,
+        deletedAt: null,
+      },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        author: {
+          select: {
+            id: true,
+            email: true,
+            profile: {
+              select: {
+                displayName: true,
+                avatarUrl: true,
+              },
+            },
+          },
+        },
+        visibilities: {
+          include: {
+            circle: {
+              select: {
+                id: true,
+                name: true,
+                avatarUrl: true,
+              },
+            },
+          },
+        },
+        reactions: {
+          orderBy: { createdAt: 'desc' },
+          include: {
+            user: {
+              select: {
+                id: true,
+                profile: {
+                  select: {
+                    displayName: true,
+                    avatarUrl: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return this.transformMoments(moments, userId);
+  }
+
+  /**
    * GET /api/v1/moments/circle/:circleId — Get moments shared within a specific Circle
    */
   async getByCircle(userId: string, circleId: string, locale: Locale = 'vi'): Promise<MomentEntity[]> {

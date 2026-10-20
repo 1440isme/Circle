@@ -224,6 +224,48 @@ describe('MomentsService', () => {
     });
   });
 
+  describe('getMyMoments', () => {
+    it('should return moments authored by user sorted by createdAt desc', async () => {
+      mockPrisma.moment.findMany.mockResolvedValue([
+        {
+          id: 'my-moment-1',
+          authorId: 'user-1',
+          photoUrl: 'https://img.com/my.jpg',
+          mediaType: 'IMAGE',
+          caption: 'My memory',
+          capturedAt: new Date('2026-10-18T10:00:00Z'),
+          createdAt: new Date('2026-10-18T10:00:00Z'),
+          author: {
+            id: 'user-1',
+            email: 'user1@example.com',
+            profile: { displayName: 'User One', avatarUrl: null },
+          },
+          visibilities: [
+            {
+              id: 'vis-1',
+              momentId: 'my-moment-1',
+              circleId: 'circle-1',
+              createdAt: new Date(),
+              circle: { id: 'circle-1', name: 'Friends', avatarUrl: null },
+            },
+          ],
+          reactions: [],
+        },
+      ]);
+
+      const res = await service.getMyMoments('user-1');
+      expect(res).toHaveLength(1);
+      expect(res[0]!.id).toBe('my-moment-1');
+      expect(res[0]!.authorId).toBe('user-1');
+      expect(mockPrisma.moment.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { authorId: 'user-1', deletedAt: null },
+          orderBy: { createdAt: 'desc' },
+        }),
+      );
+    });
+  });
+
   describe('getByCircle', () => {
     it('should throw ForbiddenException if user is not a member of circle', async () => {
       mockPrisma.circleMember.findFirst.mockResolvedValue(null);

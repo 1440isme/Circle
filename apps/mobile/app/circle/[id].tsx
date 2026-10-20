@@ -56,6 +56,7 @@ import {
   Radio,
   Image as ImageIcon,
   Calendar,
+  Map as MapIcon,
   Sparkles,
   Heart,
   Flame,
@@ -1036,6 +1037,8 @@ export default function CircleWorkspaceScreen() {
   const [targetReactMessageId, setTargetReactMessageId] = useState<string | null>(null);
   const [momentsMemberFilter, setMomentsMemberFilter] = useState<string | 'all'>('all');
   const [isMomentsFilterOpen, setIsMomentsFilterOpen] = useState(false);
+  const [isMomentsHistoryActive, setIsMomentsHistoryActive] = useState(false);
+  const [momentsHistoryViewMode, setMomentsHistoryViewMode] = useState<'month' | 'map'>('month');
   const [headerHeight, setHeaderHeight] = useState(Platform.OS === 'ios' ? 128 : 112);
 
   const scrollViewRef = useRef<ScrollView>(null);
@@ -1736,51 +1739,136 @@ export default function CircleWorkspaceScreen() {
 
         {/* Row 2: Unified Sub-header Centered Title Pill across all 3 tabs */}
         <View style={styles.floatingSubHeaderRow} pointerEvents="box-none">
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => {
-              if (activeTab === 'moments') {
-                setIsMomentsFilterOpen(!isMomentsFilterOpen);
-              } else {
-                handleOpenSettings();
-              }
-            }}
-            style={[
-              styles.floatingTitlePill,
-              {
-                backgroundColor: isGlass
-                  ? (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)')
-                  : colors.surface,
-                borderColor: isGlass
-                  ? (isDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.07)')
-                  : colors.hairline,
-                shadowOpacity: isGlass ? 0.05 : 0,
-                elevation: isGlass ? 2 : 0,
-              },
-            ]}
-            accessibilityLabel={activeTab === 'moments' ? 'Lọc bạn bè' : 'Circle Settings'}
-          >
-            {activeTab === 'moments' ? (
-              <>
-                <Users size={13} color={colors.subtle} style={{ marginRight: 5 }} />
-                <Text numberOfLines={1} style={[styles.floatingTitleText, { color: colors.text }]}>
-                  {momentsMemberFilter === 'all'
-                    ? (members.length > 0 ? `${members.length} bạn bè` : 'Bạn bè')
-                    : (members.find((m: any) => (m.userId || m.id) === momentsMemberFilter)?.nickname ||
-                       members.find((m: any) => (m.userId || m.id) === momentsMemberFilter)?.user?.profile?.displayName ||
-                       'Bạn bè')}
+          {activeTab === 'moments' && isMomentsHistoryActive ? (
+            /* Switcher Tabs cho chế độ Lịch sử Khoảnh khắc: [ Lịch tháng | Bản đồ ] */
+            <View
+              style={[
+                styles.historySegmentPill,
+                {
+                  backgroundColor: isGlass
+                    ? (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)')
+                    : colors.surface,
+                  borderColor: isGlass
+                    ? (isDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.07)')
+                    : colors.hairline,
+                },
+              ]}
+            >
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => {
+                  triggerSelectionHaptic();
+                  setMomentsHistoryViewMode('month');
+                }}
+                style={[
+                  styles.historySegmentBtn,
+                  momentsHistoryViewMode === 'month' && [
+                    styles.historySegmentBtnActive,
+                    { backgroundColor: colors.primary },
+                  ],
+                ]}
+              >
+                <Calendar
+                  size={13}
+                  color={momentsHistoryViewMode === 'month' ? colors.onPrimary : colors.subtle}
+                />
+                <Text
+                  style={[
+                    styles.historySegmentText,
+                    {
+                      color:
+                        momentsHistoryViewMode === 'month'
+                          ? colors.onPrimary
+                          : colors.subtle,
+                    },
+                  ]}
+                >
+                  Lịch tháng
                 </Text>
-                <ChevronDown size={13} color={colors.subtle} style={{ marginLeft: 3 }} />
-              </>
-            ) : (
-              <>
-                <Text numberOfLines={1} style={[styles.floatingTitleText, { color: colors.text }]}>
-                  {circle.name}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => {
+                  triggerSelectionHaptic();
+                  setMomentsHistoryViewMode('map');
+                }}
+                style={[
+                  styles.historySegmentBtn,
+                  momentsHistoryViewMode === 'map' && [
+                    styles.historySegmentBtnActive,
+                    { backgroundColor: colors.primary },
+                  ],
+                ]}
+              >
+                <MapIcon
+                  size={13}
+                  color={momentsHistoryViewMode === 'map' ? colors.onPrimary : colors.subtle}
+                />
+                <Text
+                  style={[
+                    styles.historySegmentText,
+                    {
+                      color:
+                        momentsHistoryViewMode === 'map'
+                          ? colors.onPrimary
+                          : colors.subtle,
+                    },
+                  ]}
+                >
+                  Bản đồ
                 </Text>
-                <ChevronDown size={13} color={colors.subtle} style={{ marginLeft: 3 }} />
-              </>
-            )}
-          </TouchableOpacity>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => {
+                if (activeTab === 'moments') {
+                  setIsMomentsFilterOpen(!isMomentsFilterOpen);
+                } else {
+                  handleOpenSettings();
+                }
+              }}
+              style={[
+                styles.floatingTitlePill,
+                {
+                  backgroundColor: isGlass
+                    ? (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)')
+                    : colors.surface,
+                  borderColor: isGlass
+                    ? (isDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.07)')
+                    : colors.hairline,
+                  shadowOpacity: isGlass ? 0.05 : 0,
+                  elevation: isGlass ? 2 : 0,
+                },
+              ]}
+              accessibilityLabel={activeTab === 'moments' ? 'Lọc bạn bè' : 'Circle Settings'}
+            >
+              {activeTab === 'moments' ? (
+                <>
+                  <Users size={13} color={colors.subtle} style={{ marginRight: 5 }} />
+                  <Text numberOfLines={1} style={[styles.floatingTitleText, { color: colors.text }]}>
+                    {(() => {
+                      if (momentsMemberFilter === 'all') {
+                        return members.length > 0 ? `${members.length} bạn bè` : 'Bạn bè';
+                      }
+                      const found = members.find((m: any) => (m.userId || m.id || m.user?.id) === momentsMemberFilter);
+                      return (found as any)?.nickname || (found as any)?.user?.profile?.displayName || (found as any)?.profile?.displayName || (found as any)?.user?.email?.split('@')[0] || 'Bạn bè';
+                    })()}
+                  </Text>
+                  <ChevronDown size={13} color={colors.subtle} style={{ marginLeft: 3 }} />
+                </>
+              ) : (
+                <>
+                  <Text numberOfLines={1} style={[styles.floatingTitleText, { color: colors.text }]}>
+                    {circle.name}
+                  </Text>
+                  <ChevronDown size={13} color={colors.subtle} style={{ marginLeft: 3 }} />
+                </>
+              )}
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Network Reconnection Notice */}
@@ -2410,6 +2498,10 @@ export default function CircleWorkspaceScreen() {
             isActive={activeTab === 'moments'}
             selectedMemberId={momentsMemberFilter}
             onSelectMemberId={setMomentsMemberFilter}
+            isHistoryActive={isMomentsHistoryActive}
+            onHistoryActiveChange={setIsMomentsHistoryActive}
+            historyViewMode={momentsHistoryViewMode}
+            onHistoryViewModeChange={setMomentsHistoryViewMode}
           />
         </View>
 
@@ -2880,7 +2972,7 @@ export default function CircleWorkspaceScreen() {
               {/* Members */}
               {members.map((m: any) => {
                 const mId = m.userId || m.id || m.user?.id;
-                const mName = m.nickname || m.user?.profile?.displayName || m.user?.email?.split('@')[0] || 'Thành viên';
+                const mName = m.nickname || m.user?.profile?.displayName || m.profile?.displayName || m.user?.email?.split('@')[0] || 'Thành viên';
                 const avatar = m.user?.profile?.avatarUrl || m.profile?.avatarUrl;
                 const isSelected = momentsMemberFilter === mId;
                 return (
@@ -3037,6 +3129,39 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingTop: 4,
     paddingBottom: 4,
+  },
+  historySegmentPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 3,
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  historySegmentBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 16,
+  },
+  historySegmentBtnActive: {
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 2,
+  },
+  historySegmentText: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: -0.2,
   },
   floatingTitlePill: {
     flexDirection: 'row',

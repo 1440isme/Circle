@@ -4386,3 +4386,60 @@
 - **Commit:** 2cecb8b
 - **PR:** #93
 
+
+
+---
+
+### AI-0103: Moment GIF Badge & Page Index Removal, Account Owner Monthly Archive Stats & Interactive Album Places Map
+
+- **Date:** 2026-10-20 10:45:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh (23110210)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #94 ([SUB-FEAT]: US-MOMENT-003 — Moments Monthly Calendar Archive, Interactive Album Places Map & Feed Polish)
+- **Purpose:** Hoàn thiện trải nghiệm xem khoảnh khắc Moments theo yêu cầu người dùng:
+  1. Loại bỏ toàn bộ nhãn/tag "GIF" đè trên ảnh/video khoảnh khắc trên cả Mobile (`MomentsView.tsx`) và Web (`DailyMomentsFeed.tsx`, `StoryViewerModal.tsx`).
+  2. Loại bỏ badge thống kê số trang/số lượng ảnh (`item.index + 1 / total`) ở góc trên bên phải thẻ bài đăng moment trong feed Mobile.
+  3. Xây dựng endpoint Backend `GET /api/v1/moments/me` trả về toàn bộ khoảnh khắc do chính chủ tài khoản đăng tải (`authorId === user.id`), sắp xếp theo thời gian mới nhất.
+  4. Triển khai giao diện Lịch sử Khoảnh khắc dạng Inline (`MomentHistoryView.tsx`) bên trong Tab Khoảnh khắc khi nhấn nút "Lịch sử" ở thanh dock điều hướng dưới cùng và nút cue trên camera Mobile:
+     - Giữ nguyên 100% thanh điều hướng Workspace Tầng 1 và Tầng 2 ở phía trên (các tab Chat | Khoảnh khắc | Tiện ích) và thanh dock điều khiển ở phía dưới (Lịch sử | Camera/Home | Tùy chọn), không dùng full-screen modal đè che mất thanh tab.
+     - Khắc phục triệt để hiện tượng tràn màn hình: toàn bộ khung lưới và bản đồ được giới hạn chính xác bên trong chiều cao viewport của màn hình làm việc (`flex: 1`), padding dưới tránh che đè bởi thanh dock.
+     - **Tối ưu thanh điều hướng tầng 2 (Floating Sub-Header Pill Switcher):** Khi ở chế độ Lịch sử Khoảnh khắc, thay thế pill lọc "Bạn bè" ở tầng 2 bằng 2 tab chuyển đổi gọn gàng `[ 📅 Lịch tháng | 🗺️ Bản đồ ]` với phản hồi rung nhẹ (Haptics), đồng thời ẩn sub-header bên trong `MomentHistoryView` giúp giải phóng không gian màn hình tối đa và thống nhất giao diện liền mạch. Khi quay về Camera hoặc Feed ảnh, thanh header tự động hoàn trả lại pill lọc "Bạn bè".
+     - **Chế độ Theo tháng (Monthly Calendar Grid, Streak Viền Xanh & Stacked Layers):** Thống kê tổng số ảnh toàn bộ và phân nhóm theo từng tháng (Tháng 10, Tháng 9, Tháng 8...), hiển thị badge tổng số ảnh theo tháng và huy hiệu Streak ngọn lửa (`cal.monthMaxStreak >= 2`) thể hiện chuỗi ngày liên tiếp chụp ảnh; lưới lịch 7 cột (T2..CN) thể hiện 31 ngày trong tháng.
+        - Ngày không có ảnh: số ngày kèm chấm nhỏ thanh lịch.
+        - Ngày có ảnh: lấy ảnh mới nhất làm thumbnail vuông, hỗ trợ làm sạch URL (loại bỏ mọi hash fragments `#lat=`, `#loc=`, `#pip=`) và đa dạng trường ảnh (`photoUrl || imageUrl || mediaUrl`), đồng thời fallback hiển thị ảnh khi dev/test.
+        - Ngày có nhiều ảnh: hiệu ứng thẻ xếp tầng so le ("dày dày" 2 lớp thẻ lệch góc `5deg` và `-3deg`) kèm huy hiệu `+N` (nền tối trung tính, bỏ hoàn toàn viền xanh thừa ở nhiều ảnh).
+        - **Streak liên tiếp mới nhất:** Chỉ chuỗi liên tiếp mới nhất (`latestStreakKeysSet`) kết thúc ở ảnh gần nhất mới được viền xanh nổi bật (`borderColor: colors.primary, borderWidth: 2.5`), bóng phát sáng và thanh cầu nối xanh (`streakConnectorBar`); các cụm ngày cũ rời rạc trong quá khứ không nối viền.
+     - **Chế độ Bản đồ kiểu Album ảnh (Interactive Album Places Map qua Leaflet & WebView):** Tích hợp bản đồ trực tuyến thực thụ sử dụng `react-native-webview` và Leaflet.js kèm CartoDB Voyager/Dark Matter tiles (tương ứng chủ đề sáng/tối): hỗ trợ vuốt mượt mà, pinch-to-zoom đa điểm, double-tap zoom và drag quán tính; gom cụm vị trí (location clusters) hiển thị các ghim ảnh (photo pin markers) viền trắng kèm badge số lượng `+N` và đuôi ghim chỉ điểm; khi chạm ghim sẽ tự động căn giữa khung nhìn, nổi viền xanh chủ đạo (`colors.primary`) và hiển thị thẻ xem trước thông tin ảnh/địa điểm kèm nút mở Lightbox đa ảnh; nút Recenter định vị lại toàn bộ các ghim khoảnh khắc trên bản đồ.
+     - **Xem chi tiết ảnh (Detail Modal Lightbox):** Cho phép chạm vào bất kỳ ảnh nào trên lưới tháng hoặc ghim bản đồ để xem ảnh phóng to 1:1, hỗ trợ khung PiP nổi nếu là ảnh chụp kép (Dual Camera) và chú thích đầy đủ.
+- **Prompt Summary:** Tinh chỉnh và hoàn thiện toàn diện giao diện cùng trải nghiệm tương tác phân hệ Khoảnh khắc (Moments) trên Mobile: (1) Loại bỏ các thành phần hiển thị dư thừa trên feed gồm nhãn GIF và bộ đếm chỉ số trang để tối ưu hóa thị giác. (2) Mở rộng lưu trữ Khoảnh khắc cá nhân của người dùng qua endpoint Backend `GET /api/v1/moments/me`, tích hợp màn hình Lịch sử Khoảnh khắc inline với hai chế độ: Lưới lịch theo tháng (kèm chỉ số thống kê, hiệu ứng thẻ ảnh xếp tầng và chỉ đánh dấu streak liên tiếp mới nhất) và Bản đồ tương tác kiểu Album ảnh (OpenStreetMap / CartoDB tiles). (3) Tối ưu hóa điều hướng bằng cách chuyển cụm chuyển đổi [Lịch tháng | Bản đồ] trực tiếp lên sub-header tầng 2 khi xem lịch sử, đảm bảo không che khuất thanh dock điều khiển và khắc phục lỗi trôi vị trí (vertical drift) khi cuộn dọc feed ảnh. (4) Tối giản thanh dock điều hướng với icon Calendar (Lịch sử) và LayoutGrid (Xem lưới 3 cột), chuyển menu Tùy chọn thành thao tác nhấn giữ (long press) trực tiếp trên ảnh và tinh giản các mục tác vụ dư thừa. (5) Tinh chỉnh chi tiết trải nghiệm người dùng: hiển thị khung PiP thực tế cho ảnh chụp kép (Dual Camera) thay thế icon biểu trưng, ẩn nhãn thời gian trên lưới ảnh, đồng bộ hiển thị biệt danh (nickname) thành viên trong Vòng tròn, sắp xếp các tháng theo thứ tự thời gian tăng dần và thiết kế cụm tổng kết số lượng ảnh cùng chuỗi streak theo phong cách tối giản.
+- **Files Affected:**
+  - `apps/backend/src/modules/moments/moments.service.ts`
+  - `apps/backend/src/modules/moments/moments.controller.ts`
+  - `apps/backend/src/modules/moments/moments.service.spec.ts`
+  - `apps/mobile/package.json`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `apps/mobile/src/services/api.ts`
+  - `apps/mobile/src/hooks/use-circle-queries.ts`
+  - `apps/mobile/src/components/moment/MomentsView.tsx`
+  - `apps/mobile/src/components/moment/MomentHistoryView.tsx`
+  - `apps/web/src/hooks/use-moment-queries.ts`
+  - `apps/web/src/components/moments/DailyMomentsFeed.tsx`
+  - `apps/web/src/components/moments/StoryViewerModal.tsx`
+  - `docs/ai-usage/log.md`
+  - `package-lock.json`
+- **AI-Generated Portion:** 100% mã nguồn backend controller/service endpoint `getMyMoments`, component `MomentHistoryView` dạng inline với 2 chế độ hiển thị theo tháng và bản đồ phong cách Album ảnh (OpenStreetMap/CartoDB tiles qua Leaflet WebView), sắp xếp tháng tăng dần theo dòng thời gian (`a.localeCompare(b)`: Tháng 9 hiển thị trước Tháng 10), thiết kế 2 pill thống kê basic tối giản ở đáy danh sách lịch (`[📷 X] [🔥 Y]`), đưa thanh chuyển đổi lịch tháng / bản đồ lên sub-header tầng 2 thay thế pill lọc bạn bè, chuyển icon dock thành Calendar và LayoutGrid (xem lưới) bỏ text rườm rà, hỗ trợ nhấn giữ (long press) trực tiếp trên ảnh để mở menu tùy chọn, chuẩn hóa lưới 3 cột bằng `FlatList numColumns={3}` kèm `flex: 1/3, aspectRatio: 1`, hiển thị khung PiP thu nhỏ trực tiếp trên các ảnh Dual Camera trong lưới theo đúng góc chụp, bỏ thông tin thời gian ở footer ô ảnh và ưu tiên triệt để biệt danh thành viên (`member.nickname`) trên toàn bộ header pill lọc bạn bè, dropdown danh sách thành viên, feed khoảnh khắc và lưới xem ảnh.
+- **Human Modifications:** Ninh Thị Mỹ Hạnh trực tiếp định hướng, rà soát và tinh chỉnh trải nghiệm sản phẩm: yêu cầu loại bỏ các chi tiết thừa thãi trên feed ảnh; chỉ đạo kiến trúc màn hình Lịch sử cho chủ tài khoản với chế độ xem tháng và bản đồ tương tác kiểu album ảnh; tối ưu luồng điều hướng tích hợp switcher lên header tầng 2; chuyển đổi hành vi tương tác menu qua thao tác nhấn giữ ảnh và bổ sung chế độ xem lưới 3 cột chuẩn xác; chuẩn hóa cơ chế hiển thị khung PiP thu nhỏ và ưu tiên biệt danh thành viên trong Vòng tròn; sắp xếp lịch tháng theo trình tự thời gian tự nhiên cùng cụm thống kê tổng kết tối giản.
+- **Verification Method:**
+  - `npm test -- apps/backend/src/modules/moments/moments.service.spec.ts`: 23/23 unit tests pass 100%.
+  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: 0 TypeScript errors.
+  - `npx tsc --noEmit -p apps/web/tsconfig.json`: 0 TypeScript errors.
+  - `./scripts/check-agent-map.sh`: 95/95 framework files pass (0 broken references).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn, không chứa credential/secret.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** (1) Khi mới tạo `MomentHistoryModal.tsx` gặp lỗi import sai tên `useThemeColors` và `useAuth`. (2) FlatList cuộn dọc trên Android bị trôi dần xuống dưới (drift down) qua từng trang. (3) Bản đồ ban đầu vẽ bằng canvas giả lập cuộn 2 chiều bị khựng và không zoom được.
+  - **Root Cause:** (1) Dùng nhầm tên hook của component cũ thay vì `useThemeStore` và `useAuthStore` của store Zustand. (2) Android FlatList khi dùng `pagingEnabled` mặc định snap theo khung nhìn hệ thống thay vì chiều cao item `listHeight`, kết hợp với điều kiện cập nhật layout bị kẹt (`h >= containerHeight`) gây lệch tích lũy. (3) Bản đồ vẽ bằng các khối View lồng nhau thiếu tương tác bản đồ thực.
+  - **Resolution / Fix:** (1) Đồng bộ import về đúng `useThemeStore` và `useAuthStore`. (2) Cấu hình FlatList paging chuẩn cho Android: `snapToInterval={listHeight}`, `snapToAlignment="start"`, `decelerationRate="fast"`, `disableIntervalMomentum={true}`, và cập nhật `containerHeight` chính xác theo pixel thực tế. (3) Tích hợp `react-native-webview` với Leaflet và CartoDB tiles hỗ trợ pinch-to-zoom, drag mượt mà và cluster pin markers.
+- **Commit:** a532e85
+- **PR:** Pending

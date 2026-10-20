@@ -27,6 +27,7 @@ import {
 import Svg, { Circle } from 'react-native-svg';
 import { BlurView } from 'expo-blur';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
+import * as Haptics from 'expo-haptics';
 import { CameraView, CameraType, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
 import { VideoView, useVideoPlayer } from 'expo-video';
 
@@ -51,6 +52,8 @@ import {
   X,
   Sparkles,
   History,
+  Calendar,
+  LayoutGrid,
   RotateCcw,
   MessageCircle,
   Share2,
@@ -76,6 +79,7 @@ import {
 import { uploadMobileMedia } from '../../services/storage-upload.service';
 import { resolveMobileMediaUrl } from '../../services/api';
 import { Emoji } from '../ui/Emoji';
+import { MomentHistoryView } from './MomentHistoryView';
 
 
 const { width: SCREEN_WIDTH, height: WINDOW_HEIGHT } = Dimensions.get('window');
@@ -105,26 +109,65 @@ if (!isExpoGo) {
 
 const hasNativeDualCam = !isExpoGo && Boolean(DualCameraFrontView) && Boolean(DualCameraBackView);
 
+export function resolveAuthorDisplayName(authorId?: string | null, authorObj?: any, membersList: any[] = []): string {
+  if (authorId && Array.isArray(membersList) && membersList.length > 0) {
+    const memberMatch = membersList.find(
+      (m: any) => m.userId === authorId || m.id === authorId || m.user?.id === authorId
+    );
+    if (memberMatch?.nickname && memberMatch.nickname.trim().length > 0) {
+      return memberMatch.nickname.trim();
+    }
+  }
+  return (
+    authorObj?.nickname ||
+    authorObj?.profile?.displayName ||
+    authorObj?.user?.profile?.displayName ||
+    authorObj?.email?.split('@')[0] ||
+    authorObj?.user?.email?.split('@')[0] ||
+    'Thành viên'
+  );
+}
+
+export function getPipCornerStyle(cornerIndex: number = 0, margin: number = 5) {
+  switch (cornerIndex % 4) {
+    case 0:
+      return { top: margin, left: margin };
+    case 1:
+      return { top: margin, right: margin };
+    case 2:
+      return { bottom: margin + 16, right: margin };
+    case 3:
+      return { bottom: margin + 16, left: margin };
+    default:
+      return { top: margin, right: margin };
+  }
+}
+
 export function parseMomentPhotos(rawUrl?: string | null): { mainUrl: string; pipUrl: string | null; cornerIndex: number } {
   if (!rawUrl) return { mainUrl: '', pipUrl: null, cornerIndex: 0 };
+  let mainPart = rawUrl;
+  let pipUrl: string | null = null;
+  let cornerIndex = 0;
+
   if (rawUrl.includes('#pip=')) {
     const parts = rawUrl.split('#pip=');
-    const main = resolveMobileMediaUrl(parts[0] || '');
+    mainPart = parts[0] || '';
     const pipPart = decodeURIComponent(parts[1] || '');
     let pip = pipPart;
-    let cornerIndex = 0;
     if (pipPart.includes('#corner=')) {
       const pipSplit = pipPart.split('#corner=');
       pip = pipSplit[0] || '';
       cornerIndex = parseInt(pipSplit[1] || '0', 10) || 0;
     }
-    return {
-      mainUrl: main,
-      pipUrl: resolveMobileMediaUrl(pip) || null,
-      cornerIndex,
-    };
+    pip = pip.split('#')[0] || '';
+    pipUrl = resolveMobileMediaUrl(pip) || null;
   }
-  return { mainUrl: resolveMobileMediaUrl(rawUrl), pipUrl: null, cornerIndex: 0 };
+  mainPart = mainPart.split('#')[0] || '';
+  return {
+    mainUrl: resolveMobileMediaUrl(mainPart),
+    pipUrl,
+    cornerIndex,
+  };
 }
 
 export function formatMomentRelativeTime(dateInput?: string | Date | null, locale: string = 'vi'): string {
@@ -427,6 +470,10 @@ interface MomentsViewProps {
   isActive?: boolean;
   selectedMemberId?: string | 'all';
   onSelectMemberId?: (id: string | 'all') => void;
+  isHistoryActive?: boolean;
+  onHistoryActiveChange?: (active: boolean) => void;
+  historyViewMode?: 'month' | 'map';
+  onHistoryViewModeChange?: (mode: 'month' | 'map') => void;
 }
 
 type FeedItem =
@@ -440,6 +487,10 @@ export function MomentsView({
   isActive = true,
   selectedMemberId: controlledMemberId,
   onSelectMemberId,
+  isHistoryActive: controlledHistoryActive,
+  onHistoryActiveChange,
+  historyViewMode: controlledHistoryViewMode,
+  onHistoryViewModeChange,
 }: MomentsViewProps) {
   const { colors, resolvedTheme, uiStyle } = useThemeStore();
   const { t, locale } = useLanguageStore();
@@ -526,6 +577,19 @@ export function MomentsView({
   const selectedMemberId = controlledMemberId !== undefined ? controlledMemberId : internalMemberId;
   const setSelectedMemberId = onSelectMemberId || setInternalMemberId;
   const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState<boolean>(false);
+
+  // Grid View Mode State (Chế độ xem lưới tất cả khoảnh khắc)
+  const [isGridViewActive, setIsGridViewActive] = useState<boolean>(false);
+  const [selectedMomentForAction, setSelectedMomentForAction] = useState<any | null>(null);
+
+  // History / Account Owner Moments Archive Modal & View Mode
+  const [internalHistoryActive, setInternalHistoryActive] = useState<boolean>(false);
+  const isHistoryViewActive = controlledHistoryActive !== undefined ? controlledHistoryActive : internalHistoryActive;
+  const setIsHistoryViewActive = onHistoryActiveChange || setInternalHistoryActive;
+
+  const [internalHistoryViewMode, setInternalHistoryViewMode] = useState<'month' | 'map'>('month');
+  const historyViewMode = controlledHistoryViewMode !== undefined ? controlledHistoryViewMode : internalHistoryViewMode;
+  const setHistoryViewMode = onHistoryViewModeChange || setInternalHistoryViewMode;
 
   // Reactors List Modal (Author only)
   const [selectedMomentForReactors, setSelectedMomentForReactors] = useState<any | null>(null);
@@ -913,7 +977,11 @@ export function MomentsView({
   const selectedFilterName =
     selectedMemberId === 'all'
       ? 'Mọi người'
-      : selectedMember?.profile?.displayName || selectedMember?.user?.profile?.displayName || selectedMember?.email || 'Thành viên';
+      : selectedMember?.nickname ||
+        selectedMember?.user?.profile?.displayName ||
+        selectedMember?.profile?.displayName ||
+        selectedMember?.user?.email?.split('@')[0] ||
+        'Thành viên';
 
   // Ảnh gần nhất cho nút cuộn xuống Lịch sử
   const latestMomentPhoto = moments[0]?.photoUrl || moments[0]?.imageUrl || null;
@@ -1285,21 +1353,21 @@ export function MomentsView({
       }))),
   ];
 
-  // Active Moment / Photo Resolution for Action Menu
+  // Active Moment / Photo Resolution for Action Menu (Hỗ trợ nhấn giữ ảnh bất kỳ hoặc ảnh trang hiện tại)
   const currentFeedItem = feedItems[currentPageIndex] || feedItems[0];
-  const currentActivePhotoUrl =
-    currentFeedItem.type === 'moment'
-      ? currentFeedItem.data?.photoUrl || currentFeedItem.data?.imageUrl
-      : previewPhoto;
+  const targetActionMoment = selectedMomentForAction || (currentFeedItem.type === 'moment' ? currentFeedItem.data : null);
 
-  const currentAuthorName =
-    currentFeedItem.type === 'moment'
-      ? currentFeedItem.data?.author?.profile?.displayName ||
-      currentFeedItem.data?.author?.email ||
-      currentFeedItem.data?.user?.profile?.displayName ||
-      currentFeedItem.data?.user?.email ||
-      'Thành viên'
-      : user?.profile?.displayName || 'Bạn';
+  const currentActivePhotoUrl = targetActionMoment
+    ? targetActionMoment.photoUrl || targetActionMoment.imageUrl
+    : (currentFeedItem.type === 'moment'
+      ? currentFeedItem.data?.photoUrl || currentFeedItem.data?.imageUrl
+      : previewPhoto);
+
+  const currentAuthorName = targetActionMoment
+    ? resolveAuthorDisplayName(targetActionMoment.authorId || targetActionMoment.author?.id || targetActionMoment.user?.id, targetActionMoment.author || targetActionMoment.user, members)
+    : (currentFeedItem.type === 'moment'
+      ? resolveAuthorDisplayName(currentFeedItem.data?.authorId || currentFeedItem.data?.author?.id || currentFeedItem.data?.user?.id, currentFeedItem.data?.author || currentFeedItem.data?.user, members)
+      : user?.profile?.displayName || 'Bạn');
 
   const handleSharePhoto = async () => {
     setIsActionMenuOpen(false);
@@ -1322,6 +1390,16 @@ export function MomentsView({
   const handleSaveImage = () => {
     setIsActionMenuOpen(false);
     Alert.alert(t.common.appName, 'Đã lưu ảnh về thư viện thiết bị thành công!');
+  };
+
+  const handleOpenActionMenuForMoment = (momentItem?: any) => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    } catch {}
+    if (momentItem) {
+      setSelectedMomentForAction(momentItem);
+    }
+    setIsActionMenuOpen(true);
   };
 
   const handleScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -1824,7 +1902,7 @@ export function MomentsView({
             {/* Nút xem Lịch sử có ảnh mini + chữ "Lịch sử" + mũi tên xuống (ghi trực tiếp không khung viền) */}
             <TouchableOpacity
               activeOpacity={0.7}
-              onPress={scrollToFirstMoment}
+              onPress={() => setIsHistoryViewActive(true)}
               style={styles.historyCueBtn}
             >
               {latestMomentPhoto ? (
@@ -1885,12 +1963,7 @@ export function MomentsView({
 
     // Single Moment Snap Card (1 card per page, To sát viền)
     const m = item.data;
-    const authorName =
-      m.author?.profile?.displayName ||
-      m.author?.email ||
-      m.user?.profile?.displayName ||
-      m.user?.email ||
-      'Thành viên';
+    const authorName = resolveAuthorDisplayName(m.authorId || m.author?.id || m.userId || m.user?.id, m.author || m.user, members);
     const authorAvatar = m.author?.profile?.avatarUrl || m.user?.profile?.avatarUrl;
     const rawPhotoSrc = m.photoUrl || m.imageUrl;
     const { mainUrl, pipUrl, cornerIndex } = parseMomentPhotos(rawPhotoSrc);
@@ -1937,24 +2010,18 @@ export function MomentsView({
                 </Text>
               </View>
             </View>
-
-            <View style={[styles.pageIndexBadge, { backgroundColor: colors.wash }]}>
-              <Text style={[styles.pageIndexText, { color: colors.primary }]}>
-                {item.index + 1}/{filteredMoments.length}
-              </Text>
-            </View>
           </View>
 
-          {/* 1:1 Rounded Square Photo / Video with In-photo Caption Overlay & Dual View PiP */}
-          <View style={[styles.momentPhotoFrame, { backgroundColor: colors.wash }]}>
+          {/* 1:1 Rounded Square Photo / Video with In-photo Caption Overlay & Dual View PiP (Nhấn giữ để mở tùy chọn) */}
+          <TouchableOpacity
+            activeOpacity={1}
+            delayLongPress={220}
+            onLongPress={() => handleOpenActionMenuForMoment(m)}
+            style={[styles.momentPhotoFrame, { backgroundColor: colors.wash }]}
+          >
             {displayMain ? (
               m.mediaType === 'VIDEO' || displayMain.includes('.mp4') || displayMain.includes('.webm') ? (
-                <>
-                  <MomentVideoPlayer uri={displayMain} style={styles.momentPhotoImage} />
-                  <View style={styles.feedGifBadge}>
-                    <Text style={styles.feedGifBadgeText}>GIF</Text>
-                  </View>
-                </>
+                <MomentVideoPlayer uri={displayMain} style={styles.momentPhotoImage} />
               ) : (
                 <RNImage source={{ uri: displayMain }} style={styles.momentPhotoImage} resizeMode="cover" />
               )
@@ -2051,7 +2118,7 @@ export function MomentsView({
                 </View>
               </View>
             )}
-          </View>
+          </TouchableOpacity>
 
           {/* Card Bottom: Reply Into Chat + Reply With Photo + Quick Emoji Reactions */}
           <View style={[styles.momentFeedFooter, { borderTopColor: colors.hairline }]}>
@@ -2178,40 +2245,154 @@ export function MomentsView({
     <View
       style={styles.container}
       onLayout={(e) => {
-        const h = e.nativeEvent.layout.height;
-        // Giữ cố định kích thước khung giao diện, không để bàn phím làm co cụm / biến dạng layout
-        if (h > 250) {
-          if (!isKeyboardOpenRef.current) {
-            // Chỉ cập nhật giảm khi thực sự đổi chiều màn hình, không giảm do bàn phím đẩy lên
-            if (h >= stableContainerHeightRef.current || Math.abs(h - stableContainerHeightRef.current) < 80) {
-              stableContainerHeightRef.current = Math.max(stableContainerHeightRef.current, h);
-              if (Math.abs(h - containerHeight) > 5 && h >= containerHeight) {
-                setContainerHeight(h);
-              }
-            }
+        const h = Math.round(e.nativeEvent.layout.height);
+        if (h > 200 && !isKeyboardOpenRef.current) {
+          if (Math.abs(h - containerHeight) > 1) {
+            setContainerHeight(h);
           }
         }
       }}
     >
       {/* =========================================================================
-          SNAP PAGING FEED (TRANG 0 = CAMERA, TRANG 1..N = KHOẢNH KHẮC)
+          NỘI DUNG CHÍNH: LỊCH SỬ KHOẢNH KHẮC (INLINE) HOẶC CHẾ ĐỘ XEM LƯỚI HOẶC SNAP PAGING FEED
          ========================================================================= */}
-      <FlatList
-        ref={flatListRef}
-        data={feedItems}
-        keyExtractor={(item) => item.id}
-        renderItem={renderFeedItem}
-        pagingEnabled
-        scrollEnabled={!isPinchingCamera}
-        decelerationRate="fast"
-        showsVerticalScrollIndicator={false}
-        onMomentumScrollEnd={handleScrollEnd}
-        getItemLayout={(_, index) => ({
-          length: listHeight,
-          offset: listHeight * index,
-          index,
-        })}
-      />
+      {isHistoryViewActive ? (
+        <MomentHistoryView
+          onClose={() => setIsHistoryViewActive(false)}
+          allCircleMoments={moments}
+          capturedPhotoUrl={capturedPhotoUrl}
+          containerHeight={containerHeight}
+          viewMode={historyViewMode}
+          onViewModeChange={setHistoryViewMode}
+          hideInternalHeader={true}
+        />
+      ) : isGridViewActive ? (
+        /* CHẾ ĐỘ XEM LƯỚI TẤT CẢ KHOẢNH KHẮC TRONG NHÓM (CHUẨN 3 CỘT ĐỀU NHAU) */
+        <FlatList
+          key="moments-grid-3-col"
+          data={filteredMoments}
+          numColumns={3}
+          keyExtractor={(item, gIdx) => item.id || `grid-${gIdx}`}
+          style={styles.gridContainer}
+          contentContainerStyle={[styles.gridContentContainer, { paddingBottom: 110 }]}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <View style={styles.gridEmptyBox}>
+              <View style={[styles.gridEmptyIconCircle, { backgroundColor: `${colors.primary}15` }]}>
+                <ImageIcon size={32} color={colors.primary} />
+              </View>
+              <Text style={[styles.gridEmptyTitle, { color: colors.text }]}>
+                {selectedMemberId === 'all' ? 'Chưa có khoảnh khắc nào' : `Chưa có khoảnh khắc từ ${selectedFilterName}`}
+              </Text>
+              <Text style={[styles.gridEmptyDesc, { color: colors.subtle }]}>
+                Chụp khoảnh khắc đầu tiên để lưu lại kỷ niệm đáng nhớ cùng bạn bè
+              </Text>
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => {
+                  setIsGridViewActive(false);
+                  scrollToCamera();
+                }}
+                style={[styles.gridEmptySnapBtn, { backgroundColor: colors.primary }]}
+              >
+                <Camera size={16} color={colors.onPrimary} />
+                <Text style={[styles.gridEmptySnapBtnText, { color: colors.onPrimary }]}>
+                  Chụp ảnh ngay
+                </Text>
+              </TouchableOpacity>
+            </View>
+          }
+          renderItem={({ item, index: gIdx }) => {
+            const { mainUrl, pipUrl, cornerIndex } = parseMomentPhotos(item.photoUrl || item.imageUrl);
+            const displayPhoto = mainUrl || pipUrl;
+            const authorDisplay = resolveAuthorDisplayName(item.authorId || item.author?.id || item.userId || item.user?.id, item.author || item.user, members);
+
+            return (
+              <TouchableOpacity
+                key={item.id || `grid-${gIdx}`}
+                activeOpacity={0.85}
+                delayLongPress={220}
+                onPress={() => {
+                  // Nhấn để nhảy tới vị trí ảnh trong Feed
+                  const feedIdx = feedItems.findIndex((fi) => fi.type === 'moment' && fi.data?.id === item.id);
+                  setIsGridViewActive(false);
+                  if (feedIdx >= 0) {
+                    setTimeout(() => {
+                      flatListRef.current?.scrollToIndex({ index: feedIdx, animated: true });
+                      setCurrentPageIndex(feedIdx);
+                    }, 120);
+                  }
+                }}
+                onLongPress={() => handleOpenActionMenuForMoment(item)}
+                style={[
+                  styles.gridItemCell,
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.hairline,
+                  },
+                ]}
+              >
+                {displayPhoto ? (
+                  <RNImage
+                    source={{ uri: displayPhoto }}
+                    style={styles.gridItemPhoto}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View style={[styles.gridItemPhoto, { backgroundColor: colors.wash, alignItems: 'center', justifyContent: 'center' }]}>
+                    <ImageIcon size={22} color={colors.subtle} />
+                  </View>
+                )}
+
+                {/* Khung PiP thu nhỏ hiển thị ảnh góc chụp thứ 2 nếu là ảnh chụp kép Dual Cam */}
+                {pipUrl && (
+                  <View
+                    style={[
+                      styles.gridItemPipWindow,
+                      getPipCornerStyle(cornerIndex, 5),
+                      { borderColor: colors.primary },
+                    ]}
+                  >
+                    <RNImage
+                      source={{ uri: pipUrl }}
+                      style={styles.gridItemPipPhoto}
+                      resizeMode="cover"
+                    />
+                  </View>
+                )}
+
+                {/* Tên tác giả ở góc dưới (đã bỏ thời gian theo yêu cầu) */}
+                <View style={styles.gridItemFooter}>
+                  <Text numberOfLines={1} style={styles.gridItemAuthorText}>
+                    {authorDisplay}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            );
+          }}
+        />
+      ) : (
+        <FlatList
+          ref={flatListRef}
+          data={feedItems}
+          keyExtractor={(item) => item.id}
+          renderItem={renderFeedItem}
+          pagingEnabled={Platform.OS === 'ios'}
+          snapToInterval={listHeight}
+          snapToAlignment="start"
+          decelerationRate="fast"
+          disableIntervalMomentum={true}
+          scrollEnabled={!isPinchingCamera}
+          showsVerticalScrollIndicator={false}
+          onMomentumScrollEnd={handleScrollEnd}
+          onScrollEndDrag={handleScrollEnd}
+          getItemLayout={(_, index) => ({
+            length: listHeight,
+            offset: listHeight * index,
+            index,
+          })}
+        />
+      )}
 
       {/* =========================================================================
           CỐ ĐỊNH THANH ĐIỀU KHIỂN DOCK PHÍA DƯỚI (FIXED BOTTOM DOCK)
@@ -2231,34 +2412,47 @@ export function MomentsView({
               },
             ]}
           >
-          {/* Nút bên trái: Lịch sử */}
+          {/* Nút bên trái: Lịch sử (Icon Calendar, không text) */}
           <TouchableOpacity
             activeOpacity={0.8}
-            onPress={scrollToFirstMoment}
+            onPress={() => {
+              try {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              } catch {}
+              if (isGridViewActive) setIsGridViewActive(false);
+              setIsHistoryViewActive(!isHistoryViewActive);
+            }}
             style={styles.dockIconBtn}
+            accessibilityLabel="Lịch sử khoảnh khắc"
           >
-            <History
-              size={22}
-              color={currentPageIndex > 0 ? colors.primary : colors.text}
+            <Calendar
+              size={24}
+              color={isHistoryViewActive ? colors.primary : (currentPageIndex > 0 ? colors.primary : colors.text)}
             />
-            <Text
-              style={[
-                styles.dockBtnLabel,
-                { color: currentPageIndex > 0 ? colors.primary : colors.subtle },
-              ]}
-            >
-              Lịch sử
-            </Text>
           </TouchableOpacity>
 
-          {/* Nút chính giữa: Cố định kích thước (không đổi size). Trang 0 là Ngôi nhà (Home), Trang >= 1 là Vòng tròn Camera */}
+          {/* Nút chính giữa: Cố định kích thước. Nếu đang xem Lịch sử hoặc Xem Lưới -> bấm để quay lại Camera */}
           <TouchableOpacity
             activeOpacity={0.85}
-            onPress={currentPageIndex === 0 ? () => { } : scrollToCamera}
+            onPress={
+              isHistoryViewActive || isGridViewActive
+                ? () => {
+                    try {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    } catch {}
+                    setIsHistoryViewActive(false);
+                    setIsGridViewActive(false);
+                    scrollToCamera();
+                  }
+                : (currentPageIndex === 0 ? () => {} : scrollToCamera)
+            }
             style={[styles.dockCenterBtnOuter, { borderColor: colors.primary }]}
+            accessibilityLabel="Camera hoặc Về đầu"
           >
             <View style={[styles.dockCenterBtnInner, { backgroundColor: colors.primary }]}>
-              {currentPageIndex === 0 ? (
+              {isHistoryViewActive || isGridViewActive ? (
+                <Camera size={22} color={colors.onPrimary} />
+              ) : currentPageIndex === 0 ? (
                 <Home size={22} color={colors.onPrimary} />
               ) : (
                 <Camera size={22} color={colors.onPrimary} />
@@ -2266,14 +2460,23 @@ export function MomentsView({
             </View>
           </TouchableOpacity>
 
-          {/* Nút bên phải: Tùy chọn chia sẻ & Quản lý ảnh (Share / Action Button) */}
+          {/* Nút bên phải: Chế độ xem lưới (LayoutGrid, không text) */}
           <TouchableOpacity
             activeOpacity={0.8}
-            onPress={() => setIsActionMenuOpen(true)}
+            onPress={() => {
+              try {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              } catch {}
+              if (isHistoryViewActive) setIsHistoryViewActive(false);
+              setIsGridViewActive(!isGridViewActive);
+            }}
             style={styles.dockIconBtn}
+            accessibilityLabel="Chế độ xem lưới"
           >
-            <Share2 size={22} color={colors.text} />
-            <Text style={[styles.dockBtnLabel, { color: colors.subtle }]}>Tùy chọn</Text>
+            <LayoutGrid
+              size={24}
+              color={isGridViewActive ? colors.primary : colors.text}
+            />
           </TouchableOpacity>
         </View>
       </View>
@@ -2286,11 +2489,17 @@ export function MomentsView({
         visible={isActionMenuOpen}
         transparent
         animationType="fade"
-        onRequestClose={() => setIsActionMenuOpen(false)}
+        onRequestClose={() => {
+          setIsActionMenuOpen(false);
+          setSelectedMomentForAction(null);
+        }}
       >
         <TouchableOpacity
           activeOpacity={1}
-          onPress={() => setIsActionMenuOpen(false)}
+          onPress={() => {
+            setIsActionMenuOpen(false);
+            setSelectedMomentForAction(null);
+          }}
           style={styles.actionModalOverlay}
         >
           <BlurView
@@ -2389,48 +2598,6 @@ export function MomentsView({
                   <Text style={[styles.actionItemTitle, { color: colors.text }]}>Lưu về máy</Text>
                   <Text style={[styles.actionItemDesc, { color: colors.subtle }]}>
                     Tải ảnh gốc về thư viện ảnh thiết bị
-                  </Text>
-                </View>
-              </TouchableOpacity>
-
-              {/* Option 4: Reply into Circle Chat */}
-              <TouchableOpacity
-                activeOpacity={0.75}
-                onPress={() => {
-                  setIsActionMenuOpen(false);
-                  if (currentFeedItem.type === 'moment') {
-                    handleOpenChatReply(currentFeedItem.data.id, currentAuthorName);
-                  }
-                }}
-                style={[styles.actionItem, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
-              >
-                <View style={[styles.actionIconBox, { backgroundColor: `${colors.primary}20` }]}>
-                  <MessageCircle size={20} color={colors.primary} />
-                </View>
-                <View style={styles.actionItemInfo}>
-                  <Text style={[styles.actionItemTitle, { color: colors.text }]}>Phản hồi vào nhóm chat</Text>
-                  <Text style={[styles.actionItemDesc, { color: colors.subtle }]}>
-                    Trích dẫn ảnh khoảnh khắc và gửi vào kênh trò chuyện chung
-                  </Text>
-                </View>
-              </TouchableOpacity>
-
-              {/* Option 5: Reply With Photo */}
-              <TouchableOpacity
-                activeOpacity={0.75}
-                onPress={() => {
-                  setIsActionMenuOpen(false);
-                  handleReplyWithPhoto(currentAuthorName);
-                }}
-                style={[styles.actionItem, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
-              >
-                <View style={[styles.actionIconBox, { backgroundColor: `${colors.warning}20` }]}>
-                  <Sparkles size={20} color={colors.warning} />
-                </View>
-                <View style={styles.actionItemInfo}>
-                  <Text style={[styles.actionItemTitle, { color: colors.text }]}>Đáp lại bằng ảnh mới</Text>
-                  <Text style={[styles.actionItemDesc, { color: colors.subtle }]}>
-                    Mở camera và gửi ảnh phản hồi ngay
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -2621,6 +2788,8 @@ export function MomentsView({
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
+
+
     </View>
   );
 }
@@ -3523,8 +3692,99 @@ const styles = StyleSheet.create({
   dockIconBtn: {
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 2,
-    width: 52,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+  },
+  gridContainer: {
+    flex: 1,
+  },
+  gridContentContainer: {
+    paddingHorizontal: 4,
+    paddingTop: 4,
+  },
+  gridItemCell: {
+    flex: 1 / 3,
+    aspectRatio: 1,
+    margin: 3,
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 1,
+    position: 'relative',
+  },
+  gridItemPhoto: {
+    width: '100%',
+    height: '100%',
+  },
+  gridItemPipWindow: {
+    position: 'absolute',
+    width: '32%',
+    height: '32%',
+    borderRadius: 6,
+    overflow: 'hidden',
+    borderWidth: 1.5,
+    shadowColor: '#000',
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 3,
+  },
+  gridItemPipPhoto: {
+    width: '100%',
+    height: '100%',
+  },
+  gridItemFooter: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    paddingHorizontal: 5,
+    paddingVertical: 3,
+  },
+  gridItemAuthorText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '700',
+  },
+  gridEmptyBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: 24,
+    gap: 10,
+  },
+  gridEmptyIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
+  },
+  gridEmptyTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  gridEmptyDesc: {
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 18,
+    maxWidth: 280,
+  },
+  gridEmptySnapBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    marginTop: 8,
+  },
+  gridEmptySnapBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
   },
   dockBtnLabel: {
     fontSize: 10,

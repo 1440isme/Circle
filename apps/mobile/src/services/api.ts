@@ -53,8 +53,11 @@ export const API_BASE_URL = getApiBaseUrl();
 export function resolveMobileMediaUrl(url?: string | null): string {
   if (!url) return '';
   if (url.startsWith('data:') || url.startsWith('file://')) return url;
+  const mobileBase = getApiBaseUrl().replace(/\/api\/v1\/?$/, '');
+  if (url.startsWith('/')) {
+    return `${mobileBase}${url}`;
+  }
   if (url.includes('localhost:4000') || url.includes('127.0.0.1:4000')) {
-    const mobileBase = getApiBaseUrl().replace(/\/api\/v1\/?$/, '');
     return url.replace(/http:\/\/(localhost|127\.0\.0\.1):4000/, mobileBase);
   }
   return url;

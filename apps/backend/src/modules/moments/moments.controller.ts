@@ -47,6 +47,12 @@ export class MomentsController {
   /**
    * GET /api/v1/moments/feed — Get aggregated moments feed from user's circles
    */
+  @Get('me')
+  @HttpCode(HttpStatus.OK)
+  async getMyMoments(@CurrentUser() user: AuthUserData) {
+    return this.momentsService.getMyMoments(user.id);
+  }
+
   @Get('feed')
   @HttpCode(HttpStatus.OK)
   async getFeed(

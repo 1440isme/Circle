@@ -283,11 +283,6 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
                   <h4 className="text-xs font-bold text-white truncate">
                     {currentMoment.author?.profile?.displayName || 'User'}
                   </h4>
-                  {isVideo && (
-                    <span className="bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-full text-[10px] font-bold text-white border border-white/20">
-                      GIF
-                    </span>
-                  )}
                   <span className="text-[10px] text-white/70">
                     {new Date(currentMoment.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>

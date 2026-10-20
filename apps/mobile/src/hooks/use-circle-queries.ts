@@ -384,6 +384,20 @@ export function useCircleMomentsQuery(circleId: string | null) {
   });
 }
 
+export function useMyMomentsQuery() {
+  return useQuery({
+    queryKey: ['moments', 'me'],
+    refetchOnMount: 'always',
+    queryFn: async () => {
+      const res = await mobileApiRequest<any[]>('/moments/me');
+      if (Array.isArray(res)) return res;
+      if (res && Array.isArray((res as any).data)) return (res as any).data;
+      return (res as any)?.data || (Array.isArray(res) ? res : []);
+    },
+    staleTime: 30000,
+  });
+}
+
 function deduplicateMessages(list: MessageEntity[]): MessageEntity[] {
   const seen = new Set<string>();
   const result: MessageEntity[] = [];
@@ -893,6 +907,7 @@ export function useCreateMomentMutation(circleId: string | null) {
         queryClient.invalidateQueries({ queryKey: ['moments', 'circle', circleId] });
       }
       queryClient.invalidateQueries({ queryKey: ['moments', 'feed'] });
+      queryClient.invalidateQueries({ queryKey: ['moments', 'me'] });
     },
   });
 }
