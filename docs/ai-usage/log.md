@@ -4583,3 +4583,22 @@
 - **Security & License Check:** An toàn, cấp quyền thư viện `expo-media-library` và chia sẻ `expo-sharing` chuẩn Expo SDK 57.
 - **Branch:** `feat/94-moments-archive-places-map`
 - **PR:** #95 (Draft)
+
+### AI-0109: Cài đặt expo-blob tối ưu hoá hiệu năng xử lý Blob nhị phân (#94)
+- **Timestamp:** 2026-10-20T18:31:00+07:00
+- **Task ID:** Issue #94 (Epic #20: Moments & Shared Stories)
+- **Engineers:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Feature / Area:** Mobile Network & Binary Blob Transfer Performance Optimization.
+- **Files Affected:**
+  - `apps/mobile/package.json`
+  - `package-lock.json`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** Cài đặt package chính thức `expo-blob` theo khuyến nghị của Expo SDK để thay thế Blob mặc định của React Native (vốn sao chép dữ liệu qua native blob store và đọc lại qua base64 gây tốn tài nguyên), triệt tiêu hoàn toàn cảnh báo `Response.blob() is using React Native's Blob`.
+- **Human Modifications:** Trương Công Bình gửi log cảnh báo `Response.blob()` trong quá trình chụp và đăng ảnh moment.
+- **Verification Method:**
+  - `npm run typecheck` (`tsc --noEmit`) trong `apps/mobile`: 0 lỗi TypeScript.
+  - `./scripts/check-agent-map.sh`: 95/95 framework files pass (0 broken references).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** Thư viện chính thức của hệ sinh thái Expo.
+- **Branch:** `feat/94-moments-archive-places-map`
+- **PR:** #95 (Draft)
