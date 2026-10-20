@@ -4647,3 +4647,25 @@
 - **Security & License Check:** An toàn, không có lỗ hổng bảo mật.
 - **Branch:** `feat/94-moments-archive-places-map`
 - **PR:** #95 (Draft)
+
+### AI-0112: Loại bỏ hoàn toàn modal/động tác giả hiển thị khi ghép ảnh Dual Moment (#94)
+- **Timestamp:** 2026-10-20T19:01:00+07:00
+- **Task ID:** Issue #94 (Epic #20: Moments & Shared Stories)
+- **Engineers:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Feature / Area:** Mobile Moments Silent Dual-Photo Composite Rendering.
+- **Files Affected:**
+  - `apps/mobile/src/components/moment/MomentsView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% sửa đổi:
+  - Gỡ bỏ hoàn toàn thẻ `Modal` và lớp phủ "Đang xuất khoảnh khắc..." vốn gây ra hiện tượng giật/hiển thị động tác giả chớp nhoáng trên màn hình.
+  - Chuyển khung ghép thành một View chạy ngầm tuyệt đối (`silentCompositeWrapper`), đặt làm phần tử con đầu tiên của `styles.container` với tọa độ chuẩn `(0, 0)` trong khung nhìn nhưng ẩn hoàn toàn phía sau các phân lớp UI chính (`zIndex: -9999`, `pointerEvents: 'none'`).
+  - Đảm bảo hệ thống đồ họa native vẫn vẽ đầy đủ pixel của cả 2 ảnh mà người dùng không hề thấy bất kỳ thay đổi nào trên màn hình.
+  - Sau khi lưu/chia sẻ xong, khung ngầm tự động huỷ bỏ sạch sẽ, mang lại trải nghiệm mượt mà 100%.
+- **Human Modifications:** Trương Công Bình yêu cầu gỡ bỏ động tác giả hiển thị lúc ghép ảnh lên UI.
+- **Verification Method:**
+  - `npm run typecheck` (`tsc --noEmit`) trong `apps/mobile`: 0 lỗi TypeScript.
+  - `./scripts/check-agent-map.sh`: 95/95 framework files pass (0 broken references).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn, không có lỗ hổng bảo mật.
+- **Branch:** `feat/94-moments-archive-places-map`
+- **PR:** #95 (Draft)

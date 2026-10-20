@@ -2775,6 +2775,59 @@ export function MomentsView({
         }
       }}
     >
+      {/* Khung ghép ảnh Dual chạy ngầm hoàn toàn phía sau UI (100% silent, không hiển thị bất kỳ động tác giả hay popup nào lên màn hình) */}
+      {exportingCompositeData && (
+        <View
+          style={styles.silentCompositeWrapper}
+          pointerEvents="none"
+        >
+          <View
+            ref={compositeCaptureViewRef}
+            collapsable={false}
+            style={styles.compositeCaptureFrame}
+          >
+            <RNImage
+              source={{ uri: exportingCompositeData.mainUri }}
+              style={styles.compositeMainImage}
+              onLoad={handleMainImageLoaded}
+            />
+            {exportingCompositeData.pipUri && (
+              <View
+                style={[
+                  styles.compositePipContainer,
+                  getCompositePipPosition(exportingCompositeData.cornerIndex),
+                ]}
+              >
+                <RNImage
+                  source={{ uri: exportingCompositeData.pipUri }}
+                  style={styles.compositePipImage}
+                  onLoad={handlePipImageLoaded}
+                />
+              </View>
+            )}
+
+            {exportingCompositeData.caption && (
+              <View style={styles.compositeCaptionWrapper}>
+                <View style={styles.compositeCaptionPill}>
+                  <Text style={styles.compositeCaptionText} numberOfLines={2}>
+                    {exportingCompositeData.caption}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            <View
+              style={[
+                styles.compositeBrandingBadge,
+                getCompositeBrandingPosition(exportingCompositeData.cornerIndex),
+              ]}
+            >
+              <Text style={styles.compositeBrandingText}>Circle</Text>
+            </View>
+          </View>
+        </View>
+      )}
+
       {/* =========================================================================
           NỘI DUNG CHÍNH: LỊCH SỬ KHOẢNH KHẮC (INLINE) HOẶC CHẾ ĐỘ XEM LƯỚI HOẶC SNAP PAGING FEED
          ========================================================================= */}
@@ -3323,75 +3376,6 @@ export function MomentsView({
             </ScrollView>
           </TouchableOpacity>
         </TouchableOpacity>
-      </Modal>
-
-
-      {/* Offscreen Dual Photo Composite Capture Frame (Chỉ render khi người dùng bấm Lưu/Chia sẻ ảnh Dual) */}
-      {/* Modal/Overlay xuất ảnh chất lượng cao (Hiển thị ngay trên màn hình để UIKit/Android rasterize 100% không bị đen) */}
-      <Modal
-        visible={Boolean(exportingCompositeData)}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => {}}
-      >
-        <View style={styles.compositeModalBackdrop}>
-          <View style={styles.compositeModalCard}>
-            <View
-              ref={compositeCaptureViewRef}
-              collapsable={false}
-              style={styles.compositeCaptureFrame}
-            >
-              {exportingCompositeData && (
-                <>
-                  <RNImage
-                    source={{ uri: exportingCompositeData.mainUri }}
-                    style={styles.compositeMainImage}
-                    onLoad={handleMainImageLoaded}
-                  />
-                  {exportingCompositeData.pipUri && (
-                    <View
-                      style={[
-                        styles.compositePipContainer,
-                        getCompositePipPosition(exportingCompositeData.cornerIndex),
-                      ]}
-                    >
-                      <RNImage
-                        source={{ uri: exportingCompositeData.pipUri }}
-                        style={styles.compositePipImage}
-                        onLoad={handlePipImageLoaded}
-                      />
-                    </View>
-                  )}
-
-                  {exportingCompositeData.caption && (
-                    <View style={styles.compositeCaptionWrapper}>
-                      <View style={styles.compositeCaptionPill}>
-                        <Text style={styles.compositeCaptionText} numberOfLines={2}>
-                          {exportingCompositeData.caption}
-                        </Text>
-                      </View>
-                    </View>
-                  )}
-
-                  <View
-                    style={[
-                      styles.compositeBrandingBadge,
-                      getCompositeBrandingPosition(exportingCompositeData.cornerIndex),
-                    ]}
-                  >
-                    <Text style={styles.compositeBrandingText}>Circle</Text>
-                  </View>
-                </>
-              )}
-            </View>
-
-            {/* Spinner overlay with status */}
-            <View style={styles.compositeSpinnerOverlay}>
-              <ActivityIndicator size="small" color="#FFFFFF" />
-              <Text style={styles.compositeSpinnerText}>Đang xuất khoảnh khắc...</Text>
-            </View>
-          </View>
-        </View>
       </Modal>
 
     </View>
@@ -4498,18 +4482,13 @@ const styles = StyleSheet.create({
   actionItemDesc: {
     fontSize: 11,
   },
-  compositeModalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  compositeModalCard: {
-    position: 'relative',
-    borderRadius: 24,
-    overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
+  silentCompositeWrapper: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    zIndex: -9999,
+    elevation: -9999,
+    opacity: 1,
   },
   compositeCaptureFrame: {
     width: 320,
@@ -4577,22 +4556,5 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 0.5,
-  },
-  compositeSpinnerOverlay: {
-    position: 'absolute',
-    bottom: 12,
-    alignSelf: 'center',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: 'rgba(0,0,0,0.75)',
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  compositeSpinnerText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
   },
 });
