@@ -126,8 +126,73 @@ describe('MomentsService', () => {
           photoUrl: 'https://img.com/1.jpg',
           mediaType: 'IMAGE',
           caption: 'Hello moments',
+          locationName: null,
+          address: null,
+          latitude: null,
+          longitude: null,
           visibilities: {
             create: [{ circleId: 'circle-1' }, { circleId: 'circle-2' }],
+          },
+        },
+        include: expect.any(Object),
+      });
+    });
+
+    it('should create moment with real location fields when provided', async () => {
+      mockPrisma.circleMember.findMany.mockResolvedValue([
+        { circleId: 'circle-1' },
+      ]);
+
+      const mockWithLoc = {
+        id: 'moment-loc-1',
+        authorId: 'user-1',
+        photoUrl: 'https://img.com/loc.jpg',
+        mediaType: 'IMAGE',
+        caption: 'At Landmark 81',
+        locationName: 'Landmark 81',
+        address: '720A Điện Biên Phủ, Phường 22, Bình Thạnh, TP.HCM',
+        latitude: 10.795,
+        longitude: 106.721,
+        capturedAt: new Date('2026-10-20T10:00:00Z'),
+        createdAt: new Date('2026-10-20T10:00:00Z'),
+        updatedAt: new Date('2026-10-20T10:00:00Z'),
+        author: {
+          id: 'user-1',
+          email: 'u1@circle.app',
+          profile: { displayName: 'User 1', avatarUrl: null },
+        },
+        visibilities: [{ id: 'v-1', momentId: 'moment-loc-1', circleId: 'circle-1', createdAt: new Date() }],
+        reactions: [],
+      };
+
+      mockPrisma.moment.create.mockResolvedValue(mockWithLoc);
+
+      const res = await service.create('user-1', {
+        photoUrl: 'https://img.com/loc.jpg',
+        caption: 'At Landmark 81',
+        locationName: 'Landmark 81',
+        address: '720A Điện Biên Phủ, Phường 22, Bình Thạnh, TP.HCM',
+        latitude: 10.795,
+        longitude: 106.721,
+        circleIds: ['circle-1'],
+      });
+
+      expect(res.locationName).toBe('Landmark 81');
+      expect(res.address).toBe('720A Điện Biên Phủ, Phường 22, Bình Thạnh, TP.HCM');
+      expect(res.latitude).toBe(10.795);
+      expect(res.longitude).toBe(106.721);
+      expect(mockPrisma.moment.create).toHaveBeenCalledWith({
+        data: {
+          authorId: 'user-1',
+          photoUrl: 'https://img.com/loc.jpg',
+          mediaType: 'IMAGE',
+          caption: 'At Landmark 81',
+          locationName: 'Landmark 81',
+          address: '720A Điện Biên Phủ, Phường 22, Bình Thạnh, TP.HCM',
+          latitude: 10.795,
+          longitude: 106.721,
+          visibilities: {
+            create: [{ circleId: 'circle-1' }],
           },
         },
         include: expect.any(Object),

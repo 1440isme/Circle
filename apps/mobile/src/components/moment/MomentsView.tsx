@@ -30,6 +30,7 @@ import Constants, { ExecutionEnvironment } from 'expo-constants';
 import * as Haptics from 'expo-haptics';
 import { CameraView, CameraType, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
 import { VideoView, useVideoPlayer } from 'expo-video';
+import * as Location from 'expo-location';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 const SHUTTER_SIZE = 92;
@@ -730,6 +731,69 @@ export function MomentsView({
   capturedPhotoUrlRef.current = capturedPhotoUrl;
   dualPipPhotoUrlRef.current = dualPipPhotoUrl;
 
+  // Real GPS Location state for captured moment
+  const [capturedLocation, setCapturedLocation] = useState<{
+    locationName: string;
+    address: string;
+    latitude: number;
+    longitude: number;
+  } | null>(null);
+  const [isFetchingLocation, setIsFetchingLocation] = useState<boolean>(false);
+
+  const fetchCurrentLocation = async () => {
+    try {
+      setIsFetchingLocation(true);
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        setIsFetchingLocation(false);
+        return;
+      }
+      const loc = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      const lat = loc.coords.latitude;
+      const lng = loc.coords.longitude;
+
+      let locationName = 'Vị trí hiện tại';
+      let address = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+
+      try {
+        const rev = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
+        if (rev && rev.length > 0) {
+          const r = rev[0];
+          const street = [r?.streetNumber, r?.street].filter(Boolean).join(' ');
+          const sub = r?.district || r?.subregion || '';
+          const city = r?.city || r?.region || '';
+          const namePart = r?.name || street || sub || city;
+
+          locationName = namePart || 'Vị trí đã chụp';
+          address = [street, sub, city].filter(Boolean).join(', ') || `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+        }
+      } catch {
+        // Reverse geocoding optional fallback
+      }
+
+      setCapturedLocation({
+        locationName,
+        address,
+        latitude: lat,
+        longitude: lng,
+      });
+    } catch (err) {
+      console.warn('Real GPS fetch error:', err);
+    } finally {
+      setIsFetchingLocation(false);
+    }
+  };
+
+  useEffect(() => {
+    if (capturedPhotoUrl) {
+      fetchCurrentLocation();
+    } else {
+      setCapturedLocation(null);
+    }
+  }, [capturedPhotoUrl]);
+
   // Track camera facing in ref to avoid stale closure
   const cameraFacingRef = useRef<CameraType>(cameraFacing);
   cameraFacingRef.current = cameraFacing;
@@ -1226,6 +1290,7 @@ export function MomentsView({
     setReplyingToAuthor(null);
     setCapturedMediaType('IMAGE');
     setIsRecordingVideo(false);
+    setCapturedLocation(null);
   };
 
   const handleSendMoment = async () => {
@@ -1263,6 +1328,10 @@ export function MomentsView({
         caption: replyingToAuthor
           ? `Trả lời @${replyingToAuthor}: ${captionText.trim()}`
           : captionText.trim() || undefined,
+        locationName: capturedLocation?.locationName || null,
+        address: capturedLocation?.address || null,
+        latitude: capturedLocation?.latitude ?? null,
+        longitude: capturedLocation?.longitude ?? null,
         circleIds: [circleId],
       });
       setCapturedPhotoUrl(null);
@@ -1270,6 +1339,7 @@ export function MomentsView({
       setCaptionText('');
       setReplyingToAuthor(null);
       setCapturedMediaType('IMAGE');
+      setCapturedLocation(null);
       // Snap down to the first moment page to see the newly posted moment
       setTimeout(() => {
         flatListRef.current?.scrollToIndex({ index: 1, animated: true });
@@ -1718,6 +1788,26 @@ export function MomentsView({
               {/* Caption Overlay on Captured Photo (Giới hạn cứng tối đa 2 dòng / 80 ký tự) */}
               {capturedPhotoUrl && (
                 <View style={styles.capturedCaptionOverlay} pointerEvents="box-none">
+                  {/* Location Tag Pill */}
+                  <TouchableOpacity
+                    activeOpacity={0.75}
+                    onPress={fetchCurrentLocation}
+                    style={styles.capturedLocationPill}
+                  >
+                    {isFetchingLocation ? (
+                      <ActivityIndicator size={12} color="#FFFFFF" />
+                    ) : (
+                      <MapPin size={12} color="#FFFFFF" />
+                    )}
+                    <Text style={styles.capturedLocationText} numberOfLines={1}>
+                      {capturedLocation
+                        ? capturedLocation.locationName
+                        : isFetchingLocation
+                        ? 'Đang định vị GPS...'
+                        : 'Bật vị trí GPS'}
+                    </Text>
+                  </TouchableOpacity>
+
                   <View style={styles.captionInputPill}>
                     <TextInput
                       value={captionText}
@@ -3168,6 +3258,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     zIndex: 35,
     elevation: 20,
+  },
+  capturedLocationPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    borderRadius: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
+    marginBottom: 8,
+    maxWidth: '90%',
+  },
+  capturedLocationText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '600',
   },
   captionInputPill: {
     backgroundColor: 'rgba(0, 0, 0, 0.65)',

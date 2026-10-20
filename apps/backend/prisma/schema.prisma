@@ -321,6 +321,10 @@ model Moment {
   photoUrl   String
   mediaType  MomentMediaType @default(IMAGE)
   caption    String?
+  locationName String?
+  address      String?
+  latitude     Float?
+  longitude    Float?
   capturedAt DateTime  @default(now())
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt

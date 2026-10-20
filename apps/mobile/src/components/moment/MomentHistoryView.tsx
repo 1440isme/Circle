@@ -154,19 +154,43 @@ export function resolveMomentLocation(m: any, fallbackIndex: number = 0) {
     };
   }
 
+  // 1. Direct persistent DB fields
+  if (
+    m.latitude != null &&
+    m.longitude != null &&
+    !isNaN(Number(m.latitude)) &&
+    !isNaN(Number(m.longitude))
+  ) {
+    const lat = Number(m.latitude);
+    const lng = Number(m.longitude);
+    const name = m.locationName?.trim() || m.address?.trim() || 'Vị trí đã chụp';
+    const address = m.address?.trim() || m.locationName?.trim() || 'Việt Nam';
+    return {
+      id: m.id || 'loc',
+      name,
+      address,
+      lat,
+      lng,
+      staticMapUrl: getOsmTileUrl(lat, lng, 15),
+    };
+  }
+
+  // 2. Hash params inside photoUrl
   const rawUrl = m.photoUrl || m.imageUrl || m.mediaUrl || '';
   const latMatch = rawUrl.match(/#lat=([\d.-]+)/);
   const lngMatch = rawUrl.match(/#lng=([\d.-]+)/);
   const locMatch = rawUrl.match(/#loc=([^#]+)/);
+  const addrMatch = rawUrl.match(/#addr=([^#]+)/);
 
   if (latMatch && lngMatch) {
     const lat = parseFloat(latMatch[1]!);
     const lng = parseFloat(lngMatch[1]!);
     const name = locMatch ? decodeURIComponent(locMatch[1]!) : 'Vị trí đã chụp';
+    const address = addrMatch ? decodeURIComponent(addrMatch[1]!) : 'Việt Nam';
     return {
       id: m.id || 'loc',
       name,
-      address: 'Việt Nam',
+      address,
       lat,
       lng,
       staticMapUrl: getOsmTileUrl(lat, lng, 15),
@@ -176,8 +200,8 @@ export function resolveMomentLocation(m: any, fallbackIndex: number = 0) {
   const p = VIETNAM_LOCATIONS[fallbackIndex % VIETNAM_LOCATIONS.length]!;
   return {
     id: m.id || `loc-${fallbackIndex}`,
-    name: p.name,
-    address: p.address,
+    name: m.locationName || p.name,
+    address: m.address || p.address,
     lat: p.lat,
     lng: p.lng,
     staticMapUrl: getOsmTileUrl(p.lat, p.lng, 15),
@@ -370,21 +394,49 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
   // Assign location coordinates to moments
   const momentsWithLocations: MomentLocation[] = useMemo(() => {
     return myMoments.map((m, index) => {
-      const latMatch = m.photoUrl?.match(/#lat=([\d.-]+)/);
-      const lngMatch = m.photoUrl?.match(/#lng=([\d.-]+)/);
-      const locMatch = m.photoUrl?.match(/#loc=([^#]+)/);
-
-      if (latMatch && lngMatch) {
-        const lat = parseFloat(latMatch[1]!);
-        const lng = parseFloat(lngMatch[1]!);
-        const locName = locMatch ? decodeURIComponent(locMatch[1]!) : 'Vị trí đã chụp';
+      // 1. Direct persistent DB fields
+      if (
+        m.latitude != null &&
+        m.longitude != null &&
+        !isNaN(Number(m.latitude)) &&
+        !isNaN(Number(m.longitude))
+      ) {
+        const lat = Number(m.latitude);
+        const lng = Number(m.longitude);
+        const locName = m.locationName?.trim() || m.address?.trim() || 'Vị trí đã chụp';
+        const address = m.address?.trim() || m.locationName?.trim() || 'Việt Nam';
         const x = Math.min(Math.max((lng - 105.0) / 4.0, 0.15), 0.85);
         const y = Math.min(Math.max((22.0 - lat) / 12.0, 0.15), 0.85);
         return {
           id: m.id,
           moment: m,
           name: locName,
-          address: 'Việt Nam',
+          address,
+          lat,
+          lng,
+          xRatio: x,
+          yRatio: y,
+        };
+      }
+
+      // 2. Hash params inside photoUrl
+      const latMatch = m.photoUrl?.match(/#lat=([\d.-]+)/);
+      const lngMatch = m.photoUrl?.match(/#lng=([\d.-]+)/);
+      const locMatch = m.photoUrl?.match(/#loc=([^#]+)/);
+      const addrMatch = m.photoUrl?.match(/#addr=([^#]+)/);
+
+      if (latMatch && lngMatch) {
+        const lat = parseFloat(latMatch[1]!);
+        const lng = parseFloat(lngMatch[1]!);
+        const locName = locMatch ? decodeURIComponent(locMatch[1]!) : 'Vị trí đã chụp';
+        const address = addrMatch ? decodeURIComponent(addrMatch[1]!) : 'Việt Nam';
+        const x = Math.min(Math.max((lng - 105.0) / 4.0, 0.15), 0.85);
+        const y = Math.min(Math.max((22.0 - lat) / 12.0, 0.15), 0.85);
+        return {
+          id: m.id,
+          moment: m,
+          name: locName,
+          address,
           lat,
           lng,
           xRatio: x,

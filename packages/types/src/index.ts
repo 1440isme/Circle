@@ -296,6 +296,10 @@ export interface MomentEntity {
   photoUrl: string;
   mediaType: MomentMediaType;
   caption?: string | null;
+  locationName?: string | null;
+  address?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   capturedAt: string;
   createdAt: string;
   updatedAt: string;
@@ -318,6 +322,10 @@ export interface CreateMomentInput {
   mediaType?: MomentMediaType;
   caption?: string;
   circleIds: string[];
+  locationName?: string | null;
+  address?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export interface ReactMomentInput {

@@ -4443,3 +4443,37 @@
   - **Resolution / Fix:** (1) Đồng bộ import về đúng `useThemeStore` và `useAuthStore`. (2) Cấu hình FlatList paging chuẩn cho Android: `snapToInterval={listHeight}`, `snapToAlignment="start"`, `decelerationRate="fast"`, `disableIntervalMomentum={true}`, và cập nhật `containerHeight` chính xác theo pixel thực tế. (3) Tích hợp `react-native-webview` với Leaflet và CartoDB tiles hỗ trợ pinch-to-zoom, drag mượt mà và cluster pin markers.
 - **Commit:** 5d4a940
 - **PR:** #95
+
+### AI-0104: Bổ sung trường lưu trữ Địa chỉ thực tế & Tọa độ GPS cho Khoảnh khắc (Moments Real Location Persistence)
+
+- **Date:** 2026-10-20
+- **Task ID:** Issue #94 (Epic #20: Moments & Shared Stories)
+- **Engineers:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Feature / Area:** Mobile Moments capture flow, Backend Prisma schema, database migrations, shared validators, and Leaflet/Places map integration.
+- **Files Affected:**
+  - `apps/backend/prisma/schema.prisma`
+  - `apps/backend/prisma/migrations/20261020162000_add_moment_location_fields/migration.sql`
+  - `apps/backend/src/modules/moments/moments.service.ts`
+  - `apps/backend/src/modules/moments/moments.service.spec.ts`
+  - `packages/types/src/index.ts`
+  - `packages/shared/src/validators/moment.validator.ts`
+  - `apps/mobile/package.json`
+  - `apps/mobile/src/components/moment/MomentsView.tsx`
+  - `apps/mobile/src/components/moment/MomentHistoryView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% mã nguồn cập nhật schema Prisma cho `Moment` (`locationName`, `address`, `latitude`, `longitude`), viết SQL migration và áp dụng thành công vào cơ sở dữ liệu `circle_dev`; đồng bộ kiểu TypeScript trong `@circle/types` và Zod validation trong `@circle/shared`; cập nhật `MomentsService` (lưu trữ và trả về thông tin địa chỉ thật); bổ sung unit tests kiểm thử tạo moment kèm địa chỉ thật trong `moments.service.spec.ts` (24/24 unit tests pass); tích hợp thư viện `expo-location` trên mobile capture flow để tự động xin quyền GPS foreground, lấy tọa độ thật và reverse geocode thành tên đường/phường/thành phố; hiển thị pill trạng thái vị trí trên khung xem trước khi chụp; ưu tiên dữ liệu tọa độ thật trên Leaflet map và card chi tiết mini map trong `MomentHistoryView`.
+- **Human Modifications:** Trương Công Bình trực tiếp rà soát và yêu cầu bổ sung trường lưu trữ địa chỉ thật vào hệ thống thay cho dữ liệu giả lập; giám sát quá trình migration cơ sở dữ liệu và thử nghiệm tính năng định vị trên thiết bị.
+- **Verification Method:**
+  - `npx prisma migrate deploy`: Migration `20261020162000_add_moment_location_fields` áp dụng thành công.
+  - `npm test -- apps/backend/src/modules/moments/moments.service.spec.ts`: 24/24 unit tests pass 100%.
+  - `npm run typecheck` (`tsc --noEmit`) trong `apps/mobile`: 0 lỗi TypeScript.
+  - `npm run build` trong `apps/web`: Build Next.js thành công 100%.
+  - `./scripts/check-agent-map.sh`: 95/95 framework files pass (0 broken references).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn, không chứa credential/secret, sử dụng API định vị tiêu chuẩn với sự cho phép rõ ràng từ người dùng.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** Khi chạy `npx prisma generate` bị lỗi EPERM do tiến trình backend dev server đang chạy giữ query engine dll.
+  - **Root Cause:** Node process của dev server đang lock tệp `query_engine-windows.dll.node` trên Windows.
+  - **Resolution / Fix:** Tạm ngắt tiến trình con của dev server, tạo lại Prisma client thành công, sau đó Nest watch tự khởi động lại tiến trình server bình thường.
+- **Branch:** `feat/94-moments-archive-places-map`
+- **PR:** #95 (Draft)
