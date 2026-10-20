@@ -731,66 +731,69 @@ export function MomentsView({
   capturedPhotoUrlRef.current = capturedPhotoUrl;
   dualPipPhotoUrlRef.current = dualPipPhotoUrl;
 
-  // Real GPS Location state for captured moment
-  const [capturedLocation, setCapturedLocation] = useState<{
+  // Silent background GPS location tracking for places map archive
+  const capturedLocationRef = useRef<{
     locationName: string;
     address: string;
     latitude: number;
     longitude: number;
   } | null>(null);
-  const [isFetchingLocation, setIsFetchingLocation] = useState<boolean>(false);
+  const locationPromiseRef = useRef<Promise<{
+    locationName: string;
+    address: string;
+    latitude: number;
+    longitude: number;
+  } | null> | null>(null);
 
-  const fetchCurrentLocation = async () => {
-    try {
-      setIsFetchingLocation(true);
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        setIsFetchingLocation(false);
-        return;
-      }
-      const loc = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-      const lat = loc.coords.latitude;
-      const lng = loc.coords.longitude;
-
-      let locationName = 'Vị trí hiện tại';
-      let address = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
-
+  const fetchCurrentLocationSilently = () => {
+    const promise = (async () => {
       try {
-        const rev = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
-        if (rev && rev.length > 0) {
-          const r = rev[0];
-          const street = [r?.streetNumber, r?.street].filter(Boolean).join(' ');
-          const sub = r?.district || r?.subregion || '';
-          const city = r?.city || r?.region || '';
-          const namePart = r?.name || street || sub || city;
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') return null;
 
-          locationName = namePart || 'Vị trí đã chụp';
-          address = [street, sub, city].filter(Boolean).join(', ') || `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+        const loc = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        const lat = loc.coords.latitude;
+        const lng = loc.coords.longitude;
+
+        let locationName = 'Vị trí đã chụp';
+        let address = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+
+        try {
+          const rev = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
+          if (rev && rev.length > 0) {
+            const r = rev[0];
+            const street = [r?.streetNumber, r?.street].filter(Boolean).join(' ');
+            const sub = r?.district || r?.subregion || '';
+            const city = r?.city || r?.region || '';
+            const namePart = r?.name || street || sub || city;
+
+            locationName = namePart || 'Vị trí đã chụp';
+            address = [street, sub, city].filter(Boolean).join(', ') || `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+          }
+        } catch {
+          // Reverse geocoding optional fallback
         }
-      } catch {
-        // Reverse geocoding optional fallback
-      }
 
-      setCapturedLocation({
-        locationName,
-        address,
-        latitude: lat,
-        longitude: lng,
-      });
-    } catch (err) {
-      console.warn('Real GPS fetch error:', err);
-    } finally {
-      setIsFetchingLocation(false);
-    }
+        const result = { locationName, address, latitude: lat, longitude: lng };
+        capturedLocationRef.current = result;
+        return result;
+      } catch {
+        return null;
+      }
+    })();
+
+    locationPromiseRef.current = promise;
+    return promise;
   };
 
   useEffect(() => {
     if (capturedPhotoUrl) {
-      fetchCurrentLocation();
+      fetchCurrentLocationSilently();
     } else {
-      setCapturedLocation(null);
+      capturedLocationRef.current = null;
+      locationPromiseRef.current = null;
     }
   }, [capturedPhotoUrl]);
 
@@ -1290,7 +1293,8 @@ export function MomentsView({
     setReplyingToAuthor(null);
     setCapturedMediaType('IMAGE');
     setIsRecordingVideo(false);
-    setCapturedLocation(null);
+    capturedLocationRef.current = null;
+    locationPromiseRef.current = null;
   };
 
   const handleSendMoment = async () => {
@@ -1322,16 +1326,31 @@ export function MomentsView({
         ? `${uploadedMain.publicUrl}#pip=${encodeURIComponent(`${uploadedPipUrl}#corner=${pipCornerIndex}`)}`
         : uploadedMain.publicUrl;
 
+      // Silently retrieve the background-fetched location (max 1.5s race to avoid blocking send)
+      let locData = capturedLocationRef.current;
+      if (!locData && locationPromiseRef.current) {
+        try {
+          locData = await Promise.race([
+            locationPromiseRef.current,
+            new Promise<{ locationName: string; address: string; latitude: number; longitude: number } | null>(
+              (resolve) => setTimeout(() => resolve(null), 1500),
+            ),
+          ]);
+        } catch {
+          locData = null;
+        }
+      }
+
       await createMomentMutation.mutateAsync({
         photoUrl: finalPhotoUrl,
         mediaType: capturedMediaType,
         caption: replyingToAuthor
           ? `Trả lời @${replyingToAuthor}: ${captionText.trim()}`
           : captionText.trim() || undefined,
-        locationName: capturedLocation?.locationName || null,
-        address: capturedLocation?.address || null,
-        latitude: capturedLocation?.latitude ?? null,
-        longitude: capturedLocation?.longitude ?? null,
+        locationName: locData?.locationName || null,
+        address: locData?.address || null,
+        latitude: locData?.latitude ?? null,
+        longitude: locData?.longitude ?? null,
         circleIds: [circleId],
       });
       setCapturedPhotoUrl(null);
@@ -1339,7 +1358,8 @@ export function MomentsView({
       setCaptionText('');
       setReplyingToAuthor(null);
       setCapturedMediaType('IMAGE');
-      setCapturedLocation(null);
+      capturedLocationRef.current = null;
+      locationPromiseRef.current = null;
       // Snap down to the first moment page to see the newly posted moment
       setTimeout(() => {
         flatListRef.current?.scrollToIndex({ index: 1, animated: true });
@@ -1788,26 +1808,6 @@ export function MomentsView({
               {/* Caption Overlay on Captured Photo (Giới hạn cứng tối đa 2 dòng / 80 ký tự) */}
               {capturedPhotoUrl && (
                 <View style={styles.capturedCaptionOverlay} pointerEvents="box-none">
-                  {/* Location Tag Pill */}
-                  <TouchableOpacity
-                    activeOpacity={0.75}
-                    onPress={fetchCurrentLocation}
-                    style={styles.capturedLocationPill}
-                  >
-                    {isFetchingLocation ? (
-                      <ActivityIndicator size={12} color="#FFFFFF" />
-                    ) : (
-                      <MapPin size={12} color="#FFFFFF" />
-                    )}
-                    <Text style={styles.capturedLocationText} numberOfLines={1}>
-                      {capturedLocation
-                        ? capturedLocation.locationName
-                        : isFetchingLocation
-                        ? 'Đang định vị GPS...'
-                        : 'Bật vị trí GPS'}
-                    </Text>
-                  </TouchableOpacity>
-
                   <View style={styles.captionInputPill}>
                     <TextInput
                       value={captionText}
@@ -3258,24 +3258,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     zIndex: 35,
     elevation: 20,
-  },
-  capturedLocationPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: 'rgba(0, 0, 0, 0.65)',
-    borderRadius: 14,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
-    marginBottom: 8,
-    maxWidth: '90%',
-  },
-  capturedLocationText: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '600',
   },
   captionInputPill: {
     backgroundColor: 'rgba(0, 0, 0, 0.65)',
