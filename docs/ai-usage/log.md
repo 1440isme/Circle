@@ -4520,8 +4520,9 @@
   - Gỡ bỏ hoàn toàn mục "Sao chép liên kết".
   - Thu gọn toàn bộ Action Menu thành 3 lựa chọn ngắn gọn, súc tích: **Chia sẻ**, **Lưu**, **Xoá**.
   - Cài đặt và tích hợp các module native của Expo SDK 57: `expo-file-system`, `expo-media-library`, `expo-sharing`.
-  - Triển khai chức năng **Lưu** thực tế: tải ảnh/video vào cache, yêu cầu cấp quyền `MediaLibrary.requestPermissionsAsync`, lưu trực tiếp vào thư viện thiết bị (`MediaLibrary.saveToLibraryAsync`) kèm thông báo thành công.
+  - Triển khai chức năng **Lưu** thực tế: tải ảnh/video vào cache, yêu cầu cấp quyền `MediaLibrary.requestPermissionsAsync`, lưu trực tiếp vào thư viện thiết bị chuẩn class-based API SDK 57 (`MediaLibrary.Asset.create`) triệt tiêu hoàn toàn warning deprecation của `saveToLibraryAsync`.
   - Triển khai chức năng **Chia sẻ** thực tế: tải file media thật và mở hộp thoại chia sẻ native của hệ điều hành (`Sharing.shareAsync` hoặc `RNShare`) hỗ trợ gửi trực tiếp file ảnh/video đến các ứng dụng khác.
+  - Tối ưu hóa VirtualizedList cho FlatList cuộn dọc: cấu hình `windowSize={3}`, `maxToRenderPerBatch={3}`, `initialNumToRender={2}`, `removeClippedSubviews` giúp feed mượt mà, loại bỏ triệt để cảnh báo `VirtualizedList slow to update (contentLength > 36000px)`.
 - **Human Modifications:** Trương Công Bình trực tiếp yêu cầu loại bỏ nút 3 chấm do đã có cơ chế nhấn giữ ảnh, loại bỏ tùy chọn sao chép link rườm rà, tinh gọn text thành các động từ đơn giản (Xóa, Lưu, Chia sẻ) và hoàn thiện chức năng lưu, chia sẻ hoạt động thực tế.
 - **Verification Method:**
   - `npm run typecheck` (`tsc --noEmit`) trong `apps/mobile`: 0 lỗi TypeScript.

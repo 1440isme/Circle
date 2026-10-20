@@ -1545,8 +1545,14 @@ export function MomentsView({
         return;
       }
 
-      // 3. Lưu chính thức vào Thư viện ảnh / Gallery của thiết bị
-      await MediaLibrary.saveToLibraryAsync(downloadedFile.uri);
+      // 3. Lưu chính thức vào Thư viện ảnh / Gallery của thiết bị (sử dụng API chuẩn Asset.create mới của Expo SDK 57)
+      if (MediaLibrary.Asset && typeof MediaLibrary.Asset.create === 'function') {
+        await MediaLibrary.Asset.create(downloadedFile.uri);
+      } else if (typeof (MediaLibrary as any).createAssetAsync === 'function') {
+        await (MediaLibrary as any).createAssetAsync(downloadedFile.uri);
+      } else {
+        await (MediaLibrary as any).saveToLibraryAsync(downloadedFile.uri);
+      }
       setIsActionMenuOpen(false);
       Alert.alert(t.common.appName, 'Đã lưu vào thư viện thiết bị thành công!');
     } catch (err: any) {
@@ -2496,6 +2502,9 @@ export function MomentsView({
           style={styles.gridContainer}
           contentContainerStyle={[styles.gridContentContainer, { paddingBottom: 110 }]}
           showsVerticalScrollIndicator={false}
+          initialNumToRender={15}
+          maxToRenderPerBatch={12}
+          windowSize={5}
           ListEmptyComponent={
             <View style={styles.gridEmptyBox}>
               <View style={[styles.gridEmptyIconCircle, { backgroundColor: `${colors.primary}15` }]}>
@@ -2606,6 +2615,10 @@ export function MomentsView({
           showsVerticalScrollIndicator={false}
           onMomentumScrollEnd={handleScrollEnd}
           onScrollEndDrag={handleScrollEnd}
+          initialNumToRender={2}
+          maxToRenderPerBatch={3}
+          windowSize={3}
+          removeClippedSubviews={Platform.OS === 'android'}
           getItemLayout={(_, index) => ({
             length: listHeight,
             offset: listHeight * index,
