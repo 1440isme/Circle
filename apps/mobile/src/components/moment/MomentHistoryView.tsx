@@ -133,6 +133,57 @@ function normalizeMoment(raw: any) {
   };
 }
 
+export function getOsmTileUrl(lat: number, lng: number, zoom: number = 15): string {
+  const n = Math.pow(2, zoom);
+  const x = Math.floor(((lng + 180) / 360) * n);
+  const latRad = (lat * Math.PI) / 180;
+  const y = Math.floor(((1 - Math.asinh(Math.tan(latRad)) / Math.PI) / 2) * n);
+  return `https://tile.openstreetmap.org/${zoom}/${x}/${y}.png`;
+}
+
+export function resolveMomentLocation(m: any, fallbackIndex: number = 0) {
+  if (!m) {
+    const p = VIETNAM_LOCATIONS[0]!;
+    return {
+      id: 'default',
+      name: p.name,
+      address: p.address,
+      lat: p.lat,
+      lng: p.lng,
+      staticMapUrl: getOsmTileUrl(p.lat, p.lng, 15),
+    };
+  }
+
+  const rawUrl = m.photoUrl || m.imageUrl || m.mediaUrl || '';
+  const latMatch = rawUrl.match(/#lat=([\d.-]+)/);
+  const lngMatch = rawUrl.match(/#lng=([\d.-]+)/);
+  const locMatch = rawUrl.match(/#loc=([^#]+)/);
+
+  if (latMatch && lngMatch) {
+    const lat = parseFloat(latMatch[1]!);
+    const lng = parseFloat(lngMatch[1]!);
+    const name = locMatch ? decodeURIComponent(locMatch[1]!) : 'Vị trí đã chụp';
+    return {
+      id: m.id || 'loc',
+      name,
+      address: 'Việt Nam',
+      lat,
+      lng,
+      staticMapUrl: getOsmTileUrl(lat, lng, 15),
+    };
+  }
+
+  const p = VIETNAM_LOCATIONS[fallbackIndex % VIETNAM_LOCATIONS.length]!;
+  return {
+    id: m.id || `loc-${fallbackIndex}`,
+    name: p.name,
+    address: p.address,
+    lat: p.lat,
+    lng: p.lng,
+    staticMapUrl: getOsmTileUrl(p.lat, p.lng, 15),
+  };
+}
+
 export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
   onClose,
   allCircleMoments = [],
@@ -399,10 +450,85 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
     return Array.from(map.values());
   }, [mapFilteredLocations]);
 
-  // Leaflet HTML template for OpenStreetMap / CartoDB tiles map
+  // Demo fallback clusters if account has not captured moments with geo-tagging yet
+  const effectiveClusters = useMemo<MapClusterPin[]>(() => {
+    if (clusters.length > 0) return clusters;
+    return [
+      {
+        id: 'cluster-hcmute',
+        name: 'ĐH Sư Phạm Kỹ Thuật (HCMUTE)',
+        address: '1 Võ Văn Ngân, Linh Chiểu, Thủ Đức, TP. Hồ Chí Minh',
+        lat: 10.8505,
+        lng: 106.7719,
+        thumbUrl: 'https://images.unsplash.com/photo-1541339907198-e08756dedf3f?w=300',
+        count: 3,
+        moments: [
+          {
+            id: 'demo-moment-1',
+            photoUrl: 'https://images.unsplash.com/photo-1541339907198-e08756dedf3f?w=800',
+            caption: 'Khuôn viên trường ĐH Sư Phạm Kỹ Thuật TP.HCM ✨',
+            createdAt: new Date().toISOString(),
+          },
+        ],
+      },
+      {
+        id: 'cluster-q1',
+        name: 'Phố đi bộ Nguyễn Huệ & Chợ Bến Thành',
+        address: 'Bến Nghé, Quận 1, TP. Hồ Chí Minh',
+        lat: 10.7745,
+        lng: 106.7035,
+        thumbUrl: 'https://images.unsplash.com/photo-1583417319070-4a69db38a482?w=300',
+        count: 2,
+        moments: [
+          {
+            id: 'demo-moment-2',
+            photoUrl: 'https://images.unsplash.com/photo-1583417319070-4a69db38a482?w=800',
+            caption: 'Dạo phố đi bộ Sài Gòn cuối tuần 🌆',
+            createdAt: new Date(Date.now() - 86400000).toISOString(),
+          },
+        ],
+      },
+      {
+        id: 'cluster-dalat',
+        name: 'Hồ Xuân Hương & Lâm Viên',
+        address: 'Phường 10, TP. Đà Lạt, Lâm Đồng',
+        lat: 11.9404,
+        lng: 108.4583,
+        thumbUrl: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=300',
+        count: 4,
+        moments: [
+          {
+            id: 'demo-moment-3',
+            photoUrl: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=800',
+            caption: 'Không khí se lạnh và hoa Đà Lạt nở rộ 🌸',
+            createdAt: new Date(Date.now() - 172800000).toISOString(),
+          },
+        ],
+      },
+      {
+        id: 'cluster-landmark',
+        name: 'Landmark 81 & Central Park',
+        address: '208 Nguyễn Hữu Cảnh, Bình Thạnh, TP. Hồ Chí Minh',
+        lat: 10.795,
+        lng: 106.7219,
+        thumbUrl: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=300',
+        count: 1,
+        moments: [
+          {
+            id: 'demo-moment-4',
+            photoUrl: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800',
+            caption: 'Hoàng hôn bên sông Sài Gòn 🌅',
+            createdAt: new Date(Date.now() - 259200000).toISOString(),
+          },
+        ],
+      },
+    ];
+  }, [clusters]);
+
+  // Leaflet HTML template for OpenStreetMap tiles map
   const mapHtml = useMemo(() => {
     const pinsData = JSON.stringify(
-      clusters.map((c) => ({
+      effectiveClusters.map((c) => ({
         id: c.id,
         lat: c.lat,
         lng: c.lng,
@@ -413,10 +539,6 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
       }))
     );
 
-    const tileUrl = isDark
-      ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-      : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
-
     return `<!DOCTYPE html>
 <html>
 <head>
@@ -426,7 +548,26 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body, #map { width: 100%; height: 100%; background: ${isDark ? '#111827' : '#f8fafc'}; overflow: hidden; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      overflow: hidden;
+      background: ${isDark ? '#0f172a' : '#f8fafc'};
+    }
+    #map {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+    }
     .leaflet-control-attribution { display: none !important; }
     .leaflet-control-zoom { display: none !important; }
     .custom-pin-container { background: none !important; border: none !important; }
@@ -502,11 +643,23 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
       tap: true
     });
 
-    var tileUrl = '${tileUrl}';
-    L.tileLayer(tileUrl, {
-      subdomains: 'abcd',
-      maxZoom: 19
+    var osmUrl = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+    L.tileLayer(osmUrl, {
+      maxZoom: 19,
+      attribution: ''
     }).addTo(map);
+
+    function triggerInvalidate() {
+      if (map) {
+        map.invalidateSize();
+      }
+    }
+    setTimeout(triggerInvalidate, 50);
+    setTimeout(triggerInvalidate, 200);
+    setTimeout(triggerInvalidate, 600);
+    setTimeout(triggerInvalidate, 1500);
+    window.addEventListener('resize', triggerInvalidate);
+    window.triggerInvalidate = triggerInvalidate;
 
     var markersGroup = L.featureGroup().addTo(map);
     var currentMarkers = {};
@@ -591,13 +744,13 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
   </script>
 </body>
 </html>`;
-  }, [clusters, isDark, colors.primary]);
+  }, [effectiveClusters, isDark, colors.primary]);
 
   const handleWebViewMessage = (event: any) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
       if (data.type === 'SELECT_PIN') {
-        const found = clusters.find((c) => c.id === data.id);
+        const found = effectiveClusters.find((c) => c.id === data.id);
         if (found) {
           setActiveCluster(found);
           webViewRef.current?.injectJavaScript(`window.selectPin('${found.id}'); true;`);
@@ -1158,6 +1311,74 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
                 );
               })()}
 
+              {/* Mini Map Location Card below Photo (Apple Photos Places / Locket style) */}
+              {(() => {
+                const currentMoment = selectedDayMoments[activePhotoIndex]!;
+                const locInfo = resolveMomentLocation(currentMoment, activePhotoIndex);
+
+                return (
+                  <View
+                    style={[
+                      styles.detailLocationCard,
+                      {
+                        width: SCREEN_WIDTH - 36,
+                        backgroundColor: isDark ? 'rgba(30,41,59,0.92)' : 'rgba(255,255,255,0.95)',
+                        borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)',
+                      },
+                    ]}
+                  >
+                    {/* Left: Mini Map Image Tile snippet with Pin */}
+                    <View style={styles.detailMiniMapWrap}>
+                      <RNImage
+                        source={{ uri: locInfo.staticMapUrl }}
+                        style={styles.detailMiniMapImg}
+                        resizeMode="cover"
+                      />
+                      <View style={styles.detailMiniMapCenterPin}>
+                        <View style={[styles.detailMiniMapPinCircle, { backgroundColor: colors.primary }]}>
+                          <MapPin size={11} color="#FFFFFF" />
+                        </View>
+                      </View>
+                    </View>
+
+                    {/* Right: Location & Address text column */}
+                    <View style={styles.detailLocationInfoCol}>
+                      <View style={styles.detailLocationTitleRow}>
+                        <MapPin size={13} color={colors.primary} />
+                        <Text
+                          style={[styles.detailLocationTitle, { color: isDark ? '#FFFFFF' : '#0F172A' }]}
+                          numberOfLines={1}
+                        >
+                          {locInfo.name}
+                        </Text>
+                      </View>
+                      <Text
+                        style={[styles.detailLocationAddress, { color: isDark ? '#94A3B8' : '#64748B' }]}
+                        numberOfLines={1}
+                      >
+                        {locInfo.address}
+                      </Text>
+
+                      <TouchableOpacity
+                        activeOpacity={0.8}
+                        onPress={() => {
+                          setSelectedDayMoments(null);
+                          setViewMode('map');
+                          setTimeout(() => {
+                            webViewRef.current?.injectJavaScript(`window.selectPin && window.selectPin('${locInfo.id}'); true;`);
+                          }, 500);
+                        }}
+                        style={styles.detailViewMapLink}
+                      >
+                        <Text style={[styles.detailViewMapLinkText, { color: colors.primary }]}>
+                          Xem trên bản đồ lớn ➔
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                );
+              })()}
+
               {/* Reactions Footer */}
               {Array.isArray(selectedDayMoments[activePhotoIndex]?.reactions) &&
                 selectedDayMoments[activePhotoIndex]!.reactions!.length > 0 && (
@@ -1661,5 +1882,80 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '600',
+  },
+  detailLocationCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 8,
+    gap: 10,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 3 },
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  detailMiniMapWrap: {
+    width: 76,
+    height: 76,
+    borderRadius: 14,
+    overflow: 'hidden',
+    position: 'relative',
+    backgroundColor: '#334155',
+  },
+  detailMiniMapImg: {
+    width: '100%',
+    height: '100%',
+  },
+  detailMiniMapCenterPin: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  detailMiniMapPinCircle: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOpacity: 0.4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  detailLocationInfoCol: {
+    flex: 1,
+    gap: 2,
+  },
+  detailLocationTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  detailLocationTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: -0.2,
+  },
+  detailLocationAddress: {
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  detailViewMapLink: {
+    marginTop: 4,
+    alignSelf: 'flex-start',
+  },
+  detailViewMapLinkText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
 });

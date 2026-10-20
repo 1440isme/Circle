@@ -65,6 +65,7 @@ import {
   Layers,
   Maximize2,
   Minimize2,
+  MapPin,
 } from 'lucide-react-native';
 import { useThemeStore } from '../../stores/theme.store';
 import { useLanguageStore } from '../../stores/language.store';
@@ -79,7 +80,7 @@ import {
 import { uploadMobileMedia } from '../../services/storage-upload.service';
 import { resolveMobileMediaUrl } from '../../services/api';
 import { Emoji } from '../ui/Emoji';
-import { MomentHistoryView } from './MomentHistoryView';
+import { MomentHistoryView, resolveMomentLocation } from './MomentHistoryView';
 
 
 const { width: SCREEN_WIDTH, height: WINDOW_HEIGHT } = Dimensions.get('window');
@@ -1421,7 +1422,7 @@ export function MomentsView({
     }, 200);
   };
 
-  const renderFeedItem = ({ item }: { item: FeedItem; index: number }) => {
+  const renderFeedItem = ({ item, index }: { item: FeedItem; index: number }) => {
     if (item.type === 'camera') {
       return (
         <View style={[styles.pageContainer, { height: listHeight }]}>
@@ -2010,6 +2011,35 @@ export function MomentsView({
                 </Text>
               </View>
             </View>
+
+            {/* Location Tag Pill on Moment Card */}
+            {(() => {
+              const loc = resolveMomentLocation(m, index);
+              return (
+                <TouchableOpacity
+                  activeOpacity={0.75}
+                  onPress={() => {
+                    setIsHistoryViewActive(true);
+                    setHistoryViewMode('map');
+                  }}
+                  style={[
+                    styles.momentLocationTag,
+                    {
+                      backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)',
+                      borderColor: colors.hairline,
+                    },
+                  ]}
+                >
+                  <MapPin size={11} color={colors.primary} />
+                  <Text
+                    style={[styles.momentLocationTagText, { color: colors.text }]}
+                    numberOfLines={1}
+                  >
+                    {loc.name}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })()}
           </View>
 
           {/* 1:1 Rounded Square Photo / Video with In-photo Caption Overlay & Dual View PiP (Nhấn giữ để mở tùy chọn) */}
@@ -3300,6 +3330,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 4,
+    gap: 8,
+  },
+  momentLocationTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    maxWidth: 160,
+  },
+  momentLocationTagText: {
+    fontSize: 10,
+    fontWeight: '700',
   },
   momentFeedAuthor: {
     flexDirection: 'row',
