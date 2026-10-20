@@ -4477,3 +4477,28 @@
   - **Resolution / Fix:** Tạm ngắt tiến trình con của dev server, tạo lại Prisma client thành công, sau đó Nest watch tự khởi động lại tiến trình server bình thường.
 - **Branch:** `feat/94-moments-archive-places-map`
 - **PR:** #95 (Draft)
+
+### AI-0105: Gỡ bỏ thẻ địa chỉ trên thẻ Khoảnh khắc & Bổ sung tiện ích Xóa/Ẩn ảnh (Chính chủ vs Bạn bè)
+
+- **Date:** 2026-10-20
+- **Task ID:** Issue #94 (Epic #20: Moments & Shared Stories)
+- **Engineers:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Feature / Area:** Mobile Moments feed card, Action sheet menu, Moment delete & hide utility, Lightbox modal actions.
+- **Files Affected:**
+  - `apps/mobile/src/hooks/use-circle-queries.ts`
+  - `apps/mobile/src/components/moment/MomentsView.tsx`
+  - `apps/mobile/src/components/moment/MomentHistoryView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% mã nguồn gỡ bỏ hoàn toàn pill địa chỉ khỏi header thẻ ảnh trên feed (đảm bảo vị trí lấy ngầm chỉ dùng cho Places Map theo đúng yêu cầu); thay thế bằng nút 3 chấm `...` mở Action Menu; bổ sung `useDeleteMomentMutation` trong `use-circle-queries.ts`; triển khai logic xóa phân quyền thông minh:
+  - Nếu là ảnh chính chủ (`isOwn`): Hiển thị thông báo xác nhận xóa vĩnh viễn và bạn bè sẽ không thể xem lại, gọi API DELETE `/api/v1/moments/:id` và làm mới cache.
+  - Nếu là ảnh của bạn bè: Hiển thị thông báo xóa/ẩn khỏi bên mình (bạn bè khác vẫn xem được bình thường), lưu vào danh sách ẩn cục bộ (`circle_hidden_moments`) và lọc khỏi feed và lịch sử xem ảnh.
+  - Bổ sung nút xóa thùng rác tương ứng trong Lightbox modal của `MomentHistoryView`.
+- **Human Modifications:** Trương Công Bình trực tiếp chỉ ra chi tiết địa chỉ còn sót ở góc trái thẻ ảnh và yêu cầu tiện ích xóa ảnh với cơ chế thông báo phân quyền rõ ràng giữa ảnh tự đăng và ảnh của bạn bè.
+- **Verification Method:**
+  - `npm run typecheck` (`tsc --noEmit`) trong `apps/mobile`: 0 lỗi TypeScript.
+  - `npm test -- apps/backend/src/modules/moments/moments.service.spec.ts`: 24/24 unit tests pass 100%.
+  - `./scripts/check-agent-map.sh`: 95/95 framework files pass (0 broken references).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn, cơ chế phân quyền bảo đảm người dùng không thể xóa vĩnh viễn dữ liệu của người khác trên máy chủ.
+- **Branch:** `feat/94-moments-archive-places-map`
+- **PR:** #95 (Draft)

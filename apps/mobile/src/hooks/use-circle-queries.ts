@@ -912,6 +912,34 @@ export function useCreateMomentMutation(circleId: string | null) {
   });
 }
 
+export function useDeleteMomentMutation(circleId: string | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (momentId: string) => {
+      const res = await mobileApiRequest<any>(`/moments/${momentId}`, {
+        method: 'DELETE',
+      });
+      return (res as any)?.data || res;
+    },
+    onSuccess: (_, deletedMomentId) => {
+      if (circleId) {
+        queryClient.setQueryData(['moments', 'circle', circleId], (old: any) => {
+          const list = Array.isArray(old) ? old : Array.isArray(old?.data) ? old.data : [];
+          return list.filter((m: any) => m.id !== deletedMomentId);
+        });
+        queryClient.invalidateQueries({ queryKey: ['moments', 'circle', circleId] });
+      }
+      queryClient.setQueryData(['moments', 'me'], (old: any) => {
+        const list = Array.isArray(old) ? old : Array.isArray(old?.data) ? old.data : [];
+        return list.filter((m: any) => m.id !== deletedMomentId);
+      });
+      queryClient.invalidateQueries({ queryKey: ['moments', 'feed'] });
+      queryClient.invalidateQueries({ queryKey: ['moments', 'me'] });
+    },
+  });
+}
+
 /**
  * Hook to manage real-time typing indicators in mobile channel chat.
  */

@@ -8,6 +8,7 @@ import {
   Image as RNImage,
   ScrollView,
   Modal,
+  Alert,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import {
@@ -21,11 +22,13 @@ import {
   ChevronRight,
   Layers,
   Flame,
+  Trash2,
 } from 'lucide-react-native';
 import { useThemeStore } from '../../stores/theme.store';
 import { useLanguageStore } from '../../stores/language.store';
 import { useAuthStore } from '../../stores/auth.store';
-import { useMyMomentsQuery } from '../../hooks/use-circle-queries';
+import { useMyMomentsQuery, useDeleteMomentMutation } from '../../hooks/use-circle-queries';
+import { getItem, setItem } from '../../services/storage';
 import { MomentEntity } from '@circle/types';
 import { resolveMobileMediaUrl } from '../../services/api';
 
@@ -235,6 +238,63 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
 
   // Queries
   const { data: myServerMoments = [] } = useMyMomentsQuery();
+  const deleteMomentMutation = useDeleteMomentMutation(null);
+
+  const handleDeleteCurrentLightboxMoment = () => {
+    if (!selectedDayMoments || selectedDayMoments.length === 0) return;
+    const currentMoment = selectedDayMoments[activePhotoIndex];
+    if (!currentMoment || currentMoment.id === 'captured-today') return;
+
+    const isOwn =
+      currentMoment.authorId === user?.id ||
+      currentMoment.author?.id === user?.id ||
+      currentMoment.userId === user?.id;
+
+    if (isOwn) {
+      Alert.alert(
+        'Xoá vĩnh viễn khoảnh khắc?',
+        'Khoảnh khắc này sẽ bị xoá vĩnh viễn khỏi Circle và bạn bè sẽ không thể xem lại nữa.',
+        [
+          { text: 'Hủy', style: 'cancel' },
+          {
+            text: 'Xoá vĩnh viễn',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await deleteMomentMutation.mutateAsync(currentMoment.id);
+                setSelectedDayMoments(null);
+              } catch (err: any) {
+                Alert.alert('Circle', err?.message || 'Không thể xoá khoảnh khắc');
+              }
+            },
+          },
+        ],
+      );
+    } else {
+      Alert.alert(
+        'Xoá khỏi bên mình?',
+        'Khoảnh khắc này sẽ được xoá khỏi trang của bạn. Bạn bè khác trong Vòng tròn vẫn có thể xem được bình thường.',
+        [
+          { text: 'Hủy', style: 'cancel' },
+          {
+            text: 'Xoá khỏi bên mình',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                const stored = await getItem('circle_hidden_moments');
+                const list = stored ? JSON.parse(stored) : [];
+                if (!list.includes(currentMoment.id)) {
+                  list.push(currentMoment.id);
+                  await setItem('circle_hidden_moments', JSON.stringify(list));
+                }
+              } catch {}
+              setSelectedDayMoments(null);
+            },
+          },
+        ],
+      );
+    }
+  };
 
   // Combine and deduplicate moments authored by the account owner or visible in circle
   const myMoments = useMemo(() => {
@@ -1285,12 +1345,22 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
                   )}
                 </View>
 
-                <TouchableOpacity
-                  onPress={() => setSelectedDayMoments(null)}
-                  style={styles.detailCloseBtn}
-                >
-                  <X size={20} color="#FFFFFF" />
-                </TouchableOpacity>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    onPress={handleDeleteCurrentLightboxMoment}
+                    style={styles.detailDeleteBtn}
+                  >
+                    <Trash2 size={16} color="#FF6B6B" />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={() => setSelectedDayMoments(null)}
+                    style={styles.detailCloseBtn}
+                  >
+                    <X size={20} color="#FFFFFF" />
+                  </TouchableOpacity>
+                </View>
               </View>
 
               {/* Media Container 1:1 Square Card */}
@@ -1857,6 +1927,14 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '500',
     marginTop: 1,
+  },
+  detailDeleteBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(239, 68, 68, 0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   detailCloseBtn: {
     width: 36,

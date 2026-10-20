@@ -67,6 +67,8 @@ import {
   Maximize2,
   Minimize2,
   MapPin,
+  MoreHorizontal,
+  Trash2,
 } from 'lucide-react-native';
 import { useThemeStore } from '../../stores/theme.store';
 import { useLanguageStore } from '../../stores/language.store';
@@ -76,8 +78,10 @@ import {
   useCircleMembersQuery,
   useReactMomentMutation,
   useCreateMomentMutation,
+  useDeleteMomentMutation,
   useReplyMomentMutation,
 } from '../../hooks/use-circle-queries';
+import { getItem, setItem } from '../../services/storage';
 import { uploadMobileMedia } from '../../services/storage-upload.service';
 import { resolveMobileMediaUrl } from '../../services/api';
 import { Emoji } from '../ui/Emoji';
@@ -571,8 +575,35 @@ export function MomentsView({
   const { data: moments = [], isLoading: isLoadingMoments } = useCircleMomentsQuery(circleId);
   const { data: members = [] } = useCircleMembersQuery(circleId);
   const createMomentMutation = useCreateMomentMutation(circleId);
+  const deleteMomentMutation = useDeleteMomentMutation(circleId);
   const reactMomentMutation = useReactMomentMutation(circleId);
   const replyMomentMutation = useReplyMomentMutation(circleId);
+
+  // Hidden moments state (for moments hidden/deleted by current user from their own view)
+  const [hiddenMomentIds, setHiddenMomentIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const stored = await getItem('circle_hidden_moments');
+        if (stored) {
+          const arr = JSON.parse(stored);
+          if (Array.isArray(arr)) {
+            setHiddenMomentIds(new Set(arr));
+          }
+        }
+      } catch {}
+    })();
+  }, []);
+
+  const hideMomentLocally = async (momentId: string) => {
+    setHiddenMomentIds((prev) => {
+      const next = new Set(prev);
+      next.add(momentId);
+      setItem('circle_hidden_moments', JSON.stringify(Array.from(next))).catch(() => {});
+      return next;
+    });
+  };
 
   // Member Filter State (Trang 1..N: Lọc theo mọi người hoặc từng thành viên)
   const [internalMemberId, setInternalMemberId] = useState<string | 'all'>('all');
@@ -1024,8 +1055,8 @@ export function MomentsView({
 
 
 
-  // Lọc moments theo thành viên được chọn (hỗ trợ cả authorId và userId)
-  const filteredMoments = selectedMemberId === 'all'
+  // Lọc moments theo thành viên được chọn và loại bỏ các khoảnh khắc người dùng đã xóa/ẩn khỏi bên mình
+  const filteredMoments = (selectedMemberId === 'all'
     ? moments
     : moments.filter(
       (m: any) =>
@@ -1033,7 +1064,8 @@ export function MomentsView({
         m.author?.id === selectedMemberId ||
         m.userId === selectedMemberId ||
         m.user?.id === selectedMemberId
-    );
+    )
+  ).filter((m: any) => !hiddenMomentIds.has(m.id));
 
   // Tên thành viên đang được lọc
   const selectedMember: any = members.find(
@@ -1481,6 +1513,61 @@ export function MomentsView({
   const handleSaveImage = () => {
     setIsActionMenuOpen(false);
     Alert.alert(t.common.appName, 'Đã lưu ảnh về thư viện thiết bị thành công!');
+  };
+
+  const handleDeleteMoment = () => {
+    if (!selectedMomentForAction) return;
+    const targetMoment = selectedMomentForAction;
+    const isOwn =
+      targetMoment.authorId === user?.id ||
+      targetMoment.author?.id === user?.id ||
+      targetMoment.userId === user?.id;
+
+    setIsActionMenuOpen(false);
+
+    if (isOwn) {
+      Alert.alert(
+        'Xoá vĩnh viễn khoảnh khắc?',
+        'Khoảnh khắc này sẽ bị xoá vĩnh viễn khỏi Circle và bạn bè sẽ không thể xem lại nữa.',
+        [
+          { text: 'Hủy', style: 'cancel' },
+          {
+            text: 'Xoá vĩnh viễn',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await deleteMomentMutation.mutateAsync(targetMoment.id);
+                setTimeout(() => {
+                  flatListRef.current?.scrollToIndex({ index: 0, animated: true });
+                  setCurrentPageIndex(0);
+                }, 200);
+              } catch (err: any) {
+                Alert.alert(t.common.appName, err?.message || 'Không thể xoá khoảnh khắc');
+              }
+            },
+          },
+        ],
+      );
+    } else {
+      Alert.alert(
+        'Xoá khỏi bên mình?',
+        'Khoảnh khắc này sẽ được xoá khỏi trang của bạn. Bạn bè khác trong Vòng tròn vẫn có thể xem được bình thường.',
+        [
+          { text: 'Hủy', style: 'cancel' },
+          {
+            text: 'Xoá khỏi bên mình',
+            style: 'destructive',
+            onPress: async () => {
+              await hideMomentLocally(targetMoment.id);
+              setTimeout(() => {
+                flatListRef.current?.scrollToIndex({ index: 0, animated: true });
+                setCurrentPageIndex(0);
+              }, 200);
+            },
+          },
+        ],
+      );
+    }
   };
 
   const handleOpenActionMenuForMoment = (momentItem?: any) => {
@@ -2102,34 +2189,20 @@ export function MomentsView({
               </View>
             </View>
 
-            {/* Location Tag Pill on Moment Card */}
-            {(() => {
-              const loc = resolveMomentLocation(m, index);
-              return (
-                <TouchableOpacity
-                  activeOpacity={0.75}
-                  onPress={() => {
-                    setIsHistoryViewActive(true);
-                    setHistoryViewMode('map');
-                  }}
-                  style={[
-                    styles.momentLocationTag,
-                    {
-                      backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)',
-                      borderColor: colors.hairline,
-                    },
-                  ]}
-                >
-                  <MapPin size={11} color={colors.primary} />
-                  <Text
-                    style={[styles.momentLocationTagText, { color: colors.text }]}
-                    numberOfLines={1}
-                  >
-                    {loc.name}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })()}
+            {/* Action Menu Trigger Button (...) */}
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => handleOpenActionMenuForMoment(m)}
+              style={[
+                styles.momentMoreBtn,
+                {
+                  backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+                },
+              ]}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <MoreHorizontal size={18} color={colors.subtle} />
+            </TouchableOpacity>
           </View>
 
           {/* 1:1 Rounded Square Photo / Video with In-photo Caption Overlay & Dual View PiP (Nhấn giữ để mở tùy chọn) */}
@@ -2379,7 +2452,7 @@ export function MomentsView({
       {isHistoryViewActive ? (
         <MomentHistoryView
           onClose={() => setIsHistoryViewActive(false)}
-          allCircleMoments={moments}
+          allCircleMoments={filteredMoments}
           capturedPhotoUrl={capturedPhotoUrl}
           containerHeight={containerHeight}
           viewMode={historyViewMode}
@@ -2721,6 +2794,43 @@ export function MomentsView({
                   </Text>
                 </View>
               </TouchableOpacity>
+
+              {/* Option 4: Delete / Hide moment */}
+              {(() => {
+                const isOwn =
+                  selectedMomentForAction &&
+                  (selectedMomentForAction.authorId === user?.id ||
+                    selectedMomentForAction.author?.id === user?.id ||
+                    selectedMomentForAction.userId === user?.id);
+
+                return (
+                  <TouchableOpacity
+                    activeOpacity={0.75}
+                    onPress={handleDeleteMoment}
+                    style={[
+                      styles.actionItem,
+                      {
+                        backgroundColor: isDark ? 'rgba(239, 68, 68, 0.12)' : 'rgba(239, 68, 68, 0.08)',
+                        borderColor: isDark ? 'rgba(239, 68, 68, 0.35)' : 'rgba(239, 68, 68, 0.25)',
+                      },
+                    ]}
+                  >
+                    <View style={[styles.actionIconBox, { backgroundColor: 'rgba(239, 68, 68, 0.2)' }]}>
+                      <Trash2 size={20} color={colors.danger} />
+                    </View>
+                    <View style={styles.actionItemInfo}>
+                      <Text style={[styles.actionItemTitle, { color: colors.danger, fontWeight: '700' }]}>
+                        {isOwn ? 'Xoá vĩnh viễn khoảnh khắc' : 'Xoá khỏi trang của bạn'}
+                      </Text>
+                      <Text style={[styles.actionItemDesc, { color: colors.subtle }]}>
+                        {isOwn
+                          ? 'Xoá vĩnh viễn khỏi Circle, bạn bè sẽ không thể xem lại'
+                          : 'Ẩn khoảnh khắc này khỏi trang của bạn'}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })()}
             </View>
           </TouchableOpacity>
         </TouchableOpacity>
@@ -3422,19 +3532,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     gap: 8,
   },
-  momentLocationTag: {
-    flexDirection: 'row',
+  momentMoreBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    borderWidth: 1,
-    maxWidth: 160,
-  },
-  momentLocationTagText: {
-    fontSize: 10,
-    fontWeight: '700',
+    justifyContent: 'center',
   },
   momentFeedAuthor: {
     flexDirection: 'row',
