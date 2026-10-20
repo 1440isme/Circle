@@ -4441,5 +4441,5 @@
   - **Error Description:** (1) Khi mới tạo `MomentHistoryModal.tsx` gặp lỗi import sai tên `useThemeColors` và `useAuth`. (2) FlatList cuộn dọc trên Android bị trôi dần xuống dưới (drift down) qua từng trang. (3) Bản đồ ban đầu vẽ bằng canvas giả lập cuộn 2 chiều bị khựng và không zoom được.
   - **Root Cause:** (1) Dùng nhầm tên hook của component cũ thay vì `useThemeStore` và `useAuthStore` của store Zustand. (2) Android FlatList khi dùng `pagingEnabled` mặc định snap theo khung nhìn hệ thống thay vì chiều cao item `listHeight`, kết hợp với điều kiện cập nhật layout bị kẹt (`h >= containerHeight`) gây lệch tích lũy. (3) Bản đồ vẽ bằng các khối View lồng nhau thiếu tương tác bản đồ thực.
   - **Resolution / Fix:** (1) Đồng bộ import về đúng `useThemeStore` và `useAuthStore`. (2) Cấu hình FlatList paging chuẩn cho Android: `snapToInterval={listHeight}`, `snapToAlignment="start"`, `decelerationRate="fast"`, `disableIntervalMomentum={true}`, và cập nhật `containerHeight` chính xác theo pixel thực tế. (3) Tích hợp `react-native-webview` với Leaflet và CartoDB tiles hỗ trợ pinch-to-zoom, drag mượt mà và cluster pin markers.
-- **Commit:** a532e85
-- **PR:** Pending
+- **Commit:** 7fa865d
+- **PR:** #95
