@@ -4502,3 +4502,31 @@
 - **Security & License Check:** An toàn, cơ chế phân quyền bảo đảm người dùng không thể xóa vĩnh viễn dữ liệu của người khác trên máy chủ.
 - **Branch:** `feat/94-moments-archive-places-map`
 - **PR:** #95 (Draft)
+
+### AI-0106: Tối giản Action Menu Khoảnh khắc (Xóa, Lưu, Chia sẻ) & Tích hợp thực tế Lưu/Chia sẻ ảnh qua Expo Native APIs
+
+- **Date:** 2026-10-20
+- **Task ID:** Issue #94 (Epic #20: Moments & Shared Stories)
+- **Engineers:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Feature / Area:** Mobile Moments feed interaction, Action Sheet simplification, Native MediaLibrary and Sharing integrations.
+- **Files Affected:**
+  - `apps/mobile/package.json`
+  - `apps/mobile/app.json`
+  - `apps/mobile/src/components/moment/MomentsView.tsx`
+  - `package-lock.json`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% mã nguồn:
+  - Gỡ bỏ nút ba chấm `...` khỏi header thẻ ảnh (giữ trải nghiệm tối giản tuyệt đối, dùng cử chỉ nhấn giữ ảnh để mở Action Menu theo đúng ý người dùng).
+  - Gỡ bỏ hoàn toàn mục "Sao chép liên kết".
+  - Thu gọn toàn bộ Action Menu thành 3 lựa chọn ngắn gọn, súc tích: **Chia sẻ**, **Lưu**, **Xoá**.
+  - Cài đặt và tích hợp các module native của Expo SDK 57: `expo-file-system`, `expo-media-library`, `expo-sharing`.
+  - Triển khai chức năng **Lưu** thực tế: tải ảnh/video vào cache, yêu cầu cấp quyền `MediaLibrary.requestPermissionsAsync`, lưu trực tiếp vào thư viện thiết bị (`MediaLibrary.saveToLibraryAsync`) kèm thông báo thành công.
+  - Triển khai chức năng **Chia sẻ** thực tế: tải file media thật và mở hộp thoại chia sẻ native của hệ điều hành (`Sharing.shareAsync` hoặc `RNShare`) hỗ trợ gửi trực tiếp file ảnh/video đến các ứng dụng khác.
+- **Human Modifications:** Trương Công Bình trực tiếp yêu cầu loại bỏ nút 3 chấm do đã có cơ chế nhấn giữ ảnh, loại bỏ tùy chọn sao chép link rườm rà, tinh gọn text thành các động từ đơn giản (Xóa, Lưu, Chia sẻ) và hoàn thiện chức năng lưu, chia sẻ hoạt động thực tế.
+- **Verification Method:**
+  - `npm run typecheck` (`tsc --noEmit`) trong `apps/mobile`: 0 lỗi TypeScript.
+  - `./scripts/check-agent-map.sh`: 95/95 framework files pass (0 broken references).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn, xin quyền truy cập thư viện theo chuẩn phân quyền hệ điều hành Android/iOS.
+- **Branch:** `feat/94-moments-archive-places-map`
+- **PR:** #95 (Draft)

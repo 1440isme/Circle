@@ -31,6 +31,9 @@ import * as Haptics from 'expo-haptics';
 import { CameraView, CameraType, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import * as Location from 'expo-location';
+import { File, Paths, Directory } from 'expo-file-system';
+import * as MediaLibrary from 'expo-media-library';
+import * as Sharing from 'expo-sharing';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 const SHUTTER_SIZE = 92;
@@ -59,7 +62,6 @@ import {
   MessageCircle,
   Share2,
   Download,
-  Copy,
   Users,
   Filter,
   Check,
@@ -67,7 +69,6 @@ import {
   Maximize2,
   Minimize2,
   MapPin,
-  MoreHorizontal,
   Trash2,
 } from 'lucide-react-native';
 import { useThemeStore } from '../../stores/theme.store';
@@ -1052,6 +1053,7 @@ export function MomentsView({
   // Page Tracking & Action Menu State
   const [currentPageIndex, setCurrentPageIndex] = useState<number>(0);
   const [isActionMenuOpen, setIsActionMenuOpen] = useState<boolean>(false);
+  const [isActionProcessing, setIsActionProcessing] = useState<boolean>(false);
 
 
 
@@ -1493,26 +1495,66 @@ export function MomentsView({
       : user?.profile?.displayName || 'Bạn');
 
   const handleSharePhoto = async () => {
-    setIsActionMenuOpen(false);
     if (!currentActivePhotoUrl) return;
     try {
-      await RNShare.share({
-        message: `Khoảnh khắc từ nhóm ${circleName} trên Circle: ${currentActivePhotoUrl}`,
-        url: currentActivePhotoUrl,
-      });
+      setIsActionProcessing(true);
+      const isVideo = currentActivePhotoUrl.includes('.mp4') || currentActivePhotoUrl.includes('.webm');
+
+      // Tải tệp tạm vào bộ nhớ cache để chia sẻ trực tiếp hình ảnh/video thực
+      const downloadedFile = await File.downloadFileAsync(currentActivePhotoUrl, new Directory(Paths.cache));
+      setIsActionMenuOpen(false);
+
+      const isSharingAvailable = await Sharing.isAvailableAsync();
+      if (isSharingAvailable) {
+        await Sharing.shareAsync(downloadedFile.uri, {
+          mimeType: isVideo ? 'video/mp4' : 'image/jpeg',
+          dialogTitle: 'Chia sẻ',
+        });
+      } else {
+        await RNShare.share({
+          message: `Khoảnh khắc từ nhóm ${circleName} trên Circle: ${currentActivePhotoUrl}`,
+          url: currentActivePhotoUrl,
+        });
+      }
     } catch {
-      // User cancelled
+      setIsActionMenuOpen(false);
+      try {
+        await RNShare.share({
+          message: `Khoảnh khắc từ nhóm ${circleName} trên Circle: ${currentActivePhotoUrl}`,
+          url: currentActivePhotoUrl,
+        });
+      } catch {}
+    } finally {
+      setIsActionProcessing(false);
     }
   };
 
-  const handleCopyLink = () => {
-    setIsActionMenuOpen(false);
-    Alert.alert(t.common.appName, 'Đã sao chép liên kết ảnh khoảnh khắc!');
-  };
+  const handleSaveImage = async () => {
+    if (!currentActivePhotoUrl) return;
+    try {
+      setIsActionProcessing(true);
 
-  const handleSaveImage = () => {
-    setIsActionMenuOpen(false);
-    Alert.alert(t.common.appName, 'Đã lưu ảnh về thư viện thiết bị thành công!');
+      // 1. Tải ảnh/video về cache cục bộ
+      const downloadedFile = await File.downloadFileAsync(currentActivePhotoUrl, new Directory(Paths.cache));
+
+      // 2. Xin quyền truy cập Thư viện ảnh nếu cần
+      const { status } = await MediaLibrary.requestPermissionsAsync(true);
+      if (status !== 'granted') {
+        setIsActionMenuOpen(false);
+        Alert.alert(t.common.appName, 'Cần cấp quyền truy cập thư viện để lưu vào thiết bị.');
+        return;
+      }
+
+      // 3. Lưu chính thức vào Thư viện ảnh / Gallery của thiết bị
+      await MediaLibrary.saveToLibraryAsync(downloadedFile.uri);
+      setIsActionMenuOpen(false);
+      Alert.alert(t.common.appName, 'Đã lưu vào thư viện thiết bị thành công!');
+    } catch (err: any) {
+      setIsActionMenuOpen(false);
+      Alert.alert(t.common.appName, err?.message || 'Không thể lưu vào thư viện thiết bị.');
+    } finally {
+      setIsActionProcessing(false);
+    }
   };
 
   const handleDeleteMoment = () => {
@@ -2188,21 +2230,6 @@ export function MomentsView({
                 </Text>
               </View>
             </View>
-
-            {/* Action Menu Trigger Button (...) */}
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => handleOpenActionMenuForMoment(m)}
-              style={[
-                styles.momentMoreBtn,
-                {
-                  backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
-                },
-              ]}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            >
-              <MoreHorizontal size={18} color={colors.subtle} />
-            </TouchableOpacity>
           </View>
 
           {/* 1:1 Rounded Square Photo / Video with In-photo Caption Overlay & Dual View PiP (Nhấn giữ để mở tùy chọn) */}
@@ -2742,95 +2769,68 @@ export function MomentsView({
               </TouchableOpacity>
             </View>
 
-            {/* Action Items List */}
+            {/* Action Items List: Chia sẻ, Lưu, Xoá */}
             <View style={styles.actionList}>
-              {/* Option 1: Share Photo */}
+              {/* Option 1: Chia sẻ */}
               <TouchableOpacity
                 activeOpacity={0.75}
+                disabled={isActionProcessing}
                 onPress={handleSharePhoto}
                 style={[styles.actionItem, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
               >
                 <View style={[styles.actionIconBox, { backgroundColor: `${colors.primary}20` }]}>
-                  <Share2 size={20} color={colors.primary} />
+                  {isActionProcessing ? (
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  ) : (
+                    <Share2 size={20} color={colors.primary} />
+                  )}
                 </View>
                 <View style={styles.actionItemInfo}>
-                  <Text style={[styles.actionItemTitle, { color: colors.text }]}>Chia sẻ ảnh...</Text>
-                  <Text style={[styles.actionItemDesc, { color: colors.subtle }]}>
-                    Gửi đến ứng dụng khác hoặc tin nhắn bạn bè
-                  </Text>
+                  <Text style={[styles.actionItemTitle, { color: colors.text, fontWeight: '600' }]}>Chia sẻ</Text>
                 </View>
               </TouchableOpacity>
 
-              {/* Option 2: Copy Link */}
+              {/* Option 2: Lưu */}
               <TouchableOpacity
                 activeOpacity={0.75}
-                onPress={handleCopyLink}
-                style={[styles.actionItem, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
-              >
-                <View style={[styles.actionIconBox, { backgroundColor: `${colors.info}20` }]}>
-                  <Copy size={20} color={colors.info} />
-                </View>
-                <View style={styles.actionItemInfo}>
-                  <Text style={[styles.actionItemTitle, { color: colors.text }]}>Sao chép liên kết ảnh</Text>
-                  <Text style={[styles.actionItemDesc, { color: colors.subtle }]}>
-                    Lưu link ảnh vào bộ nhớ tạm
-                  </Text>
-                </View>
-              </TouchableOpacity>
-
-              {/* Option 3: Save image */}
-              <TouchableOpacity
-                activeOpacity={0.75}
+                disabled={isActionProcessing}
                 onPress={handleSaveImage}
                 style={[styles.actionItem, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
               >
                 <View style={[styles.actionIconBox, { backgroundColor: `${colors.success}20` }]}>
-                  <Download size={20} color={colors.success} />
+                  {isActionProcessing ? (
+                    <ActivityIndicator size="small" color={colors.success} />
+                  ) : (
+                    <Download size={20} color={colors.success} />
+                  )}
                 </View>
                 <View style={styles.actionItemInfo}>
-                  <Text style={[styles.actionItemTitle, { color: colors.text }]}>Lưu về máy</Text>
-                  <Text style={[styles.actionItemDesc, { color: colors.subtle }]}>
-                    Tải ảnh gốc về thư viện ảnh thiết bị
-                  </Text>
+                  <Text style={[styles.actionItemTitle, { color: colors.text, fontWeight: '600' }]}>Lưu</Text>
                 </View>
               </TouchableOpacity>
 
-              {/* Option 4: Delete / Hide moment */}
-              {(() => {
-                const isOwn =
-                  selectedMomentForAction &&
-                  (selectedMomentForAction.authorId === user?.id ||
-                    selectedMomentForAction.author?.id === user?.id ||
-                    selectedMomentForAction.userId === user?.id);
-
-                return (
-                  <TouchableOpacity
-                    activeOpacity={0.75}
-                    onPress={handleDeleteMoment}
-                    style={[
-                      styles.actionItem,
-                      {
-                        backgroundColor: isDark ? 'rgba(239, 68, 68, 0.12)' : 'rgba(239, 68, 68, 0.08)',
-                        borderColor: isDark ? 'rgba(239, 68, 68, 0.35)' : 'rgba(239, 68, 68, 0.25)',
-                      },
-                    ]}
-                  >
-                    <View style={[styles.actionIconBox, { backgroundColor: 'rgba(239, 68, 68, 0.2)' }]}>
-                      <Trash2 size={20} color={colors.danger} />
-                    </View>
-                    <View style={styles.actionItemInfo}>
-                      <Text style={[styles.actionItemTitle, { color: colors.danger, fontWeight: '700' }]}>
-                        {isOwn ? 'Xoá vĩnh viễn khoảnh khắc' : 'Xoá khỏi trang của bạn'}
-                      </Text>
-                      <Text style={[styles.actionItemDesc, { color: colors.subtle }]}>
-                        {isOwn
-                          ? 'Xoá vĩnh viễn khỏi Circle, bạn bè sẽ không thể xem lại'
-                          : 'Ẩn khoảnh khắc này khỏi trang của bạn'}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })()}
+              {/* Option 3: Xoá */}
+              <TouchableOpacity
+                activeOpacity={0.75}
+                disabled={isActionProcessing}
+                onPress={handleDeleteMoment}
+                style={[
+                  styles.actionItem,
+                  {
+                    backgroundColor: isDark ? 'rgba(239, 68, 68, 0.12)' : 'rgba(239, 68, 68, 0.08)',
+                    borderColor: isDark ? 'rgba(239, 68, 68, 0.35)' : 'rgba(239, 68, 68, 0.25)',
+                  },
+                ]}
+              >
+                <View style={[styles.actionIconBox, { backgroundColor: 'rgba(239, 68, 68, 0.2)' }]}>
+                  <Trash2 size={20} color={colors.danger} />
+                </View>
+                <View style={styles.actionItemInfo}>
+                  <Text style={[styles.actionItemTitle, { color: colors.danger, fontWeight: '700' }]}>
+                    Xoá
+                  </Text>
+                </View>
+              </TouchableOpacity>
             </View>
           </TouchableOpacity>
         </TouchableOpacity>
@@ -3531,13 +3531,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 4,
     gap: 8,
-  },
-  momentMoreBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   momentFeedAuthor: {
     flexDirection: 'row',
