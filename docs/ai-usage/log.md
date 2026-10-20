@@ -4555,3 +4555,31 @@
 - **Security & License Check:** Không có rủi ro bảo mật hoặc thư viện bên thứ 3 lạ.
 - **Branch:** `feat/94-moments-archive-places-map`
 - **PR:** #95 (Draft)
+
+### AI-0108: Tích hợp cơ chế Hybrid ghép 2 ảnh Dual thành 1 ảnh khi Lưu/Chia sẻ (#94)
+- **Timestamp:** 2026-10-20T18:25:00+07:00
+- **Task ID:** Issue #94 (Epic #20: Moments & Shared Stories)
+- **Engineers:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Feature / Area:** Mobile Moments Hybrid Dual-Photo Export (Save & Share Composite).
+- **Files Affected:**
+  - `apps/mobile/package.json`
+  - `package-lock.json`
+  - `apps/mobile/src/components/moment/MomentsView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% mã nguồn tính năng:
+  - Cài đặt thư viện chuẩn `react-native-view-shot` để xử lý chụp view offscreen chất lượng cao.
+  - Xây dựng hàm `prepareExportImageUri`:
+    - Phân tích khoảnh khắc: nếu là video hoặc ảnh đơn (Single photo) thì tải trực tiếp và xuất file gốc.
+    - Nếu là ảnh Dual (có cả camera trước và camera sau): tải cả 2 ảnh về bộ nhớ cache cục bộ, gắn vào khung chụp offscreen 1080x1080 chuẩn Instagram/Social.
+    - Render ảnh nền chính 1080x1080 phủ toàn khung, ảnh PiP phụ 320x320 bo góc tròn mềm mại (`borderRadius: 40`, viền trắng 5px `#FFFFFF`, shadow nổi bật) đặt chính xác tại góc người dùng đã chọn (`cornerIndex`).
+    - Gắn watermark thương hiệu Circle và chú thích (caption) của khoảnh khắc.
+    - Dùng `captureRef` chụp khung với chất lượng 96% JPEG và xuất ra tệp ảnh đơn duy nhất.
+  - Tích hợp hàm xuất hợp nhất vào nút **"Lưu"** (`MediaLibrary.Asset.create`) và nút **"Chia sẻ"** (`Sharing.shareAsync` / `RNShare`).
+- **Human Modifications:** Trương Công Bình định hướng kiến trúc Hybrid: trong app lưu và hiển thị 2 ảnh độc lập để hỗ trợ vuốt đổi 4 góc và tráo camera trước/sau, chỉ khi người dùng bấm Lưu hoặc Chia sẻ thì mới tự động ghép thành 1 ảnh duy nhất.
+- **Verification Method:**
+  - `npm run typecheck` (`tsc --noEmit`) trong `apps/mobile`: 0 lỗi TypeScript.
+  - `./scripts/check-agent-map.sh`: 95/95 framework files pass (0 broken references).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn, cấp quyền thư viện `expo-media-library` và chia sẻ `expo-sharing` chuẩn Expo SDK 57.
+- **Branch:** `feat/94-moments-archive-places-map`
+- **PR:** #95 (Draft)

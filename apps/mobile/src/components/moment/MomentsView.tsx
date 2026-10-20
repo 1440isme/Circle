@@ -34,6 +34,7 @@ import * as Location from 'expo-location';
 import { File, Paths, Directory } from 'expo-file-system';
 import * as MediaLibrary from 'expo-media-library';
 import * as Sharing from 'expo-sharing';
+import { captureRef } from 'react-native-view-shot';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 const SHUTTER_SIZE = 92;
@@ -148,6 +149,26 @@ export function getPipCornerStyle(cornerIndex: number = 0, margin: number = 5) {
     default:
       return { top: margin, right: margin };
   }
+}
+
+export function getCompositePipPosition(cornerIdx: number = 1) {
+  const margin = 32;
+  switch (cornerIdx % 4) {
+    case 0:
+      return { top: margin, left: margin };
+    case 1:
+      return { top: margin, right: margin };
+    case 2:
+      return { bottom: margin, right: margin };
+    case 3:
+      return { bottom: margin, left: margin };
+    default:
+      return { top: margin, right: margin };
+  }
+}
+
+export function getCompositeBrandingPosition(cornerIdx: number = 1) {
+  return cornerIdx % 4 === 0 ? { top: 32, right: 32 } : { top: 32, left: 32 };
 }
 
 export function parseMomentPhotos(rawUrl?: string | null): { mainUrl: string; pipUrl: string | null; cornerIndex: number } {
@@ -871,6 +892,14 @@ export function MomentsView({
   const pressStartTimeRef = useRef<number>(0);
   const longPressTriggeredRef = useRef<boolean>(false);
   const [capturedMediaType, setCapturedMediaType] = useState<'IMAGE' | 'VIDEO'>('IMAGE');
+  // Hybrid Dual-Photo Export State & Ref (dùng ghép 1 ảnh duy nhất khi Lưu / Chia sẻ)
+  const [exportingCompositeData, setExportingCompositeData] = useState<{
+    mainUri: string;
+    pipUri?: string | null;
+    cornerIndex: number;
+    caption?: string | null;
+  } | null>(null);
+  const compositeCaptureViewRef = useRef<View>(null);
 
   const progressStrokeOffset = recordingProgressAnim.interpolate({
     inputRange: [0, 1],
@@ -1838,50 +1867,124 @@ export function MomentsView({
       ? resolveAuthorDisplayName(currentFeedItem.data?.authorId || currentFeedItem.data?.author?.id || currentFeedItem.data?.user?.id, currentFeedItem.data?.author || currentFeedItem.data?.user, members)
       : user?.profile?.displayName || 'Bạn');
 
+  const prepareExportImageUri = async (): Promise<string | null> => {
+    let rawMainUrl: string | null = null;
+    let rawPipUrl: string | null = null;
+    let exportCorner = 1;
+    let caption: string | null = null;
+
+    if (targetActionMoment) {
+      const rawSrc = targetActionMoment.photoUrl || targetActionMoment.imageUrl;
+      if (!rawSrc) return null;
+      const parsed = parseMomentPhotos(rawSrc);
+      const isSwapped = Boolean(swappedMoments[targetActionMoment.id]);
+      rawMainUrl = isSwapped ? (parsed.pipUrl || parsed.mainUrl) : parsed.mainUrl;
+      rawPipUrl = isSwapped ? parsed.mainUrl : parsed.pipUrl;
+      exportCorner = viewerPipCorners[targetActionMoment.id] ?? parsed.cornerIndex ?? 1;
+      caption = targetActionMoment.caption || null;
+    } else if (currentFeedItem.type === 'moment' && currentFeedItem.data) {
+      const rawSrc = currentFeedItem.data.photoUrl || currentFeedItem.data.imageUrl;
+      if (!rawSrc) return null;
+      const parsed = parseMomentPhotos(rawSrc);
+      const isSwapped = Boolean(swappedMoments[currentFeedItem.data.id]);
+      rawMainUrl = isSwapped ? (parsed.pipUrl || parsed.mainUrl) : parsed.mainUrl;
+      rawPipUrl = isSwapped ? parsed.mainUrl : parsed.pipUrl;
+      exportCorner = viewerPipCorners[currentFeedItem.data.id] ?? parsed.cornerIndex ?? 1;
+      caption = currentFeedItem.data.caption || null;
+    } else if (previewPhoto) {
+      rawMainUrl = previewPhoto;
+      rawPipUrl = dualPipPhotoUrl || null;
+      exportCorner = pipCornerIndex ?? 1;
+      caption = captionText.trim() || null;
+    }
+
+    if (!rawMainUrl) return null;
+
+    const resolvedMainUrl = resolveMobileMediaUrl(rawMainUrl);
+    const resolvedPipUrl = rawPipUrl ? resolveMobileMediaUrl(rawPipUrl) : null;
+
+    const isVideo = resolvedMainUrl.includes('.mp4') || resolvedMainUrl.includes('.webm');
+    if (isVideo) {
+      const downloaded = await File.downloadFileAsync(resolvedMainUrl, new Directory(Paths.cache));
+      return downloaded.uri;
+    }
+
+    // Nếu không có ảnh phụ PiP (Ảnh đơn): tải ảnh chính về lưu/chia sẻ ngay
+    if (!resolvedPipUrl || resolvedPipUrl === resolvedMainUrl) {
+      const downloaded = await File.downloadFileAsync(resolvedMainUrl, new Directory(Paths.cache));
+      return downloaded.uri;
+    }
+
+    // Nếu là ảnh Dual (có cả ảnh trước và sau): Ghép thành 1 ảnh duy nhất (Hybrid export)
+    const [downloadedMain, downloadedPip] = await Promise.all([
+      File.downloadFileAsync(resolvedMainUrl, new Directory(Paths.cache)),
+      File.downloadFileAsync(resolvedPipUrl, new Directory(Paths.cache)),
+    ]);
+
+    setExportingCompositeData({
+      mainUri: downloadedMain.uri,
+      pipUri: downloadedPip.uri,
+      cornerIndex: exportCorner,
+      caption,
+    });
+
+    // Đợi layout & render ảnh hoàn tất trong view offscreen
+    await new Promise((r) => setTimeout(r, 220));
+
+    try {
+      if (compositeCaptureViewRef.current) {
+        const capturedUri = await captureRef(compositeCaptureViewRef.current, {
+          format: 'jpg',
+          quality: 0.96,
+          result: 'tmpfile',
+        });
+        return capturedUri;
+      }
+    } catch (err) {
+      console.warn('captureRef dual composite error, falling back to main photo:', err);
+    } finally {
+      setExportingCompositeData(null);
+    }
+
+    return downloadedMain.uri;
+  };
+
   const handleSharePhoto = async () => {
-    if (!currentActivePhotoUrl) return;
     try {
       setIsActionProcessing(true);
-      const isVideo = currentActivePhotoUrl.includes('.mp4') || currentActivePhotoUrl.includes('.webm');
+      const exportUri = await prepareExportImageUri();
+      if (!exportUri) return;
 
-      // Tải tệp tạm vào bộ nhớ cache để chia sẻ trực tiếp hình ảnh/video thực
-      const downloadedFile = await File.downloadFileAsync(currentActivePhotoUrl, new Directory(Paths.cache));
+      const isVideo = exportUri.includes('.mp4') || exportUri.includes('.webm');
       setIsActionMenuOpen(false);
 
       const isSharingAvailable = await Sharing.isAvailableAsync();
       if (isSharingAvailable) {
-        await Sharing.shareAsync(downloadedFile.uri, {
+        await Sharing.shareAsync(exportUri, {
           mimeType: isVideo ? 'video/mp4' : 'image/jpeg',
-          dialogTitle: 'Chia sẻ',
+          dialogTitle: 'Chia sẻ khoảnh khắc',
         });
       } else {
         await RNShare.share({
-          message: `Khoảnh khắc từ nhóm ${circleName} trên Circle: ${currentActivePhotoUrl}`,
-          url: currentActivePhotoUrl,
+          message: `Khoảnh khắc từ nhóm ${circleName} trên Circle!`,
+          url: exportUri,
         });
       }
-    } catch {
+    } catch (err: any) {
       setIsActionMenuOpen(false);
-      try {
-        await RNShare.share({
-          message: `Khoảnh khắc từ nhóm ${circleName} trên Circle: ${currentActivePhotoUrl}`,
-          url: currentActivePhotoUrl,
-        });
-      } catch {}
+      console.warn('handleSharePhoto error:', err);
     } finally {
       setIsActionProcessing(false);
     }
   };
 
   const handleSaveImage = async () => {
-    if (!currentActivePhotoUrl) return;
     try {
       setIsActionProcessing(true);
+      const exportUri = await prepareExportImageUri();
+      if (!exportUri) return;
 
-      // 1. Tải ảnh/video về cache cục bộ
-      const downloadedFile = await File.downloadFileAsync(currentActivePhotoUrl, new Directory(Paths.cache));
-
-      // 2. Xin quyền truy cập Thư viện ảnh nếu cần
+      // 1. Xin quyền truy cập Thư viện ảnh nếu cần
       const { status } = await MediaLibrary.requestPermissionsAsync(true);
       if (status !== 'granted') {
         setIsActionMenuOpen(false);
@@ -1889,16 +1992,16 @@ export function MomentsView({
         return;
       }
 
-      // 3. Lưu chính thức vào Thư viện ảnh / Gallery của thiết bị (sử dụng API chuẩn Asset.create mới của Expo SDK 57)
+      // 2. Lưu chính thức vào Thư viện ảnh / Gallery của thiết bị (sử dụng API chuẩn Asset.create mới của Expo SDK 57)
       if (MediaLibrary.Asset && typeof MediaLibrary.Asset.create === 'function') {
-        await MediaLibrary.Asset.create(downloadedFile.uri);
+        await MediaLibrary.Asset.create(exportUri);
       } else if (typeof (MediaLibrary as any).createAssetAsync === 'function') {
-        await (MediaLibrary as any).createAssetAsync(downloadedFile.uri);
+        await (MediaLibrary as any).createAssetAsync(exportUri);
       } else {
-        await (MediaLibrary as any).saveToLibraryAsync(downloadedFile.uri);
+        await (MediaLibrary as any).saveToLibraryAsync(exportUri);
       }
       setIsActionMenuOpen(false);
-      Alert.alert(t.common.appName, 'Đã lưu vào thư viện thiết bị thành công!');
+      Alert.alert(t.common.appName, 'Đã lưu khoảnh khắc vào thư viện thiết bị thành công!');
     } catch (err: any) {
       setIsActionMenuOpen(false);
       Alert.alert(t.common.appName, err?.message || 'Không thể lưu vào thư viện thiết bị.');
@@ -3186,6 +3289,57 @@ export function MomentsView({
       </Modal>
 
 
+      {/* Offscreen Dual Photo Composite Capture Frame (Chỉ render khi người dùng bấm Lưu/Chia sẻ ảnh Dual) */}
+      {exportingCompositeData && (
+        <View
+          style={styles.offscreenCompositeWrapper}
+          pointerEvents="none"
+        >
+          <View
+            ref={compositeCaptureViewRef}
+            collapsable={false}
+            style={styles.compositeCaptureFrame}
+          >
+            <RNImage
+              source={{ uri: exportingCompositeData.mainUri }}
+              style={styles.compositeMainImage}
+            />
+            {exportingCompositeData.pipUri && (
+              <View
+                style={[
+                  styles.compositePipContainer,
+                  getCompositePipPosition(exportingCompositeData.cornerIndex),
+                ]}
+              >
+                <RNImage
+                  source={{ uri: exportingCompositeData.pipUri }}
+                  style={styles.compositePipImage}
+                />
+              </View>
+            )}
+
+            {exportingCompositeData.caption && (
+              <View style={styles.compositeCaptionWrapper}>
+                <View style={styles.compositeCaptionPill}>
+                  <Text style={styles.compositeCaptionText} numberOfLines={2}>
+                    {exportingCompositeData.caption}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            <View
+              style={[
+                styles.compositeBrandingBadge,
+                getCompositeBrandingPosition(exportingCompositeData.cornerIndex),
+              ]}
+            >
+              <Text style={styles.compositeBrandingText}>Circle</Text>
+            </View>
+          </View>
+        </View>
+      )}
+
     </View>
   );
 }
@@ -4289,5 +4443,78 @@ const styles = StyleSheet.create({
   },
   actionItemDesc: {
     fontSize: 11,
+  },
+  offscreenCompositeWrapper: {
+    position: 'absolute',
+    left: -9999,
+    top: 0,
+    opacity: 1,
+    zIndex: -999,
+  },
+  compositeCaptureFrame: {
+    width: 1080,
+    height: 1080,
+    backgroundColor: '#000000',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  compositeMainImage: {
+    width: 1080,
+    height: 1080,
+    resizeMode: 'cover',
+  },
+  compositePipContainer: {
+    position: 'absolute',
+    width: 320,
+    height: 320,
+    borderRadius: 40,
+    borderWidth: 5,
+    borderColor: '#FFFFFF',
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.45,
+    shadowRadius: 12,
+    elevation: 10,
+  },
+  compositePipImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  compositeCaptionWrapper: {
+    position: 'absolute',
+    bottom: 40,
+    left: 40,
+    right: 40,
+    alignItems: 'center',
+  },
+  compositeCaptionPill: {
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 24,
+    maxWidth: '85%',
+  },
+  compositeCaptionText: {
+    color: '#FFFFFF',
+    fontSize: 24,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  compositeBrandingBadge: {
+    position: 'absolute',
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingHorizontal: 18,
+    paddingVertical: 8,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  compositeBrandingText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: 0.8,
   },
 });
