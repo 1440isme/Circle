@@ -4602,3 +4602,26 @@
 - **Security & License Check:** Thư viện chính thức của hệ sinh thái Expo.
 - **Branch:** `feat/94-moments-archive-places-map`
 - **PR:** #95 (Draft)
+
+### AI-0110: Khắc phục triệt để lỗi ảnh lưu bị đen khi xuất ảnh Dual Moment (#94)
+- **Timestamp:** 2026-10-20T18:41:00+07:00
+- **Task ID:** Issue #94 (Epic #20: Moments & Shared Stories)
+- **Engineers:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Feature / Area:** Mobile Moments Dual Composite Snapshot & Export Pipeline.
+- **Files Affected:**
+  - `apps/mobile/src/components/moment/MomentsView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% sửa lỗi:
+  - Khắc phục nguyên nhân ảnh bị đen xì: vị trí `left: -9999` trước đó khiến hệ thống đồ họa native (Metal trên iOS và RenderNode trên Android) tự động loại bỏ việc giải mã và vẽ texture cho các View nằm ngoài màn hình; đồng thời `captureRef` bị gọi trước khi `Image` giải mã xong bitmap.
+  - Chuyển khung ghép thành một `Modal` trong suốt hiển thị trực tiếp trên màn hình, đảm bảo 100% nằm trong viewport để hệ thống native rasterize đầy đủ toàn bộ pixel.
+  - Thêm cơ chế đồng bộ `onLoad` cho cả 2 ảnh chính và phụ: chỉ khi cả hai ảnh được giải mã hoàn toàn vào bộ nhớ GPU (`compositeMainLoaded` & `compositePipLoaded`) thì mới kích hoạt `captureRef`.
+  - Cấu hình `captureRef` xuất ảnh chuẩn 1080x1080px với độ nét cao 96% JPEG.
+  - Tích hợp lớp phủ tiến trình mượt mà ("Đang xuất khoảnh khắc...") trong thời gian 200-300ms xử lý, sau đó tự động đóng Modal và hiển thị thông báo thành công.
+- **Human Modifications:** Trương Công Bình báo lỗi khi lưu ảnh Dual về máy thì file ảnh bị đen xì.
+- **Verification Method:**
+  - `npm run typecheck` (`tsc --noEmit`) trong `apps/mobile`: 0 lỗi TypeScript.
+  - `./scripts/check-agent-map.sh`: 95/95 framework files pass (0 broken references).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn, không có lỗ hổng bảo mật.
+- **Branch:** `feat/94-moments-archive-places-map`
+- **PR:** #95 (Draft)

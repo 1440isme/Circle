@@ -152,7 +152,7 @@ export function getPipCornerStyle(cornerIndex: number = 0, margin: number = 5) {
 }
 
 export function getCompositePipPosition(cornerIdx: number = 1) {
-  const margin = 32;
+  const margin = 12;
   switch (cornerIdx % 4) {
     case 0:
       return { top: margin, left: margin };
@@ -168,7 +168,7 @@ export function getCompositePipPosition(cornerIdx: number = 1) {
 }
 
 export function getCompositeBrandingPosition(cornerIdx: number = 1) {
-  return cornerIdx % 4 === 0 ? { top: 32, right: 32 } : { top: 32, left: 32 };
+  return cornerIdx % 4 === 0 ? { top: 12, right: 12 } : { top: 12, left: 12 };
 }
 
 export function parseMomentPhotos(rawUrl?: string | null): { mainUrl: string; pipUrl: string | null; cornerIndex: number } {
@@ -900,6 +900,23 @@ export function MomentsView({
     caption?: string | null;
   } | null>(null);
   const compositeCaptureViewRef = useRef<View>(null);
+  const compositeMainLoadedRef = useRef(false);
+  const compositePipLoadedRef = useRef(false);
+  const compositeResolveRef = useRef<(() => void) | null>(null);
+
+  const handleMainImageLoaded = useCallback(() => {
+    compositeMainLoadedRef.current = true;
+    if (compositePipLoadedRef.current || !exportingCompositeData?.pipUri) {
+      compositeResolveRef.current?.();
+    }
+  }, [exportingCompositeData?.pipUri]);
+
+  const handlePipImageLoaded = useCallback(() => {
+    compositePipLoadedRef.current = true;
+    if (compositeMainLoadedRef.current) {
+      compositeResolveRef.current?.();
+    }
+  }, []);
 
   const progressStrokeOffset = recordingProgressAnim.interpolate({
     inputRange: [0, 1],
@@ -1921,6 +1938,15 @@ export function MomentsView({
       File.downloadFileAsync(resolvedPipUrl, new Directory(Paths.cache)),
     ]);
 
+    compositeMainLoadedRef.current = false;
+    compositePipLoadedRef.current = false;
+
+    const waitForImagesPromise = new Promise<void>((resolve) => {
+      compositeResolveRef.current = resolve;
+      // Timeout an toàn phòng trường hợp mạng hoặc render trễ (tối đa 2.5s)
+      setTimeout(resolve, 2500);
+    });
+
     setExportingCompositeData({
       mainUri: downloadedMain.uri,
       pipUri: downloadedPip.uri,
@@ -1928,14 +1954,18 @@ export function MomentsView({
       caption,
     });
 
-    // Đợi layout & render ảnh hoàn tất trong view offscreen
-    await new Promise((r) => setTimeout(r, 220));
+    // Đợi 2 ảnh nạp và giải mã hoàn toàn vào GPU
+    await waitForImagesPromise;
+    // Chờ 1 nhịp ngắn (120ms) để buffer vẽ native của iOS/Android hoàn tất
+    await new Promise((r) => setTimeout(r, 120));
 
     try {
       if (compositeCaptureViewRef.current) {
         const capturedUri = await captureRef(compositeCaptureViewRef.current, {
           format: 'jpg',
           quality: 0.96,
+          width: 1080,
+          height: 1080,
           result: 'tmpfile',
         });
         return capturedUri;
@@ -1950,13 +1980,13 @@ export function MomentsView({
   };
 
   const handleSharePhoto = async () => {
+    setIsActionMenuOpen(false);
     try {
       setIsActionProcessing(true);
       const exportUri = await prepareExportImageUri();
       if (!exportUri) return;
 
       const isVideo = exportUri.includes('.mp4') || exportUri.includes('.webm');
-      setIsActionMenuOpen(false);
 
       const isSharingAvailable = await Sharing.isAvailableAsync();
       if (isSharingAvailable) {
@@ -1971,7 +2001,6 @@ export function MomentsView({
         });
       }
     } catch (err: any) {
-      setIsActionMenuOpen(false);
       console.warn('handleSharePhoto error:', err);
     } finally {
       setIsActionProcessing(false);
@@ -1979,6 +2008,7 @@ export function MomentsView({
   };
 
   const handleSaveImage = async () => {
+    setIsActionMenuOpen(false);
     try {
       setIsActionProcessing(true);
       const exportUri = await prepareExportImageUri();
@@ -1987,7 +2017,6 @@ export function MomentsView({
       // 1. Xin quyền truy cập Thư viện ảnh nếu cần
       const { status } = await MediaLibrary.requestPermissionsAsync(true);
       if (status !== 'granted') {
-        setIsActionMenuOpen(false);
         Alert.alert(t.common.appName, 'Cần cấp quyền truy cập thư viện để lưu vào thiết bị.');
         return;
       }
@@ -2000,10 +2029,8 @@ export function MomentsView({
       } else {
         await (MediaLibrary as any).saveToLibraryAsync(exportUri);
       }
-      setIsActionMenuOpen(false);
       Alert.alert(t.common.appName, 'Đã lưu khoảnh khắc vào thư viện thiết bị thành công!');
     } catch (err: any) {
-      setIsActionMenuOpen(false);
       Alert.alert(t.common.appName, err?.message || 'Không thể lưu vào thư viện thiết bị.');
     } finally {
       setIsActionProcessing(false);
@@ -3290,55 +3317,72 @@ export function MomentsView({
 
 
       {/* Offscreen Dual Photo Composite Capture Frame (Chỉ render khi người dùng bấm Lưu/Chia sẻ ảnh Dual) */}
-      {exportingCompositeData && (
-        <View
-          style={styles.offscreenCompositeWrapper}
-          pointerEvents="none"
-        >
-          <View
-            ref={compositeCaptureViewRef}
-            collapsable={false}
-            style={styles.compositeCaptureFrame}
-          >
-            <RNImage
-              source={{ uri: exportingCompositeData.mainUri }}
-              style={styles.compositeMainImage}
-            />
-            {exportingCompositeData.pipUri && (
-              <View
-                style={[
-                  styles.compositePipContainer,
-                  getCompositePipPosition(exportingCompositeData.cornerIndex),
-                ]}
-              >
-                <RNImage
-                  source={{ uri: exportingCompositeData.pipUri }}
-                  style={styles.compositePipImage}
-                />
-              </View>
-            )}
-
-            {exportingCompositeData.caption && (
-              <View style={styles.compositeCaptionWrapper}>
-                <View style={styles.compositeCaptionPill}>
-                  <Text style={styles.compositeCaptionText} numberOfLines={2}>
-                    {exportingCompositeData.caption}
-                  </Text>
-                </View>
-              </View>
-            )}
-
+      {/* Modal/Overlay xuất ảnh chất lượng cao (Hiển thị ngay trên màn hình để UIKit/Android rasterize 100% không bị đen) */}
+      <Modal
+        visible={Boolean(exportingCompositeData)}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {}}
+      >
+        <View style={styles.compositeModalBackdrop}>
+          <View style={styles.compositeModalCard}>
             <View
-              style={[
-                styles.compositeBrandingBadge,
-                getCompositeBrandingPosition(exportingCompositeData.cornerIndex),
-              ]}
+              ref={compositeCaptureViewRef}
+              collapsable={false}
+              style={styles.compositeCaptureFrame}
             >
-              <Text style={styles.compositeBrandingText}>Circle</Text>
+              {exportingCompositeData && (
+                <>
+                  <RNImage
+                    source={{ uri: exportingCompositeData.mainUri }}
+                    style={styles.compositeMainImage}
+                    onLoad={handleMainImageLoaded}
+                  />
+                  {exportingCompositeData.pipUri && (
+                    <View
+                      style={[
+                        styles.compositePipContainer,
+                        getCompositePipPosition(exportingCompositeData.cornerIndex),
+                      ]}
+                    >
+                      <RNImage
+                        source={{ uri: exportingCompositeData.pipUri }}
+                        style={styles.compositePipImage}
+                        onLoad={handlePipImageLoaded}
+                      />
+                    </View>
+                  )}
+
+                  {exportingCompositeData.caption && (
+                    <View style={styles.compositeCaptionWrapper}>
+                      <View style={styles.compositeCaptionPill}>
+                        <Text style={styles.compositeCaptionText} numberOfLines={2}>
+                          {exportingCompositeData.caption}
+                        </Text>
+                      </View>
+                    </View>
+                  )}
+
+                  <View
+                    style={[
+                      styles.compositeBrandingBadge,
+                      getCompositeBrandingPosition(exportingCompositeData.cornerIndex),
+                    ]}
+                  >
+                    <Text style={styles.compositeBrandingText}>Circle</Text>
+                  </View>
+                </>
+              )}
+            </View>
+
+            {/* Spinner overlay with status */}
+            <View style={styles.compositeSpinnerOverlay}>
+              <ActivityIndicator size="small" color="#FFFFFF" />
+              <Text style={styles.compositeSpinnerText}>Đang xuất khoảnh khắc...</Text>
             </View>
           </View>
         </View>
-      )}
+      </Modal>
 
     </View>
   );
@@ -4444,38 +4488,45 @@ const styles = StyleSheet.create({
   actionItemDesc: {
     fontSize: 11,
   },
-  offscreenCompositeWrapper: {
-    position: 'absolute',
-    left: -9999,
-    top: 0,
-    opacity: 1,
-    zIndex: -999,
+  compositeModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  compositeModalCard: {
+    position: 'relative',
+    borderRadius: 24,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   compositeCaptureFrame: {
-    width: 1080,
-    height: 1080,
-    backgroundColor: '#000000',
+    width: 320,
+    height: 320,
+    backgroundColor: '#18181B',
     position: 'relative',
     overflow: 'hidden',
+    borderRadius: 24,
   },
   compositeMainImage: {
-    width: 1080,
-    height: 1080,
+    width: 320,
+    height: 320,
     resizeMode: 'cover',
   },
   compositePipContainer: {
     position: 'absolute',
-    width: 320,
-    height: 320,
-    borderRadius: 40,
-    borderWidth: 5,
+    width: 96,
+    height: 96,
+    borderRadius: 16,
+    borderWidth: 2.5,
     borderColor: '#FFFFFF',
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.45,
-    shadowRadius: 12,
-    elevation: 10,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    elevation: 6,
   },
   compositePipImage: {
     width: '100%',
@@ -4484,37 +4535,54 @@ const styles = StyleSheet.create({
   },
   compositeCaptionWrapper: {
     position: 'absolute',
-    bottom: 40,
-    left: 40,
-    right: 40,
+    bottom: 16,
+    left: 16,
+    right: 16,
     alignItems: 'center',
   },
   compositeCaptionPill: {
     backgroundColor: 'rgba(0,0,0,0.65)',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 24,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 12,
     maxWidth: '85%',
   },
   compositeCaptionText: {
     color: '#FFFFFF',
-    fontSize: 24,
+    fontSize: 12,
     fontWeight: '600',
     textAlign: 'center',
   },
   compositeBrandingBadge: {
     position: 'absolute',
     backgroundColor: 'rgba(0,0,0,0.6)',
-    paddingHorizontal: 18,
-    paddingVertical: 8,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+    borderWidth: 0.8,
+    borderColor: 'rgba(255,255,255,0.25)',
   },
   compositeBrandingText: {
     color: '#FFFFFF',
-    fontSize: 18,
+    fontSize: 11,
     fontWeight: '700',
-    letterSpacing: 0.8,
+    letterSpacing: 0.5,
+  },
+  compositeSpinnerOverlay: {
+    position: 'absolute',
+    bottom: 12,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(0,0,0,0.75)',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  compositeSpinnerText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
   },
 });
