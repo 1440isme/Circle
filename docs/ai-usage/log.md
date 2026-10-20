@@ -4625,3 +4625,25 @@
 - **Security & License Check:** An toàn, không có lỗ hổng bảo mật.
 - **Branch:** `feat/94-moments-archive-places-map`
 - **PR:** #95 (Draft)
+
+### AI-0111: Khắc phục DestinationAlreadyExistsException khi tải bộ nhớ đệm xuất khoảnh khắc (#94)
+- **Timestamp:** 2026-10-20T18:49:00+07:00
+- **Task ID:** Issue #94 (Epic #20: Moments & Shared Stories)
+- **Engineers:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Feature / Area:** Mobile Moments File System Download & Cache Safety.
+- **Files Affected:**
+  - `apps/mobile/src/components/moment/MomentsView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% sửa lỗi:
+  - Khắc phục ngoại lệ native `DestinationAlreadyExistsException (at ExpoFileSystem/FileSystemDownload.swift:160)` khi người dùng lưu/chia sẻ ảnh nhiều lần.
+  - Xây dựng hàm `ensureLocalFileUri`:
+    - Nếu ảnh đã là file cục bộ (`file://`), tái sử dụng trực tiếp không tải lại.
+    - Nếu là ảnh từ server mạng (`http://` hoặc `https://`), tạo tên file duy nhất trong `Paths.cache` và truyền tùy chọn `{ idempotent: true }` để `ExpoFileSystem` tự động ghi đè file cache cũ thay vì ném lỗi `DestinationAlreadyExistsException`.
+- **Human Modifications:** Trương Công Bình gửi log lỗi `DestinationAlreadyExistsException (at ExpoFileSystem/FileSystemDownload.swift: 160)`.
+- **Verification Method:**
+  - `npm run typecheck` (`tsc --noEmit`) trong `apps/mobile`: 0 lỗi TypeScript.
+  - `./scripts/check-agent-map.sh`: 95/95 framework files pass (0 broken references).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn, không có lỗ hổng bảo mật.
+- **Branch:** `feat/94-moments-archive-places-map`
+- **PR:** #95 (Draft)

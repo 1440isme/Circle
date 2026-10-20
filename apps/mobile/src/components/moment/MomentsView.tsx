@@ -1920,22 +1920,32 @@ export function MomentsView({
     const resolvedMainUrl = resolveMobileMediaUrl(rawMainUrl);
     const resolvedPipUrl = rawPipUrl ? resolveMobileMediaUrl(rawPipUrl) : null;
 
+    // Helper an toàn: Nếu đã là URI cục bộ file:// thì dùng luôn; nếu là URL mạng thì tải về với idempotent: true
+    const ensureLocalFileUri = async (url: string, prefix: string): Promise<string> => {
+      if (!url) return '';
+      if (url.startsWith('file://')) {
+        return url;
+      }
+      const ext = url.includes('.mp4') ? 'mp4' : url.includes('.webm') ? 'webm' : url.includes('.png') ? 'png' : 'jpg';
+      const targetFile = new File(Paths.cache, `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}.${ext}`);
+      const downloaded = await File.downloadFileAsync(url, targetFile, { idempotent: true });
+      return downloaded.uri;
+    };
+
     const isVideo = resolvedMainUrl.includes('.mp4') || resolvedMainUrl.includes('.webm');
     if (isVideo) {
-      const downloaded = await File.downloadFileAsync(resolvedMainUrl, new Directory(Paths.cache));
-      return downloaded.uri;
+      return await ensureLocalFileUri(resolvedMainUrl, 'moment_video');
     }
 
     // Nếu không có ảnh phụ PiP (Ảnh đơn): tải ảnh chính về lưu/chia sẻ ngay
     if (!resolvedPipUrl || resolvedPipUrl === resolvedMainUrl) {
-      const downloaded = await File.downloadFileAsync(resolvedMainUrl, new Directory(Paths.cache));
-      return downloaded.uri;
+      return await ensureLocalFileUri(resolvedMainUrl, 'moment_single');
     }
 
     // Nếu là ảnh Dual (có cả ảnh trước và sau): Ghép thành 1 ảnh duy nhất (Hybrid export)
-    const [downloadedMain, downloadedPip] = await Promise.all([
-      File.downloadFileAsync(resolvedMainUrl, new Directory(Paths.cache)),
-      File.downloadFileAsync(resolvedPipUrl, new Directory(Paths.cache)),
+    const [localMainUri, localPipUri] = await Promise.all([
+      ensureLocalFileUri(resolvedMainUrl, 'moment_main'),
+      ensureLocalFileUri(resolvedPipUrl, 'moment_pip'),
     ]);
 
     compositeMainLoadedRef.current = false;
@@ -1948,8 +1958,8 @@ export function MomentsView({
     });
 
     setExportingCompositeData({
-      mainUri: downloadedMain.uri,
-      pipUri: downloadedPip.uri,
+      mainUri: localMainUri,
+      pipUri: localPipUri,
       cornerIndex: exportCorner,
       caption,
     });
@@ -1976,7 +1986,7 @@ export function MomentsView({
       setExportingCompositeData(null);
     }
 
-    return downloadedMain.uri;
+    return localMainUri;
   };
 
   const handleSharePhoto = async () => {
