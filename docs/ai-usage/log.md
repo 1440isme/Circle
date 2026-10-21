@@ -4669,3 +4669,26 @@
 - **Security & License Check:** An toàn, không có lỗ hổng bảo mật.
 - **Branch:** `feat/94-moments-archive-places-map`
 - **PR:** #95 (Draft)
+
+
+### AI-0113: Khắc phục triệt để hiện tượng khung ghép ảnh đè lên UI khi Lưu khoảnh khắc Dual (#94)
+- **Timestamp:** 2026-10-21T15:40:00+07:00
+- **Task ID:** Issue #94 (Epic #20: Moments & Shared Stories)
+- **Engineers:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Feature / Area:** Mobile Moments 100% Invisible Offscreen Capture.
+- **Files Affected:**
+  - `apps/mobile/src/components/moment/MomentsView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% sửa đổi:
+  - Khắc phục hiện tượng khung capture 320x320 xuất hiện chớp nhoáng ở góc trên bên trái màn hình khi bấm Lưu/Chia sẻ khoảnh khắc Dual.
+  - Cập nhật `silentCompositeWrapper` với kích thước `width: 0, height: 0, overflow: 'hidden'` để triệt tiêu hoàn toàn bất kỳ pixel nào hiển thị lên màn hình người dùng, bảo đảm 100% không đè lên UI.
+  - Cập nhật `compositeCaptureFrame` với vị trí tuyệt đối `(0, 0)` và kích thước cố định 320x320 để native view hierarchy luôn tính toán layout chuẩn xác.
+  - Bổ sung tùy chọn `useRenderInContext: true` cho `captureRef` trên iOS với cơ chế fallback tự động, cho phép Core Animation kết xuất trực tiếp đồ họa từ bộ nhớ đệm CALayer.
+- **Human Modifications:** Trương Công Bình phản hồi chức năng lưu đã hoạt động tốt nhưng vẫn còn khung hình xuất hiện đè lên giao diện khi lưu.
+- **Verification Method:**
+  - `npm run typecheck` (`tsc --noEmit`) trong `apps/mobile`: 0 lỗi TypeScript.
+  - `./scripts/check-agent-map.sh`: 95/95 framework files pass (0 broken references).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn, không có lỗ hổng bảo mật.
+- **Branch:** `feat/94-moments-archive-places-map`
+- **PR:** #95 (Draft)

@@ -1971,13 +1971,25 @@ export function MomentsView({
 
     try {
       if (compositeCaptureViewRef.current) {
-        const capturedUri = await captureRef(compositeCaptureViewRef.current, {
-          format: 'jpg',
-          quality: 0.96,
-          width: 1080,
-          height: 1080,
-          result: 'tmpfile',
-        });
+        let capturedUri: string;
+        try {
+          capturedUri = await captureRef(compositeCaptureViewRef.current, {
+            format: 'jpg',
+            quality: 0.96,
+            width: 1080,
+            height: 1080,
+            result: 'tmpfile',
+            useRenderInContext: true,
+          });
+        } catch {
+          capturedUri = await captureRef(compositeCaptureViewRef.current, {
+            format: 'jpg',
+            quality: 0.96,
+            width: 1080,
+            height: 1080,
+            result: 'tmpfile',
+          });
+        }
         return capturedUri;
       }
     } catch (err) {
@@ -4486,15 +4498,19 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     left: 0,
+    width: 0,
+    height: 0,
+    overflow: 'hidden',
     zIndex: -9999,
     elevation: -9999,
-    opacity: 1,
   },
   compositeCaptureFrame: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
     width: 320,
     height: 320,
     backgroundColor: '#18181B',
-    position: 'relative',
     overflow: 'hidden',
     borderRadius: 24,
   },
