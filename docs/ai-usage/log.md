@@ -4692,3 +4692,25 @@
 - **Security & License Check:** An toàn, không có lỗ hổng bảo mật.
 - **Branch:** `feat/94-moments-archive-places-map`
 - **PR:** #95 (Draft)
+
+
+### AI-0114: Bỏ watermark Circle và xuất ảnh vuông toàn khung 1:1 khi Lưu Moment (#94)
+- **Timestamp:** 2026-10-21T15:55:00+07:00
+- **Task ID:** Issue #94 (Epic #20: Moments & Shared Stories)
+- **Engineers:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Feature / Area:** Mobile Moments Dual-Photo Full-Bleed Square Export.
+- **Files Affected:**
+  - `apps/mobile/src/components/moment/MomentsView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% sửa đổi:
+  - Gỡ bỏ hoàn toàn huy hiệu/watermark "Circle" (`compositeBrandingBadge`) khỏi khung hình xuất ảnh kép theo yêu cầu của người dùng.
+  - Loại bỏ bo góc `borderRadius: 24` trên `compositeCaptureFrame`, đảm bảo ảnh được lưu ra thư viện thiết bị là ảnh vuông sắc cạnh toàn khung hình 1:1 (full bleed 1080x1080) trọn vẹn, không bị viền cắt góc.
+  - Giữ nguyên ảnh PiP bo tròn tinh tế và nhãn tin nhắn caption nếu có.
+- **Human Modifications:** Trương Công Bình yêu cầu bỏ tag Circle khi lưu và lưu ảnh vuông toàn ảnh luôn.
+- **Verification Method:**
+  - `npm run typecheck` (`tsc --noEmit`) trong `apps/mobile`: 0 lỗi TypeScript.
+  - `./scripts/check-agent-map.sh`: 95/95 framework files pass (0 broken references).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn, không có lỗ hổng bảo mật.
+- **Branch:** `feat/94-moments-archive-places-map`
+- **PR:** #95 (Draft)

@@ -2827,15 +2827,6 @@ export function MomentsView({
                 </View>
               </View>
             )}
-
-            <View
-              style={[
-                styles.compositeBrandingBadge,
-                getCompositeBrandingPosition(exportingCompositeData.cornerIndex),
-              ]}
-            >
-              <Text style={styles.compositeBrandingText}>Circle</Text>
-            </View>
           </View>
         </View>
       )}
@@ -4510,9 +4501,8 @@ const styles = StyleSheet.create({
     left: 0,
     width: 320,
     height: 320,
-    backgroundColor: '#18181B',
+    backgroundColor: '#000000',
     overflow: 'hidden',
-    borderRadius: 24,
   },
   compositeMainImage: {
     width: 320,
@@ -4557,20 +4547,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     textAlign: 'center',
-  },
-  compositeBrandingBadge: {
-    position: 'absolute',
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 10,
-    borderWidth: 0.8,
-    borderColor: 'rgba(255,255,255,0.25)',
-  },
-  compositeBrandingText: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.5,
   },
 });
