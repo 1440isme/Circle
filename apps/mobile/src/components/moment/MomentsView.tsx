@@ -152,7 +152,7 @@ export function getPipCornerStyle(cornerIndex: number = 0, margin: number = 5) {
 }
 
 export function getCompositePipPosition(cornerIdx: number = 1) {
-  const margin = 18;
+  const margin = 14;
   switch (cornerIdx % 4) {
     case 0:
       return { top: margin, left: margin };
@@ -2792,11 +2792,17 @@ export function MomentsView({
           <View
             ref={compositeCaptureViewRef}
             collapsable={false}
-            style={styles.compositeCaptureFrame}
+            style={[
+              styles.compositeCaptureFrame,
+              { width: momentFrameSize, height: momentFrameSize },
+            ]}
           >
             <RNImage
               source={{ uri: exportingCompositeData.mainUri }}
-              style={styles.compositeMainImage}
+              style={[
+                styles.compositeMainImage,
+                { width: momentFrameSize, height: momentFrameSize },
+              ]}
               onLoad={handleMainImageLoaded}
             />
             {exportingCompositeData.pipUri && (
@@ -4495,28 +4501,24 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     left: 0,
-    width: 480,
-    height: 480,
     backgroundColor: '#000000',
     overflow: 'hidden',
   },
   compositeMainImage: {
-    width: 480,
-    height: 480,
     resizeMode: 'cover',
   },
   compositePipContainer: {
     position: 'absolute',
-    width: 140,
-    height: 140,
-    borderRadius: 24,
-    borderWidth: 3.5,
+    width: 92,
+    height: 92,
+    borderRadius: 18,
+    borderWidth: 2.5,
     borderColor: '#FFFFFF',
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.45,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
     elevation: 6,
   },
   compositePipImage: {
@@ -4526,22 +4528,27 @@ const styles = StyleSheet.create({
   },
   compositeCaptionWrapper: {
     position: 'absolute',
-    bottom: 22,
-    left: 20,
-    right: 20,
+    bottom: 12,
+    left: 14,
+    right: 14,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   compositeCaptionPill: {
-    backgroundColor: 'rgba(0,0,0,0.68)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 14,
-    maxWidth: '85%',
+    maxWidth: '92%',
+    alignSelf: 'center',
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   compositeCaptionText: {
     color: '#FFFFFF',
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '600',
+    lineHeight: 18,
     textAlign: 'center',
   },
 });

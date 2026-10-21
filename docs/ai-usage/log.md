@@ -4736,3 +4736,26 @@
 - **Security & License Check:** An toàn, không có lỗ hổng bảo mật.
 - **Branch:** `feat/94-moments-archive-places-map`
 - **PR:** #95 (Draft)
+
+
+### AI-0116: Đồng bộ 100% tỷ lệ và kích thước khung PiP giữa ảnh xuất và Moment Feed (#94)
+- **Timestamp:** 2026-10-21T16:11:00+07:00
+- **Task ID:** Issue #94 (Epic #20: Moments & Shared Stories)
+- **Engineers:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Feature / Area:** Mobile Moments Dual-Photo Pixel-Perfect Layout Synchronization.
+- **Files Affected:**
+  - `apps/mobile/src/components/moment/MomentsView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% sửa đổi:
+  - Đồng bộ kích thước khung xuất `compositeCaptureFrame` trực tiếp với `momentFrameSize` thay vì dùng kích thước cứng cố định.
+  - Tái cấu trúc khung ảnh phụ PiP khi xuất (`compositePipContainer`) khớp chuẩn 1:1 với `MomentFeedPipView` trên Moment Feed: kích thước chuẩn `92x92`, bo góc tròn `18px`, viền `2.5px`, khoảng cách lề góc `margin: 14px`, và đổ bóng chiều sâu chuẩn mực.
+  - Đồng bộ tỷ lệ khung tin nhắn chú thích (`compositeCaptionPill` và `compositeCaptionText`) với thông số của `photoCaptionPill` trên feed (`fontSize: 13`, `lineHeight: 18`, `paddingHorizontal: 14`, `paddingVertical: 7`).
+  - Bảo đảm bức ảnh xuất ra đạt tỷ lệ và hình ảnh giống hệt 100% những gì người dùng đang nhìn thấy trên màn hình ứng dụng.
+- **Human Modifications:** Trương Công Bình phản hồi khung PiP khi lưu đang khác kích cỡ so với ở moment trên feed.
+- **Verification Method:**
+  - `npm run typecheck` (`tsc --noEmit`) trong `apps/mobile`: 0 lỗi TypeScript.
+  - `./scripts/check-agent-map.sh`: 95/95 framework files pass (0 broken references).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn, không có lỗ hổng bảo mật.
+- **Branch:** `feat/94-moments-archive-places-map`
+- **PR:** #95 (Draft)
