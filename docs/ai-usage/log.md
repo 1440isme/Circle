@@ -4759,3 +4759,24 @@
 - **Security & License Check:** An toàn, không có lỗ hổng bảo mật.
 - **Branch:** `feat/94-moments-archive-places-map`
 - **PR:** #95 (Draft)
+
+
+### AI-0117: Cập nhật tri thức dự án (Gotchas & Lessons Learned) về kiến trúc Media Mobile (#94)
+- **Timestamp:** 2026-10-21T16:14:00+07:00
+- **Task ID:** Issue #94 (Epic #20: Moments & Shared Stories)
+- **Engineers:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Feature / Area:** Agentic Repo-Resident Memory & Learning Documentation.
+- **Files Affected:**
+  - `agentic/memory/gotchas.md`
+  - `agentic/learning/lessons.md`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% tài liệu hóa tri thức:
+  - Bổ sung 4 bẫy kỹ thuật sâu (Gotchas) vào `agentic/memory/gotchas.md`: (1) ViewShot Dimension Mismatch & Corner Shrinkage; (2) Invisible Offscreen Capture with ViewShot; (3) Expo FileSystem Cache Overwrites; (4) Asynchronous Image Decoding Before Capture.
+  - Bổ sung 2 bài học kinh nghiệm (Lessons Learned) vào `agentic/learning/lessons.md`: Lesson 03 (VirtualizedList Degradation on Fast-Paging Media Feeds) và Lesson 04 (Silent Offscreen View Compositing in React Native).
+- **Human Modifications:** Trương Công Bình yêu cầu tạm dừng để tổng kết các kiến thức kỹ thuật và rà soát các công việc Hạnh đã thực hiện.
+- **Verification Method:**
+  - `./scripts/check-agent-map.sh`: 95/95 framework files pass (0 broken references).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn, không có lỗ hổng bảo mật.
+- **Branch:** `feat/94-moments-archive-places-map`
+- **PR:** #95 (Draft)
