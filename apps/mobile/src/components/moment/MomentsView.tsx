@@ -152,7 +152,7 @@ export function getPipCornerStyle(cornerIndex: number = 0, margin: number = 5) {
 }
 
 export function getCompositePipPosition(cornerIdx: number = 1) {
-  const margin = 12;
+  const margin = 18;
   switch (cornerIdx % 4) {
     case 0:
       return { top: margin, left: margin };
@@ -1976,8 +1976,6 @@ export function MomentsView({
           capturedUri = await captureRef(compositeCaptureViewRef.current, {
             format: 'jpg',
             quality: 0.96,
-            width: 1080,
-            height: 1080,
             result: 'tmpfile',
             useRenderInContext: true,
           });
@@ -1985,8 +1983,6 @@ export function MomentsView({
           capturedUri = await captureRef(compositeCaptureViewRef.current, {
             format: 'jpg',
             quality: 0.96,
-            width: 1080,
-            height: 1080,
             result: 'tmpfile',
           });
         }
@@ -4499,28 +4495,28 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     left: 0,
-    width: 320,
-    height: 320,
+    width: 480,
+    height: 480,
     backgroundColor: '#000000',
     overflow: 'hidden',
   },
   compositeMainImage: {
-    width: 320,
-    height: 320,
+    width: 480,
+    height: 480,
     resizeMode: 'cover',
   },
   compositePipContainer: {
     position: 'absolute',
-    width: 96,
-    height: 96,
-    borderRadius: 16,
-    borderWidth: 2.5,
+    width: 140,
+    height: 140,
+    borderRadius: 24,
+    borderWidth: 3.5,
     borderColor: '#FFFFFF',
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.4,
-    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.45,
+    shadowRadius: 8,
     elevation: 6,
   },
   compositePipImage: {
@@ -4530,21 +4526,21 @@ const styles = StyleSheet.create({
   },
   compositeCaptionWrapper: {
     position: 'absolute',
-    bottom: 16,
-    left: 16,
-    right: 16,
+    bottom: 22,
+    left: 20,
+    right: 20,
     alignItems: 'center',
   },
   compositeCaptionPill: {
-    backgroundColor: 'rgba(0,0,0,0.65)',
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 12,
+    backgroundColor: 'rgba(0,0,0,0.68)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 14,
     maxWidth: '85%',
   },
   compositeCaptionText: {
     color: '#FFFFFF',
-    fontSize: 12,
+    fontSize: 15,
     fontWeight: '600',
     textAlign: 'center',
   },

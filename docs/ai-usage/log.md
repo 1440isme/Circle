@@ -4714,3 +4714,25 @@
 - **Security & License Check:** An toàn, không có lỗ hổng bảo mật.
 - **Branch:** `feat/94-moments-archive-places-map`
 - **PR:** #95 (Draft)
+
+
+### AI-0115: Khắc phục lỗi ảnh Dual bị thu nhỏ về một góc khi Lưu (#94)
+- **Timestamp:** 2026-10-21T16:06:00+07:00
+- **Task ID:** Issue #94 (Epic #20: Moments & Shared Stories)
+- **Engineers:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Feature / Area:** Mobile Moments Full-Bleed 1:1 Composite Capture Resolution.
+- **Files Affected:**
+  - `apps/mobile/src/components/moment/MomentsView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% sửa đổi:
+  - Khắc phục triệt để nguyên nhân ảnh chụp kép khi lưu bị co rúm thành một góc nhỏ trong khung hình vuông: việc chỉ định tham số cứng `width: 1080, height: 1080` trong `captureRef` trong khi khung view chỉ có kích thước 320x320 đã khiến native renderer tạo ra canvas 1080 nhưng chỉ vẽ 320 ở góc trên bên trái, chừa lại 70% khoảng trống màu đen.
+  - Bỏ tham số kích thước cưỡng bức trong `captureRef`, để `react-native-view-shot` tự động đồng bộ kích thước canvas khớp chính xác 100% với `view.bounds.size` và mật độ điểm ảnh của màn hình thiết bị (Retina scale 2x/3x).
+  - Nâng cấp kích thước khung xuất chuẩn lên 480x480 và điều chỉnh tỷ lệ khung ảnh phụ PiP (140x140, viền 3.5px, bo góc 24px, margin 18px), đảm bảo ảnh xuất ra đạt độ phân giải cao sắc nét (từ 960x960 đến 1440x1440) và lấp đầy 100% khung hình vuông tràn viền.
+- **Human Modifications:** Trương Công Bình phản hồi ảnh lưu về bị thu nhỏ thành một góc của ảnh vuông.
+- **Verification Method:**
+  - `npm run typecheck` (`tsc --noEmit`) trong `apps/mobile`: 0 lỗi TypeScript.
+  - `./scripts/check-agent-map.sh`: 95/95 framework files pass (0 broken references).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn, không có lỗ hổng bảo mật.
+- **Branch:** `feat/94-moments-archive-places-map`
+- **PR:** #95 (Draft)
