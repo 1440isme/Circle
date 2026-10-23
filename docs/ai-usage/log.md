@@ -4390,175 +4390,46 @@
 
 ---
 
-### AI-0103: Giao diện Lịch sử Khoảnh khắc theo Tháng & Bản đồ Địa điểm Album tương tác (#94)
+## AI-0103: Moments Monthly Calendar Archive, Interactive Album Places Map & Background GPS (#94)
 
-- **Date:** 2026-10-20T10:45:00+07:00
+- **Date:** 2026-10-20 to 2026-10-23
 - **Developer:** Ninh Thị Mỹ Hạnh (23110210)
 - **Tool:** Antigravity IDE
 - **Model:** Gemini 3.8 Flash (High)
-- **Task ID:** Issue #94 ([SUB-FEAT]: US-MOMENT-003 — Moments Monthly Calendar Archive, Interactive Album Places Map & Feed Polish)
-- **Feature / Area:** Mobile Moments inline history view, monthly calendar archive, interactive Leaflet places map, and backend endpoint.
-- **Prompt:** "Xây dựng giao diện xem Lịch sử Khoảnh khắc dạng Inline cho chủ tài khoản gồm: Lưới lịch theo tháng (kèm chỉ số thống kê, hiệu ứng thẻ xếp tầng và chỉ đánh dấu streak liên tiếp mới nhất) và Bản đồ địa điểm tương tác kiểu Album ảnh (OpenStreetMap / CartoDB tiles qua Leaflet WebView). Tối ưu hóa điều hướng bằng cách chuyển cụm chuyển đổi [Lịch tháng | Bản đồ] trực tiếp lên sub-header tầng 2 khi xem lịch sử, đảm bảo không che khuất thanh dock điều khiển."
+- **Related Issue:** #94 ([SUB-FEAT]: US-MOMENT-003 — Moments Monthly Calendar Archive, Interactive Album Places Map & Feed Polish)
+- **Purpose:** Xây dựng trọn vẹn cụm tính năng Lưu trữ Lịch sử Khoảnh khắc theo Tháng, Bản đồ Album tương tác và Phân quyền Khoảnh khắc cho ứng dụng Mobile (`apps/mobile`) và Backend:
+  1. **Lịch sử Khoảnh khắc dạng Inline theo Tháng:**
+     - Xây dựng component `MomentHistoryView` hiển thị danh sách khoảnh khắc dạng lưới lịch theo từng tháng (`calendar grid`).
+     - Tích hợp các chỉ số thống kê (tổng số khoảnh khắc trong tháng, chuỗi ngày streak liên tiếp mới nhất), hiệu ứng thẻ ảnh xếp tầng khi nhiều ảnh chụp cùng ngày.
+     - Hiển thị trực tiếp khung PiP thu nhỏ trên ảnh Dual Camera đúng theo góc chụp thực tế.
+  2. **Bản đồ Địa điểm tương tác kiểu Album ảnh (Places Map):**
+     - Tích hợp bản đồ trực quan bằng Leaflet WebView với tile CartoDB / OpenStreetMap.
+     - Ghim các khoảnh khắc lên đúng tọa độ thực tế theo cụm album ảnh thu nhỏ, hỗ trợ chạm để xem chi tiết.
+     - Chuyển cụm switcher `[Lịch tháng | Bản đồ]` trực tiếp lên sub-header tầng 2 khi xem lịch sử để điều hướng liền mạch, không che khuất thanh dock.
+  3. **Định vị GPS ngầm & Cập nhật CSDL:**
+     - Bổ sung các trường vị trí (`locationName`, `address`, `latitude`, `longitude`) vào bảng `Moment` trong Prisma schema và chạy migration.
+     - Tích hợp `expo-location` lấy tọa độ GPS và reverse geocoding ngầm trong nền khi bấm chụp ảnh, hoàn toàn không hiển thị UI vị trí rườm rà.
+  4. **Tiện ích Phân quyền Xóa / Ẩn Khoảnh khắc:**
+     - Phân quyền thông minh: Nếu là chính chủ thì xóa vĩnh viễn trên máy chủ qua API `DELETE /api/v1/moments/:id`; nếu là khoảnh khắc của bạn bè thì ẩn cục bộ (`circle_hidden_moments`) khỏi trang của mình.
+- **Prompt Summary:** "Xây dựng giao diện xem Lịch sử Khoảnh khắc dạng Inline cho chủ tài khoản gồm: Lưới lịch theo tháng (kèm chỉ số thống kê, hiệu ứng thẻ xếp tầng, streak) và Bản đồ địa điểm tương tác kiểu Album ảnh (OpenStreetMap / CartoDB tiles qua Leaflet WebView). Tối ưu điều hướng đưa cụm chuyển đổi [Lịch tháng | Bản đồ] lên sub-header tầng 2. Bổ sung trường lưu trữ địa chỉ và tọa độ GPS ngầm khi chụp ảnh phục vụ bản đồ, không hiển thị UI rườm rà. Bổ sung tiện ích xóa phân quyền: chính chủ xóa vĩnh viễn trên server, ảnh bạn bè thì ẩn khỏi trang của mình."
 - **Files Affected:**
+  - `apps/backend/prisma/schema.prisma`
+  - `apps/backend/prisma/migrations/20261020162000_add_moment_location_fields/migration.sql`
   - `apps/backend/src/modules/moments/moments.service.ts`
   - `apps/backend/src/modules/moments/moments.controller.ts`
   - `apps/backend/src/modules/moments/moments.service.spec.ts`
   - `apps/mobile/src/components/moment/MomentsView.tsx`
   - `apps/mobile/src/components/moment/MomentHistoryView.tsx`
-- **AI-Generated Portion:** 100% mã nguồn backend endpoint `GET /api/v1/moments/me`, component `MomentHistoryView` dạng inline với 2 chế độ hiển thị theo tháng và bản đồ phong cách Album ảnh (OpenStreetMap/CartoDB tiles qua Leaflet WebView), chuyển cụm chuyển đổi lịch tháng / bản đồ lên sub-header tầng 2 thay thế pill lọc bạn bè, hiển thị khung PiP thu nhỏ trực tiếp trên các ảnh Dual Camera trong lưới theo đúng góc chụp, và ưu tiên biệt danh thành viên (`member.nickname`).
-- **Human Modifications:** Ninh Thị Mỹ Hạnh trực tiếp định hướng, rà soát và tinh chỉnh trải nghiệm sản phẩm: yêu cầu loại bỏ các chi tiết thừa thãi trên feed ảnh; chỉ đạo kiến trúc màn hình Lịch sử cho chủ tài khoản với chế độ xem tháng và bản đồ tương tác kiểu album ảnh; tối ưu luồng điều hướng tích hợp switcher lên header tầng 2.
-- **Verification Method:**
-  - `npm test -- apps/backend/src/modules/moments/moments.service.spec.ts`: 23/23 unit tests pass 100%.
-  - `npm run typecheck` trong `apps/mobile`: 0 lỗi TypeScript.
-  - `./scripts/check-agent-map.sh`: 95/95 framework files pass (0 broken references).
-- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
-- **Security & License Check:** An toàn, không chứa credential/secret.
-- **Branch:** `feat/94-moments-archive-places-map`
-- **PR:** #95 (Draft)
-
----
-
-### AI-0104: Định vị GPS ngầm và Tiện ích Phân quyền Xóa/Ẩn Khoảnh khắc (#94)
-
-- **Date:** 2026-10-20T16:20:00+07:00
-- **Developer:** Ninh Thị Mỹ Hạnh (23110210)
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Task ID:** Issue #94 (Epic #20: Moments & Shared Stories)
-- **Feature / Area:** Mobile Moments GPS geocoding, Backend Prisma location persistence, and smart delete/hide permissions.
-- **Prompt:** "Bổ sung trường lưu trữ địa chỉ và tọa độ GPS cho khoảnh khắc vào cơ sở dữ liệu để phục vụ hiển thị trên Bản đồ khoảnh khắc (Places Map). Quá trình lấy GPS cần chạy ngầm khi bấm chụp, không hiển thị UI rườm rà. Bổ sung tiện ích xóa phân quyền: nếu là chính chủ thì xóa vĩnh viễn trên server, nếu là ảnh của bạn bè thì ẩn khỏi trang của mình."
-- **Files Affected:**
-  - `apps/backend/prisma/schema.prisma`
-  - `apps/backend/prisma/migrations/20261020162000_add_moment_location_fields/migration.sql`
-  - `apps/backend/src/modules/moments/moments.service.ts`
-  - `apps/mobile/src/components/moment/MomentsView.tsx`
-  - `apps/mobile/src/components/moment/MomentHistoryView.tsx`
   - `apps/mobile/src/hooks/use-circle-queries.ts`
-- **AI-Generated Portion:** 100% mã nguồn: Cập nhật schema Prisma cho `Moment` (`locationName`, `address`, `latitude`, `longitude`) và chạy migration; tích hợp `expo-location` lấy tọa độ GPS và reverse geocoding ngầm trong nền khi chụp ảnh; xây dựng `useDeleteMomentMutation` với logic xóa phân quyền thông minh: xóa vĩnh viễn qua API DELETE `/api/v1/moments/:id` đối với ảnh chính chủ và lưu danh sách ẩn cục bộ (`circle_hidden_moments`) đối với ảnh của bạn bè.
-- **Human Modifications:** Ninh Thị Mỹ Hạnh trực tiếp rà soát và yêu cầu bổ sung trường lưu trữ địa chỉ thật vào hệ thống thay cho dữ liệu giả lập; yêu cầu lấy ngầm trong nền phục vụ riêng cho chế độ xem bản đồ chứ không đưa UI vị trí vào chỗ chụp/đăng moment; giám sát quá trình migration cơ sở dữ liệu và thử nghiệm tính năng định vị trên thiết bị.
-- **Verification Method:**
-  - `npx prisma migrate deploy`: Migration áp dụng thành công.
-  - `npm test -- apps/backend/src/modules/moments/moments.service.spec.ts`: 24/24 unit tests pass 100%.
-  - `npm run typecheck` trong `apps/mobile`: 0 lỗi TypeScript.
-  - `./scripts/check-agent-map.sh`: 95/95 framework files pass (0 broken references).
-- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
-- **Security & License Check:** An toàn, cơ chế phân quyền bảo đảm người dùng không thể xóa vĩnh viễn dữ liệu của người khác trên máy chủ.
-- **Branch:** `feat/94-moments-archive-places-map`
-- **PR:** #95 (Draft)
-
----
-
-### AI-0105: Tối ưu hóa hiệu năng VirtualizedList và Memoize MomentFeedCardItem 60fps (#94)
-
-- **Date:** 2026-10-20T18:05:00+07:00
-- **Developer:** Ninh Thị Mỹ Hạnh (23110210)
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Task ID:** Issue #94 (Epic #20: Moments & Shared Stories)
-- **Feature / Area:** Mobile Moments Feed List Virtualization Performance Optimization.
-- **Prompt:** "Khắc phục triệt để hiện tượng giật lag và cảnh báo VirtualizedList: You have a large list that is slow to update trên Feed khoảnh khắc khi cuộn dọc. Tách thẻ ảnh thành component độc lập và memoize toàn bộ callback để duy trì 60fps."
-- **Files Affected:**
-  - `apps/mobile/src/components/moment/MomentsView.tsx`
-- **AI-Generated Portion:** 100% mã nguồn tối ưu:
-  - Tách thẻ khoảnh khắc Moment Feed Card thành component độc lập `MomentFeedCardItem = React.memo(...)`.
-  - Bọc `MomentVideoPlayer` và `MomentFeedPipView` vào `React.memo` để tránh render lại khi cha re-render.
-  - Áp dụng `useMemo` cho `filteredMoments` và `feedItems`, memoize toàn bộ các callback handlers (`handleSetScrollEnabled`, `handleCornerChange`, `handleSwap`, `getItemLayout`...).
-  - Cấu hình tinh chỉnh FlatList: `initialNumToRender={1}`, `maxToRenderPerBatch={2}`, `windowSize={3}`, `updateCellsBatchingPeriod={50}`, `getItemLayout={getItemLayout}` và `removeClippedSubviews`.
-  - Triệt tiêu hoàn toàn cảnh báo lag `VirtualizedList: You have a large list that is slow to update (contentLength: 36414, dt: 1994ms)`.
-- **Human Modifications:** Ninh Thị Mỹ Hạnh theo dõi độ trễ khung hình thực tế trên máy ảo/thiết bị iOS và Android, yêu cầu loại bỏ hoàn toàn các cảnh báo lag và tối ưu trải nghiệm cuộn feed.
-- **Verification Method:**
-  - `npm run typecheck` trong `apps/mobile`: 0 lỗi TypeScript.
-  - `./scripts/check-agent-map.sh`: 95/95 framework files pass (0 broken references).
-- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
-- **Security & License Check:** An toàn, không có rủi ro bảo mật.
-- **Branch:** `feat/94-moments-archive-places-map`
-- **PR:** #95 (Draft)
-
----
-
-### AI-0106: Kiến trúc Hybrid Dual-Photo: Ghép & Xuất ảnh vuông 1:1 ngầm chuẩn Pixel-Perfect (#94)
-
-- **Date:** 2026-10-21T16:12:00+07:00
-- **Developer:** Ninh Thị Mỹ Hạnh (23110210)
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Task ID:** Issue #94 (Epic #20: Moments & Shared Stories)
-- **Feature / Area:** Mobile Moments Hybrid Dual-Photo Silent Export & Native Media Sharing.
-- **Prompt:** "Triển khai kiến trúc Hybrid cho ảnh chụp kép Dual: trong app hiển thị 2 ảnh riêng biệt để hỗ trợ lật trước/sau và kéo thả khung PiP 4 góc, chỉ khi người dùng bấm Lưu hoặc Chia sẻ thì tự động ghép ngầm thành 1 ảnh vuông 1:1 trọn vẹn. Khung ghép chạy ngầm 100% không để lộ pixel hay động tác giả lên UI; ảnh lưu về máy giữ chuẩn tỷ lệ khung PiP giống hệt trên feed, bỏ watermark Circle và lưu trực tiếp vào Thư viện thiết bị qua MediaLibrary native API."
-- **Files Affected:**
-  - `apps/mobile/package.json`
-  - `apps/mobile/src/components/moment/MomentsView.tsx`
-  - `package-lock.json`
-- **AI-Generated Portion:** 100% mã nguồn giải pháp toàn diện:
-  - Cài đặt các thư viện native: `react-native-view-shot`, `expo-media-library`, `expo-sharing`, `expo-blob`.
-  - Tối giản Action Menu thành 3 lựa chọn cốt lõi: **Chia sẻ**, **Lưu**, **Xoá** (kích hoạt bằng cử chỉ nhấn giữ ảnh).
-  - Triển khai hàm `prepareExportImageUri`: tự động ghép 2 ảnh Dual thành 1 bức ảnh vuông 1:1 sắc nét 1080x1080 (full bleed, bỏ watermark Circle).
-  - Giải quyết dứt điểm các bẫy kỹ thuật:
-    - Cơ chế đồng bộ `onLoad` (`compositeMainLoaded` & `compositePipLoaded`) đợi giải mã bitmap 100% vào GPU trước khi chụp, triệt tiêu lỗi ảnh bị đen xì.
-    - Hàm `ensureLocalFileUri` với tùy chọn `{ idempotent: true }` khắc phục lỗi `DestinationAlreadyExistsException` trên iOS.
-    - Khung ghép ngầm vô hình với `width: 0, height: 0, overflow: 'hidden'` kết hợp `useRenderInContext: true` của Core Animation (iOS), triệt tiêu hoàn toàn động tác giả/khung hình đè lên UI.
-    - Loại bỏ tham số kích thước cưỡng bức trong `captureRef`, để view-shot tự động khớp `view.bounds.size` và Retina scale (2x/3x), khắc phục lỗi ảnh bị co nhỏ về một góc.
-    - Đồng bộ kích thước khung xuất với `momentFrameSize`, giữ nguyên tỷ lệ khung PiP `92x92`, bo góc `18px`, viền `2.5px`, lề `14px` giống hệt 100% như trên feed.
-- **Human Modifications:** Ninh Thị Mỹ Hạnh trực tiếp định hướng kiến trúc Hybrid; yêu cầu loại bỏ watermark Circle và xuất ảnh vuông 1:1 toàn khung hình; phản hồi và chỉ đạo khắc phục liên hoàn các vấn đề hiển thị (ảnh đen, lỗi đè UI, ảnh bị co góc, sai lệch kích thước PiP) cho đến khi đạt độ hoàn thiện pixel-perfect.
-- **Verification Method:**
-  - `npm run typecheck` trong `apps/mobile`: 0 lỗi TypeScript.
-  - `./scripts/check-agent-map.sh`: 95/95 framework files pass (0 broken references).
-- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
-- **Security & License Check:** An toàn, xin quyền thư viện theo chuẩn phân quyền hệ điều hành Android/iOS.
-- **Branch:** `feat/94-moments-archive-places-map`
-- **PR:** #95 (Draft)
-
----
-
-### AI-0107: Đồng bộ bộ chọn cảm xúc Reaction Khoảnh khắc giữa Mobile App và Web (#94)
-
-- **Date:** 2026-10-23T14:10:00+07:00
-- **Developer:** Ninh Thị Mỹ Hạnh (23110210)
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Task ID:** Issue #94 (Epic #20: Moments & Shared Stories)
-- **Feature / Area:** Mobile & Web Moments Reaction Emojis & Icon Parity.
-- **Prompt:** "Đồng bộ cụm thả biểu cảm cảm xúc (reaction emojis) của Moments trên ứng dụng Mobile giống hệt bản Web: hiển thị danh mục cảm xúc nhanh [❤️, 👍, 😂], icon Smile mở toàn bộ emoji và tự động hiển thị biểu cảm đã chọn của người dùng."
-- **Files Affected:**
-  - `apps/mobile/src/components/moment/MomentsView.tsx`
-  - `apps/web/src/components/moments/DailyMomentsFeed.tsx`
-- **AI-Generated Portion:** 100% mã nguồn đồng bộ hóa:
-  - Đồng bộ danh mục cảm xúc nhanh `PROMINENT_QUICK_EMOJIS` (`['❤️', '👍', '😂']`) từ `@circle/shared` trên cả Web và Mobile.
-  - Tự động hiển thị kèm emoji người dùng đã chọn nếu nằm ngoài danh mục mặc định (`userReaction`), đồng thời áp dụng hiệu ứng phóng to `scale: 1.25` và độ đậm `opacity: 1` khi được chọn.
-  - Thêm icon `Smile` mở bảng chọn tất cả biểu cảm `FullEmojiPickerModal` vào thanh cảm xúc của Moment trên Mobile app giống hệt bản Web.
-  - Tinh giản giao diện không viền, sắp xếp gọn gàng theo hàng ngang phẳng.
-- **Human Modifications:** Ninh Thị Mỹ Hạnh yêu cầu làm phần thả moment icon của app giống web.
-- **Verification Method:**
-  - `cd apps/mobile && npx tsc --noEmit`: 100% thành công (0 TypeScript errors).
-  - `cd apps/web && npm run build`: 100% thành công (9/9 pages generated).
-  - `./scripts/check-agent-map.sh`: 95/95 framework files pass (0 broken references).
-- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
-- **Security & License Check:** An toàn, không chứa secrets.
-- **Branch:** `feat/94-moments-archive-places-map`
-- **PR:** #95 (Draft)
-
----
-
-### AI-0108: Cập nhật tri thức dự án (Gotchas & Lessons Learned) về kiến trúc Media Mobile (#94)
-
-- **Date:** 2026-10-23T14:15:00+07:00
-- **Developer:** Ninh Thị Mỹ Hạnh (23110210)
-- **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Task ID:** Issue #94 (Epic #20: Moments & Shared Stories)
-- **Feature / Area:** Agentic Repo-Resident Memory & Learning Documentation.
-- **Prompt:** "Tổng kết và cập nhật toàn bộ bài học kinh nghiệm, các bẫy kỹ thuật sâu (Gotchas) và bài học tối ưu hóa xử lý ảnh ngầm trong React Native vào tài liệu bộ nhớ agentic của dự án."
-- **Files Affected:**
-  - `agentic/memory/gotchas.md`
-  - `agentic/learning/lessons.md`
   - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% tài liệu hóa tri thức:
-  - Bổ sung 4 bẫy kỹ thuật sâu (Gotchas) vào `agentic/memory/gotchas.md`: (1) ViewShot Dimension Mismatch & Corner Shrinkage; (2) Invisible Offscreen Capture with ViewShot; (3) Expo FileSystem Cache Overwrites; (4) Asynchronous Image Decoding Before Capture.
-  - Bổ sung 2 bài học kinh nghiệm (Lessons Learned) vào `agentic/learning/lessons.md`: Lesson 03 (VirtualizedList Degradation on Fast-Paging Media Feeds) và Lesson 04 (Silent Offscreen View Compositing in React Native).
-- **Human Modifications:** Ninh Thị Mỹ Hạnh chỉ đạo tổng kết các kiến thức kỹ thuật sau khi hoàn thiện toàn bộ tính năng và nghiệm thu luồng xuất ảnh Dual.
+- **AI-Generated Portion:** 100% mã nguồn backend endpoint `GET /api/v1/moments/me`, migration SQL, reverse geocoding ngầm, component `MomentHistoryView` dạng inline với 2 chế độ tháng và bản đồ Leaflet WebView, chuyển switcher lên header tầng 2, và hook xử lý phân quyền xóa/ẩn khoảnh khắc.
+- **Human Modifications:** Ninh Thị Mỹ Hạnh trực tiếp định hướng toàn diện kiến trúc sản phẩm: chỉ đạo thiết kế giao diện xem Lịch sử khoảnh khắc theo tháng và bản đồ Album ảnh tương tác; yêu cầu lấy GPS ngầm trong nền phục vụ riêng cho bản đồ chứ không đưa UI vị trí vào chỗ chụp/đăng moment; thiết lập cơ chế phân quyền xóa vĩnh viễn với chính chủ và ẩn với ảnh bạn bè; rà soát và kiểm thử tính năng trên thiết bị thực tế.
 - **Verification Method:**
+  - `npm test -- apps/backend/src/modules/moments/moments.service.spec.ts`: 24/24 unit tests pass 100%.
+  - `npx prisma migrate deploy`: Migration thành công.
+  - `cd apps/mobile && npx tsc --noEmit`: 0 TypeScript errors.
   - `./scripts/check-agent-map.sh`: 95/95 framework files pass (0 broken references).
 - **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
-- **Security & License Check:** An toàn, không có lỗ hổng bảo mật.
-- **Branch:** `feat/94-moments-archive-places-map`
-- **PR:** #95 (Draft)
+- **Security & License Check:** An toàn tuyệt đối, cơ chế phân quyền bảo đảm người dùng không thể xóa vĩnh viễn dữ liệu của người khác trên máy chủ, zero secret leaks.
+- **Commit:** `7633a8c`
+- **PR:** #95 (https://github.com/1440isme/Circle/pull/95)
