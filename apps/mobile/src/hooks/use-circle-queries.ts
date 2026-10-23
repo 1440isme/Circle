@@ -384,6 +384,20 @@ export function useCircleMomentsQuery(circleId: string | null) {
   });
 }
 
+export function useMyMomentsQuery() {
+  return useQuery({
+    queryKey: ['moments', 'me'],
+    refetchOnMount: 'always',
+    queryFn: async () => {
+      const res = await mobileApiRequest<any[]>('/moments/me');
+      if (Array.isArray(res)) return res;
+      if (res && Array.isArray((res as any).data)) return (res as any).data;
+      return (res as any)?.data || (Array.isArray(res) ? res : []);
+    },
+    staleTime: 30000,
+  });
+}
+
 function deduplicateMessages(list: MessageEntity[]): MessageEntity[] {
   const seen = new Set<string>();
   const result: MessageEntity[] = [];
@@ -893,6 +907,35 @@ export function useCreateMomentMutation(circleId: string | null) {
         queryClient.invalidateQueries({ queryKey: ['moments', 'circle', circleId] });
       }
       queryClient.invalidateQueries({ queryKey: ['moments', 'feed'] });
+      queryClient.invalidateQueries({ queryKey: ['moments', 'me'] });
+    },
+  });
+}
+
+export function useDeleteMomentMutation(circleId: string | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (momentId: string) => {
+      const res = await mobileApiRequest<any>(`/moments/${momentId}`, {
+        method: 'DELETE',
+      });
+      return (res as any)?.data || res;
+    },
+    onSuccess: (_, deletedMomentId) => {
+      if (circleId) {
+        queryClient.setQueryData(['moments', 'circle', circleId], (old: any) => {
+          const list = Array.isArray(old) ? old : Array.isArray(old?.data) ? old.data : [];
+          return list.filter((m: any) => m.id !== deletedMomentId);
+        });
+        queryClient.invalidateQueries({ queryKey: ['moments', 'circle', circleId] });
+      }
+      queryClient.setQueryData(['moments', 'me'], (old: any) => {
+        const list = Array.isArray(old) ? old : Array.isArray(old?.data) ? old.data : [];
+        return list.filter((m: any) => m.id !== deletedMomentId);
+      });
+      queryClient.invalidateQueries({ queryKey: ['moments', 'feed'] });
+      queryClient.invalidateQueries({ queryKey: ['moments', 'me'] });
     },
   });
 }

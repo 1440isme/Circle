@@ -264,9 +264,9 @@ export const MomentCardChatEmbed: React.FC<MomentCardChatEmbedProps> = ({
           </button>
         )}
 
-        {/* Caption Overlay at bottom (Giới hạn tối đa 2 dòng, co theo chữ như app) */}
+        {/* Caption Overlay at bottom (Giới hạn tối đa 2 dòng, co theo chữ như app) - z-30 nổi trên PiP */}
         {caption && (
-          <div className="absolute bottom-2 left-2 right-2 z-10 flex justify-center pointer-events-none">
+          <div className="absolute bottom-2 left-2 right-2 z-30 flex justify-center pointer-events-none">
             <div className="bg-black/65 backdrop-blur-md px-2.5 py-1 rounded-xl max-w-full shadow-sm">
               <p className="text-white text-xs font-semibold line-clamp-2 text-center leading-snug break-words">
                 {caption}

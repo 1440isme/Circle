@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -27,8 +27,14 @@ import {
 import Svg, { Circle } from 'react-native-svg';
 import { BlurView } from 'expo-blur';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
+import * as Haptics from 'expo-haptics';
 import { CameraView, CameraType, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
 import { VideoView, useVideoPlayer } from 'expo-video';
+import * as Location from 'expo-location';
+import { File, Paths, Directory } from 'expo-file-system';
+import * as MediaLibrary from 'expo-media-library';
+import * as Sharing from 'expo-sharing';
+import { captureRef } from 'react-native-view-shot';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 const SHUTTER_SIZE = 92;
@@ -51,17 +57,21 @@ import {
   X,
   Sparkles,
   History,
+  Calendar,
+  LayoutGrid,
   RotateCcw,
   MessageCircle,
   Share2,
   Download,
-  Copy,
   Users,
   Filter,
   Check,
   Layers,
   Maximize2,
   Minimize2,
+  MapPin,
+  Trash2,
+  Smile,
 } from 'lucide-react-native';
 import { useThemeStore } from '../../stores/theme.store';
 import { useLanguageStore } from '../../stores/language.store';
@@ -71,11 +81,16 @@ import {
   useCircleMembersQuery,
   useReactMomentMutation,
   useCreateMomentMutation,
+  useDeleteMomentMutation,
   useReplyMomentMutation,
 } from '../../hooks/use-circle-queries';
+import { getItem, setItem } from '../../services/storage';
 import { uploadMobileMedia } from '../../services/storage-upload.service';
 import { resolveMobileMediaUrl } from '../../services/api';
 import { Emoji } from '../ui/Emoji';
+import { FullEmojiPickerModal } from '../ui/FullEmojiPickerModal';
+import { MomentHistoryView, resolveMomentLocation } from './MomentHistoryView';
+import { PROMINENT_QUICK_EMOJIS } from '@circle/shared';
 
 
 const { width: SCREEN_WIDTH, height: WINDOW_HEIGHT } = Dimensions.get('window');
@@ -105,26 +120,85 @@ if (!isExpoGo) {
 
 const hasNativeDualCam = !isExpoGo && Boolean(DualCameraFrontView) && Boolean(DualCameraBackView);
 
+export function resolveAuthorDisplayName(authorId?: string | null, authorObj?: any, membersList: any[] = []): string {
+  if (authorId && Array.isArray(membersList) && membersList.length > 0) {
+    const memberMatch = membersList.find(
+      (m: any) => m.userId === authorId || m.id === authorId || m.user?.id === authorId
+    );
+    if (memberMatch?.nickname && memberMatch.nickname.trim().length > 0) {
+      return memberMatch.nickname.trim();
+    }
+  }
+  return (
+    authorObj?.nickname ||
+    authorObj?.profile?.displayName ||
+    authorObj?.user?.profile?.displayName ||
+    authorObj?.email?.split('@')[0] ||
+    authorObj?.user?.email?.split('@')[0] ||
+    'Thành viên'
+  );
+}
+
+export function getPipCornerStyle(cornerIndex: number = 0, margin: number = 5) {
+  switch (cornerIndex % 4) {
+    case 0:
+      return { top: margin, left: margin };
+    case 1:
+      return { top: margin, right: margin };
+    case 2:
+      return { bottom: margin + 16, right: margin };
+    case 3:
+      return { bottom: margin + 16, left: margin };
+    default:
+      return { top: margin, right: margin };
+  }
+}
+
+export function getCompositePipPosition(cornerIdx: number = 1) {
+  const margin = 14;
+  switch (cornerIdx % 4) {
+    case 0:
+      return { top: margin, left: margin };
+    case 1:
+      return { top: margin, right: margin };
+    case 2:
+      return { bottom: margin, right: margin };
+    case 3:
+      return { bottom: margin, left: margin };
+    default:
+      return { top: margin, right: margin };
+  }
+}
+
+export function getCompositeBrandingPosition(cornerIdx: number = 1) {
+  return cornerIdx % 4 === 0 ? { top: 12, right: 12 } : { top: 12, left: 12 };
+}
+
 export function parseMomentPhotos(rawUrl?: string | null): { mainUrl: string; pipUrl: string | null; cornerIndex: number } {
   if (!rawUrl) return { mainUrl: '', pipUrl: null, cornerIndex: 0 };
+  let mainPart = rawUrl;
+  let pipUrl: string | null = null;
+  let cornerIndex = 0;
+
   if (rawUrl.includes('#pip=')) {
     const parts = rawUrl.split('#pip=');
-    const main = resolveMobileMediaUrl(parts[0] || '');
+    mainPart = parts[0] || '';
     const pipPart = decodeURIComponent(parts[1] || '');
     let pip = pipPart;
-    let cornerIndex = 0;
     if (pipPart.includes('#corner=')) {
       const pipSplit = pipPart.split('#corner=');
       pip = pipSplit[0] || '';
       cornerIndex = parseInt(pipSplit[1] || '0', 10) || 0;
     }
-    return {
-      mainUrl: main,
-      pipUrl: resolveMobileMediaUrl(pip) || null,
-      cornerIndex,
-    };
+    pip = pip.split('#')[0] || '';
+    pipUrl = resolveMobileMediaUrl(pip) || null;
   }
-  return { mainUrl: resolveMobileMediaUrl(rawUrl), pipUrl: null, cornerIndex: 0 };
+  mainPart = mainPart.split('#')[0] || '';
+  return {
+    mainUrl: resolveMobileMediaUrl(mainPart),
+    pipUrl,
+    cornerIndex,
+  };
 }
 
 export function formatMomentRelativeTime(dateInput?: string | Date | null, locale: string = 'vi'): string {
@@ -183,7 +257,7 @@ interface MomentVideoPlayerProps {
   style?: any;
 }
 
-const MomentVideoPlayer: React.FC<MomentVideoPlayerProps> = ({ uri, isMuted = true, style }) => {
+const MomentVideoPlayer: React.FC<MomentVideoPlayerProps> = React.memo(({ uri, isMuted = true, style }) => {
   const player = useVideoPlayer(uri, (p: any) => {
     p.loop = true;
     p.muted = isMuted;
@@ -202,7 +276,8 @@ const MomentVideoPlayer: React.FC<MomentVideoPlayerProps> = ({ uri, isMuted = tr
       nativeControls={false}
     />
   );
-};
+});
+MomentVideoPlayer.displayName = 'MomentVideoPlayer';
 
 export interface MomentFeedPipViewProps {
   pipUrl: string;
@@ -215,7 +290,7 @@ export interface MomentFeedPipViewProps {
   onCornerChange?: (newCornerIndex: number) => void;
 }
 
-export const MomentFeedPipView: React.FC<MomentFeedPipViewProps> = ({
+export const MomentFeedPipView: React.FC<MomentFeedPipViewProps> = React.memo(({
   pipUrl,
   initialCornerIndex,
   momentSize,
@@ -419,7 +494,326 @@ export const MomentFeedPipView: React.FC<MomentFeedPipViewProps> = ({
       </Animated.View>
     </View>
   );
-};
+});
+MomentFeedPipView.displayName = 'MomentFeedPipView';
+
+interface MomentFeedCardItemProps {
+  moment: any;
+  listHeight: number;
+  momentCardWidth: number;
+  colors: any;
+  locale: string;
+  currentUserId?: string;
+  members: any[];
+  isSwapped: boolean;
+  viewerPipCorner?: number;
+  isReplyingThisMoment: boolean;
+  keyboardShiftAnim: Animated.Value;
+  chatReplyText: string;
+  isPendingReply: boolean;
+  onOpenActionMenu: (moment: any) => void;
+  onSetScrollEnabled: (enabled: boolean) => void;
+  onCornerChange: (momentId: string, newCorner: number) => void;
+  onSwap: (momentId: string) => void;
+  onOpenChatReply: (momentId: string, authorName: string) => void;
+  onReplyWithPhoto: (authorName: string) => void;
+  onSendChatReply: (momentId: string) => void;
+  onChangeChatReplyText: (text: string) => void;
+  onCancelChatReply: () => void;
+  onSelectReactors: (moment: any) => void;
+  onReactMoment: (momentId: string, emoji: string) => void;
+  onOpenFullEmoji?: (momentId: string) => void;
+}
+
+const MomentFeedCardItem: React.FC<MomentFeedCardItemProps> = React.memo(({
+  moment: m,
+  listHeight,
+  momentCardWidth,
+  colors,
+  locale,
+  currentUserId,
+  members,
+  isSwapped,
+  viewerPipCorner,
+  isReplyingThisMoment,
+  keyboardShiftAnim,
+  chatReplyText,
+  isPendingReply,
+  onOpenActionMenu,
+  onSetScrollEnabled,
+  onCornerChange,
+  onSwap,
+  onOpenChatReply,
+  onReplyWithPhoto,
+  onSendChatReply,
+  onChangeChatReplyText,
+  onCancelChatReply,
+  onSelectReactors,
+  onReactMoment,
+  onOpenFullEmoji,
+}) => {
+  const authorName = resolveAuthorDisplayName(
+    m.authorId || m.author?.id || m.userId || m.user?.id,
+    m.author || m.user,
+    members
+  );
+  const authorAvatar = m.author?.profile?.avatarUrl || m.user?.profile?.avatarUrl;
+  const rawPhotoSrc = m.photoUrl || m.imageUrl;
+  const { mainUrl, pipUrl, cornerIndex } = parseMomentPhotos(rawPhotoSrc);
+  const displayMain = isSwapped ? (pipUrl || mainUrl) : mainUrl;
+  const displayPip = isSwapped ? mainUrl : pipUrl;
+  const formattedDate = formatMomentRelativeTime(m.createdAt, locale);
+  const isAuthor = m.authorId === currentUserId || (m as any).userId === currentUserId;
+
+  return (
+    <View style={[styles.pageContainer, { height: listHeight }]}>
+      <Animated.View
+        style={[
+          styles.momentFeedCard,
+          {
+            width: momentCardWidth,
+            backgroundColor: colors.surface,
+            borderColor: isReplyingThisMoment ? colors.primary : colors.hairline,
+            transform: [{ translateY: isReplyingThisMoment ? keyboardShiftAnim : 0 }],
+          },
+        ]}
+      >
+        {/* Card Top: Author Info */}
+        <View style={styles.momentFeedHeader}>
+          <View style={styles.momentFeedAuthor}>
+            <View style={[styles.authorAvatar, { backgroundColor: `${colors.primary}20` }]}>
+              {authorAvatar ? (
+                <RNImage source={{ uri: resolveMobileMediaUrl(authorAvatar) }} style={styles.authorAvatarImg} />
+              ) : (
+                <Text style={[styles.authorAvatarText, { color: colors.primary }]}>
+                  {getInitials(authorName)}
+                </Text>
+              )}
+            </View>
+            <View>
+              <Text style={[styles.authorDisplayName, { color: colors.text }]}>
+                {authorName}
+              </Text>
+              <Text style={[styles.momentTimeText, { color: colors.subtle }]}>
+                {formattedDate}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* 1:1 Rounded Square Photo / Video with In-photo Caption Overlay & Dual View PiP (Nhấn giữ để mở tùy chọn) */}
+        <TouchableOpacity
+          activeOpacity={1}
+          delayLongPress={220}
+          onLongPress={() => onOpenActionMenu(m)}
+          style={[styles.momentPhotoFrame, { backgroundColor: colors.wash }]}
+        >
+          {displayMain ? (
+            m.mediaType === 'VIDEO' || displayMain.includes('.mp4') || displayMain.includes('.webm') ? (
+              <MomentVideoPlayer uri={displayMain} style={styles.momentPhotoImage} />
+            ) : (
+              <RNImage source={{ uri: displayMain }} style={styles.momentPhotoImage} resizeMode="cover" />
+            )
+          ) : (
+            <View style={styles.noPhotoPlaceholder}>
+              <ImageIcon size={36} color={colors.subtle} />
+            </View>
+          )}
+
+          {/* Khung nổi Dual View PiP trong Feed: Khởi tạo đúng góc khi chụp và hỗ trợ người xem vuốt 4 góc & chạm đổi trước/sau */}
+          {displayPip && (
+            <MomentFeedPipView
+              key={`${m.id}-${isSwapped ? 'swapped' : 'normal'}`}
+              pipUrl={displayPip}
+              initialCornerIndex={viewerPipCorner ?? cornerIndex}
+              momentSize={momentCardWidth - 16}
+              primaryColor={colors.primary}
+              onDragStart={() => onSetScrollEnabled(false)}
+              onDragEnd={() => onSetScrollEnabled(true)}
+              onCornerChange={(newCorner) => onCornerChange(m.id, newCorner)}
+              onSwap={() => onSwap(m.id)}
+            />
+          )}
+
+          {/* Chú thích của khoảnh khắc (co theo độ dài chữ, tối đa 2 dòng, nổi trên PiP) */}
+          {m.caption && !isReplyingThisMoment ? (
+            <View style={styles.photoCaptionContainer} pointerEvents="none">
+              <View style={styles.photoCaptionPill}>
+                <Text numberOfLines={2} ellipsizeMode="tail" style={styles.photoCaptionText}>
+                  {m.caption}
+                </Text>
+              </View>
+            </View>
+          ) : null}
+
+          {/* Ô nhập phản hồi trực tiếp trên ảnh */}
+          {isReplyingThisMoment && (
+            <View style={styles.feedReplyOverlay} pointerEvents="box-none">
+              <View style={styles.feedReplyPill}>
+                <TextInput
+                  value={chatReplyText}
+                  onChangeText={onChangeChatReplyText}
+                  placeholder={`Phản hồi ${authorName}...`}
+                  placeholderTextColor="rgba(255,255,255,0.7)"
+                  maxLength={500}
+                  autoFocus={true}
+                  returnKeyType="send"
+                  blurOnSubmit={true}
+                  onSubmitEditing={() => onSendChatReply(m.id)}
+                  style={styles.feedReplyTextInput}
+                />
+
+                <TouchableOpacity
+                  disabled={!chatReplyText.trim() || isPendingReply}
+                  onPress={() => onSendChatReply(m.id)}
+                  style={[
+                    styles.feedReplySendBtn,
+                    {
+                      backgroundColor: chatReplyText.trim() ? colors.primary : 'rgba(255,255,255,0.2)',
+                    },
+                  ]}
+                >
+                  {isPendingReply ? (
+                    <ActivityIndicator size="small" color={colors.onPrimary} />
+                  ) : (
+                    <Send size={15} color={chatReplyText.trim() ? colors.onPrimary : 'rgba(255,255,255,0.6)'} />
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={onCancelChatReply}
+                  style={{ padding: 4 }}
+                >
+                  <X size={16} color="rgba(255,255,255,0.7)" />
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+        </TouchableOpacity>
+
+        {/* Card Bottom: Reply Into Chat + Reply With Photo + Quick Emoji Reactions */}
+        <View style={[styles.momentFeedFooter, { borderTopColor: colors.hairline }]}>
+          <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => onOpenChatReply(m.id, authorName)}
+              style={[
+                styles.replyIconOnlyBtn,
+                isReplyingThisMoment ? { backgroundColor: `${colors.primary}25`, borderRadius: 16 } : null,
+              ]}
+              accessibilityLabel="Phản hồi"
+            >
+              <MessageCircle size={19} color={isReplyingThisMoment ? colors.primary : colors.text} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => onReplyWithPhoto(authorName)}
+              style={styles.replyIconOnlyBtn}
+              accessibilityLabel="Đáp lại bằng ảnh"
+            >
+              <Camera size={19} color={colors.primary} />
+            </TouchableOpacity>
+          </View>
+
+          {isAuthor ? (
+            m.reactions && m.reactions.length > 0 ? (
+              <TouchableOpacity
+                activeOpacity={0.75}
+                onPress={() => onSelectReactors(m)}
+                style={styles.authorReactorsBtn}
+              >
+                <View style={styles.authorAvatarStack}>
+                  {m.reactions.slice(0, 5).map((r: any, idx: number) => {
+                    const reactorAvatar = r.user?.avatarUrl;
+                    const reactorName = r.user?.displayName || 'User';
+
+                    return (
+                      <View
+                        key={r.id || idx}
+                        style={[
+                          styles.authorStackItem,
+                          { marginLeft: idx === 0 ? 0 : -8, zIndex: 10 - idx },
+                        ]}
+                      >
+                        <View style={[styles.authorStackAvatar, { backgroundColor: colors.primary }]}>
+                          {reactorAvatar ? (
+                            <RNImage
+                              source={{ uri: resolveMobileMediaUrl(reactorAvatar) }}
+                              style={styles.authorStackAvatarImg}
+                            />
+                          ) : (
+                            <Text style={styles.authorStackAvatarText}>
+                              {getInitials(reactorName)}
+                            </Text>
+                          )}
+                        </View>
+                        {/* Small circular badge at bottom-right of avatar with emoji */}
+                        <View style={[styles.authorStackEmojiBadge, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+                          <Text style={styles.authorStackEmojiText}>{r.emoji}</Text>
+                        </View>
+                      </View>
+                    );
+                  })}
+
+                  {/* Vòng tròn +N nếu có trên 5 cảm xúc */}
+                  {m.reactions.length > 5 && (
+                    <View
+                      style={[
+                        styles.authorStackItem,
+                        { marginLeft: -8, zIndex: 4 },
+                      ]}
+                    >
+                      <View style={[styles.authorStackAvatar, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+                        <Text style={[styles.authorStackAvatarText, { color: colors.text, fontSize: 8.5 }]}>
+                          +{m.reactions.length - 5}
+                        </Text>
+                      </View>
+                    </View>
+                  )}
+                </View>
+              </TouchableOpacity>
+            ) : null
+          ) : (
+            <View style={styles.reactionEmojisBar}>
+              {(m.userReaction && !PROMINENT_QUICK_EMOJIS.includes(m.userReaction)
+                ? [...PROMINENT_QUICK_EMOJIS, m.userReaction]
+                : PROMINENT_QUICK_EMOJIS
+              ).map((emoji) => {
+                const isSelected = m.userReaction === emoji;
+
+                return (
+                  <TouchableOpacity
+                    key={emoji}
+                    onPress={() => onReactMoment(m.id, emoji)}
+                    activeOpacity={0.7}
+                    style={{
+                      padding: 4,
+                      transform: [{ scale: isSelected ? 1.25 : 1 }],
+                      opacity: isSelected ? 1 : 0.75,
+                    }}
+                  >
+                    <Emoji emoji={emoji} size={19} />
+                  </TouchableOpacity>
+                );
+              })}
+
+              <TouchableOpacity
+                onPress={() => onOpenFullEmoji?.(m.id)}
+                activeOpacity={0.7}
+                style={{ padding: 4 }}
+                accessibilityLabel="Thêm biểu cảm khác"
+              >
+                <Smile size={19} color={colors.subtle} />
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+      </Animated.View>
+    </View>
+  );
+});
+MomentFeedCardItem.displayName = 'MomentFeedCardItem';
 
 interface MomentsViewProps {
   circleId: string;
@@ -427,6 +821,10 @@ interface MomentsViewProps {
   isActive?: boolean;
   selectedMemberId?: string | 'all';
   onSelectMemberId?: (id: string | 'all') => void;
+  isHistoryActive?: boolean;
+  onHistoryActiveChange?: (active: boolean) => void;
+  historyViewMode?: 'month' | 'map';
+  onHistoryViewModeChange?: (mode: 'month' | 'map') => void;
 }
 
 type FeedItem =
@@ -440,6 +838,10 @@ export function MomentsView({
   isActive = true,
   selectedMemberId: controlledMemberId,
   onSelectMemberId,
+  isHistoryActive: controlledHistoryActive,
+  onHistoryActiveChange,
+  historyViewMode: controlledHistoryViewMode,
+  onHistoryViewModeChange,
 }: MomentsViewProps) {
   const { colors, resolvedTheme, uiStyle } = useThemeStore();
   const { t, locale } = useLanguageStore();
@@ -500,6 +902,31 @@ export function MomentsView({
   const pressStartTimeRef = useRef<number>(0);
   const longPressTriggeredRef = useRef<boolean>(false);
   const [capturedMediaType, setCapturedMediaType] = useState<'IMAGE' | 'VIDEO'>('IMAGE');
+  // Hybrid Dual-Photo Export State & Ref (dùng ghép 1 ảnh duy nhất khi Lưu / Chia sẻ)
+  const [exportingCompositeData, setExportingCompositeData] = useState<{
+    mainUri: string;
+    pipUri?: string | null;
+    cornerIndex: number;
+    caption?: string | null;
+  } | null>(null);
+  const compositeCaptureViewRef = useRef<View>(null);
+  const compositeMainLoadedRef = useRef(false);
+  const compositePipLoadedRef = useRef(false);
+  const compositeResolveRef = useRef<(() => void) | null>(null);
+
+  const handleMainImageLoaded = useCallback(() => {
+    compositeMainLoadedRef.current = true;
+    if (compositePipLoadedRef.current || !exportingCompositeData?.pipUri) {
+      compositeResolveRef.current?.();
+    }
+  }, [exportingCompositeData?.pipUri]);
+
+  const handlePipImageLoaded = useCallback(() => {
+    compositePipLoadedRef.current = true;
+    if (compositeMainLoadedRef.current) {
+      compositeResolveRef.current?.();
+    }
+  }, []);
 
   const progressStrokeOffset = recordingProgressAnim.interpolate({
     inputRange: [0, 1],
@@ -518,8 +945,35 @@ export function MomentsView({
   const { data: moments = [], isLoading: isLoadingMoments } = useCircleMomentsQuery(circleId);
   const { data: members = [] } = useCircleMembersQuery(circleId);
   const createMomentMutation = useCreateMomentMutation(circleId);
+  const deleteMomentMutation = useDeleteMomentMutation(circleId);
   const reactMomentMutation = useReactMomentMutation(circleId);
   const replyMomentMutation = useReplyMomentMutation(circleId);
+
+  // Hidden moments state (for moments hidden/deleted by current user from their own view)
+  const [hiddenMomentIds, setHiddenMomentIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const stored = await getItem('circle_hidden_moments');
+        if (stored) {
+          const arr = JSON.parse(stored);
+          if (Array.isArray(arr)) {
+            setHiddenMomentIds(new Set(arr));
+          }
+        }
+      } catch {}
+    })();
+  }, []);
+
+  const hideMomentLocally = async (momentId: string) => {
+    setHiddenMomentIds((prev) => {
+      const next = new Set(prev);
+      next.add(momentId);
+      setItem('circle_hidden_moments', JSON.stringify(Array.from(next))).catch(() => {});
+      return next;
+    });
+  };
 
   // Member Filter State (Trang 1..N: Lọc theo mọi người hoặc từng thành viên)
   const [internalMemberId, setInternalMemberId] = useState<string | 'all'>('all');
@@ -527,9 +981,25 @@ export function MomentsView({
   const setSelectedMemberId = onSelectMemberId || setInternalMemberId;
   const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState<boolean>(false);
 
+  // Grid View Mode State (Chế độ xem lưới tất cả khoảnh khắc)
+  const [isGridViewActive, setIsGridViewActive] = useState<boolean>(false);
+  const [selectedMomentForAction, setSelectedMomentForAction] = useState<any | null>(null);
+
+  // History / Account Owner Moments Archive Modal & View Mode
+  const [internalHistoryActive, setInternalHistoryActive] = useState<boolean>(false);
+  const isHistoryViewActive = controlledHistoryActive !== undefined ? controlledHistoryActive : internalHistoryActive;
+  const setIsHistoryViewActive = onHistoryActiveChange || setInternalHistoryActive;
+
+  const [internalHistoryViewMode, setInternalHistoryViewMode] = useState<'month' | 'map'>('month');
+  const historyViewMode = controlledHistoryViewMode !== undefined ? controlledHistoryViewMode : internalHistoryViewMode;
+  const setHistoryViewMode = onHistoryViewModeChange || setInternalHistoryViewMode;
+
   // Reactors List Modal (Author only)
   const [selectedMomentForReactors, setSelectedMomentForReactors] = useState<any | null>(null);
   const [reactorEmojiFilter, setReactorEmojiFilter] = useState<string>('ALL');
+
+  // Full Emoji Picker Modal
+  const [fullEmojiTargetMomentId, setFullEmojiTargetMomentId] = useState<string | null>(null);
 
   // Real Camera Viewfinder States (Moment UI & Dual View)
   const [cameraFacing, setCameraFacing] = useState<CameraType>('front');
@@ -664,6 +1134,72 @@ export function MomentsView({
   const dualPipPhotoUrlRef = useRef<string | null>(null);
   capturedPhotoUrlRef.current = capturedPhotoUrl;
   dualPipPhotoUrlRef.current = dualPipPhotoUrl;
+
+  // Silent background GPS location tracking for places map archive
+  const capturedLocationRef = useRef<{
+    locationName: string;
+    address: string;
+    latitude: number;
+    longitude: number;
+  } | null>(null);
+  const locationPromiseRef = useRef<Promise<{
+    locationName: string;
+    address: string;
+    latitude: number;
+    longitude: number;
+  } | null> | null>(null);
+
+  const fetchCurrentLocationSilently = () => {
+    const promise = (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') return null;
+
+        const loc = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        const lat = loc.coords.latitude;
+        const lng = loc.coords.longitude;
+
+        let locationName = 'Vị trí đã chụp';
+        let address = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+
+        try {
+          const rev = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
+          if (rev && rev.length > 0) {
+            const r = rev[0];
+            const street = [r?.streetNumber, r?.street].filter(Boolean).join(' ');
+            const sub = r?.district || r?.subregion || '';
+            const city = r?.city || r?.region || '';
+            const namePart = r?.name || street || sub || city;
+
+            locationName = namePart || 'Vị trí đã chụp';
+            address = [street, sub, city].filter(Boolean).join(', ') || `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+          }
+        } catch {
+          // Reverse geocoding optional fallback
+        }
+
+        const result = { locationName, address, latitude: lat, longitude: lng };
+        capturedLocationRef.current = result;
+        return result;
+      } catch {
+        return null;
+      }
+    })();
+
+    locationPromiseRef.current = promise;
+    return promise;
+  };
+
+  useEffect(() => {
+    if (capturedPhotoUrl) {
+      fetchCurrentLocationSilently();
+    } else {
+      capturedLocationRef.current = null;
+      locationPromiseRef.current = null;
+    }
+  }, [capturedPhotoUrl]);
 
   // Track camera facing in ref to avoid stale closure
   const cameraFacingRef = useRef<CameraType>(cameraFacing);
@@ -889,19 +1425,23 @@ export function MomentsView({
   // Page Tracking & Action Menu State
   const [currentPageIndex, setCurrentPageIndex] = useState<number>(0);
   const [isActionMenuOpen, setIsActionMenuOpen] = useState<boolean>(false);
+  const [isActionProcessing, setIsActionProcessing] = useState<boolean>(false);
 
 
 
-  // Lọc moments theo thành viên được chọn (hỗ trợ cả authorId và userId)
-  const filteredMoments = selectedMemberId === 'all'
-    ? moments
-    : moments.filter(
-      (m: any) =>
-        m.authorId === selectedMemberId ||
-        m.author?.id === selectedMemberId ||
-        m.userId === selectedMemberId ||
-        m.user?.id === selectedMemberId
-    );
+  // Lọc moments theo thành viên được chọn và loại bỏ các khoảnh khắc người dùng đã xóa/ẩn khỏi bên mình
+  const filteredMoments = useMemo(() => {
+    const list = selectedMemberId === 'all'
+      ? moments
+      : moments.filter(
+        (m: any) =>
+          m.authorId === selectedMemberId ||
+          m.author?.id === selectedMemberId ||
+          m.userId === selectedMemberId ||
+          m.user?.id === selectedMemberId
+      );
+    return list.filter((m: any) => !hiddenMomentIds.has(m.id));
+  }, [moments, selectedMemberId, hiddenMomentIds]);
 
   // Tên thành viên đang được lọc
   const selectedMember: any = members.find(
@@ -913,7 +1453,11 @@ export function MomentsView({
   const selectedFilterName =
     selectedMemberId === 'all'
       ? 'Mọi người'
-      : selectedMember?.profile?.displayName || selectedMember?.user?.profile?.displayName || selectedMember?.email || 'Thành viên';
+      : selectedMember?.nickname ||
+        selectedMember?.user?.profile?.displayName ||
+        selectedMember?.profile?.displayName ||
+        selectedMember?.user?.email?.split('@')[0] ||
+        'Thành viên';
 
   // Ảnh gần nhất cho nút cuộn xuống Lịch sử
   const latestMomentPhoto = moments[0]?.photoUrl || moments[0]?.imageUrl || null;
@@ -1157,6 +1701,8 @@ export function MomentsView({
     setReplyingToAuthor(null);
     setCapturedMediaType('IMAGE');
     setIsRecordingVideo(false);
+    capturedLocationRef.current = null;
+    locationPromiseRef.current = null;
   };
 
   const handleSendMoment = async () => {
@@ -1188,12 +1734,31 @@ export function MomentsView({
         ? `${uploadedMain.publicUrl}#pip=${encodeURIComponent(`${uploadedPipUrl}#corner=${pipCornerIndex}`)}`
         : uploadedMain.publicUrl;
 
+      // Silently retrieve the background-fetched location (max 1.5s race to avoid blocking send)
+      let locData = capturedLocationRef.current;
+      if (!locData && locationPromiseRef.current) {
+        try {
+          locData = await Promise.race([
+            locationPromiseRef.current,
+            new Promise<{ locationName: string; address: string; latitude: number; longitude: number } | null>(
+              (resolve) => setTimeout(() => resolve(null), 1500),
+            ),
+          ]);
+        } catch {
+          locData = null;
+        }
+      }
+
       await createMomentMutation.mutateAsync({
         photoUrl: finalPhotoUrl,
         mediaType: capturedMediaType,
         caption: replyingToAuthor
           ? `Trả lời @${replyingToAuthor}: ${captionText.trim()}`
           : captionText.trim() || undefined,
+        locationName: locData?.locationName || null,
+        address: locData?.address || null,
+        latitude: locData?.latitude ?? null,
+        longitude: locData?.longitude ?? null,
         circleIds: [circleId],
       });
       setCapturedPhotoUrl(null);
@@ -1201,6 +1766,8 @@ export function MomentsView({
       setCaptionText('');
       setReplyingToAuthor(null);
       setCapturedMediaType('IMAGE');
+      capturedLocationRef.current = null;
+      locationPromiseRef.current = null;
       // Snap down to the first moment page to see the newly posted moment
       setTimeout(() => {
         flatListRef.current?.scrollToIndex({ index: 1, animated: true });
@@ -1214,25 +1781,54 @@ export function MomentsView({
   };
 
 
-  const handleReplyWithPhoto = (authorName: string) => {
+  const handleSetScrollEnabled = useCallback((enabled: boolean) => {
+    (flatListRef.current as any)?.setNativeProps?.({ scrollEnabled: enabled });
+  }, []);
+
+  const handleCornerChange = useCallback((momentId: string, newCorner: number) => {
+    setViewerPipCorners((prev) => ({
+      ...prev,
+      [momentId]: newCorner,
+    }));
+  }, []);
+
+  const handleSwap = useCallback((momentId: string) => {
+    setSwappedMoments((prev) => ({
+      ...prev,
+      [momentId]: !prev[momentId],
+    }));
+  }, []);
+
+  const handleSelectReactors = useCallback((moment: any) => {
+    setSelectedMomentForReactors(moment);
+    setReactorEmojiFilter('ALL');
+  }, []);
+
+  const handleCancelChatReply = useCallback(() => {
+    setActiveReplyMomentId(null);
+    setChatReplyText('');
+    Keyboard.dismiss();
+  }, []);
+
+  const handleReplyWithPhoto = useCallback((authorName: string) => {
     setReplyingToAuthor(authorName);
     flatListRef.current?.scrollToIndex({ index: 0, animated: true });
     setCurrentPageIndex(0);
-  };
+  }, []);
 
-  const handleOpenChatReply = (momentId: string, authorName: string) => {
-    if (activeReplyMomentId === momentId) {
-      setActiveReplyMomentId(null);
-      setChatReplyText('');
-      Keyboard.dismiss();
-    } else {
-      setActiveReplyMomentId(momentId);
-      setActiveReplyAuthorName(authorName);
-      setChatReplyText('');
-    }
-  };
+  const handleOpenChatReply = useCallback((momentId: string, authorName: string) => {
+    setActiveReplyMomentId((prev) => {
+      if (prev === momentId) {
+        Keyboard.dismiss();
+        return null;
+      }
+      return momentId;
+    });
+    setActiveReplyAuthorName(authorName);
+    setChatReplyText('');
+  }, []);
 
-  const handleSendChatReply = async (momentId: string) => {
+  const handleSendChatReply = useCallback(async (momentId: string) => {
     if (!momentId || !chatReplyText.trim() || replyMomentMutation.isPending) return;
 
     try {
@@ -1248,15 +1844,15 @@ export function MomentsView({
     } catch (err: any) {
       Alert.alert(t.common.appName, err?.message || t.common.unknownError);
     }
-  };
+  }, [chatReplyText, replyMomentMutation, circleId, t.common.appName, t.common.unknownError]);
 
-  const handleReactMoment = (momentId: string, emoji: string) => {
+  const handleReactMoment = useCallback((momentId: string, emoji: string) => {
     const target = moments.find((it: any) => it.id === momentId);
     if (target && (target.authorId === user?.id || (target as any).userId === user?.id)) {
       return;
     }
     reactMomentMutation.mutate({ momentId, emoji });
-  };
+  }, [moments, user?.id, reactMomentMutation]);
 
   const scrollToFirstMoment = () => {
     setIsFilterDropdownOpen(false);
@@ -1273,7 +1869,7 @@ export function MomentsView({
   const previewPhoto = capturedPhotoUrl || null;
 
   // Prepare full feed items (Page 0 = Camera, Page 1..N = Filtered Moments or Empty)
-  const feedItems: FeedItem[] = [
+  const feedItems: FeedItem[] = useMemo(() => [
     { type: 'camera', id: 'camera-view' },
     ...(filteredMoments.length === 0
       ? [{ type: 'empty' as const, id: 'empty-view' }]
@@ -1283,46 +1879,268 @@ export function MomentsView({
         data: m,
         index: idx,
       }))),
-  ];
+  ], [filteredMoments]);
 
-  // Active Moment / Photo Resolution for Action Menu
+  // Active Moment / Photo Resolution for Action Menu (Hỗ trợ nhấn giữ ảnh bất kỳ hoặc ảnh trang hiện tại)
   const currentFeedItem = feedItems[currentPageIndex] || feedItems[0];
-  const currentActivePhotoUrl =
-    currentFeedItem.type === 'moment'
-      ? currentFeedItem.data?.photoUrl || currentFeedItem.data?.imageUrl
-      : previewPhoto;
+  const targetActionMoment = selectedMomentForAction || (currentFeedItem.type === 'moment' ? currentFeedItem.data : null);
 
-  const currentAuthorName =
-    currentFeedItem.type === 'moment'
-      ? currentFeedItem.data?.author?.profile?.displayName ||
-      currentFeedItem.data?.author?.email ||
-      currentFeedItem.data?.user?.profile?.displayName ||
-      currentFeedItem.data?.user?.email ||
-      'Thành viên'
-      : user?.profile?.displayName || 'Bạn';
+  const currentActivePhotoUrl = targetActionMoment
+    ? targetActionMoment.photoUrl || targetActionMoment.imageUrl
+    : (currentFeedItem.type === 'moment'
+      ? currentFeedItem.data?.photoUrl || currentFeedItem.data?.imageUrl
+      : previewPhoto);
+
+  const currentAuthorName = targetActionMoment
+    ? resolveAuthorDisplayName(targetActionMoment.authorId || targetActionMoment.author?.id || targetActionMoment.user?.id, targetActionMoment.author || targetActionMoment.user, members)
+    : (currentFeedItem.type === 'moment'
+      ? resolveAuthorDisplayName(currentFeedItem.data?.authorId || currentFeedItem.data?.author?.id || currentFeedItem.data?.user?.id, currentFeedItem.data?.author || currentFeedItem.data?.user, members)
+      : user?.profile?.displayName || 'Bạn');
+
+  const prepareExportImageUri = async (): Promise<string | null> => {
+    let rawMainUrl: string | null = null;
+    let rawPipUrl: string | null = null;
+    let exportCorner = 1;
+    let caption: string | null = null;
+
+    if (targetActionMoment) {
+      const rawSrc = targetActionMoment.photoUrl || targetActionMoment.imageUrl;
+      if (!rawSrc) return null;
+      const parsed = parseMomentPhotos(rawSrc);
+      const isSwapped = Boolean(swappedMoments[targetActionMoment.id]);
+      rawMainUrl = isSwapped ? (parsed.pipUrl || parsed.mainUrl) : parsed.mainUrl;
+      rawPipUrl = isSwapped ? parsed.mainUrl : parsed.pipUrl;
+      exportCorner = viewerPipCorners[targetActionMoment.id] ?? parsed.cornerIndex ?? 1;
+      caption = targetActionMoment.caption || null;
+    } else if (currentFeedItem.type === 'moment' && currentFeedItem.data) {
+      const rawSrc = currentFeedItem.data.photoUrl || currentFeedItem.data.imageUrl;
+      if (!rawSrc) return null;
+      const parsed = parseMomentPhotos(rawSrc);
+      const isSwapped = Boolean(swappedMoments[currentFeedItem.data.id]);
+      rawMainUrl = isSwapped ? (parsed.pipUrl || parsed.mainUrl) : parsed.mainUrl;
+      rawPipUrl = isSwapped ? parsed.mainUrl : parsed.pipUrl;
+      exportCorner = viewerPipCorners[currentFeedItem.data.id] ?? parsed.cornerIndex ?? 1;
+      caption = currentFeedItem.data.caption || null;
+    } else if (previewPhoto) {
+      rawMainUrl = previewPhoto;
+      rawPipUrl = dualPipPhotoUrl || null;
+      exportCorner = pipCornerIndex ?? 1;
+      caption = captionText.trim() || null;
+    }
+
+    if (!rawMainUrl) return null;
+
+    const resolvedMainUrl = resolveMobileMediaUrl(rawMainUrl);
+    const resolvedPipUrl = rawPipUrl ? resolveMobileMediaUrl(rawPipUrl) : null;
+
+    // Helper an toàn: Nếu đã là URI cục bộ file:// thì dùng luôn; nếu là URL mạng thì tải về với idempotent: true
+    const ensureLocalFileUri = async (url: string, prefix: string): Promise<string> => {
+      if (!url) return '';
+      if (url.startsWith('file://')) {
+        return url;
+      }
+      const ext = url.includes('.mp4') ? 'mp4' : url.includes('.webm') ? 'webm' : url.includes('.png') ? 'png' : 'jpg';
+      const targetFile = new File(Paths.cache, `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}.${ext}`);
+      const downloaded = await File.downloadFileAsync(url, targetFile, { idempotent: true });
+      return downloaded.uri;
+    };
+
+    const isVideo = resolvedMainUrl.includes('.mp4') || resolvedMainUrl.includes('.webm');
+    if (isVideo) {
+      return await ensureLocalFileUri(resolvedMainUrl, 'moment_video');
+    }
+
+    // Nếu không có ảnh phụ PiP (Ảnh đơn): tải ảnh chính về lưu/chia sẻ ngay
+    if (!resolvedPipUrl || resolvedPipUrl === resolvedMainUrl) {
+      return await ensureLocalFileUri(resolvedMainUrl, 'moment_single');
+    }
+
+    // Nếu là ảnh Dual (có cả ảnh trước và sau): Ghép thành 1 ảnh duy nhất (Hybrid export)
+    const [localMainUri, localPipUri] = await Promise.all([
+      ensureLocalFileUri(resolvedMainUrl, 'moment_main'),
+      ensureLocalFileUri(resolvedPipUrl, 'moment_pip'),
+    ]);
+
+    compositeMainLoadedRef.current = false;
+    compositePipLoadedRef.current = false;
+
+    const waitForImagesPromise = new Promise<void>((resolve) => {
+      compositeResolveRef.current = resolve;
+      // Timeout an toàn phòng trường hợp mạng hoặc render trễ (tối đa 2.5s)
+      setTimeout(resolve, 2500);
+    });
+
+    setExportingCompositeData({
+      mainUri: localMainUri,
+      pipUri: localPipUri,
+      cornerIndex: exportCorner,
+      caption,
+    });
+
+    // Đợi 2 ảnh nạp và giải mã hoàn toàn vào GPU
+    await waitForImagesPromise;
+    // Chờ 1 nhịp ngắn (120ms) để buffer vẽ native của iOS/Android hoàn tất
+    await new Promise((r) => setTimeout(r, 120));
+
+    try {
+      if (compositeCaptureViewRef.current) {
+        let capturedUri: string;
+        try {
+          capturedUri = await captureRef(compositeCaptureViewRef.current, {
+            format: 'jpg',
+            quality: 0.96,
+            result: 'tmpfile',
+            useRenderInContext: true,
+          });
+        } catch {
+          capturedUri = await captureRef(compositeCaptureViewRef.current, {
+            format: 'jpg',
+            quality: 0.96,
+            result: 'tmpfile',
+          });
+        }
+        return capturedUri;
+      }
+    } catch (err) {
+      console.warn('captureRef dual composite error, falling back to main photo:', err);
+    } finally {
+      setExportingCompositeData(null);
+    }
+
+    return localMainUri;
+  };
 
   const handleSharePhoto = async () => {
     setIsActionMenuOpen(false);
-    if (!currentActivePhotoUrl) return;
     try {
-      await RNShare.share({
-        message: `Khoảnh khắc từ nhóm ${circleName} trên Circle: ${currentActivePhotoUrl}`,
-        url: currentActivePhotoUrl,
-      });
-    } catch {
-      // User cancelled
+      setIsActionProcessing(true);
+      const exportUri = await prepareExportImageUri();
+      if (!exportUri) return;
+
+      const isVideo = exportUri.includes('.mp4') || exportUri.includes('.webm');
+
+      const isSharingAvailable = await Sharing.isAvailableAsync();
+      if (isSharingAvailable) {
+        await Sharing.shareAsync(exportUri, {
+          mimeType: isVideo ? 'video/mp4' : 'image/jpeg',
+          dialogTitle: 'Chia sẻ khoảnh khắc',
+        });
+      } else {
+        await RNShare.share({
+          message: `Khoảnh khắc từ nhóm ${circleName} trên Circle!`,
+          url: exportUri,
+        });
+      }
+    } catch (err: any) {
+      console.warn('handleSharePhoto error:', err);
+    } finally {
+      setIsActionProcessing(false);
     }
   };
 
-  const handleCopyLink = () => {
+  const handleSaveImage = async () => {
     setIsActionMenuOpen(false);
-    Alert.alert(t.common.appName, 'Đã sao chép liên kết ảnh khoảnh khắc!');
+    try {
+      setIsActionProcessing(true);
+      const exportUri = await prepareExportImageUri();
+      if (!exportUri) return;
+
+      // 1. Xin quyền truy cập Thư viện ảnh nếu cần
+      const { status } = await MediaLibrary.requestPermissionsAsync(true);
+      if (status !== 'granted') {
+        Alert.alert(t.common.appName, 'Cần cấp quyền truy cập thư viện để lưu vào thiết bị.');
+        return;
+      }
+
+      // 2. Lưu chính thức vào Thư viện ảnh / Gallery của thiết bị (sử dụng API chuẩn Asset.create mới của Expo SDK 57)
+      if (MediaLibrary.Asset && typeof MediaLibrary.Asset.create === 'function') {
+        await MediaLibrary.Asset.create(exportUri);
+      } else if (typeof (MediaLibrary as any).createAssetAsync === 'function') {
+        await (MediaLibrary as any).createAssetAsync(exportUri);
+      } else {
+        await (MediaLibrary as any).saveToLibraryAsync(exportUri);
+      }
+      Alert.alert(t.common.appName, 'Đã lưu khoảnh khắc vào thư viện thiết bị thành công!');
+    } catch (err: any) {
+      Alert.alert(t.common.appName, err?.message || 'Không thể lưu vào thư viện thiết bị.');
+    } finally {
+      setIsActionProcessing(false);
+    }
   };
 
-  const handleSaveImage = () => {
+  const handleDeleteMoment = () => {
+    if (!selectedMomentForAction) return;
+    const targetMoment = selectedMomentForAction;
+    const isOwn =
+      targetMoment.authorId === user?.id ||
+      targetMoment.author?.id === user?.id ||
+      targetMoment.userId === user?.id;
+
     setIsActionMenuOpen(false);
-    Alert.alert(t.common.appName, 'Đã lưu ảnh về thư viện thiết bị thành công!');
+
+    if (isOwn) {
+      Alert.alert(
+        'Xoá vĩnh viễn khoảnh khắc?',
+        'Khoảnh khắc này sẽ bị xoá vĩnh viễn khỏi Circle và bạn bè sẽ không thể xem lại nữa.',
+        [
+          { text: 'Hủy', style: 'cancel' },
+          {
+            text: 'Xoá vĩnh viễn',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await deleteMomentMutation.mutateAsync(targetMoment.id);
+                setTimeout(() => {
+                  flatListRef.current?.scrollToIndex({ index: 0, animated: true });
+                  setCurrentPageIndex(0);
+                }, 200);
+              } catch (err: any) {
+                Alert.alert(t.common.appName, err?.message || 'Không thể xoá khoảnh khắc');
+              }
+            },
+          },
+        ],
+      );
+    } else {
+      Alert.alert(
+        'Xoá khỏi bên mình?',
+        'Khoảnh khắc này sẽ được xoá khỏi trang của bạn. Bạn bè khác trong Vòng tròn vẫn có thể xem được bình thường.',
+        [
+          { text: 'Hủy', style: 'cancel' },
+          {
+            text: 'Xoá khỏi bên mình',
+            style: 'destructive',
+            onPress: async () => {
+              await hideMomentLocally(targetMoment.id);
+              setTimeout(() => {
+                flatListRef.current?.scrollToIndex({ index: 0, animated: true });
+                setCurrentPageIndex(0);
+              }, 200);
+            },
+          },
+        ],
+      );
+    }
   };
+
+  const handleOpenActionMenuForMoment = useCallback((momentItem?: any) => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    } catch {}
+    if (momentItem) {
+      setSelectedMomentForAction(momentItem);
+    }
+    setIsActionMenuOpen(true);
+  }, []);
+
+  const getItemLayout = useCallback(
+    (_: any, index: number) => ({
+      length: listHeight,
+      offset: listHeight * index,
+      index,
+    }),
+    [listHeight]
+  );
 
   const handleScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     if (listHeight <= 0) return;
@@ -1343,7 +2161,8 @@ export function MomentsView({
     }, 200);
   };
 
-  const renderFeedItem = ({ item }: { item: FeedItem; index: number }) => {
+  const renderFeedItem = useCallback(
+    ({ item, index }: { item: FeedItem; index: number }) => {
     if (item.type === 'camera') {
       return (
         <View style={[styles.pageContainer, { height: listHeight }]}>
@@ -1824,7 +2643,7 @@ export function MomentsView({
             {/* Nút xem Lịch sử có ảnh mini + chữ "Lịch sử" + mũi tên xuống (ghi trực tiếp không khung viền) */}
             <TouchableOpacity
               activeOpacity={0.7}
-              onPress={scrollToFirstMoment}
+              onPress={() => setIsHistoryViewActive(true)}
               style={styles.historyCueBtn}
             >
               {latestMomentPhoto ? (
@@ -1885,333 +2704,294 @@ export function MomentsView({
 
     // Single Moment Snap Card (1 card per page, To sát viền)
     const m = item.data;
-    const authorName =
-      m.author?.profile?.displayName ||
-      m.author?.email ||
-      m.user?.profile?.displayName ||
-      m.user?.email ||
-      'Thành viên';
-    const authorAvatar = m.author?.profile?.avatarUrl || m.user?.profile?.avatarUrl;
-    const rawPhotoSrc = m.photoUrl || m.imageUrl;
-    const { mainUrl, pipUrl, cornerIndex } = parseMomentPhotos(rawPhotoSrc);
-    const isSwapped = Boolean(swappedMoments[m.id]);
-    const displayMain = isSwapped ? (pipUrl || mainUrl) : mainUrl;
-    const displayPip = isSwapped ? mainUrl : pipUrl;
-
-    const formattedDate = formatMomentRelativeTime(m.createdAt, locale);
-
-    const isReplyingThisMoment = activeReplyMomentId === m.id;
-    const isAuthor = m.authorId === user?.id || (m as any).userId === user?.id;
-
     return (
-      <View style={[styles.pageContainer, { height: listHeight }]}>
-        <Animated.View
-          style={[
-            styles.momentFeedCard,
-            {
-              width: momentCardWidth,
-              backgroundColor: colors.surface,
-              borderColor: isReplyingThisMoment ? colors.primary : colors.hairline,
-              transform: [{ translateY: isReplyingThisMoment ? keyboardShiftAnim : 0 }],
-            },
-          ]}
-        >
-          {/* Card Top: Author Info + Index Badge */}
-          <View style={styles.momentFeedHeader}>
-            <View style={styles.momentFeedAuthor}>
-              <View style={[styles.authorAvatar, { backgroundColor: `${colors.primary}20` }]}>
-                {authorAvatar ? (
-                  <RNImage source={{ uri: resolveMobileMediaUrl(authorAvatar) }} style={styles.authorAvatarImg} />
-                ) : (
-                  <Text style={[styles.authorAvatarText, { color: colors.primary }]}>
-                    {getInitials(authorName)}
-                  </Text>
-                )}
-              </View>
-              <View>
-                <Text style={[styles.authorDisplayName, { color: colors.text }]}>
-                  {authorName}
-                </Text>
-                <Text style={[styles.momentTimeText, { color: colors.subtle }]}>
-                  {formattedDate}
-                </Text>
-              </View>
-            </View>
-
-            <View style={[styles.pageIndexBadge, { backgroundColor: colors.wash }]}>
-              <Text style={[styles.pageIndexText, { color: colors.primary }]}>
-                {item.index + 1}/{filteredMoments.length}
-              </Text>
-            </View>
-          </View>
-
-          {/* 1:1 Rounded Square Photo / Video with In-photo Caption Overlay & Dual View PiP */}
-          <View style={[styles.momentPhotoFrame, { backgroundColor: colors.wash }]}>
-            {displayMain ? (
-              m.mediaType === 'VIDEO' || displayMain.includes('.mp4') || displayMain.includes('.webm') ? (
-                <>
-                  <MomentVideoPlayer uri={displayMain} style={styles.momentPhotoImage} />
-                  <View style={styles.feedGifBadge}>
-                    <Text style={styles.feedGifBadgeText}>GIF</Text>
-                  </View>
-                </>
-              ) : (
-                <RNImage source={{ uri: displayMain }} style={styles.momentPhotoImage} resizeMode="cover" />
-              )
-            ) : (
-              <View style={styles.noPhotoPlaceholder}>
-                <ImageIcon size={36} color={colors.subtle} />
-              </View>
-            )}
-
-            {/* Khung nổi Dual View PiP trong Feed: Khởi tạo đúng góc khi chụp và hỗ trợ người xem vuốt 4 góc & chạm đổi trước/sau */}
-            {displayPip && (
-              <MomentFeedPipView
-                key={`${m.id}-${isSwapped ? 'swapped' : 'normal'}`}
-                pipUrl={displayPip}
-                initialCornerIndex={viewerPipCorners[m.id] ?? cornerIndex}
-                momentSize={momentCardWidth - 16}
-                primaryColor={colors.primary}
-                onDragStart={() => {
-                  (flatListRef.current as any)?.setNativeProps?.({ scrollEnabled: false });
-                }}
-                onDragEnd={() => {
-                  (flatListRef.current as any)?.setNativeProps?.({ scrollEnabled: true });
-                }}
-                onCornerChange={(newCorner) => {
-                  setViewerPipCorners((prev) => ({
-                    ...prev,
-                    [m.id]: newCorner,
-                  }));
-                }}
-                onSwap={() => {
-                  setSwappedMoments((prev) => ({
-                    ...prev,
-                    [m.id]: !prev[m.id],
-                  }));
-                }}
-              />
-            )}
-
-            {/* Chú thích của khoảnh khắc (co theo độ dài chữ, tối đa 2 dòng, nổi trên PiP) */}
-            {m.caption && !isReplyingThisMoment ? (
-              <View style={styles.photoCaptionContainer} pointerEvents="none">
-                <View style={styles.photoCaptionPill}>
-                  <Text numberOfLines={2} ellipsizeMode="tail" style={styles.photoCaptionText}>
-                    {m.caption}
-                  </Text>
-                </View>
-              </View>
-            ) : null}
-
-            {/* Ô nhập phản hồi trực tiếp trên ảnh (thay thế popup cầu kì) */}
-            {isReplyingThisMoment && (
-              <View style={styles.feedReplyOverlay} pointerEvents="box-none">
-                <View style={styles.feedReplyPill}>
-                  <TextInput
-                    value={chatReplyText}
-                    onChangeText={setChatReplyText}
-                    placeholder={`Phản hồi ${authorName}...`}
-                    placeholderTextColor="rgba(255,255,255,0.7)"
-                    maxLength={500}
-                    autoFocus={true}
-                    returnKeyType="send"
-                    blurOnSubmit={true}
-                    onSubmitEditing={() => handleSendChatReply(m.id)}
-                    style={styles.feedReplyTextInput}
-                  />
-
-                  <TouchableOpacity
-                    disabled={!chatReplyText.trim() || replyMomentMutation.isPending}
-                    onPress={() => handleSendChatReply(m.id)}
-                    style={[
-                      styles.feedReplySendBtn,
-                      {
-                        backgroundColor: chatReplyText.trim() ? colors.primary : 'rgba(255,255,255,0.2)',
-                      },
-                    ]}
-                  >
-                    {replyMomentMutation.isPending ? (
-                      <ActivityIndicator size="small" color={colors.onPrimary} />
-                    ) : (
-                      <Send size={15} color={chatReplyText.trim() ? colors.onPrimary : 'rgba(255,255,255,0.6)'} />
-                    )}
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    onPress={() => {
-                      setActiveReplyMomentId(null);
-                      setChatReplyText('');
-                      Keyboard.dismiss();
-                    }}
-                    style={{ padding: 4 }}
-                  >
-                    <X size={16} color="rgba(255,255,255,0.7)" />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
-          </View>
-
-          {/* Card Bottom: Reply Into Chat + Reply With Photo + Quick Emoji Reactions */}
-          <View style={[styles.momentFeedFooter, { borderTopColor: colors.hairline }]}>
-            <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
-              <TouchableOpacity
-                activeOpacity={0.75}
-                onPress={() => handleOpenChatReply(m.id, authorName)}
-                style={[
-                  styles.replyWithPhotoBtn,
-                  {
-                    backgroundColor: isReplyingThisMoment ? `${colors.primary}25` : colors.wash,
-                    borderColor: isReplyingThisMoment ? colors.primary : 'transparent',
-                    borderWidth: isReplyingThisMoment ? 1 : 0,
-                  },
-                ]}
-              >
-                <MessageCircle size={14} color={isReplyingThisMoment ? colors.primary : colors.text} />
-                <Text style={[styles.replyWithPhotoText, { color: isReplyingThisMoment ? colors.primary : colors.text }]}>
-                  Phản hồi
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                activeOpacity={0.75}
-                onPress={() => handleReplyWithPhoto(authorName)}
-                style={[styles.replyWithPhotoBtn, { backgroundColor: colors.wash }]}
-              >
-                <Camera size={14} color={colors.primary} />
-                <Text style={[styles.replyWithPhotoText, { color: colors.text }]}>
-                  Ảnh
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {isAuthor ? (
-              <TouchableOpacity
-                activeOpacity={0.75}
-                onPress={() => {
-                  setSelectedMomentForReactors(m);
-                  setReactorEmojiFilter('ALL');
-                }}
-                style={[styles.authorReactorsBtn, { backgroundColor: colors.wash }]}
-              >
-                {m.reactions && m.reactions.length > 0 ? (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <View style={styles.authorAvatarStack}>
-                      {m.reactions.slice(0, 5).map((r: any, idx: number) => {
-                        const reactorAvatar = r.user?.avatarUrl;
-                        const reactorName = r.user?.displayName || 'User';
-
-                        return (
-                          <View
-                            key={r.id || idx}
-                            style={[
-                              styles.authorStackItem,
-                              { marginLeft: idx === 0 ? 0 : -8, zIndex: 10 - idx },
-                            ]}
-                          >
-                            <View style={[styles.authorStackAvatar, { backgroundColor: colors.primary }]}>
-                              {reactorAvatar ? (
-                                <RNImage
-                                  source={{ uri: resolveMobileMediaUrl(reactorAvatar) }}
-                                  style={styles.authorStackAvatarImg}
-                                />
-                              ) : (
-                                <Text style={styles.authorStackAvatarText}>
-                                  {getInitials(reactorName)}
-                                </Text>
-                              )}
-                            </View>
-                            {/* Small circular badge at bottom-right of avatar with emoji */}
-                            <View style={[styles.authorStackEmojiBadge, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
-                              <Text style={styles.authorStackEmojiText}>{r.emoji}</Text>
-                            </View>
-                          </View>
-                        );
-                      })}
-                    </View>
-                    <Text style={[styles.authorReactorsCountText, { color: colors.text }]}>
-                      {m.reactions.length} {locale === 'vi' ? 'cảm xúc' : 'reactions'}
-                    </Text>
-                  </View>
-                ) : (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                    <Text style={{ fontSize: 13 }}>❤️</Text>
-                    <Text style={[styles.authorNoReactionsText, { color: colors.subtle }]}>
-                      {locale === 'vi' ? 'Chưa có cảm xúc' : 'No reactions yet'}
-                    </Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-            ) : (
-              <View style={styles.reactionEmojisBar}>
-                {['❤️', '🔥', '👏', '🥰'].map((emoji) => {
-                  const isSelected = m.userReaction === emoji;
-
-                  return (
-                    <TouchableOpacity
-                      key={emoji}
-                      onPress={() => handleReactMoment(m.id, emoji)}
-                      activeOpacity={0.7}
-                      style={[
-                        styles.reactionMiniPill,
-                        {
-                          backgroundColor: isSelected ? `${colors.primary}30` : colors.wash,
-                          borderColor: isSelected ? colors.primary : 'transparent',
-                          borderWidth: isSelected ? 1 : 0,
-                        },
-                      ]}
-                    >
-                      <Emoji emoji={emoji} size={18} />
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            )}
-          </View>
-        </Animated.View>
-      </View>
+      <MomentFeedCardItem
+        key={m.id}
+        moment={m}
+        listHeight={listHeight}
+        momentCardWidth={momentCardWidth}
+        colors={colors}
+        locale={locale}
+        currentUserId={user?.id}
+        members={members}
+        isSwapped={Boolean(swappedMoments[m.id])}
+        viewerPipCorner={viewerPipCorners[m.id]}
+        isReplyingThisMoment={activeReplyMomentId === m.id}
+        keyboardShiftAnim={keyboardShiftAnim}
+        chatReplyText={chatReplyText}
+        isPendingReply={replyMomentMutation.isPending}
+        onOpenActionMenu={handleOpenActionMenuForMoment}
+        onSetScrollEnabled={handleSetScrollEnabled}
+        onCornerChange={handleCornerChange}
+        onSwap={handleSwap}
+        onOpenChatReply={handleOpenChatReply}
+        onReplyWithPhoto={handleReplyWithPhoto}
+        onSendChatReply={handleSendChatReply}
+        onChangeChatReplyText={setChatReplyText}
+        onCancelChatReply={handleCancelChatReply}
+        onSelectReactors={handleSelectReactors}
+        onReactMoment={handleReactMoment}
+        onOpenFullEmoji={setFullEmojiTargetMomentId}
+      />
     );
-  };
+  }, [
+    listHeight,
+    keyboardShiftAnim,
+    replyingToAuthor,
+    colors,
+    momentFrameSize,
+    capturedPhotoUrl,
+    capturedMediaType,
+    dualPipPhotoUrl,
+    pipSwipePanResponder.panHandlers,
+    pipPan,
+    pipScale,
+    isDualMode,
+    canUseNativeConcurrent,
+    cameraFacing,
+    user?.id,
+    members,
+    user?.profile?.displayName,
+    captionText,
+    isActionProcessing,
+    createMomentMutation.isPending,
+    permission,
+    requestPermission,
+    cameraPinchPanResponder.panHandlers,
+    cameraZoom,
+    flashMode,
+    displayZoomText,
+    momentCardWidth,
+    isRecordingVideo,
+    selectedMemberId,
+    selectedFilterName,
+    circleName,
+    t.moments.emptyCircleTitle,
+    locale,
+    swappedMoments,
+    viewerPipCorners,
+    activeReplyMomentId,
+    chatReplyText,
+    replyMomentMutation.isPending,
+    handleOpenActionMenuForMoment,
+    handleSetScrollEnabled,
+    handleCornerChange,
+    handleSwap,
+    handleOpenChatReply,
+    handleReplyWithPhoto,
+    handleSendChatReply,
+    handleCancelChatReply,
+    handleSelectReactors,
+    handleReactMoment,
+    setFullEmojiTargetMomentId,
+  ]);
 
   return (
     <View
       style={styles.container}
       onLayout={(e) => {
-        const h = e.nativeEvent.layout.height;
-        // Giữ cố định kích thước khung giao diện, không để bàn phím làm co cụm / biến dạng layout
-        if (h > 250) {
-          if (!isKeyboardOpenRef.current) {
-            // Chỉ cập nhật giảm khi thực sự đổi chiều màn hình, không giảm do bàn phím đẩy lên
-            if (h >= stableContainerHeightRef.current || Math.abs(h - stableContainerHeightRef.current) < 80) {
-              stableContainerHeightRef.current = Math.max(stableContainerHeightRef.current, h);
-              if (Math.abs(h - containerHeight) > 5 && h >= containerHeight) {
-                setContainerHeight(h);
-              }
-            }
+        const h = Math.round(e.nativeEvent.layout.height);
+        if (h > 200 && !isKeyboardOpenRef.current) {
+          if (Math.abs(h - containerHeight) > 1) {
+            setContainerHeight(h);
           }
         }
       }}
     >
+      {/* Khung ghép ảnh Dual chạy ngầm hoàn toàn phía sau UI (100% silent, không hiển thị bất kỳ động tác giả hay popup nào lên màn hình) */}
+      {exportingCompositeData && (
+        <View
+          style={styles.silentCompositeWrapper}
+          pointerEvents="none"
+        >
+          <View
+            ref={compositeCaptureViewRef}
+            collapsable={false}
+            style={[
+              styles.compositeCaptureFrame,
+              { width: momentFrameSize, height: momentFrameSize },
+            ]}
+          >
+            <RNImage
+              source={{ uri: exportingCompositeData.mainUri }}
+              style={[
+                styles.compositeMainImage,
+                { width: momentFrameSize, height: momentFrameSize },
+              ]}
+              onLoad={handleMainImageLoaded}
+            />
+            {exportingCompositeData.pipUri && (
+              <View
+                style={[
+                  styles.compositePipContainer,
+                  getCompositePipPosition(exportingCompositeData.cornerIndex),
+                ]}
+              >
+                <RNImage
+                  source={{ uri: exportingCompositeData.pipUri }}
+                  style={styles.compositePipImage}
+                  onLoad={handlePipImageLoaded}
+                />
+              </View>
+            )}
+
+            {exportingCompositeData.caption && (
+              <View style={styles.compositeCaptionWrapper}>
+                <View style={styles.compositeCaptionPill}>
+                  <Text style={styles.compositeCaptionText} numberOfLines={2}>
+                    {exportingCompositeData.caption}
+                  </Text>
+                </View>
+              </View>
+            )}
+          </View>
+        </View>
+      )}
+
       {/* =========================================================================
-          SNAP PAGING FEED (TRANG 0 = CAMERA, TRANG 1..N = KHOẢNH KHẮC)
+          NỘI DUNG CHÍNH: LỊCH SỬ KHOẢNH KHẮC (INLINE) HOẶC CHẾ ĐỘ XEM LƯỚI HOẶC SNAP PAGING FEED
          ========================================================================= */}
-      <FlatList
-        ref={flatListRef}
-        data={feedItems}
-        keyExtractor={(item) => item.id}
-        renderItem={renderFeedItem}
-        pagingEnabled
-        scrollEnabled={!isPinchingCamera}
-        decelerationRate="fast"
-        showsVerticalScrollIndicator={false}
-        onMomentumScrollEnd={handleScrollEnd}
-        getItemLayout={(_, index) => ({
-          length: listHeight,
-          offset: listHeight * index,
-          index,
-        })}
-      />
+      {isHistoryViewActive ? (
+        <MomentHistoryView
+          onClose={() => setIsHistoryViewActive(false)}
+          allCircleMoments={filteredMoments}
+          capturedPhotoUrl={capturedPhotoUrl}
+          containerHeight={containerHeight}
+          viewMode={historyViewMode}
+          onViewModeChange={setHistoryViewMode}
+          hideInternalHeader={true}
+        />
+      ) : isGridViewActive ? (
+        /* CHẾ ĐỘ XEM LƯỚI TẤT CẢ KHOẢNH KHẮC TRONG NHÓM (CHUẨN 3 CỘT ĐỀU NHAU) */
+        <FlatList
+          key="moments-grid-3-col"
+          data={filteredMoments}
+          numColumns={3}
+          keyExtractor={(item, gIdx) => item.id || `grid-${gIdx}`}
+          style={styles.gridContainer}
+          contentContainerStyle={[styles.gridContentContainer, { paddingBottom: 110 }]}
+          showsVerticalScrollIndicator={false}
+          initialNumToRender={15}
+          maxToRenderPerBatch={12}
+          windowSize={5}
+          ListEmptyComponent={
+            <View style={styles.gridEmptyBox}>
+              <View style={[styles.gridEmptyIconCircle, { backgroundColor: `${colors.primary}15` }]}>
+                <ImageIcon size={32} color={colors.primary} />
+              </View>
+              <Text style={[styles.gridEmptyTitle, { color: colors.text }]}>
+                {selectedMemberId === 'all' ? 'Chưa có khoảnh khắc nào' : `Chưa có khoảnh khắc từ ${selectedFilterName}`}
+              </Text>
+              <Text style={[styles.gridEmptyDesc, { color: colors.subtle }]}>
+                Chụp khoảnh khắc đầu tiên để lưu lại kỷ niệm đáng nhớ cùng bạn bè
+              </Text>
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => {
+                  setIsGridViewActive(false);
+                  scrollToCamera();
+                }}
+                style={[styles.gridEmptySnapBtn, { backgroundColor: colors.primary }]}
+              >
+                <Camera size={16} color={colors.onPrimary} />
+                <Text style={[styles.gridEmptySnapBtnText, { color: colors.onPrimary }]}>
+                  Chụp ảnh ngay
+                </Text>
+              </TouchableOpacity>
+            </View>
+          }
+          renderItem={({ item, index: gIdx }) => {
+            const { mainUrl, pipUrl, cornerIndex } = parseMomentPhotos(item.photoUrl || item.imageUrl);
+            const displayPhoto = mainUrl || pipUrl;
+            const authorDisplay = resolveAuthorDisplayName(item.authorId || item.author?.id || item.userId || item.user?.id, item.author || item.user, members);
+
+            return (
+              <TouchableOpacity
+                key={item.id || `grid-${gIdx}`}
+                activeOpacity={0.85}
+                delayLongPress={220}
+                onPress={() => {
+                  // Nhấn để nhảy tới vị trí ảnh trong Feed
+                  const feedIdx = feedItems.findIndex((fi) => fi.type === 'moment' && fi.data?.id === item.id);
+                  setIsGridViewActive(false);
+                  if (feedIdx >= 0) {
+                    setTimeout(() => {
+                      flatListRef.current?.scrollToIndex({ index: feedIdx, animated: true });
+                      setCurrentPageIndex(feedIdx);
+                    }, 120);
+                  }
+                }}
+                onLongPress={() => handleOpenActionMenuForMoment(item)}
+                style={[
+                  styles.gridItemCell,
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.hairline,
+                  },
+                ]}
+              >
+                {displayPhoto ? (
+                  <RNImage
+                    source={{ uri: displayPhoto }}
+                    style={styles.gridItemPhoto}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View style={[styles.gridItemPhoto, { backgroundColor: colors.wash, alignItems: 'center', justifyContent: 'center' }]}>
+                    <ImageIcon size={22} color={colors.subtle} />
+                  </View>
+                )}
+
+                {/* Khung PiP thu nhỏ hiển thị ảnh góc chụp thứ 2 nếu là ảnh chụp kép Dual Cam */}
+                {pipUrl && (
+                  <View
+                    style={[
+                      styles.gridItemPipWindow,
+                      getPipCornerStyle(cornerIndex, 5),
+                      { borderColor: colors.primary },
+                    ]}
+                  >
+                    <RNImage
+                      source={{ uri: pipUrl }}
+                      style={styles.gridItemPipPhoto}
+                      resizeMode="cover"
+                    />
+                  </View>
+                )}
+
+                {/* Tên tác giả ở góc dưới (đã bỏ thời gian theo yêu cầu) */}
+                <View style={styles.gridItemFooter}>
+                  <Text numberOfLines={1} style={styles.gridItemAuthorText}>
+                    {authorDisplay}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            );
+          }}
+        />
+      ) : (
+        <FlatList
+          ref={flatListRef}
+          data={feedItems}
+          keyExtractor={(item) => item.id}
+          renderItem={renderFeedItem}
+          pagingEnabled={Platform.OS === 'ios'}
+          snapToInterval={listHeight}
+          snapToAlignment="start"
+          decelerationRate="fast"
+          disableIntervalMomentum={true}
+          scrollEnabled={!isPinchingCamera}
+          showsVerticalScrollIndicator={false}
+          onMomentumScrollEnd={handleScrollEnd}
+          onScrollEndDrag={handleScrollEnd}
+          initialNumToRender={1}
+          maxToRenderPerBatch={2}
+          windowSize={3}
+          updateCellsBatchingPeriod={50}
+          removeClippedSubviews={Platform.OS === 'android'}
+          getItemLayout={getItemLayout}
+        />
+      )}
 
       {/* =========================================================================
           CỐ ĐỊNH THANH ĐIỀU KHIỂN DOCK PHÍA DƯỚI (FIXED BOTTOM DOCK)
@@ -2231,34 +3011,47 @@ export function MomentsView({
               },
             ]}
           >
-          {/* Nút bên trái: Lịch sử */}
+          {/* Nút bên trái: Lịch sử (Icon Calendar, không text) */}
           <TouchableOpacity
             activeOpacity={0.8}
-            onPress={scrollToFirstMoment}
+            onPress={() => {
+              try {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              } catch {}
+              if (isGridViewActive) setIsGridViewActive(false);
+              setIsHistoryViewActive(!isHistoryViewActive);
+            }}
             style={styles.dockIconBtn}
+            accessibilityLabel="Lịch sử khoảnh khắc"
           >
-            <History
-              size={22}
-              color={currentPageIndex > 0 ? colors.primary : colors.text}
+            <Calendar
+              size={24}
+              color={isHistoryViewActive ? colors.primary : (currentPageIndex > 0 ? colors.primary : colors.text)}
             />
-            <Text
-              style={[
-                styles.dockBtnLabel,
-                { color: currentPageIndex > 0 ? colors.primary : colors.subtle },
-              ]}
-            >
-              Lịch sử
-            </Text>
           </TouchableOpacity>
 
-          {/* Nút chính giữa: Cố định kích thước (không đổi size). Trang 0 là Ngôi nhà (Home), Trang >= 1 là Vòng tròn Camera */}
+          {/* Nút chính giữa: Cố định kích thước. Nếu đang xem Lịch sử hoặc Xem Lưới -> bấm để quay lại Camera */}
           <TouchableOpacity
             activeOpacity={0.85}
-            onPress={currentPageIndex === 0 ? () => { } : scrollToCamera}
+            onPress={
+              isHistoryViewActive || isGridViewActive
+                ? () => {
+                    try {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    } catch {}
+                    setIsHistoryViewActive(false);
+                    setIsGridViewActive(false);
+                    scrollToCamera();
+                  }
+                : (currentPageIndex === 0 ? () => {} : scrollToCamera)
+            }
             style={[styles.dockCenterBtnOuter, { borderColor: colors.primary }]}
+            accessibilityLabel="Camera hoặc Về đầu"
           >
             <View style={[styles.dockCenterBtnInner, { backgroundColor: colors.primary }]}>
-              {currentPageIndex === 0 ? (
+              {isHistoryViewActive || isGridViewActive ? (
+                <Camera size={22} color={colors.onPrimary} />
+              ) : currentPageIndex === 0 ? (
                 <Home size={22} color={colors.onPrimary} />
               ) : (
                 <Camera size={22} color={colors.onPrimary} />
@@ -2266,14 +3059,23 @@ export function MomentsView({
             </View>
           </TouchableOpacity>
 
-          {/* Nút bên phải: Tùy chọn chia sẻ & Quản lý ảnh (Share / Action Button) */}
+          {/* Nút bên phải: Chế độ xem lưới (LayoutGrid, không text) */}
           <TouchableOpacity
             activeOpacity={0.8}
-            onPress={() => setIsActionMenuOpen(true)}
+            onPress={() => {
+              try {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              } catch {}
+              if (isHistoryViewActive) setIsHistoryViewActive(false);
+              setIsGridViewActive(!isGridViewActive);
+            }}
             style={styles.dockIconBtn}
+            accessibilityLabel="Chế độ xem lưới"
           >
-            <Share2 size={22} color={colors.text} />
-            <Text style={[styles.dockBtnLabel, { color: colors.subtle }]}>Tùy chọn</Text>
+            <LayoutGrid
+              size={24}
+              color={isGridViewActive ? colors.primary : colors.text}
+            />
           </TouchableOpacity>
         </View>
       </View>
@@ -2286,11 +3088,17 @@ export function MomentsView({
         visible={isActionMenuOpen}
         transparent
         animationType="fade"
-        onRequestClose={() => setIsActionMenuOpen(false)}
+        onRequestClose={() => {
+          setIsActionMenuOpen(false);
+          setSelectedMomentForAction(null);
+        }}
       >
         <TouchableOpacity
           activeOpacity={1}
-          onPress={() => setIsActionMenuOpen(false)}
+          onPress={() => {
+            setIsActionMenuOpen(false);
+            setSelectedMomentForAction(null);
+          }}
           style={styles.actionModalOverlay}
         >
           <BlurView
@@ -2340,97 +3148,65 @@ export function MomentsView({
               </TouchableOpacity>
             </View>
 
-            {/* Action Items List */}
+            {/* Action Items List: Chia sẻ, Lưu, Xoá */}
             <View style={styles.actionList}>
-              {/* Option 1: Share Photo */}
+              {/* Option 1: Chia sẻ */}
               <TouchableOpacity
                 activeOpacity={0.75}
+                disabled={isActionProcessing}
                 onPress={handleSharePhoto}
                 style={[styles.actionItem, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
               >
                 <View style={[styles.actionIconBox, { backgroundColor: `${colors.primary}20` }]}>
-                  <Share2 size={20} color={colors.primary} />
+                  {isActionProcessing ? (
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  ) : (
+                    <Share2 size={20} color={colors.primary} />
+                  )}
                 </View>
                 <View style={styles.actionItemInfo}>
-                  <Text style={[styles.actionItemTitle, { color: colors.text }]}>Chia sẻ ảnh...</Text>
-                  <Text style={[styles.actionItemDesc, { color: colors.subtle }]}>
-                    Gửi đến ứng dụng khác hoặc tin nhắn bạn bè
-                  </Text>
+                  <Text style={[styles.actionItemTitle, { color: colors.text, fontWeight: '600' }]}>Chia sẻ</Text>
                 </View>
               </TouchableOpacity>
 
-              {/* Option 2: Copy Link */}
+              {/* Option 2: Lưu */}
               <TouchableOpacity
                 activeOpacity={0.75}
-                onPress={handleCopyLink}
-                style={[styles.actionItem, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
-              >
-                <View style={[styles.actionIconBox, { backgroundColor: `${colors.info}20` }]}>
-                  <Copy size={20} color={colors.info} />
-                </View>
-                <View style={styles.actionItemInfo}>
-                  <Text style={[styles.actionItemTitle, { color: colors.text }]}>Sao chép liên kết ảnh</Text>
-                  <Text style={[styles.actionItemDesc, { color: colors.subtle }]}>
-                    Lưu link ảnh vào bộ nhớ tạm
-                  </Text>
-                </View>
-              </TouchableOpacity>
-
-              {/* Option 3: Save image */}
-              <TouchableOpacity
-                activeOpacity={0.75}
+                disabled={isActionProcessing}
                 onPress={handleSaveImage}
                 style={[styles.actionItem, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
               >
                 <View style={[styles.actionIconBox, { backgroundColor: `${colors.success}20` }]}>
-                  <Download size={20} color={colors.success} />
+                  {isActionProcessing ? (
+                    <ActivityIndicator size="small" color={colors.success} />
+                  ) : (
+                    <Download size={20} color={colors.success} />
+                  )}
                 </View>
                 <View style={styles.actionItemInfo}>
-                  <Text style={[styles.actionItemTitle, { color: colors.text }]}>Lưu về máy</Text>
-                  <Text style={[styles.actionItemDesc, { color: colors.subtle }]}>
-                    Tải ảnh gốc về thư viện ảnh thiết bị
-                  </Text>
+                  <Text style={[styles.actionItemTitle, { color: colors.text, fontWeight: '600' }]}>Lưu</Text>
                 </View>
               </TouchableOpacity>
 
-              {/* Option 4: Reply into Circle Chat */}
+              {/* Option 3: Xoá */}
               <TouchableOpacity
                 activeOpacity={0.75}
-                onPress={() => {
-                  setIsActionMenuOpen(false);
-                  if (currentFeedItem.type === 'moment') {
-                    handleOpenChatReply(currentFeedItem.data.id, currentAuthorName);
-                  }
-                }}
-                style={[styles.actionItem, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
+                disabled={isActionProcessing}
+                onPress={handleDeleteMoment}
+                style={[
+                  styles.actionItem,
+                  {
+                    backgroundColor: isDark ? 'rgba(239, 68, 68, 0.12)' : 'rgba(239, 68, 68, 0.08)',
+                    borderColor: isDark ? 'rgba(239, 68, 68, 0.35)' : 'rgba(239, 68, 68, 0.25)',
+                  },
+                ]}
               >
-                <View style={[styles.actionIconBox, { backgroundColor: `${colors.primary}20` }]}>
-                  <MessageCircle size={20} color={colors.primary} />
+                <View style={[styles.actionIconBox, { backgroundColor: 'rgba(239, 68, 68, 0.2)' }]}>
+                  <Trash2 size={20} color={colors.danger} />
                 </View>
                 <View style={styles.actionItemInfo}>
-                  <Text style={[styles.actionItemTitle, { color: colors.text }]}>Phản hồi vào nhóm chat</Text>
-                  <Text style={[styles.actionItemDesc, { color: colors.subtle }]}>
-                    Trích dẫn ảnh khoảnh khắc và gửi vào kênh trò chuyện chung
-                  </Text>
-                </View>
-              </TouchableOpacity>
-
-              {/* Option 5: Reply With Photo */}
-              <TouchableOpacity
-                activeOpacity={0.75}
-                onPress={() => {
-                  setIsActionMenuOpen(false);
-                  handleReplyWithPhoto(currentAuthorName);
-                }}
-                style={[styles.actionItem, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
-              >
-                <View style={[styles.actionIconBox, { backgroundColor: `${colors.warning}20` }]}>
-                  <Sparkles size={20} color={colors.warning} />
-                </View>
-                <View style={styles.actionItemInfo}>
-                  <Text style={[styles.actionItemTitle, { color: colors.text }]}>Đáp lại bằng ảnh mới</Text>
-                  <Text style={[styles.actionItemDesc, { color: colors.subtle }]}>
-                    Mở camera và gửi ảnh phản hồi ngay
+                  <Text style={[styles.actionItemTitle, { color: colors.danger, fontWeight: '700' }]}>
+                    Xoá
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -2621,6 +3397,20 @@ export function MomentsView({
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
+
+      {/* Full Emoji Picker for Moments */}
+      <FullEmojiPickerModal
+        visible={Boolean(fullEmojiTargetMomentId)}
+        onClose={() => setFullEmojiTargetMomentId(null)}
+        onSelectEmoji={(emoji) => {
+          if (fullEmojiTargetMomentId) {
+            handleReactMoment(fullEmojiTargetMomentId, emoji);
+            setFullEmojiTargetMomentId(null);
+          }
+        }}
+        title={locale === 'vi' ? 'Thả cảm xúc' : 'React with emoji'}
+      />
+
     </View>
   );
 }
@@ -3131,6 +3921,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 4,
+    gap: 8,
   },
   momentFeedAuthor: {
     flexDirection: 'row',
@@ -3274,6 +4065,11 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 2,
   },
+  replyIconOnlyBtn: {
+    padding: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   replyWithPhotoBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -3288,7 +4084,8 @@ const styles = StyleSheet.create({
   },
   reactionEmojisBar: {
     flexDirection: 'row',
-    gap: 6,
+    alignItems: 'center',
+    gap: 4,
   },
   reactionMiniPill: {
     flexDirection: 'row',
@@ -3306,9 +4103,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   authorReactorsBtn: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 14,
+    paddingVertical: 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -3523,8 +4318,99 @@ const styles = StyleSheet.create({
   dockIconBtn: {
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 2,
-    width: 52,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+  },
+  gridContainer: {
+    flex: 1,
+  },
+  gridContentContainer: {
+    paddingHorizontal: 4,
+    paddingTop: 4,
+  },
+  gridItemCell: {
+    flex: 1 / 3,
+    aspectRatio: 1,
+    margin: 3,
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 1,
+    position: 'relative',
+  },
+  gridItemPhoto: {
+    width: '100%',
+    height: '100%',
+  },
+  gridItemPipWindow: {
+    position: 'absolute',
+    width: '32%',
+    height: '32%',
+    borderRadius: 6,
+    overflow: 'hidden',
+    borderWidth: 1.5,
+    shadowColor: '#000',
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 3,
+  },
+  gridItemPipPhoto: {
+    width: '100%',
+    height: '100%',
+  },
+  gridItemFooter: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    paddingHorizontal: 5,
+    paddingVertical: 3,
+  },
+  gridItemAuthorText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '700',
+  },
+  gridEmptyBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: 24,
+    gap: 10,
+  },
+  gridEmptyIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
+  },
+  gridEmptyTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  gridEmptyDesc: {
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 18,
+    maxWidth: 280,
+  },
+  gridEmptySnapBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    marginTop: 8,
+  },
+  gridEmptySnapBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
   },
   dockBtnLabel: {
     fontSize: 10,
@@ -3632,5 +4518,69 @@ const styles = StyleSheet.create({
   },
   actionItemDesc: {
     fontSize: 11,
+  },
+  silentCompositeWrapper: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: 0,
+    height: 0,
+    overflow: 'hidden',
+    zIndex: -9999,
+    elevation: -9999,
+  },
+  compositeCaptureFrame: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    backgroundColor: '#000000',
+    overflow: 'hidden',
+  },
+  compositeMainImage: {
+    resizeMode: 'cover',
+  },
+  compositePipContainer: {
+    position: 'absolute',
+    width: 92,
+    height: 92,
+    borderRadius: 18,
+    borderWidth: 2.5,
+    borderColor: '#FFFFFF',
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  compositePipImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  compositeCaptionWrapper: {
+    position: 'absolute',
+    bottom: 12,
+    left: 14,
+    right: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  compositeCaptionPill: {
+    maxWidth: '92%',
+    alignSelf: 'center',
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  compositeCaptionText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '600',
+    lineHeight: 18,
+    textAlign: 'center',
   },
 });

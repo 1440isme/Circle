@@ -126,8 +126,73 @@ describe('MomentsService', () => {
           photoUrl: 'https://img.com/1.jpg',
           mediaType: 'IMAGE',
           caption: 'Hello moments',
+          locationName: null,
+          address: null,
+          latitude: null,
+          longitude: null,
           visibilities: {
             create: [{ circleId: 'circle-1' }, { circleId: 'circle-2' }],
+          },
+        },
+        include: expect.any(Object),
+      });
+    });
+
+    it('should create moment with real location fields when provided', async () => {
+      mockPrisma.circleMember.findMany.mockResolvedValue([
+        { circleId: 'circle-1' },
+      ]);
+
+      const mockWithLoc = {
+        id: 'moment-loc-1',
+        authorId: 'user-1',
+        photoUrl: 'https://img.com/loc.jpg',
+        mediaType: 'IMAGE',
+        caption: 'At Landmark 81',
+        locationName: 'Landmark 81',
+        address: '720A Điện Biên Phủ, Phường 22, Bình Thạnh, TP.HCM',
+        latitude: 10.795,
+        longitude: 106.721,
+        capturedAt: new Date('2026-10-20T10:00:00Z'),
+        createdAt: new Date('2026-10-20T10:00:00Z'),
+        updatedAt: new Date('2026-10-20T10:00:00Z'),
+        author: {
+          id: 'user-1',
+          email: 'u1@circle.app',
+          profile: { displayName: 'User 1', avatarUrl: null },
+        },
+        visibilities: [{ id: 'v-1', momentId: 'moment-loc-1', circleId: 'circle-1', createdAt: new Date() }],
+        reactions: [],
+      };
+
+      mockPrisma.moment.create.mockResolvedValue(mockWithLoc);
+
+      const res = await service.create('user-1', {
+        photoUrl: 'https://img.com/loc.jpg',
+        caption: 'At Landmark 81',
+        locationName: 'Landmark 81',
+        address: '720A Điện Biên Phủ, Phường 22, Bình Thạnh, TP.HCM',
+        latitude: 10.795,
+        longitude: 106.721,
+        circleIds: ['circle-1'],
+      });
+
+      expect(res.locationName).toBe('Landmark 81');
+      expect(res.address).toBe('720A Điện Biên Phủ, Phường 22, Bình Thạnh, TP.HCM');
+      expect(res.latitude).toBe(10.795);
+      expect(res.longitude).toBe(106.721);
+      expect(mockPrisma.moment.create).toHaveBeenCalledWith({
+        data: {
+          authorId: 'user-1',
+          photoUrl: 'https://img.com/loc.jpg',
+          mediaType: 'IMAGE',
+          caption: 'At Landmark 81',
+          locationName: 'Landmark 81',
+          address: '720A Điện Biên Phủ, Phường 22, Bình Thạnh, TP.HCM',
+          latitude: 10.795,
+          longitude: 106.721,
+          visibilities: {
+            create: [{ circleId: 'circle-1' }],
           },
         },
         include: expect.any(Object),
@@ -221,6 +286,48 @@ describe('MomentsService', () => {
       expect(feed[0]!.reactionCounts).toEqual({});
       expect(feed[0]!.userReaction).toBe('🔥');
       expect(feed[0]!.reactions).toEqual([]);
+    });
+  });
+
+  describe('getMyMoments', () => {
+    it('should return moments authored by user sorted by createdAt desc', async () => {
+      mockPrisma.moment.findMany.mockResolvedValue([
+        {
+          id: 'my-moment-1',
+          authorId: 'user-1',
+          photoUrl: 'https://img.com/my.jpg',
+          mediaType: 'IMAGE',
+          caption: 'My memory',
+          capturedAt: new Date('2026-10-18T10:00:00Z'),
+          createdAt: new Date('2026-10-18T10:00:00Z'),
+          author: {
+            id: 'user-1',
+            email: 'user1@example.com',
+            profile: { displayName: 'User One', avatarUrl: null },
+          },
+          visibilities: [
+            {
+              id: 'vis-1',
+              momentId: 'my-moment-1',
+              circleId: 'circle-1',
+              createdAt: new Date(),
+              circle: { id: 'circle-1', name: 'Friends', avatarUrl: null },
+            },
+          ],
+          reactions: [],
+        },
+      ]);
+
+      const res = await service.getMyMoments('user-1');
+      expect(res).toHaveLength(1);
+      expect(res[0]!.id).toBe('my-moment-1');
+      expect(res[0]!.authorId).toBe('user-1');
+      expect(mockPrisma.moment.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { authorId: 'user-1', deletedAt: null },
+          orderBy: { createdAt: 'desc' },
+        }),
+      );
     });
   });
 

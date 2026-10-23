@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE "Moment" ADD COLUMN "locationName" TEXT,
+ADD COLUMN "address" TEXT,
+ADD COLUMN "latitude" DOUBLE PRECISION,
+ADD COLUMN "longitude" DOUBLE PRECISION;
