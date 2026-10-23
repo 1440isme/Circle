@@ -47,6 +47,10 @@ export class MomentsService {
         photoUrl: m.photoUrl,
         mediaType: m.mediaType || 'IMAGE',
         caption: m.caption,
+        locationName: m.locationName || null,
+        address: m.address || null,
+        latitude: m.latitude !== undefined && m.latitude !== null ? Number(m.latitude) : null,
+        longitude: m.longitude !== undefined && m.longitude !== null ? Number(m.longitude) : null,
         capturedAt: m.capturedAt ? m.capturedAt.toISOString() : m.createdAt.toISOString(),
         createdAt: m.createdAt.toISOString(),
         updatedAt: m.updatedAt ? m.updatedAt.toISOString() : m.createdAt.toISOString(),
@@ -132,6 +136,10 @@ export class MomentsService {
         photoUrl: dto.photoUrl.trim(),
         mediaType: (dto.mediaType as any) || 'IMAGE',
         caption: dto.caption?.trim() || null,
+        locationName: dto.locationName?.trim() || null,
+        address: dto.address?.trim() || null,
+        latitude: dto.latitude !== undefined && dto.latitude !== null ? Number(dto.latitude) : null,
+        longitude: dto.longitude !== undefined && dto.longitude !== null ? Number(dto.longitude) : null,
         visibilities: {
           create: dto.circleIds.map((circleId) => ({ circleId })),
         },
@@ -194,6 +202,62 @@ export class MomentsService {
       },
       orderBy: { createdAt: 'desc' },
       take: 50,
+      include: {
+        author: {
+          select: {
+            id: true,
+            email: true,
+            profile: {
+              select: {
+                displayName: true,
+                avatarUrl: true,
+              },
+            },
+          },
+        },
+        visibilities: {
+          include: {
+            circle: {
+              select: {
+                id: true,
+                name: true,
+                avatarUrl: true,
+              },
+            },
+          },
+        },
+        reactions: {
+          orderBy: { createdAt: 'desc' },
+          include: {
+            user: {
+              select: {
+                id: true,
+                profile: {
+                  select: {
+                    displayName: true,
+                    avatarUrl: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return this.transformMoments(moments, userId);
+  }
+
+  /**
+   * GET /api/v1/moments/me — Get user's personal moments archive/history (Owner moments)
+   */
+  async getMyMoments(userId: string): Promise<MomentEntity[]> {
+    const moments = await this.prisma.moment.findMany({
+      where: {
+        authorId: userId,
+        deletedAt: null,
+      },
+      orderBy: { createdAt: 'desc' },
       include: {
         author: {
           select: {

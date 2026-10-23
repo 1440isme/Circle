@@ -23,6 +23,10 @@ Known traps, framework quirks, and subtle pitfalls in CIRCLE. Consult this list 
 
 - **Native WebRTC in Expo Go:** `react-native-webrtc` includes custom C++ native code and **cannot run inside standard Expo Go**. It requires a custom development client (`npx expo run:android` or EAS development build).
 - **SecureStore Size Limit:** `expo-secure-store` has a key-value size limit of 2048 bytes on Android. Store only tokens (`accessToken`, `refreshToken`); never store large user profile objects.
+- **ViewShot Dimension Mismatch & Corner Shrinkage:** Passing explicit `width` and `height` options to `captureRef` that do not match the target view's layout dimensions causes iOS/Android to allocate an oversized canvas while rendering the layer at 1:1 scale into the top-left corner. Omit forced dimensions to let `view.bounds.size` synchronize automatically with device Retina scale (2x/3x).
+- **Invisible Offscreen Capture with ViewShot:** Positioning views far off-screen (`top: -10000`) triggers iOS UIKit viewport culling (blank/black image). Moving views on-screen without clipping reveals them to the user. The reliable pattern is a zero-size wrapper (`width: 0, height: 0, overflow: 'hidden'`) holding fixed-size children, paired with `useRenderInContext: true` for CALayer capture on iOS.
+- **Expo FileSystem Cache Overwrites:** On iOS, `File.downloadFileAsync` throws `DestinationAlreadyExistsException` (at `FileSystemDownload.swift: 160`) when downloading to an existing cache path unless `{ idempotent: true }` is explicitly passed.
+- **Asynchronous Image Decoding Before Capture:** `<RNImage source={{ uri }} />` decodes bitmaps asynchronously. Triggering `captureRef` before `onLoad` fires results in black/empty images. Always coordinate snapshot execution using image load handlers.
 
 ---
 

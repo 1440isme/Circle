@@ -29,6 +29,10 @@ export function createMomentSchemas(locale: Locale = 'vi') {
       .max(80, v.momentCaptionMaxLength)
       .optional()
       .or(z.literal('')),
+    locationName: z.string().trim().max(120).optional().nullable(),
+    address: z.string().trim().max(300).optional().nullable(),
+    latitude: z.number().min(-90).max(90).optional().nullable(),
+    longitude: z.number().min(-180).max(180).optional().nullable(),
     circleIds: z
       .array(z.string().trim())
       .min(1, v.momentCirclesRequired),

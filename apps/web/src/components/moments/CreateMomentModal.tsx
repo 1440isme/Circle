@@ -16,6 +16,7 @@ import {
   RefreshCw,
   Play,
   Pause,
+  MessageCircle,
 } from 'lucide-react';
 import { useLanguageStore } from '@/stores/language.store';
 import { useCircleStore } from '@/stores/circle.store';
@@ -27,6 +28,8 @@ interface CreateMomentModalProps {
   isOpen: boolean;
   onClose: () => void;
   circleId?: string;
+  replyingToAuthor?: string | null;
+  onClearReplyingToAuthor?: () => void;
 }
 
 type CaptureMode = 'PHOTO' | 'VIDEO';
@@ -37,6 +40,8 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
   isOpen,
   onClose,
   circleId,
+  replyingToAuthor,
+  onClearReplyingToAuthor,
 }) => {
   const t = useLanguageStore((s) => s.t);
   const activeCircle = useCircleStore((s) => s.activeCircle);
@@ -429,10 +434,14 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
       });
 
       // 2. Submit moment with clean public URL
+      const finalCaption = replyingToAuthor
+        ? `Trả lời @${replyingToAuthor}: ${caption.trim()}`
+        : caption.trim() || undefined;
+
       await createMomentMutation.mutateAsync({
         photoUrl: uploadRes.publicUrl,
         mediaType: capturedMedia.type,
-        caption: caption.trim() || undefined,
+        caption: finalCaption,
         circleIds: selectedCircleIds,
       });
 
@@ -527,6 +536,26 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
                     isCameraReady ? 'opacity-100' : 'opacity-0'
                   } ${isMirrored ? 'scale-x-[-1]' : ''}`}
                 />
+
+                {/* Replying Badge when replying with photo */}
+                {replyingToAuthor && (
+                  <div className="absolute top-3 inset-x-3 flex justify-center z-20 pointer-events-none">
+                    <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-500/25 border border-amber-500/50 text-amber-300 rounded-full text-xs font-semibold backdrop-blur-md shadow-md pointer-events-auto">
+                      <MessageCircle className="h-3.5 w-3.5 text-amber-400" />
+                      <span>Đáp lại: @{replyingToAuthor}</span>
+                      {onClearReplyingToAuthor && (
+                        <button
+                          type="button"
+                          onClick={onClearReplyingToAuthor}
+                          className="p-0.5 hover:bg-white/20 rounded-full ml-1 transition-colors"
+                          title="Bỏ đáp lại"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {/* Camera Permission / Error Fallback */}
                 {cameraError && (
@@ -686,6 +715,26 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
                   </button>
                 )}
               </div>
+
+              {/* Replying Badge */}
+              {replyingToAuthor && (
+                <div className="flex items-center justify-between px-3 py-1.5 bg-amber-500/20 border border-amber-500/40 text-amber-300 rounded-2xl text-xs font-semibold">
+                  <div className="flex items-center gap-1.5">
+                    <MessageCircle className="h-3.5 w-3.5 text-amber-400" />
+                    <span>Đáp lại: @{replyingToAuthor}</span>
+                  </div>
+                  {onClearReplyingToAuthor && (
+                    <button
+                      type="button"
+                      onClick={onClearReplyingToAuthor}
+                      className="p-1 hover:bg-white/20 rounded-full transition-colors text-white/80 hover:text-white"
+                      title="Bỏ đáp lại"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
+              )}
 
               {/* Caption Input */}
               <div className="space-y-1.5">
