@@ -67,27 +67,27 @@ enum MomentMediaType {
 // =============================================================================
 
 model User {
-  id           String      @id @default(cuid())
-  email        String      @unique
+  id           String     @id @default(cuid())
+  email        String     @unique
   passwordHash String
-  isActivated  Boolean     @default(false)
-  globalRole   GlobalRole  @default(USER)
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  isActivated  Boolean    @default(false)
+  globalRole   GlobalRole @default(USER)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
   deletedAt    DateTime?
 
-  profile              UserProfile?
-  refreshTokens        RefreshToken[]
-  sentFriendships      Friendship[]       @relation("FriendshipSender")
-  receivedFriendships  Friendship[]       @relation("FriendshipReceiver")
-  notifications        Notification[]
-  memberships          CircleMember[]
-  circleJoinRequests   CircleJoinRequest[]
-  moments              Moment[]
-  momentReactions      MomentReaction[]
-  messageReceipts      MessageReceipt[]
-  filedReports         CircleReport[]     @relation("ReportedBy")
-  receivedReports      CircleReport[]     @relation("ReportedUser")
+  profile             UserProfile?
+  refreshTokens       RefreshToken[]
+  sentFriendships     Friendship[]        @relation("FriendshipSender")
+  receivedFriendships Friendship[]        @relation("FriendshipReceiver")
+  notifications       Notification[]
+  memberships         CircleMember[]
+  circleJoinRequests  CircleJoinRequest[]
+  moments             Moment[]
+  momentReactions     MomentReaction[]
+  messageReceipts     MessageReceipt[]
+  filedReports        CircleReport[]      @relation("ReportedBy")
+  receivedReports     CircleReport[]      @relation("ReportedUser")
 
   @@index([email])
 }
@@ -158,33 +158,33 @@ model Notification {
 // =============================================================================
 
 model Circle {
-  id          String    @id @default(cuid())
-  name        String
-  handle      String    @unique
-  avatarUrl   String?
-  inviteCode  String    @unique
-  isPrivate   Boolean   @default(false)
-  maxMembers  Int?
-  themeColor  String?   @default("sage")
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  deletedAt   DateTime?
+  id         String    @id @default(cuid())
+  name       String
+  handle     String    @unique
+  avatarUrl  String?
+  inviteCode String    @unique
+  isPrivate  Boolean   @default(false)
+  maxMembers Int?
+  themeColor String?   @default("sage")
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
 
-  members         CircleMember[]
-  channels        Channel[]
-  invites         CircleInvite[]
-  joinRequests    CircleJoinRequest[]
-  planningSheets  PlanningSheet[]
-  sharedAlbums    SharedAlbum[]
-  pinnedRecords   PinnedRecord[]
-  polls           GroupPoll[]
-  decisionWheels  DecisionWheel[]
-  anonymousPosts  AnonymousPost[]
-  calendarEvents  CalendarEvent[]
-  liveLocations   LiveLocationShare[]
-  callSessions    CallSession[]
+  members            CircleMember[]
+  channels           Channel[]
+  invites            CircleInvite[]
+  joinRequests       CircleJoinRequest[]
+  planningSheets     PlanningSheet[]
+  sharedAlbums       SharedAlbum[]
+  pinnedRecords      PinnedRecord[]
+  polls              GroupPoll[]
+  decisionWheels     DecisionWheel[]
+  anonymousPosts     AnonymousPost[]
+  calendarEvents     CalendarEvent[]
+  liveLocations      LiveLocationShare[]
+  callSessions       CallSession[]
   momentVisibilities MomentVisibility[]
-  reports         CircleReport[]
+  reports            CircleReport[]
 
   @@index([handle])
   @@index([inviteCode])
@@ -211,6 +211,9 @@ model CircleMember {
   liveLocations    LiveLocationShare[]
   callParticipants CallParticipant[]
   createdInvites   CircleInvite[]
+  createdAlbums    SharedAlbum[]
+  uploadedPhotos   Photo[]
+  createdWheels    DecisionWheel[]
 
   @@unique([circleId, userId])
   @@index([circleId])
@@ -285,10 +288,10 @@ model Message {
   updatedAt     DateTime    @updatedAt
   deletedAt     DateTime?
 
-  channel      Channel       @relation(fields: [channelId], references: [id], onDelete: Cascade)
-  sender       CircleMember  @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  replyTo      Message?      @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
-  replies      Message[]     @relation("MessageReplies")
+  channel      Channel          @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  sender       CircleMember     @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  replyTo      Message?         @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies      Message[]        @relation("MessageReplies")
   reactions    Reaction[]
   pinnedRecord PinnedRecord?
   receipts     MessageReceipt[]
@@ -316,15 +319,19 @@ model Reaction {
 // =============================================================================
 
 model Moment {
-  id         String          @id @default(cuid())
-  authorId   String
-  photoUrl   String
-  mediaType  MomentMediaType @default(IMAGE)
-  caption    String?
-  capturedAt DateTime  @default(now())
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-  deletedAt  DateTime?
+  id           String          @id @default(cuid())
+  authorId     String
+  photoUrl     String
+  mediaType    MomentMediaType @default(IMAGE)
+  caption      String?
+  locationName String?
+  address      String?
+  latitude     Float?
+  longitude    Float?
+  capturedAt   DateTime        @default(now())
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  deletedAt    DateTime?
 
   author       User               @relation(fields: [authorId], references: [id], onDelete: Cascade)
   visibilities MomentVisibility[]
@@ -368,23 +375,31 @@ model Photo {
   fileUrl       String
   width         Int?
   height        Int?
+  caption       String?
+  uploaderId    String?
   createdAt     DateTime @default(now())
 
-  sharedAlbum SharedAlbum? @relation(fields: [sharedAlbumId], references: [id], onDelete: Cascade)
+  sharedAlbum SharedAlbum?  @relation(fields: [sharedAlbumId], references: [id], onDelete: Cascade)
+  uploader    CircleMember? @relation(fields: [uploaderId], references: [id], onDelete: SetNull)
 
   @@index([sharedAlbumId])
+  @@index([uploaderId])
 }
 
 model SharedAlbum {
-  id         String   @id @default(cuid())
-  circleId   String
-  albumTitle String
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id          String   @id @default(cuid())
+  circleId    String
+  albumTitle  String
+  description String?
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  circle Circle  @relation(fields: [circleId], references: [id], onDelete: Cascade)
-  photos Photo[]
+  circle  Circle        @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  creator CircleMember? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  photos  Photo[]
 
+  @@index([createdById])
   @@index([circleId])
 }
 
@@ -508,15 +523,20 @@ model PollVote {
 }
 
 model DecisionWheel {
-  id        String   @id @default(cuid())
-  circleId  String
-  title     String
-  createdAt DateTime @default(now())
+  id          String    @id @default(cuid())
+  circleId    String
+  title       String
+  createdById String?
+  lastResult  String?
+  lastSpunAt  DateTime?
+  createdAt   DateTime  @default(now())
 
   circle  Circle        @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  creator CircleMember? @relation(fields: [createdById], references: [id], onDelete: SetNull)
   options WheelOption[]
 
   @@index([circleId])
+  @@index([createdById])
 }
 
 model WheelOption {
@@ -534,6 +554,7 @@ model AnonymousPost {
   id        String   @id @default(cuid())
   circleId  String
   content   String
+  cardTheme String?  @default("sunset")
   postedAt  DateTime @default(now())
 
   circle Circle @relation(fields: [circleId], references: [id], onDelete: Cascade)
@@ -547,6 +568,7 @@ model CalendarEvent {
   createdById  String
   eventTitle   String
   description  String?
+  location     String?
   startTime    DateTime
   endTime      DateTime?
   reminderTime DateTime?
@@ -556,6 +578,7 @@ model CalendarEvent {
   creator CircleMember @relation(fields: [createdById], references: [id], onDelete: Cascade)
 
   @@index([circleId, startTime])
+  @@index([createdById])
 }
 
 model LiveLocationShare {
@@ -564,7 +587,7 @@ model LiveLocationShare {
   memberId      String
   latitude      Float
   longitude     Float
-  shareDuration Int      // in minutes
+  shareDuration Int // in minutes
   expiresAt     DateTime
   isActive      Boolean  @default(true)
   updatedAt     DateTime @updatedAt
@@ -653,4 +676,3 @@ model CircleReport {
   @@index([reporterId])
   @@index([targetUserId])
 }
-

@@ -4386,3 +4386,51 @@
 - **Commit:** 2cecb8b
 - **PR:** #93
 
+
+
+### AI-0130: Triển khai Trọn gói Module 7.1 — Circle Utilities: Shared Album, Decision Wheel, Words Unsaid & Group Calendar (#96)
+- **Timestamp:** 2026-10-23T17:05:00+07:00
+- **Task ID:** Issue #96 (Parent Epic: #21)
+- **Engineers:** Ninh Thị Mỹ Hạnh & Trương Công Bình
+- **Feature / Area:** Full-stack Module 7.1 — Circle Utilities: Shared Album (UC14), Decision Wheel (UC16), Anonymous Post / "Điều muốn nói" (UC21), Group Calendar & Reminders (UC17).
+- **Files Affected:**
+  - `apps/backend/prisma/schema.prisma`
+  - `apps/backend/prisma/migrations/20261023164200_add_circle_tools_enhancements/migration.sql`
+  - `apps/backend/src/app.module.ts`
+  - `apps/backend/src/modules/circle-tools/dto/circle-tools.dto.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.controller.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.module.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.service.spec.ts`
+  - `packages/types/src/index.ts`
+  - `packages/shared/src/index.ts`
+  - `packages/shared/src/validators/circle-tools.validator.ts`
+  - `apps/web/src/hooks/use-circle-tools.ts`
+  - `apps/web/src/components/navigation/Sidebar.tsx`
+  - `apps/web/src/components/stream/FeedStream.tsx`
+  - `apps/web/src/components/tools/CircleAlbumsView.tsx`
+  - `apps/web/src/components/tools/CircleCalendarView.tsx`
+  - `apps/web/src/components/tools/CircleWheelView.tsx`
+  - `apps/web/src/components/tools/CircleAnonymousView.tsx`
+  - `apps/mobile/src/services/circle-tools.service.ts`
+  - `apps/mobile/src/components/tools/MobileAlbumsView.tsx`
+  - `apps/mobile/src/components/tools/MobileCalendarView.tsx`
+  - `apps/mobile/src/components/tools/MobileWheelView.tsx`
+  - `apps/mobile/src/components/tools/MobileAnonymousView.tsx`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `docs/architecture/diagrams/erd.md`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% mã nguồn:
+  1. **Prisma Schema & Migration:** Bổ sung quan hệ `uploaderId` cho `Photo` (cho phép thành viên tự xóa ảnh chính chủ tải lên theo UC14), `createdById` cho `SharedAlbum` và `DecisionWheel`, `cardTheme` cho `AnonymousPost`, `location` cho `CalendarEvent`. Tất cả foreign keys đều có index tối ưu. Tuyệt đối không lưu trữ dữ liệu base64 trong cơ sở dữ liệu.
+  2. **Bảo mật Danh tính Ẩn danh (UC21):** Schema và API `AnonymousPost` tự động bóc tách và loại bỏ hoàn toàn mọi trường `authorId`/`userId`, cam kết 100% người dùng và Trưởng nhóm đều không biết danh tính tác giả lời nhắn.
+  3. **Backend Service & Controller:** Xây dựng đầy đủ REST endpoints CRUD cho Album ảnh, Vòng xoay may mắn, Lời nhắn ẩn danh và Lịch sự kiện nhóm kèm kiểm tra phân quyền thành viên vòng tròn.
+  4. **Frontend Web & Mobile Components:** Tích hợp giao diện trực quan cho 4 tiện ích nhóm, hỗ trợ upload ảnh qua R2 presigned URL / storage service, canvas animation vòng xoay, giao diện thiệp chúc mừng pastel ấm cúng, và lịch tháng tương tác.
+- **Human Modifications:** Kỹ sư Ninh Thị Mỹ Hạnh giao nhiệm vụ: "tiếp tục làm module tiếp theo tuần 9 10 của hạnh, clean repo không tồn tại những lệnh kỹ thuật, đáp ứng nghiêm khắc quy chuẩn database, không dùng base64, và tuân thủ các rule".
+- **Verification Method:**
+  - `cd apps/backend && npm test -- circle-tools.service.spec.ts`: 20/20 unit tests pass (100%).
+  - `cd apps/web && npm run build`: 100% thành công (9/9 static pages).
+  - `cd apps/mobile && npx tsc --noEmit`: 0 TypeScript errors.
+  - `bash ./scripts/check-agent-map.sh`: 95/95 framework files pass (0 broken references).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`, `docs/phan-cong-nhiem-vu.md`, `docs/requirements/SRS.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero base64 storage, zero secrets leaks, cơ chế phân quyền bảo mật thành viên vòng tròn chặt chẽ.
+- **Branch:** `feat/96-circle-utilities-group-tools`

@@ -566,3 +566,179 @@ export interface WebRtcSignalPayload {
 
 
 
+
+// =============================================================================
+// 11. CIRCLE UTILITIES & GROUP TOOLS CONTRACTS (UC14, UC16, UC17, UC21)
+// =============================================================================
+
+export interface PhotoEntity {
+  id: string;
+  sharedAlbumId?: string | null;
+  fileUrl: string;
+  caption?: string | null;
+  width?: number | null;
+  height?: number | null;
+  uploaderId?: string | null;
+  createdAt: string;
+  uploader?: {
+    id: string;
+    userId: string;
+    nickname?: string | null;
+    user?: {
+      id: string;
+      email: string;
+      profile?: {
+        displayName: string;
+        avatarUrl?: string | null;
+      } | null;
+    };
+  } | null;
+}
+
+export interface SharedAlbumEntity {
+  id: string;
+  circleId: string;
+  albumTitle: string;
+  description?: string | null;
+  createdById?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  photos?: PhotoEntity[];
+  _count?: {
+    photos: number;
+  };
+  creator?: {
+    id: string;
+    userId: string;
+    nickname?: string | null;
+    user?: {
+      id: string;
+      email: string;
+      profile?: {
+        displayName: string;
+        avatarUrl?: string | null;
+      } | null;
+    };
+  } | null;
+}
+
+export interface CreateSharedAlbumInput {
+  albumTitle: string;
+  description?: string;
+}
+
+export interface UpdateSharedAlbumInput {
+  albumTitle?: string;
+  description?: string;
+}
+
+export interface AddPhotosInput {
+  photos: {
+    fileUrl: string;
+    caption?: string;
+    width?: number;
+    height?: number;
+  }[];
+}
+
+export interface WheelOptionEntity {
+  id: string;
+  wheelId: string;
+  optionLabel: string;
+  color?: string | null;
+}
+
+export interface DecisionWheelEntity {
+  id: string;
+  circleId: string;
+  title: string;
+  createdById?: string | null;
+  lastResult?: string | null;
+  lastSpunAt?: string | null;
+  createdAt: string;
+  options: WheelOptionEntity[];
+  creator?: {
+    id: string;
+    userId: string;
+    nickname?: string | null;
+    user?: {
+      id: string;
+      email: string;
+      profile?: {
+        displayName: string;
+        avatarUrl?: string | null;
+      } | null;
+    };
+  } | null;
+}
+
+export interface CreateWheelInput {
+  title: string;
+  options: {
+    optionLabel: string;
+    color?: string;
+  }[];
+}
+
+export interface SpinWheelResult {
+  wheelId: string;
+  selectedOption: WheelOptionEntity;
+  spunAt: string;
+}
+
+export interface AnonymousPostEntity {
+  id: string;
+  circleId: string;
+  content: string;
+  cardTheme?: string | null;
+  postedAt: string;
+}
+
+export interface CreateAnonymousPostInput {
+  content: string;
+  cardTheme?: string;
+}
+
+export interface CalendarEventEntity {
+  id: string;
+  circleId: string;
+  createdById: string;
+  eventTitle: string;
+  description?: string | null;
+  location?: string | null;
+  startTime: string;
+  endTime?: string | null;
+  reminderTime?: string | null;
+  createdAt: string;
+  creator?: {
+    id: string;
+    userId: string;
+    nickname?: string | null;
+    user?: {
+      id: string;
+      email: string;
+      profile?: {
+        displayName: string;
+        avatarUrl?: string | null;
+      } | null;
+    };
+  };
+}
+
+export interface CreateCalendarEventInput {
+  eventTitle: string;
+  description?: string;
+  location?: string;
+  startTime: string;
+  endTime?: string;
+  reminderTime?: string;
+}
+
+export interface UpdateCalendarEventInput {
+  eventTitle?: string;
+  description?: string;
+  location?: string;
+  startTime?: string;
+  endTime?: string;
+  reminderTime?: string;
+}

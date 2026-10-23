@@ -236,11 +236,31 @@ export const Sidebar: React.FC = () => {
           <span className="px-3 text-xs font-semibold tracking-wider text-circle-slate dark:text-circle-dark-muted uppercase mb-1">
             {t.nav.groupTools}
           </span>
-          <NavItem icon={<ImageIcon className="h-4 w-4" />} label={t.nav.photoAlbum} />
-          <NavItem icon={<Calendar className="h-4 w-4" />} label={t.nav.calendarEvents} />
+          <NavItem
+            icon={<ImageIcon className="h-4 w-4" />}
+            label={t.nav.photoAlbum}
+            active={activeCircleView === 'albums'}
+            onClick={() => setActiveCircleView('albums')}
+          />
+          <NavItem
+            icon={<Calendar className="h-4 w-4" />}
+            label={t.nav.calendarEvents}
+            active={activeCircleView === 'calendar'}
+            onClick={() => setActiveCircleView('calendar')}
+          />
           <NavItem icon={<FileSpreadsheet className="h-4 w-4" />} label={t.nav.planningSheet} />
-          <NavItem icon={<Compass className="h-4 w-4" />} label={t.nav.luckyWheel} />
-          <NavItem icon={<HelpCircle className="h-4 w-4" />} label={t.nav.reflectionMailbox} />
+          <NavItem
+            icon={<Compass className="h-4 w-4" />}
+            label={t.nav.luckyWheel}
+            active={activeCircleView === 'wheel'}
+            onClick={() => setActiveCircleView('wheel')}
+          />
+          <NavItem
+            icon={<HelpCircle className="h-4 w-4" />}
+            label={t.nav.reflectionMailbox}
+            active={activeCircleView === 'anonymous'}
+            onClick={() => setActiveCircleView('anonymous')}
+          />
         </div>
 
         {/* Circle Settings (Natural bottom spacing) */}
