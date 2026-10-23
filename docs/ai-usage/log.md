@@ -4433,3 +4433,140 @@
 - **Security & License Check:** An toàn tuyệt đối, cơ chế phân quyền bảo đảm người dùng không thể xóa vĩnh viễn dữ liệu của người khác trên máy chủ, zero secret leaks.
 - **Commit:** `7633a8c`
 - **PR:** #95 (https://github.com/1440isme/Circle/pull/95)
+
+
+### AI-0124: Tinh chỉnh ô ảnh Lịch sử khoảnh khắc & Khắc phục hiển thị Bản đồ Web/App (#94)
+- **Timestamp:** 2026-10-23T14:55:00+07:00
+- **Task ID:** Issue #94 (Epic #20: Moments & Shared Stories)
+- **Engineers:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Feature / Area:** Mobile & Web Moments History View Refinements & Map Fixes.
+- **Files Affected:**
+  - `apps/mobile/src/components/moment/MomentHistoryView.tsx`
+  - `apps/web/src/components/moments/MomentHistoryView.tsx`
+  - `apps/web/src/components/moments/DailyMomentsFeed.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% mã nguồn:
+  1. Loại bỏ các lớp thẻ xoay/lệch lồi ra ngoài khung (`stackLayerBack`, `stackLayerMid`) trên cả Web và Mobile. Mọi ô ngày đều vừa vặn kích thước chuẩn của ô lưới.
+  2. Bỏ nhãn số ngày trên các ô ngày đã có ảnh (`dayNumTag`), chỉ giữ lại số ngày ở các ô trống chưa có ảnh.
+  3. Tích hợp thanh Dock nổi ở phía dưới của `DailyMomentsFeed` trên Web để mở Lịch sử khoảnh khắc.
+- **Human Modifications:** Trương Công Bình yêu cầu: chỗ ảnh có nhiều hơn 1 ảnh nên nằm vừa khung, cả app và web có ảnh thì không cần ghi ngày ở góc dưới nữa.
+- **Verification Method:**
+  - `cd apps/web && npm run build`: 100% thành công.
+  - `cd apps/mobile && npx tsc --noEmit`: 0 TypeScript errors.
+  - `./scripts/check-agent-map.sh`: 95/95 framework files pass.
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn, không chứa secrets.
+- **Branch:** `feat/94-moments-archive-places-map`
+- **PR:** #95 (Draft)
+
+
+### AI-0125: Chuyển đổi Bản đồ Web sang Leaflet Native (Dynamic SSR False) (#94)
+- **Timestamp:** 2026-10-23T15:15:00+07:00
+- **Task ID:** Issue #94 (Epic #20: Moments & Shared Stories)
+- **Engineers:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Feature / Area:** Web Moments Native Leaflet Places Map Component.
+- **Files Affected:**
+  - `apps/web/package.json`
+  - `apps/web/src/components/moments/MomentPlacesMap.tsx`
+  - `apps/web/src/components/moments/MomentHistoryView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% giải pháp:
+  - Cài đặt `leaflet` và `@types/leaflet` vào `apps/web`.
+  - Tách riêng component `MomentPlacesMap.tsx` dựng trực tiếp trên DOM, nhúng vào `MomentHistoryView.tsx` thông qua `next/dynamic` với `{ ssr: false }`.
+- **Human Modifications:** Trương Công Bình phản hồi bản đồ ở app hiển thị mà ở web thì không.
+- **Verification Method:**
+  - `cd apps/web && npm run build`: 100% thành công.
+  - `cd apps/mobile && npx tsc --noEmit`: 0 errors.
+  - `./scripts/check-agent-map.sh`: 95/95 framework files pass.
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn, không chứa secrets.
+- **Branch:** `feat/94-moments-archive-places-map`
+- **PR:** #95 (Draft)
+
+
+### AI-0126: Phân tích nguyên nhân Nền xám Leaflet trên Web & Khởi tạo Layout (#94)
+- **Timestamp:** 2026-10-23T15:30:00+07:00
+- **Task ID:** Issue #94 (Epic #20: Moments & Shared Stories)
+- **Engineers:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Feature / Area:** Web & Mobile Moments Map Sizing & CDN Resolution.
+- **Files Affected:**
+  - `apps/web/src/components/moments/MomentPlacesMap.tsx`
+  - `apps/web/src/components/moments/MomentHistoryView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** Cập nhật khởi tạo tọa độ `center` & `zoom` trong `L.map`, chuỗi `setTimeout` định thời `invalidateSize` (60ms, 200ms, 600ms) để container hoàn thành layout.
+- **Human Modifications:** Trương Công Bình phản hồi trên web vẫn chưa hiển thị bản đồ, chỉ có 1 nền xám.
+- **Verification Method:**
+  - `cd apps/web && npm run build`: 100% thành công.
+  - `./scripts/check-agent-map.sh`: 95/95 framework files pass.
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn.
+- **Branch:** `feat/94-moments-archive-places-map`
+- **PR:** #95 (Draft)
+
+
+### AI-0127: Xử lý triệt để Lifecycle Leaflet trong React StrictMode (#94)
+- **Timestamp:** 2026-10-23T15:45:00+07:00
+- **Task ID:** Issue #94 (Epic #20: Moments & Shared Stories)
+- **Engineers:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Feature / Area:** Web Moments Leaflet Map Lifecycle & StrictMode Sizing Resolution.
+- **Files Affected:**
+  - `apps/web/src/components/moments/MomentPlacesMap.tsx`
+  - `apps/web/src/components/moments/MomentHistoryView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:**
+  - Xóa bỏ `_leaflet_id` và làm sạch `innerHTML` trước khi `L.map` và khi unmount, ngăn ngừa lỗi `Map container is already initialized`.
+  - Kiểm tra `size.x > 100 && size.y > 100` trước khi gọi `fitBounds`, tránh tính toán ra `zoom = NaN`.
+  - Áp CSS `position: absolute !important; inset: 0 !important; width: 100% !important; height: 100% !important;` cho `.leaflet-container`.
+- **Human Modifications:** Trương Công Bình hỏi lý do tại sao trên App hiển thị được mà Web lại bị lỗi nền xám.
+- **Verification Method:**
+  - `cd apps/web && npm run build`: 100% thành công.
+  - `./scripts/check-agent-map.sh`: 95/95 framework files pass.
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn.
+- **Branch:** `feat/94-moments-archive-places-map`
+- **PR:** #95 (Draft)
+
+
+### AI-0128: Chuyển sang Esri World Street Map loại bỏ Watermark "API KEY REQUIRED" (#94)
+- **Timestamp:** 2026-10-23T15:55:00+07:00
+- **Task ID:** Issue #94 (Epic #20: Moments & Shared Stories)
+- **Engineers:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Feature / Area:** Web & Mobile Moments Map Engine Migration to Esri World Street Map.
+- **Files Affected:**
+  - `apps/web/src/components/moments/MomentPlacesMap.tsx`
+  - `apps/web/src/components/moments/MomentHistoryView.tsx`
+  - `apps/mobile/src/components/moment/MomentHistoryView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% mã nguồn di chuyển sang `https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}` để loại bỏ hoàn toàn watermark "API KEY REQUIRED" do CartoDB áp dụng cho web referrer; đồng bộ thumbnail khoảnh khắc cho bong bóng marker.
+- **Human Modifications:** Trương Công Bình gửi ảnh chụp màn hình hiển thị watermark "API KEY REQUIRED" trên bản đồ.
+- **Verification Method:**
+  - `cd apps/web && npm run build`: 100% thành công (9/9 static pages).
+  - `cd apps/mobile && npx tsc --noEmit`: 0 lỗi.
+  - `./scripts/check-agent-map.sh`: 95/95 framework files pass.
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn.
+- **Branch:** `feat/94-moments-archive-places-map`
+- **PR:** #95 (Draft)
+
+
+### AI-0129: Khắc phục lỗi Bản đồ tự động thu nhỏ khi click vào Ghim ảnh (#94)
+- **Timestamp:** 2026-10-23T16:05:00+07:00
+- **Task ID:** Issue #94 (Epic #20: Moments & Shared Stories)
+- **Engineers:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Feature / Area:** Web Moments Places Map Marker Click Lifecycle & Zoom Lock.
+- **Files Affected:**
+  - `apps/web/src/components/moments/MomentPlacesMap.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:**
+  1. Loại bỏ `selectedCluster?.id` ra khỏi mảng phụ thuộc của `useEffect` render markers, giúp markers không bị xóa và khởi tạo lại mỗi lần chọn ghim.
+  2. Ngăn ngừa việc gọi lại `map.fitBounds(bounds)` khi click vào ghim ảnh (vốn là nguyên nhân làm bản đồ tự động thu nhỏ lại để ôm trọn cả nước).
+  3. Giữ nguyên mức phóng to (zoom level) hiện tại của người dùng khi chọn điểm, chỉ thực hiện `map.panTo([lat, lng])` mượt mà và làm sáng viền xanh `.selected` trên DOM.
+- **Human Modifications:** Trương Công Bình phản hồi: "lỗi khi tôi ấn vô 1 điểm có ảnh map tự động thu nhỏ lại mà ko giữ nguyên kích thước".
+- **Verification Method:**
+  - `cd apps/web && npm run build`: 100% thành công (Exit code 0, 9/9 pages generated).
+  - `cd apps/mobile && npx tsc --noEmit`: 100% thành công (Exit code 0, 0 TypeScript errors).
+  - `./scripts/check-agent-map.sh`: 95/95 framework files pass (0 broken references).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn, không chứa secrets.
+- **Branch:** `feat/94-moments-archive-places-map`
+- **PR:** #95 (Draft)

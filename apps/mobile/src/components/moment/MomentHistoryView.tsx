@@ -141,7 +141,7 @@ export function getOsmTileUrl(lat: number, lng: number, zoom: number = 15): stri
   const x = Math.floor(((lng + 180) / 360) * n);
   const latRad = (lat * Math.PI) / 180;
   const y = Math.floor(((1 - Math.asinh(Math.tan(latRad)) / Math.PI) / 2) * n);
-  return `https://tile.openstreetmap.org/${zoom}/${x}/${y}.png`;
+  return `https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/${zoom}/${y}/${x}`;
 }
 
 export function resolveMomentLocation(m: any, fallbackIndex: number = 0) {
@@ -749,110 +749,117 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
 <body>
   <div id="map"></div>
   <script>
-    var map = L.map('map', {
-      zoomControl: false,
-      attributionControl: false,
-      tap: true
-    });
-
-    var osmUrl = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
-    L.tileLayer(osmUrl, {
-      maxZoom: 19,
-      attribution: ''
-    }).addTo(map);
-
-    function triggerInvalidate() {
-      if (map) {
-        map.invalidateSize();
-      }
-    }
-    setTimeout(triggerInvalidate, 50);
-    setTimeout(triggerInvalidate, 200);
-    setTimeout(triggerInvalidate, 600);
-    setTimeout(triggerInvalidate, 1500);
-    window.addEventListener('resize', triggerInvalidate);
-    window.triggerInvalidate = triggerInvalidate;
-
-    var markersGroup = L.featureGroup().addTo(map);
-    var currentMarkers = {};
-    var rawPins = ${pinsData};
-
-    function renderPins(pins, selectedId) {
-      markersGroup.clearLayers();
-      currentMarkers = {};
-
-      if (!pins || pins.length === 0) {
-        map.setView([10.8231, 106.6297], 13);
+    function startMap() {
+      if (typeof L === 'undefined') {
+        setTimeout(startMap, 60);
         return;
       }
-
-      var bounds = [];
-      pins.forEach(function(p) {
-        var isSel = (p.id === selectedId);
-        var badgeHtml = p.count > 1 ? '<span class="photo-pin-badge">+' + p.count + '</span>' : '';
-        var html = '<div class="photo-pin-marker" id="pin-' + p.id + '">' +
-                   '  <div class="photo-pin-bubble ' + (isSel ? 'selected' : '') + '">' +
-                   '    <img class="photo-pin-img" src="' + p.thumbUrl + '" onerror="this.src=\\'data:image/svg+xml;utf8,<svg xmlns=\\\'http://www.w3.org/2000/svg\\\' width=\\\'44\\\' height=\\\'44\\\'><rect width=\\\'44\\\' height=\\\'44\\\' fill=\\\'%2394a3b8\\\'/></svg>\\'" />' +
-                   badgeHtml +
-                   '  </div>' +
-                   '  <div class="photo-pin-tail"></div>' +
-                   '</div>';
-
-        var icon = L.divIcon({
-          html: html,
-          className: 'custom-pin-container',
-          iconSize: [44, 50],
-          iconAnchor: [22, 50]
-        });
-
-        var marker = L.marker([p.lat, p.lng], { icon: icon });
-        marker.on('click', function(e) {
-          L.DomEvent.stopPropagation(e);
-          if (window.ReactNativeWebView) {
-            window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'SELECT_PIN', id: p.id }));
-          }
-        });
-
-        marker.addTo(markersGroup);
-        currentMarkers[p.id] = marker;
-        bounds.push([p.lat, p.lng]);
+      var map = L.map('map', {
+        zoomControl: false,
+        attributionControl: false,
+        tap: true
       });
 
-      if (bounds.length > 1) {
-        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
-      } else if (bounds.length === 1) {
-        map.setView(bounds[0], 14);
+      var osmUrl = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}';
+      L.tileLayer(osmUrl, {
+        maxZoom: 19,
+        attribution: ''
+      }).addTo(map);
+
+      function triggerInvalidate() {
+        if (map) {
+          map.invalidateSize();
+        }
       }
+      setTimeout(triggerInvalidate, 50);
+      setTimeout(triggerInvalidate, 200);
+      setTimeout(triggerInvalidate, 600);
+      setTimeout(triggerInvalidate, 1500);
+      window.addEventListener('resize', triggerInvalidate);
+      window.triggerInvalidate = triggerInvalidate;
+
+      var markersGroup = L.featureGroup().addTo(map);
+      var currentMarkers = {};
+      var rawPins = ${pinsData};
+
+      function renderPins(pins, selectedId) {
+        markersGroup.clearLayers();
+        currentMarkers = {};
+
+        if (!pins || pins.length === 0) {
+          map.setView([10.8231, 106.6297], 13);
+          return;
+        }
+
+        var bounds = [];
+        pins.forEach(function(p) {
+          var isSel = (p.id === selectedId);
+          var badgeHtml = p.count > 1 ? '<span class="photo-pin-badge">+' + p.count + '</span>' : '';
+          var html = '<div class="photo-pin-marker" id="pin-' + p.id + '">' +
+                     '  <div class="photo-pin-bubble ' + (isSel ? 'selected' : '') + '">' +
+                     '    <img class="photo-pin-img" src="' + p.thumbUrl + '" onerror="this.src=\\'data:image/svg+xml;utf8,<svg xmlns=\\\'http://www.w3.org/2000/svg\\\' width=\\\'44\\\' height=\\\'44\\\'><rect width=\\\'44\\\' height=\\\'44\\\' fill=\\\'%2394a3b8\\\'/></svg>\\'" />' +
+                     badgeHtml +
+                     '  </div>' +
+                     '  <div class="photo-pin-tail"></div>' +
+                     '</div>';
+
+          var icon = L.divIcon({
+            html: html,
+            className: 'custom-pin-container',
+            iconSize: [44, 50],
+            iconAnchor: [22, 50]
+          });
+
+          var marker = L.marker([p.lat, p.lng], { icon: icon });
+          marker.on('click', function(e) {
+            L.DomEvent.stopPropagation(e);
+            if (window.ReactNativeWebView) {
+              window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'SELECT_PIN', id: p.id }));
+            }
+          });
+
+          marker.addTo(markersGroup);
+          currentMarkers[p.id] = marker;
+          bounds.push([p.lat, p.lng]);
+        });
+
+        if (bounds.length > 1) {
+          map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+        } else if (bounds.length === 1) {
+          map.setView(bounds[0], 14);
+        }
+      }
+
+      function selectPin(id) {
+        document.querySelectorAll('.photo-pin-bubble').forEach(function(el) {
+          el.classList.remove('selected');
+        });
+        if (!id) return;
+        var target = document.getElementById('pin-' + id);
+        if (target) {
+          var bubble = target.querySelector('.photo-pin-bubble');
+          if (bubble) bubble.classList.add('selected');
+        }
+        if (currentMarkers[id]) {
+          map.panTo(currentMarkers[id].getLatLng(), { animate: true, duration: 0.4 });
+        }
+      }
+
+      function recenter() {
+        if (markersGroup.getLayers().length > 0) {
+          map.fitBounds(markersGroup.getBounds(), { padding: [50, 50], maxZoom: 15 });
+        } else {
+          map.setView([10.8231, 106.6297], 13);
+        }
+      }
+
+      window.renderPins = renderPins;
+      window.selectPin = selectPin;
+      window.recenter = recenter;
+
+      renderPins(rawPins, null);
     }
-
-    function selectPin(id) {
-      document.querySelectorAll('.photo-pin-bubble').forEach(function(el) {
-        el.classList.remove('selected');
-      });
-      if (!id) return;
-      var target = document.getElementById('pin-' + id);
-      if (target) {
-        var bubble = target.querySelector('.photo-pin-bubble');
-        if (bubble) bubble.classList.add('selected');
-      }
-      if (currentMarkers[id]) {
-        map.panTo(currentMarkers[id].getLatLng(), { animate: true, duration: 0.4 });
-      }
-    }
-
-    function recenter() {
-      if (markersGroup.getLayers().length > 0) {
-        map.fitBounds(markersGroup.getBounds(), { padding: [50, 50], maxZoom: 15 });
-      } else {
-        map.setView([10.8231, 106.6297], 13);
-      }
-    }
-
-    window.renderPins = renderPins;
-    window.selectPin = selectPin;
-    window.recenter = recenter;
-
-    renderPins(rawPins, null);
+    startMap();
   </script>
 </body>
 </html>`;
@@ -1052,35 +1059,7 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
                         />
                       )}
 
-                      {/* Stacked Back Layers for "dày dày" Look (nếu > 1 ảnh) */}
-                      {isMultiple && (
-                        <>
-                          <View
-                            style={[
-                              styles.stackLayerBack,
-                              {
-                                width: cellWidth - 3,
-                                height: cellWidth - 3,
-                                backgroundColor: isDark ? '#2c2c2e' : '#d2d2d7',
-                                borderColor: colors.hairline,
-                              },
-                            ]}
-                          />
-                          <View
-                            style={[
-                              styles.stackLayerMid,
-                              {
-                                width: cellWidth - 1,
-                                height: cellWidth - 1,
-                                backgroundColor: isDark ? '#3a3a3c' : '#e5e5ea',
-                                borderColor: colors.hairline,
-                              },
-                            ]}
-                          />
-                        </>
-                      )}
-
-                      {/* Foreground Top Photo Thumbnail */}
+                      {/* Foreground Top Photo Thumbnail - nằm vừa khung giống ảnh đơn */}
                       <View
                         style={[
                           styles.dayPhotoForeground,
@@ -1111,11 +1090,6 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
                           </View>
                         )}
 
-                        {/* Day Number Overlay at Bottom Left */}
-                        <View style={styles.dayNumTag}>
-                          <Text style={styles.dayNumTagText}>{dayItem.day}</Text>
-                        </View>
-
                         {/* Streak Mini Flame Indicator at Top Left */}
                         {isPartOfStreak && (
                           <View style={[styles.streakDayTag, { backgroundColor: colors.primary }]}>
@@ -1123,7 +1097,7 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
                           </View>
                         )}
 
-                        {/* Multiple Photos Badge: "+5" (Nền tối trung tính, bỏ viền xanh thừa ở nhiều ảnh) */}
+                        {/* Multiple Photos Badge: "+5" */}
                         {isMultiple && (
                           <View style={[styles.multipleBadge, { backgroundColor: isDark ? 'rgba(0,0,0,0.75)' : 'rgba(30,30,30,0.85)' }]}>
                             <Text style={[styles.multipleBadgeText, { color: '#FFFFFF' }]}>

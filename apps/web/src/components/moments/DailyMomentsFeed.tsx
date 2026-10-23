@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   Smile,
   X,
+  Calendar,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useLanguageStore } from '@/stores/language.store';
@@ -27,6 +28,7 @@ import {
 import { CreateMomentModal } from './CreateMomentModal';
 import { MomentReactorsModal } from './MomentReactorsModal';
 import { MomentPipView } from './MomentPipView';
+import { MomentHistoryView } from './MomentHistoryView';
 import { parseMomentPhotos } from '@/lib/moment-photos';
 import { MomentEntity } from '@circle/types';
 import { Emoji } from '@/components/ui/Emoji';
@@ -46,6 +48,7 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
   const targetCircleId = circleId || activeCircleStore?.id;
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isHistoryViewActive, setIsHistoryViewActive] = useState(false);
   const [photoReplyAuthor, setPhotoReplyAuthor] = useState<string | null>(null);
   const [photoReplyCircleId, setPhotoReplyCircleId] = useState<string | undefined>(undefined);
   const [reactorsModalMoment, setReactorsModalMoment] = useState<MomentEntity | null>(null);
@@ -133,6 +136,62 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
       return '';
     }
   };
+
+  if (isHistoryViewActive) {
+    return (
+      <div className="flex-1 w-full h-full flex flex-col relative overflow-hidden bg-white dark:bg-circle-dark-surface">
+        <MomentHistoryView
+          allCircleMoments={moments}
+          onClose={() => setIsHistoryViewActive(false)}
+        />
+
+        {/* Floating Dock Bar in History Mode */}
+        <div className="absolute bottom-6 inset-x-0 flex justify-center z-30 pointer-events-none">
+          <div className="pointer-events-auto flex items-center gap-2 p-1.5 rounded-full bg-white/90 dark:bg-circle-dark-surface/90 backdrop-blur-md border border-circle-hairline dark:border-circle-dark-hairline shadow-2xl">
+            {/* Active History indicator button: click to return to feed */}
+            <button
+              type="button"
+              onClick={() => setIsHistoryViewActive(false)}
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-circle-primary/15 text-circle-primary transition-all active:scale-95"
+              title={locale === 'vi' ? 'Quay lại Bảng tin' : 'Back to Feed'}
+            >
+              <Calendar className="h-5 w-5" />
+            </button>
+
+            {/* Camera Shutter */}
+            <button
+              type="button"
+              onClick={() => {
+                setPhotoReplyAuthor(null);
+                setPhotoReplyCircleId(undefined);
+                setIsCreateOpen(true);
+              }}
+              className="flex h-12 w-12 items-center justify-center rounded-full bg-circle-charcoal dark:bg-circle-primary text-white dark:text-circle-charcoal shadow-md hover:scale-110 active:scale-95 transition-transform"
+              title={t.moments.sendMomentBtn}
+            >
+              <Camera className="h-6 w-6 stroke-[2]" />
+            </button>
+          </div>
+        </div>
+
+        {/* Realtime Camera Capture Modal */}
+        <CreateMomentModal
+          isOpen={isCreateOpen}
+          circleId={photoReplyCircleId || targetCircleId || undefined}
+          replyingToAuthor={photoReplyAuthor}
+          onClearReplyingToAuthor={() => {
+            setPhotoReplyAuthor(null);
+            setPhotoReplyCircleId(undefined);
+          }}
+          onClose={() => {
+            setIsCreateOpen(false);
+            setPhotoReplyAuthor(null);
+            setPhotoReplyCircleId(undefined);
+          }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 w-full h-full overflow-y-auto snap-y snap-mandatory custom-scrollbar scroll-smooth flex flex-col relative bg-white dark:bg-circle-dark-surface">
@@ -482,20 +541,33 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
         </div>
       ) : null}
 
-      {/* Sticky Floating Round Camera Shutter Button in Horizontal Center of Column 2 */}
+      {/* Sticky Floating Dock in Horizontal Center of Column 2 */}
       <div className="sticky bottom-6 inset-x-0 flex justify-center z-30 pointer-events-none pb-2 mt-auto">
-        <button
-          type="button"
-          onClick={() => {
-            setPhotoReplyAuthor(null);
-            setPhotoReplyCircleId(undefined);
-            setIsCreateOpen(true);
-          }}
-          className="pointer-events-auto flex h-14 w-14 items-center justify-center rounded-full bg-circle-charcoal dark:bg-circle-primary text-white dark:text-circle-charcoal shadow-2xl hover:scale-110 active:scale-95 transition-transform"
-          title={t.moments.sendMomentBtn}
-        >
-          <Camera className="h-6 w-6 stroke-[2]" />
-        </button>
+        <div className="pointer-events-auto flex items-center gap-2 p-1.5 rounded-full bg-white/90 dark:bg-circle-dark-surface/90 backdrop-blur-md border border-circle-hairline dark:border-circle-dark-hairline shadow-2xl">
+          {/* Lịch sử khoảnh khắc (History) */}
+          <button
+            type="button"
+            onClick={() => setIsHistoryViewActive(true)}
+            className="flex h-11 w-11 items-center justify-center rounded-full text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white hover:bg-circle-wash dark:hover:bg-circle-dark-canvas transition-all active:scale-95"
+            title={locale === 'vi' ? 'Lịch sử khoảnh khắc' : 'Moment History'}
+          >
+            <Calendar className="h-5 w-5" />
+          </button>
+
+          {/* Camera Shutter */}
+          <button
+            type="button"
+            onClick={() => {
+              setPhotoReplyAuthor(null);
+              setPhotoReplyCircleId(undefined);
+              setIsCreateOpen(true);
+            }}
+            className="flex h-12 w-12 items-center justify-center rounded-full bg-circle-charcoal dark:bg-circle-primary text-white dark:text-circle-charcoal shadow-md hover:scale-110 active:scale-95 transition-transform"
+            title={t.moments.sendMomentBtn}
+          >
+            <Camera className="h-6 w-6 stroke-[2]" />
+          </button>
+        </div>
       </div>
 
       {/* Realtime Camera & Short Video Capture Modal */}
