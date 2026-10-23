@@ -11,6 +11,7 @@ import {
   Send,
   CheckCircle2,
   Smile,
+  X,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useLanguageStore } from '@/stores/language.store';
@@ -45,9 +46,17 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
   const targetCircleId = circleId || activeCircleStore?.id;
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [photoReplyAuthor, setPhotoReplyAuthor] = useState<string | null>(null);
+  const [photoReplyCircleId, setPhotoReplyCircleId] = useState<string | undefined>(undefined);
   const [reactorsModalMoment, setReactorsModalMoment] = useState<MomentEntity | null>(null);
   const [swappedMoments, setSwappedMoments] = useState<Record<string, boolean>>({});
   const [viewerPipCorners, setViewerPipCorners] = useState<Record<string, number>>({});
+
+  const handleReplyWithPhoto = (authorName: string, momentCircleId?: string) => {
+    setPhotoReplyAuthor(authorName);
+    setPhotoReplyCircleId(momentCircleId || targetCircleId || undefined);
+    setIsCreateOpen(true);
+  };
 
   // Queries
   const { data: feedMoments = [], isLoading: isLoadingFeed } = useMomentsFeedQuery();
@@ -269,10 +278,10 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
                       {/* Gradient Overlay for Caption readability */}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
 
-                      {/* Caption Overlay */}
+                      {/* Caption Overlay - z-30 to stay above PiP */}
                       {moment.caption && (
-                        <div className="absolute bottom-3 inset-x-3 flex justify-center pointer-events-none z-10">
-                          <div className="bg-black/70 backdrop-blur-md text-white text-xs sm:text-sm font-medium px-4 py-2 rounded-2xl max-w-[92%] text-center border border-white/15 shadow-md">
+                        <div className="absolute bottom-3 inset-x-3 flex justify-center pointer-events-none z-30">
+                          <div className="bg-black/70 backdrop-blur-md text-white text-xs sm:text-sm font-semibold px-4 py-2 rounded-2xl max-w-[92%] text-center border border-white/15 shadow-md">
                             {moment.caption}
                           </div>
                         </div>
@@ -281,18 +290,49 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
                   </div>
 
                   {/* Bottom Reactions & Reply Dock (Padded) */}
-                  <div className="space-y-2 pt-1 px-4 sm:px-6">
-                  <div className="flex items-center justify-between">
-                    {/* If Author: Show top 5 reactors avatar stack with small emoji badge + total count, clicking opens list modal */}
-                    {isAuthor ? (
-                      <button
-                        type="button"
-                        onClick={() => setReactorsModalMoment(moment)}
-                        className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-circle-canvas/80 dark:bg-circle-dark-canvas/80 border border-circle-hairline dark:border-circle-dark-hairline hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-all group"
-                        title={locale === 'vi' ? 'Xem danh sách người thả cảm xúc' : 'View reactions'}
-                      >
-                        {moment.reactions && moment.reactions.length > 0 ? (
-                          <>
+                  <div className="space-y-2 pt-1 px-2 sm:px-3">
+                    <div className="flex items-center justify-between gap-2">
+                      {/* LEFT: Reply Into Chat + Reply With Photo (Icon-only, no background pill) */}
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setExpandedReplyId((prev) => (prev === moment.id ? null : moment.id))
+                          }
+                          className={`p-2 transition-all ${
+                            expandedReplyId === moment.id
+                              ? 'text-circle-primary scale-110'
+                              : 'text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white'
+                          }`}
+                          title={t.moments.replyButton || 'Phản hồi'}
+                        >
+                          <MessageCircle className="h-5 w-5" />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleReplyWithPhoto(
+                              authorName,
+                              moment.visibilities?.[0]?.circleId || targetCircleId,
+                            )
+                          }
+                          className="p-2 text-circle-slate dark:text-circle-dark-muted hover:text-circle-primary transition-colors"
+                          title="Đáp lại bằng ảnh"
+                        >
+                          <Camera className="h-5 w-5" />
+                        </button>
+                      </div>
+
+                      {/* RIGHT: Author Reactors List OR Quick Reactions (no background pill) */}
+                      {isAuthor ? (
+                        moment.reactions && moment.reactions.length > 0 ? (
+                          <button
+                            type="button"
+                            onClick={() => setReactorsModalMoment(moment)}
+                            className="flex items-center transition-transform hover:scale-105 active:scale-95 group shrink-0"
+                            title={locale === 'vi' ? 'Xem danh sách người thả cảm xúc' : 'View reactions'}
+                          >
                             <div className="flex items-center -space-x-2 overflow-hidden py-0.5">
                               {moment.reactions.slice(0, 5).map((r, idx) => (
                                 <div
@@ -316,109 +356,107 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
                                   </div>
                                 </div>
                               ))}
+
+                              {/* Vòng tròn +N nếu có trên 5 người thả cảm xúc */}
+                              {moment.reactions.length > 5 && (
+                                <div
+                                  className="relative inline-block"
+                                  style={{ zIndex: 4 }}
+                                >
+                                  <div className="h-6 w-6 rounded-full border-2 border-white dark:border-circle-dark-surface bg-circle-canvas dark:bg-circle-dark-canvas text-circle-charcoal dark:text-circle-dark-text text-[8.5px] font-bold flex items-center justify-center shrink-0 shadow-sm">
+                                    +{moment.reactions.length - 5}
+                                  </div>
+                                </div>
+                              )}
                             </div>
-                            <span className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text pl-1 group-hover:text-circle-primary transition-colors">
-                              {moment.reactions.length} {locale === 'vi' ? 'cảm xúc' : 'reactions'}
-                            </span>
-                          </>
-                        ) : (
-                          <div className="flex items-center gap-1.5 text-xs text-circle-slate dark:text-circle-dark-muted font-medium">
-                            <span>❤️</span>
-                            <span>{locale === 'vi' ? 'Chưa có cảm xúc' : 'No reactions yet'}</span>
-                          </div>
-                        )}
-                      </button>
-                    ) : (
-                      <div className="flex items-center gap-1.5 bg-circle-canvas/60 dark:bg-circle-dark-canvas/60 p-1.5 rounded-full border border-circle-hairline dark:border-circle-dark-hairline">
-                        {EMOJI_OPTIONS.map((emoji) => {
-                          const isSelected = moment.userReaction === emoji;
-
-                        return (
-                          <button
-                            key={emoji}
-                            type="button"
-                            onClick={() => handleReact(moment.id, emoji)}
-                            className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-sm transition-all active:scale-125 ${
-                              isSelected
-                                ? 'bg-circle-primary/20 border border-circle-primary/50 text-circle-sage dark:text-circle-primary scale-105 shadow-sm'
-                                : 'hover:bg-circle-wash dark:hover:bg-circle-dark-wash opacity-80 hover:opacity-100'
-                            }`}
-                            title={emoji}
-                          >
-                            <Emoji emoji={emoji} size={18} />
                           </button>
-                        );
-                      })}
-                      <button
-                        type="button"
-                        onClick={() => setFullEmojiTargetMomentId(moment.id)}
-                        className="flex items-center justify-center h-7 w-7 rounded-full text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash hover:text-circle-charcoal dark:hover:text-white transition-colors"
-                        title="Thêm biểu cảm khác"
-                      >
-                        <Smile className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  )}
-
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setExpandedReplyId((prev) => (prev === moment.id ? null : moment.id))
-                        }
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                          expandedReplyId === moment.id
-                            ? 'bg-circle-primary text-circle-charcoal'
-                            : 'bg-circle-canvas/80 dark:bg-circle-dark-canvas/80 text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash border border-circle-hairline dark:border-circle-dark-hairline'
-                        }`}
-                      >
-                        <MessageCircle className="h-3.5 w-3.5" />
-                        <span>{t.moments.replyButton || 'Phản hồi'}</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Expanded Quick Reply Form */}
-                  {expandedReplyId === moment.id && (
-                    <div className="pt-2 animate-fade-in">
-                      {replySuccessMap[moment.id] ? (
-                        <div className="flex items-center justify-center gap-2 py-2 px-3 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl text-emerald-600 dark:text-emerald-400 text-xs font-medium">
-                          <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
-                          <span>{t.moments.replySuccess || 'Đã gửi phản hồi vào khung chat của Vòng tròn!'}</span>
-                        </div>
+                        ) : null
                       ) : (
-                        <form
-                          onSubmit={(e) => {
-                            e.preventDefault();
-                            const primaryCircleId =
-                              moment.visibilities?.[0]?.circleId || targetCircleId || '';
-                            handleSendFeedReply(moment.id, primaryCircleId);
-                          }}
-                          className="flex items-center gap-2 bg-circle-canvas/90 dark:bg-circle-dark-canvas/90 rounded-2xl p-1.5 border border-circle-hairline dark:border-circle-dark-hairline focus-within:border-circle-primary transition-colors"
-                        >
-                          <input
-                            type="text"
-                            value={replyTexts[moment.id] || ''}
-                            onChange={(e) =>
-                              setReplyTexts((prev) => ({ ...prev, [moment.id]: e.target.value }))
-                            }
-                            placeholder={t.moments.replyPlaceholder || 'Gửi tin nhắn phản hồi vào nhóm chat...'}
-                            maxLength={2000}
-                            className="flex-1 bg-transparent px-3 py-1 text-xs text-circle-charcoal dark:text-circle-dark-text placeholder:text-circle-slate dark:placeholder:text-circle-dark-muted focus:outline-none min-w-0"
-                          />
+                        <div className="flex items-center gap-1 shrink-0">
+                          {(moment.userReaction && !EMOJI_OPTIONS.includes(moment.userReaction)
+                            ? [...EMOJI_OPTIONS, moment.userReaction]
+                            : EMOJI_OPTIONS
+                          ).map((emoji) => {
+                            const isSelected = moment.userReaction === emoji;
+
+                            return (
+                              <button
+                                key={emoji}
+                                type="button"
+                                onClick={() => handleReact(moment.id, emoji)}
+                                className={`p-1 text-sm transition-all active:scale-125 ${
+                                  isSelected
+                                    ? 'scale-125'
+                                    : 'opacity-70 hover:opacity-100'
+                                }`}
+                                title={emoji}
+                              >
+                                <Emoji emoji={emoji} size={18} />
+                              </button>
+                            );
+                          })}
                           <button
-                            type="submit"
-                            disabled={!replyTexts[moment.id]?.trim() || replyMutation.isPending}
-                            className="p-2 rounded-xl bg-circle-primary text-circle-charcoal disabled:opacity-40 hover:scale-105 active:scale-95 transition-all shrink-0 shadow-sm"
-                            title={t.moments.replyButton || 'Gửi'}
+                            type="button"
+                            onClick={() => setFullEmojiTargetMomentId(moment.id)}
+                            className="p-1 text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white transition-colors"
+                            title="Thêm biểu cảm khác"
                           >
-                            <Send className="h-3.5 w-3.5 stroke-[2.5]" />
+                            <Smile className="h-4 w-4" />
                           </button>
-                        </form>
+                        </div>
                       )}
                     </div>
-                  )}
-                </div>
+
+                    {/* Expanded Quick Reply Form */}
+                    {expandedReplyId === moment.id && (
+                      <div className="pt-2 animate-fade-in">
+                        {replySuccessMap[moment.id] ? (
+                          <div className="flex items-center justify-center gap-2 py-2 px-3 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl text-emerald-600 dark:text-emerald-400 text-xs font-medium">
+                            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
+                            <span>{t.moments.replySuccess || 'Đã gửi phản hồi vào khung chat của Vòng tròn!'}</span>
+                          </div>
+                        ) : (
+                          <form
+                            onSubmit={(e) => {
+                              e.preventDefault();
+                              const primaryCircleId =
+                                moment.visibilities?.[0]?.circleId || targetCircleId || '';
+                              handleSendFeedReply(moment.id, primaryCircleId);
+                            }}
+                            className="flex items-center gap-2 bg-circle-canvas/90 dark:bg-circle-dark-canvas/90 rounded-2xl p-1.5 border border-circle-hairline dark:border-circle-dark-hairline focus-within:border-circle-primary transition-colors"
+                          >
+                            <input
+                              type="text"
+                              value={replyTexts[moment.id] || ''}
+                              onChange={(e) =>
+                                setReplyTexts((prev) => ({ ...prev, [moment.id]: e.target.value }))
+                              }
+                              placeholder={`Phản hồi ${authorName}...`}
+                              maxLength={2000}
+                              autoFocus
+                              className="flex-1 bg-transparent px-3 py-1 text-xs text-circle-charcoal dark:text-circle-dark-text placeholder:text-circle-slate dark:placeholder:text-circle-dark-muted focus:outline-none min-w-0"
+                            />
+                            <button
+                              type="submit"
+                              disabled={!replyTexts[moment.id]?.trim() || replyMutation.isPending}
+                              className="p-2 rounded-xl bg-circle-primary text-circle-charcoal disabled:opacity-40 hover:scale-105 active:scale-95 transition-all shrink-0 shadow-sm"
+                              title={t.moments.replyButton || 'Gửi'}
+                            >
+                              <Send className="h-3.5 w-3.5 stroke-[2.5]" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setExpandedReplyId(null)}
+                              className="p-1.5 text-circle-slate hover:text-circle-charcoal dark:text-circle-dark-muted dark:hover:text-white rounded-lg transition-colors"
+                              title="Đóng"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </form>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </article>
             );
@@ -448,7 +486,11 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
       <div className="sticky bottom-6 inset-x-0 flex justify-center z-30 pointer-events-none pb-2 mt-auto">
         <button
           type="button"
-          onClick={() => setIsCreateOpen(true)}
+          onClick={() => {
+            setPhotoReplyAuthor(null);
+            setPhotoReplyCircleId(undefined);
+            setIsCreateOpen(true);
+          }}
           className="pointer-events-auto flex h-14 w-14 items-center justify-center rounded-full bg-circle-charcoal dark:bg-circle-primary text-white dark:text-circle-charcoal shadow-2xl hover:scale-110 active:scale-95 transition-transform"
           title={t.moments.sendMomentBtn}
         >
@@ -459,8 +501,17 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
       {/* Realtime Camera & Short Video Capture Modal */}
       <CreateMomentModal
         isOpen={isCreateOpen}
-        circleId={targetCircleId || undefined}
-        onClose={() => setIsCreateOpen(false)}
+        circleId={photoReplyCircleId || targetCircleId || undefined}
+        replyingToAuthor={photoReplyAuthor}
+        onClearReplyingToAuthor={() => {
+          setPhotoReplyAuthor(null);
+          setPhotoReplyCircleId(undefined);
+        }}
+        onClose={() => {
+          setIsCreateOpen(false);
+          setPhotoReplyAuthor(null);
+          setPhotoReplyCircleId(undefined);
+        }}
       />
 
       {/* Moment Reactors List Modal */}

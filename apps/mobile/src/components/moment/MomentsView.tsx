@@ -71,6 +71,7 @@ import {
   Minimize2,
   MapPin,
   Trash2,
+  Smile,
 } from 'lucide-react-native';
 import { useThemeStore } from '../../stores/theme.store';
 import { useLanguageStore } from '../../stores/language.store';
@@ -87,7 +88,9 @@ import { getItem, setItem } from '../../services/storage';
 import { uploadMobileMedia } from '../../services/storage-upload.service';
 import { resolveMobileMediaUrl } from '../../services/api';
 import { Emoji } from '../ui/Emoji';
+import { FullEmojiPickerModal } from '../ui/FullEmojiPickerModal';
 import { MomentHistoryView, resolveMomentLocation } from './MomentHistoryView';
+import { PROMINENT_QUICK_EMOJIS } from '@circle/shared';
 
 
 const { width: SCREEN_WIDTH, height: WINDOW_HEIGHT } = Dimensions.get('window');
@@ -519,6 +522,7 @@ interface MomentFeedCardItemProps {
   onCancelChatReply: () => void;
   onSelectReactors: (moment: any) => void;
   onReactMoment: (momentId: string, emoji: string) => void;
+  onOpenFullEmoji?: (momentId: string) => void;
 }
 
 const MomentFeedCardItem: React.FC<MomentFeedCardItemProps> = React.memo(({
@@ -546,6 +550,7 @@ const MomentFeedCardItem: React.FC<MomentFeedCardItemProps> = React.memo(({
   onCancelChatReply,
   onSelectReactors,
   onReactMoment,
+  onOpenFullEmoji,
 }) => {
   const authorName = resolveAuthorDisplayName(
     m.authorId || m.author?.id || m.userId || m.user?.id,
@@ -688,94 +693,93 @@ const MomentFeedCardItem: React.FC<MomentFeedCardItemProps> = React.memo(({
 
         {/* Card Bottom: Reply Into Chat + Reply With Photo + Quick Emoji Reactions */}
         <View style={[styles.momentFeedFooter, { borderTopColor: colors.hairline }]}>
-          <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+          <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
             <TouchableOpacity
-              activeOpacity={0.75}
+              activeOpacity={0.7}
               onPress={() => onOpenChatReply(m.id, authorName)}
               style={[
-                styles.replyWithPhotoBtn,
-                {
-                  backgroundColor: isReplyingThisMoment ? `${colors.primary}25` : colors.wash,
-                  borderColor: isReplyingThisMoment ? colors.primary : 'transparent',
-                  borderWidth: isReplyingThisMoment ? 1 : 0,
-                },
+                styles.replyIconOnlyBtn,
+                isReplyingThisMoment ? { backgroundColor: `${colors.primary}25`, borderRadius: 16 } : null,
               ]}
+              accessibilityLabel="Phản hồi"
             >
-              <MessageCircle size={14} color={isReplyingThisMoment ? colors.primary : colors.text} />
-              <Text style={[styles.replyWithPhotoText, { color: isReplyingThisMoment ? colors.primary : colors.text }]}>
-                Phản hồi
-              </Text>
+              <MessageCircle size={19} color={isReplyingThisMoment ? colors.primary : colors.text} />
             </TouchableOpacity>
 
             <TouchableOpacity
-              activeOpacity={0.75}
+              activeOpacity={0.7}
               onPress={() => onReplyWithPhoto(authorName)}
-              style={[styles.replyWithPhotoBtn, { backgroundColor: colors.wash }]}
+              style={styles.replyIconOnlyBtn}
+              accessibilityLabel="Đáp lại bằng ảnh"
             >
-              <Camera size={14} color={colors.primary} />
-              <Text style={[styles.replyWithPhotoText, { color: colors.text }]}>
-                Ảnh
-              </Text>
+              <Camera size={19} color={colors.primary} />
             </TouchableOpacity>
           </View>
 
           {isAuthor ? (
-            <TouchableOpacity
-              activeOpacity={0.75}
-              onPress={() => onSelectReactors(m)}
-              style={[styles.authorReactorsBtn, { backgroundColor: colors.wash }]}
-            >
-              {m.reactions && m.reactions.length > 0 ? (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <View style={styles.authorAvatarStack}>
-                    {m.reactions.slice(0, 5).map((r: any, idx: number) => {
-                      const reactorAvatar = r.user?.avatarUrl;
-                      const reactorName = r.user?.displayName || 'User';
+            m.reactions && m.reactions.length > 0 ? (
+              <TouchableOpacity
+                activeOpacity={0.75}
+                onPress={() => onSelectReactors(m)}
+                style={styles.authorReactorsBtn}
+              >
+                <View style={styles.authorAvatarStack}>
+                  {m.reactions.slice(0, 5).map((r: any, idx: number) => {
+                    const reactorAvatar = r.user?.avatarUrl;
+                    const reactorName = r.user?.displayName || 'User';
 
-                      return (
-                        <View
-                          key={r.id || idx}
-                          style={[
-                            styles.authorStackItem,
-                            { marginLeft: idx === 0 ? 0 : -8, zIndex: 10 - idx },
-                          ]}
-                        >
-                          <View style={[styles.authorStackAvatar, { backgroundColor: colors.primary }]}>
-                            {reactorAvatar ? (
-                              <RNImage
-                                source={{ uri: resolveMobileMediaUrl(reactorAvatar) }}
-                                style={styles.authorStackAvatarImg}
-                              />
-                            ) : (
-                              <Text style={styles.authorStackAvatarText}>
-                                {getInitials(reactorName)}
-                              </Text>
-                            )}
-                          </View>
-                          {/* Small circular badge at bottom-right of avatar with emoji */}
-                          <View style={[styles.authorStackEmojiBadge, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
-                            <Text style={styles.authorStackEmojiText}>{r.emoji}</Text>
-                          </View>
+                    return (
+                      <View
+                        key={r.id || idx}
+                        style={[
+                          styles.authorStackItem,
+                          { marginLeft: idx === 0 ? 0 : -8, zIndex: 10 - idx },
+                        ]}
+                      >
+                        <View style={[styles.authorStackAvatar, { backgroundColor: colors.primary }]}>
+                          {reactorAvatar ? (
+                            <RNImage
+                              source={{ uri: resolveMobileMediaUrl(reactorAvatar) }}
+                              style={styles.authorStackAvatarImg}
+                            />
+                          ) : (
+                            <Text style={styles.authorStackAvatarText}>
+                              {getInitials(reactorName)}
+                            </Text>
+                          )}
                         </View>
-                      );
-                    })}
-                  </View>
-                  <Text style={[styles.authorReactorsCountText, { color: colors.text }]}>
-                    {m.reactions.length} {locale === 'vi' ? 'cảm xúc' : 'reactions'}
-                  </Text>
+                        {/* Small circular badge at bottom-right of avatar with emoji */}
+                        <View style={[styles.authorStackEmojiBadge, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+                          <Text style={styles.authorStackEmojiText}>{r.emoji}</Text>
+                        </View>
+                      </View>
+                    );
+                  })}
+
+                  {/* Vòng tròn +N nếu có trên 5 cảm xúc */}
+                  {m.reactions.length > 5 && (
+                    <View
+                      style={[
+                        styles.authorStackItem,
+                        { marginLeft: -8, zIndex: 4 },
+                      ]}
+                    >
+                      <View style={[styles.authorStackAvatar, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+                        <Text style={[styles.authorStackAvatarText, { color: colors.text, fontSize: 8.5 }]}>
+                          +{m.reactions.length - 5}
+                        </Text>
+                      </View>
+                    </View>
+                  )}
                 </View>
-              ) : (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                  <Text style={{ fontSize: 13 }}>❤️</Text>
-                  <Text style={[styles.authorNoReactionsText, { color: colors.subtle }]}>
-                    {locale === 'vi' ? 'Chưa có cảm xúc' : 'No reactions yet'}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
+              </TouchableOpacity>
+            ) : null
           ) : (
             <View style={styles.reactionEmojisBar}>
-              {['❤️', '🔥', '👏', '🥰'].map((emoji) => {
+              {(m.userReaction && !PROMINENT_QUICK_EMOJIS.includes(m.userReaction)
+                ? [...PROMINENT_QUICK_EMOJIS, m.userReaction]
+                : PROMINENT_QUICK_EMOJIS
+              ).map((emoji) => {
                 const isSelected = m.userReaction === emoji;
 
                 return (
@@ -783,19 +787,25 @@ const MomentFeedCardItem: React.FC<MomentFeedCardItemProps> = React.memo(({
                     key={emoji}
                     onPress={() => onReactMoment(m.id, emoji)}
                     activeOpacity={0.7}
-                    style={[
-                      styles.reactionMiniPill,
-                      {
-                        backgroundColor: isSelected ? `${colors.primary}30` : colors.wash,
-                        borderColor: isSelected ? colors.primary : 'transparent',
-                        borderWidth: isSelected ? 1 : 0,
-                      },
-                    ]}
+                    style={{
+                      padding: 4,
+                      transform: [{ scale: isSelected ? 1.25 : 1 }],
+                      opacity: isSelected ? 1 : 0.75,
+                    }}
                   >
-                    <Emoji emoji={emoji} size={18} />
+                    <Emoji emoji={emoji} size={19} />
                   </TouchableOpacity>
                 );
               })}
+
+              <TouchableOpacity
+                onPress={() => onOpenFullEmoji?.(m.id)}
+                activeOpacity={0.7}
+                style={{ padding: 4 }}
+                accessibilityLabel="Thêm biểu cảm khác"
+              >
+                <Smile size={19} color={colors.subtle} />
+              </TouchableOpacity>
             </View>
           )}
         </View>
@@ -987,6 +997,9 @@ export function MomentsView({
   // Reactors List Modal (Author only)
   const [selectedMomentForReactors, setSelectedMomentForReactors] = useState<any | null>(null);
   const [reactorEmojiFilter, setReactorEmojiFilter] = useState<string>('ALL');
+
+  // Full Emoji Picker Modal
+  const [fullEmojiTargetMomentId, setFullEmojiTargetMomentId] = useState<string | null>(null);
 
   // Real Camera Viewfinder States (Moment UI & Dual View)
   const [cameraFacing, setCameraFacing] = useState<CameraType>('front');
@@ -2718,6 +2731,7 @@ export function MomentsView({
         onCancelChatReply={handleCancelChatReply}
         onSelectReactors={handleSelectReactors}
         onReactMoment={handleReactMoment}
+        onOpenFullEmoji={setFullEmojiTargetMomentId}
       />
     );
   }, [
@@ -2769,6 +2783,7 @@ export function MomentsView({
     handleCancelChatReply,
     handleSelectReactors,
     handleReactMoment,
+    setFullEmojiTargetMomentId,
   ]);
 
   return (
@@ -3382,6 +3397,19 @@ export function MomentsView({
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
+
+      {/* Full Emoji Picker for Moments */}
+      <FullEmojiPickerModal
+        visible={Boolean(fullEmojiTargetMomentId)}
+        onClose={() => setFullEmojiTargetMomentId(null)}
+        onSelectEmoji={(emoji) => {
+          if (fullEmojiTargetMomentId) {
+            handleReactMoment(fullEmojiTargetMomentId, emoji);
+            setFullEmojiTargetMomentId(null);
+          }
+        }}
+        title={locale === 'vi' ? 'Thả cảm xúc' : 'React with emoji'}
+      />
 
     </View>
   );
@@ -4037,6 +4065,11 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 2,
   },
+  replyIconOnlyBtn: {
+    padding: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   replyWithPhotoBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -4051,7 +4084,8 @@ const styles = StyleSheet.create({
   },
   reactionEmojisBar: {
     flexDirection: 'row',
-    gap: 6,
+    alignItems: 'center',
+    gap: 4,
   },
   reactionMiniPill: {
     flexDirection: 'row',
@@ -4069,9 +4103,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   authorReactorsBtn: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 14,
+    paddingVertical: 2,
     alignItems: 'center',
     justifyContent: 'center',
   },

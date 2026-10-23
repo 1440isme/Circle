@@ -14,10 +14,10 @@ export interface MomentPipViewProps {
 }
 
 const DEFAULT_FEED_CORNERS: Record<number, string> = {
-  0: 'top-3 left-3',
-  1: 'top-3 right-3',
-  2: 'bottom-3 right-3',
-  3: 'bottom-3 left-3',
+  0: 'top-3 left-3 sm:top-4 sm:left-4',
+  1: 'top-3 right-3 sm:top-4 sm:right-4',
+  2: 'bottom-16 sm:bottom-20 right-3 sm:right-4',
+  3: 'bottom-16 sm:bottom-20 left-3 sm:left-4',
 };
 
 export const MomentPipView: React.FC<MomentPipViewProps> = ({
@@ -26,7 +26,7 @@ export const MomentPipView: React.FC<MomentPipViewProps> = ({
   onSwap,
   onCornerChange,
   cornerClasses = DEFAULT_FEED_CORNERS,
-  sizeClasses = 'w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 rounded-2xl',
+  sizeClasses = 'w-[28%] h-[28%] min-w-[92px] aspect-square rounded-[18px] sm:rounded-[24px]',
   className = '',
 }) => {
   const [currentCorner, setCurrentCorner] = useState<number>(initialCornerIndex % 4);
@@ -142,8 +142,8 @@ export const MomentPipView: React.FC<MomentPipViewProps> = ({
           : undefined,
         touchAction: 'none',
       }}
-      className={`absolute ${cornerPosClass} ${sizeClasses} border-2 border-circle-primary shadow-xl overflow-hidden bg-stone-900 z-20 cursor-grab active:cursor-grabbing select-none group/pip transition-all ${
-        isDragging ? 'shadow-2xl z-30 transition-none' : 'duration-300 ease-out hover:scale-105 active:scale-95'
+      className={`absolute ${cornerPosClass} ${sizeClasses} border-[2.5px] sm:border-[3px] border-circle-primary shadow-xl overflow-hidden bg-stone-900 z-20 cursor-grab active:cursor-grabbing select-none group/pip transition-all ${
+        isDragging ? 'shadow-2xl z-40 transition-none' : 'duration-300 ease-out hover:scale-105 active:scale-95'
       } ${className}`}
       title="Bấm để đổi góc trước / sau, hoặc kéo để đổi vị trí góc"
     >

@@ -369,7 +369,7 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
               pipUrl={displayPip}
               initialCornerIndex={activeCornerIndex}
               cornerClasses={STORY_VIEWER_CORNERS}
-              sizeClasses="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl"
+              sizeClasses="w-[28%] h-[28%] min-w-[92px] aspect-square rounded-[18px] sm:rounded-[24px]"
               onSwap={() => {
                 if (currentMoment) {
                   setSwappedMoments((prev) => ({
@@ -431,54 +431,56 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
 
           {/* Reactions Bar / Author Reactors Stack */}
           {isAuthor ? (
-            <button
-              type="button"
-              onClick={() => {
-                setIsPaused(true);
-                setIsReactorsOpen(true);
-              }}
-              className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/20 transition-all group self-start"
-              title={locale === 'vi' ? 'Xem danh sách người thả cảm xúc' : 'View reactions'}
-            >
-              {currentMoment.reactions && currentMoment.reactions.length > 0 ? (
-                <>
-                  <div className="flex items-center -space-x-2 overflow-hidden py-0.5">
-                    {currentMoment.reactions.slice(0, 5).map((r, idx) => (
-                      <div
-                        key={r.id || idx}
-                        className="relative inline-block"
-                        style={{ zIndex: 10 - idx }}
-                      >
-                        <div className="h-6 w-6 rounded-full border-2 border-white/80 bg-circle-primary text-circle-charcoal text-[9px] font-bold flex items-center justify-center overflow-hidden shrink-0 shadow-sm">
-                          {r.user?.avatarUrl ? (
-                            <img
-                              src={r.user.avatarUrl}
-                              alt={r.user.displayName}
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            <span>{r.user?.displayName?.slice(0, 2).toUpperCase() || 'U'}</span>
-                          )}
-                        </div>
-                        <div className="absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full bg-black/80 border border-white/30 flex items-center justify-center text-[8px] shadow-xs">
-                          {r.emoji}
-                        </div>
+            currentMoment.reactions && currentMoment.reactions.length > 0 ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setIsPaused(true);
+                  setIsReactorsOpen(true);
+                }}
+                className="flex items-center transition-transform hover:scale-105 active:scale-95 group self-start"
+                title={locale === 'vi' ? 'Xem danh sách người thả cảm xúc' : 'View reactions'}
+              >
+                <div className="flex items-center -space-x-2 overflow-hidden py-0.5 px-0.5">
+                  {currentMoment.reactions.slice(0, 5).map((r, idx) => (
+                    <div
+                      key={r.id || idx}
+                      className="relative inline-block"
+                      style={{ zIndex: 10 - idx }}
+                    >
+                      <div className="h-6 w-6 rounded-full border-2 border-white/80 bg-circle-primary text-circle-charcoal text-[9px] font-bold flex items-center justify-center overflow-hidden shrink-0 shadow-sm">
+                        {r.user?.avatarUrl ? (
+                          <img
+                            src={r.user.avatarUrl}
+                            alt={r.user.displayName}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <span>{r.user?.displayName?.slice(0, 2).toUpperCase() || 'U'}</span>
+                        )}
                       </div>
-                    ))}
-                  </div>
-                  <span className="text-xs font-bold text-white pl-1 group-hover:text-circle-primary transition-colors">
-                    {currentMoment.reactions.length} {locale === 'vi' ? 'cảm xúc' : 'reactions'}
-                  </span>
-                </>
-              ) : (
-                <div className="flex items-center gap-1.5 text-xs text-white/70 font-medium">
-                  <span>❤️</span>
-                  <span>{locale === 'vi' ? 'Chưa có cảm xúc' : 'No reactions yet'}</span>
+                      <div className="absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full bg-black/80 border border-white/30 flex items-center justify-center text-[8px] shadow-xs">
+                        {r.emoji}
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Vòng tròn +N nếu lớn hơn 5 cảm xúc */}
+                  {currentMoment.reactions.length > 5 && (
+                    <div
+                      className="relative inline-block"
+                      style={{ zIndex: 4 }}
+                    >
+                      <div className="h-6 w-6 rounded-full border-2 border-white/80 bg-black/50 text-white text-[8.5px] font-bold flex items-center justify-center shrink-0 shadow-sm">
+                        +{currentMoment.reactions.length - 5}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
-            </button>
+              </button>
+            ) : null
           ) : (
-            <div className="flex items-center justify-between gap-1 bg-white/10 backdrop-blur-md rounded-full px-3 py-1.5 border border-white/15">
+            <div className="flex items-center justify-between gap-1">
               {EMOJI_OPTIONS.map((emoji) => {
                 const isSelected = currentMoment.userReaction === emoji;
 
@@ -487,10 +489,10 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
                     key={emoji}
                     type="button"
                     onClick={() => handleReact(emoji)}
-                    className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-base transition-all active:scale-125 ${
+                    className={`p-1.5 rounded-full text-base transition-all active:scale-125 ${
                       isSelected
-                        ? 'bg-circle-primary/30 border border-circle-primary/60 scale-110 shadow-sm'
-                        : 'hover:bg-white/10 opacity-80 hover:opacity-100'
+                        ? 'scale-125'
+                        : 'opacity-80 hover:opacity-100'
                     }`}
                     title={emoji}
                   >
