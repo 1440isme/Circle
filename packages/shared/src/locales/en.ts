@@ -288,6 +288,8 @@ export const en: TranslationDictionary = {
     photoAlbum: 'Memory Album',
     calendarEvents: 'Events & Calendar',
     planningSheet: 'Planning Sheet',
+    liveLocation: 'Live Location',
+    groupPoll: 'Group Poll',
     luckyWheel: 'Lucky Wheel',
     reflectionMailbox: 'Heartfelt Mailbox',
     circleSettings: 'Circle Settings',

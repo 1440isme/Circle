@@ -4621,3 +4621,55 @@
 - **Branch:** `feat/96-circle-utilities-group-tools`
 - **PR:** #97
 
+---
+
+## AI-0131: Triển khai trọn gói Module 7.2 Công cụ Nhóm nâng cao (Bảng kế hoạch cộng tác, Chia sẻ vị trí trực tiếp, Bình chọn nhóm)
+
+- **Date:** 2026-10-23 22:20:00 +07:00
+- **Developer:** Trương Công Bình (MSSV: 23110184)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash
+- **Related Issue:** #98 ([SUB-FEAT]: US-TOOL-002 — Circle Utilities: Planning Sheet, Live Location Sharing & Group Poll (Parent: #21))
+- **Purpose:** Xây dựng trọn gói Full-stack Module 7.2 theo phân công nhiệm vụ Tuần 9 - 10:
+  1. **Collaborative Planning Sheet (UC18):** Quản lý bảng kế hoạch cộng tác dạng bảng tính (Grid Matrix) cho Circle: cột (SheetColumn), hàng (SheetRow), ô (SheetCell); đồng bộ hóa tức thời qua REST API và Socket.IO event `circle:sheet-cell-updated` & `circle:sheet-structure-updated`; giao diện spreadsheet grid tương tác mượt mà trên Web và Mobile.
+  2. **Live Location Sharing (UC19):** Chia sẻ vị trí trực tiếp trong Circle với thời lượng tự ngắt 15p, 30p, 60p; cập nhật tọa độ GPS; cơ chế chủ động ngắt phát sóng; tự động đánh dấu hết hạn; bản đồ radar kỹ thuật số hiển thị vị trí và avatar các thành viên đang phát sóng theo thời gian thực trên Web và Mobile.
+  3. **Group Poll (UC15):** Tạo cuộc bình chọn / thăm dò ý kiến tập thể trong Circle; bỏ phiếu và đổi phiếu bầu trước khi kết thúc; tính toán tỷ lệ % và cập nhật số phiếu theo thời gian thực qua Socket.IO event `circle:poll-voted`.
+- **Prompt Summary:** "project da duoc update moi nhat chua, theo ke hoach thi task tiep theo toi lam gi nhi" -> "ok tien hanh nhe".
+- **Files Affected:**
+  - `apps/backend/prisma/schema.prisma`
+  - `apps/backend/prisma/migrations/20261023150151_add_circle_tools_part2_enhancements/migration.sql`
+  - `packages/types/src/index.ts`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `apps/backend/src/modules/chat/chat.gateway.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.module.ts`
+  - `apps/backend/src/modules/circle-tools/dto/circle-tools.dto.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.controller.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.service.spec.ts`
+  - `apps/web/src/hooks/use-circle-tools.ts`
+  - `apps/web/src/components/tools/CirclePlanningView.tsx`
+  - `apps/web/src/components/tools/CircleLocationView.tsx`
+  - `apps/web/src/components/tools/CirclePollView.tsx`
+  - `apps/web/src/components/navigation/Sidebar.tsx`
+  - `apps/web/src/components/stream/FeedStream.tsx`
+  - `apps/mobile/src/services/circle-tools.service.ts`
+  - `apps/mobile/src/components/tools/MobilePlanningView.tsx`
+  - `apps/mobile/src/components/tools/MobileLocationView.tsx`
+  - `apps/mobile/src/components/tools/MobilePollView.tsx`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `docs/architecture/diagrams/erd.md`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% mã nguồn Prisma migration, shared contracts, NestJS backend service & controller & gateway, unit test suites, React Web components & hooks, React Native Mobile components & navigation.
+- **Human Modifications:** Trương Công Bình phê duyệt kế hoạch, chỉ đạo triển khai Module 7.2 khép lại mốc Tuần 9 – 10 theo đúng phân công nhiệm vụ.
+- **Verification Method:**
+  - `npm test -w @circle/backend`: 11/11 test suites pass, 173/173 tests pass (100%).
+  - `npm run build -w @circle/web`: Next.js production build pass 100% (9/9 static routes).
+  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: 0 TypeScript errors.
+  - `bash ./scripts/check-agent-map.sh`: 95/95 framework files pass (0 broken references).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`, `docs/phan-cong-nhiem-vu.md`, `docs/requirements/SRS.md` (UC15, UC18, UC19).
+- **Security & License Check:** An toàn tuyệt đối, zero base64 storage, zero secrets leaks, phân quyền thành viên và chủ vòng tròn nghiêm ngặt.
+- **Branch:** `feat/98-circle-tools-planning-location-poll`
+- **PR:** Pending
+
+

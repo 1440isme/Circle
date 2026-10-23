@@ -242,11 +242,13 @@ erDiagram
     %% ==========================================
     GroupPoll ||--|{ PollOption : "has_options"
     GroupPoll ||--o{ PollVote : "has_votes"
+    CircleMember ||--o{ GroupPoll : "creates_polls"
     PollOption ||--o{ PollVote : "selected_in"
 
     GroupPoll {
         string id PK
         string circleId FK
+        string createdById FK
         string question
         datetime deadline
         boolean isClosed
