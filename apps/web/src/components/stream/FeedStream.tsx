@@ -24,6 +24,10 @@ import { useCircleStore } from '../../stores/circle.store';
 import { useMyCirclesQuery, useCircleDetailQuery } from '../../hooks/use-circle-queries';
 import { DailyMomentsFeed } from '../moments/DailyMomentsFeed';
 import { ChannelChatView } from '../chat/ChannelChatView';
+import { CircleAlbumsView } from '../tools/CircleAlbumsView';
+import { CircleCalendarView } from '../tools/CircleCalendarView';
+import { CircleWheelView } from '../tools/CircleWheelView';
+import { CircleAnonymousView } from '../tools/CircleAnonymousView';
 
 export const FeedStream: React.FC = () => {
   const { user } = useAuth();
@@ -231,6 +235,14 @@ export const FeedStream: React.FC = () => {
     <main className="flex-1 flex flex-col h-screen max-h-screen overflow-hidden relative min-w-0">
       {activeCircleView === 'moments' ? (
         <DailyMomentsFeed circleId={activeCircle.id} />
+      ) : activeCircleView === 'albums' ? (
+        <CircleAlbumsView circleId={activeCircle.id} />
+      ) : activeCircleView === 'calendar' ? (
+        <CircleCalendarView circleId={activeCircle.id} />
+      ) : activeCircleView === 'wheel' ? (
+        <CircleWheelView circleId={activeCircle.id} />
+      ) : activeCircleView === 'anonymous' ? (
+        <CircleAnonymousView circleId={activeCircle.id} />
       ) : currentChannel ? (
         <ChannelChatView
           key={currentChannel.id}

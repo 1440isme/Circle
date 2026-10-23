@@ -111,6 +111,10 @@ import { PinnedMessagesModal } from '../../src/components/chat/PinnedMessagesMod
 import { Emoji } from '../../src/components/ui/Emoji';
 import { FullEmojiPickerModal } from '../../src/components/ui/FullEmojiPickerModal';
 import { PROMINENT_QUICK_EMOJIS } from '@circle/shared';
+import { MobileAlbumsView } from '../../src/components/tools/MobileAlbumsView';
+import { MobileCalendarView } from '../../src/components/tools/MobileCalendarView';
+import { MobileWheelView } from '../../src/components/tools/MobileWheelView';
+import { MobileAnonymousView } from '../../src/components/tools/MobileAnonymousView';
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -1007,6 +1011,7 @@ export default function CircleWorkspaceScreen() {
   };
 
   const [activeTab, setActiveTab] = useState<WorkspaceTab>('chat');
+  const [selectedTool, setSelectedTool] = useState<'menu' | 'album' | 'calendar' | 'wheel' | 'anonymous'>('menu');
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
   const [messageInput, setMessageInput] = useState('');
   const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
@@ -2506,69 +2511,131 @@ export default function CircleWorkspaceScreen() {
         </View>
 
         {/* TAB 3: TIỆN ÍCH NHÓM */}
-        <View style={{ width: screenWidth, flex: 1 }}>
-          <ScrollView contentContainerStyle={[styles.toolsContainer, { paddingTop: headerHeight + 12 }]} showsVerticalScrollIndicator={false}>
-            <View style={[styles.toolsCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
-              {/* Tool 1: Realtime Voice Stage */}
+        <View style={{ width: screenWidth, flex: 1, paddingTop: headerHeight }}>
+          {selectedTool === 'album' ? (
+            <View style={{ flex: 1 }}>
               <TouchableOpacity
-                activeOpacity={0.7}
-                onPress={() => handleCallComingSoon('audio')}
-                style={[styles.toolRow, { borderBottomColor: colors.hairline }]}
+                onPress={() => setSelectedTool('menu')}
+                style={{ paddingHorizontal: 16, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.hairline }}
               >
-                <Radio size={20} color={colors.text} />
-                <View style={styles.toolInfo}>
-                  <Text style={[styles.toolTitle, { color: colors.text }]}>
-                    {t.nav.groupCall}
-                  </Text>
-                </View>
-                <ChevronRight size={16} color={colors.subtle} />
+                <ArrowLeft size={16} color={colors.text} />
+                <Text style={{ fontSize: 12, fontWeight: '600', color: colors.text }}>Menu Tiện Ích</Text>
               </TouchableOpacity>
-
-              {/* Tool 2: Photo Album */}
-              <View style={[styles.toolRow, { borderBottomColor: colors.hairline }]}>
-                <ImageIcon size={20} color={colors.text} />
-                <View style={styles.toolInfo}>
-                  <Text style={[styles.toolTitle, { color: colors.text }]}>
-                    {t.nav.photoAlbum}
-                  </Text>
-                </View>
-                <ChevronRight size={16} color={colors.subtle} />
-              </View>
-
-              {/* Tool 3: Calendar Events */}
-              <View style={[styles.toolRow, { borderBottomColor: colors.hairline }]}>
-                <Calendar size={20} color={colors.text} />
-                <View style={styles.toolInfo}>
-                  <Text style={[styles.toolTitle, { color: colors.text }]}>
-                    {t.nav.calendarEvents}
-                  </Text>
-                </View>
-                <ChevronRight size={16} color={colors.subtle} />
-              </View>
-
-              {/* Tool 4: Planning Sheet */}
-              <View style={[styles.toolRow, { borderBottomColor: colors.hairline }]}>
-                <FileSpreadsheet size={20} color={colors.text} />
-                <View style={styles.toolInfo}>
-                  <Text style={[styles.toolTitle, { color: colors.text }]}>
-                    {t.nav.planningSheet}
-                  </Text>
-                </View>
-                <ChevronRight size={16} color={colors.subtle} />
-              </View>
-
-              {/* Tool 5: Lucky Wheel */}
-              <View style={[styles.toolRow, { borderBottomColor: 'transparent', borderBottomWidth: 0 }]}>
-                <Sparkles size={20} color={colors.text} />
-                <View style={styles.toolInfo}>
-                  <Text style={[styles.toolTitle, { color: colors.text }]}>
-                    {t.nav.luckyWheel}
-                  </Text>
-                </View>
-                <ChevronRight size={16} color={colors.subtle} />
-              </View>
+              <MobileAlbumsView circleId={circleId} />
             </View>
-          </ScrollView>
+          ) : selectedTool === 'calendar' ? (
+            <View style={{ flex: 1 }}>
+              <TouchableOpacity
+                onPress={() => setSelectedTool('menu')}
+                style={{ paddingHorizontal: 16, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.hairline }}
+              >
+                <ArrowLeft size={16} color={colors.text} />
+                <Text style={{ fontSize: 12, fontWeight: '600', color: colors.text }}>Menu Tiện Ích</Text>
+              </TouchableOpacity>
+              <MobileCalendarView circleId={circleId} />
+            </View>
+          ) : selectedTool === 'wheel' ? (
+            <View style={{ flex: 1 }}>
+              <TouchableOpacity
+                onPress={() => setSelectedTool('menu')}
+                style={{ paddingHorizontal: 16, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.hairline }}
+              >
+                <ArrowLeft size={16} color={colors.text} />
+                <Text style={{ fontSize: 12, fontWeight: '600', color: colors.text }}>Menu Tiện Ích</Text>
+              </TouchableOpacity>
+              <MobileWheelView circleId={circleId} />
+            </View>
+          ) : selectedTool === 'anonymous' ? (
+            <View style={{ flex: 1 }}>
+              <TouchableOpacity
+                onPress={() => setSelectedTool('menu')}
+                style={{ paddingHorizontal: 16, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.hairline }}
+              >
+                <ArrowLeft size={16} color={colors.text} />
+                <Text style={{ fontSize: 12, fontWeight: '600', color: colors.text }}>Menu Tiện Ích</Text>
+              </TouchableOpacity>
+              <MobileAnonymousView circleId={circleId} />
+            </View>
+          ) : (
+            <ScrollView contentContainerStyle={[styles.toolsContainer, { paddingTop: 12 }]} showsVerticalScrollIndicator={false}>
+              <View style={[styles.toolsCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+                {/* Tool 1: Realtime Voice Stage */}
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => handleCallComingSoon('audio')}
+                  style={[styles.toolRow, { borderBottomColor: colors.hairline }]}
+                >
+                  <Radio size={20} color={colors.text} />
+                  <View style={styles.toolInfo}>
+                    <Text style={[styles.toolTitle, { color: colors.text }]}>
+                      {t.nav.groupCall}
+                    </Text>
+                  </View>
+                  <ChevronRight size={16} color={colors.subtle} />
+                </TouchableOpacity>
+
+                {/* Tool 2: Photo Album */}
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => setSelectedTool('album')}
+                  style={[styles.toolRow, { borderBottomColor: colors.hairline }]}
+                >
+                  <ImageIcon size={20} color={colors.text} />
+                  <View style={styles.toolInfo}>
+                    <Text style={[styles.toolTitle, { color: colors.text }]}>
+                      {t.nav.photoAlbum}
+                    </Text>
+                  </View>
+                  <ChevronRight size={16} color={colors.subtle} />
+                </TouchableOpacity>
+
+                {/* Tool 3: Calendar Events */}
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => setSelectedTool('calendar')}
+                  style={[styles.toolRow, { borderBottomColor: colors.hairline }]}
+                >
+                  <Calendar size={20} color={colors.text} />
+                  <View style={styles.toolInfo}>
+                    <Text style={[styles.toolTitle, { color: colors.text }]}>
+                      {t.nav.calendarEvents}
+                    </Text>
+                  </View>
+                  <ChevronRight size={16} color={colors.subtle} />
+                </TouchableOpacity>
+
+                {/* Tool 4: Lucky Wheel */}
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => setSelectedTool('wheel')}
+                  style={[styles.toolRow, { borderBottomColor: colors.hairline }]}
+                >
+                  <Sparkles size={20} color={colors.text} />
+                  <View style={styles.toolInfo}>
+                    <Text style={[styles.toolTitle, { color: colors.text }]}>
+                      {t.nav.luckyWheel}
+                    </Text>
+                  </View>
+                  <ChevronRight size={16} color={colors.subtle} />
+                </TouchableOpacity>
+
+                {/* Tool 5: Anonymous Words Unsaid */}
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => setSelectedTool('anonymous')}
+                  style={[styles.toolRow, { borderBottomColor: 'transparent', borderBottomWidth: 0 }]}
+                >
+                  <Heart size={20} color={colors.text} />
+                  <View style={styles.toolInfo}>
+                    <Text style={[styles.toolTitle, { color: colors.text }]}>
+                      {t.nav.reflectionMailbox}
+                    </Text>
+                  </View>
+                  <ChevronRight size={16} color={colors.subtle} />
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          )}
         </View>
       </ScrollView>
 

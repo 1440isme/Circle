@@ -18,6 +18,7 @@ export * from "./validators/moment.validator";
 export * from "./validators/chat.validator";
 export * from "./validators/storage.validator";
 export * from "./validators/calls.validator";
+export * from "./validators/circle-tools.validator";
 
 // Locales & Bilingual Support (vi, en)
 export * from "./locales";

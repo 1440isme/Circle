@@ -176,7 +176,9 @@ erDiagram
         string id PK
         string momentId FK,UK
         string sharedAlbumId FK
+        string uploaderId FK
         string fileUrl
+        string caption
         int width
         int height
         datetime createdAt
@@ -187,7 +189,9 @@ erDiagram
     SharedAlbum {
         string id PK
         string circleId FK
+        string createdById FK
         string albumTitle
+        string description
         datetime createdAt
         datetime updatedAt
     }
@@ -269,7 +273,10 @@ erDiagram
     DecisionWheel {
         string id PK
         string circleId FK
+        string createdById FK
         string title
+        string lastResult
+        datetime lastSpunAt
         datetime createdAt
     }
 
@@ -284,6 +291,7 @@ erDiagram
         string id PK
         string circleId FK
         string content
+        string cardTheme
         datetime postedAt
     }
 
@@ -293,6 +301,7 @@ erDiagram
         string createdById FK
         string eventTitle
         string description
+        string location
         datetime startTime
         datetime endTime
         datetime reminderTime
