@@ -750,3 +750,193 @@ export interface UpdateCalendarEventInput {
   endTime?: string;
   reminderTime?: string;
 }
+
+// =============================================================================
+// 7. COLLABORATIVE PLANNING SHEET CONTRACTS (UC18)
+// =============================================================================
+
+export interface SheetCellEntity {
+  id: string;
+  rowId: string;
+  columnId: string;
+  cellValue: string;
+  lastEditedById?: string | null;
+  updatedAt: string;
+  lastEditedBy?: {
+    id: string;
+    userId: string;
+    nickname?: string | null;
+    user?: {
+      profile?: {
+        displayName: string;
+        avatarUrl?: string | null;
+      } | null;
+    };
+  } | null;
+}
+
+export interface SheetColumnEntity {
+  id: string;
+  sheetId: string;
+  columnIndex: number;
+  columnTitle: string;
+  createdAt: string;
+}
+
+export interface SheetRowEntity {
+  id: string;
+  sheetId: string;
+  rowIndex: number;
+  createdAt: string;
+  cells: SheetCellEntity[];
+}
+
+export interface PlanningSheetEntity {
+  id: string;
+  circleId: string;
+  createdById: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+  columns: SheetColumnEntity[];
+  rows: SheetRowEntity[];
+  creator?: {
+    id: string;
+    userId: string;
+    nickname?: string | null;
+    user?: {
+      email: string;
+      profile?: {
+        displayName: string;
+        avatarUrl?: string | null;
+      } | null;
+    };
+  };
+}
+
+export interface CreatePlanningSheetInput {
+  title: string;
+  columns?: string[];
+  initialRowCount?: number;
+}
+
+export interface AddSheetColumnInput {
+  columnTitle: string;
+}
+
+export interface AddSheetRowInput {
+  cellValues?: Record<string, string>; // columnId -> cellValue
+}
+
+export interface UpdateSheetCellInput {
+  cellValue: string;
+}
+
+// =============================================================================
+// 8. LIVE LOCATION SHARING CONTRACTS (UC19)
+// =============================================================================
+
+export interface LiveLocationEntity {
+  id: string;
+  circleId: string;
+  memberId: string;
+  latitude: number;
+  longitude: number;
+  shareDuration: number; // in minutes (15, 30, 60)
+  expiresAt: string;
+  isActive: boolean;
+  updatedAt: string;
+  member?: {
+    id: string;
+    userId: string;
+    nickname?: string | null;
+    user?: {
+      id: string;
+      email: string;
+      profile?: {
+        displayName: string;
+        avatarUrl?: string | null;
+      } | null;
+    };
+  };
+}
+
+export interface StartLiveLocationInput {
+  latitude: number;
+  longitude: number;
+  shareDuration: number; // 15 | 30 | 60
+}
+
+export interface UpdateLiveLocationInput {
+  latitude: number;
+  longitude: number;
+}
+
+// =============================================================================
+// 9. GROUP POLL CONTRACTS (UC15)
+// =============================================================================
+
+export interface PollVoteEntity {
+  id: string;
+  pollId: string;
+  optionId: string;
+  memberId: string;
+  votedAt: string;
+  member?: {
+    id: string;
+    userId: string;
+    nickname?: string | null;
+    user?: {
+      profile?: {
+        displayName: string;
+        avatarUrl?: string | null;
+      } | null;
+    };
+  };
+}
+
+export interface PollOptionEntity {
+  id: string;
+  pollId: string;
+  optionText: string;
+  orderIndex: number;
+  voteCount: number;
+  percentage: number;
+  votes?: PollVoteEntity[];
+}
+
+export interface GroupPollEntity {
+  id: string;
+  circleId: string;
+  createdById?: string | null;
+  question: string;
+  deadline?: string | null;
+  isClosed: boolean;
+  createdAt: string;
+  options: PollOptionEntity[];
+  totalVotes: number;
+  userVotedOptionId?: string | null;
+  creator?: {
+    id: string;
+    userId: string;
+    nickname?: string | null;
+    user?: {
+      email: string;
+      profile?: {
+        displayName: string;
+        avatarUrl?: string | null;
+      } | null;
+    };
+  } | null;
+}
+
+export interface CreatePollInput {
+  question: string;
+  options: string[];
+  deadline?: string;
+}
+
+export interface VotePollInput {
+  optionId: string;
+}
+

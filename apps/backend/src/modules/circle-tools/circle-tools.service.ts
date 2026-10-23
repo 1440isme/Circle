@@ -3,8 +3,11 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
+import { ChatGateway } from '../chat/chat.gateway';
 import {
   CreateSharedAlbumDto,
   UpdateSharedAlbumDto,
@@ -13,12 +16,24 @@ import {
   CreateAnonymousPostDto,
   CreateCalendarEventDto,
   UpdateCalendarEventDto,
+  CreatePlanningSheetDto,
+  AddSheetColumnDto,
+  AddSheetRowDto,
+  UpdateSheetCellDto,
+  StartLiveLocationDto,
+  UpdateLiveLocationDto,
+  CreatePollDto,
+  VotePollDto,
 } from './dto/circle-tools.dto';
 import { SpinWheelResult } from '@circle/types';
 
 @Injectable()
 export class CircleToolsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(forwardRef(() => ChatGateway))
+    private readonly chatGateway?: ChatGateway,
+  ) {}
 
   /**
    * Helper: verify that the user is an active member of the specified circle.
@@ -581,4 +596,736 @@ export class CircleToolsService {
 
     return { success: true };
   }
+
+  // ===========================================================================
+  // 5. COLLABORATIVE PLANNING SHEET (UC18)
+  // ===========================================================================
+
+  async getPlanningSheets(circleId: string, userId: string) {
+    await this.getMemberOrThrow(circleId, userId);
+
+    return this.prisma.planningSheet.findMany({
+      where: { circleId },
+      include: {
+        columns: {
+          orderBy: { columnIndex: 'asc' },
+        },
+        rows: {
+          orderBy: { rowIndex: 'asc' },
+          include: {
+            cells: {
+              include: {
+                lastEditedBy: {
+                  include: {
+                    user: {
+                      include: {
+                        profile: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        creator: {
+          include: {
+            user: {
+              include: {
+                profile: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async getPlanningSheetById(circleId: string, sheetId: string, userId: string) {
+    await this.getMemberOrThrow(circleId, userId);
+
+    const sheet = await this.prisma.planningSheet.findFirst({
+      where: { id: sheetId, circleId },
+      include: {
+        columns: {
+          orderBy: { columnIndex: 'asc' },
+        },
+        rows: {
+          orderBy: { rowIndex: 'asc' },
+          include: {
+            cells: {
+              include: {
+                lastEditedBy: {
+                  include: {
+                    user: {
+                      include: {
+                        profile: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        creator: {
+          include: {
+            user: {
+              include: {
+                profile: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!sheet) {
+      throw new NotFoundException('Không tìm thấy bảng kế hoạch');
+    }
+
+    return sheet;
+  }
+
+  async createPlanningSheet(circleId: string, userId: string, dto: CreatePlanningSheetDto) {
+    const member = await this.getMemberOrThrow(circleId, userId);
+
+    const columnTitles =
+      dto.columns && dto.columns.length > 0
+        ? dto.columns
+        : ['Nhiệm vụ', 'Người phụ trách', 'Trạng thái', 'Hạn chót', 'Ghi chú'];
+    const rowCount = dto.initialRowCount && dto.initialRowCount > 0 ? dto.initialRowCount : 3;
+
+    const sheet = await this.prisma.$transaction(async (tx) => {
+      const createdSheet = await tx.planningSheet.create({
+        data: {
+          circleId,
+          createdById: member.id,
+          title: dto.title.trim(),
+        },
+      });
+
+      const createdColumns = [];
+      for (let i = 0; i < columnTitles.length; i++) {
+        const title = columnTitles[i] || `Cột ${i + 1}`;
+        const col = await tx.sheetColumn.create({
+          data: {
+            sheetId: createdSheet.id,
+            columnIndex: i,
+            columnTitle: title,
+          },
+        });
+        createdColumns.push(col);
+      }
+
+      for (let r = 0; r < rowCount; r++) {
+        const row = await tx.sheetRow.create({
+          data: {
+            sheetId: createdSheet.id,
+            rowIndex: r,
+          },
+        });
+
+        for (const col of createdColumns) {
+          await tx.sheetCell.create({
+            data: {
+              rowId: row.id,
+              columnId: col.id,
+              cellValue: '',
+            },
+          });
+        }
+      }
+
+      return createdSheet;
+    });
+
+    const fullSheet = await this.getPlanningSheetById(circleId, sheet.id, userId);
+    this.chatGateway?.broadcastSheetStructureUpdated(circleId, fullSheet);
+    return fullSheet;
+  }
+
+  async addSheetColumn(circleId: string, sheetId: string, userId: string, dto: AddSheetColumnDto) {
+    await this.getMemberOrThrow(circleId, userId);
+
+    const sheet = await this.prisma.planningSheet.findFirst({
+      where: { id: sheetId, circleId },
+      include: {
+        columns: true,
+        rows: true,
+      },
+    });
+
+    if (!sheet) {
+      throw new NotFoundException('Không tìm thấy bảng kế hoạch');
+    }
+
+    const nextColIndex = sheet.columns.length;
+    await this.prisma.$transaction(async (tx) => {
+      const newCol = await tx.sheetColumn.create({
+        data: {
+          sheetId,
+          columnIndex: nextColIndex,
+          columnTitle: dto.columnTitle.trim(),
+        },
+      });
+
+      for (const row of sheet.rows) {
+        await tx.sheetCell.create({
+          data: {
+            rowId: row.id,
+            columnId: newCol.id,
+            cellValue: '',
+          },
+        });
+      }
+    });
+
+    const updatedSheet = await this.getPlanningSheetById(circleId, sheetId, userId);
+    this.chatGateway?.broadcastSheetStructureUpdated(circleId, updatedSheet);
+    return updatedSheet;
+  }
+
+  async addSheetRow(circleId: string, sheetId: string, userId: string, dto: AddSheetRowDto) {
+    await this.getMemberOrThrow(circleId, userId);
+
+    const sheet = await this.prisma.planningSheet.findFirst({
+      where: { id: sheetId, circleId },
+      include: {
+        columns: true,
+        rows: true,
+      },
+    });
+
+    if (!sheet) {
+      throw new NotFoundException('Không tìm thấy bảng kế hoạch');
+    }
+
+    const nextRowIndex = sheet.rows.length;
+    await this.prisma.$transaction(async (tx) => {
+      const newRow = await tx.sheetRow.create({
+        data: {
+          sheetId,
+          rowIndex: nextRowIndex,
+        },
+      });
+
+      for (const col of sheet.columns) {
+        await tx.sheetCell.create({
+          data: {
+            rowId: newRow.id,
+            columnId: col.id,
+            cellValue: dto.cellValues?.[col.id] || '',
+          },
+        });
+      }
+    });
+
+    const updatedSheet = await this.getPlanningSheetById(circleId, sheetId, userId);
+    this.chatGateway?.broadcastSheetStructureUpdated(circleId, updatedSheet);
+    return updatedSheet;
+  }
+
+  async updateSheetCell(
+    circleId: string,
+    sheetId: string,
+    cellId: string,
+    userId: string,
+    dto: UpdateSheetCellDto,
+  ) {
+    const member = await this.getMemberOrThrow(circleId, userId);
+
+    const cell = await this.prisma.sheetCell.findUnique({
+      where: { id: cellId },
+      include: {
+        row: true,
+      },
+    });
+
+    if (!cell || cell.row.sheetId !== sheetId) {
+      throw new NotFoundException('Không tìm thấy ô bảng tính');
+    }
+
+    const updatedCell = await this.prisma.sheetCell.update({
+      where: { id: cellId },
+      data: {
+        cellValue: dto.cellValue,
+        lastEditedById: member.id,
+      },
+      include: {
+        lastEditedBy: {
+          include: {
+            user: {
+              include: {
+                profile: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    this.chatGateway?.broadcastSheetCellUpdated(circleId, {
+      circleId,
+      sheetId,
+      cellId,
+      cellValue: dto.cellValue,
+      lastEditedBy: updatedCell.lastEditedBy,
+    });
+
+    return updatedCell;
+  }
+
+  async deletePlanningSheet(circleId: string, sheetId: string, userId: string) {
+    const member = await this.getMemberOrThrow(circleId, userId);
+
+    const sheet = await this.prisma.planningSheet.findFirst({
+      where: { id: sheetId, circleId },
+    });
+
+    if (!sheet) {
+      throw new NotFoundException('Không tìm thấy bảng kế hoạch');
+    }
+
+    if (sheet.createdById !== member.id && member.role !== 'OWNER') {
+      throw new ForbiddenException('Chỉ người tạo hoặc chủ vòng tròn mới có quyền xóa bảng kế hoạch');
+    }
+
+    await this.prisma.planningSheet.delete({
+      where: { id: sheetId },
+    });
+
+    return { success: true };
+  }
+
+  // ===========================================================================
+  // 6. LIVE LOCATION SHARING (UC19)
+  // ===========================================================================
+
+  async getActiveLiveLocations(circleId: string, userId: string) {
+    await this.getMemberOrThrow(circleId, userId);
+
+    const now = new Date();
+    // Auto-mark expired records as inactive
+    await this.prisma.liveLocationShare.updateMany({
+      where: {
+        circleId,
+        isActive: true,
+        expiresAt: { lte: now },
+      },
+      data: {
+        isActive: false,
+      },
+    });
+
+    return this.prisma.liveLocationShare.findMany({
+      where: {
+        circleId,
+        isActive: true,
+        expiresAt: { gt: now },
+      },
+      include: {
+        member: {
+          include: {
+            user: {
+              include: {
+                profile: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
+  }
+
+  async startLiveLocation(circleId: string, userId: string, dto: StartLiveLocationDto) {
+    const member = await this.getMemberOrThrow(circleId, userId);
+
+    const duration = [15, 30, 60].includes(dto.shareDuration) ? dto.shareDuration : 30;
+    const expiresAt = new Date(Date.now() + duration * 60 * 1000);
+
+    const existingShare = await this.prisma.liveLocationShare.findFirst({
+      where: {
+        circleId,
+        memberId: member.id,
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    let record;
+    if (existingShare) {
+      record = await this.prisma.liveLocationShare.update({
+        where: { id: existingShare.id },
+        data: {
+          latitude: dto.latitude,
+          longitude: dto.longitude,
+          shareDuration: duration,
+          expiresAt,
+          isActive: true,
+        },
+        include: {
+          member: {
+            include: {
+              user: {
+                include: {
+                  profile: true,
+                },
+              },
+            },
+          },
+        },
+      });
+    } else {
+      record = await this.prisma.liveLocationShare.create({
+        data: {
+          circleId,
+          memberId: member.id,
+          latitude: dto.latitude,
+          longitude: dto.longitude,
+          shareDuration: duration,
+          expiresAt,
+          isActive: true,
+        },
+        include: {
+          member: {
+            include: {
+              user: {
+                include: {
+                  profile: true,
+                },
+              },
+            },
+          },
+        },
+      });
+    }
+
+    this.chatGateway?.broadcastLiveLocationUpdated(circleId, record);
+    return record;
+  }
+
+  async updateLiveLocation(circleId: string, userId: string, dto: UpdateLiveLocationDto) {
+    const member = await this.getMemberOrThrow(circleId, userId);
+
+    const now = new Date();
+    const activeShare = await this.prisma.liveLocationShare.findFirst({
+      where: {
+        circleId,
+        memberId: member.id,
+        isActive: true,
+        expiresAt: { gt: now },
+      },
+    });
+
+    if (!activeShare) {
+      throw new BadRequestException('Phiên chia sẻ vị trí không tồn tại hoặc đã hết hạn');
+    }
+
+    const updated = await this.prisma.liveLocationShare.update({
+      where: { id: activeShare.id },
+      data: {
+        latitude: dto.latitude,
+        longitude: dto.longitude,
+      },
+      include: {
+        member: {
+          include: {
+            user: {
+              include: {
+                profile: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    this.chatGateway?.broadcastLiveLocationUpdated(circleId, updated);
+    return updated;
+  }
+
+  async stopLiveLocation(circleId: string, userId: string) {
+    const member = await this.getMemberOrThrow(circleId, userId);
+
+    await this.prisma.liveLocationShare.updateMany({
+      where: {
+        circleId,
+        memberId: member.id,
+        isActive: true,
+      },
+      data: {
+        isActive: false,
+      },
+    });
+
+    this.chatGateway?.broadcastLiveLocationStopped(circleId, {
+      circleId,
+      memberId: member.id,
+    });
+
+    return { success: true, stopped: true };
+  }
+
+  // ===========================================================================
+  // 7. GROUP POLL (UC15)
+  // ===========================================================================
+
+  async getPolls(circleId: string, userId: string) {
+    const member = await this.getMemberOrThrow(circleId, userId);
+
+    const polls = await this.prisma.groupPoll.findMany({
+      where: { circleId },
+      include: {
+        creator: {
+          include: {
+            user: {
+              include: {
+                profile: true,
+              },
+            },
+          },
+        },
+        options: {
+          orderBy: { orderIndex: 'asc' },
+          include: {
+            votes: {
+              include: {
+                member: {
+                  include: {
+                    user: {
+                      include: {
+                        profile: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        votes: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return polls.map((poll) => {
+      const totalVotes = poll.votes.length;
+      const userVote = poll.votes.find((v) => v.memberId === member.id);
+
+      return {
+        ...poll,
+        totalVotes,
+        userVotedOptionId: userVote?.optionId || null,
+        options: poll.options.map((opt) => {
+          const voteCount = opt.votes.length;
+          const percentage = totalVotes > 0 ? Math.round((voteCount / totalVotes) * 100) : 0;
+          return {
+            id: opt.id,
+            pollId: opt.pollId,
+            optionText: opt.optionText,
+            orderIndex: opt.orderIndex,
+            voteCount,
+            percentage,
+            votes: opt.votes,
+          };
+        }),
+      };
+    });
+  }
+
+  async getPollById(circleId: string, pollId: string, userId: string) {
+    const member = await this.getMemberOrThrow(circleId, userId);
+
+    const poll = await this.prisma.groupPoll.findFirst({
+      where: { id: pollId, circleId },
+      include: {
+        creator: {
+          include: {
+            user: {
+              include: {
+                profile: true,
+              },
+            },
+          },
+        },
+        options: {
+          orderBy: { orderIndex: 'asc' },
+          include: {
+            votes: {
+              include: {
+                member: {
+                  include: {
+                    user: {
+                      include: {
+                        profile: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        votes: true,
+      },
+    });
+
+    if (!poll) {
+      throw new NotFoundException('Không tìm thấy cuộc bình chọn');
+    }
+
+    const totalVotes = poll.votes.length;
+    const userVote = poll.votes.find((v) => v.memberId === member.id);
+
+    return {
+      ...poll,
+      totalVotes,
+      userVotedOptionId: userVote?.optionId || null,
+      options: poll.options.map((opt) => {
+        const voteCount = opt.votes.length;
+        const percentage = totalVotes > 0 ? Math.round((voteCount / totalVotes) * 100) : 0;
+        return {
+          id: opt.id,
+          pollId: opt.pollId,
+          optionText: opt.optionText,
+          orderIndex: opt.orderIndex,
+          voteCount,
+          percentage,
+          votes: opt.votes,
+        };
+      }),
+    };
+  }
+
+  async createPoll(circleId: string, userId: string, dto: CreatePollDto) {
+    const member = await this.getMemberOrThrow(circleId, userId);
+
+    const validOptions = dto.options.map((o) => o.trim()).filter((o) => o.length > 0);
+    if (validOptions.length < 2) {
+      throw new BadRequestException('Cuộc bình chọn cần có tối thiểu 2 phương án');
+    }
+
+    const poll = await this.prisma.$transaction(async (tx) => {
+      const createdPoll = await tx.groupPoll.create({
+        data: {
+          circleId,
+          createdById: member.id,
+          question: dto.question.trim(),
+          deadline: dto.deadline ? new Date(dto.deadline) : null,
+          isClosed: false,
+        },
+      });
+
+      for (let i = 0; i < validOptions.length; i++) {
+        const optionText = validOptions[i] || `Phương án ${i + 1}`;
+        await tx.pollOption.create({
+          data: {
+            pollId: createdPoll.id,
+            optionText,
+            orderIndex: i,
+          },
+        });
+      }
+
+      return createdPoll;
+    });
+
+    const fullPoll = await this.getPollById(circleId, poll.id, userId);
+    this.chatGateway?.broadcastPollCreated(circleId, fullPoll);
+    return fullPoll;
+  }
+
+  async votePoll(circleId: string, pollId: string, userId: string, dto: VotePollDto) {
+    const member = await this.getMemberOrThrow(circleId, userId);
+
+    const poll = await this.prisma.groupPoll.findFirst({
+      where: { id: pollId, circleId },
+      include: { options: true },
+    });
+
+    if (!poll) {
+      throw new NotFoundException('Không tìm thấy cuộc bình chọn');
+    }
+
+    if (poll.isClosed || (poll.deadline && new Date() > poll.deadline)) {
+      throw new BadRequestException('Cuộc bình chọn này đã kết thúc hoặc quá hạn');
+    }
+
+    const optionExists = poll.options.some((o) => o.id === dto.optionId);
+    if (!optionExists) {
+      throw new BadRequestException('Phương án bình chọn không hợp lệ');
+    }
+
+    await this.prisma.pollVote.upsert({
+      where: {
+        pollId_memberId: {
+          pollId,
+          memberId: member.id,
+        },
+      },
+      update: {
+        optionId: dto.optionId,
+        votedAt: new Date(),
+      },
+      create: {
+        pollId,
+        optionId: dto.optionId,
+        memberId: member.id,
+      },
+    });
+
+    const updatedPoll = await this.getPollById(circleId, pollId, userId);
+    this.chatGateway?.broadcastPollVoted(circleId, updatedPoll);
+    return updatedPoll;
+  }
+
+  async closePoll(circleId: string, pollId: string, userId: string) {
+    const member = await this.getMemberOrThrow(circleId, userId);
+
+    const poll = await this.prisma.groupPoll.findFirst({
+      where: { id: pollId, circleId },
+    });
+
+    if (!poll) {
+      throw new NotFoundException('Không tìm thấy cuộc bình chọn');
+    }
+
+    if (poll.createdById !== member.id && member.role !== 'OWNER') {
+      throw new ForbiddenException('Chỉ người tạo hoặc chủ vòng tròn mới có quyền đóng cuộc bình chọn');
+    }
+
+    await this.prisma.groupPoll.update({
+      where: { id: pollId },
+      data: { isClosed: true },
+    });
+
+    const updatedPoll = await this.getPollById(circleId, pollId, userId);
+    this.chatGateway?.broadcastPollClosed(circleId, updatedPoll);
+    return updatedPoll;
+  }
+
+  async deletePoll(circleId: string, pollId: string, userId: string) {
+    const member = await this.getMemberOrThrow(circleId, userId);
+
+    const poll = await this.prisma.groupPoll.findFirst({
+      where: { id: pollId, circleId },
+    });
+
+    if (!poll) {
+      throw new NotFoundException('Không tìm thấy cuộc bình chọn');
+    }
+
+    if (poll.createdById !== member.id && member.role !== 'OWNER') {
+      throw new ForbiddenException('Chỉ người tạo hoặc chủ vòng tròn mới có quyền xóa cuộc bình chọn');
+    }
+
+    await this.prisma.groupPoll.delete({
+      where: { id: pollId },
+    });
+
+    return { success: true };
+  }
 }
+
