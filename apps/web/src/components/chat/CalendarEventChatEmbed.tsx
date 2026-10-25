@@ -5,7 +5,6 @@ import {
   CalendarDays,
   Clock,
   MapPin,
-  ExternalLink,
   Calendar as CalendarIcon,
   Bell,
   Users,
@@ -208,9 +207,14 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
                   : (isVi ? 'Lịch hẹn mới • Mời tham gia' : 'New Event • RSVP')}
             </span>
           </div>
-          <span className="text-[11px] font-medium text-circle-slate dark:text-circle-dark-muted">
-            {isVi ? `Bởi ${eventData.creatorName}` : `By ${eventData.creatorName}`}
-          </span>
+          <button
+            type="button"
+            onClick={handleOpenCalendar}
+            title={isVi ? 'Xem trên Lịch nhóm' : 'View in Calendar'}
+            className="flex items-center justify-center h-6 w-6 rounded-md text-circle-slate hover:text-circle-charcoal dark:hover:text-circle-dark-text hover:bg-circle-wash/80 dark:hover:bg-circle-dark-wash/80 transition-all active:scale-90"
+          >
+            <CalendarDays className="h-3.5 w-3.5" />
+          </button>
         </div>
 
         {/* Event Body with Calendar Tile + Event Info */}
@@ -377,19 +381,7 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
           )}
         </div>
 
-        {/* Footer Actions (No reaction emojis, clean and focused) */}
-        <div className="flex items-center justify-end px-4 py-2.5 bg-circle-canvas/40 dark:bg-circle-dark-canvas/40 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60">
-          {/* Jump to Calendar button */}
-          <button
-            type="button"
-            onClick={handleOpenCalendar}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-circle-charcoal hover:bg-circle-sage text-white dark:bg-circle-primary dark:text-circle-charcoal dark:hover:bg-circle-primary/90 text-xs font-semibold shadow-xs transition-all active:scale-98"
-          >
-            <CalendarDays className="h-3.5 w-3.5" />
-            <span>{isVi ? 'Xem trên Lịch nhóm' : 'View in Calendar'}</span>
-            <ExternalLink className="h-3 w-3 opacity-70" />
-          </button>
-        </div>
+
       </div>
     </div>
   );
