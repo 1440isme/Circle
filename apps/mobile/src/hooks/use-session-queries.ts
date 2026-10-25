@@ -4,6 +4,8 @@ import {
   getUserSessionsApi,
   revokeSessionApi,
   revokeOtherSessionsApi,
+  changePasswordApi,
+  ChangePasswordPayload,
 } from '../services/api';
 
 export const SESSION_KEYS = {
@@ -36,6 +38,17 @@ export function useRevokeOtherSessionsMutation() {
 
   return useMutation({
     mutationFn: () => revokeOtherSessionsApi(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: SESSION_KEYS.all });
+    },
+  });
+}
+
+export function useChangePasswordMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: ChangePasswordPayload) => changePasswordApi(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: SESSION_KEYS.all });
     },

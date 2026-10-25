@@ -79,6 +79,8 @@ import {
   ChevronRight,
   ChevronDown,
   Mic,
+  PhoneCall,
+  PhoneOff,
 } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useThemeStore, MessageBubbleThemes, MessageTheme } from '../../src/stores/theme.store';
@@ -97,17 +99,22 @@ import {
   useMobileChannelTyping,
   useMyCirclesQuery,
 } from '../../src/hooks/use-circle-queries';
+import {
+  useInitiateCallMutation,
+  useJoinCallMutation,
+} from '../../src/hooks/use-call-queries';
 import { useEdgeSwipeDismiss } from '../../src/hooks/use-edge-swipe';
 import { uploadMobileMedia } from '../../src/services/storage-upload.service';
-import { subscribeSocketConnection, sendMobileMessageRead } from '../../src/services/socket';
-import { getStorageItem } from '../../src/services/storage';
+import { subscribeSocketConnection, sendMobileMessageRead, getMobileSocket } from '../../src/services/socket';
+import { getStorageItem, setStorageItem } from '../../src/services/storage';
 import { useQueryClient, InfiniteData } from '@tanstack/react-query';
-import { MessageType, CursorPaginatedMessages } from '@circle/types';
+import { MessageType, CursorPaginatedMessages, CallType, CallSessionDetailEntity } from '@circle/types';
 import { CircleManagementModal } from '../../src/components/circle/CircleManagementModal';
 import { MomentsView, parseMomentPhotos, MomentFeedPipView, formatMomentRelativeTime } from '../../src/components/moment/MomentsView';
 import { CreateCircleModal } from '../../src/components/circle/CreateCircleModal';
 import { JoinCircleModal } from '../../src/components/circle/JoinCircleModal';
 import { PinnedMessagesModal } from '../../src/components/chat/PinnedMessagesModal';
+import { MobileCallStageModal } from '../../src/components/call/MobileCallStageModal';
 import { Emoji } from '../../src/components/ui/Emoji';
 import { FullEmojiPickerModal } from '../../src/components/ui/FullEmojiPickerModal';
 import { PROMINENT_QUICK_EMOJIS } from '@circle/shared';
@@ -1048,11 +1055,56 @@ export default function CircleWorkspaceScreen() {
 
   const scrollViewRef = useRef<ScrollView>(null);
 
+  const initiateCallMutation = useInitiateCallMutation();
+  const joinCallMutation = useJoinCallMutation();
+  const [activeCallStageSession, setActiveCallStageSession] = useState<CallSessionDetailEntity | null>(null);
+  const [incomingCallAlert, setIncomingCallAlert] = useState<{
+    callSessionId: string;
+    circleId: string;
+    circleName: string;
+    callType: CallType;
+    caller: {
+      userId: string;
+      displayName: string;
+      avatarUrl: string | null;
+    };
+  } | null>(null);
+
   useEffect(() => {
-    return subscribeSocketConnection((connected) => {
+    const unsub = subscribeSocketConnection((connected) => {
       setIsSocketConnected(connected);
     });
-  }, []);
+
+    let cleanupSocket: (() => void) | null = null;
+    getMobileSocket().then((socket) => {
+      if (!socket) return;
+
+      const handleIncomingCall = (payload: any) => {
+        if (payload.circleId === circleId && payload.caller?.userId !== user?.id) {
+          setIncomingCallAlert(payload);
+        }
+      };
+
+      const handleCallEnded = (payload: any) => {
+        if (payload.circleId === circleId) {
+          setIncomingCallAlert(null);
+        }
+      };
+
+      socket.on('call:incoming', handleIncomingCall);
+      socket.on('call:ended', handleCallEnded);
+
+      cleanupSocket = () => {
+        socket.off('call:incoming', handleIncomingCall);
+        socket.off('call:ended', handleCallEnded);
+      };
+    });
+
+    return () => {
+      unsub();
+      if (cleanupSocket) cleanupSocket();
+    };
+  }, [circleId, user?.id]);
 
   // Queries & Mutations
   const { data: circle, isLoading: isLoadingCircle } = useCircleDetailQuery(circleId);
@@ -1399,15 +1451,17 @@ export default function CircleWorkspaceScreen() {
     }
   };
 
-  const handleCallComingSoon = (type: 'audio' | 'video') => {
-    const title = type === 'video'
-      ? (locale === 'vi' ? 'Cuộc gọi Video' : 'Video Call')
-      : (locale === 'vi' ? 'Cuộc gọi Thoại' : 'Voice Call');
-    const message = locale === 'vi'
-      ? 'Tính năng gọi thoại & video đang phát triển cho Mobile (Coming Soon).\n\nBạn có thể trải nghiệm gọi trực tiếp ngay bây giờ trên phiên bản Web (Next.js) hoặc ứng dụng Android!'
-      : 'Voice & Video Calling is coming soon for Mobile.\n\nYou can currently enjoy realtime calling directly on the Web (Next.js) platform or Android app!';
-
-    Alert.alert(title, message, [{ text: 'OK', style: 'default' }]);
+  const handleStartCall = async (type: 'audio' | 'video') => {
+    try {
+      const callType = type === 'video' ? CallType.VIDEO : CallType.AUDIO;
+      const res: any = await initiateCallMutation.mutateAsync({ circleId, callType });
+      const session = res?.callSession || res;
+      if (session && session.id) {
+        setActiveCallStageSession(session);
+      }
+    } catch (err: any) {
+      Alert.alert(t.common.appName, err?.message || (locale === 'vi' ? 'Không thể bắt đầu cuộc gọi.' : 'Failed to start call.'));
+    }
   };
 
   const handlePickImage = async () => {
@@ -1826,53 +1880,97 @@ export default function CircleWorkspaceScreen() {
               </TouchableOpacity>
             </View>
           ) : (
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => {
-                if (activeTab === 'moments') {
-                  setIsMomentsFilterOpen(!isMomentsFilterOpen);
-                } else {
-                  handleOpenSettings();
-                }
-              }}
-              style={[
-                styles.floatingTitlePill,
-                {
-                  backgroundColor: isGlass
-                    ? (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)')
-                    : colors.surface,
-                  borderColor: isGlass
-                    ? (isDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.07)')
-                    : colors.hairline,
-                  shadowOpacity: isGlass ? 0.05 : 0,
-                  elevation: isGlass ? 2 : 0,
-                },
-              ]}
-              accessibilityLabel={activeTab === 'moments' ? 'Lọc bạn bè' : 'Circle Settings'}
-            >
-              {activeTab === 'moments' ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => {
+                  if (activeTab === 'moments') {
+                    setIsMomentsFilterOpen(!isMomentsFilterOpen);
+                  } else {
+                    handleOpenSettings();
+                  }
+                }}
+                style={[
+                  styles.floatingTitlePill,
+                  {
+                    backgroundColor: isGlass
+                      ? (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)')
+                      : colors.surface,
+                    borderColor: isGlass
+                      ? (isDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.07)')
+                      : colors.hairline,
+                    shadowOpacity: isGlass ? 0.05 : 0,
+                    elevation: isGlass ? 2 : 0,
+                  },
+                ]}
+                accessibilityLabel={activeTab === 'moments' ? 'Lọc bạn bè' : 'Circle Settings'}
+              >
+                {activeTab === 'moments' ? (
+                  <>
+                    <Users size={13} color={colors.subtle} style={{ marginRight: 5 }} />
+                    <Text numberOfLines={1} style={[styles.floatingTitleText, { color: colors.text }]}>
+                      {(() => {
+                        if (momentsMemberFilter === 'all') {
+                          return members.length > 0 ? `${members.length} bạn bè` : 'Bạn bè';
+                        }
+                        const found = members.find((m: any) => (m.userId || m.id || m.user?.id) === momentsMemberFilter);
+                        return (found as any)?.nickname || (found as any)?.user?.profile?.displayName || (found as any)?.profile?.displayName || (found as any)?.user?.email?.split('@')[0] || 'Bạn bè';
+                      })()}
+                    </Text>
+                    <ChevronDown size={13} color={colors.subtle} style={{ marginLeft: 3 }} />
+                  </>
+                ) : (
+                  <>
+                    <Text numberOfLines={1} style={[styles.floatingTitleText, { color: colors.text }]}>
+                      {circle.name}
+                    </Text>
+                    <ChevronDown size={13} color={colors.subtle} style={{ marginLeft: 3 }} />
+                  </>
+                )}
+              </TouchableOpacity>
+
+              {activeTab === 'chat' && (
                 <>
-                  <Users size={13} color={colors.subtle} style={{ marginRight: 5 }} />
-                  <Text numberOfLines={1} style={[styles.floatingTitleText, { color: colors.text }]}>
-                    {(() => {
-                      if (momentsMemberFilter === 'all') {
-                        return members.length > 0 ? `${members.length} bạn bè` : 'Bạn bè';
-                      }
-                      const found = members.find((m: any) => (m.userId || m.id || m.user?.id) === momentsMemberFilter);
-                      return (found as any)?.nickname || (found as any)?.user?.profile?.displayName || (found as any)?.profile?.displayName || (found as any)?.user?.email?.split('@')[0] || 'Bạn bè';
-                    })()}
-                  </Text>
-                  <ChevronDown size={13} color={colors.subtle} style={{ marginLeft: 3 }} />
-                </>
-              ) : (
-                <>
-                  <Text numberOfLines={1} style={[styles.floatingTitleText, { color: colors.text }]}>
-                    {circle.name}
-                  </Text>
-                  <ChevronDown size={13} color={colors.subtle} style={{ marginLeft: 3 }} />
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    onPress={() => handleStartCall('audio')}
+                    style={[
+                      styles.headerActionCircleBtn,
+                      {
+                        backgroundColor: isGlass
+                          ? (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)')
+                          : colors.surface,
+                        borderColor: isGlass
+                          ? (isDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.07)')
+                          : colors.hairline,
+                      },
+                    ]}
+                    accessibilityLabel="Bắt đầu gọi thoại"
+                  >
+                    <Phone size={13} color={colors.text} />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    onPress={() => handleStartCall('video')}
+                    style={[
+                      styles.headerActionCircleBtn,
+                      {
+                        backgroundColor: isGlass
+                          ? (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)')
+                          : colors.surface,
+                        borderColor: isGlass
+                          ? (isDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.07)')
+                          : colors.hairline,
+                      },
+                    ]}
+                    accessibilityLabel="Bắt đầu gọi video"
+                  >
+                    <Video size={13} color={colors.text} />
+                  </TouchableOpacity>
                 </>
               )}
-            </TouchableOpacity>
+            </View>
           )}
         </View>
 
@@ -2562,7 +2660,7 @@ export default function CircleWorkspaceScreen() {
                 {/* Tool 1: Realtime Voice Stage */}
                 <TouchableOpacity
                   activeOpacity={0.7}
-                  onPress={() => handleCallComingSoon('audio')}
+                  onPress={() => handleStartCall('audio')}
                   style={[styles.toolRow, { borderBottomColor: colors.hairline }]}
                 >
                   <Radio size={20} color={colors.text} />
@@ -2961,6 +3059,102 @@ export default function CircleWorkspaceScreen() {
 
       {/* Circle Management Modal */}
       <CircleManagementModal />
+
+      {/* Mobile Realtime WebRTC Call Stage Modal */}
+      <MobileCallStageModal
+        visible={activeCallStageSession !== null}
+        callSession={activeCallStageSession}
+        onClose={() => setActiveCallStageSession(null)}
+      />
+
+      {/* Realtime Incoming Call Ringing Dialog */}
+      <Modal
+        visible={incomingCallAlert !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIncomingCallAlert(null)}
+      >
+        <View style={styles.incomingCallOverlay}>
+          <View style={[styles.incomingCallCard, { backgroundColor: '#13141a', borderColor: 'rgba(255,255,255,0.12)' }]}>
+            <View style={styles.incomingCallIconWrapper}>
+              <View style={[styles.incomingCallPulseRing, { backgroundColor: colors.primary }]} />
+              <View style={[styles.incomingCallIconCircle, { backgroundColor: colors.primary }]}>
+                {incomingCallAlert?.callType === CallType.VIDEO ? (
+                  <Video size={28} color={colors.onPrimary} />
+                ) : (
+                  <PhoneCall size={28} color={colors.onPrimary} />
+                )}
+              </View>
+            </View>
+
+            <Text style={styles.incomingCallBadge}>
+              {incomingCallAlert?.callType === CallType.VIDEO
+                ? (locale === 'vi' ? 'CUỘC GỌI VIDEO ĐẾN' : 'INCOMING VIDEO CALL')
+                : (locale === 'vi' ? 'CUỘC GỌI THOẠI ĐẾN' : 'INCOMING VOICE CALL')}
+            </Text>
+
+            <Text style={styles.incomingCallerName} numberOfLines={1}>
+              {incomingCallAlert?.caller?.displayName || t.calls.circleMemberDefault}
+            </Text>
+
+            <Text style={styles.incomingCallGroup} numberOfLines={1}>
+              {t.calls.callingInGroup} {incomingCallAlert?.circleName}
+            </Text>
+
+            <View style={styles.incomingCallActionsRow}>
+              {/* Decline Button */}
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => setIncomingCallAlert(null)}
+                style={styles.callActionBtnWrapper}
+              >
+                <View style={[styles.callActionCircle, { backgroundColor: 'rgba(239, 68, 68, 0.2)', borderColor: 'rgba(239, 68, 68, 0.3)' }]}>
+                  <PhoneOff size={22} color="#ef4444" />
+                </View>
+                <Text style={[styles.callActionLabel, { color: 'rgba(255,255,255,0.7)' }]}>
+                  {t.calls.ignoreCall}
+                </Text>
+              </TouchableOpacity>
+
+              {/* Accept Button */}
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={async () => {
+                  if (!incomingCallAlert) return;
+                  const alert = incomingCallAlert;
+                  try {
+                    await joinCallMutation.mutateAsync({ callSessionId: alert.callSessionId });
+                  } catch (e) {
+                    console.warn('Error joining call:', e);
+                  }
+                  const session: CallSessionDetailEntity = {
+                    id: alert.callSessionId,
+                    circleId: alert.circleId,
+                    callType: alert.callType,
+                    status: 'ACTIVE' as any,
+                    startedAt: new Date().toISOString(),
+                    participants: [],
+                    circle: {
+                      id: alert.circleId,
+                      name: alert.circleName,
+                    } as any,
+                  };
+                  setIncomingCallAlert(null);
+                  setActiveCallStageSession(session);
+                }}
+                style={styles.callActionBtnWrapper}
+              >
+                <View style={[styles.callActionCircle, { backgroundColor: '#10b981' }]}>
+                  <Phone size={22} color="#ffffff" />
+                </View>
+                <Text style={[styles.callActionLabel, { color: '#10b981', fontWeight: '700' }]}>
+                  {t.calls.joinCallAction}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Pinned Messages Modal */}
       <PinnedMessagesModal
@@ -4364,5 +4558,88 @@ const styles = StyleSheet.create({
   switcherActionBtnSecondaryText: {
     fontSize: 13,
     fontWeight: '600',
+  },
+  headerActionCircleBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  incomingCallOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  incomingCallCard: {
+    width: '100%',
+    maxWidth: 340,
+    borderRadius: 28,
+    borderWidth: 1,
+    padding: 24,
+    alignItems: 'center',
+  },
+  incomingCallIconWrapper: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  incomingCallPulseRing: {
+    position: 'absolute',
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    opacity: 0.25,
+  },
+  incomingCallIconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  incomingCallBadge: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: 'rgba(255,255,255,0.7)',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  incomingCallerName: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#ffffff',
+    marginBottom: 2,
+  },
+  incomingCallGroup: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.6)',
+    marginBottom: 24,
+  },
+  incomingCallActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 36,
+  },
+  callActionBtnWrapper: {
+    alignItems: 'center',
+    gap: 6,
+  },
+  callActionCircle: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  callActionLabel: {
+    fontSize: 11,
   },
 });

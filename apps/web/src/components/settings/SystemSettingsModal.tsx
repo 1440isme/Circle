@@ -29,8 +29,12 @@ import {
   Key,
   FileText,
   User as UserIcon,
+  Eye,
+  EyeOff,
+  Lock,
 } from 'lucide-react';
 import { SessionEntity } from '@circle/types';
+import { checkPasswordRequirements } from '@circle/shared';
 import { useLanguageStore } from '../../stores/language.store';
 import {
   useThemeStore,
@@ -43,9 +47,10 @@ import {
   useRevokeSessionMutation,
   useRevokeOtherSessionsMutation,
   useLogoutMutation,
+  useChangePasswordMutation,
 } from '../../hooks/use-auth-mutations';
 
-export type SettingsTabId = 'appearance' | 'sessions' | 'language' | 'help';
+export type SettingsTabId = 'appearance' | 'security' | 'sessions' | 'language' | 'help';
 
 interface SystemSettingsModalProps {
   isOpen: boolean;
@@ -82,6 +87,62 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
   const [errorNotice, setErrorNotice] = useState<string | null>(null);
+
+  // Security & Password state
+  const changePasswordMutation = useChangePasswordMutation();
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [passwordSuccessNotice, setPasswordSuccessNotice] = useState<string | null>(null);
+  const [passwordErrorNotice, setPasswordErrorNotice] = useState<string | null>(null);
+
+  const passwordReqs = checkPasswordRequirements(newPassword);
+  const isPasswordFormValid =
+    currentPassword.trim().length > 0 &&
+    passwordReqs.isValid &&
+    newPassword === confirmPassword &&
+    newPassword !== currentPassword;
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordErrorNotice(null);
+    setPasswordSuccessNotice(null);
+
+    if (!currentPassword) {
+      setPasswordErrorNotice(t.validation.currentPasswordRequired);
+      return;
+    }
+    if (!passwordReqs.isValid) {
+      setPasswordErrorNotice(t.validation.passwordComplexity);
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordErrorNotice(t.validation.passwordMismatch);
+      return;
+    }
+    if (newPassword === currentPassword) {
+      setPasswordErrorNotice(t.validation.newPasswordSameAsCurrent);
+      return;
+    }
+
+    try {
+      const res = await changePasswordMutation.mutateAsync({
+        currentPassword,
+        newPassword,
+        confirmPassword,
+      });
+      setPasswordSuccessNotice(res.message || t.auth.changePasswordSuccess);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || t.auth.currentPasswordIncorrect;
+      setPasswordErrorNotice(msg);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -155,6 +216,11 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
       id: 'appearance',
       label: locale === 'vi' ? 'Giao diện' : 'Appearance',
       icon: Palette,
+    },
+    {
+      id: 'security',
+      label: locale === 'vi' ? 'Mật khẩu & Bảo mật' : 'Password & Security',
+      icon: Key,
     },
     {
       id: 'sessions',
@@ -389,6 +455,160 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
                     </button>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* TAB: SECURITY & PASSWORD (Mật khẩu & Bảo mật) */}
+            {activeTab === 'security' && (
+              <div className="space-y-5 animate-fadeIn">
+                {/* Security Advisory Card */}
+                <div className="flex items-start gap-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 p-4 text-xs text-amber-700 dark:text-amber-300">
+                  <Shield className="h-5 w-5 shrink-0 text-amber-500 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="font-semibold">{t.auth.changePasswordTitle}</p>
+                    <p className="opacity-90">{t.auth.securityPasswordNotice}</p>
+                  </div>
+                </div>
+
+                {passwordSuccessNotice && (
+                  <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-3 text-xs font-medium text-emerald-600 dark:text-emerald-400 animate-fadeIn">
+                    <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
+                    <span>{passwordSuccessNotice}</span>
+                  </div>
+                )}
+
+                {passwordErrorNotice && (
+                  <div className="flex items-center gap-2 rounded-xl bg-rose-500/10 border border-rose-500/20 p-3 text-xs font-medium text-rose-600 dark:text-rose-400 animate-fadeIn">
+                    <AlertTriangle className="h-4 w-4 shrink-0 text-rose-500" />
+                    <span>{passwordErrorNotice}</span>
+                  </div>
+                )}
+
+                <form onSubmit={handleChangePassword} className="space-y-4">
+                  {/* Current Password */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-circle-charcoal dark:text-white">
+                      {t.auth.currentPassword}
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showCurrentPassword ? 'text' : 'password'}
+                        value={currentPassword}
+                        onChange={(e) => setCurrentPassword(e.target.value)}
+                        placeholder="••••••••"
+                        required
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-circle-hairline dark:border-[#32353e] bg-circle-canvas dark:bg-[#131417] text-xs sm:text-sm text-circle-charcoal dark:text-white placeholder:text-circle-slate/50 dark:placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-circle-sage/30 dark:focus:ring-circle-primary/30 transition-all"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-circle-slate dark:text-white/50 hover:text-circle-charcoal dark:hover:text-white"
+                      >
+                        {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* New Password */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-circle-charcoal dark:text-white">
+                      {t.auth.newPassword}
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showNewPassword ? 'text' : 'password'}
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder="••••••••"
+                        required
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-circle-hairline dark:border-[#32353e] bg-circle-canvas dark:bg-[#131417] text-xs sm:text-sm text-circle-charcoal dark:text-white placeholder:text-circle-slate/50 dark:placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-circle-sage/30 dark:focus:ring-circle-primary/30 transition-all"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPassword(!showNewPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-circle-slate dark:text-white/50 hover:text-circle-charcoal dark:hover:text-white"
+                      >
+                        {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+
+                    {/* Real-time ACC-05 Password Strength & Checklist */}
+                    {newPassword.length > 0 && (
+                      <div className="grid grid-cols-2 gap-1.5 pt-2">
+                        <div className={`flex items-center gap-1.5 text-[11px] ${passwordReqs.minLength ? 'text-emerald-500 font-medium' : 'text-circle-slate dark:text-white/40'}`}>
+                          <Check className={`h-3 w-3 ${passwordReqs.minLength ? 'opacity-100' : 'opacity-30'}`} />
+                          <span>{t.auth.min8Chars}</span>
+                        </div>
+                        <div className={`flex items-center gap-1.5 text-[11px] ${passwordReqs.hasUpper ? 'text-emerald-500 font-medium' : 'text-circle-slate dark:text-white/40'}`}>
+                          <Check className={`h-3 w-3 ${passwordReqs.hasUpper ? 'opacity-100' : 'opacity-30'}`} />
+                          <span>{t.validation.passwordUppercase}</span>
+                        </div>
+                        <div className={`flex items-center gap-1.5 text-[11px] ${passwordReqs.hasLower ? 'text-emerald-500 font-medium' : 'text-circle-slate dark:text-white/40'}`}>
+                          <Check className={`h-3 w-3 ${passwordReqs.hasLower ? 'opacity-100' : 'opacity-30'}`} />
+                          <span>{t.validation.passwordLowercase}</span>
+                        </div>
+                        <div className={`flex items-center gap-1.5 text-[11px] ${passwordReqs.hasNumber ? 'text-emerald-500 font-medium' : 'text-circle-slate dark:text-white/40'}`}>
+                          <Check className={`h-3 w-3 ${passwordReqs.hasNumber ? 'opacity-100' : 'opacity-30'}`} />
+                          <span>{t.validation.passwordNumber}</span>
+                        </div>
+                        <div className={`flex items-center gap-1.5 text-[11px] col-span-2 ${passwordReqs.hasSpecial ? 'text-emerald-500 font-medium' : 'text-circle-slate dark:text-white/40'}`}>
+                          <Check className={`h-3 w-3 ${passwordReqs.hasSpecial ? 'opacity-100' : 'opacity-30'}`} />
+                          <span>{t.validation.passwordSpecialChar}</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Confirm New Password */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-circle-charcoal dark:text-white">
+                      {t.auth.confirmNewPassword}
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showConfirmPassword ? 'text' : 'password'}
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        placeholder="••••••••"
+                        required
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-circle-hairline dark:border-[#32353e] bg-circle-canvas dark:bg-[#131417] text-xs sm:text-sm text-circle-charcoal dark:text-white placeholder:text-circle-slate/50 dark:placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-circle-sage/30 dark:focus:ring-circle-primary/30 transition-all"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-circle-slate dark:text-white/50 hover:text-circle-charcoal dark:hover:text-white"
+                      >
+                        {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                    {confirmPassword.length > 0 && (
+                      <p className={`text-[11px] mt-1 ${newPassword === confirmPassword ? 'text-emerald-500' : 'text-rose-500'}`}>
+                        {newPassword === confirmPassword ? t.auth.passwordMatch : t.auth.passwordMismatch}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Submit Button */}
+                  <div className="pt-2">
+                    <button
+                      type="submit"
+                      disabled={!isPasswordFormValid || changePasswordMutation.isPending}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-circle-sage hover:bg-circle-sage/90 dark:bg-circle-primary dark:hover:bg-circle-primary/90 text-white font-medium text-xs sm:text-sm shadow-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      {changePasswordMutation.isPending ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <span>{t.auth.updatingPassword}</span>
+                        </>
+                      ) : (
+                        <>
+                          <Lock className="h-4 w-4" />
+                          <span>{t.auth.updatePasswordButton}</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
               </div>
             )}
 

@@ -185,6 +185,23 @@ export function createAuthSchemas(locale: Locale = 'vi') {
     dateOfBirth: z.string().nullable().optional(),
   });
 
+  const changePasswordDtoSchema = z
+    .object({
+      currentPassword: z.string().min(1, v.currentPasswordRequired),
+      newPassword: strongPasswordSchema,
+      confirmPassword: z.string().min(1, v.confirmPasswordRequired),
+    })
+    .refine((data) => data.newPassword === data.confirmPassword, {
+      message: v.passwordMismatch,
+      path: ['confirmPassword'],
+    })
+    .refine((data) => data.newPassword !== data.currentPassword, {
+      message: v.newPasswordSameAsCurrent,
+      path: ['newPassword'],
+    });
+
+  const changePasswordSchema = changePasswordDtoSchema;
+
   return {
     loginSchema,
     registerSchema,
@@ -196,6 +213,8 @@ export function createAuthSchemas(locale: Locale = 'vi') {
     resetPasswordSchema,
     resetPasswordDtoSchema,
     updateProfileSchema,
+    changePasswordSchema,
+    changePasswordDtoSchema,
   };
 }
 
@@ -212,6 +231,8 @@ export const forgotPasswordSchema = defaultSchemas.forgotPasswordSchema;
 export const resetPasswordSchema = defaultSchemas.resetPasswordSchema;
 export const resetPasswordDtoSchema = defaultSchemas.resetPasswordDtoSchema;
 export const updateProfileSchema = defaultSchemas.updateProfileSchema;
+export const changePasswordSchema = defaultSchemas.changePasswordSchema;
+export const changePasswordDtoSchema = defaultSchemas.changePasswordDtoSchema;
 
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RegisterInput = z.infer<typeof registerSchema>;
@@ -223,6 +244,8 @@ export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 export type ResetPasswordDtoInput = z.infer<typeof resetPasswordDtoSchema>;
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
+export type ChangePasswordDtoInput = z.infer<typeof changePasswordDtoSchema>;
 
 /**
  * Extracts the first human-readable validation error message from a ZodError.

@@ -24,6 +24,8 @@ import {
   revokeSessionApi,
   updateProfileApi,
   verifyOtpApi,
+  changePasswordApi,
+  ChangePasswordPayload,
 } from '../lib/auth';
 import { useAuthStore } from '../stores/auth.store';
 
@@ -161,6 +163,17 @@ export function useRevokeOtherSessionsMutation() {
 
   return useMutation({
     mutationFn: () => revokeOtherSessionsApi(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: AUTH_KEYS.sessions });
+    },
+  });
+}
+
+export function useChangePasswordMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: ChangePasswordPayload) => changePasswordApi(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: AUTH_KEYS.sessions });
     },

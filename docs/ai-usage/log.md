@@ -4762,3 +4762,55 @@
 - **Security & License Check:** An toàn tuyệt đối, zero secrets leaks, bảo đảm tính toàn vẹn của SSOT.
 - **Branch:** `feat/98-circle-tools-planning-location-poll`
 - **PR:** Pending
+
+---
+
+## AI-0134: Hoàn thiện Đổi mật khẩu trong Cài đặt (ACC-10) & Parity Cuộc gọi Realtime trên Mobile (CAL-01..05)
+
+- **Date:** 2026-10-25 22:40:00 +07:00
+- **Developer:** Trương Công Bình (MSSV: 23110184)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash
+- **Related Issue:** #107
+- **Purpose:** Hoàn thiện triệt để 2 thiếu sót then chốt phát hiện qua đợt rà soát (audit) toàn diện các module của Bình theo đúng Module Playbooks và Cross-Cutting Gate:
+  1. **`ACC-10` Đổi mật khẩu khi đã đăng nhập (Web + Mobile + Backend):**
+     - **Backend (`apps/backend`):** Bổ sung DTO `ChangePasswordDto`, validator Zod `changePasswordDtoSchema`, endpoint `POST /api/v1/auth/change-password` có bảo vệ bởi `JwtAuthGuard`. Kiểm tra xác thực mật khẩu hiện tại bằng bcrypt, kiểm tra chính sách mật khẩu mạnh (`ACC-05`), từ chối mật khẩu mới trùng mật khẩu cũ, cập nhật hash mật khẩu mới, và tự động thu hồi (revoke) toàn bộ các phiên đăng nhập khác của người dùng trên các thiết bị khác (giữ phiên hiện tại an toàn). Bổ sung 3 unit tests mới trong `auth.service.spec.ts`.
+     - **Shared Contracts (`packages/shared`):** Bổ sung schema `changePasswordSchema`, `changePasswordDtoSchema` và localization đầy đủ (VI + EN) cho các thông điệp cảnh báo bảo mật, thông báo thành công và kiểm tra trùng khớp.
+     - **Web Client (`apps/web`):** Bổ sung tab "Mật khẩu & Bảo mật" trong `SystemSettingsModal.tsx`, form đổi mật khẩu với thẻ cảnh báo bảo mật, nút hiện/ẩn mật khẩu, bảng kiểm tra điều kiện độ mạnh mật khẩu theo thời gian thực (checklist ACC-05), xử lý thông báo lỗi/thành công rõ ràng.
+     - **Mobile Client (`apps/mobile`):** Bổ sung mục "Mật khẩu & Bảo mật" trong cài đặt hồ sơ `profile.tsx` và subview bảo mật trong `SystemSettingsModal.tsx`, hỗ trợ đổi mật khẩu với đầy đủ checklist bảo mật, toggle hiện/ẩn mật khẩu, vô hiệu hóa autocapitalize/autocorrect.
+  2. **`CAL-01..05` Parity Trải nghiệm Gọi Realtime trên Mobile (React Native Expo):**
+     - **Mobile Call Hooks (`apps/mobile/src/hooks/use-call-queries.ts`):** Xây dựng bộ hook quản lý cuộc gọi (`useActiveCallQuery`, `useInitiateCallMutation`, `useJoinCallMutation`, `useLeaveCallMutation`) đồng bộ realtime qua Socket.IO.
+     - **Mobile Call Stage (`apps/mobile/src/components/call/MobileCallStageModal.tsx`):** Giao diện sân khấu cuộc gọi toàn màn hình cho mobile, hiển thị badge LIVE STAGE (Voice/Video), đồng hồ thời lượng cuộc gọi (`MM:SS`), số lượng thành viên, lưới hiển thị đại diện thành viên với hiệu ứng vòng tròn phát thanh (speaking pulse ring), trạng thái mic, thanh điều khiển nổi (Bật/tắt mic, Bật/tắt camera, Loa ngoài/Loa trong, Nút Rời cuộc gọi màu đỏ).
+     - **Khởi tạo & Nhận cuộc gọi trên Mobile (`apps/mobile/app/circle/[id].tsx`):** Xóa bỏ hoàn toàn popup "Coming Soon" cũ; bổ sung các nút bấm gọi thoại và video trên thanh tiêu đề subheader của Circle Chat và menu tiện ích Tools; tích hợp modal chuông đổ cuộc gọi đến (Incoming Call Ringing Dialog) với nút Từ chối và Bắt máy tức thì.
+- **Files Affected:**
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `packages/shared/src/validators/auth.validator.ts`
+  - `apps/backend/src/modules/auth/dto/change-password.dto.ts`
+  - `apps/backend/src/modules/auth/auth.service.ts`
+  - `apps/backend/src/modules/auth/auth.service.spec.ts`
+  - `apps/backend/src/modules/auth/auth.controller.ts`
+  - `apps/web/src/lib/auth.ts`
+  - `apps/web/src/hooks/use-auth-mutations.ts`
+  - `apps/web/src/components/settings/SystemSettingsModal.tsx`
+  - `apps/mobile/src/services/api.ts`
+  - `apps/mobile/src/hooks/use-session-queries.ts`
+  - `apps/mobile/src/components/settings/SystemSettingsModal.tsx`
+  - `apps/mobile/app/(tabs)/profile.tsx`
+  - `apps/mobile/src/hooks/use-call-queries.ts`
+  - `apps/mobile/src/components/call/MobileCallStageModal.tsx`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `agentic/memory/2026-10-25.md`
+  - `agentic/memory/MEMORY.md`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% code logic đổi mật khẩu bảo mật, mobile call stage modal, socket listeners và bilingual localization.
+- **Human Modifications:** Trương Công Bình trực tiếp chỉ đạo rà soát theo Module Playbook và yêu cầu tính tương đương 100% giữa Web & Mobile.
+- **Verification Method:**
+  - `npm test -w @circle/backend`: 167/167 unit tests pass 100% (11/11 suites, bao gồm TC-AUTH-010).
+  - `npm run build -w @circle/web`: Next.js production build 9/9 static routes pass sạch sẽ.
+  - `npm run typecheck -w @circle/mobile`: Mobile TypeScript 0 errors.
+  - `bash ./scripts/check-agent-map.sh`: 116/116 framework files pass 100%.
+- **Official Source Checked:** `agentic/playbooks/01-account-auth.md`, `agentic/playbooks/06-voice-video.md`, `agentic/playbooks/cross-cutting-gate.md`, `PROJECT_GOD.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks, cơ chế hash bcrypt và revoke refresh token đa thiết bị chuẩn xác.
+- **Branch:** `feat/107-acc-password-and-mobile-call-parity`
+- **PR:** Pending
