@@ -408,37 +408,42 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
                         </span>
                       </div>
 
-                      <div className="flex items-center gap-1.5 text-[11px] font-semibold text-circle-charcoal dark:text-circle-dark-text">
-                        <span>{opt.count}</span>
-                        <span className="text-[10px] text-circle-slate dark:text-circle-dark-muted font-normal">
-                          ({opt.percent}%)
-                        </span>
+                      {/* Circular avatars of respondents replacing percent & count */}
+                      <div className="flex items-center -space-x-1.5 shrink-0 pl-2">
+                        {opt.users.slice(0, 5).map((u, idx) => {
+                          const isMe = u.userId === currentUserId;
+                          const name = isMe ? (isVi ? 'Bạn' : 'You') : u.displayName;
+                          return (
+                            <div
+                              key={u.userId || idx}
+                              title={name}
+                              className="relative inline-flex h-6 w-6 items-center justify-center rounded-full ring-2 ring-white dark:ring-circle-dark-surface bg-circle-wash dark:bg-circle-dark-wash overflow-hidden shrink-0 shadow-xs"
+                            >
+                              {u.avatarUrl ? (
+                                <img
+                                  src={u.avatarUrl}
+                                  alt={name}
+                                  className="h-full w-full rounded-full object-cover"
+                                />
+                              ) : (
+                                <span className="flex h-full w-full items-center justify-center rounded-full bg-circle-primary text-circle-charcoal text-[10px] font-bold">
+                                  {name.charAt(0).toUpperCase()}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
+                        {opt.users.length > 5 && (
+                          <span
+                            title={opt.users.slice(5).map((u) => u.displayName).join(', ')}
+                            className="relative inline-flex h-6 w-6 items-center justify-center rounded-full bg-circle-charcoal/80 dark:bg-circle-slate text-white text-[9px] font-bold ring-2 ring-white dark:ring-circle-dark-surface shrink-0"
+                          >
+                            +{opt.users.length - 5}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </button>
-
-                  {/* Respondent List under this Option */}
-                  {opt.users.length > 0 && (
-                    <div className="flex flex-wrap items-center gap-1 pl-6 pr-1">
-                      {opt.users.map((u, idx) => (
-                        <span
-                          key={u.userId || idx}
-                          className="inline-flex items-center gap-1 rounded-full bg-circle-wash/90 dark:bg-circle-dark-wash/90 py-0.5 pl-1 pr-2 border border-circle-hairline/70 dark:border-circle-dark-hairline/70 text-[10px] text-circle-charcoal dark:text-circle-dark-text"
-                        >
-                          {u.avatarUrl ? (
-                            <img src={u.avatarUrl} alt={u.displayName} className="h-3.5 w-3.5 rounded-full object-cover" />
-                          ) : (
-                            <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-circle-primary text-circle-charcoal text-[8px] font-bold">
-                              {u.displayName?.charAt(0)?.toUpperCase() || '?'}
-                            </span>
-                          )}
-                          <span className="font-medium">
-                            {u.userId === currentUserId ? (isVi ? 'Bạn' : 'You') : u.displayName}
-                          </span>
-                        </span>
-                      ))}
-                    </div>
-                  )}
                 </div>
               );
             })}

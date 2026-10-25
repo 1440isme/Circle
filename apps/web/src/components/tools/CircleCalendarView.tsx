@@ -633,41 +633,44 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                                         </span>
                                       </div>
 
-                                      <div className="flex items-center gap-1 text-[10px] font-semibold text-circle-charcoal dark:text-circle-dark-text">
-                                        <span>{opt.count}</span>
-                                        <span className="text-circle-slate dark:text-circle-dark-muted font-normal">
-                                          ({opt.percent}%)
-                                        </span>
+                                      {/* Circular avatars of respondents replacing percent & count */}
+                                      <div className="flex items-center -space-x-1.5 shrink-0 pl-2">
+                                        {opt.rsvps.slice(0, 5).map((r, idx) => {
+                                          const name = r.user?.profile?.displayName || r.user?.email?.split('@')[0] || 'Thành viên';
+                                          const avatarUrl = r.user?.profile?.avatarUrl;
+                                          const isMe = r.userId === user?.id;
+                                          const displayName = isMe ? 'Bạn' : name;
+                                          return (
+                                            <div
+                                              key={r.id || r.userId || idx}
+                                              title={displayName}
+                                              className="relative inline-flex h-5 w-5 items-center justify-center rounded-full ring-2 ring-white dark:ring-circle-dark-surface bg-circle-wash dark:bg-circle-dark-wash overflow-hidden shrink-0 shadow-xs"
+                                            >
+                                              {avatarUrl ? (
+                                                <img
+                                                  src={avatarUrl}
+                                                  alt={displayName}
+                                                  className="h-full w-full rounded-full object-cover"
+                                                />
+                                              ) : (
+                                                <span className="flex h-full w-full items-center justify-center rounded-full bg-circle-primary text-circle-charcoal text-[8px] font-bold">
+                                                  {displayName.charAt(0).toUpperCase()}
+                                                </span>
+                                              )}
+                                            </div>
+                                          );
+                                        })}
+                                        {opt.rsvps.length > 5 && (
+                                          <span
+                                            title={opt.rsvps.slice(5).map((r) => r.user?.profile?.displayName || 'Thành viên').join(', ')}
+                                            className="relative inline-flex h-5 w-5 items-center justify-center rounded-full bg-circle-charcoal/80 dark:bg-circle-slate text-white text-[8px] font-bold ring-2 ring-white dark:ring-circle-dark-surface shrink-0"
+                                          >
+                                            +{opt.rsvps.length - 5}
+                                          </span>
+                                        )}
                                       </div>
                                     </div>
                                   </button>
-
-                                  {/* List of members for this option */}
-                                  {opt.rsvps.length > 0 && (
-                                    <div className="flex flex-wrap items-center gap-1 pl-5 pr-1">
-                                      {opt.rsvps.map((r) => {
-                                        const name = r.user?.profile?.displayName || r.user?.email?.split('@')[0] || 'Thành viên';
-                                        const avatarUrl = r.user?.profile?.avatarUrl;
-                                        return (
-                                          <span
-                                            key={r.id}
-                                            className="inline-flex items-center gap-1 rounded-full bg-circle-wash/90 dark:bg-circle-dark-wash/90 py-0.5 pl-1 pr-1.5 border border-circle-hairline/70 dark:border-circle-dark-hairline/70 text-[9px] text-circle-charcoal dark:text-circle-dark-text"
-                                          >
-                                            {avatarUrl ? (
-                                              <img src={avatarUrl} alt={name} className="h-3 w-3 rounded-full object-cover" />
-                                            ) : (
-                                              <span className="flex h-3 w-3 items-center justify-center rounded-full bg-circle-primary text-circle-charcoal text-[7px] font-bold">
-                                                {name.charAt(0).toUpperCase()}
-                                              </span>
-                                            )}
-                                            <span className="font-medium">
-                                              {r.userId === user?.id ? 'Bạn' : name}
-                                            </span>
-                                          </span>
-                                        );
-                                      })}
-                                    </div>
-                                  )}
                                 </div>
                               );
                             })}
