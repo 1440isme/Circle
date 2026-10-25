@@ -570,6 +570,22 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                 />
               </div>
 
+              <div className="rounded-xl bg-circle-primary/10 border border-circle-primary/20 p-2.5 flex items-start gap-2 text-xs">
+                <input
+                  type="checkbox"
+                  id="sendToGroupChat"
+                  defaultChecked
+                  disabled
+                  className="mt-0.5 rounded text-circle-primary focus:ring-circle-primary"
+                />
+                <label htmlFor="sendToGroupChat" className="text-circle-charcoal dark:text-circle-dark-text leading-tight text-[11px]">
+                  <span className="font-semibold">Tự động gửi vào kênh chat nhóm</span>
+                  <p className="text-circle-slate dark:text-circle-dark-muted mt-0.5 text-[10px]">
+                    Sẽ gửi thông báo và mở khảo sát để hỏi các thành viên xác nhận tham gia (RSVP).
+                  </p>
+                </label>
+              </div>
+
               <div className="flex items-center justify-end gap-2 pt-2">
                 <button
                   type="button"

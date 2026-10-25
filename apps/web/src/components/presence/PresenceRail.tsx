@@ -3,6 +3,7 @@
 import React from 'react';
 import {
   Calendar,
+  Clock,
   CalendarDays,
   MapPin,
   Plus,
@@ -300,17 +301,70 @@ export const PresenceRail: React.FC = () => {
         )}
       </div>
 
-      {/* Upcoming Circle Events (Clean Empty State) */}
+      {/* Upcoming Circle Events */}
       <div className="flex flex-col gap-2 pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline">
-        <div className="flex items-center gap-1.5 px-1 mb-0.5 text-[11px] font-bold text-circle-slate dark:text-circle-dark-muted uppercase tracking-wider">
-          <Calendar className="h-3.5 w-3.5" />
-          <span>{t.home.upcomingEventsTitle}</span>
+        <div className="flex items-center justify-between px-1 mb-0.5">
+          <div className="flex items-center gap-1.5 text-[11px] font-bold text-circle-slate dark:text-circle-dark-muted uppercase tracking-wider">
+            <Calendar className="h-3.5 w-3.5" />
+            <span>{t.home.upcomingEventsTitle}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setActiveCircleView('calendar')}
+            className="text-[11px] font-semibold text-circle-sage dark:text-circle-primary hover:underline flex items-center gap-0.5"
+          >
+            <span>Lịch nhóm</span>
+            <ChevronRight className="h-3 w-3" />
+          </button>
         </div>
-        <div className="rounded-xl border border-dashed border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/40 dark:bg-circle-dark-canvas/40 p-3 text-center">
-          <p className="text-xs text-circle-slate dark:text-circle-dark-muted">
-            {t.home.upcomingEventsEmpty}
-          </p>
-        </div>
+
+        {upcomingEvents.length > 0 ? (
+          <div className="space-y-1.5">
+            {upcomingEvents.map((ev) => {
+              const start = new Date(ev.startTime);
+              const yesCount = ev.rsvps?.filter((r) => r.status === 'YES').length || 0;
+              return (
+                <div
+                  key={ev.id}
+                  onClick={() => setActiveCircleView('calendar')}
+                  className="rounded-xl border border-circle-hairline/80 dark:border-circle-dark-hairline/80 bg-circle-canvas/60 dark:bg-circle-dark-canvas/60 p-2.5 hover:border-circle-primary/50 transition-all cursor-pointer group space-y-1"
+                >
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text group-hover:text-circle-sage dark:group-hover:text-circle-primary truncate">
+                      {ev.eventTitle}
+                    </span>
+                    <span className="text-[10px] font-mono text-circle-slate dark:text-circle-dark-muted shrink-0">
+                      {start.toLocaleDateString('vi-VN', { month: 'numeric', day: 'numeric' })}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-[10px] text-circle-slate dark:text-circle-dark-muted">
+                    <div className="flex items-center gap-1">
+                      <Clock className="h-2.5 w-2.5 text-circle-primary" />
+                      <span>{start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                    </div>
+                    <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
+                      {yesCount} tham gia
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="rounded-xl border border-dashed border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/40 dark:bg-circle-dark-canvas/40 p-3 text-center">
+            <p className="text-xs text-circle-slate dark:text-circle-dark-muted">
+              {t.home.upcomingEventsEmpty}
+            </p>
+            <button
+              type="button"
+              onClick={() => setActiveCircleView('calendar')}
+              className="mt-2 text-[11px] font-semibold text-circle-sage dark:text-circle-primary hover:underline inline-flex items-center gap-1"
+            >
+              <Plus className="h-3 w-3" />
+              <span>Lên lịch mới</span>
+            </button>
+          </div>
+        )}
       </div>
     </aside>
   );

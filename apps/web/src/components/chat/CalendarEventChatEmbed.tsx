@@ -189,7 +189,7 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
               <CalendarIcon className="h-3 w-3" />
             </span>
             <span className="text-xs font-bold uppercase tracking-wider text-circle-sage dark:text-circle-primary">
-              {isUpdated ? (isVi ? 'Cập nhật lịch hẹn' : 'Event Updated') : (isVi ? 'Thông báo lịch hẹn' : 'Circle Event')}
+              {isUpdated ? (isVi ? 'Cập nhật lịch hẹn' : 'Event Updated') : (isVi ? 'Lịch hẹn mới • Mời tham gia' : 'New Event • RSVP')}
             </span>
           </div>
           <span className="text-[11px] font-medium text-circle-slate dark:text-circle-dark-muted">
@@ -257,7 +257,7 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
           <div className="flex items-center justify-between text-xs">
             <span className="font-semibold text-circle-charcoal dark:text-circle-dark-text flex items-center gap-1.5">
               <Users className="h-3.5 w-3.5 text-circle-sage dark:text-circle-primary" />
-              <span>{isVi ? 'Phản hồi tham gia (RSVP)' : 'Attendance (RSVP)'}</span>
+              <span>{isVi ? 'Bạn có tham gia không?' : 'Are you attending?'}</span>
             </span>
             <div className="flex items-center gap-2 text-[11px] font-medium text-circle-slate dark:text-circle-dark-muted">
               <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{rsvps?.yesCount || 0} {isVi ? 'Tham gia' : 'Going'}</span>
