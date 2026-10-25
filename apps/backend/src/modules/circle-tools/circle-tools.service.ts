@@ -622,6 +622,26 @@ export class CircleToolsService {
 
     const event = await this.prisma.calendarEvent.findFirst({
       where: { id: eventId, circleId },
+      include: {
+        creator: {
+          include: {
+            user: {
+              include: {
+                profile: true,
+              },
+            },
+          },
+        },
+        rsvps: {
+          include: {
+            user: {
+              include: {
+                profile: true,
+              },
+            },
+          },
+        },
+      },
     });
 
     if (!event) {
@@ -631,6 +651,9 @@ export class CircleToolsService {
     if (event.createdById !== member.id && member.role !== 'OWNER') {
       throw new ForbiddenException('Chỉ người tạo hoặc chủ vòng tròn mới có quyền xóa sự kiện');
     }
+
+    // Broadcast cancellation announcement to circle chat before deleting
+    await this.broadcastCalendarEventMessage(circleId, member, event, 'DELETED');
 
     await this.prisma.calendarEvent.delete({
       where: { id: eventId },
@@ -775,7 +798,7 @@ export class CircleToolsService {
     circleId: string,
     member: any,
     event: any,
-    action: 'CREATED' | 'UPDATED',
+    action: 'CREATED' | 'UPDATED' | 'DELETED',
   ) {
     try {
       const channel = await this.prisma.channel.findFirst({

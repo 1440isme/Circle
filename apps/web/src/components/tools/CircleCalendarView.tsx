@@ -7,6 +7,7 @@ import {
   Clock,
   MapPin,
   Trash2,
+  Pencil,
   X,
   ChevronLeft,
   ChevronRight,
@@ -25,6 +26,7 @@ import {
   useCalendarEventsQuery,
   useCreateCalendarEventMutation,
   useDeleteCalendarEventMutation,
+  useUpdateCalendarEventMutation,
   useRespondEventRsvpMutation,
 } from '../../hooks/use-circle-tools';
 import { CalendarEventEntity, EventRsvpStatus } from '@circle/types';
@@ -55,8 +57,69 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
 
   const { data: events = [], isLoading } = useCalendarEventsQuery(circleId, month, year);
   const createMutation = useCreateCalendarEventMutation(circleId);
+  const updateMutation = useUpdateCalendarEventMutation(circleId);
   const deleteMutation = useDeleteCalendarEventMutation(circleId);
   const rsvpMutation = useRespondEventRsvpMutation(circleId);
+
+  const [editingEvent, setEditingEvent] = useState<CalendarEventEntity | null>(null);
+
+  const formatToLocalDateTimeInput = (date: Date, hours = 0, minutes = 0) => {
+    const d = new Date(date);
+    d.setHours(hours, minutes, 0, 0);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const h = String(d.getHours()).padStart(2, '0');
+    const min = String(d.getMinutes()).padStart(2, '0');
+    return `${y}-${m}-${day}T${h}:${min}`;
+  };
+
+  const handleOpenCreateModal = () => {
+    setEditingEvent(null);
+    setTitle('');
+    setLocation('');
+    setDescription('');
+    setReminderMinutes('15');
+    setStartTime(formatToLocalDateTimeInput(selectedDate, 0, 0));
+    setEndTime('');
+    setIsAddModalOpen(true);
+  };
+
+  const handleOpenEditModal = (ev: CalendarEventEntity) => {
+    setEditingEvent(ev);
+    setTitle(ev.eventTitle);
+    setLocation(ev.location || '');
+    setDescription(ev.description || '');
+
+    if (ev.startTime) {
+      const s = new Date(ev.startTime);
+      setStartTime(formatToLocalDateTimeInput(s, s.getHours(), s.getMinutes()));
+    } else {
+      setStartTime('');
+    }
+
+    if (ev.endTime) {
+      const e = new Date(ev.endTime);
+      setEndTime(formatToLocalDateTimeInput(e, e.getHours(), e.getMinutes()));
+    } else {
+      setEndTime('');
+    }
+
+    if (ev.reminderTime && ev.startTime) {
+      const diffMins = Math.round(
+        (new Date(ev.startTime).getTime() - new Date(ev.reminderTime).getTime()) / 60000
+      );
+      if ([15, 30, 60, 1440].includes(diffMins)) {
+        setReminderMinutes(String(diffMins));
+      } else {
+        setReminderMinutes('none');
+      }
+    } else {
+      setReminderMinutes('none');
+    }
+
+    setIsAddModalOpen(true);
+  };
 
   // Calendar math
   const daysInMonth = useMemo(() => {
@@ -82,7 +145,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
     setSelectedDate(now);
   };
 
-  const handleCreateEvent = async (e: React.FormEvent) => {
+  const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !startTime) return;
 
@@ -98,27 +161,46 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
       reminder = new Date(start.getTime() - mins * 60 * 1000).toISOString();
     }
 
-    await createMutation.mutateAsync({
-      eventTitle: title.trim(),
-      description: description.trim() || undefined,
-      location: location.trim() || undefined,
-      startTime: start.toISOString(),
-      endTime: end,
-      reminderTime: reminder,
-    });
+    if (editingEvent) {
+      await updateMutation.mutateAsync({
+        eventId: editingEvent.id,
+        input: {
+          eventTitle: title.trim(),
+          description: description.trim() || undefined,
+          location: location.trim() || undefined,
+          startTime: start.toISOString(),
+          endTime: end,
+          reminderTime: reminder,
+        },
+      });
+    } else {
+      await createMutation.mutateAsync({
+        eventTitle: title.trim(),
+        description: description.trim() || undefined,
+        location: location.trim() || undefined,
+        startTime: start.toISOString(),
+        endTime: end,
+        reminderTime: reminder,
+      });
+      setActiveCircleView('chat');
+    }
 
+    setEditingEvent(null);
     setTitle('');
     setLocation('');
     setDescription('');
     setStartTime('');
     setEndTime('');
     setIsAddModalOpen(false);
-    setActiveCircleView('chat');
   };
 
   const handleDeleteEvent = async (eventId: string) => {
-    if (confirm('Bạn có chắc chắn muốn hủy sự kiện này?')) {
-      await deleteMutation.mutateAsync(eventId);
+    if (confirm('Bạn có chắc chắn muốn hủy sự kiện này? Thao tác này sẽ xóa sự kiện khỏi lịch của nhóm.')) {
+      try {
+        await deleteMutation.mutateAsync(eventId);
+      } catch (err: any) {
+        alert(err?.message || 'Có lỗi xảy ra khi hủy sự kiện');
+      }
     }
   };
 
@@ -188,7 +270,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
           </div>
           <button
             type="button"
-            onClick={() => setIsAddModalOpen(true)}
+            onClick={handleOpenCreateModal}
             className="flex items-center gap-1.5 rounded-lg bg-circle-charcoal dark:bg-circle-primary px-3.5 py-1.5 text-xs font-semibold text-white dark:text-circle-charcoal hover:bg-circle-sage transition-all shadow-sm active:scale-98"
           >
             <Plus className="h-3.5 w-3.5" />
@@ -299,14 +381,24 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                           <h4 className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
                             {ev.eventTitle}
                           </h4>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteEvent(ev.id)}
-                            className="p-1 text-circle-slate hover:text-red-500 transition-colors"
-                            title="Hủy sự kiện"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
+                                                    <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditModal(ev)}
+                              className="p-1 text-circle-slate hover:text-circle-charcoal dark:hover:text-circle-dark-text transition-colors"
+                              title="Chỉnh sửa sự kiện"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteEvent(ev.id)}
+                              className="p-1 text-circle-slate hover:text-rose-500 transition-colors"
+                              title="Hủy sự kiện"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
                         </div>
 
                         <div className="space-y-1.5 text-[11px] text-circle-slate dark:text-circle-dark-muted">
@@ -480,7 +572,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                 </p>
                 <button
                   type="button"
-                  onClick={() => setIsAddModalOpen(true)}
+                  onClick={handleOpenCreateModal}
                   className="mt-3 text-xs font-semibold text-circle-sage dark:text-circle-primary hover:underline"
                 >
                   + Lên lịch hẹn mới
@@ -497,7 +589,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
           <div className="w-full max-w-md rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-5 shadow-2xl">
             <div className="flex items-center justify-between pb-3 border-b border-circle-hairline dark:border-circle-dark-hairline mb-4">
               <h3 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
-                Lên Lịch Hẹn & Sự Kiện Nhóm
+                {editingEvent ? 'Chỉnh Sửa Lịch Hẹn' : 'Lên Lịch Hẹn & Sự Kiện Nhóm'}
               </h3>
               <button
                 type="button"
@@ -508,7 +600,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
               </button>
             </div>
 
-            <form onSubmit={handleCreateEvent} className="space-y-3.5">
+            <form onSubmit={handleFormSubmit} className="space-y-3.5">
               <div>
                 <label className="block text-xs font-semibold text-circle-slate dark:text-circle-dark-muted mb-1">
                   Tên sự kiện / Lịch hẹn *
@@ -592,21 +684,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                 />
               </div>
 
-              <div className="rounded-xl bg-circle-primary/10 border border-circle-primary/20 p-2.5 flex items-start gap-2 text-xs">
-                <input
-                  type="checkbox"
-                  id="sendToGroupChat"
-                  defaultChecked
-                  disabled
-                  className="mt-0.5 rounded text-circle-primary focus:ring-circle-primary"
-                />
-                <label htmlFor="sendToGroupChat" className="text-circle-charcoal dark:text-circle-dark-text leading-tight text-[11px]">
-                  <span className="font-semibold">Tự động gửi vào kênh chat nhóm</span>
-                  <p className="text-circle-slate dark:text-circle-dark-muted mt-0.5 text-[10px]">
-                    Sẽ gửi thông báo và mở khảo sát để hỏi các thành viên xác nhận tham gia (RSVP).
-                  </p>
-                </label>
-              </div>
+              
 
               <div className="flex items-center justify-end gap-2 pt-2">
                 <button
@@ -618,10 +696,12 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                 </button>
                 <button
                   type="submit"
-                  disabled={createMutation.isPending || !title.trim() || !startTime}
+                  disabled={(editingEvent ? updateMutation.isPending : createMutation.isPending) || !title.trim() || !startTime}
                   className="rounded-lg bg-circle-charcoal dark:bg-circle-primary px-4 py-2 text-xs font-semibold text-white dark:text-circle-charcoal hover:bg-circle-sage transition-all disabled:opacity-50"
                 >
-                  {createMutation.isPending ? 'Đang tạo...' : 'Lên lịch ngay'}
+                  {editingEvent
+                    ? (updateMutation.isPending ? 'Đang lưu...' : 'Lưu thay đổi')
+                    : (createMutation.isPending ? 'Đang tạo...' : 'Lên lịch ngay')}
                 </button>
               </div>
             </form>

@@ -11,6 +11,7 @@ import {
   Users,
   Check,
   HelpCircle,
+  Lock,
   X,
 } from 'lucide-react';
 import { CalendarEventMessagePayload, EventRsvpStatus } from '@circle/types';
@@ -140,8 +141,10 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
     }
   }
 
+  const isDeleted = eventData.action === 'DELETED';
   const isUpdated = eventData.action === 'UPDATED';
   const isStarted = new Date(eventData.startTime) <= new Date();
+  const isLocked = isStarted || isDeleted;
 
   const myRsvp = useMemo(() => {
     const found = rsvps?.userRsvps?.find((u) => u.userId && u.userId === currentUserId)?.status;
@@ -184,13 +187,25 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
       {/* Container with modern card styling and soft shadow */}
       <div className="rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white/95 dark:bg-circle-dark-surface/95 backdrop-blur-md shadow-md overflow-hidden transition-all hover:border-circle-primary/40">
         {/* Header Ribbon */}
-        <div className="flex items-center justify-between px-4 py-2.5 bg-gradient-to-r from-circle-primary/15 via-circle-wash to-circle-canvas dark:from-circle-primary/20 dark:via-circle-dark-wash dark:to-circle-dark-canvas border-b border-circle-hairline/70 dark:border-circle-dark-hairline/70">
+        <div className={`flex items-center justify-between px-4 py-2.5 border-b ${
+          isDeleted
+            ? 'bg-rose-500/10 border-rose-500/20'
+            : 'bg-gradient-to-r from-circle-primary/15 via-circle-wash to-circle-canvas dark:from-circle-primary/20 dark:via-circle-dark-wash dark:to-circle-dark-canvas border-circle-hairline/70 dark:border-circle-dark-hairline/70'
+        }`}>
           <div className="flex items-center gap-2">
-            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-circle-primary text-circle-charcoal shadow-2xs">
+            <span className={`flex h-5 w-5 items-center justify-center rounded-full shadow-2xs ${
+              isDeleted ? 'bg-rose-500 text-white' : 'bg-circle-primary text-circle-charcoal'
+            }`}>
               <CalendarIcon className="h-3 w-3" />
             </span>
-            <span className="text-xs font-bold uppercase tracking-wider text-circle-sage dark:text-circle-primary">
-              {isUpdated ? (isVi ? 'Cập nhật lịch hẹn' : 'Event Updated') : (isVi ? 'Lịch hẹn mới • Mời tham gia' : 'New Event • RSVP')}
+            <span className={`text-xs font-bold uppercase tracking-wider ${
+              isDeleted ? 'text-rose-600 dark:text-rose-400' : 'text-circle-sage dark:text-circle-primary'
+            }`}>
+              {isDeleted
+                ? (isVi ? 'Đã hủy lịch hẹn' : 'Event Cancelled')
+                : isUpdated
+                  ? (isVi ? 'Cập nhật lịch hẹn' : 'Event Updated')
+                  : (isVi ? 'Lịch hẹn mới • Mời tham gia' : 'New Event • RSVP')}
             </span>
           </div>
           <span className="text-[11px] font-medium text-circle-slate dark:text-circle-dark-muted">
@@ -217,8 +232,10 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
 
           {/* Event Content Details */}
           <div className="flex-1 min-w-0 space-y-2">
-            <h3 className="text-base font-bold text-circle-charcoal dark:text-circle-dark-text leading-snug break-words">
-              {eventData.eventTitle}
+            <h3 className={`text-base font-bold text-circle-charcoal dark:text-circle-dark-text leading-snug break-words ${
+              isDeleted ? 'line-through opacity-60' : ''
+            }`}>
+              {eventData.eventTitle} {isDeleted && <span className="text-xs text-rose-500 font-semibold no-underline">({isVi ? 'Đã hủy' : 'Cancelled'})</span>}
             </h3>
 
             {/* Time row */}
@@ -257,8 +274,22 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
         <div className="px-4 py-3 bg-circle-canvas/50 dark:bg-circle-dark-canvas/50 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60 space-y-2.5">
           <div className="flex items-center justify-between text-xs">
             <span className="font-semibold text-circle-charcoal dark:text-circle-dark-text flex items-center gap-1.5">
-              <Users className="h-3.5 w-3.5 text-circle-sage dark:text-circle-primary" />
-              <span>{isVi ? 'Bạn có tham gia không?' : 'Are you attending?'}</span>
+              {isDeleted ? (
+                <>
+                  <Lock className="h-3.5 w-3.5 text-rose-500" />
+                  <span className="text-rose-600 dark:text-rose-400">{isVi ? 'Lịch hẹn đã bị hủy' : 'Event cancelled'}</span>
+                </>
+              ) : isStarted ? (
+                <>
+                  <Lock className="h-3.5 w-3.5 text-circle-slate dark:text-circle-dark-muted" />
+                  <span className="text-circle-slate dark:text-circle-dark-muted">{isVi ? 'Bình chọn đã đóng' : 'RSVP closed'}</span>
+                </>
+              ) : (
+                <>
+                  <Users className="h-3.5 w-3.5 text-circle-sage dark:text-circle-primary" />
+                  <span>{isVi ? 'Bạn có tham gia không?' : 'Are you attending?'}</span>
+                </>
+              )}
             </span>
             <div className="flex items-center gap-2 text-[11px] font-medium text-circle-slate dark:text-circle-dark-muted">
               <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{rsvps?.yesCount || 0} {isVi ? 'Tham gia' : 'Going'}</span>
@@ -273,9 +304,9 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
           <div className="grid grid-cols-3 gap-2">
             <button
               type="button"
-              disabled={rsvpMutation.isPending}
+              disabled={isLocked || rsvpMutation.isPending}
               onClick={() => handleRsvp(EventRsvpStatus.YES)}
-              className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl text-xs font-semibold transition-all active:scale-95 ${
+              className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl text-xs font-semibold transition-all ${isLocked ? 'cursor-not-allowed opacity-60' : 'active:scale-95'} ${
                 myRsvp === EventRsvpStatus.YES
                   ? 'bg-emerald-600 text-white shadow-xs'
                   : 'bg-white dark:bg-circle-dark-surface hover:bg-emerald-50 dark:hover:bg-emerald-950/30 text-circle-charcoal dark:text-circle-dark-text border border-circle-hairline dark:border-circle-dark-hairline'
@@ -287,9 +318,9 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
 
             <button
               type="button"
-              disabled={rsvpMutation.isPending}
+              disabled={isLocked || rsvpMutation.isPending}
               onClick={() => handleRsvp(EventRsvpStatus.MAYBE)}
-              className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl text-xs font-semibold transition-all active:scale-95 ${
+              className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl text-xs font-semibold transition-all ${isLocked ? 'cursor-not-allowed opacity-60' : 'active:scale-95'} ${
                 myRsvp === EventRsvpStatus.MAYBE
                   ? 'bg-amber-600 text-white shadow-xs'
                   : 'bg-white dark:bg-circle-dark-surface hover:bg-amber-50 dark:hover:bg-amber-950/30 text-circle-charcoal dark:text-circle-dark-text border border-circle-hairline dark:border-circle-dark-hairline'
@@ -301,9 +332,9 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
 
             <button
               type="button"
-              disabled={rsvpMutation.isPending}
+              disabled={isLocked || rsvpMutation.isPending}
               onClick={() => handleRsvp(EventRsvpStatus.NO)}
-              className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl text-xs font-semibold transition-all active:scale-95 ${
+              className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl text-xs font-semibold transition-all ${isLocked ? 'cursor-not-allowed opacity-60' : 'active:scale-95'} ${
                 myRsvp === EventRsvpStatus.NO
                   ? 'bg-rose-600 text-white shadow-xs'
                   : 'bg-white dark:bg-circle-dark-surface hover:bg-rose-50 dark:hover:bg-rose-950/30 text-circle-charcoal dark:text-circle-dark-text border border-circle-hairline dark:border-circle-dark-hairline'
