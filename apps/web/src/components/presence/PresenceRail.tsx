@@ -13,6 +13,8 @@ import {
   Settings,
   Crown,
   Sparkles,
+  MapPin,
+  Clock,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguageStore } from '../../stores/language.store';
@@ -24,6 +26,7 @@ import {
   useInitiateCallMutation,
   useJoinCallMutation,
 } from '../../hooks/use-call-queries';
+import { useCalendarEventsQuery } from '../../hooks/use-circle-tools';
 import { MemberRole, CallType, CallStatus } from '@circle/types';
 
 function getInitials(name: string): string {
@@ -41,6 +44,15 @@ export const PresenceRail: React.FC = () => {
   const { data: activeCall } = useActiveCallQuery(activeCircle?.id || null);
   const initiateCallMutation = useInitiateCallMutation();
   const joinCallMutation = useJoinCallMutation();
+  const { data: calendarEvents = [] } = useCalendarEventsQuery(activeCircle?.id || null);
+
+  const upcomingEvents = React.useMemo(() => {
+    const now = new Date().getTime();
+    return calendarEvents
+      .filter((ev: any) => new Date(ev.startTime).getTime() >= now - 1000 * 60 * 30)
+      .sort((a: any, b: any) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
+      .slice(0, 4);
+  }, [calendarEvents]);
 
   const handleStartCall = async (type: CallType) => {
     if (!activeCircle) return;
@@ -285,17 +297,53 @@ export const PresenceRail: React.FC = () => {
         )}
       </div>
 
-      {/* Upcoming Circle Events (Clean Empty State) */}
+      {/* Upcoming Circle Events (Issue #101) */}
       <div className="flex flex-col gap-2 pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline">
-        <div className="flex items-center gap-1.5 px-1 mb-0.5 text-[11px] font-bold text-circle-slate dark:text-circle-dark-muted uppercase tracking-wider">
-          <Calendar className="h-3.5 w-3.5" />
-          <span>{t.home.upcomingEventsTitle}</span>
+        <div className="flex items-center justify-between px-1 mb-0.5">
+          <div className="flex items-center gap-1.5 text-[11px] font-bold text-circle-slate dark:text-circle-dark-muted uppercase tracking-wider">
+            <Calendar className="h-3.5 w-3.5" />
+            <span>{t.home.upcomingEventsTitle}</span>
+          </div>
+          {upcomingEvents.length > 0 && (
+            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-circle-primary/10 text-circle-primary">
+              {upcomingEvents.length}
+            </span>
+          )}
         </div>
-        <div className="rounded-xl border border-dashed border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/40 dark:bg-circle-dark-canvas/40 p-3 text-center">
-          <p className="text-xs text-circle-slate dark:text-circle-dark-muted">
-            {t.home.upcomingEventsEmpty}
-          </p>
-        </div>
+        {upcomingEvents.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/40 dark:bg-circle-dark-canvas/40 p-3 text-center">
+            <p className="text-xs text-circle-slate dark:text-circle-dark-muted">
+              {t.home.upcomingEventsEmpty}
+            </p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            {upcomingEvents.map((ev: any) => (
+              <div
+                key={ev.id}
+                className="group flex flex-col gap-1 rounded-xl p-2.5 bg-circle-canvas/50 dark:bg-circle-dark-canvas/50 border border-circle-hairline dark:border-circle-dark-hairline hover:border-circle-primary/30 transition-all cursor-pointer"
+              >
+                <div className="flex items-center justify-between min-w-0">
+                  <span className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text truncate">
+                    {ev.eventTitle}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1 text-[11px] text-circle-slate dark:text-circle-dark-muted">
+                  <Clock className="h-3 w-3 shrink-0" />
+                  <span>
+                    {new Date(ev.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · {new Date(ev.startTime).toLocaleDateString([], { day: '2-digit', month: '2-digit' })}
+                  </span>
+                </div>
+                {ev.location && (
+                  <div className="flex items-center gap-1 text-[11px] text-circle-slate dark:text-circle-dark-muted">
+                    <MapPin className="h-3 w-3 shrink-0" />
+                    <span className="truncate">{ev.location}</span>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </aside>
   );

@@ -11,6 +11,8 @@ import {
   Loader2,
   Plus,
   Mic,
+  Pencil,
+  Check,
 } from 'lucide-react';
 import { MessageEntity, MessageType } from '@circle/types';
 import { useLanguageStore } from '../../stores/language.store';
@@ -26,6 +28,9 @@ interface ChatComposerProps {
   members?: any[];
   replyingMessage: MessageEntity | null;
   onCancelReply: () => void;
+  editingMessage?: MessageEntity | null;
+  onCancelEdit?: () => void;
+  onSaveEdit?: (messageId: string, content: string) => Promise<void>;
   onSendMessage: (data: {
     content?: string;
     type: MessageType;
@@ -41,10 +46,14 @@ const EMOJI_LIST = ['👍', '❤️', '😂', '🎉', '🔥', '✨', '👏', '�
 const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024; // 25 MB
 
 export const ChatComposer: React.FC<ChatComposerProps> = ({
+  channelId,
   channelName,
   members = [],
   replyingMessage,
   onCancelReply,
+  editingMessage,
+  onCancelEdit,
+  onSaveEdit,
   onSendMessage,
   reportTyping,
 }) => {
@@ -77,7 +86,29 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
     }
   }, [content]);
 
-  // Focus textarea when replying
+  // Restore draft when channelId changes or component mounts
+  useEffect(() => {
+    if (editingMessage) {
+      setContent(editingMessage.content || '');
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+      }
+      return;
+    }
+    if (!channelId) return;
+    try {
+      const savedDraft = localStorage.getItem(`circle_draft_${channelId}`);
+      if (savedDraft) {
+        setContent(savedDraft);
+      } else {
+        setContent('');
+      }
+    } catch {
+      setContent('');
+    }
+  }, [channelId, editingMessage]);
+
+  // Focus textarea when replying or editing
   useEffect(() => {
     if (replyingMessage && textareaRef.current) {
       textareaRef.current.focus();
@@ -177,6 +208,17 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
       reportTyping(false);
     }
 
+    // Auto-save draft if not in editing mode
+    if (!editingMessage && channelId) {
+      try {
+        if (val.trim()) {
+          localStorage.setItem(`circle_draft_${channelId}`, val);
+        } else {
+          localStorage.removeItem(`circle_draft_${channelId}`);
+        }
+      } catch {}
+    }
+
     // Detect mention trigger (@name query)
     const cursorPos = e.target.selectionStart ?? val.length;
     const textBeforeCursor = val.slice(0, cursorPos);
@@ -200,6 +242,19 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
 
     setIsSubmitting(true);
     try {
+      if (editingMessage) {
+        if (onSaveEdit) {
+          await onSaveEdit(editingMessage.id, trimmed);
+        }
+        setContent('');
+        onCancelEdit?.();
+        reportTyping(false);
+        setShowEmojiPicker(false);
+        setMentionQuery(null);
+        setMentionStartIndex(null);
+        return;
+      }
+
       if (attachedFile) {
         // Upload to Cloudflare R2 / Storage first (with automatic client-side optimization)
         const uploadRes = await uploadMedia({
@@ -225,6 +280,13 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
           type: MessageType.TEXT,
           replyToId: replyingMessage?.id,
         });
+      }
+
+      // Clear draft on successful send
+      if (channelId) {
+        try {
+          localStorage.removeItem(`circle_draft_${channelId}`);
+        } catch {}
       }
 
       setContent('');
@@ -320,6 +382,54 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
             title={t.chat.cancelReply}
           >
             <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
+
+      {/* Editing Message Banner (CHT-09) */}
+      {editingMessage && (
+        <div className="mb-2 flex items-center justify-between rounded-xl bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 text-xs animate-in fade-in duration-150">
+          <div className="flex items-center gap-2 truncate text-amber-700 dark:text-amber-300">
+            <Pencil className="h-3.5 w-3.5 shrink-0" />
+            <span className="font-semibold">{t.chat.editingMessage}:</span>
+            <span className="text-circle-slate dark:text-circle-dark-muted truncate opacity-85">
+              {editingMessage.content}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={onCancelEdit}
+            className="flex h-5 w-5 items-center justify-center rounded-full text-circle-slate dark:text-circle-dark-muted hover:bg-circle-hairline hover:text-circle-charcoal transition-colors ml-2 shrink-0"
+            title={t.chat.cancelEdit}
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
+
+      {/* Draft Message Indicator (CHT-18) */}
+      {!editingMessage && !replyingMessage && content.trim().length > 0 && (
+        <div className="mb-2 flex items-center justify-between rounded-xl bg-circle-wash/60 dark:bg-circle-dark-wash/60 border border-circle-hairline/60 dark:border-circle-dark-hairline/60 px-3 py-1 text-xs text-circle-slate dark:text-circle-dark-muted animate-in fade-in duration-150">
+          <div className="flex items-center gap-2 truncate">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />
+            <span className="font-semibold text-amber-600 dark:text-amber-400 shrink-0">
+              {t.chat?.draftLabel || 'Nháp'}:
+            </span>
+            <span className="truncate opacity-80">{content}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setContent('');
+              if (channelId) {
+                try {
+                  localStorage.removeItem(`circle_draft_${channelId}`);
+                } catch {}
+              }
+            }}
+            className="text-[11px] hover:text-red-500 text-circle-slate dark:text-circle-dark-muted transition-colors ml-2 shrink-0"
+          >
+            {t.chat?.cancelBtn || 'Hủy'}
           </button>
         </div>
       )}
@@ -442,7 +552,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
           </button>
         </div>
 
-        {/* Right Standalone Action Button: Mic (when empty) vs Send (when typing) */}
+        {/* Right Standalone Action Button: Save (when editing) vs Mic (when empty) vs Send (when typing) */}
         <button
           type="button"
           onClick={
@@ -452,15 +562,23 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
           }
           disabled={(content.trim() || attachedFile) ? (isSubmitting || isUploading) : false}
           className={`flex h-12 w-12 items-center justify-center rounded-full shrink-0 transition-all active:scale-95 ${
-            content.trim() || attachedFile
+            editingMessage
+              ? 'bg-amber-500 text-white shadow-sm hover:bg-amber-600'
+              : content.trim() || attachedFile
               ? 'chat-composer-send-btn-active shadow-sm'
               : isGlass
               ? 'backdrop-blur-md bg-white/80 dark:bg-circle-dark-surface/80 border border-white/60 dark:border-white/10 shadow-xs text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text hover:bg-white dark:hover:bg-circle-dark-surface'
               : 'bg-white dark:bg-circle-dark-surface border border-circle-hairline dark:border-circle-dark-hairline shadow-2xs text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas'
           }`}
-          title={(content.trim() || attachedFile) ? t.chat.sendBtn : 'Ghi âm tin nhắn thoại'}
+          title={editingMessage ? t.chat.saveEdit : (content.trim() || attachedFile) ? t.chat.sendBtn : 'Ghi âm tin nhắn thoại'}
         >
-          {content.trim() || attachedFile ? (
+          {editingMessage ? (
+            isSubmitting ? (
+              <Loader2 className="h-5 w-5 animate-spin text-white" />
+            ) : (
+              <Check className="h-5 w-5 text-white" />
+            )
+          ) : content.trim() || attachedFile ? (
             isSubmitting || isUploading ? (
               <Loader2 className="h-5 w-5 animate-spin text-circle-charcoal" />
             ) : (

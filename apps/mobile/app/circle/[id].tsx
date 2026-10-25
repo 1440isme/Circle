@@ -81,8 +81,14 @@ import {
   Mic,
   PhoneCall,
   PhoneOff,
+  MapPin,
+  Pencil,
+  Trash2,
+  Ban,
+  EyeOff,
 } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { editMessageApi, recallMessageApi } from '../../src/services/chat.service';
 import { useThemeStore, MessageBubbleThemes, MessageTheme } from '../../src/stores/theme.store';
 import { getGlassTheme } from '../../src/constants/glass-theme';
 import { useLanguageStore } from '../../src/stores/language.store';
@@ -455,6 +461,11 @@ const MobileSwipeMessageBubble = React.memo(function MobileSwipeMessageBubble({
     });
   };
 
+  const isMentioned = !isSenderMe && Boolean(msg.content && (
+    msg.content.includes('@all') ||
+    msg.content.includes('@mọi người')
+  ));
+
   const rawReplyId = typeof msg.replyTo === 'string' ? msg.replyTo : (msg.replyTo?.id || msg.replyToId);
   const replyTarget =
     (typeof msg.replyTo === 'object' &&
@@ -605,6 +616,24 @@ const MobileSwipeMessageBubble = React.memo(function MobileSwipeMessageBubble({
             alignSelf: isSenderMe ? 'flex-end' : 'flex-start',
           }}
         >
+          {/* Mentioned indicator badge (CHT-22) */}
+          {isMentioned && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2, paddingHorizontal: 4 }}>
+              <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.primary }} />
+              <Text style={{ fontSize: 10, fontWeight: '700', color: colors.primary }}>
+                {t.chat?.mentionedYou || 'Đã nhắc đến bạn'}
+              </Text>
+            </View>
+          )}
+
+          {/* Pinned badge */}
+          {Boolean(msg.isPinned) && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 2, paddingHorizontal: 4 }}>
+              <Pin size={10} color={colors.subtle} />
+              <Text style={{ fontSize: 10, color: colors.subtle }}>{t.chat?.pinnedBadge || 'Đã ghim'}</Text>
+            </View>
+          )}
+
           <View
             style={[
               styles.messageBubble,
@@ -764,8 +793,92 @@ const MobileSwipeMessageBubble = React.memo(function MobileSwipeMessageBubble({
                 );
               })()}
 
-              {/* Message Content: Call Summary vs Standard Text */}
-              {callSummaryData ? (
+              {/* Message Content: Recalled vs Calendar Event vs Call Summary vs Standard Text */}
+              {Boolean(msg.deletedAt) ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 2, paddingHorizontal: 4 }}>
+                  <Ban size={14} color={isSenderMe ? senderTextColor : colors.subtle} style={{ opacity: 0.7 }} />
+                  <Text
+                    style={{
+                      fontSize: 13,
+                      fontStyle: 'italic',
+                      color: isSenderMe ? senderTextColor : colors.subtle,
+                      opacity: 0.8,
+                    }}
+                  >
+                    {t.chat?.messageRecalled || 'Tin nhắn đã được thu hồi'}
+                  </Text>
+                </View>
+              ) : Boolean(msg.content?.startsWith('[CALENDAR_EVENT]:')) ? (() => {
+                let calData: any = null;
+                try {
+                  calData = JSON.parse(msg.content.replace('[CALENDAR_EVENT]:', ''));
+                } catch {}
+                if (!calData) return null;
+                return (
+                  <View style={{ minWidth: 210, maxWidth: 280, gap: 6, paddingVertical: 4, paddingHorizontal: 2 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <View
+                        style={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: 10,
+                          backgroundColor: isSenderMe ? 'rgba(0,0,0,0.15)' : colors.wash,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <Calendar size={18} color={isSenderMe ? senderTextColor : colors.primary} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text
+                          style={{
+                            fontSize: 10,
+                            fontWeight: '700',
+                            textTransform: 'uppercase',
+                            color: isSenderMe ? senderTextColor : colors.primary,
+                            opacity: 0.85,
+                          }}
+                        >
+                          {t.chat?.calendarEventCardTitle || 'Sự kiện Vòng tròn'}
+                        </Text>
+                        <Text
+                          numberOfLines={1}
+                          style={{
+                            fontSize: 14,
+                            fontWeight: '700',
+                            color: isSenderMe ? senderTextColor : colors.text,
+                          }}
+                        >
+                          {calData.title}
+                        </Text>
+                      </View>
+                    </View>
+                    <View
+                      style={{
+                        backgroundColor: isSenderMe ? 'rgba(0,0,0,0.1)' : colors.wash,
+                        borderRadius: 8,
+                        padding: 8,
+                        gap: 4,
+                      }}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Clock size={12} color={isSenderMe ? senderTextColor : colors.subtle} />
+                        <Text style={{ fontSize: 11, color: isSenderMe ? senderTextColor : colors.subtle }}>
+                          {new Date(calData.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · {new Date(calData.startTime).toLocaleDateString([], { day: '2-digit', month: '2-digit' })}
+                        </Text>
+                      </View>
+                      {calData.location ? (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <MapPin size={12} color={isSenderMe ? senderTextColor : colors.subtle} />
+                          <Text numberOfLines={1} style={{ fontSize: 11, color: isSenderMe ? senderTextColor : colors.subtle, flex: 1 }}>
+                            {calData.location}
+                          </Text>
+                        </View>
+                      ) : null}
+                    </View>
+                  </View>
+                );
+              })() : callSummaryData ? (
                 <View style={styles.callNotificationRow}>
                   {callSummaryData.callType === 'VIDEO' ? (
                     <Video
@@ -808,6 +921,23 @@ const MobileSwipeMessageBubble = React.memo(function MobileSwipeMessageBubble({
                   ]}
                 >
                   {renderMobileContentWithMentions(msg.content)}
+                  {Boolean(
+                    msg.updatedAt &&
+                      msg.sentAt &&
+                      new Date(msg.updatedAt).getTime() - new Date(msg.sentAt).getTime() > 1000 &&
+                      !msg.deletedAt,
+                  ) && (
+                    <Text
+                      style={{
+                        fontSize: 10,
+                        fontStyle: 'italic',
+                        opacity: 0.65,
+                        color: isSenderMe ? senderTextColor : colors.subtle,
+                      }}
+                    >
+                      {' '}({t.chat?.editedLabel || 'đã sửa'})
+                    </Text>
+                  )}
                 </Text>
               ) : null}
 
@@ -1042,6 +1172,7 @@ export default function CircleWorkspaceScreen() {
   };
   const [isSocketConnected, setIsSocketConnected] = useState(true);
   const [replyingMessage, setReplyingMessage] = useState<any | null>(null);
+  const [editingMessage, setEditingMessage] = useState<any | null>(null);
   const [activeActionMessage, setActiveActionMessage] = useState<any | null>(null);
   const [activeTimestampMessageId, setActiveTimestampMessageId] = useState<string | null>(null);
   const [isPinnedModalVisible, setIsPinnedModalVisible] = useState(false);
@@ -1109,6 +1240,7 @@ export default function CircleWorkspaceScreen() {
   // Queries & Mutations
   const { data: circle, isLoading: isLoadingCircle } = useCircleDetailQuery(circleId);
   const { data: members = [] } = useCircleMembersQuery(circleId);
+  const currentCircleMember = members.find((m: any) => m.userId === user?.id);
 
   // Synchronized Circle Theme Color (Pastel)
   const currentCircleTheme = (((circle as any)?.themeColor || 'sage') as MessageTheme);
@@ -1264,9 +1396,43 @@ export default function CircleWorkspaceScreen() {
     clusters: MobileMessageCluster[];
   }
 
+  // Locally hidden messages ("Xóa phía tôi" - CHT-11)
+  const [hiddenMessageIds, setHiddenMessageIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!currentChannelId) return;
+    getStorageItem(`circle_hidden_messages_${currentChannelId}`).then((raw) => {
+      if (raw) {
+        try {
+          setHiddenMessageIds(JSON.parse(raw));
+        } catch {
+          setHiddenMessageIds([]);
+        }
+      } else {
+        setHiddenMessageIds([]);
+      }
+    }).catch(() => {});
+  }, [currentChannelId]);
+
+  const visibleMessages = useMemo(() => {
+    if (hiddenMessageIds.length === 0) return messages;
+    const hiddenSet = new Set(hiddenMessageIds);
+    return messages.filter((m) => !hiddenSet.has(m.id));
+  }, [messages, hiddenMessageIds]);
+
+  // Restore draft when currentChannelId changes (CHT-18)
+  useEffect(() => {
+    if (!currentChannelId) return;
+    getStorageItem(`circle_draft_${currentChannelId}`).then((draft) => {
+      if (draft && draft.trim()) {
+        setMessageInput(draft);
+      }
+    }).catch(() => {});
+  }, [currentChannelId]);
+
   // Group messages by date first, then cluster consecutive messages within each date
   const dateMap = new Map<string, any[]>();
-  messages.forEach((msg) => {
+  visibleMessages.forEach((msg) => {
     const dateLabel = getDateLabel(msg.sentAt || new Date().toISOString());
     if (!dateMap.has(dateLabel)) {
       dateMap.set(dateLabel, []);
@@ -1480,7 +1646,29 @@ export default function CircleWorkspaceScreen() {
     }
   };
 
+  const handleRecallMessage = async (msgId: string) => {
+    try {
+      await recallMessageApi(msgId);
+    } catch (err: any) {
+      Alert.alert(t.common.appName, err?.message || 'Không thể thu hồi tin nhắn');
+    }
+  };
+
   const handleSendMessage = async () => {
+    if (editingMessage) {
+      const msgId = editingMessage.id;
+      const newContent = messageInput.trim();
+      if (!newContent) return;
+      setEditingMessage(null);
+      setMessageInput('');
+      try {
+        await editMessageApi(msgId, newContent);
+      } catch (err: any) {
+        Alert.alert(t.common.appName, err?.message || 'Không thể chỉnh sửa tin nhắn');
+      }
+      return;
+    }
+
     if ((!messageInput.trim() && !selectedImageUri) || !currentChannelId) return;
     const content = messageInput.trim();
     const replyToId = replyingMessage?.id;
@@ -1493,6 +1681,11 @@ export default function CircleWorkspaceScreen() {
     setMentionStartIndex(null);
     reportTyping(false, user?.profile?.displayName || user?.email);
     isNearBottomRef.current = true;
+
+    // Clear saved draft on send (CHT-18)
+    if (currentChannelId) {
+      setStorageItem(`circle_draft_${currentChannelId}`, '').catch(() => {});
+    }
 
     setTimeout(() => {
       scrollViewRef.current?.scrollToEnd({ animated: true });
@@ -2428,6 +2621,78 @@ export default function CircleWorkspaceScreen() {
               </View>
             )}
 
+            {/* Editing Message Floating Pill (CHT-09) */}
+            {editingMessage && (
+              <View
+                style={[
+                  styles.replyPreviewBar,
+                  {
+                    backgroundColor: isDark ? 'rgba(245, 158, 11, 0.15)' : 'rgba(245, 158, 11, 0.1)',
+                    borderColor: 'rgba(245, 158, 11, 0.3)',
+                  },
+                ]}
+              >
+                <View style={styles.replyPreviewLeft}>
+                  <Pencil size={15} color="#f59e0b" style={{ marginRight: 4 }} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.replyPreviewAuthor, { color: '#f59e0b' }]}>
+                      {t.chat?.editingMessage || 'Đang chỉnh sửa tin nhắn'}
+                    </Text>
+                    <Text numberOfLines={1} style={[styles.replyPreviewContent, { color: colors.subtle }]}>
+                      {editingMessage.content}
+                    </Text>
+                  </View>
+                </View>
+                <TouchableOpacity
+                  onPress={() => {
+                    setEditingMessage(null);
+                    setMessageInput('');
+                  }}
+                  style={[styles.cancelReplyBtn, { backgroundColor: colors.wash }]}
+                >
+                  <X size={14} color={colors.subtle} />
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Draft Message Indicator (CHT-18) */}
+            {!editingMessage && !replyingMessage && messageInput.trim().length > 0 && (
+              <View
+                style={[
+                  styles.replyPreviewBar,
+                  {
+                    backgroundColor: colors.wash,
+                    borderColor: colors.hairline,
+                    paddingVertical: 5,
+                    marginBottom: 4,
+                  },
+                ]}
+              >
+                <View style={styles.replyPreviewLeft}>
+                  <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.warning, marginRight: 6 }} />
+                  <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: colors.warning }}>
+                      {t.chat?.draftLabel || 'Nháp'}:
+                    </Text>
+                    <Text numberOfLines={1} style={{ fontSize: 11, color: colors.subtle, flex: 1 }}>
+                      {messageInput}
+                    </Text>
+                  </View>
+                </View>
+                <TouchableOpacity
+                  onPress={() => {
+                    setMessageInput('');
+                    if (currentChannelId) {
+                      setStorageItem(`circle_draft_${currentChannelId}`, '').catch(() => {});
+                    }
+                  }}
+                  style={[styles.cancelReplyBtn, { backgroundColor: 'transparent' }]}
+                >
+                  <Text style={{ fontSize: 11, color: colors.subtle }}>{t.chat?.cancelBtn || 'Hủy'}</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
             {/* Mention Suggestions Horizontal Bar (Minimalism: Name only) */}
             {mentionCandidates.length > 0 && (
               <View
@@ -2501,6 +2766,9 @@ export default function CircleWorkspaceScreen() {
                   value={messageInput}
                   onChangeText={(text) => {
                     setMessageInput(text);
+                    if (currentChannelId) {
+                      setStorageItem(`circle_draft_${currentChannelId}`, text).catch(() => {});
+                    }
                     if (circleId) {
                       getStorageItem(`circle_${circleId}_typing_indicator`).then((v) => {
                         if (v === 'false') return;
@@ -2547,11 +2815,11 @@ export default function CircleWorkspaceScreen() {
                 </TouchableOpacity>
               </View>
 
-              {/* Right Standalone Action Button: Mic (when empty) vs Send (when typing) */}
+              {/* Right Standalone Action Button: Mic (when empty) vs Send (when typing) vs Save (when editing) */}
               <TouchableOpacity
                 activeOpacity={0.8}
                 onPress={
-                  (messageInput.trim() || selectedImageUri)
+                  (editingMessage || messageInput.trim() || selectedImageUri)
                     ? handleSendMessage
                     : () => {
                         triggerLightHaptic();
@@ -2564,7 +2832,9 @@ export default function CircleWorkspaceScreen() {
                 disabled={Boolean((messageInput.trim() || selectedImageUri) && (sendMessageMutation.isPending || isUploadingMedia))}
                 style={[
                   styles.standaloneActionBtn,
-                  (messageInput.trim() || selectedImageUri)
+                  editingMessage
+                    ? { backgroundColor: '#f59e0b' }
+                    : (messageInput.trim() || selectedImageUri)
                     ? { backgroundColor: activeCircleBubbleTheme.sendBtnBg }
                     : {
                         backgroundColor: isGlass
@@ -2576,9 +2846,17 @@ export default function CircleWorkspaceScreen() {
                         borderWidth: 1.2,
                       },
                 ]}
-                accessibilityLabel={(messageInput.trim() || selectedImageUri) ? 'Send Message' : 'Record Voice Message'}
+                accessibilityLabel={
+                  editingMessage
+                    ? 'Save Edit'
+                    : (messageInput.trim() || selectedImageUri)
+                    ? 'Send Message'
+                    : 'Record Voice Message'
+                }
               >
-                {(messageInput.trim() || selectedImageUri) ? (
+                {editingMessage ? (
+                  <Check size={18} color="#ffffff" />
+                ) : (messageInput.trim() || selectedImageUri) ? (
                   sendMessageMutation.isPending || isUploadingMedia ? (
                     <ActivityIndicator size="small" color={activeCircleBubbleTheme.sendBtnText} />
                   ) : (
@@ -2788,12 +3066,13 @@ export default function CircleWorkspaceScreen() {
 
             <View style={[styles.actionDivider, { backgroundColor: colors.hairline }]} />
 
-            {/* Quick Actions (Reply, Pin) */}
+            {/* Quick Actions (Reply, Pin, Edit, Recall) */}
             <View style={styles.actionButtonsRow}>
               <TouchableOpacity
                 activeOpacity={0.7}
                 onPress={() => {
                   setReplyingMessage(activeActionMessage);
+                  setEditingMessage(null);
                   setActiveActionMessage(null);
                 }}
                 style={[styles.actionBtnItem, { backgroundColor: colors.wash }]}
@@ -2803,6 +3082,71 @@ export default function CircleWorkspaceScreen() {
                 </View>
                 <Text style={[styles.actionBtnItemText, { color: colors.text }]}>{t.chat.replyAction}</Text>
               </TouchableOpacity>
+
+              {/* Edit Message Action (CHT-09: Author only) */}
+              {Boolean(
+                activeActionMessage &&
+                  (activeActionMessage.memberId === currentCircleMember?.id ||
+                    activeActionMessage.sender?.userId === user?.id) &&
+                  !activeActionMessage.deletedAt &&
+                  activeActionMessage.content &&
+                  !activeActionMessage.fileUrl &&
+                  !activeActionMessage.content.startsWith('['),
+              ) && (
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    const msgToEdit = activeActionMessage;
+                    setActiveActionMessage(null);
+                    setReplyingMessage(null);
+                    setEditingMessage(msgToEdit);
+                    setMessageInput(msgToEdit.content || '');
+                  }}
+                  style={[styles.actionBtnItem, { backgroundColor: colors.wash }]}
+                >
+                  <Pencil size={16} color={colors.primary} />
+                  <Text style={[styles.actionBtnItemText, { color: colors.text }]}>
+                    {t.chat?.editAction || 'Chỉnh sửa'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              {/* Recall Message Action (CHT-10: Author or Admin) */}
+              {Boolean(
+                activeActionMessage &&
+                  (activeActionMessage.memberId === currentCircleMember?.id ||
+                    activeActionMessage.sender?.userId === user?.id ||
+                    currentCircleMember?.role === 'OWNER' ||
+                    currentCircleMember?.role === 'ADMIN') &&
+                  !activeActionMessage.deletedAt,
+              ) && (
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    const msgId = activeActionMessage.id;
+                    setActiveActionMessage(null);
+                    Alert.alert(
+                      t.chat?.recallConfirmTitle || 'Thu hồi tin nhắn?',
+                      t.chat?.recallConfirmMsg ||
+                        'Tin nhắn này sẽ bị thu hồi đối với tất cả thành viên trong Vòng tròn.',
+                      [
+                        { text: t.chat?.cancelBtn || 'Hủy', style: 'cancel' },
+                        {
+                          text: t.chat?.recallAction || 'Thu hồi',
+                          style: 'destructive',
+                          onPress: () => handleRecallMessage(msgId),
+                        },
+                      ],
+                    );
+                  }}
+                  style={[styles.actionBtnItem, { backgroundColor: colors.wash }]}
+                >
+                  <Trash2 size={16} color="#ef4444" />
+                  <Text style={[styles.actionBtnItemText, { color: '#ef4444' }]}>
+                    {t.chat?.recallAction || 'Thu hồi'}
+                  </Text>
+                </TouchableOpacity>
+              )}
 
               {!activeActionMessage?.content?.startsWith?.('[CALL_SUMMARY]:') &&
                 !activeActionMessage?.content?.includes?.('"callType"') && (
@@ -2823,6 +3167,45 @@ export default function CircleWorkspaceScreen() {
                     </Text>
                   </TouchableOpacity>
                 )}
+
+              {/* Delete For Me Action (CHT-11: Hide message on this device only) */}
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => {
+                  const targetMsgId = activeActionMessage.id;
+                  setActiveActionMessage(null);
+                  Alert.alert(
+                    t.chat?.deleteForMeConfirmTitle || 'Xóa tin nhắn phía bạn?',
+                    t.chat?.deleteForMeConfirmMsg ||
+                      'Tin nhắn này sẽ chỉ bị ẩn khỏi thiết bị của bạn và không ảnh hưởng đến người khác.',
+                    [
+                      { text: t.chat?.cancelBtn || 'Hủy', style: 'cancel' },
+                      {
+                        text: t.chat?.deleteForMeAction || 'Xóa phía tôi',
+                        style: 'destructive',
+                        onPress: async () => {
+                          const updated = [...hiddenMessageIds, targetMsgId];
+                          setHiddenMessageIds(updated);
+                          if (currentChannelId) {
+                            try {
+                              await setStorageItem(
+                                `circle_hidden_messages_${currentChannelId}`,
+                                JSON.stringify(updated),
+                              );
+                            } catch {}
+                          }
+                        },
+                      },
+                    ],
+                  );
+                }}
+                style={[styles.actionBtnItem, { backgroundColor: colors.wash }]}
+              >
+                <EyeOff size={16} color={colors.subtle} />
+                <Text style={[styles.actionBtnItemText, { color: colors.text }]}>
+                  {t.chat?.deleteForMeAction || 'Xóa phía tôi'}
+                </Text>
+              </TouchableOpacity>
             </View>
           </BlurView>
         </TouchableOpacity>

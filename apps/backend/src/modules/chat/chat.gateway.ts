@@ -354,6 +354,18 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
+  broadcastMessageUpdated(channelId: string, message: any) {
+    if (this.server) {
+      this.server.to(`channel:${channelId}`).emit('chat:message-updated', message);
+    }
+  }
+
+  broadcastMessageRecalled(channelId: string, messageId: string, message: any) {
+    if (this.server) {
+      this.server.to(`channel:${channelId}`).emit('chat:message-recalled', { channelId, messageId, message });
+    }
+  }
+
   /**
    * Helper to check if a user is currently online
    */

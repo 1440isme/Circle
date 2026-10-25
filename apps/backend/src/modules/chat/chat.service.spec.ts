@@ -13,6 +13,8 @@ describe('ChatService — Module 4 Realtime Group Messaging', () => {
     broadcastReaction: jest.fn(),
     broadcastPinMessage: jest.fn(),
     broadcastUnpinMessage: jest.fn(),
+    broadcastMessageUpdated: jest.fn(),
+    broadcastMessageRecalled: jest.fn(),
   };
 
   const mockPrisma = {
@@ -27,6 +29,7 @@ describe('ChatService — Module 4 Realtime Group Messaging', () => {
       findUnique: jest.fn(),
       findFirst: jest.fn(),
       create: jest.fn(),
+      update: jest.fn(),
       delete: jest.fn(),
     },
     reaction: {
@@ -392,6 +395,153 @@ describe('ChatService — Module 4 Realtime Group Messaging', () => {
       expect(res.data).toHaveLength(1);
       expect(res.data[0]!.content).toBe('Nội quy phòng chat');
       expect(res.data[0]!.isPinned).toBe(true);
+    });
+  });
+
+  describe('editMessage (CHT-09)', () => {
+    it('TC-CHAT-015: should allow original author to edit their message', async () => {
+      const mockMsg = {
+        id: 'msg-1',
+        channelId: 'channel-1',
+        memberId: 'member-1',
+        type: MessageType.TEXT,
+        content: 'Original content',
+        sentAt: new Date(),
+        updatedAt: new Date(),
+        deletedAt: null,
+        channel: mockChannel,
+        sender: mockMember,
+      };
+
+      mockPrisma.message.findUnique.mockResolvedValue(mockMsg);
+      mockPrisma.circleMember.findUnique.mockResolvedValue(mockMember);
+      mockPrisma.message.update.mockResolvedValue({
+        ...mockMsg,
+        content: 'Updated content',
+        updatedAt: new Date(),
+        sender: mockMember,
+      });
+
+      const res = await service.editMessage('user-1', 'msg-1', { content: 'Updated content' }, 'vi');
+
+      expect(res.success).toBe(true);
+      expect(res.data.content).toBe('Updated content');
+      expect(mockGateway.broadcastMessageUpdated).toHaveBeenCalledWith('channel-1', expect.anything());
+    });
+
+    it('TC-CHAT-016: should forbid non-author from editing message', async () => {
+      const mockMsg = {
+        id: 'msg-1',
+        channelId: 'channel-1',
+        memberId: 'member-other',
+        type: MessageType.TEXT,
+        content: 'Original content',
+        sentAt: new Date(),
+        updatedAt: new Date(),
+        deletedAt: null,
+        channel: mockChannel,
+        sender: { ...mockMember, id: 'member-other' },
+      };
+
+      mockPrisma.message.findUnique.mockResolvedValue(mockMsg);
+      mockPrisma.circleMember.findUnique.mockResolvedValue(mockMember);
+
+      await expect(
+        service.editMessage('user-1', 'msg-1', { content: 'Hacked content' }, 'vi'),
+      ).rejects.toThrow();
+    });
+  });
+
+  describe('recallMessage (CHT-10)', () => {
+    it('TC-CHAT-017: should allow author to recall their message and clear content', async () => {
+      const mockMsg = {
+        id: 'msg-1',
+        channelId: 'channel-1',
+        memberId: 'member-1',
+        type: MessageType.TEXT,
+        content: 'Sensitive info',
+        sentAt: new Date(),
+        updatedAt: new Date(),
+        deletedAt: null,
+        channel: mockChannel,
+        sender: mockMember,
+        pinnedRecord: null,
+      };
+
+      mockPrisma.message.findUnique.mockResolvedValue(mockMsg);
+      mockPrisma.circleMember.findUnique.mockResolvedValue(mockMember);
+      mockPrisma.message.update.mockResolvedValue({
+        ...mockMsg,
+        content: null,
+        fileUrl: null,
+        deletedAt: new Date(),
+        sender: mockMember,
+      });
+
+      const res = await service.recallMessage('user-1', 'msg-1', 'vi');
+
+      expect(res.success).toBe(true);
+      expect(res.data.content).toBeNull();
+      expect(res.data.deletedAt).toBeTruthy();
+      expect(mockGateway.broadcastMessageRecalled).toHaveBeenCalledWith('channel-1', 'msg-1', expect.anything());
+    });
+
+    it('TC-CHAT-018: should allow circle OWNER to recall member message', async () => {
+      const ownerMember = { ...mockMember, id: 'member-owner', role: 'OWNER' };
+      const otherMsg = {
+        id: 'msg-2',
+        channelId: 'channel-1',
+        memberId: 'member-other',
+        type: MessageType.TEXT,
+        content: 'Bad content',
+        sentAt: new Date(),
+        updatedAt: new Date(),
+        deletedAt: null,
+        channel: mockChannel,
+        sender: { ...mockMember, id: 'member-other' },
+        pinnedRecord: null,
+      };
+
+      mockPrisma.message.findUnique.mockResolvedValue(otherMsg);
+      mockPrisma.circleMember.findUnique.mockResolvedValue(ownerMember);
+      mockPrisma.message.update.mockResolvedValue({
+        ...otherMsg,
+        content: null,
+        deletedAt: new Date(),
+        sender: { ...mockMember, id: 'member-other' },
+      });
+
+      const res = await service.recallMessage('user-owner', 'msg-2', 'vi');
+
+      expect(res.success).toBe(true);
+      expect(res.data.deletedAt).toBeTruthy();
+    });
+  });
+
+  describe('searchMessages (CHT-17)', () => {
+    it('TC-CHAT-019: should search messages containing query in channel', async () => {
+      mockPrisma.channel.findUnique.mockResolvedValue(mockChannel);
+      mockPrisma.circleMember.findUnique.mockResolvedValue(mockMember);
+
+      mockPrisma.message.findMany.mockResolvedValue([
+        {
+          id: 'msg-search-1',
+          channelId: 'channel-1',
+          memberId: 'member-1',
+          type: MessageType.TEXT,
+          content: 'Họp nhóm đồ án lúc 8h',
+          sentAt: new Date(),
+          updatedAt: new Date(),
+          deletedAt: null,
+          sender: mockMember,
+        },
+      ]);
+
+      const res = await service.searchMessages('user-1', 'channel-1', { q: 'đồ án' }, 'vi');
+
+      expect(res.success).toBe(true);
+      expect(res.data.messages).toHaveLength(1);
+      expect(res.data.messages[0]!.content).toContain('đồ án');
     });
   });
 });
