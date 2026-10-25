@@ -1,5 +1,6 @@
 import { mobileApiRequest } from './api';
-import { MessageEntity, SearchMessagesResult } from '@circle/types';
+import { MessageEntity, SearchMessagesResult, ClearChatResult } from '@circle/types';
+import { ClearChatInput } from '@circle/shared';
 
 /**
  * Edit a sent text message (CHT-09)
@@ -31,6 +32,23 @@ export async function searchMessagesApi(
 ): Promise<SearchMessagesResult> {
   const res = await mobileApiRequest<SearchMessagesResult>(
     `/channels/${channelId}/messages/search?q=${encodeURIComponent(query)}`,
+  );
+  return res.data;
+}
+
+/**
+ * Clear channel chat history (FOR_ME or EVERYONE)
+ */
+export async function clearChannelHistoryApi(
+  channelId: string,
+  dto: ClearChatInput,
+): Promise<ClearChatResult> {
+  const res = await mobileApiRequest<ClearChatResult>(
+    `/channels/${channelId}/clear-history`,
+    {
+      method: 'POST',
+      body: JSON.stringify(dto),
+    },
   );
   return res.data;
 }

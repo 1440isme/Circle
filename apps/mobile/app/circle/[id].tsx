@@ -86,9 +86,10 @@ import {
   Trash2,
   Ban,
   EyeOff,
+  MoreVertical,
 } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { editMessageApi, recallMessageApi } from '../../src/services/chat.service';
+import { editMessageApi, recallMessageApi, clearChannelHistoryApi } from '../../src/services/chat.service';
 import { useThemeStore, MessageBubbleThemes, MessageTheme } from '../../src/stores/theme.store';
 import { getGlassTheme } from '../../src/constants/glass-theme';
 import { useLanguageStore } from '../../src/stores/language.store';
@@ -114,7 +115,7 @@ import { uploadMobileMedia } from '../../src/services/storage-upload.service';
 import { subscribeSocketConnection, sendMobileMessageRead, getMobileSocket } from '../../src/services/socket';
 import { getStorageItem, setStorageItem } from '../../src/services/storage';
 import { useQueryClient, InfiniteData } from '@tanstack/react-query';
-import { MessageType, CursorPaginatedMessages, CallType, CallSessionDetailEntity } from '@circle/types';
+import { MessageType, CursorPaginatedMessages, CallType, CallSessionDetailEntity, ClearChatMode } from '@circle/types';
 import { CircleManagementModal } from '../../src/components/circle/CircleManagementModal';
 import { MomentsView, parseMomentPhotos, MomentFeedPipView, formatMomentRelativeTime } from '../../src/components/moment/MomentsView';
 import { CreateCircleModal } from '../../src/components/circle/CreateCircleModal';
@@ -1222,12 +1223,27 @@ export default function CircleWorkspaceScreen() {
         }
       };
 
+      const handleChannelCleared = (payload: any) => {
+        if (payload.channelId === currentChannelId) {
+          queryClient.setQueryData(
+            ['messages', 'channel', currentChannelId],
+            () => ({
+              pages: [{ messages: [], nextCursor: null }],
+              pageParams: [undefined],
+            }),
+          );
+          queryClient.invalidateQueries({ queryKey: ['messages', 'channel', currentChannelId] });
+        }
+      };
+
       socket.on('call:incoming', handleIncomingCall);
       socket.on('call:ended', handleCallEnded);
+      socket.on('chat:channel-cleared', handleChannelCleared);
 
       cleanupSocket = () => {
         socket.off('call:incoming', handleIncomingCall);
         socket.off('call:ended', handleCallEnded);
+        socket.off('chat:channel-cleared', handleChannelCleared);
       };
     });
 
@@ -1288,6 +1304,32 @@ export default function CircleWorkspaceScreen() {
     null;
 
   const currentChannelId = currentChannel?.id || null;
+
+  const [isClearChatModalOpen, setIsClearChatModalOpen] = useState(false);
+  const [clearChatMode, setClearChatMode] = useState<ClearChatMode>('FOR_ME');
+  const [isClearingChat, setIsClearingChat] = useState(false);
+
+  const handleConfirmClearChat = async () => {
+    if (!currentChannelId) return;
+    try {
+      setIsClearingChat(true);
+      await clearChannelHistoryApi(currentChannelId, { mode: clearChatMode });
+      setIsClearChatModalOpen(false);
+      queryClient.setQueryData(
+        ['messages', 'channel', currentChannelId],
+        () => ({
+          pages: [{ messages: [], nextCursor: null }],
+          pageParams: [undefined],
+        }),
+      );
+      queryClient.invalidateQueries({ queryKey: ['messages', 'channel', currentChannelId] });
+      Alert.alert(t.common.appName, t.chat?.clearChatSuccess || 'Đã xóa lịch sử cuộc trò chuyện');
+    } catch (err: any) {
+      Alert.alert(t.common.appName, err?.message || 'Không thể xóa lịch sử cuộc trò chuyện');
+    } finally {
+      setIsClearingChat(false);
+    }
+  };
 
   const {
     messages = [],
@@ -2160,6 +2202,25 @@ export default function CircleWorkspaceScreen() {
                     accessibilityLabel="Bắt đầu gọi video"
                   >
                     <Video size={13} color={colors.text} />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    onPress={() => setIsClearChatModalOpen(true)}
+                    style={[
+                      styles.headerActionCircleBtn,
+                      {
+                        backgroundColor: isGlass
+                          ? (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)')
+                          : colors.surface,
+                        borderColor: isGlass
+                          ? (isDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.07)')
+                          : colors.hairline,
+                      },
+                    ]}
+                    accessibilityLabel={t.chat?.clearChatAction || 'Xóa lịch sử trò chuyện'}
+                  >
+                    <Trash2 size={13} color={colors.text} />
                   </TouchableOpacity>
                 </>
               )}
@@ -3111,13 +3172,11 @@ export default function CircleWorkspaceScreen() {
                 </TouchableOpacity>
               )}
 
-              {/* Recall Message Action (CHT-10: Author or Admin) */}
+              {/* Recall Message Action (CHT-10: Author recalls for everyone) */}
               {Boolean(
                 activeActionMessage &&
                   (activeActionMessage.memberId === currentCircleMember?.id ||
-                    activeActionMessage.sender?.userId === user?.id ||
-                    currentCircleMember?.role === 'OWNER' ||
-                    currentCircleMember?.role === 'ADMIN') &&
+                    activeActionMessage.sender?.userId === user?.id) &&
                   !activeActionMessage.deletedAt,
               ) && (
                 <TouchableOpacity
@@ -3148,6 +3207,51 @@ export default function CircleWorkspaceScreen() {
                 </TouchableOpacity>
               )}
 
+              {/* Remove other's message (Gỡ tin nhắn người khác - Mặc định chỉ phía người thao tác) */}
+              {Boolean(
+                activeActionMessage &&
+                  activeActionMessage.memberId !== currentCircleMember?.id &&
+                  activeActionMessage.sender?.userId !== user?.id,
+              ) && (
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    const targetMsgId = activeActionMessage.id;
+                    setActiveActionMessage(null);
+                    Alert.alert(
+                      t.chat?.removeAction || 'Gỡ tin nhắn?',
+                      t.chat?.removeForMeDesc ||
+                        'Gỡ tin nhắn này khỏi màn hình của bạn (không ảnh hưởng người khác trong nhóm).',
+                      [
+                        { text: t.chat?.cancelBtn || 'Hủy', style: 'cancel' },
+                        {
+                          text: t.chat?.removeAction || 'Gỡ tin nhắn',
+                          style: 'destructive',
+                          onPress: async () => {
+                            const updated = [...hiddenMessageIds, targetMsgId];
+                            setHiddenMessageIds(updated);
+                            if (currentChannelId) {
+                              try {
+                                await setStorageItem(
+                                  `circle_hidden_messages_${currentChannelId}`,
+                                  JSON.stringify(updated),
+                                );
+                              } catch {}
+                            }
+                          },
+                        },
+                      ],
+                    );
+                  }}
+                  style={[styles.actionBtnItem, { backgroundColor: colors.wash }]}
+                >
+                  <Trash2 size={16} color="#ef4444" />
+                  <Text style={[styles.actionBtnItemText, { color: '#ef4444' }]}>
+                    {t.chat?.removeAction || 'Gỡ tin nhắn'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+
               {!activeActionMessage?.content?.startsWith?.('[CALL_SUMMARY]:') &&
                 !activeActionMessage?.content?.includes?.('"callType"') && (
                   <TouchableOpacity
@@ -3168,10 +3272,15 @@ export default function CircleWorkspaceScreen() {
                   </TouchableOpacity>
                 )}
 
-              {/* Delete For Me Action (CHT-11: Hide message on this device only) */}
-              <TouchableOpacity
-                activeOpacity={0.7}
-                onPress={() => {
+              {/* Delete For Me Action (CHT-11: Hide own message on this device only) */}
+              {Boolean(
+                activeActionMessage &&
+                  (activeActionMessage.memberId === currentCircleMember?.id ||
+                    activeActionMessage.sender?.userId === user?.id),
+              ) && (
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => {
                   const targetMsgId = activeActionMessage.id;
                   setActiveActionMessage(null);
                   Alert.alert(
@@ -3206,6 +3315,7 @@ export default function CircleWorkspaceScreen() {
                   {t.chat?.deleteForMeAction || 'Xóa phía tôi'}
                 </Text>
               </TouchableOpacity>
+              )}
             </View>
           </BlurView>
         </TouchableOpacity>
@@ -3549,6 +3659,187 @@ export default function CircleWorkspaceScreen() {
         colors={colors}
         t={t}
       />
+
+      {/* Clear Chat History Modal (Mobile) */}
+      <Modal
+        visible={isClearChatModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsClearChatModalOpen(false)}
+      >
+        <View style={styles.incomingCallOverlay}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={() => setIsClearChatModalOpen(false)}
+          />
+          <View
+            style={[
+              styles.incomingCallCard,
+              {
+                backgroundColor: isDark ? '#1a1b1f' : '#ffffff',
+                borderColor: colors.hairline,
+                padding: 20,
+                width: '90%',
+                maxWidth: 360,
+              },
+            ]}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+              <View
+                style={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: 12,
+                  backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 12,
+                }}
+              >
+                <Trash2 size={20} color="#ef4444" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: colors.text }}>
+                  {t.chat.clearChatModalTitle}
+                </Text>
+                <Text style={{ fontSize: 12, color: colors.subtle, marginTop: 2 }}>
+                  {t.chat.clearChatModalDesc}
+                </Text>
+              </View>
+            </View>
+
+            {/* Option 1: FOR_ME (Default) */}
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => setClearChatMode('FOR_ME')}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'flex-start',
+                padding: 12,
+                borderRadius: 14,
+                borderWidth: 1.5,
+                borderColor: clearChatMode === 'FOR_ME' ? colors.primary : colors.hairline,
+                backgroundColor: clearChatMode === 'FOR_ME' ? (isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.03)') : colors.wash,
+                marginBottom: 10,
+              }}
+            >
+              <View
+                style={{
+                  width: 18,
+                  height: 18,
+                  borderRadius: 9,
+                  borderWidth: 2,
+                  borderColor: clearChatMode === 'FOR_ME' ? colors.primary : colors.subtle,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 10,
+                  marginTop: 2,
+                }}
+              >
+                {clearChatMode === 'FOR_ME' && (
+                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.primary }} />
+                )}
+              </View>
+              <View style={{ flex: 1 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: colors.text }}>
+                    {t.chat.clearChatForMeTitle}
+                  </Text>
+                  <View style={{ backgroundColor: 'rgba(99, 102, 241, 0.15)', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 6 }}>
+                    <Text style={{ fontSize: 10, fontWeight: '600', color: colors.primary }}>Mặc định</Text>
+                  </View>
+                </View>
+                <Text style={{ fontSize: 11, color: colors.subtle, marginTop: 4, lineHeight: 15 }}>
+                  {t.chat.clearChatForMeDesc}
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            {/* Option 2: EVERYONE */}
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => setClearChatMode('EVERYONE')}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'flex-start',
+                padding: 12,
+                borderRadius: 14,
+                borderWidth: 1.5,
+                borderColor: clearChatMode === 'EVERYONE' ? '#ef4444' : colors.hairline,
+                backgroundColor: clearChatMode === 'EVERYONE' ? (isDark ? 'rgba(239, 68, 68, 0.12)' : 'rgba(239, 68, 68, 0.05)') : colors.wash,
+                marginBottom: 16,
+              }}
+            >
+              <View
+                style={{
+                  width: 18,
+                  height: 18,
+                  borderRadius: 9,
+                  borderWidth: 2,
+                  borderColor: clearChatMode === 'EVERYONE' ? '#ef4444' : colors.subtle,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 10,
+                  marginTop: 2,
+                }}
+              >
+                {clearChatMode === 'EVERYONE' && (
+                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#ef4444' }} />
+                )}
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: '#ef4444' }}>
+                  {t.chat.clearChatEveryoneTitle}
+                </Text>
+                <Text style={{ fontSize: 11, color: colors.subtle, marginTop: 4, lineHeight: 15 }}>
+                  {t.chat.clearChatEveryoneDesc}
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            {/* Buttons */}
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10 }}>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => setIsClearChatModalOpen(false)}
+                disabled={isClearingChat}
+                style={{
+                  paddingVertical: 10,
+                  paddingHorizontal: 16,
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: colors.hairline,
+                }}
+              >
+                <Text style={{ fontSize: 13, fontWeight: '600', color: colors.text }}>
+                  {t.chat.cancelBtn}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={handleConfirmClearChat}
+                disabled={isClearingChat}
+                style={{
+                  backgroundColor: '#ef4444',
+                  paddingVertical: 10,
+                  paddingHorizontal: 18,
+                  borderRadius: 12,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 6,
+                }}
+              >
+                {isClearingChat && <ActivityIndicator size="small" color="#ffffff" />}
+                <Text style={{ fontSize: 13, fontWeight: '700', color: '#ffffff' }}>
+                  {t.chat.clearChatAction}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Full Comprehensive Emoji Picker Modal */}
       <FullEmojiPickerModal

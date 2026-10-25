@@ -4919,3 +4919,61 @@
 - **Security & License Check:** An toàn tuyệt đối, zero secrets leaks, cơ chế hash bcrypt và revoke refresh token đa thiết bị chuẩn xác.
 - **Branch:** `feat/107-acc-password-and-mobile-call-parity`
 - **PR:** #108
+
+---
+
+## AI-0137: US-CHAT-005 — Message Recall/Remove for All Members & Clear Chat Options (Web + Mobile)
+
+- **Date:** 2026-10-25 23:45:00 +07:00
+- **Developer:** Trương Công Bình (MSSV: 23110184)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash
+- **Related Issue:** #109 (US-CHAT-005: Message Recall/Remove for All Members & Clear Chat Options)
+- **Purpose:** Triển khai hoàn thiện cơ chế Gỡ tin nhắn (Remove message) và Xóa đoạn chat (Clear chat history) với tùy chọn đa dạng, đảm bảo 100% Dual-Platform Parity giữa Web và Mobile:
+  1. **Cơ chế Gỡ/Thu hồi tin nhắn:**
+     - Tin nhắn của mình: Hỗ trợ Chỉnh sửa (văn bản 15 phút) và Thu hồi (Recall) cho toàn bộ thành viên trong nhóm.
+     - Tin nhắn của người khác: Mặc định thao tác "Gỡ tin nhắn" (Remove message) chỉ áp dụng cho riêng phía người thao tác (ẩn/xóa phía mình thông qua `circle_hidden_messages_${channelId}`), tin nhắn đó vẫn hiển thị nguyên vẹn với các thành viên khác trong Circle.
+  2. **Cơ chế Xóa đoạn chat (Clear Chat History):**
+     - Bổ sung trường `clearedChatAt DateTime?` trong model `CircleMember` (PostgreSQL Prisma schema) để ghi nhận mốc thời gian xóa đoạn chat phía cá nhân.
+     - Xây dựng API `POST /api/v1/channels/:channelId/clear-history` nhận DTO `ClearChatInput` với 2 chế độ:
+       - `FOR_ME` (Mặc định): Cập nhật `clearedChatAt = now()` cho membership của người dùng; truy vấn tin nhắn `getChannelMessages` & `searchMessages` tự động lọc `sentAt > clearedChatAt`. Đoạn chat hiển thị trống phía người dùng với Empty State trang nhã; các thành viên khác không bị ảnh hưởng.
+       - `EVERYONE`: Xóa mềm tất cả tin nhắn trong kênh và broadcast sự kiện Socket.IO `chat:channel-cleared` để đồng bộ xóa cache tin nhắn trên toàn bộ thành viên.
+  3. **Web Application (`apps/web`):**
+     - Thêm component `ClearChatModal.tsx` với 2 lựa chọn radio (Chỉ xóa phía tôi vs Xóa cho tất cả mọi người).
+     - Tích hợp nút menu 3 chấm `MoreVertical` trên Header của `ChannelChatView.tsx` chứa tùy chọn Xóa lịch sử trò chuyện.
+     - Tích hợp socket listener `chat:channel-cleared`.
+     - `MessageBubble.tsx`: Hiển thị rõ ràng các nút Sửa, Thu hồi (Recall), Gỡ tin nhắn (Remove for me) và Xóa phía tôi (Delete for me).
+  4. **Mobile Application (`apps/mobile`):**
+     - Bổ sung `clearChannelHistoryApi` trong `chat.service.ts`.
+     - Tích hợp Modal Xóa đoạn chat native trên Mobile với 2 radio options và giao diện bo tròn glass/dark/light.
+     - Thêm nút Xóa đoạn chat trên Header Circle Chat.
+     - Long-press menu: Hiển thị tùy chọn "Gỡ tin nhắn" (chỉ phía người thao tác) khi chọn tin nhắn của người khác, và "Thu hồi" khi chọn tin của chính mình.
+- **Files Affected:**
+  - `apps/backend/prisma/schema.prisma`
+  - `packages/types/src/index.ts`
+  - `packages/shared/src/validators/chat.validator.ts`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `apps/backend/src/modules/chat/chat.gateway.ts`
+  - `apps/backend/src/modules/chat/chat.service.ts`
+  - `apps/backend/src/modules/chat/chat.controller.ts`
+  - `apps/backend/src/modules/chat/chat.service.spec.ts`
+  - `apps/web/src/hooks/use-chat-queries.ts`
+  - `apps/web/src/components/chat/ClearChatModal.tsx`
+  - `apps/web/src/components/chat/ChannelChatView.tsx`
+  - `apps/web/src/components/chat/MessageBubble.tsx`
+  - `apps/mobile/src/services/chat.service.ts`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `agentic/memory/2026-10-25.md`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% code logic lọc mốc clearedChatAt, clear chat endpoints, ClearChatModal components (Web + Mobile), socket events.
+- **Human Modifications:** Trương Công Bình trực tiếp chỉ đạo phân tách rõ ràng cơ chế: Gỡ tin nhắn của người khác mặc định chỉ phía người thao tác, và Xóa đoạn chat cung cấp 2 tùy chọn rõ ràng.
+- **Verification Method:**
+  - `npm test -w @circle/backend`: 175/175 tests pass 100% (11/11 suites, bao gồm TC-CHAT-020, 021, 022).
+  - `npm run build -w @circle/web`: Next.js production build 9/9 static routes pass.
+  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Mobile TypeScript 0 errors.
+  - `bash ./scripts/check-agent-map.sh`: 116/116 framework files pass.
+- **Official Source Checked:** `agentic/playbooks/05-chat.md`, `agentic/playbooks/cross-cutting-gate.md`, `PROJECT_GOD.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks, kiểm tra membership chặt chẽ.
+- **Branch:** `feat/109-chat-remove-and-clear-options`
+- **PR:** Pending

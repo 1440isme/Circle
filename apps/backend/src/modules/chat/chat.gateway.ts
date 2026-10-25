@@ -366,6 +366,12 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
+  broadcastChannelCleared(channelId: string, payload: { channelId: string; mode: string; clearedBy: string }) {
+    if (this.server) {
+      this.server.to(`channel:${channelId}`).emit('chat:channel-cleared', payload);
+    }
+  }
+
   /**
    * Helper to check if a user is currently online
    */

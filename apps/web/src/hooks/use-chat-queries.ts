@@ -18,10 +18,12 @@ import {
   MessageEntity,
   MessageType,
   SearchMessagesResult,
+  ClearChatResult,
 } from '@circle/types';
 import {
   SendMessageInput,
   ReactMessageInput,
+  ClearChatInput,
 } from '@circle/shared';
 
 export const CHAT_KEYS = {
@@ -758,5 +760,34 @@ export function useSearchMessagesQuery(channelId: string | null, query: string) 
     },
     enabled: Boolean(channelId && trimmed.length > 0),
     staleTime: 1000 * 10,
+  });
+}
+
+/**
+ * Hook to clear channel chat history (FOR_ME or EVERYONE)
+ */
+export function useClearChatMutation(channelId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (dto: ClearChatInput) => {
+      const res = await apiRequest<ClearChatResult>(
+        `/channels/${channelId}/clear-history`,
+        {
+          method: 'POST',
+          body: JSON.stringify(dto),
+        },
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.setQueryData(
+        CHAT_KEYS.messages(channelId),
+        () => ({
+          pages: [{ messages: [], nextCursor: null }],
+          pageParams: [undefined],
+        }),
+      );
+      queryClient.invalidateQueries({ queryKey: CHAT_KEYS.messages(channelId) });
+    },
   });
 }

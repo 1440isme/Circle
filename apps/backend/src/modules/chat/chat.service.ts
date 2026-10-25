@@ -12,6 +12,7 @@ import {
   SearchMessagesInput,
   ReactMessageInput,
   MessagePaginationInput,
+  ClearChatInput,
   Locale,
   locales,
 } from '@circle/shared';
@@ -22,6 +23,7 @@ import {
   CursorPaginatedMessages,
   MessageReaderEntity,
   SearchMessagesResult,
+  ClearChatResult,
 } from '@circle/types';
 
 @Injectable()
@@ -202,12 +204,17 @@ export class ChatService {
     const cursor = pagination.cursor;
     const direction = pagination.direction || 'before';
 
+    const baseWhere: any = { channelId };
+    if (member.clearedChatAt) {
+      baseWhere.sentAt = { gt: member.clearedChatAt };
+    }
+
     let rawMessages: any[];
 
     if (cursor) {
       if (direction === 'after') {
         rawMessages = await this.prisma.message.findMany({
-          where: { channelId },
+          where: baseWhere,
           take: limit + 1,
           skip: 1,
           cursor: { id: cursor },
@@ -222,7 +229,7 @@ export class ChatService {
         });
       } else {
         rawMessages = await this.prisma.message.findMany({
-          where: { channelId },
+          where: baseWhere,
           take: limit + 1,
           skip: 1,
           cursor: { id: cursor },
@@ -238,7 +245,7 @@ export class ChatService {
       }
     } else {
       rawMessages = await this.prisma.message.findMany({
-        where: { channelId },
+        where: baseWhere,
         take: limit + 1,
         orderBy: { sentAt: 'desc' },
         include: {
@@ -782,15 +789,20 @@ export class ChatService {
     const limit = Math.min(Number(dto.limit) || 20, 50);
     const query = dto.q.trim();
 
-    const rawMessages = await this.prisma.message.findMany({
-      where: {
-        channelId,
-        deletedAt: null,
-        content: {
-          contains: query,
-          mode: 'insensitive',
-        },
+    const searchWhere: any = {
+      channelId,
+      deletedAt: null,
+      content: {
+        contains: query,
+        mode: 'insensitive',
       },
+    };
+    if (member.clearedChatAt) {
+      searchWhere.sentAt = { gt: member.clearedChatAt };
+    }
+
+    const rawMessages = await this.prisma.message.findMany({
+      where: searchWhere,
       take: limit,
       orderBy: { sentAt: 'desc' },
       include: {
@@ -812,6 +824,77 @@ export class ChatService {
         total: messages.length,
       },
       timestamp: new Date().toISOString(),
+    };
+  }
+
+  /**
+   * POST /api/v1/channels/:channelId/clear-history — Clear channel chat history (FOR_ME or EVERYONE)
+   */
+  async clearChannelHistory(
+    userId: string,
+    channelId: string,
+    dto: ClearChatInput,
+    locale: Locale = 'vi',
+  ): Promise<ApiResponse<ClearChatResult>> {
+    const t = locales[locale] || locales.vi;
+    const channel = await this.prisma.channel.findUnique({
+      where: { id: channelId },
+    });
+
+    if (!channel) {
+      throw new NotFoundException(t.chat.channelNotFound);
+    }
+
+    const member = await this.ensureCircleMembership(userId, channel.circleId, locale);
+    const now = new Date();
+    const mode = dto.mode || 'FOR_ME';
+
+    if (mode === 'EVERYONE') {
+      // Soft-delete all active messages in this channel
+      await this.prisma.message.updateMany({
+        where: {
+          channelId,
+          deletedAt: null,
+        },
+        data: {
+          deletedAt: now,
+          content: null,
+          fileUrl: null,
+          fileName: null,
+          fileSize: null,
+          audioDuration: null,
+        },
+      });
+
+      // Clean up any pinned records in this channel
+      await this.prisma.pinnedRecord.deleteMany({
+        where: { message: { channelId } },
+      }).catch(() => {});
+
+      // Broadcast channel cleared event to all members in channel
+      this.chatGateway.broadcastChannelCleared(channelId, {
+        channelId,
+        mode: 'EVERYONE',
+        clearedBy: member.id,
+      });
+    } else {
+      // Mode 'FOR_ME': Update member's clearedChatAt timestamp
+      await this.prisma.circleMember.update({
+        where: { id: member.id },
+        data: { clearedChatAt: now },
+      });
+    }
+
+    return {
+      success: true,
+      statusCode: 200,
+      message: t.chat.clearChatSuccess,
+      data: {
+        channelId,
+        mode,
+        clearedAt: now.toISOString(),
+      },
+      timestamp: now.toISOString(),
     };
   }
 }
