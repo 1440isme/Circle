@@ -118,66 +118,76 @@ Xây dựng CIRCLE --- nền tảng mạng xã hội tập trung vào **kết n�
 tương tác trong các nhóm Circle**, hỗ trợ giao tiếp, chia sẻ realtime và
 tổ chức hoạt động chung.
 
-## 2.2. Các nhóm chức năng đã đăng ký
+> **Triết lý sản phẩm cốt lõi — Group-First (Amendment 2026-10-25):**
+> Mọi tính năng sinh ra vì hoạt động nhóm và tồn tại vì nhóm.
+> Hệ thống **không có chat 1-1/DM riêng tư** — chat chỉ tồn tại dưới dạng phòng chat nhóm của Circle;
+> **không có đồ thị bạn bè độc lập** — quan hệ xã hội phát triển bên trong Circle, và người dùng gia nhập
+> bằng cách được **mời thẳng vào Circle**; tạo Circle kèm chọn thành viên tiện lợi và mượt mà.
 
-### Account
+## 2.2. Các nhóm chức năng đã đăng ký (Kèm diễn giải chuẩn hóa Group-First)
 
--   Đăng ký
--   Đăng nhập
--   Quản lý hồ sơ cá nhân
+### Account (Tài khoản & Xác thực)
 
-### Friend
+-   Đăng ký tài khoản
+-   Đăng nhập (Email/Password, OAuth Google/Apple)
+-   Quản lý hồ sơ cá nhân và phiên đăng nhập
+
+### People & Invitations (Người dùng & Lời mời — diễn giải chuẩn hóa từ Friend)
 
 -   Tìm kiếm người dùng
--   Gửi lời mời kết bạn
--   Chấp nhận / từ chối
--   Quản lý danh sách bạn bè
+-   Gợi ý người quen từ các Circle chung (không duy trì đồ thị bạn bè 1-1 độc lập)
+-   Gửi và nhận lời mời trực tiếp gia nhập Circle
+-   Chấp nhận / từ chối lời mời vào Circle
+-   Quản lý danh sách thành viên trong ngữ cảnh Circle
+-   Chặn (Block) và Báo cáo (Report) vi phạm
 
-### Circle
+### Circle (Không gian nhóm)
 
--   Tạo Circle
--   Tham gia Circle
--   Quản lý Circle
--   Phân quyền thành viên phù hợp
+-   Tạo Circle (kèm chọn thành viên tiện lợi)
+-   Tham gia Circle qua lời mời / link mời
+-   Quản lý thông tin và cài đặt Circle
+-   Phân quyền thành viên (Chủ Circle, Quản trị viên, Thành viên)
 
-### Realtime sharing
+### Realtime sharing (Khoảnh khắc nhóm)
 
--   Chụp / chia sẻ hình ảnh realtime
--   Chọn Circle được xem
--   Xem và tương tác với khoảnh khắc
+-   Chụp / chia sẻ hình ảnh realtime (Moment)
+-   Chọn Circle được xem khoảnh khắc
+-   Xem, tương tác và phản hồi khoảnh khắc trực tiếp vào phòng chat Circle
 
-### Chat
+### Chat (Nhắn tin nhóm Circle — Không có DM 1-1)
 
--   Nhắn tin
--   Hình ảnh
--   Video
--   File
--   Voice message
--   Reply
--   Reaction
+-   Phòng chat nhóm gắn liền với từng Circle (toàn hệ thống không có chat 1-1/DM)
+-   Nhắn tin văn bản, emoji, @mention
+-   Chia sẻ hình ảnh, Video, File đính kèm
+-   Gửi tin nhắn thoại (Voice message)
+-   Trả lời tin nhắn (Reply / Quote)
+-   Thả biểu cảm tin nhắn (Reaction)
+-   Ghim tin nhắn quan trọng (Pin message)
 
-### Voice / Video
+### Voice / Video (Đàm thoại thời gian thực)
 
--   Gọi thoại trực tiếp
--   Gọi video trực tiếp giữa thành viên
+-   Gọi thoại trực tiếp (Voice call) giữa các thành viên Circle
+-   Gọi video trực tiếp (Video call) qua WebRTC
+-   Quản lý trạng thái và quyền thiết bị âm thanh/hình ảnh
 
-### Circle collaboration
+### Circle collaboration (Công cụ cộng tác nhóm)
 
--   Album / ảnh theo chủ đề
--   Ghim nội dung
--   Chia sẻ vị trí
--   Plan hoạt động
--   Calendar / sự kiện
--   Vote
--   "Điều muốn nói" --- nội dung ẩn danh
--   Notification
+-   Album / chia sẻ ảnh theo chủ đề
+-   Ghim nội dung quan trọng
+-   Chia sẻ vị trí trực tiếp (Live location)
+-   Kế hoạch hoạt động cộng tác (Planning sheet)
+-   Lịch sự kiện nhóm (Calendar / Events)
+-   Bình chọn / thăm dò ý kiến nhóm (Group poll)
+-   "Điều muốn nói" --- nội dung ẩn danh trong Circle
+-   Vòng quay quyết định (Decision wheel)
+-   Hệ thống thông báo tức thời (In-app & Push notification)
 
-### Applications
+### Applications & Administration (Ứng dụng & Quản trị)
 
--   API Server
--   Web Application
--   Mobile Application
--   Management Website cho Admin
+-   API Server (NestJS, Prisma, PostgreSQL, Redis, Socket.IO)
+-   Web Application (Next.js, Tailwind CSS)
+-   Mobile Application (React Native, Expo)
+-   Management Website cho Admin (Dashboard thống kê, kiểm duyệt nội dung UGC, xử lý báo cáo, quản lý người dùng, Audit Log)
 
 ------------------------------------------------------------------------
 
@@ -1017,6 +1027,25 @@ If AI was used:
 -   [ ] Health check succeeds.
 -   [ ] Logs checked.
 -   [ ] Rollback path remains available.
+
+## K. Module conformance & cross-cutting UI/UX
+
+-   [ ] Tính năng đối chiếu playbook của module (`agentic/playbooks/`): các mục
+        MUST liên quan đã đạt, mục deferred có lý do ghi trong PR.
+-   [ ] Responsive: đã kiểm tại các breakpoint chuẩn của dự án
+        (xem `agentic/playbooks/cross-cutting-gate.md`); không tràn ngang ngoài ý muốn.
+-   [ ] Theme: không hardcode màu/spacing ngoài design token; hiển thị đúng
+        ở Light và Dark; tương phản đạt WCAG AA cho text chính.
+-   [ ] i18n: không hardcode chuỗi giao diện; đủ khóa dịch VI + EN;
+        định dạng ngày/giờ/số theo locale.
+-   [ ] Trạng thái UI: loading / empty / error / offline / success feedback
+        đã xử lý cho các trường hợp áp dụng.
+-   [ ] Accessibility cơ bản: nhãn cho nút chỉ có icon, alt text, lỗi form
+        gắn với trường nhập; lint a11y không có lỗi serious/critical mới.
+-   [ ] Parity: tính năng có mặt trên web và mobile, hoặc ngoại lệ đã được
+        ghi trong playbook của module.
+-   [ ] Báo cáo của agent/PR có mục "Playbook conformance" (theo `agentic/playbooks/SKILL.md`)
+        khi AI được dùng để implement.
 
 Only after these conditions should the Issue be closed.
 
@@ -2975,6 +3004,17 @@ official documents.
 
   2026-09-15              Added real-user         TC2.7 Level-5 readiness
                           experiment              
+
+  2026-10-25              Amended §2.2 with       Adopted group-first philosophy:
+                          Group-First &           realigned Friend to People &
+                          Playbooks Baseline      Invitations; Chat strictly to
+                                                  Circle group chat (no DM);
+                                                  standardized UGC admin baseline.
+
+  2026-10-25              Added DoD §11           Mandated module playbook MUST
+                          Section K — Module      conformance, cross-cutting gate,
+                          conformance &           responsive tokens, i18n VI+EN,
+                          cross-cutting UI/UX     UI states, a11y, and parity.
   -----------------------------------------------------------------------
 
 ------------------------------------------------------------------------
