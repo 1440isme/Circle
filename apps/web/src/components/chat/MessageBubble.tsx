@@ -17,6 +17,7 @@ import {
   Pencil,
   Trash2,
   Ban,
+  EyeOff,
 } from 'lucide-react';
 import { MessageEntity, MessageType } from '@circle/types';
 import { PROMINENT_QUICK_EMOJIS } from '@circle/shared';
@@ -43,6 +44,7 @@ interface MessageBubbleProps {
   onTogglePin: (messageId: string, isPinned: boolean) => void;
   onEdit?: (message: MessageEntity) => void;
   onRecall?: (messageId: string) => void;
+  onDeleteForMe?: (messageId: string) => void;
   onRetry?: (message: MessageEntity) => void;
   onJumpToMessage?: (messageId: string) => void;
 }
@@ -64,6 +66,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   onTogglePin,
   onEdit,
   onRecall,
+  onDeleteForMe,
   onRetry,
   onJumpToMessage,
 }) => {
@@ -237,6 +240,14 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         <div className="flex items-center gap-1 text-[10px] font-medium text-circle-slate dark:text-circle-dark-muted mb-1 px-1">
           <Pin className="h-3 w-3" />
           <span>{t.chat.pinnedBadge}</span>
+        </div>
+      )}
+
+      {/* Mentioned indicator badge (CHT-22) */}
+      {!isSenderMe && message.content && (message.content.includes('@all') || message.content.includes('@mọi người')) && (
+        <div className="flex items-center gap-1 text-[10px] font-semibold text-circle-primary mb-1 px-1">
+          <span className="h-1.5 w-1.5 rounded-full bg-circle-primary animate-pulse" />
+          <span>{t.chat?.mentionedYou || 'Đã nhắc đến bạn'}</span>
         </div>
       )}
 
@@ -584,6 +595,18 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 title={t.chat.recallAction}
               >
                 <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            )}
+
+            {/* Delete For Me Action (CHT-11: Hide message locally) */}
+            {onDeleteForMe && (
+              <button
+                type="button"
+                onClick={() => onDeleteForMe(message.id)}
+                className="flex h-6 w-6 items-center justify-center rounded-full text-circle-slate dark:text-circle-dark-muted hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas hover:text-amber-500 transition-colors"
+                title={t.chat?.deleteForMeAction || 'Xóa phía tôi'}
+              >
+                <EyeOff className="h-3.5 w-3.5" />
               </button>
             )}
 

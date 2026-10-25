@@ -83,6 +83,7 @@ import {
   Pencil,
   Trash2,
   Ban,
+  EyeOff,
 } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { editMessageApi, recallMessageApi } from '../../src/services/chat.service';
@@ -105,7 +106,7 @@ import {
 import { useEdgeSwipeDismiss } from '../../src/hooks/use-edge-swipe';
 import { uploadMobileMedia } from '../../src/services/storage-upload.service';
 import { subscribeSocketConnection, sendMobileMessageRead } from '../../src/services/socket';
-import { getStorageItem } from '../../src/services/storage';
+import { getStorageItem, setStorageItem } from '../../src/services/storage';
 import { useQueryClient, InfiniteData } from '@tanstack/react-query';
 import { MessageType, CursorPaginatedMessages } from '@circle/types';
 import { CircleManagementModal } from '../../src/components/circle/CircleManagementModal';
@@ -453,6 +454,11 @@ const MobileSwipeMessageBubble = React.memo(function MobileSwipeMessageBubble({
     });
   };
 
+  const isMentioned = !isSenderMe && Boolean(msg.content && (
+    msg.content.includes('@all') ||
+    msg.content.includes('@mọi người')
+  ));
+
   const rawReplyId = typeof msg.replyTo === 'string' ? msg.replyTo : (msg.replyTo?.id || msg.replyToId);
   const replyTarget =
     (typeof msg.replyTo === 'object' &&
@@ -603,6 +609,24 @@ const MobileSwipeMessageBubble = React.memo(function MobileSwipeMessageBubble({
             alignSelf: isSenderMe ? 'flex-end' : 'flex-start',
           }}
         >
+          {/* Mentioned indicator badge (CHT-22) */}
+          {isMentioned && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2, paddingHorizontal: 4 }}>
+              <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.primary }} />
+              <Text style={{ fontSize: 10, fontWeight: '700', color: colors.primary }}>
+                {t.chat?.mentionedYou || 'Đã nhắc đến bạn'}
+              </Text>
+            </View>
+          )}
+
+          {/* Pinned badge */}
+          {Boolean(msg.isPinned) && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 2, paddingHorizontal: 4 }}>
+              <Pin size={10} color={colors.subtle} />
+              <Text style={{ fontSize: 10, color: colors.subtle }}>{t.chat?.pinnedBadge || 'Đã ghim'}</Text>
+            </View>
+          )}
+
           <View
             style={[
               styles.messageBubble,
@@ -1320,9 +1344,43 @@ export default function CircleWorkspaceScreen() {
     clusters: MobileMessageCluster[];
   }
 
+  // Locally hidden messages ("Xóa phía tôi" - CHT-11)
+  const [hiddenMessageIds, setHiddenMessageIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!currentChannelId) return;
+    getStorageItem(`circle_hidden_messages_${currentChannelId}`).then((raw) => {
+      if (raw) {
+        try {
+          setHiddenMessageIds(JSON.parse(raw));
+        } catch {
+          setHiddenMessageIds([]);
+        }
+      } else {
+        setHiddenMessageIds([]);
+      }
+    }).catch(() => {});
+  }, [currentChannelId]);
+
+  const visibleMessages = useMemo(() => {
+    if (hiddenMessageIds.length === 0) return messages;
+    const hiddenSet = new Set(hiddenMessageIds);
+    return messages.filter((m) => !hiddenSet.has(m.id));
+  }, [messages, hiddenMessageIds]);
+
+  // Restore draft when currentChannelId changes (CHT-18)
+  useEffect(() => {
+    if (!currentChannelId) return;
+    getStorageItem(`circle_draft_${currentChannelId}`).then((draft) => {
+      if (draft && draft.trim()) {
+        setMessageInput(draft);
+      }
+    }).catch(() => {});
+  }, [currentChannelId]);
+
   // Group messages by date first, then cluster consecutive messages within each date
   const dateMap = new Map<string, any[]>();
-  messages.forEach((msg) => {
+  visibleMessages.forEach((msg) => {
     const dateLabel = getDateLabel(msg.sentAt || new Date().toISOString());
     if (!dateMap.has(dateLabel)) {
       dateMap.set(dateLabel, []);
@@ -1569,6 +1627,11 @@ export default function CircleWorkspaceScreen() {
     setMentionStartIndex(null);
     reportTyping(false, user?.profile?.displayName || user?.email);
     isNearBottomRef.current = true;
+
+    // Clear saved draft on send (CHT-18)
+    if (currentChannelId) {
+      setStorageItem(`circle_draft_${currentChannelId}`, '').catch(() => {});
+    }
 
     setTimeout(() => {
       scrollViewRef.current?.scrollToEnd({ animated: true });
@@ -2494,6 +2557,44 @@ export default function CircleWorkspaceScreen() {
               </View>
             )}
 
+            {/* Draft Message Indicator (CHT-18) */}
+            {!editingMessage && !replyingMessage && messageInput.trim().length > 0 && (
+              <View
+                style={[
+                  styles.replyPreviewBar,
+                  {
+                    backgroundColor: colors.wash,
+                    borderColor: colors.hairline,
+                    paddingVertical: 5,
+                    marginBottom: 4,
+                  },
+                ]}
+              >
+                <View style={styles.replyPreviewLeft}>
+                  <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.warning, marginRight: 6 }} />
+                  <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: colors.warning }}>
+                      {t.chat?.draftLabel || 'Nháp'}:
+                    </Text>
+                    <Text numberOfLines={1} style={{ fontSize: 11, color: colors.subtle, flex: 1 }}>
+                      {messageInput}
+                    </Text>
+                  </View>
+                </View>
+                <TouchableOpacity
+                  onPress={() => {
+                    setMessageInput('');
+                    if (currentChannelId) {
+                      setStorageItem(`circle_draft_${currentChannelId}`, '').catch(() => {});
+                    }
+                  }}
+                  style={[styles.cancelReplyBtn, { backgroundColor: 'transparent' }]}
+                >
+                  <Text style={{ fontSize: 11, color: colors.subtle }}>{t.chat?.cancelBtn || 'Hủy'}</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
             {/* Mention Suggestions Horizontal Bar (Minimalism: Name only) */}
             {mentionCandidates.length > 0 && (
               <View
@@ -2567,6 +2668,9 @@ export default function CircleWorkspaceScreen() {
                   value={messageInput}
                   onChangeText={(text) => {
                     setMessageInput(text);
+                    if (currentChannelId) {
+                      setStorageItem(`circle_draft_${currentChannelId}`, text).catch(() => {});
+                    }
                     if (circleId) {
                       getStorageItem(`circle_${circleId}_typing_indicator`).then((v) => {
                         if (v === 'false') return;
@@ -2965,6 +3069,45 @@ export default function CircleWorkspaceScreen() {
                     </Text>
                   </TouchableOpacity>
                 )}
+
+              {/* Delete For Me Action (CHT-11: Hide message on this device only) */}
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => {
+                  const targetMsgId = activeActionMessage.id;
+                  setActiveActionMessage(null);
+                  Alert.alert(
+                    t.chat?.deleteForMeConfirmTitle || 'Xóa tin nhắn phía bạn?',
+                    t.chat?.deleteForMeConfirmMsg ||
+                      'Tin nhắn này sẽ chỉ bị ẩn khỏi thiết bị của bạn và không ảnh hưởng đến người khác.',
+                    [
+                      { text: t.chat?.cancelBtn || 'Hủy', style: 'cancel' },
+                      {
+                        text: t.chat?.deleteForMeAction || 'Xóa phía tôi',
+                        style: 'destructive',
+                        onPress: async () => {
+                          const updated = [...hiddenMessageIds, targetMsgId];
+                          setHiddenMessageIds(updated);
+                          if (currentChannelId) {
+                            try {
+                              await setStorageItem(
+                                `circle_hidden_messages_${currentChannelId}`,
+                                JSON.stringify(updated),
+                              );
+                            } catch {}
+                          }
+                        },
+                      },
+                    ],
+                  );
+                }}
+                style={[styles.actionBtnItem, { backgroundColor: colors.wash }]}
+              >
+                <EyeOff size={16} color={colors.subtle} />
+                <Text style={[styles.actionBtnItemText, { color: colors.text }]}>
+                  {t.chat?.deleteForMeAction || 'Xóa phía tôi'}
+                </Text>
+              </TouchableOpacity>
             </View>
           </BlurView>
         </TouchableOpacity>

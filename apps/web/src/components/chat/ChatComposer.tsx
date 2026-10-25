@@ -46,6 +46,7 @@ const EMOJI_LIST = ['👍', '❤️', '😂', '🎉', '🔥', '✨', '👏', '�
 const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024; // 25 MB
 
 export const ChatComposer: React.FC<ChatComposerProps> = ({
+  channelId,
   channelName,
   members = [],
   replyingMessage,
@@ -85,21 +86,34 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
     }
   }, [content]);
 
-  // Focus textarea when replying or editing
-  useEffect(() => {
-    if (replyingMessage && textareaRef.current) {
-      textareaRef.current.focus();
-    }
-  }, [replyingMessage]);
-
+  // Restore draft when channelId changes or component mounts
   useEffect(() => {
     if (editingMessage) {
       setContent(editingMessage.content || '');
       if (textareaRef.current) {
         textareaRef.current.focus();
       }
+      return;
     }
-  }, [editingMessage]);
+    if (!channelId) return;
+    try {
+      const savedDraft = localStorage.getItem(`circle_draft_${channelId}`);
+      if (savedDraft) {
+        setContent(savedDraft);
+      } else {
+        setContent('');
+      }
+    } catch {
+      setContent('');
+    }
+  }, [channelId, editingMessage]);
+
+  // Focus textarea when replying or editing
+  useEffect(() => {
+    if (replyingMessage && textareaRef.current) {
+      textareaRef.current.focus();
+    }
+  }, [replyingMessage]);
 
   // Cleanup object URL on unmount to prevent memory leaks
   useEffect(() => {
@@ -194,6 +208,17 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
       reportTyping(false);
     }
 
+    // Auto-save draft if not in editing mode
+    if (!editingMessage && channelId) {
+      try {
+        if (val.trim()) {
+          localStorage.setItem(`circle_draft_${channelId}`, val);
+        } else {
+          localStorage.removeItem(`circle_draft_${channelId}`);
+        }
+      } catch {}
+    }
+
     // Detect mention trigger (@name query)
     const cursorPos = e.target.selectionStart ?? val.length;
     const textBeforeCursor = val.slice(0, cursorPos);
@@ -255,6 +280,13 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
           type: MessageType.TEXT,
           replyToId: replyingMessage?.id,
         });
+      }
+
+      // Clear draft on successful send
+      if (channelId) {
+        try {
+          localStorage.removeItem(`circle_draft_${channelId}`);
+        } catch {}
       }
 
       setContent('');
@@ -371,6 +403,33 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
             title={t.chat.cancelEdit}
           >
             <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
+
+      {/* Draft Message Indicator (CHT-18) */}
+      {!editingMessage && !replyingMessage && content.trim().length > 0 && (
+        <div className="mb-2 flex items-center justify-between rounded-xl bg-circle-wash/60 dark:bg-circle-dark-wash/60 border border-circle-hairline/60 dark:border-circle-dark-hairline/60 px-3 py-1 text-xs text-circle-slate dark:text-circle-dark-muted animate-in fade-in duration-150">
+          <div className="flex items-center gap-2 truncate">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />
+            <span className="font-semibold text-amber-600 dark:text-amber-400 shrink-0">
+              {t.chat?.draftLabel || 'Nháp'}:
+            </span>
+            <span className="truncate opacity-80">{content}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setContent('');
+              if (channelId) {
+                try {
+                  localStorage.removeItem(`circle_draft_${channelId}`);
+                } catch {}
+              }
+            }}
+            className="text-[11px] hover:text-red-500 text-circle-slate dark:text-circle-dark-muted transition-colors ml-2 shrink-0"
+          >
+            {t.chat?.cancelBtn || 'Hủy'}
           </button>
         </div>
       )}
