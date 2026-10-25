@@ -20,6 +20,7 @@ import {
   CreateAnonymousPostDto,
   CreateCalendarEventDto,
   UpdateCalendarEventDto,
+  RespondEventRsvpDto,
 } from './dto/circle-tools.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -317,6 +318,21 @@ export class CircleToolsController {
     @CurrentUser('id') userId: string,
   ): Promise<ApiResponse<any>> {
     const data = await this.toolsService.deleteCalendarEvent(circleId, eventId, userId);
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      data,
+      timestamp: new Date().toISOString(),
+    };
+  }
+  @Put('calendar-events/:eventId/rsvp')
+  async respondEventRsvp(
+    @Param('circleId') circleId: string,
+    @Param('eventId') eventId: string,
+    @CurrentUser('id') userId: string,
+    @Body() dto: RespondEventRsvpDto,
+  ): Promise<ApiResponse<any>> {
+    const data = await this.toolsService.respondEventRsvp(circleId, eventId, userId, dto);
     return {
       success: true,
       statusCode: HttpStatus.OK,

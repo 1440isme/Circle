@@ -634,6 +634,17 @@ const MobileSwipeMessageBubble = React.memo(function MobileSwipeMessageBubble({
                 "{calendarEventData.description}"
               </Text>
             )}
+            {Boolean(calendarEventData.rsvps) && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8, paddingTop: 6, borderTopWidth: 1, borderTopColor: colors.hairline }}>
+                <Text style={{ fontSize: 11, color: colors.primary, fontWeight: '600' }}>
+                  {calendarEventData.rsvps.yesCount || 0} Tham gia
+                </Text>
+                <Text style={{ fontSize: 10, color: colors.subtle }}>•</Text>
+                <Text style={{ fontSize: 11, color: colors.subtle, fontWeight: '500' }}>
+                  {calendarEventData.rsvps.maybeCount || 0} Chưa chắc
+                </Text>
+              </View>
+            )}
           </View>
         </View>
       </View>

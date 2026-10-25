@@ -6,6 +6,8 @@ import {
   CreateAnonymousPostInput,
   CreateCalendarEventInput,
   UpdateCalendarEventInput,
+  RespondEventRsvpInput,
+  EventRsvpStatus,
 } from '@circle/types';
 
 export class CreateSharedAlbumDto implements CreateSharedAlbumInput {
@@ -56,4 +58,8 @@ export class UpdateCalendarEventDto implements UpdateCalendarEventInput {
   startTime?: string;
   endTime?: string;
   reminderTime?: string;
+}
+
+export class RespondEventRsvpDto implements RespondEventRsvpInput {
+  status: EventRsvpStatus;
 }

@@ -13,6 +13,7 @@ import {
   CreateAnonymousPostDto,
   CreateCalendarEventDto,
   UpdateCalendarEventDto,
+  RespondEventRsvpDto,
 } from './dto/circle-tools.dto';
 import {
   SpinWheelResult,
@@ -493,6 +494,15 @@ export class CircleToolsService {
             },
           },
         },
+        rsvps: {
+          include: {
+            user: {
+              include: {
+                profile: true,
+              },
+            },
+          },
+        },
       },
       orderBy: { startTime: 'asc' },
     });
@@ -511,9 +521,24 @@ export class CircleToolsService {
         startTime: new Date(dto.startTime),
         endTime: dto.endTime ? new Date(dto.endTime) : null,
         reminderTime: dto.reminderTime ? new Date(dto.reminderTime) : null,
+        rsvps: {
+          create: {
+            userId,
+            status: 'YES',
+          },
+        },
       },
       include: {
         creator: {
+          include: {
+            user: {
+              include: {
+                profile: true,
+              },
+            },
+          },
+        },
+        rsvps: {
           include: {
             user: {
               include: {
@@ -575,6 +600,15 @@ export class CircleToolsService {
             },
           },
         },
+        rsvps: {
+          include: {
+            user: {
+              include: {
+                profile: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -605,6 +639,129 @@ export class CircleToolsService {
     return { success: true };
   }
 
+  async respondEventRsvp(
+    circleId: string,
+    eventId: string,
+    userId: string,
+    dto: RespondEventRsvpDto,
+  ) {
+    await this.getMemberOrThrow(circleId, userId);
+
+    const event = await this.prisma.calendarEvent.findFirst({
+      where: { id: eventId, circleId },
+    });
+
+    if (!event) {
+      throw new NotFoundException('Không tìm thấy sự kiện');
+    }
+
+    const rsvp = await this.prisma.calendarEventRsvp.upsert({
+      where: {
+        eventId_userId: {
+          eventId,
+          userId,
+        },
+      },
+      update: {
+        status: dto.status,
+      },
+      create: {
+        eventId,
+        userId,
+        status: dto.status,
+      },
+      include: {
+        user: {
+          include: {
+            profile: true,
+          },
+        },
+      },
+    });
+
+    const updatedEvent = await this.prisma.calendarEvent.findUnique({
+      where: { id: eventId },
+      include: {
+        creator: {
+          include: {
+            user: {
+              include: {
+                profile: true,
+              },
+            },
+          },
+        },
+        rsvps: {
+          include: {
+            user: {
+              include: {
+                profile: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (updatedEvent) {
+      const rsvpsBreakdown = this.computeRsvpBreakdown(updatedEvent.rsvps || []);
+      this.chatGateway.broadcastCalendarEventRsvp(circleId, {
+        eventId,
+        circleId,
+        rsvp: {
+          id: rsvp.id,
+          eventId: rsvp.eventId,
+          userId: rsvp.userId,
+          status: rsvp.status,
+          createdAt: rsvp.createdAt.toISOString(),
+          updatedAt: rsvp.updatedAt.toISOString(),
+          user: rsvp.user
+            ? {
+                id: rsvp.user.id,
+                email: rsvp.user.email,
+                profile: rsvp.user.profile
+                  ? {
+                      displayName: rsvp.user.profile.displayName,
+                      avatarUrl: rsvp.user.profile.avatarUrl,
+                    }
+                  : null,
+              }
+            : undefined,
+        },
+        rsvps: rsvpsBreakdown,
+      });
+    }
+
+    return rsvp;
+  }
+
+  private computeRsvpBreakdown(rsvps: any[]) {
+    let yesCount = 0;
+    let noCount = 0;
+    let maybeCount = 0;
+
+    const userRsvps = rsvps.map((r) => {
+      if (r.status === 'YES') yesCount++;
+      else if (r.status === 'NO') noCount++;
+      else if (r.status === 'MAYBE') maybeCount++;
+
+      return {
+        userId: r.userId,
+        status: r.status,
+        displayName:
+          r.user?.profile?.displayName || r.user?.email?.split('@')[0] || 'Thành viên',
+        avatarUrl: r.user?.profile?.avatarUrl || null,
+      };
+    });
+
+    return {
+      yesCount,
+      noCount,
+      maybeCount,
+      userRsvps,
+    };
+  }
+
   /**
    * Helper: Broadcast a rich calendar event message into the circle's primary chat channel.
    */
@@ -627,6 +784,8 @@ export class CircleToolsService {
         member.nickname ||
         'Thành viên';
 
+      const rsvpsData = event.rsvps ? this.computeRsvpBreakdown(event.rsvps) : undefined;
+
       const payload: CalendarEventMessagePayload = {
         type: 'CALENDAR_EVENT',
         action,
@@ -638,6 +797,7 @@ export class CircleToolsService {
         endTime: event.endTime ? (event.endTime instanceof Date ? event.endTime.toISOString() : String(event.endTime)) : null,
         reminderTime: event.reminderTime ? (event.reminderTime instanceof Date ? event.reminderTime.toISOString() : String(event.reminderTime)) : null,
         creatorName,
+        rsvps: rsvpsData,
       };
 
       const rawMessage = await this.prisma.message.create({

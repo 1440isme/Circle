@@ -615,6 +615,7 @@ export interface SharedAlbumEntity {
   _count?: {
     photos: number;
   };
+  rsvps?: CalendarEventRsvpEntity[];
   creator?: {
     id: string;
     userId: string;
@@ -731,6 +732,7 @@ export interface CalendarEventEntity {
       } | null;
     };
   };
+  rsvps?: CalendarEventRsvpEntity[];
 }
 
 export interface CreateCalendarEventInput {
@@ -752,7 +754,7 @@ export interface UpdateCalendarEventInput {
 }
 export interface CalendarEventMessagePayload {
   type: 'CALENDAR_EVENT';
-  action: 'CREATED' | 'UPDATED' | 'DELETED';
+  action: 'CREATED' | 'UPDATED' | 'DELETED' | 'RSVP_UPDATED';
   eventId: string;
   eventTitle: string;
   description?: string | null;
@@ -761,4 +763,42 @@ export interface CalendarEventMessagePayload {
   endTime?: string | null;
   reminderTime?: string | null;
   creatorName: string;
+  rsvps?: {
+    yesCount: number;
+    noCount: number;
+    maybeCount: number;
+    userRsvps: {
+      userId: string;
+      status: EventRsvpStatus;
+      displayName: string;
+      avatarUrl?: string | null;
+    }[];
+  };
+}
+
+export enum EventRsvpStatus {
+  YES = 'YES',
+  NO = 'NO',
+  MAYBE = 'MAYBE',
+}
+
+export interface CalendarEventRsvpEntity {
+  id: string;
+  eventId: string;
+  userId: string;
+  status: EventRsvpStatus;
+  createdAt: string;
+  updatedAt: string;
+  user?: {
+    id: string;
+    email: string;
+    profile?: {
+      displayName: string;
+      avatarUrl?: string | null;
+    } | null;
+  };
+}
+
+export interface RespondEventRsvpInput {
+  status: EventRsvpStatus;
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   CalendarDays,
   Clock,
@@ -8,11 +8,16 @@ import {
   ExternalLink,
   Calendar as CalendarIcon,
   Bell,
-  Sparkles,
+  Users,
+  Check,
+  HelpCircle,
+  X,
 } from 'lucide-react';
-import { CalendarEventMessagePayload } from '@circle/types';
+import { CalendarEventMessagePayload, EventRsvpStatus } from '@circle/types';
 import { useCircleStore } from '../../stores/circle.store';
 import { useLanguageStore } from '../../stores/language.store';
+import { useRespondEventRsvpMutation } from '../../hooks/use-circle-tools';
+import { getSocket } from '../../lib/socket';
 
 export interface CalendarEventChatEmbedProps {
   eventData: CalendarEventMessagePayload;
@@ -33,9 +38,38 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
   reactionCounts = {},
   currentUserId,
 }) => {
+  const activeCircleId = useCircleStore((s) => s.activeCircleId);
   const setActiveCircleView = useCircleStore((s) => s.setActiveCircleView);
   const t = useLanguageStore((s) => s.t);
   const locale = useLanguageStore((s) => s.locale);
+
+  const [rsvps, setRsvps] = useState(eventData.rsvps);
+
+  const rsvpMutation = useRespondEventRsvpMutation(activeCircleId || '');
+
+  // Keep local state in sync when prop changes
+  useEffect(() => {
+    if (eventData.rsvps) {
+      setRsvps(eventData.rsvps);
+    }
+  }, [eventData.rsvps]);
+
+  // Realtime Socket.IO sync for RSVP updates (COL-09)
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+
+    const handleRsvpUpdated = (data: { eventId: string; circleId: string; rsvps: any }) => {
+      if (data.eventId === eventData.eventId && data.rsvps) {
+        setRsvps(data.rsvps);
+      }
+    };
+
+    socket.on('circle:calendar-event-rsvp-updated', handleRsvpUpdated);
+    return () => {
+      socket.off('circle:calendar-event-rsvp-updated', handleRsvpUpdated);
+    };
+  }, [eventData.eventId]);
 
   const startDate = new Date(eventData.startTime);
   const isVi = locale === 'vi';
@@ -91,6 +125,32 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
   }
 
   const isUpdated = eventData.action === 'UPDATED';
+
+  const myRsvp = rsvps?.userRsvps?.find((u) => u.userId === currentUserId)?.status;
+
+  const handleRsvp = async (status: EventRsvpStatus) => {
+    if (!activeCircleId) return;
+    try {
+      // Optimistic update
+      const prevUserRsvps = rsvps?.userRsvps || [];
+      const updatedUserRsvps = [
+        ...prevUserRsvps.filter((u) => u.userId !== currentUserId),
+        {
+          userId: currentUserId || '',
+          status,
+          displayName: 'Bạn',
+        },
+      ];
+      const yesCount = updatedUserRsvps.filter((u) => u.status === 'YES').length;
+      const maybeCount = updatedUserRsvps.filter((u) => u.status === 'MAYBE').length;
+      const noCount = updatedUserRsvps.filter((u) => u.status === 'NO').length;
+      setRsvps({ yesCount, maybeCount, noCount, userRsvps: updatedUserRsvps });
+
+      await rsvpMutation.mutateAsync({ eventId: eventData.eventId, status });
+    } catch (err) {
+      console.error('Failed to update RSVP:', err);
+    }
+  };
 
   const handleOpenCalendar = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -169,6 +229,99 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
               </p>
             )}
           </div>
+        </div>
+
+        {/* RSVP Section (COL-09) */}
+        <div className="px-4 py-3 bg-circle-canvas/50 dark:bg-circle-dark-canvas/50 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60 space-y-2.5">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-semibold text-circle-charcoal dark:text-circle-dark-text flex items-center gap-1.5">
+              <Users className="h-3.5 w-3.5 text-circle-sage dark:text-circle-primary" />
+              <span>{isVi ? 'Phản hồi tham gia (RSVP)' : 'Attendance (RSVP)'}</span>
+            </span>
+            <div className="flex items-center gap-2 text-[11px] font-medium text-circle-slate dark:text-circle-dark-muted">
+              <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{rsvps?.yesCount || 0} {isVi ? 'Tham gia' : 'Going'}</span>
+              <span>•</span>
+              <span className="text-amber-600 dark:text-amber-400 font-semibold">{rsvps?.maybeCount || 0} {isVi ? 'Chưa chắc' : 'Maybe'}</span>
+              <span>•</span>
+              <span className="text-rose-500 dark:text-rose-400 font-semibold">{rsvps?.noCount || 0} {isVi ? 'Bận' : 'No'}</span>
+            </div>
+          </div>
+
+          {/* 3 Interactive Buttons */}
+          <div className="grid grid-cols-3 gap-2">
+            <button
+              type="button"
+              disabled={rsvpMutation.isPending}
+              onClick={() => handleRsvp(EventRsvpStatus.YES)}
+              className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl text-xs font-semibold transition-all active:scale-95 ${
+                myRsvp === EventRsvpStatus.YES
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'bg-white dark:bg-circle-dark-surface hover:bg-emerald-50 dark:hover:bg-emerald-950/30 text-circle-charcoal dark:text-circle-dark-text border border-circle-hairline dark:border-circle-dark-hairline'
+              }`}
+            >
+              <Check className="h-3.5 w-3.5" />
+              <span>{isVi ? 'Tham gia' : 'Going'}</span>
+            </button>
+
+            <button
+              type="button"
+              disabled={rsvpMutation.isPending}
+              onClick={() => handleRsvp(EventRsvpStatus.MAYBE)}
+              className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl text-xs font-semibold transition-all active:scale-95 ${
+                myRsvp === EventRsvpStatus.MAYBE
+                  ? 'bg-amber-600 text-white shadow-xs'
+                  : 'bg-white dark:bg-circle-dark-surface hover:bg-amber-50 dark:hover:bg-amber-950/30 text-circle-charcoal dark:text-circle-dark-text border border-circle-hairline dark:border-circle-dark-hairline'
+              }`}
+            >
+              <HelpCircle className="h-3.5 w-3.5" />
+              <span>{isVi ? 'Chưa chắc' : 'Maybe'}</span>
+            </button>
+
+            <button
+              type="button"
+              disabled={rsvpMutation.isPending}
+              onClick={() => handleRsvp(EventRsvpStatus.NO)}
+              className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl text-xs font-semibold transition-all active:scale-95 ${
+                myRsvp === EventRsvpStatus.NO
+                  ? 'bg-rose-600 text-white shadow-xs'
+                  : 'bg-white dark:bg-circle-dark-surface hover:bg-rose-50 dark:hover:bg-rose-950/30 text-circle-charcoal dark:text-circle-dark-text border border-circle-hairline dark:border-circle-dark-hairline'
+              }`}
+            >
+              <X className="h-3.5 w-3.5" />
+              <span>{isVi ? 'Bận' : 'No'}</span>
+            </button>
+          </div>
+
+          {/* Attendee Avatar Stacking */}
+          {rsvps?.userRsvps && rsvps.userRsvps.length > 0 && (
+            <div className="flex items-center gap-2 pt-1">
+              <div className="flex -space-x-1.5 overflow-hidden">
+                {rsvps.userRsvps.slice(0, 7).map((u, i) => (
+                  <div
+                    key={u.userId || i}
+                    title={`${u.displayName} (${u.status === 'YES' ? (isVi ? 'Tham gia' : 'Going') : u.status === 'MAYBE' ? (isVi ? 'Chưa chắc' : 'Maybe') : (isVi ? 'Bận' : 'No')})`}
+                    className="relative inline-block h-6 w-6 rounded-full ring-2 ring-white dark:ring-circle-dark-surface overflow-hidden bg-circle-primary text-circle-charcoal text-[10px] font-bold flex items-center justify-center shrink-0"
+                  >
+                    {u.avatarUrl ? (
+                      <img src={u.avatarUrl} alt={u.displayName} className="h-full w-full object-cover" />
+                    ) : (
+                      <span>{u.displayName?.charAt(0)?.toUpperCase() || '?'}</span>
+                    )}
+                    <span
+                      className={`absolute bottom-0 right-0 h-1.5 w-1.5 rounded-full ring-1 ring-white dark:ring-circle-dark-surface ${
+                        u.status === 'YES' ? 'bg-emerald-500' : u.status === 'MAYBE' ? 'bg-amber-500' : 'bg-rose-500'
+                      }`}
+                    />
+                  </div>
+                ))}
+              </div>
+              {rsvps.userRsvps.length > 7 && (
+                <span className="text-[10px] font-medium text-circle-slate dark:text-circle-dark-muted">
+                  +{rsvps.userRsvps.length - 7} {isVi ? 'người khác' : 'others'}
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Footer Actions & Reactions */}

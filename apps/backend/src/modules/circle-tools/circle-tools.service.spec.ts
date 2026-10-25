@@ -12,6 +12,7 @@ describe('CircleToolsService', () => {
   beforeEach(async () => {
     mockChatGateway = {
       broadcastNewMessage: jest.fn(),
+      broadcastCalendarEventRsvp: jest.fn(),
     };
 
     mockPrisma = {
@@ -52,9 +53,13 @@ describe('CircleToolsService', () => {
       calendarEvent: {
         findMany: jest.fn(),
         findFirst: jest.fn(),
+        findUnique: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
         delete: jest.fn(),
+      },
+      calendarEventRsvp: {
+        upsert: jest.fn(),
       },
       $transaction: jest.fn((callback: any) => callback(mockPrisma)),
     };
@@ -354,6 +359,81 @@ describe('CircleToolsService', () => {
 
       const res = await service.deleteCalendarEvent('circle-1', 'event-1', 'user-1');
       expect(res).toEqual({ success: true });
+    });
+    it('should respond to event RSVP and broadcast socket event', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValue(member);
+      mockPrisma.calendarEvent.findFirst.mockResolvedValue({
+        id: 'event-1',
+        circleId: 'circle-1',
+      });
+      const now = new Date();
+      mockPrisma.calendarEventRsvp.upsert.mockResolvedValue({
+        id: 'rsvp-1',
+        eventId: 'event-1',
+        userId: 'user-1',
+        status: 'YES',
+        createdAt: now,
+        updatedAt: now,
+        user: {
+          id: 'user-1',
+          email: 'user1@circle.local',
+          profile: { displayName: 'User One', avatarUrl: null },
+        },
+      });
+      mockPrisma.calendarEvent.findUnique.mockResolvedValue({
+        id: 'event-1',
+        circleId: 'circle-1',
+        eventTitle: 'Họp nhóm',
+        rsvps: [
+          {
+            id: 'rsvp-1',
+            userId: 'user-1',
+            status: 'YES',
+            user: { profile: { displayName: 'User One' } },
+          },
+        ],
+      });
+
+      const res = await service.respondEventRsvp('circle-1', 'event-1', 'user-1', {
+        status: 'YES' as any,
+      });
+
+      expect(res.id).toBe('rsvp-1');
+      expect(mockPrisma.calendarEventRsvp.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            eventId_userId: {
+              eventId: 'event-1',
+              userId: 'user-1',
+            },
+          },
+          update: { status: 'YES' },
+          create: { eventId: 'event-1', userId: 'user-1', status: 'YES' },
+        }),
+      );
+      expect(mockChatGateway.broadcastCalendarEventRsvp).toHaveBeenCalledWith(
+        'circle-1',
+        expect.objectContaining({
+          eventId: 'event-1',
+          circleId: 'circle-1',
+          rsvps: expect.objectContaining({
+            yesCount: 1,
+            noCount: 0,
+            maybeCount: 0,
+          }),
+        }),
+      );
+    });
+
+    it('should throw NotFoundException if event does not exist when responding RSVP', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValue(member);
+      mockPrisma.calendarEvent.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.respondEventRsvp('circle-1', 'event-not-found', 'user-1', {
+          status: 'NO' as any,
+        }),
+      ).rejects.toThrow();
     });
   });
 });

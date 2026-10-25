@@ -14,6 +14,8 @@ import {
   CalendarEventEntity,
   CreateCalendarEventInput,
   UpdateCalendarEventInput,
+  CalendarEventRsvpEntity,
+  EventRsvpStatus,
 } from '@circle/types';
 
 export const TOOLS_KEYS = {
@@ -365,6 +367,30 @@ export function useDeleteCalendarEventMutation(circleId: string) {
         `/circles/${circleId}/calendar-events/${eventId}`,
         {
           method: 'DELETE',
+        },
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: TOOLS_KEYS.all });
+    },
+  });
+}
+export function useRespondEventRsvpMutation(circleId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      eventId,
+      status,
+    }: {
+      eventId: string;
+      status: EventRsvpStatus;
+    }) => {
+      const res = await apiRequest<CalendarEventRsvpEntity>(
+        `/circles/${circleId}/calendar-events/${eventId}/rsvp`,
+        {
+          method: 'PUT',
+          body: JSON.stringify({ status }),
         },
       );
       return res.data;

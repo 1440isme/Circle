@@ -63,6 +63,12 @@ enum MomentMediaType {
 }
 
 // =============================================================================
+enum EventRsvpStatus {
+  YES
+  NO
+  MAYBE
+}
+
 // 1. ACCOUNT & SOCIAL CONNECTIONS
 // =============================================================================
 
@@ -88,6 +94,7 @@ model User {
   messageReceipts     MessageReceipt[]
   filedReports        CircleReport[]      @relation("ReportedBy")
   receivedReports     CircleReport[]      @relation("ReportedUser")
+  calendarEventRsvps  CalendarEventRsvp[]
 
   @@index([email])
 }
@@ -574,11 +581,28 @@ model CalendarEvent {
   reminderTime DateTime?
   createdAt    DateTime  @default(now())
 
-  circle  Circle       @relation(fields: [circleId], references: [id], onDelete: Cascade)
-  creator CircleMember @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  circle  Circle              @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  creator CircleMember        @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  rsvps   CalendarEventRsvp[]
 
   @@index([circleId, startTime])
   @@index([createdById])
+}
+
+model CalendarEventRsvp {
+  id        String          @id @default(cuid())
+  eventId   String
+  userId    String
+  status    EventRsvpStatus @default(YES)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  event CalendarEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+  @@index([eventId, status])
+  @@index([userId])
 }
 
 model LiveLocationShare {

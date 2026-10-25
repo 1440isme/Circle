@@ -4799,3 +4799,42 @@
 - **Security & License Check:** An toàn tuyệt đối, zero secret leaks, tuân thủ strict role checks.
 - **Branch:** `feat/101-calendar-chat-integration-and-sidebar`
 - **PR:** Pending (Chờ sự cho phép của người dùng theo đúng chỉ thị).
+---
+
+### AI-0135: Triển khai Tính năng RSVP Phản hồi Tham gia Sự kiện Nhóm (COL-09 — MUST) (#101)
+- **Timestamp:** 2026-10-25T15:37:00+07:00
+- **Task ID:** Issue #101 (Parent Epic: #21)
+- **Engineers:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Feature / Area:** Full-stack UC17 / COL-09 Implementation — Group Calendar Event RSVP Response & Realtime Attendance Tracking.
+- **Files Affected:**
+  - `apps/backend/prisma/schema.prisma`
+  - `apps/backend/prisma/migrations/20261025082201_add_calendar_event_rsvp/migration.sql`
+  - `packages/types/src/index.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.controller.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.service.spec.ts`
+  - `apps/backend/src/modules/circle-tools/dto/circle-tools.dto.ts`
+  - `apps/backend/src/modules/chat/chat.gateway.ts`
+  - `apps/web/src/hooks/use-circle-tools.ts`
+  - `apps/web/src/components/chat/CalendarEventChatEmbed.tsx`
+  - `apps/web/src/components/tools/CircleCalendarView.tsx`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:**
+  1. **Database Schema & Prisma Migration:** Bổ sung enum `EventRsvpStatus` (`YES`, `NO`, `MAYBE`) và bảng `CalendarEventRsvp` liên kết `CalendarEvent` và `User`. Khóa duy nhất `@@unique([eventId, userId])` bảo đảm bất biến mỗi thành viên chỉ có duy nhất 1 trạng thái RSVP cho mỗi sự kiện tại một thời điểm (upsert).
+  2. **Shared Contract:** Mở rộng `@circle/types` với các kiểu dữ liệu `EventRsvpStatus`, `CalendarEventRsvpEntity`, `RespondEventRsvpInput`, cùng phân rã RSVP `rsvps: { yesCount, noCount, maybeCount, userRsvps }` trong `CalendarEventMessagePayload` và `CalendarEventEntity`.
+  3. **Backend Service & Controller:** Triển khai endpoint `PUT /circles/:circleId/calendar-events/:eventId/rsvp`. Tự động tạo RSVP `YES` cho người tạo sự kiện (creator) ngay khi tạo; tính toán thống kê số lượng tham gia và phát sóng sự kiện realtime `circle:calendar-event-rsvp-updated` qua Socket.IO tới toàn bộ thành viên trong nhóm.
+  4. **Frontend Web Chat & Calendar Integration:**
+     - Tại thẻ chat `CalendarEventChatEmbed`: Bổ sung 3 nút phản hồi nhanh (`[✅ Tham gia]`, `[❓ Chưa chắc]`, `[❌ Bận]`), highlight trạng thái của người dùng hiện tại, hiển thị tổng hợp số lượng và danh sách avatar thành viên tham dự kèm chấm trạng thái realtime.
+     - Tại màn hình `CircleCalendarView`: Hiển thị thanh trạng thái RSVP và các nút phản hồi trực tiếp cho từng sự kiện trong ngày đã chọn.
+  5. **Mobile Parity:** Bổ sung hiển thị tóm tắt số lượng phản hồi tham gia sự kiện trên bong bóng chat mobile app.
+- **Human Modifications:** Trương Công Bình yêu cầu rà soát theo `agentic/playbooks/07-circle-collaboration.md` và chỉ đạo: "xây 1. Thiếu tính năng RSVP — Phản hồi tham gia sự kiện (Mục COL-09 — MUST)", tạm hoãn `isAllDay`.
+- **Verification Method:**
+  - Backend Unit Tests: `npm test --workspace=@circle/backend -- circle-tools.service.spec.ts` (17/17 tests pass, bao gồm các test case cho RSVP và socket emit).
+  - Backend Build: `npm run build --workspace=@circle/backend` (NestJS production build pass 100%).
+  - Web Build: `npm run build --workspace=@circle/web` (Next.js production build pass 100%, 9/9 static routes generated).
+  - TypeScript Typechecks: `npx tsc --noEmit -p apps/web/tsconfig.json` (0 errors).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/playbooks/07-circle-collaboration.md` (COL-09 — MUST).
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks, xác thực thành viên nghiêm ngặt qua `getMemberOrThrow`.
+- **Branch:** `feat/101-calendar-chat-integration-and-sidebar`
+- **PR:** Pending (Chờ người dùng kiểm duyệt và cho phép trước khi push/mở PR).

@@ -13,6 +13,9 @@ import {
   Bell,
   Loader2,
   CalendarDays,
+  Users,
+  Check,
+  HelpCircle,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguageStore } from '../../stores/language.store';
@@ -20,8 +23,9 @@ import {
   useCalendarEventsQuery,
   useCreateCalendarEventMutation,
   useDeleteCalendarEventMutation,
+  useRespondEventRsvpMutation,
 } from '../../hooks/use-circle-tools';
-import { CalendarEventEntity } from '@circle/types';
+import { CalendarEventEntity, EventRsvpStatus } from '@circle/types';
 
 interface CircleCalendarViewProps {
   circleId: string;
@@ -49,6 +53,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
   const { data: events = [], isLoading } = useCalendarEventsQuery(circleId, month, year);
   const createMutation = useCreateCalendarEventMutation(circleId);
   const deleteMutation = useDeleteCalendarEventMutation(circleId);
+  const rsvpMutation = useRespondEventRsvpMutation(circleId);
 
   // Calendar math
   const daysInMonth = useMemo(() => {
@@ -266,73 +271,184 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
 
             {selectedDayEvents.length > 0 ? (
               <div className="space-y-3 overflow-y-auto max-h-[500px] pr-1">
-                {selectedDayEvents.map((ev) => (
-                  <div
-                    key={ev.id}
-                    className="rounded-xl border border-circle-hairline/80 dark:border-circle-dark-hairline/80 bg-circle-wash/40 dark:bg-circle-dark-wash/40 p-3 shadow-2xs"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <h4 className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
-                        {ev.eventTitle}
-                      </h4>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteEvent(ev.id)}
-                        className="p-1 text-circle-slate hover:text-red-500 transition-colors"
-                        title="Hủy sự kiện"
+                {selectedDayEvents.map((ev) => {
+                    const yesRsvps = ev.rsvps?.filter((r) => r.status === 'YES') || [];
+                    const maybeRsvps = ev.rsvps?.filter((r) => r.status === 'MAYBE') || [];
+                    const noRsvps = ev.rsvps?.filter((r) => r.status === 'NO') || [];
+                    const myRsvp = ev.rsvps?.find((r) => r.userId === user?.id)?.status;
+
+                    const handleRsvp = async (status: EventRsvpStatus) => {
+                      try {
+                        await rsvpMutation.mutateAsync({ eventId: ev.id, status });
+                      } catch (err) {
+                        console.error('Failed to RSVP:', err);
+                      }
+                    };
+
+                    return (
+                      <div
+                        key={ev.id}
+                        className="rounded-xl border border-circle-hairline/80 dark:border-circle-dark-hairline/80 bg-circle-wash/40 dark:bg-circle-dark-wash/40 p-3 shadow-2xs space-y-2.5"
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
+                        <div className="flex items-start justify-between gap-2">
+                          <h4 className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
+                            {ev.eventTitle}
+                          </h4>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteEvent(ev.id)}
+                            className="p-1 text-circle-slate hover:text-red-500 transition-colors"
+                            title="Hủy sự kiện"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
 
-                    <div className="space-y-1.5 mt-2 text-[11px] text-circle-slate dark:text-circle-dark-muted">
-                      <div className="flex items-center gap-1.5">
-                        <Clock className="h-3 w-3 text-circle-sage dark:text-circle-primary" />
-                        <span>
-                          {new Date(ev.startTime).toLocaleTimeString('vi-VN', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                          {ev.endTime &&
-                            ` - ${new Date(ev.endTime).toLocaleTimeString('vi-VN', {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}`}
-                        </span>
+                        <div className="space-y-1.5 text-[11px] text-circle-slate dark:text-circle-dark-muted">
+                          <div className="flex items-center gap-1.5">
+                            <Clock className="h-3 w-3 text-circle-sage dark:text-circle-primary" />
+                            <span>
+                              {new Date(ev.startTime).toLocaleTimeString('vi-VN', {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                              {ev.endTime &&
+                                ` - ${new Date(ev.endTime).toLocaleTimeString('vi-VN', {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}`}
+                            </span>
+                          </div>
+
+                          {ev.location && (
+                            <div className="flex items-center gap-1.5">
+                              <MapPin className="h-3 w-3 text-circle-sage dark:text-circle-primary" />
+                              <span className="truncate">{ev.location}</span>
+                            </div>
+                          )}
+
+                          {ev.reminderTime && (
+                            <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
+                              <Bell className="h-3 w-3" />
+                              <span>
+                                Nhắc trước lúc{' '}
+                                {new Date(ev.reminderTime).toLocaleTimeString('vi-VN', {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+
+                        {ev.description && (
+                          <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted pt-2 border-t border-circle-hairline/50 dark:border-circle-dark-hairline/50">
+                            {ev.description}
+                          </p>
+                        )}
+
+                        <div className="text-[10px] text-circle-slate/80 dark:text-circle-dark-muted/80">
+                          Tạo bởi {ev.creator?.user?.profile?.displayName || 'Thành viên'}
+                        </div>
+
+                        {/* RSVP Section (COL-09) */}
+                        <div className="pt-2.5 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60 space-y-2">
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className="font-semibold text-circle-charcoal dark:text-circle-dark-text flex items-center gap-1">
+                              <Users className="h-3 w-3 text-circle-sage dark:text-circle-primary" />
+                              <span>Phản hồi tham gia</span>
+                            </span>
+                            <div className="flex items-center gap-1.5 text-[10px] text-circle-slate dark:text-circle-dark-muted font-medium">
+                              <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{yesRsvps.length} Tham gia</span>
+                              <span>•</span>
+                              <span className="text-amber-600 dark:text-amber-400 font-semibold">{maybeRsvps.length} Chưa chắc</span>
+                              <span>•</span>
+                              <span className="text-rose-500 dark:text-rose-400 font-semibold">{noRsvps.length} Bận</span>
+                            </div>
+                          </div>
+
+                          {/* 3 Action Buttons */}
+                          <div className="grid grid-cols-3 gap-1.5">
+                            <button
+                              type="button"
+                              disabled={rsvpMutation.isPending}
+                              onClick={() => handleRsvp(EventRsvpStatus.YES)}
+                              className={`flex items-center justify-center gap-1 py-1 px-1.5 rounded-lg text-[10px] font-semibold transition-all active:scale-95 ${
+                                myRsvp === EventRsvpStatus.YES
+                                  ? 'bg-emerald-600 text-white shadow-2xs'
+                                  : 'bg-white dark:bg-circle-dark-surface hover:bg-emerald-50 dark:hover:bg-emerald-950/20 text-circle-charcoal dark:text-circle-dark-text border border-circle-hairline/80 dark:border-circle-dark-hairline/80'
+                              }`}
+                            >
+                              <Check className="h-2.5 w-2.5" />
+                              <span>Tham gia</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              disabled={rsvpMutation.isPending}
+                              onClick={() => handleRsvp(EventRsvpStatus.MAYBE)}
+                              className={`flex items-center justify-center gap-1 py-1 px-1.5 rounded-lg text-[10px] font-semibold transition-all active:scale-95 ${
+                                myRsvp === EventRsvpStatus.MAYBE
+                                  ? 'bg-amber-600 text-white shadow-2xs'
+                                  : 'bg-white dark:bg-circle-dark-surface hover:bg-amber-50 dark:hover:bg-amber-950/20 text-circle-charcoal dark:text-circle-dark-text border border-circle-hairline/80 dark:border-circle-dark-hairline/80'
+                              }`}
+                            >
+                              <HelpCircle className="h-2.5 w-2.5" />
+                              <span>Chưa chắc</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              disabled={rsvpMutation.isPending}
+                              onClick={() => handleRsvp(EventRsvpStatus.NO)}
+                              className={`flex items-center justify-center gap-1 py-1 px-1.5 rounded-lg text-[10px] font-semibold transition-all active:scale-95 ${
+                                myRsvp === EventRsvpStatus.NO
+                                  ? 'bg-rose-600 text-white shadow-2xs'
+                                  : 'bg-white dark:bg-circle-dark-surface hover:bg-rose-50 dark:hover:bg-rose-950/20 text-circle-charcoal dark:text-circle-dark-text border border-circle-hairline/80 dark:border-circle-dark-hairline/80'
+                              }`}
+                            >
+                              <X className="h-2.5 w-2.5" />
+                              <span>Bận</span>
+                            </button>
+                          </div>
+
+                          {/* Attendee Avatars */}
+                          {ev.rsvps && ev.rsvps.length > 0 && (
+                            <div className="flex items-center gap-1.5 pt-0.5">
+                              <div className="flex -space-x-1.5 overflow-hidden">
+                                {ev.rsvps.slice(0, 6).map((r) => {
+                                  const name = r.user?.profile?.displayName || r.user?.email?.split('@')[0] || 'Thành viên';
+                                  return (
+                                    <div
+                                      key={r.id}
+                                      title={`${name} (${r.status === 'YES' ? 'Tham gia' : r.status === 'MAYBE' ? 'Chưa chắc' : 'Bận'})`}
+                                      className="relative inline-block h-5 w-5 rounded-full ring-1 ring-white dark:ring-circle-dark-surface overflow-hidden bg-circle-primary text-circle-charcoal text-[9px] font-bold flex items-center justify-center shrink-0"
+                                    >
+                                      {r.user?.profile?.avatarUrl ? (
+                                        <img src={r.user.profile.avatarUrl} alt={name} className="h-full w-full object-cover" />
+                                      ) : (
+                                        <span>{name.charAt(0).toUpperCase()}</span>
+                                      )}
+                                      <span
+                                        className={`absolute bottom-0 right-0 h-1.5 w-1.5 rounded-full ring-1 ring-white dark:ring-circle-dark-surface ${
+                                          r.status === 'YES' ? 'bg-emerald-500' : r.status === 'MAYBE' ? 'bg-amber-500' : 'bg-rose-500'
+                                        }`}
+                                      />
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                              {ev.rsvps.length > 6 && (
+                                <span className="text-[10px] text-circle-slate dark:text-circle-dark-muted font-medium">
+                                  +{ev.rsvps.length - 6}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
-
-                      {ev.location && (
-                        <div className="flex items-center gap-1.5">
-                          <MapPin className="h-3 w-3 text-circle-sage dark:text-circle-primary" />
-                          <span className="truncate">{ev.location}</span>
-                        </div>
-                      )}
-
-                      {ev.reminderTime && (
-                        <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
-                          <Bell className="h-3 w-3" />
-                          <span>
-                            Nhắc trước lúc{' '}
-                            {new Date(ev.reminderTime).toLocaleTimeString('vi-VN', {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-
-                    {ev.description && (
-                      <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted mt-2 pt-2 border-t border-circle-hairline/50 dark:border-circle-dark-hairline/50">
-                        {ev.description}
-                      </p>
-                    )}
-
-                    <div className="text-[10px] text-circle-slate/80 dark:text-circle-dark-muted/80 mt-2">
-                      Tạo bởi {ev.creator?.user?.profile?.displayName || 'Thành viên'}
-                    </div>
-                  </div>
-                ))}
+                    );
+                })}
               </div>
             ) : (
               <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
