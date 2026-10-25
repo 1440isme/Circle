@@ -206,8 +206,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           eventData={calendarEventData}
           isSenderMe={isSenderMe}
           messageId={message.id}
-          onReact={onReact}
-          reactionCounts={message.reactionCounts}
           currentUserId={currentUserId}
         />
       </div>

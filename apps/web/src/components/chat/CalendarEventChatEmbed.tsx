@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   CalendarDays,
   Clock,
@@ -23,36 +23,52 @@ export interface CalendarEventChatEmbedProps {
   eventData: CalendarEventMessagePayload;
   isSenderMe?: boolean;
   messageId?: string;
-  onReact?: (messageId: string, emoji: string) => void;
-  reactionCounts?: Record<string, number>;
   currentUserId?: string;
 }
-
-const QUICK_EVENT_EMOJIS = ['👍', '🎉', '❤️', '🔥'];
 
 export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
   eventData,
   isSenderMe = false,
-  messageId,
-  onReact,
-  reactionCounts = {},
   currentUserId,
 }) => {
   const activeCircleId = useCircleStore((s) => s.activeCircleId);
   const setActiveCircleView = useCircleStore((s) => s.setActiveCircleView);
-  const t = useLanguageStore((s) => s.t);
   const locale = useLanguageStore((s) => s.locale);
 
-  const [rsvps, setRsvps] = useState(eventData.rsvps);
+  // "Phản hồi tham gia sẽ được tạo lúc đầu" (COL-09)
+  // Ensure the creator RSVP is always created and initialized as YES (1 Tham gia)
+  const initialRsvps = useMemo(() => {
+    if (
+      eventData.rsvps &&
+      (eventData.rsvps.yesCount > 0 ||
+        eventData.rsvps.noCount > 0 ||
+        eventData.rsvps.maybeCount > 0)
+    ) {
+      return eventData.rsvps;
+    }
+    return {
+      yesCount: 1,
+      noCount: 0,
+      maybeCount: 0,
+      userRsvps: [
+        {
+          userId: isSenderMe ? (currentUserId || '') : '',
+          status: EventRsvpStatus.YES,
+          displayName: eventData.creatorName,
+          avatarUrl: null,
+        },
+      ],
+    };
+  }, [eventData.rsvps, eventData.creatorName, isSenderMe, currentUserId]);
+
+  const [rsvps, setRsvps] = useState(initialRsvps);
 
   const rsvpMutation = useRespondEventRsvpMutation(activeCircleId || '');
 
   // Keep local state in sync when prop changes
   useEffect(() => {
-    if (eventData.rsvps) {
-      setRsvps(eventData.rsvps);
-    }
-  }, [eventData.rsvps]);
+    setRsvps(initialRsvps);
+  }, [initialRsvps]);
 
   // Realtime Socket.IO sync for RSVP updates (COL-09)
   useEffect(() => {
@@ -126,7 +142,12 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
 
   const isUpdated = eventData.action === 'UPDATED';
 
-  const myRsvp = rsvps?.userRsvps?.find((u) => u.userId === currentUserId)?.status;
+  const myRsvp = useMemo(() => {
+    const found = rsvps?.userRsvps?.find((u) => u.userId && u.userId === currentUserId)?.status;
+    if (found) return found;
+    if (isSenderMe) return EventRsvpStatus.YES;
+    return undefined;
+  }, [rsvps, currentUserId, isSenderMe]);
 
   const handleRsvp = async (status: EventRsvpStatus) => {
     if (!activeCircleId) return;
@@ -138,12 +159,12 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
         {
           userId: currentUserId || '',
           status,
-          displayName: 'Bạn',
+          displayName: isVi ? 'Bạn' : 'You',
         },
       ];
-      const yesCount = updatedUserRsvps.filter((u) => u.status === 'YES').length;
-      const maybeCount = updatedUserRsvps.filter((u) => u.status === 'MAYBE').length;
-      const noCount = updatedUserRsvps.filter((u) => u.status === 'NO').length;
+      const yesCount = updatedUserRsvps.filter((u) => u.status === EventRsvpStatus.YES).length;
+      const maybeCount = updatedUserRsvps.filter((u) => u.status === EventRsvpStatus.MAYBE).length;
+      const noCount = updatedUserRsvps.filter((u) => u.status === EventRsvpStatus.NO).length;
       setRsvps({ yesCount, maybeCount, noCount, userRsvps: updatedUserRsvps });
 
       await rsvpMutation.mutateAsync({ eventId: eventData.eventId, status });
@@ -324,39 +345,16 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
           )}
         </div>
 
-        {/* Footer Actions & Reactions */}
-        <div className="flex items-center justify-between px-4 py-2.5 bg-circle-canvas/40 dark:bg-circle-dark-canvas/40 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60 gap-2">
-          {/* Reaction chips */}
-          <div className="flex items-center gap-1 flex-wrap">
-            {QUICK_EVENT_EMOJIS.map((emoji) => {
-              const count = reactionCounts[emoji] || 0;
-              return (
-                <button
-                  key={emoji}
-                  type="button"
-                  onClick={() => messageId && onReact?.(messageId, emoji)}
-                  className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs transition-all active:scale-95 ${
-                    count > 0
-                      ? 'bg-circle-primary/20 text-circle-sage dark:text-circle-primary font-bold border border-circle-primary/30'
-                      : 'hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate dark:text-circle-dark-muted border border-circle-hairline/50 dark:border-circle-dark-hairline/50'
-                  }`}
-                  title={isVi ? `Thả cảm xúc ${emoji}` : `React ${emoji}`}
-                >
-                  <span>{emoji}</span>
-                  {count > 0 && <span className="text-[10px] font-mono">{count}</span>}
-                </button>
-              );
-            })}
-          </div>
-
+        {/* Footer Actions (No reaction emojis, clean and focused) */}
+        <div className="flex items-center justify-end px-4 py-2.5 bg-circle-canvas/40 dark:bg-circle-dark-canvas/40 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60">
           {/* Jump to Calendar button */}
           <button
             type="button"
             onClick={handleOpenCalendar}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-circle-charcoal hover:bg-circle-sage text-white dark:bg-circle-primary dark:text-circle-charcoal dark:hover:bg-circle-primary/90 text-xs font-semibold shadow-xs transition-all active:scale-98 shrink-0"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-circle-charcoal hover:bg-circle-sage text-white dark:bg-circle-primary dark:text-circle-charcoal dark:hover:bg-circle-primary/90 text-xs font-semibold shadow-xs transition-all active:scale-98"
           >
             <CalendarDays className="h-3.5 w-3.5" />
-            <span>{isVi ? 'Xem trên Lịch' : 'View in Calendar'}</span>
+            <span>{isVi ? 'Xem trên Lịch nhóm' : 'View in Calendar'}</span>
             <ExternalLink className="h-3 w-3 opacity-70" />
           </button>
         </div>

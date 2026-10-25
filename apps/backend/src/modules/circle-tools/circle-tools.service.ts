@@ -784,7 +784,27 @@ export class CircleToolsService {
         member.nickname ||
         'Thành viên';
 
-      const rsvpsData = event.rsvps ? this.computeRsvpBreakdown(event.rsvps) : undefined;
+      let rsvpsData =
+        event.rsvps && event.rsvps.length > 0
+          ? this.computeRsvpBreakdown(event.rsvps)
+          : undefined;
+
+      // Always guarantee creator RSVP is included from the very beginning
+      if (!rsvpsData || rsvpsData.userRsvps.length === 0) {
+        rsvpsData = {
+          yesCount: 1,
+          noCount: 0,
+          maybeCount: 0,
+          userRsvps: [
+            {
+              userId: member.userId,
+              status: 'YES' as any,
+              displayName: creatorName,
+              avatarUrl: member.user?.profile?.avatarUrl || null,
+            },
+          ],
+        };
+      }
 
       const payload: CalendarEventMessagePayload = {
         type: 'CALENDAR_EVENT',
