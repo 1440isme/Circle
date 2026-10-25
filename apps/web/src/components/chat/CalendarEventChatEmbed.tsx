@@ -183,6 +183,68 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
     setActiveCircleView('calendar');
   };
 
+  const yesUsers = useMemo(
+    () => rsvps?.userRsvps?.filter((u) => u.status === EventRsvpStatus.YES) || [],
+    [rsvps]
+  );
+  const maybeUsers = useMemo(
+    () => rsvps?.userRsvps?.filter((u) => u.status === EventRsvpStatus.MAYBE) || [],
+    [rsvps]
+  );
+  const noUsers = useMemo(
+    () => rsvps?.userRsvps?.filter((u) => u.status === EventRsvpStatus.NO) || [],
+    [rsvps]
+  );
+
+  const totalVotes =
+    (rsvps?.yesCount || 0) + (rsvps?.maybeCount || 0) + (rsvps?.noCount || 0);
+
+  const yesPercent =
+    totalVotes > 0 ? Math.round(((rsvps?.yesCount || 0) / totalVotes) * 100) : 0;
+  const maybePercent =
+    totalVotes > 0 ? Math.round(((rsvps?.maybeCount || 0) / totalVotes) * 100) : 0;
+  const noPercent =
+    totalVotes > 0 ? Math.round(((rsvps?.noCount || 0) / totalVotes) * 100) : 0;
+
+  const pollOptions = [
+    {
+      status: EventRsvpStatus.YES,
+      label: isVi ? 'Tham gia' : 'Going',
+      icon: Check,
+      count: rsvps?.yesCount || 0,
+      percent: yesPercent,
+      users: yesUsers,
+      barColor: 'bg-emerald-500/15 dark:bg-emerald-500/20',
+      activeBarColor: 'bg-emerald-500/25 dark:bg-emerald-500/35',
+      activeBorder: 'border-emerald-500/70 dark:border-emerald-400/80 ring-1 ring-emerald-500/30',
+      iconColor: 'text-emerald-600 dark:text-emerald-400',
+    },
+    {
+      status: EventRsvpStatus.MAYBE,
+      label: isVi ? 'Chưa chắc' : 'Maybe',
+      icon: HelpCircle,
+      count: rsvps?.maybeCount || 0,
+      percent: maybePercent,
+      users: maybeUsers,
+      barColor: 'bg-amber-500/15 dark:bg-amber-500/20',
+      activeBarColor: 'bg-amber-500/25 dark:bg-amber-500/35',
+      activeBorder: 'border-amber-500/70 dark:border-amber-400/80 ring-1 ring-amber-500/30',
+      iconColor: 'text-amber-600 dark:text-amber-400',
+    },
+    {
+      status: EventRsvpStatus.NO,
+      label: isVi ? 'Bận' : "Can't go",
+      icon: X,
+      count: rsvps?.noCount || 0,
+      percent: noPercent,
+      users: noUsers,
+      barColor: 'bg-rose-500/15 dark:bg-rose-500/20',
+      activeBarColor: 'bg-rose-500/25 dark:bg-rose-500/35',
+      activeBorder: 'border-rose-500/70 dark:border-rose-400/80 ring-1 ring-rose-500/30',
+      iconColor: 'text-rose-600 dark:text-rose-400',
+    },
+  ];
+
   return (
     <div className="w-full max-w-lg mx-auto transition-all select-text">
       {/* Container with modern card styling and soft shadow */}
@@ -276,8 +338,8 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
           </div>
         </div>
 
-        {/* RSVP Section (COL-09) */}
-        <div className="px-4 py-3 bg-circle-canvas/50 dark:bg-circle-dark-canvas/50 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60 space-y-2.5">
+        {/* RSVP Section (COL-09 - Poll Style) */}
+        <div className="px-4 py-3 bg-circle-canvas/50 dark:bg-circle-dark-canvas/50 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60 space-y-3">
           <div className="flex items-center justify-between text-xs">
             <span className="font-semibold text-circle-charcoal dark:text-circle-dark-text flex items-center gap-1.5">
               {isCancelled ? (
@@ -293,94 +355,94 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
               ) : (
                 <>
                   <Users className="h-3.5 w-3.5 text-circle-sage dark:text-circle-primary" />
-                  <span>{isVi ? 'Bạn có tham gia không?' : 'Are you attending?'}</span>
+                  <span>{isVi ? 'Khảo sát tham gia' : 'Attendance Poll'}</span>
                 </>
               )}
             </span>
-            <div className="flex items-center gap-2 text-[11px] font-medium text-circle-slate dark:text-circle-dark-muted">
-              <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{rsvps?.yesCount || 0} {isVi ? 'Tham gia' : 'Going'}</span>
-              <span>•</span>
-              <span className="text-amber-600 dark:text-amber-400 font-semibold">{rsvps?.maybeCount || 0} {isVi ? 'Chưa chắc' : 'Maybe'}</span>
-              <span>•</span>
-              <span className="text-rose-500 dark:text-rose-400 font-semibold">{rsvps?.noCount || 0} {isVi ? 'Bận' : 'No'}</span>
-            </div>
+            <span className="text-[11px] text-circle-slate dark:text-circle-dark-muted font-medium">
+              {totalVotes} {isVi ? 'phản hồi' : 'votes'}
+            </span>
           </div>
 
-          {/* 3 Interactive Buttons */}
-          <div className="grid grid-cols-3 gap-2">
-            <button
-              type="button"
-              disabled={isLocked || rsvpMutation.isPending}
-              onClick={() => handleRsvp(EventRsvpStatus.YES)}
-              className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl text-xs font-semibold transition-all ${isLocked ? 'cursor-not-allowed opacity-60' : 'active:scale-95'} ${
-                myRsvp === EventRsvpStatus.YES
-                  ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'bg-white dark:bg-circle-dark-surface hover:bg-emerald-50 dark:hover:bg-emerald-950/30 text-circle-charcoal dark:text-circle-dark-text border border-circle-hairline dark:border-circle-dark-hairline'
-              }`}
-            >
-              <Check className="h-3.5 w-3.5" />
-              <span>{isVi ? 'Tham gia' : 'Going'}</span>
-            </button>
-
-            <button
-              type="button"
-              disabled={isLocked || rsvpMutation.isPending}
-              onClick={() => handleRsvp(EventRsvpStatus.MAYBE)}
-              className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl text-xs font-semibold transition-all ${isLocked ? 'cursor-not-allowed opacity-60' : 'active:scale-95'} ${
-                myRsvp === EventRsvpStatus.MAYBE
-                  ? 'bg-amber-600 text-white shadow-xs'
-                  : 'bg-white dark:bg-circle-dark-surface hover:bg-amber-50 dark:hover:bg-amber-950/30 text-circle-charcoal dark:text-circle-dark-text border border-circle-hairline dark:border-circle-dark-hairline'
-              }`}
-            >
-              <HelpCircle className="h-3.5 w-3.5" />
-              <span>{isVi ? 'Chưa chắc' : 'Maybe'}</span>
-            </button>
-
-            <button
-              type="button"
-              disabled={isLocked || rsvpMutation.isPending}
-              onClick={() => handleRsvp(EventRsvpStatus.NO)}
-              className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl text-xs font-semibold transition-all ${isLocked ? 'cursor-not-allowed opacity-60' : 'active:scale-95'} ${
-                myRsvp === EventRsvpStatus.NO
-                  ? 'bg-rose-600 text-white shadow-xs'
-                  : 'bg-white dark:bg-circle-dark-surface hover:bg-rose-50 dark:hover:bg-rose-950/30 text-circle-charcoal dark:text-circle-dark-text border border-circle-hairline dark:border-circle-dark-hairline'
-              }`}
-            >
-              <X className="h-3.5 w-3.5" />
-              <span>{isVi ? 'Bận' : 'No'}</span>
-            </button>
-          </div>
-
-          {/* Attendee Avatar Stacking */}
-          {rsvps?.userRsvps && rsvps.userRsvps.length > 0 && (
-            <div className="flex items-center gap-2 pt-1">
-              <div className="flex -space-x-1.5 overflow-hidden">
-                {rsvps.userRsvps.slice(0, 7).map((u, i) => (
-                  <div
-                    key={u.userId || i}
-                    title={`${u.displayName} (${u.status === 'YES' ? (isVi ? 'Tham gia' : 'Going') : u.status === 'MAYBE' ? (isVi ? 'Chưa chắc' : 'Maybe') : (isVi ? 'Bận' : 'No')})`}
-                    className="relative inline-block h-6 w-6 rounded-full ring-2 ring-white dark:ring-circle-dark-surface overflow-hidden bg-circle-primary text-circle-charcoal text-[10px] font-bold flex items-center justify-center shrink-0"
+          {/* Poll Options List */}
+          <div className="space-y-2">
+            {pollOptions.map((opt) => {
+              const isSelected = myRsvp === opt.status;
+              return (
+                <div key={opt.status} className="space-y-1.5">
+                  <button
+                    type="button"
+                    disabled={isLocked || rsvpMutation.isPending}
+                    onClick={() => handleRsvp(opt.status)}
+                    className={`relative w-full overflow-hidden rounded-xl border p-2.5 text-left transition-all ${
+                      isLocked ? 'cursor-not-allowed opacity-75' : 'hover:border-circle-primary/50 active:scale-[0.99]'
+                    } ${
+                      isSelected
+                        ? `${opt.activeBorder} bg-circle-canvas/90 dark:bg-circle-dark-canvas/90 font-bold shadow-2xs`
+                        : 'border-circle-hairline/80 dark:border-circle-dark-hairline/80 bg-white/90 dark:bg-circle-dark-surface/90'
+                    }`}
                   >
-                    {u.avatarUrl ? (
-                      <img src={u.avatarUrl} alt={u.displayName} className="h-full w-full object-cover" />
-                    ) : (
-                      <span>{u.displayName?.charAt(0)?.toUpperCase() || '?'}</span>
-                    )}
-                    <span
-                      className={`absolute bottom-0 right-0 h-1.5 w-1.5 rounded-full ring-1 ring-white dark:ring-circle-dark-surface ${
-                        u.status === 'YES' ? 'bg-emerald-500' : u.status === 'MAYBE' ? 'bg-amber-500' : 'bg-rose-500'
+                    {/* Progress Bar Fill */}
+                    <div
+                      className={`absolute inset-y-0 left-0 transition-all duration-500 ease-out ${
+                        isSelected ? opt.activeBarColor : opt.barColor
                       }`}
+                      style={{ width: `${opt.percent}%` }}
                     />
-                  </div>
-                ))}
-              </div>
-              {rsvps.userRsvps.length > 7 && (
-                <span className="text-[10px] font-medium text-circle-slate dark:text-circle-dark-muted">
-                  +{rsvps.userRsvps.length - 7} {isVi ? 'người khác' : 'others'}
-                </span>
-              )}
-            </div>
-          )}
+
+                    {/* Bar Labels */}
+                    <div className="relative z-10 flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border transition-all ${
+                            isSelected
+                              ? 'border-circle-primary bg-circle-primary text-circle-charcoal'
+                              : 'border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface'
+                          }`}
+                        >
+                          {isSelected && <Check className="h-2.5 w-2.5 stroke-[3]" />}
+                        </span>
+                        <opt.icon className={`h-3.5 w-3.5 ${opt.iconColor}`} />
+                        <span className="font-semibold text-circle-charcoal dark:text-circle-dark-text">
+                          {opt.label}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 text-[11px] font-semibold text-circle-charcoal dark:text-circle-dark-text">
+                        <span>{opt.count}</span>
+                        <span className="text-[10px] text-circle-slate dark:text-circle-dark-muted font-normal">
+                          ({opt.percent}%)
+                        </span>
+                      </div>
+                    </div>
+                  </button>
+
+                  {/* Respondent List under this Option */}
+                  {opt.users.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-1 pl-6 pr-1">
+                      {opt.users.map((u, idx) => (
+                        <span
+                          key={u.userId || idx}
+                          className="inline-flex items-center gap-1 rounded-full bg-circle-wash/90 dark:bg-circle-dark-wash/90 py-0.5 pl-1 pr-2 border border-circle-hairline/70 dark:border-circle-dark-hairline/70 text-[10px] text-circle-charcoal dark:text-circle-dark-text"
+                        >
+                          {u.avatarUrl ? (
+                            <img src={u.avatarUrl} alt={u.displayName} className="h-3.5 w-3.5 rounded-full object-cover" />
+                          ) : (
+                            <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-circle-primary text-circle-charcoal text-[8px] font-bold">
+                              {u.displayName?.charAt(0)?.toUpperCase() || '?'}
+                            </span>
+                          )}
+                          <span className="font-medium">
+                            {u.userId === currentUserId ? (isVi ? 'Bạn' : 'You') : u.displayName}
+                          </span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
 
 

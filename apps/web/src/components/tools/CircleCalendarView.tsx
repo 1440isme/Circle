@@ -524,8 +524,8 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                           Tạo bởi {ev.creator?.user?.profile?.displayName || 'Thành viên'}
                         </div>
 
-                        {/* RSVP Section (COL-09) */}
-                        <div className="pt-2.5 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60 space-y-2">
+                        {/* RSVP Section (COL-09 - Poll Style) */}
+                        <div className="pt-2.5 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60 space-y-2.5">
                           <div className="flex items-center justify-between text-[11px]">
                             <span className="font-semibold flex items-center gap-1">
                               {ev.isCancelled ? (
@@ -533,117 +533,145 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                                   <Lock className="h-3 w-3 text-rose-500" />
                                   <span className="text-rose-600 dark:text-rose-400">Lịch hẹn đã bị hủy</span>
                                 </>
+                              ) : isStarted ? (
+                                <>
+                                  <Lock className="h-3 w-3 text-circle-slate dark:text-circle-dark-muted" />
+                                  <span className="text-circle-slate dark:text-circle-dark-muted">Bình chọn đã đóng</span>
+                                </>
                               ) : (
                                 <>
                                   <Users className="h-3 w-3 text-circle-sage dark:text-circle-primary" />
-                                  <span className="text-circle-charcoal dark:text-circle-dark-text">Phản hồi tham gia</span>
+                                  <span className="text-circle-charcoal dark:text-circle-dark-text">Khảo sát tham gia</span>
                                 </>
                               )}
                             </span>
-                            <div className="flex items-center gap-1.5 text-[10px] text-circle-slate dark:text-circle-dark-muted font-medium">
-                              <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{yesRsvps.length} Tham gia</span>
-                              <span>•</span>
-                              <span className="text-amber-600 dark:text-amber-400 font-semibold">{maybeRsvps.length} Chưa chắc</span>
-                              <span>•</span>
-                              <span className="text-rose-500 dark:text-rose-400 font-semibold">{noRsvps.length} Bận</span>
-                            </div>
+                            <span className="text-[10px] text-circle-slate dark:text-circle-dark-muted font-medium">
+                              {yesRsvps.length + maybeRsvps.length + noRsvps.length} phản hồi
+                            </span>
                           </div>
 
-                          {/* 3 Action Buttons */}
-                          <div className="grid grid-cols-3 gap-1.5">
-                            <button
-                              type="button"
-                              disabled={isStarted || Boolean(ev.isCancelled) || rsvpMutation.isPending}
-                              onClick={() => handleRsvp(EventRsvpStatus.YES)}
-                              className={`flex items-center justify-center gap-1 py-1 px-1.5 rounded-lg text-[10px] font-semibold transition-all ${
-                                isStarted
-                                  ? myRsvp === EventRsvpStatus.YES
-                                    ? 'bg-emerald-600/80 text-white cursor-not-allowed opacity-90'
-                                    : 'bg-circle-canvas/80 text-circle-slate/60 border border-circle-hairline/60 cursor-not-allowed opacity-60'
-                                  : myRsvp === EventRsvpStatus.YES
-                                  ? 'bg-emerald-600 text-white shadow-2xs active:scale-95'
-                                  : 'bg-white dark:bg-circle-dark-surface hover:bg-emerald-50 dark:hover:bg-emerald-950/20 text-circle-charcoal dark:text-circle-dark-text border border-circle-hairline/80 dark:border-circle-dark-hairline/80 active:scale-95'
-                              }`}
-                            >
-                              <Check className="h-2.5 w-2.5" />
-                              <span>Tham gia</span>
-                            </button>
-
-                            <button
-                              type="button"
-                              disabled={isStarted || Boolean(ev.isCancelled) || rsvpMutation.isPending}
-                              onClick={() => handleRsvp(EventRsvpStatus.MAYBE)}
-                              className={`flex items-center justify-center gap-1 py-1 px-1.5 rounded-lg text-[10px] font-semibold transition-all ${
-                                isStarted
-                                  ? myRsvp === EventRsvpStatus.MAYBE
-                                    ? 'bg-amber-600/80 text-white cursor-not-allowed opacity-90'
-                                    : 'bg-circle-canvas/80 text-circle-slate/60 border border-circle-hairline/60 cursor-not-allowed opacity-60'
-                                  : myRsvp === EventRsvpStatus.MAYBE
-                                  ? 'bg-amber-600 text-white shadow-2xs active:scale-95'
-                                  : 'bg-white dark:bg-circle-dark-surface hover:bg-amber-50 dark:hover:bg-amber-950/20 text-circle-charcoal dark:text-circle-dark-text border border-circle-hairline/80 dark:border-circle-dark-hairline/80 active:scale-95'
-                              }`}
-                            >
-                              <HelpCircle className="h-2.5 w-2.5" />
-                              <span>Chưa chắc</span>
-                            </button>
-
-                            <button
-                              type="button"
-                              disabled={isStarted || Boolean(ev.isCancelled) || rsvpMutation.isPending}
-                              onClick={() => handleRsvp(EventRsvpStatus.NO)}
-                              className={`flex items-center justify-center gap-1 py-1 px-1.5 rounded-lg text-[10px] font-semibold transition-all ${
-                                isStarted
-                                  ? myRsvp === EventRsvpStatus.NO
-                                    ? 'bg-rose-600/80 text-white cursor-not-allowed opacity-90'
-                                    : 'bg-circle-canvas/80 text-circle-slate/60 border border-circle-hairline/60 cursor-not-allowed opacity-60'
-                                  : myRsvp === EventRsvpStatus.NO
-                                  ? 'bg-rose-600 text-white shadow-2xs active:scale-95'
-                                  : 'bg-white dark:bg-circle-dark-surface hover:bg-rose-50 dark:hover:bg-rose-950/20 text-circle-charcoal dark:text-circle-dark-text border border-circle-hairline/80 dark:border-circle-dark-hairline/80 active:scale-95'
-                              }`}
-                            >
-                              <X className="h-2.5 w-2.5" />
-                              <span>Bận</span>
-                            </button>
-                          </div>
-                          {isStarted && (
-                            <p className="text-[10px] text-circle-slate dark:text-circle-dark-muted italic">
-                              Sự kiện đang diễn ra hoặc đã kết thúc, không thể thay đổi phản hồi nữa.
-                            </p>
-                          )}
-
-                          {/* Attendee Avatars */}
-                          {ev.rsvps && ev.rsvps.length > 0 && (
-                            <div className="flex items-center gap-1.5 pt-0.5">
-                              <div className="flex -space-x-1.5 overflow-hidden">
-                                {ev.rsvps.slice(0, 6).map((r) => {
-                                  const name = r.user?.profile?.displayName || r.user?.email?.split('@')[0] || 'Thành viên';
-                                  return (
+                          {/* Poll Options */}
+                          <div className="space-y-1.5">
+                            {[
+                              {
+                                status: EventRsvpStatus.YES,
+                                label: 'Tham gia',
+                                icon: Check,
+                                count: yesRsvps.length,
+                                percent: (yesRsvps.length + maybeRsvps.length + noRsvps.length) > 0 ? Math.round((yesRsvps.length / (yesRsvps.length + maybeRsvps.length + noRsvps.length)) * 100) : 0,
+                                rsvps: yesRsvps,
+                                barColor: 'bg-emerald-500/15 dark:bg-emerald-500/20',
+                                activeBarColor: 'bg-emerald-500/25 dark:bg-emerald-500/35',
+                                activeBorder: 'border-emerald-500/70 dark:border-emerald-400/80 ring-1 ring-emerald-500/30',
+                                iconColor: 'text-emerald-600 dark:text-emerald-400',
+                              },
+                              {
+                                status: EventRsvpStatus.MAYBE,
+                                label: 'Chưa chắc',
+                                icon: HelpCircle,
+                                count: maybeRsvps.length,
+                                percent: (yesRsvps.length + maybeRsvps.length + noRsvps.length) > 0 ? Math.round((maybeRsvps.length / (yesRsvps.length + maybeRsvps.length + noRsvps.length)) * 100) : 0,
+                                rsvps: maybeRsvps,
+                                barColor: 'bg-amber-500/15 dark:bg-amber-500/20',
+                                activeBarColor: 'bg-amber-500/25 dark:bg-amber-500/35',
+                                activeBorder: 'border-amber-500/70 dark:border-amber-400/80 ring-1 ring-amber-500/30',
+                                iconColor: 'text-amber-600 dark:text-amber-400',
+                              },
+                              {
+                                status: EventRsvpStatus.NO,
+                                label: 'Bận',
+                                icon: X,
+                                count: noRsvps.length,
+                                percent: (yesRsvps.length + maybeRsvps.length + noRsvps.length) > 0 ? Math.round((noRsvps.length / (yesRsvps.length + maybeRsvps.length + noRsvps.length)) * 100) : 0,
+                                rsvps: noRsvps,
+                                barColor: 'bg-rose-500/15 dark:bg-rose-500/20',
+                                activeBarColor: 'bg-rose-500/25 dark:bg-rose-500/35',
+                                activeBorder: 'border-rose-500/70 dark:border-rose-400/80 ring-1 ring-rose-500/30',
+                                iconColor: 'text-rose-600 dark:text-rose-400',
+                              },
+                            ].map((opt) => {
+                              const isSelected = myRsvp === opt.status;
+                              return (
+                                <div key={opt.status} className="space-y-1">
+                                  <button
+                                    type="button"
+                                    disabled={isStarted || Boolean(ev.isCancelled) || rsvpMutation.isPending}
+                                    onClick={() => handleRsvp(opt.status)}
+                                    className={`relative w-full overflow-hidden rounded-xl border p-2 text-left transition-all ${
+                                      isStarted || Boolean(ev.isCancelled)
+                                        ? 'cursor-not-allowed opacity-75'
+                                        : 'hover:border-circle-primary/50 active:scale-[0.99]'
+                                    } ${
+                                      isSelected
+                                        ? `${opt.activeBorder} bg-circle-canvas/90 dark:bg-circle-dark-canvas/90 font-bold shadow-2xs`
+                                        : 'border-circle-hairline/80 dark:border-circle-dark-hairline/80 bg-white/90 dark:bg-circle-dark-surface/90'
+                                    }`}
+                                  >
+                                    {/* Progress fill */}
                                     <div
-                                      key={r.id}
-                                      title={`${name} (${r.status === 'YES' ? 'Tham gia' : r.status === 'MAYBE' ? 'Chưa chắc' : 'Bận'})`}
-                                      className="relative inline-block h-5 w-5 rounded-full ring-1 ring-white dark:ring-circle-dark-surface overflow-hidden bg-circle-primary text-circle-charcoal text-[9px] font-bold flex items-center justify-center shrink-0"
-                                    >
-                                      {r.user?.profile?.avatarUrl ? (
-                                        <img src={r.user.profile.avatarUrl} alt={name} className="h-full w-full object-cover" />
-                                      ) : (
-                                        <span>{name.charAt(0).toUpperCase()}</span>
-                                      )}
-                                      <span
-                                        className={`absolute bottom-0 right-0 h-1.5 w-1.5 rounded-full ring-1 ring-white dark:ring-circle-dark-surface ${
-                                          r.status === 'YES' ? 'bg-emerald-500' : r.status === 'MAYBE' ? 'bg-amber-500' : 'bg-rose-500'
-                                        }`}
-                                      />
+                                      className={`absolute inset-y-0 left-0 transition-all duration-500 ease-out ${
+                                        isSelected ? opt.activeBarColor : opt.barColor
+                                      }`}
+                                      style={{ width: `${opt.percent}%` }}
+                                    />
+
+                                    {/* Labels */}
+                                    <div className="relative z-10 flex items-center justify-between text-[11px]">
+                                      <div className="flex items-center gap-1.5">
+                                        <span
+                                          className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border transition-all ${
+                                            isSelected
+                                              ? 'border-circle-primary bg-circle-primary text-circle-charcoal'
+                                              : 'border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface'
+                                          }`}
+                                        >
+                                          {isSelected && <Check className="h-2 w-2 stroke-[3]" />}
+                                        </span>
+                                        <opt.icon className={`h-3 w-3 ${opt.iconColor}`} />
+                                        <span className="font-semibold text-circle-charcoal dark:text-circle-dark-text">
+                                          {opt.label}
+                                        </span>
+                                      </div>
+
+                                      <div className="flex items-center gap-1 text-[10px] font-semibold text-circle-charcoal dark:text-circle-dark-text">
+                                        <span>{opt.count}</span>
+                                        <span className="text-circle-slate dark:text-circle-dark-muted font-normal">
+                                          ({opt.percent}%)
+                                        </span>
+                                      </div>
                                     </div>
-                                  );
-                                })}
-                              </div>
-                              {ev.rsvps.length > 6 && (
-                                <span className="text-[10px] text-circle-slate dark:text-circle-dark-muted font-medium">
-                                  +{ev.rsvps.length - 6}
-                                </span>
-                              )}
-                            </div>
-                          )}
+                                  </button>
+
+                                  {/* List of members for this option */}
+                                  {opt.rsvps.length > 0 && (
+                                    <div className="flex flex-wrap items-center gap-1 pl-5 pr-1">
+                                      {opt.rsvps.map((r) => {
+                                        const name = r.user?.profile?.displayName || r.user?.email?.split('@')[0] || 'Thành viên';
+                                        const avatarUrl = r.user?.profile?.avatarUrl;
+                                        return (
+                                          <span
+                                            key={r.id}
+                                            className="inline-flex items-center gap-1 rounded-full bg-circle-wash/90 dark:bg-circle-dark-wash/90 py-0.5 pl-1 pr-1.5 border border-circle-hairline/70 dark:border-circle-dark-hairline/70 text-[9px] text-circle-charcoal dark:text-circle-dark-text"
+                                          >
+                                            {avatarUrl ? (
+                                              <img src={avatarUrl} alt={name} className="h-3 w-3 rounded-full object-cover" />
+                                            ) : (
+                                              <span className="flex h-3 w-3 items-center justify-center rounded-full bg-circle-primary text-circle-charcoal text-[7px] font-bold">
+                                                {name.charAt(0).toUpperCase()}
+                                              </span>
+                                            )}
+                                            <span className="font-medium">
+                                              {r.userId === user?.id ? 'Bạn' : name}
+                                            </span>
+                                          </span>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
                         </div>
                       </div>
                     );
