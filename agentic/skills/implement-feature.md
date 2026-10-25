@@ -11,8 +11,9 @@ The canonical implementation lifecycle for adding or changing features in CIRCLE
 
 ## Steps
 
-1. **Check DoR (Definition of Ready):**
+1. **Check DoR (Definition of Ready) & Playbook:**
    - Confirm Issue has clear Acceptance Criteria (`AC-xxx`), Business Rules (`BR-xxx`), and test expectations.
+   - Read the module playbook in [`agentic/playbooks/`](../playbooks/README.md) and [`cross-cutting-gate.md`](../playbooks/cross-cutting-gate.md) for Tier MUST baseline and cross-cutting requirements.
 2. **Branch Creation:**
    - Ensure you are branching from the latest `develop`:
      ```bash
@@ -33,6 +34,7 @@ The canonical implementation lifecycle for adding or changing features in CIRCLE
    - Run [`code-review.md`](code-review.md) against the Definition of Done.
 7. **Commit & Open PR:**
    - Follow [`commit-and-pr.md`](commit-and-pr.md).
+   - Include the **Playbook conformance** section in the PR description / implementation report per [`agentic/playbooks/SKILL.md`](../playbooks/SKILL.md).
 8. **Automated AI Usage Logging:**
    - Follow [`ai-log-entry.md`](ai-log-entry.md) to append an `AI-XXXX` record to `docs/ai-usage/log.md`.
 
@@ -42,4 +44,5 @@ The canonical implementation lifecycle for adding or changing features in CIRCLE
 - Code builds with 0 errors.
 - Tests pass.
 - Definition of Done satisfied.
+- Playbook conformance verified.
 - AI Log entry appended.

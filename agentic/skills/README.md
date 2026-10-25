@@ -19,6 +19,15 @@ Playbooks for AI coding agents and engineers. Skills are concise, load-on-demand
 | [`learn-and-update.md`](learn-and-update.md) | After solving a non-obvious bug or finding a pattern | Record insights into `agentic/memory/` and `agentic/learning/` |
 | [`pre-completion-verification.md`](pre-completion-verification.md) | Before declaring any task, feature or release as done | 5-Tier full-spectrum verification (builds, tests, types, zero base64, fallbacks) |
 | [`ai-log-entry.md`](ai-log-entry.md) | After every AI coding / refactoring session | Automatically append record to `docs/ai-usage/log.md` |
+| [`memory-protocol.md`](memory-protocol.md) | Recall at session start; capture corrections/preferences/decisions the moment they happen; weekly consolidation | Load Layer 1 memory at session start; capture in-session triggers; weekly consolidation |
+
+---
+
+## Feature Playbooks & Quality Baseline
+
+| Guide | When to Use | Procedure |
+|---|---|---|
+| [`../playbooks/README.md`](../playbooks/README.md) | Implementing or reviewing any module feature | Consult module playbook (`01-account-auth`...`09-admin-moderation`) + `cross-cutting-gate.md` (responsive, tokens, i18n, states, parity) |
 
 ---
 

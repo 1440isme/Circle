@@ -4621,3 +4621,144 @@
 - **Branch:** `feat/96-circle-utilities-group-tools`
 - **PR:** #97
 
+---
+
+## AI-0131: Triển khai trọn gói Module 7.2 Công cụ Nhóm nâng cao (Bảng kế hoạch cộng tác, Chia sẻ vị trí trực tiếp, Bình chọn nhóm)
+
+- **Date:** 2026-10-23 22:20:00 +07:00
+- **Developer:** Trương Công Bình (MSSV: 23110184)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash
+- **Related Issue:** #98 ([SUB-FEAT]: US-TOOL-002 — Circle Utilities: Planning Sheet, Live Location Sharing & Group Poll (Parent: #21))
+- **Purpose:** Xây dựng trọn gói Full-stack Module 7.2 theo phân công nhiệm vụ Tuần 9 - 10:
+  1. **Collaborative Planning Sheet (UC18):** Quản lý bảng kế hoạch cộng tác dạng bảng tính (Grid Matrix) cho Circle: cột (SheetColumn), hàng (SheetRow), ô (SheetCell); đồng bộ hóa tức thời qua REST API và Socket.IO event `circle:sheet-cell-updated` & `circle:sheet-structure-updated`; giao diện spreadsheet grid tương tác mượt mà trên Web và Mobile.
+  2. **Live Location Sharing (UC19):** Chia sẻ vị trí trực tiếp trong Circle với thời lượng tự ngắt 15p, 30p, 60p; cập nhật tọa độ GPS; cơ chế chủ động ngắt phát sóng; tự động đánh dấu hết hạn; bản đồ radar kỹ thuật số hiển thị vị trí và avatar các thành viên đang phát sóng theo thời gian thực trên Web và Mobile.
+  3. **Group Poll (UC15):** Tạo cuộc bình chọn / thăm dò ý kiến tập thể trong Circle; bỏ phiếu và đổi phiếu bầu trước khi kết thúc; tính toán tỷ lệ % và cập nhật số phiếu theo thời gian thực qua Socket.IO event `circle:poll-voted`.
+- **Prompt Summary:** "project da duoc update moi nhat chua, theo ke hoach thi task tiep theo toi lam gi nhi" -> "ok tien hanh nhe".
+- **Files Affected:**
+  - `apps/backend/prisma/schema.prisma`
+  - `apps/backend/prisma/migrations/20261023150151_add_circle_tools_part2_enhancements/migration.sql`
+  - `packages/types/src/index.ts`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `apps/backend/src/modules/chat/chat.gateway.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.module.ts`
+  - `apps/backend/src/modules/circle-tools/dto/circle-tools.dto.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.controller.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.service.spec.ts`
+  - `apps/web/src/hooks/use-circle-tools.ts`
+  - `apps/web/src/components/tools/CirclePlanningView.tsx`
+  - `apps/web/src/components/tools/CircleLocationView.tsx`
+  - `apps/web/src/components/tools/CirclePollView.tsx`
+  - `apps/web/src/components/navigation/Sidebar.tsx`
+  - `apps/web/src/components/stream/FeedStream.tsx`
+  - `apps/mobile/src/services/circle-tools.service.ts`
+  - `apps/mobile/src/components/tools/MobilePlanningView.tsx`
+  - `apps/mobile/src/components/tools/MobileLocationView.tsx`
+  - `apps/mobile/src/components/tools/MobilePollView.tsx`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `docs/architecture/diagrams/erd.md`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% mã nguồn Prisma migration, shared contracts, NestJS backend service & controller & gateway, unit test suites, React Web components & hooks, React Native Mobile components & navigation.
+- **Human Modifications:** Trương Công Bình phê duyệt kế hoạch, chỉ đạo triển khai Module 7.2 khép lại mốc Tuần 9 – 10 theo đúng phân công nhiệm vụ.
+- **Verification Method:**
+  - `npm test -w @circle/backend`: 11/11 test suites pass, 173/173 tests pass (100%).
+  - `npm run build -w @circle/web`: Next.js production build pass 100% (9/9 static routes).
+  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: 0 TypeScript errors.
+  - `bash ./scripts/check-agent-map.sh`: 95/95 framework files pass (0 broken references).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`, `docs/phan-cong-nhiem-vu.md`, `docs/requirements/SRS.md` (UC15, UC18, UC19).
+- **Security & License Check:** An toàn tuyệt đối, zero base64 storage, zero secrets leaks, phân quyền thành viên và chủ vòng tròn nghiêm ngặt.
+- **Branch:** `feat/98-circle-tools-planning-location-poll`
+- **PR:** Pending
+
+
+---
+
+## AI-0132: Triển khai Gói circle-agent-kit vào CIRCLE (Module Playbooks & Memory Protocol)
+
+- **Date:** 2026-10-25 15:30:00 +07:00
+- **Developer:** Trương Công Bình (MSSV: 23110184)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash
+- **Related Issue:** Workflow & Agent Kit Enhancement
+- **Purpose:** Triển khai bộ `circle-agent-kit` vào repository CIRCLE theo đúng hướng dẫn triển khai trong `README.md`:
+  1. **AGENTS.md Router & Constitution Linkage:** Cập nhật `AGENTS.md` tại gốc repo: thiết lập luật ưu tiên tài liệu (`PROJECT_GOD.md` → `agentic/RULES.md` → `agentic/CONVENTIONS.md` → `AGENTS.md`), bổ sung triết lý group-first, ràng buộc đọc module playbooks + cross-cutting gate trước khi làm tính năng, tích hợp skill `memory-protocol` và cấu trúc quản lý memory 3 lớp.
+  2. **Bộ Playbooks theo Module (`agentic/playbooks/`):** Tích hợp trọn bộ 9 module playbooks (`01-account-auth.md` đến `09-admin-moderation.md`) định nghĩa 111 MUST / 25 SHOULD / 24 WOW, `cross-cutting-gate.md` (responsive, theme token, i18n, UI states, a11y, web/mobile parity), `innovation-pool.md`, `dod-amendment.md`, `README.md` và `SKILL.md`.
+  3. **Hệ thống trí nhớ xuyên phiên (Memory Protocol):** Thiết lập cơ chế 3 lớp (Layer 1: Index tinh gọn `MEMORY.md` ≤ 200 dòng; Layer 2: Nhật ký ngày append-only `YYYY-MM-DD.md`; Layer 3: Hồ sơ sâu `topics/`), đặc tả `MEMORY-PROTOCOL.md`, mẫu nhật ký `_templates/daily-log.md` và `_templates/topic-file.md`, script tiện ích `scripts/new-memory-log.sh` (đã cấp quyền execute), khởi tạo thư mục `topics/` và `_archive/`.
+  4. **Cập nhật Layer 1 Index (`agentic/memory/MEMORY.md`):** Đồng bộ các sự thật dự án, triết lý group-first, preferences, decisions quản trị và liên kết bảo toàn 100% các tài liệu chủ đề hiện có (`architecture.md`, `gotchas.md`, `verified-facts.md`, `decisions.md`, `reporting-workflow.md`).
+  5. **Đăng ký kỹ năng vào `agentic/skills/README.md` & `implement-feature.md`:** Bổ sung `memory-protocol.md` và liên kết `agentic/playbooks/` vào catalog kỹ năng; cập nhật quy trình 8 bước trong `implement-feature.md` yêu cầu đọc playbook và lập báo cáo Playbook conformance.
+  6. **Kiểm tra tính toàn vẹn (Integrity Check):** Bổ sung `agentic/playbooks` vào script `scripts/check-agent-map.sh`, chuẩn hóa đường dẫn liên kết, kiểm tra toàn bộ 116 tệp tài liệu framework đạt 0 lỗi liên kết gãy.
+  7. **Khởi tạo nhật ký hoạt động ngày:** Tạo và ghi nhận các sự kiện capture đầu tiên vào `agentic/memory/2026-10-25.md`.
+- **Prompt Summary:** "tôi vừa add folder bộ agent kit để bổ sung về workflow hiện tại cho circle, có readme để hướng dẫn triển khai bạn triển khai nhé"
+- **Files Affected:**
+  - `AGENTS.md`
+  - `agentic/playbooks/01-account-auth.md`
+  - `agentic/playbooks/02-people-and-invitations.md`
+  - `agentic/playbooks/03-circle.md`
+  - `agentic/playbooks/04-realtime-sharing.md`
+  - `agentic/playbooks/05-chat.md`
+  - `agentic/playbooks/06-voice-video.md`
+  - `agentic/playbooks/07-circle-collaboration.md`
+  - `agentic/playbooks/08-notification.md`
+  - `agentic/playbooks/09-admin-moderation.md`
+  - `agentic/playbooks/cross-cutting-gate.md`
+  - `agentic/playbooks/dod-amendment.md`
+  - `agentic/playbooks/innovation-pool.md`
+  - `agentic/playbooks/README.md`
+  - `agentic/playbooks/SKILL.md`
+  - `agentic/skills/memory-protocol.md`
+  - `agentic/skills/README.md`
+  - `agentic/skills/implement-feature.md`
+  - `agentic/memory/MEMORY-PROTOCOL.md`
+  - `agentic/memory/MEMORY.md`
+  - `agentic/memory/README.md`
+  - `agentic/memory/AGENTS-patch.md`
+  - `agentic/memory/_templates/daily-log.md`
+  - `agentic/memory/_templates/topic-file.md`
+  - `agentic/memory/topics/.gitkeep`
+  - `agentic/memory/_archive/.gitkeep`
+  - `agentic/memory/2026-10-25.md`
+  - `scripts/new-memory-log.sh`
+  - `scripts/check-agent-map.sh`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% cấu hình tích hợp, cập nhật kịch bản kiểm tra toàn vẹn, hoàn thiện index bộ nhớ và liên kết tài liệu.
+- **Human Modifications:** Trương Công Bình cung cấp bộ circle-agent-kit và chỉ đạo triển khai hoàn thiện vào workflow CIRCLE.
+- **Verification Method:**
+  - `bash ./scripts/check-agent-map.sh`: 116/116 framework files pass (0 broken references).
+  - `./scripts/new-memory-log.sh`: Hoạt động chuẩn xác, sinh nhật ký ngày tự động.
+- **Official Source Checked:** `circle-agent-kit/README.md`, `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks, tuân thủ nghiêm ngặt Definition of Done.
+- **Branch:** `feat/98-circle-tools-planning-location-poll`
+- **PR:** Pending
+---
+
+## AI-0133: Áp dụng chính thức Amendment Group-First & Mục K DoD vào PROJECT_GOD.md
+
+- **Date:** 2026-10-25 15:37:00 +07:00
+- **Developer:** Trương Công Bình (MSSV: 23110184)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash
+- **Related Issue:** Workflow & SSOT Alignment
+- **Purpose:** Áp dụng chính thức các đề xuất amendment cho Hiến pháp dự án (`PROJECT_GOD.md`) theo chỉ đạo phê duyệt của chủ dự án:
+  1. **Amendment §2.2 (Triết lý Group-First & Chuẩn hóa Scope):** Thiết lập tuyên ngôn triết lý group-first làm nền tảng cốt lõi; diễn giải lại Friend thành "People & Invitations" (không xây dựng đồ thị bạn bè 1-1 riêng biệt, người mới gia nhập qua lời mời trực tiếp vào Circle); Chat được chuẩn hóa thành phòng chat nhóm của Circle (toàn hệ thống tuyệt đối không có chat 1-1/DM); chuẩn hóa baseline UGC cho Admin Management.
+  2. **Bổ sung Mục K vào Definition of Done (§11):** Tích hợp bộ tiêu chí chất lượng cross-cutting từ `dod-amendment.md`: đối chiếu playbook module (Tier MUST), responsive breakpoints, theme/design tokens không hardcode màu, i18n VI+EN, đầy đủ trạng thái UI (loading/empty/error/offline), accessibility cơ bản, parity web/mobile và báo cáo Playbook conformance.
+  3. **Cập nhật Changelog (§47):** Ghi nhận đầy đủ 2 bản ghi thay đổi chính thức vào bảng lịch sử phiên bản của `PROJECT_GOD.md`.
+  4. **Đồng bộ hóa tài liệu & Trí nhớ dự án:** Chuyển trạng thái `agentic/playbooks/dod-amendment.md` sang "ĐÃ ÁP DỤNG", cập nhật `agentic/playbooks/README.md`, `agentic/playbooks/SKILL.md`, `agentic/memory/MEMORY.md` và ghi nhận quyết định vào nhật ký `agentic/memory/2026-10-25.md`.
+- **Prompt Summary:** "ok làm theo đề xuất luôn nhé"
+- **Files Affected:**
+  - `PROJECT_GOD.md`
+  - `agentic/playbooks/dod-amendment.md`
+  - `agentic/playbooks/README.md`
+  - `agentic/playbooks/SKILL.md`
+  - `agentic/memory/MEMORY.md`
+  - `agentic/memory/2026-10-25.md`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% tài liệu amendment, cấu trúc kiểm tra chất lượng và cập nhật nhật ký.
+- **Human Modifications:** Trương Công Bình trực tiếp chỉ đạo phê duyệt toàn bộ các đề xuất áp dụng vào Hiến pháp dự án.
+- **Verification Method:**
+  - `bash ./scripts/check-agent-map.sh`: 116/116 framework files pass (0 broken references).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/playbooks/dod-amendment.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks, bảo đảm tính toàn vẹn của SSOT.
+- **Branch:** `feat/98-circle-tools-planning-location-poll`
+- **PR:** Pending

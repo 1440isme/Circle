@@ -38,6 +38,7 @@ SOURCES = [
 # plus every skill + memory + map + learning + capabilities + architecture + guides + reference + examples + backend/docs
 for sub in (
     "agentic/skills", "agentic/memory", "agentic/map", "agentic/learning",
+    "agentic/playbooks",
     "docs/capabilities", "docs/getting-started", "docs/principles",
     "docs/architecture", "docs/guides", "docs/reference", "docs/examples",
     "apps/backend/docs"
