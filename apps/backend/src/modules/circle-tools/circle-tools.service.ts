@@ -655,6 +655,12 @@ export class CircleToolsService {
       throw new NotFoundException('Không tìm thấy sự kiện');
     }
 
+    if (new Date(event.startTime) <= new Date()) {
+      throw new BadRequestException(
+        'Sự kiện đang diễn ra hoặc đã kết thúc, không thể bình chọn tham gia nữa',
+      );
+    }
+
     const rsvp = await this.prisma.calendarEventRsvp.upsert({
       where: {
         eventId_userId: {

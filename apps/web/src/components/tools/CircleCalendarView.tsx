@@ -16,6 +16,7 @@ import {
   Users,
   Check,
   HelpCircle,
+  Lock,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguageStore } from '../../stores/language.store';
@@ -276,6 +277,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                     const maybeRsvps = ev.rsvps?.filter((r) => r.status === 'MAYBE') || [];
                     const noRsvps = ev.rsvps?.filter((r) => r.status === 'NO') || [];
                     const myRsvp = ev.rsvps?.find((r) => r.userId === user?.id)?.status;
+                    const isStarted = new Date(ev.startTime) <= new Date();
 
                     const handleRsvp = async (status: EventRsvpStatus) => {
                       try {
@@ -371,12 +373,16 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                           <div className="grid grid-cols-3 gap-1.5">
                             <button
                               type="button"
-                              disabled={rsvpMutation.isPending}
+                              disabled={isStarted || rsvpMutation.isPending}
                               onClick={() => handleRsvp(EventRsvpStatus.YES)}
-                              className={`flex items-center justify-center gap-1 py-1 px-1.5 rounded-lg text-[10px] font-semibold transition-all active:scale-95 ${
-                                myRsvp === EventRsvpStatus.YES
-                                  ? 'bg-emerald-600 text-white shadow-2xs'
-                                  : 'bg-white dark:bg-circle-dark-surface hover:bg-emerald-50 dark:hover:bg-emerald-950/20 text-circle-charcoal dark:text-circle-dark-text border border-circle-hairline/80 dark:border-circle-dark-hairline/80'
+                              className={`flex items-center justify-center gap-1 py-1 px-1.5 rounded-lg text-[10px] font-semibold transition-all ${
+                                isStarted
+                                  ? myRsvp === EventRsvpStatus.YES
+                                    ? 'bg-emerald-600/80 text-white cursor-not-allowed opacity-90'
+                                    : 'bg-circle-canvas/80 text-circle-slate/60 border border-circle-hairline/60 cursor-not-allowed opacity-60'
+                                  : myRsvp === EventRsvpStatus.YES
+                                  ? 'bg-emerald-600 text-white shadow-2xs active:scale-95'
+                                  : 'bg-white dark:bg-circle-dark-surface hover:bg-emerald-50 dark:hover:bg-emerald-950/20 text-circle-charcoal dark:text-circle-dark-text border border-circle-hairline/80 dark:border-circle-dark-hairline/80 active:scale-95'
                               }`}
                             >
                               <Check className="h-2.5 w-2.5" />
@@ -385,12 +391,16 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
 
                             <button
                               type="button"
-                              disabled={rsvpMutation.isPending}
+                              disabled={isStarted || rsvpMutation.isPending}
                               onClick={() => handleRsvp(EventRsvpStatus.MAYBE)}
-                              className={`flex items-center justify-center gap-1 py-1 px-1.5 rounded-lg text-[10px] font-semibold transition-all active:scale-95 ${
-                                myRsvp === EventRsvpStatus.MAYBE
-                                  ? 'bg-amber-600 text-white shadow-2xs'
-                                  : 'bg-white dark:bg-circle-dark-surface hover:bg-amber-50 dark:hover:bg-amber-950/20 text-circle-charcoal dark:text-circle-dark-text border border-circle-hairline/80 dark:border-circle-dark-hairline/80'
+                              className={`flex items-center justify-center gap-1 py-1 px-1.5 rounded-lg text-[10px] font-semibold transition-all ${
+                                isStarted
+                                  ? myRsvp === EventRsvpStatus.MAYBE
+                                    ? 'bg-amber-600/80 text-white cursor-not-allowed opacity-90'
+                                    : 'bg-circle-canvas/80 text-circle-slate/60 border border-circle-hairline/60 cursor-not-allowed opacity-60'
+                                  : myRsvp === EventRsvpStatus.MAYBE
+                                  ? 'bg-amber-600 text-white shadow-2xs active:scale-95'
+                                  : 'bg-white dark:bg-circle-dark-surface hover:bg-amber-50 dark:hover:bg-amber-950/20 text-circle-charcoal dark:text-circle-dark-text border border-circle-hairline/80 dark:border-circle-dark-hairline/80 active:scale-95'
                               }`}
                             >
                               <HelpCircle className="h-2.5 w-2.5" />
@@ -399,18 +409,27 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
 
                             <button
                               type="button"
-                              disabled={rsvpMutation.isPending}
+                              disabled={isStarted || rsvpMutation.isPending}
                               onClick={() => handleRsvp(EventRsvpStatus.NO)}
-                              className={`flex items-center justify-center gap-1 py-1 px-1.5 rounded-lg text-[10px] font-semibold transition-all active:scale-95 ${
-                                myRsvp === EventRsvpStatus.NO
-                                  ? 'bg-rose-600 text-white shadow-2xs'
-                                  : 'bg-white dark:bg-circle-dark-surface hover:bg-rose-50 dark:hover:bg-rose-950/20 text-circle-charcoal dark:text-circle-dark-text border border-circle-hairline/80 dark:border-circle-dark-hairline/80'
+                              className={`flex items-center justify-center gap-1 py-1 px-1.5 rounded-lg text-[10px] font-semibold transition-all ${
+                                isStarted
+                                  ? myRsvp === EventRsvpStatus.NO
+                                    ? 'bg-rose-600/80 text-white cursor-not-allowed opacity-90'
+                                    : 'bg-circle-canvas/80 text-circle-slate/60 border border-circle-hairline/60 cursor-not-allowed opacity-60'
+                                  : myRsvp === EventRsvpStatus.NO
+                                  ? 'bg-rose-600 text-white shadow-2xs active:scale-95'
+                                  : 'bg-white dark:bg-circle-dark-surface hover:bg-rose-50 dark:hover:bg-rose-950/20 text-circle-charcoal dark:text-circle-dark-text border border-circle-hairline/80 dark:border-circle-dark-hairline/80 active:scale-95'
                               }`}
                             >
                               <X className="h-2.5 w-2.5" />
                               <span>Bận</span>
                             </button>
                           </div>
+                          {isStarted && (
+                            <p className="text-[10px] text-circle-slate dark:text-circle-dark-muted italic">
+                              Sự kiện đang diễn ra hoặc đã kết thúc, không thể thay đổi phản hồi nữa.
+                            </p>
+                          )}
 
                           {/* Attendee Avatars */}
                           {ev.rsvps && ev.rsvps.length > 0 && (

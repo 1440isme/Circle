@@ -141,6 +141,7 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
   }
 
   const isUpdated = eventData.action === 'UPDATED';
+  const isStarted = new Date(eventData.startTime) <= new Date();
 
   const myRsvp = useMemo(() => {
     const found = rsvps?.userRsvps?.find((u) => u.userId && u.userId === currentUserId)?.status;

@@ -365,6 +365,7 @@ describe('CircleToolsService', () => {
       mockPrisma.calendarEvent.findFirst.mockResolvedValue({
         id: 'event-1',
         circleId: 'circle-1',
+        startTime: new Date(Date.now() + 86400000),
       });
       const now = new Date();
       mockPrisma.calendarEventRsvp.upsert.mockResolvedValue({
@@ -423,6 +424,21 @@ describe('CircleToolsService', () => {
           }),
         }),
       );
+    });
+
+it('should throw BadRequestException if event has already started when responding RSVP', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValue(member);
+      mockPrisma.calendarEvent.findFirst.mockResolvedValue({
+        id: 'event-1',
+        circleId: 'circle-1',
+        startTime: new Date(Date.now() - 3600000), // 1 hour ago
+      });
+
+      await expect(
+        service.respondEventRsvp('circle-1', 'event-1', 'user-1', {
+          status: 'YES' as any,
+        }),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should throw NotFoundException if event does not exist when responding RSVP', async () => {
