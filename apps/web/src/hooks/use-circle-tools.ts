@@ -330,6 +330,7 @@ export function useCreateCalendarEventMutation(circleId: string) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: TOOLS_KEYS.all });
+      queryClient.invalidateQueries({ queryKey: ['chat'] });
     },
   });
 }
@@ -355,6 +356,7 @@ export function useUpdateCalendarEventMutation(circleId: string) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: TOOLS_KEYS.all });
+      queryClient.invalidateQueries({ queryKey: ['chat'] });
     },
   });
 }
@@ -373,6 +375,7 @@ export function useDeleteCalendarEventMutation(circleId: string) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: TOOLS_KEYS.all });
+      queryClient.invalidateQueries({ queryKey: ['chat'] });
     },
   });
 }

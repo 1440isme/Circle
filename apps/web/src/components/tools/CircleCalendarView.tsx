@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguageStore } from '../../stores/language.store';
+import { useCircleStore } from '../../stores/circle.store';
 import {
   useCalendarEventsQuery,
   useCreateCalendarEventMutation,
@@ -35,6 +36,7 @@ interface CircleCalendarViewProps {
 export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId }) => {
   const { user } = useAuth();
   const t = useLanguageStore((s) => s.t);
+  const setActiveCircleView = useCircleStore((s) => s.setActiveCircleView);
 
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -111,6 +113,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
     setStartTime('');
     setEndTime('');
     setIsAddModalOpen(false);
+    setActiveCircleView('chat');
   };
 
   const handleDeleteEvent = async (eventId: string) => {
