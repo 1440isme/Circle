@@ -141,10 +141,10 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
     }
   }
 
-  const isDeleted = eventData.action === 'DELETED';
+  const isCancelled = Boolean(eventData.isCancelled || eventData.action === 'CANCELLED' || eventData.action === 'DELETED');
   const isUpdated = eventData.action === 'UPDATED';
   const isStarted = new Date(eventData.startTime) <= new Date();
-  const isLocked = isStarted || isDeleted;
+  const isLocked = isStarted || isCancelled;
 
   const myRsvp = useMemo(() => {
     const found = rsvps?.userRsvps?.find((u) => u.userId && u.userId === currentUserId)?.status;
@@ -189,20 +189,20 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
       <div className="rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white/95 dark:bg-circle-dark-surface/95 backdrop-blur-md shadow-md overflow-hidden transition-all hover:border-circle-primary/40">
         {/* Header Ribbon */}
         <div className={`flex items-center justify-between px-4 py-2.5 border-b ${
-          isDeleted
+          isCancelled
             ? 'bg-rose-500/10 border-rose-500/20'
             : 'bg-gradient-to-r from-circle-primary/15 via-circle-wash to-circle-canvas dark:from-circle-primary/20 dark:via-circle-dark-wash dark:to-circle-dark-canvas border-circle-hairline/70 dark:border-circle-dark-hairline/70'
         }`}>
           <div className="flex items-center gap-2">
             <span className={`flex h-5 w-5 items-center justify-center rounded-full shadow-2xs ${
-              isDeleted ? 'bg-rose-500 text-white' : 'bg-circle-primary text-circle-charcoal'
+              isCancelled ? 'bg-rose-500 text-white' : 'bg-circle-primary text-circle-charcoal'
             }`}>
               <CalendarIcon className="h-3 w-3" />
             </span>
             <span className={`text-xs font-bold uppercase tracking-wider ${
-              isDeleted ? 'text-rose-600 dark:text-rose-400' : 'text-circle-sage dark:text-circle-primary'
+              isCancelled ? 'text-rose-600 dark:text-rose-400' : 'text-circle-sage dark:text-circle-primary'
             }`}>
-              {isDeleted
+              {isCancelled
                 ? (isVi ? 'Đã hủy lịch hẹn' : 'Event Cancelled')
                 : isUpdated
                   ? (isVi ? 'Cập nhật lịch hẹn' : 'Event Updated')
@@ -239,9 +239,9 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
           {/* Event Content Details */}
           <div className="flex-1 min-w-0 space-y-2">
             <h3 className={`text-base font-bold text-circle-charcoal dark:text-circle-dark-text leading-snug break-words ${
-              isDeleted ? 'line-through opacity-60' : ''
+              isCancelled ? 'line-through opacity-60' : ''
             }`}>
-              {eventData.eventTitle} {isDeleted && <span className="text-xs text-rose-500 font-semibold no-underline">({isVi ? 'Đã hủy' : 'Cancelled'})</span>}
+              {eventData.eventTitle} {isCancelled && <span className="text-xs text-rose-500 font-semibold no-underline">({isVi ? 'Đã hủy' : 'Cancelled'})</span>}
             </h3>
 
             {/* Time row */}
@@ -280,7 +280,7 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
         <div className="px-4 py-3 bg-circle-canvas/50 dark:bg-circle-dark-canvas/50 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60 space-y-2.5">
           <div className="flex items-center justify-between text-xs">
             <span className="font-semibold text-circle-charcoal dark:text-circle-dark-text flex items-center gap-1.5">
-              {isDeleted ? (
+              {isCancelled ? (
                 <>
                   <Lock className="h-3.5 w-3.5 text-rose-500" />
                   <span className="text-rose-600 dark:text-rose-400">{isVi ? 'Lịch hẹn đã bị hủy' : 'Event cancelled'}</span>

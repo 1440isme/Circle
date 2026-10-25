@@ -579,6 +579,7 @@ model CalendarEvent {
   startTime    DateTime
   endTime      DateTime?
   reminderTime DateTime?
+  isCancelled  Boolean   @default(false)
   createdAt    DateTime  @default(now())
 
   circle  Circle              @relation(fields: [circleId], references: [id], onDelete: Cascade)

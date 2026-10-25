@@ -617,6 +617,76 @@ export class CircleToolsService {
     return updatedEvent;
   }
 
+  async cancelCalendarEvent(circleId: string, eventId: string, userId: string) {
+    const member = await this.getMemberOrThrow(circleId, userId);
+
+    const event = await this.prisma.calendarEvent.findFirst({
+      where: { id: eventId, circleId },
+      include: {
+        creator: {
+          include: {
+            user: {
+              include: {
+                profile: true,
+              },
+            },
+          },
+        },
+        rsvps: {
+          include: {
+            user: {
+              include: {
+                profile: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!event) {
+      throw new NotFoundException('Không tìm thấy sự kiện');
+    }
+
+    if (event.createdById !== member.id && member.role !== 'OWNER') {
+      throw new ForbiddenException('Chỉ người tạo hoặc chủ vòng tròn mới có quyền hủy sự kiện');
+    }
+
+    if (event.isCancelled) {
+      return event;
+    }
+
+    const updatedEvent = await this.prisma.calendarEvent.update({
+      where: { id: eventId },
+      data: { isCancelled: true },
+      include: {
+        creator: {
+          include: {
+            user: {
+              include: {
+                profile: true,
+              },
+            },
+          },
+        },
+        rsvps: {
+          include: {
+            user: {
+              include: {
+                profile: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // Broadcast cancellation announcement to circle chat
+    await this.broadcastCalendarEventMessage(circleId, member, updatedEvent, 'CANCELLED');
+
+    return updatedEvent;
+  }
+
   async deleteCalendarEvent(circleId: string, eventId: string, userId: string) {
     const member = await this.getMemberOrThrow(circleId, userId);
 
@@ -798,7 +868,7 @@ export class CircleToolsService {
     circleId: string,
     member: any,
     event: any,
-    action: 'CREATED' | 'UPDATED' | 'DELETED',
+    action: 'CREATED' | 'UPDATED' | 'CANCELLED' | 'DELETED',
   ) {
     try {
       const channel = await this.prisma.channel.findFirst({
@@ -845,6 +915,7 @@ export class CircleToolsService {
         startTime: event.startTime instanceof Date ? event.startTime.toISOString() : String(event.startTime),
         endTime: event.endTime ? (event.endTime instanceof Date ? event.endTime.toISOString() : String(event.endTime)) : null,
         reminderTime: event.reminderTime ? (event.reminderTime instanceof Date ? event.reminderTime.toISOString() : String(event.reminderTime)) : null,
+        isCancelled: Boolean(event.isCancelled || action === 'CANCELLED'),
         creatorName,
         rsvps: rsvpsData,
       };

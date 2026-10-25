@@ -718,6 +718,7 @@ export interface CalendarEventEntity {
   startTime: string;
   endTime?: string | null;
   reminderTime?: string | null;
+  isCancelled?: boolean;
   createdAt: string;
   creator?: {
     id: string;
@@ -754,7 +755,7 @@ export interface UpdateCalendarEventInput {
 }
 export interface CalendarEventMessagePayload {
   type: 'CALENDAR_EVENT';
-  action: 'CREATED' | 'UPDATED' | 'DELETED' | 'RSVP_UPDATED';
+  action: 'CREATED' | 'UPDATED' | 'CANCELLED' | 'DELETED' | 'RSVP_UPDATED';
   eventId: string;
   eventTitle: string;
   description?: string | null;
@@ -762,6 +763,7 @@ export interface CalendarEventMessagePayload {
   startTime: string;
   endTime?: string | null;
   reminderTime?: string | null;
+  isCancelled?: boolean;
   creatorName: string;
   rsvps?: {
     yesCount: number;

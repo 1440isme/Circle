@@ -311,6 +311,21 @@ export class CircleToolsController {
     };
   }
 
+  @Put('calendar-events/:eventId/cancel')
+  async cancelCalendarEvent(
+    @Param('circleId') circleId: string,
+    @Param('eventId') eventId: string,
+    @CurrentUser('id') userId: string,
+  ): Promise<ApiResponse<any>> {
+    const data = await this.toolsService.cancelCalendarEvent(circleId, eventId, userId);
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      data,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
   @Delete('calendar-events/:eventId')
   async deleteCalendarEvent(
     @Param('circleId') circleId: string,

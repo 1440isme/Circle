@@ -348,6 +348,23 @@ describe('CircleToolsService', () => {
       expect(res).toEqual(events);
     });
 
+    it('should cancel event and mark isCancelled true', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValue(member);
+      mockPrisma.calendarEvent.findFirst.mockResolvedValue({
+        id: 'event-1',
+        circleId: 'circle-1',
+        createdById: 'mem-1',
+        isCancelled: false,
+      });
+      mockPrisma.calendarEvent.update.mockResolvedValue({
+        id: 'event-1',
+        isCancelled: true,
+      });
+
+      const res = await service.cancelCalendarEvent('circle-1', 'event-1', 'user-1');
+      expect(res.isCancelled).toBe(true);
+    });
+
     it('should delete event if user is creator', async () => {
       mockPrisma.circleMember.findUnique.mockResolvedValue(member);
       mockPrisma.calendarEvent.findFirst.mockResolvedValue({
