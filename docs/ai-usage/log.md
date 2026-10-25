@@ -4800,17 +4800,19 @@
   - `apps/mobile/src/hooks/use-call-queries.ts`
   - `apps/mobile/src/components/call/MobileCallStageModal.tsx`
   - `apps/mobile/app/circle/[id].tsx`
+  - `tests/e2e/ui-ux-full-verification.spec.ts`
   - `agentic/memory/2026-10-25.md`
   - `agentic/memory/MEMORY.md`
   - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% code logic đổi mật khẩu bảo mật, mobile call stage modal, socket listeners và bilingual localization.
-- **Human Modifications:** Trương Công Bình trực tiếp chỉ đạo rà soát theo Module Playbook và yêu cầu tính tương đương 100% giữa Web & Mobile.
+- **AI-Generated Portion:** 100% code logic đổi mật khẩu bảo mật, mobile call stage modal, socket listeners, bilingual localization và bộ kịch bản kiểm thử trực quan Playwright E2E.
+- **Human Modifications:** Trương Công Bình trực tiếp chỉ đạo rà soát theo Module Playbook và yêu cầu kiểm thử toàn diện thực tế UI/UX trực quan.
 - **Verification Method:**
   - `npm test -w @circle/backend`: 167/167 unit tests pass 100% (11/11 suites, bao gồm TC-AUTH-010).
   - `npm run build -w @circle/web`: Next.js production build 9/9 static routes pass sạch sẽ.
   - `npm run typecheck -w @circle/mobile`: Mobile TypeScript 0 errors.
+  - `npx playwright test tests/e2e/ui-ux-full-verification.spec.ts`: Chạy thành công 100% trên Chromium headless, chụp và kiểm tra trực quan 11 screenshots bao gồm Dark/Light mode, Desktop & Mobile viewports, realtime checklist validation và Calling header triggers.
   - `bash ./scripts/check-agent-map.sh`: 116/116 framework files pass 100%.
 - **Official Source Checked:** `agentic/playbooks/01-account-auth.md`, `agentic/playbooks/06-voice-video.md`, `agentic/playbooks/cross-cutting-gate.md`, `PROJECT_GOD.md`.
 - **Security & License Check:** An toàn tuyệt đối, zero secrets leaks, cơ chế hash bcrypt và revoke refresh token đa thiết bị chuẩn xác.
 - **Branch:** `feat/107-acc-password-and-mobile-call-parity`
-- **PR:** Pending
+- **PR:** #108
