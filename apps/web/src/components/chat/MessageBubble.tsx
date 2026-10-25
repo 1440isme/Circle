@@ -199,6 +199,21 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   const hasReactions =
     message.reactionCounts && Object.keys(message.reactionCounts).length > 0;
 
+  if (isCalendarEvent && calendarEventData) {
+    return (
+      <div id={`message-${message.id}`} className="w-full flex justify-center my-3 px-2">
+        <CalendarEventChatEmbed
+          eventData={calendarEventData}
+          isSenderMe={isSenderMe}
+          messageId={message.id}
+          onReact={onReact}
+          reactionCounts={message.reactionCounts}
+          currentUserId={currentUserId}
+        />
+      </div>
+    );
+  }
+
   return (
     <div
       id={`message-${message.id}`}

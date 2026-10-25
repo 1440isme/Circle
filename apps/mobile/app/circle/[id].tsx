@@ -568,6 +568,78 @@ const MobileSwipeMessageBubble = React.memo(function MobileSwipeMessageBubble({
     extrapolate: 'clamp',
   });
 
+  if (isCalendarEvent && calendarEventData) {
+    const startDate = new Date(calendarEventData.startTime);
+    const timeStr = startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+    const dateStr = startDate.toLocaleDateString();
+
+    return (
+      <View style={{ width: '100%', alignItems: 'center', marginVertical: 8, paddingHorizontal: 12 }}>
+        <View
+          style={{
+            width: '100%',
+            maxWidth: 340,
+            borderRadius: 16,
+            borderWidth: 1,
+            borderColor: colors.hairline,
+            backgroundColor: colors.surface,
+            overflow: 'hidden',
+          }}
+        >
+          {/* Header ribbon */}
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+              backgroundColor: colors.wash,
+              borderBottomWidth: 1,
+              borderBottomColor: colors.hairline,
+            }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Calendar size={14} color={colors.primary} />
+              <Text style={{ fontSize: 11, fontWeight: '700', color: colors.primary, textTransform: 'uppercase' }}>
+                {calendarEventData.action === 'UPDATED' ? 'Cập nhật lịch hẹn' : 'Thông báo lịch hẹn'}
+              </Text>
+            </View>
+            <Text style={{ fontSize: 10, color: colors.subtle }}>
+              {calendarEventData.creatorName}
+            </Text>
+          </View>
+
+          {/* Details */}
+          <View style={{ padding: 12 }}>
+            <Text style={{ fontSize: 15, fontWeight: '700', color: colors.text, marginBottom: 6 }}>
+              {calendarEventData.eventTitle}
+            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+              <Clock size={13} color={colors.primary} />
+              <Text style={{ fontSize: 12, color: colors.text, fontWeight: '500' }}>
+                {timeStr} • {dateStr}
+              </Text>
+            </View>
+            {Boolean(calendarEventData.location) && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                <MapPin size={13} color={colors.danger} />
+                <Text style={{ fontSize: 12, color: colors.subtle }} numberOfLines={1}>
+                  {calendarEventData.location}
+                </Text>
+              </View>
+            )}
+            {Boolean(calendarEventData.description) && (
+              <Text style={{ fontSize: 11, color: colors.subtle, fontStyle: 'italic', marginTop: 4 }}>
+                "{calendarEventData.description}"
+              </Text>
+            )}
+          </View>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={{ width: '100%', alignItems: isSenderMe ? 'flex-end' : 'flex-start' }}>
       {/* Timestamp ON TOP (ONLY on tap) */}
