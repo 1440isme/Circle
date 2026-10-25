@@ -11,6 +11,8 @@ import {
   Loader2,
   Plus,
   Mic,
+  Pencil,
+  Check,
 } from 'lucide-react';
 import { MessageEntity, MessageType } from '@circle/types';
 import { useLanguageStore } from '../../stores/language.store';
@@ -26,6 +28,9 @@ interface ChatComposerProps {
   members?: any[];
   replyingMessage: MessageEntity | null;
   onCancelReply: () => void;
+  editingMessage?: MessageEntity | null;
+  onCancelEdit?: () => void;
+  onSaveEdit?: (messageId: string, content: string) => Promise<void>;
   onSendMessage: (data: {
     content?: string;
     type: MessageType;
@@ -45,6 +50,9 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
   members = [],
   replyingMessage,
   onCancelReply,
+  editingMessage,
+  onCancelEdit,
+  onSaveEdit,
   onSendMessage,
   reportTyping,
 }) => {
@@ -77,12 +85,21 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
     }
   }, [content]);
 
-  // Focus textarea when replying
+  // Focus textarea when replying or editing
   useEffect(() => {
     if (replyingMessage && textareaRef.current) {
       textareaRef.current.focus();
     }
   }, [replyingMessage]);
+
+  useEffect(() => {
+    if (editingMessage) {
+      setContent(editingMessage.content || '');
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+      }
+    }
+  }, [editingMessage]);
 
   // Cleanup object URL on unmount to prevent memory leaks
   useEffect(() => {
@@ -200,6 +217,19 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
 
     setIsSubmitting(true);
     try {
+      if (editingMessage) {
+        if (onSaveEdit) {
+          await onSaveEdit(editingMessage.id, trimmed);
+        }
+        setContent('');
+        onCancelEdit?.();
+        reportTyping(false);
+        setShowEmojiPicker(false);
+        setMentionQuery(null);
+        setMentionStartIndex(null);
+        return;
+      }
+
       if (attachedFile) {
         // Upload to Cloudflare R2 / Storage first (with automatic client-side optimization)
         const uploadRes = await uploadMedia({
@@ -324,6 +354,27 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
         </div>
       )}
 
+      {/* Editing Message Banner (CHT-09) */}
+      {editingMessage && (
+        <div className="mb-2 flex items-center justify-between rounded-xl bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 text-xs animate-in fade-in duration-150">
+          <div className="flex items-center gap-2 truncate text-amber-700 dark:text-amber-300">
+            <Pencil className="h-3.5 w-3.5 shrink-0" />
+            <span className="font-semibold">{t.chat.editingMessage}:</span>
+            <span className="text-circle-slate dark:text-circle-dark-muted truncate opacity-85">
+              {editingMessage.content}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={onCancelEdit}
+            className="flex h-5 w-5 items-center justify-center rounded-full text-circle-slate dark:text-circle-dark-muted hover:bg-circle-hairline hover:text-circle-charcoal transition-colors ml-2 shrink-0"
+            title={t.chat.cancelEdit}
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
+
       {/* Attached File Preview */}
       {attachedFile && (
         <div className="mb-2 inline-flex items-center gap-2 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/80 dark:bg-circle-dark-canvas/80 p-2 pr-3 text-xs shadow-sm animate-in fade-in duration-100">
@@ -442,7 +493,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
           </button>
         </div>
 
-        {/* Right Standalone Action Button: Mic (when empty) vs Send (when typing) */}
+        {/* Right Standalone Action Button: Save (when editing) vs Mic (when empty) vs Send (when typing) */}
         <button
           type="button"
           onClick={
@@ -452,15 +503,23 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
           }
           disabled={(content.trim() || attachedFile) ? (isSubmitting || isUploading) : false}
           className={`flex h-12 w-12 items-center justify-center rounded-full shrink-0 transition-all active:scale-95 ${
-            content.trim() || attachedFile
+            editingMessage
+              ? 'bg-amber-500 text-white shadow-sm hover:bg-amber-600'
+              : content.trim() || attachedFile
               ? 'chat-composer-send-btn-active shadow-sm'
               : isGlass
               ? 'backdrop-blur-md bg-white/80 dark:bg-circle-dark-surface/80 border border-white/60 dark:border-white/10 shadow-xs text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text hover:bg-white dark:hover:bg-circle-dark-surface'
               : 'bg-white dark:bg-circle-dark-surface border border-circle-hairline dark:border-circle-dark-hairline shadow-2xs text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas'
           }`}
-          title={(content.trim() || attachedFile) ? t.chat.sendBtn : 'Ghi âm tin nhắn thoại'}
+          title={editingMessage ? t.chat.saveEdit : (content.trim() || attachedFile) ? t.chat.sendBtn : 'Ghi âm tin nhắn thoại'}
         >
-          {content.trim() || attachedFile ? (
+          {editingMessage ? (
+            isSubmitting ? (
+              <Loader2 className="h-5 w-5 animate-spin text-white" />
+            ) : (
+              <Check className="h-5 w-5 text-white" />
+            )
+          ) : content.trim() || attachedFile ? (
             isSubmitting || isUploading ? (
               <Loader2 className="h-5 w-5 animate-spin text-circle-charcoal" />
             ) : (

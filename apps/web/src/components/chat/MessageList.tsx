@@ -16,6 +16,8 @@ interface MessageListProps {
   onReply: (message: MessageEntity) => void;
   onReact: (messageId: string, emoji: string) => void;
   onTogglePin: (messageId: string, isPinned: boolean) => void;
+  onEdit?: (message: MessageEntity) => void;
+  onRecall?: (messageId: string) => void;
   onRetry?: (message: MessageEntity) => void;
   onJumpToMessage?: (messageId: string) => void;
 }
@@ -39,6 +41,8 @@ export const MessageList: React.FC<MessageListProps> = ({
   onReply,
   onReact,
   onTogglePin,
+  onEdit,
+  onRecall,
   onRetry,
   onJumpToMessage,
 }) => {
@@ -309,6 +313,8 @@ export const MessageList: React.FC<MessageListProps> = ({
                             onReply={onReply}
                             onReact={onReact}
                             onTogglePin={onTogglePin}
+                            onEdit={onEdit}
+                            onRecall={onRecall}
                             onRetry={onRetry}
                             onJumpToMessage={handleJumpToMessage}
                           />
@@ -365,6 +371,8 @@ export const MessageList: React.FC<MessageListProps> = ({
                                 onReply={onReply}
                                 onReact={onReact}
                                 onTogglePin={onTogglePin}
+                                onEdit={onEdit}
+                                onRecall={onRecall}
                                 onRetry={onRetry}
                                 onJumpToMessage={handleJumpToMessage}
                               />

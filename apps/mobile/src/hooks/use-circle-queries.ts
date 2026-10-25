@@ -584,10 +584,66 @@ export function useChannelMessagesQuery(channelId: string | null) {
       }
     };
 
+    const handleMessageUpdated = (updatedMsg: MessageEntity) => {
+      if (updatedMsg.channelId !== channelId) return;
+
+      queryClient.setQueryData<InfiniteData<CursorPaginatedMessages>>(
+        ['messages', 'channel', channelId],
+        (oldData) => {
+          if (!oldData) return oldData;
+          return {
+            ...oldData,
+            pages: oldData.pages.map((page) => ({
+              ...page,
+              messages: page.messages.map((m) =>
+                m.id === updatedMsg.id ? { ...m, ...updatedMsg } : m,
+              ),
+            })),
+          };
+        },
+      );
+    };
+
+    const handleMessageRecalled = (payload: {
+      channelId: string;
+      messageId: string;
+      message?: MessageEntity;
+    }) => {
+      if (payload.channelId !== channelId) return;
+
+      queryClient.setQueryData<InfiniteData<CursorPaginatedMessages>>(
+        ['messages', 'channel', channelId],
+        (oldData) => {
+          if (!oldData) return oldData;
+          return {
+            ...oldData,
+            pages: oldData.pages.map((page) => ({
+              ...page,
+              messages: page.messages.map((m) =>
+                m.id === payload.messageId
+                  ? {
+                      ...m,
+                      deletedAt: payload.message?.deletedAt || new Date().toISOString(),
+                      content: null,
+                      fileUrl: null,
+                      fileName: null,
+                      fileSize: null,
+                      audioDuration: null,
+                    }
+                  : m,
+              ),
+            })),
+          };
+        },
+      );
+    };
+
     getMobileSocket().then((socket) => {
       if (!socket || isCancelled) return;
       activeSocket = socket;
       socket.on('chat:message', handleNewMessage);
+      socket.on('chat:message-updated', handleMessageUpdated);
+      socket.on('chat:message-recalled', handleMessageRecalled);
       socket.on('chat:reaction', handleReaction);
       socket.on('chat:user-read', handleUserRead);
       socket.on('chat:pin', handlePin);
@@ -599,6 +655,8 @@ export function useChannelMessagesQuery(channelId: string | null) {
       isCancelled = true;
       if (activeSocket) {
         activeSocket.off('chat:message', handleNewMessage);
+        activeSocket.off('chat:message-updated', handleMessageUpdated);
+        activeSocket.off('chat:message-recalled', handleMessageRecalled);
         activeSocket.off('chat:reaction', handleReaction);
         activeSocket.off('chat:user-read', handleUserRead);
         activeSocket.off('chat:pin', handlePin);
