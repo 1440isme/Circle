@@ -33,6 +33,7 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
 }) => {
   const activeCircleId = useCircleStore((s) => s.activeCircleId);
   const setActiveCircleView = useCircleStore((s) => s.setActiveCircleView);
+  const setTargetCalendarEvent = useCircleStore((s) => s.setTargetCalendarEvent);
   const locale = useLanguageStore((s) => s.locale);
 
   // "Phản hồi tham gia sẽ được tạo lúc đầu" (COL-09)
@@ -178,6 +179,7 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
 
   const handleOpenCalendar = (e: React.MouseEvent) => {
     e.stopPropagation();
+    setTargetCalendarEvent(eventData.startTime, eventData.eventId);
     setActiveCircleView('calendar');
   };
 

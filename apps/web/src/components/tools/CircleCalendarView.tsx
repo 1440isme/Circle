@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Calendar as CalendarIcon,
   Plus,
@@ -39,6 +39,9 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
   const { user } = useAuth();
   const t = useLanguageStore((s) => s.t);
   const setActiveCircleView = useCircleStore((s) => s.setActiveCircleView);
+  const targetCalendarDate = useCircleStore((s) => s.targetCalendarDate);
+  const targetCalendarEventId = useCircleStore((s) => s.targetCalendarEventId);
+  const setTargetCalendarEvent = useCircleStore((s) => s.setTargetCalendarEvent);
 
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -218,6 +221,20 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
     return map;
   }, [events, month, year]);
 
+
+  // Automatically sync calendar date and month when navigating from chat/rail
+  useEffect(() => {
+    if (targetCalendarDate) {
+      const d = new Date(targetCalendarDate);
+      if (!isNaN(d.getTime())) {
+        setCurrentDate(d);
+        setSelectedDate(d);
+      }
+    }
+  }, [targetCalendarDate]);
+
+
+
   const selectedDayEvents = useMemo(() => {
     if (
       selectedDate.getMonth() + 1 !== month ||
@@ -227,6 +244,19 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
     }
     return eventsByDay.get(selectedDate.getDate()) || [];
   }, [eventsByDay, selectedDate, month, year]);
+
+  // Scroll to targeted event card if present
+  useEffect(() => {
+    if (targetCalendarEventId && selectedDayEvents.length > 0) {
+      const timer = setTimeout(() => {
+        const el = document.getElementById(`calendar-event-${targetCalendarEventId}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [targetCalendarEventId, selectedDayEvents]);
 
   return (
     <div className="flex-1 flex flex-col h-full bg-circle-canvas dark:bg-circle-dark-surface overflow-y-auto p-4 md:p-6 transition-colors">
@@ -320,7 +350,10 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                   <button
                     key={`day-${dayNum}`}
                     type="button"
-                    onClick={() => setSelectedDate(new Date(year, month - 1, dayNum))}
+                    onClick={() => {
+                      setSelectedDate(new Date(year, month - 1, dayNum));
+                      setTargetCalendarEvent(null, null);
+                    }}
                     className={`aspect-square rounded-xl p-1.5 flex flex-col items-center justify-between transition-all border ${
                       isSelected
                         ? 'border-circle-sage bg-circle-sage/10 text-circle-sage dark:border-circle-primary dark:bg-circle-primary/10 dark:text-circle-primary font-bold shadow-2xs'
@@ -372,10 +405,16 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                       }
                     };
 
+                    const isTargeted = targetCalendarEventId === ev.id;
                     return (
                       <div
                         key={ev.id}
-                        className="rounded-xl border border-circle-hairline/80 dark:border-circle-dark-hairline/80 bg-circle-wash/40 dark:bg-circle-dark-wash/40 p-3 shadow-2xs space-y-2.5"
+                        id={`calendar-event-${ev.id}`}
+                        className={`rounded-xl border p-3 shadow-2xs space-y-2.5 transition-all ${
+                          isTargeted
+                            ? 'border-circle-sage dark:border-circle-primary bg-circle-sage/10 dark:bg-circle-primary/10 ring-2 ring-circle-sage dark:ring-circle-primary'
+                            : 'border-circle-hairline/80 dark:border-circle-dark-hairline/80 bg-circle-wash/40 dark:bg-circle-dark-wash/40'
+                        }`}
                       >
                         <div className="flex items-start justify-between gap-2">
                           <h4 className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">

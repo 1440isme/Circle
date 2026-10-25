@@ -45,6 +45,7 @@ export const PresenceRail: React.FC = () => {
   const setManageModalOpen = useCircleStore((s) => s.setManageModalOpen);
   const setActiveCallStageSession = useCircleStore((s) => s.setActiveCallStageSession);
   const setActiveCircleView = useCircleStore((s) => s.setActiveCircleView);
+  const setTargetCalendarEvent = useCircleStore((s) => s.setTargetCalendarEvent);
   const { data: circleEvents = [] } = useCalendarEventsQuery(activeCircle?.id || '');
 
   const upcomingEvents = React.useMemo(() => {
