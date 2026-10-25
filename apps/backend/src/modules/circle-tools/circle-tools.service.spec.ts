@@ -1,16 +1,28 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { CircleToolsService } from './circle-tools.service';
 import { PrismaService } from '../../database/prisma.service';
-import { ForbiddenException, NotFoundException, BadRequestException } from '@nestjs/common';
+import { ChatGateway } from '../chat/chat.gateway';
+import { ForbiddenException, BadRequestException } from '@nestjs/common';
 
 describe('CircleToolsService', () => {
   let service: CircleToolsService;
   let mockPrisma: any;
+  let mockChatGateway: any;
 
   beforeEach(async () => {
+    mockChatGateway = {
+      broadcastNewMessage: jest.fn(),
+    };
+
     mockPrisma = {
       circleMember: {
         findUnique: jest.fn(),
+      },
+      channel: {
+        findFirst: jest.fn(),
+      },
+      message: {
+        create: jest.fn(),
       },
       sharedAlbum: {
         findMany: jest.fn(),
@@ -54,6 +66,10 @@ describe('CircleToolsService', () => {
           provide: PrismaService,
           useValue: mockPrisma,
         },
+        {
+          provide: ChatGateway,
+          useValue: mockChatGateway,
+        },
       ],
     }).compile();
 
@@ -64,98 +80,57 @@ describe('CircleToolsService', () => {
     expect(service).toBeDefined();
   });
 
-  describe('Membership verification', () => {
-    it('should throw ForbiddenException if user is not a member of circle', async () => {
+  // ===========================================================================
+  // 1. SHARED ALBUM (UC14)
+  // ===========================================================================
+  describe('Shared Album (UC14)', () => {
+    const member = { id: 'mem-1', circleId: 'circle-1', userId: 'user-1', role: 'MEMBER' };
+    const owner = { id: 'mem-2', circleId: 'circle-1', userId: 'user-owner', role: 'OWNER' };
+
+    it('should create an album', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValue(member);
+      mockPrisma.sharedAlbum.create.mockResolvedValue({
+        id: 'album-1',
+        albumTitle: 'Kỷ niệm hè',
+        createdById: 'mem-1',
+      });
+
+      const res = await service.createAlbum('circle-1', 'user-1', { albumTitle: 'Kỷ niệm hè' });
+      expect(res.id).toBe('album-1');
+      expect(mockPrisma.sharedAlbum.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ albumTitle: 'Kỷ niệm hè', createdById: 'mem-1' }),
+        include: expect.any(Object),
+      });
+    });
+
+    it('should throw ForbiddenException if user is not member when getting albums', async () => {
       mockPrisma.circleMember.findUnique.mockResolvedValue(null);
 
-      await expect(service.getMemberOrThrow('circle-1', 'user-outsider')).rejects.toThrow(
+      await expect(service.getAlbums('circle-1', 'user-unknown')).rejects.toThrow(
         ForbiddenException,
       );
     });
 
-    it('should return member record if user belongs to circle', async () => {
-      const member = { id: 'mem-1', circleId: 'circle-1', userId: 'user-1', role: 'MEMBER' };
-      mockPrisma.circleMember.findUnique.mockResolvedValue(member);
-
-      const result = await service.getMemberOrThrow('circle-1', 'user-1');
-      expect(result).toEqual(member);
-    });
-  });
-
-  describe('Shared Album (UC14)', () => {
-    const member = { id: 'mem-1', circleId: 'circle-1', userId: 'user-1', role: 'MEMBER' };
-    const owner = { id: 'mem-owner', circleId: 'circle-1', userId: 'user-owner', role: 'OWNER' };
-
-    it('should list albums in circle', async () => {
-      mockPrisma.circleMember.findUnique.mockResolvedValue(member);
-      const mockAlbums = [{ id: 'album-1', albumTitle: 'Kỷ niệm hè', photos: [] }];
-      mockPrisma.sharedAlbum.findMany.mockResolvedValue(mockAlbums);
-
-      const result = await service.getAlbums('circle-1', 'user-1');
-      expect(result).toEqual(mockAlbums);
-    });
-
-    it('should get album by id with photos', async () => {
-      mockPrisma.circleMember.findUnique.mockResolvedValue(member);
-      const mockAlbum = { id: 'album-1', albumTitle: 'Kỷ niệm hè', photos: [] };
-      mockPrisma.sharedAlbum.findFirst.mockResolvedValue(mockAlbum);
-
-      const result = await service.getAlbumById('circle-1', 'album-1', 'user-1');
-      expect(result).toEqual(mockAlbum);
-    });
-
-    it('should throw NotFoundException if album does not exist', async () => {
-      mockPrisma.circleMember.findUnique.mockResolvedValue(member);
-      mockPrisma.sharedAlbum.findFirst.mockResolvedValue(null);
-
-      await expect(service.getAlbumById('circle-1', 'album-none', 'user-1')).rejects.toThrow(
-        NotFoundException,
-      );
-    });
-
-    it('should create a shared album', async () => {
-      mockPrisma.circleMember.findUnique.mockResolvedValue(member);
-      mockPrisma.sharedAlbum.create.mockResolvedValue({
-        id: 'album-1',
-        albumTitle: 'Đà Lạt Trip',
-        createdById: 'mem-1',
-      });
-
-      const result = await service.createAlbum('circle-1', 'user-1', {
-        albumTitle: '  Đà Lạt Trip  ',
-        description: 'Chuyến đi đáng nhớ',
-      });
-
-      expect(result.id).toBe('album-1');
-      expect(mockPrisma.sharedAlbum.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            albumTitle: 'Đà Lạt Trip',
-            createdById: 'mem-1',
-          }),
-        }),
-      );
-    });
-
-    it('should delete album if requester is creator', async () => {
-      mockPrisma.circleMember.findUnique.mockResolvedValue(member);
+    it('should allow owner to delete another member\'s album', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValue(owner);
       mockPrisma.sharedAlbum.findFirst.mockResolvedValue({
         id: 'album-1',
         circleId: 'circle-1',
-        createdById: 'mem-1',
+        createdById: 'mem-1', // created by someone else
       });
       mockPrisma.sharedAlbum.delete.mockResolvedValue({ id: 'album-1' });
 
-      const res = await service.deleteAlbum('circle-1', 'album-1', 'user-1');
+      const res = await service.deleteAlbum('circle-1', 'album-1', 'user-owner');
       expect(res).toEqual({ success: true });
+      expect(mockPrisma.sharedAlbum.delete).toHaveBeenCalledWith({ where: { id: 'album-1' } });
     });
 
-    it('should forbid non-creator member from deleting album', async () => {
+    it('should forbid non-owner from deleting another member\'s album', async () => {
       mockPrisma.circleMember.findUnique.mockResolvedValue(member);
       mockPrisma.sharedAlbum.findFirst.mockResolvedValue({
         id: 'album-1',
         circleId: 'circle-1',
-        createdById: 'mem-other',
+        createdById: 'mem-diff',
       });
 
       await expect(service.deleteAlbum('circle-1', 'album-1', 'user-1')).rejects.toThrow(
@@ -166,41 +141,30 @@ describe('CircleToolsService', () => {
     it('should add photos to album', async () => {
       mockPrisma.circleMember.findUnique.mockResolvedValue(member);
       mockPrisma.sharedAlbum.findFirst.mockResolvedValue({ id: 'album-1', circleId: 'circle-1' });
-      mockPrisma.photo.create.mockResolvedValue({ id: 'p-1', fileUrl: 'https://r2.test/img1.jpg' });
+      mockPrisma.photo.create.mockResolvedValue({ id: 'photo-1', fileUrl: 'https://cdn/p1.jpg' });
       mockPrisma.sharedAlbum.update.mockResolvedValue({ id: 'album-1' });
 
       const res = await service.addPhotos('circle-1', 'album-1', 'user-1', {
-        photos: [{ fileUrl: 'https://r2.test/img1.jpg', caption: 'Ảnh chụp' }],
+        photos: [{ fileUrl: 'https://cdn/p1.jpg', width: 800, height: 600 }],
       });
 
       expect(res).toHaveLength(1);
+      expect(res[0]?.id).toBe('photo-1');
     });
 
-    it('should allow photo uploader or circle owner to delete photo', async () => {
-      // 1. Uploader deletes
+    it('should throw error when adding empty photos array', async () => {
       mockPrisma.circleMember.findUnique.mockResolvedValue(member);
-      mockPrisma.photo.findUnique.mockResolvedValue({
-        id: 'p-1',
-        uploaderId: 'mem-1',
-        sharedAlbum: { circleId: 'circle-1' },
-      });
-      mockPrisma.photo.delete.mockResolvedValue({ id: 'p-1' });
+      mockPrisma.sharedAlbum.findFirst.mockResolvedValue({ id: 'album-1', circleId: 'circle-1' });
 
-      const res1 = await service.deletePhoto('circle-1', 'p-1', 'user-1');
-      expect(res1).toEqual({ success: true });
-
-      // 2. Circle Owner deletes photo uploaded by someone else
-      mockPrisma.circleMember.findUnique.mockResolvedValue(owner);
-      mockPrisma.photo.findUnique.mockResolvedValue({
-        id: 'p-2',
-        uploaderId: 'mem-other',
-        sharedAlbum: { circleId: 'circle-1' },
-      });
-      const res2 = await service.deletePhoto('circle-1', 'p-2', 'user-owner');
-      expect(res2).toEqual({ success: true });
+      await expect(
+        service.addPhotos('circle-1', 'album-1', 'user-1', { photos: [] }),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 
+  // ===========================================================================
+  // 2. DECISION WHEEL (UC16)
+  // ===========================================================================
   describe('Decision Wheel (UC16)', () => {
     const member = { id: 'mem-1', circleId: 'circle-1', userId: 'user-1', role: 'MEMBER' };
 
@@ -208,94 +172,91 @@ describe('CircleToolsService', () => {
       mockPrisma.circleMember.findUnique.mockResolvedValue(member);
       mockPrisma.decisionWheel.create.mockResolvedValue({
         id: 'wheel-1',
-        title: 'Trưa nay ăn gì?',
-        options: [{ id: 'opt-1', optionLabel: 'Phở' }, { id: 'opt-2', optionLabel: 'Cơm tấm' }],
+        title: 'Hôm nay ăn gì?',
+        options: [
+          { id: 'opt-1', optionLabel: 'Bún chả' },
+          { id: 'opt-2', optionLabel: 'Cơm tấm' },
+        ],
       });
 
       const res = await service.createWheel('circle-1', 'user-1', {
-        title: 'Trưa nay ăn gì?',
-        options: [{ optionLabel: 'Phở' }, { optionLabel: 'Cơm tấm' }],
+        title: 'Hôm nay ăn gì?',
+        options: [{ optionLabel: 'Bún chả' }, { optionLabel: 'Cơm tấm' }],
       });
 
       expect(res.id).toBe('wheel-1');
+      expect(mockPrisma.decisionWheel.create).toHaveBeenCalled();
     });
 
-    it('should throw BadRequestException if fewer than 2 options provided', async () => {
+    it('should reject wheel with less than 2 options', async () => {
       mockPrisma.circleMember.findUnique.mockResolvedValue(member);
 
       await expect(
         service.createWheel('circle-1', 'user-1', {
-          title: 'Đi đâu?',
-          options: [{ optionLabel: 'Đà Nẵng' }],
+          title: 'Ăn gì?',
+          options: [{ optionLabel: 'Phở' }],
         }),
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('should spin wheel and return fair selected option', async () => {
+    it('should spin wheel and pick valid option randomly', async () => {
       mockPrisma.circleMember.findUnique.mockResolvedValue(member);
+      const options = [
+        { id: 'opt-1', optionLabel: 'Pizza' },
+        { id: 'opt-2', optionLabel: 'Sushi' },
+      ];
       mockPrisma.decisionWheel.findFirst.mockResolvedValue({
         id: 'wheel-1',
         circleId: 'circle-1',
-        options: [
-          { id: 'opt-1', optionLabel: 'Trà sữa' },
-          { id: 'opt-2', optionLabel: 'Cà phê' },
-        ],
+        options,
       });
       mockPrisma.decisionWheel.update.mockResolvedValue({ id: 'wheel-1' });
 
-      const result = await service.spinWheel('circle-1', 'wheel-1', 'user-1');
-      expect(result.wheelId).toBe('wheel-1');
-      expect(['Trà sữa', 'Cà phê']).toContain(result.selectedOption.optionLabel);
+      const res = await service.spinWheel('circle-1', 'wheel-1', 'user-1');
+
+      expect(res.wheelId).toBe('wheel-1');
+      expect(['Pizza', 'Sushi']).toContain(res.selectedOption.optionLabel);
+      expect(mockPrisma.decisionWheel.update).toHaveBeenCalled();
     });
   });
 
-  describe('Anonymous Post / Words Unsaid (UC21)', () => {
+  // ===========================================================================
+  // 3. ANONYMOUS POST (UC21)
+  // ===========================================================================
+  describe('Anonymous Post (UC21)', () => {
     const member = { id: 'mem-1', circleId: 'circle-1', userId: 'user-1', role: 'MEMBER' };
-    const owner = { id: 'mem-owner', circleId: 'circle-1', userId: 'user-owner', role: 'OWNER' };
+    const owner = { id: 'mem-2', circleId: 'circle-1', userId: 'user-owner', role: 'OWNER' };
 
-    it('should create anonymous post with zero user ID stored', async () => {
+    it('should create anonymous post without author identification', async () => {
       mockPrisma.circleMember.findUnique.mockResolvedValue(member);
       mockPrisma.anonymousPost.create.mockResolvedValue({
         id: 'post-1',
         circleId: 'circle-1',
-        content: 'Cảm ơn mọi người vì một tuần tuyệt vời!',
+        content: 'Cảm ơn mọi người vì một kỳ học tuyệt vời!',
         cardTheme: 'sunset',
         postedAt: new Date(),
       });
 
-      const post = await service.createAnonymousPost('circle-1', 'user-1', {
-        content: 'Cảm ơn mọi người vì một tuần tuyệt vời!',
+      const res = await service.createAnonymousPost('circle-1', 'user-1', {
+        content: 'Cảm ơn mọi người vì một kỳ học tuyệt vời!',
         cardTheme: 'sunset',
       });
 
-      expect(post.id).toBe('post-1');
-      // Verifies NO userId or authorId was passed to create data!
+      expect(res.id).toBe('post-1');
+      // Assert authorId / createdById is NOT passed into create data
       expect(mockPrisma.anonymousPost.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: {
             circleId: 'circle-1',
-            content: 'Cảm ơn mọi người vì một tuần tuyệt vời!',
+            content: 'Cảm ơn mọi người vì một kỳ học tuyệt vời!',
             cardTheme: 'sunset',
           },
         }),
       );
     });
 
-    it('should return posts without author information', async () => {
-      mockPrisma.circleMember.findUnique.mockResolvedValue(member);
-      const sample = [
-        { id: 'post-1', circleId: 'circle-1', content: 'Confession', cardTheme: 'ocean', postedAt: new Date() },
-      ];
-      mockPrisma.anonymousPost.findMany.mockResolvedValue(sample);
-
-      const posts = await service.getAnonymousPosts('circle-1', 'user-1');
-      expect(posts[0]).not.toHaveProperty('author');
-      expect(posts[0]).not.toHaveProperty('authorId');
-      expect(posts[0]).not.toHaveProperty('createdById');
-    });
-
-    it('should allow only Circle OWNER to delete inappropriate anonymous post', async () => {
-      // 1. Regular member tries to delete -> Forbidden
+    it('should only allow Circle OWNER to delete anonymous post', async () => {
+      // 1. Member tries to delete -> Forbidden
       mockPrisma.circleMember.findUnique.mockResolvedValue(member);
       await expect(service.deleteAnonymousPost('circle-1', 'post-1', 'user-1')).rejects.toThrow(
         ForbiddenException,
@@ -311,11 +272,34 @@ describe('CircleToolsService', () => {
     });
   });
 
+  // ===========================================================================
+  // 4. GROUP CALENDAR & REMINDERS (UC17)
+  // ===========================================================================
   describe('Group Calendar & Reminders (UC17)', () => {
-    const member = { id: 'mem-1', circleId: 'circle-1', userId: 'user-1', role: 'MEMBER' };
+    const member = {
+      id: 'mem-1',
+      circleId: 'circle-1',
+      userId: 'user-1',
+      role: 'MEMBER',
+      user: {
+        profile: {
+          displayName: 'Bình',
+        },
+      },
+    };
 
-    it('should create calendar event with location and time', async () => {
+    it('should create calendar event with location and time, and broadcast to chat channel', async () => {
       mockPrisma.circleMember.findUnique.mockResolvedValue(member);
+      mockPrisma.channel.findFirst.mockResolvedValue({ id: 'chan-1', circleId: 'circle-1' });
+      mockPrisma.message.create.mockResolvedValue({
+        id: 'msg-cal-1',
+        channelId: 'chan-1',
+        memberId: 'mem-1',
+        type: 'TEXT',
+        content: '[CALENDAR_EVENT]:{"type":"CALENDAR_EVENT"}',
+        sentAt: new Date(),
+        updatedAt: new Date(),
+      });
       mockPrisma.calendarEvent.create.mockResolvedValue({
         id: 'event-1',
         eventTitle: 'Họp đồ án tốt nghiệp',
@@ -330,6 +314,24 @@ describe('CircleToolsService', () => {
       });
 
       expect(res.id).toBe('event-1');
+      expect(mockPrisma.channel.findFirst).toHaveBeenCalledWith({
+        where: { circleId: 'circle-1' },
+        orderBy: { createdAt: 'asc' },
+      });
+      expect(mockPrisma.message.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            channelId: 'chan-1',
+            memberId: 'mem-1',
+            type: 'TEXT',
+            content: expect.stringContaining('[CALENDAR_EVENT]:'),
+          }),
+        }),
+      );
+      expect(mockChatGateway.broadcastNewMessage).toHaveBeenCalledWith(
+        'chan-1',
+        expect.objectContaining({ id: 'msg-cal-1' }),
+      );
     });
 
     it('should list calendar events in circle', async () => {

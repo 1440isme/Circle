@@ -3,6 +3,10 @@
 import React from 'react';
 import {
   Calendar,
+  CalendarDays,
+  MapPin,
+  Plus,
+  ChevronRight,
   Radio,
   Video,
   Phone,
@@ -18,6 +22,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useLanguageStore } from '../../stores/language.store';
 import { useCircleStore } from '../../stores/circle.store';
 import { useCircleMembersQuery, useCircleJoinRequestsQuery } from '../../hooks/use-circle-queries';
+import { useCalendarEventsQuery } from '../../hooks/use-circle-tools';
 import { useCirclePresence } from '../../hooks/use-circle-presence';
 import {
   useActiveCallQuery,
@@ -38,6 +43,16 @@ export const PresenceRail: React.FC = () => {
   const activeCircle = useCircleStore((s) => s.activeCircle);
   const setManageModalOpen = useCircleStore((s) => s.setManageModalOpen);
   const setActiveCallStageSession = useCircleStore((s) => s.setActiveCallStageSession);
+  const setActiveCircleView = useCircleStore((s) => s.setActiveCircleView);
+  const { data: circleEvents = [] } = useCalendarEventsQuery(activeCircle?.id || '');
+
+  const upcomingEvents = React.useMemo(() => {
+    const now = new Date();
+    const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000);
+    return circleEvents
+      .filter((e) => new Date(e.startTime) >= twoHoursAgo)
+      .slice(0, 3);
+  }, [circleEvents]);
   const { data: activeCall } = useActiveCallQuery(activeCircle?.id || null);
   const initiateCallMutation = useInitiateCallMutation();
   const joinCallMutation = useJoinCallMutation();

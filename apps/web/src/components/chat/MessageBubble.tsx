@@ -13,7 +13,8 @@ import {
   Phone,
   Smile,
 } from 'lucide-react';
-import { MessageEntity, MessageType } from '@circle/types';
+import { MessageEntity, MessageType, CalendarEventMessagePayload } from '@circle/types';
+import { CalendarEventChatEmbed } from './CalendarEventChatEmbed';
 import { PROMINENT_QUICK_EMOJIS } from '@circle/shared';
 import { useLanguageStore } from '../../stores/language.store';
 import {
@@ -142,6 +143,14 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       return 'rounded-2xl rounded-l-md';
     }
   };
+
+  const isCalendarEvent = Boolean(message.content?.startsWith('[CALENDAR_EVENT]:'));
+  let calendarEventData: CalendarEventMessagePayload | null = null;
+  if (isCalendarEvent) {
+    try {
+      calendarEventData = JSON.parse(message.content!.replace('[CALENDAR_EVENT]:', ''));
+    } catch {}
+  }
 
   const isCallSummary = message.content?.startsWith('[CALL_SUMMARY]:');
   let callSummaryData: {

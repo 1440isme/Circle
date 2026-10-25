@@ -4762,3 +4762,40 @@
 - **Security & License Check:** An toàn tuyệt đối, zero secrets leaks, bảo đảm tính toàn vẹn của SSOT.
 - **Branch:** `feat/98-circle-tools-planning-location-poll`
 - **PR:** Pending
+
+---
+
+---
+
+### AI-0134: Tích hợp Lịch hẹn tự động thông báo trong Kênh Chat & Hiển thị Sự kiện ở Sidebar phải (UC17) (#101)
+- **Timestamp:** 2026-10-25T14:58:00+07:00
+- **Task ID:** Issue #101 (Parent Epic: #21)
+- **Engineers:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Feature / Area:** Full-stack UC17 Integration — Group Calendar Chat Announcement Embed & Right Sidebar Realtime Upcoming Events.
+- **Files Affected:**
+  - `packages/types/src/index.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.module.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.service.spec.ts`
+  - `apps/web/src/components/chat/CalendarEventChatEmbed.tsx`
+  - `apps/web/src/components/chat/MessageBubble.tsx`
+  - `apps/web/src/components/chat/ChannelChatView.tsx`
+  - `apps/web/src/components/presence/PresenceRail.tsx`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:**
+  1. **Contract & Types:** Bổ sung `CalendarEventMessagePayload` vào `@circle/types` phục vụ chuẩn hóa bản tin sự kiện lịch giữa Backend, Web và Mobile.
+  2. **Backend Event Chat Dispatcher:** Tích hợp `ChatGateway` vào `CircleToolsService`. Khi tạo/cập nhật sự kiện lịch (`createCalendarEvent` / `updateCalendarEvent`), tự động ghi nhận tin nhắn thông báo sự kiện `[CALENDAR_EVENT]:{...}` vào kênh chat chính và broadcast realtime qua Socket.IO tới toàn bộ thành viên.
+  3. **Web Chat Card Embed (`CalendarEventChatEmbed`):** Thiết kế card sự kiện tinh tế theo chuẩn thiết kế Circle, hiển thị thứ ngày tháng, giờ bắt đầu/kết thúc, địa điểm và người tạo kèm nút "Xem trên Lịch nhóm" chuyển đổi chế độ xem tức thì.
+  4. **Right Sidebar Upcoming Events (`PresenceRail`):** Kết nối hook `useCalendarEventsQuery` vào cột bên phải để lọc và hiển thị danh sách các sự kiện sắp diễn ra trong nhóm kèm huy hiệu thời gian đếm ngược và nút tạo sự kiện nhanh.
+  5. **Header Shortcut & Mobile Chat Parity:** Thêm nút biểu tượng Lịch trên thanh header chat của web và định dạng thẻ sự kiện native trên mobile chat.
+- **Human Modifications:** Trương Công Bình chỉ đạo: "ko tôi muốn nó nhảy vào kênh chat để nhắc nhở ấy do đa số sinh hoạt trong chat mà", "sao tôi vẫn chưa thấy hiển thị nhỉ hãy xem ở web", tuân thủ nghiêm ngặt nguyên tắc clean repo, không tự ý PR khi chưa có sự cho phép.
+- **Verification Method:**
+  - Backend Unit Tests: `npm test --workspace=@circle/backend -- circle-tools.service.spec.ts` (15/15 unit tests pass, 100%).
+  - Backend NestJS Build: `npm run build --workspace=@circle/backend` (Clean build, 0 errors).
+  - Web Next.js Build: `npm run build --workspace=@circle/web` (9/9 static pages generated, Clean build, 0 errors).
+  - Types Build: `npm run build --workspace=@circle/types` (Clean build, 0 errors).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`, `docs/requirements/use-cases.md` (UC17).
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks, tuân thủ strict role checks.
+- **Branch:** `feat/101-calendar-chat-integration-and-sidebar`
+- **PR:** Pending (Chờ sự cho phép của người dùng theo đúng chỉ thị).

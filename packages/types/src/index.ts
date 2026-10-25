@@ -750,3 +750,15 @@ export interface UpdateCalendarEventInput {
   endTime?: string;
   reminderTime?: string;
 }
+export interface CalendarEventMessagePayload {
+  type: 'CALENDAR_EVENT';
+  action: 'CREATED' | 'UPDATED' | 'DELETED';
+  eventId: string;
+  eventTitle: string;
+  description?: string | null;
+  location?: string | null;
+  startTime: string;
+  endTime?: string | null;
+  reminderTime?: string | null;
+  creatorName: string;
+}

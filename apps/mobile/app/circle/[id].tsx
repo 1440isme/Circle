@@ -57,6 +57,7 @@ import {
   Image as ImageIcon,
   Calendar,
   Map as MapIcon,
+  MapPin,
   Sparkles,
   Heart,
   Flame,
@@ -469,6 +470,24 @@ const MobileSwipeMessageBubble = React.memo(function MobileSwipeMessageBubble({
   const hasText = Boolean(msg.content && msg.content.trim());
   const hasImage = Boolean(msg.fileUrl);
   const isMediaOnly = hasImage && !hasText && !hasValidReply;
+
+  let calendarEventData: any = null;
+  const isCalendarEvent = Boolean(
+    msg.content &&
+      typeof msg.content === 'string' &&
+      msg.content.startsWith('[CALENDAR_EVENT]:'),
+  );
+
+  if (isCalendarEvent && msg.content) {
+    try {
+      const rawJson = typeof msg.content === 'string'
+        ? msg.content.replace('[CALENDAR_EVENT]:', '').trim()
+        : msg.content;
+      calendarEventData = typeof rawJson === 'string' ? JSON.parse(rawJson) : rawJson;
+    } catch {
+      calendarEventData = null;
+    }
+  }
 
   let callSummaryData: { callType?: 'AUDIO' | 'VIDEO'; durationSeconds?: number } | null = null;
   const isCallSummary = Boolean(

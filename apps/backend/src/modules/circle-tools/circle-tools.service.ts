@@ -14,11 +14,19 @@ import {
   CreateCalendarEventDto,
   UpdateCalendarEventDto,
 } from './dto/circle-tools.dto';
-import { SpinWheelResult } from '@circle/types';
+import {
+  SpinWheelResult,
+  CalendarEventMessagePayload,
+  MessageEntity,
+} from '@circle/types';
+import { ChatGateway } from '../chat/chat.gateway';
 
 @Injectable()
 export class CircleToolsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly chatGateway: ChatGateway,
+  ) {}
 
   /**
    * Helper: verify that the user is an active member of the specified circle.
@@ -27,6 +35,13 @@ export class CircleToolsService {
     const member = await this.prisma.circleMember.findUnique({
       where: {
         circleId_userId: { circleId, userId },
+      },
+      include: {
+        user: {
+          include: {
+            profile: true,
+          },
+        },
       },
     });
 
@@ -486,7 +501,7 @@ export class CircleToolsService {
   async createCalendarEvent(circleId: string, userId: string, dto: CreateCalendarEventDto) {
     const member = await this.getMemberOrThrow(circleId, userId);
 
-    return this.prisma.calendarEvent.create({
+    const createdEvent = await this.prisma.calendarEvent.create({
       data: {
         circleId,
         createdById: member.id,
@@ -509,6 +524,10 @@ export class CircleToolsService {
         },
       },
     });
+
+    await this.broadcastCalendarEventMessage(circleId, member, createdEvent, 'CREATED');
+
+    return createdEvent;
   }
 
   async updateCalendarEvent(
@@ -531,7 +550,7 @@ export class CircleToolsService {
       throw new ForbiddenException('Chỉ người tạo hoặc chủ vòng tròn mới có quyền sửa sự kiện');
     }
 
-    return this.prisma.calendarEvent.update({
+    const updatedEvent = await this.prisma.calendarEvent.update({
       where: { id: eventId },
       data: {
         eventTitle: dto.eventTitle ? dto.eventTitle.trim() : undefined,
@@ -558,6 +577,10 @@ export class CircleToolsService {
         },
       },
     });
+
+    await this.broadcastCalendarEventMessage(circleId, member, updatedEvent, 'UPDATED');
+
+    return updatedEvent;
   }
 
   async deleteCalendarEvent(circleId: string, eventId: string, userId: string) {
@@ -580,5 +603,132 @@ export class CircleToolsService {
     });
 
     return { success: true };
+  }
+
+  /**
+   * Helper: Broadcast a rich calendar event message into the circle's primary chat channel.
+   */
+  private async broadcastCalendarEventMessage(
+    circleId: string,
+    member: any,
+    event: any,
+    action: 'CREATED' | 'UPDATED',
+  ) {
+    try {
+      const channel = await this.prisma.channel.findFirst({
+        where: { circleId },
+        orderBy: { createdAt: 'asc' },
+      });
+      if (!channel) return;
+
+      const creatorName =
+        member.user?.profile?.displayName ||
+        member.user?.email?.split('@')[0] ||
+        member.nickname ||
+        'Thành viên';
+
+      const payload: CalendarEventMessagePayload = {
+        type: 'CALENDAR_EVENT',
+        action,
+        eventId: event.id,
+        eventTitle: event.eventTitle,
+        description: event.description || null,
+        location: event.location || null,
+        startTime: event.startTime instanceof Date ? event.startTime.toISOString() : String(event.startTime),
+        endTime: event.endTime ? (event.endTime instanceof Date ? event.endTime.toISOString() : String(event.endTime)) : null,
+        reminderTime: event.reminderTime ? (event.reminderTime instanceof Date ? event.reminderTime.toISOString() : String(event.reminderTime)) : null,
+        creatorName,
+      };
+
+      const rawMessage = await this.prisma.message.create({
+        data: {
+          channelId: channel.id,
+          memberId: member.id,
+          type: 'TEXT',
+          content: `[CALENDAR_EVENT]:${JSON.stringify(payload)}`,
+        },
+        include: {
+          sender: {
+            include: {
+              user: {
+                include: {
+                  profile: true,
+                },
+              },
+            },
+          },
+          reactions: {
+            include: {
+              member: {
+                include: {
+                  user: {
+                    include: {
+                      profile: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+          pinnedRecord: true,
+        },
+      });
+
+      const formattedMessage: MessageEntity = {
+        id: rawMessage.id,
+        channelId: rawMessage.channelId,
+        memberId: rawMessage.memberId,
+        type: rawMessage.type as any,
+        content: rawMessage.content,
+        fileUrl: rawMessage.fileUrl,
+        fileName: rawMessage.fileName,
+        fileSize: rawMessage.fileSize,
+        audioDuration: rawMessage.audioDuration,
+        replyToId: rawMessage.replyToId,
+        sentAt: rawMessage.sentAt.toISOString(),
+        updatedAt: rawMessage.updatedAt.toISOString(),
+        sender: rawMessage.sender
+          ? {
+              id: rawMessage.sender.id,
+              circleId: rawMessage.sender.circleId,
+              userId: rawMessage.sender.userId,
+              role: rawMessage.sender.role as any,
+              nickname: rawMessage.sender.nickname,
+              joinedAt: rawMessage.sender.joinedAt.toISOString(),
+              updatedAt: rawMessage.sender.updatedAt.toISOString(),
+              user: rawMessage.sender.user
+                ? {
+                    id: rawMessage.sender.user.id,
+                    email: rawMessage.sender.user.email,
+                    isActivated: rawMessage.sender.user.isActivated,
+                    globalRole: rawMessage.sender.user.globalRole as any,
+                    createdAt: rawMessage.sender.user.createdAt.toISOString(),
+                    updatedAt: rawMessage.sender.user.updatedAt.toISOString(),
+                    profile: rawMessage.sender.user.profile
+                      ? {
+                          id: rawMessage.sender.user.profile.id,
+                          userId: rawMessage.sender.user.profile.userId,
+                          displayName: rawMessage.sender.user.profile.displayName,
+                          avatarUrl: rawMessage.sender.user.profile.avatarUrl,
+                          bio: rawMessage.sender.user.profile.bio,
+                          dateOfBirth: rawMessage.sender.user.profile.dateOfBirth?.toISOString() || null,
+                          updatedAt: rawMessage.sender.user.profile.updatedAt.toISOString(),
+                        }
+                      : null,
+                  }
+                : undefined,
+            }
+          : undefined,
+        replyTo: null,
+        reactions: [],
+        reactionCounts: {},
+        userReactions: [],
+        isPinned: false,
+      };
+
+      this.chatGateway.broadcastNewMessage(channel.id, formattedMessage);
+    } catch (err) {
+      console.error('Failed to broadcast calendar event message to channel:', err);
+    }
   }
 }
