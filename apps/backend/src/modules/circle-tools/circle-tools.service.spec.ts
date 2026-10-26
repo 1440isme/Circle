@@ -305,17 +305,22 @@ describe('CircleToolsService', () => {
         sentAt: new Date(),
         updatedAt: new Date(),
       });
+      const futureStart = new Date(Date.now() + 86400000).toISOString();
+      const futureEnd = new Date(Date.now() + 90000000).toISOString();
+
       mockPrisma.calendarEvent.create.mockResolvedValue({
         id: 'event-1',
         eventTitle: 'Họp đồ án tốt nghiệp',
         location: 'Phòng B204',
-        startTime: new Date('2026-10-25T08:00:00Z'),
+        startTime: new Date(futureStart),
+        endTime: new Date(futureEnd),
       });
 
       const res = await service.createCalendarEvent('circle-1', 'user-1', {
         eventTitle: 'Họp đồ án tốt nghiệp',
         location: 'Phòng B204',
-        startTime: '2026-10-25T08:00:00Z',
+        startTime: futureStart,
+        endTime: futureEnd,
       });
 
       expect(res.id).toBe('event-1');
@@ -337,6 +342,52 @@ describe('CircleToolsService', () => {
         'chan-1',
         expect.objectContaining({ id: 'msg-cal-1' }),
       );
+    });
+
+    it('should throw BadRequestException when creating event in the past', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValue(member);
+      const pastStart = new Date(Date.now() - 3600000).toISOString();
+
+      await expect(
+        service.createCalendarEvent('circle-1', 'user-1', {
+          eventTitle: 'Họp quá khứ',
+          startTime: pastStart,
+        }),
+      ).rejects.toThrow('Không thể tạo lịch hẹn trong quá khứ');
+    });
+
+    it('should throw BadRequestException when endTime <= startTime on create', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValue(member);
+      const futureStart = new Date(Date.now() + 86400000);
+      const invalidEnd = new Date(futureStart.getTime() - 1000);
+
+      await expect(
+        service.createCalendarEvent('circle-1', 'user-1', {
+          eventTitle: 'Họp giờ sai',
+          startTime: futureStart.toISOString(),
+          endTime: invalidEnd.toISOString(),
+        }),
+      ).rejects.toThrow('Thời gian kết thúc phải lớn hơn thời gian bắt đầu');
+    });
+
+    it('should throw BadRequestException when endTime <= startTime on update', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValue(member);
+      const futureStart = new Date(Date.now() + 86400000);
+      mockPrisma.calendarEvent.findFirst.mockResolvedValue({
+        id: 'event-1',
+        circleId: 'circle-1',
+        createdById: 'mem-1',
+        startTime: futureStart,
+        endTime: null,
+      });
+
+      const earlierEnd = new Date(futureStart.getTime() - 60000).toISOString();
+
+      await expect(
+        service.updateCalendarEvent('circle-1', 'event-1', 'user-1', {
+          endTime: earlierEnd,
+        }),
+      ).rejects.toThrow('Thời gian kết thúc phải lớn hơn thời gian bắt đầu');
     });
 
     it('should list calendar events in circle', async () => {

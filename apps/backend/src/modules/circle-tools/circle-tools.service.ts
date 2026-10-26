@@ -511,6 +511,26 @@ export class CircleToolsService {
   async createCalendarEvent(circleId: string, userId: string, dto: CreateCalendarEventDto) {
     const member = await this.getMemberOrThrow(circleId, userId);
 
+    const start = new Date(dto.startTime);
+    if (isNaN(start.getTime())) {
+      throw new BadRequestException('Thời gian bắt đầu không hợp lệ');
+    }
+    // Allow 2 minutes grace period for network latency / clock skew
+    if (start.getTime() < Date.now() - 120000) {
+      throw new BadRequestException('Không thể tạo lịch hẹn trong quá khứ');
+    }
+
+    let end: Date | null = null;
+    if (dto.endTime) {
+      end = new Date(dto.endTime);
+      if (isNaN(end.getTime())) {
+        throw new BadRequestException('Thời gian kết thúc không hợp lệ');
+      }
+      if (end.getTime() <= start.getTime()) {
+        throw new BadRequestException('Thời gian kết thúc phải lớn hơn thời gian bắt đầu');
+      }
+    }
+
     const createdEvent = await this.prisma.calendarEvent.create({
       data: {
         circleId,
@@ -518,8 +538,8 @@ export class CircleToolsService {
         eventTitle: dto.eventTitle.trim(),
         description: dto.description?.trim(),
         location: dto.location?.trim(),
-        startTime: new Date(dto.startTime),
-        endTime: dto.endTime ? new Date(dto.endTime) : null,
+        startTime: start,
+        endTime: end,
         reminderTime: dto.reminderTime ? new Date(dto.reminderTime) : null,
         rsvps: {
           create: {
@@ -573,6 +593,34 @@ export class CircleToolsService {
 
     if (event.createdById !== member.id && member.role !== 'OWNER') {
       throw new ForbiddenException('Chỉ người tạo hoặc chủ vòng tròn mới có quyền sửa sự kiện');
+    }
+
+    if (dto.startTime) {
+      const start = new Date(dto.startTime);
+      if (isNaN(start.getTime())) {
+        throw new BadRequestException('Thời gian bắt đầu không hợp lệ');
+      }
+      const wasInFuture = event.startTime.getTime() >= Date.now() - 120000;
+      if (wasInFuture && start.getTime() < Date.now() - 120000) {
+        throw new BadRequestException('Không thể chỉnh sửa thời gian bắt đầu về quá khứ');
+      }
+    }
+
+    const effectiveStart = dto.startTime ? new Date(dto.startTime) : event.startTime;
+    const effectiveEnd =
+      dto.endTime !== undefined
+        ? dto.endTime
+          ? new Date(dto.endTime)
+          : null
+        : event.endTime;
+
+    if (effectiveEnd) {
+      if (isNaN(effectiveEnd.getTime())) {
+        throw new BadRequestException('Thời gian kết thúc không hợp lệ');
+      }
+      if (effectiveEnd.getTime() <= effectiveStart.getTime()) {
+        throw new BadRequestException('Thời gian kết thúc phải lớn hơn thời gian bắt đầu');
+      }
     }
 
     const updatedEvent = await this.prisma.calendarEvent.update({

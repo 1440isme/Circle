@@ -18,6 +18,7 @@ import { useCircleStore } from '../../stores/circle.store';
 import { useLanguageStore } from '../../stores/language.store';
 import { useRespondEventRsvpMutation } from '../../hooks/use-circle-tools';
 import { getSocket } from '../../lib/socket';
+import { EventLocationDisplay } from '../tools/EventLocationDisplay';
 
 export interface CalendarEventChatEmbedProps {
   eventData: CalendarEventMessagePayload;
@@ -315,10 +316,11 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
 
             {/* Location row (if provided) */}
             {eventData.location && (
-              <div className="flex items-center gap-2 text-xs text-circle-slate dark:text-circle-dark-muted">
-                <MapPin className="h-3.5 w-3.5 text-red-500/80 shrink-0" />
-                <span className="truncate">{eventData.location}</span>
-              </div>
+              <EventLocationDisplay
+                location={eventData.location}
+                className="text-xs text-circle-slate dark:text-circle-dark-muted"
+                iconClassName="h-3.5 w-3.5 shrink-0"
+              />
             )}
 
             {/* Reminder Badge */}

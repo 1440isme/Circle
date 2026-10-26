@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Modal,
   Alert,
+  Linking,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import {
@@ -98,6 +99,11 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
       if (reminderMinutes !== 'none') {
         const mins = parseInt(reminderMinutes, 10);
         reminderTime = new Date(evDate.getTime() - mins * 60 * 1000).toISOString();
+      }
+
+      if (evDate.getTime() < Date.now() - 60000) {
+        Alert.alert('Lỗi', 'Không thể tạo sự kiện trong quá khứ');
+        return;
       }
 
       await createCalendarEventApi(circleId, {
@@ -253,10 +259,31 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
                   </View>
 
                   {ev.location ? (
-                    <View style={styles.eventInfoRow}>
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      disabled={!/(https?://[^s]+|(?:meet.google.com|maps.google.com|maps.app.goo.gl|goo.gl/maps)/[^s]+)/i.test(ev.location)}
+                      onPress={() => {
+                        const match = ev.location?.match(/(https?://[^s]+|(?:meet.google.com|maps.google.com|maps.app.goo.gl|goo.gl/maps)/[^s]+)/i);
+                        if (match) {
+                          const url = match[0].startsWith('http') ? match[0] : `https://${match[0]}`;
+                          Linking.openURL(url).catch(() => {});
+                        }
+                      }}
+                      style={styles.eventInfoRow}
+                    >
                       <MapPin size={12} color="#0D9488" />
-                      <Text style={styles.eventInfoText}>{ev.location}</Text>
-                    </View>
+                      <Text
+                        style={[
+                          styles.eventInfoText,
+                          /(https?://[^s]+|(?:meet.google.com|maps.google.com|maps.app.goo.gl|goo.gl/maps)/[^s]+)/i.test(ev.location) && {
+                            color: '#0284C7',
+                            textDecorationLine: 'underline',
+                          },
+                        ]}
+                      >
+                        {ev.location}
+                      </Text>
+                    </TouchableOpacity>
                   ) : null}
 
                   {ev.reminderTime ? (
