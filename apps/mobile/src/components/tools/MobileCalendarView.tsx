@@ -117,6 +117,10 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [pickerTarget, setPickerTarget] = useState<'start' | 'end'>('start');
   const [pickerMonthDate, setPickerMonthDate] = useState<Date>(new Date());
+  const [pickerCalendarMode, setPickerCalendarMode] = useState<'days' | 'months' | 'years'>('days');
+  const [pickerYearPageStart, setPickerYearPageStart] = useState<number>(() => {
+    return Math.floor(new Date().getFullYear() / 12) * 12;
+  });
 
   const month = currentDate.getMonth() + 1;
   const year = currentDate.getFullYear();
@@ -331,9 +335,35 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
   };
 
   const openPicker = (target: 'start' | 'end') => {
+    Haptics.selectionAsync();
     setPickerTarget(target);
-    setPickerMonthDate(target === 'start' ? startDate : endDate);
+    const targetDate = target === 'start' ? startDate : endDate;
+    setPickerCalendarMode('days');
+    setPickerYearPageStart(Math.floor(targetDate.getFullYear() / 12) * 12);
+    setPickerMonthDate(new Date(targetDate.getFullYear(), targetDate.getMonth(), 1));
     setIsPickerOpen(true);
+  };
+
+  const handlePickerPrev = () => {
+    Haptics.selectionAsync();
+    if (pickerCalendarMode === 'days') {
+      setPickerMonthDate(new Date(pickerYear, pickerMonth - 2, 1));
+    } else if (pickerCalendarMode === 'months') {
+      setPickerMonthDate(new Date(pickerYear - 1, pickerMonth - 1, 1));
+    } else if (pickerCalendarMode === 'years') {
+      setPickerYearPageStart((prev) => prev - 12);
+    }
+  };
+
+  const handlePickerNext = () => {
+    Haptics.selectionAsync();
+    if (pickerCalendarMode === 'days') {
+      setPickerMonthDate(new Date(pickerYear, pickerMonth, 1));
+    } else if (pickerCalendarMode === 'months') {
+      setPickerMonthDate(new Date(pickerYear + 1, pickerMonth - 1, 1));
+    } else if (pickerCalendarMode === 'years') {
+      setPickerYearPageStart((prev) => prev + 12);
+    }
   };
 
   const selectedDayEvents = useMemo(() => {
@@ -755,83 +785,196 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
                   </Text>
                 </View>
 
-                {/* Calendar Month Navigation */}
+                {/* Calendar Month & Year Navigation with interactive chips */}
                 <View style={styles.pickerMonthNav}>
-                  <TouchableOpacity
-                    onPress={() => {
-                      setPickerMonthDate(new Date(pickerYear, pickerMonth - 2, 1));
-                      Haptics.selectionAsync();
-                    }}
-                    style={styles.navArrow}
-                  >
-                    <ChevronLeft size={16} color="#1E293B" />
-                  </TouchableOpacity>
-                  <Text style={styles.pickerMonthTitle}>
-                    Tháng {pickerMonth}/{pickerYear}
-                  </Text>
-                  <TouchableOpacity
-                    onPress={() => {
-                      setPickerMonthDate(new Date(pickerYear, pickerMonth, 1));
-                      Haptics.selectionAsync();
-                    }}
-                    style={styles.navArrow}
-                  >
-                    <ChevronRight size={16} color="#1E293B" />
-                  </TouchableOpacity>
-                </View>
-
-                {/* Weekday headers */}
-                <View style={styles.weekdaysRow}>
-                  {['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'].map((d, i) => (
-                    <Text
-                      key={d}
-                      style={[styles.weekdayText, { fontSize: 10 }, i === 0 && { color: '#EF4444' }]}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <TouchableOpacity
+                      onPress={() => {
+                        setPickerCalendarMode(pickerCalendarMode === 'months' ? 'days' : 'months');
+                        Haptics.selectionAsync();
+                      }}
+                      style={[
+                        styles.pickerHeaderChip,
+                        pickerCalendarMode === 'months' && styles.pickerHeaderChipActive,
+                      ]}
                     >
-                      {d}
-                    </Text>
-                  ))}
-                </View>
-
-                {/* Day grid */}
-                <View style={styles.pickerDaysGrid}>
-                  {Array.from({ length: pickerFirstDayOfWeek }).map((_, i) => (
-                    <View key={`empty-p-${i}`} style={styles.emptyDayCell} />
-                  ))}
-
-                  {Array.from({ length: pickerDaysInMonth }).map((_, i) => {
-                    const dayNum = i + 1;
-                    const activeDate = pickerTarget === 'start' ? startDate : endDate;
-                    const isSelected =
-                      activeDate.getDate() === dayNum &&
-                      activeDate.getMonth() + 1 === pickerMonth &&
-                      activeDate.getFullYear() === pickerYear;
-
-                    return (
-                      <TouchableOpacity
-                        key={`p-day-${dayNum}`}
-                        style={[styles.pickerDayCell, isSelected && styles.pickerDayCellSelected]}
-                        onPress={() => {
-                          const newD = new Date(pickerYear, pickerMonth - 1, dayNum);
-                          if (pickerTarget === 'start') {
-                            setStartDate(newD);
-                          } else {
-                            setEndDate(newD);
-                          }
-                          Haptics.selectionAsync();
-                        }}
+                      <Text
+                        style={[
+                          styles.pickerHeaderChipText,
+                          pickerCalendarMode === 'months' && styles.pickerHeaderChipTextActive,
+                        ]}
                       >
-                        <Text
-                          style={[
-                            styles.pickerDayText,
-                            isSelected && styles.pickerDayTextSelected,
-                          ]}
-                        >
-                          {dayNum}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
+                        Tháng {pickerMonth}
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      onPress={() => {
+                        if (pickerCalendarMode === 'years') {
+                          setPickerCalendarMode('days');
+                        } else {
+                          setPickerYearPageStart(Math.floor(pickerYear / 12) * 12);
+                          setPickerCalendarMode('years');
+                        }
+                        Haptics.selectionAsync();
+                      }}
+                      style={[
+                        styles.pickerHeaderChip,
+                        pickerCalendarMode === 'years' && styles.pickerHeaderChipActive,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.pickerHeaderChipText,
+                          pickerCalendarMode === 'years' && styles.pickerHeaderChipTextActive,
+                        ]}
+                      >
+                        {pickerCalendarMode === 'years'
+                          ? `${pickerYearPageStart} - ${pickerYearPageStart + 11}`
+                          : pickerYear}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <TouchableOpacity onPress={handlePickerPrev} style={styles.navArrow}>
+                      <ChevronLeft size={16} color="#1E293B" />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={handlePickerNext} style={styles.navArrow}>
+                      <ChevronRight size={16} color="#1E293B" />
+                    </TouchableOpacity>
+                  </View>
                 </View>
+
+                {/* CHẾ ĐỘ 1: CHỌN NĂM (12 năm) */}
+                {pickerCalendarMode === 'years' && (
+                  <View style={styles.pickerGridContainer}>
+                    <View style={styles.picker3ColsGrid}>
+                      {Array.from({ length: 12 }, (_, i) => pickerYearPageStart + i).map((y) => {
+                        const isSelectedYear = y === pickerYear;
+                        return (
+                          <TouchableOpacity
+                            key={`y-${y}`}
+                            style={[styles.pickerGridCell, isSelectedYear && styles.pickerGridCellActive]}
+                            onPress={() => {
+                              setPickerMonthDate(new Date(y, pickerMonth - 1, 1));
+                              setPickerCalendarMode('months');
+                              Haptics.selectionAsync();
+                            }}
+                          >
+                            <Text
+                              style={[styles.pickerGridCellText, isSelectedYear && styles.pickerGridCellTextActive]}
+                            >
+                              {y}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => setPickerCalendarMode('days')}
+                      style={{ paddingVertical: 4, alignItems: 'center' }}
+                    >
+                      <Text style={{ fontSize: 11, color: '#0D9488', fontWeight: '600' }}>
+                        ← Quay lại chọn ngày
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                {/* CHẾ ĐỘ 2: CHỌN THÁNG (12 tháng) */}
+                {pickerCalendarMode === 'months' && (
+                  <View style={styles.pickerGridContainer}>
+                    <View style={styles.picker3ColsGrid}>
+                      {Array.from({ length: 12 }, (_, i) => i).map((mIdx) => {
+                        const isSelectedMonth = mIdx === pickerMonth - 1;
+                        return (
+                          <TouchableOpacity
+                            key={`m-idx-${mIdx}`}
+                            style={[styles.pickerGridCell, isSelectedMonth && styles.pickerGridCellActive]}
+                            onPress={() => {
+                              setPickerMonthDate(new Date(pickerYear, mIdx, 1));
+                              setPickerCalendarMode('days');
+                              Haptics.selectionAsync();
+                            }}
+                          >
+                            <Text
+                              style={[styles.pickerGridCellText, isSelectedMonth && styles.pickerGridCellTextActive]}
+                            >
+                              Tháng {mIdx + 1}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => setPickerCalendarMode('days')}
+                      style={{ paddingVertical: 4, alignItems: 'center' }}
+                    >
+                      <Text style={{ fontSize: 11, color: '#0D9488', fontWeight: '600' }}>
+                        ← Quay lại chọn ngày
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                {/* CHẾ ĐỘ 3: CHỌN NGÀY (Lưới ngày) */}
+                {pickerCalendarMode === 'days' && (
+                  <View>
+                    {/* Weekday headers */}
+                    <View style={styles.weekdaysRow}>
+                      {['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'].map((d, i) => (
+                        <Text
+                          key={d}
+                          style={[styles.weekdayText, { fontSize: 10 }, i === 0 && { color: '#EF4444' }]}
+                        >
+                          {d}
+                        </Text>
+                      ))}
+                    </View>
+
+                    {/* Day grid */}
+                    <View style={styles.pickerDaysGrid}>
+                      {Array.from({ length: pickerFirstDayOfWeek }).map((_, i) => (
+                        <View key={`empty-p-${i}`} style={styles.emptyDayCell} />
+                      ))}
+
+                      {Array.from({ length: pickerDaysInMonth }).map((_, i) => {
+                        const dayNum = i + 1;
+                        const activeDate = pickerTarget === 'start' ? startDate : endDate;
+                        const isSelected =
+                          activeDate.getDate() === dayNum &&
+                          activeDate.getMonth() + 1 === pickerMonth &&
+                          activeDate.getFullYear() === pickerYear;
+
+                        return (
+                          <TouchableOpacity
+                            key={`p-day-${dayNum}`}
+                            style={[styles.pickerDayCell, isSelected && styles.pickerDayCellSelected]}
+                            onPress={() => {
+                              const newD = new Date(pickerYear, pickerMonth - 1, dayNum);
+                              if (pickerTarget === 'start') {
+                                setStartDate(newD);
+                              } else {
+                                setEndDate(newD);
+                              }
+                              Haptics.selectionAsync();
+                            }}
+                          >
+                            <Text
+                              style={[
+                                styles.pickerDayText,
+                                isSelected && styles.pickerDayTextSelected,
+                              ]}
+                            >
+                              {dayNum}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </View>
+                )}
 
                 {/* 24-Hour and Minute Selectors */}
                 <View style={styles.timeSelectSection}>
@@ -1354,10 +1497,56 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 6,
   },
-  pickerMonthTitle: {
-    fontSize: 13,
+  pickerHeaderChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: '#F1F5F9',
+  },
+  pickerHeaderChipActive: {
+    backgroundColor: '#0F172A',
+  },
+  pickerHeaderChipText: {
+    fontSize: 12,
     fontWeight: '700',
     color: '#0F172A',
+  },
+  pickerHeaderChipTextActive: {
+    color: '#FFFFFF',
+  },
+  pickerGridContainer: {
+    paddingVertical: 4,
+  },
+  picker3ColsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+  },
+  pickerGridCell: {
+    width: '31%',
+    paddingVertical: 9,
+    borderRadius: 8,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 2,
+  },
+  pickerGridCellActive: {
+    backgroundColor: '#0F172A',
+    borderColor: '#0F172A',
+  },
+  pickerGridCellText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  pickerGridCellTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
   pickerDaysGrid: {
     flexDirection: 'row',
