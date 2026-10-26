@@ -36,7 +36,11 @@ export function parseEventLocation(raw: string): ParsedLocation {
     : `https://${rawUrl}`;
 
   const isFullUrl = trimmed === rawUrl;
-  const textPrefix = trimmed.replace(rawUrl, '').trim().replace(/^[-–—:]|[-–—:]$/g, '').trim();
+  const textPrefix = trimmed
+    .replace(rawUrl, '')
+    .trim()
+    .replace(/\s*[-–—:]+\s*$/g, '')
+    .trim();
 
   // Determine link category
   const isMeet =
@@ -91,62 +95,63 @@ export const EventLocationDisplay: React.FC<EventLocationDisplayProps> = ({
 }) => {
   const parsed = parseEventLocation(location);
 
+  // 1. Plain text with no link
   if (!parsed.url) {
     return (
-      <div className={`flex items-center gap-1.5 ${className}`}>
+      <div className={`flex items-center gap-1.5 min-w-0 ${className}`}>
         <MapPin className={`${iconClassName} text-circle-slate dark:text-circle-dark-muted`} />
         <span className="truncate">{parsed.text}</span>
       </div>
     );
   }
 
-  // Pure Meeting Link (Google Meet, Zoom, etc.)
+  // 2. Pure Meeting Link
   if (parsed.type === 'meet') {
     return (
-      <div className={`flex items-center gap-1.5 ${className}`}>
+      <div className={`flex items-center gap-1.5 min-w-0 ${className}`}>
         <Video className={`${iconClassName} text-blue-500`} />
         <a
           href={parsed.url}
           target="_blank"
           rel="noopener noreferrer"
           onClick={(e) => e.stopPropagation()}
-          className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-semibold hover:underline"
+          className="truncate font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:underline inline-flex items-center gap-1"
           title={`Mở cuộc họp: ${parsed.url}`}
         >
           <span className="truncate">{parsed.text}</span>
-          <ExternalLink className="h-3 w-3 shrink-0 opacity-80" />
+          <ExternalLink className="h-3 w-3 shrink-0 opacity-70" />
         </a>
       </div>
     );
   }
 
-  // Pure Map Link (Google Maps)
+  // 3. Pure Map Link
   if (parsed.type === 'map') {
     return (
-      <div className={`flex items-center gap-1.5 ${className}`}>
+      <div className={`flex items-center gap-1.5 min-w-0 ${className}`}>
         <MapPin className={`${iconClassName} text-rose-500`} />
         <a
           href={parsed.url}
           target="_blank"
           rel="noopener noreferrer"
           onClick={(e) => e.stopPropagation()}
-          className="inline-flex items-center gap-1 text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 font-semibold hover:underline"
-          title={`Mở bản đồ: ${parsed.url}`}
+          className="truncate font-semibold text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 hover:underline inline-flex items-center gap-1"
+          title={`Mở Google Maps: ${parsed.url}`}
         >
           <span className="truncate">{parsed.text}</span>
-          <ExternalLink className="h-3 w-3 shrink-0 opacity-80" />
+          <ExternalLink className="h-3 w-3 shrink-0 opacity-70" />
         </a>
       </div>
     );
   }
 
-  // Mixed text + URL (e.g. "Đại học Sư phạm Kỹ thuật - maps.google.com/...")
+  // 4. Mixed text with embedded URL (Clicking text directly opens link, NO separate button)
   if (parsed.type === 'mixed') {
     const isMapCategory = parsed.category === 'map';
     const isMeetCategory = parsed.category === 'meet';
 
     return (
-      <div className={`flex items-center flex-wrap gap-1.5 ${className}`}>
+      <div className={`flex items-center gap-1.5 min-w-0 ${className}`}>
         {isMeetCategory ? (
           <Video className={`${iconClassName} text-blue-500`} />
         ) : (
@@ -156,42 +161,41 @@ export const EventLocationDisplay: React.FC<EventLocationDisplayProps> = ({
             }`}
           />
         )}
-        {parsed.text && <span className="truncate font-medium">{parsed.text}</span>}
         <a
           href={parsed.url}
           target="_blank"
           rel="noopener noreferrer"
           onClick={(e) => e.stopPropagation()}
-          className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold transition-colors ${
+          className={`truncate font-semibold hover:underline inline-flex items-center gap-1 transition-colors ${
             isMeetCategory
-              ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20'
+              ? 'text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300'
               : isMapCategory
-              ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-500/20'
-              : 'bg-teal-500/10 text-teal-600 dark:text-teal-400 hover:bg-teal-500/20'
+              ? 'text-circle-charcoal dark:text-circle-dark-text hover:text-rose-600 dark:hover:text-rose-400'
+              : 'text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300'
           }`}
-          title={parsed.url}
+          title={isMapCategory ? `Mở trên Google Maps: ${parsed.url}` : parsed.url}
         >
-          <span>{parsed.linkText}</span>
-          <ExternalLink className="h-2.5 w-2.5 shrink-0" />
+          <span className="truncate">{parsed.text}</span>
+          <ExternalLink className="h-3 w-3 shrink-0 opacity-60" />
         </a>
       </div>
     );
   }
 
-  // Generic link
+  // 5. Generic Web Link
   return (
-    <div className={`flex items-center gap-1.5 ${className}`}>
+    <div className={`flex items-center gap-1.5 min-w-0 ${className}`}>
       <Globe className={`${iconClassName} text-teal-500`} />
       <a
         href={parsed.url}
         target="_blank"
         rel="noopener noreferrer"
         onClick={(e) => e.stopPropagation()}
-        className="inline-flex items-center gap-1 text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 font-semibold hover:underline"
+        className="truncate font-semibold text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 hover:underline inline-flex items-center gap-1"
         title={parsed.url}
       >
         <span className="truncate">{parsed.text}</span>
-        <ExternalLink className="h-3 w-3 shrink-0 opacity-80" />
+        <ExternalLink className="h-3 w-3 shrink-0 opacity-70" />
       </a>
     </div>
   );

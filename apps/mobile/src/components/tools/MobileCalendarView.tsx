@@ -43,6 +43,11 @@ const extractLocationUrl = (loc?: string | null): string | null => {
   return match[0].startsWith('http') ? match[0] : `https://${match[0]}`;
 };
 
+const cleanLocationText = (loc?: string | null): string => {
+  if (!loc) return '';
+  return loc.replace(/https?:\/\/[^\s]+/g, '').trim().replace(/\s*[-–—:]+\s*$/g, '').trim() || loc;
+};
+
 interface MobileCalendarViewProps {
   circleId: string;
 }
@@ -292,7 +297,7 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
                           },
                         ]}
                       >
-                        {ev.location}
+                        {cleanLocationText(ev.location)}
                       </Text>
                     </TouchableOpacity>
                   ) : null}
