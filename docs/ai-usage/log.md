@@ -4838,3 +4838,67 @@
 - **Security & License Check:** An toàn tuyệt đối, zero secret leaks, xác thực thành viên nghiêm ngặt qua `getMemberOrThrow`.
 - **Branch:** `feat/101-calendar-chat-integration-and-sidebar`
 - **PR:** Pending (Chờ người dùng kiểm duyệt và cho phép trước khi push/mở PR).
+
+---
+
+### AI-0136: Bổ sung Mục 5 (Những việc sẽ làm trong tuần tiếp theo) cho Báo cáo Tiến độ Tuần
+- **Timestamp:** 2026-10-26T04:42:00+07:00
+- **Task ID:** Quy chuẩn báo cáo tiến độ tuần (G2 / Hard Gate 2)
+- **Engineers:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Feature / Area:** Documentation & Compliance — Weekly Engineering Progress Reports (`docs/evidence/weekly-reports/` & `agentic/memory/`).
+- **Files Affected:**
+  - `docs/evidence/weekly-reports/W01.md`
+  - `docs/evidence/weekly-reports/W02.md`
+  - `docs/evidence/weekly-reports/W03.md`
+  - `docs/evidence/weekly-reports/W04.md`
+  - `docs/evidence/weekly-reports/W05.md`
+  - `docs/evidence/weekly-reports/W06.md`
+  - `docs/evidence/weekly-reports/W07.md`
+  - `docs/evidence/weekly-reports/W08.md`
+  - `docs/evidence/weekly-reports/README.md`
+  - `agentic/memory/reporting-workflow.md`
+  - `agentic/memory/MEMORY.md`
+  - `agentic/memory/2026-10-26.md`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:**
+  1. **Cập nhật Báo cáo Tuần (W01 – W08):** Bổ sung mục `5. Những việc sẽ làm trong tuần tiếp theo` cho toàn bộ 8 báo cáo tuần đã có trong kho lưu trữ `docs/evidence/weekly-reports/`, đồng bộ chính xác theo kế hoạch đề tài (`docs/Ke hoach thuc hien TLCN .md`) và báo cáo tổng hợp `docs/BaocaoTuan.md`. Vị trí mục 5 được đặt ngay trước phần Khai báo sử dụng AI/LLM.
+  2. **Đồng bộ Quy trình Báo cáo Kép (`reporting-workflow.md`):** Cập nhật quy chuẩn Luồng 2 (báo cáo nộp cho Chủ nhiệm Khoa), chuẩn hóa cấu trúc 5 mục bắt buộc thay cho quy định 4 mục cũ.
+  3. **Cập nhật Trí nhớ Hệ thống (`agentic/memory/`):** Cập nhật `MEMORY.md`, tạo nhật ký ngày `2026-10-26.md` ghi nhận correction và quy định mới.
+- **Human Modifications:** Trương Công Bình chỉ đạo yêu cầu: "các báo tuần thêm mục 5. Những việc sẽ làm trong tuần tiếp theo".
+- **Verification Method:** Đối soát nội dung các file `W01.md` đến `W08.md`, kiểm tra tính toàn vẹn của markdown và liên kết giữa các tài liệu.
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`, `docs/Ke hoach thuc hien TLCN .md`, `docs/BaocaoTuan.md`.
+- **Security & License Check:** An toàn tuyệt đối, không có thông tin bí mật.
+
+---
+
+### AI-0137: Bộ chọn ngày định dạng dd/mm/yyyy và bánh xe cuộn giờ 24h cho Lịch hẹn Nhóm
+
+- **Date:** 2026-10-26 16:21:00 +07:00
+- **Model:** Gemini 2.5 Pro (High)
+- **Role:** Full-Stack & UI/UX Engineer
+- **Issue:** #101 (feat/101-calendar-chat-integration-and-sidebar)
+- **Task ID:** Hoàn thiện bộ chọn ngày giờ chuẩn Việt Nam (dd/mm/yyyy & 24h Drum-roll Time Wheel)
+- **Engineers:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Feature / Area:** Web Tools & Calendar (`apps/web/src/components/tools/`).
+- **Files Affected:**
+  - `apps/web/src/components/tools/CustomDatePicker.tsx`
+  - `apps/web/src/components/tools/TimeWheelPicker.tsx`
+  - `apps/web/src/components/tools/CircleCalendarView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:**
+  1. **CustomDatePicker (`apps/web/src/components/tools/CustomDatePicker.tsx`):**
+     - Hiển thị ngày định dạng người Việt `dd/mm/yyyy`.
+     - Cho phép nhập trực tiếp bàn phím hoặc chọn nhanh qua lịch popover.
+     - Tích hợp phím tắt chọn nhanh ("Hôm nay", "Ngày mai") và chặn chọn ngày trong quá khứ (`minDate`).
+  2. **TimeWheelPicker (`apps/web/src/components/tools/TimeWheelPicker.tsx`):**
+     - Định dạng 24 giờ (`00:00` đến `23:59`), loại bỏ hoàn toàn AM/PM.
+     - Thiết kế cuộn dạng bánh xe (drum-roll wheel picker) với khung tối màu cố định ở tâm ("cục đen cố định") theo đúng yêu cầu trải nghiệm người dùng.
+     - Cột giờ và cột phút có scroll snap mượt mà, hỗ trợ cuộn chuột hoặc click trực tiếp vào số, kèm các mốc preset nhanh (`00:00`, `08:00`, `12:00`, `14:00`, `18:00`, `20:00`).
+  3. **Tích hợp Calendar View (`apps/web/src/components/tools/CircleCalendarView.tsx`):**
+     - Thay thế thẻ `<input type="datetime-local">` mặc định bằng `CustomDatePicker` và `TimeWheelPicker`.
+     - Tách riêng thời gian bắt đầu (bắt buộc) và thời gian kết thúc (tùy chọn với toggle tinh gọn).
+     - Ràng buộc form chặt chẽ: không cho phép tạo trong quá khứ và thời gian kết thúc phải lớn hơn thời gian bắt đầu.
+- **Human Modifications:** Trương Công Bình yêu cầu: "cái tạo lịch hẹn để dạng dd/mm/yyyy mới đúng và thay vì chọn AM, PM thì để dạng 24 giờ và cục đen cố định là lướt giờ".
+- **Verification Method:** Chạy kiểm tra tĩnh TypeScript `npx tsc --noEmit -p apps/web/tsconfig.json` và build toàn diện `npm run build --workspace=@circle/web`. Cả hai đều đạt kết quả 100% thành công.
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn, không chứa secret, tuân thủ nghiêm ngặt quy định không push remote khi chưa có sự đồng ý của human engineer.
