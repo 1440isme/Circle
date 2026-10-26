@@ -23,6 +23,8 @@ import {
 } from 'lucide-react';
 import { EventLocationDisplay } from './EventLocationDisplay';
 import { LocationSearchInput } from './LocationSearchInput';
+import { CustomDatePicker } from './CustomDatePicker';
+import { TimeWheelPicker } from './TimeWheelPicker';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguageStore } from '../../stores/language.store';
 import { useCircleStore } from '../../stores/circle.store';
@@ -56,8 +58,18 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
   const [title, setTitle] = useState('');
   const [location, setLocation] = useState('');
   const [description, setDescription] = useState('');
-  const [startTime, setStartTime] = useState('');
-  const [endTime, setEndTime] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [startTimeVal, setStartTimeVal] = useState('09:00');
+  const [hasEndTime, setHasEndTime] = useState(false);
+  const [endDate, setEndDate] = useState('');
+  const [endTimeVal, setEndTimeVal] = useState('10:00');
+
+  const formatDateToIso = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
   const [reminderMinutes, setReminderMinutes] = useState('15');
 
   const month = currentDate.getMonth() + 1;
@@ -72,19 +84,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
 
   const [editingEvent, setEditingEvent] = useState<CalendarEventEntity | null>(null);
 
-  const formatToLocalDateTimeInput = (date: Date, hours = 0, minutes = 0) => {
-    const d = new Date(date);
-    d.setHours(hours, minutes, 0, 0);
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    const h = String(d.getHours()).padStart(2, '0');
-    const min = String(d.getMinutes()).padStart(2, '0');
-    return `${y}-${m}-${day}T${h}:${min}`;
-  };
 
-  const now = new Date();
-  const nowIsoLocal = formatToLocalDateTimeInput(now, now.getHours(), now.getMinutes());
 
   const handleOpenCreateModal = () => {
     setEditingEvent(null);
@@ -94,39 +94,53 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
     setReminderMinutes('15');
 
     const curNow = new Date();
-    const isToday =
-      selectedDate.getFullYear() === curNow.getFullYear() &&
-      selectedDate.getMonth() === curNow.getMonth() &&
-      selectedDate.getDate() === curNow.getDate();
-
     const isPastDay =
       new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate()).getTime() <
       new Date(curNow.getFullYear(), curNow.getMonth(), curNow.getDate()).getTime();
 
+    let targetDate = selectedDate;
+    let targetHour = 0;
+    let targetMinute = 0;
+
     if (isPastDay) {
-      // If clicked a past date, default to today starting at next hour
-      const targetDate = new Date();
-      const nextHour = targetDate.getHours() + 1;
-      setStartTime(formatToLocalDateTimeInput(targetDate, nextHour, 0));
-      setSelectedDate(targetDate);
-    } else if (isToday) {
-      // If today, set to next hour so it is not in the past
-      const nextHour = curNow.getHours() + 1;
-      setStartTime(formatToLocalDateTimeInput(curNow, nextHour, 0));
+      targetDate = curNow;
+      targetHour = curNow.getHours() + 1;
+      setSelectedDate(curNow);
+    } else if (
+      selectedDate.getFullYear() === curNow.getFullYear() &&
+      selectedDate.getMonth() === curNow.getMonth() &&
+      selectedDate.getDate() === curNow.getDate()
+    ) {
+      targetHour = curNow.getHours() + 1;
     } else {
-      // Future dates default to 00:00 as desired
-      setStartTime(formatToLocalDateTimeInput(selectedDate, 0, 0));
+      targetHour = 9;
+      targetMinute = 0;
     }
 
-    setEndTime('');
+    if (targetHour >= 24) {
+      targetDate = new Date(targetDate.getTime() + 86400000);
+      targetHour = 0;
+    }
+
+    const sDateIso = formatDateToIso(targetDate);
+    const sTimeStr = `${String(targetHour).padStart(2, '0')}:${String(targetMinute).padStart(2, '0')}`;
+
+    setStartDate(sDateIso);
+    setStartTimeVal(sTimeStr);
+
+    setHasEndTime(false);
+    setEndDate(sDateIso);
+    const endHour = (targetHour + 1) % 24;
+    setEndTimeVal(`${String(endHour).padStart(2, '0')}:${String(targetMinute).padStart(2, '0')}`);
+
     setIsAddModalOpen(true);
   };
 
   const getFormValidationError = (): string | null => {
     if (!title.trim()) return 'Vui lòng nhập tên sự kiện';
-    if (!startTime) return 'Vui lòng chọn thời gian bắt đầu';
+    if (!startDate || !startTimeVal) return 'Vui lòng chọn thời gian bắt đầu';
 
-    const start = new Date(startTime);
+    const start = new Date(`${startDate}T${startTimeVal}:00`);
     if (isNaN(start.getTime())) return 'Thời gian bắt đầu không hợp lệ';
 
     const isStartInPast = start.getTime() < Date.now() - 60000;
@@ -140,8 +154,9 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
       }
     }
 
-    if (endTime) {
-      const end = new Date(endTime);
+    if (hasEndTime) {
+      if (!endDate || !endTimeVal) return 'Vui lòng chọn đầy đủ ngày và giờ kết thúc';
+      const end = new Date(`${endDate}T${endTimeVal}:00`);
       if (isNaN(end.getTime())) return 'Thời gian kết thúc không hợp lệ';
       if (end.getTime() <= start.getTime()) {
         return 'Thời gian kết thúc phải lớn hơn thời gian bắt đầu';
@@ -161,16 +176,22 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
 
     if (ev.startTime) {
       const s = new Date(ev.startTime);
-      setStartTime(formatToLocalDateTimeInput(s, s.getHours(), s.getMinutes()));
+      setStartDate(formatDateToIso(s));
+      setStartTimeVal(`${String(s.getHours()).padStart(2, '0')}:${String(s.getMinutes()).padStart(2, '0')}`);
     } else {
-      setStartTime('');
+      setStartDate(formatDateToIso(new Date()));
+      setStartTimeVal('09:00');
     }
 
     if (ev.endTime) {
       const e = new Date(ev.endTime);
-      setEndTime(formatToLocalDateTimeInput(e, e.getHours(), e.getMinutes()));
+      setHasEndTime(true);
+      setEndDate(formatDateToIso(e));
+      setEndTimeVal(`${String(e.getHours()).padStart(2, '0')}:${String(e.getMinutes()).padStart(2, '0')}`);
     } else {
-      setEndTime('');
+      setHasEndTime(false);
+      setEndDate(startDate || formatDateToIso(new Date()));
+      setEndTimeVal('10:00');
     }
 
     if (ev.reminderTime && ev.startTime) {
@@ -215,17 +236,17 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || !startTime) return;
+    if (!title.trim() || !startDate || !startTimeVal) return;
 
     const validationErr = getFormValidationError();
     if (validationErr) {
       return;
     }
 
-    const start = new Date(startTime);
+    const start = new Date(`${startDate}T${startTimeVal}:00`);
     let end: string | undefined = undefined;
-    if (endTime) {
-      end = new Date(endTime).toISOString();
+    if (hasEndTime && endDate && endTimeVal) {
+      end = new Date(`${endDate}T${endTimeVal}:00`).toISOString();
     }
 
     let reminder: string | undefined = undefined;
@@ -262,8 +283,11 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
     setTitle('');
     setLocation('');
     setDescription('');
-    setStartTime('');
-    setEndTime('');
+    setStartDate('');
+    setStartTimeVal('09:00');
+    setHasEndTime(false);
+    setEndDate('');
+    setEndTimeVal('10:00');
     setIsAddModalOpen(false);
   };
 
@@ -770,7 +794,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
       {/* Add Event Modal */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-          <div className="w-full max-w-md rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-5 shadow-2xl">
+          <div className="w-full max-w-md rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-5 shadow-2xl max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-circle-hairline dark:border-circle-dark-hairline mb-4">
               <h3 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
                 {editingEvent ? 'Chỉnh Sửa Lịch Hẹn' : 'Lên Lịch Hẹn & Sự Kiện Nhóm'}
@@ -810,32 +834,64 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-circle-slate dark:text-circle-dark-muted mb-1">
-                    Bắt đầu lúc *
-                  </label>
-                  <input
-                    type="datetime-local"
-                    required
-                    min={!editingEvent ? nowIsoLocal : undefined}
-                    value={startTime}
-                    onChange={(e) => setStartTime(e.target.value)}
-                    className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas px-2.5 py-2 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-hidden focus:ring-1 focus:ring-circle-sage"
+              {/* Start Date (DD/MM/YYYY) & 24h Time Wheel */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-semibold text-circle-slate dark:text-circle-dark-muted">
+                  Bắt đầu lúc *
+                </label>
+                <div className="grid grid-cols-2 gap-2.5">
+                  <CustomDatePicker
+                    value={startDate}
+                    onChange={(newIsoDate) => {
+                      setStartDate(newIsoDate);
+                      if (endDate && endDate < newIsoDate) {
+                        setEndDate(newIsoDate);
+                      }
+                    }}
+                    minDate={!editingEvent ? formatDateToIso(new Date()) : undefined}
+                  />
+                  <TimeWheelPicker
+                    value={startTimeVal}
+                    onChange={(newTime) => setStartTimeVal(newTime)}
                   />
                 </div>
-                <div>
-                  <label className="block text-xs font-semibold text-circle-slate dark:text-circle-dark-muted mb-1">
-                    Kết thúc (tùy chọn)
+              </div>
+
+              {/* End Date (DD/MM/YYYY) & 24h Time Wheel (Optional toggle) */}
+              <div className="space-y-1.5 pt-1">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-circle-slate dark:text-circle-dark-muted">
+                    Thời gian kết thúc (tùy chọn)
                   </label>
-                  <input
-                    type="datetime-local"
-                    min={startTime || (!editingEvent ? nowIsoLocal : undefined)}
-                    value={endTime}
-                    onChange={(e) => setEndTime(e.target.value)}
-                    className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas px-2.5 py-2 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-hidden focus:ring-1 focus:ring-circle-sage"
-                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!hasEndTime) {
+                        setHasEndTime(true);
+                        setEndDate(startDate || formatDateToIso(new Date()));
+                      } else {
+                        setHasEndTime(false);
+                      }
+                    }}
+                    className="text-xs font-medium text-circle-sage dark:text-circle-primary hover:underline cursor-pointer"
+                  >
+                    {hasEndTime ? 'Bỏ thời gian kết thúc' : '+ Thêm thời gian kết thúc'}
+                  </button>
                 </div>
+
+                {hasEndTime && (
+                  <div className="grid grid-cols-2 gap-2.5 pt-1 animate-in fade-in duration-150">
+                    <CustomDatePicker
+                      value={endDate}
+                      onChange={setEndDate}
+                      minDate={startDate || formatDateToIso(new Date())}
+                    />
+                    <TimeWheelPicker
+                      value={endTimeVal}
+                      onChange={setEndTimeVal}
+                    />
+                  </div>
+                )}
               </div>
 
               {formValidationError && (
