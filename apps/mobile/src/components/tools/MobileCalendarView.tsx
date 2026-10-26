@@ -31,6 +31,18 @@ import {
 } from '../../services/circle-tools.service';
 import { CalendarEventEntity } from '@circle/types';
 
+const isLocationUrl = (loc?: string | null): boolean => {
+  if (!loc) return false;
+  return /(https?:\/\/[^\s]+|(?:meet\.google\.com|maps\.google\.com|maps\.app\.goo\.gl|goo\.gl\/maps)\/[^\s]+)/i.test(loc);
+};
+
+const extractLocationUrl = (loc?: string | null): string | null => {
+  if (!loc) return null;
+  const match = loc.match(/(https?:\/\/[^\s]+|(?:meet\.google\.com|maps\.google\.com|maps\.app\.goo\.gl|goo\.gl\/maps)\/[^\s]+)/i);
+  if (!match) return null;
+  return match[0].startsWith('http') ? match[0] : `https://${match[0]}`;
+};
+
 interface MobileCalendarViewProps {
   circleId: string;
 }
@@ -261,11 +273,10 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
                   {ev.location ? (
                     <TouchableOpacity
                       activeOpacity={0.7}
-                      disabled={!/(https?://[^s]+|(?:meet.google.com|maps.google.com|maps.app.goo.gl|goo.gl/maps)/[^s]+)/i.test(ev.location)}
+                      disabled={!isLocationUrl(ev.location)}
                       onPress={() => {
-                        const match = ev.location?.match(/(https?://[^s]+|(?:meet.google.com|maps.google.com|maps.app.goo.gl|goo.gl/maps)/[^s]+)/i);
-                        if (match) {
-                          const url = match[0].startsWith('http') ? match[0] : `https://${match[0]}`;
+                        const url = extractLocationUrl(ev.location);
+                        if (url) {
                           Linking.openURL(url).catch(() => {});
                         }
                       }}
@@ -275,7 +286,7 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
                       <Text
                         style={[
                           styles.eventInfoText,
-                          /(https?://[^s]+|(?:meet.google.com|maps.google.com|maps.app.goo.gl|goo.gl/maps)/[^s]+)/i.test(ev.location) && {
+                          isLocationUrl(ev.location) && {
                             color: '#0284C7',
                             textDecorationLine: 'underline',
                           },
