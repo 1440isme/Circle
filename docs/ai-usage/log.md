@@ -4912,3 +4912,22 @@
   - TypeScript Typecheck: `npx tsc --noEmit -p apps/web/tsconfig.json` (0 errors).
 - **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
 - **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+
+
+---
+
+### AI-0140: Loại bỏ phím tắt Hôm nay / Ngày mai khỏi bộ chọn lịch
+- **Timestamp:** 2026-10-26T16:59:00+07:00
+- **Task ID:** Feature #101 (Tạo và quản lý lịch hẹn / sự kiện nhóm)
+- **Engineers:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Feature / Area:** Web Tools — Calendar Date & Time Wheel Picker (`CustomDateTimePicker.tsx`).
+- **Files Affected:**
+  - `apps/web/src/components/tools/CustomDateTimePicker.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:**
+  - Loại bỏ hoàn toàn hàng phím tắt "Hôm nay / Ngày mai" ở phía dưới lưới ngày của lịch để giao diện gọn gàng, tối giản.
+- **Human Modifications:** Trương Công Bình chỉ đạo yêu cầu: "bỏ luôn dòng hôm nay ngày mai luôn".
+- **Verification Method:**
+  - TypeScript Typecheck: `npx tsc --noEmit -p apps/web/tsconfig.json` (0 errors).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
