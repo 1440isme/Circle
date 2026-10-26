@@ -9,6 +9,7 @@ interface EventLocationDisplayProps {
 
 export interface ParsedLocation {
   type: 'meet' | 'map' | 'link' | 'mixed' | 'text';
+  category: 'meet' | 'map' | 'link' | 'text';
   text: string;
   url: string | null;
   linkText: string | null;
@@ -17,7 +18,7 @@ export interface ParsedLocation {
 export function parseEventLocation(raw: string): ParsedLocation {
   const trimmed = raw.trim();
   if (!trimmed) {
-    return { type: 'text', text: '', url: null, linkText: null };
+    return { type: 'text', category: 'text', text: '', url: null, linkText: null };
   }
 
   // Regex to extract URL (with or without http/https)
@@ -26,7 +27,7 @@ export function parseEventLocation(raw: string): ParsedLocation {
   const match = trimmed.match(urlPattern);
 
   if (!match) {
-    return { type: 'text', text: trimmed, url: null, linkText: null };
+    return { type: 'text', category: 'text', text: trimmed, url: null, linkText: null };
   }
 
   const rawUrl = match[0];
@@ -67,6 +68,7 @@ export function parseEventLocation(raw: string): ParsedLocation {
   if (isFullUrl) {
     return {
       type: category,
+      category,
       text: defaultLabel,
       url,
       linkText: defaultLabel,
@@ -75,6 +77,7 @@ export function parseEventLocation(raw: string): ParsedLocation {
 
   return {
     type: 'mixed',
+    category,
     text: textPrefix || trimmed,
     url,
     linkText: defaultLabel,
@@ -137,18 +140,35 @@ export const EventLocationDisplay: React.FC<EventLocationDisplayProps> = ({
     );
   }
 
-  // Mixed text + URL (e.g. "Phòng B204 - meet.google.com/xyz")
+  // Mixed text + URL (e.g. "Đại học Sư phạm Kỹ thuật - maps.google.com/...")
   if (parsed.type === 'mixed') {
+    const isMapCategory = parsed.category === 'map';
+    const isMeetCategory = parsed.category === 'meet';
+
     return (
       <div className={`flex items-center flex-wrap gap-1.5 ${className}`}>
-        <MapPin className={`${iconClassName} text-circle-slate dark:text-circle-dark-muted`} />
+        {isMeetCategory ? (
+          <Video className={`${iconClassName} text-blue-500`} />
+        ) : (
+          <MapPin
+            className={`${iconClassName} ${
+              isMapCategory ? 'text-rose-500' : 'text-circle-slate dark:text-circle-dark-muted'
+            }`}
+          />
+        )}
         {parsed.text && <span className="truncate font-medium">{parsed.text}</span>}
         <a
           href={parsed.url}
           target="_blank"
           rel="noopener noreferrer"
           onClick={(e) => e.stopPropagation()}
-          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20 text-[10px] font-semibold transition-colors"
+          className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold transition-colors ${
+            isMeetCategory
+              ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20'
+              : isMapCategory
+              ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-500/20'
+              : 'bg-teal-500/10 text-teal-600 dark:text-teal-400 hover:bg-teal-500/20'
+          }`}
           title={parsed.url}
         >
           <span>{parsed.linkText}</span>

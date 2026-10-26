@@ -22,6 +22,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { EventLocationDisplay } from './EventLocationDisplay';
+import { LocationSearchInput } from './LocationSearchInput';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguageStore } from '../../stores/language.store';
 import { useCircleStore } from '../../stores/circle.store';
@@ -802,25 +803,11 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                 <label className="block text-xs font-semibold text-circle-slate dark:text-circle-dark-muted mb-1">
                   Địa điểm (tùy chọn)
                 </label>
-                <input
-                  type="text"
+                <LocationSearchInput
                   value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  placeholder="Ví dụ: Phòng B204, hoặc dán link Google Meet, Google Maps..."
-                  className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas px-3.5 py-2 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-hidden focus:ring-1 focus:ring-circle-sage"
+                  onChange={setLocation}
+                  placeholder="Tìm kiếm địa điểm trên bản đồ hoặc dán link Google Meet / Google Maps..."
                 />
-                {location.trim() && (
-                  <div className="mt-1.5 p-2 rounded-xl bg-circle-wash/70 dark:bg-circle-dark-wash/70 border border-circle-hairline/60 dark:border-circle-dark-hairline/60">
-                    <span className="text-[10px] text-circle-slate dark:text-circle-dark-muted block mb-1 font-medium">
-                      Xem trước hiển thị:
-                    </span>
-                    <EventLocationDisplay
-                      location={location}
-                      className="text-xs"
-                      iconClassName="h-3.5 w-3.5 shrink-0"
-                    />
-                  </div>
-                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3">
