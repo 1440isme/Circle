@@ -5008,3 +5008,23 @@
   - TypeScript Typecheck: 0 errors trong `MobileCalendarView.tsx`.
 - **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
 - **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+
+
+---
+
+### AI-0144: Sửa lỗi không ấn được chọn ngày giờ trên Mobile App bằng cách chuyển sang In-Modal Overlay
+- **Timestamp:** 2026-10-26T17:54:00+07:00
+- **Task ID:** Feature #101 (Tạo và quản lý lịch hẹn / sự kiện nhóm)
+- **Engineers:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Feature / Area:** Mobile Tools — Date & Time Picker Interaction (`MobileCalendarView.tsx`).
+- **Files Affected:**
+  - `apps/mobile/src/components/tools/MobileCalendarView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:**
+  - **Nguyên nhân lỗi:** Trên iOS và Android (React Native), việc mở một thẻ `<Modal>` lồng bên trong một `<Modal>` khác (`isAddModalOpen` đang mở rồi mở tiếp `isPickerOpen`) bị UIKit và Android WindowManager chặn cơ chế trình chiếu (`presentation is in progress`), dẫn đến việc bấm vào ô Ngày bắt đầu / Kết thúc không phản hồi.
+  - **Giải pháp:** Chuyển bộ chọn ngày & giờ sang dạng `in-modal overlay` (`position: 'absolute', inset: 0, zIndex: 9999`) nằm ngay trong Modal tạo sự kiện duy nhất, kèm `activeOpacity={0.7}` và rung phản hồi `Haptics.selectionAsync()`. Giờ đây khi chạm vào ô thời gian bắt đầu hoặc kết thúc, hộp thoại chọn ngày giờ 24h xuất hiện ngay lập tức và mượt mà trên mọi thiết bị di động.
+- **Human Modifications:** Trương Công Bình báo lỗi: "ở app ko ấn được chỗ ngày bắt đầu, ngày kết thúc để đổi ngày hoặc giờ khác".
+- **Verification Method:**
+  - Babel Expo compilation: pass 100% (35.902 bytes).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
