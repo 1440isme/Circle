@@ -27,7 +27,6 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
   className = '',
 }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'date' | 'time'>('date');
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Phân tích value thành date ("YYYY-MM-DD") và time ("HH:mm")
@@ -40,7 +39,7 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
   }, [value]);
 
   // Phân tích min
-  const { minDatePart, minTimePart } = useMemo(() => {
+  const { minDatePart } = useMemo(() => {
     if (!min || !min.includes('T')) {
       return { minDatePart: '', minTimePart: '' };
     }
@@ -48,7 +47,7 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
     return { minDatePart: d, minTimePart: t ? t.slice(0, 5) : '' };
   }, [min]);
 
-  // Hiển thị ngày dạng dd/mm/yyyy
+  // Hiển thị ngày dạng dd/mm/yyyy HH:mm
   const formattedDisplay = useMemo(() => {
     if (!datePart) return '';
     const parts = datePart.split('-');
@@ -69,7 +68,7 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
 
   const [currentViewDate, setCurrentViewDate] = useState<Date>(initialCalendarDate);
 
-  // Wheel state
+  // Wheel state (24h: 00 - 23, 00 - 59)
   const [hStr, mStr] = (timePart || '00:00').split(':');
   const [activeHour, setActiveHour] = useState(parseInt(hStr || '0', 10));
   const [activeMinute, setActiveMinute] = useState(parseInt(mStr || '0', 10));
@@ -77,7 +76,7 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
   const hoursScrollRef = useRef<HTMLDivElement>(null);
   const minutesScrollRef = useRef<HTMLDivElement>(null);
 
-  // Sync state khi value thay đổi
+  // Sync state khi value thay đổi từ ngoài
   useEffect(() => {
     if (datePart) {
       const [y, m, d] = datePart.split('-').map(Number);
@@ -92,7 +91,7 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
     if (!isNaN(nm)) setActiveMinute(nm);
   }, [datePart, timePart]);
 
-  // Đóng khi click ngoài
+  // Đóng khi click ra ngoài popover
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
@@ -119,16 +118,16 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
     }
   }, []);
 
-  // Cuộn bánh xe khi mở tab Giờ
+  // Tự động cuộn bánh xe giờ vào vị trí trung tâm khi mở popover
   useEffect(() => {
-    if (isOpen && activeTab === 'time') {
+    if (isOpen) {
       const timer = setTimeout(() => {
         scrollTo(hoursScrollRef.current, activeHour, false);
         scrollTo(minutesScrollRef.current, activeMinute, false);
-      }, 50);
+      }, 40);
       return () => clearTimeout(timer);
     }
-  }, [isOpen, activeTab, activeHour, activeMinute, scrollTo]);
+  }, [isOpen, activeHour, activeMinute, scrollTo]);
 
   // Calendar calculations
   const year = currentViewDate.getFullYear();
@@ -153,9 +152,8 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
   const handleSelectDay = (dayNum: number) => {
     const pad = (n: number) => String(n).padStart(2, '0');
     const newDatePart = `${year}-${pad(month)}-${pad(dayNum)}`;
-    const curTime = timePart || '00:00';
+    const curTime = `${pad(activeHour)}:${pad(activeMinute)}`;
     onChange(`${newDatePart}T${curTime}`);
-    setActiveTab('time'); // Tự động chuyển qua tab Giờ để chọn giờ mượt mà
   };
 
   // Wheel scroll handlers
@@ -219,7 +217,7 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
 
   return (
     <div ref={containerRef} className="relative w-full">
-      {/* Input box trigger giữ đúng kiểu dáng cũ */}
+      {/* Input box trigger hiển thị dd/mm/yyyy HH:mm */}
       <div
         onClick={() => setIsOpen(!isOpen)}
         className={`w-full flex items-center justify-between rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas px-2.5 py-2 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-hidden focus:ring-1 focus:ring-circle-sage cursor-pointer select-none transition-all ${
@@ -228,7 +226,9 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
       >
         <span
           className={`truncate font-medium ${
-            formattedDisplay ? 'text-circle-charcoal dark:text-circle-dark-text font-semibold' : 'text-circle-slate/60 dark:text-circle-dark-muted/60'
+            formattedDisplay
+              ? 'text-circle-charcoal dark:text-circle-dark-text font-semibold'
+              : 'text-circle-slate/60 dark:text-circle-dark-muted/60'
           }`}
         >
           {formattedDisplay || placeholder}
@@ -252,51 +252,19 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
         </div>
       </div>
 
-      {/* Popover Picker */}
+      {/* Popover Picker: 1 BÊN LỊCH & 1 BÊN GIỜ (Side-by-side) */}
       {isOpen && (
         <div
           className={`absolute ${
             align === 'right' ? 'right-0' : 'left-0'
-          } top-full mt-1.5 z-50 w-[300px] rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface shadow-2xl p-3 animate-in fade-in zoom-in-95 duration-150`}
+          } top-full mt-1.5 z-50 w-[380px] max-w-[calc(100vw-32px)] rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface shadow-2xl p-3 animate-in fade-in zoom-in-95 duration-150`}
         >
-          {/* Header với 2 Tab: Ngày (dd/mm/yyyy) & Giờ (24h) */}
-          <div className="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-circle-canvas dark:bg-circle-dark-canvas mb-3">
-            <button
-              type="button"
-              onClick={() => setActiveTab('date')}
-              className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-bold transition-all ${
-                activeTab === 'date'
-                  ? 'bg-circle-charcoal dark:bg-circle-primary text-white dark:text-circle-charcoal shadow-xs'
-                  : 'text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text'
-              }`}
-            >
-              <CalendarIcon className="h-3.5 w-3.5" />
-              <span>
-                {datePart
-                  ? `${datePart.split('-')[2]}/${datePart.split('-')[1]}/${datePart.split('-')[0]}`
-                  : 'Chọn ngày'}
-              </span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab('time')}
-              className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-bold transition-all ${
-                activeTab === 'time'
-                  ? 'bg-circle-charcoal dark:bg-circle-primary text-white dark:text-circle-charcoal shadow-xs'
-                  : 'text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text'
-              }`}
-            >
-              <Clock className="h-3.5 w-3.5" />
-              <span>{timePart || '00:00'} (24h)</span>
-            </button>
-          </div>
-
-          {/* TAB 1: NGÀY (dd/mm/yyyy) */}
-          {activeTab === 'date' && (
-            <div>
-              {/* Month Navigation */}
-              <div className="flex items-center justify-between pb-2 mb-1 border-b border-circle-hairline/60 dark:border-circle-dark-hairline/60">
+          {/* Khu vực chính: 2 Cột song song */}
+          <div className="flex gap-3">
+            {/* CỘT BÊN TRÁI: LỊCH (Tháng, Ngày) */}
+            <div className="flex-1 min-w-[210px]">
+              {/* Header điều hướng tháng */}
+              <div className="flex items-center justify-between pb-2 mb-1.5 border-b border-circle-hairline/60 dark:border-circle-dark-hairline/60">
                 <span className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
                   Tháng {month}/{year}
                 </span>
@@ -318,7 +286,7 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
                 </div>
               </div>
 
-              {/* Day of Week Headers */}
+              {/* Tên các thứ trong tuần */}
               <div className="grid grid-cols-7 gap-1 text-center mb-1">
                 {['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'].map((d, i) => (
                   <span
@@ -332,7 +300,7 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
                 ))}
               </div>
 
-              {/* Days Grid */}
+              {/* Lưới ngày */}
               <div className="grid grid-cols-7 gap-1">
                 {Array.from({ length: firstDayOfWeek }).map((_, i) => (
                   <div key={`empty-${i}`} className="h-7 w-7" />
@@ -364,16 +332,15 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
                 })}
               </div>
 
-              {/* Shortcuts */}
-              <div className="flex items-center justify-between pt-2.5 mt-2 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60">
+              {/* Phím tắt Hôm nay / Ngày mai */}
+              <div className="flex items-center justify-between pt-2 mt-2 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60">
                 <button
                   type="button"
                   onClick={() => {
                     const now = new Date();
                     const pad = (n: number) => String(n).padStart(2, '0');
                     const todayIso = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-                    onChange(`${todayIso}T${timePart || '00:00'}`);
-                    setActiveTab('time');
+                    onChange(`${todayIso}T${pad(activeHour)}:${pad(activeMinute)}`);
                   }}
                   className="text-[11px] font-semibold text-circle-sage dark:text-circle-primary hover:underline"
                 >
@@ -385,8 +352,7 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
                     const tmrw = new Date(Date.now() + 86400000);
                     const pad = (n: number) => String(n).padStart(2, '0');
                     const tmrwIso = `${tmrw.getFullYear()}-${pad(tmrw.getMonth() + 1)}-${pad(tmrw.getDate())}`;
-                    onChange(`${tmrwIso}T${timePart || '00:00'}`);
-                    setActiveTab('time');
+                    onChange(`${tmrwIso}T${pad(activeHour)}:${pad(activeMinute)}`);
                   }}
                   className="text-[11px] font-semibold text-circle-slate hover:text-circle-charcoal dark:hover:text-circle-dark-text"
                 >
@@ -394,26 +360,27 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
                 </button>
               </div>
             </div>
-          )}
 
-          {/* TAB 2: GIỜ (24 giờ với CỤC ĐEN CỐ ĐỊNH Ở GIỮA) */}
-          {activeTab === 'time' && (
-            <div>
-              {/* Presets */}
-              <div className="flex items-center gap-1 pb-2 overflow-x-auto scrollbar-none mb-1">
+            {/* ĐƯỜNG KẺ DỌC PHÂN CHIA LỊCH VÀ GIỜ */}
+            <div className="w-px bg-circle-hairline/60 dark:bg-circle-dark-hairline/60 self-stretch my-0.5" />
+
+            {/* CỘT BÊN PHẢI: BÁNH XE GIỜ 24H (00 - 23, KHÔNG CÓ AM/PM, CỤC ĐEN CỐ ĐỊNH Ở GIỮA) */}
+            <div className="w-[124px] shrink-0 flex flex-col justify-between">
+              {/* Presets giờ nhanh */}
+              <div className="grid grid-cols-3 gap-1 pb-1.5 border-b border-circle-hairline/60 dark:border-circle-dark-hairline/60">
                 {[
-                  { label: '00:00', h: 0, m: 0 },
                   { label: '08:00', h: 8, m: 0 },
                   { label: '12:00', h: 12, m: 0 },
                   { label: '14:00', h: 14, m: 0 },
                   { label: '18:00', h: 18, m: 0 },
                   { label: '20:00', h: 20, m: 0 },
+                  { label: '00:00', h: 0, m: 0 },
                 ].map((p) => (
                   <button
                     key={p.label}
                     type="button"
                     onClick={() => setPresetTime(p.h, p.m)}
-                    className={`px-1.5 py-0.5 rounded-md text-[10px] font-semibold transition-colors shrink-0 ${
+                    className={`py-0.5 rounded-md text-[9px] font-semibold transition-colors text-center ${
                       activeHour === p.h && activeMinute === p.m
                         ? 'bg-circle-charcoal dark:bg-circle-primary text-white dark:text-circle-charcoal'
                         : 'bg-circle-wash dark:bg-circle-dark-wash text-circle-slate hover:text-circle-charcoal dark:hover:text-circle-dark-text'
@@ -424,16 +391,16 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
                 ))}
               </div>
 
-              {/* Bánh xe cuộn giờ 24h có CỤC ĐEN CỐ ĐỊNH Ở GIỮA */}
-              <div className="relative h-[180px] w-full rounded-xl bg-circle-canvas/60 dark:bg-circle-dark-canvas/60 border border-circle-hairline/60 dark:border-circle-dark-hairline/60 overflow-hidden flex justify-center items-center select-none">
-                {/* Cục đen cố định ở giữa */}
-                <div className="absolute inset-x-3 top-[70px] h-10 rounded-xl bg-circle-charcoal dark:bg-circle-primary shadow-lg pointer-events-none z-0 border border-white/10" />
+              {/* Bánh xe cuộn giờ 24h với CỤC ĐEN CỐ ĐỊNH Ở GIỮA */}
+              <div className="relative h-[180px] w-full rounded-xl bg-circle-canvas/60 dark:bg-circle-dark-canvas/60 border border-circle-hairline/60 dark:border-circle-dark-hairline/60 overflow-hidden flex justify-center items-center select-none my-1">
+                {/* CỤC ĐEN CỐ ĐỊNH LƯỚT GIỜ */}
+                <div className="absolute inset-x-1.5 top-[70px] h-10 rounded-xl bg-circle-charcoal dark:bg-circle-primary shadow-lg pointer-events-none z-0 border border-white/10" />
 
-                {/* Cột Giờ (00 - 23) */}
+                {/* Cột Giờ 24h (00 - 23) */}
                 <div
                   ref={hoursScrollRef}
                   onScroll={handleHoursScroll}
-                  className="h-full w-20 overflow-y-auto snap-y snap-mandatory scrollbar-none z-10 text-center py-0"
+                  className="h-full w-14 overflow-y-auto snap-y snap-mandatory scrollbar-none z-10 text-center py-0"
                   style={{ scrollBehavior: 'smooth' }}
                 >
                   <div className="h-[70px] shrink-0 pointer-events-none" />
@@ -457,7 +424,7 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
                 </div>
 
                 {/* Dấu hai chấm cố định */}
-                <div className="z-10 font-black text-lg text-white dark:text-circle-charcoal pointer-events-none px-1">
+                <div className="z-10 font-black text-sm text-white dark:text-circle-charcoal pointer-events-none px-0.5">
                   :
                 </div>
 
@@ -465,7 +432,7 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
                 <div
                   ref={minutesScrollRef}
                   onScroll={handleMinutesScroll}
-                  className="h-full w-20 overflow-y-auto snap-y snap-mandatory scrollbar-none z-10 text-center py-0"
+                  className="h-full w-14 overflow-y-auto snap-y snap-mandatory scrollbar-none z-10 text-center py-0"
                   style={{ scrollBehavior: 'smooth' }}
                 >
                   <div className="h-[70px] shrink-0 pointer-events-none" />
@@ -489,20 +456,26 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
                 </div>
               </div>
 
-              <div className="pt-2 text-center">
-                <span className="text-[10px] text-circle-slate dark:text-circle-dark-muted">
-                  Lướt bánh xe để đổi giờ 24h
+              {/* Chú thích phía dưới cột giờ */}
+              <div className="text-center">
+                <span className="text-[9px] text-circle-slate dark:text-circle-dark-muted">
+                  Giờ 24h
                 </span>
               </div>
             </div>
-          )}
+          </div>
 
-          {/* Nút Đóng / Xác nhận */}
-          <div className="pt-2.5 mt-2 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60 flex items-center justify-end">
+          {/* Thanh Footer: Hiển thị giá trị & Nút Xong */}
+          <div className="pt-2.5 mt-2.5 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60 flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-xs text-circle-charcoal dark:text-circle-dark-text font-semibold">
+              <Clock className="h-3.5 w-3.5 text-circle-sage dark:text-circle-primary" />
+              <span>{formattedDisplay || 'dd/mm/yyyy --:--'}</span>
+            </div>
+
             <button
               type="button"
               onClick={() => setIsOpen(false)}
-              className="inline-flex items-center gap-1 rounded-lg bg-circle-charcoal dark:bg-circle-primary text-white dark:text-circle-charcoal px-3 py-1 text-xs font-semibold hover:bg-circle-sage transition-all"
+              className="inline-flex items-center gap-1 rounded-lg bg-circle-charcoal dark:bg-circle-primary text-white dark:text-circle-charcoal px-3 py-1 text-xs font-semibold hover:bg-circle-sage transition-all shadow-xs"
             >
               <Check className="h-3 w-3" />
               <span>Xong</span>
