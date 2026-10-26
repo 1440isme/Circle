@@ -14,8 +14,8 @@ interface CustomDateTimePickerProps {
 }
 
 const ITEM_HEIGHT = 40; // 40px mỗi slot
-const STAGE_HEIGHT = 220; // 220px tổng chiều cao bánh xe
-const PADDING_TOP_BOTTOM = (STAGE_HEIGHT - ITEM_HEIGHT) / 2; // 90px
+const STAGE_HEIGHT = 210; // 210px tổng chiều cao bánh xe khớp với cột lịch
+const PADDING_TOP_BOTTOM = (STAGE_HEIGHT - ITEM_HEIGHT) / 2; // 85px
 
 const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
 const MINUTES = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
@@ -464,11 +464,26 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
             <div className="w-px bg-circle-hairline/60 dark:bg-circle-dark-hairline/60 self-stretch my-0.5" />
 
             {/* CỘT BÊN PHẢI: BÁNH XE GIỜ 24H (KHÔNG KHUNG BO, KHÔNG THANH CUỘN, KHÔNG GỢI Ý, CỤC ĐEN CỐ ĐỊNH) */}
-            <div className="w-[120px] shrink-0 flex items-center justify-center">
+            <div className="w-[120px] shrink-0 flex flex-col justify-between">
+              {/* Header góc trên bên phải: Nút Xong */}
+              <div className="flex items-center justify-end pb-2 mb-1.5 border-b border-circle-hairline/60 dark:border-circle-dark-hairline/60">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsOpen(false);
+                    setCalendarMode('days');
+                  }}
+                  className="inline-flex items-center gap-1 rounded-lg bg-circle-charcoal dark:bg-circle-primary text-white dark:text-circle-charcoal px-2.5 py-0.5 text-xs font-semibold hover:bg-circle-sage transition-all shadow-xs"
+                >
+                  <Check className="h-3 w-3" />
+                  <span>Xong</span>
+                </button>
+              </div>
+
               {/* Vùng bánh xe tinh gọn không viền hộp */}
-              <div className="relative h-[220px] w-full overflow-hidden flex justify-center items-center select-none">
+              <div className="relative h-[210px] w-full overflow-hidden flex justify-center items-center select-none">
                 {/* CỤC ĐEN CỐ ĐỊNH LƯỚT GIỜ Ở CHÍNH GIỮA */}
-                <div className="absolute inset-x-1 top-[90px] h-10 rounded-xl bg-circle-charcoal dark:bg-circle-primary shadow-lg pointer-events-none z-0 border border-white/10" />
+                <div className="absolute inset-x-1 top-[85px] h-10 rounded-xl bg-circle-charcoal dark:bg-circle-primary shadow-lg pointer-events-none z-0 border border-white/10" />
 
                 {/* Cột Giờ 24h (00 - 23) - ẨN 100% THANH CUỘN */}
                 <div
@@ -477,7 +492,7 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
                   className="h-full w-14 overflow-y-auto snap-y snap-mandatory z-10 text-center py-0 scrollbar-none [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
                   style={{ scrollBehavior: 'smooth' }}
                 >
-                  <div className="h-[90px] shrink-0 pointer-events-none" />
+                  <div className="h-[85px] shrink-0 pointer-events-none" />
                   {HOURS.map((h, idx) => {
                     const isSelected = idx === activeHour;
                     return (
@@ -494,7 +509,7 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
                       </div>
                     );
                   })}
-                  <div className="h-[90px] shrink-0 pointer-events-none" />
+                  <div className="h-[85px] shrink-0 pointer-events-none" />
                 </div>
 
                 {/* Dấu hai chấm cố định */}
@@ -509,7 +524,7 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
                   className="h-full w-14 overflow-y-auto snap-y snap-mandatory z-10 text-center py-0 scrollbar-none [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
                   style={{ scrollBehavior: 'smooth' }}
                 >
-                  <div className="h-[90px] shrink-0 pointer-events-none" />
+                  <div className="h-[85px] shrink-0 pointer-events-none" />
                   {MINUTES.map((m, idx) => {
                     const isSelected = idx === activeMinute;
                     return (
@@ -526,30 +541,10 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
                       </div>
                     );
                   })}
-                  <div className="h-[90px] shrink-0 pointer-events-none" />
+                  <div className="h-[85px] shrink-0 pointer-events-none" />
                 </div>
               </div>
             </div>
-          </div>
-
-          {/* Thanh Footer: Hiển thị giá trị & Nút Xong */}
-          <div className="pt-2.5 mt-2.5 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60 flex items-center justify-between">
-            <div className="flex items-center gap-1.5 text-xs text-circle-charcoal dark:text-circle-dark-text font-semibold">
-              <Clock className="h-3.5 w-3.5 text-circle-sage dark:text-circle-primary" />
-              <span>{formattedDisplay || 'dd/mm/yyyy --:--'}</span>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => {
-                setIsOpen(false);
-                setCalendarMode('days');
-              }}
-              className="inline-flex items-center gap-1 rounded-lg bg-circle-charcoal dark:bg-circle-primary text-white dark:text-circle-charcoal px-3 py-1 text-xs font-semibold hover:bg-circle-sage transition-all shadow-xs"
-            >
-              <Check className="h-3 w-3" />
-              <span>Xong</span>
-            </button>
           </div>
         </div>
       )}
