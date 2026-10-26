@@ -81,8 +81,16 @@ import {
   ChevronRight,
   ChevronDown,
   Mic,
+  PhoneCall,
+  PhoneOff,
+  Pencil,
+  Trash2,
+  Ban,
+  EyeOff,
+  MoreVertical,
 } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { editMessageApi, recallMessageApi, clearChannelHistoryApi } from '../../src/services/chat.service';
 import { useThemeStore, MessageBubbleThemes, MessageTheme } from '../../src/stores/theme.store';
 import { getGlassTheme } from '../../src/constants/glass-theme';
 import { useLanguageStore } from '../../src/stores/language.store';
@@ -99,17 +107,22 @@ import {
   useMobileChannelTyping,
   useMyCirclesQuery,
 } from '../../src/hooks/use-circle-queries';
+import {
+  useInitiateCallMutation,
+  useJoinCallMutation,
+} from '../../src/hooks/use-call-queries';
 import { useEdgeSwipeDismiss } from '../../src/hooks/use-edge-swipe';
 import { uploadMobileMedia } from '../../src/services/storage-upload.service';
-import { subscribeSocketConnection, sendMobileMessageRead } from '../../src/services/socket';
-import { getStorageItem } from '../../src/services/storage';
+import { subscribeSocketConnection, sendMobileMessageRead, getMobileSocket } from '../../src/services/socket';
+import { getStorageItem, setStorageItem } from '../../src/services/storage';
 import { useQueryClient, InfiniteData } from '@tanstack/react-query';
-import { MessageType, CursorPaginatedMessages } from '@circle/types';
+import { MessageType, CursorPaginatedMessages, CallType, CallSessionDetailEntity, ClearChatMode } from '@circle/types';
 import { CircleManagementModal } from '../../src/components/circle/CircleManagementModal';
 import { MomentsView, parseMomentPhotos, MomentFeedPipView, formatMomentRelativeTime } from '../../src/components/moment/MomentsView';
 import { CreateCircleModal } from '../../src/components/circle/CreateCircleModal';
 import { JoinCircleModal } from '../../src/components/circle/JoinCircleModal';
 import { PinnedMessagesModal } from '../../src/components/chat/PinnedMessagesModal';
+import { MobileCallStageModal } from '../../src/components/call/MobileCallStageModal';
 import { Emoji } from '../../src/components/ui/Emoji';
 import { FullEmojiPickerModal } from '../../src/components/ui/FullEmojiPickerModal';
 import { PROMINENT_QUICK_EMOJIS } from '@circle/shared';
@@ -453,6 +466,11 @@ const MobileSwipeMessageBubble = React.memo(function MobileSwipeMessageBubble({
     });
   };
 
+  const isMentioned = !isSenderMe && Boolean(msg.content && (
+    msg.content.includes('@all') ||
+    msg.content.includes('@mọi người')
+  ));
+
   const rawReplyId = typeof msg.replyTo === 'string' ? msg.replyTo : (msg.replyTo?.id || msg.replyToId);
   const replyTarget =
     (typeof msg.replyTo === 'object' &&
@@ -603,6 +621,24 @@ const MobileSwipeMessageBubble = React.memo(function MobileSwipeMessageBubble({
             alignSelf: isSenderMe ? 'flex-end' : 'flex-start',
           }}
         >
+          {/* Mentioned indicator badge (CHT-22) */}
+          {isMentioned && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2, paddingHorizontal: 4 }}>
+              <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.primary }} />
+              <Text style={{ fontSize: 10, fontWeight: '700', color: colors.primary }}>
+                {t.chat?.mentionedYou || 'Đã nhắc đến bạn'}
+              </Text>
+            </View>
+          )}
+
+          {/* Pinned badge */}
+          {Boolean(msg.isPinned) && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 2, paddingHorizontal: 4 }}>
+              <Pin size={10} color={colors.subtle} />
+              <Text style={{ fontSize: 10, color: colors.subtle }}>{t.chat?.pinnedBadge || 'Đã ghim'}</Text>
+            </View>
+          )}
+
           <View
             style={[
               styles.messageBubble,
@@ -762,8 +798,92 @@ const MobileSwipeMessageBubble = React.memo(function MobileSwipeMessageBubble({
                 );
               })()}
 
-              {/* Message Content: Call Summary vs Standard Text */}
-              {callSummaryData ? (
+              {/* Message Content: Recalled vs Calendar Event vs Call Summary vs Standard Text */}
+              {Boolean(msg.deletedAt) ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 2, paddingHorizontal: 4 }}>
+                  <Ban size={14} color={isSenderMe ? senderTextColor : colors.subtle} style={{ opacity: 0.7 }} />
+                  <Text
+                    style={{
+                      fontSize: 13,
+                      fontStyle: 'italic',
+                      color: isSenderMe ? senderTextColor : colors.subtle,
+                      opacity: 0.8,
+                    }}
+                  >
+                    {t.chat?.messageRecalled || 'Tin nhắn đã được thu hồi'}
+                  </Text>
+                </View>
+              ) : Boolean(msg.content?.startsWith('[CALENDAR_EVENT]:')) ? (() => {
+                let calData: any = null;
+                try {
+                  calData = JSON.parse(msg.content.replace('[CALENDAR_EVENT]:', ''));
+                } catch {}
+                if (!calData) return null;
+                return (
+                  <View style={{ minWidth: 210, maxWidth: 280, gap: 6, paddingVertical: 4, paddingHorizontal: 2 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <View
+                        style={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: 10,
+                          backgroundColor: isSenderMe ? 'rgba(0,0,0,0.15)' : colors.wash,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <Calendar size={18} color={isSenderMe ? senderTextColor : colors.primary} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text
+                          style={{
+                            fontSize: 10,
+                            fontWeight: '700',
+                            textTransform: 'uppercase',
+                            color: isSenderMe ? senderTextColor : colors.primary,
+                            opacity: 0.85,
+                          }}
+                        >
+                          {t.chat?.calendarEventCardTitle || 'Sự kiện Vòng tròn'}
+                        </Text>
+                        <Text
+                          numberOfLines={1}
+                          style={{
+                            fontSize: 14,
+                            fontWeight: '700',
+                            color: isSenderMe ? senderTextColor : colors.text,
+                          }}
+                        >
+                          {calData.title}
+                        </Text>
+                      </View>
+                    </View>
+                    <View
+                      style={{
+                        backgroundColor: isSenderMe ? 'rgba(0,0,0,0.1)' : colors.wash,
+                        borderRadius: 8,
+                        padding: 8,
+                        gap: 4,
+                      }}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Clock size={12} color={isSenderMe ? senderTextColor : colors.subtle} />
+                        <Text style={{ fontSize: 11, color: isSenderMe ? senderTextColor : colors.subtle }}>
+                          {new Date(calData.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · {new Date(calData.startTime).toLocaleDateString([], { day: '2-digit', month: '2-digit' })}
+                        </Text>
+                      </View>
+                      {calData.location ? (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <MapPin size={12} color={isSenderMe ? senderTextColor : colors.subtle} />
+                          <Text numberOfLines={1} style={{ fontSize: 11, color: isSenderMe ? senderTextColor : colors.subtle, flex: 1 }}>
+                            {calData.location}
+                          </Text>
+                        </View>
+                      ) : null}
+                    </View>
+                  </View>
+                );
+              })() : callSummaryData ? (
                 <View style={styles.callNotificationRow}>
                   {callSummaryData.callType === 'VIDEO' ? (
                     <Video
@@ -806,6 +926,23 @@ const MobileSwipeMessageBubble = React.memo(function MobileSwipeMessageBubble({
                   ]}
                 >
                   {renderMobileContentWithMentions(msg.content)}
+                  {Boolean(
+                    msg.updatedAt &&
+                      msg.sentAt &&
+                      new Date(msg.updatedAt).getTime() - new Date(msg.sentAt).getTime() > 1000 &&
+                      !msg.deletedAt,
+                  ) && (
+                    <Text
+                      style={{
+                        fontSize: 10,
+                        fontStyle: 'italic',
+                        opacity: 0.65,
+                        color: isSenderMe ? senderTextColor : colors.subtle,
+                      }}
+                    >
+                      {' '}({t.chat?.editedLabel || 'đã sửa'})
+                    </Text>
+                  )}
                 </Text>
               ) : null}
 
@@ -1042,6 +1179,7 @@ export default function CircleWorkspaceScreen() {
   };
   const [isSocketConnected, setIsSocketConnected] = useState(true);
   const [replyingMessage, setReplyingMessage] = useState<any | null>(null);
+  const [editingMessage, setEditingMessage] = useState<any | null>(null);
   const [activeActionMessage, setActiveActionMessage] = useState<any | null>(null);
   const [activeTimestampMessageId, setActiveTimestampMessageId] = useState<string | null>(null);
   const [isPinnedModalVisible, setIsPinnedModalVisible] = useState(false);
@@ -1055,15 +1193,76 @@ export default function CircleWorkspaceScreen() {
 
   const scrollViewRef = useRef<ScrollView>(null);
 
+  const initiateCallMutation = useInitiateCallMutation();
+  const joinCallMutation = useJoinCallMutation();
+  const [activeCallStageSession, setActiveCallStageSession] = useState<CallSessionDetailEntity | null>(null);
+  const [incomingCallAlert, setIncomingCallAlert] = useState<{
+    callSessionId: string;
+    circleId: string;
+    circleName: string;
+    callType: CallType;
+    caller: {
+      userId: string;
+      displayName: string;
+      avatarUrl: string | null;
+    };
+  } | null>(null);
+
   useEffect(() => {
-    return subscribeSocketConnection((connected) => {
+    const unsub = subscribeSocketConnection((connected) => {
       setIsSocketConnected(connected);
     });
-  }, []);
+
+    let cleanupSocket: (() => void) | null = null;
+    getMobileSocket().then((socket) => {
+      if (!socket) return;
+
+      const handleIncomingCall = (payload: any) => {
+        if (payload.circleId === circleId && payload.caller?.userId !== user?.id) {
+          setIncomingCallAlert(payload);
+        }
+      };
+
+      const handleCallEnded = (payload: any) => {
+        if (payload.circleId === circleId) {
+          setIncomingCallAlert(null);
+        }
+      };
+
+      const handleChannelCleared = (payload: any) => {
+        if (payload.channelId === currentChannelId) {
+          queryClient.setQueryData(
+            ['messages', 'channel', currentChannelId],
+            () => ({
+              pages: [{ messages: [], nextCursor: null }],
+              pageParams: [undefined],
+            }),
+          );
+          queryClient.invalidateQueries({ queryKey: ['messages', 'channel', currentChannelId] });
+        }
+      };
+
+      socket.on('call:incoming', handleIncomingCall);
+      socket.on('call:ended', handleCallEnded);
+      socket.on('chat:channel-cleared', handleChannelCleared);
+
+      cleanupSocket = () => {
+        socket.off('call:incoming', handleIncomingCall);
+        socket.off('call:ended', handleCallEnded);
+        socket.off('chat:channel-cleared', handleChannelCleared);
+      };
+    });
+
+    return () => {
+      unsub();
+      if (cleanupSocket) cleanupSocket();
+    };
+  }, [circleId, user?.id]);
 
   // Queries & Mutations
   const { data: circle, isLoading: isLoadingCircle } = useCircleDetailQuery(circleId);
   const { data: members = [] } = useCircleMembersQuery(circleId);
+  const currentCircleMember = members.find((m: any) => m.userId === user?.id);
 
   // Synchronized Circle Theme Color (Pastel)
   const currentCircleTheme = (((circle as any)?.themeColor || 'sage') as MessageTheme);
@@ -1111,6 +1310,32 @@ export default function CircleWorkspaceScreen() {
     null;
 
   const currentChannelId = currentChannel?.id || null;
+
+  const [isClearChatModalOpen, setIsClearChatModalOpen] = useState(false);
+  const [clearChatMode, setClearChatMode] = useState<ClearChatMode>('FOR_ME');
+  const [isClearingChat, setIsClearingChat] = useState(false);
+
+  const handleConfirmClearChat = async () => {
+    if (!currentChannelId) return;
+    try {
+      setIsClearingChat(true);
+      await clearChannelHistoryApi(currentChannelId, { mode: clearChatMode });
+      setIsClearChatModalOpen(false);
+      queryClient.setQueryData(
+        ['messages', 'channel', currentChannelId],
+        () => ({
+          pages: [{ messages: [], nextCursor: null }],
+          pageParams: [undefined],
+        }),
+      );
+      queryClient.invalidateQueries({ queryKey: ['messages', 'channel', currentChannelId] });
+      Alert.alert(t.common.appName, t.chat?.clearChatSuccess || 'Đã xóa lịch sử cuộc trò chuyện');
+    } catch (err: any) {
+      Alert.alert(t.common.appName, err?.message || 'Không thể xóa lịch sử cuộc trò chuyện');
+    } finally {
+      setIsClearingChat(false);
+    }
+  };
 
   const {
     messages = [],
@@ -1219,9 +1444,43 @@ export default function CircleWorkspaceScreen() {
     clusters: MobileMessageCluster[];
   }
 
+  // Locally hidden messages ("Xóa phía tôi" - CHT-11)
+  const [hiddenMessageIds, setHiddenMessageIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!currentChannelId) return;
+    getStorageItem(`circle_hidden_messages_${currentChannelId}`).then((raw) => {
+      if (raw) {
+        try {
+          setHiddenMessageIds(JSON.parse(raw));
+        } catch {
+          setHiddenMessageIds([]);
+        }
+      } else {
+        setHiddenMessageIds([]);
+      }
+    }).catch(() => {});
+  }, [currentChannelId]);
+
+  const visibleMessages = useMemo(() => {
+    if (hiddenMessageIds.length === 0) return messages;
+    const hiddenSet = new Set(hiddenMessageIds);
+    return messages.filter((m) => !hiddenSet.has(m.id));
+  }, [messages, hiddenMessageIds]);
+
+  // Restore draft when currentChannelId changes (CHT-18)
+  useEffect(() => {
+    if (!currentChannelId) return;
+    getStorageItem(`circle_draft_${currentChannelId}`).then((draft) => {
+      if (draft && draft.trim()) {
+        setMessageInput(draft);
+      }
+    }).catch(() => {});
+  }, [currentChannelId]);
+
   // Group messages by date first, then cluster consecutive messages within each date
   const dateMap = new Map<string, any[]>();
-  messages.forEach((msg) => {
+  visibleMessages.forEach((msg) => {
     const dateLabel = getDateLabel(msg.sentAt || new Date().toISOString());
     if (!dateMap.has(dateLabel)) {
       dateMap.set(dateLabel, []);
@@ -1406,15 +1665,17 @@ export default function CircleWorkspaceScreen() {
     }
   };
 
-  const handleCallComingSoon = (type: 'audio' | 'video') => {
-    const title = type === 'video'
-      ? (locale === 'vi' ? 'Cuộc gọi Video' : 'Video Call')
-      : (locale === 'vi' ? 'Cuộc gọi Thoại' : 'Voice Call');
-    const message = locale === 'vi'
-      ? 'Tính năng gọi thoại & video đang phát triển cho Mobile (Coming Soon).\n\nBạn có thể trải nghiệm gọi trực tiếp ngay bây giờ trên phiên bản Web (Next.js) hoặc ứng dụng Android!'
-      : 'Voice & Video Calling is coming soon for Mobile.\n\nYou can currently enjoy realtime calling directly on the Web (Next.js) platform or Android app!';
-
-    Alert.alert(title, message, [{ text: 'OK', style: 'default' }]);
+  const handleStartCall = async (type: 'audio' | 'video') => {
+    try {
+      const callType = type === 'video' ? CallType.VIDEO : CallType.AUDIO;
+      const res: any = await initiateCallMutation.mutateAsync({ circleId, callType });
+      const session = res?.callSession || res;
+      if (session && session.id) {
+        setActiveCallStageSession(session);
+      }
+    } catch (err: any) {
+      Alert.alert(t.common.appName, err?.message || (locale === 'vi' ? 'Không thể bắt đầu cuộc gọi.' : 'Failed to start call.'));
+    }
   };
 
   const handlePickImage = async () => {
@@ -1433,7 +1694,29 @@ export default function CircleWorkspaceScreen() {
     }
   };
 
+  const handleRecallMessage = async (msgId: string) => {
+    try {
+      await recallMessageApi(msgId);
+    } catch (err: any) {
+      Alert.alert(t.common.appName, err?.message || 'Không thể thu hồi tin nhắn');
+    }
+  };
+
   const handleSendMessage = async () => {
+    if (editingMessage) {
+      const msgId = editingMessage.id;
+      const newContent = messageInput.trim();
+      if (!newContent) return;
+      setEditingMessage(null);
+      setMessageInput('');
+      try {
+        await editMessageApi(msgId, newContent);
+      } catch (err: any) {
+        Alert.alert(t.common.appName, err?.message || 'Không thể chỉnh sửa tin nhắn');
+      }
+      return;
+    }
+
     if ((!messageInput.trim() && !selectedImageUri) || !currentChannelId) return;
     const content = messageInput.trim();
     const replyToId = replyingMessage?.id;
@@ -1446,6 +1729,11 @@ export default function CircleWorkspaceScreen() {
     setMentionStartIndex(null);
     reportTyping(false, user?.profile?.displayName || user?.email);
     isNearBottomRef.current = true;
+
+    // Clear saved draft on send (CHT-18)
+    if (currentChannelId) {
+      setStorageItem(`circle_draft_${currentChannelId}`, '').catch(() => {});
+    }
 
     setTimeout(() => {
       scrollViewRef.current?.scrollToEnd({ animated: true });
@@ -1833,53 +2121,116 @@ export default function CircleWorkspaceScreen() {
               </TouchableOpacity>
             </View>
           ) : (
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => {
-                if (activeTab === 'moments') {
-                  setIsMomentsFilterOpen(!isMomentsFilterOpen);
-                } else {
-                  handleOpenSettings();
-                }
-              }}
-              style={[
-                styles.floatingTitlePill,
-                {
-                  backgroundColor: isGlass
-                    ? (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)')
-                    : colors.surface,
-                  borderColor: isGlass
-                    ? (isDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.07)')
-                    : colors.hairline,
-                  shadowOpacity: isGlass ? 0.05 : 0,
-                  elevation: isGlass ? 2 : 0,
-                },
-              ]}
-              accessibilityLabel={activeTab === 'moments' ? 'Lọc bạn bè' : 'Circle Settings'}
-            >
-              {activeTab === 'moments' ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => {
+                  if (activeTab === 'moments') {
+                    setIsMomentsFilterOpen(!isMomentsFilterOpen);
+                  } else {
+                    handleOpenSettings();
+                  }
+                }}
+                style={[
+                  styles.floatingTitlePill,
+                  {
+                    backgroundColor: isGlass
+                      ? (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)')
+                      : colors.surface,
+                    borderColor: isGlass
+                      ? (isDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.07)')
+                      : colors.hairline,
+                    shadowOpacity: isGlass ? 0.05 : 0,
+                    elevation: isGlass ? 2 : 0,
+                  },
+                ]}
+                accessibilityLabel={activeTab === 'moments' ? 'Lọc bạn bè' : 'Circle Settings'}
+              >
+                {activeTab === 'moments' ? (
+                  <>
+                    <Users size={13} color={colors.subtle} style={{ marginRight: 5 }} />
+                    <Text numberOfLines={1} style={[styles.floatingTitleText, { color: colors.text }]}>
+                      {(() => {
+                        if (momentsMemberFilter === 'all') {
+                          return members.length > 0 ? `${members.length} bạn bè` : 'Bạn bè';
+                        }
+                        const found = members.find((m: any) => (m.userId || m.id || m.user?.id) === momentsMemberFilter);
+                        return (found as any)?.nickname || (found as any)?.user?.profile?.displayName || (found as any)?.profile?.displayName || (found as any)?.user?.email?.split('@')[0] || 'Bạn bè';
+                      })()}
+                    </Text>
+                    <ChevronDown size={13} color={colors.subtle} style={{ marginLeft: 3 }} />
+                  </>
+                ) : (
+                  <>
+                    <Text numberOfLines={1} style={[styles.floatingTitleText, { color: colors.text }]}>
+                      {circle.name}
+                    </Text>
+                    <ChevronDown size={13} color={colors.subtle} style={{ marginLeft: 3 }} />
+                  </>
+                )}
+              </TouchableOpacity>
+
+              {activeTab === 'chat' && (
                 <>
-                  <Users size={13} color={colors.subtle} style={{ marginRight: 5 }} />
-                  <Text numberOfLines={1} style={[styles.floatingTitleText, { color: colors.text }]}>
-                    {(() => {
-                      if (momentsMemberFilter === 'all') {
-                        return members.length > 0 ? `${members.length} bạn bè` : 'Bạn bè';
-                      }
-                      const found = members.find((m: any) => (m.userId || m.id || m.user?.id) === momentsMemberFilter);
-                      return (found as any)?.nickname || (found as any)?.user?.profile?.displayName || (found as any)?.profile?.displayName || (found as any)?.user?.email?.split('@')[0] || 'Bạn bè';
-                    })()}
-                  </Text>
-                  <ChevronDown size={13} color={colors.subtle} style={{ marginLeft: 3 }} />
-                </>
-              ) : (
-                <>
-                  <Text numberOfLines={1} style={[styles.floatingTitleText, { color: colors.text }]}>
-                    {circle.name}
-                  </Text>
-                  <ChevronDown size={13} color={colors.subtle} style={{ marginLeft: 3 }} />
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    onPress={() => handleStartCall('audio')}
+                    style={[
+                      styles.headerActionCircleBtn,
+                      {
+                        backgroundColor: isGlass
+                          ? (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)')
+                          : colors.surface,
+                        borderColor: isGlass
+                          ? (isDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.07)')
+                          : colors.hairline,
+                      },
+                    ]}
+                    accessibilityLabel="Bắt đầu gọi thoại"
+                  >
+                    <Phone size={13} color={colors.text} />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    onPress={() => handleStartCall('video')}
+                    style={[
+                      styles.headerActionCircleBtn,
+                      {
+                        backgroundColor: isGlass
+                          ? (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)')
+                          : colors.surface,
+                        borderColor: isGlass
+                          ? (isDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.07)')
+                          : colors.hairline,
+                      },
+                    ]}
+                    accessibilityLabel="Bắt đầu gọi video"
+                  >
+                    <Video size={13} color={colors.text} />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    onPress={() => setIsClearChatModalOpen(true)}
+                    style={[
+                      styles.headerActionCircleBtn,
+                      {
+                        backgroundColor: isGlass
+                          ? (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)')
+                          : colors.surface,
+                        borderColor: isGlass
+                          ? (isDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.07)')
+                          : colors.hairline,
+                      },
+                    ]}
+                    accessibilityLabel={t.chat?.clearChatAction || 'Xóa lịch sử trò chuyện'}
+                  >
+                    <Trash2 size={13} color={colors.text} />
+                  </TouchableOpacity>
                 </>
               )}
-            </TouchableOpacity>
+            </View>
           )}
         </View>
 
@@ -2337,6 +2688,78 @@ export default function CircleWorkspaceScreen() {
               </View>
             )}
 
+            {/* Editing Message Floating Pill (CHT-09) */}
+            {editingMessage && (
+              <View
+                style={[
+                  styles.replyPreviewBar,
+                  {
+                    backgroundColor: isDark ? 'rgba(245, 158, 11, 0.15)' : 'rgba(245, 158, 11, 0.1)',
+                    borderColor: 'rgba(245, 158, 11, 0.3)',
+                  },
+                ]}
+              >
+                <View style={styles.replyPreviewLeft}>
+                  <Pencil size={15} color="#f59e0b" style={{ marginRight: 4 }} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.replyPreviewAuthor, { color: '#f59e0b' }]}>
+                      {t.chat?.editingMessage || 'Đang chỉnh sửa tin nhắn'}
+                    </Text>
+                    <Text numberOfLines={1} style={[styles.replyPreviewContent, { color: colors.subtle }]}>
+                      {editingMessage.content}
+                    </Text>
+                  </View>
+                </View>
+                <TouchableOpacity
+                  onPress={() => {
+                    setEditingMessage(null);
+                    setMessageInput('');
+                  }}
+                  style={[styles.cancelReplyBtn, { backgroundColor: colors.wash }]}
+                >
+                  <X size={14} color={colors.subtle} />
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Draft Message Indicator (CHT-18) */}
+            {!editingMessage && !replyingMessage && messageInput.trim().length > 0 && (
+              <View
+                style={[
+                  styles.replyPreviewBar,
+                  {
+                    backgroundColor: colors.wash,
+                    borderColor: colors.hairline,
+                    paddingVertical: 5,
+                    marginBottom: 4,
+                  },
+                ]}
+              >
+                <View style={styles.replyPreviewLeft}>
+                  <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.warning, marginRight: 6 }} />
+                  <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: colors.warning }}>
+                      {t.chat?.draftLabel || 'Nháp'}:
+                    </Text>
+                    <Text numberOfLines={1} style={{ fontSize: 11, color: colors.subtle, flex: 1 }}>
+                      {messageInput}
+                    </Text>
+                  </View>
+                </View>
+                <TouchableOpacity
+                  onPress={() => {
+                    setMessageInput('');
+                    if (currentChannelId) {
+                      setStorageItem(`circle_draft_${currentChannelId}`, '').catch(() => {});
+                    }
+                  }}
+                  style={[styles.cancelReplyBtn, { backgroundColor: 'transparent' }]}
+                >
+                  <Text style={{ fontSize: 11, color: colors.subtle }}>{t.chat?.cancelBtn || 'Hủy'}</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
             {/* Mention Suggestions Horizontal Bar (Minimalism: Name only) */}
             {mentionCandidates.length > 0 && (
               <View
@@ -2410,6 +2833,9 @@ export default function CircleWorkspaceScreen() {
                   value={messageInput}
                   onChangeText={(text) => {
                     setMessageInput(text);
+                    if (currentChannelId) {
+                      setStorageItem(`circle_draft_${currentChannelId}`, text).catch(() => {});
+                    }
                     if (circleId) {
                       getStorageItem(`circle_${circleId}_typing_indicator`).then((v) => {
                         if (v === 'false') return;
@@ -2456,11 +2882,11 @@ export default function CircleWorkspaceScreen() {
                 </TouchableOpacity>
               </View>
 
-              {/* Right Standalone Action Button: Mic (when empty) vs Send (when typing) */}
+              {/* Right Standalone Action Button: Mic (when empty) vs Send (when typing) vs Save (when editing) */}
               <TouchableOpacity
                 activeOpacity={0.8}
                 onPress={
-                  (messageInput.trim() || selectedImageUri)
+                  (editingMessage || messageInput.trim() || selectedImageUri)
                     ? handleSendMessage
                     : () => {
                         triggerLightHaptic();
@@ -2473,7 +2899,9 @@ export default function CircleWorkspaceScreen() {
                 disabled={Boolean((messageInput.trim() || selectedImageUri) && (sendMessageMutation.isPending || isUploadingMedia))}
                 style={[
                   styles.standaloneActionBtn,
-                  (messageInput.trim() || selectedImageUri)
+                  editingMessage
+                    ? { backgroundColor: '#f59e0b' }
+                    : (messageInput.trim() || selectedImageUri)
                     ? { backgroundColor: activeCircleBubbleTheme.sendBtnBg }
                     : {
                         backgroundColor: isGlass
@@ -2485,9 +2913,17 @@ export default function CircleWorkspaceScreen() {
                         borderWidth: 1.2,
                       },
                 ]}
-                accessibilityLabel={(messageInput.trim() || selectedImageUri) ? 'Send Message' : 'Record Voice Message'}
+                accessibilityLabel={
+                  editingMessage
+                    ? 'Save Edit'
+                    : (messageInput.trim() || selectedImageUri)
+                    ? 'Send Message'
+                    : 'Record Voice Message'
+                }
               >
-                {(messageInput.trim() || selectedImageUri) ? (
+                {editingMessage ? (
+                  <Check size={18} color="#ffffff" />
+                ) : (messageInput.trim() || selectedImageUri) ? (
                   sendMessageMutation.isPending || isUploadingMedia ? (
                     <ActivityIndicator size="small" color={activeCircleBubbleTheme.sendBtnText} />
                   ) : (
@@ -2602,7 +3038,7 @@ export default function CircleWorkspaceScreen() {
                 {/* Tool 1: Realtime Voice Stage */}
                 <TouchableOpacity
                   activeOpacity={0.7}
-                  onPress={() => handleCallComingSoon('audio')}
+                  onPress={() => handleStartCall('audio')}
                   style={[styles.toolRow, { borderBottomColor: colors.hairline }]}
                 >
                   <Radio size={20} color={colors.text} />
@@ -2775,12 +3211,13 @@ export default function CircleWorkspaceScreen() {
 
             <View style={[styles.actionDivider, { backgroundColor: colors.hairline }]} />
 
-            {/* Quick Actions (Reply, Pin) */}
+            {/* Quick Actions (Reply, Pin, Edit, Recall) */}
             <View style={styles.actionButtonsRow}>
               <TouchableOpacity
                 activeOpacity={0.7}
                 onPress={() => {
                   setReplyingMessage(activeActionMessage);
+                  setEditingMessage(null);
                   setActiveActionMessage(null);
                 }}
                 style={[styles.actionBtnItem, { backgroundColor: colors.wash }]}
@@ -2790,6 +3227,114 @@ export default function CircleWorkspaceScreen() {
                 </View>
                 <Text style={[styles.actionBtnItemText, { color: colors.text }]}>{t.chat.replyAction}</Text>
               </TouchableOpacity>
+
+              {/* Edit Message Action (CHT-09: Author only) */}
+              {Boolean(
+                activeActionMessage &&
+                  (activeActionMessage.memberId === currentCircleMember?.id ||
+                    activeActionMessage.sender?.userId === user?.id) &&
+                  !activeActionMessage.deletedAt &&
+                  activeActionMessage.content &&
+                  !activeActionMessage.fileUrl &&
+                  !activeActionMessage.content.startsWith('['),
+              ) && (
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    const msgToEdit = activeActionMessage;
+                    setActiveActionMessage(null);
+                    setReplyingMessage(null);
+                    setEditingMessage(msgToEdit);
+                    setMessageInput(msgToEdit.content || '');
+                  }}
+                  style={[styles.actionBtnItem, { backgroundColor: colors.wash }]}
+                >
+                  <Pencil size={16} color={colors.primary} />
+                  <Text style={[styles.actionBtnItemText, { color: colors.text }]}>
+                    {t.chat?.editAction || 'Chỉnh sửa'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              {/* Recall Message Action (CHT-10: Author recalls for everyone) */}
+              {Boolean(
+                activeActionMessage &&
+                  (activeActionMessage.memberId === currentCircleMember?.id ||
+                    activeActionMessage.sender?.userId === user?.id) &&
+                  !activeActionMessage.deletedAt,
+              ) && (
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    const msgId = activeActionMessage.id;
+                    setActiveActionMessage(null);
+                    Alert.alert(
+                      t.chat?.recallConfirmTitle || 'Thu hồi tin nhắn?',
+                      t.chat?.recallConfirmMsg ||
+                        'Tin nhắn này sẽ bị thu hồi đối với tất cả thành viên trong Vòng tròn.',
+                      [
+                        { text: t.chat?.cancelBtn || 'Hủy', style: 'cancel' },
+                        {
+                          text: t.chat?.recallAction || 'Thu hồi',
+                          style: 'destructive',
+                          onPress: () => handleRecallMessage(msgId),
+                        },
+                      ],
+                    );
+                  }}
+                  style={[styles.actionBtnItem, { backgroundColor: colors.wash }]}
+                >
+                  <Trash2 size={16} color="#ef4444" />
+                  <Text style={[styles.actionBtnItemText, { color: '#ef4444' }]}>
+                    {t.chat?.recallAction || 'Thu hồi'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              {/* Remove other's message (Gỡ tin nhắn người khác - Mặc định chỉ phía người thao tác) */}
+              {Boolean(
+                activeActionMessage &&
+                  activeActionMessage.memberId !== currentCircleMember?.id &&
+                  activeActionMessage.sender?.userId !== user?.id,
+              ) && (
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    const targetMsgId = activeActionMessage.id;
+                    setActiveActionMessage(null);
+                    Alert.alert(
+                      t.chat?.removeAction || 'Gỡ tin nhắn?',
+                      t.chat?.removeForMeDesc ||
+                        'Gỡ tin nhắn này khỏi màn hình của bạn (không ảnh hưởng người khác trong nhóm).',
+                      [
+                        { text: t.chat?.cancelBtn || 'Hủy', style: 'cancel' },
+                        {
+                          text: t.chat?.removeAction || 'Gỡ tin nhắn',
+                          style: 'destructive',
+                          onPress: async () => {
+                            const updated = [...hiddenMessageIds, targetMsgId];
+                            setHiddenMessageIds(updated);
+                            if (currentChannelId) {
+                              try {
+                                await setStorageItem(
+                                  `circle_hidden_messages_${currentChannelId}`,
+                                  JSON.stringify(updated),
+                                );
+                              } catch {}
+                            }
+                          },
+                        },
+                      ],
+                    );
+                  }}
+                  style={[styles.actionBtnItem, { backgroundColor: colors.wash }]}
+                >
+                  <Trash2 size={16} color="#ef4444" />
+                  <Text style={[styles.actionBtnItemText, { color: '#ef4444' }]}>
+                    {t.chat?.removeAction || 'Gỡ tin nhắn'}
+                  </Text>
+                </TouchableOpacity>
+              )}
 
               {!activeActionMessage?.content?.startsWith?.('[CALL_SUMMARY]:') &&
                 !activeActionMessage?.content?.includes?.('"callType"') && (
@@ -2810,6 +3355,51 @@ export default function CircleWorkspaceScreen() {
                     </Text>
                   </TouchableOpacity>
                 )}
+
+              {/* Delete For Me Action (CHT-11: Hide own message on this device only) */}
+              {Boolean(
+                activeActionMessage &&
+                  (activeActionMessage.memberId === currentCircleMember?.id ||
+                    activeActionMessage.sender?.userId === user?.id),
+              ) && (
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => {
+                  const targetMsgId = activeActionMessage.id;
+                  setActiveActionMessage(null);
+                  Alert.alert(
+                    t.chat?.deleteForMeConfirmTitle || 'Xóa tin nhắn phía bạn?',
+                    t.chat?.deleteForMeConfirmMsg ||
+                      'Tin nhắn này sẽ chỉ bị ẩn khỏi thiết bị của bạn và không ảnh hưởng đến người khác.',
+                    [
+                      { text: t.chat?.cancelBtn || 'Hủy', style: 'cancel' },
+                      {
+                        text: t.chat?.deleteForMeAction || 'Xóa phía tôi',
+                        style: 'destructive',
+                        onPress: async () => {
+                          const updated = [...hiddenMessageIds, targetMsgId];
+                          setHiddenMessageIds(updated);
+                          if (currentChannelId) {
+                            try {
+                              await setStorageItem(
+                                `circle_hidden_messages_${currentChannelId}`,
+                                JSON.stringify(updated),
+                              );
+                            } catch {}
+                          }
+                        },
+                      },
+                    ],
+                  );
+                }}
+                style={[styles.actionBtnItem, { backgroundColor: colors.wash }]}
+              >
+                <EyeOff size={16} color={colors.subtle} />
+                <Text style={[styles.actionBtnItemText, { color: colors.text }]}>
+                  {t.chat?.deleteForMeAction || 'Xóa phía tôi'}
+                </Text>
+              </TouchableOpacity>
+              )}
             </View>
           </BlurView>
         </TouchableOpacity>
@@ -3047,6 +3637,102 @@ export default function CircleWorkspaceScreen() {
       {/* Circle Management Modal */}
       <CircleManagementModal />
 
+      {/* Mobile Realtime WebRTC Call Stage Modal */}
+      <MobileCallStageModal
+        visible={activeCallStageSession !== null}
+        callSession={activeCallStageSession}
+        onClose={() => setActiveCallStageSession(null)}
+      />
+
+      {/* Realtime Incoming Call Ringing Dialog */}
+      <Modal
+        visible={incomingCallAlert !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIncomingCallAlert(null)}
+      >
+        <View style={styles.incomingCallOverlay}>
+          <View style={[styles.incomingCallCard, { backgroundColor: '#13141a', borderColor: 'rgba(255,255,255,0.12)' }]}>
+            <View style={styles.incomingCallIconWrapper}>
+              <View style={[styles.incomingCallPulseRing, { backgroundColor: colors.primary }]} />
+              <View style={[styles.incomingCallIconCircle, { backgroundColor: colors.primary }]}>
+                {incomingCallAlert?.callType === CallType.VIDEO ? (
+                  <Video size={28} color={colors.onPrimary} />
+                ) : (
+                  <PhoneCall size={28} color={colors.onPrimary} />
+                )}
+              </View>
+            </View>
+
+            <Text style={styles.incomingCallBadge}>
+              {incomingCallAlert?.callType === CallType.VIDEO
+                ? (locale === 'vi' ? 'CUỘC GỌI VIDEO ĐẾN' : 'INCOMING VIDEO CALL')
+                : (locale === 'vi' ? 'CUỘC GỌI THOẠI ĐẾN' : 'INCOMING VOICE CALL')}
+            </Text>
+
+            <Text style={styles.incomingCallerName} numberOfLines={1}>
+              {incomingCallAlert?.caller?.displayName || t.calls.circleMemberDefault}
+            </Text>
+
+            <Text style={styles.incomingCallGroup} numberOfLines={1}>
+              {t.calls.callingInGroup} {incomingCallAlert?.circleName}
+            </Text>
+
+            <View style={styles.incomingCallActionsRow}>
+              {/* Decline Button */}
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => setIncomingCallAlert(null)}
+                style={styles.callActionBtnWrapper}
+              >
+                <View style={[styles.callActionCircle, { backgroundColor: 'rgba(239, 68, 68, 0.2)', borderColor: 'rgba(239, 68, 68, 0.3)' }]}>
+                  <PhoneOff size={22} color="#ef4444" />
+                </View>
+                <Text style={[styles.callActionLabel, { color: 'rgba(255,255,255,0.7)' }]}>
+                  {t.calls.ignoreCall}
+                </Text>
+              </TouchableOpacity>
+
+              {/* Accept Button */}
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={async () => {
+                  if (!incomingCallAlert) return;
+                  const alert = incomingCallAlert;
+                  try {
+                    await joinCallMutation.mutateAsync({ callSessionId: alert.callSessionId });
+                  } catch (e) {
+                    console.warn('Error joining call:', e);
+                  }
+                  const session: CallSessionDetailEntity = {
+                    id: alert.callSessionId,
+                    circleId: alert.circleId,
+                    callType: alert.callType,
+                    status: 'ACTIVE' as any,
+                    startedAt: new Date().toISOString(),
+                    participants: [],
+                    circle: {
+                      id: alert.circleId,
+                      name: alert.circleName,
+                    } as any,
+                  };
+                  setIncomingCallAlert(null);
+                  setActiveCallStageSession(session);
+                }}
+                style={styles.callActionBtnWrapper}
+              >
+                <View style={[styles.callActionCircle, { backgroundColor: '#10b981' }]}>
+                  <Phone size={22} color="#ffffff" />
+                </View>
+                <Text style={[styles.callActionLabel, { color: '#10b981', fontWeight: '700' }]}>
+                  {t.calls.joinCallAction}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* Pinned Messages Modal */}
       <PinnedMessagesModal
         visible={isPinnedModalVisible}
@@ -3057,6 +3743,187 @@ export default function CircleWorkspaceScreen() {
         colors={colors}
         t={t}
       />
+
+      {/* Clear Chat History Modal (Mobile) */}
+      <Modal
+        visible={isClearChatModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsClearChatModalOpen(false)}
+      >
+        <View style={styles.incomingCallOverlay}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={() => setIsClearChatModalOpen(false)}
+          />
+          <View
+            style={[
+              styles.incomingCallCard,
+              {
+                backgroundColor: isDark ? '#1a1b1f' : '#ffffff',
+                borderColor: colors.hairline,
+                padding: 20,
+                width: '90%',
+                maxWidth: 360,
+              },
+            ]}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+              <View
+                style={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: 12,
+                  backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 12,
+                }}
+              >
+                <Trash2 size={20} color="#ef4444" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: colors.text }}>
+                  {t.chat.clearChatModalTitle}
+                </Text>
+                <Text style={{ fontSize: 12, color: colors.subtle, marginTop: 2 }}>
+                  {t.chat.clearChatModalDesc}
+                </Text>
+              </View>
+            </View>
+
+            {/* Option 1: FOR_ME (Default) */}
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => setClearChatMode('FOR_ME')}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'flex-start',
+                padding: 12,
+                borderRadius: 14,
+                borderWidth: 1.5,
+                borderColor: clearChatMode === 'FOR_ME' ? colors.primary : colors.hairline,
+                backgroundColor: clearChatMode === 'FOR_ME' ? (isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.03)') : colors.wash,
+                marginBottom: 10,
+              }}
+            >
+              <View
+                style={{
+                  width: 18,
+                  height: 18,
+                  borderRadius: 9,
+                  borderWidth: 2,
+                  borderColor: clearChatMode === 'FOR_ME' ? colors.primary : colors.subtle,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 10,
+                  marginTop: 2,
+                }}
+              >
+                {clearChatMode === 'FOR_ME' && (
+                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.primary }} />
+                )}
+              </View>
+              <View style={{ flex: 1 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: colors.text }}>
+                    {t.chat.clearChatForMeTitle}
+                  </Text>
+                  <View style={{ backgroundColor: 'rgba(99, 102, 241, 0.15)', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 6 }}>
+                    <Text style={{ fontSize: 10, fontWeight: '600', color: colors.primary }}>Mặc định</Text>
+                  </View>
+                </View>
+                <Text style={{ fontSize: 11, color: colors.subtle, marginTop: 4, lineHeight: 15 }}>
+                  {t.chat.clearChatForMeDesc}
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            {/* Option 2: EVERYONE */}
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => setClearChatMode('EVERYONE')}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'flex-start',
+                padding: 12,
+                borderRadius: 14,
+                borderWidth: 1.5,
+                borderColor: clearChatMode === 'EVERYONE' ? '#ef4444' : colors.hairline,
+                backgroundColor: clearChatMode === 'EVERYONE' ? (isDark ? 'rgba(239, 68, 68, 0.12)' : 'rgba(239, 68, 68, 0.05)') : colors.wash,
+                marginBottom: 16,
+              }}
+            >
+              <View
+                style={{
+                  width: 18,
+                  height: 18,
+                  borderRadius: 9,
+                  borderWidth: 2,
+                  borderColor: clearChatMode === 'EVERYONE' ? '#ef4444' : colors.subtle,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 10,
+                  marginTop: 2,
+                }}
+              >
+                {clearChatMode === 'EVERYONE' && (
+                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#ef4444' }} />
+                )}
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: '#ef4444' }}>
+                  {t.chat.clearChatEveryoneTitle}
+                </Text>
+                <Text style={{ fontSize: 11, color: colors.subtle, marginTop: 4, lineHeight: 15 }}>
+                  {t.chat.clearChatEveryoneDesc}
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            {/* Buttons */}
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10 }}>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => setIsClearChatModalOpen(false)}
+                disabled={isClearingChat}
+                style={{
+                  paddingVertical: 10,
+                  paddingHorizontal: 16,
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: colors.hairline,
+                }}
+              >
+                <Text style={{ fontSize: 13, fontWeight: '600', color: colors.text }}>
+                  {t.chat.cancelBtn}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={handleConfirmClearChat}
+                disabled={isClearingChat}
+                style={{
+                  backgroundColor: '#ef4444',
+                  paddingVertical: 10,
+                  paddingHorizontal: 18,
+                  borderRadius: 12,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 6,
+                }}
+              >
+                {isClearingChat && <ActivityIndicator size="small" color="#ffffff" />}
+                <Text style={{ fontSize: 13, fontWeight: '700', color: '#ffffff' }}>
+                  {t.chat.clearChatAction}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Full Comprehensive Emoji Picker Modal */}
       <FullEmojiPickerModal
@@ -4449,5 +5316,88 @@ const styles = StyleSheet.create({
   switcherActionBtnSecondaryText: {
     fontSize: 13,
     fontWeight: '600',
+  },
+  headerActionCircleBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  incomingCallOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  incomingCallCard: {
+    width: '100%',
+    maxWidth: 340,
+    borderRadius: 28,
+    borderWidth: 1,
+    padding: 24,
+    alignItems: 'center',
+  },
+  incomingCallIconWrapper: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  incomingCallPulseRing: {
+    position: 'absolute',
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    opacity: 0.25,
+  },
+  incomingCallIconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  incomingCallBadge: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: 'rgba(255,255,255,0.7)',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  incomingCallerName: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#ffffff',
+    marginBottom: 2,
+  },
+  incomingCallGroup: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.6)',
+    marginBottom: 24,
+  },
+  incomingCallActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 36,
+  },
+  callActionBtnWrapper: {
+    alignItems: 'center',
+    gap: 6,
+  },
+  callActionCircle: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  callActionLabel: {
+    fontSize: 11,
   },
 });

@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   BadRequestException,
   Inject,
+  Optional,
   forwardRef,
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
@@ -31,6 +32,7 @@ import { SpinWheelResult } from '@circle/types';
 export class CircleToolsService {
   constructor(
     private readonly prisma: PrismaService,
+    @Optional()
     @Inject(forwardRef(() => ChatGateway))
     private readonly chatGateway?: ChatGateway,
   ) {}
@@ -501,7 +503,7 @@ export class CircleToolsService {
   async createCalendarEvent(circleId: string, userId: string, dto: CreateCalendarEventDto) {
     const member = await this.getMemberOrThrow(circleId, userId);
 
-    return this.prisma.calendarEvent.create({
+    const event = await this.prisma.calendarEvent.create({
       data: {
         circleId,
         createdById: member.id,
@@ -524,6 +526,64 @@ export class CircleToolsService {
         },
       },
     });
+
+    // Dispatch system calendar event message into primary circle channel (Issue #101 / CHT-20)
+    try {
+      const primaryChannel = await this.prisma.channel.findFirst({
+        where: { circleId, type: 'TEXT' },
+        orderBy: { createdAt: 'asc' },
+      });
+
+      if (primaryChannel) {
+        const creatorName =
+          (member as any).user?.profile?.displayName || member.nickname || 'Thành viên';
+        const payload = JSON.stringify({
+          eventId: event.id,
+          title: event.eventTitle,
+          startTime: event.startTime.toISOString(),
+          endTime: event.endTime ? event.endTime.toISOString() : null,
+          location: event.location || null,
+          creatorName,
+        });
+
+        const systemMessage = await this.prisma.message.create({
+          data: {
+            channelId: primaryChannel.id,
+            memberId: member.id,
+            type: 'TEXT',
+            content: `[CALENDAR_EVENT]:${payload}`,
+          },
+          include: {
+            sender: { include: { user: { include: { profile: true } } } },
+          },
+        });
+
+        if (this.chatGateway) {
+          this.chatGateway.broadcastNewMessage(primaryChannel.id, {
+            id: systemMessage.id,
+            channelId: primaryChannel.id,
+            memberId: member.id,
+            type: 'TEXT',
+            content: systemMessage.content,
+            sentAt: systemMessage.sentAt.toISOString(),
+            updatedAt: systemMessage.updatedAt.toISOString(),
+            deletedAt: null,
+            sender: {
+              id: member.id,
+              nickname: member.nickname,
+              user: {
+                id: member.userId,
+                profile: (member as any).user?.profile || null,
+              },
+            },
+          });
+        }
+      }
+    } catch {
+      // Non-blocking
+    }
+
+    return event;
   }
 
   async updateCalendarEvent(

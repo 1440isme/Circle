@@ -230,6 +230,7 @@ export interface MessageEntity {
   replyToId?: string | null;
   sentAt: string;
   updatedAt: string;
+  deletedAt?: string | null;
   sender?: CircleMemberEntity;
   replyTo?: {
     id: string;
@@ -261,6 +262,20 @@ export interface CursorPaginatedMessages {
   messages: MessageEntity[];
   nextCursor?: string | null;
   hasMore: boolean;
+}
+
+export interface SearchMessagesResult {
+  messages: MessageEntity[];
+  total: number;
+}
+
+export interface CalendarEventSystemMessagePayload {
+  eventId: string;
+  title: string;
+  startTime: string;
+  endTime?: string | null;
+  location?: string | null;
+  creatorName?: string;
 }
 
 export interface MomentVisibilityEntity {
@@ -938,5 +953,13 @@ export interface CreatePollInput {
 
 export interface VotePollInput {
   optionId: string;
+}
+
+export type ClearChatMode = 'FOR_ME' | 'EVERYONE';
+
+export interface ClearChatResult {
+  channelId: string;
+  mode: ClearChatMode;
+  clearedAt: string;
 }
 

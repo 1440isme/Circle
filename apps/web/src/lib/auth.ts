@@ -231,6 +231,33 @@ export async function searchPublicUsersApi(query?: string): Promise<PublicUserEn
   return res.data;
 }
 
+export interface ChangePasswordPayload {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
+/**
+ * ACC-10: Change user password in settings.
+ */
+export async function changePasswordApi(
+  payload: ChangePasswordPayload,
+): Promise<{ message: string }> {
+  const { refreshToken } = getStoredTokens();
+  const headers: Record<string, string> = {};
+  if (refreshToken) {
+    headers['x-refresh-token'] = refreshToken;
+  }
+
+  const res = await apiRequest<{ message: string }>('/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+    headers,
+  });
+
+  return res.data;
+}
+
 
 
 

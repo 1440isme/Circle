@@ -12,6 +12,12 @@ import {
   Video,
   Phone,
   Smile,
+  Calendar,
+  MapPin,
+  Pencil,
+  Trash2,
+  Ban,
+  EyeOff,
 } from 'lucide-react';
 import { MessageEntity, MessageType } from '@circle/types';
 import { PROMINENT_QUICK_EMOJIS } from '@circle/shared';
@@ -36,6 +42,9 @@ interface MessageBubbleProps {
   onReply: (message: MessageEntity) => void;
   onReact: (messageId: string, emoji: string) => void;
   onTogglePin: (messageId: string, isPinned: boolean) => void;
+  onEdit?: (message: MessageEntity) => void;
+  onRecall?: (messageId: string) => void;
+  onDeleteForMe?: (messageId: string) => void;
   onRetry?: (message: MessageEntity) => void;
   onJumpToMessage?: (messageId: string) => void;
 }
@@ -55,6 +64,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   onReply,
   onReact,
   onTogglePin,
+  onEdit,
+  onRecall,
+  onDeleteForMe,
   onRetry,
   onJumpToMessage,
 }) => {
@@ -157,6 +169,32 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     } catch {}
   }
 
+  const isCalendarEvent = Boolean(message.content?.startsWith('[CALENDAR_EVENT]:'));
+  let calendarEventData: {
+    eventId: string;
+    title: string;
+    startTime: string;
+    endTime?: string | null;
+    location?: string | null;
+    creatorName?: string;
+  } | null = null;
+
+  if (isCalendarEvent) {
+    try {
+      calendarEventData = JSON.parse(message.content!.replace('[CALENDAR_EVENT]:', ''));
+    } catch {}
+  }
+
+  const isRecalled = Boolean(message.deletedAt);
+  const isEdited = Boolean(
+    !isRecalled &&
+    !isCallSummary &&
+    !isCalendarEvent &&
+    message.updatedAt &&
+    message.sentAt &&
+    new Date(message.updatedAt).getTime() - new Date(message.sentAt).getTime() > 1000,
+  );
+
   const formatDuration = (sec: number) => {
     if (sec < 60) return t.calls.durationSeconds.replace('{sec}', String(sec));
     const m = Math.floor(sec / 60);
@@ -202,6 +240,14 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         <div className="flex items-center gap-1 text-[10px] font-medium text-circle-slate dark:text-circle-dark-muted mb-1 px-1">
           <Pin className="h-3 w-3" />
           <span>{t.chat.pinnedBadge}</span>
+        </div>
+      )}
+
+      {/* Mentioned indicator badge (CHT-22) */}
+      {!isSenderMe && message.content && (message.content.includes('@all') || message.content.includes('@mọi người')) && (
+        <div className="flex items-center gap-1 text-[10px] font-semibold text-circle-primary mb-1 px-1">
+          <span className="h-1.5 w-1.5 rounded-full bg-circle-primary animate-pulse" />
+          <span>{t.chat?.mentionedYou || 'Đã nhắc đến bạn'}</span>
         </div>
       )}
 
@@ -288,8 +334,69 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             </div>
           )}
 
-          {/* Message Content: Call Summary vs Standard Text */}
-          {isCallSummary && callSummaryData ? (
+          {/* Message Content: Recalled vs Calendar Event vs Call Summary vs Standard Text */}
+          {isRecalled ? (
+            <div className="flex items-center gap-1.5 py-1 px-1 text-xs italic opacity-60 select-none">
+              <Ban className="w-3.5 h-3.5 shrink-0" />
+              <span>{t.chat.messageRecalled}</span>
+            </div>
+          ) : isCalendarEvent && calendarEventData ? (
+            <div className="flex flex-col gap-2 py-1 pr-1 min-w-[240px] max-w-[320px]">
+              <div className="flex items-center gap-2">
+                <div
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${
+                    isSenderMe
+                      ? 'bg-black/15 dark:bg-white/20 text-current'
+                      : 'bg-circle-primary/10 text-circle-primary'
+                  }`}
+                >
+                  <Calendar className="h-4 w-4" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <span className="text-[10px] uppercase font-bold tracking-wider opacity-75">
+                    {t.chat.calendarEventCardTitle}
+                  </span>
+                  <h4 className="text-xs sm:text-sm font-bold truncate">
+                    {calendarEventData.title}
+                  </h4>
+                </div>
+              </div>
+              <div
+                className={`flex flex-col gap-1 text-[11px] rounded-lg p-2 ${
+                  isSenderMe ? 'bg-black/10 dark:bg-white/10' : 'bg-circle-wash dark:bg-circle-dark-wash'
+                }`}
+              >
+                <div className="flex items-center gap-1.5 opacity-90">
+                  <Clock className="h-3 w-3 shrink-0" />
+                  <span>
+                    {new Date(calendarEventData.startTime).toLocaleTimeString(
+                      locale === 'vi' ? 'vi-VN' : 'en-US',
+                      {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: false,
+                      },
+                    )}{' '}
+                    ·{' '}
+                    {new Date(calendarEventData.startTime).toLocaleDateString(
+                      locale === 'vi' ? 'vi-VN' : 'en-US',
+                      {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                      },
+                    )}
+                  </span>
+                </div>
+                {calendarEventData.location && (
+                  <div className="flex items-center gap-1.5 opacity-90">
+                    <MapPin className="h-3 w-3 shrink-0" />
+                    <span className="truncate">{calendarEventData.location}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : isCallSummary && callSummaryData ? (
             <div className="flex items-center gap-2.5 py-1 pr-1">
               {callSummaryData.callType === 'VIDEO' ? (
                 <Video
@@ -332,6 +439,11 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               }`}
             >
               {renderContentWithMentions(message.content)}
+              {isEdited && (
+                <span className="text-[10px] opacity-60 ml-1.5 select-none font-medium">
+                  {t.chat.editedLabel}
+                </span>
+              )}
             </div>
           ) : null}
 
@@ -422,61 +534,111 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           )}
         </div>
 
-        {/* Hover Action Bar (Pin, Reply, Quick Emojis) - High up above bubble, level with timestamp, never covers bubble */}
-        <div
-          className={`absolute bottom-[calc(100%+4px)] hidden group-hover:flex items-center gap-0.5 rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-1 shadow-circle-hover transition-all z-20 before:absolute before:-bottom-2 before:left-0 before:right-0 before:h-3 ${
-            isSenderMe ? 'right-0' : 'left-0'
-          }`}
-        >
-          {/* Quick Emoji Buttons (High-Quality Vector Emojis) */}
-          <div className="flex items-center gap-0.5 pr-1 border-r border-circle-hairline dark:border-circle-dark-hairline">
-            {PROMINENT_QUICK_EMOJIS.map((emoji) => (
-              <button
-                key={emoji}
-                type="button"
-                onClick={() => onReact(message.id, emoji)}
-                className="flex h-6 w-6 items-center justify-center rounded-full hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-transform hover:scale-125"
-                title={emoji}
-              >
-                <Emoji emoji={emoji} size={16} />
-              </button>
-            ))}
-            <button
-              type="button"
-              onClick={() => setIsFullEmojiOpen(true)}
-              className="flex h-6 w-6 items-center justify-center rounded-full text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash hover:text-circle-charcoal dark:hover:text-white transition-colors"
-              title="Thêm biểu cảm khác"
-            >
-              <Smile className="h-3.5 w-3.5" />
-            </button>
-          </div>
-
-          {/* Reply Action */}
-          <button
-            type="button"
-            onClick={() => onReply(message)}
-            className="flex h-6 w-6 items-center justify-center rounded-full text-circle-slate dark:text-circle-dark-muted hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas hover:text-circle-sage transition-colors"
-            title={t.chat.replyAction}
+        {/* Hover Action Bar (Pin, Reply, Edit, Recall, Quick Emojis) */}
+        {!isRecalled && (
+          <div
+            className={`absolute bottom-[calc(100%+4px)] hidden group-hover:flex items-center gap-0.5 rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-1 shadow-circle-hover transition-all z-20 before:absolute before:-bottom-2 before:left-0 before:right-0 before:h-3 ${
+              isSenderMe ? 'right-0' : 'left-0'
+            }`}
           >
-            <Reply className="h-3.5 w-3.5 scale-x-[-1]" />
-          </button>
+            {/* Quick Emoji Buttons (High-Quality Vector Emojis) */}
+            <div className="flex items-center gap-0.5 pr-1 border-r border-circle-hairline dark:border-circle-dark-hairline">
+              {PROMINENT_QUICK_EMOJIS.map((emoji) => (
+                <button
+                  key={emoji}
+                  type="button"
+                  onClick={() => onReact(message.id, emoji)}
+                  className="flex h-6 w-6 items-center justify-center rounded-full hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-transform hover:scale-125"
+                  title={emoji}
+                >
+                  <Emoji emoji={emoji} size={16} />
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => setIsFullEmojiOpen(true)}
+                className="flex h-6 w-6 items-center justify-center rounded-full text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash hover:text-circle-charcoal dark:hover:text-white transition-colors"
+                title="Thêm biểu cảm khác"
+              >
+                <Smile className="h-3.5 w-3.5" />
+              </button>
+            </div>
 
-          {/* Pin / Unpin Action (Forbidden for call summaries) */}
-          {!isCallSummary && (
+            {/* Reply Action */}
             <button
               type="button"
-              onClick={() => onTogglePin(message.id, !!message.isPinned)}
-              className={`flex h-6 w-6 items-center justify-center rounded-full transition-colors ${
-                message.isPinned
-                  ? 'text-circle-charcoal dark:text-circle-dark-text bg-circle-canvas dark:bg-circle-dark-canvas'
-                  : 'text-circle-slate dark:text-circle-dark-muted hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas hover:text-circle-charcoal dark:hover:text-circle-dark-text'
-              }`}
-              title={message.isPinned ? t.chat.unpinAction : t.chat.pinAction}
+              onClick={() => onReply(message)}
+              className="flex h-6 w-6 items-center justify-center rounded-full text-circle-slate dark:text-circle-dark-muted hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas hover:text-circle-sage transition-colors"
+              title={t.chat.replyAction}
             >
-              <Pin className={`h-3.5 w-3.5 ${message.isPinned ? 'fill-current' : ''}`} />
+              <Reply className="h-3.5 w-3.5 scale-x-[-1]" />
             </button>
-          )}
-        </div>
+
+            {/* Edit Action (CHT-09: Only for author's text message) */}
+            {isSenderMe && onEdit && message.type === MessageType.TEXT && message.content && (
+              <button
+                type="button"
+                onClick={() => onEdit(message)}
+                className="flex h-6 w-6 items-center justify-center rounded-full text-circle-slate dark:text-circle-dark-muted hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas hover:text-circle-primary transition-colors"
+                title={t.chat.editAction}
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </button>
+            )}
+
+            {/* Recall Action (CHT-10: Author recalls message for everyone) */}
+            {isSenderMe && onRecall && (
+              <button
+                type="button"
+                onClick={() => onRecall(message.id)}
+                className="flex h-6 w-6 items-center justify-center rounded-full text-circle-slate dark:text-circle-dark-muted hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas hover:text-rose-500 transition-colors"
+                title={t.chat.recallAction}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            )}
+
+            {/* Remove other's message for me (Gỡ tin nhắn người khác - chỉ phía người thao tác) */}
+            {!isSenderMe && onDeleteForMe && (
+              <button
+                type="button"
+                onClick={() => onDeleteForMe(message.id)}
+                className="flex h-6 w-6 items-center justify-center rounded-full text-circle-slate dark:text-circle-dark-muted hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas hover:text-rose-500 transition-colors"
+                title={`${t.chat.removeAction} (${t.chat.clearChatForMeTitle})`}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            )}
+
+            {/* Delete For Me Action (CHT-11: Hide own message locally) */}
+            {isSenderMe && onDeleteForMe && (
+              <button
+                type="button"
+                onClick={() => onDeleteForMe(message.id)}
+                className="flex h-6 w-6 items-center justify-center rounded-full text-circle-slate dark:text-circle-dark-muted hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas hover:text-amber-500 transition-colors"
+                title={t.chat?.deleteForMeAction || 'Xóa phía tôi'}
+              >
+                <EyeOff className="h-3.5 w-3.5" />
+              </button>
+            )}
+
+            {/* Pin / Unpin Action (Forbidden for call summaries) */}
+            {!isCallSummary && (
+              <button
+                type="button"
+                onClick={() => onTogglePin(message.id, !!message.isPinned)}
+                className={`flex h-6 w-6 items-center justify-center rounded-full transition-colors ${
+                  message.isPinned
+                    ? 'text-circle-charcoal dark:text-circle-dark-text bg-circle-canvas dark:bg-circle-dark-canvas'
+                    : 'text-circle-slate dark:text-circle-dark-muted hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas hover:text-circle-charcoal dark:hover:text-circle-dark-text'
+                }`}
+                title={message.isPinned ? t.chat.unpinAction : t.chat.pinAction}
+              >
+                <Pin className={`h-3.5 w-3.5 ${message.isPinned ? 'fill-current' : ''}`} />
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Sibling Below Bubble: Seen status / Avatar / Sending status */}

@@ -75,6 +75,7 @@ When conflicts or ambiguities arise, you must strictly follow this priority orde
 ## 4. Code Changes & Architecture Discipline
 
 - **Circle-Centric (Group-First) Priority:** Every feature must serve group activities and collaboration. The Circle is the core atom of data, state, and interaction. Never introduce isolated features that diverge from the group-first mission.
+- **Dual-Platform Parity by Default (Web & Mobile):** Every user-facing feature MUST be implemented and delivered across BOTH platforms in parallel: Web (`apps/web`) and Mobile (`apps/mobile` - React Native Expo). Never implement on Web only or Mobile only then mark as done (unless explicitly designated by specification, e.g., Admin dashboard is web-only or native device sensor is mobile-only). Partial platform delivery is strictly forbidden to prevent loss of traceability.
 - **Do not push or deploy unless explicitly instructed.**
 - **Prefer existing abstractions:** Before creating a new service, helper, hook, or component, inspect the codebase to reuse existing utilities.
 - **Backend layering (`apps/api`):** Modular monolith; controllers must be thin; business logic belongs in services; database queries through Prisma; domain modules must encapsulate their internals.

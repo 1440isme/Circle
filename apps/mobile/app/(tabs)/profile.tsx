@@ -23,6 +23,7 @@ import {
   Palette,
   HelpCircle,
   ArrowLeft,
+  Key,
 } from 'lucide-react-native';
 import { useThemeStore } from '../../src/stores/theme.store';
 import { useLanguageStore } from '../../src/stores/language.store';
@@ -61,7 +62,7 @@ export default function ProfileTab() {
   const [hasBiometrics, setHasBiometrics] = useState(false);
   const [biometricEnabled, setBiometricEnabled] = useState(false);
   const [activeSettingsSubView, setActiveSettingsSubView] = useState<
-    'appearance' | 'sessions' | 'language' | 'help' | null
+    'appearance' | 'security' | 'sessions' | 'language' | 'help' | null
   >(null);
   const { data: sessions = [] } = useSessionsQuery();
 
@@ -120,10 +121,12 @@ export default function ProfileTab() {
     );
   };
 
-  const getSubHeaderTitle = (view: 'appearance' | 'sessions' | 'language' | 'help') => {
+  const getSubHeaderTitle = (view: 'appearance' | 'security' | 'sessions' | 'language' | 'help') => {
     switch (view) {
       case 'appearance':
         return locale === 'vi' ? 'Giao diện' : 'Appearance';
+      case 'security':
+        return locale === 'vi' ? 'Mật khẩu & Bảo mật' : 'Password & Security';
       case 'sessions':
         return locale === 'vi' ? 'Phiên đăng nhập' : 'Sessions';
       case 'language':
@@ -288,7 +291,25 @@ export default function ProfileTab() {
               />
             </View>
 
-            {/* 3. Phiên đăng nhập */}
+            {/* 3. Mật khẩu & Bảo mật */}
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => setActiveSettingsSubView('security')}
+              style={[styles.menuRowItem, { borderBottomColor: colors.hairline, borderBottomWidth: StyleSheet.hairlineWidth }]}
+            >
+              <Key size={20} color={colors.text} />
+              <View style={styles.menuRowInfo}>
+                <Text style={[styles.menuRowTitle, { color: colors.text }]}>
+                  {locale === 'vi' ? 'Mật khẩu & Bảo mật' : 'Password & Security'}
+                </Text>
+                <Text style={[styles.menuRowSubtitle, { color: colors.subtle }]}>
+                  {t.auth.changePassword}
+                </Text>
+              </View>
+              <ChevronRight size={18} color={colors.subtle} />
+            </TouchableOpacity>
+
+            {/* 4. Phiên đăng nhập */}
             <TouchableOpacity
               activeOpacity={0.7}
               onPress={() => setActiveSettingsSubView('sessions')}

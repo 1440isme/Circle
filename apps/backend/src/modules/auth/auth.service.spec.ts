@@ -411,6 +411,69 @@ describe('AuthService — Full Test Suite (TC-AUTH-001 to TC-AUTH-006)', () => {
     });
   });
 
+  describe('ACC-10: Change Password in Settings (TC-AUTH-010)', () => {
+    it('TC-AUTH-010-01: should throw BadRequestException if current password does not match', async () => {
+      prisma.user.findUnique.mockResolvedValue(mockUser);
+      jest.spyOn(service, 'comparePassword').mockResolvedValue(false);
+
+      await expect(
+        service.changePassword(mockUser.id, {
+          currentPassword: 'WrongPassword123!',
+          newPassword: 'BrandNewSecurePassword123!',
+          confirmPassword: 'BrandNewSecurePassword123!',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('TC-AUTH-010-02: should throw BadRequestException if new password equals current password', async () => {
+      prisma.user.findUnique.mockResolvedValue(mockUser);
+      jest.spyOn(service, 'comparePassword').mockResolvedValue(true);
+
+      await expect(
+        service.changePassword(mockUser.id, {
+          currentPassword: 'SamePassword123!',
+          newPassword: 'SamePassword123!',
+          confirmPassword: 'SamePassword123!',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('TC-AUTH-010-03: should update password and revoke other sessions on success', async () => {
+      prisma.user.findUnique.mockResolvedValue(mockUser);
+      jest.spyOn(service, 'comparePassword').mockResolvedValue(true);
+      jest.spyOn(service, 'hashPassword').mockResolvedValue('$2a$12$newHashedPassword');
+      prisma.user.update.mockResolvedValue(mockUser);
+      prisma.refreshToken.updateMany.mockResolvedValue({ count: 3 });
+
+      const result = await service.changePassword(
+        mockUser.id,
+        {
+          currentPassword: 'OldValidPassword123!',
+          newPassword: 'BrandNewSecurePassword123!',
+          confirmPassword: 'BrandNewSecurePassword123!',
+        },
+        'current-refresh-token',
+      );
+
+      expect(prisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: mockUser.id },
+          data: { passwordHash: '$2a$12$newHashedPassword' },
+        }),
+      );
+      expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            userId: mockUser.id,
+            isRevoked: false,
+          }),
+          data: { isRevoked: true },
+        }),
+      );
+      expect(result.message).toBeDefined();
+    });
+  });
+
   describe('Session Management', () => {
     it('TC-AUTH-SESSION-001: should parse user agent correctly', () => {
       const desktop = service.parseUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36');
