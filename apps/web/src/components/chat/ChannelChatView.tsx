@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useQueryClient, InfiniteData } from '@tanstack/react-query';
-import { MessageSquare, Pin, Users, Hash, WifiOff, Phone, Video, Radio, PhoneCall, PhoneOff } from 'lucide-react';
+import { MessageSquare, Pin, Users, Hash, WifiOff, Phone, Video, Radio, PhoneCall, PhoneOff, Search, X, Loader2 } from 'lucide-react';
 import { MessageEntity, CursorPaginatedMessages, CallType, CallSessionDetailEntity } from '@circle/types';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguageStore } from '../../stores/language.store';
@@ -15,6 +15,9 @@ import {
   usePinMessageMutation,
   usePinnedMessagesQuery,
   useChannelTyping,
+  useEditMessageMutation,
+  useRecallMessageMutation,
+  useSearchMessagesQuery,
 } from '../../hooks/use-chat-queries';
 import { useCircleMembersQuery, useCircleDetailQuery } from '../../hooks/use-circle-queries';
 import { useInitiateCallMutation, useJoinCallMutation } from '../../hooks/use-call-queries';
@@ -47,7 +50,10 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
   const circleTheme = activeCircle?.themeColor || circleDetail?.themeColor || 'sage';
 
   const [replyingMessage, setReplyingMessage] = useState<MessageEntity | null>(null);
+  const [editingMessage, setEditingMessage] = useState<MessageEntity | null>(null);
   const [isPinnedModalOpen, setIsPinnedModalOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [isSocketConnected, setIsSocketConnected] = useState(true);
   const [incomingCallAlert, setIncomingCallAlert] = useState<{
     callSessionId: string;
@@ -182,13 +188,40 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
   }, [channelId, circleId, messages, user?.id, queryClient]);
 
   const sendMessageMutation = useSendMessageMutation(channelId);
+  const editMessageMutation = useEditMessageMutation(channelId);
+  const recallMessageMutation = useRecallMessageMutation(channelId);
   const reactMessageMutation = useReactMessageMutation(channelId);
   const pinMessageMutation = usePinMessageMutation(channelId);
   const { data: pinnedMessages = [], isLoading: isLoadingPins } = usePinnedMessagesQuery(channelId);
   const { typingUsers, reportTyping } = useChannelTyping(channelId);
+  const { data: searchResults, isLoading: isSearching } = useSearchMessagesQuery(
+    isSearchOpen ? channelId : null,
+    searchQuery,
+  );
 
   const handleReply = (message: MessageEntity) => {
     setReplyingMessage(message);
+    setEditingMessage(null);
+  };
+
+  const handleEdit = (message: MessageEntity) => {
+    setEditingMessage(message);
+    setReplyingMessage(null);
+  };
+
+  const handleRecall = async (messageId: string) => {
+    if (window.confirm(t.chat.recallConfirmMsg)) {
+      try {
+        await recallMessageMutation.mutateAsync(messageId);
+      } catch (err: any) {
+        alert(err.message || 'Lỗi khi thu hồi tin nhắn');
+      }
+    }
+  };
+
+  const handleSaveEdit = async (messageId: string, content: string) => {
+    await editMessageMutation.mutateAsync({ messageId, content });
+    setEditingMessage(null);
   };
 
   const handleReact = (messageId: string, emoji: string) => {
@@ -255,6 +288,22 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
 
             <button
               type="button"
+              onClick={() => {
+                setIsSearchOpen(!isSearchOpen);
+                if (isSearchOpen) setSearchQuery('');
+              }}
+              className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors active:scale-95 ${
+                isSearchOpen
+                  ? 'bg-circle-primary/10 text-circle-primary'
+                  : 'text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas'
+              }`}
+              title="Tìm kiếm tin nhắn"
+            >
+              <Search className="h-4 w-4" />
+            </button>
+
+            <button
+              type="button"
               onClick={() => setIsPinnedModalOpen(true)}
               className="flex h-8 w-8 items-center justify-center rounded-lg text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas transition-colors active:scale-95"
               title={t.chat.pinnedBadge}
@@ -263,6 +312,76 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
             </button>
           </div>
         </div>
+
+        {/* Channel Message Search Bar (CHT-17) */}
+        {isSearchOpen && (
+          <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 pb-3 pt-1 border-b border-circle-hairline dark:border-circle-dark-hairline animate-in fade-in slide-in-from-top-2 duration-150">
+            <div className="relative flex items-center">
+              <Search className="absolute left-3 h-4 w-4 text-circle-slate dark:text-circle-dark-muted" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={t.chat.searchPlaceholder}
+                autoFocus
+                className="w-full rounded-xl bg-circle-canvas dark:bg-circle-dark-canvas pl-9 pr-9 py-1.5 text-xs text-circle-charcoal dark:text-circle-dark-text placeholder:text-circle-slate dark:placeholder:text-circle-dark-muted border border-circle-hairline dark:border-circle-dark-hairline focus:outline-none focus:ring-1 focus:ring-circle-primary"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Search Results Dropdown */}
+            {searchQuery.trim() && (
+              <div className="mt-2 max-h-56 overflow-y-auto rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface shadow-lg p-1.5">
+                {isSearching ? (
+                  <div className="flex items-center justify-center py-4 text-xs text-circle-slate dark:text-circle-dark-muted gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin text-circle-primary" />
+                    <span>Đang tìm kiếm...</span>
+                  </div>
+                ) : searchResults && searchResults.messages.length > 0 ? (
+                  <div className="flex flex-col gap-1">
+                    {searchResults.messages.map((m) => (
+                      <div
+                        key={m.id}
+                        onClick={() => {
+                          const el = document.getElementById(`message-${m.id}`);
+                          if (el) {
+                            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                          }
+                          setIsSearchOpen(false);
+                        }}
+                        className="flex flex-col gap-0.5 rounded-lg p-2 hover:bg-circle-wash dark:hover:bg-circle-dark-wash cursor-pointer transition-colors"
+                      >
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="font-semibold text-circle-charcoal dark:text-circle-dark-text">
+                            {m.sender?.nickname || m.sender?.user?.profile?.displayName || 'Thành viên'}
+                          </span>
+                          <span className="text-circle-slate dark:text-circle-dark-muted text-[10px]">
+                            {new Date(m.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                        <p className="text-xs text-circle-slate dark:text-circle-dark-muted line-clamp-2">
+                          {m.content}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="py-3 text-center text-xs text-circle-slate dark:text-circle-dark-muted">
+                    {t.chat.noSearchResults}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Centered Chat Column: Synchronized responsive proportion matching moments feed (max-w-4xl) */}
@@ -311,6 +430,8 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
           isFetchingNextPage={isFetchingNextPage}
           onLoadEarlier={() => fetchNextPage()}
           onReply={handleReply}
+          onEdit={handleEdit}
+          onRecall={handleRecall}
           onReact={handleReact}
           onTogglePin={handleTogglePin}
           onRetry={handleRetry}
@@ -336,6 +457,9 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
           members={circleMembers}
           replyingMessage={replyingMessage}
           onCancelReply={() => setReplyingMessage(null)}
+          editingMessage={editingMessage}
+          onCancelEdit={() => setEditingMessage(null)}
+          onSaveEdit={handleSaveEdit}
           onSendMessage={async (data) => {
             await sendMessageMutation.mutateAsync(data);
           }}

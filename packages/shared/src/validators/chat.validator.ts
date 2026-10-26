@@ -67,18 +67,37 @@ export function createChatSchemas(locale: Locale = 'vi') {
     direction: z.enum(['before', 'after']).optional().default('before'),
   });
 
+  const editMessageSchema = z.object({
+    content: z
+      .string()
+      .trim()
+      .min(1, v.chatMessageOrFileRequired)
+      .max(4000, v.chatContentMaxLength),
+  });
+
+  const searchMessagesSchema = z.object({
+    q: z.string().trim().min(1, 'Từ khóa tìm kiếm không được để trống / Search query cannot be empty').max(100),
+    limit: z.coerce.number().int().min(1).max(50).optional().default(20),
+  });
+
   return {
     sendMessageSchema,
+    editMessageSchema,
+    searchMessagesSchema,
     reactMessageSchema,
     messagePaginationSchema,
   };
 }
 
 export type SendMessageSchemaType = ReturnType<typeof createChatSchemas>['sendMessageSchema'];
+export type EditMessageSchemaType = ReturnType<typeof createChatSchemas>['editMessageSchema'];
+export type SearchMessagesSchemaType = ReturnType<typeof createChatSchemas>['searchMessagesSchema'];
 export type ReactMessageSchemaType = ReturnType<typeof createChatSchemas>['reactMessageSchema'];
 export type MessagePaginationSchemaType = ReturnType<typeof createChatSchemas>['messagePaginationSchema'];
 
 export type SendMessageInput = z.input<SendMessageSchemaType>;
 export type SendMessageOutput = z.output<SendMessageSchemaType>;
+export type EditMessageInput = z.input<EditMessageSchemaType>;
+export type SearchMessagesInput = z.input<SearchMessagesSchemaType>;
 export type ReactMessageInput = z.input<ReactMessageSchemaType>;
 export type MessagePaginationInput = z.input<MessagePaginationSchemaType>;

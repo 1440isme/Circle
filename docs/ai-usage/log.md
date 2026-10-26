@@ -4762,3 +4762,67 @@
 - **Security & License Check:** An toàn tuyệt đối, zero secrets leaks, bảo đảm tính toàn vẹn của SSOT.
 - **Branch:** `feat/98-circle-tools-planning-location-poll`
 - **PR:** Pending
+
+---
+
+## AI-0134: Hoàn thiện tính năng Chat Tier MUST (Edit, Recall, Search, Calendar Integration) Đa nền tảng Web & Mobile
+
+- **Date:** 2026-10-25 16:48:00 +07:00
+- **Developer:** Trương Công Bình (MSSV: 23110184)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash
+- **Related Issue:** #101 (US-TOOL-003: Calendar Event Chat Integration) & Module 5 Playbook Baseline (CHT-09, CHT-10, CHT-12, CHT-17, CHT-20)
+- **Purpose:** Triển khai trọn gói toàn diện các tính năng Tier MUST của Module Chat và tích hợp sự kiện Lịch nhóm theo đúng Playbook `05-chat.md` và `07-circle-collaboration.md`, đồng bộ 100% đa nền tảng Web & Mobile:
+  1. **Backend (`apps/backend`):**
+     - Sửa tin nhắn (`CHT-09`): API `PATCH /messages/:id`, kiểm tra quyền tác giả, cập nhật `updatedAt`, broadcast Socket.IO `chat:message-updated`.
+     - Thu hồi tin nhắn (`CHT-10`): API `DELETE /messages/:id`, kiểm tra quyền tác giả hoặc Circle Owner/Admin, soft delete với `deletedAt`, dọn dẹp pin record, broadcast Socket.IO `chat:message-recalled`.
+     - Tìm kiếm tin nhắn (`CHT-17`): API `GET /channels/:id/messages/search?q=...` với giới hạn và lọc theo channel.
+     - Tích hợp sự kiện Lịch (`CHT-20` / `COL-08` / Issue #101): Khi tạo sự kiện Lịch (`createCalendarEvent`), tự động phát tin nhắn sự kiện thẻ `[CALENDAR_EVENT]:{...}` vào kênh chat chính của Circle và broadcast realtime.
+     - Bổ sung 5 Unit test cases mới cho ChatService (nâng tổng số test lên 19/19 tests pass 100%, toàn bộ 169/169 tests backend pass).
+  2. **Contracts & Validation (`packages/types`, `packages/shared`):**
+     - Bổ sung `deletedAt`, `SearchMessagesResult`, `CalendarEventSystemMessagePayload` vào `@circle/types`.
+     - Bổ sung `editMessageSchema` và `searchMessagesSchema` vào `@circle/shared`.
+     - Bổ sung đầy đủ chuỗi bản địa hóa song ngữ VI + EN cho các hành động sửa, thu hồi, tìm kiếm và thẻ sự kiện.
+  3. **Web Application (`apps/web`):**
+     - `MessageBubble.tsx`: Hiển thị thẻ sự kiện Lịch tương tác trực quan (`[CALENDAR_EVENT]`), hiển thị placeholder *"Tin nhắn đã được thu hồi"* (`deletedAt`), hiển thị nhãn `(đã chỉnh sửa)`, hover action bar tích hợp nút Edit và Recall.
+     - `ChatComposer.tsx`: Tích hợp banner chế độ đang sửa tin nhắn kèm nút hủy và nút Lưu (`Check`).
+     - `ChannelChatView.tsx`: Tích hợp nút tìm kiếm tin nhắn trong kênh chat kèm thanh tìm kiếm và dropdown kết quả click-to-jump; tích hợp xử lý socket `chat:message-updated` và `chat:message-recalled`.
+     - `PresenceRail.tsx`: Kết nối `useCalendarEventsQuery` để hiển thị danh sách các cuộc hẹn sắp tới thực tế (Upcoming Events) thay vì mock.
+  4. **Mobile Application (`apps/mobile`):**
+     - Tạo `chat.service.ts` cung cấp `editMessageApi`, `recallMessageApi`, `searchMessagesApi`.
+     - `MobileSwipeMessageBubble`: Render thẻ sự kiện Lịch bo góc với icon Calendar, thời gian, địa điểm, người tạo; render placeholder thu hồi mờ nghiêng; render nhãn `(đã sửa)`.
+     - Action Menu (Long press): Tích hợp nút Chỉnh sửa tin nhắn (`Pencil`) và Thu hồi tin nhắn (`Trash2` với Alert xác nhận).
+     - Composer: Tích hợp banner "Đang chỉnh sửa tin nhắn" và nút Lưu (`Check`).
+     - Hook `use-circle-queries.ts`: Lắng nghe Socket.IO `chat:message-updated` và `chat:message-recalled` để đồng bộ tin nhắn ngay lập tức.
+- **Files Affected:**
+  - `packages/types/src/index.ts`
+  - `packages/shared/src/validators/chat.validator.ts`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `apps/backend/src/modules/chat/chat.gateway.ts`
+  - `apps/backend/src/modules/chat/chat.service.ts`
+  - `apps/backend/src/modules/chat/chat.controller.ts`
+  - `apps/backend/src/modules/chat/chat.service.spec.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.module.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
+  - `apps/web/src/hooks/use-chat-queries.ts`
+  - `apps/web/src/components/chat/MessageBubble.tsx`
+  - `apps/web/src/components/chat/MessageList.tsx`
+  - `apps/web/src/components/chat/ChatComposer.tsx`
+  - `apps/web/src/components/chat/ChannelChatView.tsx`
+  - `apps/web/src/components/presence/PresenceRail.tsx`
+  - `apps/mobile/src/services/chat.service.ts`
+  - `apps/mobile/src/hooks/use-circle-queries.ts`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% logic đa nền tảng, DTO, schema, unit tests và giao diện UI theo Playbook.
+- **Human Modifications:** Trương Công Bình trực tiếp chỉ đạo định hướng đúng phân công nhiệm vụ và yêu cầu đồng bộ đa nền tảng Web & Mobile.
+- **Verification Method:**
+  - `npm test -w @circle/backend`: 169/169 unit tests pass 100%.
+  - `npm run build -w @circle/web`: Build Next.js thành công 9/9 static routes.
+  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Mobile typecheck 0 errors.
+  - `bash ./scripts/check-agent-map.sh`: 116/116 framework files pass.
+- **Official Source Checked:** `agentic/playbooks/05-chat.md`, `agentic/playbooks/07-circle-collaboration.md`, `agentic/playbooks/cross-cutting-gate.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks, kiểm tra phân quyền tác giả/admin chặt chẽ.
+- **Branch:** `feat/101-calendar-event-chat-presence-integration`
+- **PR:** Pending
