@@ -4825,4 +4825,42 @@
 - **Official Source Checked:** `agentic/playbooks/05-chat.md`, `agentic/playbooks/07-circle-collaboration.md`, `agentic/playbooks/cross-cutting-gate.md`.
 - **Security & License Check:** An toàn tuyệt đối, zero secrets leaks, kiểm tra phân quyền tác giả/admin chặt chẽ.
 - **Branch:** `feat/101-calendar-event-chat-presence-integration`
+- **PR:** #104
+
+---
+
+### AI-0135
+- **Timestamp:** 2026-10-25T22:07:30+07:00
+- **Author/Engineer:** Trương Công Bình (23110184)
+- **Task/Feature:** [FEAT]: US-CHAT-004 — Chat Tier MUST Parity: Typing Indicator, Draft Message, Member Mentions & Delete for Me (#105)
+- **Description:**
+  - Hoàn tất 100% tính năng Tier MUST còn lại của Module 5 (Chat Playbook) với tính tương đương (Parity) 100% giữa Web (`apps/web`) và Mobile (`apps/mobile` - React Native Expo):
+    1. **`CHT-15` Typing Indicator (Web + Mobile):** Throttling sự kiện typing, auto-hide sau 3s, hiển thị danh sách người đang nhập dạng animated pulsing bar trên cả 2 nền tảng.
+    2. **`CHT-18` Lưu nháp (Draft Message) theo kênh (Web + Mobile):** Tự động lưu bản nháp theo `channelId` (`localStorage` trên Web, `SecureStore`/`AsyncStorage` trên Mobile), tự khôi phục khi chuyển phòng chat, hiển thị thẻ cảnh báo bản nháp kèm nút hủy nhanh, tự dọn dẹp nháp khi gửi thành công.
+    3. **`CHT-22` Mention `@thành viên` & `@all` (Web + Mobile):** Autocomplete popup/sheet danh sách thành viên Circle khi gõ `@`, highlight chip mention trong bong bóng chat, hiển thị badge *"Đã nhắc đến bạn"* khi nhận mention.
+    4. **`CHT-11` Xóa tin nhắn phía tôi (Delete for Me - Web + Mobile):** Cho phép người dùng ẩn tin nhắn khỏi thiết bị cá nhân của mình (`circle_hidden_messages_${channelId}`) thông qua action menu mà không làm ảnh hưởng đến dữ liệu của các thành viên khác trong nhóm.
+  - Cập nhật Memory Protocol (Layer 1 `MEMORY.md`, Layer 2 `2026-10-25.md`) và Hard Rules (`RULES.md`, `implement-feature.md`) quy định bắt buộc triển khai song song đa nền tảng Web & Mobile mặc định cho mọi tính năng.
+- **Files Affected:**
+  - `agentic/RULES.md`
+  - `agentic/memory/MEMORY.md`
+  - `agentic/memory/2026-10-25.md`
+  - `agentic/skills/implement-feature.md`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `apps/web/src/components/chat/ChatComposer.tsx`
+  - `apps/web/src/components/chat/ChannelChatView.tsx`
+  - `apps/web/src/components/chat/MessageBubble.tsx`
+  - `apps/web/src/components/chat/MessageList.tsx`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% code logic lưu draft, hidden messages state filter, mention chips, localization dictionary, và dual-platform parity styling.
+- **Human Modifications:** Trương Công Bình trực tiếp chỉ đạo quy tắc song hành đa nền tảng và kiểm soát phạm vi phân công công việc.
+- **Verification Method:**
+  - `npm test -w @circle/backend`: 169/169 unit tests pass 100% (11/11 suites).
+  - `npm run build -w @circle/web`: Build Next.js production 9/9 static routes pass sạch sẽ.
+  - `npm run typecheck -w @circle/mobile`: Mobile TypeScript 0 errors.
+  - `bash ./scripts/check-agent-map.sh`: 116/116 framework files pass 100%.
+- **Official Source Checked:** `agentic/playbooks/05-chat.md`, `agentic/playbooks/cross-cutting-gate.md`, `PROJECT_GOD.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks, dữ liệu ẩn tin nhắn được cô lập an toàn ở client storage.
+- **Branch:** `feat/105-chat-tier-must-parity`
 - **PR:** Pending

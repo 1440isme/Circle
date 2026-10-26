@@ -246,6 +246,43 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
     });
   };
 
+  // Locally hidden messages ("Xóa phía tôi" - CHT-11)
+  const [hiddenMessageIds, setHiddenMessageIds] = useState<Set<string>>(() => {
+    try {
+      const stored = localStorage.getItem(`circle_hidden_messages_${channelId}`);
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(`circle_hidden_messages_${channelId}`);
+      setHiddenMessageIds(stored ? new Set(JSON.parse(stored)) : new Set());
+    } catch {
+      setHiddenMessageIds(new Set());
+    }
+  }, [channelId]);
+
+  const handleDeleteForMe = (messageId: string) => {
+    setHiddenMessageIds((prev) => {
+      const next = new Set(prev);
+      next.add(messageId);
+      try {
+        localStorage.setItem(
+          `circle_hidden_messages_${channelId}`,
+          JSON.stringify(Array.from(next)),
+        );
+      } catch {}
+      return next;
+    });
+  };
+
+  const visibleMessages = React.useMemo(() => {
+    return messages.filter((m) => !hiddenMessageIds.has(m.id));
+  }, [messages, hiddenMessageIds]);
+
   return (
     <div
       data-circle-theme={circleTheme}
@@ -423,7 +460,7 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
 
         {/* Messages Scroll Area */}
         <MessageList
-          messages={messages}
+          messages={visibleMessages}
           currentUserId={user?.id}
           isLoading={isLoadingMessages}
           hasMore={hasNextPage}
@@ -432,6 +469,7 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
           onReply={handleReply}
           onEdit={handleEdit}
           onRecall={handleRecall}
+          onDeleteForMe={handleDeleteForMe}
           onReact={handleReact}
           onTogglePin={handleTogglePin}
           onRetry={handleRetry}
