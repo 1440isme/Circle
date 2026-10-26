@@ -68,22 +68,14 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
 
   const [isReverseGeocoding, setIsReverseGeocoding] = useState(false);
 
-  // Helper to reverse geocode coordinates using OpenStreetMap Nominatim
+  // Helper to reverse geocode coordinates using local API route
   const reverseGeocode = useCallback(async (lat: number, lng: number, fallbackName?: string) => {
     setIsReverseGeocoding(true);
     try {
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`,
-        {
-          headers: {
-            'User-Agent': 'CircleApp/1.0 (dev@circle.local)',
-            'Accept-Language': 'vi,en;q=0.9',
-          },
-        }
-      );
+      const res = await fetch(`/api/locations/reverse?lat=${lat}&lon=${lng}`);
       if (res.ok) {
         const data = await res.json();
-        const displayName = data.display_name || '';
+        const displayName = data.address || data.name || '';
         const name = fallbackName || data.name || displayName.split(',')[0] || 'Vị trí đã chọn';
         const address = displayName;
         setSelectedPlace({ name, address, lat, lng });
@@ -145,45 +137,12 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
     if (!query || query.trim().length < 2) return [];
 
     try {
-      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-        query.trim()
-      )}&countrycodes=vn&limit=5&addressdetails=1`;
-
-      const res = await fetch(url, {
-        headers: {
-          'User-Agent': 'CircleApp/1.0 (dev@circle.local)',
-          'Accept-Language': 'vi,en;q=0.9',
-        },
-      });
-
+      const res = await fetch(`/api/locations/search?q=${encodeURIComponent(query.trim())}`);
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data) && data.length > 0) {
           return data;
         }
-      }
-
-      // Fallback to Photon
-      const pRes = await fetch(
-        `https://photon.komoot.io/api/?q=${encodeURIComponent(
-          query.trim()
-        )}&lat=10.7769&lon=106.7009&limit=5`
-      );
-      if (pRes.ok) {
-        const pData = await pRes.json();
-        return (pData.features || []).map((f: any) => ({
-          name: f.properties.name || f.properties.street || query.trim(),
-          display_name: [
-            f.properties.name,
-            f.properties.street,
-            f.properties.district,
-            f.properties.city,
-          ]
-            .filter(Boolean)
-            .join(', '),
-          lat: f.geometry.coordinates[1],
-          lon: f.geometry.coordinates[0],
-        }));
       }
     } catch (err) {
       console.warn('Place search error:', err);

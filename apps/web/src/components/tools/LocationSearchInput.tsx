@@ -59,61 +59,34 @@ export const LocationSearchInput: React.FC<LocationSearchInputProps> = ({
     const timer = setTimeout(async () => {
       setIsSearching(true);
       try {
-        const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-          trimmed
-        )}&countrycodes=vn&limit=5&addressdetails=1`;
-
-        const res = await fetch(url, {
-          headers: {
-            'User-Agent': 'CircleApp/1.0 (dev@circle.local)',
-            'Accept-Language': 'vi,en;q=0.9',
-          },
-        });
-
+        const res = await fetch(`/api/locations/search?q=${encodeURIComponent(trimmed)}`);
         if (res.ok) {
           const data = await res.json();
           if (Array.isArray(data) && data.length > 0) {
             setSuggestions(data);
             setShowSuggestions(true);
           } else {
-            // Fallback to Photon
-            const pRes = await fetch(
-              `https://photon.komoot.io/api/?q=${encodeURIComponent(
-                trimmed
-              )}&lat=10.7769&lon=106.7009&limit=5`
-            );
-            if (pRes.ok) {
-              const pData = await pRes.json();
-              const mapped = (pData.features || []).map((f: any) => ({
-                name: f.properties.name || f.properties.street || trimmed,
-                display_name: [
-                  f.properties.name,
-                  f.properties.street,
-                  f.properties.district,
-                  f.properties.city,
-                ]
-                  .filter(Boolean)
-                  .join(', '),
-                lat: f.geometry.coordinates[1],
-                lon: f.geometry.coordinates[0],
-              }));
-              setSuggestions(mapped);
-              setShowSuggestions(mapped.length > 0);
-            }
+            setSuggestions([]);
+            setShowSuggestions(false);
           }
+        } else {
+          setSuggestions([]);
+          setShowSuggestions(false);
         }
       } catch (err) {
         console.warn('Location query error:', err);
+        setSuggestions([]);
+        setShowSuggestions(false);
       } finally {
         setIsSearching(false);
       }
-    }, 350);
+    }, 300);
 
     return () => clearTimeout(timer);
   }, [value]);
 
   const handleSelectSuggestion = (item: any) => {
-    const name = item.name || item.display_name.split(',')[0];
+    const name = item.name || item.display_name?.split(',')?.[0] || 'Địa điểm';
     const lat = item.lat;
     const lon = item.lon;
     const mapUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`;
@@ -126,7 +99,7 @@ export const LocationSearchInput: React.FC<LocationSearchInputProps> = ({
   };
 
   return (
-    <div ref={wrapperRef} className="space-y-1.5 relative">
+    <div ref={wrapperRef} className="space-y-1.5 relative w-full">
       <div className="flex items-center gap-1.5">
         <div className="relative flex-1">
           <input
@@ -173,7 +146,7 @@ export const LocationSearchInput: React.FC<LocationSearchInputProps> = ({
 
       {/* Autocomplete Dropdown */}
       {showSuggestions && suggestions.length > 0 && (
-        <div className="absolute left-0 right-16 top-9 mt-1 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface shadow-xl overflow-hidden max-h-52 overflow-y-auto z-50">
+        <div className="absolute left-0 right-16 top-full mt-1 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface shadow-2xl overflow-hidden max-h-56 overflow-y-auto z-50 animate-in fade-in duration-100">
           <div className="px-3 py-1.5 bg-circle-wash/50 dark:bg-circle-dark-wash/50 border-b border-circle-hairline/40 text-[10px] font-bold text-circle-slate dark:text-circle-dark-muted uppercase tracking-wider">
             Gợi ý địa điểm từ bản đồ
           </div>
@@ -187,7 +160,7 @@ export const LocationSearchInput: React.FC<LocationSearchInputProps> = ({
               <MapPin className="h-3.5 w-3.5 text-rose-500 shrink-0 mt-0.5" />
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text truncate">
-                  {item.name || item.display_name.split(',')[0]}
+                  {item.name || item.display_name?.split(',')?.[0]}
                 </p>
                 <p className="text-[10px] text-circle-slate dark:text-circle-dark-muted truncate">
                   {item.display_name}
