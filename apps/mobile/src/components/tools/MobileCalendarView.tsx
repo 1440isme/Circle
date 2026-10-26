@@ -608,6 +608,7 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
                   <Text style={styles.label}>Bắt đầu lúc *</Text>
                   <TouchableOpacity
                     style={styles.pickerTriggerBtn}
+                    activeOpacity={0.7}
                     onPress={() => openPicker('start')}
                   >
                     <Clock size={14} color="#0D9488" />
@@ -630,6 +631,7 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
                   {hasEndTime ? (
                     <TouchableOpacity
                       style={styles.pickerTriggerBtn}
+                      activeOpacity={0.7}
                       onPress={() => openPicker('end')}
                     >
                       <Clock size={14} color="#0D9488" />
@@ -640,6 +642,7 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
                   ) : (
                     <TouchableOpacity
                       style={[styles.pickerTriggerBtn, styles.pickerTriggerBtnEmpty]}
+                      activeOpacity={0.7}
                       onPress={() => {
                         setHasEndTime(true);
                         openPicker('end');
@@ -724,197 +727,202 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
               </TouchableOpacity>
             </View>
           </View>
-        </KeyboardAvoidingView>
-      </Modal>
 
-      {/* Date & 24h Time Picker Modal */}
-      <Modal visible={isPickerOpen} transparent animationType="fade">
-        <View style={styles.modalBackdrop}>
-          <View style={styles.pickerModalContent}>
-            {/* Header */}
-            <View style={styles.pickerModalHeader}>
-              <Text style={styles.pickerModalTitle}>
-                {pickerTarget === 'start' ? 'Thời gian bắt đầu' : 'Thời gian kết thúc'}
-              </Text>
-              <TouchableOpacity onPress={() => setIsPickerOpen(false)}>
-                <X size={18} color="#64748B" />
-              </TouchableOpacity>
-            </View>
-
-            {/* Preview formatted */}
-            <View style={styles.pickerPreviewBox}>
-              <Clock size={15} color="#0D9488" />
-              <Text style={styles.pickerPreviewText}>
-                {pickerTarget === 'start'
-                  ? formatDateTimeDisplay(startDate, startHour, startMinute)
-                  : formatDateTimeDisplay(endDate, endHour, endMinute)}
-              </Text>
-            </View>
-
-            {/* Calendar Month Navigation */}
-            <View style={styles.pickerMonthNav}>
-              <TouchableOpacity
-                onPress={() =>
-                  setPickerMonthDate(new Date(pickerYear, pickerMonth - 2, 1))
-                }
-                style={styles.navArrow}
-              >
-                <ChevronLeft size={16} color="#1E293B" />
-              </TouchableOpacity>
-              <Text style={styles.pickerMonthTitle}>
-                Tháng {pickerMonth}/{pickerYear}
-              </Text>
-              <TouchableOpacity
-                onPress={() =>
-                  setPickerMonthDate(new Date(pickerYear, pickerMonth, 1))
-                }
-                style={styles.navArrow}
-              >
-                <ChevronRight size={16} color="#1E293B" />
-              </TouchableOpacity>
-            </View>
-
-            {/* Weekday headers */}
-            <View style={styles.weekdaysRow}>
-              {['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'].map((d, i) => (
-                <Text
-                  key={d}
-                  style={[styles.weekdayText, { fontSize: 10 }, i === 0 && { color: '#EF4444' }]}
-                >
-                  {d}
-                </Text>
-              ))}
-            </View>
-
-            {/* Day grid */}
-            <View style={styles.pickerDaysGrid}>
-              {Array.from({ length: pickerFirstDayOfWeek }).map((_, i) => (
-                <View key={`empty-p-${i}`} style={styles.emptyDayCell} />
-              ))}
-
-              {Array.from({ length: pickerDaysInMonth }).map((_, i) => {
-                const dayNum = i + 1;
-                const activeDate = pickerTarget === 'start' ? startDate : endDate;
-                const isSelected =
-                  activeDate.getDate() === dayNum &&
-                  activeDate.getMonth() + 1 === pickerMonth &&
-                  activeDate.getFullYear() === pickerYear;
-
-                return (
+          {/* Date & 24h Time Picker Overlay nằm ngay trong Modal để tránh lỗi xung đột 2 Modal trên mobile */}
+          {isPickerOpen && (
+            <View style={styles.pickerOverlay}>
+              <View style={styles.pickerModalContent}>
+                {/* Header */}
+                <View style={styles.pickerModalHeader}>
+                  <Text style={styles.pickerModalTitle}>
+                    {pickerTarget === 'start' ? 'Thời gian bắt đầu' : 'Thời gian kết thúc'}
+                  </Text>
                   <TouchableOpacity
-                    key={`p-day-${dayNum}`}
-                    style={[styles.pickerDayCell, isSelected && styles.pickerDayCellSelected]}
+                    onPress={() => setIsPickerOpen(false)}
+                    style={{ padding: 4 }}
+                  >
+                    <X size={18} color="#64748B" />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Preview formatted */}
+                <View style={styles.pickerPreviewBox}>
+                  <Clock size={15} color="#0D9488" />
+                  <Text style={styles.pickerPreviewText}>
+                    {pickerTarget === 'start'
+                      ? formatDateTimeDisplay(startDate, startHour, startMinute)
+                      : formatDateTimeDisplay(endDate, endHour, endMinute)}
+                  </Text>
+                </View>
+
+                {/* Calendar Month Navigation */}
+                <View style={styles.pickerMonthNav}>
+                  <TouchableOpacity
                     onPress={() => {
-                      const newD = new Date(pickerYear, pickerMonth - 1, dayNum);
-                      if (pickerTarget === 'start') {
-                        setStartDate(newD);
-                      } else {
-                        setEndDate(newD);
-                      }
+                      setPickerMonthDate(new Date(pickerYear, pickerMonth - 2, 1));
                       Haptics.selectionAsync();
                     }}
+                    style={styles.navArrow}
                   >
-                    <Text
-                      style={[
-                        styles.pickerDayText,
-                        isSelected && styles.pickerDayTextSelected,
-                      ]}
-                    >
-                      {dayNum}
-                    </Text>
+                    <ChevronLeft size={16} color="#1E293B" />
                   </TouchableOpacity>
-                );
-              })}
-            </View>
+                  <Text style={styles.pickerMonthTitle}>
+                    Tháng {pickerMonth}/{pickerYear}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setPickerMonthDate(new Date(pickerYear, pickerMonth, 1));
+                      Haptics.selectionAsync();
+                    }}
+                    style={styles.navArrow}
+                  >
+                    <ChevronRight size={16} color="#1E293B" />
+                  </TouchableOpacity>
+                </View>
 
-            {/* 24-Hour and Minute Selectors */}
-            <View style={styles.timeSelectSection}>
-              <Text style={styles.timeSectionHeader}>Chọn giờ (24h) & phút:</Text>
+                {/* Weekday headers */}
+                <View style={styles.weekdaysRow}>
+                  {['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'].map((d, i) => (
+                    <Text
+                      key={d}
+                      style={[styles.weekdayText, { fontSize: 10 }, i === 0 && { color: '#EF4444' }]}
+                    >
+                      {d}
+                    </Text>
+                  ))}
+                </View>
 
-              {/* Hours chips scroll */}
-              <View style={styles.timeRowContainer}>
-                <Text style={styles.timeUnitLabel}>Giờ:</Text>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={{ gap: 4 }}
-                >
-                  {HOURS.map((h) => {
-                    const activeH = pickerTarget === 'start' ? startHour : endHour;
-                    const isSelected = activeH === h;
+                {/* Day grid */}
+                <View style={styles.pickerDaysGrid}>
+                  {Array.from({ length: pickerFirstDayOfWeek }).map((_, i) => (
+                    <View key={`empty-p-${i}`} style={styles.emptyDayCell} />
+                  ))}
+
+                  {Array.from({ length: pickerDaysInMonth }).map((_, i) => {
+                    const dayNum = i + 1;
+                    const activeDate = pickerTarget === 'start' ? startDate : endDate;
+                    const isSelected =
+                      activeDate.getDate() === dayNum &&
+                      activeDate.getMonth() + 1 === pickerMonth &&
+                      activeDate.getFullYear() === pickerYear;
+
                     return (
                       <TouchableOpacity
-                        key={`h-${h}`}
-                        style={[styles.timeChip, isSelected && styles.timeChipSelected]}
+                        key={`p-day-${dayNum}`}
+                        style={[styles.pickerDayCell, isSelected && styles.pickerDayCellSelected]}
                         onPress={() => {
-                          if (pickerTarget === 'start') setStartHour(h);
-                          else setEndHour(h);
+                          const newD = new Date(pickerYear, pickerMonth - 1, dayNum);
+                          if (pickerTarget === 'start') {
+                            setStartDate(newD);
+                          } else {
+                            setEndDate(newD);
+                          }
                           Haptics.selectionAsync();
                         }}
                       >
                         <Text
                           style={[
-                            styles.timeChipText,
-                            isSelected && styles.timeChipTextSelected,
+                            styles.pickerDayText,
+                            isSelected && styles.pickerDayTextSelected,
                           ]}
                         >
-                          {pad2(h)}
+                          {dayNum}
                         </Text>
                       </TouchableOpacity>
                     );
                   })}
-                </ScrollView>
-              </View>
+                </View>
 
-              {/* Minutes chips scroll */}
-              <View style={styles.timeRowContainer}>
-                <Text style={styles.timeUnitLabel}>Phút:</Text>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={{ gap: 4 }}
+                {/* 24-Hour and Minute Selectors */}
+                <View style={styles.timeSelectSection}>
+                  <Text style={styles.timeSectionHeader}>Chọn giờ (24h) & phút:</Text>
+
+                  {/* Hours chips scroll */}
+                  <View style={styles.timeRowContainer}>
+                    <Text style={styles.timeUnitLabel}>Giờ:</Text>
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={{ gap: 4 }}
+                    >
+                      {HOURS.map((h) => {
+                        const activeH = pickerTarget === 'start' ? startHour : endHour;
+                        const isSelected = activeH === h;
+                        return (
+                          <TouchableOpacity
+                            key={`h-${h}`}
+                            style={[styles.timeChip, isSelected && styles.timeChipSelected]}
+                            onPress={() => {
+                              if (pickerTarget === 'start') setStartHour(h);
+                              else setEndHour(h);
+                              Haptics.selectionAsync();
+                            }}
+                          >
+                            <Text
+                              style={[
+                                styles.timeChipText,
+                                isSelected && styles.timeChipTextSelected,
+                              ]}
+                            >
+                              {pad2(h)}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+                  </View>
+
+                  {/* Minutes chips scroll */}
+                  <View style={styles.timeRowContainer}>
+                    <Text style={styles.timeUnitLabel}>Phút:</Text>
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={{ gap: 4 }}
+                    >
+                      {MINUTES.map((m) => {
+                        const activeM = pickerTarget === 'start' ? startMinute : endMinute;
+                        const isSelected = activeM === m;
+                        return (
+                          <TouchableOpacity
+                            key={`m-${m}`}
+                            style={[styles.timeChip, isSelected && styles.timeChipSelected]}
+                            onPress={() => {
+                              if (pickerTarget === 'start') setStartMinute(m);
+                              else setEndMinute(m);
+                              Haptics.selectionAsync();
+                            }}
+                          >
+                            <Text
+                              style={[
+                                styles.timeChipText,
+                                isSelected && styles.timeChipTextSelected,
+                              ]}
+                            >
+                              {pad2(m)}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+                  </View>
+                </View>
+
+                {/* Done button */}
+                <TouchableOpacity
+                  style={styles.pickerDoneBtn}
+                  onPress={() => {
+                    setIsPickerOpen(false);
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                  }}
                 >
-                  {MINUTES.map((m) => {
-                    const activeM = pickerTarget === 'start' ? startMinute : endMinute;
-                    const isSelected = activeM === m;
-                    return (
-                      <TouchableOpacity
-                        key={`m-${m}`}
-                        style={[styles.timeChip, isSelected && styles.timeChipSelected]}
-                        onPress={() => {
-                          if (pickerTarget === 'start') setStartMinute(m);
-                          else setEndMinute(m);
-                          Haptics.selectionAsync();
-                        }}
-                      >
-                        <Text
-                          style={[
-                            styles.timeChipText,
-                            isSelected && styles.timeChipTextSelected,
-                          ]}
-                        >
-                          {pad2(m)}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
+                  <Check size={16} color="#FFFFFF" />
+                  <Text style={styles.pickerDoneBtnText}>Xác nhận</Text>
+                </TouchableOpacity>
               </View>
             </View>
-
-            {/* Done button */}
-            <TouchableOpacity
-              style={styles.pickerDoneBtn}
-              onPress={() => {
-                setIsPickerOpen(false);
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-              }}
-            >
-              <Check size={16} color="#FFFFFF" />
-              <Text style={styles.pickerDoneBtnText}>Xác nhận</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+          )}
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
@@ -1286,16 +1294,29 @@ const styles = StyleSheet.create({
   },
 
   // Picker Modal styles
+  pickerOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 9999,
+    elevation: 20,
+    padding: 16,
+  },
   pickerModalContent: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 18,
     padding: 16,
-    marginHorizontal: 16,
-    marginVertical: 'auto',
+    width: '100%',
+    maxWidth: 360,
     shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 8,
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 10,
   },
   pickerModalHeader: {
     flexDirection: 'row',
