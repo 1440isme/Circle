@@ -4975,3 +4975,36 @@
   - API Integration Test: Kiểm tra `curl/fetch` tới `/api/locations/search?q=hcmute` và `/api/locations/reverse?lat=10.8527907&lon=106.7725584` trả về kết quả địa chỉ tiếng Việt chi tiết ngay lập tức.
 - **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
 - **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+
+
+---
+
+### AI-0143: Đồng bộ toàn diện form tạo lịch hẹn trên Mobile App tương đương bản Web
+- **Timestamp:** 2026-10-26T17:45:00+07:00
+- **Task ID:** Feature #101 (Tạo và quản lý lịch hẹn / sự kiện nhóm)
+- **Engineers:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Feature / Area:** Mobile Tools — Group Calendar Event Creation Parity (`MobileCalendarView.tsx`).
+- **Files Affected:**
+  - `apps/mobile/src/components/tools/MobileCalendarView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:**
+  1. **Đầy đủ các trường nhập liệu tương đương Web:**
+     - **Tên sự kiện / Lịch hẹn \*** (Bắt buộc).
+     - **Địa điểm (tùy chọn):** Hỗ trợ tìm kiếm địa điểm trực tiếp từ Photon bản đồ theo thời gian thực (realtime autocomplete), chọn địa điểm tự động gắn link Google Maps hoặc dán link Google Meet.
+     - **Thời gian bắt đầu \***: Hiển thị định dạng `dd/mm/yyyy HH:mm`, mở bộ chọn ngày và giờ 24h tiện lợi.
+     - **Thời gian kết thúc (tùy chọn):** Cho phép bật/tắt thêm giờ kết thúc với định dạng `dd/mm/yyyy HH:mm`.
+     - **Nhắc nhở trước:** Lựa chọn chip tiện lợi: *Không nhắc, Trước 15 phút, Trước 30 phút, Trước 1 giờ, Trước 1 ngày*.
+     - **Ghi chú nội dung:** Ô nhập văn bản nhiều dòng để chuẩn bị nội dung sự kiện.
+  2. **Bộ chọn ngày & giờ 24h trên Mobile (`MobileDateTimePickerModal`):**
+     - Thiết kế giao diện Native bottom sheet / modal với lịch mini chọn ngày trong tháng và thanh cuộn chip chọn giờ 24h (`00` - `23`) cùng phút (`00` - `55`), phản hồi rung Haptics chuẩn xác.
+  3. **Ràng buộc kiểm tra tính hợp lệ (Validation Parity):**
+     - Chặn tạo sự kiện trong quá khứ (`startTime < now - 60s`).
+     - Bắt buộc thời gian kết thúc phải lớn hơn thời gian bắt đầu (`endTime > startTime`).
+     - Hiển thị banner cảnh báo lỗi trực quan (`errorBanner`) và vô hiệu hóa nút submit khi form chưa hợp lệ.
+  4. **Hiển thị thẻ sự kiện:** Hỗ trợ hiển thị khoảng thời gian `startTime – endTime` và liên kết địa chỉ dẫn trực tiếp tới Google Maps.
+- **Human Modifications:** Trương Công Bình chỉ đạo yêu cầu: "xây dựng app khi tạo lịch cũng phải điền như web".
+- **Verification Method:**
+  - Babel Expo compilation: pass 100% (35.694 bytes).
+  - TypeScript Typecheck: 0 errors trong `MobileCalendarView.tsx`.
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
