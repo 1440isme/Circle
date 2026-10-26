@@ -5028,3 +5028,24 @@
   - Babel Expo compilation: pass 100% (35.902 bytes).
 - **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
 - **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+
+
+---
+
+### AI-0145: Bổ sung chế độ thu về chọn nhanh Tháng và Năm trong bộ chọn ngày giờ trên Mobile App
+- **Timestamp:** 2026-10-26T18:00:00+07:00
+- **Task ID:** Feature #101 (Tạo và quản lý lịch hẹn / sự kiện nhóm)
+- **Engineers:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Feature / Area:** Mobile Tools — Month & Year Selection Modes (`MobileCalendarView.tsx`).
+- **Files Affected:**
+  - `apps/mobile/src/components/tools/MobileCalendarView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:**
+  - **Thu về chọn tháng nhanh:** Chuyển đổi nhãn tháng thành nút chip tương tác "Tháng [M]". Khi bấm vào, lịch thu gọn về lưới 12 tháng (`Tháng 1` → `Tháng 12`) để người dùng chọn tháng bất kỳ với 1 chạm.
+  - **Thu về chọn năm nhanh:** Chuyển đổi nhãn năm thành nút chip tương tác "[Năm]". Khi bấm vào, hiển thị lưới 12 năm (`2024 - 2035`) kèm nút chuyển trang thập kỷ `<` / `>` để chọn năm nhanh chóng.
+  - Sau khi chọn xong năm hoặc tháng, giao diện tự động quay lại lưới ngày tương ứng.
+- **Human Modifications:** Trương Công Bình yêu cầu: "chỗ chọn ngày ấn vô tháng, năm chưa thu lại để chọn tháng hoặc năm".
+- **Verification Method:**
+  - Babel Expo compilation: pass 100% (40.922 bytes).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
