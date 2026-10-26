@@ -4951,3 +4951,27 @@
   - TypeScript Typecheck: `npx tsc --noEmit -p apps/web/tsconfig.json` (0 errors).
 - **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
 - **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+
+
+---
+
+### AI-0142: Khắc phục lỗi CORS và tìm kiếm gợi ý địa chỉ tạo lịch thông qua API proxy nội bộ
+- **Timestamp:** 2026-10-26T17:28:00+07:00
+- **Task ID:** Feature #101 (Tạo và quản lý lịch hẹn / sự kiện nhóm)
+- **Engineers:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Feature / Area:** Web Tools — Location Search & Map Reverse Geocode (`LocationSearchInput.tsx`, `MapLocationPickerModal.tsx`, `/api/locations/`).
+- **Files Affected:**
+  - `apps/web/src/app/api/locations/search/route.ts`
+  - `apps/web/src/app/api/locations/reverse/route.ts`
+  - `apps/web/src/components/tools/LocationSearchInput.tsx`
+  - `apps/web/src/components/tools/MapLocationPickerModal.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:**
+  - **Nguyên nhân lỗi:** Trình duyệt phía client chặn các lệnh gọi `fetch` trực tiếp tới Nominatim / Photon do chính sách CORS (`No Access-Control-Allow-Origin` / header `User-Agent` bị cấm ở browser fetch), dẫn đến việc `fetch` văng ngoại lệ và danh sách gợi ý địa điểm bị rỗng hoàn toàn.
+  - **Giải pháp:** Thiết lập 2 API route nội bộ phía Next.js server (`/api/locations/search` và `/api/locations/reverse`) làm reverse proxy truy vấn Photon và OpenStreetMap. Các cuộc gọi từ trình duyệt trở thành cùng domain (`same-origin`), triệt tiêu 100% lỗi CORS, đồng thời tăng tốc độ phản hồi gợi ý địa chỉ và đảo ngược tọa độ (reverse geocoding).
+- **Human Modifications:** Trương Công Bình báo lỗi: "sao lỗi cái địa chỉ gợi ý ở tạo lịch rồi".
+- **Verification Method:**
+  - TypeScript Typecheck: `npx tsc --noEmit -p apps/web/tsconfig.json` (0 errors).
+  - API Integration Test: Kiểm tra `curl/fetch` tới `/api/locations/search?q=hcmute` và `/api/locations/reverse?lat=10.8527907&lon=106.7725584` trả về kết quả địa chỉ tiếng Việt chi tiết ngay lập tức.
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
