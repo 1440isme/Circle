@@ -20,6 +20,30 @@ interface MapLocationPickerModalProps {
   initialQuery?: string;
 }
 
+// Helper to extract coordinates if present in URL
+export function extractCoordsFromQuery(str: string): { lat: number; lng: number } | null {
+  if (!str) return null;
+  const m = str.match(/(?:query=|q=|@)(-?\d+\.\d+),\s*(-?\d+\.\d+)/);
+  if (m) {
+    const lat = parseFloat(m[1]);
+    const lng = parseFloat(m[2]);
+    if (!isNaN(lat) && !isNaN(lng)) {
+      return { lat, lng };
+    }
+  }
+  return null;
+}
+
+// Helper to extract clean query text for the search box
+export function extractCleanQuery(str: string): string {
+  if (!str) return '';
+  return str
+    .replace(/https?:\/\/[^\s]+/g, '')
+    .trim()
+    .replace(/\s*[-–—:]+\s*$/g, '')
+    .trim();
+}
+
 export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
   isOpen,
   onClose,
@@ -30,7 +54,7 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
   const mapRef = useRef<L.Map | null>(null);
   const markerRef = useRef<L.Marker | null>(null);
 
-  const [searchQuery, setSearchQuery] = useState(initialQuery);
+  const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [showResultsDropdown, setShowResultsDropdown] = useState(false);
@@ -45,7 +69,7 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
   const [isReverseGeocoding, setIsReverseGeocoding] = useState(false);
 
   // Helper to reverse geocode coordinates using OpenStreetMap Nominatim
-  const reverseGeocode = useCallback(async (lat: number, lng: number) => {
+  const reverseGeocode = useCallback(async (lat: number, lng: number, fallbackName?: string) => {
     setIsReverseGeocoding(true);
     try {
       const res = await fetch(
@@ -60,12 +84,12 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
       if (res.ok) {
         const data = await res.json();
         const displayName = data.display_name || '';
-        const name = data.name || displayName.split(',')[0] || 'Vị trí đã chọn';
+        const name = fallbackName || data.name || displayName.split(',')[0] || 'Vị trí đã chọn';
         const address = displayName;
         setSelectedPlace({ name, address, lat, lng });
       } else {
         setSelectedPlace({
-          name: `Vị trí (${lat.toFixed(5)}, ${lng.toFixed(5)})`,
+          name: fallbackName || `Vị trí (${lat.toFixed(5)}, ${lng.toFixed(5)})`,
           address: '',
           lat,
           lng,
@@ -74,7 +98,7 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
     } catch (err) {
       console.warn('Reverse geocode error:', err);
       setSelectedPlace({
-        name: `Vị trí (${lat.toFixed(5)}, ${lng.toFixed(5)})`,
+        name: fallbackName || `Vị trí (${lat.toFixed(5)}, ${lng.toFixed(5)})`,
         address: '',
         lat,
         lng,
@@ -116,7 +140,58 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
     }
   }, [reverseGeocode]);
 
-  // 1. Initialize Map
+  // Search function helper
+  const executeSearch = useCallback(async (query: string): Promise<any[]> => {
+    if (!query || query.trim().length < 2) return [];
+
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+        query.trim()
+      )}&countrycodes=vn&limit=5&addressdetails=1`;
+
+      const res = await fetch(url, {
+        headers: {
+          'User-Agent': 'CircleApp/1.0 (dev@circle.local)',
+          'Accept-Language': 'vi,en;q=0.9',
+        },
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          return data;
+        }
+      }
+
+      // Fallback to Photon
+      const pRes = await fetch(
+        `https://photon.komoot.io/api/?q=${encodeURIComponent(
+          query.trim()
+        )}&lat=10.7769&lon=106.7009&limit=5`
+      );
+      if (pRes.ok) {
+        const pData = await pRes.json();
+        return (pData.features || []).map((f: any) => ({
+          name: f.properties.name || f.properties.street || query.trim(),
+          display_name: [
+            f.properties.name,
+            f.properties.street,
+            f.properties.district,
+            f.properties.city,
+          ]
+            .filter(Boolean)
+            .join(', '),
+          lat: f.geometry.coordinates[1],
+          lon: f.geometry.coordinates[0],
+        }));
+      }
+    } catch (err) {
+      console.warn('Place search error:', err);
+    }
+    return [];
+  }, []);
+
+  // 1. Initialize Map with initialQuery coordinates or clean name search
   useEffect(() => {
     if (!isOpen) return;
 
@@ -128,18 +203,24 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
     }
     container.innerHTML = '';
 
-    // Default center: Ho Chi Minh City (HCMUTE / Landmark area)
-    const initialLat = 10.7958;
-    const initialLng = 106.7225;
+    const existingCoords = extractCoordsFromQuery(initialQuery);
+    const cleanName = extractCleanQuery(initialQuery);
+
+    setSearchQuery(cleanName);
+
+    // Initial center: if coordinates provided, use them; otherwise default to HCM center
+    const defaultLat = existingCoords ? existingCoords.lat : 10.7769;
+    const defaultLng = existingCoords ? existingCoords.lng : 106.7009;
+    const defaultZoom = existingCoords ? 16 : 13;
 
     const map = L.map(container, {
-      center: [initialLat, initialLng],
-      zoom: 14,
+      center: [defaultLat, defaultLng],
+      zoom: defaultZoom,
       zoomControl: true,
       attributionControl: false,
     });
 
-    // ArcGIS Online World Street Map (high-speed, clean tiles, free)
+    // ArcGIS Online World Street Map
     L.tileLayer(
       'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
       {
@@ -157,11 +238,37 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
       reverseGeocode(lat, lng);
     });
 
-    // Invalidate map size after container animation
-    const timer = setTimeout(() => {
+    const timer = setTimeout(async () => {
       map.invalidateSize();
-      updateMarker(initialLat, initialLng);
-      reverseGeocode(initialLat, initialLng);
+
+      if (existingCoords) {
+        // Has exact coordinates: center map, place marker and reverse geocode
+        map.setView([existingCoords.lat, existingCoords.lng], 16);
+        updateMarker(existingCoords.lat, existingCoords.lng);
+        reverseGeocode(existingCoords.lat, existingCoords.lng, cleanName || undefined);
+      } else if (cleanName && cleanName.length >= 2) {
+        // Has clean name text: search map right away on open!
+        setIsSearching(true);
+        const results = await executeSearch(cleanName);
+        setIsSearching(false);
+        if (results.length > 0) {
+          const top = results[0];
+          const lat = parseFloat(top.lat);
+          const lng = parseFloat(top.lon);
+          const name = top.name || top.display_name.split(',')[0] || cleanName;
+          map.flyTo([lat, lng], 16);
+          updateMarker(lat, lng);
+          setSelectedPlace({ name, address: top.display_name, lat, lng });
+        } else {
+          // If no search result, place pin at default
+          updateMarker(defaultLat, defaultLng);
+          reverseGeocode(defaultLat, defaultLng);
+        }
+      } else {
+        // Empty query
+        updateMarker(defaultLat, defaultLng);
+        reverseGeocode(defaultLat, defaultLng);
+      }
     }, 150);
 
     return () => {
@@ -170,9 +277,9 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
       mapRef.current = null;
       markerRef.current = null;
     };
-  }, [isOpen, updateMarker, reverseGeocode]);
+  }, [isOpen, initialQuery, updateMarker, reverseGeocode, executeSearch]);
 
-  // 2. Search places with debounce
+  // 2. Search places on user input change (debounced)
   useEffect(() => {
     if (!searchQuery || searchQuery.trim().length < 2) {
       setSearchResults([]);
@@ -182,60 +289,14 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
 
     const timer = setTimeout(async () => {
       setIsSearching(true);
-      try {
-        // Priority query to Nominatim with countrycodes=vn
-        const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-          searchQuery
-        )}&countrycodes=vn&limit=5&addressdetails=1`;
-
-        const res = await fetch(url, {
-          headers: {
-            'User-Agent': 'CircleApp/1.0 (dev@circle.local)',
-            'Accept-Language': 'vi,en;q=0.9',
-          },
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data) && data.length > 0) {
-            setSearchResults(data);
-            setShowResultsDropdown(true);
-          } else {
-            // Fallback to Photon
-            const pRes = await fetch(
-              `https://photon.komoot.io/api/?q=${encodeURIComponent(
-                searchQuery
-              )}&lat=10.7769&lon=106.7009&limit=5`
-            );
-            if (pRes.ok) {
-              const pData = await pRes.json();
-              const mapped = (pData.features || []).map((f: any) => ({
-                name: f.properties.name || f.properties.street || searchQuery,
-                display_name: [
-                  f.properties.name,
-                  f.properties.street,
-                  f.properties.district,
-                  f.properties.city,
-                ]
-                  .filter(Boolean)
-                  .join(', '),
-                lat: f.geometry.coordinates[1],
-                lon: f.geometry.coordinates[0],
-              }));
-              setSearchResults(mapped);
-              setShowResultsDropdown(mapped.length > 0);
-            }
-          }
-        }
-      } catch (err) {
-        console.warn('Place search error:', err);
-      } finally {
-        setIsSearching(false);
-      }
+      const results = await executeSearch(searchQuery);
+      setIsSearching(false);
+      setSearchResults(results);
+      setShowResultsDropdown(results.length > 0);
     }, 350);
 
     return () => clearTimeout(timer);
-  }, [searchQuery]);
+  }, [searchQuery, executeSearch]);
 
   const handleSelectSearchResult = (item: any) => {
     const lat = parseFloat(item.lat);

@@ -4,7 +4,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { MapPin, Search, Map, X, Loader2 } from 'lucide-react';
 import type { SelectedLocationData } from './MapLocationPickerModal';
-import { EventLocationDisplay } from './EventLocationDisplay';
 
 const MapLocationPickerModal = dynamic(
   () => import('./MapLocationPickerModal').then((m) => m.MapLocationPickerModal),
@@ -164,7 +163,7 @@ export const LocationSearchInput: React.FC<LocationSearchInputProps> = ({
         <button
           type="button"
           onClick={() => setIsMapModalOpen(true)}
-          className="flex items-center gap-1 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 px-2.5 py-2 text-xs font-semibold text-rose-600 dark:text-rose-400 transition-all shrink-0 active:scale-95 shadow-2xs"
+          className="flex items-center gap-1 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 px-2.5 py-2 text-xs font-semibold text-rose-600 dark:text-rose-400 transition-all shrink-0 active:scale-95 shadow-2xs cursor-pointer"
           title="Mở bản đồ tìm kiếm và ghim vị trí"
         >
           <Map className="h-3.5 w-3.5" />
@@ -183,7 +182,7 @@ export const LocationSearchInput: React.FC<LocationSearchInputProps> = ({
               key={idx}
               type="button"
               onClick={() => handleSelectSuggestion(item)}
-              className="w-full text-left px-3 py-2 hover:bg-circle-wash dark:hover:bg-circle-dark-wash border-b border-circle-hairline/30 dark:border-circle-dark-hairline/30 last:border-none flex items-start gap-2 transition-colors"
+              className="w-full text-left px-3 py-2 hover:bg-circle-wash dark:hover:bg-circle-dark-wash border-b border-circle-hairline/30 dark:border-circle-dark-hairline/30 last:border-none flex items-start gap-2 transition-colors cursor-pointer"
             >
               <MapPin className="h-3.5 w-3.5 text-rose-500 shrink-0 mt-0.5" />
               <div className="min-w-0 flex-1">
@@ -196,20 +195,6 @@ export const LocationSearchInput: React.FC<LocationSearchInputProps> = ({
               </div>
             </button>
           ))}
-        </div>
-      )}
-
-      {/* Live Preview if location has text or link */}
-      {value.trim() && (
-        <div className="p-2 rounded-xl bg-circle-wash/70 dark:bg-circle-dark-wash/70 border border-circle-hairline/60 dark:border-circle-dark-hairline/60">
-          <span className="text-[10px] text-circle-slate dark:text-circle-dark-muted block mb-1 font-medium">
-            Xem trước hiển thị:
-          </span>
-          <EventLocationDisplay
-            location={value}
-            className="text-xs"
-            iconClassName="h-3.5 w-3.5 shrink-0"
-          />
         </div>
       )}
 
