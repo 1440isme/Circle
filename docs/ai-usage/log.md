@@ -4891,3 +4891,24 @@
   - Next.js Production Build: `npm run build --workspace=@circle/web` (Pass 100%, 9/9 static routes generated).
 - **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
 - **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+
+
+---
+
+### AI-0139: Tinh gọn bánh xe giờ (bỏ viền bo, bỏ thanh cuộn, bỏ gợi ý) và hỗ trợ chọn nhanh Tháng/Năm
+- **Timestamp:** 2026-10-26T16:53:00+07:00
+- **Task ID:** Feature #101 (Tạo và quản lý lịch hẹn / sự kiện nhóm)
+- **Engineers:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Feature / Area:** Web Tools — Calendar Date & Time Wheel Picker (`CustomDateTimePicker.tsx`).
+- **Files Affected:**
+  - `apps/web/src/components/tools/CustomDateTimePicker.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:**
+  1. **Thu về tháng và năm để chọn nhanh:** Khi bấm vào "Tháng {month}", chuyển sang lưới 12 tháng (`Tháng 1` .. `Tháng 12`) để chọn trực tiếp. Khi bấm vào "{year}", chuyển sang lưới 12 năm kèm nút lướt thập kỷ (`<` / `>`) để chọn năm nhanh chóng.
+  2. **Bỏ khung bo & thanh cuộn bánh xe giờ:** Loại bỏ viền bo hộp bên ngoài, ẩn triệt để thanh cuộn bằng CSS cross-browser `[&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]`.
+  3. **Bỏ giờ gợi ý & text (24 h):** Xóa bỏ các nút preset giờ nhanh và nhãn chữ `Giờ 24h`, tập trung hoàn toàn vào thanh chọn tối màu cố định ở giữa lướt bắt dính (snap) mượt mà.
+- **Human Modifications:** Trương Công Bình chỉ đạo yêu cầu: "bỏ cái khung bo giờ và hình thanh cuộn và giờ gợi ý đi bỏ text (24 h ) và sao ko khi ấn vào tháng năm ko thu về tháng, thu về năm để chọn".
+- **Verification Method:**
+  - TypeScript Typecheck: `npx tsc --noEmit -p apps/web/tsconfig.json` (0 errors).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
