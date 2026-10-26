@@ -24,6 +24,7 @@ import {
   SearchMessagesInput,
   ReactMessageInput,
   MessagePaginationInput,
+  ClearChatInput,
   resolveLocale,
 } from '@circle/shared';
 
@@ -190,5 +191,22 @@ export class ChatController {
   ) {
     const locale = resolveLocale(circleLocale, acceptLanguage);
     return this.chatService.searchMessages(user.id, channelId, dto, locale);
+  }
+
+  /**
+   * POST /api/v1/channels/:channelId/clear-history — Clear chat history (FOR_ME or EVERYONE)
+   */
+  @Post('channels/:channelId/clear-history')
+  @HttpCode(HttpStatus.OK)
+  async clearChannelHistory(
+    @CurrentUser() user: AuthUserData,
+    @Param('channelId') channelId: string,
+    @Body(new ZodValidationPipe((locale) => createChatSchemas(locale).clearChatSchema))
+    dto: ClearChatInput,
+    @Headers('x-circle-locale') circleLocale?: string,
+    @Headers('accept-language') acceptLanguage?: string,
+  ) {
+    const locale = resolveLocale(circleLocale, acceptLanguage);
+    return this.chatService.clearChannelHistory(user.id, channelId, dto, locale);
   }
 }

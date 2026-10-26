@@ -8,6 +8,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
+  TextInput,
 } from 'react-native';
 import {
   X,
@@ -29,8 +30,13 @@ import {
   RefreshCw,
   Sparkles,
   Info,
+  Key,
+  Lock,
+  Eye,
+  EyeOff,
 } from 'lucide-react-native';
 import { SessionEntity } from '@circle/types';
+import { checkPasswordRequirements } from '@circle/shared';
 import { useThemeStore } from '../../stores/theme.store';
 import { useLanguageStore } from '../../stores/language.store';
 import { useAuthStore } from '../../stores/auth.store';
@@ -38,15 +44,16 @@ import {
   useSessionsQuery,
   useRevokeSessionMutation,
   useRevokeOtherSessionsMutation,
+  useChangePasswordMutation,
 } from '../../hooks/use-session-queries';
 import { useEdgeSwipeDismiss } from '../../hooks/use-edge-swipe';
 
-export type SystemSettingsSubView = 'root' | 'appearance' | 'sessions' | 'language' | 'help';
+export type SystemSettingsSubView = 'root' | 'appearance' | 'security' | 'sessions' | 'language' | 'help';
 
 interface SystemSettingsModalProps {
   visible: boolean;
   onClose: () => void;
-  defaultTab?: 'general' | 'appearance' | 'sessions' | 'language' | 'help';
+  defaultTab?: 'general' | 'appearance' | 'security' | 'sessions' | 'language' | 'help';
 }
 
 export function SystemSettingsModal({
@@ -59,7 +66,9 @@ export function SystemSettingsModal({
   const { user, logout } = useAuthStore();
 
   const initialView: SystemSettingsSubView =
-    defaultTab === 'sessions'
+    defaultTab === 'security'
+      ? 'security'
+      : defaultTab === 'sessions'
       ? 'sessions'
       : defaultTab === 'language'
       ? 'language'
@@ -298,7 +307,25 @@ export function SystemSettingsModal({
                   <ChevronRight size={18} color={colors.subtle} />
                 </TouchableOpacity>
 
-                {/* 2. Phiên đăng nhập */}
+                {/* 2. Mật khẩu & Bảo mật */}
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => setCurrentView('security')}
+                  style={[styles.menuRowItem, { borderBottomColor: colors.hairline, borderBottomWidth: StyleSheet.hairlineWidth }]}
+                >
+                  <Key size={20} color={colors.text} />
+                  <View style={styles.menuRowInfo}>
+                    <Text style={[styles.menuRowTitle, { color: colors.text }]}>
+                      {locale === 'vi' ? 'Mật khẩu & Bảo mật' : 'Password & Security'}
+                    </Text>
+                    <Text style={[styles.menuRowSubtitle, { color: colors.subtle }]}>
+                      {t.auth.changePassword}
+                    </Text>
+                  </View>
+                  <ChevronRight size={18} color={colors.subtle} />
+                </TouchableOpacity>
+
+                {/* 3. Phiên đăng nhập */}
                 <TouchableOpacity
                   activeOpacity={0.7}
                   onPress={() => setCurrentView('sessions')}
@@ -396,7 +423,7 @@ export function SystemSettingsModal({
 export function SystemSettingsSubViewContent({
   subView,
 }: {
-  subView: 'appearance' | 'sessions' | 'language' | 'help';
+  subView: 'appearance' | 'security' | 'sessions' | 'language' | 'help';
 }) {
   const { colors, theme, setTheme, uiStyle, setUiStyle } = useThemeStore();
   const { locale, setLocale, t } = useLanguageStore();
@@ -404,6 +431,61 @@ export function SystemSettingsSubViewContent({
   const { data: sessions = [], isLoading, isRefetching, refetch } = useSessionsQuery();
   const revokeSessionMutation = useRevokeSessionMutation();
   const revokeOtherSessionsMutation = useRevokeOtherSessionsMutation();
+
+  // Password & Security state
+  const changePasswordMutation = useChangePasswordMutation();
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [passwordSuccessNotice, setPasswordSuccessNotice] = useState<string | null>(null);
+  const [passwordErrorNotice, setPasswordErrorNotice] = useState<string | null>(null);
+
+  const passwordReqs = checkPasswordRequirements(newPassword);
+  const isPasswordFormValid =
+    currentPassword.trim().length > 0 &&
+    passwordReqs.isValid &&
+    newPassword === confirmPassword &&
+    newPassword !== currentPassword;
+
+  const handleChangePassword = async () => {
+    setPasswordErrorNotice(null);
+    setPasswordSuccessNotice(null);
+
+    if (!currentPassword) {
+      setPasswordErrorNotice(t.validation.currentPasswordRequired);
+      return;
+    }
+    if (!passwordReqs.isValid) {
+      setPasswordErrorNotice(t.validation.passwordComplexity);
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordErrorNotice(t.validation.passwordMismatch);
+      return;
+    }
+    if (newPassword === currentPassword) {
+      setPasswordErrorNotice(t.validation.newPasswordSameAsCurrent);
+      return;
+    }
+
+    try {
+      const res = await changePasswordMutation.mutateAsync({
+        currentPassword,
+        newPassword,
+        confirmPassword,
+      });
+      setPasswordSuccessNotice(res.message || t.auth.changePasswordSuccess);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || t.auth.currentPasswordIncorrect;
+      setPasswordErrorNotice(msg);
+    }
+  };
 
   const [revokingId, setRevokingId] = useState<string | null>(null);
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
@@ -621,6 +703,212 @@ export function SystemSettingsSubViewContent({
               </TouchableOpacity>
             </View>
           </View>
+        </ScrollView>
+      )}
+
+      {/* ========================================================= */}
+      {/* LEVEL 2: SUBVIEW - MẬT KHẨU & BẢO MẬT (SECURITY)        */}
+      {/* ========================================================= */}
+      {subView === 'security' && (
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.subViewContent}
+        >
+          {/* Security Advisory Card */}
+          <View
+            style={[
+              styles.securityNoticeCard,
+              {
+                backgroundColor: 'rgba(245, 158, 11, 0.12)',
+                borderColor: 'rgba(245, 158, 11, 0.25)',
+              },
+            ]}
+          >
+            <Shield size={20} color="#f59e0b" style={{ marginTop: 2 }} />
+            <View style={{ flex: 1, gap: 4 }}>
+              <Text style={[styles.securityNoticeTitle, { color: '#b45309' }]}>
+                {t.auth.changePasswordTitle}
+              </Text>
+              <Text style={[styles.securityNoticeDesc, { color: '#b45309' }]}>
+                {t.auth.securityPasswordNotice}
+              </Text>
+            </View>
+          </View>
+
+          {passwordSuccessNotice && (
+            <View style={[styles.noticeBanner, { backgroundColor: 'rgba(16, 185, 129, 0.12)', borderColor: 'rgba(16, 185, 129, 0.25)' }]}>
+              <CheckCircle2 size={16} color="#10b981" />
+              <Text style={{ fontSize: 13, color: '#059669', flex: 1, fontWeight: '500' }}>
+                {passwordSuccessNotice}
+              </Text>
+            </View>
+          )}
+
+          {passwordErrorNotice && (
+            <View style={[styles.noticeBanner, { backgroundColor: 'rgba(239, 68, 68, 0.12)', borderColor: 'rgba(239, 68, 68, 0.25)' }]}>
+              <AlertTriangle size={16} color="#ef4444" />
+              <Text style={{ fontSize: 13, color: '#dc2626', flex: 1, fontWeight: '500' }}>
+                {passwordErrorNotice}
+              </Text>
+            </View>
+          )}
+
+          <View style={[styles.sectionBlock, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+            {/* Current Password Field */}
+            <View style={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: 12 }}>
+              <Text style={[styles.inputLabel, { color: colors.text }]}>
+                {t.auth.currentPassword}
+              </Text>
+              <View style={[styles.inputWrapper, { backgroundColor: colors.wash, borderColor: colors.hairline }]}>
+                <TextInput
+                  value={currentPassword}
+                  onChangeText={setCurrentPassword}
+                  secureTextEntry={!showCurrentPassword}
+                  placeholder="••••••••"
+                  placeholderTextColor={colors.subtle}
+                  style={[styles.textInputField, { color: colors.text }]}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                <TouchableOpacity
+                  onPress={() => setShowCurrentPassword(!showCurrentPassword)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  {showCurrentPassword ? (
+                    <EyeOff size={18} color={colors.subtle} />
+                  ) : (
+                    <Eye size={18} color={colors.subtle} />
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: colors.hairline }} />
+
+            {/* New Password Field */}
+            <View style={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: 12 }}>
+              <Text style={[styles.inputLabel, { color: colors.text }]}>
+                {t.auth.newPassword}
+              </Text>
+              <View style={[styles.inputWrapper, { backgroundColor: colors.wash, borderColor: colors.hairline }]}>
+                <TextInput
+                  value={newPassword}
+                  onChangeText={setNewPassword}
+                  secureTextEntry={!showNewPassword}
+                  placeholder="••••••••"
+                  placeholderTextColor={colors.subtle}
+                  style={[styles.textInputField, { color: colors.text }]}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                <TouchableOpacity
+                  onPress={() => setShowNewPassword(!showNewPassword)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  {showNewPassword ? (
+                    <EyeOff size={18} color={colors.subtle} />
+                  ) : (
+                    <Eye size={18} color={colors.subtle} />
+                  )}
+                </TouchableOpacity>
+              </View>
+
+              {/* ACC-05 Real-time requirement chips */}
+              {newPassword.length > 0 && (
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
+                  <View style={[styles.reqChip, { backgroundColor: passwordReqs.minLength ? 'rgba(16,185,129,0.12)' : colors.wash }]}>
+                    <Check size={12} color={passwordReqs.minLength ? '#10b981' : colors.subtle} />
+                    <Text style={{ fontSize: 11, color: passwordReqs.minLength ? '#059669' : colors.subtle }}>
+                      {t.auth.min8Chars}
+                    </Text>
+                  </View>
+                  <View style={[styles.reqChip, { backgroundColor: passwordReqs.hasUpper ? 'rgba(16,185,129,0.12)' : colors.wash }]}>
+                    <Check size={12} color={passwordReqs.hasUpper ? '#10b981' : colors.subtle} />
+                    <Text style={{ fontSize: 11, color: passwordReqs.hasUpper ? '#059669' : colors.subtle }}>
+                      {t.validation.passwordUppercase}
+                    </Text>
+                  </View>
+                  <View style={[styles.reqChip, { backgroundColor: passwordReqs.hasLower ? 'rgba(16,185,129,0.12)' : colors.wash }]}>
+                    <Check size={12} color={passwordReqs.hasLower ? '#10b981' : colors.subtle} />
+                    <Text style={{ fontSize: 11, color: passwordReqs.hasLower ? '#059669' : colors.subtle }}>
+                      {t.validation.passwordLowercase}
+                    </Text>
+                  </View>
+                  <View style={[styles.reqChip, { backgroundColor: passwordReqs.hasNumber ? 'rgba(16,185,129,0.12)' : colors.wash }]}>
+                    <Check size={12} color={passwordReqs.hasNumber ? '#10b981' : colors.subtle} />
+                    <Text style={{ fontSize: 11, color: passwordReqs.hasNumber ? '#059669' : colors.subtle }}>
+                      {t.validation.passwordNumber}
+                    </Text>
+                  </View>
+                  <View style={[styles.reqChip, { backgroundColor: passwordReqs.hasSpecial ? 'rgba(16,185,129,0.12)' : colors.wash }]}>
+                    <Check size={12} color={passwordReqs.hasSpecial ? '#10b981' : colors.subtle} />
+                    <Text style={{ fontSize: 11, color: passwordReqs.hasSpecial ? '#059669' : colors.subtle }}>
+                      {t.validation.passwordSpecialChar}
+                    </Text>
+                  </View>
+                </View>
+              )}
+            </View>
+
+            <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: colors.hairline }} />
+
+            {/* Confirm New Password Field */}
+            <View style={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: 14 }}>
+              <Text style={[styles.inputLabel, { color: colors.text }]}>
+                {t.auth.confirmNewPassword}
+              </Text>
+              <View style={[styles.inputWrapper, { backgroundColor: colors.wash, borderColor: colors.hairline }]}>
+                <TextInput
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  secureTextEntry={!showConfirmPassword}
+                  placeholder="••••••••"
+                  placeholderTextColor={colors.subtle}
+                  style={[styles.textInputField, { color: colors.text }]}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                <TouchableOpacity
+                  onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  {showConfirmPassword ? (
+                    <EyeOff size={18} color={colors.subtle} />
+                  ) : (
+                    <Eye size={18} color={colors.subtle} />
+                  )}
+                </TouchableOpacity>
+              </View>
+              {confirmPassword.length > 0 && (
+                <Text style={{ fontSize: 11, marginTop: 6, color: newPassword === confirmPassword ? '#10b981' : '#ef4444' }}>
+                  {newPassword === confirmPassword ? t.auth.passwordMatch : t.auth.passwordMismatch}
+                </Text>
+              )}
+            </View>
+          </View>
+
+          {/* Submit Button */}
+          <TouchableOpacity
+            activeOpacity={0.8}
+            disabled={!isPasswordFormValid || changePasswordMutation.isPending}
+            onPress={handleChangePassword}
+            style={[
+              styles.actionSubmitBtn,
+              {
+                backgroundColor: colors.primary,
+                opacity: !isPasswordFormValid || changePasswordMutation.isPending ? 0.5 : 1,
+              },
+            ]}
+          >
+            {changePasswordMutation.isPending ? (
+              <ActivityIndicator size="small" color={colors.onPrimary} />
+            ) : (
+              <Lock size={18} color={colors.onPrimary} />
+            )}
+            <Text style={[styles.actionSubmitBtnText, { color: colors.onPrimary }]}>
+              {changePasswordMutation.isPending ? t.auth.updatingPassword : t.auth.updatePasswordButton}
+            </Text>
+          </TouchableOpacity>
         </ScrollView>
       )}
 
@@ -1132,5 +1420,69 @@ const styles = StyleSheet.create({
   noticeText: {
     fontSize: 12,
     fontWeight: '500',
+  },
+  securityNoticeCard: {
+    flexDirection: 'row',
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 10,
+    marginBottom: 12,
+  },
+  securityNoticeTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  securityNoticeDesc: {
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  noticeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 12,
+  },
+  inputLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 6,
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    height: 44,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  textInputField: {
+    flex: 1,
+    fontSize: 14,
+    paddingVertical: 0,
+  },
+  reqChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  actionSubmitBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 14,
+    marginTop: 16,
+  },
+  actionSubmitBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
   },
 });

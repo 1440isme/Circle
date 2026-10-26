@@ -256,3 +256,30 @@ export async function revokeOtherSessionsApi(): Promise<{ count: number; message
   return res.data;
 }
 
+export interface ChangePasswordPayload {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
+/**
+ * ACC-10: Change password in mobile settings.
+ */
+export async function changePasswordApi(
+  payload: ChangePasswordPayload,
+): Promise<{ message: string }> {
+  const { refreshToken } = await getAuthTokens();
+  const headers: Record<string, string> = {};
+  if (refreshToken) {
+    headers['x-refresh-token'] = refreshToken;
+  }
+
+  const res = await mobileApiRequest<{ message: string }>('/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+    headers,
+  });
+
+  return res.data;
+}
+

@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useQueryClient, InfiniteData } from '@tanstack/react-query';
-import { MessageSquare, Pin, Users, Hash, WifiOff, Phone, Video, Radio, PhoneCall, PhoneOff, Search, X, Loader2 } from 'lucide-react';
-import { MessageEntity, CursorPaginatedMessages, CallType, CallSessionDetailEntity } from '@circle/types';
+import { MessageSquare, Pin, Users, Hash, WifiOff, Phone, Video, Radio, PhoneCall, PhoneOff, Search, X, Loader2, MoreVertical, Trash2 } from 'lucide-react';
+import { MessageEntity, CursorPaginatedMessages, CallType, CallSessionDetailEntity, ClearChatMode } from '@circle/types';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguageStore } from '../../stores/language.store';
 import { useCircleStore } from '../../stores/circle.store';
@@ -18,6 +18,7 @@ import {
   useEditMessageMutation,
   useRecallMessageMutation,
   useSearchMessagesQuery,
+  useClearChatMutation,
 } from '../../hooks/use-chat-queries';
 import { useCircleMembersQuery, useCircleDetailQuery } from '../../hooks/use-circle-queries';
 import { useInitiateCallMutation, useJoinCallMutation } from '../../hooks/use-call-queries';
@@ -25,6 +26,7 @@ import { subscribeSocketConnection, sendMessageRead, getSocket } from '../../lib
 import { MessageList } from './MessageList';
 import { ChatComposer } from './ChatComposer';
 import { PinnedMessagesModal } from './PinnedMessagesModal';
+import { ClearChatModal } from './ClearChatModal';
 
 interface ChannelChatViewProps {
   channelId: string;
@@ -52,6 +54,8 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
   const [replyingMessage, setReplyingMessage] = useState<MessageEntity | null>(null);
   const [editingMessage, setEditingMessage] = useState<MessageEntity | null>(null);
   const [isPinnedModalOpen, setIsPinnedModalOpen] = useState(false);
+  const [isClearChatModalOpen, setIsClearChatModalOpen] = useState(false);
+  const [isHeaderMenuOpen, setIsHeaderMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSocketConnected, setIsSocketConnected] = useState(true);
@@ -111,15 +115,27 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
         }
       };
 
+      const handleChannelCleared = (payload: any) => {
+        if (payload.channelId === channelId) {
+          queryClient.setQueryData(CHAT_KEYS.messages(channelId), () => ({
+            pages: [{ messages: [], nextCursor: null }],
+            pageParams: [undefined],
+          }));
+          queryClient.invalidateQueries({ queryKey: CHAT_KEYS.messages(channelId) });
+        }
+      };
+
       socket.on('call:incoming', handleIncomingCall);
       socket.on('call:ended', handleCallEnded);
       socket.on('circle:theme_updated', handleThemeUpdated);
+      socket.on('chat:channel-cleared', handleChannelCleared);
 
       return () => {
         unsub();
         socket.off('call:incoming', handleIncomingCall);
         socket.off('call:ended', handleCallEnded);
         socket.off('circle:theme_updated', handleThemeUpdated);
+        socket.off('chat:channel-cleared', handleChannelCleared);
       };
     }
 
@@ -190,6 +206,7 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
   const sendMessageMutation = useSendMessageMutation(channelId);
   const editMessageMutation = useEditMessageMutation(channelId);
   const recallMessageMutation = useRecallMessageMutation(channelId);
+  const clearChatMutation = useClearChatMutation(channelId);
   const reactMessageMutation = useReactMessageMutation(channelId);
   const pinMessageMutation = usePinMessageMutation(channelId);
   const { data: pinnedMessages = [], isLoading: isLoadingPins } = usePinnedMessagesQuery(channelId);
@@ -216,6 +233,15 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
       } catch (err: any) {
         alert(err.message || 'Lỗi khi thu hồi tin nhắn');
       }
+    }
+  };
+
+  const handleClearChat = async (mode: ClearChatMode) => {
+    try {
+      await clearChatMutation.mutateAsync({ mode });
+      setIsClearChatModalOpen(false);
+    } catch (err: any) {
+      alert(err.message || 'Lỗi khi xóa lịch sử trò chuyện');
     }
   };
 
@@ -347,6 +373,69 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
             >
               <Pin className="h-4 w-4" />
             </button>
+
+            {/* Header Options Menu (More options: Clear Chat, etc.) */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setIsHeaderMenuOpen(!isHeaderMenuOpen)}
+                className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors active:scale-95 ${
+                  isHeaderMenuOpen
+                    ? 'bg-circle-primary/10 text-circle-primary'
+                    : 'text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas'
+                }`}
+                title="Tùy chọn cuộc trò chuyện"
+              >
+                <MoreVertical className="h-4 w-4" />
+              </button>
+
+              {isHeaderMenuOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-20"
+                    onClick={() => setIsHeaderMenuOpen(false)}
+                  />
+                  <div className="absolute right-0 top-full mt-1.5 w-52 rounded-2xl border border-circle-slate/15 dark:border-circle-dark-surface bg-white dark:bg-circle-charcoal p-1.5 shadow-xl z-30 animate-scaleUp">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsHeaderMenuOpen(false);
+                        setIsSearchOpen(true);
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium rounded-xl text-circle-charcoal dark:text-white hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors text-left"
+                    >
+                      <Search className="h-3.5 w-3.5 text-circle-slate" />
+                      <span>{t.chat.searchPlaceholder || 'Tìm kiếm tin nhắn'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsHeaderMenuOpen(false);
+                        setIsPinnedModalOpen(true);
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium rounded-xl text-circle-charcoal dark:text-white hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors text-left"
+                    >
+                      <Pin className="h-3.5 w-3.5 text-circle-slate" />
+                      <span>{t.chat.pinnedBadge || 'Tin nhắn đã ghim'}</span>
+                    </button>
+
+                    <div className="my-1 border-t border-circle-slate/10 dark:border-white/10" />
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsHeaderMenuOpen(false);
+                        setIsClearChatModalOpen(true);
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-xl text-rose-500 hover:bg-rose-500/10 transition-colors text-left"
+                    >
+                      <Trash2 className="h-3.5 w-3.5 text-rose-500" />
+                      <span>{t.chat.clearChatAction}</span>
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
 
@@ -522,6 +611,14 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
           const el = document.getElementById(`message-${messageId}`);
           el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }}
+      />
+
+      {/* Clear Chat History Modal */}
+      <ClearChatModal
+        isOpen={isClearChatModalOpen}
+        onClose={() => setIsClearChatModalOpen(false)}
+        onConfirm={handleClearChat}
+        isLoading={clearChatMutation.isPending}
       />
 
       {/* Realtime Incoming Call Ringing Dialog */}

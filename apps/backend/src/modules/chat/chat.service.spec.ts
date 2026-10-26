@@ -15,11 +15,13 @@ describe('ChatService — Module 4 Realtime Group Messaging', () => {
     broadcastUnpinMessage: jest.fn(),
     broadcastMessageUpdated: jest.fn(),
     broadcastMessageRecalled: jest.fn(),
+    broadcastChannelCleared: jest.fn(),
   };
 
   const mockPrisma = {
     circleMember: {
       findUnique: jest.fn(),
+      update: jest.fn(),
     },
     channel: {
       findUnique: jest.fn(),
@@ -30,6 +32,7 @@ describe('ChatService — Module 4 Realtime Group Messaging', () => {
       findFirst: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
       delete: jest.fn(),
     },
     reaction: {
@@ -41,6 +44,7 @@ describe('ChatService — Module 4 Realtime Group Messaging', () => {
     pinnedRecord: {
       create: jest.fn(),
       delete: jest.fn(),
+      deleteMany: jest.fn(),
       findMany: jest.fn(),
     },
   };
@@ -542,6 +546,72 @@ describe('ChatService — Module 4 Realtime Group Messaging', () => {
       expect(res.success).toBe(true);
       expect(res.data.messages).toHaveLength(1);
       expect(res.data.messages[0]!.content).toContain('đồ án');
+    });
+  });
+
+  describe('clearChannelHistory', () => {
+    it('TC-CHAT-020: should clear channel history FOR_ME by updating member clearedChatAt', async () => {
+      mockPrisma.channel.findUnique.mockResolvedValue(mockChannel);
+      mockPrisma.circleMember.findUnique.mockResolvedValue(mockMember);
+      mockPrisma.circleMember.update.mockResolvedValue({
+        ...mockMember,
+        clearedChatAt: new Date(),
+      });
+
+      const res = await service.clearChannelHistory('user-1', 'channel-1', { mode: 'FOR_ME' }, 'vi');
+
+      expect(res.success).toBe(true);
+      expect(res.data.mode).toBe('FOR_ME');
+      expect(mockPrisma.circleMember.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: mockMember.id },
+          data: expect.objectContaining({ clearedChatAt: expect.any(Date) }),
+        }),
+      );
+    });
+
+    it('TC-CHAT-021: should clear channel history EVERYONE by soft-deleting messages and broadcasting', async () => {
+      mockPrisma.channel.findUnique.mockResolvedValue(mockChannel);
+      mockPrisma.circleMember.findUnique.mockResolvedValue(mockMember);
+      mockPrisma.message.updateMany.mockResolvedValue({ count: 5 });
+      mockPrisma.pinnedRecord.deleteMany.mockResolvedValue({ count: 0 });
+
+      const res = await service.clearChannelHistory('user-1', 'channel-1', { mode: 'EVERYONE' }, 'vi');
+
+      expect(res.success).toBe(true);
+      expect(res.data.mode).toBe('EVERYONE');
+      expect(mockPrisma.message.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { channelId: 'channel-1', deletedAt: null },
+        }),
+      );
+      expect(mockGateway.broadcastChannelCleared).toHaveBeenCalledWith(
+        'channel-1',
+        expect.objectContaining({ mode: 'EVERYONE' }),
+      );
+    });
+
+    it('TC-CHAT-022: should filter messages sent after member clearedChatAt in getChannelMessages', async () => {
+      const clearedTime = new Date('2026-10-25T12:00:00Z');
+      mockPrisma.channel.findUnique.mockResolvedValue(mockChannel);
+      mockPrisma.circleMember.findUnique.mockResolvedValue({
+        ...mockMember,
+        clearedChatAt: clearedTime,
+      });
+
+      mockPrisma.message.findMany.mockResolvedValue([]);
+
+      const res = await service.getChannelMessages('user-1', 'channel-1', { limit: 20 }, 'vi');
+
+      expect(res.success).toBe(true);
+      expect(mockPrisma.message.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            channelId: 'channel-1',
+            sentAt: { gt: clearedTime },
+          }),
+        }),
+      );
     });
   });
 });

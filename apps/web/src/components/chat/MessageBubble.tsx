@@ -586,7 +586,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               </button>
             )}
 
-            {/* Recall Action (CHT-10: Recall message) */}
+            {/* Recall Action (CHT-10: Author recalls message for everyone) */}
             {isSenderMe && onRecall && (
               <button
                 type="button"
@@ -598,8 +598,20 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               </button>
             )}
 
-            {/* Delete For Me Action (CHT-11: Hide message locally) */}
-            {onDeleteForMe && (
+            {/* Remove other's message for me (Gỡ tin nhắn người khác - chỉ phía người thao tác) */}
+            {!isSenderMe && onDeleteForMe && (
+              <button
+                type="button"
+                onClick={() => onDeleteForMe(message.id)}
+                className="flex h-6 w-6 items-center justify-center rounded-full text-circle-slate dark:text-circle-dark-muted hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas hover:text-rose-500 transition-colors"
+                title={`${t.chat.removeAction} (${t.chat.clearChatForMeTitle})`}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            )}
+
+            {/* Delete For Me Action (CHT-11: Hide own message locally) */}
+            {isSenderMe && onDeleteForMe && (
               <button
                 type="button"
                 onClick={() => onDeleteForMe(message.id)}

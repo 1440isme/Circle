@@ -80,12 +80,17 @@ export function createChatSchemas(locale: Locale = 'vi') {
     limit: z.coerce.number().int().min(1).max(50).optional().default(20),
   });
 
+  const clearChatSchema = z.object({
+    mode: z.enum(['FOR_ME', 'EVERYONE']).optional().default('FOR_ME'),
+  });
+
   return {
     sendMessageSchema,
     editMessageSchema,
     searchMessagesSchema,
     reactMessageSchema,
     messagePaginationSchema,
+    clearChatSchema,
   };
 }
 
@@ -94,6 +99,7 @@ export type EditMessageSchemaType = ReturnType<typeof createChatSchemas>['editMe
 export type SearchMessagesSchemaType = ReturnType<typeof createChatSchemas>['searchMessagesSchema'];
 export type ReactMessageSchemaType = ReturnType<typeof createChatSchemas>['reactMessageSchema'];
 export type MessagePaginationSchemaType = ReturnType<typeof createChatSchemas>['messagePaginationSchema'];
+export type ClearChatSchemaType = ReturnType<typeof createChatSchemas>['clearChatSchema'];
 
 export type SendMessageInput = z.input<SendMessageSchemaType>;
 export type SendMessageOutput = z.output<SendMessageSchemaType>;
@@ -101,3 +107,4 @@ export type EditMessageInput = z.input<EditMessageSchemaType>;
 export type SearchMessagesInput = z.input<SearchMessagesSchemaType>;
 export type ReactMessageInput = z.input<ReactMessageSchemaType>;
 export type MessagePaginationInput = z.input<MessagePaginationSchemaType>;
+export type ClearChatInput = z.input<ClearChatSchemaType>;

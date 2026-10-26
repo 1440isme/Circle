@@ -4829,7 +4829,8 @@
 
 ---
 
-### AI-0135
+## AI-0135: Chat Tier MUST Parity — Typing Indicator, Draft Message, Member Mentions & Delete for Me
+
 - **Timestamp:** 2026-10-25T22:07:30+07:00
 - **Author/Engineer:** Trương Công Bình (23110184)
 - **Task/Feature:** [FEAT]: US-CHAT-004 — Chat Tier MUST Parity: Typing Indicator, Draft Message, Member Mentions & Delete for Me (#105)
@@ -4863,4 +4864,116 @@
 - **Official Source Checked:** `agentic/playbooks/05-chat.md`, `agentic/playbooks/cross-cutting-gate.md`, `PROJECT_GOD.md`.
 - **Security & License Check:** An toàn tuyệt đối, zero secrets leaks, dữ liệu ẩn tin nhắn được cô lập an toàn ở client storage.
 - **Branch:** `feat/105-chat-tier-must-parity`
+- **PR:** #106
+
+---
+
+## AI-0136: Hoàn thiện Đổi mật khẩu trong Cài đặt (ACC-10) & Parity Cuộc gọi Realtime trên Mobile (CAL-01..05)
+
+- **Date:** 2026-10-25 22:40:00 +07:00
+- **Developer:** Trương Công Bình (MSSV: 23110184)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash
+- **Related Issue:** #107
+- **Purpose:** Hoàn thiện triệt để 2 thiếu sót then chốt phát hiện qua đợt rà soát (audit) toàn diện các module của Bình theo đúng Module Playbooks và Cross-Cutting Gate:
+  1. **`ACC-10` Đổi mật khẩu khi đã đăng nhập (Web + Mobile + Backend):**
+     - **Backend (`apps/backend`):** Bổ sung DTO `ChangePasswordDto`, validator Zod `changePasswordDtoSchema`, endpoint `POST /api/v1/auth/change-password` có bảo vệ bởi `JwtAuthGuard`. Kiểm tra xác thực mật khẩu hiện tại bằng bcrypt, kiểm tra chính sách mật khẩu mạnh (`ACC-05`), từ chối mật khẩu mới trùng mật khẩu cũ, cập nhật hash mật khẩu mới, và tự động thu hồi (revoke) toàn bộ các phiên đăng nhập khác của người dùng trên các thiết bị khác (giữ phiên hiện tại an toàn). Bổ sung 3 unit tests mới trong `auth.service.spec.ts`.
+     - **Shared Contracts (`packages/shared`):** Bổ sung schema `changePasswordSchema`, `changePasswordDtoSchema` và localization đầy đủ (VI + EN) cho các thông điệp cảnh báo bảo mật, thông báo thành công và kiểm tra trùng khớp.
+     - **Web Client (`apps/web`):** Bổ sung tab "Mật khẩu & Bảo mật" trong `SystemSettingsModal.tsx`, form đổi mật khẩu với thẻ cảnh báo bảo mật, nút hiện/ẩn mật khẩu, bảng kiểm tra điều kiện độ mạnh mật khẩu theo thời gian thực (checklist ACC-05), xử lý thông báo lỗi/thành công rõ ràng.
+     - **Mobile Client (`apps/mobile`):** Bổ sung mục "Mật khẩu & Bảo mật" trong cài đặt hồ sơ `profile.tsx` và subview bảo mật trong `SystemSettingsModal.tsx`, hỗ trợ đổi mật khẩu với đầy đủ checklist bảo mật, toggle hiện/ẩn mật khẩu, vô hiệu hóa autocapitalize/autocorrect.
+  2. **`CAL-01..05` Parity Trải nghiệm Gọi Realtime trên Mobile (React Native Expo):**
+     - **Mobile Call Hooks (`apps/mobile/src/hooks/use-call-queries.ts`):** Xây dựng bộ hook quản lý cuộc gọi (`useActiveCallQuery`, `useInitiateCallMutation`, `useJoinCallMutation`, `useLeaveCallMutation`) đồng bộ realtime qua Socket.IO.
+     - **Mobile Call Stage (`apps/mobile/src/components/call/MobileCallStageModal.tsx`):** Giao diện sân khấu cuộc gọi toàn màn hình cho mobile, hiển thị badge LIVE STAGE (Voice/Video), đồng hồ thời lượng cuộc gọi (`MM:SS`), số lượng thành viên, lưới hiển thị đại diện thành viên với hiệu ứng vòng tròn phát thanh (speaking pulse ring), trạng thái mic, thanh điều khiển nổi (Bật/tắt mic, Bật/tắt camera, Loa ngoài/Loa trong, Nút Rời cuộc gọi màu đỏ).
+     - **Khởi tạo & Nhận cuộc gọi trên Mobile (`apps/mobile/app/circle/[id].tsx`):** Xóa bỏ hoàn toàn popup "Coming Soon" cũ; bổ sung các nút bấm gọi thoại và video trên thanh tiêu đề subheader của Circle Chat và menu tiện ích Tools; tích hợp modal chuông đổ cuộc gọi đến (Incoming Call Ringing Dialog) với nút Từ chối và Bắt máy tức thì.
+- **Files Affected:**
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `packages/shared/src/validators/auth.validator.ts`
+  - `apps/backend/src/modules/auth/dto/change-password.dto.ts`
+  - `apps/backend/src/modules/auth/auth.service.ts`
+  - `apps/backend/src/modules/auth/auth.service.spec.ts`
+  - `apps/backend/src/modules/auth/auth.controller.ts`
+  - `apps/web/src/lib/auth.ts`
+  - `apps/web/src/hooks/use-auth-mutations.ts`
+  - `apps/web/src/components/settings/SystemSettingsModal.tsx`
+  - `apps/mobile/src/services/api.ts`
+  - `apps/mobile/src/hooks/use-session-queries.ts`
+  - `apps/mobile/src/components/settings/SystemSettingsModal.tsx`
+  - `apps/mobile/app/(tabs)/profile.tsx`
+  - `apps/mobile/src/hooks/use-call-queries.ts`
+  - `apps/mobile/src/components/call/MobileCallStageModal.tsx`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `tests/e2e/ui-ux-full-verification.spec.ts`
+  - `agentic/memory/2026-10-25.md`
+  - `agentic/memory/MEMORY.md`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% code logic đổi mật khẩu bảo mật, mobile call stage modal, socket listeners, bilingual localization và bộ kịch bản kiểm thử trực quan Playwright E2E.
+- **Human Modifications:** Trương Công Bình trực tiếp chỉ đạo rà soát theo Module Playbook và yêu cầu kiểm thử toàn diện thực tế UI/UX trực quan.
+- **Verification Method:**
+  - `npm test -w @circle/backend`: 167/167 unit tests pass 100% (11/11 suites, bao gồm TC-AUTH-010).
+  - `npm run build -w @circle/web`: Next.js production build 9/9 static routes pass sạch sẽ.
+  - `npm run typecheck -w @circle/mobile`: Mobile TypeScript 0 errors.
+  - `npx playwright test tests/e2e/ui-ux-full-verification.spec.ts`: Chạy thành công 100% trên Chromium headless, chụp và kiểm tra trực quan 11 screenshots bao gồm Dark/Light mode, Desktop & Mobile viewports, realtime checklist validation và Calling header triggers.
+  - `bash ./scripts/check-agent-map.sh`: 116/116 framework files pass 100%.
+- **Official Source Checked:** `agentic/playbooks/01-account-auth.md`, `agentic/playbooks/06-voice-video.md`, `agentic/playbooks/cross-cutting-gate.md`, `PROJECT_GOD.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks, cơ chế hash bcrypt và revoke refresh token đa thiết bị chuẩn xác.
+- **Branch:** `feat/107-acc-password-and-mobile-call-parity`
+- **PR:** #108
+
+---
+
+## AI-0137: US-CHAT-005 — Message Recall/Remove for All Members & Clear Chat Options (Web + Mobile)
+
+- **Date:** 2026-10-25 23:45:00 +07:00
+- **Developer:** Trương Công Bình (MSSV: 23110184)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash
+- **Related Issue:** #109 (US-CHAT-005: Message Recall/Remove for All Members & Clear Chat Options)
+- **Purpose:** Triển khai hoàn thiện cơ chế Gỡ tin nhắn (Remove message) và Xóa đoạn chat (Clear chat history) với tùy chọn đa dạng, đảm bảo 100% Dual-Platform Parity giữa Web và Mobile:
+  1. **Cơ chế Gỡ/Thu hồi tin nhắn:**
+     - Tin nhắn của mình: Hỗ trợ Chỉnh sửa (văn bản 15 phút) và Thu hồi (Recall) cho toàn bộ thành viên trong nhóm.
+     - Tin nhắn của người khác: Mặc định thao tác "Gỡ tin nhắn" (Remove message) chỉ áp dụng cho riêng phía người thao tác (ẩn/xóa phía mình thông qua `circle_hidden_messages_${channelId}`), tin nhắn đó vẫn hiển thị nguyên vẹn với các thành viên khác trong Circle.
+  2. **Cơ chế Xóa đoạn chat (Clear Chat History):**
+     - Bổ sung trường `clearedChatAt DateTime?` trong model `CircleMember` (PostgreSQL Prisma schema) để ghi nhận mốc thời gian xóa đoạn chat phía cá nhân.
+     - Xây dựng API `POST /api/v1/channels/:channelId/clear-history` nhận DTO `ClearChatInput` với 2 chế độ:
+       - `FOR_ME` (Mặc định): Cập nhật `clearedChatAt = now()` cho membership của người dùng; truy vấn tin nhắn `getChannelMessages` & `searchMessages` tự động lọc `sentAt > clearedChatAt`. Đoạn chat hiển thị trống phía người dùng với Empty State trang nhã; các thành viên khác không bị ảnh hưởng.
+       - `EVERYONE`: Xóa mềm tất cả tin nhắn trong kênh và broadcast sự kiện Socket.IO `chat:channel-cleared` để đồng bộ xóa cache tin nhắn trên toàn bộ thành viên.
+  3. **Web Application (`apps/web`):**
+     - Thêm component `ClearChatModal.tsx` với 2 lựa chọn radio (Chỉ xóa phía tôi vs Xóa cho tất cả mọi người).
+     - Tích hợp nút menu 3 chấm `MoreVertical` trên Header của `ChannelChatView.tsx` chứa tùy chọn Xóa lịch sử trò chuyện.
+     - Tích hợp socket listener `chat:channel-cleared`.
+     - `MessageBubble.tsx`: Hiển thị rõ ràng các nút Sửa, Thu hồi (Recall), Gỡ tin nhắn (Remove for me) và Xóa phía tôi (Delete for me).
+  4. **Mobile Application (`apps/mobile`):**
+     - Bổ sung `clearChannelHistoryApi` trong `chat.service.ts`.
+     - Tích hợp Modal Xóa đoạn chat native trên Mobile với 2 radio options và giao diện bo tròn glass/dark/light.
+     - Thêm nút Xóa đoạn chat trên Header Circle Chat.
+     - Long-press menu: Hiển thị tùy chọn "Gỡ tin nhắn" (chỉ phía người thao tác) khi chọn tin nhắn của người khác, và "Thu hồi" khi chọn tin của chính mình.
+- **Files Affected:**
+  - `apps/backend/prisma/schema.prisma`
+  - `packages/types/src/index.ts`
+  - `packages/shared/src/validators/chat.validator.ts`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `apps/backend/src/modules/chat/chat.gateway.ts`
+  - `apps/backend/src/modules/chat/chat.service.ts`
+  - `apps/backend/src/modules/chat/chat.controller.ts`
+  - `apps/backend/src/modules/chat/chat.service.spec.ts`
+  - `apps/web/src/hooks/use-chat-queries.ts`
+  - `apps/web/src/components/chat/ClearChatModal.tsx`
+  - `apps/web/src/components/chat/ChannelChatView.tsx`
+  - `apps/web/src/components/chat/MessageBubble.tsx`
+  - `apps/mobile/src/services/chat.service.ts`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `agentic/memory/2026-10-25.md`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% code logic lọc mốc clearedChatAt, clear chat endpoints, ClearChatModal components (Web + Mobile), socket events.
+- **Human Modifications:** Trương Công Bình trực tiếp chỉ đạo phân tách rõ ràng cơ chế: Gỡ tin nhắn của người khác mặc định chỉ phía người thao tác, và Xóa đoạn chat cung cấp 2 tùy chọn rõ ràng.
+- **Verification Method:**
+  - `npm test -w @circle/backend`: 175/175 tests pass 100% (11/11 suites, bao gồm TC-CHAT-020, 021, 022).
+  - `npm run build -w @circle/web`: Next.js production build 9/9 static routes pass.
+  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Mobile TypeScript 0 errors.
+  - `bash ./scripts/check-agent-map.sh`: 116/116 framework files pass.
+- **Official Source Checked:** `agentic/playbooks/05-chat.md`, `agentic/playbooks/cross-cutting-gate.md`, `PROJECT_GOD.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks, kiểm tra membership chặt chẽ.
+- **Branch:** `feat/109-chat-remove-and-clear-options`
 - **PR:** Pending

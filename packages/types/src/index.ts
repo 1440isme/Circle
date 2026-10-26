@@ -765,3 +765,11 @@ export interface UpdateCalendarEventInput {
   endTime?: string;
   reminderTime?: string;
 }
+
+export type ClearChatMode = 'FOR_ME' | 'EVERYONE';
+
+export interface ClearChatResult {
+  channelId: string;
+  mode: ClearChatMode;
+  clearedAt: string;
+}

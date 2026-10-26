@@ -36,7 +36,7 @@
 
 ## Open loops
 
-<!-- Cam kết/deadline đang mở, dạng: - <việc> — hạn <ngày>, trạng thái. Xong thì xoá. -->
+- Rà soát toàn diện và hoàn thiện triệt để các module của Bình (Module 1, 4, 5, 6, 7.2) theo Playbook Tier MUST và Cross-cutting gate (Web + Mobile song hành) trước khi bước sang Module 8 — hạn 2026-10-26, đang thực hiện.
 
 ## Core Reference Topics (Lớp 3 — bối cảnh sâu)
 
