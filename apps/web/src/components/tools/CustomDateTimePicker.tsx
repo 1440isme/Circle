@@ -408,7 +408,7 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
 
               {/* CHẾ ĐỘ 3: CHỌN NGÀY (Lưới lịch tiêu chuẩn) */}
               {calendarMode === 'days' && (
-                <div className="h-[210px] flex flex-col justify-between">
+                <div className="h-[210px] flex flex-col justify-start">
                   <div>
                     {/* Tên các thứ trong tuần */}
                     <div className="grid grid-cols-7 gap-1 text-center mb-1">
@@ -455,34 +455,6 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
                         );
                       })}
                     </div>
-                  </div>
-
-                  {/* Phím tắt Hôm nay / Ngày mai */}
-                  <div className="flex items-center justify-between pt-1 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const now = new Date();
-                        const pad = (n: number) => String(n).padStart(2, '0');
-                        const todayIso = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-                        onChange(`${todayIso}T${pad(activeHour)}:${pad(activeMinute)}`);
-                      }}
-                      className="text-[11px] font-semibold text-circle-sage dark:text-circle-primary hover:underline"
-                    >
-                      Hôm nay
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const tmrw = new Date(Date.now() + 86400000);
-                        const pad = (n: number) => String(n).padStart(2, '0');
-                        const tmrwIso = `${tmrw.getFullYear()}-${pad(tmrw.getMonth() + 1)}-${pad(tmrw.getDate())}`;
-                        onChange(`${tmrwIso}T${pad(activeHour)}:${pad(activeMinute)}`);
-                      }}
-                      className="text-[11px] font-semibold text-circle-slate hover:text-circle-charcoal dark:hover:text-circle-dark-text"
-                    >
-                      Ngày mai
-                    </button>
                   </div>
                 </div>
               )}
