@@ -4931,3 +4931,23 @@
   - TypeScript Typecheck: `npx tsc --noEmit -p apps/web/tsconfig.json` (0 errors).
 - **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
 - **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+
+
+---
+
+### AI-0141: Đưa nút Xong lên góc trên bên phải và loại bỏ thanh footer ngày giờ
+- **Timestamp:** 2026-10-26T17:01:00+07:00
+- **Task ID:** Feature #101 (Tạo và quản lý lịch hẹn / sự kiện nhóm)
+- **Engineers:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Feature / Area:** Web Tools — Calendar Date & Time Wheel Picker (`CustomDateTimePicker.tsx`).
+- **Files Affected:**
+  - `apps/web/src/components/tools/CustomDateTimePicker.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:**
+  - Loại bỏ hoàn toàn thanh footer ở dưới đáy (chứa biểu tượng đồng hồ và chuỗi định dạng ngày giờ).
+  - Di chuyển nút "Xong" lên góc trên cùng bên phải, thẳng hàng ngang cân đối với tiêu đề tháng/năm của cột lịch.
+- **Human Modifications:** Trương Công Bình chỉ đạo yêu cầu: "bỏ cái đồng hồ giờ ngày ở dưới và bỏ nút xong ở dưới và cho nút xong lên trên góc phải".
+- **Verification Method:**
+  - TypeScript Typecheck: `npx tsc --noEmit -p apps/web/tsconfig.json` (0 errors).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
