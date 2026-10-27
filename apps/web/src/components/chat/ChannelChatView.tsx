@@ -366,23 +366,6 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
 
             <button
               type="button"
-              onClick={toggleSound}
-              className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors active:scale-95 ${
-                soundEnabled
-                  ? 'text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas'
-                  : 'text-amber-500 hover:bg-amber-500/10'
-              }`}
-              title={soundEnabled ? 'Tắt âm thanh thông báo' : 'Bật âm thanh thông báo'}
-            >
-              {soundEnabled ? (
-                <Volume2 className="h-4 w-4" />
-              ) : (
-                <VolumeX className="h-4 w-4" />
-              )}
-            </button>
-
-            <button
-              type="button"
               onClick={() => {
                 setIsSearchOpen(!isSearchOpen);
                 if (isSearchOpen) setSearchQuery('');
@@ -392,7 +375,7 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
                   ? 'bg-circle-primary/10 text-circle-primary'
                   : 'text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas'
               }`}
-              title="Tìm kiếm tin nhắn"
+              title={t.chat.searchPlaceholder || 'Tìm kiếm tin nhắn'}
             >
               <Search className="h-4 w-4" />
             </button>
@@ -400,10 +383,14 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
             <button
               type="button"
               onClick={() => setIsPinnedModalOpen(true)}
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas transition-colors active:scale-95"
-              title={t.chat.pinnedBadge}
+              className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors active:scale-95 ${
+                pinnedMessages.length > 0
+                  ? 'text-circle-primary bg-circle-primary/10 hover:bg-circle-primary/20'
+                  : 'text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas'
+              }`}
+              title={pinnedMessages.length > 0 ? `${pinnedMessages.length} ${t.chat.pinnedBadge}` : (t.chat.pinnedBadge || 'Tin nhắn đã ghim')}
             >
-              <Pin className="h-4 w-4" />
+              <Pin className={`h-4 w-4 ${pinnedMessages.length > 0 ? 'fill-current' : ''}`} />
             </button>
 
             {/* Header Options Menu (More options: Clear Chat, etc.) */}
@@ -549,33 +536,6 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
           <div className="flex items-center justify-center gap-2 bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 py-1.5 px-4 text-xs font-medium animate-pulse transition-all">
             <WifiOff className="h-3.5 w-3.5" />
             <span>{t.chat.reconnecting}</span>
-          </div>
-        )}
-
-        {/* Pinned Messages Bar (Subtle & gentle top strip) */}
-        {pinnedMessages.length > 0 && (
-          <div className="flex items-center justify-between mx-4 mb-2 rounded-xl px-3 py-1 bg-circle-canvas/60 dark:bg-circle-dark-canvas/60 border border-circle-hairline dark:border-circle-dark-hairline backdrop-blur-sm z-10 text-xs">
-            <div
-              onClick={() => {
-                const latest = pinnedMessages[pinnedMessages.length - 1];
-                if (latest?.id) {
-                  const el = document.getElementById(`message-${latest.id}`);
-                  el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }
-              }}
-              className="flex items-center gap-2 text-circle-slate dark:text-circle-dark-muted font-normal truncate min-w-0 pr-2 cursor-pointer hover:text-circle-charcoal dark:hover:text-circle-dark-text transition-colors"
-              title={t.chat.pinnedBadge}
-            >
-              <Pin className="h-3 w-3 text-circle-primary shrink-0 opacity-80" />
-              <span className="truncate">{pinnedMessages[pinnedMessages.length - 1]?.content || t.chat.pinnedBadge}</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setIsPinnedModalOpen(true)}
-              className="flex items-center gap-1 shrink-0 rounded-full bg-circle-primary/10 hover:bg-circle-primary/20 text-circle-primary dark:text-circle-primary px-2 py-0.5 text-[11px] font-medium transition-colors"
-            >
-              <span>{pinnedMessages.length} {t.chat.pinnedBadge}</span>
-            </button>
           </div>
         )}
 

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Heart, Smile } from 'lucide-react';
 import { MomentEntity, MomentReactionEntity } from '@circle/types';
 import { useLanguageStore } from '@/stores/language.store';
+import { Emoji } from '@/components/ui/Emoji';
 
 interface MomentReactorsModalProps {
   isOpen: boolean;
@@ -116,13 +117,13 @@ export const MomentReactorsModal: React.FC<MomentReactorsModalProps> = ({
                 key={emoji}
                 type="button"
                 onClick={() => setSelectedEmojiFilter(emoji)}
-                className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold transition-all ${
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold transition-all ${
                   selectedEmojiFilter === emoji
                     ? 'bg-circle-primary/20 border border-circle-primary/50 text-circle-sage dark:text-circle-primary shadow-sm scale-105'
                     : 'bg-circle-canvas dark:bg-circle-dark-surface text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash border border-circle-hairline dark:border-circle-dark-hairline'
                 }`}
               >
-                <span>{emoji}</span>
+                <Emoji emoji={emoji} size={14} />
                 <span>{emojiCounts[emoji]}</span>
               </button>
             ))}
@@ -165,8 +166,8 @@ export const MomentReactorsModal: React.FC<MomentReactorsModalProps> = ({
                           <span>{initials}</span>
                         )}
                       </div>
-                      <div className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-white dark:bg-circle-dark-surface border border-circle-hairline dark:border-circle-dark-hairline flex items-center justify-center text-xs shadow-sm">
-                        {r.emoji}
+                      <div className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-white dark:bg-circle-dark-surface border border-circle-hairline dark:border-circle-dark-hairline flex items-center justify-center shadow-sm overflow-hidden">
+                        <Emoji emoji={r.emoji} size={13} />
                       </div>
                     </div>
 
@@ -182,8 +183,8 @@ export const MomentReactorsModal: React.FC<MomentReactorsModalProps> = ({
                   </div>
 
                   {/* Emoji display pill */}
-                  <div className="flex items-center justify-center h-8 w-8 rounded-full bg-circle-wash dark:bg-circle-dark-wash text-base shrink-0 border border-circle-hairline dark:border-circle-dark-hairline">
-                    {r.emoji}
+                  <div className="flex items-center justify-center h-8 w-8 rounded-full bg-circle-wash dark:bg-circle-dark-wash shrink-0 border border-circle-hairline dark:border-circle-dark-hairline overflow-hidden">
+                    <Emoji emoji={r.emoji} size={18} />
                   </div>
                 </div>
               );

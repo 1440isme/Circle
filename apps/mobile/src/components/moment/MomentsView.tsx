@@ -750,7 +750,7 @@ const MomentFeedCardItem: React.FC<MomentFeedCardItemProps> = React.memo(({
                         </View>
                         {/* Small circular badge at bottom-right of avatar with emoji */}
                         <View style={[styles.authorStackEmojiBadge, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
-                          <Text style={styles.authorStackEmojiText}>{r.emoji}</Text>
+                          <Emoji emoji={r.emoji} size={11} />
                         </View>
                       </View>
                     );
@@ -3372,7 +3372,7 @@ export function MomentsView({
                           </View>
                           {/* Mini emoji on bottom right of avatar */}
                           <View style={[styles.reactorItemAvatarEmoji, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
-                            <Text style={{ fontSize: 9 }}>{r.emoji}</Text>
+                            <Emoji emoji={r.emoji} size={11} />
                           </View>
                         </View>
 
@@ -3387,7 +3387,7 @@ export function MomentsView({
                       </View>
 
                       <View style={[styles.reactorEmojiPill, { backgroundColor: colors.wash }]}>
-                        <Text style={{ fontSize: 16 }}>{r.emoji}</Text>
+                        <Emoji emoji={r.emoji} size={16} />
                       </View>
                     </View>
                   );

@@ -18,6 +18,8 @@ import {
   Trash2,
   Ban,
   EyeOff,
+  MoreVertical,
+  Copy,
 } from 'lucide-react';
 import { MessageEntity, MessageType } from '@circle/types';
 import { PROMINENT_QUICK_EMOJIS } from '@circle/shared';
@@ -76,6 +78,17 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const [isFullEmojiOpen, setIsFullEmojiOpen] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
+
+  const handleCopyMessage = () => {
+    if (message.content) {
+      navigator.clipboard.writeText(message.content);
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
+      setIsMenuOpen(false);
+    }
+  };
 
   const momentMeta = parseMomentReplyMetadata(message.fileName);
   const isMomentReply = Boolean(
@@ -534,10 +547,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           )}
         </div>
 
-        {/* Hover Action Bar (Pin, Reply, Edit, Recall, Quick Emojis) */}
+        {/* Hover Action Bar (Clean Quick Emojis + 3-Dots More Menu) */}
         {!isRecalled && (
           <div
-            className={`absolute bottom-[calc(100%+4px)] hidden group-hover:flex items-center gap-0.5 rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-1 shadow-circle-hover transition-all z-20 before:absolute before:-bottom-2 before:left-0 before:right-0 before:h-3 ${
+            className={`absolute bottom-[calc(100%+4px)] hidden group-hover:flex items-center gap-0.5 rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-white/95 dark:bg-circle-dark-surface/95 backdrop-blur-sm p-1 shadow-circle-hover transition-all z-20 before:absolute before:-bottom-2 before:left-0 before:right-0 before:h-3 ${
               isSenderMe ? 'right-0' : 'left-0'
             }`}
           >
@@ -558,85 +571,132 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 type="button"
                 onClick={() => setIsFullEmojiOpen(true)}
                 className="flex h-6 w-6 items-center justify-center rounded-full text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash hover:text-circle-charcoal dark:hover:text-white transition-colors"
-                title="Thêm biểu cảm khác"
+                title={t.emoji?.addOtherEmoji || 'Thêm biểu cảm khác'}
               >
                 <Smile className="h-3.5 w-3.5" />
               </button>
             </div>
 
-            {/* Reply Action */}
-            <button
-              type="button"
-              onClick={() => onReply(message)}
-              className="flex h-6 w-6 items-center justify-center rounded-full text-circle-slate dark:text-circle-dark-muted hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas hover:text-circle-sage transition-colors"
-              title={t.chat.replyAction}
-            >
-              <Reply className="h-3.5 w-3.5 scale-x-[-1]" />
-            </button>
-
-            {/* Edit Action (CHT-09: Only for author's text message) */}
-            {isSenderMe && onEdit && message.type === MessageType.TEXT && message.content && (
+            {/* 3-Dots Vertical Action Menu (Linear / Telegram standard) */}
+            <div className="relative">
               <button
                 type="button"
-                onClick={() => onEdit(message)}
-                className="flex h-6 w-6 items-center justify-center rounded-full text-circle-slate dark:text-circle-dark-muted hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas hover:text-circle-primary transition-colors"
-                title={t.chat.editAction}
-              >
-                <Pencil className="h-3.5 w-3.5" />
-              </button>
-            )}
-
-            {/* Recall Action (CHT-10: Author recalls message for everyone) */}
-            {isSenderMe && onRecall && (
-              <button
-                type="button"
-                onClick={() => onRecall(message.id)}
-                className="flex h-6 w-6 items-center justify-center rounded-full text-circle-slate dark:text-circle-dark-muted hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas hover:text-rose-500 transition-colors"
-                title={t.chat.recallAction}
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </button>
-            )}
-
-            {/* Remove other's message for me (Gỡ tin nhắn người khác - chỉ phía người thao tác) */}
-            {!isSenderMe && onDeleteForMe && (
-              <button
-                type="button"
-                onClick={() => onDeleteForMe(message.id)}
-                className="flex h-6 w-6 items-center justify-center rounded-full text-circle-slate dark:text-circle-dark-muted hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas hover:text-rose-500 transition-colors"
-                title={`${t.chat.removeAction} (${t.chat.clearChatForMeTitle})`}
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </button>
-            )}
-
-            {/* Delete For Me Action (CHT-11: Hide own message locally) */}
-            {isSenderMe && onDeleteForMe && (
-              <button
-                type="button"
-                onClick={() => onDeleteForMe(message.id)}
-                className="flex h-6 w-6 items-center justify-center rounded-full text-circle-slate dark:text-circle-dark-muted hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas hover:text-amber-500 transition-colors"
-                title={t.chat?.deleteForMeAction || 'Xóa phía tôi'}
-              >
-                <EyeOff className="h-3.5 w-3.5" />
-              </button>
-            )}
-
-            {/* Pin / Unpin Action (Forbidden for call summaries) */}
-            {!isCallSummary && (
-              <button
-                type="button"
-                onClick={() => onTogglePin(message.id, !!message.isPinned)}
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
                 className={`flex h-6 w-6 items-center justify-center rounded-full transition-colors ${
-                  message.isPinned
-                    ? 'text-circle-charcoal dark:text-circle-dark-text bg-circle-canvas dark:bg-circle-dark-canvas'
-                    : 'text-circle-slate dark:text-circle-dark-muted hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas hover:text-circle-charcoal dark:hover:text-circle-dark-text'
+                  isMenuOpen
+                    ? 'bg-circle-primary/15 text-circle-primary'
+                    : 'text-circle-slate dark:text-circle-dark-muted hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas hover:text-circle-charcoal dark:hover:text-white'
                 }`}
-                title={message.isPinned ? t.chat.unpinAction : t.chat.pinAction}
+                title={t.chat?.moreActions || 'Tùy chọn khác'}
               >
-                <Pin className={`h-3.5 w-3.5 ${message.isPinned ? 'fill-current' : ''}`} />
+                <MoreVertical className="h-3.5 w-3.5" />
               </button>
-            )}
+
+              {isMenuOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-30"
+                    onClick={() => setIsMenuOpen(false)}
+                  />
+                  <div
+                    className={`absolute bottom-full mb-1.5 w-48 rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white/95 dark:bg-circle-dark-surface/95 backdrop-blur-md p-1.5 shadow-2xl z-40 animate-scale-up text-xs ${
+                      isSenderMe ? 'right-0' : 'left-0'
+                    }`}
+                  >
+                    {/* Copy Content Action */}
+                    {Boolean(message.content) && (
+                      <button
+                        type="button"
+                        onClick={handleCopyMessage}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors text-left font-medium"
+                      >
+                        {isCopied ? (
+                          <Check className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                        ) : (
+                          <Copy className="h-3.5 w-3.5 text-circle-slate dark:text-circle-dark-muted shrink-0" />
+                        )}
+                        <span>{isCopied ? (t.chat?.copiedNotice || 'Đã sao chép') : (t.chat?.copyAction || 'Sao chép')}</span>
+                      </button>
+                    )}
+
+                    {/* Reply Action */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsMenuOpen(false);
+                        onReply(message);
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors text-left font-medium"
+                    >
+                      <Reply className="h-3.5 w-3.5 scale-x-[-1] text-circle-slate dark:text-circle-dark-muted shrink-0" />
+                      <span>{t.chat.replyAction}</span>
+                    </button>
+
+                    {/* Pin / Unpin Action (Forbidden for call summaries) */}
+                    {!isCallSummary && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsMenuOpen(false);
+                          onTogglePin(message.id, !!message.isPinned);
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors text-left font-medium"
+                      >
+                        <Pin className={`h-3.5 w-3.5 ${message.isPinned ? 'fill-circle-primary text-circle-primary' : 'text-circle-slate dark:text-circle-dark-muted'} shrink-0`} />
+                        <span>{message.isPinned ? t.chat.unpinAction : t.chat.pinAction}</span>
+                      </button>
+                    )}
+
+                    {/* Edit Action (CHT-09: Author only) */}
+                    {isSenderMe && onEdit && message.type === MessageType.TEXT && message.content && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsMenuOpen(false);
+                          onEdit(message);
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors text-left font-medium"
+                      >
+                        <Pencil className="h-3.5 w-3.5 text-circle-slate dark:text-circle-dark-muted shrink-0" />
+                        <span>{t.chat.editAction}</span>
+                      </button>
+                    )}
+
+                    <div className="my-1 border-t border-circle-hairline dark:border-circle-dark-hairline" />
+
+                    {/* Delete For Me Action (CHT-11: Hide own message locally) */}
+                    {onDeleteForMe && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsMenuOpen(false);
+                          onDeleteForMe(message.id);
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 transition-colors text-left font-medium"
+                      >
+                        <EyeOff className="h-3.5 w-3.5 shrink-0" />
+                        <span>{t.chat?.deleteForMeAction || 'Xóa phía tôi'}</span>
+                      </button>
+                    )}
+
+                    {/* Recall Action (CHT-10: Author recalls message for everyone) */}
+                    {isSenderMe && onRecall && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsMenuOpen(false);
+                          onRecall(message.id);
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 transition-colors text-left font-semibold"
+                      >
+                        <Trash2 className="h-3.5 w-3.5 shrink-0" />
+                        <span>{t.chat.recallAction}</span>
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         )}
       </div>

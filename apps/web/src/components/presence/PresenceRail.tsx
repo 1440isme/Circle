@@ -9,6 +9,7 @@ import {
   PhoneCall,
   ShieldCheck,
   UserCheck,
+  UserPlus,
   Users,
   Settings,
   Crown,
@@ -159,14 +160,15 @@ export const PresenceRail: React.FC = () => {
             })}
           </div>
 
-          {/* Quick Invite / Manage Button */}
+          {/* Quick Invite / Manage Button (Distinct card border & elevation on both light & dark mode) */}
           <button
             onClick={() => setManageModalOpen(true, isOwner && joinRequests.length > 0 ? 'requests' : 'invites')}
-            className="mt-2.5 w-full py-2 px-3 rounded-lg bg-circle-canvas dark:bg-circle-dark-canvas hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text transition-colors flex items-center justify-center gap-1.5"
+            className="mt-2.5 w-full py-2 px-3 rounded-lg border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/80 dark:bg-circle-dark-canvas/80 hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text transition-all flex items-center justify-center gap-2 shadow-xs active:scale-98"
           >
+            <UserPlus className="h-3.5 w-3.5 text-circle-primary shrink-0" />
             <span>{t.circle.invitesAndRequests}</span>
             {joinRequests.length > 0 && (
-              <span className="rounded-full px-1.5 py-0.2 text-[10px] bg-circle-primary text-circle-charcoal font-bold">
+              <span className="rounded-full px-1.5 py-0.2 text-[10px] bg-circle-primary text-white font-bold ml-auto">
                 {joinRequests.length}
               </span>
             )}

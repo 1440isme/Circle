@@ -51,6 +51,8 @@ import { useThemeStore } from '../../stores/theme.store';
 import { useLanguageStore } from '../../stores/language.store';
 import { useAuthStore } from '../../stores/auth.store';
 import { useCircleStore, CircleManageTab } from '../../stores/circle.store';
+import { useSoundStore } from '../../stores/sound.store';
+import { triggerSelectionHaptic } from '../../services/sound.service';
 import {
   useCircleDetailQuery,
   useCircleMembersQuery,
@@ -107,6 +109,8 @@ export function CircleManagementModal() {
   const activeTab = useCircleStore((s) => s.manageActiveTab);
   const setActiveTab = useCircleStore((s) => s.setManageActiveTab);
   const activeCircle = useCircleStore((s) => s.activeCircle);
+  const soundEnabled = useSoundStore((s) => s.soundEnabled);
+  const toggleSound = useSoundStore((s) => s.toggleSound);
 
   // Queries
   const circleId = activeCircle?.id || null;
@@ -1403,7 +1407,7 @@ export function CircleManagementModal() {
                   <TouchableOpacity
                     activeOpacity={0.7}
                     onPress={() => setIsManageMutedMembersOpen(true)}
-                    style={styles.preferenceRow}
+                    style={[styles.preferenceRow, { borderBottomColor: colors.hairline, borderBottomWidth: StyleSheet.hairlineWidth }]}
                   >
                     <View style={{ flex: 1 }}>
                       <Text style={[styles.prefTitle, { color: colors.text }]}>
@@ -1415,6 +1419,26 @@ export function CircleManagementModal() {
                     </View>
                     <ChevronRight size={16} color={colors.subtle} />
                   </TouchableOpacity>
+
+                  {/* 3. Âm thanh thông báo & hiệu ứng */}
+                  <View style={styles.preferenceRow}>
+                    <View style={{ flex: 1, paddingRight: 10 }}>
+                      <Text style={[styles.prefTitle, { color: colors.text }]}>
+                        {t.circle.soundEffectsTitle || 'Âm thanh thông báo & hiệu ứng'}
+                      </Text>
+                      <Text style={[styles.prefDesc, { color: colors.subtle }]}>
+                        {t.circle.soundEffectsDesc || 'Phát âm thanh nhẹ khi gửi/nhận tin nhắn và cuộc gọi'}
+                      </Text>
+                    </View>
+                    <Switch
+                      value={soundEnabled}
+                      onValueChange={() => {
+                        triggerSelectionHaptic();
+                        toggleSound();
+                      }}
+                      trackColor={{ false: colors.hairline, true: colors.primary }}
+                    />
+                  </View>
                 </View>
               </View>
 

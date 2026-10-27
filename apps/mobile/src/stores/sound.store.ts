@@ -51,3 +51,5 @@ export const useMobileSoundStore = create<MobileSoundState>((set, get) => ({
     } catch {}
   },
 }));
+
+export const useSoundStore = useMobileSoundStore;

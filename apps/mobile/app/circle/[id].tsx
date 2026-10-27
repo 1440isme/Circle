@@ -19,6 +19,7 @@ import {
   useWindowDimensions,
   NativeSyntheticEvent,
   NativeScrollEvent,
+  Clipboard,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
@@ -75,6 +76,7 @@ import {
   MoreVertical,
   Volume2,
   VolumeX,
+  Copy,
 } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { editMessageApi, recallMessageApi, clearChannelHistoryApi } from '../../src/services/chat.service';
@@ -394,7 +396,7 @@ interface MobileSwipeMessageBubbleProps {
   t: any;
   circleTheme?: string | null;
   onToggleTimestamp: () => void;
-  onLongPress: () => void;
+  onLongPress: (pageY?: number) => void;
   onSwipeReply: () => void;
   onRetry?: (msg: any) => void;
   onPreviewImage?: (url: string) => void;
@@ -756,9 +758,10 @@ const MobileSwipeMessageBubble = React.memo(function MobileSwipeMessageBubble({
             <TouchableOpacity
               activeOpacity={0.88}
               onPress={onToggleTimestamp}
-              onLongPress={() => {
-                triggerLightHaptic();
-                onLongPress();
+              onLongPress={(e) => {
+                triggerSelectionHaptic();
+                const pageY = e?.nativeEvent?.pageY;
+                onLongPress(pageY);
               }}
               delayLongPress={280}
             >
@@ -1121,7 +1124,7 @@ export default function CircleWorkspaceScreen() {
   const setCreateModalVisible = useCircleStore((s) => s.setCreateModalVisible);
   const setJoinModalVisible = useCircleStore((s) => s.setJoinModalVisible);
 
-  const { width: screenWidth } = useWindowDimensions();
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const horizontalPagerRef = useRef<ScrollView>(null);
   const TAB_ORDER: WorkspaceTab[] = useMemo(() => ['chat', 'moments', 'tools'], []);
 
@@ -1173,6 +1176,15 @@ export default function CircleWorkspaceScreen() {
   const [replyingMessage, setReplyingMessage] = useState<any | null>(null);
   const [editingMessage, setEditingMessage] = useState<any | null>(null);
   const [activeActionMessage, setActiveActionMessage] = useState<any | null>(null);
+  const [activeActionLayout, setActiveActionLayout] = useState<{ pageY: number; isSenderMe: boolean } | null>(null);
+
+  const handleOpenActionMenu = (msg: any, pageY?: number, isSenderMe?: boolean) => {
+    setActiveActionMessage(msg);
+    setActiveActionLayout({
+      pageY: typeof pageY === 'number' && !isNaN(pageY) ? pageY : 300,
+      isSenderMe: Boolean(isSenderMe),
+    });
+  };
   const [activeTimestampMessageId, setActiveTimestampMessageId] = useState<string | null>(null);
   const [isPinnedModalVisible, setIsPinnedModalVisible] = useState(false);
   const [isFullEmojiModalVisible, setIsFullEmojiModalVisible] = useState(false);
@@ -1467,6 +1479,16 @@ export default function CircleWorkspaceScreen() {
     const hiddenSet = new Set(hiddenMessageIds);
     return messages.filter((m) => !hiddenSet.has(m.id));
   }, [messages, hiddenMessageIds]);
+
+  const handleDeleteForMe = async (msgId: string) => {
+    const updated = [...hiddenMessageIds, msgId];
+    setHiddenMessageIds(updated);
+    if (currentChannelId) {
+      try {
+        await setStorageItem(`circle_hidden_messages_${currentChannelId}`, JSON.stringify(updated));
+      } catch {}
+    }
+  };
 
   // Restore draft when currentChannelId changes (CHT-18)
   useEffect(() => {
@@ -2217,26 +2239,30 @@ export default function CircleWorkspaceScreen() {
                     activeOpacity={0.7}
                     onPress={() => {
                       triggerSelectionHaptic();
-                      toggleSound();
+                      setIsPinnedModalVisible(true);
                     }}
                     style={[
                       styles.headerActionCircleBtn,
                       {
-                        backgroundColor: isGlass
-                          ? (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)')
-                          : colors.surface,
-                        borderColor: isGlass
-                          ? (isDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.07)')
-                          : colors.hairline,
+                        backgroundColor: pinnedMessages.length > 0
+                          ? (isDark ? 'rgba(78, 124, 98, 0.25)' : 'rgba(78, 124, 98, 0.12)')
+                          : (isGlass
+                              ? (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)')
+                              : colors.surface),
+                        borderColor: pinnedMessages.length > 0
+                          ? colors.primary
+                          : (isGlass
+                              ? (isDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.07)')
+                              : colors.hairline),
                       },
                     ]}
-                    accessibilityLabel={soundEnabled ? 'Tắt âm thanh hiệu ứng' : 'Bật âm thanh hiệu ứng'}
+                    accessibilityLabel={t.chat?.pinnedBadge || 'Tin nhắn đã ghim'}
                   >
-                    {soundEnabled ? (
-                      <Volume2 size={13} color={colors.text} />
-                    ) : (
-                      <VolumeX size={13} color="#F59E0B" />
-                    )}
+                    <Pin
+                      size={13}
+                      color={pinnedMessages.length > 0 ? colors.primary : colors.text}
+                      fill={pinnedMessages.length > 0 ? colors.primary : 'transparent'}
+                    />
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -2306,7 +2332,7 @@ export default function CircleWorkspaceScreen() {
             style={styles.messagesList}
             contentContainerStyle={[
               styles.messagesScrollContent,
-              { paddingTop: headerHeight + (pinnedMessages.length > 0 ? 46 : 8) },
+              { paddingTop: headerHeight + 8 },
             ]}
             showsVerticalScrollIndicator={false}
             onScroll={handleScroll}
@@ -2421,7 +2447,7 @@ export default function CircleWorkspaceScreen() {
                                   t={t}
                                   circleTheme={currentCircleTheme}
                                   onToggleTimestamp={() => handleToggleTimestamp(msg.id)}
-                                  onLongPress={() => setActiveActionMessage(msg)}
+                                  onLongPress={(pageY) => handleOpenActionMenu(msg, pageY, true)}
                                   onSwipeReply={() => setReplyingMessage(msg)}
                                   onRetry={handleRetry}
                                   onPreviewImage={handleOpenImagePreview}
@@ -2504,7 +2530,7 @@ export default function CircleWorkspaceScreen() {
                                     t={t}
                                     circleTheme={currentCircleTheme}
                                     onToggleTimestamp={() => handleToggleTimestamp(msg.id)}
-                                    onLongPress={() => setActiveActionMessage(msg)}
+                                    onLongPress={(pageY) => handleOpenActionMenu(msg, pageY, false)}
                                     onSwipeReply={() => setReplyingMessage(msg)}
                                     onRetry={handleRetry}
                                     onPreviewImage={handleOpenImagePreview}
@@ -2564,58 +2590,6 @@ export default function CircleWorkspaceScreen() {
             )}
             </View>
           </ScrollView>
-
-          {/* Floating Pinned Message Pill (Tab 1 Chat Only, strictly below 2-layer Header) */}
-          {pinnedMessages.length > 0 && (
-            <View
-              style={[
-                styles.floatingPinnedBannerWrapper,
-                { top: headerHeight + 6 },
-              ]}
-              pointerEvents="box-none"
-            >
-              <View
-                style={[
-                  styles.pinnedBanner,
-                  {
-                    backgroundColor: isGlass
-                      ? (isDark ? 'rgba(30, 30, 35, 0.88)' : 'rgba(255, 255, 255, 0.92)')
-                      : colors.surface,
-                    borderColor: isGlass
-                      ? (isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)')
-                      : colors.hairline,
-                  },
-                ]}
-              >
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() => {
-                    const latestPin = pinnedMessages[pinnedMessages.length - 1];
-                    if (latestPin?.id) handleJumpToMessage(latestPin.id);
-                  }}
-                  style={styles.pinnedBannerLeft}
-                >
-                  <Pin size={12} color={colors.primary} />
-                  <Text numberOfLines={1} style={[styles.pinnedBannerText, { color: colors.subtle }]}>
-                    {pinnedMessages[pinnedMessages.length - 1]?.content || t.chat.pinnedBadge}
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() => setIsPinnedModalVisible(true)}
-                  style={[
-                    styles.pinnedCountBadge,
-                    { backgroundColor: colors.wash, borderColor: colors.hairline, borderWidth: StyleSheet.hairlineWidth },
-                  ]}
-                >
-                  <Text style={[styles.pinnedCountText, { color: colors.primary }]}>
-                    {pinnedMessages.length} {t.chat.pinnedBadge}
-                  </Text>
-                  <ChevronRight size={11} color={colors.primary} style={{ marginLeft: 2 }} />
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
 
           {/* Floating Rounded Composer Area */}
           <View
@@ -2747,44 +2721,6 @@ export default function CircleWorkspaceScreen() {
                   style={[styles.cancelReplyBtn, { backgroundColor: colors.wash }]}
                 >
                   <X size={14} color={colors.subtle} />
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {/* Draft Message Indicator (CHT-18) */}
-            {!editingMessage && !replyingMessage && messageInput.trim().length > 0 && (
-              <View
-                style={[
-                  styles.replyPreviewBar,
-                  {
-                    backgroundColor: colors.wash,
-                    borderColor: colors.hairline,
-                    paddingVertical: 5,
-                    marginBottom: 4,
-                  },
-                ]}
-              >
-                <View style={styles.replyPreviewLeft}>
-                  <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.warning, marginRight: 6 }} />
-                  <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Text style={{ fontSize: 11, fontWeight: '700', color: colors.warning }}>
-                      {t.chat?.draftLabel || 'Nháp'}:
-                    </Text>
-                    <Text numberOfLines={1} style={{ fontSize: 11, color: colors.subtle, flex: 1 }}>
-                      {messageInput}
-                    </Text>
-                  </View>
-                </View>
-                <TouchableOpacity
-                  onPress={() => {
-                    setMessageInput('');
-                    if (currentChannelId) {
-                      setStorageItem(`circle_draft_${currentChannelId}`, '').catch(() => {});
-                    }
-                  }}
-                  style={[styles.cancelReplyBtn, { backgroundColor: 'transparent' }]}
-                >
-                  <Text style={{ fontSize: 11, color: colors.subtle }}>{t.chat?.cancelBtn || 'Hủy'}</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -3111,248 +3047,273 @@ export default function CircleWorkspaceScreen() {
         </View>
       </ScrollView>
 
-      {/* Floating Action Menu Modal on Long Press */}
+      {/* Telegram/iMessage Style Contextual Action Overlay */}
       <Modal
         visible={Boolean(activeActionMessage)}
         transparent
         animationType="fade"
-        onRequestClose={() => setActiveActionMessage(null)}
+        onRequestClose={() => {
+          setActiveActionMessage(null);
+          setActiveActionLayout(null);
+        }}
       >
         <TouchableOpacity
-          style={styles.actionModalBackdrop}
+          style={[
+            styles.actionModalBackdrop,
+            {
+              backgroundColor: isDark ? 'rgba(0, 0, 0, 0.72)' : 'rgba(0, 0, 0, 0.45)',
+              justifyContent: 'flex-start',
+              paddingHorizontal: 16,
+            },
+          ]}
           activeOpacity={1}
-          onPress={() => setActiveActionMessage(null)}
+          onPress={() => {
+            setActiveActionMessage(null);
+            setActiveActionLayout(null);
+          }}
         >
-          <BlurView
-            intensity={glassTheme.blur.intensity + 10}
-            tint={glassTheme.blur.tint}
-            style={[
-              styles.actionMenuCard,
-              {
-                backgroundColor: glassTheme.colors.glassBgSheet,
-                borderColor: glassTheme.colors.glassBorder,
-              },
-            ]}
-          >
-            {/* Quick Emojis Row: 3 prominent emojis + Full Emoji Picker toggle */}
-            <View style={styles.actionEmojisRow}>
-              {PROMINENT_QUICK_EMOJIS.map((emoji) => (
-                <TouchableOpacity
-                  key={emoji}
-                  activeOpacity={0.7}
-                  onPress={() => handleReact(activeActionMessage.id, emoji)}
-                  style={styles.actionEmojiBtn}
-                >
-                  <Emoji emoji={emoji} size={24} />
-                </TouchableOpacity>
-              ))}
-              <TouchableOpacity
-                activeOpacity={0.7}
-                onPress={() => {
-                  setTargetReactMessageId(activeActionMessage.id);
-                  setActiveActionMessage(null);
-                  setIsFullEmojiModalVisible(true);
+          {Boolean(activeActionMessage) && (() => {
+            const isSenderMe = Boolean(activeActionLayout?.isSenderMe);
+            const clampedY = Math.max(70, Math.min(screenHeight - 380, (activeActionLayout?.pageY || 280) - 70));
+
+            return (
+              <View
+                style={{
+                  position: 'absolute',
+                  top: clampedY,
+                  left: 16,
+                  right: 16,
+                  alignItems: isSenderMe ? 'flex-end' : 'flex-start',
                 }}
-                style={[styles.actionEmojiMoreBtn, { backgroundColor: colors.wash, borderColor: colors.hairline }]}
-                accessibilityLabel="More Emojis"
               >
-                <Smile size={18} color={colors.text} />
-              </TouchableOpacity>
-            </View>
-
-            <View style={[styles.actionDivider, { backgroundColor: colors.hairline }]} />
-
-            {/* Quick Actions (Reply, Pin, Edit, Recall) */}
-            <View style={styles.actionButtonsRow}>
-              <TouchableOpacity
-                activeOpacity={0.7}
-                onPress={() => {
-                  setReplyingMessage(activeActionMessage);
-                  setEditingMessage(null);
-                  setActiveActionMessage(null);
-                }}
-                style={[styles.actionBtnItem, { backgroundColor: colors.wash }]}
-              >
-                <View style={{ transform: [{ scaleX: -1 }], marginRight: 2 }}>
-                  <Reply size={16} color={colors.primary} />
-                </View>
-                <Text style={[styles.actionBtnItemText, { color: colors.text }]}>{t.chat.replyAction}</Text>
-              </TouchableOpacity>
-
-              {/* Edit Message Action (CHT-09: Author only) */}
-              {Boolean(
-                activeActionMessage &&
-                  (activeActionMessage.memberId === currentCircleMember?.id ||
-                    activeActionMessage.sender?.userId === user?.id) &&
-                  !activeActionMessage.deletedAt &&
-                  activeActionMessage.content &&
-                  !activeActionMessage.fileUrl &&
-                  !activeActionMessage.content.startsWith('['),
-              ) && (
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() => {
-                    const msgToEdit = activeActionMessage;
-                    setActiveActionMessage(null);
-                    setReplyingMessage(null);
-                    setEditingMessage(msgToEdit);
-                    setMessageInput(msgToEdit.content || '');
-                  }}
-                  style={[styles.actionBtnItem, { backgroundColor: colors.wash }]}
+                {/* 1. Quick Emojis Bar (Above the message bubble) */}
+                <View
+                  style={[
+                    styles.actionEmojisPill,
+                    {
+                      backgroundColor: isDark ? '#232328' : '#FFFFFF',
+                      borderColor: colors.hairline,
+                    },
+                  ]}
                 >
-                  <Pencil size={16} color={colors.primary} />
-                  <Text style={[styles.actionBtnItemText, { color: colors.text }]}>
-                    {t.chat?.editAction || 'Chỉnh sửa'}
-                  </Text>
-                </TouchableOpacity>
-              )}
-
-              {/* Recall Message Action (CHT-10: Author recalls for everyone) */}
-              {Boolean(
-                activeActionMessage &&
-                  (activeActionMessage.memberId === currentCircleMember?.id ||
-                    activeActionMessage.sender?.userId === user?.id) &&
-                  !activeActionMessage.deletedAt,
-              ) && (
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() => {
-                    const msgId = activeActionMessage.id;
-                    setActiveActionMessage(null);
-                    Alert.alert(
-                      t.chat?.recallConfirmTitle || 'Thu hồi tin nhắn?',
-                      t.chat?.recallConfirmMsg ||
-                        'Tin nhắn này sẽ bị thu hồi đối với tất cả thành viên trong Vòng tròn.',
-                      [
-                        { text: t.chat?.cancelBtn || 'Hủy', style: 'cancel' },
-                        {
-                          text: t.chat?.recallAction || 'Thu hồi',
-                          style: 'destructive',
-                          onPress: () => handleRecallMessage(msgId),
-                        },
-                      ],
-                    );
-                  }}
-                  style={[styles.actionBtnItem, { backgroundColor: colors.wash }]}
-                >
-                  <Trash2 size={16} color="#ef4444" />
-                  <Text style={[styles.actionBtnItemText, { color: '#ef4444' }]}>
-                    {t.chat?.recallAction || 'Thu hồi'}
-                  </Text>
-                </TouchableOpacity>
-              )}
-
-              {/* Remove other's message (Gỡ tin nhắn người khác - Mặc định chỉ phía người thao tác) */}
-              {Boolean(
-                activeActionMessage &&
-                  activeActionMessage.memberId !== currentCircleMember?.id &&
-                  activeActionMessage.sender?.userId !== user?.id,
-              ) && (
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() => {
-                    const targetMsgId = activeActionMessage.id;
-                    setActiveActionMessage(null);
-                    Alert.alert(
-                      t.chat?.removeAction || 'Gỡ tin nhắn?',
-                      t.chat?.removeForMeDesc ||
-                        'Gỡ tin nhắn này khỏi màn hình của bạn (không ảnh hưởng người khác trong nhóm).',
-                      [
-                        { text: t.chat?.cancelBtn || 'Hủy', style: 'cancel' },
-                        {
-                          text: t.chat?.removeAction || 'Gỡ tin nhắn',
-                          style: 'destructive',
-                          onPress: async () => {
-                            const updated = [...hiddenMessageIds, targetMsgId];
-                            setHiddenMessageIds(updated);
-                            if (currentChannelId) {
-                              try {
-                                await setStorageItem(
-                                  `circle_hidden_messages_${currentChannelId}`,
-                                  JSON.stringify(updated),
-                                );
-                              } catch {}
-                            }
-                          },
-                        },
-                      ],
-                    );
-                  }}
-                  style={[styles.actionBtnItem, { backgroundColor: colors.wash }]}
-                >
-                  <Trash2 size={16} color="#ef4444" />
-                  <Text style={[styles.actionBtnItemText, { color: '#ef4444' }]}>
-                    {t.chat?.removeAction || 'Gỡ tin nhắn'}
-                  </Text>
-                </TouchableOpacity>
-              )}
-
-              {!activeActionMessage?.content?.startsWith?.('[CALL_SUMMARY]:') &&
-                !activeActionMessage?.content?.includes?.('"callType"') && (
+                  {PROMINENT_QUICK_EMOJIS.map((emoji) => (
+                    <TouchableOpacity
+                      key={emoji}
+                      activeOpacity={0.7}
+                      onPress={() => {
+                        triggerSelectionHaptic();
+                        handleReact(activeActionMessage.id, emoji);
+                        setActiveActionMessage(null);
+                        setActiveActionLayout(null);
+                      }}
+                      style={styles.actionEmojiBtn}
+                    >
+                      <Emoji emoji={emoji} size={24} />
+                    </TouchableOpacity>
+                  ))}
                   <TouchableOpacity
                     activeOpacity={0.7}
-                    onPress={() =>
-                      handleTogglePin(activeActionMessage.id, Boolean(activeActionMessage.isPinned))
-                    }
-                    style={[styles.actionBtnItem, { backgroundColor: colors.wash }]}
+                    onPress={() => {
+                      triggerSelectionHaptic();
+                      setTargetReactMessageId(activeActionMessage.id);
+                      setActiveActionMessage(null);
+                      setActiveActionLayout(null);
+                      setIsFullEmojiModalVisible(true);
+                    }}
+                    style={[styles.actionEmojiMoreBtn, { backgroundColor: colors.wash, borderColor: colors.hairline }]}
+                    accessibilityLabel={t.emoji?.addOtherEmoji || 'Thêm biểu cảm khác'}
                   >
-                    <Pin
-                      size={16}
-                      color={activeActionMessage?.isPinned ? colors.warning : colors.subtle}
-                      fill={activeActionMessage?.isPinned ? colors.warning : 'transparent'}
-                    />
-                    <Text style={[styles.actionBtnItemText, { color: colors.text }]}>
-                      {activeActionMessage?.isPinned ? t.chat.unpinAction : t.chat.pinAction}
+                    <Smile size={18} color={colors.text} />
+                  </TouchableOpacity>
+                </View>
+
+                {/* 2. Focused Message Bubble Preview */}
+                <View
+                  style={[
+                    styles.focusedBubbleContainer,
+                    {
+                      alignSelf: isSenderMe ? 'flex-end' : 'flex-start',
+                      backgroundColor: isSenderMe ? (isDark ? '#4E7C62' : '#3E6550') : (isDark ? '#26262B' : '#F1F1F4'),
+                      borderColor: colors.hairline,
+                    },
+                  ]}
+                >
+                  {Boolean(activeActionMessage.content) && (
+                    <Text
+                      style={{
+                        fontSize: 15,
+                        color: isSenderMe ? '#FFFFFF' : colors.text,
+                        lineHeight: 21,
+                      }}
+                    >
+                      {activeActionMessage.content}
+                    </Text>
+                  )}
+                  {Boolean(activeActionMessage.fileUrl) && (
+                    <View style={{ marginTop: 4 }}>
+                      <RNImage
+                        source={{ uri: activeActionMessage.fileUrl }}
+                        style={{ width: 220, height: 160, borderRadius: 12 }}
+                        resizeMode="cover"
+                      />
+                    </View>
+                  )}
+                </View>
+
+                {/* 3. Contextual Action Menu (Below the message bubble) */}
+                <View
+                  style={[
+                    styles.contextActionMenuCard,
+                    {
+                      backgroundColor: isDark ? '#232328' : '#FFFFFF',
+                      borderColor: colors.hairline,
+                      alignSelf: isSenderMe ? 'flex-end' : 'flex-start',
+                    },
+                  ]}
+                >
+                  {/* Copy Action */}
+                  {Boolean(activeActionMessage.content) && (
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      onPress={() => {
+                        Clipboard.setString(activeActionMessage.content || '');
+                        triggerSendHaptic();
+                        setActiveActionMessage(null);
+                        setActiveActionLayout(null);
+                        Alert.alert('', t.chat?.copiedNotice || 'Đã sao chép tin nhắn');
+                      }}
+                      style={styles.contextMenuItem}
+                    >
+                      <Copy size={16} color={colors.text} />
+                      <Text style={[styles.contextMenuItemText, { color: colors.text }]}>
+                        {t.chat?.copyAction || 'Sao chép'}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+
+                  {/* Reply Action */}
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    onPress={() => {
+                      triggerSelectionHaptic();
+                      setReplyingMessage(activeActionMessage);
+                      setEditingMessage(null);
+                      setActiveActionMessage(null);
+                      setActiveActionLayout(null);
+                    }}
+                    style={styles.contextMenuItem}
+                  >
+                    <View style={{ transform: [{ scaleX: -1 }] }}>
+                      <Reply size={16} color={colors.text} />
+                    </View>
+                    <Text style={[styles.contextMenuItemText, { color: colors.text }]}>
+                      {t.chat.replyAction}
                     </Text>
                   </TouchableOpacity>
-                )}
 
-              {/* Delete For Me Action (CHT-11: Hide own message on this device only) */}
-              {Boolean(
-                activeActionMessage &&
-                  (activeActionMessage.memberId === currentCircleMember?.id ||
-                    activeActionMessage.sender?.userId === user?.id),
-              ) && (
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() => {
-                  const targetMsgId = activeActionMessage.id;
-                  setActiveActionMessage(null);
-                  Alert.alert(
-                    t.chat?.deleteForMeConfirmTitle || 'Xóa tin nhắn phía bạn?',
-                    t.chat?.deleteForMeConfirmMsg ||
-                      'Tin nhắn này sẽ chỉ bị ẩn khỏi thiết bị của bạn và không ảnh hưởng đến người khác.',
-                    [
-                      { text: t.chat?.cancelBtn || 'Hủy', style: 'cancel' },
-                      {
-                        text: t.chat?.deleteForMeAction || 'Xóa phía tôi',
-                        style: 'destructive',
-                        onPress: async () => {
-                          const updated = [...hiddenMessageIds, targetMsgId];
-                          setHiddenMessageIds(updated);
-                          if (currentChannelId) {
-                            try {
-                              await setStorageItem(
-                                `circle_hidden_messages_${currentChannelId}`,
-                                JSON.stringify(updated),
-                              );
-                            } catch {}
-                          }
-                        },
-                      },
-                    ],
-                  );
-                }}
-                style={[styles.actionBtnItem, { backgroundColor: colors.wash }]}
-              >
-                <EyeOff size={16} color={colors.subtle} />
-                <Text style={[styles.actionBtnItemText, { color: colors.text }]}>
-                  {t.chat?.deleteForMeAction || 'Xóa phía tôi'}
-                </Text>
-              </TouchableOpacity>
-              )}
-            </View>
-          </BlurView>
+                  {/* Pin / Unpin Action */}
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    onPress={() => {
+                      triggerSelectionHaptic();
+                      handleTogglePin(activeActionMessage.id, Boolean(activeActionMessage.isPinned));
+                      setActiveActionMessage(null);
+                      setActiveActionLayout(null);
+                    }}
+                    style={styles.contextMenuItem}
+                  >
+                    <Pin size={16} color={colors.text} />
+                    <Text style={[styles.contextMenuItemText, { color: colors.text }]}>
+                      {activeActionMessage.isPinned ? t.chat.unpinAction : t.chat.pinAction}
+                    </Text>
+                  </TouchableOpacity>
+
+                  {/* Edit Action (Author only) */}
+                  {Boolean(
+                    (activeActionMessage.memberId === currentCircleMember?.id ||
+                      activeActionMessage.sender?.userId === user?.id) &&
+                      !activeActionMessage.deletedAt &&
+                      activeActionMessage.content &&
+                      !activeActionMessage.fileUrl &&
+                      !activeActionMessage.content.startsWith('['),
+                  ) && (
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      onPress={() => {
+                        triggerSelectionHaptic();
+                        const msgToEdit = activeActionMessage;
+                        setActiveActionMessage(null);
+                        setActiveActionLayout(null);
+                        setReplyingMessage(null);
+                        setEditingMessage(msgToEdit);
+                        setMessageInput(msgToEdit.content || '');
+                      }}
+                      style={styles.contextMenuItem}
+                    >
+                      <Pencil size={16} color={colors.text} />
+                      <Text style={[styles.contextMenuItemText, { color: colors.text }]}>
+                        {t.chat?.editAction || 'Chỉnh sửa'}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+
+                  {/* Delete For Me Action */}
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    onPress={() => {
+                      triggerSelectionHaptic();
+                      const msgId = activeActionMessage.id;
+                      setActiveActionMessage(null);
+                      setActiveActionLayout(null);
+                      handleDeleteForMe(msgId);
+                    }}
+                    style={styles.contextMenuItem}
+                  >
+                    <EyeOff size={16} color="#f59e0b" />
+                    <Text style={[styles.contextMenuItemText, { color: '#f59e0b' }]}>
+                      {t.chat?.deleteForMeAction || 'Xóa phía tôi'}
+                    </Text>
+                  </TouchableOpacity>
+
+                  {/* Recall Action (Author only) */}
+                  {Boolean(
+                    (activeActionMessage.memberId === currentCircleMember?.id ||
+                      activeActionMessage.sender?.userId === user?.id) &&
+                      !activeActionMessage.deletedAt,
+                  ) && (
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      onPress={() => {
+                        triggerSelectionHaptic();
+                        const msgId = activeActionMessage.id;
+                        setActiveActionMessage(null);
+                        setActiveActionLayout(null);
+                        Alert.alert(
+                          t.chat?.recallConfirmTitle || 'Thu hồi tin nhắn?',
+                          t.chat?.recallConfirmMsg ||
+                            'Tin nhắn này sẽ bị thu hồi đối với tất cả thành viên trong Vòng tròn.',
+                          [
+                            { text: t.chat?.cancelBtn || 'Hủy', style: 'cancel' },
+                            {
+                              text: t.chat?.recallAction || 'Thu hồi',
+                              style: 'destructive',
+                              onPress: () => handleRecallMessage(msgId),
+                            },
+                          ],
+                        );
+                      }}
+                      style={[styles.contextMenuItem, { borderBottomWidth: 0 }]}
+                    >
+                      <Trash2 size={16} color="#ef4444" />
+                      <Text style={[styles.contextMenuItemText, { color: '#ef4444' }]}>
+                        {t.chat?.recallAction || 'Thu hồi'}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+            );
+          })()}
         </TouchableOpacity>
       </Modal>
 
@@ -4727,6 +4688,57 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
+  },
+  actionEmojisPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 24,
+    borderWidth: 1,
+    gap: 4,
+    marginBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  focusedBubbleContainer: {
+    maxWidth: '82%',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 18,
+    borderWidth: 1,
+    marginBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 10,
+  },
+  contextActionMenuCard: {
+    width: 220,
+    borderRadius: 18,
+    borderWidth: 1,
+    overflow: 'hidden',
+    paddingVertical: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 12,
+  },
+  contextMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    gap: 10,
+  },
+  contextMenuItemText: {
+    fontSize: 14,
+    fontWeight: '500',
   },
   actionMenuCard: {
     width: '100%',

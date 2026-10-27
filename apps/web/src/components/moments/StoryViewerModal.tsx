@@ -28,6 +28,7 @@ import {
 } from '@/hooks/use-moment-queries';
 import { MomentReactorsModal } from './MomentReactorsModal';
 import { MomentPipView } from './MomentPipView';
+import { Emoji } from '@/components/ui/Emoji';
 import { parseMomentPhotos } from '@/lib/moment-photos';
 
 interface StoryViewerModalProps {
@@ -459,8 +460,8 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
                           <span>{r.user?.displayName?.slice(0, 2).toUpperCase() || 'U'}</span>
                         )}
                       </div>
-                      <div className="absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full bg-black/80 border border-white/30 flex items-center justify-center text-[8px] shadow-xs">
-                        {r.emoji}
+                      <div className="absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full bg-black/80 border border-white/30 flex items-center justify-center shadow-xs overflow-hidden">
+                        <Emoji emoji={r.emoji} size={10} />
                       </div>
                     </div>
                   ))}

@@ -5030,3 +5030,54 @@
 - **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
 - **Branch:** `feat/115-sound-and-tactile-feedback`
 - **PR:** #116
+
+---
+
+## AI-0142: Unify Emoji System, Contextual Overlay, Minimalist Chat Header & Settings (#115)
+
+- **Date:** 2026-10-27 23:55:00 +07:00
+- **Developer:** Trương Công Bình (MSSV: 23110184)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash
+- **Related Issue:** #115 (US-UX-001: Sound & Tactile Feedback System for Realtime Atmosphere)
+- **Purpose:** Tinh gọn hóa giao diện chat, đồng bộ hệ thống emoji toàn hệ sinh thái và nâng cấp trải nghiệm tương tác ngữ cảnh theo chuẩn Telegram / Apple:
+  1. **Header Pin Button & Banner Cleanup (Web & Mobile):** Loại bỏ banner tin nhắn ghim thô kệch chắn ngang khung chat; tích hợp trực tiếp trạng thái ghim vào nút Pin trên thanh Header (icon rỗng khi chưa có tin ghim, icon fill màu chủ đạo khi có tin ghim; click mở modal quản lý tin ghim).
+  2. **Draft Preview Simplification (Web & Mobile):** Loại bỏ hoàn toàn thanh thông báo nháp thô phía trên thanh nhập liệu (`t.chat.draftLabel`). Văn bản đang soạn thảo được lưu tự động và giữ nguyên vẹn trong ô input.
+  3. **Sound Settings Relocation:** Di chuyển công tắc bật/tắt âm thanh hiệu ứng ra khỏi Header thanh chat, chuyển vào vị trí tự nhiên và logic hơn trong Modal Quản lý Vòng tròn (Tab "Thông báo & Quyền riêng tư"), giúp Header trở nên tối giản, tập trung.
+  4. **PresenceRail Light Mode Distinction:** Tinh chỉnh nút "Mời bạn bè & Yêu cầu" trên PresenceRail ở giao diện Sáng (Light mode) với đường viền hairline phân cách rõ ràng, icon `UserPlus` và hiệu ứng nổi nhẹ nhàng.
+  5. **1-Click Copy Message & Web Hover Menu 3-Dots:** Hỗ trợ sao chép tin nhắn 1 chạm kèm toast thông báo tức thì trên cả 2 nền tảng. Trên Web, thanh hover hành động được tối giản thành thanh Quick Reactions + menu 3 chấm dọc (`MoreVertical`) chứa Sao chép, Trả lời, Ghim, Chỉnh sửa, Thu hồi, Gỡ tin nhắn.
+  6. **Mobile Contextual Overlay (Telegram / iMessage style):** Thao tác nhấn giữ bong bóng tin nhắn trên Mobile làm mờ/tối background (`rgba(0,0,0,0.72)`), focus chính xác vào bong bóng tin nhắn tại vị trí chạm màn hình; thanh Quick Reactions đặt ngay PHÍA TRÊN tin nhắn, và danh sách hành động (Sao chép, Trả lời, Ghim, Chỉnh sửa, Gỡ, Thu hồi) đặt ngay PHÍA DƯỚI tin nhắn.
+  7. **Emoji Picker Localization & Clean Icon-Only Tabs:** Loại bỏ các nhãn chữ văn bản rườm rà ở thanh phân loại emoji, thay thế bằng các tab icon đại diện tinh tế (`😊`, `👋`, `❤️`, `🐶`, `🍔`, `⚽`); quốc tế hóa tiêu đề modal qua bộ từ điển `@circle/shared`.
+  8. **Hệ thống Emoji Đồng nhất Toàn Diện (Unified Apple Color Emoji):** Chuẩn hóa toàn bộ hiển thị emoji (chat message reactions, moment reactions, story reactions, full picker modal) sử dụng thống nhất component `<Emoji>` tải vector Apple Color Emoji độ phân giải cao từ CDN với native text fallback. Cơ chế lưu trữ dưới database và API là chuỗi ký tự chuẩn Unicode UTF-8 tối ưu kích thước.
+  9. **Triết lý Radical Minimalism ("Ít text nhất có thể"):** Rà soát và loại bỏ các hộp thoại chỉ dẫn, badge thừa thãi hiển nhiên (như lược bỏ khối advisory vàng trong form Đổi mật khẩu của SystemSettingsModal).
+- **Files Affected:**
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `apps/web/src/components/chat/ChannelChatView.tsx`
+  - `apps/web/src/components/chat/ChatComposer.tsx`
+  - `apps/web/src/components/chat/MessageBubble.tsx`
+  - `apps/web/src/components/circle/CircleManagementModal.tsx`
+  - `apps/web/src/components/presence/PresenceRail.tsx`
+  - `apps/web/src/components/settings/SystemSettingsModal.tsx`
+  - `apps/web/src/components/ui/FullEmojiPickerModal.tsx`
+  - `apps/web/src/components/moments/DailyMomentsFeed.tsx`
+  - `apps/web/src/components/moments/MomentReactorsModal.tsx`
+  - `apps/web/src/components/moments/StoryViewerModal.tsx`
+  - `apps/mobile/src/stores/sound.store.ts`
+  - `apps/mobile/src/components/ui/FullEmojiPickerModal.tsx`
+  - `apps/mobile/src/components/circle/CircleManagementModal.tsx`
+  - `apps/mobile/src/components/moment/MomentsView.tsx`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% component architecture, UI simplification, contextual overlays, unified emoji pipeline, localization keys.
+- **Human Modifications:** Trương Công Bình định hướng triết lý UI clean, ít text nhất có thể, yêu cầu chuyển trạng thái ghim lên Header Pin button, bỏ banner nháp, gom âm thanh vào Cài đặt nhóm, menu hover 3 chấm, overlay nhấn giữ Telegram-style trên Mobile, icon-only emoji tabs và thống nhất 1 bộ Apple Color emoji toàn hệ thống.
+- **Verification Method:**
+  - `npm run build -w @circle/shared`: Shared package build pass.
+  - `npm run build -w @circle/web`: Next.js production build 9/9 static routes pass, zero type errors.
+  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Mobile TypeScript 0 errors.
+  - `./scripts/check-agent-map.sh`: 116/116 framework files pass.
+- **Official Source Checked:** `agentic/playbooks/cross-cutting-gate.md`, `agentic/playbooks/05-chat.md`, `PROJECT_GOD.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
+- **Branch:** `feat/115-sound-and-tactile-feedback`
+- **PR:** #116
+

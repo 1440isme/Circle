@@ -47,6 +47,7 @@ import {
 import { useAuth } from '@/context/AuthContext';
 import { useLanguageStore } from '@/stores/language.store';
 import { useCircleStore } from '@/stores/circle.store';
+import { useSoundStore } from '@/stores/sound.store';
 import { sendCircleThemeUpdate } from '@/lib/socket';
 import {
   useCircleMembersQuery,
@@ -92,6 +93,8 @@ export const CircleManagementModal: React.FC = () => {
   const manageActiveTab = useCircleStore((s) => s.manageActiveTab);
   const setManageModalOpen = useCircleStore((s) => s.setManageModalOpen);
   const setActiveCircle = useCircleStore((s) => s.setActiveCircle);
+  const soundEnabled = useSoundStore((s) => s.soundEnabled);
+  const toggleSound = useSoundStore((s) => s.toggleSound);
 
   const { uploadMedia, isUploading: isUploadingMedia } = useUploadMedia();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1717,6 +1720,35 @@ export const CircleManagementModal: React.FC = () => {
                         </div>
                       </div>
                     )}
+                  </div>
+
+                  {/* 1.5 Âm thanh thông báo & hiệu ứng */}
+                  <div className="flex items-center justify-between gap-4 py-2.5 animate-fade-in border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60">
+                    <div className="flex items-center gap-2">
+                      <Volume2 className="h-4 w-4 text-circle-primary shrink-0" />
+                      <div>
+                        <span className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text block">
+                          {t.circle.soundEffectsTitle || 'Âm thanh thông báo & hiệu ứng'}
+                        </span>
+                        <span className="text-[11px] text-circle-slate dark:text-circle-dark-muted block">
+                          {t.circle.soundEffectsDesc || 'Phát âm thanh nhẹ khi gửi/nhận tin nhắn, thả cảm xúc và cuộc gọi'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={toggleSound}
+                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                        soundEnabled ? 'bg-circle-primary' : 'bg-gray-300 dark:bg-gray-700'
+                      }`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                          soundEnabled ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
                   </div>
                 </div>
 

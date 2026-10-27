@@ -461,15 +461,6 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
             {/* TAB: SECURITY & PASSWORD (Mật khẩu & Bảo mật) */}
             {activeTab === 'security' && (
               <div className="space-y-5 animate-fadeIn">
-                {/* Security Advisory Card */}
-                <div className="flex items-start gap-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 p-4 text-xs text-amber-700 dark:text-amber-300">
-                  <Shield className="h-5 w-5 shrink-0 text-amber-500 mt-0.5" />
-                  <div className="space-y-1">
-                    <p className="font-semibold">{t.auth.changePasswordTitle}</p>
-                    <p className="opacity-90">{t.auth.securityPasswordNotice}</p>
-                  </div>
-                </div>
-
                 {passwordSuccessNotice && (
                   <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-3 text-xs font-medium text-emerald-600 dark:text-emerald-400 animate-fadeIn">
                     <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />

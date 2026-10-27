@@ -627,6 +627,10 @@ export const en: TranslationDictionary = {
     noMutedMembers: 'No members are currently muted',
     unmute: 'Unmute',
     mute: 'Mute',
+    soundEffectsTitle: 'Notification & Effect Sounds',
+    soundEffectsDesc: 'Play gentle sounds when sending/receiving messages, reactions, and calls',
+    hapticsTitle: 'Haptic Feedback',
+    hapticsDesc: 'Subtle vibration when sending messages and interacting with reactions',
   },
   moments: {
     title: 'Moments',
@@ -782,6 +786,22 @@ export const en: TranslationDictionary = {
     clearChatEmptyDesc: 'New messages sent to the group will appear here.',
     mentionAll: 'Everyone (@all)',
     mentionedYou: 'Mentioned you',
+    copyAction: 'Copy',
+    copiedNotice: 'Message copied',
+    moreActions: 'More actions',
+  },
+  emoji: {
+    title: 'Select Emoji',
+    searchPlaceholder: 'Search emojis...',
+    addOtherEmoji: 'Add other emoji',
+    categories: {
+      smileys: 'Smileys & Emotion',
+      gestures: 'People & Gestures',
+      hearts: 'Hearts & Symbols',
+      animals: 'Animals & Nature',
+      food: 'Food & Drink',
+      activities: 'Activities & Objects',
+    },
   },
   storage: {
     uploadSuccess: 'Media uploaded successfully',

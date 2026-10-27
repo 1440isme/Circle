@@ -625,6 +625,10 @@ export const vi = {
     noMutedMembers: 'Chưa có thành viên nào bị tắt tiếng',
     unmute: 'Bật lại tiếng',
     mute: 'Tắt tiếng',
+    soundEffectsTitle: 'Âm thanh thông báo & hiệu ứng',
+    soundEffectsDesc: 'Phát âm thanh nhẹ khi gửi/nhận tin nhắn, thả cảm xúc và chuông cuộc gọi',
+    hapticsTitle: 'Phản hồi xúc giác (Rung haptic)',
+    hapticsDesc: 'Rung nhẹ khi tương tác gửi tin nhắn và chọn phản hồi',
   },
   moments: {
     title: 'Khoảnh khắc',
@@ -780,6 +784,22 @@ export const vi = {
     clearChatEmptyDesc: 'Tin nhắn mới được gửi vào nhóm sẽ xuất hiện tại đây.',
     mentionAll: 'Mọi người (@all)',
     mentionedYou: 'Đã nhắc đến bạn',
+    copyAction: 'Sao chép',
+    copiedNotice: 'Đã sao chép tin nhắn',
+    moreActions: 'Tùy chọn khác',
+  },
+  emoji: {
+    title: 'Chọn biểu cảm',
+    searchPlaceholder: 'Tìm kiếm biểu cảm...',
+    addOtherEmoji: 'Thêm biểu cảm khác',
+    categories: {
+      smileys: 'Mặt cười & Cảm xúc',
+      gestures: 'Cử chỉ & Con người',
+      hearts: 'Trái tim & Biểu tượng',
+      animals: 'Động vật & Thiên nhiên',
+      food: 'Đồ ăn & Thức uống',
+      activities: 'Hoạt động & Đồ vật',
+    },
   },
   storage: {
     uploadSuccess: 'Tải lên phương tiện thành công',
