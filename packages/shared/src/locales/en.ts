@@ -782,6 +782,13 @@ export const en: TranslationDictionary = {
     clearChatEmptyDesc: 'New messages sent to the group will appear here.',
     mentionAll: 'Everyone (@all)',
     mentionedYou: 'Mentioned you',
+    welcomeTitle: 'Welcome to {name}',
+    welcomeSubtitle: 'This is a private space for your Circle. All messages and shared content are visible only to group members.',
+    sayHelloAction: 'Say hello to the group',
+    helloMessage: 'Hello everyone!',
+    searchInChannel: 'Search in conversation',
+    searchHint: 'Type keywords to search within this chat',
+    searchResultsCount: 'Found {count} messages',
   },
   storage: {
     uploadSuccess: 'Media uploaded successfully',

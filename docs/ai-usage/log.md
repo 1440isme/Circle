@@ -4976,4 +4976,47 @@
 - **Official Source Checked:** `agentic/playbooks/05-chat.md`, `agentic/playbooks/cross-cutting-gate.md`, `PROJECT_GOD.md`.
 - **Security & License Check:** An toàn tuyệt đối, zero secrets leaks, kiểm tra membership chặt chẽ.
 - **Branch:** `feat/109-chat-remove-and-clear-options`
+- **PR:** #110 (Merged)
+
+---
+
+## AI-0138: US-CHAT-006 — Elevate Chat Experience: Smooth Quote Navigation, Professional Channel Welcome & In-Chat Search Parity (Web + Mobile)
+
+- **Date:** 2026-10-27 22:04:00 +07:00
+- **Developer:** Trương Công Bình (MSSV: 23110184)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash
+- **Related Issue:** #111 ([FEAT]: US-CHAT-006 — Elevate Chat Experience: Smooth Quote Navigation, Inspiring Empty States & Interactive Delight (Web + Mobile))
+- **Purpose:** Trau chuốt trải nghiệm trò chuyện nhóm CIRCLE đạt độ hoàn thiện cao cấp và tinh tế chuẩn thương mại, loại bỏ hoàn toàn các yếu tố màu mè/phèn (AI Slop), bảo đảm 100% Web và Mobile song hành:
+  1. **Tối ưu trải nghiệm Quote / Reply (`CHT-12`):**
+     - Web: Nâng cấp hiệu ứng cuộn mượt và highlight viền sáng mềm mại (`animate-pulse shadow-xl ring-2`) khi chạm vào thẻ reply quote để quay về tin gốc trong ngữ cảnh.
+     - Mobile: Phản hồi rung tinh tế (`Haptics.impactAsync(Light)`), cuộn chính xác tới vị trí tin nhắn gốc và kích hoạt highlight tạm thời.
+  2. **Giao diện Kênh trò chuyện tinh tế & Chuyên nghiệp (Professional Channel Welcome):**
+     - Loại bỏ hoàn toàn các emoji sến súa (👋, ☕, 🍕, 📸...) và hào quang lòe loẹt.
+     - Xây dựng giao diện kênh mới bắt đầu theo chuẩn thiết kế tối giản, sang trọng: Squircle Hash icon tinh gọn, typography sắc nét, thông điệp bảo mật riêng tư của Circle và nút hành động "Gửi lời chào đầu tiên" nhã nhặn.
+  3. **Đồng bộ Tìm kiếm tin nhắn trong phòng chat trên Mobile (`CHT-17`):**
+     - Bổ sung nút Search trên Header Circle Mobile (cạnh nút Call).
+     - Xây dựng component `SearchMessagesModal.tsx` trên Mobile: ô tìm kiếm debounce, gọi `searchMessagesApi`, hiển thị kết quả phân tách tên người gửi, thời gian và highlight từ khóa tìm kiếm. Chạm kết quả tự động nhảy tới tin nhắn và kích hoạt highlight.
+- **Prompt Summary:** "bỏ mấy icon đi, trông rất là AI Slop, hãy chuyên nghiệp vào nhé. tôi vừa nhắc ux user là hằng đầu đưa mấy icon vào trông rất phèn, k có tính chuyên nghiệp, thiếu đi độ legit"
+- **Files Affected:**
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `apps/web/src/components/chat/MessageList.tsx`
+  - `apps/web/src/components/chat/MessageBubble.tsx`
+  - `apps/web/src/components/chat/ChannelChatView.tsx`
+  - `apps/mobile/src/components/chat/SearchMessagesModal.tsx`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `agentic/memory/MEMORY.md`
+  - `agentic/memory/2026-10-27.md`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% code logic cho SearchMessagesModal, MessageList empty channel layout, Quote highlight styles và song ngữ VI/EN.
+- **Human Modifications:** Trương Công Bình trực tiếp chấn chỉnh tư duy sản phẩm: loại bỏ các emoji/icon sến súa mang tính AI Slop, yêu cầu thiết kế đạt chuẩn thẩm mỹ cao cấp, tinh tế và chuyên nghiệp.
+- **Verification Method:**
+  - `npm test -w @circle/backend`: 175/175 tests pass 100% (11/11 suites).
+  - `npm run build -w @circle/web`: Next.js 14 production build hoàn tất 9/9 static routes.
+  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Mobile TypeScript 0 errors.
+  - `bash ./scripts/check-agent-map.sh`: 117/117 framework files pass.
+- **Official Source Checked:** `agentic/playbooks/05-chat.md`, `agentic/playbooks/cross-cutting-gate.md`, `PROJECT_GOD.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks, kiểm tra membership chặt chẽ.
+- **Branch:** `feat/111-chat-quote-scroll-and-delight`
 - **PR:** Pending

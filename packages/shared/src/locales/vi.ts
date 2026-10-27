@@ -780,6 +780,13 @@ export const vi = {
     clearChatEmptyDesc: 'Tin nhắn mới được gửi vào nhóm sẽ xuất hiện tại đây.',
     mentionAll: 'Mọi người (@all)',
     mentionedYou: 'Đã nhắc đến bạn',
+    welcomeTitle: 'Chào mừng bạn đến với {name}',
+    welcomeSubtitle: 'Đây là không gian riêng tư của Vòng tròn. Mọi cuộc trò chuyện và nội dung chia sẻ chỉ hiển thị với các thành viên trong nhóm.',
+    sayHelloAction: 'Gửi lời chào đầu tiên',
+    helloMessage: 'Xin chào mọi người!',
+    searchInChannel: 'Tìm kiếm tin nhắn',
+    searchHint: 'Nhập từ khóa để tìm lại nội dung trong cuộc trò chuyện',
+    searchResultsCount: 'Tìm thấy {count} tin nhắn',
   },
   storage: {
     uploadSuccess: 'Tải lên phương tiện thành công',
