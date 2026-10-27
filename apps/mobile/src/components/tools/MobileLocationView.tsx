@@ -25,6 +25,7 @@ import {
   stopLiveLocationApi,
 } from '../../services/circle-tools.service';
 import { LiveLocationEntity } from '@circle/types';
+import { useThemeStore } from '../../stores/theme.store';
 
 interface MobileLocationViewProps {
   circleId: string;
@@ -33,6 +34,8 @@ interface MobileLocationViewProps {
 const { width } = Dimensions.get('window');
 
 export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId }) => {
+  const { colors, resolvedTheme } = useThemeStore();
+  const isDark = resolvedTheme === 'dark';
   const [locations, setLocations] = useState<LiveLocationEntity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedDuration, setSelectedDuration] = useState<number>(30); // 15, 30, 60 mins
@@ -95,25 +98,28 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.canvas }]}>
       {/* Top Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.hairline }]}>
         <View style={styles.headerTextGroup}>
-          <Text style={styles.title}>Vị Trí Trực Tiếp</Text>
-          <Text style={styles.subtitle}>
+          <Text style={[styles.title, { color: colors.text }]}>Vị Trí Trực Tiếp</Text>
+          <Text style={[styles.subtitle, { color: colors.subtle }]}>
             {locations.length > 0
               ? `${locations.length} thành viên đang phát sóng`
               : 'Chưa có ai đang chia sẻ vị trí'}
           </Text>
         </View>
 
-        <TouchableOpacity onPress={loadLocations} style={styles.refreshBtn}>
-          <RotateCw size={16} color="#0F172A" />
+        <TouchableOpacity
+          onPress={loadLocations}
+          style={[styles.refreshBtn, { backgroundColor: isDark ? colors.elevated : '#F1F5F9' }]}
+        >
+          <RotateCw size={16} color={colors.text} />
         </TouchableOpacity>
       </View>
 
       {/* Radar Map Visual Simulation */}
-      <View style={styles.radarCard}>
+      <View style={[styles.radarCard, { backgroundColor: isDark ? '#020617' : '#0F172A' }]}>
         <View style={styles.radarCircleOuter}>
           <View style={styles.radarCircleMid}>
             <View style={styles.radarCircleInner}>
@@ -146,20 +152,21 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
       </View>
 
       {/* Action Controls */}
-      <View style={styles.controlsCard}>
-        <View style={styles.durationSelector}>
+      <View style={[styles.controlsCard, { backgroundColor: colors.surface, borderBottomColor: colors.hairline }]}>
+        <View style={[styles.durationSelector, { backgroundColor: isDark ? colors.elevated : '#F1F5F9' }]}>
           {[15, 30, 60].map((d) => (
             <TouchableOpacity
               key={d}
               onPress={() => setSelectedDuration(d)}
               style={[
                 styles.durationBtn,
-                selectedDuration === d && styles.durationBtnActive,
+                selectedDuration === d && [styles.durationBtnActive, { backgroundColor: colors.surface }],
               ]}
             >
               <Text
                 style={[
                   styles.durationBtnText,
+                  { color: selectedDuration === d ? colors.primary : colors.subtle },
                   selectedDuration === d && styles.durationBtnTextActive,
                 ]}
               >
@@ -171,7 +178,7 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
 
         <TouchableOpacity
           onPress={isSharing ? handleStopSharing : handleStartSharing}
-          style={[styles.shareBtn, isSharing && styles.shareBtnStop]}
+          style={[styles.shareBtn, { backgroundColor: colors.primary }, isSharing && styles.shareBtnStop]}
         >
           <Radio size={16} color="#FFF" />
           <Text style={styles.shareBtnText}>
@@ -182,36 +189,36 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
 
       {/* Active Members List */}
       <ScrollView style={styles.listContainer} showsVerticalScrollIndicator={false}>
-        <Text style={styles.listHeaderTitle}>Thành viên phát sóng</Text>
+        <Text style={[styles.listHeaderTitle, { color: colors.subtle }]}>Thành viên phát sóng</Text>
 
         {isLoading ? (
-          <ActivityIndicator size="small" color="#0284C7" style={{ marginTop: 20 }} />
+          <ActivityIndicator size="small" color={colors.primary} style={{ marginTop: 20 }} />
         ) : locations.length === 0 ? (
           <View style={styles.emptyNotice}>
-            <Navigation size={32} color="#CBD5E1" />
-            <Text style={styles.emptyNoticeText}>
+            <Navigation size={32} color={colors.subtle} />
+            <Text style={[styles.emptyNoticeText, { color: colors.subtle }]}>
               Bật chia sẻ vị trí để bạn bè trong Vòng tròn thấy điểm hẹn của bạn.
             </Text>
           </View>
         ) : (
           locations.map((loc) => (
-            <View key={loc.id} style={styles.memberCard}>
-              <View style={styles.memberAvatar}>
-                <Text style={styles.memberAvatarText}>
+            <View key={loc.id} style={[styles.memberCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+              <View style={[styles.memberAvatar, { backgroundColor: isDark ? 'rgba(56, 189, 248, 0.15)' : '#E0F2FE' }]}>
+                <Text style={[styles.memberAvatarText, { color: colors.primary }]}>
                   {loc.member?.user?.profile?.displayName?.substring(0, 2).toUpperCase() || 'MB'}
                 </Text>
               </View>
               <View style={styles.memberInfo}>
-                <Text style={styles.memberName}>
+                <Text style={[styles.memberName, { color: colors.text }]}>
                   {loc.member?.user?.profile?.displayName || 'Thành viên'}
                 </Text>
-                <Text style={styles.memberCoords}>
+                <Text style={[styles.memberCoords, { color: colors.subtle }]}>
                   Tọa độ: {loc.latitude.toFixed(4)}, {loc.longitude.toFixed(4)}
                 </Text>
               </View>
-              <View style={styles.timeBadge}>
-                <Clock size={12} color="#0284C7" />
-                <Text style={styles.timeBadgeText}>
+              <View style={[styles.timeBadge, { backgroundColor: isDark ? 'rgba(56, 189, 248, 0.15)' : '#F0F9FF' }]}>
+                <Clock size={12} color={colors.primary} />
+                <Text style={[styles.timeBadgeText, { color: colors.primary }]}>
                   {getRemainingTime(loc.expiresAt)}
                 </Text>
               </View>

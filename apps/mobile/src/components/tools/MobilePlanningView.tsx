@@ -32,6 +32,7 @@ import {
   deletePlanningSheetApi,
 } from '../../services/circle-tools.service';
 import { PlanningSheetEntity, SheetCellEntity } from '@circle/types';
+import { useThemeStore } from '../../stores/theme.store';
 
 interface MobilePlanningViewProps {
   circleId: string;
@@ -40,6 +41,8 @@ interface MobilePlanningViewProps {
 const { width } = Dimensions.get('window');
 
 export const MobilePlanningView: React.FC<MobilePlanningViewProps> = ({ circleId }) => {
+  const { colors, resolvedTheme } = useThemeStore();
+  const isDark = resolvedTheme === 'dark';
   const [sheets, setSheets] = useState<PlanningSheetEntity[]>([]);
   const [selectedSheet, setSelectedSheet] = useState<PlanningSheetEntity | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -180,29 +183,29 @@ export const MobilePlanningView: React.FC<MobilePlanningViewProps> = ({ circleId
   // =========================================================================
   if (selectedSheet) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: colors.canvas }]}>
         {/* Header Bar */}
-        <View style={styles.topBar}>
+        <View style={[styles.topBar, { backgroundColor: colors.surface, borderBottomColor: colors.hairline }]}>
           <TouchableOpacity
             onPress={() => setSelectedSheet(null)}
             style={styles.backButton}
           >
-            <ArrowLeft size={18} color="#0F172A" />
-            <Text style={styles.backText}>Danh sách</Text>
+            <ArrowLeft size={18} color={colors.text} />
+            <Text style={[styles.backText, { color: colors.text }]}>Danh sách</Text>
           </TouchableOpacity>
 
           <View style={styles.topActions}>
             <TouchableOpacity
               onPress={() => setIsAddColumnModalOpen(true)}
-              style={styles.actionBtnSecondary}
+              style={[styles.actionBtnSecondary, { backgroundColor: colors.wash, borderColor: colors.hairline }]}
             >
-              <Plus size={14} color="#0F172A" />
-              <Text style={styles.actionBtnTextSec}>+ Cột</Text>
+              <Plus size={14} color={colors.text} />
+              <Text style={[styles.actionBtnTextSec, { color: colors.text }]}>+ Cột</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               onPress={handleAddRow}
-              style={styles.actionBtnPrimary}
+              style={[styles.actionBtnPrimary, { backgroundColor: colors.primary }]}
             >
               <Plus size={14} color="#FFF" />
               <Text style={styles.actionBtnTextPri}>+ Dòng</Text>
@@ -218,9 +221,9 @@ export const MobilePlanningView: React.FC<MobilePlanningViewProps> = ({ circleId
         </View>
 
         {/* Sheet Title */}
-        <View style={styles.sheetTitleHeader}>
-          <FileSpreadsheet size={20} color="#10B981" />
-          <Text style={styles.sheetTitleText} numberOfLines={1}>
+        <View style={[styles.sheetTitleHeader, { backgroundColor: colors.surface, borderBottomColor: colors.hairline }]}>
+          <FileSpreadsheet size={20} color={colors.primary} />
+          <Text style={[styles.sheetTitleText, { color: colors.text }]} numberOfLines={1}>
             {selectedSheet.title}
           </Text>
         </View>
@@ -228,15 +231,15 @@ export const MobilePlanningView: React.FC<MobilePlanningViewProps> = ({ circleId
         {/* Spreadsheet Horizontal & Vertical Scroll Grid */}
         <ScrollView style={styles.gridContainer} showsVerticalScrollIndicator={false}>
           <ScrollView horizontal showsHorizontalScrollIndicator={true}>
-            <View style={styles.table}>
+            <View style={[styles.table, { borderColor: colors.hairline }]}>
               {/* Header Row */}
-              <View style={styles.tableHeaderRow}>
-                <View style={[styles.headerCell, styles.indexCell]}>
-                  <Text style={styles.headerCellText}>#</Text>
+              <View style={[styles.tableHeaderRow, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : '#F1F5F9', borderBottomColor: colors.hairline }]}>
+                <View style={[styles.headerCell, styles.indexCell, { borderRightColor: colors.hairline }]}>
+                  <Text style={[styles.headerCellText, { color: colors.subtle }]}>#</Text>
                 </View>
                 {selectedSheet.columns.map((col) => (
-                  <View key={col.id} style={styles.headerCell}>
-                    <Text style={styles.headerCellText} numberOfLines={1}>
+                  <View key={col.id} style={[styles.headerCell, { borderRightColor: colors.hairline }]}>
+                    <Text style={[styles.headerCellText, { color: colors.text }]} numberOfLines={1}>
                       {col.columnTitle}
                     </Text>
                   </View>
@@ -246,15 +249,15 @@ export const MobilePlanningView: React.FC<MobilePlanningViewProps> = ({ circleId
               {/* Data Rows */}
               {selectedSheet.rows.length === 0 ? (
                 <View style={styles.emptyTableNotice}>
-                  <Text style={styles.emptyTableText}>
+                  <Text style={[styles.emptyTableText, { color: colors.subtle }]}>
                     Chưa có dòng nào. Bấm "+ Dòng" để thêm dữ liệu.
                   </Text>
                 </View>
               ) : (
                 selectedSheet.rows.map((row, rIdx) => (
-                  <View key={row.id} style={styles.tableDataRow}>
-                    <View style={[styles.dataCell, styles.indexCell]}>
-                      <Text style={styles.indexCellText}>{rIdx + 1}</Text>
+                  <View key={row.id} style={[styles.tableDataRow, { borderBottomColor: colors.hairline }]}>
+                    <View style={[styles.dataCell, styles.indexCell, { borderRightColor: colors.hairline, backgroundColor: isDark ? 'rgba(255,255,255,0.02)' : '#F8FAFC' }]}>
+                      <Text style={[styles.indexCellText, { color: colors.subtle }]}>{rIdx + 1}</Text>
                     </View>
                     {selectedSheet.columns.map((col) => {
                       const cell = row.cells.find((c) => c.columnId === col.id);
@@ -270,12 +273,13 @@ export const MobilePlanningView: React.FC<MobilePlanningViewProps> = ({ circleId
                               value: cell.cellValue || '',
                             })
                           }
-                          style={styles.dataCell}
+                          style={[styles.dataCell, { borderRightColor: colors.hairline, backgroundColor: colors.surface }]}
                         >
                           <Text
                             style={[
                               styles.dataCellText,
-                              !cell?.cellValue && styles.dataCellEmpty,
+                              { color: colors.text },
+                              !cell?.cellValue && { color: colors.subtle, fontStyle: 'italic' },
                             ]}
                             numberOfLines={2}
                           >
@@ -299,14 +303,14 @@ export const MobilePlanningView: React.FC<MobilePlanningViewProps> = ({ circleId
           onRequestClose={() => setIsAddColumnModalOpen(false)}
         >
           <View style={styles.modalBackdrop}>
-            <View style={styles.modalCard}>
-              <Text style={styles.modalTitle}>Thêm cột mới</Text>
+            <View style={[styles.modalCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>Thêm cột mới</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#FFF', borderColor: colors.hairline, color: colors.text }]}
                 value={newColumnTitle}
                 onChangeText={setNewColumnTitle}
                 placeholder="Tên cột (Tiến độ, Hạn chót...)"
-                placeholderTextColor="#94A3B8"
+                placeholderTextColor={colors.subtle}
                 autoFocus
               />
               <View style={styles.modalActions}>
@@ -314,11 +318,11 @@ export const MobilePlanningView: React.FC<MobilePlanningViewProps> = ({ circleId
                   onPress={() => setIsAddColumnModalOpen(false)}
                   style={styles.modalCancelBtn}
                 >
-                  <Text style={styles.modalCancelText}>Hủy</Text>
+                  <Text style={[styles.modalCancelText, { color: colors.subtle }]}>Hủy</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={handleAddColumn}
-                  style={styles.modalSubmitBtn}
+                  style={[styles.modalSubmitBtn, { backgroundColor: colors.primary }]}
                 >
                   <Text style={styles.modalSubmitText}>Thêm</Text>
                 </TouchableOpacity>
@@ -335,18 +339,18 @@ export const MobilePlanningView: React.FC<MobilePlanningViewProps> = ({ circleId
           onRequestClose={() => setEditingCell(null)}
         >
           <View style={styles.modalBackdrop}>
-            <View style={styles.modalCard}>
-              <Text style={styles.modalTitle}>
+            <View style={[styles.modalCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>
                 Chỉnh sửa: {editingCell?.columnTitle}
               </Text>
               <TextInput
-                style={[styles.input, { minHeight: 80, textAlignVertical: 'top' }]}
+                style={[styles.input, { minHeight: 80, textAlignVertical: 'top', backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#FFF', borderColor: colors.hairline, color: colors.text }]}
                 value={editingCell?.value || ''}
                 onChangeText={(text) =>
                   setEditingCell((prev) => (prev ? { ...prev, value: text } : null))
                 }
                 placeholder="Nhập nội dung ô..."
-                placeholderTextColor="#94A3B8"
+                placeholderTextColor={colors.subtle}
                 multiline
                 autoFocus
               />
@@ -355,11 +359,11 @@ export const MobilePlanningView: React.FC<MobilePlanningViewProps> = ({ circleId
                   onPress={() => setEditingCell(null)}
                   style={styles.modalCancelBtn}
                 >
-                  <Text style={styles.modalCancelText}>Hủy</Text>
+                  <Text style={[styles.modalCancelText, { color: colors.subtle }]}>Hủy</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={handleSaveCell}
-                  style={styles.modalSubmitBtn}
+                  style={[styles.modalSubmitBtn, { backgroundColor: colors.primary }]}
                 >
                   <Text style={styles.modalSubmitText}>Lưu</Text>
                 </TouchableOpacity>
@@ -375,19 +379,19 @@ export const MobilePlanningView: React.FC<MobilePlanningViewProps> = ({ circleId
   // VIEW: LIST OF PLANNING SHEETS
   // =========================================================================
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.canvas }]}>
       {/* Header Bar */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.hairline }]}>
         <View style={styles.headerTextGroup}>
-          <Text style={styles.title}>Bảng Kế Hoạch (Sheet)</Text>
-          <Text style={styles.subtitle}>
+          <Text style={[styles.title, { color: colors.text }]}>Bảng kế hoạch nhóm</Text>
+          <Text style={[styles.subtitle, { color: colors.subtle }]}>
             Quản lý công việc và tiến độ theo bảng tính
           </Text>
         </View>
 
         <TouchableOpacity
           onPress={() => setIsCreateModalOpen(true)}
-          style={styles.createButton}
+          style={[styles.createButton, { backgroundColor: colors.primary }]}
         >
           <Plus size={16} color="#FFF" />
           <Text style={styles.createButtonText}>Tạo bảng</Text>
@@ -397,18 +401,18 @@ export const MobilePlanningView: React.FC<MobilePlanningViewProps> = ({ circleId
       {/* Sheets Content */}
       {isLoading ? (
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#10B981" />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : sheets.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Table size={48} color="#CBD5E1" />
-          <Text style={styles.emptyTitle}>Chưa có bảng kế hoạch nào</Text>
-          <Text style={styles.emptySubtitle}>
+          <Table size={48} color={colors.subtle} />
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>Chưa có bảng kế hoạch nào</Text>
+          <Text style={[styles.emptySubtitle, { color: colors.subtle }]}>
             Tạo bảng tính đầu tiên để cùng nhóm quản lý công việc và thời hạn.
           </Text>
           <TouchableOpacity
             onPress={() => setIsCreateModalOpen(true)}
-            style={styles.emptyCreateBtn}
+            style={[styles.emptyCreateBtn, { backgroundColor: colors.primary }]}
           >
             <Text style={styles.emptyCreateBtnText}>Tạo bảng ngay</Text>
           </TouchableOpacity>
@@ -420,27 +424,27 @@ export const MobilePlanningView: React.FC<MobilePlanningViewProps> = ({ circleId
               key={sheet.id}
               activeOpacity={0.7}
               onPress={() => setSelectedSheet(sheet)}
-              style={styles.sheetCard}
+              style={[styles.sheetCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
             >
               <View style={styles.sheetCardHeader}>
-                <View style={styles.sheetIcon}>
-                  <FileSpreadsheet size={20} color="#10B981" />
+                <View style={[styles.sheetIcon, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#ECFDF5' }]}>
+                  <FileSpreadsheet size={20} color={colors.primary} />
                 </View>
                 <View style={styles.sheetCardInfo}>
-                  <Text style={styles.sheetCardTitle} numberOfLines={1}>
+                  <Text style={[styles.sheetCardTitle, { color: colors.text }]} numberOfLines={1}>
                     {sheet.title}
                   </Text>
-                  <Text style={styles.sheetCardStats}>
+                  <Text style={[styles.sheetCardStats, { color: colors.subtle }]}>
                     {sheet.columns.length} cột · {sheet.rows.length} dòng
                   </Text>
                 </View>
               </View>
 
-              <View style={styles.sheetCardFooter}>
-                <Text style={styles.sheetCreator}>
+              <View style={[styles.sheetCardFooter, { borderTopColor: colors.hairline }]}>
+                <Text style={[styles.sheetCreator, { color: colors.subtle }]}>
                   Tạo bởi {sheet.creator?.user?.profile?.displayName || 'Thành viên'}
                 </Text>
-                <Text style={styles.sheetDate}>
+                <Text style={[styles.sheetDate, { color: colors.subtle }]}>
                   {new Date(sheet.createdAt).toLocaleDateString('vi-VN')}
                 </Text>
               </View>
@@ -457,14 +461,14 @@ export const MobilePlanningView: React.FC<MobilePlanningViewProps> = ({ circleId
         onRequestClose={() => setIsCreateModalOpen(false)}
       >
         <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Tạo Bảng Kế Hoạch Mới</Text>
+          <View style={[styles.modalCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>Tạo Bảng Kế Hoạch Mới</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#FFF', borderColor: colors.hairline, color: colors.text }]}
               value={newTitle}
               onChangeText={setNewTitle}
               placeholder="Nhập tên bảng kế hoạch..."
-              placeholderTextColor="#94A3B8"
+              placeholderTextColor={colors.subtle}
               autoFocus
             />
             <View style={styles.modalActions}>
@@ -472,11 +476,11 @@ export const MobilePlanningView: React.FC<MobilePlanningViewProps> = ({ circleId
                 onPress={() => setIsCreateModalOpen(false)}
                 style={styles.modalCancelBtn}
               >
-                <Text style={styles.modalCancelText}>Hủy</Text>
+                <Text style={[styles.modalCancelText, { color: colors.subtle }]}>Hủy</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleCreateSheet}
-                style={styles.modalSubmitBtn}
+                style={[styles.modalSubmitBtn, { backgroundColor: colors.primary }]}
               >
                 <Text style={styles.modalSubmitText}>Tạo bảng</Text>
               </TouchableOpacity>

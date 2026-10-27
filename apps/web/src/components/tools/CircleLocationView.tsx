@@ -112,7 +112,7 @@ export const CircleLocationView: React.FC<CircleLocationViewProps> = ({ circleId
           </div>
           <div>
             <h1 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-              Chia Sẻ Vị Trí Trực Tiếp (Live Location)
+              Chia sẻ vị trí trực tiếp
               {activeLocations.length > 0 && (
                 <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-300">
                   {activeLocations.length} đang phát sóng
@@ -120,7 +120,7 @@ export const CircleLocationView: React.FC<CircleLocationViewProps> = ({ circleId
               )}
             </h1>
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              Chia sẻ tọa độ theo thời gian thực có hẹn giờ tự ngắt 15p, 30p, 1h (UC19)
+              Theo dõi vị trí các thành viên trên bản đồ với thời lượng chia sẻ tự ngắt an toàn
             </p>
           </div>
         </div>

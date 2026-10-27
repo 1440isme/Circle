@@ -29,12 +29,15 @@ import {
   deletePollApi,
 } from '../../services/circle-tools.service';
 import { GroupPollEntity } from '@circle/types';
+import { useThemeStore } from '../../stores/theme.store';
 
 interface MobilePollViewProps {
   circleId: string;
 }
 
 export const MobilePollView: React.FC<MobilePollViewProps> = ({ circleId }) => {
+  const { colors, resolvedTheme } = useThemeStore();
+  const isDark = resolvedTheme === 'dark';
   const [polls, setPolls] = useState<GroupPollEntity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -147,19 +150,19 @@ export const MobilePollView: React.FC<MobilePollViewProps> = ({ circleId }) => {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.canvas }]}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.hairline }]}>
         <View style={styles.headerTextGroup}>
-          <Text style={styles.title}>Bình Chọn Nhóm (Poll)</Text>
-          <Text style={styles.subtitle}>
+          <Text style={[styles.title, { color: colors.text }]}>Bình chọn nhóm</Text>
+          <Text style={[styles.subtitle, { color: colors.subtle }]}>
             Thăm dò ý kiến và biểu quyết tập thể
           </Text>
         </View>
 
         <TouchableOpacity
           onPress={() => setIsCreateModalOpen(true)}
-          style={styles.createButton}
+          style={[styles.createButton, { backgroundColor: colors.primary }]}
         >
           <Plus size={16} color="#FFF" />
           <Text style={styles.createButtonText}>Tạo poll</Text>
@@ -169,18 +172,18 @@ export const MobilePollView: React.FC<MobilePollViewProps> = ({ circleId }) => {
       {/* Polls List */}
       {isLoading ? (
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#F59E0B" />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : polls.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Vote size={48} color="#CBD5E1" />
-          <Text style={styles.emptyTitle}>Chưa có cuộc bình chọn nào</Text>
-          <Text style={styles.emptySubtitle}>
+          <Vote size={48} color={colors.subtle} />
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>Chưa có cuộc bình chọn nào</Text>
+          <Text style={[styles.emptySubtitle, { color: colors.subtle }]}>
             Tạo bình chọn để nhóm cùng chọn quán ăn, thời gian họp mặt hoặc lấy ý kiến chung.
           </Text>
           <TouchableOpacity
             onPress={() => setIsCreateModalOpen(true)}
-            style={styles.emptyCreateBtn}
+            style={[styles.emptyCreateBtn, { backgroundColor: colors.primary }]}
           >
             <Text style={styles.emptyCreateBtnText}>Tạo bình chọn ngay</Text>
           </TouchableOpacity>
@@ -191,21 +194,21 @@ export const MobilePollView: React.FC<MobilePollViewProps> = ({ circleId }) => {
             const isClosed = poll.isClosed;
 
             return (
-              <View key={poll.id} style={styles.pollCard}>
+              <View key={poll.id} style={[styles.pollCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
                 {/* Header row */}
                 <View style={styles.pollCardHeader}>
                   <View style={styles.statusBadgeRow}>
                     {isClosed ? (
-                      <View style={styles.closedBadge}>
-                        <Lock size={10} color="#64748B" />
-                        <Text style={styles.closedBadgeText}>Đã kết thúc</Text>
+                      <View style={[styles.closedBadge, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : '#F1F5F9' }]}>
+                        <Lock size={10} color={colors.subtle} />
+                        <Text style={[styles.closedBadgeText, { color: colors.subtle }]}>Đã kết thúc</Text>
                       </View>
                     ) : (
-                      <View style={styles.activeBadge}>
+                      <View style={[styles.activeBadge, { backgroundColor: isDark ? 'rgba(245,158,11,0.15)' : '#FEF3C7' }]}>
                         <Text style={styles.activeBadgeText}>Đang bình chọn</Text>
                       </View>
                     )}
-                    <Text style={styles.voteCountText}>{poll.totalVotes} lượt vote</Text>
+                    <Text style={[styles.voteCountText, { color: colors.subtle }]}>{poll.totalVotes} lượt vote</Text>
                   </View>
 
                   <View style={styles.cardActions}>
@@ -214,7 +217,7 @@ export const MobilePollView: React.FC<MobilePollViewProps> = ({ circleId }) => {
                         onPress={() => handleClosePoll(poll.id)}
                         style={styles.iconBtn}
                       >
-                        <Lock size={14} color="#64748B" />
+                        <Lock size={14} color={colors.subtle} />
                       </TouchableOpacity>
                     )}
                     <TouchableOpacity
@@ -227,7 +230,7 @@ export const MobilePollView: React.FC<MobilePollViewProps> = ({ circleId }) => {
                 </View>
 
                 {/* Question */}
-                <Text style={styles.pollQuestion}>{poll.question}</Text>
+                <Text style={[styles.pollQuestion, { color: colors.text }]}>{poll.question}</Text>
 
                 {/* Options */}
                 <View style={styles.optionsList}>
@@ -242,15 +245,23 @@ export const MobilePollView: React.FC<MobilePollViewProps> = ({ circleId }) => {
                         onPress={() => handleVote(poll.id, opt.id)}
                         style={[
                           styles.optionCard,
-                          isSelected && styles.optionCardSelected,
+                          {
+                            backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : '#F8FAFC',
+                            borderColor: isSelected ? colors.primary : colors.hairline,
+                          },
+                          isSelected && {
+                            backgroundColor: isDark ? 'rgba(99,102,241,0.12)' : '#FFFBEB',
+                          },
                         ]}
                       >
                         {/* Progress bar background */}
                         <View
                           style={[
                             styles.optionProgressFill,
-                            { width: `${opt.percentage}%` },
-                            isSelected && styles.optionProgressFillSelected,
+                            {
+                              width: `${opt.percentage}%`,
+                              backgroundColor: isSelected ? colors.primary : (isDark ? 'rgba(255,255,255,0.15)' : '#CBD5E1'),
+                            },
                           ]}
                         />
 
@@ -259,7 +270,8 @@ export const MobilePollView: React.FC<MobilePollViewProps> = ({ circleId }) => {
                             <View
                               style={[
                                 styles.optionCheck,
-                                isSelected && styles.optionCheckSelected,
+                                { borderColor: isSelected ? colors.primary : colors.hairline },
+                                isSelected && { backgroundColor: colors.primary },
                               ]}
                             >
                               {isSelected && <Check size={10} color="#FFF" />}
@@ -267,14 +279,15 @@ export const MobilePollView: React.FC<MobilePollViewProps> = ({ circleId }) => {
                             <Text
                               style={[
                                 styles.optionText,
-                                isSelected && styles.optionTextSelected,
+                                { color: colors.text },
+                                isSelected && { color: isDark ? '#FFF' : colors.primary, fontWeight: '700' },
                               ]}
                             >
                               {opt.optionText}
                             </Text>
                           </View>
 
-                          <Text style={styles.optionPercent}>
+                          <Text style={[styles.optionPercent, { color: colors.subtle }]}>
                             {opt.voteCount} ({opt.percentage}%)
                           </Text>
                         </View>
@@ -284,11 +297,11 @@ export const MobilePollView: React.FC<MobilePollViewProps> = ({ circleId }) => {
                 </View>
 
                 {/* Footer info */}
-                <View style={styles.pollFooter}>
-                  <Text style={styles.pollCreator}>
+                <View style={[styles.pollFooter, { borderTopColor: colors.hairline }]}>
+                  <Text style={[styles.pollCreator, { color: colors.subtle }]}>
                     Tạo bởi {poll.creator?.user?.profile?.displayName || 'Thành viên'}
                   </Text>
-                  <Text style={styles.pollDate}>
+                  <Text style={[styles.pollDate, { color: colors.subtle }]}>
                     {new Date(poll.createdAt).toLocaleDateString('vi-VN')}
                   </Text>
                 </View>
@@ -306,27 +319,27 @@ export const MobilePollView: React.FC<MobilePollViewProps> = ({ circleId }) => {
         onRequestClose={() => setIsCreateModalOpen(false)}
       >
         <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Tạo Cuộc Bình Chọn Mới</Text>
+          <View style={[styles.modalCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>Tạo Cuộc Bình Chọn Mới</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#FFF', borderColor: colors.hairline, color: colors.text }]}
               value={question}
               onChangeText={setQuestion}
               placeholder="Nhập câu hỏi bình chọn..."
-              placeholderTextColor="#94A3B8"
+              placeholderTextColor={colors.subtle}
               autoFocus
             />
 
-            <Text style={styles.inputSectionTitle}>Phương án lựa chọn</Text>
+            <Text style={[styles.inputSectionTitle, { color: colors.subtle }]}>Phương án lựa chọn</Text>
             <View style={styles.optionsInputGroup}>
               {options.map((opt, idx) => (
                 <View key={idx} style={styles.optionInputRow}>
                   <TextInput
-                    style={[styles.input, { flex: 1 }]}
+                    style={[styles.input, { flex: 1, backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#FFF', borderColor: colors.hairline, color: colors.text }]}
                     value={opt}
                     onChangeText={(val) => handleOptionChange(idx, val)}
                     placeholder={`Lựa chọn ${idx + 1}`}
-                    placeholderTextColor="#94A3B8"
+                    placeholderTextColor={colors.subtle}
                   />
                   {options.length > 2 && (
                     <TouchableOpacity
@@ -345,8 +358,8 @@ export const MobilePollView: React.FC<MobilePollViewProps> = ({ circleId }) => {
                 onPress={handleAddOptionField}
                 style={styles.addOptionBtn}
               >
-                <Plus size={12} color="#F59E0B" />
-                <Text style={styles.addOptionBtnText}>Thêm lựa chọn</Text>
+                <Plus size={12} color={colors.primary} />
+                <Text style={[styles.addOptionBtnText, { color: colors.primary }]}>Thêm lựa chọn</Text>
               </TouchableOpacity>
             )}
 
@@ -355,11 +368,11 @@ export const MobilePollView: React.FC<MobilePollViewProps> = ({ circleId }) => {
                 onPress={() => setIsCreateModalOpen(false)}
                 style={styles.modalCancelBtn}
               >
-                <Text style={styles.modalCancelText}>Hủy</Text>
+                <Text style={[styles.modalCancelText, { color: colors.subtle }]}>Hủy</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleCreatePoll}
-                style={styles.modalSubmitBtn}
+                style={[styles.modalSubmitBtn, { backgroundColor: colors.primary }]}
               >
                 <Text style={styles.modalSubmitText}>Tạo poll</Text>
               </TouchableOpacity>

@@ -123,10 +123,10 @@ export const CirclePollView: React.FC<CirclePollViewProps> = ({ circleId }) => {
           </div>
           <div>
             <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-              Bình Chọn Nhóm (Group Poll)
+              Bình chọn nhóm
             </h1>
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              Thăm dò ý kiến tập thể, tự động tính tỷ lệ % và cập nhật thời gian thực (UC15)
+              Thăm dò ý kiến tập thể và thống nhất quyết định theo thời gian thực
             </p>
           </div>
         </div>

@@ -373,10 +373,10 @@ export const CirclePlanningView: React.FC<CirclePlanningViewProps> = ({ circleId
           </div>
           <div>
             <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-              Bảng Kế Hoạch & Tiến Độ (Sheet)
+              Bảng kế hoạch & Tiến độ
             </h1>
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              Cộng tác lập kế hoạch nhóm dạng lưới bảng tính theo thời gian thực (UC18)
+              Cộng tác phân công công việc và quản lý tiến độ dạng bảng tính theo thời gian thực
             </p>
           </div>
         </div>
