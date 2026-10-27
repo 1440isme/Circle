@@ -5081,3 +5081,66 @@
 - **Branch:** `feat/115-sound-and-tactile-feedback`
 - **PR:** #116
 
+---
+
+## AI-0143: Codify Radical Minimalism, Zero Hardcoding, and Memory Protocol Rules (#115)
+
+- **Date:** 2026-10-28 00:28:00 +07:00
+- **Developer:** Trương Công Bình (MSSV: 23110184)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash
+- **Related Issue:** #115 (US-UX-001: Sound & Tactile Feedback System for Realtime Atmosphere)
+- **Purpose:** Tiếp nhận chỉ đạo của kỹ sư Trương Công Bình về triết lý Radical Minimalism và Zero Hardcoding; hệ thống hóa và khắc sâu toàn bộ quy tắc UI/UX, Memory Protocol, và cập nhật Skill `implement-feature` cùng Cổng chất lượng `cross-cutting-gate`:
+  1. **Triết lý Radical Minimalism & Clean UI ("Ít text nhất có thể"):**
+     - Loại bỏ toàn bộ text mô tả, giải thích thừa thãi hiển nhiên cho những hành vi ai cũng biết.
+     - Lược bỏ các subtitle lặp lại tiêu đề thẻ/mục verbatim, các advisory card/warning box rườm rà (thẻ vàng lưu ý đổi mật khẩu, hint trống dài dòng).
+     - Empty states tinh gọn: chỉ giữ icon nhẹ + tiêu đề ngắn gọn (hoặc CTA nút bấm).
+  2. **Zero Hardcoding Invariant:**
+     - 100% chuỗi giao diện (nhãn, nút, placeholder, tooltip, thông báo toast, alert lỗi, fallback) chuyển sang từ điển song ngữ `@circle/shared` (`vi.ts` và `en.ts`).
+     - Tuyệt đối cấm hardcode bất kỳ chuỗi tiếng Việt hay tiếng Anh nào trực tiếp trong component.
+  3. **Contextual Interactions & Clean Hierarchy:**
+     - Web: Hover phần tử hiện các thao tác phụ tinh gọn dạng 3 chấm dọc (`MoreVertical`).
+     - Mobile: Nhấn giữ (long-press) làm mờ nền focus tin nhắn với emoji ở trên và menu hành động ở dưới.
+     - Chat Header: Ghim chuyển thành icon Header (rỗng/fill); bỏ thanh nháp thô; gom âm thanh vào Cài đặt Vòng tròn; đảm bảo tương phản rõ rệt ở Light Theme.
+     - Emoji: Dùng duy nhất 1 bộ emoji chuẩn hóa toàn hệ thống; tab chọn emoji chỉ dùng icon đại diện, không dùng chữ.
+  4. **Memory Protocol (Lớp 1 & Lớp 2) & Skill Codification:**
+     - Tạo log ngày `agentic/memory/2026-10-28.md` ghi nhận toàn bộ captures và corrections.
+     - Đồng bộ hóa các preferences và corrections bền vững vào `agentic/memory/MEMORY.md` (Lớp 1).
+     - Bổ sung các điều khoản bắt buộc về Radical Minimalism, Zero Hardcoding và Contextual Interaction vào `agentic/skills/implement-feature.md` (Step 4 & Exit Criteria) và `agentic/playbooks/cross-cutting-gate.md` (Section 9 & Gate Checklist) để các phiên làm việc và subagent tương lai tự động tuân thủ nghiêm ngặt.
+- **Files Affected:**
+  - `agentic/memory/MEMORY.md`
+  - `agentic/memory/2026-10-28.md`
+  - `agentic/skills/implement-feature.md`
+  - `agentic/playbooks/cross-cutting-gate.md`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `apps/web/src/components/settings/SystemSettingsModal.tsx`
+  - `apps/web/src/components/chat/ChannelChatView.tsx`
+  - `apps/web/src/components/chat/ChatComposer.tsx`
+  - `apps/web/src/components/chat/ClearChatModal.tsx`
+  - `apps/web/src/components/chat/MessageList.tsx`
+  - `apps/web/src/components/circle/CircleManagementModal.tsx`
+  - `apps/web/src/components/circle/CreateCircleModal.tsx`
+  - `apps/web/src/components/circle/JoinCircleModal.tsx`
+  - `apps/web/src/components/moments/CreateMomentModal.tsx`
+  - `apps/web/src/components/stream/FeedStream.tsx`
+  - `apps/mobile/app/(tabs)/index.tsx`
+  - `apps/mobile/app/(tabs)/profile.tsx`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `apps/mobile/src/components/circle/CircleManagementModal.tsx`
+  - `apps/mobile/src/components/circle/CreateCircleModal.tsx`
+  - `apps/mobile/src/components/circle/JoinCircleModal.tsx`
+  - `apps/mobile/src/components/moment/MomentsView.tsx`
+  - `apps/mobile/src/components/settings/SystemSettingsModal.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% tài liệu hóa quy chuẩn kỹ thuật, cập nhật memory layers, cập nhật skill và gating checklist.
+- **Human Modifications:** Trương Công Bình chỉ đạo triết lý thiết kế tối giản, sạch mắt, không văn bản thừa, loại bỏ triệt để hardcode, yêu cầu khắc sâu vào skill `implement-feature` cho mọi tính năng mới về sau.
+- **Verification Method:**
+  - `npm run build -w @circle/shared`: Shared package build thành công, 0 lỗi TypeScript.
+  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Mobile TypeScript 0 lỗi.
+  - `npm run build -w @circle/web`: Next.js production build 9/9 static routes thành công 100%.
+  - `./scripts/check-agent-map.sh`: 117/117 framework files liên kết toàn vẹn, 0 broken links.
+- **Official Source Checked:** `agentic/RULES.md`, `agentic/CONVENTIONS.md`, `agentic/playbooks/cross-cutting-gate.md`, `PROJECT_GOD.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
+- **Branch:** `feat/115-sound-and-tactile-feedback`
+- **PR:** #116

@@ -245,7 +245,7 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
       try {
         await recallMessageMutation.mutateAsync(messageId);
       } catch (err: any) {
-        alert(err.message || 'Lỗi khi thu hồi tin nhắn');
+        alert(err.message || t.chat.recallError);
       }
     }
   };
@@ -255,7 +255,7 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
       await clearChatMutation.mutateAsync({ mode });
       setIsClearChatModalOpen(false);
     } catch (err: any) {
-      alert(err.message || 'Lỗi khi xóa lịch sử trò chuyện');
+      alert(err.message || t.chat.clearChatError);
     }
   };
 
@@ -375,7 +375,7 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
                   ? 'bg-circle-primary/10 text-circle-primary'
                   : 'text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas'
               }`}
-              title={t.chat.searchPlaceholder || 'Tìm kiếm tin nhắn'}
+              title={t.chat.searchPlaceholder}
             >
               <Search className="h-4 w-4" />
             </button>
@@ -388,7 +388,7 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
                   ? 'text-circle-primary bg-circle-primary/10 hover:bg-circle-primary/20'
                   : 'text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas'
               }`}
-              title={pinnedMessages.length > 0 ? `${pinnedMessages.length} ${t.chat.pinnedBadge}` : (t.chat.pinnedBadge || 'Tin nhắn đã ghim')}
+              title={pinnedMessages.length > 0 ? `${pinnedMessages.length} ${t.chat.pinnedBadge}` : t.chat.pinnedBadge}
             >
               <Pin className={`h-4 w-4 ${pinnedMessages.length > 0 ? 'fill-current' : ''}`} />
             </button>
@@ -403,7 +403,7 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
                     ? 'bg-circle-primary/10 text-circle-primary'
                     : 'text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas'
                 }`}
-                title="Tùy chọn cuộc trò chuyện"
+                title={t.chat.moreChatOptions}
               >
                 <MoreVertical className="h-4 w-4" />
               </button>
@@ -424,7 +424,7 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
                       className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium rounded-xl text-circle-charcoal dark:text-white hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors text-left"
                     >
                       <Search className="h-3.5 w-3.5 text-circle-slate" />
-                      <span>{t.chat.searchPlaceholder || 'Tìm kiếm tin nhắn'}</span>
+                      <span>{t.chat.searchPlaceholder}</span>
                     </button>
                     <button
                       type="button"
@@ -435,7 +435,7 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
                       className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium rounded-xl text-circle-charcoal dark:text-white hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors text-left"
                     >
                       <Pin className="h-3.5 w-3.5 text-circle-slate" />
-                      <span>{t.chat.pinnedBadge || 'Tin nhắn đã ghim'}</span>
+                      <span>{t.chat.pinnedBadge}</span>
                     </button>
 
                     <div className="my-1 border-t border-circle-slate/10 dark:border-white/10" />
@@ -488,7 +488,7 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
                 {isSearching ? (
                   <div className="flex items-center justify-center py-4 text-xs text-circle-slate dark:text-circle-dark-muted gap-2">
                     <Loader2 className="h-4 w-4 animate-spin text-circle-primary" />
-                    <span>Đang tìm kiếm...</span>
+                    <span>{t.chat.searchingMessage}</span>
                   </div>
                 ) : searchResults && searchResults.messages.length > 0 ? (
                   <div className="flex flex-col gap-1">
@@ -506,7 +506,7 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
                       >
                         <div className="flex items-center justify-between text-[11px]">
                           <span className="font-semibold text-circle-charcoal dark:text-circle-dark-text">
-                            {m.sender?.nickname || m.sender?.user?.profile?.displayName || 'Thành viên'}
+                            {m.sender?.nickname || m.sender?.user?.profile?.displayName || t.chat.defaultMemberName}
                           </span>
                           <span className="text-circle-slate dark:text-circle-dark-muted text-[10px]">
                             {new Date(m.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

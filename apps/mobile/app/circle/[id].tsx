@@ -511,7 +511,7 @@ const MobileSwipeMessageBubble = React.memo(function MobileSwipeMessageBubble({
     if (sec <= 0) return t.calls?.callEnded || 'Đã kết thúc';
     const m = Math.floor(sec / 60);
     const s = sec % 60;
-    if (m === 0) return `${s} giây`;
+    if (m === 0) return `${s} ${t.chat?.secondUnit || 'giây'}`;
     return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
 
@@ -2856,8 +2856,8 @@ export default function CircleWorkspaceScreen() {
                     : () => {
                         triggerLightHaptic();
                         Alert.alert(
-                          'Tin nhắn thoại',
-                          'Tính năng ghi âm tin nhắn thoại (Voice Message) đang sẵn sàng trong bản cập nhật kế tiếp.',
+                          t.chat.recordVoiceMessage || 'Tin nhắn thoại',
+                          t.chat.voiceMessageComingSoon || 'Tính năng ghi âm tin nhắn thoại (Voice Message) đang sẵn sàng trong bản cập nhật kế tiếp.',
                         );
                       }
                 }

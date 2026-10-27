@@ -314,9 +314,6 @@ export default function HomeScreen() {
           <Text style={[styles.stageTitle, { color: colors.text }]}>
             {t.home.noVoiceStageOpen}
           </Text>
-          <Text style={[styles.stageSubtitle, { color: colors.subtle }]}>
-            {t.home.voiceStageReadyHint}
-          </Text>
         </View>
 
         {/* Account Info Pill */}

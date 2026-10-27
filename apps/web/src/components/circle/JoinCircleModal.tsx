@@ -91,9 +91,6 @@ export const JoinCircleModal: React.FC = () => {
               >
                 {t.circle.joinModalTitle}
               </h2>
-              <p className="text-xs text-circle-slate dark:text-circle-dark-muted mt-0.5">
-                {t.circle.joinModalSubtitle}
-              </p>
             </div>
           </div>
           <button

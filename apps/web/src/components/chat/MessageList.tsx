@@ -262,15 +262,12 @@ export const MessageList: React.FC<MessageListProps> = ({
       ) : messages.length === 0 ? (
         /* Empty State */
         <div className="flex flex-col items-center justify-center py-16 text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-circle-wash/60 dark:bg-circle-dark-wash/60 text-circle-sage dark:text-circle-primary mb-3 shadow-sm">
-            <Sparkles className="h-7 w-7" />
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-circle-wash/60 dark:bg-circle-dark-wash/60 text-circle-sage dark:text-circle-primary mb-2.5 shadow-2xs">
+            <Sparkles className="h-6 w-6" />
           </div>
-          <h4 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
+          <h4 className="text-xs font-semibold text-circle-slate dark:text-circle-dark-muted">
             {t.chat.noMessagesYet}
           </h4>
-          <p className="text-xs text-circle-slate dark:text-circle-dark-muted mt-1 max-w-xs leading-relaxed">
-            {t.chat.firstMessageHint}
-          </p>
         </div>
       ) : (
         /* Message Date Groups */

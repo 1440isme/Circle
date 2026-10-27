@@ -619,9 +619,6 @@ export function SystemSettingsSubViewContent({
                   <Text style={[styles.optionTitle, { color: colors.text }]}>
                     Flat Design
                   </Text>
-                  <Text style={[styles.optionDesc, { color: colors.subtle }]}>
-                    Mặc định • Phẳng tối giản, viền mảnh tinh tế
-                  </Text>
                 </View>
                 {uiStyle === 'flat' && <Check size={18} color={colors.primary} />}
               </TouchableOpacity>
@@ -635,9 +632,6 @@ export function SystemSettingsSubViewContent({
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.optionTitle, { color: colors.text }]}>
                     Liquid Glass
-                  </Text>
-                  <Text style={[styles.optionDesc, { color: colors.subtle }]}>
-                    Kính mờ Apple HIG, chiều sâu đa tầng
                   </Text>
                 </View>
                 {uiStyle === 'glass' && <Check size={18} color={colors.primary} />}
@@ -714,27 +708,6 @@ export function SystemSettingsSubViewContent({
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.subViewContent}
         >
-          {/* Security Advisory Card */}
-          <View
-            style={[
-              styles.securityNoticeCard,
-              {
-                backgroundColor: 'rgba(245, 158, 11, 0.12)',
-                borderColor: 'rgba(245, 158, 11, 0.25)',
-              },
-            ]}
-          >
-            <Shield size={20} color="#f59e0b" style={{ marginTop: 2 }} />
-            <View style={{ flex: 1, gap: 4 }}>
-              <Text style={[styles.securityNoticeTitle, { color: '#b45309' }]}>
-                {t.auth.changePasswordTitle}
-              </Text>
-              <Text style={[styles.securityNoticeDesc, { color: '#b45309' }]}>
-                {t.auth.securityPasswordNotice}
-              </Text>
-            </View>
-          </View>
-
           {passwordSuccessNotice && (
             <View style={[styles.noticeBanner, { backgroundColor: 'rgba(16, 185, 129, 0.12)', borderColor: 'rgba(16, 185, 129, 0.25)' }]}>
               <CheckCircle2 size={16} color="#10b981" />
@@ -932,7 +905,7 @@ export function SystemSettingsSubViewContent({
             >
               <RefreshCw size={13} color={colors.subtle} />
               <Text style={[styles.refreshText, { color: colors.subtle }]}>
-                {isRefetching ? t.common.loading : 'Làm mới'}
+                {isRefetching ? t.common.loading : t.common.refresh}
               </Text>
             </TouchableOpacity>
           </View>
@@ -1072,9 +1045,6 @@ export function SystemSettingsSubViewContent({
                   <Text style={[styles.optionTitle, { color: colors.text }]}>
                     Tiếng Việt
                   </Text>
-                  <Text style={[styles.optionDesc, { color: colors.subtle }]}>
-                    Việt Nam
-                  </Text>
                 </View>
                 {locale === 'vi' && <Check size={18} color={colors.primary} />}
               </TouchableOpacity>
@@ -1089,9 +1059,6 @@ export function SystemSettingsSubViewContent({
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.optionTitle, { color: colors.text }]}>
                     English
-                  </Text>
-                  <Text style={[styles.optionDesc, { color: colors.subtle }]}>
-                    United States
                   </Text>
                 </View>
                 {locale === 'en' && <Check size={18} color={colors.primary} />}

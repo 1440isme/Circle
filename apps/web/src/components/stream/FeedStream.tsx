@@ -196,12 +196,9 @@ export const FeedStream: React.FC = () => {
                 <Compass className="h-7 w-7 stroke-[1.5]" />
               </div>
               <div className="max-w-md space-y-1">
-                <h3 className="text-base font-bold text-circle-charcoal dark:text-circle-dark-text">
+                <h3 className="text-sm font-semibold text-circle-charcoal dark:text-circle-dark-text">
                   {t.home.feedEmptyTitle}
                 </h3>
-                <p className="text-xs text-circle-slate dark:text-circle-dark-muted leading-relaxed">
-                  {t.home.feedEmptyDesc}
-                </p>
               </div>
               <div className="flex flex-wrap items-center justify-center gap-2.5 pt-1">
                 <button

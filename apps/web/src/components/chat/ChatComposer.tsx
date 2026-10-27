@@ -531,7 +531,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
           onClick={
             content.trim() || attachedFile
               ? handleSend
-              : () => alert('Tính năng ghi âm tin nhắn thoại (Voice Message) đang sẵn sàng trong bản cập nhật kế tiếp.')
+              : () => alert(t.chat.voiceMessageComingSoon)
           }
           disabled={(content.trim() || attachedFile) ? (isSubmitting || isUploading) : false}
           className={`flex h-12 w-12 items-center justify-center rounded-full shrink-0 transition-all active:scale-95 ${
@@ -543,7 +543,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
               ? 'backdrop-blur-md bg-white/80 dark:bg-circle-dark-surface/80 border border-white/60 dark:border-white/10 shadow-xs text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text hover:bg-white dark:hover:bg-circle-dark-surface'
               : 'bg-white dark:bg-circle-dark-surface border border-circle-hairline dark:border-circle-dark-hairline shadow-2xs text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas'
           }`}
-          title={editingMessage ? t.chat.saveEdit : (content.trim() || attachedFile) ? t.chat.sendBtn : 'Ghi âm tin nhắn thoại'}
+          title={editingMessage ? t.chat.saveEdit : (content.trim() || attachedFile) ? t.chat.sendBtn : t.chat.recordVoiceMessage}
         >
           {editingMessage ? (
             isSubmitting ? (
