@@ -21,6 +21,7 @@ interface MessageListProps {
   onDeleteForMe?: (messageId: string) => void;
   onRetry?: (message: MessageEntity) => void;
   onJumpToMessage?: (messageId: string) => void;
+  onStartCall?: (callType: 'AUDIO' | 'VIDEO') => void;
 }
 
 interface MessageCluster {
@@ -47,6 +48,7 @@ export const MessageList: React.FC<MessageListProps> = ({
   onDeleteForMe,
   onRetry,
   onJumpToMessage,
+  onStartCall,
 }) => {
   const t = useLanguageStore((s) => s.t);
   const locale = useLanguageStore((s) => s.locale);
@@ -320,6 +322,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                             onDeleteForMe={onDeleteForMe}
                             onRetry={onRetry}
                             onJumpToMessage={handleJumpToMessage}
+                            onStartCall={onStartCall}
                           />
                         ))}
                       </div>
@@ -379,6 +382,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                                 onDeleteForMe={onDeleteForMe}
                                 onRetry={onRetry}
                                 onJumpToMessage={handleJumpToMessage}
+                                onStartCall={onStartCall}
                               />
                             ))}
                           </div>

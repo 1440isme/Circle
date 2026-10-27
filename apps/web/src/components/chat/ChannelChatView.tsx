@@ -562,6 +562,7 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
           onReact={handleReact}
           onTogglePin={handleTogglePin}
           onRetry={handleRetry}
+          onStartCall={(type) => handleStartCall(type as CallType)}
         />
 
         {/* Typing Indicator Bar */}
