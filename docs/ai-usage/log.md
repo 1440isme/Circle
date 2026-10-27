@@ -5017,4 +5017,4 @@
 - **Official Source Checked:** `agentic/playbooks/06-voice-video.md` (CAL-08), `agentic/playbooks/05-chat.md` (CHT-20), `PROJECT_GOD.md`.
 - **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
 - **Branch:** `feat/113-call-summary-card-and-callback`
-- **PR:** Pending
+- **PR:** #114
