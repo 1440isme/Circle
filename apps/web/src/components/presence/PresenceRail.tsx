@@ -93,7 +93,7 @@ export const PresenceRail: React.FC = () => {
   const roleLabel = user?.globalRole === 'ADMIN' ? t.auth.admin : t.auth.member;
 
   return (
-    <aside className="hidden xl:flex w-76 shrink-0 flex-col gap-4 bg-white dark:bg-circle-dark-surface p-3 pt-3 h-screen sticky top-0 overflow-y-auto transition-colors border-l border-circle-hairline/60 dark:border-circle-dark-hairline/60">
+    <aside className="hidden xl:flex w-76 shrink-0 flex-col gap-4 bg-white dark:bg-circle-dark-surface p-3 pt-3 h-full overflow-y-auto transition-colors border-l border-circle-hairline/60 dark:border-circle-dark-hairline/60">
 
       {/* Active Circle Members Rail (Flat container without visible border barrier) */}
       {activeCircle && (

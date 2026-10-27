@@ -21,17 +21,17 @@ export default function HomePage() {
     <AuthGuard mode="require-auth">
       <div className="h-screen w-full flex flex-col bg-white dark:bg-circle-dark-surface text-circle-charcoal dark:text-circle-dark-text overflow-hidden transition-colors relative">
         <Header />
-        <div className="flex-1 flex w-full h-screen overflow-hidden">
+        <div className="flex-1 flex w-full h-full min-h-0 overflow-hidden">
           {activeCircle ? (
             /* Active Circle Workspace: 3 columns stick together in the center of the screen */
-            <div className="flex w-full max-w-[1400px] 2xl:max-w-[1600px] h-screen justify-center mx-auto overflow-hidden">
+            <div className="flex w-full max-w-[1400px] 2xl:max-w-[1600px] h-full min-h-0 justify-center mx-auto overflow-hidden">
               <Sidebar />
               <FeedStream />
               <PresenceRail />
             </div>
           ) : (
             /* Home Hub: Clean Focused Single-Column Layout */
-            <div className="flex-1 flex justify-center px-4 pt-16 pb-8 max-w-5xl mx-auto w-full h-screen overflow-y-auto">
+            <div className="flex-1 flex justify-center px-4 pt-6 pb-8 max-w-5xl mx-auto w-full h-full min-h-0 overflow-y-auto">
               <FeedStream />
             </div>
           )}

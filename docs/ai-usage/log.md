@@ -5009,17 +5009,23 @@
   - `apps/web/src/utils/sound-effects.ts`
   - `apps/web/src/hooks/use-chat-queries.ts`
   - `apps/web/src/components/chat/ChannelChatView.tsx`
+  - `apps/web/src/app/page.tsx`
+  - `apps/web/src/components/stream/FeedStream.tsx`
+  - `apps/web/src/components/navigation/Sidebar.tsx`
+  - `apps/web/src/components/presence/PresenceRail.tsx`
   - `apps/mobile/src/stores/sound.store.ts`
   - `apps/mobile/src/services/sound.service.ts`
   - `apps/mobile/app/circle/[id].tsx`
+  - `tests/e2e/ux-audit.spec.ts`
   - `docs/ai-usage/log.md`
-- **AI-Generated Portion:** 100% Web Audio oscillator synthesis algorithms, sound store state management, mobile haptics integration.
-- **Human Modifications:** Trương Công Bình trực tiếp chỉ đạo lựa chọn giải pháp Đề xuất số 4 (Sound & Tactile Feedback) để thổi bùng sức sống tương tác và nâng tầm trải nghiệm ứng dụng.
+- **AI-Generated Portion:** 100% Web Audio oscillator synthesis algorithms, sound store state management, mobile haptics integration, viewport layout unclamping and full-spectrum visual audit automation.
+- **Human Modifications:** Trương Công Bình trực tiếp chỉ đạo lựa chọn giải pháp Đề xuất số 4 (Sound & Tactile Feedback) để thổi bùng sức sống tương tác và yêu cầu rà soát toàn bộ UI/UX cả Light/Dark mode trên Web & Mobile.
 - **Verification Method:**
   - `npm test -w @circle/backend`: 175/175 tests pass 100% (11/11 suites).
   - `npm run build -w @circle/web`: Next.js production build 9/9 static routes pass.
   - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Mobile TypeScript 0 errors.
   - `./scripts/check-agent-map.sh`: 116/116 framework files pass.
+  - `npx playwright test tests/e2e/ux-audit.spec.ts`: Automated multi-theme visual audit passes; verified chat input bar bottom spacing and zero viewport overflow clipping.
 - **Official Source Checked:** `agentic/playbooks/cross-cutting-gate.md`, `agentic/playbooks/05-chat.md`, `PROJECT_GOD.md`.
 - **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
 - **Branch:** `feat/115-sound-and-tactile-feedback`
