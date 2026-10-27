@@ -4976,4 +4976,51 @@
 - **Official Source Checked:** `agentic/playbooks/05-chat.md`, `agentic/playbooks/cross-cutting-gate.md`, `PROJECT_GOD.md`.
 - **Security & License Check:** An toàn tuyệt đối, zero secrets leaks, kiểm tra membership chặt chẽ.
 - **Branch:** `feat/109-chat-remove-and-clear-options`
+- **PR:** #110 (Merged)
+
+---
+
+## AI-0141: US-UX-001 — Sound & Tactile Feedback System for Realtime Atmosphere (Web + Mobile)
+
+- **Date:** 2026-10-27 23:00:00 +07:00
+- **Developer:** Trương Công Bình (MSSV: 23110184)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash
+- **Related Issue:** #115 (US-UX-001: Sound & Tactile Feedback System for Realtime Atmosphere)
+- **Purpose:** Xây dựng hệ thống Âm thanh tổng hợp (Web Audio Synthesizer) & Rung phản hồi xúc giác native (Haptics) mang lại cảm giác sống động, thỏa mãn giác quan và phản hồi tức thì cho ứng dụng CIRCLE (Telegram / Apple standard):
+  1. **Web Audio Synthesizer (`apps/web/src/utils/sound-effects.ts`):**
+     - Tạo bộ phát sóng âm tự nhiên bằng Web Audio API thuần túy, zero external asset dependencies (không tốn dung lượng tải file âm thanh nặng, không lo bị chặn 404/adblockers):
+       - `playMessageSentSound()`: Âm pop nhẹ nhàng, êm tai khi gửi tin nhắn thành công.
+       - `playMessageReceivedSound()`: Âm chuông bong bóng hai nốt hài âm khi nhận tin nhắn mới từ thành viên khác trong kênh.
+       - `playReactionPopSound()`: Âm micro-pop vui tai khi thả reaction cảm xúc.
+       - `playIncomingCallChime()` / `stopIncomingCallChime()`: Giai điệu chuông gọi đến du dương, trang nhã.
+       - `playRoomJoinSound()`: Âm thanh ấm áp báo hiệu kết nối vào phòng gọi thoại thành công.
+     - `sound.store.ts`: Quản lý trạng thái `soundEnabled`, lưu trữ vào `localStorage`.
+     - Nút gạt nhanh Bật/Tắt âm thanh thông báo trên Header kênh chat (`Volume2` / `VolumeX`).
+  2. **Tactile & Audio Feedback trên Mobile (`apps/mobile`):**
+     - `sound.service.ts`: Bộ điều khiển rung haptic đa tầng (`expo-haptics`):
+       - `triggerSendHaptic()`: Rung nhẹ `ImpactFeedbackStyle.Light` khi gửi tin nhắn hoặc nhảy tới tin trích dẫn.
+       - `triggerSelectionHaptic()`: Rung khấc `selectionAsync` khi chạm reaction hoặc tương tác điều khiển.
+       - `triggerSuccessHaptic()`: Rung thông báo `NotificationFeedbackType.Success` khi có cuộc gọi đến hoặc kết nối phòng gọi.
+     - `sound.store.ts`: Quản lý trạng thái `soundEnabled` và `hapticsEnabled` lưu qua `AsyncStorage`.
+     - Nút gạt nhanh Bật/Tắt âm thanh trên thanh Header Circle Chat.
+- **Files Affected:**
+  - `apps/web/src/stores/sound.store.ts`
+  - `apps/web/src/utils/sound-effects.ts`
+  - `apps/web/src/hooks/use-chat-queries.ts`
+  - `apps/web/src/components/chat/ChannelChatView.tsx`
+  - `apps/mobile/src/stores/sound.store.ts`
+  - `apps/mobile/src/services/sound.service.ts`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% Web Audio oscillator synthesis algorithms, sound store state management, mobile haptics integration.
+- **Human Modifications:** Trương Công Bình trực tiếp chỉ đạo lựa chọn giải pháp Đề xuất số 4 (Sound & Tactile Feedback) để thổi bùng sức sống tương tác và nâng tầm trải nghiệm ứng dụng.
+- **Verification Method:**
+  - `npm test -w @circle/backend`: 175/175 tests pass 100% (11/11 suites).
+  - `npm run build -w @circle/web`: Next.js production build 9/9 static routes pass.
+  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Mobile TypeScript 0 errors.
+  - `./scripts/check-agent-map.sh`: 116/116 framework files pass.
+- **Official Source Checked:** `agentic/playbooks/cross-cutting-gate.md`, `agentic/playbooks/05-chat.md`, `PROJECT_GOD.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
+- **Branch:** `feat/115-sound-and-tactile-feedback`
 - **PR:** Pending

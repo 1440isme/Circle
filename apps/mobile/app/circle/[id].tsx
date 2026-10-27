@@ -22,20 +22,6 @@ import {
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
-
-const triggerLightHaptic = () => {
-  try {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  } catch {}
-};
-
-const triggerSelectionHaptic = () => {
-  try {
-    Haptics.selectionAsync();
-  } catch {}
-};
-
-const triggerHapticFeedback = triggerLightHaptic;
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -87,10 +73,22 @@ import {
   Ban,
   EyeOff,
   MoreVertical,
+  Volume2,
+  VolumeX,
 } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { editMessageApi, recallMessageApi, clearChannelHistoryApi } from '../../src/services/chat.service';
 import { useThemeStore, MessageBubbleThemes, MessageTheme } from '../../src/stores/theme.store';
+import { useMobileSoundStore } from '../../src/stores/sound.store';
+import {
+  triggerSendHaptic,
+  triggerSelectionHaptic,
+  triggerSuccessHaptic,
+  triggerMediumHaptic,
+} from '../../src/services/sound.service';
+
+const triggerLightHaptic = triggerSendHaptic;
+const triggerHapticFeedback = triggerSendHaptic;
 import { getGlassTheme } from '../../src/constants/glass-theme';
 import { useLanguageStore } from '../../src/stores/language.store';
 import { useAuthStore } from '../../src/stores/auth.store';
@@ -1189,6 +1187,13 @@ export default function CircleWorkspaceScreen() {
 
   const initiateCallMutation = useInitiateCallMutation();
   const joinCallMutation = useJoinCallMutation();
+  const soundEnabled = useMobileSoundStore((s) => s.soundEnabled);
+  const toggleSound = useMobileSoundStore((s) => s.toggleSound);
+  const initSoundSettings = useMobileSoundStore((s) => s.initSoundSettings);
+
+  useEffect(() => {
+    initSoundSettings();
+  }, []);
   const [activeCallStageSession, setActiveCallStageSession] = useState<CallSessionDetailEntity | null>(null);
   const [incomingCallAlert, setIncomingCallAlert] = useState<{
     callSessionId: string;
@@ -1213,6 +1218,7 @@ export default function CircleWorkspaceScreen() {
 
       const handleIncomingCall = (payload: any) => {
         if (payload.circleId === circleId && payload.caller?.userId !== user?.id) {
+          triggerSuccessHaptic();
           setIncomingCallAlert(payload);
         }
       };
@@ -1661,6 +1667,7 @@ export default function CircleWorkspaceScreen() {
 
   const handleStartCall = async (type: 'audio' | 'video') => {
     try {
+      triggerSuccessHaptic();
       const callType = type === 'video' ? CallType.VIDEO : CallType.AUDIO;
       const res: any = await initiateCallMutation.mutateAsync({ circleId, callType });
       const session = res?.callSession || res;
@@ -1723,6 +1730,7 @@ export default function CircleWorkspaceScreen() {
     setMentionStartIndex(null);
     reportTyping(false, user?.profile?.displayName || user?.email);
     isNearBottomRef.current = true;
+    triggerSendHaptic();
 
     // Clear saved draft on send (CHT-18)
     if (currentChannelId) {
@@ -1776,6 +1784,7 @@ export default function CircleWorkspaceScreen() {
   };
 
   const handleReact = (messageId: string, emoji: string) => {
+    triggerSelectionHaptic();
     reactMessageMutation.mutate({ messageId, emoji });
     setActiveActionMessage(null);
   };
@@ -2202,6 +2211,32 @@ export default function CircleWorkspaceScreen() {
                     accessibilityLabel="Bắt đầu gọi video"
                   >
                     <Video size={13} color={colors.text} />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    onPress={() => {
+                      triggerSelectionHaptic();
+                      toggleSound();
+                    }}
+                    style={[
+                      styles.headerActionCircleBtn,
+                      {
+                        backgroundColor: isGlass
+                          ? (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)')
+                          : colors.surface,
+                        borderColor: isGlass
+                          ? (isDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.07)')
+                          : colors.hairline,
+                      },
+                    ]}
+                    accessibilityLabel={soundEnabled ? 'Tắt âm thanh hiệu ứng' : 'Bật âm thanh hiệu ứng'}
+                  >
+                    {soundEnabled ? (
+                      <Volume2 size={13} color={colors.text} />
+                    ) : (
+                      <VolumeX size={13} color="#F59E0B" />
+                    )}
                   </TouchableOpacity>
 
                   <TouchableOpacity

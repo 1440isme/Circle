@@ -2,11 +2,19 @@
 
 import React, { useState, useEffect } from 'react';
 import { useQueryClient, InfiniteData } from '@tanstack/react-query';
-import { MessageSquare, Pin, Users, Hash, WifiOff, Phone, Video, Radio, PhoneCall, PhoneOff, Search, X, Loader2, MoreVertical, Trash2 } from 'lucide-react';
+import { MessageSquare, Pin, Users, Hash, WifiOff, Phone, Video, Radio, PhoneCall, PhoneOff, Search, X, Loader2, MoreVertical, Trash2, Volume2, VolumeX } from 'lucide-react';
 import { MessageEntity, CursorPaginatedMessages, CallType, CallSessionDetailEntity, ClearChatMode } from '@circle/types';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguageStore } from '../../stores/language.store';
 import { useCircleStore } from '../../stores/circle.store';
+import { useSoundStore } from '../../stores/sound.store';
+import {
+  playMessageSentSound,
+  playReactionPopSound,
+  playIncomingCallChime,
+  stopIncomingCallChime,
+  playRoomJoinSound,
+} from '../../utils/sound-effects';
 import {
   CHAT_KEYS,
   useChannelMessagesQuery,
@@ -74,9 +82,13 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
   const initiateCallMutation = useInitiateCallMutation();
   const joinCallMutation = useJoinCallMutation();
   const { data: circleMembers = [] } = useCircleMembersQuery(circleId);
+  const soundEnabled = useSoundStore((s) => s.soundEnabled);
+  const toggleSound = useSoundStore((s) => s.toggleSound);
 
   const handleStartCall = async (callType: CallType) => {
     try {
+      stopIncomingCallChime();
+      playRoomJoinSound();
       const res: any = await initiateCallMutation.mutateAsync({ circleId, callType });
       const session = res?.callSession || res;
       if (session && session.id) {
@@ -97,12 +109,14 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
       const handleIncomingCall = (payload: any) => {
         // Only show incoming call popup if it is for the current circle and not initiated by current user
         if (payload.circleId === circleId && payload.caller?.userId !== user?.id) {
+          playIncomingCallChime();
           setIncomingCallAlert(payload);
         }
       };
 
       const handleCallEnded = (payload: any) => {
         if (payload.circleId === circleId) {
+          stopIncomingCallChime();
           setIncomingCallAlert(null);
         }
       };
@@ -251,6 +265,7 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
   };
 
   const handleReact = (messageId: string, emoji: string) => {
+    playReactionPopSound();
     reactMessageMutation.mutate({ messageId, emoji });
   };
 
@@ -348,6 +363,23 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
                 <Video className="h-4 w-4" />
               </button>
             </div>
+
+            <button
+              type="button"
+              onClick={toggleSound}
+              className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors active:scale-95 ${
+                soundEnabled
+                  ? 'text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas'
+                  : 'text-amber-500 hover:bg-amber-500/10'
+              }`}
+              title={soundEnabled ? 'Tắt âm thanh thông báo' : 'Bật âm thanh thông báo'}
+            >
+              {soundEnabled ? (
+                <Volume2 className="h-4 w-4" />
+              ) : (
+                <VolumeX className="h-4 w-4" />
+              )}
+            </button>
 
             <button
               type="button"
@@ -588,6 +620,7 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
           onCancelEdit={() => setEditingMessage(null)}
           onSaveEdit={handleSaveEdit}
           onSendMessage={async (data) => {
+            playMessageSentSound();
             await sendMessageMutation.mutateAsync(data);
           }}
           reportTyping={(isTyping) => {
