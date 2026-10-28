@@ -4673,6 +4673,7 @@
 - **PR:** Pending
 
 
+
 ---
 
 ## AI-0132: Triển khai Gói circle-agent-kit vào CIRCLE (Module Playbooks & Memory Protocol)
@@ -4976,4 +4977,41 @@
 - **Official Source Checked:** `agentic/playbooks/05-chat.md`, `agentic/playbooks/cross-cutting-gate.md`, `PROJECT_GOD.md`.
 - **Security & License Check:** An toàn tuyệt đối, zero secrets leaks, kiểm tra membership chặt chẽ.
 - **Branch:** `feat/109-chat-remove-and-clear-options`
-- **PR:** Pending
+- **PR:** #110 (Merged)
+
+---
+
+## AI-0139: Elevate Circle Tools UI/UX Polish, Anti-AI Slop & Full Dark Mode Conformance (Web + Mobile)
+
+- **Date:** 2026-10-27 22:30:00 +07:00
+- **Developer:** Trương Công Bình (MSSV: 23110184)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash
+- **Related Issue:** #98 (Circle Tools: Interactive planning sheet, live location radar, group poll)
+- **Purpose:** Nâng cấp trải nghiệm người dùng, loại bỏ hoàn toàn các mã kỹ thuật nội bộ (Anti-AI Slop) và chuẩn hóa thiết kế Dark Mode cho toàn bộ bộ công cụ Vòng tròn (Circle Tools) trên cả Web và Mobile:
+  1. **Anti-AI Slop & Polish bản địa:**
+     - Loại bỏ toàn bộ các thẻ định danh kỹ thuật/SRS nội bộ `(UC15)`, `(UC18)`, `(UC19)` ra khỏi giao diện người dùng trên `CirclePollView.tsx`, `CirclePlanningView.tsx`, `CircleLocationView.tsx`.
+     - Thay thế bằng microcopy tinh tế, trang nhã, đúng ngôn ngữ sản phẩm thương mại cao cấp.
+  2. **Mobile Dark Mode & Theme Token Conformance:**
+     - Tích hợp `useThemeStore` và áp dụng hệ thống token màu chuẩn (`colors.canvas`, `colors.surface`, `colors.hairline`, `colors.text`, `colors.subtle`, `colors.primary`, `colors.elevated`) vào 3 màn hình công cụ trên Mobile:
+       - `MobilePollView.tsx`: Loại bỏ mã màu cứng `#FFF`, `#E2E8F0`, tối ưu hóa card hiển thị thăm dò ý kiến, thanh tiến trình tỷ lệ %, form tạo poll và modal.
+       - `MobilePlanningView.tsx`: Chuẩn hóa bảng lưới kế hoạch, thanh header, các ô dữ liệu (cell), chỉ số dòng cột và modal nhập liệu không bị lệch nền khi ở chế độ Dark Mode.
+       - `MobileLocationView.tsx`: Chuẩn hóa card điều khiển chia sẻ thời lượng, danh sách thành viên phát sóng và hiển thị radar chuyên nghiệp.
+- **Files Affected:**
+  - `apps/web/src/components/tools/CirclePollView.tsx`
+  - `apps/web/src/components/tools/CirclePlanningView.tsx`
+  - `apps/web/src/components/tools/CircleLocationView.tsx`
+  - `apps/mobile/src/components/tools/MobilePollView.tsx`
+  - `apps/mobile/src/components/tools/MobilePlanningView.tsx`
+  - `apps/mobile/src/components/tools/MobileLocationView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% theme token mapping, visual styling refinement, UI copy polish.
+- **Human Modifications:** Trương Công Bình trực tiếp chỉ đạo định hướng thẩm mỹ sản phẩm cao cấp, cấm đưa các ký hiệu kỹ thuật phèn/AI slop vào UI và bảo đảm 100% hỗ trợ Dark Mode.
+- **Verification Method:**
+  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Mobile TypeScript 0 errors.
+  - `npm run build -w @circle/web`: Next.js production build 9/9 static pages pass.
+  - `./scripts/check-agent-map.sh`: 116/116 framework files pass.
+- **Official Source Checked:** `agentic/playbooks/04-circle-management.md`, `agentic/playbooks/cross-cutting-gate.md`, `PROJECT_GOD.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+- **Branch:** `feat/98-circle-tools-planning-location-poll`
+- **PR:** #99
