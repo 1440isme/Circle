@@ -46,9 +46,6 @@ export const ClearChatModal: React.FC<ClearChatModalProps> = ({
               <h3 id="clear-chat-title" className="text-base font-bold text-circle-charcoal dark:text-white">
                 {t.chat.clearChatModalTitle}
               </h3>
-              <p className="text-xs text-circle-slate dark:text-circle-dark-muted">
-                {t.chat.clearChatModalDesc}
-              </p>
             </div>
           </div>
           <button
@@ -87,7 +84,7 @@ export const ClearChatModal: React.FC<ClearChatModalProps> = ({
                   {t.chat.clearChatForMeTitle}
                 </span>
                 <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-circle-primary/10 text-circle-primary">
-                  Mặc định
+                  {t.common.default}
                 </span>
               </div>
               <p className="mt-1 text-xs text-circle-slate dark:text-circle-dark-muted leading-relaxed">
@@ -130,7 +127,7 @@ export const ClearChatModal: React.FC<ClearChatModalProps> = ({
           {selectedMode === 'EVERYONE' && (
             <div className="flex items-center gap-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 text-xs">
               <AlertTriangle className="h-4 w-4 shrink-0" />
-              <span>Hành động này sẽ xóa toàn bộ nội dung trong nhóm và không thể hoàn tác!</span>
+              <span>{t.chat.clearChatIrreversibleWarning}</span>
             </div>
           )}
 

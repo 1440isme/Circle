@@ -25,6 +25,7 @@ import {
   ReactMessageInput,
   ClearChatInput,
 } from '@circle/shared';
+import { playMessageReceivedSound } from '../utils/sound-effects';
 
 export const CHAT_KEYS = {
   all: ['chat'] as const,
@@ -111,6 +112,11 @@ export function useChannelMessagesQuery(channelId: string | null) {
             ...firstPage,
             messages: [...firstPage.messages, { ...newMessage, status: 'SENT' as const }],
           };
+
+          // Play subtle audio chime for incoming messages from other members
+          try {
+            playMessageReceivedSound();
+          } catch {}
 
           return {
             ...oldData,

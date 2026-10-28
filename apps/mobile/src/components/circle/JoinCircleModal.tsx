@@ -108,9 +108,6 @@ export function JoinCircleModal() {
                 <Text style={[styles.title, { color: colors.text }]}>
                   {t.circle.joinModalTitle}
                 </Text>
-                <Text style={[styles.subtitle, { color: colors.subtle }]}>
-                  {t.circle.joinModalSubtitle}
-                </Text>
               </View>
             </View>
             <TouchableOpacity

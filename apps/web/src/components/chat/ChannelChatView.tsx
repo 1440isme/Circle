@@ -2,11 +2,19 @@
 
 import React, { useState, useEffect } from 'react';
 import { useQueryClient, InfiniteData } from '@tanstack/react-query';
-import { MessageSquare, Pin, Users, Hash, WifiOff, Phone, Video, Radio, PhoneCall, PhoneOff, Search, X, Loader2, MoreVertical, Trash2 } from 'lucide-react';
+import { MessageSquare, Pin, Users, Hash, WifiOff, Phone, Video, Radio, PhoneCall, PhoneOff, Search, X, Loader2, MoreVertical, Trash2, Volume2, VolumeX } from 'lucide-react';
 import { MessageEntity, CursorPaginatedMessages, CallType, CallSessionDetailEntity, ClearChatMode, MessageType } from '@circle/types';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguageStore } from '../../stores/language.store';
 import { useCircleStore } from '../../stores/circle.store';
+import { useSoundStore } from '../../stores/sound.store';
+import {
+  playMessageSentSound,
+  playReactionPopSound,
+  playIncomingCallChime,
+  stopIncomingCallChime,
+  playRoomJoinSound,
+} from '../../utils/sound-effects';
 import {
   CHAT_KEYS,
   useChannelMessagesQuery,
@@ -74,9 +82,13 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
   const initiateCallMutation = useInitiateCallMutation();
   const joinCallMutation = useJoinCallMutation();
   const { data: circleMembers = [] } = useCircleMembersQuery(circleId);
+  const soundEnabled = useSoundStore((s) => s.soundEnabled);
+  const toggleSound = useSoundStore((s) => s.toggleSound);
 
   const handleStartCall = async (callType: CallType) => {
     try {
+      stopIncomingCallChime();
+      playRoomJoinSound();
       const res: any = await initiateCallMutation.mutateAsync({ circleId, callType });
       const session = res?.callSession || res;
       if (session && session.id) {
@@ -97,12 +109,14 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
       const handleIncomingCall = (payload: any) => {
         // Only show incoming call popup if it is for the current circle and not initiated by current user
         if (payload.circleId === circleId && payload.caller?.userId !== user?.id) {
+          playIncomingCallChime();
           setIncomingCallAlert(payload);
         }
       };
 
       const handleCallEnded = (payload: any) => {
         if (payload.circleId === circleId) {
+          stopIncomingCallChime();
           setIncomingCallAlert(null);
         }
       };
@@ -231,7 +245,7 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
       try {
         await recallMessageMutation.mutateAsync(messageId);
       } catch (err: any) {
-        alert(err.message || 'Lỗi khi thu hồi tin nhắn');
+        alert(err.message || t.chat.recallError);
       }
     }
   };
@@ -241,7 +255,7 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
       await clearChatMutation.mutateAsync({ mode });
       setIsClearChatModalOpen(false);
     } catch (err: any) {
-      alert(err.message || 'Lỗi khi xóa lịch sử trò chuyện');
+      alert(err.message || t.chat.clearChatError);
     }
   };
 
@@ -251,6 +265,7 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
   };
 
   const handleReact = (messageId: string, emoji: string) => {
+    playReactionPopSound();
     reactMessageMutation.mutate({ messageId, emoji });
   };
 
@@ -371,7 +386,7 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
                   ? 'bg-circle-primary/10 text-circle-primary'
                   : 'text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas'
               }`}
-              title="Tìm kiếm tin nhắn"
+              title={t.chat.searchPlaceholder}
             >
               <Search className="h-4 w-4" />
             </button>
@@ -379,10 +394,14 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
             <button
               type="button"
               onClick={() => setIsPinnedModalOpen(true)}
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas transition-colors active:scale-95"
-              title={t.chat.pinnedBadge}
+              className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors active:scale-95 ${
+                pinnedMessages.length > 0
+                  ? 'text-circle-primary bg-circle-primary/10 hover:bg-circle-primary/20'
+                  : 'text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas'
+              }`}
+              title={pinnedMessages.length > 0 ? `${pinnedMessages.length} ${t.chat.pinnedBadge}` : t.chat.pinnedBadge}
             >
-              <Pin className="h-4 w-4" />
+              <Pin className={`h-4 w-4 ${pinnedMessages.length > 0 ? 'fill-current' : ''}`} />
             </button>
 
             {/* Header Options Menu (More options: Clear Chat, etc.) */}
@@ -395,7 +414,7 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
                     ? 'bg-circle-primary/10 text-circle-primary'
                     : 'text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas'
                 }`}
-                title="Tùy chọn cuộc trò chuyện"
+                title={t.chat.moreChatOptions}
               >
                 <MoreVertical className="h-4 w-4" />
               </button>
@@ -416,7 +435,7 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
                       className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium rounded-xl text-circle-charcoal dark:text-white hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors text-left"
                     >
                       <Search className="h-3.5 w-3.5 text-circle-slate" />
-                      <span>{t.chat.searchPlaceholder || 'Tìm kiếm tin nhắn'}</span>
+                      <span>{t.chat.searchPlaceholder}</span>
                     </button>
                     <button
                       type="button"
@@ -427,7 +446,7 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
                       className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium rounded-xl text-circle-charcoal dark:text-white hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors text-left"
                     >
                       <Pin className="h-3.5 w-3.5 text-circle-slate" />
-                      <span>{t.chat.pinnedBadge || 'Tin nhắn đã ghim'}</span>
+                      <span>{t.chat.pinnedBadge}</span>
                     </button>
 
                     <div className="my-1 border-t border-circle-slate/10 dark:border-white/10" />
@@ -480,7 +499,7 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
                 {isSearching ? (
                   <div className="flex items-center justify-center py-4 text-xs text-circle-slate dark:text-circle-dark-muted gap-2">
                     <Loader2 className="h-4 w-4 animate-spin text-circle-primary" />
-                    <span>Đang tìm kiếm...</span>
+                    <span>{t.chat.searchingMessage}</span>
                   </div>
                 ) : searchResults && searchResults.messages.length > 0 ? (
                   <div className="flex flex-col gap-1">
@@ -498,7 +517,7 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
                       >
                         <div className="flex items-center justify-between text-[11px]">
                           <span className="font-semibold text-circle-charcoal dark:text-circle-dark-text">
-                            {m.sender?.nickname || m.sender?.user?.profile?.displayName || 'Thành viên'}
+                            {m.sender?.nickname || m.sender?.user?.profile?.displayName || t.chat.defaultMemberName}
                           </span>
                           <span className="text-circle-slate dark:text-circle-dark-muted text-[10px]">
                             {new Date(m.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -528,33 +547,6 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
           <div className="flex items-center justify-center gap-2 bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 py-1.5 px-4 text-xs font-medium animate-pulse transition-all">
             <WifiOff className="h-3.5 w-3.5" />
             <span>{t.chat.reconnecting}</span>
-          </div>
-        )}
-
-        {/* Pinned Messages Bar (Subtle & gentle top strip) */}
-        {pinnedMessages.length > 0 && (
-          <div className="flex items-center justify-between mx-4 mb-2 rounded-xl px-3 py-1 bg-circle-canvas/60 dark:bg-circle-dark-canvas/60 border border-circle-hairline dark:border-circle-dark-hairline backdrop-blur-sm z-10 text-xs">
-            <div
-              onClick={() => {
-                const latest = pinnedMessages[pinnedMessages.length - 1];
-                if (latest?.id) {
-                  const el = document.getElementById(`message-${latest.id}`);
-                  el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }
-              }}
-              className="flex items-center gap-2 text-circle-slate dark:text-circle-dark-muted font-normal truncate min-w-0 pr-2 cursor-pointer hover:text-circle-charcoal dark:hover:text-circle-dark-text transition-colors"
-              title={t.chat.pinnedBadge}
-            >
-              <Pin className="h-3 w-3 text-circle-primary shrink-0 opacity-80" />
-              <span className="truncate">{pinnedMessages[pinnedMessages.length - 1]?.content || t.chat.pinnedBadge}</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setIsPinnedModalOpen(true)}
-              className="flex items-center gap-1 shrink-0 rounded-full bg-circle-primary/10 hover:bg-circle-primary/20 text-circle-primary dark:text-circle-primary px-2 py-0.5 text-[11px] font-medium transition-colors"
-            >
-              <span>{pinnedMessages.length} {t.chat.pinnedBadge}</span>
-            </button>
           </div>
         )}
 
@@ -603,6 +595,7 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
           onCancelEdit={() => setEditingMessage(null)}
           onSaveEdit={handleSaveEdit}
           onSendMessage={async (data) => {
+            playMessageSentSound();
             await sendMessageMutation.mutateAsync(data);
           }}
           reportTyping={(isTyping) => {

@@ -280,11 +280,8 @@ export const CreateCircleModal: React.FC = () => {
           <div className="flex items-center justify-between gap-4 p-3.5 rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/50 dark:bg-circle-dark-canvas/50">
             <div className="min-w-0 flex-1">
               <h4 className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
-                {t.circle.requireApprovalTitle || 'Cần trưởng nhóm phê duyệt'}
+                {t.circle.requireApprovalTitle}
               </h4>
-              <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted mt-0.5 leading-snug">
-                {t.circle.requireApprovalDesc || 'Trưởng nhóm cần phê duyệt tất cả yêu cầu tham gia nhóm chat'}
-              </p>
             </div>
             <button
               type="button"
@@ -299,12 +296,6 @@ export const CreateCircleModal: React.FC = () => {
                 }`}
               />
             </button>
-          </div>
-
-          {/* Auto Handle Notice */}
-          <div className="flex items-center gap-2 rounded-xl bg-circle-wash/60 dark:bg-circle-dark-wash/60 p-2 text-[11px] text-circle-sage dark:text-circle-primary">
-            <Sparkles className="h-3.5 w-3.5 shrink-0" />
-            <span>{t.circle.autoHandleNotice}</span>
           </div>
 
           {/* Action Buttons */}

@@ -124,15 +124,15 @@ export default function ProfileTab() {
   const getSubHeaderTitle = (view: 'appearance' | 'security' | 'sessions' | 'language' | 'help') => {
     switch (view) {
       case 'appearance':
-        return locale === 'vi' ? 'Giao diện' : 'Appearance';
+        return t.common.theme;
       case 'security':
-        return locale === 'vi' ? 'Mật khẩu & Bảo mật' : 'Password & Security';
+        return t.auth.changePasswordTitle;
       case 'sessions':
-        return locale === 'vi' ? 'Phiên đăng nhập' : 'Sessions';
+        return t.common.sessionsTab;
       case 'language':
-        return locale === 'vi' ? 'Ngôn ngữ' : 'Language';
+        return t.common.language;
       case 'help':
-        return locale === 'vi' ? 'Trợ giúp & Giới thiệu' : 'Help & Support';
+        return t.common.help;
     }
   };
 
@@ -247,16 +247,16 @@ export default function ProfileTab() {
               <Palette size={20} color={colors.text} />
               <View style={styles.menuRowInfo}>
                 <Text style={[styles.menuRowTitle, { color: colors.text }]}>
-                  {locale === 'vi' ? 'Giao diện' : 'Appearance'}
+                  {t.common.theme}
                 </Text>
                 <Text style={[styles.menuRowSubtitle, { color: colors.subtle }]}>
-                  {uiStyle === 'flat' ? 'Flat Design' : 'Liquid Glass'} • {theme === 'dark' ? (locale === 'vi' ? 'Tối' : 'Dark') : theme === 'light' ? (locale === 'vi' ? 'Sáng' : 'Light') : (locale === 'vi' ? 'Hệ thống' : 'System')}
+                  {uiStyle === 'flat' ? 'Flat' : 'Glass'} • {theme === 'dark' ? t.common.themeDark : theme === 'light' ? t.common.themeLight : t.common.themeSystem}
                 </Text>
               </View>
               <ChevronRight size={18} color={colors.subtle} />
             </TouchableOpacity>
 
-            {/* 2. Đăng nhập vân tay / Face ID (Single unified setting) */}
+            {/* 2. Đăng nhập vân tay / Face ID */}
             <View
               style={[
                 styles.menuRowItem,
@@ -271,14 +271,14 @@ export default function ProfileTab() {
                 <Shield size={20} color={colors.text} />
                 <View style={{ flex: 1, paddingRight: 8 }}>
                   <Text style={[styles.menuRowTitle, { color: colors.text }]}>
-                    {t.auth.biometricTitle || 'Đăng nhập vân tay'}
+                    {t.auth.biometricTitle}
                   </Text>
                   <Text style={[styles.menuRowSubtitle, { color: colors.subtle }]}>
                     {hasBiometrics
                       ? biometricEnabled
-                        ? (locale === 'vi' ? 'Đang bật bảo vệ vân tay / Face ID' : 'Biometric unlock enabled')
-                        : (locale === 'vi' ? 'Bảo vệ tài khoản khi mở ứng dụng' : 'Protect app with biometric unlock')
-                      : (locale === 'vi' ? 'Thiết bị không hỗ trợ cảm biến' : 'Biometric hardware unavailable')}
+                        ? t.auth.biometricActiveNotice
+                        : t.auth.biometricInactiveNotice
+                      : t.auth.biometricUnavailable}
                   </Text>
                 </View>
               </View>
@@ -300,10 +300,7 @@ export default function ProfileTab() {
               <Key size={20} color={colors.text} />
               <View style={styles.menuRowInfo}>
                 <Text style={[styles.menuRowTitle, { color: colors.text }]}>
-                  {locale === 'vi' ? 'Mật khẩu & Bảo mật' : 'Password & Security'}
-                </Text>
-                <Text style={[styles.menuRowSubtitle, { color: colors.subtle }]}>
-                  {t.auth.changePassword}
+                  {t.auth.changePasswordTitle}
                 </Text>
               </View>
               <ChevronRight size={18} color={colors.subtle} />
@@ -318,12 +315,12 @@ export default function ProfileTab() {
               <Laptop size={20} color={colors.text} />
               <View style={styles.menuRowInfo}>
                 <Text style={[styles.menuRowTitle, { color: colors.text }]}>
-                  {locale === 'vi' ? 'Phiên đăng nhập' : 'Sessions'}
+                  {t.common.sessionsTab}
                 </Text>
                 <Text style={[styles.menuRowSubtitle, { color: colors.subtle }]}>
                   {sessions.length > 0
-                    ? (locale === 'vi' ? `${sessions.length} thiết bị hoạt động` : `${sessions.length} active devices`)
-                    : (locale === 'vi' ? 'Quản lý thiết bị' : 'Device management')}
+                    ? t.auth.activeDevicesCount.replace('{count}', String(sessions.length))
+                    : t.auth.deviceManagement}
                 </Text>
               </View>
               {sessions.length > 0 && (
@@ -336,7 +333,7 @@ export default function ProfileTab() {
               <ChevronRight size={18} color={colors.subtle} />
             </TouchableOpacity>
 
-            {/* 4. Ngôn ngữ */}
+            {/* 5. Ngôn ngữ */}
             <TouchableOpacity
               activeOpacity={0.7}
               onPress={() => setActiveSettingsSubView('language')}
@@ -345,16 +342,16 @@ export default function ProfileTab() {
               <Globe size={20} color={colors.text} />
               <View style={styles.menuRowInfo}>
                 <Text style={[styles.menuRowTitle, { color: colors.text }]}>
-                  {locale === 'vi' ? 'Ngôn ngữ' : 'Language'}
+                  {t.common.language}
                 </Text>
                 <Text style={[styles.menuRowSubtitle, { color: colors.subtle }]}>
-                  {locale === 'vi' ? 'Tiếng Việt' : 'English'}
+                  {locale === 'vi' ? t.common.vietnamese : t.common.english}
                 </Text>
               </View>
               <ChevronRight size={18} color={colors.subtle} />
             </TouchableOpacity>
 
-            {/* 5. Trợ giúp & Giới thiệu */}
+            {/* 6. Trợ giúp & Giới thiệu */}
             <TouchableOpacity
               activeOpacity={0.7}
               onPress={() => setActiveSettingsSubView('help')}
@@ -363,10 +360,7 @@ export default function ProfileTab() {
               <HelpCircle size={20} color={colors.text} />
               <View style={styles.menuRowInfo}>
                 <Text style={[styles.menuRowTitle, { color: colors.text }]}>
-                  {locale === 'vi' ? 'Trợ giúp' : 'Help & Support'}
-                </Text>
-                <Text style={[styles.menuRowSubtitle, { color: colors.subtle }]}>
-                  {locale === 'vi' ? 'Thông tin ứng dụng CIRCLE' : 'About CIRCLE & Support'}
+                  {t.common.help}
                 </Text>
               </View>
               <ChevronRight size={18} color={colors.subtle} />

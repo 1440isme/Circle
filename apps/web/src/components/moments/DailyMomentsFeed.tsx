@@ -410,8 +410,8 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
                                       <span>{r.user?.displayName?.slice(0, 2).toUpperCase() || 'U'}</span>
                                     )}
                                   </div>
-                                  <div className="absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full bg-white dark:bg-circle-dark-surface border border-circle-hairline dark:border-circle-dark-hairline flex items-center justify-center text-[8px] shadow-xs">
-                                    {r.emoji}
+                                  <div className="absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full bg-white dark:bg-circle-dark-surface border border-circle-hairline dark:border-circle-dark-hairline flex items-center justify-center shadow-xs overflow-hidden">
+                                    <Emoji emoji={r.emoji} size={10} />
                                   </div>
                                 </div>
                               ))}

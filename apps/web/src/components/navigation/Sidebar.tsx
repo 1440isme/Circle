@@ -79,7 +79,7 @@ export const Sidebar: React.FC = () => {
   };
 
   return (
-    <aside className="hidden md:flex w-64 shrink-0 flex-col gap-4 bg-white dark:bg-circle-dark-surface p-3 pt-3 h-screen sticky top-0 overflow-y-auto transition-colors border-r border-circle-hairline/60 dark:border-circle-dark-hairline/60">
+    <aside className="hidden md:flex w-64 shrink-0 flex-col gap-4 bg-white dark:bg-circle-dark-surface p-3 pt-3 h-full overflow-y-auto transition-colors border-r border-circle-hairline/60 dark:border-circle-dark-hairline/60">
       {/* Circle Switcher Section (Flat, borderless container) */}
       <div className="p-1 transition-colors">
         <div className="flex items-center justify-between mb-2">

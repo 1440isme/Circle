@@ -5099,3 +5099,176 @@
 - **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
 - **Branch:** `feat/113-call-summary-card-and-callback`
 - **PR:** #114
+
+---
+
+## AI-0141: US-UX-001 — Sound & Tactile Feedback System for Realtime Atmosphere (Web + Mobile)
+
+- **Date:** 2026-10-27 23:00:00 +07:00
+- **Developer:** Trương Công Bình (MSSV: 23110184)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash
+- **Related Issue:** #115 (US-UX-001: Sound & Tactile Feedback System for Realtime Atmosphere)
+- **Purpose:** Xây dựng hệ thống Âm thanh tổng hợp (Web Audio Synthesizer) & Rung phản hồi xúc giác native (Haptics) mang lại cảm giác sống động, thỏa mãn giác quan và phản hồi tức thì cho ứng dụng CIRCLE (Telegram / Apple standard):
+  1. **Web Audio Synthesizer (`apps/web/src/utils/sound-effects.ts`):**
+     - Tạo bộ phát sóng âm tự nhiên bằng Web Audio API thuần túy, zero external asset dependencies (không tốn dung lượng tải file âm thanh nặng, không lo bị chặn 404/adblockers):
+       - `playMessageSentSound()`: Âm pop nhẹ nhàng, êm tai khi gửi tin nhắn thành công.
+       - `playMessageReceivedSound()`: Âm chuông bong bóng hai nốt hài âm khi nhận tin nhắn mới từ thành viên khác trong kênh.
+       - `playReactionPopSound()`: Âm micro-pop vui tai khi thả reaction cảm xúc.
+       - `playIncomingCallChime()` / `stopIncomingCallChime()`: Giai điệu chuông gọi đến du dương, trang nhã.
+       - `playRoomJoinSound()`: Âm thanh ấm áp báo hiệu kết nối vào phòng gọi thoại thành công.
+     - `sound.store.ts`: Quản lý trạng thái `soundEnabled`, lưu trữ vào `localStorage`.
+     - Nút gạt nhanh Bật/Tắt âm thanh thông báo trên Header kênh chat (`Volume2` / `VolumeX`).
+  2. **Tactile & Audio Feedback trên Mobile (`apps/mobile`):**
+     - `sound.service.ts`: Bộ điều khiển rung haptic đa tầng (`expo-haptics`):
+       - `triggerSendHaptic()`: Rung nhẹ `ImpactFeedbackStyle.Light` khi gửi tin nhắn hoặc nhảy tới tin trích dẫn.
+       - `triggerSelectionHaptic()`: Rung khấc `selectionAsync` khi chạm reaction hoặc tương tác điều khiển.
+       - `triggerSuccessHaptic()`: Rung thông báo `NotificationFeedbackType.Success` khi có cuộc gọi đến hoặc kết nối phòng gọi.
+     - `sound.store.ts`: Quản lý trạng thái `soundEnabled` và `hapticsEnabled` lưu qua `AsyncStorage`.
+     - Nút gạt nhanh Bật/Tắt âm thanh trên thanh Header Circle Chat.
+- **Files Affected:**
+  - `apps/web/src/stores/sound.store.ts`
+  - `apps/web/src/utils/sound-effects.ts`
+  - `apps/web/src/hooks/use-chat-queries.ts`
+  - `apps/web/src/components/chat/ChannelChatView.tsx`
+  - `apps/web/src/app/page.tsx`
+  - `apps/web/src/components/stream/FeedStream.tsx`
+  - `apps/web/src/components/navigation/Sidebar.tsx`
+  - `apps/web/src/components/presence/PresenceRail.tsx`
+  - `apps/mobile/src/stores/sound.store.ts`
+  - `apps/mobile/src/services/sound.service.ts`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `tests/e2e/ux-audit.spec.ts`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% Web Audio oscillator synthesis algorithms, sound store state management, mobile haptics integration, viewport layout unclamping and full-spectrum visual audit automation.
+- **Human Modifications:** Trương Công Bình trực tiếp chỉ đạo lựa chọn giải pháp Đề xuất số 4 (Sound & Tactile Feedback) để thổi bùng sức sống tương tác và yêu cầu rà soát toàn bộ UI/UX cả Light/Dark mode trên Web & Mobile.
+- **Verification Method:**
+  - `npm test -w @circle/backend`: 175/175 tests pass 100% (11/11 suites).
+  - `npm run build -w @circle/web`: Next.js production build 9/9 static routes pass.
+  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Mobile TypeScript 0 errors.
+  - `./scripts/check-agent-map.sh`: 116/116 framework files pass.
+  - `npx playwright test tests/e2e/ux-audit.spec.ts`: Automated multi-theme visual audit passes; verified chat input bar bottom spacing and zero viewport overflow clipping.
+- **Official Source Checked:** `agentic/playbooks/cross-cutting-gate.md`, `agentic/playbooks/05-chat.md`, `PROJECT_GOD.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
+- **Branch:** `feat/115-sound-and-tactile-feedback`
+- **PR:** #116
+
+---
+
+## AI-0142: Unify Emoji System, Contextual Overlay, Minimalist Chat Header & Settings (#115)
+
+- **Date:** 2026-10-27 23:55:00 +07:00
+- **Developer:** Trương Công Bình (MSSV: 23110184)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash
+- **Related Issue:** #115 (US-UX-001: Sound & Tactile Feedback System for Realtime Atmosphere)
+- **Purpose:** Tinh gọn hóa giao diện chat, đồng bộ hệ thống emoji toàn hệ sinh thái và nâng cấp trải nghiệm tương tác ngữ cảnh theo chuẩn Telegram / Apple:
+  1. **Header Pin Button & Banner Cleanup (Web & Mobile):** Loại bỏ banner tin nhắn ghim thô kệch chắn ngang khung chat; tích hợp trực tiếp trạng thái ghim vào nút Pin trên thanh Header (icon rỗng khi chưa có tin ghim, icon fill màu chủ đạo khi có tin ghim; click mở modal quản lý tin ghim).
+  2. **Draft Preview Simplification (Web & Mobile):** Loại bỏ hoàn toàn thanh thông báo nháp thô phía trên thanh nhập liệu (`t.chat.draftLabel`). Văn bản đang soạn thảo được lưu tự động và giữ nguyên vẹn trong ô input.
+  3. **Sound Settings Relocation:** Di chuyển công tắc bật/tắt âm thanh hiệu ứng ra khỏi Header thanh chat, chuyển vào vị trí tự nhiên và logic hơn trong Modal Quản lý Vòng tròn (Tab "Thông báo & Quyền riêng tư"), giúp Header trở nên tối giản, tập trung.
+  4. **PresenceRail Light Mode Distinction:** Tinh chỉnh nút "Mời bạn bè & Yêu cầu" trên PresenceRail ở giao diện Sáng (Light mode) với đường viền hairline phân cách rõ ràng, icon `UserPlus` và hiệu ứng nổi nhẹ nhàng.
+  5. **1-Click Copy Message & Web Hover Menu 3-Dots:** Hỗ trợ sao chép tin nhắn 1 chạm kèm toast thông báo tức thì trên cả 2 nền tảng. Trên Web, thanh hover hành động được tối giản thành thanh Quick Reactions + menu 3 chấm dọc (`MoreVertical`) chứa Sao chép, Trả lời, Ghim, Chỉnh sửa, Thu hồi, Gỡ tin nhắn.
+  6. **Mobile Contextual Overlay (Telegram / iMessage style):** Thao tác nhấn giữ bong bóng tin nhắn trên Mobile làm mờ/tối background (`rgba(0,0,0,0.72)`), focus chính xác vào bong bóng tin nhắn tại vị trí chạm màn hình; thanh Quick Reactions đặt ngay PHÍA TRÊN tin nhắn, và danh sách hành động (Sao chép, Trả lời, Ghim, Chỉnh sửa, Gỡ, Thu hồi) đặt ngay PHÍA DƯỚI tin nhắn.
+  7. **Emoji Picker Localization & Clean Icon-Only Tabs:** Loại bỏ các nhãn chữ văn bản rườm rà ở thanh phân loại emoji, thay thế bằng các tab icon đại diện tinh tế (`😊`, `👋`, `❤️`, `🐶`, `🍔`, `⚽`); quốc tế hóa tiêu đề modal qua bộ từ điển `@circle/shared`.
+  8. **Hệ thống Emoji Đồng nhất Toàn Diện (Unified Apple Color Emoji):** Chuẩn hóa toàn bộ hiển thị emoji (chat message reactions, moment reactions, story reactions, full picker modal) sử dụng thống nhất component `<Emoji>` tải vector Apple Color Emoji độ phân giải cao từ CDN với native text fallback. Cơ chế lưu trữ dưới database và API là chuỗi ký tự chuẩn Unicode UTF-8 tối ưu kích thước.
+  9. **Triết lý Radical Minimalism ("Ít text nhất có thể"):** Rà soát và loại bỏ các hộp thoại chỉ dẫn, badge thừa thãi hiển nhiên (như lược bỏ khối advisory vàng trong form Đổi mật khẩu của SystemSettingsModal).
+- **Files Affected:**
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `apps/web/src/components/chat/ChannelChatView.tsx`
+  - `apps/web/src/components/chat/ChatComposer.tsx`
+  - `apps/web/src/components/chat/MessageBubble.tsx`
+  - `apps/web/src/components/circle/CircleManagementModal.tsx`
+  - `apps/web/src/components/presence/PresenceRail.tsx`
+  - `apps/web/src/components/settings/SystemSettingsModal.tsx`
+  - `apps/web/src/components/ui/FullEmojiPickerModal.tsx`
+  - `apps/web/src/components/moments/DailyMomentsFeed.tsx`
+  - `apps/web/src/components/moments/MomentReactorsModal.tsx`
+  - `apps/web/src/components/moments/StoryViewerModal.tsx`
+  - `apps/mobile/src/stores/sound.store.ts`
+  - `apps/mobile/src/components/ui/FullEmojiPickerModal.tsx`
+  - `apps/mobile/src/components/circle/CircleManagementModal.tsx`
+  - `apps/mobile/src/components/moment/MomentsView.tsx`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% component architecture, UI simplification, contextual overlays, unified emoji pipeline, localization keys.
+- **Human Modifications:** Trương Công Bình định hướng triết lý UI clean, ít text nhất có thể, yêu cầu chuyển trạng thái ghim lên Header Pin button, bỏ banner nháp, gom âm thanh vào Cài đặt nhóm, menu hover 3 chấm, overlay nhấn giữ Telegram-style trên Mobile, icon-only emoji tabs và thống nhất 1 bộ Apple Color emoji toàn hệ thống.
+- **Verification Method:**
+  - `npm run build -w @circle/shared`: Shared package build pass.
+  - `npm run build -w @circle/web`: Next.js production build 9/9 static routes pass, zero type errors.
+  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Mobile TypeScript 0 errors.
+  - `./scripts/check-agent-map.sh`: 116/116 framework files pass.
+- **Official Source Checked:** `agentic/playbooks/cross-cutting-gate.md`, `agentic/playbooks/05-chat.md`, `PROJECT_GOD.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
+- **Branch:** `feat/115-sound-and-tactile-feedback`
+- **PR:** #116
+
+---
+
+## AI-0143: Codify Radical Minimalism, Zero Hardcoding, and Memory Protocol Rules (#115)
+
+- **Date:** 2026-10-28 00:28:00 +07:00
+- **Developer:** Trương Công Bình (MSSV: 23110184)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash
+- **Related Issue:** #115 (US-UX-001: Sound & Tactile Feedback System for Realtime Atmosphere)
+- **Purpose:** Tiếp nhận chỉ đạo của kỹ sư Trương Công Bình về triết lý Radical Minimalism và Zero Hardcoding; hệ thống hóa và khắc sâu toàn bộ quy tắc UI/UX, Memory Protocol, và cập nhật Skill `implement-feature` cùng Cổng chất lượng `cross-cutting-gate`:
+  1. **Triết lý Radical Minimalism & Clean UI ("Ít text nhất có thể"):**
+     - Loại bỏ toàn bộ text mô tả, giải thích thừa thãi hiển nhiên cho những hành vi ai cũng biết.
+     - Lược bỏ các subtitle lặp lại tiêu đề thẻ/mục verbatim, các advisory card/warning box rườm rà (thẻ vàng lưu ý đổi mật khẩu, hint trống dài dòng).
+     - Empty states tinh gọn: chỉ giữ icon nhẹ + tiêu đề ngắn gọn (hoặc CTA nút bấm).
+  2. **Zero Hardcoding Invariant:**
+     - 100% chuỗi giao diện (nhãn, nút, placeholder, tooltip, thông báo toast, alert lỗi, fallback) chuyển sang từ điển song ngữ `@circle/shared` (`vi.ts` và `en.ts`).
+     - Tuyệt đối cấm hardcode bất kỳ chuỗi tiếng Việt hay tiếng Anh nào trực tiếp trong component.
+  3. **Contextual Interactions & Clean Hierarchy:**
+     - Web: Hover phần tử hiện các thao tác phụ tinh gọn dạng 3 chấm dọc (`MoreVertical`).
+     - Mobile: Nhấn giữ (long-press) làm mờ nền focus tin nhắn với emoji ở trên và menu hành động ở dưới.
+     - Chat Header: Ghim chuyển thành icon Header (rỗng/fill); bỏ thanh nháp thô; gom âm thanh vào Cài đặt Vòng tròn; đảm bảo tương phản rõ rệt ở Light Theme.
+     - Emoji: Dùng duy nhất 1 bộ emoji chuẩn hóa toàn hệ thống; tab chọn emoji chỉ dùng icon đại diện, không dùng chữ.
+  4. **Memory Protocol (Lớp 1 & Lớp 2) & Skill Codification:**
+     - Tạo log ngày `agentic/memory/2026-10-28.md` ghi nhận toàn bộ captures và corrections.
+     - Đồng bộ hóa các preferences và corrections bền vững vào `agentic/memory/MEMORY.md` (Lớp 1).
+     - Bổ sung các điều khoản bắt buộc về Radical Minimalism, Zero Hardcoding và Contextual Interaction vào `agentic/skills/implement-feature.md` (Step 4 & Exit Criteria) và `agentic/playbooks/cross-cutting-gate.md` (Section 9 & Gate Checklist) để các phiên làm việc và subagent tương lai tự động tuân thủ nghiêm ngặt.
+- **Files Affected:**
+  - `agentic/memory/MEMORY.md`
+  - `agentic/memory/2026-10-28.md`
+  - `agentic/skills/implement-feature.md`
+  - `agentic/playbooks/cross-cutting-gate.md`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `apps/web/src/components/settings/SystemSettingsModal.tsx`
+  - `apps/web/src/components/chat/ChannelChatView.tsx`
+  - `apps/web/src/components/chat/ChatComposer.tsx`
+  - `apps/web/src/components/chat/ClearChatModal.tsx`
+  - `apps/web/src/components/chat/MessageList.tsx`
+  - `apps/web/src/components/circle/CircleManagementModal.tsx`
+  - `apps/web/src/components/circle/CreateCircleModal.tsx`
+  - `apps/web/src/components/circle/JoinCircleModal.tsx`
+  - `apps/web/src/components/moments/CreateMomentModal.tsx`
+  - `apps/web/src/components/stream/FeedStream.tsx`
+  - `apps/mobile/app/(tabs)/index.tsx`
+  - `apps/mobile/app/(tabs)/profile.tsx`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `apps/mobile/src/components/circle/CircleManagementModal.tsx`
+  - `apps/mobile/src/components/circle/CreateCircleModal.tsx`
+  - `apps/mobile/src/components/circle/JoinCircleModal.tsx`
+  - `apps/mobile/src/components/moment/MomentsView.tsx`
+  - `apps/mobile/src/components/settings/SystemSettingsModal.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% tài liệu hóa quy chuẩn kỹ thuật, cập nhật memory layers, cập nhật skill và gating checklist.
+- **Human Modifications:** Trương Công Bình chỉ đạo triết lý thiết kế tối giản, sạch mắt, không văn bản thừa, loại bỏ triệt để hardcode, yêu cầu khắc sâu vào skill `implement-feature` cho mọi tính năng mới về sau.
+- **Verification Method:**
+  - `npm run build -w @circle/shared`: Shared package build thành công, 0 lỗi TypeScript.
+  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Mobile TypeScript 0 lỗi.
+  - `npm run build -w @circle/web`: Next.js production build 9/9 static routes thành công 100%.
+  - `./scripts/check-agent-map.sh`: 117/117 framework files liên kết toàn vẹn, 0 broken links.
+- **Official Source Checked:** `agentic/RULES.md`, `agentic/CONVENTIONS.md`, `agentic/playbooks/cross-cutting-gate.md`, `PROJECT_GOD.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
+- **Branch:** `feat/115-sound-and-tactile-feedback`
+- **PR:** #116
+=======
+- **Official Source Checked:** `agentic/playbooks/06-voice-video.md` (CAL-08), `agentic/playbooks/05-chat.md` (CHT-20), `PROJECT_GOD.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
+- **Branch:** `feat/113-call-summary-card-and-callback`
+- **PR:** #114
+>>>>>>> feat/113-call-summary-card-and-callback

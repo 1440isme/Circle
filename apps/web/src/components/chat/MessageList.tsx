@@ -279,9 +279,6 @@ export const MessageList: React.FC<MessageListProps> = ({
               ? (t.chat.welcomeTitle || 'Chào mừng bạn đến với {name}').replace('{name}', circleName)
               : t.chat.noMessagesYet}
           </h3>
-          <p className="text-xs text-circle-slate dark:text-circle-dark-muted mt-1.5 leading-relaxed">
-            {circleDescription || t.chat.welcomeSubtitle || t.chat.firstMessageHint}
-          </p>
 
           {onSendIcebreaker && (
             <button

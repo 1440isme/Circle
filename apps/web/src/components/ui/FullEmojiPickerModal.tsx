@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Search } from 'lucide-react';
 import { EMOJI_CATEGORIES } from '@circle/shared';
+import { useLanguageStore } from '@/stores/language.store';
 import { Emoji } from './Emoji';
 
 interface FullEmojiPickerModalProps {
@@ -16,8 +17,10 @@ export const FullEmojiPickerModal: React.FC<FullEmojiPickerModalProps> = ({
   isOpen,
   onClose,
   onSelectEmoji,
-  title = 'Chọn biểu cảm',
+  title,
 }) => {
+  const t = useLanguageStore((s) => s.t);
+  const resolvedTitle = title || t.emoji?.title || 'Chọn biểu cảm';
   const [activeCategoryId, setActiveCategoryId] = useState<string>(EMOJI_CATEGORIES[0]?.id || 'smileys');
   const [searchQuery, setSearchQuery] = useState('');
   const modalRef = useRef<HTMLDivElement>(null);
@@ -46,7 +49,7 @@ export const FullEmojiPickerModal: React.FC<FullEmojiPickerModalProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-circle-hairline dark:border-circle-dark-hairline">
           <h3 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
-            {title}
+            {resolvedTitle}
           </h3>
           <button
             type="button"
@@ -57,10 +60,11 @@ export const FullEmojiPickerModal: React.FC<FullEmojiPickerModalProps> = ({
           </button>
         </div>
 
-        {/* Categories Bar */}
-        <div className="flex items-center gap-1.5 px-3 py-2 border-b border-circle-hairline dark:border-circle-dark-hairline overflow-x-auto custom-scrollbar">
+        {/* Categories Bar (Clean Icon-Only Tabs) */}
+        <div className="flex items-center justify-around px-3 py-2 border-b border-circle-hairline dark:border-circle-dark-hairline">
           {EMOJI_CATEGORIES.map((cat) => {
             const isActive = activeCategoryId === cat.id;
+            const categoryName = (t.emoji?.categories as any)?.[cat.id] || cat.name;
             return (
               <button
                 key={cat.id}
@@ -69,14 +73,15 @@ export const FullEmojiPickerModal: React.FC<FullEmojiPickerModalProps> = ({
                   setActiveCategoryId(cat.id);
                   setSearchQuery('');
                 }}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+                className={`flex h-9 w-9 items-center justify-center rounded-xl text-lg transition-all ${
                   isActive
-                    ? 'bg-circle-canvas dark:bg-circle-dark-canvas text-circle-charcoal dark:text-circle-dark-text border border-circle-hairline dark:border-circle-dark-hairline font-bold'
-                    : 'text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash'
+                    ? 'bg-circle-canvas dark:bg-circle-dark-canvas border border-circle-hairline dark:border-circle-dark-hairline shadow-xs scale-110'
+                    : 'hover:bg-circle-wash dark:hover:bg-circle-dark-wash opacity-60 hover:opacity-100'
                 }`}
+                title={categoryName}
+                aria-label={categoryName}
               >
                 <span>{cat.icon}</span>
-                <span>{cat.name}</span>
               </button>
             );
           })}

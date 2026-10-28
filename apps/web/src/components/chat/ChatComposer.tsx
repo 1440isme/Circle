@@ -407,33 +407,6 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
         </div>
       )}
 
-      {/* Draft Message Indicator (CHT-18) */}
-      {!editingMessage && !replyingMessage && content.trim().length > 0 && (
-        <div className="mb-2 flex items-center justify-between rounded-xl bg-circle-wash/60 dark:bg-circle-dark-wash/60 border border-circle-hairline/60 dark:border-circle-dark-hairline/60 px-3 py-1 text-xs text-circle-slate dark:text-circle-dark-muted animate-in fade-in duration-150">
-          <div className="flex items-center gap-2 truncate">
-            <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />
-            <span className="font-semibold text-amber-600 dark:text-amber-400 shrink-0">
-              {t.chat?.draftLabel || 'Nháp'}:
-            </span>
-            <span className="truncate opacity-80">{content}</span>
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              setContent('');
-              if (channelId) {
-                try {
-                  localStorage.removeItem(`circle_draft_${channelId}`);
-                } catch {}
-              }
-            }}
-            className="text-[11px] hover:text-red-500 text-circle-slate dark:text-circle-dark-muted transition-colors ml-2 shrink-0"
-          >
-            {t.chat?.cancelBtn || 'Hủy'}
-          </button>
-        </div>
-      )}
-
       {/* Attached File Preview */}
       {attachedFile && (
         <div className="mb-2 inline-flex items-center gap-2 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/80 dark:bg-circle-dark-canvas/80 p-2 pr-3 text-xs shadow-sm animate-in fade-in duration-100">
@@ -558,7 +531,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
           onClick={
             content.trim() || attachedFile
               ? handleSend
-              : () => alert('Tính năng ghi âm tin nhắn thoại (Voice Message) đang sẵn sàng trong bản cập nhật kế tiếp.')
+              : () => alert(t.chat.voiceMessageComingSoon)
           }
           disabled={(content.trim() || attachedFile) ? (isSubmitting || isUploading) : false}
           className={`flex h-12 w-12 items-center justify-center rounded-full shrink-0 transition-all active:scale-95 ${
@@ -570,7 +543,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
               ? 'backdrop-blur-md bg-white/80 dark:bg-circle-dark-surface/80 border border-white/60 dark:border-white/10 shadow-xs text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text hover:bg-white dark:hover:bg-circle-dark-surface'
               : 'bg-white dark:bg-circle-dark-surface border border-circle-hairline dark:border-circle-dark-hairline shadow-2xs text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas'
           }`}
-          title={editingMessage ? t.chat.saveEdit : (content.trim() || attachedFile) ? t.chat.sendBtn : 'Ghi âm tin nhắn thoại'}
+          title={editingMessage ? t.chat.saveEdit : (content.trim() || attachedFile) ? t.chat.sendBtn : t.chat.recordVoiceMessage}
         >
           {editingMessage ? (
             isSubmitting ? (
