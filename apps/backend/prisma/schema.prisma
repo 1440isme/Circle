@@ -215,6 +215,7 @@ model CircleMember {
   createdAlbums    SharedAlbum[]
   uploadedPhotos   Photo[]
   createdWheels    DecisionWheel[]
+  createdPolls     GroupPoll[]
 
   @@unique([circleId, userId])
   @@index([circleId])
@@ -462,6 +463,7 @@ model SheetCell {
   lastEditedBy CircleMember? @relation(fields: [lastEditedById], references: [id], onDelete: SetNull)
 
   @@unique([rowId, columnId])
+  @@index([lastEditedById])
 }
 
 // =============================================================================
@@ -481,18 +483,21 @@ model PinnedRecord {
 }
 
 model GroupPoll {
-  id        String    @id @default(cuid())
-  circleId  String
-  question  String
-  deadline  DateTime?
-  isClosed  Boolean   @default(false)
-  createdAt DateTime  @default(now())
+  id          String    @id @default(cuid())
+  circleId    String
+  createdById String?
+  question    String
+  deadline    DateTime?
+  isClosed    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
 
-  circle  Circle       @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  circle  Circle        @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  creator CircleMember? @relation(fields: [createdById], references: [id], onDelete: SetNull)
   options PollOption[]
   votes   PollVote[]
 
   @@index([circleId])
+  @@index([createdById])
 }
 
 model PollOption {
@@ -597,6 +602,7 @@ model LiveLocationShare {
   member CircleMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
 
   @@index([circleId, isActive])
+  @@index([memberId])
 }
 
 model CallSession {

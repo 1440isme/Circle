@@ -354,6 +354,52 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
+  // ===========================================================================
+  // CIRCLE TOOLS REALTIME BROADCASTS (MODULE 7.2)
+  // ===========================================================================
+
+  broadcastSheetCellUpdated(circleId: string, payload: any) {
+    if (this.server) {
+      this.server.to(`circle:${circleId}`).emit('circle:sheet-cell-updated', payload);
+    }
+  }
+
+  broadcastSheetStructureUpdated(circleId: string, payload: any) {
+    if (this.server) {
+      this.server.to(`circle:${circleId}`).emit('circle:sheet-structure-updated', payload);
+    }
+  }
+
+  broadcastLiveLocationUpdated(circleId: string, payload: any) {
+    if (this.server) {
+      this.server.to(`circle:${circleId}`).emit('circle:location-updated', payload);
+    }
+  }
+
+  broadcastLiveLocationStopped(circleId: string, payload: any) {
+    if (this.server) {
+      this.server.to(`circle:${circleId}`).emit('circle:location-stopped', payload);
+    }
+  }
+
+  broadcastPollCreated(circleId: string, payload: any) {
+    if (this.server) {
+      this.server.to(`circle:${circleId}`).emit('circle:poll-created', payload);
+    }
+  }
+
+  broadcastPollVoted(circleId: string, payload: any) {
+    if (this.server) {
+      this.server.to(`circle:${circleId}`).emit('circle:poll-voted', payload);
+    }
+  }
+
+  broadcastPollClosed(circleId: string, payload: any) {
+    if (this.server) {
+      this.server.to(`circle:${circleId}`).emit('circle:poll-closed', payload);
+    }
+  }
+
   broadcastMessageUpdated(channelId: string, message: any) {
     if (this.server) {
       this.server.to(`channel:${channelId}`).emit('chat:message-updated', message);

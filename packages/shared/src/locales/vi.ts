@@ -299,6 +299,8 @@ export const vi = {
     photoAlbum: 'Album kỷ niệm',
     calendarEvents: 'Lịch hẹn & Sự kiện',
     planningSheet: 'Bảng kế hoạch (Sheet)',
+    liveLocation: 'Vị trí trực tiếp',
+    groupPoll: 'Bình chọn nhóm',
     luckyWheel: 'Vòng xoay may mắn',
     reflectionMailbox: 'Hộp thư Điều muốn nói',
     circleSettings: 'Cài đặt Vòng tròn',
