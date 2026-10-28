@@ -11,6 +11,7 @@ import {
   AlertCircle,
   Video,
   Phone,
+  PhoneCall,
   Smile,
   Calendar,
   MapPin,
@@ -49,6 +50,7 @@ interface MessageBubbleProps {
   onDeleteForMe?: (messageId: string) => void;
   onRetry?: (message: MessageEntity) => void;
   onJumpToMessage?: (messageId: string) => void;
+  onStartCall?: (callType: 'AUDIO' | 'VIDEO') => void;
 }
 
 const QUICK_EMOJIS = ['👍', '❤️', '😂', '🔥', '🎉'];
@@ -71,6 +73,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   onDeleteForMe,
   onRetry,
   onJumpToMessage,
+  onStartCall,
 }) => {
   const t = useLanguageStore((s) => s.t);
   const locale = useLanguageStore((s) => s.locale);
@@ -287,7 +290,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               : 'px-4 py-2.5 ' + (isSenderMe ? 'msg-bubble-me' : 'msg-bubble-other')
           } ${message.isPinned ? 'ring-2 ring-amber-400/40' : ''} ${
             isHighlighted
-              ? 'ring-2 ring-circle-primary dark:ring-circle-dark-primary shadow-lg scale-[1.02] bg-circle-primary/10 transition-all duration-300'
+              ? 'ring-2 ring-circle-primary dark:ring-circle-dark-primary shadow-xl scale-[1.02] bg-circle-primary/15 transition-all duration-300 animate-pulse'
               : ''
           }`}
         >
@@ -410,40 +413,76 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               </div>
             </div>
           ) : isCallSummary && callSummaryData ? (
-            <div className="flex items-center gap-2.5 py-1 pr-1">
-              {callSummaryData.callType === 'VIDEO' ? (
-                <Video
-                  className={`h-5 w-5 shrink-0 ${
-                    isSenderMe
-                      ? 'text-current'
-                      : 'text-circle-slate dark:text-circle-dark-muted'
-                  }`}
-                />
-              ) : (
-                <Phone
-                  className={`h-5 w-5 shrink-0 ${
-                    isSenderMe
-                      ? 'text-current'
-                      : 'text-circle-slate dark:text-circle-dark-muted'
-                  }`}
-                />
-              )}
-              <div className="flex flex-col min-w-0">
-                <span className="text-xs sm:text-sm font-bold truncate">
-                  {callSummaryData.callType === 'VIDEO'
-                    ? t.calls.videoCallEnded
-                    : t.calls.audioCallEnded}
-                </span>
-                <span
-                  className={`text-[11px] font-medium ${
-                    isSenderMe
-                      ? 'text-current opacity-85'
-                      : 'text-circle-slate dark:text-circle-dark-muted'
+            <div className="flex flex-col gap-2.5 py-1 min-w-[240px] max-w-[320px]">
+              <div className="flex items-center gap-3">
+                <div
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                    callSummaryData.durationSeconds && callSummaryData.durationSeconds > 0
+                      ? isSenderMe
+                        ? 'bg-black/15 dark:bg-white/15 text-current'
+                        : 'bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                      : isSenderMe
+                      ? 'bg-black/15 dark:bg-white/15 text-current'
+                      : 'bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400'
                   }`}
                 >
-                  {t.calls.durationLabel.replace('{duration}', formatDuration(callSummaryData.durationSeconds || 0))}
-                </span>
+                  {callSummaryData.callType === 'VIDEO' ? (
+                    <Video className="h-5 w-5" />
+                  ) : (
+                    <Phone className="h-5 w-5" />
+                  )}
+                </div>
+
+                <div className="flex flex-col min-w-0 flex-1">
+                  <span className="text-xs sm:text-sm font-semibold truncate leading-tight">
+                    {callSummaryData.durationSeconds && callSummaryData.durationSeconds > 0
+                      ? callSummaryData.callType === 'VIDEO'
+                        ? t.calls.videoCallEnded
+                        : t.calls.audioCallEnded
+                      : callSummaryData.callType === 'VIDEO'
+                      ? t.calls.missedVideoCall
+                      : t.calls.missedAudioCall}
+                  </span>
+                  <span
+                    className={`text-[11px] font-medium mt-0.5 ${
+                      isSenderMe
+                        ? 'text-current opacity-80'
+                        : 'text-circle-slate dark:text-circle-dark-muted'
+                    }`}
+                  >
+                    {callSummaryData.durationSeconds && callSummaryData.durationSeconds > 0
+                      ? t.calls.durationLabel.replace(
+                          '{duration}',
+                          formatDuration(callSummaryData.durationSeconds),
+                        )
+                      : t.calls.callEndedShort}
+                  </span>
+                </div>
               </div>
+
+              {onStartCall && (
+                <div className="pt-1.5 border-t border-black/5 dark:border-white/10 flex items-center justify-end">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onStartCall(callSummaryData!.callType);
+                    }}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all active:scale-95 ${
+                      isSenderMe
+                        ? 'bg-black/15 hover:bg-black/25 dark:bg-white/15 dark:hover:bg-white/25 text-current'
+                        : 'bg-circle-primary hover:bg-circle-primary-dark text-white shadow-xs'
+                    }`}
+                  >
+                    {callSummaryData.callType === 'VIDEO' ? (
+                      <Video className="h-3.5 w-3.5" />
+                    ) : (
+                      <PhoneCall className="h-3.5 w-3.5" />
+                    )}
+                    <span>{t.calls.callbackAction}</span>
+                  </button>
+                </div>
+              )}
             </div>
           ) : message.content ? (
             <div

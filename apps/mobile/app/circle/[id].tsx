@@ -78,6 +78,8 @@ import {
   Volume2,
   VolumeX,
   Copy,
+  Search,
+  Hash,
 } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { editMessageApi, recallMessageApi, clearChannelHistoryApi } from '../../src/services/chat.service';
@@ -122,6 +124,7 @@ import { MomentsView, parseMomentPhotos, MomentFeedPipView, formatMomentRelative
 import { CreateCircleModal } from '../../src/components/circle/CreateCircleModal';
 import { JoinCircleModal } from '../../src/components/circle/JoinCircleModal';
 import { PinnedMessagesModal } from '../../src/components/chat/PinnedMessagesModal';
+import { SearchMessagesModal } from '../../src/components/chat/SearchMessagesModal';
 import { MobileCallStageModal } from '../../src/components/call/MobileCallStageModal';
 import { Emoji } from '../../src/components/ui/Emoji';
 import { FullEmojiPickerModal } from '../../src/components/ui/FullEmojiPickerModal';
@@ -405,6 +408,7 @@ interface MobileSwipeMessageBubbleProps {
   onRetry?: (msg: any) => void;
   onPreviewImage?: (url: string) => void;
   onJumpToMessage?: (messageId: string) => void;
+  onStartCall?: (type: 'audio' | 'video') => void;
 }
 
 const MobileSwipeMessageBubble = React.memo(function MobileSwipeMessageBubble({
@@ -428,6 +432,7 @@ const MobileSwipeMessageBubble = React.memo(function MobileSwipeMessageBubble({
   onRetry,
   onPreviewImage,
   onJumpToMessage,
+  onStartCall,
 }: MobileSwipeMessageBubbleProps) {
   const translateX = useRef(new Animated.Value(0)).current;
   const hasVibratedOnSwipe = useRef(false);
@@ -885,38 +890,134 @@ const MobileSwipeMessageBubble = React.memo(function MobileSwipeMessageBubble({
                   </View>
                 );
               })() : callSummaryData ? (
-                <View style={styles.callNotificationRow}>
-                  {callSummaryData.callType === 'VIDEO' ? (
-                    <Video
-                      size={20}
-                      color={isSenderMe ? senderTextColor : colors.text}
-                    />
-                  ) : (
-                    <Phone
-                      size={20}
-                      color={isSenderMe ? senderTextColor : colors.text}
-                    />
-                  )}
-                  <View style={{ flexShrink: 1 }}>
-                    <Text
+                <View style={styles.callSummaryCard}>
+                  <View style={styles.callSummaryHeader}>
+                    <View
                       style={[
-                        styles.callNotificationTitle,
-                        { color: isSenderMe ? senderTextColor : colors.text },
+                        styles.callSummaryIconWrap,
+                        {
+                          backgroundColor:
+                            callSummaryData.durationSeconds && callSummaryData.durationSeconds > 0
+                              ? isSenderMe
+                                ? 'rgba(0, 0, 0, 0.12)'
+                                : colors.wash
+                              : isSenderMe
+                              ? 'rgba(0, 0, 0, 0.12)'
+                              : 'rgba(245, 158, 11, 0.15)',
+                        },
                       ]}
                     >
-                      {callSummaryData.callType === 'VIDEO'
-                        ? (t.calls?.videoCallEnded || 'Cuộc gọi video kết thúc')
-                        : (t.calls?.audioCallEnded || 'Cuộc gọi thoại kết thúc')}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.callNotificationDuration,
-                        { color: isSenderMe ? senderTextColor : colors.subtle, opacity: isSenderMe ? 0.85 : 1 },
-                      ]}
-                    >
-                      {formatDurationText(callSummaryData.durationSeconds || 0)}
-                    </Text>
+                      {callSummaryData.callType === 'VIDEO' ? (
+                        <Video
+                          size={18}
+                          color={
+                            callSummaryData.durationSeconds && callSummaryData.durationSeconds > 0
+                              ? isSenderMe
+                                ? senderTextColor
+                                : colors.primary
+                              : isSenderMe
+                              ? senderTextColor
+                              : '#F59E0B'
+                          }
+                        />
+                      ) : (
+                        <Phone
+                          size={18}
+                          color={
+                            callSummaryData.durationSeconds && callSummaryData.durationSeconds > 0
+                              ? isSenderMe
+                                ? senderTextColor
+                                : colors.primary
+                              : isSenderMe
+                              ? senderTextColor
+                              : '#F59E0B'
+                          }
+                        />
+                      )}
+                    </View>
+
+                    <View style={styles.callSummaryInfo}>
+                      <Text
+                        numberOfLines={1}
+                        style={[
+                          styles.callNotificationTitle,
+                          { color: isSenderMe ? senderTextColor : colors.text },
+                        ]}
+                      >
+                        {callSummaryData.durationSeconds && callSummaryData.durationSeconds > 0
+                          ? callSummaryData.callType === 'VIDEO'
+                            ? (t.calls?.videoCallEnded || 'Cuộc gọi video kết thúc')
+                            : (t.calls?.audioCallEnded || 'Cuộc gọi thoại kết thúc')
+                          : callSummaryData.callType === 'VIDEO'
+                          ? (t.calls?.missedVideoCall || 'Cuộc gọi video nhỡ')
+                          : (t.calls?.missedAudioCall || 'Cuộc gọi thoại nhỡ')}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.callNotificationDuration,
+                          {
+                            color: isSenderMe ? senderTextColor : colors.subtle,
+                            opacity: isSenderMe ? 0.85 : 1,
+                          },
+                        ]}
+                      >
+                        {callSummaryData.durationSeconds && callSummaryData.durationSeconds > 0
+                          ? formatDurationText(callSummaryData.durationSeconds)
+                          : (t.calls?.callEndedShort || 'Đã kết thúc')}
+                      </Text>
+                    </View>
                   </View>
+
+                  {onStartCall && (
+                    <View
+                      style={[
+                        styles.callSummaryActionWrap,
+                        {
+                          borderTopColor: isSenderMe
+                            ? 'rgba(0, 0, 0, 0.08)'
+                            : colors.hairline,
+                        },
+                      ]}
+                    >
+                      <TouchableOpacity
+                        activeOpacity={0.7}
+                        onPress={() => {
+                          try {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                          } catch {}
+                          onStartCall(callSummaryData?.callType === 'VIDEO' ? 'video' : 'audio');
+                        }}
+                        style={[
+                          styles.callSummaryBtn,
+                          {
+                            backgroundColor: isSenderMe
+                              ? 'rgba(0, 0, 0, 0.12)'
+                              : colors.primary,
+                          },
+                        ]}
+                      >
+                        {callSummaryData.callType === 'VIDEO' ? (
+                          <Video
+                            size={12}
+                            color={isSenderMe ? senderTextColor : '#FFF'}
+                          />
+                        ) : (
+                          <PhoneCall
+                            size={12}
+                            color={isSenderMe ? senderTextColor : '#FFF'}
+                          />
+                        )}
+                        <Text
+                          style={[
+                            styles.callSummaryBtnText,
+                            { color: isSenderMe ? senderTextColor : '#FFF' },
+                          ]}
+                        >
+                          {t.calls?.callbackAction || 'Gọi lại'}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
                 </View>
               ) : Boolean(msg.content && msg.content.trim()) ? (
                 <Text
@@ -1193,6 +1294,7 @@ export default function CircleWorkspaceScreen() {
   };
   const [activeTimestampMessageId, setActiveTimestampMessageId] = useState<string | null>(null);
   const [isPinnedModalVisible, setIsPinnedModalVisible] = useState(false);
+  const [isSearchModalVisible, setIsSearchModalVisible] = useState(false);
   const [isFullEmojiModalVisible, setIsFullEmojiModalVisible] = useState(false);
   const [targetReactMessageId, setTargetReactMessageId] = useState<string | null>(null);
   const [momentsMemberFilter, setMomentsMemberFilter] = useState<string | 'all'>('all');
@@ -2205,6 +2307,28 @@ export default function CircleWorkspaceScreen() {
                 <>
                   <TouchableOpacity
                     activeOpacity={0.7}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setIsSearchModalVisible(true);
+                    }}
+                    style={[
+                      styles.headerActionCircleBtn,
+                      {
+                        backgroundColor: isGlass
+                          ? (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)')
+                          : colors.surface,
+                        borderColor: isGlass
+                          ? (isDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.07)')
+                          : colors.hairline,
+                      },
+                    ]}
+                    accessibilityLabel={t.chat?.searchInChannel || 'Tìm kiếm tin nhắn'}
+                  >
+                    <Search size={13} color={colors.text} />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    activeOpacity={0.7}
                     onPress={() => handleStartCall('audio')}
                     style={[
                       styles.headerActionCircleBtn,
@@ -2383,14 +2507,33 @@ export default function CircleWorkspaceScreen() {
             {isLoadingMessages && messages.length === 0 ? (
               <ActivityIndicator color={colors.primary} style={{ marginVertical: 20 }} />
             ) : messages.length === 0 ? (
-              <View style={[styles.emptyChatBox, { backgroundColor: colors.wash }]}>
-                <MessageSquare size={32} color={colors.primary} style={{ marginBottom: 8 }} />
+              <View style={[styles.emptyChatBox, { backgroundColor: colors.wash, borderColor: colors.hairline }]}>
+                <View style={[styles.emptyChatIconSquircle, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+                  <Hash size={20} color={colors.primary} />
+                </View>
                 <Text style={[styles.emptyChatTitle, { color: colors.text }]}>
-                  {t.chat.noMessagesYet}
+                  {circle.name
+                    ? (t.chat?.welcomeTitle || 'Chào mừng bạn đến với {name}').replace('{name}', circle.name)
+                    : t.chat.noMessagesYet}
                 </Text>
                 <Text style={[styles.emptyChatText, { color: colors.subtle }]}>
-                  {t.chat.firstMessageHint}
+                  {(circle as any)?.description || t.chat?.welcomeSubtitle || t.chat.firstMessageHint}
                 </Text>
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    sendMessageMutation.mutate({
+                      content: t.chat?.helloMessage || 'Xin chào mọi người!',
+                      type: MessageType.TEXT,
+                    });
+                  }}
+                  style={[styles.sayHelloBtn, { backgroundColor: colors.primary }]}
+                >
+                  <Text style={styles.sayHelloText}>
+                    {t.chat?.sayHelloAction || 'Gửi lời chào đầu tiên'}
+                  </Text>
+                </TouchableOpacity>
               </View>
             ) : (
               dateSections.map((section, sectionIdx) => (
@@ -2458,6 +2601,7 @@ export default function CircleWorkspaceScreen() {
                                   onRetry={handleRetry}
                                   onPreviewImage={handleOpenImagePreview}
                                   onJumpToMessage={handleJumpToMessage}
+                                  onStartCall={handleStartCall}
                                 />
                               </View>
                             );
@@ -2541,6 +2685,7 @@ export default function CircleWorkspaceScreen() {
                                     onRetry={handleRetry}
                                     onPreviewImage={handleOpenImagePreview}
                                     onJumpToMessage={handleJumpToMessage}
+                                    onStartCall={handleStartCall}
                                   />
                                 </View>
                               );
@@ -3740,6 +3885,16 @@ export default function CircleWorkspaceScreen() {
         t={t}
       />
 
+      {/* Search Messages Modal (CHT-17) */}
+      <SearchMessagesModal
+        visible={isSearchModalVisible}
+        onClose={() => setIsSearchModalVisible(false)}
+        channelId={currentChannelId}
+        onJumpToMessage={handleJumpToMessage}
+        colors={colors}
+        t={t}
+      />
+
       {/* Clear Chat History Modal (Mobile) */}
       <Modal
         visible={isClearChatModalOpen}
@@ -4295,6 +4450,47 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingVertical: 2,
   },
+  callSummaryCard: {
+    minWidth: 220,
+    maxWidth: 290,
+    gap: 8,
+    paddingVertical: 2,
+    paddingHorizontal: 2,
+  },
+  callSummaryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  callSummaryIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  callSummaryInfo: {
+    flex: 1,
+    minWidth: 0,
+  },
+  callSummaryActionWrap: {
+    borderTopWidth: 1,
+    paddingTop: 8,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+  },
+  callSummaryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+  callSummaryBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
   callNotificationTitle: {
     fontSize: 13,
     fontWeight: '700',
@@ -4353,19 +4549,46 @@ const styles = StyleSheet.create({
   },
   emptyChatBox: {
     padding: 24,
-    borderRadius: 18,
+    borderRadius: 20,
+    borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
+    marginHorizontal: 8,
+    marginVertical: 24,
+  },
+  emptyChatIconSquircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
   },
   emptyChatTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
-    marginBottom: 4,
+    marginBottom: 6,
     textAlign: 'center',
+    letterSpacing: -0.2,
   },
   emptyChatText: {
-    fontSize: 13,
-    fontWeight: '500',
+    fontSize: 12,
+    lineHeight: 18,
     textAlign: 'center',
+    paddingHorizontal: 12,
+  },
+  sayHelloBtn: {
+    marginTop: 16,
+    paddingHorizontal: 18,
+    paddingVertical: 8,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sayHelloText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
   },
   clusterContainerMe: {
     alignItems: 'flex-end',
