@@ -88,6 +88,8 @@ import {
   Ban,
   EyeOff,
   MoreVertical,
+  Search,
+  Hash,
 } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { editMessageApi, recallMessageApi, clearChannelHistoryApi } from '../../src/services/chat.service';
@@ -122,6 +124,7 @@ import { MomentsView, parseMomentPhotos, MomentFeedPipView, formatMomentRelative
 import { CreateCircleModal } from '../../src/components/circle/CreateCircleModal';
 import { JoinCircleModal } from '../../src/components/circle/JoinCircleModal';
 import { PinnedMessagesModal } from '../../src/components/chat/PinnedMessagesModal';
+import { SearchMessagesModal } from '../../src/components/chat/SearchMessagesModal';
 import { MobileCallStageModal } from '../../src/components/call/MobileCallStageModal';
 import { Emoji } from '../../src/components/ui/Emoji';
 import { FullEmojiPickerModal } from '../../src/components/ui/FullEmojiPickerModal';
@@ -1281,6 +1284,7 @@ export default function CircleWorkspaceScreen() {
   const [activeActionMessage, setActiveActionMessage] = useState<any | null>(null);
   const [activeTimestampMessageId, setActiveTimestampMessageId] = useState<string | null>(null);
   const [isPinnedModalVisible, setIsPinnedModalVisible] = useState(false);
+  const [isSearchModalVisible, setIsSearchModalVisible] = useState(false);
   const [isFullEmojiModalVisible, setIsFullEmojiModalVisible] = useState(false);
   const [targetReactMessageId, setTargetReactMessageId] = useState<string | null>(null);
   const [momentsMemberFilter, setMomentsMemberFilter] = useState<string | 'all'>('all');
@@ -2272,6 +2276,28 @@ export default function CircleWorkspaceScreen() {
                 <>
                   <TouchableOpacity
                     activeOpacity={0.7}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setIsSearchModalVisible(true);
+                    }}
+                    style={[
+                      styles.headerActionCircleBtn,
+                      {
+                        backgroundColor: isGlass
+                          ? (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)')
+                          : colors.surface,
+                        borderColor: isGlass
+                          ? (isDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.07)')
+                          : colors.hairline,
+                      },
+                    ]}
+                    accessibilityLabel={t.chat?.searchInChannel || 'Tìm kiếm tin nhắn'}
+                  >
+                    <Search size={13} color={colors.text} />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    activeOpacity={0.7}
                     onPress={() => handleStartCall('audio')}
                     style={[
                       styles.headerActionCircleBtn,
@@ -2420,14 +2446,33 @@ export default function CircleWorkspaceScreen() {
             {isLoadingMessages && messages.length === 0 ? (
               <ActivityIndicator color={colors.primary} style={{ marginVertical: 20 }} />
             ) : messages.length === 0 ? (
-              <View style={[styles.emptyChatBox, { backgroundColor: colors.wash }]}>
-                <MessageSquare size={32} color={colors.primary} style={{ marginBottom: 8 }} />
+              <View style={[styles.emptyChatBox, { backgroundColor: colors.wash, borderColor: colors.hairline }]}>
+                <View style={[styles.emptyChatIconSquircle, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+                  <Hash size={20} color={colors.primary} />
+                </View>
                 <Text style={[styles.emptyChatTitle, { color: colors.text }]}>
-                  {t.chat.noMessagesYet}
+                  {circle.name
+                    ? (t.chat?.welcomeTitle || 'Chào mừng bạn đến với {name}').replace('{name}', circle.name)
+                    : t.chat.noMessagesYet}
                 </Text>
                 <Text style={[styles.emptyChatText, { color: colors.subtle }]}>
-                  {t.chat.firstMessageHint}
+                  {(circle as any)?.description || t.chat?.welcomeSubtitle || t.chat.firstMessageHint}
                 </Text>
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    sendMessageMutation.mutate({
+                      content: t.chat?.helloMessage || 'Xin chào mọi người!',
+                      type: MessageType.TEXT,
+                    });
+                  }}
+                  style={[styles.sayHelloBtn, { backgroundColor: colors.primary }]}
+                >
+                  <Text style={styles.sayHelloText}>
+                    {t.chat?.sayHelloAction || 'Gửi lời chào đầu tiên'}
+                  </Text>
+                </TouchableOpacity>
               </View>
             ) : (
               dateSections.map((section, sectionIdx) => (
@@ -3844,6 +3889,16 @@ export default function CircleWorkspaceScreen() {
         t={t}
       />
 
+      {/* Search Messages Modal (CHT-17) */}
+      <SearchMessagesModal
+        visible={isSearchModalVisible}
+        onClose={() => setIsSearchModalVisible(false)}
+        channelId={currentChannelId}
+        onJumpToMessage={handleJumpToMessage}
+        colors={colors}
+        t={t}
+      />
+
       {/* Clear Chat History Modal (Mobile) */}
       <Modal
         visible={isClearChatModalOpen}
@@ -4498,19 +4553,46 @@ const styles = StyleSheet.create({
   },
   emptyChatBox: {
     padding: 24,
-    borderRadius: 18,
+    borderRadius: 20,
+    borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
+    marginHorizontal: 8,
+    marginVertical: 24,
+  },
+  emptyChatIconSquircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
   },
   emptyChatTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
-    marginBottom: 4,
+    marginBottom: 6,
     textAlign: 'center',
+    letterSpacing: -0.2,
   },
   emptyChatText: {
-    fontSize: 13,
-    fontWeight: '500',
+    fontSize: 12,
+    lineHeight: 18,
     textAlign: 'center',
+    paddingHorizontal: 12,
+  },
+  sayHelloBtn: {
+    marginTop: 16,
+    paddingHorizontal: 18,
+    paddingVertical: 8,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sayHelloText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
   },
   clusterContainerMe: {
     alignItems: 'flex-end',

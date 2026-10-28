@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useQueryClient, InfiniteData } from '@tanstack/react-query';
 import { MessageSquare, Pin, Users, Hash, WifiOff, Phone, Video, Radio, PhoneCall, PhoneOff, Search, X, Loader2, MoreVertical, Trash2 } from 'lucide-react';
-import { MessageEntity, CursorPaginatedMessages, CallType, CallSessionDetailEntity, ClearChatMode } from '@circle/types';
+import { MessageEntity, CursorPaginatedMessages, CallType, CallSessionDetailEntity, ClearChatMode, MessageType } from '@circle/types';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguageStore } from '../../stores/language.store';
 import { useCircleStore } from '../../stores/circle.store';
@@ -270,6 +270,17 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
       replyToId: msg.replyToId || undefined,
       tempId: msg.tempId || msg.id,
     });
+  };
+
+  const handleSendIcebreaker = async (text: string) => {
+    try {
+      await sendMessageMutation.mutateAsync({
+        content: text,
+        type: MessageType.TEXT,
+      });
+    } catch (err) {
+      console.error('Failed to send icebreaker:', err);
+    }
   };
 
   // Locally hidden messages ("Xóa phía tôi" - CHT-11)
@@ -563,6 +574,9 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
           onTogglePin={handleTogglePin}
           onRetry={handleRetry}
           onStartCall={(type) => handleStartCall(type as CallType)}
+          circleName={circleDetail?.name || activeCircle?.name}
+          circleDescription={(circleDetail as any)?.description || (activeCircle as any)?.description}
+          onSendIcebreaker={handleSendIcebreaker}
         />
 
         {/* Typing Indicator Bar */}
