@@ -274,7 +274,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               : 'px-4 py-2.5 ' + (isSenderMe ? 'msg-bubble-me' : 'msg-bubble-other')
           } ${message.isPinned ? 'ring-2 ring-amber-400/40' : ''} ${
             isHighlighted
-              ? 'ring-2 ring-circle-primary dark:ring-circle-dark-primary shadow-lg scale-[1.02] bg-circle-primary/10 transition-all duration-300'
+              ? 'ring-2 ring-circle-primary dark:ring-circle-dark-primary shadow-xl scale-[1.02] bg-circle-primary/15 transition-all duration-300 animate-pulse'
               : ''
           }`}
         >

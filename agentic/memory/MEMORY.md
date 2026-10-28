@@ -24,10 +24,13 @@
 - Ý tưởng tính năng mới → `agentic/playbooks/innovation-pool.md`, chờ duyệt; không tự implement. — chốt 2026-10-25
 - **Mặc định đa nền tảng song hành (Web + Mobile parity):** Khi implement bất kỳ tính năng nào, mặc định BẮT BUỘC triển khai song song và hoàn thiện đồng bộ trên cả 2 nền tảng: Web (`apps/web`) và Mobile (`apps/mobile` - React Native Expo). Cấm chỉ làm trên một nền tảng rồi coi là xong; tránh mất trace và không bao giờ để xảy ra tình trạng "làm rồi nhưng thiếu trên Web hoặc Mobile". — chốt bởi Bình, 2026-10-25
 - **Tự động kích hoạt Memory Protocol:** Tự nhận diện và lập tức ghi nhận mọi chỉ đạo, sửa lỗi, sở thích hoặc quy tắc làm việc của kỹ sư vào Layer 2/Layer 1 ngay trong lượt tương tác, không được bỏ sót và không chờ nhắc. — chốt bởi Bình, 2026-10-25
+- **Tư duy sản phẩm & Trải nghiệm thực tế (Product & UX-First):** Không bao giờ làm tính năng theo kiểu "chạy được là xong" hay liệt kê checklist cho có. Đặt mình vào vị trí người dùng thực tế: tính năng có thực sự hữu ích không, có gây cảm hứng muốn dùng không; UI/UX phải chỉn chu và được kiểm chứng trực quan bằng công cụ. — chốt bởi Bình, 2026-10-27
+- **Thẩm mỹ chuyên nghiệp, chống "AI Slop":** Không lạm dụng emoji sến súa (👋, ☕, 🍕...), icon lòe loẹt hay hiệu ứng hào quang tạo cảm giác rẻ tiền. UI phải chuẩn mực, sang trọng, tinh tế (typography sắc nét, khoảng trắng cân đối, viền hairline tinh xảo) mang lại độ legit cao như các sản phẩm hàng đầu. — chốt bởi Bình, 2026-10-27
 
 ## Corrections & Lessons
 
 - [correction] Mặc định triển khai tính năng phải làm song song cả Web và Mobile; tuyệt đối cấm làm một bên rồi coi là hoàn thành (thay thế: thói quen làm web trước rồi mới làm mobile sau dẫn đến thiếu sót/mất trace) — theo Bình, 2026-10-25.
+- [correction] Phải đọc sâu và thấu đáo toàn bộ codebase trước khi nhận xét/đánh giá; không được grep hời hợt rồi kết luận chưa làm. Phải phân tích thấu đáo xem phần nào đã có nền móng, phần nào còn dang dở hoặc trải nghiệm còn thô để cải thiện nâng tầm trải nghiệm cho user. — theo Bình, 2026-10-27.
 
 ## Decisions (chỉ mục — chi tiết ở ADR/topic)
 
