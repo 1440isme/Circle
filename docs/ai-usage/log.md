@@ -5058,3 +5058,44 @@
 - **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
 - **Branch:** `feat/98-circle-tools-planning-location-poll`
 - **PR:** #99
+
+---
+
+## AI-0140: US-CALL-003 — Elevate Post-Call Summary Card with One-Tap Callback Action (Web + Mobile)
+
+- **Date:** 2026-10-27 22:38:00 +07:00
+- **Developer:** Trương Công Bình (MSSV: 23110184)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash
+- **Related Issue:** #113 (US-CALL-003: Elevate Post-Call Summary Card with One-Tap Callback Action)
+- **Purpose:** Nâng cấp trải nghiệm thẻ tóm tắt cuộc gọi (Call Summary Card) trong phòng trò chuyện nhóm Circle theo đúng chuẩn Playbook Voice/Video (`CAL-08`) và Chat (`CHT-20`), đạt 100% Dual-Platform Parity giữa Web và Mobile:
+  1. **Thiết kế Thẻ Tóm tắt Cuộc gọi (Call Summary Card) chuẩn mực:**
+     - Tinh chỉnh icon squircle trang nhã (`Phone` / `Video`) phân định rõ ràng kiểu cuộc gọi thoại hoặc cuộc gọi video.
+     - Trạng thái trực quan: Phân biệt cuộc gọi đã hoàn thành (màu emerald/mint) vs cuộc gọi nhỡ/chưa có người nhấc máy (màu amber).
+     - Định dạng thời lượng đàm thoại chi tiết, rõ ràng và mạch lạc.
+  2. **Nút Hành động Một chạm "Gọi lại" (One-Tap Callback Action):**
+     - Bổ sung nút bấm "Gọi lại" (Callback) trực tiếp ngay trên thẻ card cuộc gọi trong khung chat.
+     - Web (`MessageBubble.tsx`): Chạm nút trực tiếp kích hoạt cuộc gọi cùng loại (Thoại/Video) qua `onStartCall` nối tới `handleStartCall`.
+     - Mobile (`app/circle/[id].tsx`): Chạm nút có phản hồi rung xúc giác (Haptic feedback) và kích hoạt trực tiếp `handleStartCall`.
+  3. **Đa ngôn ngữ & Theme Token:**
+     - Bổ sung các chuỗi bản địa hóa `callbackAction`, `missedAudioCall`, `missedVideoCall`, `callEndedShort` vào `vi.ts` và `en.ts`.
+     - 100% tương thích cả Light Mode và Dark Mode trên cả hai nền tảng.
+- **Files Affected:**
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `apps/web/src/components/chat/MessageBubble.tsx`
+  - `apps/web/src/components/chat/MessageList.tsx`
+  - `apps/web/src/components/chat/ChannelChatView.tsx`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% Call Summary Card UI layout, callback button handlers, i18n mapping, and styling.
+- **Human Modifications:** Trương Công Bình trực tiếp chỉ đạo định hướng sản phẩm: thẻ kết thúc cuộc gọi phải cho phép gọi lại 1 chạm ngay trong chat để không bắt người dùng phải cuộn tìm nút gọi.
+- **Verification Method:**
+  - `npm test -w @circle/backend`: 175/175 tests pass 100% (11/11 suites).
+  - `npm run build -w @circle/web`: Next.js production build 9/9 static routes pass.
+  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Mobile TypeScript 0 errors.
+  - `./scripts/check-agent-map.sh`: 116/116 framework files pass.
+- **Official Source Checked:** `agentic/playbooks/06-voice-video.md` (CAL-08), `agentic/playbooks/05-chat.md` (CHT-20), `PROJECT_GOD.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
+- **Branch:** `feat/113-call-summary-card-and-callback`
+- **PR:** #114

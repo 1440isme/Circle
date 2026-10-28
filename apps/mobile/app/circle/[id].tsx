@@ -408,6 +408,7 @@ interface MobileSwipeMessageBubbleProps {
   onRetry?: (msg: any) => void;
   onPreviewImage?: (url: string) => void;
   onJumpToMessage?: (messageId: string) => void;
+  onStartCall?: (type: 'audio' | 'video') => void;
 }
 
 const MobileSwipeMessageBubble = React.memo(function MobileSwipeMessageBubble({
@@ -431,6 +432,7 @@ const MobileSwipeMessageBubble = React.memo(function MobileSwipeMessageBubble({
   onRetry,
   onPreviewImage,
   onJumpToMessage,
+  onStartCall,
 }: MobileSwipeMessageBubbleProps) {
   const translateX = useRef(new Animated.Value(0)).current;
   const hasVibratedOnSwipe = useRef(false);
@@ -887,38 +889,134 @@ const MobileSwipeMessageBubble = React.memo(function MobileSwipeMessageBubble({
                   </View>
                 );
               })() : callSummaryData ? (
-                <View style={styles.callNotificationRow}>
-                  {callSummaryData.callType === 'VIDEO' ? (
-                    <Video
-                      size={20}
-                      color={isSenderMe ? senderTextColor : colors.text}
-                    />
-                  ) : (
-                    <Phone
-                      size={20}
-                      color={isSenderMe ? senderTextColor : colors.text}
-                    />
-                  )}
-                  <View style={{ flexShrink: 1 }}>
-                    <Text
+                <View style={styles.callSummaryCard}>
+                  <View style={styles.callSummaryHeader}>
+                    <View
                       style={[
-                        styles.callNotificationTitle,
-                        { color: isSenderMe ? senderTextColor : colors.text },
+                        styles.callSummaryIconWrap,
+                        {
+                          backgroundColor:
+                            callSummaryData.durationSeconds && callSummaryData.durationSeconds > 0
+                              ? isSenderMe
+                                ? 'rgba(0, 0, 0, 0.12)'
+                                : colors.wash
+                              : isSenderMe
+                              ? 'rgba(0, 0, 0, 0.12)'
+                              : 'rgba(245, 158, 11, 0.15)',
+                        },
                       ]}
                     >
-                      {callSummaryData.callType === 'VIDEO'
-                        ? (t.calls?.videoCallEnded || 'Cuộc gọi video kết thúc')
-                        : (t.calls?.audioCallEnded || 'Cuộc gọi thoại kết thúc')}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.callNotificationDuration,
-                        { color: isSenderMe ? senderTextColor : colors.subtle, opacity: isSenderMe ? 0.85 : 1 },
-                      ]}
-                    >
-                      {formatDurationText(callSummaryData.durationSeconds || 0)}
-                    </Text>
+                      {callSummaryData.callType === 'VIDEO' ? (
+                        <Video
+                          size={18}
+                          color={
+                            callSummaryData.durationSeconds && callSummaryData.durationSeconds > 0
+                              ? isSenderMe
+                                ? senderTextColor
+                                : colors.primary
+                              : isSenderMe
+                              ? senderTextColor
+                              : '#F59E0B'
+                          }
+                        />
+                      ) : (
+                        <Phone
+                          size={18}
+                          color={
+                            callSummaryData.durationSeconds && callSummaryData.durationSeconds > 0
+                              ? isSenderMe
+                                ? senderTextColor
+                                : colors.primary
+                              : isSenderMe
+                              ? senderTextColor
+                              : '#F59E0B'
+                          }
+                        />
+                      )}
+                    </View>
+
+                    <View style={styles.callSummaryInfo}>
+                      <Text
+                        numberOfLines={1}
+                        style={[
+                          styles.callNotificationTitle,
+                          { color: isSenderMe ? senderTextColor : colors.text },
+                        ]}
+                      >
+                        {callSummaryData.durationSeconds && callSummaryData.durationSeconds > 0
+                          ? callSummaryData.callType === 'VIDEO'
+                            ? (t.calls?.videoCallEnded || 'Cuộc gọi video kết thúc')
+                            : (t.calls?.audioCallEnded || 'Cuộc gọi thoại kết thúc')
+                          : callSummaryData.callType === 'VIDEO'
+                          ? (t.calls?.missedVideoCall || 'Cuộc gọi video nhỡ')
+                          : (t.calls?.missedAudioCall || 'Cuộc gọi thoại nhỡ')}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.callNotificationDuration,
+                          {
+                            color: isSenderMe ? senderTextColor : colors.subtle,
+                            opacity: isSenderMe ? 0.85 : 1,
+                          },
+                        ]}
+                      >
+                        {callSummaryData.durationSeconds && callSummaryData.durationSeconds > 0
+                          ? formatDurationText(callSummaryData.durationSeconds)
+                          : (t.calls?.callEndedShort || 'Đã kết thúc')}
+                      </Text>
+                    </View>
                   </View>
+
+                  {onStartCall && (
+                    <View
+                      style={[
+                        styles.callSummaryActionWrap,
+                        {
+                          borderTopColor: isSenderMe
+                            ? 'rgba(0, 0, 0, 0.08)'
+                            : colors.hairline,
+                        },
+                      ]}
+                    >
+                      <TouchableOpacity
+                        activeOpacity={0.7}
+                        onPress={() => {
+                          try {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                          } catch {}
+                          onStartCall(callSummaryData?.callType === 'VIDEO' ? 'video' : 'audio');
+                        }}
+                        style={[
+                          styles.callSummaryBtn,
+                          {
+                            backgroundColor: isSenderMe
+                              ? 'rgba(0, 0, 0, 0.12)'
+                              : colors.primary,
+                          },
+                        ]}
+                      >
+                        {callSummaryData.callType === 'VIDEO' ? (
+                          <Video
+                            size={12}
+                            color={isSenderMe ? senderTextColor : '#FFF'}
+                          />
+                        ) : (
+                          <PhoneCall
+                            size={12}
+                            color={isSenderMe ? senderTextColor : '#FFF'}
+                          />
+                        )}
+                        <Text
+                          style={[
+                            styles.callSummaryBtnText,
+                            { color: isSenderMe ? senderTextColor : '#FFF' },
+                          ]}
+                        >
+                          {t.calls?.callbackAction || 'Gọi lại'}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
                 </View>
               ) : Boolean(msg.content && msg.content.trim()) ? (
                 <Text
@@ -2442,6 +2540,7 @@ export default function CircleWorkspaceScreen() {
                                   onRetry={handleRetry}
                                   onPreviewImage={handleOpenImagePreview}
                                   onJumpToMessage={handleJumpToMessage}
+                                  onStartCall={handleStartCall}
                                 />
                               </View>
                             );
@@ -2525,6 +2624,7 @@ export default function CircleWorkspaceScreen() {
                                     onRetry={handleRetry}
                                     onPreviewImage={handleOpenImagePreview}
                                     onJumpToMessage={handleJumpToMessage}
+                                    onStartCall={handleStartCall}
                                   />
                                 </View>
                               );
@@ -4353,6 +4453,47 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     paddingVertical: 2,
+  },
+  callSummaryCard: {
+    minWidth: 220,
+    maxWidth: 290,
+    gap: 8,
+    paddingVertical: 2,
+    paddingHorizontal: 2,
+  },
+  callSummaryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  callSummaryIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  callSummaryInfo: {
+    flex: 1,
+    minWidth: 0,
+  },
+  callSummaryActionWrap: {
+    borderTopWidth: 1,
+    paddingTop: 8,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+  },
+  callSummaryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+  callSummaryBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   callNotificationTitle: {
     fontSize: 13,

@@ -21,6 +21,7 @@ interface MessageListProps {
   onDeleteForMe?: (messageId: string) => void;
   onRetry?: (message: MessageEntity) => void;
   onJumpToMessage?: (messageId: string) => void;
+  onStartCall?: (callType: 'AUDIO' | 'VIDEO') => void;
   circleName?: string;
   circleDescription?: string | null;
   onSendIcebreaker?: (text: string) => void;
@@ -50,6 +51,7 @@ export const MessageList: React.FC<MessageListProps> = ({
   onDeleteForMe,
   onRetry,
   onJumpToMessage,
+  onStartCall,
   circleName,
   circleDescription,
   onSendIcebreaker,
@@ -339,6 +341,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                             onDeleteForMe={onDeleteForMe}
                             onRetry={onRetry}
                             onJumpToMessage={handleJumpToMessage}
+                            onStartCall={onStartCall}
                           />
                         ))}
                       </div>
@@ -398,6 +401,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                                 onDeleteForMe={onDeleteForMe}
                                 onRetry={onRetry}
                                 onJumpToMessage={handleJumpToMessage}
+                                onStartCall={onStartCall}
                               />
                             ))}
                           </div>

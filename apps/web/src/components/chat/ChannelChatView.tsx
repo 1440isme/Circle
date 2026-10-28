@@ -573,6 +573,7 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
           onReact={handleReact}
           onTogglePin={handleTogglePin}
           onRetry={handleRetry}
+          onStartCall={(type) => handleStartCall(type as CallType)}
           circleName={circleDetail?.name || activeCircle?.name}
           circleDescription={(circleDetail as any)?.description || (activeCircle as any)?.description}
           onSendIcebreaker={handleSendIcebreaker}
