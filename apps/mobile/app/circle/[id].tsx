@@ -44,6 +44,8 @@ import {
   Image as ImageIcon,
   Calendar,
   Map as MapIcon,
+  MapPin,
+  Vote,
   Sparkles,
   Heart,
   Flame,
@@ -68,7 +70,6 @@ import {
   Mic,
   PhoneCall,
   PhoneOff,
-  MapPin,
   Pencil,
   Trash2,
   Ban,
@@ -129,6 +130,9 @@ import { MobileAlbumsView } from '../../src/components/tools/MobileAlbumsView';
 import { MobileCalendarView } from '../../src/components/tools/MobileCalendarView';
 import { MobileWheelView } from '../../src/components/tools/MobileWheelView';
 import { MobileAnonymousView } from '../../src/components/tools/MobileAnonymousView';
+import { MobilePlanningView } from '../../src/components/tools/MobilePlanningView';
+import { MobileLocationView } from '../../src/components/tools/MobileLocationView';
+import { MobilePollView } from '../../src/components/tools/MobilePollView';
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -1150,7 +1154,9 @@ export default function CircleWorkspaceScreen() {
   };
 
   const [activeTab, setActiveTab] = useState<WorkspaceTab>('chat');
-  const [selectedTool, setSelectedTool] = useState<'menu' | 'album' | 'calendar' | 'wheel' | 'anonymous'>('menu');
+  const [selectedTool, setSelectedTool] = useState<
+    'menu' | 'album' | 'calendar' | 'wheel' | 'anonymous' | 'planning' | 'location' | 'poll'
+  >('menu');
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
   const [messageInput, setMessageInput] = useState('');
   const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
@@ -2964,6 +2970,39 @@ export default function CircleWorkspaceScreen() {
               </TouchableOpacity>
               <MobileAnonymousView circleId={circleId} />
             </View>
+          ) : selectedTool === 'planning' ? (
+            <View style={{ flex: 1 }}>
+              <TouchableOpacity
+                onPress={() => setSelectedTool('menu')}
+                style={{ paddingHorizontal: 16, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.hairline }}
+              >
+                <ArrowLeft size={16} color={colors.text} />
+                <Text style={{ fontSize: 12, fontWeight: '600', color: colors.text }}>Menu Tiện Ích</Text>
+              </TouchableOpacity>
+              <MobilePlanningView circleId={circleId} />
+            </View>
+          ) : selectedTool === 'location' ? (
+            <View style={{ flex: 1 }}>
+              <TouchableOpacity
+                onPress={() => setSelectedTool('menu')}
+                style={{ paddingHorizontal: 16, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.hairline }}
+              >
+                <ArrowLeft size={16} color={colors.text} />
+                <Text style={{ fontSize: 12, fontWeight: '600', color: colors.text }}>Menu Tiện Ích</Text>
+              </TouchableOpacity>
+              <MobileLocationView circleId={circleId} />
+            </View>
+          ) : selectedTool === 'poll' ? (
+            <View style={{ flex: 1 }}>
+              <TouchableOpacity
+                onPress={() => setSelectedTool('menu')}
+                style={{ paddingHorizontal: 16, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.hairline }}
+              >
+                <ArrowLeft size={16} color={colors.text} />
+                <Text style={{ fontSize: 12, fontWeight: '600', color: colors.text }}>Menu Tiện Ích</Text>
+              </TouchableOpacity>
+              <MobilePollView circleId={circleId} />
+            </View>
           ) : (
             <ScrollView contentContainerStyle={[styles.toolsContainer, { paddingTop: 12 }]} showsVerticalScrollIndicator={false}>
               <View style={[styles.toolsCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
@@ -3012,7 +3051,52 @@ export default function CircleWorkspaceScreen() {
                   <ChevronRight size={16} color={colors.subtle} />
                 </TouchableOpacity>
 
-                {/* Tool 4: Lucky Wheel */}
+                {/* Tool 4: Planning Sheet (UC18) */}
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => setSelectedTool('planning')}
+                  style={[styles.toolRow, { borderBottomColor: colors.hairline }]}
+                >
+                  <FileSpreadsheet size={20} color={colors.text} />
+                  <View style={styles.toolInfo}>
+                    <Text style={[styles.toolTitle, { color: colors.text }]}>
+                      {t.nav.planningSheet}
+                    </Text>
+                  </View>
+                  <ChevronRight size={16} color={colors.subtle} />
+                </TouchableOpacity>
+
+                {/* Tool 5: Live Location (UC19) */}
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => setSelectedTool('location')}
+                  style={[styles.toolRow, { borderBottomColor: colors.hairline }]}
+                >
+                  <MapPin size={20} color={colors.text} />
+                  <View style={styles.toolInfo}>
+                    <Text style={[styles.toolTitle, { color: colors.text }]}>
+                      {t.nav.liveLocation}
+                    </Text>
+                  </View>
+                  <ChevronRight size={16} color={colors.subtle} />
+                </TouchableOpacity>
+
+                {/* Tool 6: Group Poll (UC15) */}
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => setSelectedTool('poll')}
+                  style={[styles.toolRow, { borderBottomColor: colors.hairline }]}
+                >
+                  <Vote size={20} color={colors.text} />
+                  <View style={styles.toolInfo}>
+                    <Text style={[styles.toolTitle, { color: colors.text }]}>
+                      {t.nav.groupPoll}
+                    </Text>
+                  </View>
+                  <ChevronRight size={16} color={colors.subtle} />
+                </TouchableOpacity>
+
+                {/* Tool 7: Lucky Wheel */}
                 <TouchableOpacity
                   activeOpacity={0.7}
                   onPress={() => setSelectedTool('wheel')}
@@ -3027,7 +3111,7 @@ export default function CircleWorkspaceScreen() {
                   <ChevronRight size={16} color={colors.subtle} />
                 </TouchableOpacity>
 
-                {/* Tool 5: Anonymous Words Unsaid */}
+                {/* Tool 8: Anonymous Words Unsaid */}
                 <TouchableOpacity
                   activeOpacity={0.7}
                   onPress={() => setSelectedTool('anonymous')}

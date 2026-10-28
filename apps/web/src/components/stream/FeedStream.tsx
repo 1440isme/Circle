@@ -28,6 +28,9 @@ import { CircleAlbumsView } from '../tools/CircleAlbumsView';
 import { CircleCalendarView } from '../tools/CircleCalendarView';
 import { CircleWheelView } from '../tools/CircleWheelView';
 import { CircleAnonymousView } from '../tools/CircleAnonymousView';
+import { CirclePlanningView } from '../tools/CirclePlanningView';
+import { CircleLocationView } from '../tools/CircleLocationView';
+import { CirclePollView } from '../tools/CirclePollView';
 
 export const FeedStream: React.FC = () => {
   const { user } = useAuth();
@@ -240,6 +243,12 @@ export const FeedStream: React.FC = () => {
         <CircleWheelView circleId={activeCircle.id} />
       ) : activeCircleView === 'anonymous' ? (
         <CircleAnonymousView circleId={activeCircle.id} />
+      ) : activeCircleView === 'planning' ? (
+        <CirclePlanningView circleId={activeCircle.id} />
+      ) : activeCircleView === 'location' ? (
+        <CircleLocationView circleId={activeCircle.id} />
+      ) : activeCircleView === 'polls' ? (
+        <CirclePollView circleId={activeCircle.id} />
       ) : currentChannel ? (
         <ChannelChatView
           key={currentChannel.id}

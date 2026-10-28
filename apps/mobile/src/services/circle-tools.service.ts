@@ -11,6 +11,17 @@ import {
   CreateAnonymousPostInput,
   CalendarEventEntity,
   CreateCalendarEventInput,
+  PlanningSheetEntity,
+  CreatePlanningSheetInput,
+  AddSheetColumnInput,
+  AddSheetRowInput,
+  UpdateSheetCellInput,
+  LiveLocationEntity,
+  StartLiveLocationInput,
+  UpdateLiveLocationInput,
+  GroupPollEntity,
+  CreatePollInput,
+  VotePollInput,
 } from '@circle/types';
 
 // =============================================================================
@@ -186,3 +197,203 @@ export async function deleteCalendarEventApi(
     method: 'DELETE',
   });
 }
+
+// =============================================================================
+// 5. COLLABORATIVE PLANNING SHEET (UC18)
+// =============================================================================
+
+export async function getPlanningSheetsApi(
+  circleId: string,
+): Promise<PlanningSheetEntity[]> {
+  const res = await mobileApiRequest<PlanningSheetEntity[]>(
+    `/circles/${circleId}/planning-sheets`,
+  );
+  return res.data;
+}
+
+export async function getPlanningSheetDetailApi(
+  circleId: string,
+  sheetId: string,
+): Promise<PlanningSheetEntity> {
+  const res = await mobileApiRequest<PlanningSheetEntity>(
+    `/circles/${circleId}/planning-sheets/${sheetId}`,
+  );
+  return res.data;
+}
+
+export async function createPlanningSheetApi(
+  circleId: string,
+  input: CreatePlanningSheetInput,
+): Promise<PlanningSheetEntity> {
+  const res = await mobileApiRequest<PlanningSheetEntity>(
+    `/circles/${circleId}/planning-sheets`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    },
+  );
+  return res.data;
+}
+
+export async function addSheetColumnApi(
+  circleId: string,
+  sheetId: string,
+  input: AddSheetColumnInput,
+): Promise<PlanningSheetEntity> {
+  const res = await mobileApiRequest<PlanningSheetEntity>(
+    `/circles/${circleId}/planning-sheets/${sheetId}/columns`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    },
+  );
+  return res.data;
+}
+
+export async function addSheetRowApi(
+  circleId: string,
+  sheetId: string,
+  input: AddSheetRowInput,
+): Promise<PlanningSheetEntity> {
+  const res = await mobileApiRequest<PlanningSheetEntity>(
+    `/circles/${circleId}/planning-sheets/${sheetId}/rows`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    },
+  );
+  return res.data;
+}
+
+export async function updateSheetCellApi(
+  circleId: string,
+  sheetId: string,
+  cellId: string,
+  input: UpdateSheetCellInput,
+): Promise<any> {
+  const res = await mobileApiRequest(
+    `/circles/${circleId}/planning-sheets/${sheetId}/cells/${cellId}`,
+    {
+      method: 'PUT',
+      body: JSON.stringify(input),
+    },
+  );
+  return res.data;
+}
+
+export async function deletePlanningSheetApi(
+  circleId: string,
+  sheetId: string,
+): Promise<void> {
+  await mobileApiRequest(`/circles/${circleId}/planning-sheets/${sheetId}`, {
+    method: 'DELETE',
+  });
+}
+
+// =============================================================================
+// 6. LIVE LOCATION SHARING (UC19)
+// =============================================================================
+
+export async function getLiveLocationsApi(
+  circleId: string,
+): Promise<LiveLocationEntity[]> {
+  const res = await mobileApiRequest<LiveLocationEntity[]>(
+    `/circles/${circleId}/live-locations`,
+  );
+  return res.data;
+}
+
+export async function startLiveLocationApi(
+  circleId: string,
+  input: StartLiveLocationInput,
+): Promise<LiveLocationEntity> {
+  const res = await mobileApiRequest<LiveLocationEntity>(
+    `/circles/${circleId}/live-locations/start`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    },
+  );
+  return res.data;
+}
+
+export async function updateLiveLocationApi(
+  circleId: string,
+  input: UpdateLiveLocationInput,
+): Promise<LiveLocationEntity> {
+  const res = await mobileApiRequest<LiveLocationEntity>(
+    `/circles/${circleId}/live-locations`,
+    {
+      method: 'PUT',
+      body: JSON.stringify(input),
+    },
+  );
+  return res.data;
+}
+
+export async function stopLiveLocationApi(
+  circleId: string,
+): Promise<{ success: boolean; stopped: boolean }> {
+  const res = await mobileApiRequest<{ success: boolean; stopped: boolean }>(
+    `/circles/${circleId}/live-locations/stop`,
+    {
+      method: 'POST',
+    },
+  );
+  return res.data;
+}
+
+// =============================================================================
+// 7. GROUP POLL (UC15)
+// =============================================================================
+
+export async function getPollsApi(circleId: string): Promise<GroupPollEntity[]> {
+  const res = await mobileApiRequest<GroupPollEntity[]>(`/circles/${circleId}/polls`);
+  return res.data;
+}
+
+export async function createPollApi(
+  circleId: string,
+  input: CreatePollInput,
+): Promise<GroupPollEntity> {
+  const res = await mobileApiRequest<GroupPollEntity>(`/circles/${circleId}/polls`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+  return res.data;
+}
+
+export async function votePollApi(
+  circleId: string,
+  pollId: string,
+  input: VotePollInput,
+): Promise<GroupPollEntity> {
+  const res = await mobileApiRequest<GroupPollEntity>(
+    `/circles/${circleId}/polls/${pollId}/vote`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    },
+  );
+  return res.data;
+}
+
+export async function closePollApi(
+  circleId: string,
+  pollId: string,
+): Promise<GroupPollEntity> {
+  const res = await mobileApiRequest<GroupPollEntity>(
+    `/circles/${circleId}/polls/${pollId}/close`,
+    {
+      method: 'PUT',
+    },
+  );
+  return res.data;
+}
+
+export async function deletePollApi(circleId: string, pollId: string): Promise<void> {
+  await mobileApiRequest(`/circles/${circleId}/polls/${pollId}`, {
+    method: 'DELETE',
+  });
+}
+

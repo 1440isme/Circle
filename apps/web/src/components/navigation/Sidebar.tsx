@@ -16,6 +16,8 @@ import {
   ChevronDown,
   Link2,
   Camera,
+  MapPin,
+  Vote,
 } from 'lucide-react';
 import { useLanguageStore } from '../../stores/language.store';
 import { useCircleStore } from '../../stores/circle.store';
@@ -248,7 +250,24 @@ export const Sidebar: React.FC = () => {
             active={activeCircleView === 'calendar'}
             onClick={() => setActiveCircleView('calendar')}
           />
-          <NavItem icon={<FileSpreadsheet className="h-4 w-4" />} label={t.nav.planningSheet} />
+          <NavItem
+            icon={<FileSpreadsheet className="h-4 w-4" />}
+            label={t.nav.planningSheet}
+            active={activeCircleView === 'planning'}
+            onClick={() => setActiveCircleView('planning')}
+          />
+          <NavItem
+            icon={<MapPin className="h-4 w-4" />}
+            label={t.nav.liveLocation}
+            active={activeCircleView === 'location'}
+            onClick={() => setActiveCircleView('location')}
+          />
+          <NavItem
+            icon={<Vote className="h-4 w-4" />}
+            label={t.nav.groupPoll}
+            active={activeCircleView === 'polls'}
+            onClick={() => setActiveCircleView('polls')}
+          />
           <NavItem
             icon={<Compass className="h-4 w-4" />}
             label={t.nav.luckyWheel}
