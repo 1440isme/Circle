@@ -6,6 +6,8 @@ import {
   CreateAnonymousPostInput,
   CreateCalendarEventInput,
   UpdateCalendarEventInput,
+  RespondEventRsvpInput,
+  EventRsvpStatus,
   CreatePlanningSheetInput,
   AddSheetColumnInput,
   AddSheetRowInput,
@@ -64,6 +66,10 @@ export class UpdateCalendarEventDto implements UpdateCalendarEventInput {
   startTime?: string;
   endTime?: string;
   reminderTime?: string;
+}
+
+export class RespondEventRsvpDto implements RespondEventRsvpInput {
+  status: EventRsvpStatus;
 }
 
 // =============================================================================

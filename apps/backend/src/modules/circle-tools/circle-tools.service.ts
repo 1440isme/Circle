@@ -8,7 +8,6 @@ import {
   forwardRef,
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
-import { ChatGateway } from '../chat/chat.gateway';
 import {
   CreateSharedAlbumDto,
   UpdateSharedAlbumDto,
@@ -17,6 +16,7 @@ import {
   CreateAnonymousPostDto,
   CreateCalendarEventDto,
   UpdateCalendarEventDto,
+  RespondEventRsvpDto,
   CreatePlanningSheetDto,
   AddSheetColumnDto,
   AddSheetRowDto,
@@ -26,7 +26,12 @@ import {
   CreatePollDto,
   VotePollDto,
 } from './dto/circle-tools.dto';
-import { SpinWheelResult } from '@circle/types';
+import {
+  SpinWheelResult,
+  CalendarEventMessagePayload,
+  MessageEntity,
+} from '@circle/types';
+import { ChatGateway } from '../chat/chat.gateway';
 
 @Injectable()
 export class CircleToolsService {
@@ -44,6 +49,13 @@ export class CircleToolsService {
     const member = await this.prisma.circleMember.findUnique({
       where: {
         circleId_userId: { circleId, userId },
+      },
+      include: {
+        user: {
+          include: {
+            profile: true,
+          },
+        },
       },
     });
 
@@ -468,15 +480,30 @@ export class CircleToolsService {
   async getCalendarEvents(circleId: string, userId: string, month?: number, year?: number) {
     await this.getMemberOrThrow(circleId, userId);
 
-    let dateFilter = {};
+    let dateFilter: any = {};
     if (month && year) {
       const startDate = new Date(Date.UTC(year, month - 1, 1));
       const endDate = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
       dateFilter = {
-        startTime: {
-          gte: startDate,
-          lte: endDate,
-        },
+        OR: [
+          // Sự kiện bắt đầu trong tháng
+          {
+            startTime: {
+              gte: startDate,
+              lte: endDate,
+            },
+          },
+          // Sự kiện bắt đầu trước tháng này nhưng kết thúc trong hoặc sau tháng này (kéo dài nhiều ngày)
+          {
+            startTime: { lte: endDate },
+            endTime: { gte: startDate },
+          },
+          // Sự kiện có cấu hình lặp lại bắt đầu trước hoặc trong tháng
+          {
+            startTime: { lte: endDate },
+            description: { contains: '[RECURRENCE:' },
+          },
+        ],
       };
     }
 
@@ -495,6 +522,15 @@ export class CircleToolsService {
             },
           },
         },
+        rsvps: {
+          include: {
+            user: {
+              include: {
+                profile: true,
+              },
+            },
+          },
+        },
       },
       orderBy: { startTime: 'asc' },
     });
@@ -503,16 +539,38 @@ export class CircleToolsService {
   async createCalendarEvent(circleId: string, userId: string, dto: CreateCalendarEventDto) {
     const member = await this.getMemberOrThrow(circleId, userId);
 
-    const event = await this.prisma.calendarEvent.create({
+    const start = new Date(dto.startTime);
+    if (isNaN(start.getTime())) {
+      throw new BadRequestException('Thời gian bắt đầu không hợp lệ');
+    }
+
+    let end: Date | null = null;
+    if (dto.endTime) {
+      end = new Date(dto.endTime);
+      if (isNaN(end.getTime())) {
+        throw new BadRequestException('Thời gian kết thúc không hợp lệ');
+      }
+      if (end.getTime() <= start.getTime()) {
+        throw new BadRequestException('Thời gian kết thúc phải lớn hơn thời gian bắt đầu');
+      }
+    }
+
+    const createdEvent = await this.prisma.calendarEvent.create({
       data: {
         circleId,
         createdById: member.id,
         eventTitle: dto.eventTitle.trim(),
         description: dto.description?.trim(),
         location: dto.location?.trim(),
-        startTime: new Date(dto.startTime),
-        endTime: dto.endTime ? new Date(dto.endTime) : null,
+        startTime: start,
+        endTime: end,
         reminderTime: dto.reminderTime ? new Date(dto.reminderTime) : null,
+        rsvps: {
+          create: {
+            userId,
+            status: 'YES',
+          },
+        },
       },
       include: {
         creator: {
@@ -524,66 +582,21 @@ export class CircleToolsService {
             },
           },
         },
+        rsvps: {
+          include: {
+            user: {
+              include: {
+                profile: true,
+              },
+            },
+          },
+        },
       },
     });
 
-    // Dispatch system calendar event message into primary circle channel (Issue #101 / CHT-20)
-    try {
-      const primaryChannel = await this.prisma.channel.findFirst({
-        where: { circleId, type: 'TEXT' },
-        orderBy: { createdAt: 'asc' },
-      });
+    await this.broadcastCalendarEventMessage(circleId, member, createdEvent, 'CREATED');
 
-      if (primaryChannel) {
-        const creatorName =
-          (member as any).user?.profile?.displayName || member.nickname || 'Thành viên';
-        const payload = JSON.stringify({
-          eventId: event.id,
-          title: event.eventTitle,
-          startTime: event.startTime.toISOString(),
-          endTime: event.endTime ? event.endTime.toISOString() : null,
-          location: event.location || null,
-          creatorName,
-        });
-
-        const systemMessage = await this.prisma.message.create({
-          data: {
-            channelId: primaryChannel.id,
-            memberId: member.id,
-            type: 'TEXT',
-            content: `[CALENDAR_EVENT]:${payload}`,
-          },
-          include: {
-            sender: { include: { user: { include: { profile: true } } } },
-          },
-        });
-
-        if (this.chatGateway) {
-          this.chatGateway.broadcastNewMessage(primaryChannel.id, {
-            id: systemMessage.id,
-            channelId: primaryChannel.id,
-            memberId: member.id,
-            type: 'TEXT',
-            content: systemMessage.content,
-            sentAt: systemMessage.sentAt.toISOString(),
-            updatedAt: systemMessage.updatedAt.toISOString(),
-            deletedAt: null,
-            sender: {
-              id: member.id,
-              nickname: member.nickname,
-              user: {
-                id: member.userId,
-                profile: (member as any).user?.profile || null,
-              },
-            },
-          });
-        }
-      }
-    } catch {
-      // Non-blocking
-    }
-
-    return event;
+    return createdEvent;
   }
 
   async updateCalendarEvent(
@@ -606,7 +619,31 @@ export class CircleToolsService {
       throw new ForbiddenException('Chỉ người tạo hoặc chủ vòng tròn mới có quyền sửa sự kiện');
     }
 
-    return this.prisma.calendarEvent.update({
+    if (dto.startTime) {
+      const start = new Date(dto.startTime);
+      if (isNaN(start.getTime())) {
+        throw new BadRequestException('Thời gian bắt đầu không hợp lệ');
+      }
+    }
+
+    const effectiveStart = dto.startTime ? new Date(dto.startTime) : event.startTime;
+    const effectiveEnd =
+      dto.endTime !== undefined
+        ? dto.endTime
+          ? new Date(dto.endTime)
+          : null
+        : event.endTime;
+
+    if (effectiveEnd) {
+      if (isNaN(effectiveEnd.getTime())) {
+        throw new BadRequestException('Thời gian kết thúc không hợp lệ');
+      }
+      if (effectiveEnd.getTime() <= effectiveStart.getTime()) {
+        throw new BadRequestException('Thời gian kết thúc phải lớn hơn thời gian bắt đầu');
+      }
+    }
+
+    const updatedEvent = await this.prisma.calendarEvent.update({
       where: { id: eventId },
       data: {
         eventTitle: dto.eventTitle ? dto.eventTitle.trim() : undefined,
@@ -631,8 +668,91 @@ export class CircleToolsService {
             },
           },
         },
+        rsvps: {
+          include: {
+            user: {
+              include: {
+                profile: true,
+              },
+            },
+          },
+        },
       },
     });
+
+    await this.broadcastCalendarEventMessage(circleId, member, updatedEvent, 'UPDATED');
+
+    return updatedEvent;
+  }
+
+  async cancelCalendarEvent(circleId: string, eventId: string, userId: string) {
+    const member = await this.getMemberOrThrow(circleId, userId);
+
+    const event = await this.prisma.calendarEvent.findFirst({
+      where: { id: eventId, circleId },
+      include: {
+        creator: {
+          include: {
+            user: {
+              include: {
+                profile: true,
+              },
+            },
+          },
+        },
+        rsvps: {
+          include: {
+            user: {
+              include: {
+                profile: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!event) {
+      throw new NotFoundException('Không tìm thấy sự kiện');
+    }
+
+    if (event.createdById !== member.id && member.role !== 'OWNER') {
+      throw new ForbiddenException('Chỉ người tạo hoặc chủ vòng tròn mới có quyền hủy sự kiện');
+    }
+
+    if (event.isCancelled) {
+      return event;
+    }
+
+    const updatedEvent = await this.prisma.calendarEvent.update({
+      where: { id: eventId },
+      data: { isCancelled: true },
+      include: {
+        creator: {
+          include: {
+            user: {
+              include: {
+                profile: true,
+              },
+            },
+          },
+        },
+        rsvps: {
+          include: {
+            user: {
+              include: {
+                profile: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // Broadcast cancellation announcement to circle chat
+    await this.broadcastCalendarEventMessage(circleId, member, updatedEvent, 'CANCELLED');
+
+    return updatedEvent;
   }
 
   async deleteCalendarEvent(circleId: string, eventId: string, userId: string) {
@@ -640,6 +760,26 @@ export class CircleToolsService {
 
     const event = await this.prisma.calendarEvent.findFirst({
       where: { id: eventId, circleId },
+      include: {
+        creator: {
+          include: {
+            user: {
+              include: {
+                profile: true,
+              },
+            },
+          },
+        },
+        rsvps: {
+          include: {
+            user: {
+              include: {
+                profile: true,
+              },
+            },
+          },
+        },
+      },
     });
 
     if (!event) {
@@ -650,11 +790,294 @@ export class CircleToolsService {
       throw new ForbiddenException('Chỉ người tạo hoặc chủ vòng tròn mới có quyền xóa sự kiện');
     }
 
+    // Broadcast cancellation announcement to circle chat before deleting
+    await this.broadcastCalendarEventMessage(circleId, member, event, 'DELETED');
+
     await this.prisma.calendarEvent.delete({
       where: { id: eventId },
     });
 
     return { success: true };
+  }
+
+  async respondEventRsvp(
+    circleId: string,
+    eventId: string,
+    userId: string,
+    dto: RespondEventRsvpDto,
+  ) {
+    await this.getMemberOrThrow(circleId, userId);
+
+    const event = await this.prisma.calendarEvent.findFirst({
+      where: { id: eventId, circleId },
+    });
+
+    if (!event) {
+      throw new NotFoundException('Không tìm thấy sự kiện');
+    }
+
+    if (new Date(event.startTime) <= new Date()) {
+      throw new BadRequestException(
+        'Sự kiện đang diễn ra hoặc đã kết thúc, không thể bình chọn tham gia nữa',
+      );
+    }
+
+    const rsvp = await this.prisma.calendarEventRsvp.upsert({
+      where: {
+        eventId_userId: {
+          eventId,
+          userId,
+        },
+      },
+      update: {
+        status: dto.status,
+      },
+      create: {
+        eventId,
+        userId,
+        status: dto.status,
+      },
+      include: {
+        user: {
+          include: {
+            profile: true,
+          },
+        },
+      },
+    });
+
+    const updatedEvent = await this.prisma.calendarEvent.findUnique({
+      where: { id: eventId },
+      include: {
+        creator: {
+          include: {
+            user: {
+              include: {
+                profile: true,
+              },
+            },
+          },
+        },
+        rsvps: {
+          include: {
+            user: {
+              include: {
+                profile: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (updatedEvent) {
+      const rsvpsBreakdown = this.computeRsvpBreakdown(updatedEvent.rsvps || []);
+      this.chatGateway?.broadcastCalendarEventRsvp(circleId, {
+        eventId,
+        circleId,
+        rsvp: {
+          id: rsvp.id,
+          eventId: rsvp.eventId,
+          userId: rsvp.userId,
+          status: rsvp.status,
+          createdAt: rsvp.createdAt.toISOString(),
+          updatedAt: rsvp.updatedAt.toISOString(),
+          user: rsvp.user
+            ? {
+                id: rsvp.user.id,
+                email: rsvp.user.email,
+                profile: rsvp.user.profile
+                  ? {
+                      displayName: rsvp.user.profile.displayName,
+                      avatarUrl: rsvp.user.profile.avatarUrl,
+                    }
+                  : null,
+              }
+            : undefined,
+        },
+        rsvps: rsvpsBreakdown,
+      });
+    }
+
+    return rsvp;
+  }
+
+  private computeRsvpBreakdown(rsvps: any[]) {
+    let yesCount = 0;
+    let noCount = 0;
+    let maybeCount = 0;
+
+    const userRsvps = rsvps.map((r) => {
+      if (r.status === 'YES') yesCount++;
+      else if (r.status === 'NO') noCount++;
+      else if (r.status === 'MAYBE') maybeCount++;
+
+      return {
+        userId: r.userId,
+        status: r.status,
+        displayName:
+          r.user?.profile?.displayName || r.user?.email?.split('@')[0] || 'Thành viên',
+        avatarUrl: r.user?.profile?.avatarUrl || null,
+      };
+    });
+
+    return {
+      yesCount,
+      noCount,
+      maybeCount,
+      userRsvps,
+    };
+  }
+
+  /**
+   * Helper: Broadcast a rich calendar event message into the circle's primary chat channel.
+   */
+  private async broadcastCalendarEventMessage(
+    circleId: string,
+    member: any,
+    event: any,
+    action: 'CREATED' | 'UPDATED' | 'CANCELLED' | 'DELETED',
+  ) {
+    try {
+      const channel = await this.prisma.channel.findFirst({
+        where: { circleId },
+        orderBy: { createdAt: 'asc' },
+      });
+      if (!channel) return;
+
+      const creatorName =
+        member.user?.profile?.displayName ||
+        member.user?.email?.split('@')[0] ||
+        member.nickname ||
+        'Thành viên';
+
+      let rsvpsData =
+        event.rsvps && event.rsvps.length > 0
+          ? this.computeRsvpBreakdown(event.rsvps)
+          : undefined;
+
+      // Always guarantee creator RSVP is included from the very beginning
+      if (!rsvpsData || rsvpsData.userRsvps.length === 0) {
+        rsvpsData = {
+          yesCount: 1,
+          noCount: 0,
+          maybeCount: 0,
+          userRsvps: [
+            {
+              userId: member.userId,
+              status: 'YES' as any,
+              displayName: creatorName,
+              avatarUrl: member.user?.profile?.avatarUrl || null,
+            },
+          ],
+        };
+      }
+
+      const payload: CalendarEventMessagePayload = {
+        type: 'CALENDAR_EVENT',
+        action,
+        eventId: event.id,
+        eventTitle: event.eventTitle,
+        description: event.description || null,
+        location: event.location || null,
+        startTime: event.startTime instanceof Date ? event.startTime.toISOString() : String(event.startTime),
+        endTime: event.endTime ? (event.endTime instanceof Date ? event.endTime.toISOString() : String(event.endTime)) : null,
+        reminderTime: event.reminderTime ? (event.reminderTime instanceof Date ? event.reminderTime.toISOString() : String(event.reminderTime)) : null,
+        isCancelled: Boolean(event.isCancelled || action === 'CANCELLED'),
+        creatorName,
+        rsvps: rsvpsData,
+      };
+
+      const rawMessage = await this.prisma.message.create({
+        data: {
+          channelId: channel.id,
+          memberId: member.id,
+          type: 'TEXT',
+          content: `[CALENDAR_EVENT]:${JSON.stringify(payload)}`,
+        },
+        include: {
+          sender: {
+            include: {
+              user: {
+                include: {
+                  profile: true,
+                },
+              },
+            },
+          },
+          reactions: {
+            include: {
+              member: {
+                include: {
+                  user: {
+                    include: {
+                      profile: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+          pinnedRecord: true,
+        },
+      });
+
+      const formattedMessage: MessageEntity = {
+        id: rawMessage.id,
+        channelId: rawMessage.channelId,
+        memberId: rawMessage.memberId,
+        type: rawMessage.type as any,
+        content: rawMessage.content,
+        fileUrl: rawMessage.fileUrl,
+        fileName: rawMessage.fileName,
+        fileSize: rawMessage.fileSize,
+        audioDuration: rawMessage.audioDuration,
+        replyToId: rawMessage.replyToId,
+        sentAt: rawMessage.sentAt.toISOString(),
+        updatedAt: rawMessage.updatedAt.toISOString(),
+        sender: rawMessage.sender
+          ? {
+              id: rawMessage.sender.id,
+              circleId: rawMessage.sender.circleId,
+              userId: rawMessage.sender.userId,
+              role: rawMessage.sender.role as any,
+              nickname: rawMessage.sender.nickname,
+              joinedAt: rawMessage.sender.joinedAt.toISOString(),
+              updatedAt: rawMessage.sender.updatedAt.toISOString(),
+              user: rawMessage.sender.user
+                ? {
+                    id: rawMessage.sender.user.id,
+                    email: rawMessage.sender.user.email,
+                    isActivated: rawMessage.sender.user.isActivated,
+                    globalRole: rawMessage.sender.user.globalRole as any,
+                    createdAt: rawMessage.sender.user.createdAt.toISOString(),
+                    updatedAt: rawMessage.sender.user.updatedAt.toISOString(),
+                    profile: rawMessage.sender.user.profile
+                      ? {
+                          id: rawMessage.sender.user.profile.id,
+                          userId: rawMessage.sender.user.profile.userId,
+                          displayName: rawMessage.sender.user.profile.displayName,
+                          avatarUrl: rawMessage.sender.user.profile.avatarUrl,
+                          bio: rawMessage.sender.user.profile.bio,
+                          dateOfBirth: rawMessage.sender.user.profile.dateOfBirth?.toISOString() || null,
+                          updatedAt: rawMessage.sender.user.profile.updatedAt.toISOString(),
+                        }
+                      : null,
+                  }
+                : undefined,
+            }
+          : undefined,
+        replyTo: null,
+        reactions: [],
+        reactionCounts: {},
+        userReactions: [],
+        isPinned: false,
+      };
+
+      this.chatGateway?.broadcastNewMessage(channel.id, formattedMessage);
+    } catch (err) {
+      console.error('Failed to broadcast calendar event message to channel:', err);
+    }
   }
 
   // ===========================================================================

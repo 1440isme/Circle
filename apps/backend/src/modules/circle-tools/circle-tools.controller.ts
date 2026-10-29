@@ -20,6 +20,7 @@ import {
   CreateAnonymousPostDto,
   CreateCalendarEventDto,
   UpdateCalendarEventDto,
+  RespondEventRsvpDto,
   CreatePlanningSheetDto,
   AddSheetColumnDto,
   AddSheetRowDto,
@@ -318,6 +319,21 @@ export class CircleToolsController {
     };
   }
 
+  @Put('calendar-events/:eventId/cancel')
+  async cancelCalendarEvent(
+    @Param('circleId') circleId: string,
+    @Param('eventId') eventId: string,
+    @CurrentUser('id') userId: string,
+  ): Promise<ApiResponse<any>> {
+    const data = await this.toolsService.cancelCalendarEvent(circleId, eventId, userId);
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      data,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
   @Delete('calendar-events/:eventId')
   async deleteCalendarEvent(
     @Param('circleId') circleId: string,
@@ -328,6 +344,20 @@ export class CircleToolsController {
     return {
       success: true,
       statusCode: HttpStatus.OK,
+      data,
+      timestamp: new Date().toISOString(),
+    };
+  }
+  @Put('calendar-events/:eventId/rsvp')
+  async respondEventRsvp(
+    @Param('circleId') circleId: string,
+    @Param('eventId') eventId: string,
+    @CurrentUser('id') userId: string,
+    @Body() dto: RespondEventRsvpDto,
+  ): Promise<ApiResponse<any>> {
+    const data = await this.toolsService.respondEventRsvp(circleId, eventId, userId, dto);
+    return {
+      success: true,
       data,
       timestamp: new Date().toISOString(),
     };

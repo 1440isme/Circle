@@ -202,8 +202,12 @@ export const MessageList: React.FC<MessageListProps> = ({
       const lastMsg = currentCluster?.messages[currentCluster.messages.length - 1];
       const lastMsgTime = lastMsg ? new Date(lastMsg.sentAt).getTime() : 0;
       const isWithin3Min = msgTime - lastMsgTime < 3 * 60 * 1000;
+      const isCalendarMsg = Boolean(msg.content?.startsWith('[CALENDAR_EVENT]:'));
+      const lastIsCalendar = Boolean(lastMsg?.content?.startsWith('[CALENDAR_EVENT]:'));
 
       if (
+        !isCalendarMsg &&
+        !lastIsCalendar &&
         currentCluster &&
         currentCluster.senderUserId === senderUserId &&
         currentCluster.isSenderMe === isSenderMe &&
@@ -310,6 +314,35 @@ export const MessageList: React.FC<MessageListProps> = ({
               {/* Message Clusters */}
               <div className="space-y-3">
                 {clusters.map((cluster, clusterIdx) => {
+                  const isCalendarCluster =
+                    cluster.messages.length === 1 &&
+                    Boolean(cluster.messages[0].content?.startsWith('[CALENDAR_EVENT]:'));
+
+                  if (isCalendarCluster) {
+                    const msg = cluster.messages[0];
+                    return (
+                      <div key={`cluster-cal-${clusterIdx}`} className="w-full flex justify-center my-3 px-2">
+                        <MessageBubble
+                          key={msg.id}
+                          message={msg}
+                          allMessages={messages}
+                          currentUserId={currentUserId}
+                          isFirstInCluster={true}
+                          isLastInCluster={true}
+                          isSingleInCluster={true}
+                          isLatestSentByMe={Boolean(lastMessageByMeId && msg.id === lastMessageByMeId)}
+                          isLatestMessage={Boolean(lastMessageId && msg.id === lastMessageId)}
+                          isHighlighted={highlightedMessageId === msg.id}
+                          onReply={onReply}
+                          onReact={onReact}
+                          onTogglePin={onTogglePin}
+                          onRetry={onRetry}
+                          onJumpToMessage={handleJumpToMessage}
+                        />
+                      </div>
+                    );
+                  }
+
                   const isSenderMe = cluster.isSenderMe;
 
                   if (isSenderMe) {

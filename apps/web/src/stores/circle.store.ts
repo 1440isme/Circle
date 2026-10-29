@@ -22,6 +22,9 @@ interface CircleState {
     open: boolean,
     tab?: 'chatInfo' | 'members' | 'privacySupport' | 'circleSettings' | 'supportReports' | 'settings' | 'invites' | 'requests',
   ) => void;
+  targetCalendarDate: string | null;
+  targetCalendarEventId: string | null;
+  setTargetCalendarEvent: (dateStr: string | null, eventId?: string | null) => void;
 }
 
 export const useCircleStore = create<CircleState>((set) => ({
@@ -70,5 +73,12 @@ export const useCircleStore = create<CircleState>((set) => ({
   setJoinModalOpen: (open) => set({ isJoinModalOpen: open }),
   setManageModalOpen: (open, tab = 'settings') =>
     set({ isManageModalOpen: open, manageActiveTab: tab }),
+  targetCalendarDate: null,
+  targetCalendarEventId: null,
+  setTargetCalendarEvent: (dateStr, eventId = null) =>
+    set({ targetCalendarDate: dateStr, targetCalendarEventId: eventId }),
 }));
 
+if (typeof window !== 'undefined') {
+  (window as any).__circleStore = useCircleStore;
+}

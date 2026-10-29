@@ -33,6 +33,7 @@
 ## Corrections & Lessons
 
 - [correction] Mặc định triển khai tính năng phải làm song song cả Web và Mobile; tuyệt đối cấm làm một bên rồi coi là hoàn thành (thay thế: thói quen làm web trước rồi mới làm mobile sau dẫn đến thiếu sót/mất trace) — theo Bình, 2026-10-25.
+- [correction] Báo cáo tuần (W01–W19 nộp Khoa) phải có đầy đủ 5 mục (bổ sung mục 5. Những việc sẽ làm trong tuần tiếp theo), không phải chỉ 4 mục như quy định cũ. — theo yêu cầu người dùng, 2026-10-26.
 - [correction] Phải đọc sâu và thấu đáo toàn bộ codebase trước khi nhận xét/đánh giá; không được grep hời hợt rồi kết luận chưa làm. Phải phân tích thấu đáo xem phần nào đã có nền móng, phần nào còn dang dở hoặc trải nghiệm còn thô để cải thiện nâng tầm trải nghiệm cho user. — theo Bình, 2026-10-27.
 - [correction] Không đặt banner ghim hay modal hành động thô giữa màn hình chat (thay thế: ghim đưa lên Header icon; mobile long-press focus tin nhắn với emoji ở trên và action ở dưới) — theo Bình, 2026-10-28.
 - [correction] Cắt bỏ toàn bộ text thừa, lời khuyên rườm rà, subtitle lặp lại tiêu đề, badge giải thích hiển nhiên ở mọi nơi — theo Bình, 2026-10-28.
@@ -40,7 +41,6 @@
 ## Decisions (chỉ mục — chi tiết ở ADR/topic)
 
 - Mô hình quản trị: toàn hệ thống chỉ 2 vai trò User / Admin — Admin gộp toàn quyền (không tách Super Admin/Admin thường) vì CIRCLE là MXH nhóm, không phải e-commerce. — chốt bởi Bình, 2026-10-25
-<!-- Dạng: - <Quyết định> — ADR-XXX / topics/<slug>.md, <ngày>. -->
 
 ## Open loops
 
@@ -52,4 +52,4 @@
 - [Gotchas](gotchas.md) — Known traps, pitfalls, and framework quirks (Prisma + Neon pooling, Expo WebRTC, Socket.IO auth, ViewShot).
 - [Verified facts](verified-facts.md) — Technical realities confirmed by inspecting code and dependencies.
 - [Decisions](decisions.md) — Summary of key Architectural Decision Records (ADRs).
-- [Reporting Workflow](reporting-workflow.md) — Quy định báo cáo kép (GVHD 2 tuần/lần vs. Khoa 1 tuần/lần, lệch track 4 tuần, cấu trúc 4 mục).
+- [Reporting Workflow](reporting-workflow.md) — Quy định báo cáo kép (GVHD 2 tuần/lần vs. Khoa 1 tuần/lần, lệch track 4 tuần, cấu trúc 5 mục).

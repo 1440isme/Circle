@@ -348,6 +348,12 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     });
   }
 
+  broadcastCalendarEventRsvp(circleId: string, payload: any) {
+    if (this.server) {
+      this.server.to(`circle:${circleId}`).emit('circle:calendar-event-rsvp-updated', payload);
+    }
+  }
+
   broadcastCircleTheme(circleId: string, payload: { circleId: string; themeColor: string }) {
     if (this.server) {
       this.server.to(`circle:${circleId}`).emit('circle:theme_updated', payload);

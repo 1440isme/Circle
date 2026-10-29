@@ -22,7 +22,8 @@ import {
   MoreVertical,
   Copy,
 } from 'lucide-react';
-import { MessageEntity, MessageType } from '@circle/types';
+import { MessageEntity, MessageType, CalendarEventMessagePayload } from '@circle/types';
+import { CalendarEventChatEmbed } from './CalendarEventChatEmbed';
 import { PROMINENT_QUICK_EMOJIS } from '@circle/shared';
 import { useLanguageStore } from '../../stores/language.store';
 import {
@@ -171,6 +172,14 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     }
   };
 
+  const isCalendarEvent = Boolean(message.content?.startsWith('[CALENDAR_EVENT]:'));
+  let calendarEventData: CalendarEventMessagePayload | null = null;
+  if (isCalendarEvent) {
+    try {
+      calendarEventData = JSON.parse(message.content!.replace('[CALENDAR_EVENT]:', ''));
+    } catch {}
+  }
+
   const isCallSummary = message.content?.startsWith('[CALL_SUMMARY]:');
   let callSummaryData: {
     callType: 'AUDIO' | 'VIDEO';
@@ -185,21 +194,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     } catch {}
   }
 
-  const isCalendarEvent = Boolean(message.content?.startsWith('[CALENDAR_EVENT]:'));
-  let calendarEventData: {
-    eventId: string;
-    title: string;
-    startTime: string;
-    endTime?: string | null;
-    location?: string | null;
-    creatorName?: string;
-  } | null = null;
-
-  if (isCalendarEvent) {
-    try {
-      calendarEventData = JSON.parse(message.content!.replace('[CALENDAR_EVENT]:', ''));
-    } catch {}
-  }
 
   const isRecalled = Boolean(message.deletedAt);
   const isEdited = Boolean(
@@ -243,6 +237,19 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
   const hasReactions =
     message.reactionCounts && Object.keys(message.reactionCounts).length > 0;
+
+  if (isCalendarEvent && calendarEventData) {
+    return (
+      <div id={`message-${message.id}`} className="w-full flex justify-center my-3 px-2">
+        <CalendarEventChatEmbed
+          eventData={calendarEventData}
+          isSenderMe={isSenderMe}
+          messageId={message.id}
+          currentUserId={currentUserId}
+        />
+      </div>
+    );
+  }
 
   return (
     <div
@@ -355,62 +362,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             <div className="flex items-center gap-1.5 py-1 px-1 text-xs italic opacity-60 select-none">
               <Ban className="w-3.5 h-3.5 shrink-0" />
               <span>{t.chat.messageRecalled}</span>
-            </div>
-          ) : isCalendarEvent && calendarEventData ? (
-            <div className="flex flex-col gap-2 py-1 pr-1 min-w-[240px] max-w-[320px]">
-              <div className="flex items-center gap-2">
-                <div
-                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${
-                    isSenderMe
-                      ? 'bg-black/15 dark:bg-white/20 text-current'
-                      : 'bg-circle-primary/10 text-circle-primary'
-                  }`}
-                >
-                  <Calendar className="h-4 w-4" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <span className="text-[10px] uppercase font-bold tracking-wider opacity-75">
-                    {t.chat.calendarEventCardTitle}
-                  </span>
-                  <h4 className="text-xs sm:text-sm font-bold truncate">
-                    {calendarEventData.title}
-                  </h4>
-                </div>
-              </div>
-              <div
-                className={`flex flex-col gap-1 text-[11px] rounded-lg p-2 ${
-                  isSenderMe ? 'bg-black/10 dark:bg-white/10' : 'bg-circle-wash dark:bg-circle-dark-wash'
-                }`}
-              >
-                <div className="flex items-center gap-1.5 opacity-90">
-                  <Clock className="h-3 w-3 shrink-0" />
-                  <span>
-                    {new Date(calendarEventData.startTime).toLocaleTimeString(
-                      locale === 'vi' ? 'vi-VN' : 'en-US',
-                      {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        hour12: false,
-                      },
-                    )}{' '}
-                    ·{' '}
-                    {new Date(calendarEventData.startTime).toLocaleDateString(
-                      locale === 'vi' ? 'vi-VN' : 'en-US',
-                      {
-                        day: '2-digit',
-                        month: '2-digit',
-                        year: 'numeric',
-                      },
-                    )}
-                  </span>
-                </div>
-                {calendarEventData.location && (
-                  <div className="flex items-center gap-1.5 opacity-90">
-                    <MapPin className="h-3 w-3 shrink-0" />
-                    <span className="truncate">{calendarEventData.location}</span>
-                  </div>
-                )}
-              </div>
             </div>
           ) : isCallSummary && callSummaryData ? (
             <div className="flex flex-col gap-2.5 py-1 min-w-[240px] max-w-[320px]">

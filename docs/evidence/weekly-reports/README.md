@@ -2,7 +2,7 @@
 
 Weekly engineering reports (W01 to W19) demonstrating continuous progress for Rubric Level 5 (G2 / Hard Gate 2), serving Faculty submissions and audit evidence.
 
-> **Lưu ý quy chế (Dual-Track Timeline):** Xem chi tiết tại [`agentic/memory/reporting-workflow.md`](../../../agentic/memory/reporting-workflow.md). Báo cáo nộp cho Chủ nhiệm Khoa theo từng tuần đơn lẻ, chỉ gồm 4 mục (không có mục 5).
+> **Lưu ý quy chế (Dual-Track Timeline):** Xem chi tiết tại [`agentic/memory/reporting-workflow.md`](../../../agentic/memory/reporting-workflow.md). Báo cáo nộp cho Chủ nhiệm Khoa theo từng tuần đơn lẻ, gồm đầy đủ 5 mục (bổ sung mục 5. Những việc sẽ làm trong tuần tiếp theo) và phần Khai báo AI/LLM từ Tuần 4 trở đi.
 
 ---
 

@@ -5266,9 +5266,63 @@
 - **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
 - **Branch:** `feat/115-sound-and-tactile-feedback`
 - **PR:** #116
-=======
-- **Official Source Checked:** `agentic/playbooks/06-voice-video.md` (CAL-08), `agentic/playbooks/05-chat.md` (CHT-20), `PROJECT_GOD.md`.
-- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
-- **Branch:** `feat/113-call-summary-card-and-callback`
-- **PR:** #114
->>>>>>> feat/113-call-summary-card-and-callback
+
+---
+
+## AI-0144: Hoàn Thiện Toàn Diện Giao Diện Lịch Nhóm, Form Tạo Sự Kiện, Bộ Chọn Ngày Giờ và Màn Hình Chi Tiết (Web & Mobile) (#117)
+
+- **Date:** 2026-10-29 21:30:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash
+- **Related Issue:** #117 (Parent Epic: #21)
+- **Purpose:** Thiết kế và hoàn thiện toàn diện giao diện Lịch nhóm trên Web và Mobile theo phong cách thiết kế hiện đại của CIRCLE: tối ưu form tạo sự kiện và bộ chọn ngày giờ trực quan, giải quyết triệt để lỗi CORS bản đồ qua API proxy nội bộ, hỗ trợ cấu hình lặp lại sự kiện linh hoạt, phân chia bố cục lịch lướt theo tháng và xem tổng quan năm, xử lý sự kiện đa ngày và xây dựng màn hình chi tiết sự kiện toàn màn hình.
+- **Prompt Summary:** Thiết kế và tinh chỉnh toàn diện giao diện Lịch nhóm, form tạo sự kiện và bộ chọn ngày giờ trên Web và Mobile: tối ưu bố cục khối thẻ, hỗ trợ bộ chọn ngày tháng và bánh xe thời gian 24h, proxy nội bộ gợi ý địa điểm, cấu hình lặp lại đa chu kỳ, lướt lịch theo từng tháng, chế độ xem năm thu nhỏ, hiển thị sự kiện đa ngày (1 sự kiện = 1 chấm) và màn hình chi tiết sự kiện toàn màn hình có nút sửa, hủy, xóa.
+- **Files Affected:**
+  - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.service.spec.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.controller.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.module.ts`
+  - `apps/backend/src/modules/circle-tools/dto/circle-tools.dto.ts`
+  - `apps/web/src/components/tools/CircleCalendarView.tsx`
+  - `apps/web/src/components/tools/CustomDateTimePicker.tsx`
+  - `apps/web/src/components/tools/LocationSearchInput.tsx`
+  - `apps/web/src/app/api/geocode/search/route.ts`
+  - `apps/web/src/components/presence/PresenceRail.tsx`
+  - `apps/web/src/hooks/use-circle-tools.ts`
+  - `apps/mobile/src/components/tools/MobileCalendarView.tsx`
+  - `apps/mobile/src/components/ui/MobileDateTimePicker.tsx`
+  - `apps/mobile/src/services/circle-tools.service.ts`
+  - `packages/types/src/index.ts`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:**
+  1. **Form Tạo Sự Kiện & Bộ Chọn Ngày Giờ (Web & Mobile):**
+     - Cấu trúc giao diện tạo lịch hẹn theo khối thẻ phân nhóm mạch lạc, gọn gàng và trực quan.
+     - Bộ chọn ngày tháng kết hợp con lăn bánh xe thời gian 24 giờ, định dạng ngày `dd/mm/yyyy`, hỗ trợ chuyển nhanh tháng và năm.
+     - Tự động ẩn bàn phím khi chạm ra ngoài, kiểm soát hợp lệ thời gian kết thúc luôn sau thời gian bắt đầu.
+  2. **Proxy Nội Bộ Tìm Kiếm Địa Điểm & Bản Đồ:**
+     - Xây dựng Next.js Route Handler `/api/geocode/search` gọi server-side để giải quyết triệt để lỗi chặn CORS từ trình duyệt khi tìm kiếm địa chỉ.
+     - Tích hợp tìm kiếm địa điểm có debounce, hỗ trợ mở trực tiếp chỉ đường Google Maps và liên kết cuộc gọi trực tuyến (Google Meet / Zoom).
+  3. **Cấu Hình Lặp Lại Đa Chu Kỳ (Recurrence Engine):**
+     - Hỗ trợ các chu kỳ lặp linh hoạt: Hằng ngày, Hằng tuần (chọn thứ trong tuần T2-CN), Hằng tháng và Hằng năm, kèm tùy chọn ngày kết thúc lặp.
+     - Mã hóa và giải mã quy tắc lặp chuẩn mực, tự động sinh chuỗi tóm tắt tiếng Việt rõ ràng, xử lý xuống dòng tránh tràn nhãn.
+  4. **Lưới Lịch Tháng & Chế Độ Xem Năm (Year View):**
+     - Bố cục 2 tầng độc lập: Khối lịch phía trên và Danh sách sự kiện cuộn độc lập phía dưới.
+     - Thanh điều khiển tối giản với các nút thao tác `[Hôm nay]`, `[Tìm kiếm]`, `[+]`.
+     - Lưới lịch tháng lướt từng tháng (snap mượt mà), chuẩn hóa 42 ô ngày cố định, loại bỏ chữ tháng năm góc để giao diện thoáng đãng.
+     - Chế độ xem năm (Year View): Lưới 12 tháng thu nhỏ cuộn dọc liên tục, tự động làm nổi bật tháng hiện tại.
+     - Xử lý sự kiện đa ngày: Cứ mỗi sự kiện tương ứng với 1 chấm tròn (tối đa 5 chấm trên ô ngày) và tự động tính toán khung giờ hiển thị linh hoạt theo từng ngày diễn ra sự kiện.
+  5. **Màn Hình Chi Tiết Lịch Hẹn Toàn Màn Hình (Full-Screen View):**
+     - Chuyển đổi hoàn toàn từ dạng modal popup sang giao diện toàn màn hình chuyên nghiệp với Navigation Header (`< Lịch`), nút Chỉnh sửa (`Pencil`), thẻ thông tin thời gian, địa điểm, cuộc gọi video và người tạo.
+     - Xử lý sạch sẽ trường ghi chú người dùng, tách biệt phần lặp lại và lọc bỏ triệt để ký tự placeholder rác.
+     - Tích hợp cụm thao tác trực tiếp: Chỉnh sửa, Hủy lịch hẹn (`Ban`), Xóa vĩnh viễn (`Trash2`) với cập nhật trạng thái tức thì.
+- **Human Modifications:** Ninh Thị Mỹ Hạnh trực tiếp thử nghiệm trên cả hai nền tảng, định hướng tinh chỉnh bố cục giao diện, yêu cầu lướt lịch theo từng tháng, bố trí nút điều hướng và chuyển đổi chi tiết sự kiện sang toàn màn hình.
+- **Verification Method:**
+  - Backend Unit Tests: `npm test --workspace=@circle/backend -- circle-tools.service.spec.ts` (31/31 unit tests pass, 100%).
+  - Web Production Build: `npm run build --workspace=@circle/web` (Clean build, 0 errors, 11/11 static routes generated).
+  - Mobile TypeScript: `npx tsc --noEmit -p apps/mobile/tsconfig.json` (Pass 100%, 0 errors).
+- **Official Source Checked:** Circle Design Guidelines, Circle Collaboration Playbook (COL-09 / UC17).
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks, xác thực phân quyền chặt chẽ (chỉ creator hoặc OWNER mới có quyền sửa/hủy/xóa).
+- **Branch:** `feat/117-calendar-ui-recurrence-and-detail`
+- **PR:** #118 (https://github.com/1440isme/Circle/pull/118)
+

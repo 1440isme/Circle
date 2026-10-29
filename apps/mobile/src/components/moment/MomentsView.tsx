@@ -2347,7 +2347,7 @@ export function MomentsView({
                             try {
                               const lenses = await cameraRef.current?.getAvailableLensesAsync();
                               if (lenses && lenses.length > 0) {
-                                setAvailableLenses(lenses);
+                                const lensNames = lenses.map((l: any) => typeof l === 'string' ? l : (l?.name || l?.type || String(l))); setAvailableLenses(lensNames);
                               }
                             } catch { }
                           }}

@@ -14,6 +14,8 @@ import {
   CalendarEventEntity,
   CreateCalendarEventInput,
   UpdateCalendarEventInput,
+  CalendarEventRsvpEntity,
+  EventRsvpStatus,
   PlanningSheetEntity,
   CreatePlanningSheetInput,
   AddSheetColumnInput,
@@ -346,6 +348,7 @@ export function useCreateCalendarEventMutation(circleId: string) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: TOOLS_KEYS.all });
+      queryClient.invalidateQueries({ queryKey: ['chat'] });
     },
   });
 }
@@ -371,6 +374,26 @@ export function useUpdateCalendarEventMutation(circleId: string) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: TOOLS_KEYS.all });
+      queryClient.invalidateQueries({ queryKey: ['chat'] });
+    },
+  });
+}
+
+export function useCancelCalendarEventMutation(circleId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (eventId: string) => {
+      const res = await apiRequest<CalendarEventEntity>(
+        `/circles/${circleId}/calendar-events/${eventId}/cancel`,
+        {
+          method: 'PUT',
+        },
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: TOOLS_KEYS.all });
+      queryClient.invalidateQueries({ queryKey: ['chat'] });
     },
   });
 }
@@ -383,6 +406,31 @@ export function useDeleteCalendarEventMutation(circleId: string) {
         `/circles/${circleId}/calendar-events/${eventId}`,
         {
           method: 'DELETE',
+        },
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: TOOLS_KEYS.all });
+      queryClient.invalidateQueries({ queryKey: ['chat'] });
+    },
+  });
+}
+export function useRespondEventRsvpMutation(circleId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      eventId,
+      status,
+    }: {
+      eventId: string;
+      status: EventRsvpStatus;
+    }) => {
+      const res = await apiRequest<CalendarEventRsvpEntity>(
+        `/circles/${circleId}/calendar-events/${eventId}/rsvp`,
+        {
+          method: 'PUT',
+          body: JSON.stringify({ status }),
         },
       );
       return res.data;

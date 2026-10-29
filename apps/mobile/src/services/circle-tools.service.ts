@@ -11,6 +11,7 @@ import {
   CreateAnonymousPostInput,
   CalendarEventEntity,
   CreateCalendarEventInput,
+  UpdateCalendarEventInput,
   PlanningSheetEntity,
   CreatePlanningSheetInput,
   AddSheetColumnInput,
@@ -184,6 +185,35 @@ export async function createCalendarEventApi(
     {
       method: 'POST',
       body: JSON.stringify(input),
+    },
+  );
+  return res.data;
+}
+
+
+export async function updateCalendarEventApi(
+  circleId: string,
+  eventId: string,
+  input: UpdateCalendarEventInput,
+): Promise<CalendarEventEntity> {
+  const res = await mobileApiRequest<CalendarEventEntity>(
+    `/circles/${circleId}/calendar-events/${eventId}`,
+    {
+      method: 'PUT',
+      body: JSON.stringify(input),
+    },
+  );
+  return res.data;
+}
+
+export async function cancelCalendarEventApi(
+  circleId: string,
+  eventId: string,
+): Promise<CalendarEventEntity> {
+  const res = await mobileApiRequest<CalendarEventEntity>(
+    `/circles/${circleId}/calendar-events/${eventId}/cancel`,
+    {
+      method: 'PUT',
     },
   );
   return res.data;

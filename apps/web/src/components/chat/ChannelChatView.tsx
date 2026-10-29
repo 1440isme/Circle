@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useQueryClient, InfiniteData } from '@tanstack/react-query';
-import { MessageSquare, Pin, Users, Hash, WifiOff, Phone, Video, Radio, PhoneCall, PhoneOff, Search, X, Loader2, MoreVertical, Trash2, Volume2, VolumeX } from 'lucide-react';
+import { MessageSquare, Pin, Users, Hash, WifiOff, Phone, Video, Radio, PhoneCall, PhoneOff, Calendar, Search, X, Loader2, MoreVertical, Trash2, Volume2, VolumeX } from 'lucide-react';
 import { MessageEntity, CursorPaginatedMessages, CallType, CallSessionDetailEntity, ClearChatMode, MessageType } from '@circle/types';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguageStore } from '../../stores/language.store';
@@ -55,6 +55,7 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
   const activeCircle = useCircleStore((s) => s.activeCircle);
   const setActiveCircle = useCircleStore((s) => s.setActiveCircle);
   const setActiveCallStageSession = useCircleStore((s) => s.setActiveCallStageSession);
+  const setActiveCircleView = useCircleStore((s) => s.setActiveCircleView);
 
   const { data: circleDetail } = useCircleDetailQuery(circleId);
   const circleTheme = activeCircle?.themeColor || circleDetail?.themeColor || 'sage';
