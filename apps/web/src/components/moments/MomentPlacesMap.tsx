@@ -5,6 +5,8 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { LocateFixed, MapPin, X } from 'lucide-react';
 
+const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
+
 export interface MapClusterPin {
   id: string;
   name: string;
@@ -66,14 +68,21 @@ export const MomentPlacesMap: React.FC<MomentPlacesMapProps> = ({
       return;
     }
 
-    // Esri World Street Map (ArcGIS Online - Global High-speed CDN, 100% Free, No Watermark, No API Key Required)
-    L.tileLayer(
-      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
-      {
-        maxZoom: 19,
-        attribution: 'Esri',
-      },
-    ).addTo(map);
+    // High-resolution Mapbox Vector/Raster Tiles (Streets-v12 / Dark-v11) with ESRI/OSM fallback
+    const isDark =
+      typeof document !== 'undefined' &&
+      document.documentElement.classList.contains('dark');
+    const mapboxStyle = isDark ? 'dark-v11' : 'streets-v12';
+    const tileUrl = MAPBOX_TOKEN
+      ? `https://api.mapbox.com/styles/v1/mapbox/${mapboxStyle}/tiles/512/{z}/{x}/{y}@2x?access_token=${MAPBOX_TOKEN}`
+      : 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}';
+
+    L.tileLayer(tileUrl, {
+      tileSize: MAPBOX_TOKEN ? 512 : 256,
+      zoomOffset: MAPBOX_TOKEN ? -1 : 0,
+      maxZoom: 22,
+      attribution: MAPBOX_TOKEN ? '© Mapbox © OpenStreetMap' : 'Esri',
+    }).addTo(map);
 
     const markersGroup = L.featureGroup().addTo(map);
 
@@ -321,6 +330,15 @@ export const MomentPlacesMap: React.FC<MomentPlacesMapProps> = ({
         className="absolute inset-0 w-full h-full z-10"
         style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: '100%', height: '100%' }}
       />
+
+      {/* Mapbox attribution pill */}
+      {MAPBOX_TOKEN && (
+        <div className="absolute bottom-2 right-2 z-20 pointer-events-none">
+          <div className="px-2 py-0.5 rounded-md bg-slate-900/70 backdrop-blur-sm border border-white/10 text-[10px] font-semibold text-slate-300">
+            Mapbox
+          </div>
+        </div>
+      )}
 
       {/* Floating Recenter Map Button */}
       <div className="absolute top-4 right-4 z-20">

@@ -5387,3 +5387,45 @@
 - **Security & License Check:** Bảo mật tuyệt đối theo Hard Gate Zero Secret Leaks, token chỉ nạp qua biến môi trường local không commit vào git.
 - **Branch:** `feat/119-interactive-map-and-poll-chat`
 - **PR:** #121
+
+
+---
+
+### Entry AI-0143
+
+- **Timestamp:** 2026-10-30T00:15:00+07:00
+- **Author:** Trương Công Bình (23110184)
+- **Tool:** Antigravity IDE (Gemini 2.5 Pro)
+- **Task / Scope:** Module 4 & 7 (Issue #119) — Full-Codebase Mapbox Standardization for Album Moments Places, Location Picker Modals, Static Map Previews, and Geocoding APIs.
+- **Files Touched:**
+  - `apps/web/src/components/moments/MomentPlacesMap.tsx`
+  - `apps/web/src/components/moments/MomentHistoryView.tsx`
+  - `apps/mobile/src/components/moment/MomentHistoryView.tsx`
+  - `apps/web/src/components/tools/MapLocationPickerModal.tsx`
+  - `apps/web/src/app/api/locations/search/route.ts`
+  - `apps/web/src/app/api/locations/reverse/route.ts`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:**
+  1. **Đồng bộ toàn bộ lớp bản đồ sang Mapbox Raster Tiles:**
+     - Nâng cấp `MomentPlacesMap.tsx` (Album/Khoảnh khắc trên Web) từ ArcGIS/OSM sang Mapbox tiles (`streets-v12` cho Light mode và `dark-v11` cho Dark mode) kết hợp watermark Mapbox tinh tế.
+     - Nâng cấp `MomentHistoryView.tsx` (Mobile) trong Leaflet WebView sang Mapbox tiles (`streets-v12` / `dark-v11`) với dynamic zoom offset và fallback chuẩn.
+     - Nâng cấp `MapLocationPickerModal.tsx` (Web modal ghim và chọn địa điểm sự kiện/lịch trình) sang Mapbox raster layer.
+  2. **Nâng cấp Static Map Previews:**
+     - Nâng cấp hàm `getOsmTileUrl` trên cả Web và Mobile (`apps/web/src/components/moments/MomentHistoryView.tsx` & `apps/mobile/src/components/moment/MomentHistoryView.tsx`) sang Mapbox Static Images API (`pin-s-camera+3b82f6` @2x) với độ phân giải cao thay vì ảnh đơn tile mờ.
+  3. **Nâng cấp Geocoding Services:**
+     - Cập nhật API route `/api/locations/search`: Ưu tiên gọi Mapbox Places Geocoding API v5 (`mapbox.places`) với hỗ trợ ngôn ngữ tiếng Việt và chỉ mục địa danh Việt Nam chính xác cao, tự động fallback sang Photon và Nominatim khi cần.
+     - Cập nhật API route `/api/locations/reverse`: Ưu tiên gọi Mapbox Reverse Geocoding API v5 (`mapbox.places/${lng},${lat}`) trả về địa chỉ chi tiết và tên địa danh tiếng Việt chuẩn xác.
+  4. **Kỷ Luật Zero Secret Leaks:**
+     - 100% token được nạp qua `process.env.NEXT_PUBLIC_MAPBOX_TOKEN` (Web) và `process.env.EXPO_PUBLIC_MAPBOX_TOKEN` (Mobile), tuyệt đối không hardcode chuỗi bí mật vào mã nguồn.
+- **Human Modifications:** Trương Công Bình yêu cầu rà soát toàn bộ codebase, loại bỏ triệt để các dịch vụ bản đồ rời rạc (OSM, ArcGIS) để đồng bộ hóa 100% trải nghiệm và chất lượng hình ảnh về hệ sinh thái Mapbox.
+- **Verification Method:**
+  - Zero Secret Leaks Scanner: `./scripts/check-secrets.sh` (486 files checked, 0 leaks detected).
+  - Web TypeScript: `npx tsc --noEmit -p apps/web/tsconfig.json` (0 errors).
+  - Mobile TypeScript: `npx tsc --noEmit -p apps/mobile/tsconfig.json` (0 errors).
+  - Web Production Build: `npm run build -w @circle/web` (0 errors, 11/11 static pages generated).
+  - Pre-commit Hook: `./.githooks/pre-commit` (Passed 100%).
+  - API Verification: cURL test `/api/locations/search?q=Bitexco` và `/api/locations/reverse` trả về kết quả Mapbox v5 chính xác 100%.
+- **Official Source Checked:** Mapbox Places API v5 Documentation, Mapbox Static Images API Reference, Leaflet TileLayer Documentation.
+- **Security & License Check:** An toàn tuyệt đối, tuân thủ nghiêm ngặt Hard Gate Zero Secret Leaks.
+- **Branch:** `feat/119-interactive-map-and-poll-chat`
+- **PR:** #121
