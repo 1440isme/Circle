@@ -4906,4 +4906,4 @@
 - **Official Source Checked:** Circle Design Guidelines, Circle Collaboration Playbook (COL-09 / UC17).
 - **Security & License Check:** An toàn tuyệt đối, zero secret leaks, xác thực phân quyền chặt chẽ (chỉ creator hoặc OWNER mới có quyền sửa/hủy/xóa).
 - **Branch:** `feat/117-calendar-ui-recurrence-and-detail`
-- **PR:** #118 (Pending)
+- **PR:** #118 (https://github.com/1440isme/Circle/pull/118)
