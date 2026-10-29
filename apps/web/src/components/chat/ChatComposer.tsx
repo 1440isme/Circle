@@ -13,6 +13,9 @@ import {
   Mic,
   Pencil,
   Check,
+  Vote,
+  MapPin,
+  Navigation,
 } from 'lucide-react';
 import { MessageEntity, MessageType } from '@circle/types';
 import { useLanguageStore } from '../../stores/language.store';
@@ -21,8 +24,10 @@ import { useUploadMedia } from '../../hooks/use-upload-media';
 import { createPreviewUrl, revokePreviewUrl } from '../../lib/image-optimizer';
 import { Emoji } from '../ui/Emoji';
 import { FullEmojiPickerModal } from '../ui/FullEmojiPickerModal';
+import { CreatePollChatModal } from './CreatePollChatModal';
 
 interface ChatComposerProps {
+  circleId?: string;
   channelId: string;
   channelName: string;
   members?: any[];
@@ -46,6 +51,7 @@ const EMOJI_LIST = ['👍', '❤️', '😂', '🎉', '🔥', '✨', '👏', '�
 const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024; // 25 MB
 
 export const ChatComposer: React.FC<ChatComposerProps> = ({
+  circleId,
   channelId,
   channelName,
   members = [],
@@ -63,6 +69,9 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
   const [content, setContent] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [isPlusMenuOpen, setIsPlusMenuOpen] = useState(false);
+  const [isCreatePollOpen, setIsCreatePollOpen] = useState(false);
+  const [isLocating, setIsLocating] = useState(false);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [mentionStartIndex, setMentionStartIndex] = useState<number | null>(null);
   const [mentionSelectedIndex, setMentionSelectedIndex] = useState(0);
@@ -71,6 +80,72 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
     previewUrl: string;
     isImage: boolean;
   } | null>(null);
+
+  const plusMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (plusMenuRef.current && !plusMenuRef.current.contains(e.target as Node)) {
+        setIsPlusMenuOpen(false);
+      }
+    };
+    if (isPlusMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isPlusMenuOpen]);
+
+  const handleSendLocation = () => {
+    setIsPlusMenuOpen(false);
+    setIsLocating(true);
+    if (!navigator.geolocation) {
+      sendLocationPayload(10.7828, 106.6958, 'Hồ Con Rùa, Quận 3, TP. Hồ Chí Minh');
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        sendLocationPayload(pos.coords.latitude, pos.coords.longitude, 'Vị trí hiện tại');
+      },
+      () => {
+        sendLocationPayload(10.7828, 106.6958, 'Hồ Con Rùa, Quận 3, TP. Hồ Chí Minh');
+      },
+      { timeout: 8000, enableHighAccuracy: true },
+    );
+  };
+
+  const sendLocationPayload = async (lat: number, lng: number, address: string) => {
+    try {
+      const payload = {
+        lat,
+        lng,
+        title: t.collab.locationCardTitle,
+        address,
+      };
+      await onSendMessage({
+        content: `[LOCATION_PIN]:${JSON.stringify(payload)}`,
+        type: MessageType.TEXT,
+      });
+    } catch (err) {
+      console.error('Failed to send location pin:', err);
+    } finally {
+      setIsLocating(false);
+    }
+  };
+
+  const handlePollCreated = async (poll: any) => {
+    const payload = {
+      pollId: poll.id,
+      question: poll.question,
+      options: (poll.options || []).map((o: any) => o.optionText || o),
+    };
+    await onSendMessage({
+      content: `[GROUP_POLL]:${JSON.stringify(payload)}`,
+      type: MessageType.TEXT,
+    });
+  };
 
   const { uploadMedia, isUploading, progress } = useUploadMedia();
 
@@ -479,15 +554,66 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
               : 'bg-white dark:bg-circle-dark-surface border-circle-hairline dark:border-circle-dark-hairline shadow-2xs'
           }`}
         >
-          {/* Action 1: (+) Outline Neutral Plus Button */}
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="flex h-7 w-7 items-center justify-center rounded-full border-[1.5px] border-circle-slate/35 dark:border-circle-dark-hairline text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text hover:border-circle-charcoal/50 hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-all shrink-0 active:scale-95"
-            title={t.chat.attachFile}
-          >
-            <Plus className="h-4 w-4 stroke-[2.2]" />
-          </button>
+          {/* Action 1: (+) Outline Neutral Plus Button with Context Menu */}
+          <div className="relative" ref={plusMenuRef}>
+            <button
+              type="button"
+              onClick={() => setIsPlusMenuOpen(!isPlusMenuOpen)}
+              className={`flex h-7 w-7 items-center justify-center rounded-full border-[1.5px] transition-all shrink-0 active:scale-95 ${
+                isPlusMenuOpen
+                  ? 'border-circle-primary bg-circle-primary text-white'
+                  : 'border-circle-slate/35 dark:border-circle-dark-hairline text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text hover:border-circle-charcoal/50 hover:bg-circle-wash dark:hover:bg-circle-dark-wash'
+              }`}
+              title={t.chat.attachFile}
+            >
+              <Plus className={`h-4 w-4 stroke-[2.2] transition-transform ${isPlusMenuOpen ? 'rotate-45' : ''}`} />
+            </button>
+
+            {/* Attachment / Action Popover Menu */}
+            {isPlusMenuOpen && (
+              <div className="absolute bottom-full left-0 mb-3 w-56 rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white/95 dark:bg-circle-dark-surface/95 backdrop-blur-md p-1.5 shadow-xl animate-in zoom-in-95 duration-150 z-30 flex flex-col gap-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsPlusMenuOpen(false);
+                    fileInputRef.current?.click();
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors text-left"
+                >
+                  <FileText className="w-4 h-4 text-circle-slate shrink-0" />
+                  <span>{t.chat.attachFile}</span>
+                </button>
+
+                {circleId && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsPlusMenuOpen(false);
+                      setIsCreatePollOpen(true);
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors text-left"
+                  >
+                    <Vote className="w-4 h-4 text-circle-primary shrink-0" />
+                    <span>{t.collab.createPoll}</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  disabled={isLocating}
+                  onClick={handleSendLocation}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors text-left disabled:opacity-50"
+                >
+                  {isLocating ? (
+                    <Loader2 className="w-4 h-4 animate-spin text-sky-500 shrink-0" />
+                  ) : (
+                    <MapPin className="w-4 h-4 text-sky-500 shrink-0" />
+                  )}
+                  <span>{isLocating ? t.collab.locationRetrieving : t.collab.sendStaticLocation}</span>
+                </button>
+              </div>
+            )}
+          </div>
 
           {/* Action 2: Image / Photo Icon */}
           <button
@@ -562,6 +688,15 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
           )}
         </button>
       </div>
+
+      {circleId && (
+        <CreatePollChatModal
+          isOpen={isCreatePollOpen}
+          onClose={() => setIsCreatePollOpen(false)}
+          circleId={circleId}
+          onPollCreated={handlePollCreated}
+        />
+      )}
     </div>
   );
 };

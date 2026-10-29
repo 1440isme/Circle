@@ -5326,3 +5326,64 @@
 - **Branch:** `feat/117-calendar-ui-recurrence-and-detail`
 - **PR:** #118 (https://github.com/1440isme/Circle/pull/118)
 
+
+---
+
+### Entry AI-0142
+
+- **Timestamp:** 2026-10-29T23:40:00+07:00
+- **Author:** Trương Công Bình (23110184)
+- **Tool:** Antigravity IDE (Gemini 2.5 Pro)
+- **Task / Scope:** Module 7 (US-COLLAB-003, Issue #119) — Unified Interactive Map Engine (Mapbox tiles & static thumbnail previews), Realtime In-Chat Polls & Location Pin Sharing, Planning Sheet Ergonomics & Zero Secret Leak Pre-commit Guard.
+- **Files Touched:**
+  - `scripts/check-secrets.sh`
+  - `.githooks/pre-commit`
+  - `.github/workflows/secret-scan.yml`
+  - `package.json`
+  - `agentic/skills/feature-usability-audit.md`
+  - `agentic/memory/2026-10-29.md`
+  - `agentic/memory/MEMORY.md`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `apps/web/src/components/chat/ChatPollCard.tsx`
+  - `apps/web/src/components/chat/ChatLocationCard.tsx`
+  - `apps/web/src/components/chat/CreatePollChatModal.tsx`
+  - `apps/web/src/components/chat/ChatComposer.tsx`
+  - `apps/web/src/components/chat/MessageBubble.tsx`
+  - `apps/web/src/components/chat/ChannelChatView.tsx`
+  - `apps/web/src/components/tools/CircleLocationView.tsx`
+  - `apps/web/src/components/tools/CirclePlanningView.tsx`
+  - `apps/web/src/components/stream/FeedStream.tsx`
+  - `apps/mobile/src/components/chat/MobileChatPollCard.tsx`
+  - `apps/mobile/src/components/chat/MobileChatLocationCard.tsx`
+  - `apps/mobile/src/components/chat/MobileCreatePollModal.tsx`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `apps/mobile/src/components/tools/MobileLocationView.tsx`
+  - `apps/mobile/src/components/tools/MobilePlanningView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:**
+  1. **Unified Interactive Map Engine (Web & Mobile with Mapbox):**
+     - Thay thế hoàn toàn radar giả lập bằng bản đồ tương tác chuẩn mực hiển thị ghim vị trí thực của các thành viên đang phát sóng.
+     - Tích hợp lớp bản đồ Mapbox tiles (`streets-v12` cho Light Mode và `dark-v11` cho Dark Mode) kèm cơ chế tự động chuyển đổi theo theme của hệ thống.
+     - Tích hợp Mapbox Static Images API hiển thị thumbnail bản đồ tĩnh sắc nét kèm nút mở Google Maps điều hướng 1 chạm trong Chat Message Cards.
+  2. **Bình Chọn Trực Tiếp Trong Luồng Chat (In-Chat Group Poll):**
+     - Cho phép thành viên tạo bình chọn tức thì từ menu tin nhắn mà không cần chuyển màn hình.
+     - Thẻ bình chọn tương tác (`ChatPollCard` / `MobileChatPollCard`) hiển thị trực quan tỷ lệ phần trăm thanh tiến trình, số người bình chọn, đánh dấu lựa chọn của bản thân và cập nhật thời gian thực.
+  3. **Tối Ưu Trải Nghiệm Planning Sheet (Spreadsheet Grid):**
+     - Xóa bỏ triệt để hardcoded text và popup lỗi thô trên cả Web và Mobile, kết nối toàn bộ nhãn và thông báo qua từ điển `@circle/shared`.
+     - Đảm bảo lưới bảng tính cuộn ngang và cuộn dọc mượt mà trên thiết bị di động, không bị vỡ giao diện.
+  4. **Pre-Commit Secret Leak Guard Hook & CI Action:**
+     - Xây dựng `scripts/check-secrets.sh` quét regex phát hiện các loại token, private key, secret leaked trong staged changes.
+     - Tích hợp vào `.githooks/pre-commit` bảo tồn đầy đủ 3 lớp kiểm tra (Agent Map, AI Log, Secret Scan) và tự động chặn commit khi phát hiện rò rỉ credential.
+     - Bổ sung GitHub Actions workflow `.github/workflows/secret-scan.yml`.
+- **Human Modifications:** Trương Công Bình trực tiếp chỉ đạo định hướng sản phẩm, yêu cầu chuyển sang Mapbox, kiểm soát kỷ luật Zero Secret Leaks và nhắc nhở bảo tồn toàn vẹn các pre-commit hook hiện có.
+- **Verification Method:**
+  - Pre-commit Hook: `./.githooks/pre-commit` passed 100% (Map integrity, AI Log, Secret Scan).
+  - Backend Unit Tests: `npm test -w @circle/backend` (11/11 test suites pass, 186/186 tests pass).
+  - Web TypeScript & Production Build: `npm run build -w @circle/web` (0 errors, 11/11 static pages generated).
+  - Mobile TypeScript: `npx tsc --noEmit -p apps/mobile/tsconfig.json` (0 errors).
+  - Agent Map Integrity: `bash scripts/check-agent-map.sh` (121/121 files resolve).
+- **Official Source Checked:** Mapbox Documentation & Developer Guidelines, Circle Collaboration Playbook (Playbook 07 / US-COLLAB-003).
+- **Security & License Check:** Bảo mật tuyệt đối theo Hard Gate Zero Secret Leaks, token chỉ nạp qua biến môi trường local không commit vào git.
+- **Branch:** `feat/119-interactive-map-and-poll-chat`
+- **PR:** #121
