@@ -28,6 +28,9 @@ import { CircleAlbumsView } from '../tools/CircleAlbumsView';
 import { CircleCalendarView } from '../tools/CircleCalendarView';
 import { CircleWheelView } from '../tools/CircleWheelView';
 import { CircleAnonymousView } from '../tools/CircleAnonymousView';
+import { CirclePlanningView } from '../tools/CirclePlanningView';
+import { CircleLocationView } from '../tools/CircleLocationView';
+import { CirclePollView } from '../tools/CirclePollView';
 
 export const FeedStream: React.FC = () => {
   const { user } = useAuth();
@@ -196,12 +199,9 @@ export const FeedStream: React.FC = () => {
                 <Compass className="h-7 w-7 stroke-[1.5]" />
               </div>
               <div className="max-w-md space-y-1">
-                <h3 className="text-base font-bold text-circle-charcoal dark:text-circle-dark-text">
+                <h3 className="text-sm font-semibold text-circle-charcoal dark:text-circle-dark-text">
                   {t.home.feedEmptyTitle}
                 </h3>
-                <p className="text-xs text-circle-slate dark:text-circle-dark-muted leading-relaxed">
-                  {t.home.feedEmptyDesc}
-                </p>
               </div>
               <div className="flex flex-wrap items-center justify-center gap-2.5 pt-1">
                 <button
@@ -232,7 +232,7 @@ export const FeedStream: React.FC = () => {
   // Flush column aligned perfectly with Sidebar and PresenceRail!
   // =========================================================================
   return (
-    <main className="flex-1 flex flex-col h-screen max-h-screen overflow-hidden relative min-w-0">
+    <main className="flex-1 flex flex-col h-full min-h-0 overflow-hidden relative min-w-0">
       {activeCircleView === 'moments' ? (
         <DailyMomentsFeed circleId={activeCircle.id} />
       ) : activeCircleView === 'albums' ? (
@@ -243,6 +243,12 @@ export const FeedStream: React.FC = () => {
         <CircleWheelView circleId={activeCircle.id} />
       ) : activeCircleView === 'anonymous' ? (
         <CircleAnonymousView circleId={activeCircle.id} />
+      ) : activeCircleView === 'planning' ? (
+        <CirclePlanningView circleId={activeCircle.id} />
+      ) : activeCircleView === 'location' ? (
+        <CircleLocationView circleId={activeCircle.id} />
+      ) : activeCircleView === 'polls' ? (
+        <CirclePollView circleId={activeCircle.id} />
       ) : currentChannel ? (
         <ChannelChatView
           key={currentChannel.id}

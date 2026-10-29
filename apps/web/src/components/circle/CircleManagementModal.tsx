@@ -47,6 +47,7 @@ import {
 import { useAuth } from '@/context/AuthContext';
 import { useLanguageStore } from '@/stores/language.store';
 import { useCircleStore } from '@/stores/circle.store';
+import { useSoundStore } from '@/stores/sound.store';
 import { sendCircleThemeUpdate } from '@/lib/socket';
 import {
   useCircleMembersQuery,
@@ -92,6 +93,8 @@ export const CircleManagementModal: React.FC = () => {
   const manageActiveTab = useCircleStore((s) => s.manageActiveTab);
   const setManageModalOpen = useCircleStore((s) => s.setManageModalOpen);
   const setActiveCircle = useCircleStore((s) => s.setActiveCircle);
+  const soundEnabled = useSoundStore((s) => s.soundEnabled);
+  const toggleSound = useSoundStore((s) => s.toggleSound);
 
   const { uploadMedia, isUploading: isUploadingMedia } = useUploadMedia();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -348,7 +351,7 @@ export const CircleManagementModal: React.FC = () => {
         setShowAvatarPresets(false);
       }
     } catch (err: any) {
-      setErrorMessage(err.message || 'Không thể tải ảnh lên. Vui lòng thử lại.');
+      setErrorMessage(err.message || t.circle.avatarUploadError);
     } finally {
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
@@ -476,10 +479,10 @@ export const CircleManagementModal: React.FC = () => {
       await updateCircleMutation.mutateAsync({
         themeColor: color,
       });
-      setSuccessMessage('Đã cập nhật màu chủ đề đoạn chat!');
+      setSuccessMessage(t.circle.themeUpdatedToast);
       setTimeout(() => setSuccessMessage(null), 2500);
     } catch (err: any) {
-      setErrorMessage(err?.message || 'Không thể cập nhật màu chủ đề.');
+      setErrorMessage(err?.message || t.circle.themeUpdateError);
     }
   };
 
@@ -1028,10 +1031,6 @@ export const CircleManagementModal: React.FC = () => {
 
                       {/* Quick Avatar Presets & Actions */}
                       <div className="w-full space-y-2 text-center pt-2">
-                        <p className="text-xs font-semibold text-circle-slate dark:text-circle-dark-muted">
-                          {t.circle.changeAvatar || 'Đổi ảnh đại diện Vòng tròn'}
-                        </p>
-
                         <div className="flex items-center justify-center gap-2 flex-wrap">
                           {/* Default Initials Option */}
                           <button
@@ -1042,7 +1041,7 @@ export const CircleManagementModal: React.FC = () => {
                                 ? 'border-circle-primary ring-2 ring-circle-primary/30 bg-circle-primary text-circle-charcoal'
                                 : 'border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface text-circle-slate'
                             }`}
-                            title="Mặc định viết tắt"
+                            title={t.circle.defaultInitialsPreset}
                           >
                             {getInitials(formName || activeCircle.name)}
                           </button>
@@ -1637,7 +1636,7 @@ export const CircleManagementModal: React.FC = () => {
                         onClick={() => setIsManageMutedMembersOpen(!isManageMutedMembersOpen)}
                         className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface hover:bg-circle-canvas text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text shadow-xs transition-all shrink-0"
                       >
-                        <span>{isManageMutedMembersOpen ? 'Thu gọn' : (t.circle.manageMutedMembers || 'Quản lý')}</span>
+                        <span>{isManageMutedMembersOpen ? t.common.collapse : (t.circle.manageMutedMembers || 'Quản lý')}</span>
                         {mutedMemberIds.length > 0 && (
                           <span className="rounded-full px-1.5 py-0.2 text-[10px] bg-amber-500 text-white font-bold">
                             {mutedMemberIds.length}
@@ -1657,7 +1656,7 @@ export const CircleManagementModal: React.FC = () => {
                             type="text"
                             value={memberMuteSearch}
                             onChange={(e) => setMemberMuteSearch(e.target.value)}
-                            placeholder="Tìm thành viên để tắt thông báo..."
+                            placeholder={t.circle.muteMemberPlaceholder}
                             className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface pl-8 pr-3 py-1.5 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-none focus:ring-1 focus:ring-circle-primary"
                           />
                         </div>
@@ -1666,7 +1665,7 @@ export const CircleManagementModal: React.FC = () => {
                         <div className="space-y-1 max-h-44 overflow-y-auto pr-1 divide-y divide-circle-hairline/40 dark:divide-circle-dark-hairline/40">
                           {filteredMuteMembers.length === 0 ? (
                             <p className="text-center py-4 text-xs text-circle-slate dark:text-circle-dark-muted">
-                              {memberMuteSearch ? 'Không tìm thấy thành viên phù hợp' : 'Không có thành viên khác trong nhóm'}
+                              {memberMuteSearch ? t.circle.noMemberFound : t.circle.noOtherMembersInGroup}
                             </p>
                           ) : (
                             filteredMuteMembers.map((m) => {
@@ -1701,12 +1700,12 @@ export const CircleManagementModal: React.FC = () => {
                                     {isMuted ? (
                                       <>
                                         <VolumeX className="h-3 w-3" />
-                                        <span>{t.circle.unmute || 'Bật lại'}</span>
+                                        <span>{t.circle.unmuteAction}</span>
                                       </>
                                     ) : (
                                       <>
                                         <Volume2 className="h-3 w-3" />
-                                        <span>{t.circle.mute || 'Tắt tiếng'}</span>
+                                        <span>{t.circle.muteAction}</span>
                                       </>
                                     )}
                                   </button>
@@ -1717,6 +1716,30 @@ export const CircleManagementModal: React.FC = () => {
                         </div>
                       </div>
                     )}
+                  </div>
+
+                  {/* 1.5 Âm thanh thông báo & hiệu ứng */}
+                  <div className="flex items-center justify-between gap-4 py-2.5 animate-fade-in border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60">
+                    <div className="flex items-center gap-2">
+                      <Volume2 className="h-4 w-4 text-circle-primary shrink-0" />
+                      <span className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text block">
+                        {t.circle.soundEffectsTitle}
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={toggleSound}
+                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                        soundEnabled ? 'bg-circle-primary' : 'bg-gray-300 dark:bg-gray-700'
+                      }`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                          soundEnabled ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
                   </div>
                 </div>
 
@@ -1855,7 +1878,7 @@ export const CircleManagementModal: React.FC = () => {
                 <div className="space-y-1">
                   <h4 className="text-xs font-bold uppercase tracking-wider text-circle-slate dark:text-circle-dark-muted flex items-center gap-1.5 pb-1">
                     <Sliders className="h-3.5 w-3.5 text-circle-primary" />
-                    <span>Quyền tham gia & Quy mô</span>
+                    <span>{t.circle.joinScopeSection}</span>
                   </h4>
 
                   {/* Cần trưởng nhóm phê duyệt Toggle Switch */}
@@ -1896,8 +1919,8 @@ export const CircleManagementModal: React.FC = () => {
                           onChange={(e) => handleCapacityChange(e.target.value)}
                           className="w-full appearance-none rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface px-3 py-2 pr-8 text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text focus:outline-none focus:ring-1 focus:ring-circle-primary shadow-xs cursor-pointer disabled:opacity-60"
                         >
-                          <option value="unlimited">Không giới hạn</option>
-                          <option value="limited">Giới hạn số lượng</option>
+                          <option value="unlimited">{t.circle.unlimited}</option>
+                          <option value="limited">{t.circle.limited}</option>
                         </select>
                         <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-circle-slate">
                           <ChevronDown className="h-3.5 w-3.5" />
@@ -2039,7 +2062,7 @@ export const CircleManagementModal: React.FC = () => {
                     }}
                     className="px-3 py-1.5 rounded-xl border border-amber-300 dark:border-amber-800 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 text-xs font-bold transition-all shrink-0 cursor-pointer"
                   >
-                    Báo cáo Vòng tròn
+                    {t.circle.reportCircleBtn}
                   </button>
                 </div>
 
@@ -2050,7 +2073,7 @@ export const CircleManagementModal: React.FC = () => {
                     className="p-3.5 rounded-2xl border border-amber-200 dark:border-amber-900/50 bg-amber-50/50 dark:bg-amber-950/20 space-y-3 animate-fade-in"
                   >
                     <h5 className="text-xs font-bold text-amber-900 dark:text-amber-300">
-                      Chọn lý do báo cáo Vòng tròn này:
+                      {t.circle.reportReasonLabel}
                     </h5>
                     <div className="space-y-2">
                       {[
@@ -2101,7 +2124,7 @@ export const CircleManagementModal: React.FC = () => {
                         type="submit"
                         className="px-3.5 py-1 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-xs cursor-pointer"
                       >
-                        Gửi báo cáo
+                        {t.circle.sendReportBtn}
                       </button>
                     </div>
                   </form>
@@ -2122,7 +2145,7 @@ export const CircleManagementModal: React.FC = () => {
                     }}
                     className="px-3 py-1.5 rounded-xl border border-amber-300 dark:border-amber-800 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 text-xs font-bold transition-all shrink-0 cursor-pointer"
                   >
-                    Báo cáo thành viên
+                    {t.circle.reportUserBtn}
                   </button>
                 </div>
 
@@ -2133,7 +2156,7 @@ export const CircleManagementModal: React.FC = () => {
                     className="p-3.5 rounded-2xl border border-amber-200 dark:border-amber-900/50 bg-amber-50/50 dark:bg-amber-950/20 space-y-3 animate-fade-in"
                   >
                     <h5 className="text-xs font-bold text-amber-900 dark:text-amber-300">
-                      {t.circle.selectReportUser || 'Chọn thành viên muốn báo cáo:'}
+                      {t.circle.selectReportUserPrompt}
                     </h5>
 
                     <select
@@ -2141,7 +2164,7 @@ export const CircleManagementModal: React.FC = () => {
                       onChange={(e) => setReportedUserId(e.target.value)}
                       className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-2 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-none focus:ring-1 focus:ring-circle-primary"
                     >
-                      <option value="">-- Chọn thành viên --</option>
+                      <option value="">{t.circle.selectMemberDefaultOption}</option>
                       {members
                         .filter((m) => m.userId !== user?.id)
                         .map((m) => (
@@ -2153,11 +2176,11 @@ export const CircleManagementModal: React.FC = () => {
 
                     <div className="space-y-2 pt-1">
                       {[
-                        { key: 'harassment', label: 'Quấy rối hoặc đe dọa' },
-                        { key: 'hate_speech', label: 'Ngôn từ thù ghét, xúc phạm' },
-                        { key: 'spam', label: 'Spam, quảng cáo lừa đảo' },
-                        { key: 'impersonation', label: 'Mạo danh người khác' },
-                        { key: 'other', label: 'Lý do khác' },
+                        { key: 'harassment', label: t.circle.reportReasonHarassment },
+                        { key: 'spam', label: t.circle.reportReasonSpam },
+                        { key: 'inappropriate', label: t.circle.reportReasonInappropriate },
+                        { key: 'impersonation', label: t.circle.reportReasonImpersonation },
+                        { key: 'other', label: t.circle.reportReasonOther },
                       ].map((reason) => (
                         <label key={reason.key} className="flex items-center gap-2 text-xs text-circle-charcoal dark:text-circle-dark-text cursor-pointer">
                           <input
@@ -2178,7 +2201,7 @@ export const CircleManagementModal: React.FC = () => {
                         <textarea
                           value={customReportUserText}
                           onChange={(e) => setCustomReportUserText(e.target.value)}
-                          placeholder="Mô tả cụ thể hành vi vi phạm..."
+                          placeholder={t.circle.reportDetailPlaceholder}
                           rows={2}
                           className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-2.5 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-none focus:ring-1 focus:ring-circle-primary"
                         />
@@ -2201,7 +2224,7 @@ export const CircleManagementModal: React.FC = () => {
                         type="submit"
                         className="px-3.5 py-1 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-xs cursor-pointer"
                       >
-                        Gửi báo cáo người dùng
+                        {t.circle.sendReportBtn}
                       </button>
                     </div>
                   </form>
@@ -2211,14 +2234,14 @@ export const CircleManagementModal: React.FC = () => {
                 <div className="pt-4 border-t border-circle-hairline dark:border-circle-dark-hairline space-y-2">
                   <div className="flex items-center justify-between">
                     <h5 className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
-                      {t.circle.helpCenterTitle || 'Trung tâm trợ giúp / Hướng dẫn cộng đồng'}
+                      {t.circle.helpCenterTitle || 'Trung tâm trợ giúp'}
                     </h5>
                     <button
                       type="button"
                       onClick={() => setIsHelpOpen(!isHelpOpen)}
                       className="text-xs font-semibold text-circle-primary hover:underline flex items-center gap-1 cursor-pointer"
                     >
-                      <span>{isHelpOpen ? 'Thu gọn' : 'Xem hướng dẫn'}</span>
+                      <span>{isHelpOpen ? t.common.collapse : t.common.viewGuide}</span>
                       <ChevronRight className={`h-3.5 w-3.5 transition-transform ${isHelpOpen ? 'rotate-90' : ''}`} />
                     </button>
                   </div>

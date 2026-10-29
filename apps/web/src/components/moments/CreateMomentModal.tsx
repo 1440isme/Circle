@@ -451,7 +451,7 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
       stopCameraStream();
       onClose();
     } catch (err: any) {
-      setErrorMessage(err.message || 'Không thể chia sẻ khoảnh khắc. Vui lòng thử lại!');
+      setErrorMessage(err.message || t.moments.momentNotFound || 'Không thể chia sẻ khoảnh khắc.');
     } finally {
       setIsSubmitting(false);
     }
@@ -542,13 +542,13 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
                   <div className="absolute top-3 inset-x-3 flex justify-center z-20 pointer-events-none">
                     <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-500/25 border border-amber-500/50 text-amber-300 rounded-full text-xs font-semibold backdrop-blur-md shadow-md pointer-events-auto">
                       <MessageCircle className="h-3.5 w-3.5 text-amber-400" />
-                      <span>Đáp lại: @{replyingToAuthor}</span>
+                      <span>{t.moments.replyToAuthorPrefix.replace('{author}', replyingToAuthor)}</span>
                       {onClearReplyingToAuthor && (
                         <button
                           type="button"
                           onClick={onClearReplyingToAuthor}
                           className="p-0.5 hover:bg-white/20 rounded-full ml-1 transition-colors"
-                          title="Bỏ đáp lại"
+                          title={t.moments.cancelReply}
                         >
                           <X className="h-3 w-3" />
                         </button>
@@ -721,14 +721,14 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
                 <div className="flex items-center justify-between px-3 py-1.5 bg-amber-500/20 border border-amber-500/40 text-amber-300 rounded-2xl text-xs font-semibold">
                   <div className="flex items-center gap-1.5">
                     <MessageCircle className="h-3.5 w-3.5 text-amber-400" />
-                    <span>Đáp lại: @{replyingToAuthor}</span>
+                    <span>{t.moments.replyToAuthorPrefix.replace('{author}', replyingToAuthor)}</span>
                   </div>
                   {onClearReplyingToAuthor && (
                     <button
                       type="button"
                       onClick={onClearReplyingToAuthor}
                       className="p-1 hover:bg-white/20 rounded-full transition-colors text-white/80 hover:text-white"
-                      title="Bỏ đáp lại"
+                      title={t.moments.cancelReply}
                     >
                       <X className="h-3 w-3" />
                     </button>
@@ -764,7 +764,6 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
                       <label className="text-xs font-bold text-white block">
                         {t.moments.selectCirclesLabel}
                       </label>
-                      <p className="text-[11px] text-white/60">{t.moments.selectCirclesDesc}</p>
                     </div>
                     {myCircles.length > 1 && (
                       <button
@@ -773,8 +772,8 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
                         className="text-[11px] font-semibold text-circle-primary hover:underline"
                       >
                         {selectedCircleIds.length === myCircles.length
-                          ? 'Bỏ chọn tất cả'
-                          : 'Chọn tất cả'}
+                          ? t.moments.deselectAll
+                          : t.moments.selectAll}
                       </button>
                     )}
                   </div>

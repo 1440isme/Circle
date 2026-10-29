@@ -14,6 +14,7 @@ import {
   PhoneCall,
   ShieldCheck,
   UserCheck,
+  UserPlus,
   Users,
   Settings,
   Crown,
@@ -46,18 +47,18 @@ export const PresenceRail: React.FC = () => {
   const setActiveCallStageSession = useCircleStore((s) => s.setActiveCallStageSession);
   const setActiveCircleView = useCircleStore((s) => s.setActiveCircleView);
   const setTargetCalendarEvent = useCircleStore((s) => s.setTargetCalendarEvent);
-  const { data: circleEvents = [] } = useCalendarEventsQuery(activeCircle?.id || '');
-
-  const upcomingEvents = React.useMemo(() => {
-    const now = new Date();
-    const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000);
-    return circleEvents
-      .filter((e) => new Date(e.startTime) >= twoHoursAgo)
-      .slice(0, 3);
-  }, [circleEvents]);
   const { data: activeCall } = useActiveCallQuery(activeCircle?.id || null);
   const initiateCallMutation = useInitiateCallMutation();
   const joinCallMutation = useJoinCallMutation();
+  const { data: calendarEvents = [] } = useCalendarEventsQuery(activeCircle?.id || null);
+
+  const upcomingEvents = React.useMemo(() => {
+    const now = new Date().getTime();
+    return calendarEvents
+      .filter((ev: any) => new Date(ev.startTime).getTime() >= now - 1000 * 60 * 30)
+      .sort((a: any, b: any) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
+      .slice(0, 4);
+  }, [calendarEvents]);
 
   const handleStartCall = async (type: CallType) => {
     if (!activeCircle) return;
@@ -98,7 +99,7 @@ export const PresenceRail: React.FC = () => {
   const roleLabel = user?.globalRole === 'ADMIN' ? t.auth.admin : t.auth.member;
 
   return (
-    <aside className="hidden xl:flex w-76 shrink-0 flex-col gap-4 bg-white dark:bg-circle-dark-surface p-3 pt-3 h-screen sticky top-0 overflow-y-auto transition-colors border-l border-circle-hairline/60 dark:border-circle-dark-hairline/60">
+    <aside className="hidden xl:flex w-76 shrink-0 flex-col gap-4 bg-white dark:bg-circle-dark-surface p-3 pt-3 h-full overflow-y-auto transition-colors border-l border-circle-hairline/60 dark:border-circle-dark-hairline/60">
 
       {/* Active Circle Members Rail (Flat container without visible border barrier) */}
       {activeCircle && (
@@ -164,14 +165,15 @@ export const PresenceRail: React.FC = () => {
             })}
           </div>
 
-          {/* Quick Invite / Manage Button */}
+          {/* Quick Invite / Manage Button (Distinct card border & elevation on both light & dark mode) */}
           <button
             onClick={() => setManageModalOpen(true, isOwner && joinRequests.length > 0 ? 'requests' : 'invites')}
-            className="mt-2.5 w-full py-2 px-3 rounded-lg bg-circle-canvas dark:bg-circle-dark-canvas hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text transition-colors flex items-center justify-center gap-1.5"
+            className="mt-2.5 w-full py-2 px-3 rounded-lg border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/80 dark:bg-circle-dark-canvas/80 hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text transition-all flex items-center justify-center gap-2 shadow-xs active:scale-98"
           >
+            <UserPlus className="h-3.5 w-3.5 text-circle-primary shrink-0" />
             <span>{t.circle.invitesAndRequests}</span>
             {joinRequests.length > 0 && (
-              <span className="rounded-full px-1.5 py-0.2 text-[10px] bg-circle-primary text-circle-charcoal font-bold">
+              <span className="rounded-full px-1.5 py-0.2 text-[10px] bg-circle-primary text-white font-bold ml-auto">
                 {joinRequests.length}
               </span>
             )}
@@ -302,12 +304,17 @@ export const PresenceRail: React.FC = () => {
         )}
       </div>
 
-      {/* Upcoming Circle Events */}
+      {/* Upcoming Circle Events (Issue #101 & #117) */}
       <div className="flex flex-col gap-2 pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline">
         <div className="flex items-center justify-between px-1 mb-0.5">
           <div className="flex items-center gap-1.5 text-[11px] font-bold text-circle-slate dark:text-circle-dark-muted uppercase tracking-wider">
             <Calendar className="h-3.5 w-3.5" />
             <span>{t.home.upcomingEventsTitle}</span>
+            {upcomingEvents.length > 0 && (
+              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-circle-primary/10 text-circle-primary">
+                {upcomingEvents.length}
+              </span>
+            )}
           </div>
           <button
             type="button"
@@ -321,9 +328,9 @@ export const PresenceRail: React.FC = () => {
 
         {upcomingEvents.length > 0 ? (
           <div className="space-y-1.5">
-            {upcomingEvents.map((ev) => {
+            {upcomingEvents.map((ev: any) => {
               const start = new Date(ev.startTime);
-              const yesCount = ev.rsvps?.filter((r) => r.status === 'YES').length || 0;
+              const yesCount = ev.rsvps?.filter((r: any) => r.status === 'YES').length || 0;
               return (
                 <div
                   key={ev.id}
@@ -343,10 +350,18 @@ export const PresenceRail: React.FC = () => {
                       <Clock className="h-2.5 w-2.5 text-circle-primary" />
                       <span>{start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                     </div>
-                    <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
-                      {yesCount} tham gia
-                    </span>
+                    {yesCount > 0 && (
+                      <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
+                        {yesCount} tham gia
+                      </span>
+                    )}
                   </div>
+                  {ev.location && (
+                    <div className="flex items-center gap-1 text-[10px] text-circle-slate dark:text-circle-dark-muted pt-0.5">
+                      <MapPin className="h-2.5 w-2.5 shrink-0 text-circle-slate" />
+                      <span className="truncate">{ev.location}</span>
+                    </div>
+                  )}
                 </div>
               );
             })}

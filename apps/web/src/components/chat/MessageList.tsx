@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useRef, useEffect } from 'react';
-import { Sparkles, ArrowUpCircle } from 'lucide-react';
+import { Hash, ArrowUpCircle } from 'lucide-react';
 import { MessageEntity, MemberRole } from '@circle/types';
 import { useLanguageStore } from '../../stores/language.store';
 import { MessageBubble } from './MessageBubble';
@@ -16,8 +16,15 @@ interface MessageListProps {
   onReply: (message: MessageEntity) => void;
   onReact: (messageId: string, emoji: string) => void;
   onTogglePin: (messageId: string, isPinned: boolean) => void;
+  onEdit?: (message: MessageEntity) => void;
+  onRecall?: (messageId: string) => void;
+  onDeleteForMe?: (messageId: string) => void;
   onRetry?: (message: MessageEntity) => void;
   onJumpToMessage?: (messageId: string) => void;
+  onStartCall?: (callType: 'AUDIO' | 'VIDEO') => void;
+  circleName?: string;
+  circleDescription?: string | null;
+  onSendIcebreaker?: (text: string) => void;
 }
 
 interface MessageCluster {
@@ -39,8 +46,15 @@ export const MessageList: React.FC<MessageListProps> = ({
   onReply,
   onReact,
   onTogglePin,
+  onEdit,
+  onRecall,
+  onDeleteForMe,
   onRetry,
   onJumpToMessage,
+  onStartCall,
+  circleName,
+  circleDescription,
+  onSendIcebreaker,
 }) => {
   const t = useLanguageStore((s) => s.t);
   const locale = useLanguageStore((s) => s.locale);
@@ -258,17 +272,27 @@ export const MessageList: React.FC<MessageListProps> = ({
           ))}
         </div>
       ) : messages.length === 0 ? (
-        /* Empty State */
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-circle-wash/60 dark:bg-circle-dark-wash/60 text-circle-sage dark:text-circle-primary mb-3 shadow-sm">
-            <Sparkles className="h-7 w-7" />
+        /* Minimalist & Elegant Channel Welcome */
+        <div className="flex flex-col items-center justify-center py-16 px-4 text-center select-none max-w-md mx-auto">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-circle-wash/80 dark:bg-circle-dark-wash/80 border border-circle-hairline dark:border-circle-dark-hairline mb-3.5 text-circle-sage dark:text-circle-primary">
+            <Hash className="h-6 w-6 opacity-75" />
           </div>
-          <h4 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
-            {t.chat.noMessagesYet}
-          </h4>
-          <p className="text-xs text-circle-slate dark:text-circle-dark-muted mt-1 max-w-xs leading-relaxed">
-            {t.chat.firstMessageHint}
-          </p>
+
+          <h3 className="text-sm font-semibold text-circle-charcoal dark:text-circle-dark-text tracking-tight">
+            {circleName
+              ? (t.chat.welcomeTitle || 'Chào mừng bạn đến với {name}').replace('{name}', circleName)
+              : t.chat.noMessagesYet}
+          </h3>
+
+          {onSendIcebreaker && (
+            <button
+              type="button"
+              onClick={() => onSendIcebreaker(t.chat.helloMessage || 'Xin chào mọi người!')}
+              className="mt-4 inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium bg-circle-primary text-white hover:bg-circle-primary/90 active:scale-95 transition-all shadow-xs cursor-pointer"
+            >
+              <span>{t.chat.sayHelloAction || 'Gửi lời chào đầu tiên'}</span>
+            </button>
+          )}
         </div>
       ) : (
         /* Message Date Groups */
@@ -342,8 +366,12 @@ export const MessageList: React.FC<MessageListProps> = ({
                             onReply={onReply}
                             onReact={onReact}
                             onTogglePin={onTogglePin}
+                            onEdit={onEdit}
+                            onRecall={onRecall}
+                            onDeleteForMe={onDeleteForMe}
                             onRetry={onRetry}
                             onJumpToMessage={handleJumpToMessage}
+                            onStartCall={onStartCall}
                           />
                         ))}
                       </div>
@@ -398,8 +426,12 @@ export const MessageList: React.FC<MessageListProps> = ({
                                 onReply={onReply}
                                 onReact={onReact}
                                 onTogglePin={onTogglePin}
+                                onEdit={onEdit}
+                                onRecall={onRecall}
+                                onDeleteForMe={onDeleteForMe}
                                 onRetry={onRetry}
                                 onJumpToMessage={handleJumpToMessage}
+                                onStartCall={onStartCall}
                               />
                             ))}
                           </div>

@@ -21,6 +21,14 @@ import {
   CreateCalendarEventDto,
   UpdateCalendarEventDto,
   RespondEventRsvpDto,
+  CreatePlanningSheetDto,
+  AddSheetColumnDto,
+  AddSheetRowDto,
+  UpdateSheetCellDto,
+  StartLiveLocationDto,
+  UpdateLiveLocationDto,
+  CreatePollDto,
+  VotePollDto,
 } from './dto/circle-tools.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -348,6 +356,275 @@ export class CircleToolsController {
     @Body() dto: RespondEventRsvpDto,
   ): Promise<ApiResponse<any>> {
     const data = await this.toolsService.respondEventRsvp(circleId, eventId, userId, dto);
+    return {
+      success: true,
+      data,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  // ===========================================================================
+  // 5. COLLABORATIVE PLANNING SHEET (UC18)
+  // ===========================================================================
+
+  @Get('planning-sheets')
+  async getPlanningSheets(
+    @Param('circleId') circleId: string,
+    @CurrentUser('id') userId: string,
+  ): Promise<ApiResponse<any>> {
+    const data = await this.toolsService.getPlanningSheets(circleId, userId);
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      data,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  @Get('planning-sheets/:sheetId')
+  async getPlanningSheetById(
+    @Param('circleId') circleId: string,
+    @Param('sheetId') sheetId: string,
+    @CurrentUser('id') userId: string,
+  ): Promise<ApiResponse<any>> {
+    const data = await this.toolsService.getPlanningSheetById(circleId, sheetId, userId);
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      data,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  @Post('planning-sheets')
+  @HttpCode(HttpStatus.CREATED)
+  async createPlanningSheet(
+    @Param('circleId') circleId: string,
+    @CurrentUser('id') userId: string,
+    @Body() dto: CreatePlanningSheetDto,
+  ): Promise<ApiResponse<any>> {
+    const data = await this.toolsService.createPlanningSheet(circleId, userId, dto);
+    return {
+      success: true,
+      statusCode: HttpStatus.CREATED,
+      data,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  @Post('planning-sheets/:sheetId/columns')
+  async addSheetColumn(
+    @Param('circleId') circleId: string,
+    @Param('sheetId') sheetId: string,
+    @CurrentUser('id') userId: string,
+    @Body() dto: AddSheetColumnDto,
+  ): Promise<ApiResponse<any>> {
+    const data = await this.toolsService.addSheetColumn(circleId, sheetId, userId, dto);
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      data,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  @Post('planning-sheets/:sheetId/rows')
+  async addSheetRow(
+    @Param('circleId') circleId: string,
+    @Param('sheetId') sheetId: string,
+    @CurrentUser('id') userId: string,
+    @Body() dto: AddSheetRowDto,
+  ): Promise<ApiResponse<any>> {
+    const data = await this.toolsService.addSheetRow(circleId, sheetId, userId, dto);
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      data,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  @Put('planning-sheets/:sheetId/cells/:cellId')
+  async updateSheetCell(
+    @Param('circleId') circleId: string,
+    @Param('sheetId') sheetId: string,
+    @Param('cellId') cellId: string,
+    @CurrentUser('id') userId: string,
+    @Body() dto: UpdateSheetCellDto,
+  ): Promise<ApiResponse<any>> {
+    const data = await this.toolsService.updateSheetCell(circleId, sheetId, cellId, userId, dto);
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      data,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  @Delete('planning-sheets/:sheetId')
+  async deletePlanningSheet(
+    @Param('circleId') circleId: string,
+    @Param('sheetId') sheetId: string,
+    @CurrentUser('id') userId: string,
+  ): Promise<ApiResponse<any>> {
+    const data = await this.toolsService.deletePlanningSheet(circleId, sheetId, userId);
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      data,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  // ===========================================================================
+  // 6. LIVE LOCATION SHARING (UC19)
+  // ===========================================================================
+
+  @Get('live-locations')
+  async getActiveLiveLocations(
+    @Param('circleId') circleId: string,
+    @CurrentUser('id') userId: string,
+  ): Promise<ApiResponse<any>> {
+    const data = await this.toolsService.getActiveLiveLocations(circleId, userId);
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      data,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  @Post('live-locations/start')
+  async startLiveLocation(
+    @Param('circleId') circleId: string,
+    @CurrentUser('id') userId: string,
+    @Body() dto: StartLiveLocationDto,
+  ): Promise<ApiResponse<any>> {
+    const data = await this.toolsService.startLiveLocation(circleId, userId, dto);
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      data,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  @Put('live-locations')
+  async updateLiveLocation(
+    @Param('circleId') circleId: string,
+    @CurrentUser('id') userId: string,
+    @Body() dto: UpdateLiveLocationDto,
+  ): Promise<ApiResponse<any>> {
+    const data = await this.toolsService.updateLiveLocation(circleId, userId, dto);
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      data,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  @Post('live-locations/stop')
+  async stopLiveLocation(
+    @Param('circleId') circleId: string,
+    @CurrentUser('id') userId: string,
+  ): Promise<ApiResponse<any>> {
+    const data = await this.toolsService.stopLiveLocation(circleId, userId);
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      data,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  // ===========================================================================
+  // 7. GROUP POLL (UC15)
+  // ===========================================================================
+
+  @Get('polls')
+  async getPolls(
+    @Param('circleId') circleId: string,
+    @CurrentUser('id') userId: string,
+  ): Promise<ApiResponse<any>> {
+    const data = await this.toolsService.getPolls(circleId, userId);
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      data,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  @Get('polls/:pollId')
+  async getPollById(
+    @Param('circleId') circleId: string,
+    @Param('pollId') pollId: string,
+    @CurrentUser('id') userId: string,
+  ): Promise<ApiResponse<any>> {
+    const data = await this.toolsService.getPollById(circleId, pollId, userId);
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      data,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  @Post('polls')
+  @HttpCode(HttpStatus.CREATED)
+  async createPoll(
+    @Param('circleId') circleId: string,
+    @CurrentUser('id') userId: string,
+    @Body() dto: CreatePollDto,
+  ): Promise<ApiResponse<any>> {
+    const data = await this.toolsService.createPoll(circleId, userId, dto);
+    return {
+      success: true,
+      statusCode: HttpStatus.CREATED,
+      data,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  @Post('polls/:pollId/vote')
+  async votePoll(
+    @Param('circleId') circleId: string,
+    @Param('pollId') pollId: string,
+    @CurrentUser('id') userId: string,
+    @Body() dto: VotePollDto,
+  ): Promise<ApiResponse<any>> {
+    const data = await this.toolsService.votePoll(circleId, pollId, userId, dto);
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      data,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  @Put('polls/:pollId/close')
+  async closePoll(
+    @Param('circleId') circleId: string,
+    @Param('pollId') pollId: string,
+    @CurrentUser('id') userId: string,
+  ): Promise<ApiResponse<any>> {
+    const data = await this.toolsService.closePoll(circleId, pollId, userId);
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      data,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  @Delete('polls/:pollId')
+  async deletePoll(
+    @Param('circleId') circleId: string,
+    @Param('pollId') pollId: string,
+    @CurrentUser('id') userId: string,
+  ): Promise<ApiResponse<any>> {
+    const data = await this.toolsService.deletePoll(circleId, pollId, userId);
     return {
       success: true,
       statusCode: HttpStatus.OK,

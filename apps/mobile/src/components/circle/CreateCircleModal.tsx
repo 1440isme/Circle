@@ -258,9 +258,6 @@ export function CreateCircleModal() {
                   <Text style={[styles.approvalTitle, { color: colors.text }]}>
                     {t.circle.requireApprovalTitle}
                   </Text>
-                  <Text style={[styles.approvalDesc, { color: colors.subtle }]}>
-                    {t.circle.requireApprovalDesc}
-                  </Text>
                 </View>
               </View>
               <Switch

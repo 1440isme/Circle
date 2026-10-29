@@ -21,6 +21,7 @@ import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { ResendOtpDto } from './dto/resend-otp.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { Public } from '../../common/decorators/public.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -223,6 +224,27 @@ export class AuthController {
       success: true,
       statusCode: HttpStatus.OK,
       message: 'Profile updated successfully',
+      data,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('change-password')
+  @HttpCode(HttpStatus.OK)
+  async changePassword(
+    @CurrentUser('id') userId: string,
+    @Body(new ZodValidationPipe((locale) => createAuthSchemas(locale).changePasswordDtoSchema)) dto: ChangePasswordDto,
+    @Headers('x-refresh-token') currentRefreshToken?: string,
+    @Headers('x-circle-locale') circleLocale?: string,
+    @Headers('accept-language') acceptLanguage?: string,
+  ): Promise<ApiResponse<{ message: string }>> {
+    const locale = resolveLocale(circleLocale, acceptLanguage);
+    const data = await this.authService.changePassword(userId, dto, currentRefreshToken, locale);
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      message: data.message,
       data,
       timestamp: new Date().toISOString(),
     };

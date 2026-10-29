@@ -19,6 +19,7 @@ import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { ResendOtpDto } from './dto/resend-otp.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { AuthResponseData, AuthTokens, AuthUserData, GlobalRole, PublicUserEntity, SessionEntity } from '@circle/types';
 import { Locale, locales } from '@circle/shared';
@@ -533,6 +534,68 @@ export class AuthService {
 
     return {
       message: t.auth.passwordResetSuccess,
+    };
+  }
+
+  /**
+   * ACC-10: Đổi mật khẩu khi đã đăng nhập (Change password in Settings).
+   * Verifies current password, updates passwordHash, and revokes all other active sessions.
+   */
+  async changePassword(
+    userId: string,
+    dto: ChangePasswordDto,
+    currentRefreshToken?: string,
+    locale: Locale = 'vi',
+  ): Promise<{ message: string }> {
+    const t = locales[locale] || locales.vi;
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user || user.deletedAt) {
+      throw new BadRequestException(t.auth.userNotFound);
+    }
+
+    if (!user.passwordHash) {
+      throw new BadRequestException(t.auth.invalidCredentials);
+    }
+
+    const isCurrentPasswordValid = await this.comparePassword(
+      dto.currentPassword,
+      user.passwordHash,
+    );
+
+    if (!isCurrentPasswordValid) {
+      throw new BadRequestException(t.auth.currentPasswordIncorrect);
+    }
+
+    if (dto.newPassword === dto.currentPassword) {
+      throw new BadRequestException(t.auth.newPasswordSameAsCurrent);
+    }
+
+    const newPasswordHash = await this.hashPassword(dto.newPassword);
+    const currentHash = currentRefreshToken ? this.hashToken(currentRefreshToken) : null;
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: userId },
+        data: { passwordHash: newPasswordHash },
+      });
+
+      // Revoke all other active sessions (keeping current session if provided)
+      await tx.refreshToken.updateMany({
+        where: {
+          userId,
+          isRevoked: false,
+          ...(currentHash ? { tokenHash: { not: currentHash } } : {}),
+        },
+        data: { isRevoked: true },
+      });
+    });
+
+    return {
+      message: t.auth.changePasswordSuccess,
     };
   }
 

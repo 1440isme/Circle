@@ -3,10 +3,8 @@
  * Single source of truth for DTOs, domain models, and API responses.
  */
 
-// =============================================================================
-// API CONTRACTS
-// =============================================================================
-
+// ======================================================================// API CONTRACTS
+// ======================================================================
 export interface ApiResponse<T> {
   success: boolean;
   statusCode: number;
@@ -32,10 +30,8 @@ export interface BaseEntity {
   updatedAt: string;
 }
 
-// =============================================================================
-// ENUMS
-// =============================================================================
-
+// ======================================================================// ENUMS
+// ======================================================================
 export enum GlobalRole {
   USER = "USER",
   ADMIN = "ADMIN",
@@ -82,10 +78,8 @@ export enum JoinRequestStatus {
   REJECTED = "REJECTED",
 }
 
-// =============================================================================
-// AUTH CONTRACTS
-// =============================================================================
-
+// ======================================================================// AUTH CONTRACTS
+// ======================================================================
 export interface AuthTokens {
   accessToken: string;
   refreshToken: string;
@@ -115,10 +109,8 @@ export interface SessionEntity {
   expiresAt: string;
 }
 
-// =============================================================================
-// DOMAIN ENTITIES
-// =============================================================================
-
+// ======================================================================// DOMAIN ENTITIES
+// ======================================================================
 export interface UserProfileEntity {
   id: string;
   userId: string;
@@ -230,6 +222,7 @@ export interface MessageEntity {
   replyToId?: string | null;
   sentAt: string;
   updatedAt: string;
+  deletedAt?: string | null;
   sender?: CircleMemberEntity;
   replyTo?: {
     id: string;
@@ -261,6 +254,20 @@ export interface CursorPaginatedMessages {
   messages: MessageEntity[];
   nextCursor?: string | null;
   hasMore: boolean;
+}
+
+export interface SearchMessagesResult {
+  messages: MessageEntity[];
+  total: number;
+}
+
+export interface CalendarEventSystemMessagePayload {
+  eventId: string;
+  title: string;
+  startTime: string;
+  endTime?: string | null;
+  location?: string | null;
+  creatorName?: string;
 }
 
 export interface MomentVisibilityEntity {
@@ -364,10 +371,8 @@ export interface SelectableFriendItem {
   avatarUrl?: string | null;
 }
 
-// =============================================================================
-// STORAGE & MEDIA CONTRACTS (CLOUDFLARE R2)
-// =============================================================================
-
+// ======================================================================// STORAGE & MEDIA CONTRACTS (CLOUDFLARE R2)
+// ======================================================================
 export type StorageFolder = 'moments' | 'avatars' | 'attachments' | 'albums';
 
 export interface PresignedUploadRequest {
@@ -394,10 +399,8 @@ export interface DirectUploadResponse {
   contentType: string;
 }
 
-// =============================================================================
-// PRESENCE & REALTIME STATUS CONTRACTS
-// =============================================================================
-
+// ======================================================================// PRESENCE & REALTIME STATUS CONTRACTS
+// ======================================================================
 export type UserStatus = 'ONLINE' | 'AWAY' | 'OFFLINE';
 
 export interface UserPresenceEntity {
@@ -418,10 +421,8 @@ export interface UserPresenceChangePayload {
   timestamp: string;
 }
 
-// =============================================================================
-// READ RECEIPTS & MODERATION REPORT CONTRACTS
-// =============================================================================
-
+// ======================================================================// READ RECEIPTS & MODERATION REPORT CONTRACTS
+// ======================================================================
 export interface MessageReaderEntity {
   userId: string;
   displayName: string;
@@ -476,10 +477,8 @@ export interface CreateReportInput {
   details?: string | null;
 }
 
-// =============================================================================
-// 10. WEBRTC & REALTIME CALL CONTRACTS (UC12, SPIKE-RTC-001)
-// =============================================================================
-
+// ======================================================================// 10. WEBRTC & REALTIME CALL CONTRACTS (UC12, SPIKE-RTC-001)
+// ======================================================================
 export interface IceServerConfig {
   urls: string | string[];
   username?: string;
@@ -575,10 +574,8 @@ export interface WebRtcSignalPayload {
 
 
 
-// =============================================================================
-// 11. CIRCLE UTILITIES & GROUP TOOLS CONTRACTS (UC14, UC16, UC17, UC21)
-// =============================================================================
-
+// ======================================================================// 11. CIRCLE UTILITIES & GROUP TOOLS CONTRACTS (UC14, UC16, UC17, UC21)
+// ======================================================================
 export interface PhotoEntity {
   id: string;
   sharedAlbumId?: string | null;
@@ -804,3 +801,195 @@ export interface CalendarEventRsvpEntity {
 export interface RespondEventRsvpInput {
   status: EventRsvpStatus;
 }
+
+// ======================================================================// 7. COLLABORATIVE PLANNING SHEET CONTRACTS (UC18)
+// ======================================================================
+export interface SheetCellEntity {
+  id: string;
+  rowId: string;
+  columnId: string;
+  cellValue: string;
+  lastEditedById?: string | null;
+  updatedAt: string;
+  lastEditedBy?: {
+    id: string;
+    userId: string;
+    nickname?: string | null;
+    user?: {
+      profile?: {
+        displayName: string;
+        avatarUrl?: string | null;
+      } | null;
+    };
+  } | null;
+}
+
+export interface SheetColumnEntity {
+  id: string;
+  sheetId: string;
+  columnIndex: number;
+  columnTitle: string;
+  createdAt: string;
+}
+
+export interface SheetRowEntity {
+  id: string;
+  sheetId: string;
+  rowIndex: number;
+  createdAt: string;
+  cells: SheetCellEntity[];
+}
+
+export interface PlanningSheetEntity {
+  id: string;
+  circleId: string;
+  createdById: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+  columns: SheetColumnEntity[];
+  rows: SheetRowEntity[];
+  creator?: {
+    id: string;
+    userId: string;
+    nickname?: string | null;
+    user?: {
+      email: string;
+      profile?: {
+        displayName: string;
+        avatarUrl?: string | null;
+      } | null;
+    };
+  };
+}
+
+export interface CreatePlanningSheetInput {
+  title: string;
+  columns?: string[];
+  initialRowCount?: number;
+}
+
+export interface AddSheetColumnInput {
+  columnTitle: string;
+}
+
+export interface AddSheetRowInput {
+  cellValues?: Record<string, string>; // columnId -> cellValue
+}
+
+export interface UpdateSheetCellInput {
+  cellValue: string;
+}
+
+// ======================================================================// 8. LIVE LOCATION SHARING CONTRACTS (UC19)
+// ======================================================================
+export interface LiveLocationEntity {
+  id: string;
+  circleId: string;
+  memberId: string;
+  latitude: number;
+  longitude: number;
+  shareDuration: number; // in minutes (15, 30, 60)
+  expiresAt: string;
+  isActive: boolean;
+  updatedAt: string;
+  member?: {
+    id: string;
+    userId: string;
+    nickname?: string | null;
+    user?: {
+      id: string;
+      email: string;
+      profile?: {
+        displayName: string;
+        avatarUrl?: string | null;
+      } | null;
+    };
+  };
+}
+
+export interface StartLiveLocationInput {
+  latitude: number;
+  longitude: number;
+  shareDuration: number; // 15 | 30 | 60
+}
+
+export interface UpdateLiveLocationInput {
+  latitude: number;
+  longitude: number;
+}
+
+// ======================================================================// 9. GROUP POLL CONTRACTS (UC15)
+// ======================================================================
+export interface PollVoteEntity {
+  id: string;
+  pollId: string;
+  optionId: string;
+  memberId: string;
+  votedAt: string;
+  member?: {
+    id: string;
+    userId: string;
+    nickname?: string | null;
+    user?: {
+      profile?: {
+        displayName: string;
+        avatarUrl?: string | null;
+      } | null;
+    };
+  };
+}
+
+export interface PollOptionEntity {
+  id: string;
+  pollId: string;
+  optionText: string;
+  orderIndex: number;
+  voteCount: number;
+  percentage: number;
+  votes?: PollVoteEntity[];
+}
+
+export interface GroupPollEntity {
+  id: string;
+  circleId: string;
+  createdById?: string | null;
+  question: string;
+  deadline?: string | null;
+  isClosed: boolean;
+  createdAt: string;
+  options: PollOptionEntity[];
+  totalVotes: number;
+  userVotedOptionId?: string | null;
+  creator?: {
+    id: string;
+    userId: string;
+    nickname?: string | null;
+    user?: {
+      email: string;
+      profile?: {
+        displayName: string;
+        avatarUrl?: string | null;
+      } | null;
+    };
+  } | null;
+}
+
+export interface CreatePollInput {
+  question: string;
+  options: string[];
+  deadline?: string;
+}
+
+export interface VotePollInput {
+  optionId: string;
+}
+
+export type ClearChatMode = 'FOR_ME' | 'EVERYONE';
+
+export interface ClearChatResult {
+  channelId: string;
+  mode: ClearChatMode;
+  clearedAt: string;
+}
+

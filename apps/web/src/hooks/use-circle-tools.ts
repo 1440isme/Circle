@@ -16,6 +16,17 @@ import {
   UpdateCalendarEventInput,
   CalendarEventRsvpEntity,
   EventRsvpStatus,
+  PlanningSheetEntity,
+  CreatePlanningSheetInput,
+  AddSheetColumnInput,
+  AddSheetRowInput,
+  UpdateSheetCellInput,
+  LiveLocationEntity,
+  StartLiveLocationInput,
+  UpdateLiveLocationInput,
+  GroupPollEntity,
+  CreatePollInput,
+  VotePollInput,
 } from '@circle/types';
 
 export const TOOLS_KEYS = {
@@ -27,6 +38,13 @@ export const TOOLS_KEYS = {
   anonymous: (circleId: string) => [...TOOLS_KEYS.all, circleId, 'anonymous-posts'] as const,
   calendar: (circleId: string, month?: number, year?: number) =>
     [...TOOLS_KEYS.all, circleId, 'calendar', month, year] as const,
+  planningSheets: (circleId: string) => [...TOOLS_KEYS.all, circleId, 'planning-sheets'] as const,
+  planningSheetDetail: (circleId: string, sheetId: string) =>
+    [...TOOLS_KEYS.all, circleId, 'planning-sheets', sheetId] as const,
+  liveLocations: (circleId: string) => [...TOOLS_KEYS.all, circleId, 'live-locations'] as const,
+  polls: (circleId: string) => [...TOOLS_KEYS.all, circleId, 'polls'] as const,
+  pollDetail: (circleId: string, pollId: string) =>
+    [...TOOLS_KEYS.all, circleId, 'polls', pollId] as const,
 };
 
 // =============================================================================
@@ -422,3 +440,329 @@ export function useRespondEventRsvpMutation(circleId: string) {
     },
   });
 }
+
+// =============================================================================
+// 5. COLLABORATIVE PLANNING SHEET HOOKS (UC18)
+// =============================================================================
+
+export function usePlanningSheetsQuery(circleId: string | null) {
+  return useQuery({
+    queryKey: TOOLS_KEYS.planningSheets(circleId || ''),
+    queryFn: async () => {
+      if (!circleId) return [];
+      const res = await apiRequest<PlanningSheetEntity[]>(
+        `/circles/${circleId}/planning-sheets`,
+      );
+      return res.data;
+    },
+    enabled: !!circleId,
+  });
+}
+
+export function usePlanningSheetDetailQuery(
+  circleId: string | null,
+  sheetId: string | null,
+) {
+  return useQuery({
+    queryKey: TOOLS_KEYS.planningSheetDetail(circleId || '', sheetId || ''),
+    queryFn: async () => {
+      if (!circleId || !sheetId) return null;
+      const res = await apiRequest<PlanningSheetEntity>(
+        `/circles/${circleId}/planning-sheets/${sheetId}`,
+      );
+      return res.data;
+    },
+    enabled: !!circleId && !!sheetId,
+  });
+}
+
+export function useCreatePlanningSheetMutation(circleId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: CreatePlanningSheetInput) => {
+      const res = await apiRequest<PlanningSheetEntity>(
+        `/circles/${circleId}/planning-sheets`,
+        {
+          method: 'POST',
+          body: JSON.stringify(input),
+        },
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: TOOLS_KEYS.planningSheets(circleId) });
+    },
+  });
+}
+
+export function useAddSheetColumnMutation(circleId: string, sheetId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: AddSheetColumnInput) => {
+      const res = await apiRequest<PlanningSheetEntity>(
+        `/circles/${circleId}/planning-sheets/${sheetId}/columns`,
+        {
+          method: 'POST',
+          body: JSON.stringify(input),
+        },
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: TOOLS_KEYS.planningSheetDetail(circleId, sheetId),
+      });
+      queryClient.invalidateQueries({ queryKey: TOOLS_KEYS.planningSheets(circleId) });
+    },
+  });
+}
+
+export function useAddSheetRowMutation(circleId: string, sheetId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: AddSheetRowInput) => {
+      const res = await apiRequest<PlanningSheetEntity>(
+        `/circles/${circleId}/planning-sheets/${sheetId}/rows`,
+        {
+          method: 'POST',
+          body: JSON.stringify(input),
+        },
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: TOOLS_KEYS.planningSheetDetail(circleId, sheetId),
+      });
+      queryClient.invalidateQueries({ queryKey: TOOLS_KEYS.planningSheets(circleId) });
+    },
+  });
+}
+
+export function useUpdateSheetCellMutation(circleId: string, sheetId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      cellId,
+      input,
+    }: {
+      cellId: string;
+      input: UpdateSheetCellInput;
+    }) => {
+      const res = await apiRequest<any>(
+        `/circles/${circleId}/planning-sheets/${sheetId}/cells/${cellId}`,
+        {
+          method: 'PUT',
+          body: JSON.stringify(input),
+        },
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: TOOLS_KEYS.planningSheetDetail(circleId, sheetId),
+      });
+    },
+  });
+}
+
+export function useDeletePlanningSheetMutation(circleId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (sheetId: string) => {
+      const res = await apiRequest<{ success: boolean }>(
+        `/circles/${circleId}/planning-sheets/${sheetId}`,
+        {
+          method: 'DELETE',
+        },
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: TOOLS_KEYS.planningSheets(circleId) });
+    },
+  });
+}
+
+// =============================================================================
+// 6. LIVE LOCATION SHARING HOOKS (UC19)
+// =============================================================================
+
+export function useLiveLocationsQuery(circleId: string | null) {
+  return useQuery({
+    queryKey: TOOLS_KEYS.liveLocations(circleId || ''),
+    queryFn: async () => {
+      if (!circleId) return [];
+      const res = await apiRequest<LiveLocationEntity[]>(
+        `/circles/${circleId}/live-locations`,
+      );
+      return res.data;
+    },
+    enabled: !!circleId,
+    refetchInterval: 10000, // background refresh every 10s
+  });
+}
+
+export function useStartLiveLocationMutation(circleId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: StartLiveLocationInput) => {
+      const res = await apiRequest<LiveLocationEntity>(
+        `/circles/${circleId}/live-locations/start`,
+        {
+          method: 'POST',
+          body: JSON.stringify(input),
+        },
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: TOOLS_KEYS.liveLocations(circleId) });
+    },
+  });
+}
+
+export function useUpdateLiveLocationMutation(circleId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: UpdateLiveLocationInput) => {
+      const res = await apiRequest<LiveLocationEntity>(
+        `/circles/${circleId}/live-locations`,
+        {
+          method: 'PUT',
+          body: JSON.stringify(input),
+        },
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: TOOLS_KEYS.liveLocations(circleId) });
+    },
+  });
+}
+
+export function useStopLiveLocationMutation(circleId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest<{ success: boolean; stopped: boolean }>(
+        `/circles/${circleId}/live-locations/stop`,
+        {
+          method: 'POST',
+        },
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: TOOLS_KEYS.liveLocations(circleId) });
+    },
+  });
+}
+
+// =============================================================================
+// 7. GROUP POLL HOOKS (UC15)
+// =============================================================================
+
+export function usePollsQuery(circleId: string | null) {
+  return useQuery({
+    queryKey: TOOLS_KEYS.polls(circleId || ''),
+    queryFn: async () => {
+      if (!circleId) return [];
+      const res = await apiRequest<GroupPollEntity[]>(`/circles/${circleId}/polls`);
+      return res.data;
+    },
+    enabled: !!circleId,
+  });
+}
+
+export function usePollDetailQuery(circleId: string | null, pollId: string | null) {
+  return useQuery({
+    queryKey: TOOLS_KEYS.pollDetail(circleId || '', pollId || ''),
+    queryFn: async () => {
+      if (!circleId || !pollId) return null;
+      const res = await apiRequest<GroupPollEntity>(
+        `/circles/${circleId}/polls/${pollId}`,
+      );
+      return res.data;
+    },
+    enabled: !!circleId && !!pollId,
+  });
+}
+
+export function useCreatePollMutation(circleId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: CreatePollInput) => {
+      const res = await apiRequest<GroupPollEntity>(`/circles/${circleId}/polls`, {
+        method: 'POST',
+        body: JSON.stringify(input),
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: TOOLS_KEYS.polls(circleId) });
+    },
+  });
+}
+
+export function useVotePollMutation(circleId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ pollId, input }: { pollId: string; input: VotePollInput }) => {
+      const res = await apiRequest<GroupPollEntity>(
+        `/circles/${circleId}/polls/${pollId}/vote`,
+        {
+          method: 'POST',
+          body: JSON.stringify(input),
+        },
+      );
+      return res.data;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: TOOLS_KEYS.polls(circleId) });
+      queryClient.invalidateQueries({
+        queryKey: TOOLS_KEYS.pollDetail(circleId, variables.pollId),
+      });
+    },
+  });
+}
+
+export function useClosePollMutation(circleId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (pollId: string) => {
+      const res = await apiRequest<GroupPollEntity>(
+        `/circles/${circleId}/polls/${pollId}/close`,
+        {
+          method: 'PUT',
+        },
+      );
+      return res.data;
+    },
+    onSuccess: (_data, pollId) => {
+      queryClient.invalidateQueries({ queryKey: TOOLS_KEYS.polls(circleId) });
+      queryClient.invalidateQueries({
+        queryKey: TOOLS_KEYS.pollDetail(circleId, pollId),
+      });
+    },
+  });
+}
+
+export function useDeletePollMutation(circleId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (pollId: string) => {
+      const res = await apiRequest<{ success: boolean }>(
+        `/circles/${circleId}/polls/${pollId}`,
+        {
+          method: 'DELETE',
+        },
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: TOOLS_KEYS.polls(circleId) });
+    },
+  });
+}
+

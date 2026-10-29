@@ -13,6 +13,13 @@ describe('CircleToolsService', () => {
     mockChatGateway = {
       broadcastNewMessage: jest.fn(),
       broadcastCalendarEventRsvp: jest.fn(),
+      broadcastSheetCellUpdated: jest.fn(),
+      broadcastSheetStructureUpdated: jest.fn(),
+      broadcastLiveLocationUpdated: jest.fn(),
+      broadcastLiveLocationStopped: jest.fn(),
+      broadcastPollCreated: jest.fn(),
+      broadcastPollVoted: jest.fn(),
+      broadcastPollClosed: jest.fn(),
     };
 
     mockPrisma = {
@@ -59,6 +66,43 @@ describe('CircleToolsService', () => {
         delete: jest.fn(),
       },
       calendarEventRsvp: {
+        upsert: jest.fn(),
+      },
+      planningSheet: {
+        findMany: jest.fn(),
+        findFirst: jest.fn(),
+        create: jest.fn(),
+        delete: jest.fn(),
+      },
+      sheetColumn: {
+        create: jest.fn(),
+      },
+      sheetRow: {
+        create: jest.fn(),
+      },
+      sheetCell: {
+        create: jest.fn(),
+        findUnique: jest.fn(),
+        update: jest.fn(),
+      },
+      liveLocationShare: {
+        findMany: jest.fn(),
+        findFirst: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
+        updateMany: jest.fn(),
+      },
+      groupPoll: {
+        findMany: jest.fn(),
+        findFirst: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
+        delete: jest.fn(),
+      },
+      pollOption: {
+        create: jest.fn(),
+      },
+      pollVote: {
         upsert: jest.fn(),
       },
       $transaction: jest.fn((callback: any) => callback(mockPrisma)),
@@ -526,4 +570,221 @@ it('should throw BadRequestException if event has already started when respondin
       ).rejects.toThrow();
     });
   });
+
+  // ===========================================================================
+  // 5. PLANNING SHEET (UC18)
+  // ===========================================================================
+  describe('Planning Sheet (UC18)', () => {
+    const member = { id: 'mem-1', circleId: 'circle-1', userId: 'user-1', role: 'MEMBER' };
+
+    it('should create planning sheet with columns and initial cells', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValue(member);
+      mockPrisma.planningSheet.create.mockResolvedValue({ id: 'sheet-1', title: 'Kế hoạch Tuần 10' });
+      mockPrisma.sheetColumn.create.mockResolvedValue({ id: 'col-1' });
+      mockPrisma.sheetRow.create.mockResolvedValue({ id: 'row-1' });
+      mockPrisma.sheetCell.create.mockResolvedValue({ id: 'cell-1' });
+
+      mockPrisma.planningSheet.findFirst.mockResolvedValue({
+        id: 'sheet-1',
+        title: 'Kế hoạch Tuần 10',
+        columns: [{ id: 'col-1', columnTitle: 'Nhiệm vụ', columnIndex: 0 }],
+        rows: [{ id: 'row-1', rowIndex: 0, cells: [] }],
+      });
+
+      const res = await service.createPlanningSheet('circle-1', 'user-1', {
+        title: 'Kế hoạch Tuần 10',
+      });
+
+      expect(res.id).toBe('sheet-1');
+      expect(mockChatGateway.broadcastSheetStructureUpdated).toHaveBeenCalledWith('circle-1', expect.any(Object));
+    });
+
+    it('should update cell value and broadcast event', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValue(member);
+      mockPrisma.sheetCell.findUnique.mockResolvedValue({
+        id: 'cell-1',
+        row: { sheetId: 'sheet-1' },
+      });
+      mockPrisma.sheetCell.update.mockResolvedValue({
+        id: 'cell-1',
+        cellValue: 'Đang triển khai',
+        lastEditedBy: { id: 'mem-1' },
+      });
+
+      const res = await service.updateSheetCell('circle-1', 'sheet-1', 'cell-1', 'user-1', {
+        cellValue: 'Đang triển khai',
+      });
+
+      expect(res.cellValue).toBe('Đang triển khai');
+      expect(mockChatGateway.broadcastSheetCellUpdated).toHaveBeenCalledWith('circle-1', expect.objectContaining({
+        cellValue: 'Đang triển khai',
+      }));
+    });
+
+    it('should delete planning sheet if owner or creator', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValue(member);
+      mockPrisma.planningSheet.findFirst.mockResolvedValue({
+        id: 'sheet-1',
+        circleId: 'circle-1',
+        createdById: 'mem-1',
+      });
+      mockPrisma.planningSheet.delete.mockResolvedValue({ id: 'sheet-1' });
+
+      const res = await service.deletePlanningSheet('circle-1', 'sheet-1', 'user-1');
+      expect(res).toEqual({ success: true });
+    });
+  });
+
+  // ===========================================================================
+  // 6. LIVE LOCATION SHARING (UC19)
+  // ===========================================================================
+  describe('Live Location Sharing (UC19)', () => {
+    const member = { id: 'mem-1', circleId: 'circle-1', userId: 'user-1', role: 'MEMBER' };
+
+    it('should start live location sharing and broadcast update', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValue(member);
+      mockPrisma.liveLocationShare.findFirst.mockResolvedValue(null);
+      mockPrisma.liveLocationShare.create.mockResolvedValue({
+        id: 'loc-1',
+        circleId: 'circle-1',
+        memberId: 'mem-1',
+        latitude: 10.762622,
+        longitude: 106.660172,
+        shareDuration: 30,
+        isActive: true,
+      });
+
+      const res = await service.startLiveLocation('circle-1', 'user-1', {
+        latitude: 10.762622,
+        longitude: 106.660172,
+        shareDuration: 30,
+      });
+
+      expect(res.isActive).toBe(true);
+      expect(mockChatGateway.broadcastLiveLocationUpdated).toHaveBeenCalledWith('circle-1', expect.any(Object));
+    });
+
+    it('should update active live location', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValue(member);
+      mockPrisma.liveLocationShare.findFirst.mockResolvedValue({
+        id: 'loc-1',
+        circleId: 'circle-1',
+        memberId: 'mem-1',
+        isActive: true,
+        expiresAt: new Date(Date.now() + 100000),
+      });
+      mockPrisma.liveLocationShare.update.mockResolvedValue({
+        id: 'loc-1',
+        latitude: 10.777777,
+        longitude: 106.688888,
+      });
+
+      const res = await service.updateLiveLocation('circle-1', 'user-1', {
+        latitude: 10.777777,
+        longitude: 106.688888,
+      });
+
+      expect(res.latitude).toBe(10.777777);
+      expect(mockChatGateway.broadcastLiveLocationUpdated).toHaveBeenCalledWith('circle-1', expect.any(Object));
+    });
+
+    it('should stop live location sharing', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValue(member);
+      mockPrisma.liveLocationShare.updateMany.mockResolvedValue({ count: 1 });
+
+      const res = await service.stopLiveLocation('circle-1', 'user-1');
+
+      expect(res).toEqual({ success: true, stopped: true });
+      expect(mockChatGateway.broadcastLiveLocationStopped).toHaveBeenCalledWith('circle-1', {
+        circleId: 'circle-1',
+        memberId: 'mem-1',
+      });
+    });
+  });
+
+  // ===========================================================================
+  // 7. GROUP POLL (UC15)
+  // ===========================================================================
+  describe('Group Poll (UC15)', () => {
+    const member = { id: 'mem-1', circleId: 'circle-1', userId: 'user-1', role: 'MEMBER' };
+
+    it('should create poll with options and broadcast', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValue(member);
+      mockPrisma.groupPoll.create.mockResolvedValue({ id: 'poll-1' });
+      mockPrisma.pollOption.create.mockResolvedValue({ id: 'opt-1' });
+
+      mockPrisma.groupPoll.findFirst.mockResolvedValue({
+        id: 'poll-1',
+        question: 'Đi ăn ở đâu tối nay?',
+        isClosed: false,
+        options: [
+          { id: 'opt-1', optionText: 'Lẩu Haidilao', orderIndex: 0, votes: [] },
+          { id: 'opt-2', optionText: 'Nướng Gogi', orderIndex: 1, votes: [] },
+        ],
+        votes: [],
+      });
+
+      const res = await service.createPoll('circle-1', 'user-1', {
+        question: 'Đi ăn ở đâu tối nay?',
+        options: ['Lẩu Haidilao', 'Nướng Gogi'],
+      });
+
+      expect(res.id).toBe('poll-1');
+      expect(mockChatGateway.broadcastPollCreated).toHaveBeenCalledWith('circle-1', expect.any(Object));
+    });
+
+    it('should vote in poll and calculate percentages', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValue(member);
+      mockPrisma.groupPoll.findFirst
+        .mockResolvedValueOnce({
+          id: 'poll-1',
+          circleId: 'circle-1',
+          isClosed: false,
+          options: [{ id: 'opt-1' }, { id: 'opt-2' }],
+        })
+        .mockResolvedValueOnce({
+          id: 'poll-1',
+          question: 'Đi ăn ở đâu?',
+          isClosed: false,
+          options: [
+            { id: 'opt-1', optionText: 'Lẩu', orderIndex: 0, votes: [{ id: 'v-1', memberId: 'mem-1' }] },
+            { id: 'opt-2', optionText: 'Nướng', orderIndex: 1, votes: [] },
+          ],
+          votes: [{ id: 'v-1', memberId: 'mem-1', optionId: 'opt-1' }],
+        });
+
+      mockPrisma.pollVote.upsert.mockResolvedValue({ id: 'v-1' });
+
+      const res = await service.votePoll('circle-1', 'poll-1', 'user-1', { optionId: 'opt-1' });
+
+      expect(res.totalVotes).toBe(1);
+      expect(res.options?.[0]?.percentage).toBe(100);
+      expect(res.userVotedOptionId).toBe('opt-1');
+      expect(mockChatGateway.broadcastPollVoted).toHaveBeenCalledWith('circle-1', expect.any(Object));
+    });
+
+    it('should close poll if owner or creator', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValue(member);
+      mockPrisma.groupPoll.findFirst
+        .mockResolvedValueOnce({
+          id: 'poll-1',
+          circleId: 'circle-1',
+          createdById: 'mem-1',
+        })
+        .mockResolvedValueOnce({
+          id: 'poll-1',
+          question: 'Bình chọn',
+          isClosed: true,
+          options: [],
+          votes: [],
+        });
+
+      mockPrisma.groupPoll.update.mockResolvedValue({ id: 'poll-1', isClosed: true });
+
+      const res = await service.closePoll('circle-1', 'poll-1', 'user-1');
+      expect(res.isClosed).toBe(true);
+      expect(mockChatGateway.broadcastPollClosed).toHaveBeenCalledWith('circle-1', expect.any(Object));
+    });
+  });
 });
+

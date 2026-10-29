@@ -115,6 +115,15 @@ Mỗi màn hình hoặc luồng phải xử lý rõ ràng các trạng thái áp
 - Không hiển thị dữ liệu nhạy cảm của người khác (email, số điện thoại,
   vị trí chính xác) ngoài phạm vi tính năng cho phép.
 
+## 9. Radical Minimalism & Contextual Interaction (Triết lý Tối giản & Tương tác Ngữ cảnh)
+
+- **Cắt giảm triệt để text thừa:** Ít text nhất có thể. Không thêm bất kỳ text mô tả, giải thích hiển nhiên hoặc subtitle lặp lại tiêu đề verbatim (ví dụ: đổi mật khẩu không thêm badge khuyên răn; form không lặp lại mô tả cho từng tiêu đề con; empty state chỉ cần icon nhẹ + tiêu đề ngắn gọn, không giải thích dài dòng).
+- **Tương tác theo ngữ cảnh:**
+  - Web: Hover phần tử hiện các thao tác phụ tinh gọn dạng 3 chấm dọc (`MoreVertical`).
+  - Mobile: Tránh popup thô giữa màn hình; dùng tương tác ngữ cảnh (nhấn giữ focus tin nhắn với overlay làm mờ, thanh emoji ở trên, menu hành động ở dưới).
+- **Bố cục sạch (Clean Layout):** Tin nhắn ghim đưa lên icon Header (rỗng/fill); không để thanh/badge draft thô kệch; cài đặt âm thanh/hiệu ứng gom vào Circle Settings. Nút hành động ở Light Theme phải có độ tương phản rõ nét với nền.
+- **Emoji đồng bộ:** Dùng DUY NHẤT một bộ emoji chuẩn hóa toàn hệ thống; tab phân loại picker chỉ dùng icon, không dùng chữ.
+
 ---
 
 ## GATE CHECKLIST — Agent tick trước khi báo cáo Done
@@ -124,6 +133,7 @@ Cross-cutting gate cho tính năng: <tên>
 [ ] Responsive: đã kiểm ở 360 / 768 / 1280 (web) hoặc 2 cỡ máy (mobile)
 [ ] Theme: không hardcode màu/spacing; hiển thị đúng Light + Dark; contrast AA
 [ ] i18n: không hardcode string; đủ key VI + EN; format ngày/số theo locale
+[ ] Minimalism: không text thừa/lời khuyên rườm rà; layout tinh gọn, sạch mắt
 [ ] States: loading / empty / error / offline / success / permission (phần áp dụng)
 [ ] A11y: label cho icon-button, alt text, focus, không truyền tin bằng màu đơn thuần
 [ ] Parity: có trên web + mobile, hoặc ngoại lệ đã ghi trong playbook

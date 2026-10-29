@@ -16,6 +16,8 @@ import {
   ChevronDown,
   Link2,
   Camera,
+  MapPin,
+  Vote,
 } from 'lucide-react';
 import { useLanguageStore } from '../../stores/language.store';
 import { useCircleStore } from '../../stores/circle.store';
@@ -77,7 +79,7 @@ export const Sidebar: React.FC = () => {
   };
 
   return (
-    <aside className="hidden md:flex w-64 shrink-0 flex-col gap-4 bg-white dark:bg-circle-dark-surface p-3 pt-3 h-screen sticky top-0 overflow-y-auto transition-colors border-r border-circle-hairline/60 dark:border-circle-dark-hairline/60">
+    <aside className="hidden md:flex w-64 shrink-0 flex-col gap-4 bg-white dark:bg-circle-dark-surface p-3 pt-3 h-full overflow-y-auto transition-colors border-r border-circle-hairline/60 dark:border-circle-dark-hairline/60">
       {/* Circle Switcher Section (Flat, borderless container) */}
       <div className="p-1 transition-colors">
         <div className="flex items-center justify-between mb-2">
@@ -248,7 +250,24 @@ export const Sidebar: React.FC = () => {
             active={activeCircleView === 'calendar'}
             onClick={() => setActiveCircleView('calendar')}
           />
-          <NavItem icon={<FileSpreadsheet className="h-4 w-4" />} label={t.nav.planningSheet} />
+          <NavItem
+            icon={<FileSpreadsheet className="h-4 w-4" />}
+            label={t.nav.planningSheet}
+            active={activeCircleView === 'planning'}
+            onClick={() => setActiveCircleView('planning')}
+          />
+          <NavItem
+            icon={<MapPin className="h-4 w-4" />}
+            label={t.nav.liveLocation}
+            active={activeCircleView === 'location'}
+            onClick={() => setActiveCircleView('location')}
+          />
+          <NavItem
+            icon={<Vote className="h-4 w-4" />}
+            label={t.nav.groupPoll}
+            active={activeCircleView === 'polls'}
+            onClick={() => setActiveCircleView('polls')}
+          />
           <NavItem
             icon={<Compass className="h-4 w-4" />}
             label={t.nav.luckyWheel}

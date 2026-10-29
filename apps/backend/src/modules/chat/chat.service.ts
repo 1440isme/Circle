@@ -8,13 +8,23 @@ import { PrismaService } from '../../database/prisma.service';
 import { ChatGateway } from './chat.gateway';
 import {
   SendMessageInput,
+  EditMessageInput,
+  SearchMessagesInput,
   ReactMessageInput,
   MessagePaginationInput,
+  ClearChatInput,
   Locale,
   locales,
 } from '@circle/shared';
 import { MessageType } from '@prisma/client';
-import { ApiResponse, MessageEntity, CursorPaginatedMessages, MessageReaderEntity } from '@circle/types';
+import {
+  ApiResponse,
+  MessageEntity,
+  CursorPaginatedMessages,
+  MessageReaderEntity,
+  SearchMessagesResult,
+  ClearChatResult,
+} from '@circle/types';
 
 @Injectable()
 export class ChatService {
@@ -69,19 +79,26 @@ export class ChatService {
       }
     }
 
+    const isDeleted = Boolean(msg.deletedAt);
+
     return {
       id: msg.id,
       channelId: msg.channelId,
       memberId: msg.memberId,
       type: msg.type,
-      content: msg.content,
-      fileUrl: msg.fileUrl,
-      fileName: msg.fileName,
-      fileSize: msg.fileSize,
-      audioDuration: msg.audioDuration,
+      content: isDeleted ? null : msg.content,
+      fileUrl: isDeleted ? null : msg.fileUrl,
+      fileName: isDeleted ? null : msg.fileName,
+      fileSize: isDeleted ? null : msg.fileSize,
+      audioDuration: isDeleted ? null : msg.audioDuration,
       replyToId: msg.replyToId,
       sentAt: msg.sentAt.toISOString(),
       updatedAt: msg.updatedAt.toISOString(),
+      deletedAt: msg.deletedAt
+        ? msg.deletedAt instanceof Date
+          ? msg.deletedAt.toISOString()
+          : new Date(msg.deletedAt).toISOString()
+        : null,
       sender: msg.sender
         ? {
             id: msg.sender.id,
@@ -187,12 +204,17 @@ export class ChatService {
     const cursor = pagination.cursor;
     const direction = pagination.direction || 'before';
 
+    const baseWhere: any = { channelId };
+    if (member.clearedChatAt) {
+      baseWhere.sentAt = { gt: member.clearedChatAt };
+    }
+
     let rawMessages: any[];
 
     if (cursor) {
       if (direction === 'after') {
         rawMessages = await this.prisma.message.findMany({
-          where: { channelId, deletedAt: null },
+          where: baseWhere,
           take: limit + 1,
           skip: 1,
           cursor: { id: cursor },
@@ -207,7 +229,7 @@ export class ChatService {
         });
       } else {
         rawMessages = await this.prisma.message.findMany({
-          where: { channelId, deletedAt: null },
+          where: baseWhere,
           take: limit + 1,
           skip: 1,
           cursor: { id: cursor },
@@ -223,7 +245,7 @@ export class ChatService {
       }
     } else {
       rawMessages = await this.prisma.message.findMany({
-        where: { channelId, deletedAt: null },
+        where: baseWhere,
         take: limit + 1,
         orderBy: { sentAt: 'desc' },
         include: {
@@ -612,6 +634,267 @@ export class ChatService {
       statusCode: 200,
       data: reader,
       timestamp: new Date().toISOString(),
+    };
+  }
+
+  /**
+   * PATCH /api/v1/messages/:messageId — Edit message (CHT-09)
+   */
+  async editMessage(
+    userId: string,
+    messageId: string,
+    dto: EditMessageInput,
+    locale: Locale = 'vi',
+  ): Promise<ApiResponse<MessageEntity>> {
+    const t = locales[locale] || locales.vi;
+    const message = await this.prisma.message.findUnique({
+      where: { id: messageId },
+      include: {
+        channel: true,
+        sender: true,
+      },
+    });
+
+    if (!message || message.deletedAt) {
+      throw new NotFoundException(t.chat.messageNotFound);
+    }
+
+    const member = await this.ensureCircleMembership(userId, message.channel.circleId, locale);
+
+    // Only original author can edit message (Playbook CHT-09)
+    if (message.memberId !== member.id) {
+      throw new ForbiddenException(t.chat.cannotEditOthersMessage);
+    }
+
+    const updated = await this.prisma.message.update({
+      where: { id: messageId },
+      data: {
+        content: dto.content.trim(),
+        updatedAt: new Date(),
+      },
+      include: {
+        sender: { include: { user: { include: { profile: true } } } },
+        replyTo: { include: { sender: { include: { user: { include: { profile: true } } } } } },
+        reactions: { include: { member: { include: { user: { include: { profile: true } } } } } },
+        pinnedRecord: true,
+        receipts: { include: { user: { include: { profile: true } } } },
+      },
+    });
+
+    const formatted = this.formatMessage(updated, member.id);
+    this.chatGateway.broadcastMessageUpdated(message.channelId, formatted);
+
+    return {
+      success: true,
+      statusCode: 200,
+      message: t.chat.editMessageSuccess,
+      data: formatted,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  /**
+   * DELETE /api/v1/messages/:messageId — Recall message (CHT-10)
+   */
+  async recallMessage(
+    userId: string,
+    messageId: string,
+    locale: Locale = 'vi',
+  ): Promise<ApiResponse<MessageEntity>> {
+    const t = locales[locale] || locales.vi;
+    const message = await this.prisma.message.findUnique({
+      where: { id: messageId },
+      include: {
+        channel: true,
+        sender: true,
+        pinnedRecord: true,
+      },
+    });
+
+    if (!message || message.deletedAt) {
+      throw new NotFoundException(t.chat.messageNotFound);
+    }
+
+    const member = await this.ensureCircleMembership(userId, message.channel.circleId, locale);
+
+    // Permission: message sender OR Circle OWNER/ADMIN (Playbook CHT-10)
+    const isAuthor = message.memberId === member.id;
+    const isCircleAdmin = member.role === 'OWNER' || member.role === 'ADMIN';
+
+    if (!isAuthor && !isCircleAdmin) {
+      throw new ForbiddenException(t.chat.cannotRecallMessage);
+    }
+
+    // If message is pinned, delete pin record first
+    if (message.pinnedRecord) {
+      await this.prisma.pinnedRecord
+        .delete({
+          where: { messageId },
+        })
+        .catch(() => {});
+      this.chatGateway.broadcastUnpinMessage(message.channelId, { messageId });
+    }
+
+    const recalled = await this.prisma.message.update({
+      where: { id: messageId },
+      data: {
+        deletedAt: new Date(),
+        content: null,
+        fileUrl: null,
+        fileName: null,
+        fileSize: null,
+        audioDuration: null,
+      },
+      include: {
+        sender: { include: { user: { include: { profile: true } } } },
+        replyTo: { include: { sender: { include: { user: { include: { profile: true } } } } } },
+        reactions: { include: { member: { include: { user: { include: { profile: true } } } } } },
+        pinnedRecord: true,
+        receipts: { include: { user: { include: { profile: true } } } },
+      },
+    });
+
+    const formatted = this.formatMessage(recalled, member.id);
+    this.chatGateway.broadcastMessageRecalled(message.channelId, messageId, formatted);
+
+    return {
+      success: true,
+      statusCode: 200,
+      message: t.chat.recallMessageSuccess,
+      data: formatted,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  /**
+   * GET /api/v1/channels/:channelId/messages/search — Search messages in channel (CHT-17)
+   */
+  async searchMessages(
+    userId: string,
+    channelId: string,
+    dto: SearchMessagesInput,
+    locale: Locale = 'vi',
+  ): Promise<ApiResponse<SearchMessagesResult>> {
+    const t = locales[locale] || locales.vi;
+    const channel = await this.prisma.channel.findUnique({
+      where: { id: channelId },
+    });
+
+    if (!channel) {
+      throw new NotFoundException(t.chat.channelNotFound);
+    }
+
+    const member = await this.ensureCircleMembership(userId, channel.circleId, locale);
+
+    const limit = Math.min(Number(dto.limit) || 20, 50);
+    const query = dto.q.trim();
+
+    const searchWhere: any = {
+      channelId,
+      deletedAt: null,
+      content: {
+        contains: query,
+        mode: 'insensitive',
+      },
+    };
+    if (member.clearedChatAt) {
+      searchWhere.sentAt = { gt: member.clearedChatAt };
+    }
+
+    const rawMessages = await this.prisma.message.findMany({
+      where: searchWhere,
+      take: limit,
+      orderBy: { sentAt: 'desc' },
+      include: {
+        sender: { include: { user: { include: { profile: true } } } },
+        replyTo: { include: { sender: { include: { user: { include: { profile: true } } } } } },
+        reactions: { include: { member: { include: { user: { include: { profile: true } } } } } },
+        pinnedRecord: true,
+        receipts: { include: { user: { include: { profile: true } } } },
+      },
+    });
+
+    const messages = rawMessages.map((m) => this.formatMessage(m, member.id));
+
+    return {
+      success: true,
+      statusCode: 200,
+      data: {
+        messages,
+        total: messages.length,
+      },
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  /**
+   * POST /api/v1/channels/:channelId/clear-history — Clear channel chat history (FOR_ME or EVERYONE)
+   */
+  async clearChannelHistory(
+    userId: string,
+    channelId: string,
+    dto: ClearChatInput,
+    locale: Locale = 'vi',
+  ): Promise<ApiResponse<ClearChatResult>> {
+    const t = locales[locale] || locales.vi;
+    const channel = await this.prisma.channel.findUnique({
+      where: { id: channelId },
+    });
+
+    if (!channel) {
+      throw new NotFoundException(t.chat.channelNotFound);
+    }
+
+    const member = await this.ensureCircleMembership(userId, channel.circleId, locale);
+    const now = new Date();
+    const mode = dto.mode || 'FOR_ME';
+
+    if (mode === 'EVERYONE') {
+      // Soft-delete all active messages in this channel
+      await this.prisma.message.updateMany({
+        where: {
+          channelId,
+          deletedAt: null,
+        },
+        data: {
+          deletedAt: now,
+          content: null,
+          fileUrl: null,
+          fileName: null,
+          fileSize: null,
+          audioDuration: null,
+        },
+      });
+
+      // Clean up any pinned records in this channel
+      await this.prisma.pinnedRecord.deleteMany({
+        where: { message: { channelId } },
+      }).catch(() => {});
+
+      // Broadcast channel cleared event to all members in channel
+      this.chatGateway.broadcastChannelCleared(channelId, {
+        channelId,
+        mode: 'EVERYONE',
+        clearedBy: member.id,
+      });
+    } else {
+      // Mode 'FOR_ME': Update member's clearedChatAt timestamp
+      await this.prisma.circleMember.update({
+        where: { id: member.id },
+        data: { clearedChatAt: now },
+      });
+    }
+
+    return {
+      success: true,
+      statusCode: 200,
+      message: t.chat.clearChatSuccess,
+      data: {
+        channelId,
+        mode,
+        clearedAt: now.toISOString(),
+      },
+      timestamp: now.toISOString(),
     };
   }
 }

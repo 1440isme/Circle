@@ -135,7 +135,7 @@ export function resolveAuthorDisplayName(authorId?: string | null, authorObj?: a
     authorObj?.user?.profile?.displayName ||
     authorObj?.email?.split('@')[0] ||
     authorObj?.user?.email?.split('@')[0] ||
-    'Thành viên'
+    (useLanguageStore.getState().t?.chat?.defaultMemberName || 'Thành viên')
   );
 }
 
@@ -212,7 +212,7 @@ export function formatMomentRelativeTime(dateInput?: string | Date | null, local
 
   // Vừa xong / just now
   if (diffSec < 60 && diffSec >= -10) {
-    return locale === 'vi' ? 'vừa xong' : 'just now';
+    return useLanguageStore.getState().t?.moments?.justNow || 'vừa xong';
   }
 
   const diffMin = Math.floor(diffSec / 60);
@@ -223,9 +223,9 @@ export function formatMomentRelativeTime(dateInput?: string | Date | null, local
 
   if (isSameDay) {
     if (diffMin < 60) {
-      return locale === 'vi' ? `${Math.max(1, diffMin)} p trước` : `${Math.max(1, diffMin)}m ago`;
+      return (useLanguageStore.getState().t?.moments?.minutesAgoShort || '{m} p trước').replace('{m}', String(Math.max(1, diffMin)));
     }
-    return locale === 'vi' ? `${diffHour} giờ trước` : `${diffHour}h ago`;
+    return (useLanguageStore.getState().t?.moments?.hoursAgoShort || '{h} giờ trước').replace('{h}', String(diffHour));
   }
 
   // Khác ngày hôm nay (1, 2 ngày sau hoặc trước đó): hiển thị ngày cụ thể "15 tháng 10"
@@ -489,7 +489,7 @@ export const MomentFeedPipView: React.FC<MomentFeedPipViewProps> = React.memo(({
         <RNImage source={{ uri: pipUrl }} style={styles.pipFloatingImage} resizeMode="cover" />
         <View style={[styles.pipSwapOverlay, { backgroundColor: 'rgba(0,0,0,0.65)' }]} pointerEvents="none">
           <RefreshCw size={9} color="#FFFFFF" />
-          <Text style={styles.pipBadgeText}>Chạm đổi</Text>
+          <Text style={styles.pipBadgeText}>{useLanguageStore.getState().t?.moments?.tapToSwitchPip || 'Chạm đổi'}</Text>
         </View>
       </Animated.View>
     </View>
@@ -653,7 +653,7 @@ const MomentFeedCardItem: React.FC<MomentFeedCardItemProps> = React.memo(({
                 <TextInput
                   value={chatReplyText}
                   onChangeText={onChangeChatReplyText}
-                  placeholder={`Phản hồi ${authorName}...`}
+                  placeholder={(useLanguageStore.getState().t?.moments?.replyPlaceholder || 'Phản hồi {name}...').replace('{name}', authorName)}
                   placeholderTextColor="rgba(255,255,255,0.7)"
                   maxLength={500}
                   autoFocus={true}
@@ -701,7 +701,7 @@ const MomentFeedCardItem: React.FC<MomentFeedCardItemProps> = React.memo(({
                 styles.replyIconOnlyBtn,
                 isReplyingThisMoment ? { backgroundColor: `${colors.primary}25`, borderRadius: 16 } : null,
               ]}
-              accessibilityLabel="Phản hồi"
+              accessibilityLabel={useLanguageStore.getState().t?.moments?.replyMomentTitle || 'Phản hồi'}
             >
               <MessageCircle size={19} color={isReplyingThisMoment ? colors.primary : colors.text} />
             </TouchableOpacity>
@@ -710,7 +710,7 @@ const MomentFeedCardItem: React.FC<MomentFeedCardItemProps> = React.memo(({
               activeOpacity={0.7}
               onPress={() => onReplyWithPhoto(authorName)}
               style={styles.replyIconOnlyBtn}
-              accessibilityLabel="Đáp lại bằng ảnh"
+              accessibilityLabel={useLanguageStore.getState().t?.moments?.replyPhoto || 'Đáp lại bằng ảnh'}
             >
               <Camera size={19} color={colors.primary} />
             </TouchableOpacity>
@@ -750,7 +750,7 @@ const MomentFeedCardItem: React.FC<MomentFeedCardItemProps> = React.memo(({
                         </View>
                         {/* Small circular badge at bottom-right of avatar with emoji */}
                         <View style={[styles.authorStackEmojiBadge, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
-                          <Text style={styles.authorStackEmojiText}>{r.emoji}</Text>
+                          <Emoji emoji={r.emoji} size={11} />
                         </View>
                       </View>
                     );
@@ -802,7 +802,7 @@ const MomentFeedCardItem: React.FC<MomentFeedCardItemProps> = React.memo(({
                 onPress={() => onOpenFullEmoji?.(m.id)}
                 activeOpacity={0.7}
                 style={{ padding: 4 }}
-                accessibilityLabel="Thêm biểu cảm khác"
+                accessibilityLabel={useLanguageStore.getState().t?.emoji?.addOtherEmoji || 'Thêm biểu cảm khác'}
               >
                 <Smile size={19} color={colors.subtle} />
               </TouchableOpacity>
@@ -1161,7 +1161,7 @@ export function MomentsView({
         const lat = loc.coords.latitude;
         const lng = loc.coords.longitude;
 
-        let locationName = 'Vị trí đã chụp';
+        let locationName = t.moments.capturedLocation || 'Vị trí đã chụp';
         let address = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
 
         try {
@@ -1173,7 +1173,7 @@ export function MomentsView({
             const city = r?.city || r?.region || '';
             const namePart = r?.name || street || sub || city;
 
-            locationName = namePart || 'Vị trí đã chụp';
+            locationName = namePart || t.moments.capturedLocation || 'Vị trí đã chụp';
             address = [street, sub, city].filter(Boolean).join(', ') || `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
           }
         } catch {
@@ -1452,12 +1452,12 @@ export function MomentsView({
   );
   const selectedFilterName =
     selectedMemberId === 'all'
-      ? 'Mọi người'
+      ? (t.chat.mentionAll || 'Mọi người')
       : selectedMember?.nickname ||
         selectedMember?.user?.profile?.displayName ||
         selectedMember?.profile?.displayName ||
         selectedMember?.user?.email?.split('@')[0] ||
-        'Thành viên';
+        (t.chat.defaultMemberName || 'Thành viên');
 
   // Ảnh gần nhất cho nút cuộn xuống Lịch sử
   const latestMomentPhoto = moments[0]?.photoUrl || moments[0]?.imageUrl || null;
@@ -2080,12 +2080,12 @@ export function MomentsView({
 
     if (isOwn) {
       Alert.alert(
-        'Xoá vĩnh viễn khoảnh khắc?',
-        'Khoảnh khắc này sẽ bị xoá vĩnh viễn khỏi Circle và bạn bè sẽ không thể xem lại nữa.',
+        t.moments.deleteMomentForeverTitle,
+        t.moments.deleteMomentForeverDesc,
         [
-          { text: 'Hủy', style: 'cancel' },
+          { text: t.common.cancel || 'Hủy', style: 'cancel' },
           {
-            text: 'Xoá vĩnh viễn',
+            text: t.moments.deleteMomentForeverAction,
             style: 'destructive',
             onPress: async () => {
               try {
@@ -2103,12 +2103,12 @@ export function MomentsView({
       );
     } else {
       Alert.alert(
-        'Xoá khỏi bên mình?',
-        'Khoảnh khắc này sẽ được xoá khỏi trang của bạn. Bạn bè khác trong Vòng tròn vẫn có thể xem được bình thường.',
+        t.moments.deleteForMeTitle,
+        t.moments.deleteForMeDesc,
         [
-          { text: 'Hủy', style: 'cancel' },
+          { text: t.common.cancel || 'Hủy', style: 'cancel' },
           {
-            text: 'Xoá khỏi bên mình',
+            text: t.moments.deleteForMeAction,
             style: 'destructive',
             onPress: async () => {
               await hideMomentLocally(targetMoment.id);
@@ -2177,7 +2177,7 @@ export function MomentsView({
               <View style={[styles.replyingBadge, { backgroundColor: `${colors.warning}20`, marginBottom: 8 }]}>
                 <MessageCircle size={13} color={colors.warning} />
                 <Text style={[styles.replyingBadgeText, { color: colors.warning }]}>
-                  Đáp lại: {replyingToAuthor}
+                  {t.moments.replyToAuthorPrefix.replace('{author}', replyingToAuthor)}
                 </Text>
                 <TouchableOpacity onPress={() => setReplyingToAuthor(null)}>
                   <X size={13} color={colors.warning} />
@@ -2399,10 +2399,10 @@ export function MomentsView({
                 <View style={styles.cameraPermissionBox}>
                   <Camera size={40} color={colors.primary} />
                   <Text style={[styles.cameraPermissionTitle, { color: '#FFFFFF' }]}>
-                    Quyền truy cập máy ảnh
+                    {t.moments.cameraPermissionTitle}
                   </Text>
                   <Text style={[styles.cameraPermissionSub, { color: 'rgba(255,255,255,0.7)' }]}>
-                    Cấp quyền để chụp và chia sẻ khoảnh khắc realtime với bạn bè.
+                    {t.moments.cameraPermissionDesc}
                   </Text>
                   <TouchableOpacity
                     activeOpacity={0.8}
@@ -2410,7 +2410,7 @@ export function MomentsView({
                     style={[styles.cameraPermissionBtn, { backgroundColor: colors.primary }]}
                   >
                     <Text style={[styles.cameraPermissionBtnText, { color: colors.onPrimary }]}>
-                      Cấp quyền Camera
+                      {t.moments.grantCameraBtn}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -2462,7 +2462,7 @@ export function MomentsView({
                     <TextInput
                       value={captionText}
                       onChangeText={handleCaptionChange}
-                      placeholder="Thêm tin nhắn gửi bạn bè..."
+                      placeholder={t.moments.addMessagePlaceholder}
                       placeholderTextColor="rgba(255,255,255,0.7)"
                       maxLength={maxCaptionLength}
                       multiline={true}
@@ -2495,7 +2495,7 @@ export function MomentsView({
                   >
                     <RotateCcw size={20} color={colors.text} />
                     <Text style={[styles.reviewBtnText, { color: colors.text }]}>
-                      {capturedMediaType === 'VIDEO' ? 'Quay lại GIF' : 'Chụp lại'}
+                      {capturedMediaType === 'VIDEO' ? t.moments.retake : t.moments.retakePhoto}
                     </Text>
                   </TouchableOpacity>
 
@@ -2511,7 +2511,7 @@ export function MomentsView({
                       <>
                         <Send size={18} color={colors.onPrimary} />
                         <Text style={[styles.sendMomentBtnText, { color: colors.onPrimary }]}>
-                          Gửi vào {circleName}
+                          {t.moments.sendToCircle.replace('{name}', circleName)}
                         </Text>
                       </>
                     )}
@@ -2653,7 +2653,7 @@ export function MomentsView({
                   <History size={14} color={colors.primary} />
                 </View>
               )}
-              <Text style={[styles.historyCueText, { color: colors.text }]}>Lịch sử</Text>
+              <Text style={[styles.historyCueText, { color: colors.text }]}>{t.moments.historyTitle}</Text>
               <ChevronDown size={18} color={colors.subtle} />
             </TouchableOpacity>
           </Animated.View>
@@ -2669,12 +2669,7 @@ export function MomentsView({
             <Text style={[styles.emptyHistoryTitle, { color: colors.text }]}>
               {selectedMemberId === 'all'
                 ? t.moments.emptyCircleTitle
-                : `Chưa có khoảnh khắc từ ${selectedFilterName}`}
-            </Text>
-            <Text style={[styles.emptyHistoryDesc, { color: colors.subtle }]}>
-              {selectedMemberId === 'all'
-                ? `Hãy là người đầu tiên chụp & chia sẻ khoảnh khắc với ${circleName}!`
-                : 'Bạn có thể chọn thành viên khác hoặc bấm xem tất cả mọi người.'}
+                : (t.moments.noMomentsFromFilter || 'Chưa có khoảnh khắc từ {name}').replace('{name}', selectedFilterName)}
             </Text>
             {selectedMemberId !== 'all' ? (
               <TouchableOpacity
@@ -2683,7 +2678,7 @@ export function MomentsView({
               >
                 <Users size={16} color={colors.onPrimary} />
                 <Text style={[styles.firstSnapBtnText, { color: colors.onPrimary }]}>
-                  Xem tất cả mọi người
+                  {t.moments.allMoments}
                 </Text>
               </TouchableOpacity>
             ) : (
@@ -2693,7 +2688,7 @@ export function MomentsView({
               >
                 <Camera size={16} color={colors.onPrimary} />
                 <Text style={[styles.firstSnapBtnText, { color: colors.onPrimary }]}>
-                  Chụp khoảnh khắc ngay
+                  {t.moments.addMoment}
                 </Text>
               </TouchableOpacity>
             )}
@@ -2880,10 +2875,9 @@ export function MomentsView({
                 <ImageIcon size={32} color={colors.primary} />
               </View>
               <Text style={[styles.gridEmptyTitle, { color: colors.text }]}>
-                {selectedMemberId === 'all' ? 'Chưa có khoảnh khắc nào' : `Chưa có khoảnh khắc từ ${selectedFilterName}`}
-              </Text>
-              <Text style={[styles.gridEmptyDesc, { color: colors.subtle }]}>
-                Chụp khoảnh khắc đầu tiên để lưu lại kỷ niệm đáng nhớ cùng bạn bè
+                {selectedMemberId === 'all'
+                  ? t.moments.emptyCircleTitle
+                  : (t.moments.noMomentsFromFilter || 'Chưa có khoảnh khắc từ {name}').replace('{name}', selectedFilterName)}
               </Text>
               <TouchableOpacity
                 activeOpacity={0.85}
@@ -2895,7 +2889,7 @@ export function MomentsView({
               >
                 <Camera size={16} color={colors.onPrimary} />
                 <Text style={[styles.gridEmptySnapBtnText, { color: colors.onPrimary }]}>
-                  Chụp ảnh ngay
+                  {t.moments.addMoment}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -3022,7 +3016,7 @@ export function MomentsView({
               setIsHistoryViewActive(!isHistoryViewActive);
             }}
             style={styles.dockIconBtn}
-            accessibilityLabel="Lịch sử khoảnh khắc"
+            accessibilityLabel={t.moments.historyTitle}
           >
             <Calendar
               size={24}
@@ -3132,10 +3126,10 @@ export function MomentsView({
                 )}
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.actionSheetTitle, { color: colors.text }]}>
-                    Khoảnh khắc của {currentAuthorName}
+                    {(t.chat.momentOf || 'Khoảnh khắc của {author}').replace('{author}', currentAuthorName)}
                   </Text>
                   <Text style={[styles.actionSheetSub, { color: colors.subtle }]}>
-                    {circleName} · Moments
+                    {circleName}
                   </Text>
                 </View>
               </View>
@@ -3165,7 +3159,7 @@ export function MomentsView({
                   )}
                 </View>
                 <View style={styles.actionItemInfo}>
-                  <Text style={[styles.actionItemTitle, { color: colors.text, fontWeight: '600' }]}>Chia sẻ</Text>
+                  <Text style={[styles.actionItemTitle, { color: colors.text, fontWeight: '600' }]}>{t.common.share}</Text>
                 </View>
               </TouchableOpacity>
 
@@ -3184,7 +3178,7 @@ export function MomentsView({
                   )}
                 </View>
                 <View style={styles.actionItemInfo}>
-                  <Text style={[styles.actionItemTitle, { color: colors.text, fontWeight: '600' }]}>Lưu</Text>
+                  <Text style={[styles.actionItemTitle, { color: colors.text, fontWeight: '600' }]}>{t.common.save || 'Lưu'}</Text>
                 </View>
               </TouchableOpacity>
 
@@ -3206,7 +3200,7 @@ export function MomentsView({
                 </View>
                 <View style={styles.actionItemInfo}>
                   <Text style={[styles.actionItemTitle, { color: colors.danger, fontWeight: '700' }]}>
-                    Xoá
+                    {t.common.delete}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -3249,7 +3243,7 @@ export function MomentsView({
             <View style={[styles.reactorsHeader, { borderBottomColor: colors.hairline }]}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <Text style={[styles.reactorsTitle, { color: colors.text }]}>
-                  {locale === 'vi' ? 'Lượt bày tỏ cảm xúc' : 'Reactions'}
+                  {t.moments.reactionsTitle}
                 </Text>
                 <View style={[styles.reactorsCountBadge, { backgroundColor: `${colors.primary}25` }]}>
                   <Text style={[styles.reactorsCountBadgeText, { color: colors.primary }]}>
@@ -3296,7 +3290,7 @@ export function MomentsView({
                           { color: reactorEmojiFilter === 'ALL' ? '#FFFFFF' : colors.text },
                         ]}
                       >
-                        {locale === 'vi' ? 'Tất cả' : 'All'} ({reactions.length})
+                        {t.common.all} ({reactions.length})
                       </Text>
                     </TouchableOpacity>
 
@@ -3343,14 +3337,14 @@ export function MomentsView({
                     <View style={{ paddingVertical: 40, alignItems: 'center', gap: 8 }}>
                       <Text style={{ fontSize: 32 }}>❤️</Text>
                       <Text style={{ fontSize: 13, color: colors.subtle }}>
-                        {locale === 'vi' ? 'Chưa có lượt cảm xúc nào' : 'No reactions yet'}
+                        {t.moments.emptyFeedTitle}
                       </Text>
                     </View>
                   );
                 }
 
                 return filtered.map((r: any) => {
-                  const displayName = r.user?.displayName || 'Người dùng';
+                  const displayName = r.user?.displayName || t.chat.defaultMemberName;
                   const avatarUrl = r.user?.avatarUrl;
                   const relativeTime = formatMomentRelativeTime(r.createdAt, locale);
 
@@ -3372,7 +3366,7 @@ export function MomentsView({
                           </View>
                           {/* Mini emoji on bottom right of avatar */}
                           <View style={[styles.reactorItemAvatarEmoji, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
-                            <Text style={{ fontSize: 9 }}>{r.emoji}</Text>
+                            <Emoji emoji={r.emoji} size={11} />
                           </View>
                         </View>
 
@@ -3387,7 +3381,7 @@ export function MomentsView({
                       </View>
 
                       <View style={[styles.reactorEmojiPill, { backgroundColor: colors.wash }]}>
-                        <Text style={{ fontSize: 16 }}>{r.emoji}</Text>
+                        <Emoji emoji={r.emoji} size={16} />
                       </View>
                     </View>
                   );
@@ -3408,7 +3402,7 @@ export function MomentsView({
             setFullEmojiTargetMomentId(null);
           }
         }}
-        title={locale === 'vi' ? 'Thả cảm xúc' : 'React with emoji'}
+        title={t.chat.reactAction}
       />
 
     </View>

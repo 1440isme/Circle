@@ -4673,6 +4673,7 @@
 - **PR:** Pending
 
 
+
 ---
 
 ## AI-0132: Triển khai Gói circle-agent-kit vào CIRCLE (Module Playbooks & Memory Protocol)
@@ -4765,96 +4766,510 @@
 
 ---
 
----
+## AI-0134: Hoàn thiện tính năng Chat Tier MUST (Edit, Recall, Search, Calendar Integration) Đa nền tảng Web & Mobile
 
-## AI-0134: Tích hợp Lịch hẹn tự động thông báo trong Kênh Chat & Hiển thị Sự kiện ở Sidebar phải (UC17) (#101)
-
-- **Date:** 2026-10-25 14:58:00 +07:00
-- **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210)
+- **Date:** 2026-10-25 16:48:00 +07:00
+- **Developer:** Trương Công Bình (MSSV: 23110184)
 - **Tool:** Antigravity IDE
 - **Model:** Gemini 3.8 Flash
-- **Related Issue:** #101 (Parent Epic: #21)
-- **Purpose:** Tích hợp tự động thông báo sự kiện lịch vào kênh chat chính của Circle khi tạo hoặc cập nhật lịch hẹn và hiển thị danh sách sự kiện sắp diễn ra ở cột bên phải (Sidebar) để nhắc nhở thành viên theo đặc tả UC17.
-- **Prompt Summary:** Tích hợp tự động thông báo sự kiện lịch vào kênh chat chính của nhóm khi tạo hoặc cập nhật lịch hẹn và hiển thị danh sách sự kiện sắp diễn ra ở cột bên phải (Sidebar) để nhắc nhở thành viên theo đặc tả UC17.
+- **Related Issue:** #101 (US-TOOL-003: Calendar Event Chat Integration) & Module 5 Playbook Baseline (CHT-09, CHT-10, CHT-12, CHT-17, CHT-20)
+- **Purpose:** Triển khai trọn gói toàn diện các tính năng Tier MUST của Module Chat và tích hợp sự kiện Lịch nhóm theo đúng Playbook `05-chat.md` và `07-circle-collaboration.md`, đồng bộ 100% đa nền tảng Web & Mobile:
+  1. **Backend (`apps/backend`):**
+     - Sửa tin nhắn (`CHT-09`): API `PATCH /messages/:id`, kiểm tra quyền tác giả, cập nhật `updatedAt`, broadcast Socket.IO `chat:message-updated`.
+     - Thu hồi tin nhắn (`CHT-10`): API `DELETE /messages/:id`, kiểm tra quyền tác giả hoặc Circle Owner/Admin, soft delete với `deletedAt`, dọn dẹp pin record, broadcast Socket.IO `chat:message-recalled`.
+     - Tìm kiếm tin nhắn (`CHT-17`): API `GET /channels/:id/messages/search?q=...` với giới hạn và lọc theo channel.
+     - Tích hợp sự kiện Lịch (`CHT-20` / `COL-08` / Issue #101): Khi tạo sự kiện Lịch (`createCalendarEvent`), tự động phát tin nhắn sự kiện thẻ `[CALENDAR_EVENT]:{...}` vào kênh chat chính của Circle và broadcast realtime.
+     - Bổ sung 5 Unit test cases mới cho ChatService (nâng tổng số test lên 19/19 tests pass 100%, toàn bộ 169/169 tests backend pass).
+  2. **Contracts & Validation (`packages/types`, `packages/shared`):**
+     - Bổ sung `deletedAt`, `SearchMessagesResult`, `CalendarEventSystemMessagePayload` vào `@circle/types`.
+     - Bổ sung `editMessageSchema` và `searchMessagesSchema` vào `@circle/shared`.
+     - Bổ sung đầy đủ chuỗi bản địa hóa song ngữ VI + EN cho các hành động sửa, thu hồi, tìm kiếm và thẻ sự kiện.
+  3. **Web Application (`apps/web`):**
+     - `MessageBubble.tsx`: Hiển thị thẻ sự kiện Lịch tương tác trực quan (`[CALENDAR_EVENT]`), hiển thị placeholder *"Tin nhắn đã được thu hồi"* (`deletedAt`), hiển thị nhãn `(đã chỉnh sửa)`, hover action bar tích hợp nút Edit và Recall.
+     - `ChatComposer.tsx`: Tích hợp banner chế độ đang sửa tin nhắn kèm nút hủy và nút Lưu (`Check`).
+     - `ChannelChatView.tsx`: Tích hợp nút tìm kiếm tin nhắn trong kênh chat kèm thanh tìm kiếm và dropdown kết quả click-to-jump; tích hợp xử lý socket `chat:message-updated` và `chat:message-recalled`.
+     - `PresenceRail.tsx`: Kết nối `useCalendarEventsQuery` để hiển thị danh sách các cuộc hẹn sắp tới thực tế (Upcoming Events) thay vì mock.
+  4. **Mobile Application (`apps/mobile`):**
+     - Tạo `chat.service.ts` cung cấp `editMessageApi`, `recallMessageApi`, `searchMessagesApi`.
+     - `MobileSwipeMessageBubble`: Render thẻ sự kiện Lịch bo góc với icon Calendar, thời gian, địa điểm, người tạo; render placeholder thu hồi mờ nghiêng; render nhãn `(đã sửa)`.
+     - Action Menu (Long press): Tích hợp nút Chỉnh sửa tin nhắn (`Pencil`) và Thu hồi tin nhắn (`Trash2` với Alert xác nhận).
+     - Composer: Tích hợp banner "Đang chỉnh sửa tin nhắn" và nút Lưu (`Check`).
+     - Hook `use-circle-queries.ts`: Lắng nghe Socket.IO `chat:message-updated` và `chat:message-recalled` để đồng bộ tin nhắn ngay lập tức.
 - **Files Affected:**
   - `packages/types/src/index.ts`
+  - `packages/shared/src/validators/chat.validator.ts`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `apps/backend/src/modules/chat/chat.gateway.ts`
+  - `apps/backend/src/modules/chat/chat.service.ts`
+  - `apps/backend/src/modules/chat/chat.controller.ts`
+  - `apps/backend/src/modules/chat/chat.service.spec.ts`
   - `apps/backend/src/modules/circle-tools/circle-tools.module.ts`
   - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
-  - `apps/backend/src/modules/circle-tools/circle-tools.service.spec.ts`
-  - `apps/web/src/components/chat/CalendarEventChatEmbed.tsx`
+  - `apps/web/src/hooks/use-chat-queries.ts`
   - `apps/web/src/components/chat/MessageBubble.tsx`
+  - `apps/web/src/components/chat/MessageList.tsx`
+  - `apps/web/src/components/chat/ChatComposer.tsx`
   - `apps/web/src/components/chat/ChannelChatView.tsx`
   - `apps/web/src/components/presence/PresenceRail.tsx`
+  - `apps/mobile/src/services/chat.service.ts`
+  - `apps/mobile/src/hooks/use-circle-queries.ts`
   - `apps/mobile/app/circle/[id].tsx`
   - `docs/ai-usage/log.md`
-- **AI-Generated Portion:**
-  1. **Contract & Types:** Bổ sung `CalendarEventMessagePayload` vào `@circle/types` phục vụ chuẩn hóa bản tin sự kiện lịch giữa Backend, Web và Mobile.
-  2. **Backend Event Chat Dispatcher:** Tích hợp `ChatGateway` vào `CircleToolsService`. Khi tạo/cập nhật sự kiện lịch (`createCalendarEvent` / `updateCalendarEvent`), tự động ghi nhận tin nhắn thông báo sự kiện `[CALENDAR_EVENT]:{...}` vào kênh chat chính và broadcast realtime qua Socket.IO tới toàn bộ thành viên.
-  3. **Web Chat Card Embed (`CalendarEventChatEmbed`):** Thiết kế card sự kiện tinh tế theo chuẩn thiết kế Circle, hiển thị thứ ngày tháng, giờ bắt đầu/kết thúc, địa điểm và người tạo kèm nút "Xem trên Lịch nhóm" chuyển đổi chế độ xem tức thì.
-  4. **Right Sidebar Upcoming Events (`PresenceRail`):** Kết nối hook `useCalendarEventsQuery` vào cột bên phải để lọc và hiển thị danh sách các sự kiện sắp diễn ra trong nhóm kèm huy hiệu thời gian đếm ngược và nút tạo sự kiện nhanh.
-  5. **Header Shortcut & Mobile Chat Parity:** Thêm nút biểu tượng Lịch trên thanh header chat của web và định dạng thẻ sự kiện native trên mobile chat.
-- **Human Modifications:** Ninh Thị Mỹ Hạnh chỉ đạo điều chỉnh luồng hiển thị thông báo sự kiện trực tiếp vào kênh chat và sidebar phải của nhóm.
+- **AI-Generated Portion:** 100% logic đa nền tảng, DTO, schema, unit tests và giao diện UI theo Playbook.
+- **Human Modifications:** Trương Công Bình trực tiếp chỉ đạo định hướng đúng phân công nhiệm vụ và yêu cầu đồng bộ đa nền tảng Web & Mobile.
 - **Verification Method:**
-  - Backend Unit Tests: `npm test --workspace=@circle/backend -- circle-tools.service.spec.ts` (15/15 unit tests pass, 100%).
-  - Backend NestJS Build: `npm run build --workspace=@circle/backend` (Clean build, 0 errors).
-  - Web Next.js Build: `npm run build --workspace=@circle/web` (9/9 static pages generated, Clean build, 0 errors).
-  - Types Build: `npm run build --workspace=@circle/types` (Clean build, 0 errors).
-- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`, `docs/requirements/use-cases.md` (UC17).
-- **Security & License Check:** An toàn tuyệt đối, zero secret leaks, tuân thủ strict role checks.
-- **Branch:** `feat/101-calendar-chat-integration-and-sidebar`
-- **PR:** #101 (Pending)
+  - `npm test -w @circle/backend`: 169/169 unit tests pass 100%.
+  - `npm run build -w @circle/web`: Build Next.js thành công 9/9 static routes.
+  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Mobile typecheck 0 errors.
+  - `bash ./scripts/check-agent-map.sh`: 116/116 framework files pass.
+- **Official Source Checked:** `agentic/playbooks/05-chat.md`, `agentic/playbooks/07-circle-collaboration.md`, `agentic/playbooks/cross-cutting-gate.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks, kiểm tra phân quyền tác giả/admin chặt chẽ.
+- **Branch:** `feat/101-calendar-event-chat-presence-integration`
+- **PR:** #104
 
 ---
 
-## AI-0135: Triển khai Tính năng RSVP Phản hồi Tham gia Sự kiện Nhóm (COL-09 — MUST)
+## AI-0135: Chat Tier MUST Parity — Typing Indicator, Draft Message, Member Mentions & Delete for Me
 
-- **Date:** 2026-10-25 15:37:00 +07:00
-- **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210)
+- **Timestamp:** 2026-10-25T22:07:30+07:00
+- **Author/Engineer:** Trương Công Bình (23110184)
+- **Task/Feature:** [FEAT]: US-CHAT-004 — Chat Tier MUST Parity: Typing Indicator, Draft Message, Member Mentions & Delete for Me (#105)
+- **Description:**
+  - Hoàn tất 100% tính năng Tier MUST còn lại của Module 5 (Chat Playbook) với tính tương đương (Parity) 100% giữa Web (`apps/web`) và Mobile (`apps/mobile` - React Native Expo):
+    1. **`CHT-15` Typing Indicator (Web + Mobile):** Throttling sự kiện typing, auto-hide sau 3s, hiển thị danh sách người đang nhập dạng animated pulsing bar trên cả 2 nền tảng.
+    2. **`CHT-18` Lưu nháp (Draft Message) theo kênh (Web + Mobile):** Tự động lưu bản nháp theo `channelId` (`localStorage` trên Web, `SecureStore`/`AsyncStorage` trên Mobile), tự khôi phục khi chuyển phòng chat, hiển thị thẻ cảnh báo bản nháp kèm nút hủy nhanh, tự dọn dẹp nháp khi gửi thành công.
+    3. **`CHT-22` Mention `@thành viên` & `@all` (Web + Mobile):** Autocomplete popup/sheet danh sách thành viên Circle khi gõ `@`, highlight chip mention trong bong bóng chat, hiển thị badge *"Đã nhắc đến bạn"* khi nhận mention.
+    4. **`CHT-11` Xóa tin nhắn phía tôi (Delete for Me - Web + Mobile):** Cho phép người dùng ẩn tin nhắn khỏi thiết bị cá nhân của mình (`circle_hidden_messages_${channelId}`) thông qua action menu mà không làm ảnh hưởng đến dữ liệu của các thành viên khác trong nhóm.
+  - Cập nhật Memory Protocol (Layer 1 `MEMORY.md`, Layer 2 `2026-10-25.md`) và Hard Rules (`RULES.md`, `implement-feature.md`) quy định bắt buộc triển khai song song đa nền tảng Web & Mobile mặc định cho mọi tính năng.
+- **Files Affected:**
+  - `agentic/RULES.md`
+  - `agentic/memory/MEMORY.md`
+  - `agentic/memory/2026-10-25.md`
+  - `agentic/skills/implement-feature.md`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `apps/web/src/components/chat/ChatComposer.tsx`
+  - `apps/web/src/components/chat/ChannelChatView.tsx`
+  - `apps/web/src/components/chat/MessageBubble.tsx`
+  - `apps/web/src/components/chat/MessageList.tsx`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% code logic lưu draft, hidden messages state filter, mention chips, localization dictionary, và dual-platform parity styling.
+- **Human Modifications:** Trương Công Bình trực tiếp chỉ đạo quy tắc song hành đa nền tảng và kiểm soát phạm vi phân công công việc.
+- **Verification Method:**
+  - `npm test -w @circle/backend`: 169/169 unit tests pass 100% (11/11 suites).
+  - `npm run build -w @circle/web`: Build Next.js production 9/9 static routes pass sạch sẽ.
+  - `npm run typecheck -w @circle/mobile`: Mobile TypeScript 0 errors.
+  - `bash ./scripts/check-agent-map.sh`: 116/116 framework files pass 100%.
+- **Official Source Checked:** `agentic/playbooks/05-chat.md`, `agentic/playbooks/cross-cutting-gate.md`, `PROJECT_GOD.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks, dữ liệu ẩn tin nhắn được cô lập an toàn ở client storage.
+- **Branch:** `feat/105-chat-tier-must-parity`
+- **PR:** #106
+
+---
+
+## AI-0136: Hoàn thiện Đổi mật khẩu trong Cài đặt (ACC-10) & Parity Cuộc gọi Realtime trên Mobile (CAL-01..05)
+
+- **Date:** 2026-10-25 22:40:00 +07:00
+- **Developer:** Trương Công Bình (MSSV: 23110184)
 - **Tool:** Antigravity IDE
-- **Model:** Gemini 3.8 Flash (High)
-- **Related Issue:** #101 (Parent Epic: #21)
-- **Purpose:** Triển khai tính năng RSVP phản hồi tham gia sự kiện nhóm theo yêu cầu COL-09 (Tier MUST) của Module Collaboration và đặc tả UC17. Cho phép các thành viên trong Circle phản hồi trạng thái tham gia (YES, NO, MAYBE), cập nhật số lượng và danh sách người tham gia theo thời gian thực (realtime) qua Socket.IO cả trên bong bóng chat và giao diện Lịch.
-- **Prompt Summary:** Rà soát theo agentic/playbooks/07-circle-collaboration.md và xây dựng tính năng RSVP — Phản hồi tham gia sự kiện nhóm (Mục COL-09 — MUST), tạm hoãn isAllDay.
+- **Model:** Gemini 3.8 Flash
+- **Related Issue:** #107
+- **Purpose:** Hoàn thiện triệt để 2 thiếu sót then chốt phát hiện qua đợt rà soát (audit) toàn diện các module của Bình theo đúng Module Playbooks và Cross-Cutting Gate:
+  1. **`ACC-10` Đổi mật khẩu khi đã đăng nhập (Web + Mobile + Backend):**
+     - **Backend (`apps/backend`):** Bổ sung DTO `ChangePasswordDto`, validator Zod `changePasswordDtoSchema`, endpoint `POST /api/v1/auth/change-password` có bảo vệ bởi `JwtAuthGuard`. Kiểm tra xác thực mật khẩu hiện tại bằng bcrypt, kiểm tra chính sách mật khẩu mạnh (`ACC-05`), từ chối mật khẩu mới trùng mật khẩu cũ, cập nhật hash mật khẩu mới, và tự động thu hồi (revoke) toàn bộ các phiên đăng nhập khác của người dùng trên các thiết bị khác (giữ phiên hiện tại an toàn). Bổ sung 3 unit tests mới trong `auth.service.spec.ts`.
+     - **Shared Contracts (`packages/shared`):** Bổ sung schema `changePasswordSchema`, `changePasswordDtoSchema` và localization đầy đủ (VI + EN) cho các thông điệp cảnh báo bảo mật, thông báo thành công và kiểm tra trùng khớp.
+     - **Web Client (`apps/web`):** Bổ sung tab "Mật khẩu & Bảo mật" trong `SystemSettingsModal.tsx`, form đổi mật khẩu với thẻ cảnh báo bảo mật, nút hiện/ẩn mật khẩu, bảng kiểm tra điều kiện độ mạnh mật khẩu theo thời gian thực (checklist ACC-05), xử lý thông báo lỗi/thành công rõ ràng.
+     - **Mobile Client (`apps/mobile`):** Bổ sung mục "Mật khẩu & Bảo mật" trong cài đặt hồ sơ `profile.tsx` và subview bảo mật trong `SystemSettingsModal.tsx`, hỗ trợ đổi mật khẩu với đầy đủ checklist bảo mật, toggle hiện/ẩn mật khẩu, vô hiệu hóa autocapitalize/autocorrect.
+  2. **`CAL-01..05` Parity Trải nghiệm Gọi Realtime trên Mobile (React Native Expo):**
+     - **Mobile Call Hooks (`apps/mobile/src/hooks/use-call-queries.ts`):** Xây dựng bộ hook quản lý cuộc gọi (`useActiveCallQuery`, `useInitiateCallMutation`, `useJoinCallMutation`, `useLeaveCallMutation`) đồng bộ realtime qua Socket.IO.
+     - **Mobile Call Stage (`apps/mobile/src/components/call/MobileCallStageModal.tsx`):** Giao diện sân khấu cuộc gọi toàn màn hình cho mobile, hiển thị badge LIVE STAGE (Voice/Video), đồng hồ thời lượng cuộc gọi (`MM:SS`), số lượng thành viên, lưới hiển thị đại diện thành viên với hiệu ứng vòng tròn phát thanh (speaking pulse ring), trạng thái mic, thanh điều khiển nổi (Bật/tắt mic, Bật/tắt camera, Loa ngoài/Loa trong, Nút Rời cuộc gọi màu đỏ).
+     - **Khởi tạo & Nhận cuộc gọi trên Mobile (`apps/mobile/app/circle/[id].tsx`):** Xóa bỏ hoàn toàn popup "Coming Soon" cũ; bổ sung các nút bấm gọi thoại và video trên thanh tiêu đề subheader của Circle Chat và menu tiện ích Tools; tích hợp modal chuông đổ cuộc gọi đến (Incoming Call Ringing Dialog) với nút Từ chối và Bắt máy tức thì.
+- **Files Affected:**
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `packages/shared/src/validators/auth.validator.ts`
+  - `apps/backend/src/modules/auth/dto/change-password.dto.ts`
+  - `apps/backend/src/modules/auth/auth.service.ts`
+  - `apps/backend/src/modules/auth/auth.service.spec.ts`
+  - `apps/backend/src/modules/auth/auth.controller.ts`
+  - `apps/web/src/lib/auth.ts`
+  - `apps/web/src/hooks/use-auth-mutations.ts`
+  - `apps/web/src/components/settings/SystemSettingsModal.tsx`
+  - `apps/mobile/src/services/api.ts`
+  - `apps/mobile/src/hooks/use-session-queries.ts`
+  - `apps/mobile/src/components/settings/SystemSettingsModal.tsx`
+  - `apps/mobile/app/(tabs)/profile.tsx`
+  - `apps/mobile/src/hooks/use-call-queries.ts`
+  - `apps/mobile/src/components/call/MobileCallStageModal.tsx`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `tests/e2e/ui-ux-full-verification.spec.ts`
+  - `agentic/memory/2026-10-25.md`
+  - `agentic/memory/MEMORY.md`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% code logic đổi mật khẩu bảo mật, mobile call stage modal, socket listeners, bilingual localization và bộ kịch bản kiểm thử trực quan Playwright E2E.
+- **Human Modifications:** Trương Công Bình trực tiếp chỉ đạo rà soát theo Module Playbook và yêu cầu kiểm thử toàn diện thực tế UI/UX trực quan.
+- **Verification Method:**
+  - `npm test -w @circle/backend`: 167/167 unit tests pass 100% (11/11 suites, bao gồm TC-AUTH-010).
+  - `npm run build -w @circle/web`: Next.js production build 9/9 static routes pass sạch sẽ.
+  - `npm run typecheck -w @circle/mobile`: Mobile TypeScript 0 errors.
+  - `npx playwright test tests/e2e/ui-ux-full-verification.spec.ts`: Chạy thành công 100% trên Chromium headless, chụp và kiểm tra trực quan 11 screenshots bao gồm Dark/Light mode, Desktop & Mobile viewports, realtime checklist validation và Calling header triggers.
+  - `bash ./scripts/check-agent-map.sh`: 116/116 framework files pass 100%.
+- **Official Source Checked:** `agentic/playbooks/01-account-auth.md`, `agentic/playbooks/06-voice-video.md`, `agentic/playbooks/cross-cutting-gate.md`, `PROJECT_GOD.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks, cơ chế hash bcrypt và revoke refresh token đa thiết bị chuẩn xác.
+- **Branch:** `feat/107-acc-password-and-mobile-call-parity`
+- **PR:** #108
+
+---
+
+## AI-0137: US-CHAT-005 — Message Recall/Remove for All Members & Clear Chat Options (Web + Mobile)
+
+- **Date:** 2026-10-25 23:45:00 +07:00
+- **Developer:** Trương Công Bình (MSSV: 23110184)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash
+- **Related Issue:** #109 (US-CHAT-005: Message Recall/Remove for All Members & Clear Chat Options)
+- **Purpose:** Triển khai hoàn thiện cơ chế Gỡ tin nhắn (Remove message) và Xóa đoạn chat (Clear chat history) với tùy chọn đa dạng, đảm bảo 100% Dual-Platform Parity giữa Web và Mobile:
+  1. **Cơ chế Gỡ/Thu hồi tin nhắn:**
+     - Tin nhắn của mình: Hỗ trợ Chỉnh sửa (văn bản 15 phút) và Thu hồi (Recall) cho toàn bộ thành viên trong nhóm.
+     - Tin nhắn của người khác: Mặc định thao tác "Gỡ tin nhắn" (Remove message) chỉ áp dụng cho riêng phía người thao tác (ẩn/xóa phía mình thông qua `circle_hidden_messages_${channelId}`), tin nhắn đó vẫn hiển thị nguyên vẹn với các thành viên khác trong Circle.
+  2. **Cơ chế Xóa đoạn chat (Clear Chat History):**
+     - Bổ sung trường `clearedChatAt DateTime?` trong model `CircleMember` (PostgreSQL Prisma schema) để ghi nhận mốc thời gian xóa đoạn chat phía cá nhân.
+     - Xây dựng API `POST /api/v1/channels/:channelId/clear-history` nhận DTO `ClearChatInput` với 2 chế độ:
+       - `FOR_ME` (Mặc định): Cập nhật `clearedChatAt = now()` cho membership của người dùng; truy vấn tin nhắn `getChannelMessages` & `searchMessages` tự động lọc `sentAt > clearedChatAt`. Đoạn chat hiển thị trống phía người dùng với Empty State trang nhã; các thành viên khác không bị ảnh hưởng.
+       - `EVERYONE`: Xóa mềm tất cả tin nhắn trong kênh và broadcast sự kiện Socket.IO `chat:channel-cleared` để đồng bộ xóa cache tin nhắn trên toàn bộ thành viên.
+  3. **Web Application (`apps/web`):**
+     - Thêm component `ClearChatModal.tsx` với 2 lựa chọn radio (Chỉ xóa phía tôi vs Xóa cho tất cả mọi người).
+     - Tích hợp nút menu 3 chấm `MoreVertical` trên Header của `ChannelChatView.tsx` chứa tùy chọn Xóa lịch sử trò chuyện.
+     - Tích hợp socket listener `chat:channel-cleared`.
+     - `MessageBubble.tsx`: Hiển thị rõ ràng các nút Sửa, Thu hồi (Recall), Gỡ tin nhắn (Remove for me) và Xóa phía tôi (Delete for me).
+  4. **Mobile Application (`apps/mobile`):**
+     - Bổ sung `clearChannelHistoryApi` trong `chat.service.ts`.
+     - Tích hợp Modal Xóa đoạn chat native trên Mobile với 2 radio options và giao diện bo tròn glass/dark/light.
+     - Thêm nút Xóa đoạn chat trên Header Circle Chat.
+     - Long-press menu: Hiển thị tùy chọn "Gỡ tin nhắn" (chỉ phía người thao tác) khi chọn tin nhắn của người khác, và "Thu hồi" khi chọn tin của chính mình.
 - **Files Affected:**
   - `apps/backend/prisma/schema.prisma`
-  - `apps/backend/prisma/migrations/20261025082201_add_calendar_event_rsvp/migration.sql`
   - `packages/types/src/index.ts`
-  - `apps/backend/src/modules/circle-tools/circle-tools.controller.ts`
-  - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
-  - `apps/backend/src/modules/circle-tools/circle-tools.service.spec.ts`
-  - `apps/backend/src/modules/circle-tools/dto/circle-tools.dto.ts`
+  - `packages/shared/src/validators/chat.validator.ts`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
   - `apps/backend/src/modules/chat/chat.gateway.ts`
-  - `apps/web/src/hooks/use-circle-tools.ts`
-  - `apps/web/src/components/chat/CalendarEventChatEmbed.tsx`
-  - `apps/web/src/components/tools/CircleCalendarView.tsx`
+  - `apps/backend/src/modules/chat/chat.service.ts`
+  - `apps/backend/src/modules/chat/chat.controller.ts`
+  - `apps/backend/src/modules/chat/chat.service.spec.ts`
+  - `apps/web/src/hooks/use-chat-queries.ts`
+  - `apps/web/src/components/chat/ClearChatModal.tsx`
+  - `apps/web/src/components/chat/ChannelChatView.tsx`
+  - `apps/web/src/components/chat/MessageBubble.tsx`
+  - `apps/mobile/src/services/chat.service.ts`
   - `apps/mobile/app/circle/[id].tsx`
+  - `agentic/memory/2026-10-25.md`
   - `docs/ai-usage/log.md`
-- **AI-Generated Portion:**
-  1. **Database Schema & Prisma Migration:** Bổ sung enum `EventRsvpStatus` (`YES`, `NO`, `MAYBE`) và bảng `CalendarEventRsvp` liên kết `CalendarEvent` và `User`. Khóa duy nhất `@@unique([eventId, userId])` bảo đảm bất biến mỗi thành viên chỉ có duy nhất 1 trạng thái RSVP cho mỗi sự kiện tại một thời điểm (upsert).
-  2. **Shared Contract:** Mở rộng `@circle/types` với các kiểu dữ liệu `EventRsvpStatus`, `CalendarEventRsvpEntity`, `RespondEventRsvpInput`, cùng phân rã RSVP `rsvps: { yesCount, noCount, maybeCount, userRsvps }` trong `CalendarEventMessagePayload` và `CalendarEventEntity`.
-  3. **Backend Service & Controller:** Triển khai endpoint `PUT /circles/:circleId/calendar-events/:eventId/rsvp`. Tự động tạo RSVP `YES` cho người tạo sự kiện (creator) ngay khi tạo; tính toán thống kê số lượng tham gia và phát sóng sự kiện realtime `circle:calendar-event-rsvp-updated` qua Socket.IO tới toàn bộ thành viên trong nhóm.
-  4. **Frontend Web Chat & Calendar Integration:**
-     - Tại thẻ chat `CalendarEventChatEmbed`: Bổ sung 3 nút phản hồi nhanh (`[✅ Tham gia]`, `[❓ Chưa chắc]`, `[❌ Bận]`), highlight trạng thái của người dùng hiện tại, hiển thị tổng hợp số lượng và danh sách avatar thành viên tham dự kèm chấm trạng thái realtime.
-     - Tại màn hình `CircleCalendarView`: Hiển thị thanh trạng thái RSVP và các nút phản hồi trực tiếp cho từng sự kiện trong ngày đã chọn.
-  5. **Mobile Parity:** Bổ sung hiển thị tóm tắt số lượng phản hồi tham gia sự kiện trên bong bóng chat mobile app.
-- **Human Modifications:** Ninh Thị Mỹ Hạnh yêu cầu rà soát theo `agentic/playbooks/07-circle-collaboration.md` và chỉ đạo: "xây tính năng RSVP — Phản hồi tham gia sự kiện (Mục COL-09 — MUST)", tạm hoãn `isAllDay`.
+- **AI-Generated Portion:** 100% code logic lọc mốc clearedChatAt, clear chat endpoints, ClearChatModal components (Web + Mobile), socket events.
+- **Human Modifications:** Trương Công Bình trực tiếp chỉ đạo phân tách rõ ràng cơ chế: Gỡ tin nhắn của người khác mặc định chỉ phía người thao tác, và Xóa đoạn chat cung cấp 2 tùy chọn rõ ràng.
 - **Verification Method:**
-  - Backend Unit Tests: `npm test --workspace=@circle/backend -- circle-tools.service.spec.ts` (17/17 tests pass, bao gồm các test case cho RSVP và socket emit).
-  - Backend Build: `npm run build --workspace=@circle/backend` (NestJS production build pass 100%).
-  - Web Build: `npm run build --workspace=@circle/web` (Next.js production build pass 100%, 9/9 static routes generated).
-  - TypeScript Typechecks: `npx tsc --noEmit -p apps/web/tsconfig.json` (0 errors).
-- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/playbooks/07-circle-collaboration.md` (COL-09 — MUST).
-- **Security & License Check:** An toàn tuyệt đối, zero secret leaks, xác thực thành viên nghiêm ngặt qua `getMemberOrThrow`.
-- **AI Errors / Hallucinations Found:**
-  - **Error Description:** None
-  - **Root Cause:** N/A
-  - **Resolution / Fix:** N/A
-- **Commit:** `4b05b87`
-- **PR:** #101 (Pending)
+  - `npm test -w @circle/backend`: 175/175 tests pass 100% (11/11 suites, bao gồm TC-CHAT-020, 021, 022).
+  - `npm run build -w @circle/web`: Next.js production build 9/9 static routes pass.
+  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Mobile TypeScript 0 errors.
+  - `bash ./scripts/check-agent-map.sh`: 116/116 framework files pass.
+- **Official Source Checked:** `agentic/playbooks/05-chat.md`, `agentic/playbooks/cross-cutting-gate.md`, `PROJECT_GOD.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks, kiểm tra membership chặt chẽ.
+- **Branch:** `feat/109-chat-remove-and-clear-options`
+- **PR:** #110 (Merged)
 
 ---
 
-## AI-0136: Hoàn Thiện Toàn Diện Giao Diện Lịch Nhóm, Form Tạo Sự Kiện, Bộ Chọn Ngày Giờ và Màn Hình Chi Tiết (Web & Mobile) (#117)
+## AI-0138: US-CHAT-006 — Elevate Chat Experience: Smooth Quote Navigation, Professional Channel Welcome & In-Chat Search Parity (Web + Mobile)
+
+- **Date:** 2026-10-27 22:04:00 +07:00
+- **Developer:** Trương Công Bình (MSSV: 23110184)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash
+- **Related Issue:** #111 ([FEAT]: US-CHAT-006 — Elevate Chat Experience: Smooth Quote Navigation, Inspiring Empty States & Interactive Delight (Web + Mobile))
+- **Purpose:** Trau chuốt trải nghiệm trò chuyện nhóm CIRCLE đạt độ hoàn thiện cao cấp và tinh tế chuẩn thương mại, loại bỏ hoàn toàn các yếu tố màu mè/phèn (AI Slop), bảo đảm 100% Web và Mobile song hành:
+  1. **Tối ưu trải nghiệm Quote / Reply (`CHT-12`):**
+     - Web: Nâng cấp hiệu ứng cuộn mượt và highlight viền sáng mềm mại (`animate-pulse shadow-xl ring-2`) khi chạm vào thẻ reply quote để quay về tin gốc trong ngữ cảnh.
+     - Mobile: Phản hồi rung tinh tế (`Haptics.impactAsync(Light)`), cuộn chính xác tới vị trí tin nhắn gốc và kích hoạt highlight tạm thời.
+  2. **Giao diện Kênh trò chuyện tinh tế & Chuyên nghiệp (Professional Channel Welcome):**
+     - Loại bỏ hoàn toàn các emoji sến súa (👋, ☕, 🍕, 📸...) và hào quang lòe loẹt.
+     - Xây dựng giao diện kênh mới bắt đầu theo chuẩn thiết kế tối giản, sang trọng: Squircle Hash icon tinh gọn, typography sắc nét, thông điệp bảo mật riêng tư của Circle và nút hành động "Gửi lời chào đầu tiên" nhã nhặn.
+  3. **Đồng bộ Tìm kiếm tin nhắn trong phòng chat trên Mobile (`CHT-17`):**
+     - Bổ sung nút Search trên Header Circle Mobile (cạnh nút Call).
+     - Xây dựng component `SearchMessagesModal.tsx` trên Mobile: ô tìm kiếm debounce, gọi `searchMessagesApi`, hiển thị kết quả phân tách tên người gửi, thời gian và highlight từ khóa tìm kiếm. Chạm kết quả tự động nhảy tới tin nhắn và kích hoạt highlight.
+- **Prompt Summary:** "bỏ mấy icon đi, trông rất là AI Slop, hãy chuyên nghiệp vào nhé. tôi vừa nhắc ux user là hằng đầu đưa mấy icon vào trông rất phèn, k có tính chuyên nghiệp, thiếu đi độ legit"
+- **Files Affected:**
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `apps/web/src/components/chat/MessageList.tsx`
+  - `apps/web/src/components/chat/MessageBubble.tsx`
+  - `apps/web/src/components/chat/ChannelChatView.tsx`
+  - `apps/mobile/src/components/chat/SearchMessagesModal.tsx`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `agentic/memory/MEMORY.md`
+  - `agentic/memory/2026-10-27.md`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% code logic cho SearchMessagesModal, MessageList empty channel layout, Quote highlight styles và song ngữ VI/EN.
+- **Human Modifications:** Trương Công Bình trực tiếp chấn chỉnh tư duy sản phẩm: loại bỏ các emoji/icon sến súa mang tính AI Slop, yêu cầu thiết kế đạt chuẩn thẩm mỹ cao cấp, tinh tế và chuyên nghiệp.
+- **Verification Method:**
+  - `npm test -w @circle/backend`: 175/175 tests pass 100% (11/11 suites).
+  - `npm run build -w @circle/web`: Next.js 14 production build hoàn tất 9/9 static routes.
+  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Mobile TypeScript 0 errors.
+  - `bash ./scripts/check-agent-map.sh`: 117/117 framework files pass.
+- **Official Source Checked:** `agentic/playbooks/05-chat.md`, `agentic/playbooks/cross-cutting-gate.md`, `PROJECT_GOD.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks, kiểm tra membership chặt chẽ.
+- **Branch:** `feat/111-chat-quote-scroll-and-delight`
+- **PR:** #112
+
+---
+
+## AI-0139: Elevate Circle Tools UI/UX Polish, Anti-AI Slop & Full Dark Mode Conformance (Web + Mobile)
+
+- **Date:** 2026-10-27 22:30:00 +07:00
+- **Developer:** Trương Công Bình (MSSV: 23110184)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash
+- **Related Issue:** #98 (Circle Tools: Interactive planning sheet, live location radar, group poll)
+- **Purpose:** Nâng cấp trải nghiệm người dùng, loại bỏ hoàn toàn các mã kỹ thuật nội bộ (Anti-AI Slop) và chuẩn hóa thiết kế Dark Mode cho toàn bộ bộ công cụ Vòng tròn (Circle Tools) trên cả Web và Mobile:
+  1. **Anti-AI Slop & Polish bản địa:**
+     - Loại bỏ toàn bộ các thẻ định danh kỹ thuật/SRS nội bộ `(UC15)`, `(UC18)`, `(UC19)` ra khỏi giao diện người dùng trên `CirclePollView.tsx`, `CirclePlanningView.tsx`, `CircleLocationView.tsx`.
+     - Thay thế bằng microcopy tinh tế, trang nhã, đúng ngôn ngữ sản phẩm thương mại cao cấp.
+  2. **Mobile Dark Mode & Theme Token Conformance:**
+     - Tích hợp `useThemeStore` và áp dụng hệ thống token màu chuẩn (`colors.canvas`, `colors.surface`, `colors.hairline`, `colors.text`, `colors.subtle`, `colors.primary`, `colors.elevated`) vào 3 màn hình công cụ trên Mobile:
+       - `MobilePollView.tsx`: Loại bỏ mã màu cứng `#FFF`, `#E2E8F0`, tối ưu hóa card hiển thị thăm dò ý kiến, thanh tiến trình tỷ lệ %, form tạo poll và modal.
+       - `MobilePlanningView.tsx`: Chuẩn hóa bảng lưới kế hoạch, thanh header, các ô dữ liệu (cell), chỉ số dòng cột và modal nhập liệu không bị lệch nền khi ở chế độ Dark Mode.
+       - `MobileLocationView.tsx`: Chuẩn hóa card điều khiển chia sẻ thời lượng, danh sách thành viên phát sóng và hiển thị radar chuyên nghiệp.
+- **Files Affected:**
+  - `apps/web/src/components/tools/CirclePollView.tsx`
+  - `apps/web/src/components/tools/CirclePlanningView.tsx`
+  - `apps/web/src/components/tools/CircleLocationView.tsx`
+  - `apps/mobile/src/components/tools/MobilePollView.tsx`
+  - `apps/mobile/src/components/tools/MobilePlanningView.tsx`
+  - `apps/mobile/src/components/tools/MobileLocationView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% theme token mapping, visual styling refinement, UI copy polish.
+- **Human Modifications:** Trương Công Bình trực tiếp chỉ đạo định hướng thẩm mỹ sản phẩm cao cấp, cấm đưa các ký hiệu kỹ thuật phèn/AI slop vào UI và bảo đảm 100% hỗ trợ Dark Mode.
+- **Verification Method:**
+  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Mobile TypeScript 0 errors.
+  - `npm run build -w @circle/web`: Next.js production build 9/9 static pages pass.
+  - `./scripts/check-agent-map.sh`: 116/116 framework files pass.
+- **Official Source Checked:** `agentic/playbooks/04-circle-management.md`, `agentic/playbooks/cross-cutting-gate.md`, `PROJECT_GOD.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+- **Branch:** `feat/98-circle-tools-planning-location-poll`
+- **PR:** #99
+
+---
+
+## AI-0140: US-CALL-003 — Elevate Post-Call Summary Card with One-Tap Callback Action (Web + Mobile)
+
+- **Date:** 2026-10-27 22:38:00 +07:00
+- **Developer:** Trương Công Bình (MSSV: 23110184)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash
+- **Related Issue:** #113 (US-CALL-003: Elevate Post-Call Summary Card with One-Tap Callback Action)
+- **Purpose:** Nâng cấp trải nghiệm thẻ tóm tắt cuộc gọi (Call Summary Card) trong phòng trò chuyện nhóm Circle theo đúng chuẩn Playbook Voice/Video (`CAL-08`) và Chat (`CHT-20`), đạt 100% Dual-Platform Parity giữa Web và Mobile:
+  1. **Thiết kế Thẻ Tóm tắt Cuộc gọi (Call Summary Card) chuẩn mực:**
+     - Tinh chỉnh icon squircle trang nhã (`Phone` / `Video`) phân định rõ ràng kiểu cuộc gọi thoại hoặc cuộc gọi video.
+     - Trạng thái trực quan: Phân biệt cuộc gọi đã hoàn thành (màu emerald/mint) vs cuộc gọi nhỡ/chưa có người nhấc máy (màu amber).
+     - Định dạng thời lượng đàm thoại chi tiết, rõ ràng và mạch lạc.
+  2. **Nút Hành động Một chạm "Gọi lại" (One-Tap Callback Action):**
+     - Bổ sung nút bấm "Gọi lại" (Callback) trực tiếp ngay trên thẻ card cuộc gọi trong khung chat.
+     - Web (`MessageBubble.tsx`): Chạm nút trực tiếp kích hoạt cuộc gọi cùng loại (Thoại/Video) qua `onStartCall` nối tới `handleStartCall`.
+     - Mobile (`app/circle/[id].tsx`): Chạm nút có phản hồi rung xúc giác (Haptic feedback) và kích hoạt trực tiếp `handleStartCall`.
+  3. **Đa ngôn ngữ & Theme Token:**
+     - Bổ sung các chuỗi bản địa hóa `callbackAction`, `missedAudioCall`, `missedVideoCall`, `callEndedShort` vào `vi.ts` và `en.ts`.
+     - 100% tương thích cả Light Mode và Dark Mode trên cả hai nền tảng.
+- **Files Affected:**
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `apps/web/src/components/chat/MessageBubble.tsx`
+  - `apps/web/src/components/chat/MessageList.tsx`
+  - `apps/web/src/components/chat/ChannelChatView.tsx`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% Call Summary Card UI layout, callback button handlers, i18n mapping, and styling.
+- **Human Modifications:** Trương Công Bình trực tiếp chỉ đạo định hướng sản phẩm: thẻ kết thúc cuộc gọi phải cho phép gọi lại 1 chạm ngay trong chat để không bắt người dùng phải cuộn tìm nút gọi.
+- **Verification Method:**
+  - `npm test -w @circle/backend`: 175/175 tests pass 100% (11/11 suites).
+  - `npm run build -w @circle/web`: Next.js production build 9/9 static routes pass.
+  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Mobile TypeScript 0 errors.
+  - `./scripts/check-agent-map.sh`: 116/116 framework files pass.
+- **Official Source Checked:** `agentic/playbooks/06-voice-video.md` (CAL-08), `agentic/playbooks/05-chat.md` (CHT-20), `PROJECT_GOD.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
+- **Branch:** `feat/113-call-summary-card-and-callback`
+- **PR:** #114
+
+---
+
+## AI-0141: US-UX-001 — Sound & Tactile Feedback System for Realtime Atmosphere (Web + Mobile)
+
+- **Date:** 2026-10-27 23:00:00 +07:00
+- **Developer:** Trương Công Bình (MSSV: 23110184)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash
+- **Related Issue:** #115 (US-UX-001: Sound & Tactile Feedback System for Realtime Atmosphere)
+- **Purpose:** Xây dựng hệ thống Âm thanh tổng hợp (Web Audio Synthesizer) & Rung phản hồi xúc giác native (Haptics) mang lại cảm giác sống động, thỏa mãn giác quan và phản hồi tức thì cho ứng dụng CIRCLE (Telegram / Apple standard):
+  1. **Web Audio Synthesizer (`apps/web/src/utils/sound-effects.ts`):**
+     - Tạo bộ phát sóng âm tự nhiên bằng Web Audio API thuần túy, zero external asset dependencies (không tốn dung lượng tải file âm thanh nặng, không lo bị chặn 404/adblockers):
+       - `playMessageSentSound()`: Âm pop nhẹ nhàng, êm tai khi gửi tin nhắn thành công.
+       - `playMessageReceivedSound()`: Âm chuông bong bóng hai nốt hài âm khi nhận tin nhắn mới từ thành viên khác trong kênh.
+       - `playReactionPopSound()`: Âm micro-pop vui tai khi thả reaction cảm xúc.
+       - `playIncomingCallChime()` / `stopIncomingCallChime()`: Giai điệu chuông gọi đến du dương, trang nhã.
+       - `playRoomJoinSound()`: Âm thanh ấm áp báo hiệu kết nối vào phòng gọi thoại thành công.
+     - `sound.store.ts`: Quản lý trạng thái `soundEnabled`, lưu trữ vào `localStorage`.
+     - Nút gạt nhanh Bật/Tắt âm thanh thông báo trên Header kênh chat (`Volume2` / `VolumeX`).
+  2. **Tactile & Audio Feedback trên Mobile (`apps/mobile`):**
+     - `sound.service.ts`: Bộ điều khiển rung haptic đa tầng (`expo-haptics`):
+       - `triggerSendHaptic()`: Rung nhẹ `ImpactFeedbackStyle.Light` khi gửi tin nhắn hoặc nhảy tới tin trích dẫn.
+       - `triggerSelectionHaptic()`: Rung khấc `selectionAsync` khi chạm reaction hoặc tương tác điều khiển.
+       - `triggerSuccessHaptic()`: Rung thông báo `NotificationFeedbackType.Success` khi có cuộc gọi đến hoặc kết nối phòng gọi.
+     - `sound.store.ts`: Quản lý trạng thái `soundEnabled` và `hapticsEnabled` lưu qua `AsyncStorage`.
+     - Nút gạt nhanh Bật/Tắt âm thanh trên thanh Header Circle Chat.
+- **Files Affected:**
+  - `apps/web/src/stores/sound.store.ts`
+  - `apps/web/src/utils/sound-effects.ts`
+  - `apps/web/src/hooks/use-chat-queries.ts`
+  - `apps/web/src/components/chat/ChannelChatView.tsx`
+  - `apps/web/src/app/page.tsx`
+  - `apps/web/src/components/stream/FeedStream.tsx`
+  - `apps/web/src/components/navigation/Sidebar.tsx`
+  - `apps/web/src/components/presence/PresenceRail.tsx`
+  - `apps/mobile/src/stores/sound.store.ts`
+  - `apps/mobile/src/services/sound.service.ts`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `tests/e2e/ux-audit.spec.ts`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% Web Audio oscillator synthesis algorithms, sound store state management, mobile haptics integration, viewport layout unclamping and full-spectrum visual audit automation.
+- **Human Modifications:** Trương Công Bình trực tiếp chỉ đạo lựa chọn giải pháp Đề xuất số 4 (Sound & Tactile Feedback) để thổi bùng sức sống tương tác và yêu cầu rà soát toàn bộ UI/UX cả Light/Dark mode trên Web & Mobile.
+- **Verification Method:**
+  - `npm test -w @circle/backend`: 175/175 tests pass 100% (11/11 suites).
+  - `npm run build -w @circle/web`: Next.js production build 9/9 static routes pass.
+  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Mobile TypeScript 0 errors.
+  - `./scripts/check-agent-map.sh`: 116/116 framework files pass.
+  - `npx playwright test tests/e2e/ux-audit.spec.ts`: Automated multi-theme visual audit passes; verified chat input bar bottom spacing and zero viewport overflow clipping.
+- **Official Source Checked:** `agentic/playbooks/cross-cutting-gate.md`, `agentic/playbooks/05-chat.md`, `PROJECT_GOD.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
+- **Branch:** `feat/115-sound-and-tactile-feedback`
+- **PR:** #116
+
+---
+
+## AI-0142: Unify Emoji System, Contextual Overlay, Minimalist Chat Header & Settings (#115)
+
+- **Date:** 2026-10-27 23:55:00 +07:00
+- **Developer:** Trương Công Bình (MSSV: 23110184)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash
+- **Related Issue:** #115 (US-UX-001: Sound & Tactile Feedback System for Realtime Atmosphere)
+- **Purpose:** Tinh gọn hóa giao diện chat, đồng bộ hệ thống emoji toàn hệ sinh thái và nâng cấp trải nghiệm tương tác ngữ cảnh theo chuẩn Telegram / Apple:
+  1. **Header Pin Button & Banner Cleanup (Web & Mobile):** Loại bỏ banner tin nhắn ghim thô kệch chắn ngang khung chat; tích hợp trực tiếp trạng thái ghim vào nút Pin trên thanh Header (icon rỗng khi chưa có tin ghim, icon fill màu chủ đạo khi có tin ghim; click mở modal quản lý tin ghim).
+  2. **Draft Preview Simplification (Web & Mobile):** Loại bỏ hoàn toàn thanh thông báo nháp thô phía trên thanh nhập liệu (`t.chat.draftLabel`). Văn bản đang soạn thảo được lưu tự động và giữ nguyên vẹn trong ô input.
+  3. **Sound Settings Relocation:** Di chuyển công tắc bật/tắt âm thanh hiệu ứng ra khỏi Header thanh chat, chuyển vào vị trí tự nhiên và logic hơn trong Modal Quản lý Vòng tròn (Tab "Thông báo & Quyền riêng tư"), giúp Header trở nên tối giản, tập trung.
+  4. **PresenceRail Light Mode Distinction:** Tinh chỉnh nút "Mời bạn bè & Yêu cầu" trên PresenceRail ở giao diện Sáng (Light mode) với đường viền hairline phân cách rõ ràng, icon `UserPlus` và hiệu ứng nổi nhẹ nhàng.
+  5. **1-Click Copy Message & Web Hover Menu 3-Dots:** Hỗ trợ sao chép tin nhắn 1 chạm kèm toast thông báo tức thì trên cả 2 nền tảng. Trên Web, thanh hover hành động được tối giản thành thanh Quick Reactions + menu 3 chấm dọc (`MoreVertical`) chứa Sao chép, Trả lời, Ghim, Chỉnh sửa, Thu hồi, Gỡ tin nhắn.
+  6. **Mobile Contextual Overlay (Telegram / iMessage style):** Thao tác nhấn giữ bong bóng tin nhắn trên Mobile làm mờ/tối background (`rgba(0,0,0,0.72)`), focus chính xác vào bong bóng tin nhắn tại vị trí chạm màn hình; thanh Quick Reactions đặt ngay PHÍA TRÊN tin nhắn, và danh sách hành động (Sao chép, Trả lời, Ghim, Chỉnh sửa, Gỡ, Thu hồi) đặt ngay PHÍA DƯỚI tin nhắn.
+  7. **Emoji Picker Localization & Clean Icon-Only Tabs:** Loại bỏ các nhãn chữ văn bản rườm rà ở thanh phân loại emoji, thay thế bằng các tab icon đại diện tinh tế (`😊`, `👋`, `❤️`, `🐶`, `🍔`, `⚽`); quốc tế hóa tiêu đề modal qua bộ từ điển `@circle/shared`.
+  8. **Hệ thống Emoji Đồng nhất Toàn Diện (Unified Apple Color Emoji):** Chuẩn hóa toàn bộ hiển thị emoji (chat message reactions, moment reactions, story reactions, full picker modal) sử dụng thống nhất component `<Emoji>` tải vector Apple Color Emoji độ phân giải cao từ CDN với native text fallback. Cơ chế lưu trữ dưới database và API là chuỗi ký tự chuẩn Unicode UTF-8 tối ưu kích thước.
+  9. **Triết lý Radical Minimalism ("Ít text nhất có thể"):** Rà soát và loại bỏ các hộp thoại chỉ dẫn, badge thừa thãi hiển nhiên (như lược bỏ khối advisory vàng trong form Đổi mật khẩu của SystemSettingsModal).
+- **Files Affected:**
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `apps/web/src/components/chat/ChannelChatView.tsx`
+  - `apps/web/src/components/chat/ChatComposer.tsx`
+  - `apps/web/src/components/chat/MessageBubble.tsx`
+  - `apps/web/src/components/circle/CircleManagementModal.tsx`
+  - `apps/web/src/components/presence/PresenceRail.tsx`
+  - `apps/web/src/components/settings/SystemSettingsModal.tsx`
+  - `apps/web/src/components/ui/FullEmojiPickerModal.tsx`
+  - `apps/web/src/components/moments/DailyMomentsFeed.tsx`
+  - `apps/web/src/components/moments/MomentReactorsModal.tsx`
+  - `apps/web/src/components/moments/StoryViewerModal.tsx`
+  - `apps/mobile/src/stores/sound.store.ts`
+  - `apps/mobile/src/components/ui/FullEmojiPickerModal.tsx`
+  - `apps/mobile/src/components/circle/CircleManagementModal.tsx`
+  - `apps/mobile/src/components/moment/MomentsView.tsx`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% component architecture, UI simplification, contextual overlays, unified emoji pipeline, localization keys.
+- **Human Modifications:** Trương Công Bình định hướng triết lý UI clean, ít text nhất có thể, yêu cầu chuyển trạng thái ghim lên Header Pin button, bỏ banner nháp, gom âm thanh vào Cài đặt nhóm, menu hover 3 chấm, overlay nhấn giữ Telegram-style trên Mobile, icon-only emoji tabs và thống nhất 1 bộ Apple Color emoji toàn hệ thống.
+- **Verification Method:**
+  - `npm run build -w @circle/shared`: Shared package build pass.
+  - `npm run build -w @circle/web`: Next.js production build 9/9 static routes pass, zero type errors.
+  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Mobile TypeScript 0 errors.
+  - `./scripts/check-agent-map.sh`: 116/116 framework files pass.
+- **Official Source Checked:** `agentic/playbooks/cross-cutting-gate.md`, `agentic/playbooks/05-chat.md`, `PROJECT_GOD.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
+- **Branch:** `feat/115-sound-and-tactile-feedback`
+- **PR:** #116
+
+---
+
+## AI-0143: Codify Radical Minimalism, Zero Hardcoding, and Memory Protocol Rules (#115)
+
+- **Date:** 2026-10-28 00:28:00 +07:00
+- **Developer:** Trương Công Bình (MSSV: 23110184)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash
+- **Related Issue:** #115 (US-UX-001: Sound & Tactile Feedback System for Realtime Atmosphere)
+- **Purpose:** Tiếp nhận chỉ đạo của kỹ sư Trương Công Bình về triết lý Radical Minimalism và Zero Hardcoding; hệ thống hóa và khắc sâu toàn bộ quy tắc UI/UX, Memory Protocol, và cập nhật Skill `implement-feature` cùng Cổng chất lượng `cross-cutting-gate`:
+  1. **Triết lý Radical Minimalism & Clean UI ("Ít text nhất có thể"):**
+     - Loại bỏ toàn bộ text mô tả, giải thích thừa thãi hiển nhiên cho những hành vi ai cũng biết.
+     - Lược bỏ các subtitle lặp lại tiêu đề thẻ/mục verbatim, các advisory card/warning box rườm rà (thẻ vàng lưu ý đổi mật khẩu, hint trống dài dòng).
+     - Empty states tinh gọn: chỉ giữ icon nhẹ + tiêu đề ngắn gọn (hoặc CTA nút bấm).
+  2. **Zero Hardcoding Invariant:**
+     - 100% chuỗi giao diện (nhãn, nút, placeholder, tooltip, thông báo toast, alert lỗi, fallback) chuyển sang từ điển song ngữ `@circle/shared` (`vi.ts` và `en.ts`).
+     - Tuyệt đối cấm hardcode bất kỳ chuỗi tiếng Việt hay tiếng Anh nào trực tiếp trong component.
+  3. **Contextual Interactions & Clean Hierarchy:**
+     - Web: Hover phần tử hiện các thao tác phụ tinh gọn dạng 3 chấm dọc (`MoreVertical`).
+     - Mobile: Nhấn giữ (long-press) làm mờ nền focus tin nhắn với emoji ở trên và menu hành động ở dưới.
+     - Chat Header: Ghim chuyển thành icon Header (rỗng/fill); bỏ thanh nháp thô; gom âm thanh vào Cài đặt Vòng tròn; đảm bảo tương phản rõ rệt ở Light Theme.
+     - Emoji: Dùng duy nhất 1 bộ emoji chuẩn hóa toàn hệ thống; tab chọn emoji chỉ dùng icon đại diện, không dùng chữ.
+  4. **Memory Protocol (Lớp 1 & Lớp 2) & Skill Codification:**
+     - Tạo log ngày `agentic/memory/2026-10-28.md` ghi nhận toàn bộ captures và corrections.
+     - Đồng bộ hóa các preferences và corrections bền vững vào `agentic/memory/MEMORY.md` (Lớp 1).
+     - Bổ sung các điều khoản bắt buộc về Radical Minimalism, Zero Hardcoding và Contextual Interaction vào `agentic/skills/implement-feature.md` (Step 4 & Exit Criteria) và `agentic/playbooks/cross-cutting-gate.md` (Section 9 & Gate Checklist) để các phiên làm việc và subagent tương lai tự động tuân thủ nghiêm ngặt.
+- **Files Affected:**
+  - `agentic/memory/MEMORY.md`
+  - `agentic/memory/2026-10-28.md`
+  - `agentic/skills/implement-feature.md`
+  - `agentic/playbooks/cross-cutting-gate.md`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `apps/web/src/components/settings/SystemSettingsModal.tsx`
+  - `apps/web/src/components/chat/ChannelChatView.tsx`
+  - `apps/web/src/components/chat/ChatComposer.tsx`
+  - `apps/web/src/components/chat/ClearChatModal.tsx`
+  - `apps/web/src/components/chat/MessageList.tsx`
+  - `apps/web/src/components/circle/CircleManagementModal.tsx`
+  - `apps/web/src/components/circle/CreateCircleModal.tsx`
+  - `apps/web/src/components/circle/JoinCircleModal.tsx`
+  - `apps/web/src/components/moments/CreateMomentModal.tsx`
+  - `apps/web/src/components/stream/FeedStream.tsx`
+  - `apps/mobile/app/(tabs)/index.tsx`
+  - `apps/mobile/app/(tabs)/profile.tsx`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `apps/mobile/src/components/circle/CircleManagementModal.tsx`
+  - `apps/mobile/src/components/circle/CreateCircleModal.tsx`
+  - `apps/mobile/src/components/circle/JoinCircleModal.tsx`
+  - `apps/mobile/src/components/moment/MomentsView.tsx`
+  - `apps/mobile/src/components/settings/SystemSettingsModal.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% tài liệu hóa quy chuẩn kỹ thuật, cập nhật memory layers, cập nhật skill và gating checklist.
+- **Human Modifications:** Trương Công Bình chỉ đạo triết lý thiết kế tối giản, sạch mắt, không văn bản thừa, loại bỏ triệt để hardcode, yêu cầu khắc sâu vào skill `implement-feature` cho mọi tính năng mới về sau.
+- **Verification Method:**
+  - `npm run build -w @circle/shared`: Shared package build thành công, 0 lỗi TypeScript.
+  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Mobile TypeScript 0 lỗi.
+  - `npm run build -w @circle/web`: Next.js production build 9/9 static routes thành công 100%.
+  - `./scripts/check-agent-map.sh`: 117/117 framework files liên kết toàn vẹn, 0 broken links.
+- **Official Source Checked:** `agentic/RULES.md`, `agentic/CONVENTIONS.md`, `agentic/playbooks/cross-cutting-gate.md`, `PROJECT_GOD.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
+- **Branch:** `feat/115-sound-and-tactile-feedback`
+- **PR:** #116
+
+---
+
+## AI-0144: Hoàn Thiện Toàn Diện Giao Diện Lịch Nhóm, Form Tạo Sự Kiện, Bộ Chọn Ngày Giờ và Màn Hình Chi Tiết (Web & Mobile) (#117)
 
 - **Date:** 2026-10-29 21:30:00 +07:00
 - **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210)
@@ -4867,10 +5282,14 @@
   - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
   - `apps/backend/src/modules/circle-tools/circle-tools.service.spec.ts`
   - `apps/backend/src/modules/circle-tools/circle-tools.controller.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.module.ts`
+  - `apps/backend/src/modules/circle-tools/dto/circle-tools.dto.ts`
   - `apps/web/src/components/tools/CircleCalendarView.tsx`
   - `apps/web/src/components/tools/CustomDateTimePicker.tsx`
   - `apps/web/src/components/tools/LocationSearchInput.tsx`
   - `apps/web/src/app/api/geocode/search/route.ts`
+  - `apps/web/src/components/presence/PresenceRail.tsx`
+  - `apps/web/src/hooks/use-circle-tools.ts`
   - `apps/mobile/src/components/tools/MobileCalendarView.tsx`
   - `apps/mobile/src/components/ui/MobileDateTimePicker.tsx`
   - `apps/mobile/src/services/circle-tools.service.ts`
@@ -4899,11 +5318,11 @@
      - Tích hợp cụm thao tác trực tiếp: Chỉnh sửa, Hủy lịch hẹn (`Ban`), Xóa vĩnh viễn (`Trash2`) với cập nhật trạng thái tức thì.
 - **Human Modifications:** Ninh Thị Mỹ Hạnh trực tiếp thử nghiệm trên cả hai nền tảng, định hướng tinh chỉnh bố cục giao diện, yêu cầu lướt lịch theo từng tháng, bố trí nút điều hướng và chuyển đổi chi tiết sự kiện sang toàn màn hình.
 - **Verification Method:**
-  - Backend Unit Tests: `npm test --workspace=@circle/backend -- circle-tools.service.spec.ts` (22/22 unit tests pass, 100%).
+  - Backend Unit Tests: `npm test --workspace=@circle/backend -- circle-tools.service.spec.ts` (31/31 unit tests pass, 100%).
   - Web Production Build: `npm run build --workspace=@circle/web` (Clean build, 0 errors, 11/11 static routes generated).
   - Mobile TypeScript: `npx tsc --noEmit -p apps/mobile/tsconfig.json` (Pass 100%, 0 errors).
-  - Mobile Expo Bundle: `cd apps/mobile && npx expo export --platform ios` (3,049 modules biên dịch thành công, Exported dist).
 - **Official Source Checked:** Circle Design Guidelines, Circle Collaboration Playbook (COL-09 / UC17).
 - **Security & License Check:** An toàn tuyệt đối, zero secret leaks, xác thực phân quyền chặt chẽ (chỉ creator hoặc OWNER mới có quyền sửa/hủy/xóa).
 - **Branch:** `feat/117-calendar-ui-recurrence-and-detail`
 - **PR:** #118 (https://github.com/1440isme/Circle/pull/118)
+

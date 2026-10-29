@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Delete,
   Param,
   Body,
@@ -19,8 +20,11 @@ import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import {
   createChatSchemas,
   SendMessageInput,
+  EditMessageInput,
+  SearchMessagesInput,
   ReactMessageInput,
   MessagePaginationInput,
+  ClearChatInput,
   resolveLocale,
 } from '@circle/shared';
 
@@ -138,5 +142,71 @@ export class ChatController {
   ) {
     const locale = resolveLocale(circleLocale, acceptLanguage);
     return this.chatService.markMessageAsRead(user.id, messageId, locale);
+  }
+
+  /**
+   * PATCH /api/v1/messages/:messageId — Edit message (CHT-09)
+   */
+  @Patch('messages/:messageId')
+  @HttpCode(HttpStatus.OK)
+  async editMessage(
+    @CurrentUser() user: AuthUserData,
+    @Param('messageId') messageId: string,
+    @Body(new ZodValidationPipe((locale) => createChatSchemas(locale).editMessageSchema))
+    dto: EditMessageInput,
+    @Headers('x-circle-locale') circleLocale?: string,
+    @Headers('accept-language') acceptLanguage?: string,
+  ) {
+    const locale = resolveLocale(circleLocale, acceptLanguage);
+    return this.chatService.editMessage(user.id, messageId, dto, locale);
+  }
+
+  /**
+   * DELETE /api/v1/messages/:messageId — Recall message (CHT-10)
+   */
+  @Delete('messages/:messageId')
+  @HttpCode(HttpStatus.OK)
+  async recallMessage(
+    @CurrentUser() user: AuthUserData,
+    @Param('messageId') messageId: string,
+    @Headers('x-circle-locale') circleLocale?: string,
+    @Headers('accept-language') acceptLanguage?: string,
+  ) {
+    const locale = resolveLocale(circleLocale, acceptLanguage);
+    return this.chatService.recallMessage(user.id, messageId, locale);
+  }
+
+  /**
+   * GET /api/v1/channels/:channelId/messages/search — Search messages (CHT-17)
+   */
+  @Get('channels/:channelId/messages/search')
+  @HttpCode(HttpStatus.OK)
+  async searchMessages(
+    @CurrentUser() user: AuthUserData,
+    @Param('channelId') channelId: string,
+    @Query(new ZodValidationPipe((locale) => createChatSchemas(locale).searchMessagesSchema))
+    dto: SearchMessagesInput,
+    @Headers('x-circle-locale') circleLocale?: string,
+    @Headers('accept-language') acceptLanguage?: string,
+  ) {
+    const locale = resolveLocale(circleLocale, acceptLanguage);
+    return this.chatService.searchMessages(user.id, channelId, dto, locale);
+  }
+
+  /**
+   * POST /api/v1/channels/:channelId/clear-history — Clear chat history (FOR_ME or EVERYONE)
+   */
+  @Post('channels/:channelId/clear-history')
+  @HttpCode(HttpStatus.OK)
+  async clearChannelHistory(
+    @CurrentUser() user: AuthUserData,
+    @Param('channelId') channelId: string,
+    @Body(new ZodValidationPipe((locale) => createChatSchemas(locale).clearChatSchema))
+    dto: ClearChatInput,
+    @Headers('x-circle-locale') circleLocale?: string,
+    @Headers('accept-language') acceptLanguage?: string,
+  ) {
+    const locale = resolveLocale(circleLocale, acceptLanguage);
+    return this.chatService.clearChannelHistory(user.id, channelId, dto, locale);
   }
 }

@@ -17,16 +17,21 @@ import {
   CursorPaginatedMessages,
   MessageEntity,
   MessageType,
+  SearchMessagesResult,
+  ClearChatResult,
 } from '@circle/types';
 import {
   SendMessageInput,
   ReactMessageInput,
+  ClearChatInput,
 } from '@circle/shared';
+import { playMessageReceivedSound } from '../utils/sound-effects';
 
 export const CHAT_KEYS = {
   all: ['chat'] as const,
   messages: (channelId: string) => [...CHAT_KEYS.all, 'messages', channelId] as const,
   pins: (channelId: string) => [...CHAT_KEYS.all, 'pins', channelId] as const,
+  search: (channelId: string, q: string) => [...CHAT_KEYS.all, 'search', channelId, q] as const,
 };
 
 /**
@@ -107,6 +112,11 @@ export function useChannelMessagesQuery(channelId: string | null) {
             ...firstPage,
             messages: [...firstPage.messages, { ...newMessage, status: 'SENT' as const }],
           };
+
+          // Play subtle audio chime for incoming messages from other members
+          try {
+            playMessageReceivedSound();
+          } catch {}
 
           return {
             ...oldData,
@@ -219,8 +229,60 @@ export function useChannelMessagesQuery(channelId: string | null) {
       );
     };
 
+    const handleMessageUpdated = (updatedMessage: MessageEntity) => {
+      if (updatedMessage.channelId !== channelId) return;
+
+      queryClient.setQueryData<InfiniteData<CursorPaginatedMessages>>(
+        CHAT_KEYS.messages(channelId),
+        (oldData) => {
+          if (!oldData) return oldData;
+          return {
+            ...oldData,
+            pages: oldData.pages.map((page) => ({
+              ...page,
+              messages: page.messages.map((m) =>
+                m.id === updatedMessage.id ? { ...m, ...updatedMessage } : m,
+              ),
+            })),
+          };
+        },
+      );
+    };
+
+    const handleMessageRecalled = (payload: { channelId: string; messageId: string; message?: MessageEntity }) => {
+      if (payload.channelId !== channelId) return;
+
+      queryClient.setQueryData<InfiniteData<CursorPaginatedMessages>>(
+        CHAT_KEYS.messages(channelId),
+        (oldData) => {
+          if (!oldData) return oldData;
+          return {
+            ...oldData,
+            pages: oldData.pages.map((page) => ({
+              ...page,
+              messages: page.messages.map((m) =>
+                m.id === payload.messageId
+                  ? {
+                      ...m,
+                      deletedAt: payload.message?.deletedAt || new Date().toISOString(),
+                      content: null,
+                      fileUrl: null,
+                      fileName: null,
+                      fileSize: null,
+                      audioDuration: null,
+                    }
+                  : m,
+              ),
+            })),
+          };
+        },
+      );
+    };
+
     if (socket) {
       socket.on('chat:message', handleNewMessage);
+      socket.on('chat:message-updated', handleMessageUpdated);
+      socket.on('chat:message-recalled', handleMessageRecalled);
       socket.on('chat:reaction', handleReaction);
       socket.on('chat:pin', handlePin);
       socket.on('chat:unpin', handleUnpin);
@@ -230,6 +292,8 @@ export function useChannelMessagesQuery(channelId: string | null) {
     return () => {
       if (socket) {
         socket.off('chat:message', handleNewMessage);
+        socket.off('chat:message-updated', handleMessageUpdated);
+        socket.off('chat:message-recalled', handleMessageRecalled);
         socket.off('chat:reaction', handleReaction);
         socket.off('chat:pin', handlePin);
         socket.off('chat:unpin', handleUnpin);
@@ -605,4 +669,131 @@ export function useChannelTyping(channelId: string | null) {
     typingUsers,
     reportTyping,
   };
+}
+
+/**
+ * Mutation to edit message (CHT-09)
+ */
+export function useEditMessageMutation(channelId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ messageId, content }: { messageId: string; content: string }) => {
+      const res = await apiRequest<MessageEntity>(`/messages/${messageId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ content }),
+      });
+      return res.data;
+    },
+    onSuccess: (updatedMessage) => {
+      queryClient.setQueryData<InfiniteData<CursorPaginatedMessages>>(
+        CHAT_KEYS.messages(channelId),
+        (oldData) => {
+          if (!oldData) return oldData;
+          return {
+            ...oldData,
+            pages: oldData.pages.map((page) => ({
+              ...page,
+              messages: page.messages.map((m) =>
+                m.id === updatedMessage.id ? { ...m, ...updatedMessage } : m,
+              ),
+            })),
+          };
+        },
+      );
+    },
+  });
+}
+
+/**
+ * Mutation to recall message (CHT-10)
+ */
+export function useRecallMessageMutation(channelId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (messageId: string) => {
+      const res = await apiRequest<MessageEntity>(`/messages/${messageId}`, {
+        method: 'DELETE',
+      });
+      return res.data;
+    },
+    onSuccess: (recalledMessage) => {
+      queryClient.setQueryData<InfiniteData<CursorPaginatedMessages>>(
+        CHAT_KEYS.messages(channelId),
+        (oldData) => {
+          if (!oldData) return oldData;
+          return {
+            ...oldData,
+            pages: oldData.pages.map((page) => ({
+              ...page,
+              messages: page.messages.map((m) =>
+                m.id === recalledMessage.id
+                  ? {
+                      ...m,
+                      deletedAt: recalledMessage.deletedAt || new Date().toISOString(),
+                      content: null,
+                      fileUrl: null,
+                      fileName: null,
+                      fileSize: null,
+                      audioDuration: null,
+                    }
+                  : m,
+              ),
+            })),
+          };
+        },
+      );
+    },
+  });
+}
+
+/**
+ * Hook to search messages in a channel (CHT-17)
+ */
+export function useSearchMessagesQuery(channelId: string | null, query: string) {
+  const trimmed = query.trim();
+  return useQuery<SearchMessagesResult>({
+    queryKey: CHAT_KEYS.search(channelId || '', trimmed),
+    queryFn: async () => {
+      if (!channelId || !trimmed) {
+        return { messages: [], total: 0 };
+      }
+      const res = await apiRequest<SearchMessagesResult>(
+        `/channels/${channelId}/messages/search?q=${encodeURIComponent(trimmed)}`,
+      );
+      return res.data;
+    },
+    enabled: Boolean(channelId && trimmed.length > 0),
+    staleTime: 1000 * 10,
+  });
+}
+
+/**
+ * Hook to clear channel chat history (FOR_ME or EVERYONE)
+ */
+export function useClearChatMutation(channelId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (dto: ClearChatInput) => {
+      const res = await apiRequest<ClearChatResult>(
+        `/channels/${channelId}/clear-history`,
+        {
+          method: 'POST',
+          body: JSON.stringify(dto),
+        },
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.setQueryData(
+        CHAT_KEYS.messages(channelId),
+        () => ({
+          pages: [{ messages: [], nextCursor: null }],
+          pageParams: [undefined],
+        }),
+      );
+      queryClient.invalidateQueries({ queryKey: CHAT_KEYS.messages(channelId) });
+    },
+  });
 }

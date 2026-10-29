@@ -12,6 +12,7 @@ import {
 import { BlurView } from 'expo-blur';
 import { X, Search } from 'lucide-react-native';
 import { useThemeStore } from '../../stores/theme.store';
+import { useLanguageStore } from '../../stores/language.store';
 import { getGlassTheme } from '../../constants/glass-theme';
 import { EMOJI_CATEGORIES, EmojiCategory } from '@circle/shared';
 import { Emoji } from './Emoji';
@@ -29,9 +30,11 @@ export const FullEmojiPickerModal: React.FC<FullEmojiPickerModalProps> = ({
   visible,
   onClose,
   onSelectEmoji,
-  title = 'Chọn biểu cảm',
+  title,
 }) => {
   const { colors, resolvedTheme, uiStyle } = useThemeStore();
+  const t = useLanguageStore((s) => s.t);
+  const resolvedTitle = title || t.emoji?.title || 'Chọn biểu cảm';
   const isDark = resolvedTheme === 'dark';
   const glassTheme = getGlassTheme(isDark, uiStyle);
 
@@ -73,7 +76,7 @@ export const FullEmojiPickerModal: React.FC<FullEmojiPickerModalProps> = ({
         >
           {/* Header */}
           <View style={[styles.headerRow, { borderBottomColor: colors.hairline }]}>
-            <Text style={[styles.titleText, { color: colors.text }]}>{title}</Text>
+            <Text style={[styles.titleText, { color: colors.text }]}>{resolvedTitle}</Text>
             <TouchableOpacity
               onPress={onClose}
               style={[styles.closeBtn, { backgroundColor: colors.wash }]}
@@ -83,11 +86,12 @@ export const FullEmojiPickerModal: React.FC<FullEmojiPickerModalProps> = ({
             </TouchableOpacity>
           </View>
 
-          {/* Category Tabs */}
+          {/* Category Tabs (Clean Icon-Only Tabs) */}
           <View style={[styles.categoryBar, { borderBottomColor: colors.hairline }]}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', width: '100%', paddingVertical: 4 }}>
               {EMOJI_CATEGORIES.map((cat) => {
                 const isActive = activeCategoryId === cat.id;
+                const categoryName = (t.emoji?.categories as any)?.[cat.id] || cat.name;
                 return (
                   <TouchableOpacity
                     key={cat.id}
@@ -97,23 +101,16 @@ export const FullEmojiPickerModal: React.FC<FullEmojiPickerModalProps> = ({
                     }}
                     style={[
                       styles.categoryTab,
+                      { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12 },
                       isActive && [styles.categoryTabActive, { backgroundColor: colors.wash, borderColor: colors.hairline }],
                     ]}
+                    accessibilityLabel={categoryName}
                   >
-                    <Text style={styles.categoryIcon}>{cat.icon}</Text>
-                    <Text
-                      style={[
-                        styles.categoryName,
-                        { color: isActive ? colors.text : colors.subtle },
-                        isActive && { fontWeight: '700' },
-                      ]}
-                    >
-                      {cat.name}
-                    </Text>
+                    <Text style={[styles.categoryIcon, { fontSize: 20 }]}>{cat.icon}</Text>
                   </TouchableOpacity>
                 );
               })}
-            </ScrollView>
+            </View>
           </View>
 
           {/* Emoji Grid */}

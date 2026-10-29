@@ -11,7 +11,16 @@ import {
   AlertCircle,
   Video,
   Phone,
+  PhoneCall,
   Smile,
+  Calendar,
+  MapPin,
+  Pencil,
+  Trash2,
+  Ban,
+  EyeOff,
+  MoreVertical,
+  Copy,
 } from 'lucide-react';
 import { MessageEntity, MessageType, CalendarEventMessagePayload } from '@circle/types';
 import { CalendarEventChatEmbed } from './CalendarEventChatEmbed';
@@ -37,8 +46,12 @@ interface MessageBubbleProps {
   onReply: (message: MessageEntity) => void;
   onReact: (messageId: string, emoji: string) => void;
   onTogglePin: (messageId: string, isPinned: boolean) => void;
+  onEdit?: (message: MessageEntity) => void;
+  onRecall?: (messageId: string) => void;
+  onDeleteForMe?: (messageId: string) => void;
   onRetry?: (message: MessageEntity) => void;
   onJumpToMessage?: (messageId: string) => void;
+  onStartCall?: (callType: 'AUDIO' | 'VIDEO') => void;
 }
 
 const QUICK_EMOJIS = ['👍', '❤️', '😂', '🔥', '🎉'];
@@ -56,8 +69,12 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   onReply,
   onReact,
   onTogglePin,
+  onEdit,
+  onRecall,
+  onDeleteForMe,
   onRetry,
   onJumpToMessage,
+  onStartCall,
 }) => {
   const t = useLanguageStore((s) => s.t);
   const locale = useLanguageStore((s) => s.locale);
@@ -65,6 +82,17 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const [isFullEmojiOpen, setIsFullEmojiOpen] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
+
+  const handleCopyMessage = () => {
+    if (message.content) {
+      navigator.clipboard.writeText(message.content);
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
+      setIsMenuOpen(false);
+    }
+  };
 
   const momentMeta = parseMomentReplyMetadata(message.fileName);
   const isMomentReply = Boolean(
@@ -166,6 +194,17 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     } catch {}
   }
 
+
+  const isRecalled = Boolean(message.deletedAt);
+  const isEdited = Boolean(
+    !isRecalled &&
+    !isCallSummary &&
+    !isCalendarEvent &&
+    message.updatedAt &&
+    message.sentAt &&
+    new Date(message.updatedAt).getTime() - new Date(message.sentAt).getTime() > 1000,
+  );
+
   const formatDuration = (sec: number) => {
     if (sec < 60) return t.calls.durationSeconds.replace('{sec}', String(sec));
     const m = Math.floor(sec / 60);
@@ -227,6 +266,14 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         </div>
       )}
 
+      {/* Mentioned indicator badge (CHT-22) */}
+      {!isSenderMe && message.content && (message.content.includes('@all') || message.content.includes('@mọi người')) && (
+        <div className="flex items-center gap-1 text-[10px] font-semibold text-circle-primary mb-1 px-1">
+          <span className="h-1.5 w-1.5 rounded-full bg-circle-primary animate-pulse" />
+          <span>{t.chat?.mentionedYou || 'Đã nhắc đến bạn'}</span>
+        </div>
+      )}
+
       {/* Timestamp ON TOP (ONLY on click/tap) */}
       {showTimestamp && (
         <div
@@ -250,7 +297,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               : 'px-4 py-2.5 ' + (isSenderMe ? 'msg-bubble-me' : 'msg-bubble-other')
           } ${message.isPinned ? 'ring-2 ring-amber-400/40' : ''} ${
             isHighlighted
-              ? 'ring-2 ring-circle-primary dark:ring-circle-dark-primary shadow-lg scale-[1.02] bg-circle-primary/10 transition-all duration-300'
+              ? 'ring-2 ring-circle-primary dark:ring-circle-dark-primary shadow-xl scale-[1.02] bg-circle-primary/15 transition-all duration-300 animate-pulse'
               : ''
           }`}
         >
@@ -310,42 +357,83 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             </div>
           )}
 
-          {/* Message Content: Call Summary vs Standard Text */}
-          {isCallSummary && callSummaryData ? (
-            <div className="flex items-center gap-2.5 py-1 pr-1">
-              {callSummaryData.callType === 'VIDEO' ? (
-                <Video
-                  className={`h-5 w-5 shrink-0 ${
-                    isSenderMe
-                      ? 'text-current'
-                      : 'text-circle-slate dark:text-circle-dark-muted'
-                  }`}
-                />
-              ) : (
-                <Phone
-                  className={`h-5 w-5 shrink-0 ${
-                    isSenderMe
-                      ? 'text-current'
-                      : 'text-circle-slate dark:text-circle-dark-muted'
-                  }`}
-                />
-              )}
-              <div className="flex flex-col min-w-0">
-                <span className="text-xs sm:text-sm font-bold truncate">
-                  {callSummaryData.callType === 'VIDEO'
-                    ? t.calls.videoCallEnded
-                    : t.calls.audioCallEnded}
-                </span>
-                <span
-                  className={`text-[11px] font-medium ${
-                    isSenderMe
-                      ? 'text-current opacity-85'
-                      : 'text-circle-slate dark:text-circle-dark-muted'
+          {/* Message Content: Recalled vs Calendar Event vs Call Summary vs Standard Text */}
+          {isRecalled ? (
+            <div className="flex items-center gap-1.5 py-1 px-1 text-xs italic opacity-60 select-none">
+              <Ban className="w-3.5 h-3.5 shrink-0" />
+              <span>{t.chat.messageRecalled}</span>
+            </div>
+          ) : isCallSummary && callSummaryData ? (
+            <div className="flex flex-col gap-2.5 py-1 min-w-[240px] max-w-[320px]">
+              <div className="flex items-center gap-3">
+                <div
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                    callSummaryData.durationSeconds && callSummaryData.durationSeconds > 0
+                      ? isSenderMe
+                        ? 'bg-black/15 dark:bg-white/15 text-current'
+                        : 'bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                      : isSenderMe
+                      ? 'bg-black/15 dark:bg-white/15 text-current'
+                      : 'bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400'
                   }`}
                 >
-                  {t.calls.durationLabel.replace('{duration}', formatDuration(callSummaryData.durationSeconds || 0))}
-                </span>
+                  {callSummaryData.callType === 'VIDEO' ? (
+                    <Video className="h-5 w-5" />
+                  ) : (
+                    <Phone className="h-5 w-5" />
+                  )}
+                </div>
+
+                <div className="flex flex-col min-w-0 flex-1">
+                  <span className="text-xs sm:text-sm font-semibold truncate leading-tight">
+                    {callSummaryData.durationSeconds && callSummaryData.durationSeconds > 0
+                      ? callSummaryData.callType === 'VIDEO'
+                        ? t.calls.videoCallEnded
+                        : t.calls.audioCallEnded
+                      : callSummaryData.callType === 'VIDEO'
+                      ? t.calls.missedVideoCall
+                      : t.calls.missedAudioCall}
+                  </span>
+                  <span
+                    className={`text-[11px] font-medium mt-0.5 ${
+                      isSenderMe
+                        ? 'text-current opacity-80'
+                        : 'text-circle-slate dark:text-circle-dark-muted'
+                    }`}
+                  >
+                    {callSummaryData.durationSeconds && callSummaryData.durationSeconds > 0
+                      ? t.calls.durationLabel.replace(
+                          '{duration}',
+                          formatDuration(callSummaryData.durationSeconds),
+                        )
+                      : t.calls.callEndedShort}
+                  </span>
+                </div>
               </div>
+
+              {onStartCall && (
+                <div className="pt-1.5 border-t border-black/5 dark:border-white/10 flex items-center justify-end">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onStartCall(callSummaryData!.callType);
+                    }}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all active:scale-95 ${
+                      isSenderMe
+                        ? 'bg-black/15 hover:bg-black/25 dark:bg-white/15 dark:hover:bg-white/25 text-current'
+                        : 'bg-circle-primary hover:bg-circle-primary-dark text-white shadow-xs'
+                    }`}
+                  >
+                    {callSummaryData.callType === 'VIDEO' ? (
+                      <Video className="h-3.5 w-3.5" />
+                    ) : (
+                      <PhoneCall className="h-3.5 w-3.5" />
+                    )}
+                    <span>{t.calls.callbackAction}</span>
+                  </button>
+                </div>
+              )}
             </div>
           ) : message.content ? (
             <div
@@ -354,6 +442,11 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               }`}
             >
               {renderContentWithMentions(message.content)}
+              {isEdited && (
+                <span className="text-[10px] opacity-60 ml-1.5 select-none font-medium">
+                  {t.chat.editedLabel}
+                </span>
+              )}
             </div>
           ) : null}
 
@@ -444,61 +537,158 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           )}
         </div>
 
-        {/* Hover Action Bar (Pin, Reply, Quick Emojis) - High up above bubble, level with timestamp, never covers bubble */}
-        <div
-          className={`absolute bottom-[calc(100%+4px)] hidden group-hover:flex items-center gap-0.5 rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-1 shadow-circle-hover transition-all z-20 before:absolute before:-bottom-2 before:left-0 before:right-0 before:h-3 ${
-            isSenderMe ? 'right-0' : 'left-0'
-          }`}
-        >
-          {/* Quick Emoji Buttons (High-Quality Vector Emojis) */}
-          <div className="flex items-center gap-0.5 pr-1 border-r border-circle-hairline dark:border-circle-dark-hairline">
-            {PROMINENT_QUICK_EMOJIS.map((emoji) => (
-              <button
-                key={emoji}
-                type="button"
-                onClick={() => onReact(message.id, emoji)}
-                className="flex h-6 w-6 items-center justify-center rounded-full hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-transform hover:scale-125"
-                title={emoji}
-              >
-                <Emoji emoji={emoji} size={16} />
-              </button>
-            ))}
-            <button
-              type="button"
-              onClick={() => setIsFullEmojiOpen(true)}
-              className="flex h-6 w-6 items-center justify-center rounded-full text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash hover:text-circle-charcoal dark:hover:text-white transition-colors"
-              title="Thêm biểu cảm khác"
-            >
-              <Smile className="h-3.5 w-3.5" />
-            </button>
-          </div>
-
-          {/* Reply Action */}
-          <button
-            type="button"
-            onClick={() => onReply(message)}
-            className="flex h-6 w-6 items-center justify-center rounded-full text-circle-slate dark:text-circle-dark-muted hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas hover:text-circle-sage transition-colors"
-            title={t.chat.replyAction}
+        {/* Hover Action Bar (Clean Quick Emojis + 3-Dots More Menu) */}
+        {!isRecalled && (
+          <div
+            className={`absolute bottom-[calc(100%+4px)] hidden group-hover:flex items-center gap-0.5 rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-white/95 dark:bg-circle-dark-surface/95 backdrop-blur-sm p-1 shadow-circle-hover transition-all z-20 before:absolute before:-bottom-2 before:left-0 before:right-0 before:h-3 ${
+              isSenderMe ? 'right-0' : 'left-0'
+            }`}
           >
-            <Reply className="h-3.5 w-3.5 scale-x-[-1]" />
-          </button>
+            {/* Quick Emoji Buttons (High-Quality Vector Emojis) */}
+            <div className="flex items-center gap-0.5 pr-1 border-r border-circle-hairline dark:border-circle-dark-hairline">
+              {PROMINENT_QUICK_EMOJIS.map((emoji) => (
+                <button
+                  key={emoji}
+                  type="button"
+                  onClick={() => onReact(message.id, emoji)}
+                  className="flex h-6 w-6 items-center justify-center rounded-full hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-transform hover:scale-125"
+                  title={emoji}
+                >
+                  <Emoji emoji={emoji} size={16} />
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => setIsFullEmojiOpen(true)}
+                className="flex h-6 w-6 items-center justify-center rounded-full text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash hover:text-circle-charcoal dark:hover:text-white transition-colors"
+                title={t.emoji?.addOtherEmoji || 'Thêm biểu cảm khác'}
+              >
+                <Smile className="h-3.5 w-3.5" />
+              </button>
+            </div>
 
-          {/* Pin / Unpin Action (Forbidden for call summaries) */}
-          {!isCallSummary && (
-            <button
-              type="button"
-              onClick={() => onTogglePin(message.id, !!message.isPinned)}
-              className={`flex h-6 w-6 items-center justify-center rounded-full transition-colors ${
-                message.isPinned
-                  ? 'text-circle-charcoal dark:text-circle-dark-text bg-circle-canvas dark:bg-circle-dark-canvas'
-                  : 'text-circle-slate dark:text-circle-dark-muted hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas hover:text-circle-charcoal dark:hover:text-circle-dark-text'
-              }`}
-              title={message.isPinned ? t.chat.unpinAction : t.chat.pinAction}
-            >
-              <Pin className={`h-3.5 w-3.5 ${message.isPinned ? 'fill-current' : ''}`} />
-            </button>
-          )}
-        </div>
+            {/* 3-Dots Vertical Action Menu (Linear / Telegram standard) */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                className={`flex h-6 w-6 items-center justify-center rounded-full transition-colors ${
+                  isMenuOpen
+                    ? 'bg-circle-primary/15 text-circle-primary'
+                    : 'text-circle-slate dark:text-circle-dark-muted hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas hover:text-circle-charcoal dark:hover:text-white'
+                }`}
+                title={t.chat?.moreActions || 'Tùy chọn khác'}
+              >
+                <MoreVertical className="h-3.5 w-3.5" />
+              </button>
+
+              {isMenuOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-30"
+                    onClick={() => setIsMenuOpen(false)}
+                  />
+                  <div
+                    className={`absolute bottom-full mb-1.5 w-48 rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white/95 dark:bg-circle-dark-surface/95 backdrop-blur-md p-1.5 shadow-2xl z-40 animate-scale-up text-xs ${
+                      isSenderMe ? 'right-0' : 'left-0'
+                    }`}
+                  >
+                    {/* Copy Content Action */}
+                    {Boolean(message.content) && (
+                      <button
+                        type="button"
+                        onClick={handleCopyMessage}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors text-left font-medium"
+                      >
+                        {isCopied ? (
+                          <Check className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                        ) : (
+                          <Copy className="h-3.5 w-3.5 text-circle-slate dark:text-circle-dark-muted shrink-0" />
+                        )}
+                        <span>{isCopied ? (t.chat?.copiedNotice || 'Đã sao chép') : (t.chat?.copyAction || 'Sao chép')}</span>
+                      </button>
+                    )}
+
+                    {/* Reply Action */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsMenuOpen(false);
+                        onReply(message);
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors text-left font-medium"
+                    >
+                      <Reply className="h-3.5 w-3.5 scale-x-[-1] text-circle-slate dark:text-circle-dark-muted shrink-0" />
+                      <span>{t.chat.replyAction}</span>
+                    </button>
+
+                    {/* Pin / Unpin Action (Forbidden for call summaries) */}
+                    {!isCallSummary && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsMenuOpen(false);
+                          onTogglePin(message.id, !!message.isPinned);
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors text-left font-medium"
+                      >
+                        <Pin className={`h-3.5 w-3.5 ${message.isPinned ? 'fill-circle-primary text-circle-primary' : 'text-circle-slate dark:text-circle-dark-muted'} shrink-0`} />
+                        <span>{message.isPinned ? t.chat.unpinAction : t.chat.pinAction}</span>
+                      </button>
+                    )}
+
+                    {/* Edit Action (CHT-09: Author only) */}
+                    {isSenderMe && onEdit && message.type === MessageType.TEXT && message.content && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsMenuOpen(false);
+                          onEdit(message);
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors text-left font-medium"
+                      >
+                        <Pencil className="h-3.5 w-3.5 text-circle-slate dark:text-circle-dark-muted shrink-0" />
+                        <span>{t.chat.editAction}</span>
+                      </button>
+                    )}
+
+                    <div className="my-1 border-t border-circle-hairline dark:border-circle-dark-hairline" />
+
+                    {/* Delete For Me Action (CHT-11: Hide own message locally) */}
+                    {onDeleteForMe && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsMenuOpen(false);
+                          onDeleteForMe(message.id);
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 transition-colors text-left font-medium"
+                      >
+                        <EyeOff className="h-3.5 w-3.5 shrink-0" />
+                        <span>{t.chat?.deleteForMeAction || 'Xóa phía tôi'}</span>
+                      </button>
+                    )}
+
+                    {/* Recall Action (CHT-10: Author recalls message for everyone) */}
+                    {isSenderMe && onRecall && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsMenuOpen(false);
+                          onRecall(message.id);
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 transition-colors text-left font-semibold"
+                      >
+                        <Trash2 className="h-3.5 w-3.5 shrink-0" />
+                        <span>{t.chat.recallAction}</span>
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Sibling Below Bubble: Seen status / Avatar / Sending status */}
