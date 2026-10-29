@@ -467,15 +467,30 @@ export class CircleToolsService {
   async getCalendarEvents(circleId: string, userId: string, month?: number, year?: number) {
     await this.getMemberOrThrow(circleId, userId);
 
-    let dateFilter = {};
+    let dateFilter: any = {};
     if (month && year) {
       const startDate = new Date(Date.UTC(year, month - 1, 1));
       const endDate = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
       dateFilter = {
-        startTime: {
-          gte: startDate,
-          lte: endDate,
-        },
+        OR: [
+          // Sự kiện bắt đầu trong tháng
+          {
+            startTime: {
+              gte: startDate,
+              lte: endDate,
+            },
+          },
+          // Sự kiện bắt đầu trước tháng này nhưng kết thúc trong hoặc sau tháng này (kéo dài nhiều ngày)
+          {
+            startTime: { lte: endDate },
+            endTime: { gte: startDate },
+          },
+          // Sự kiện có cấu hình lặp lại bắt đầu trước hoặc trong tháng
+          {
+            startTime: { lte: endDate },
+            description: { contains: '[RECURRENCE:' },
+          },
+        ],
       };
     }
 
@@ -514,10 +529,6 @@ export class CircleToolsService {
     const start = new Date(dto.startTime);
     if (isNaN(start.getTime())) {
       throw new BadRequestException('Thời gian bắt đầu không hợp lệ');
-    }
-    // Allow 2 minutes grace period for network latency / clock skew
-    if (start.getTime() < Date.now() - 120000) {
-      throw new BadRequestException('Không thể tạo lịch hẹn trong quá khứ');
     }
 
     let end: Date | null = null;
@@ -599,10 +610,6 @@ export class CircleToolsService {
       const start = new Date(dto.startTime);
       if (isNaN(start.getTime())) {
         throw new BadRequestException('Thời gian bắt đầu không hợp lệ');
-      }
-      const wasInFuture = event.startTime.getTime() >= Date.now() - 120000;
-      if (wasInFuture && start.getTime() < Date.now() - 120000) {
-        throw new BadRequestException('Không thể chỉnh sửa thời gian bắt đầu về quá khứ');
       }
     }
 

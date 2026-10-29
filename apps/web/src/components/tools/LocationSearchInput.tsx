@@ -87,10 +87,7 @@ export const LocationSearchInput: React.FC<LocationSearchInputProps> = ({
 
   const handleSelectSuggestion = (item: any) => {
     const name = item.name || item.display_name?.split(',')?.[0] || 'Địa điểm';
-    const lat = item.lat;
-    const lon = item.lon;
-    const mapUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`;
-    onChange(`${name} - ${mapUrl}`);
+    onChange(name);
     setShowSuggestions(false);
   };
 

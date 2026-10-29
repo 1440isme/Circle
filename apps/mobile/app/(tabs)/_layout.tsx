@@ -30,8 +30,9 @@ import { JoinCircleModal } from '../../src/components/circle/JoinCircleModal';
 import { CircleManagementModal } from '../../src/components/circle/CircleManagementModal';
 
 interface CustomTabBarProps {
-  state: any;
-  navigation: any;
+  state?: any;
+  navigation?: any;
+  descriptors?: any;
   onPressCreate: () => void;
   isDark: boolean;
   colors: any;

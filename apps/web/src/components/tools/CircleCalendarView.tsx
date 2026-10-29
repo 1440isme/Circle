@@ -86,11 +86,11 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
   const rsvpMutation = useRespondEventRsvpMutation(circleId);
 
   const [editingEvent, setEditingEvent] = useState<CalendarEventEntity | null>(null);
-
-
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const handleOpenCreateModal = () => {
     setEditingEvent(null);
+    setSubmitError(null);
     setTitle('');
     setLocation('');
     setDescription('');
@@ -106,22 +106,9 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
       new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate()).getTime() <
       new Date(curNow.getFullYear(), curNow.getMonth(), curNow.getDate()).getTime();
 
-    if (isPastDay) {
-      // If clicked a past date, default to today starting at next hour
-      const targetDate = new Date();
-      const nextHour = targetDate.getHours() + 1;
-      setStartTime(formatToLocalDateTimeInput(targetDate, nextHour, 0));
-      setSelectedDate(targetDate);
-    } else if (isToday) {
-      // If today, set to next hour so it is not in the past
-      const nextHour = curNow.getHours() + 1;
-      setStartTime(formatToLocalDateTimeInput(curNow, nextHour, 0));
-    } else {
-      // Future dates default to 00:00 as desired
-      setStartTime(formatToLocalDateTimeInput(selectedDate, 0, 0));
-    }
-
-    setEndTime('');
+    // Mặc định giờ bắt đầu là 00:00 ngày đó, kết thúc là 23:59 ngày đó
+    setStartTime(formatToLocalDateTimeInput(selectedDate, 0, 0));
+    setEndTime(formatToLocalDateTimeInput(selectedDate, 23, 59));
     setIsAddModalOpen(true);
   };
 
@@ -131,17 +118,6 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
 
     const start = new Date(startTime);
     if (isNaN(start.getTime())) return 'Thời gian bắt đầu không hợp lệ';
-
-    const isStartInPast = start.getTime() < Date.now() - 60000;
-    if (!editingEvent && isStartInPast) {
-      return 'Thời gian bắt đầu không thể ở trong quá khứ';
-    }
-    if (editingEvent) {
-      const wasFuture = new Date(editingEvent.startTime).getTime() >= Date.now() - 60000;
-      if (wasFuture && isStartInPast) {
-        return 'Thời gian bắt đầu không thể ở trong quá khứ';
-      }
-    }
 
     if (endTime) {
       const end = new Date(endTime);
@@ -154,10 +130,9 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
     return null;
   };
 
-  const formValidationError = getFormValidationError();
-
   const handleOpenEditModal = (ev: CalendarEventEntity) => {
     setEditingEvent(ev);
+    setSubmitError(null);
     setTitle(ev.eventTitle);
     setLocation(ev.location || '');
     setDescription(ev.description || '');
@@ -218,10 +193,11 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || !startTime) return;
+    setSubmitError(null);
 
     const validationErr = getFormValidationError();
     if (validationErr) {
+      setSubmitError(validationErr);
       return;
     }
 
@@ -290,15 +266,23 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
     }
   };
 
-  // Group events by day of current month
+  // Group events by day of current month (supporting multi-day events)
   const eventsByDay = useMemo(() => {
     const map = new Map<number, CalendarEventEntity[]>();
-    for (const ev of events) {
-      const evDate = new Date(ev.startTime);
-      if (evDate.getMonth() + 1 === month && evDate.getFullYear() === year) {
-        const d = evDate.getDate();
-        if (!map.has(d)) map.set(d, []);
-        map.get(d)!.push(ev);
+    const daysInMonth = new Date(year, month, 0).getDate();
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const targetTime = new Date(year, month - 1, d).getTime();
+      for (const ev of events) {
+        const start = new Date(ev.startTime);
+        const startTime = new Date(start.getFullYear(), start.getMonth(), start.getDate()).getTime();
+        const end = ev.endTime ? new Date(ev.endTime) : start;
+        const endTime = new Date(end.getFullYear(), end.getMonth(), end.getDate()).getTime();
+
+        if (targetTime >= startTime && targetTime <= endTime) {
+          if (!map.has(d)) map.set(d, []);
+          map.get(d)!.push(ev);
+        }
       }
     }
     return map;
@@ -841,13 +825,6 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                 </div>
               </div>
 
-              {formValidationError && (
-                <div className="flex items-center gap-1.5 p-2 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-600 dark:text-rose-400 font-medium">
-                  <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-                  <span>{formValidationError}</span>
-                </div>
-              )}
-
               <div>
                 <label className="block text-xs font-semibold text-circle-slate dark:text-circle-dark-muted mb-1">
                   Nhắc nhở trước
@@ -880,6 +857,13 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
 
               
 
+              {submitError && (
+                <div className="flex items-center gap-1.5 p-2 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-600 dark:text-rose-400 font-medium">
+                  <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                  <span>{submitError}</span>
+                </div>
+              )}
+
               <div className="flex items-center justify-end gap-2 pt-2">
                 <button
                   type="button"
@@ -890,10 +874,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                 </button>
                 <button
                   type="submit"
-                  disabled={
-                    (editingEvent ? updateMutation.isPending : createMutation.isPending) ||
-                    Boolean(formValidationError)
-                  }
+                  disabled={editingEvent ? updateMutation.isPending : createMutation.isPending}
                   className="rounded-lg bg-circle-charcoal dark:bg-circle-primary px-4 py-2 text-xs font-semibold text-white dark:text-circle-charcoal hover:bg-circle-sage transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {editingEvent

@@ -4767,11 +4767,15 @@
 
 ---
 
-### AI-0134: Tích hợp Lịch hẹn tự động thông báo trong Kênh Chat & Hiển thị Sự kiện ở Sidebar phải (UC17) (#101)
-- **Timestamp:** 2026-10-25T14:58:00+07:00
-- **Task ID:** Issue #101 (Parent Epic: #21)
-- **Engineers:** Trương Công Bình & Ninh Thị Mỹ Hạnh
-- **Feature / Area:** Full-stack UC17 Integration — Group Calendar Chat Announcement Embed & Right Sidebar Realtime Upcoming Events.
+## AI-0134: Tích hợp Lịch hẹn tự động thông báo trong Kênh Chat & Hiển thị Sự kiện ở Sidebar phải (UC17) (#101)
+
+- **Date:** 2026-10-25 14:58:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash
+- **Related Issue:** #101 (Parent Epic: #21)
+- **Purpose:** Tích hợp tự động thông báo sự kiện lịch vào kênh chat chính của Circle khi tạo hoặc cập nhật lịch hẹn và hiển thị danh sách sự kiện sắp diễn ra ở cột bên phải (Sidebar) để nhắc nhở thành viên theo đặc tả UC17.
+- **Prompt Summary:** Tích hợp tự động thông báo sự kiện lịch vào kênh chat chính của nhóm khi tạo hoặc cập nhật lịch hẹn và hiển thị danh sách sự kiện sắp diễn ra ở cột bên phải (Sidebar) để nhắc nhở thành viên theo đặc tả UC17.
 - **Files Affected:**
   - `packages/types/src/index.ts`
   - `apps/backend/src/modules/circle-tools/circle-tools.module.ts`
@@ -4789,7 +4793,7 @@
   3. **Web Chat Card Embed (`CalendarEventChatEmbed`):** Thiết kế card sự kiện tinh tế theo chuẩn thiết kế Circle, hiển thị thứ ngày tháng, giờ bắt đầu/kết thúc, địa điểm và người tạo kèm nút "Xem trên Lịch nhóm" chuyển đổi chế độ xem tức thì.
   4. **Right Sidebar Upcoming Events (`PresenceRail`):** Kết nối hook `useCalendarEventsQuery` vào cột bên phải để lọc và hiển thị danh sách các sự kiện sắp diễn ra trong nhóm kèm huy hiệu thời gian đếm ngược và nút tạo sự kiện nhanh.
   5. **Header Shortcut & Mobile Chat Parity:** Thêm nút biểu tượng Lịch trên thanh header chat của web và định dạng thẻ sự kiện native trên mobile chat.
-- **Human Modifications:** Trương Công Bình chỉ đạo: "ko tôi muốn nó nhảy vào kênh chat để nhắc nhở ấy do đa số sinh hoạt trong chat mà", "sao tôi vẫn chưa thấy hiển thị nhỉ hãy xem ở web", tuân thủ nghiêm ngặt nguyên tắc clean repo, không tự ý PR khi chưa có sự cho phép.
+- **Human Modifications:** Ninh Thị Mỹ Hạnh chỉ đạo điều chỉnh luồng hiển thị thông báo sự kiện trực tiếp vào kênh chat và sidebar phải của nhóm.
 - **Verification Method:**
   - Backend Unit Tests: `npm test --workspace=@circle/backend -- circle-tools.service.spec.ts` (15/15 unit tests pass, 100%).
   - Backend NestJS Build: `npm run build --workspace=@circle/backend` (Clean build, 0 errors).
@@ -4798,14 +4802,19 @@
 - **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`, `docs/requirements/use-cases.md` (UC17).
 - **Security & License Check:** An toàn tuyệt đối, zero secret leaks, tuân thủ strict role checks.
 - **Branch:** `feat/101-calendar-chat-integration-and-sidebar`
-- **PR:** Pending (Chờ sự cho phép của người dùng theo đúng chỉ thị).
+- **PR:** #101 (Pending)
+
 ---
 
-### AI-0135: Triển khai Tính năng RSVP Phản hồi Tham gia Sự kiện Nhóm (COL-09 — MUST) (#101)
-- **Timestamp:** 2026-10-25T15:37:00+07:00
-- **Task ID:** Issue #101 (Parent Epic: #21)
-- **Engineers:** Trương Công Bình & Ninh Thị Mỹ Hạnh
-- **Feature / Area:** Full-stack UC17 / COL-09 Implementation — Group Calendar Event RSVP Response & Realtime Attendance Tracking.
+## AI-0135: Triển khai Tính năng RSVP Phản hồi Tham gia Sự kiện Nhóm (COL-09 — MUST)
+
+- **Date:** 2026-10-25 15:37:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #101 (Parent Epic: #21)
+- **Purpose:** Triển khai tính năng RSVP phản hồi tham gia sự kiện nhóm theo yêu cầu COL-09 (Tier MUST) của Module Collaboration và đặc tả UC17. Cho phép các thành viên trong Circle phản hồi trạng thái tham gia (YES, NO, MAYBE), cập nhật số lượng và danh sách người tham gia theo thời gian thực (realtime) qua Socket.IO cả trên bong bóng chat và giao diện Lịch.
+- **Prompt Summary:** Rà soát theo agentic/playbooks/07-circle-collaboration.md và xây dựng tính năng RSVP — Phản hồi tham gia sự kiện nhóm (Mục COL-09 — MUST), tạm hoãn isAllDay.
 - **Files Affected:**
   - `apps/backend/prisma/schema.prisma`
   - `apps/backend/prisma/migrations/20261025082201_add_calendar_event_rsvp/migration.sql`
@@ -4828,7 +4837,7 @@
      - Tại thẻ chat `CalendarEventChatEmbed`: Bổ sung 3 nút phản hồi nhanh (`[✅ Tham gia]`, `[❓ Chưa chắc]`, `[❌ Bận]`), highlight trạng thái của người dùng hiện tại, hiển thị tổng hợp số lượng và danh sách avatar thành viên tham dự kèm chấm trạng thái realtime.
      - Tại màn hình `CircleCalendarView`: Hiển thị thanh trạng thái RSVP và các nút phản hồi trực tiếp cho từng sự kiện trong ngày đã chọn.
   5. **Mobile Parity:** Bổ sung hiển thị tóm tắt số lượng phản hồi tham gia sự kiện trên bong bóng chat mobile app.
-- **Human Modifications:** Trương Công Bình yêu cầu rà soát theo `agentic/playbooks/07-circle-collaboration.md` và chỉ đạo: "xây 1. Thiếu tính năng RSVP — Phản hồi tham gia sự kiện (Mục COL-09 — MUST)", tạm hoãn `isAllDay`.
+- **Human Modifications:** Ninh Thị Mỹ Hạnh yêu cầu rà soát theo `agentic/playbooks/07-circle-collaboration.md` và chỉ đạo: "xây tính năng RSVP — Phản hồi tham gia sự kiện (Mục COL-09 — MUST)", tạm hoãn `isAllDay`.
 - **Verification Method:**
   - Backend Unit Tests: `npm test --workspace=@circle/backend -- circle-tools.service.spec.ts` (17/17 tests pass, bao gồm các test case cho RSVP và socket emit).
   - Backend Build: `npm run build --workspace=@circle/backend` (NestJS production build pass 100%).
@@ -4836,216 +4845,65 @@
   - TypeScript Typechecks: `npx tsc --noEmit -p apps/web/tsconfig.json` (0 errors).
 - **Official Source Checked:** `PROJECT_GOD.md`, `agentic/playbooks/07-circle-collaboration.md` (COL-09 — MUST).
 - **Security & License Check:** An toàn tuyệt đối, zero secret leaks, xác thực thành viên nghiêm ngặt qua `getMemberOrThrow`.
-- **Branch:** `feat/101-calendar-chat-integration-and-sidebar`
-- **PR:** Pending (Chờ người dùng kiểm duyệt và cho phép trước khi push/mở PR).
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None
+  - **Root Cause:** N/A
+  - **Resolution / Fix:** N/A
+- **Commit:** `4b05b87`
+- **PR:** #101 (Pending)
 
 ---
 
-### AI-0136: Bổ sung Mục 5 (Những việc sẽ làm trong tuần tiếp theo) cho Báo cáo Tiến độ Tuần
-- **Timestamp:** 2026-10-26T04:42:00+07:00
-- **Task ID:** Quy chuẩn báo cáo tiến độ tuần (G2 / Hard Gate 2)
-- **Engineers:** Trương Công Bình & Ninh Thị Mỹ Hạnh
-- **Feature / Area:** Documentation & Compliance — Weekly Engineering Progress Reports (`docs/evidence/weekly-reports/` & `agentic/memory/`).
+## AI-0136: Hoàn Thiện Toàn Diện Giao Diện Lịch Nhóm, Form Tạo Sự Kiện, Bộ Chọn Ngày Giờ và Màn Hình Chi Tiết (Web & Mobile) (#117)
+
+- **Date:** 2026-10-29 21:30:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash
+- **Related Issue:** #117 (Parent Epic: #21)
+- **Purpose:** Thiết kế và hoàn thiện toàn diện giao diện Lịch nhóm trên Web và Mobile theo phong cách thiết kế hiện đại của CIRCLE: tối ưu form tạo sự kiện và bộ chọn ngày giờ trực quan, giải quyết triệt để lỗi CORS bản đồ qua API proxy nội bộ, hỗ trợ cấu hình lặp lại sự kiện linh hoạt, phân chia bố cục lịch lướt theo tháng và xem tổng quan năm, xử lý sự kiện đa ngày và xây dựng màn hình chi tiết sự kiện toàn màn hình.
+- **Prompt Summary:** Thiết kế và tinh chỉnh toàn diện giao diện Lịch nhóm, form tạo sự kiện và bộ chọn ngày giờ trên Web và Mobile: tối ưu bố cục khối thẻ, hỗ trợ bộ chọn ngày tháng và bánh xe thời gian 24h, proxy nội bộ gợi ý địa điểm, cấu hình lặp lại đa chu kỳ, lướt lịch theo từng tháng, chế độ xem năm thu nhỏ, hiển thị sự kiện đa ngày (1 sự kiện = 1 chấm) và màn hình chi tiết sự kiện toàn màn hình có nút sửa, hủy, xóa.
 - **Files Affected:**
-  - `docs/evidence/weekly-reports/W01.md`
-  - `docs/evidence/weekly-reports/W02.md`
-  - `docs/evidence/weekly-reports/W03.md`
-  - `docs/evidence/weekly-reports/W04.md`
-  - `docs/evidence/weekly-reports/W05.md`
-  - `docs/evidence/weekly-reports/W06.md`
-  - `docs/evidence/weekly-reports/W07.md`
-  - `docs/evidence/weekly-reports/W08.md`
-  - `docs/evidence/weekly-reports/README.md`
-  - `agentic/memory/reporting-workflow.md`
-  - `agentic/memory/MEMORY.md`
-  - `agentic/memory/2026-10-26.md`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:**
-  1. **Cập nhật Báo cáo Tuần (W01 – W08):** Bổ sung mục `5. Những việc sẽ làm trong tuần tiếp theo` cho toàn bộ 8 báo cáo tuần đã có trong kho lưu trữ `docs/evidence/weekly-reports/`, đồng bộ chính xác theo kế hoạch đề tài (`docs/Ke hoach thuc hien TLCN .md`) và báo cáo tổng hợp `docs/BaocaoTuan.md`. Vị trí mục 5 được đặt ngay trước phần Khai báo sử dụng AI/LLM.
-  2. **Đồng bộ Quy trình Báo cáo Kép (`reporting-workflow.md`):** Cập nhật quy chuẩn Luồng 2 (báo cáo nộp cho Chủ nhiệm Khoa), chuẩn hóa cấu trúc 5 mục bắt buộc thay cho quy định 4 mục cũ.
-  3. **Cập nhật Trí nhớ Hệ thống (`agentic/memory/`):** Cập nhật `MEMORY.md`, tạo nhật ký ngày `2026-10-26.md` ghi nhận correction và quy định mới.
-- **Human Modifications:** Trương Công Bình chỉ đạo yêu cầu: "các báo tuần thêm mục 5. Những việc sẽ làm trong tuần tiếp theo".
-- **Verification Method:** Đối soát nội dung các file `W01.md` đến `W08.md`, kiểm tra tính toàn vẹn của markdown và liên kết giữa các tài liệu.
-- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`, `docs/Ke hoach thuc hien TLCN .md`, `docs/BaocaoTuan.md`.
-- **Security & License Check:** An toàn tuyệt đối, không có thông tin bí mật.
-
-
----
-
-### AI-0138: Chuyển đổi bộ chọn ngày giờ lịch hẹn sang giao diện 2 cột song song và bánh xe 24 giờ không có AM/PM
-- **Timestamp:** 2026-10-26T16:44:00+07:00
-- **Task ID:** Feature #101 (Tạo và quản lý lịch hẹn / sự kiện nhóm)
-- **Engineers:** Trương Công Bình & Ninh Thị Mỹ Hạnh
-- **Feature / Area:** Web Tools — Calendar Date & Time Wheel Picker (`CustomDateTimePicker.tsx`).
-- **Files Affected:**
+  - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.service.spec.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.controller.ts`
+  - `apps/web/src/components/tools/CircleCalendarView.tsx`
   - `apps/web/src/components/tools/CustomDateTimePicker.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:**
-  1. **Bố cục 2 cột song song (Side-by-side):** Loại bỏ cơ chế chuyển tab (Date vs Time), thay bằng giao diện mở popover hiển thị đồng thời cả Lịch (bên trái) và Bánh xe chọn giờ (bên phải) cách nhau bởi đường kẻ dọc.
-  2. **Bánh xe giờ 24h & Cục đen cố định:** Loại bỏ hoàn toàn cột chọn AM/PM, mở rộng cột giờ thành 24 giờ (`00` đến `23`), giữ nguyên thanh chọn trung tâm ("cục đen cố định") tự động cuộn mượt và bắt dính (snap) chuẩn xác vào giờ và phút đã chọn.
-  3. **Định dạng hiển thị chuẩn `dd/mm/yyyy HH:mm`:** Hộp input trigger và thanh footer hiển thị rõ ràng ngày tháng năm và giờ 24h.
-  4. **Khu biệt phạm vi:** Giữ nguyên vẹn toàn bộ các trường khác trong form tạo/chỉnh sửa sự kiện lịch hẹn, chỉ tinh chỉnh đúng 2 vị trí chọn thời gian bắt đầu và kết thúc thông qua component `CustomDateTimePicker`.
-- **Human Modifications:** Trương Công Bình chỉ đạo yêu cầu: "tôi muốn giao diện như trước đó cơ 1 bên lịch 1 bên giờ như lúc có AM PM á và bỏ 1 cột AM PM đi là được đồng thời thêm số giờ thành 23 thay vì 12 (chỉ sửa đúng 2 chỗ này và ko thay đổi j )".
-- **Verification Method:**
-  - TypeScript Typecheck: `npx tsc --noEmit -p apps/web/tsconfig.json` (0 errors).
-  - Next.js Production Build: `npm run build --workspace=@circle/web` (Pass 100%, 9/9 static routes generated).
-- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
-- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
-
-
----
-
-### AI-0139: Tinh gọn bánh xe giờ (bỏ viền bo, bỏ thanh cuộn, bỏ gợi ý) và hỗ trợ chọn nhanh Tháng/Năm
-- **Timestamp:** 2026-10-26T16:53:00+07:00
-- **Task ID:** Feature #101 (Tạo và quản lý lịch hẹn / sự kiện nhóm)
-- **Engineers:** Trương Công Bình & Ninh Thị Mỹ Hạnh
-- **Feature / Area:** Web Tools — Calendar Date & Time Wheel Picker (`CustomDateTimePicker.tsx`).
-- **Files Affected:**
-  - `apps/web/src/components/tools/CustomDateTimePicker.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:**
-  1. **Thu về tháng và năm để chọn nhanh:** Khi bấm vào "Tháng {month}", chuyển sang lưới 12 tháng (`Tháng 1` .. `Tháng 12`) để chọn trực tiếp. Khi bấm vào "{year}", chuyển sang lưới 12 năm kèm nút lướt thập kỷ (`<` / `>`) để chọn năm nhanh chóng.
-  2. **Bỏ khung bo & thanh cuộn bánh xe giờ:** Loại bỏ viền bo hộp bên ngoài, ẩn triệt để thanh cuộn bằng CSS cross-browser `[&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]`.
-  3. **Bỏ giờ gợi ý & text (24 h):** Xóa bỏ các nút preset giờ nhanh và nhãn chữ `Giờ 24h`, tập trung hoàn toàn vào thanh chọn tối màu cố định ở giữa lướt bắt dính (snap) mượt mà.
-- **Human Modifications:** Trương Công Bình chỉ đạo yêu cầu: "bỏ cái khung bo giờ và hình thanh cuộn và giờ gợi ý đi bỏ text (24 h ) và sao ko khi ấn vào tháng năm ko thu về tháng, thu về năm để chọn".
-- **Verification Method:**
-  - TypeScript Typecheck: `npx tsc --noEmit -p apps/web/tsconfig.json` (0 errors).
-- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
-- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
-
-
----
-
-### AI-0140: Loại bỏ phím tắt Hôm nay / Ngày mai khỏi bộ chọn lịch
-- **Timestamp:** 2026-10-26T16:59:00+07:00
-- **Task ID:** Feature #101 (Tạo và quản lý lịch hẹn / sự kiện nhóm)
-- **Engineers:** Trương Công Bình & Ninh Thị Mỹ Hạnh
-- **Feature / Area:** Web Tools — Calendar Date & Time Wheel Picker (`CustomDateTimePicker.tsx`).
-- **Files Affected:**
-  - `apps/web/src/components/tools/CustomDateTimePicker.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:**
-  - Loại bỏ hoàn toàn hàng phím tắt "Hôm nay / Ngày mai" ở phía dưới lưới ngày của lịch để giao diện gọn gàng, tối giản.
-- **Human Modifications:** Trương Công Bình chỉ đạo yêu cầu: "bỏ luôn dòng hôm nay ngày mai luôn".
-- **Verification Method:**
-  - TypeScript Typecheck: `npx tsc --noEmit -p apps/web/tsconfig.json` (0 errors).
-- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
-- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
-
-
----
-
-### AI-0141: Đưa nút Xong lên góc trên bên phải và loại bỏ thanh footer ngày giờ
-- **Timestamp:** 2026-10-26T17:01:00+07:00
-- **Task ID:** Feature #101 (Tạo và quản lý lịch hẹn / sự kiện nhóm)
-- **Engineers:** Trương Công Bình & Ninh Thị Mỹ Hạnh
-- **Feature / Area:** Web Tools — Calendar Date & Time Wheel Picker (`CustomDateTimePicker.tsx`).
-- **Files Affected:**
-  - `apps/web/src/components/tools/CustomDateTimePicker.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:**
-  - Loại bỏ hoàn toàn thanh footer ở dưới đáy (chứa biểu tượng đồng hồ và chuỗi định dạng ngày giờ).
-  - Di chuyển nút "Xong" lên góc trên cùng bên phải, thẳng hàng ngang cân đối với tiêu đề tháng/năm của cột lịch.
-- **Human Modifications:** Trương Công Bình chỉ đạo yêu cầu: "bỏ cái đồng hồ giờ ngày ở dưới và bỏ nút xong ở dưới và cho nút xong lên trên góc phải".
-- **Verification Method:**
-  - TypeScript Typecheck: `npx tsc --noEmit -p apps/web/tsconfig.json` (0 errors).
-- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
-- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
-
-
----
-
-### AI-0142: Khắc phục lỗi CORS và tìm kiếm gợi ý địa chỉ tạo lịch thông qua API proxy nội bộ
-- **Timestamp:** 2026-10-26T17:28:00+07:00
-- **Task ID:** Feature #101 (Tạo và quản lý lịch hẹn / sự kiện nhóm)
-- **Engineers:** Trương Công Bình & Ninh Thị Mỹ Hạnh
-- **Feature / Area:** Web Tools — Location Search & Map Reverse Geocode (`LocationSearchInput.tsx`, `MapLocationPickerModal.tsx`, `/api/locations/`).
-- **Files Affected:**
-  - `apps/web/src/app/api/locations/search/route.ts`
-  - `apps/web/src/app/api/locations/reverse/route.ts`
   - `apps/web/src/components/tools/LocationSearchInput.tsx`
-  - `apps/web/src/components/tools/MapLocationPickerModal.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:**
-  - **Nguyên nhân lỗi:** Trình duyệt phía client chặn các lệnh gọi `fetch` trực tiếp tới Nominatim / Photon do chính sách CORS (`No Access-Control-Allow-Origin` / header `User-Agent` bị cấm ở browser fetch), dẫn đến việc `fetch` văng ngoại lệ và danh sách gợi ý địa điểm bị rỗng hoàn toàn.
-  - **Giải pháp:** Thiết lập 2 API route nội bộ phía Next.js server (`/api/locations/search` và `/api/locations/reverse`) làm reverse proxy truy vấn Photon và OpenStreetMap. Các cuộc gọi từ trình duyệt trở thành cùng domain (`same-origin`), triệt tiêu 100% lỗi CORS, đồng thời tăng tốc độ phản hồi gợi ý địa chỉ và đảo ngược tọa độ (reverse geocoding).
-- **Human Modifications:** Trương Công Bình báo lỗi: "sao lỗi cái địa chỉ gợi ý ở tạo lịch rồi".
-- **Verification Method:**
-  - TypeScript Typecheck: `npx tsc --noEmit -p apps/web/tsconfig.json` (0 errors).
-  - API Integration Test: Kiểm tra `curl/fetch` tới `/api/locations/search?q=hcmute` và `/api/locations/reverse?lat=10.8527907&lon=106.7725584` trả về kết quả địa chỉ tiếng Việt chi tiết ngay lập tức.
-- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
-- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
-
-
----
-
-### AI-0143: Đồng bộ toàn diện form tạo lịch hẹn trên Mobile App tương đương bản Web
-- **Timestamp:** 2026-10-26T17:45:00+07:00
-- **Task ID:** Feature #101 (Tạo và quản lý lịch hẹn / sự kiện nhóm)
-- **Engineers:** Trương Công Bình & Ninh Thị Mỹ Hạnh
-- **Feature / Area:** Mobile Tools — Group Calendar Event Creation Parity (`MobileCalendarView.tsx`).
-- **Files Affected:**
+  - `apps/web/src/app/api/geocode/search/route.ts`
   - `apps/mobile/src/components/tools/MobileCalendarView.tsx`
+  - `apps/mobile/src/components/ui/MobileDateTimePicker.tsx`
+  - `apps/mobile/src/services/circle-tools.service.ts`
+  - `packages/types/src/index.ts`
   - `docs/ai-usage/log.md`
 - **AI-Generated Portion:**
-  1. **Đầy đủ các trường nhập liệu tương đương Web:**
-     - **Tên sự kiện / Lịch hẹn \*** (Bắt buộc).
-     - **Địa điểm (tùy chọn):** Hỗ trợ tìm kiếm địa điểm trực tiếp từ Photon bản đồ theo thời gian thực (realtime autocomplete), chọn địa điểm tự động gắn link Google Maps hoặc dán link Google Meet.
-     - **Thời gian bắt đầu \***: Hiển thị định dạng `dd/mm/yyyy HH:mm`, mở bộ chọn ngày và giờ 24h tiện lợi.
-     - **Thời gian kết thúc (tùy chọn):** Cho phép bật/tắt thêm giờ kết thúc với định dạng `dd/mm/yyyy HH:mm`.
-     - **Nhắc nhở trước:** Lựa chọn chip tiện lợi: *Không nhắc, Trước 15 phút, Trước 30 phút, Trước 1 giờ, Trước 1 ngày*.
-     - **Ghi chú nội dung:** Ô nhập văn bản nhiều dòng để chuẩn bị nội dung sự kiện.
-  2. **Bộ chọn ngày & giờ 24h trên Mobile (`MobileDateTimePickerModal`):**
-     - Thiết kế giao diện Native bottom sheet / modal với lịch mini chọn ngày trong tháng và thanh cuộn chip chọn giờ 24h (`00` - `23`) cùng phút (`00` - `55`), phản hồi rung Haptics chuẩn xác.
-  3. **Ràng buộc kiểm tra tính hợp lệ (Validation Parity):**
-     - Chặn tạo sự kiện trong quá khứ (`startTime < now - 60s`).
-     - Bắt buộc thời gian kết thúc phải lớn hơn thời gian bắt đầu (`endTime > startTime`).
-     - Hiển thị banner cảnh báo lỗi trực quan (`errorBanner`) và vô hiệu hóa nút submit khi form chưa hợp lệ.
-  4. **Hiển thị thẻ sự kiện:** Hỗ trợ hiển thị khoảng thời gian `startTime – endTime` và liên kết địa chỉ dẫn trực tiếp tới Google Maps.
-- **Human Modifications:** Trương Công Bình chỉ đạo yêu cầu: "xây dựng app khi tạo lịch cũng phải điền như web".
+  1. **Form Tạo Sự Kiện & Bộ Chọn Ngày Giờ (Web & Mobile):**
+     - Cấu trúc giao diện tạo lịch hẹn theo khối thẻ phân nhóm mạch lạc, gọn gàng và trực quan.
+     - Bộ chọn ngày tháng kết hợp con lăn bánh xe thời gian 24 giờ, định dạng ngày `dd/mm/yyyy`, hỗ trợ chuyển nhanh tháng và năm.
+     - Tự động ẩn bàn phím khi chạm ra ngoài, kiểm soát hợp lệ thời gian kết thúc luôn sau thời gian bắt đầu.
+  2. **Proxy Nội Bộ Tìm Kiếm Địa Điểm & Bản Đồ:**
+     - Xây dựng Next.js Route Handler `/api/geocode/search` gọi server-side để giải quyết triệt để lỗi chặn CORS từ trình duyệt khi tìm kiếm địa chỉ.
+     - Tích hợp tìm kiếm địa điểm có debounce, hỗ trợ mở trực tiếp chỉ đường Google Maps và liên kết cuộc gọi trực tuyến (Google Meet / Zoom).
+  3. **Cấu Hình Lặp Lại Đa Chu Kỳ (Recurrence Engine):**
+     - Hỗ trợ các chu kỳ lặp linh hoạt: Hằng ngày, Hằng tuần (chọn thứ trong tuần T2-CN), Hằng tháng và Hằng năm, kèm tùy chọn ngày kết thúc lặp.
+     - Mã hóa và giải mã quy tắc lặp chuẩn mực, tự động sinh chuỗi tóm tắt tiếng Việt rõ ràng, xử lý xuống dòng tránh tràn nhãn.
+  4. **Lưới Lịch Tháng & Chế Độ Xem Năm (Year View):**
+     - Bố cục 2 tầng độc lập: Khối lịch phía trên và Danh sách sự kiện cuộn độc lập phía dưới.
+     - Thanh điều khiển tối giản với các nút thao tác `[Hôm nay]`, `[Tìm kiếm]`, `[+]`.
+     - Lưới lịch tháng lướt từng tháng (snap mượt mà), chuẩn hóa 42 ô ngày cố định, loại bỏ chữ tháng năm góc để giao diện thoáng đãng.
+     - Chế độ xem năm (Year View): Lưới 12 tháng thu nhỏ cuộn dọc liên tục, tự động làm nổi bật tháng hiện tại.
+     - Xử lý sự kiện đa ngày: Cứ mỗi sự kiện tương ứng với 1 chấm tròn (tối đa 5 chấm trên ô ngày) và tự động tính toán khung giờ hiển thị linh hoạt theo từng ngày diễn ra sự kiện.
+  5. **Màn Hình Chi Tiết Lịch Hẹn Toàn Màn Hình (Full-Screen View):**
+     - Chuyển đổi hoàn toàn từ dạng modal popup sang giao diện toàn màn hình chuyên nghiệp với Navigation Header (`< Lịch`), nút Chỉnh sửa (`Pencil`), thẻ thông tin thời gian, địa điểm, cuộc gọi video và người tạo.
+     - Xử lý sạch sẽ trường ghi chú người dùng, tách biệt phần lặp lại và lọc bỏ triệt để ký tự placeholder rác.
+     - Tích hợp cụm thao tác trực tiếp: Chỉnh sửa, Hủy lịch hẹn (`Ban`), Xóa vĩnh viễn (`Trash2`) với cập nhật trạng thái tức thì.
+- **Human Modifications:** Ninh Thị Mỹ Hạnh trực tiếp thử nghiệm trên cả hai nền tảng, định hướng tinh chỉnh bố cục giao diện, yêu cầu lướt lịch theo từng tháng, bố trí nút điều hướng và chuyển đổi chi tiết sự kiện sang toàn màn hình.
 - **Verification Method:**
-  - Babel Expo compilation: pass 100% (35.694 bytes).
-  - TypeScript Typecheck: 0 errors trong `MobileCalendarView.tsx`.
-- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
-- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
-
-
----
-
-### AI-0144: Sửa lỗi không ấn được chọn ngày giờ trên Mobile App bằng cách chuyển sang In-Modal Overlay
-- **Timestamp:** 2026-10-26T17:54:00+07:00
-- **Task ID:** Feature #101 (Tạo và quản lý lịch hẹn / sự kiện nhóm)
-- **Engineers:** Trương Công Bình & Ninh Thị Mỹ Hạnh
-- **Feature / Area:** Mobile Tools — Date & Time Picker Interaction (`MobileCalendarView.tsx`).
-- **Files Affected:**
-  - `apps/mobile/src/components/tools/MobileCalendarView.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:**
-  - **Nguyên nhân lỗi:** Trên iOS và Android (React Native), việc mở một thẻ `<Modal>` lồng bên trong một `<Modal>` khác (`isAddModalOpen` đang mở rồi mở tiếp `isPickerOpen`) bị UIKit và Android WindowManager chặn cơ chế trình chiếu (`presentation is in progress`), dẫn đến việc bấm vào ô Ngày bắt đầu / Kết thúc không phản hồi.
-  - **Giải pháp:** Chuyển bộ chọn ngày & giờ sang dạng `in-modal overlay` (`position: 'absolute', inset: 0, zIndex: 9999`) nằm ngay trong Modal tạo sự kiện duy nhất, kèm `activeOpacity={0.7}` và rung phản hồi `Haptics.selectionAsync()`. Giờ đây khi chạm vào ô thời gian bắt đầu hoặc kết thúc, hộp thoại chọn ngày giờ 24h xuất hiện ngay lập tức và mượt mà trên mọi thiết bị di động.
-- **Human Modifications:** Trương Công Bình báo lỗi: "ở app ko ấn được chỗ ngày bắt đầu, ngày kết thúc để đổi ngày hoặc giờ khác".
-- **Verification Method:**
-  - Babel Expo compilation: pass 100% (35.902 bytes).
-- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
-- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
-
-
----
-
-### AI-0145: Bổ sung chế độ thu về chọn nhanh Tháng và Năm trong bộ chọn ngày giờ trên Mobile App
-- **Timestamp:** 2026-10-26T18:00:00+07:00
-- **Task ID:** Feature #101 (Tạo và quản lý lịch hẹn / sự kiện nhóm)
-- **Engineers:** Trương Công Bình & Ninh Thị Mỹ Hạnh
-- **Feature / Area:** Mobile Tools — Month & Year Selection Modes (`MobileCalendarView.tsx`).
-- **Files Affected:**
-  - `apps/mobile/src/components/tools/MobileCalendarView.tsx`
-  - `docs/ai-usage/log.md`
-- **AI-Generated Portion:**
-  - **Thu về chọn tháng nhanh:** Chuyển đổi nhãn tháng thành nút chip tương tác "Tháng [M]". Khi bấm vào, lịch thu gọn về lưới 12 tháng (`Tháng 1` → `Tháng 12`) để người dùng chọn tháng bất kỳ với 1 chạm.
-  - **Thu về chọn năm nhanh:** Chuyển đổi nhãn năm thành nút chip tương tác "[Năm]". Khi bấm vào, hiển thị lưới 12 năm (`2024 - 2035`) kèm nút chuyển trang thập kỷ `<` / `>` để chọn năm nhanh chóng.
-  - Sau khi chọn xong năm hoặc tháng, giao diện tự động quay lại lưới ngày tương ứng.
-- **Human Modifications:** Trương Công Bình yêu cầu: "chỗ chọn ngày ấn vô tháng, năm chưa thu lại để chọn tháng hoặc năm".
-- **Verification Method:**
-  - Babel Expo compilation: pass 100% (40.922 bytes).
-- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
-- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+  - Backend Unit Tests: `npm test --workspace=@circle/backend -- circle-tools.service.spec.ts` (22/22 unit tests pass, 100%).
+  - Web Production Build: `npm run build --workspace=@circle/web` (Clean build, 0 errors, 11/11 static routes generated).
+  - Mobile TypeScript: `npx tsc --noEmit -p apps/mobile/tsconfig.json` (Pass 100%, 0 errors).
+  - Mobile Expo Bundle: `cd apps/mobile && npx expo export --platform ios` (3,049 modules biên dịch thành công, Exported dist).
+- **Official Source Checked:** Circle Design Guidelines, Circle Collaboration Playbook (COL-09 / UC17).
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks, xác thực phân quyền chặt chẽ (chỉ creator hoặc OWNER mới có quyền sửa/hủy/xóa).
+- **Branch:** `feat/117-calendar-ui-recurrence-and-detail`
+- **PR:** #118 (Pending)

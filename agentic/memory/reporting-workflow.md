@@ -32,12 +32,13 @@
 ### Luồng 2: Báo cáo nộp cho Chủ nhiệm Khoa (Faculty Submission)
 * **Chu kỳ:** Từng tuần một (`W01.md`, `W02.md`, ..., `W19.md`).
 * **Thư mục lưu trữ:** [`docs/evidence/weekly-reports/`](../../docs/evidence/weekly-reports/) (thỏa mãn Hard Gate G2 trong Issue [#13](https://github.com/1440isme/Circle/issues/13)).
-* **Cấu trúc:** Gồm 4 mục chính (**TUYỆT ĐỐI KHÔNG CÓ MỤC 5**), và **kể từ Tuần 4 trở đi** bổ sung thêm phần **Khai báo sử dụng AI/LLM**:
+* **Cấu trúc:** Gồm đầy đủ **5 mục chính**, và **kể từ Tuần 4 trở đi** bổ sung thêm phần **Khai báo sử dụng AI/LLM**:
   1. Những việc đã làm được
   2. Những việc chưa làm được
   3. Những vướng mắc, khó khăn
   4. Câu hỏi (nếu có)
-  5. *(Từ Tuần 4)* **Khai báo sử dụng AI/LLM:**
+  5. Những việc sẽ làm trong tuần tiếp theo
+  6. *(Từ Tuần 4)* **Khai báo sử dụng AI/LLM:**
      - Bạn có dùng LLM/AI code/AI agent hỗ trợ công việc tuần này không? [x] Có / [ ] Không
      - Khai báo từng công cụ AI đã dùng (Công cụ, Phiên bản/Model, Prompt đã dùng, Nội dung AI tạo ra, Phần sinh viên đã sửa/hoàn thiện).
 * **Phong cách hành văn:**
@@ -50,4 +51,4 @@
 
 Cứ mỗi chu kỳ 2 tuần (kết thúc các tuần chẵn W06, W08, W10, W12, W14):
 1. **Bước 1:** Soạn thảo báo cáo 2 tuần tổng hợp (có đủ 5 mục) ghi vào [`docs/BaocaoTuan.md`](../../docs/BaocaoTuan.md) cho GVHD.
-2. **Bước 2:** Bóc tách tiến độ của 2 tuần đó thành 2 file báo cáo tuần độc lập (`W{2k-1}.md` và `W{2k}.md`), loại bỏ mục 5, bổ sung thông tin khai báo AI usage (đối chiếu từ `docs/ai-usage/log.md`), lưu vào thư mục [`docs/evidence/weekly-reports/`](../../docs/evidence/weekly-reports/) để sẵn sàng nộp cho Khoa theo track nộp bài.
+2. **Bước 2:** Bóc tách tiến độ của 2 tuần đó thành 2 file báo cáo tuần độc lập (`W{2k-1}.md` và `W{2k}.md`), có đầy đủ mục 5 (Những việc sẽ làm trong tuần tiếp theo) cho từng tuần và phần khai báo AI usage (đối chiếu từ `docs/ai-usage/log.md`), lưu vào thư mục [`docs/evidence/weekly-reports/`](../../docs/evidence/weekly-reports/) để sẵn sàng nộp cho Khoa theo track nộp bài.

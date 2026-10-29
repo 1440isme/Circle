@@ -344,16 +344,22 @@ describe('CircleToolsService', () => {
       );
     });
 
-    it('should throw BadRequestException when creating event in the past', async () => {
+    it('should allow creating event in the past when user wants to log past events', async () => {
       mockPrisma.circleMember.findUnique.mockResolvedValue(member);
       const pastStart = new Date(Date.now() - 3600000).toISOString();
+      mockPrisma.calendarEvent.create.mockResolvedValue({
+        id: 'ev-past',
+        circleId: 'circle-1',
+        eventTitle: 'Họp quá khứ',
+        startTime: new Date(pastStart),
+        createdById: 'mem-1',
+      });
 
-      await expect(
-        service.createCalendarEvent('circle-1', 'user-1', {
-          eventTitle: 'Họp quá khứ',
-          startTime: pastStart,
-        }),
-      ).rejects.toThrow('Không thể tạo lịch hẹn trong quá khứ');
+      const res = await service.createCalendarEvent('circle-1', 'user-1', {
+        eventTitle: 'Họp quá khứ',
+        startTime: pastStart,
+      });
+      expect(res).toBeDefined();
     });
 
     it('should throw BadRequestException when endTime <= startTime on create', async () => {

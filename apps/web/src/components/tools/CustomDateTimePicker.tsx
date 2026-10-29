@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Calendar as CalendarIcon, Clock, ChevronLeft, ChevronRight, X, Check } from 'lucide-react';
+import { Calendar as CalendarIcon, Clock, ChevronLeft, ChevronRight, ChevronDown, X, Check } from 'lucide-react';
 
 interface CustomDateTimePickerProps {
   value: string; // "YYYY-MM-DDTHH:mm" hoặc ""
@@ -15,10 +15,11 @@ interface CustomDateTimePickerProps {
 
 const ITEM_HEIGHT = 40; // 40px mỗi slot
 const STAGE_HEIGHT = 210; // 210px tổng chiều cao bánh xe khớp với cột lịch
-const PADDING_TOP_BOTTOM = (STAGE_HEIGHT - ITEM_HEIGHT) / 2; // 85px
 
 const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
 const MINUTES = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
+const MONTH_NAMES = Array.from({ length: 12 }, (_, i) => `Tháng ${String(i + 1).padStart(2, '0')}`);
+const YEARS = Array.from({ length: 35 }, (_, i) => 2015 + i); // 2015 - 2049
 
 export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
   value,
@@ -30,7 +31,7 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
   className = '',
 }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [calendarMode, setCalendarMode] = useState<'days' | 'months' | 'years'>('days');
+  const [isMonthYearOpen, setIsMonthYearOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Phân tích value thành date ("YYYY-MM-DD") và time ("HH:mm")
@@ -71,10 +72,6 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
   }, [datePart]);
 
   const [currentViewDate, setCurrentViewDate] = useState<Date>(initialCalendarDate);
-  const [yearPageStart, setYearPageStart] = useState<number>(() => {
-    const curYear = initialCalendarDate.getFullYear();
-    return Math.floor(curYear / 12) * 12;
-  });
 
   // Wheel state (24h: 00 - 23, 00 - 59)
   const [hStr, mStr] = (timePart || '00:00').split(':');
@@ -83,6 +80,8 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
 
   const hoursScrollRef = useRef<HTMLDivElement>(null);
   const minutesScrollRef = useRef<HTMLDivElement>(null);
+  const monthsScrollRef = useRef<HTMLDivElement>(null);
+  const yearsScrollRef = useRef<HTMLDivElement>(null);
 
   // Sync state khi value thay đổi từ ngoài
   useEffect(() => {
@@ -90,7 +89,6 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
       const [y, m, d] = datePart.split('-').map(Number);
       if (y && m && d) {
         setCurrentViewDate(new Date(y, m - 1, d));
-        setYearPageStart(Math.floor(y / 12) * 12);
       }
     }
     const [h, m] = (timePart || '00:00').split(':');
@@ -105,7 +103,7 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
     const handleClickOutside = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setIsOpen(false);
-        setCalendarMode('days');
+        setIsMonthYearOpen(false);
       }
     };
     if (isOpen) {
@@ -151,25 +149,19 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
     return new Date(year, month - 1, 1).getDay(); // 0 = Chủ nhật
   }, [year, month]);
 
-  const handlePrev = () => {
-    if (calendarMode === 'days') {
-      setCurrentViewDate(new Date(year, month - 2, 1));
-    } else if (calendarMode === 'months') {
-      setCurrentViewDate(new Date(year - 1, month - 1, 1));
-    } else if (calendarMode === 'years') {
-      setYearPageStart((prev) => prev - 12);
+  // Tự động cuộn bánh xe Tháng & Năm vào vị trí trung tâm khi sổ xuống
+  useEffect(() => {
+    if (isMonthYearOpen) {
+      const timer = setTimeout(() => {
+        scrollTo(monthsScrollRef.current, month - 1, false);
+        const yIdx = YEARS.indexOf(year);
+        if (yIdx !== -1) {
+          scrollTo(yearsScrollRef.current, yIdx, false);
+        }
+      }, 30);
+      return () => clearTimeout(timer);
     }
-  };
-
-  const handleNext = () => {
-    if (calendarMode === 'days') {
-      setCurrentViewDate(new Date(year, month, 1));
-    } else if (calendarMode === 'months') {
-      setCurrentViewDate(new Date(year + 1, month - 1, 1));
-    } else if (calendarMode === 'years') {
-      setYearPageStart((prev) => prev + 12);
-    }
-  };
+  }, [isMonthYearOpen, month, year, scrollTo]);
 
   const handleSelectDay = (dayNum: number) => {
     const pad = (n: number) => String(n).padStart(2, '0');
@@ -178,17 +170,59 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
     onChange(`${newDatePart}T${curTime}`);
   };
 
+  // Cuộn & chọn Tháng
+  const handleMonthScroll = () => {
+    if (!monthsScrollRef.current) return;
+    const scrollTop = monthsScrollRef.current.scrollTop;
+    const idx = Math.min(11, Math.max(0, Math.round(scrollTop / ITEM_HEIGHT)));
+    if (idx !== month - 1) {
+      const daysInTargetMonth = new Date(year, idx + 1, 0).getDate();
+      const currentDay = datePart ? parseInt(datePart.split('-')[2], 10) : 1;
+      const targetDay = Math.min(currentDay, daysInTargetMonth);
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const newDatePart = `${year}-${pad(idx + 1)}-${pad(targetDay)}`;
+      onChange(`${newDatePart}T${pad(activeHour)}:${pad(activeMinute)}`);
+    }
+  };
+
+  // Cuộn & chọn Năm
+  const handleYearScroll = () => {
+    if (!yearsScrollRef.current) return;
+    const scrollTop = yearsScrollRef.current.scrollTop;
+    const idx = Math.min(YEARS.length - 1, Math.max(0, Math.round(scrollTop / ITEM_HEIGHT)));
+    const targetYear = YEARS[idx];
+    if (targetYear !== year) {
+      const daysInTargetMonth = new Date(targetYear, month, 0).getDate();
+      const currentDay = datePart ? parseInt(datePart.split('-')[2], 10) : 1;
+      const targetDay = Math.min(currentDay, daysInTargetMonth);
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const newDatePart = `${targetYear}-${pad(month)}-${pad(targetDay)}`;
+      onChange(`${newDatePart}T${pad(activeHour)}:${pad(activeMinute)}`);
+    }
+  };
+
   const handleSelectMonth = (mIdx: number) => {
-    setCurrentViewDate(new Date(year, mIdx, 1));
-    setCalendarMode('days');
+    scrollTo(monthsScrollRef.current, mIdx, true);
+    const daysInTargetMonth = new Date(year, mIdx + 1, 0).getDate();
+    const currentDay = datePart ? parseInt(datePart.split('-')[2], 10) : 1;
+    const targetDay = Math.min(currentDay, daysInTargetMonth);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const newDatePart = `${year}-${pad(mIdx + 1)}-${pad(targetDay)}`;
+    onChange(`${newDatePart}T${pad(activeHour)}:${pad(activeMinute)}`);
   };
 
-  const handleSelectYear = (y: number) => {
-    setCurrentViewDate(new Date(y, month - 1, 1));
-    setCalendarMode('months');
+  const handleSelectYear = (yIdx: number) => {
+    scrollTo(yearsScrollRef.current, yIdx, true);
+    const targetYear = YEARS[yIdx];
+    const daysInTargetMonth = new Date(targetYear, month, 0).getDate();
+    const currentDay = datePart ? parseInt(datePart.split('-')[2], 10) : 1;
+    const targetDay = Math.min(currentDay, daysInTargetMonth);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const newDatePart = `${targetYear}-${pad(month)}-${pad(targetDay)}`;
+    onChange(`${newDatePart}T${pad(activeHour)}:${pad(activeMinute)}`);
   };
 
-  // Wheel scroll handlers
+  // Wheel scroll handlers cho Giờ & Phút
   const handleHoursScroll = () => {
     if (!hoursScrollRef.current) return;
     const scrollTop = hoursScrollRef.current.scrollTop;
@@ -285,129 +319,109 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
           <div className="flex gap-3 items-stretch">
             {/* CỘT BÊN TRÁI: LỊCH (Tháng, Năm, Ngày) */}
             <div className="flex-1 min-w-[210px] flex flex-col justify-between">
-              {/* Header điều hướng Tháng / Năm tương tác */}
+              {/* Header Tháng / Năm ghi chung với nút sổ lên sổ xuống */}
               <div className="flex items-center justify-between pb-2 mb-1.5 border-b border-circle-hairline/60 dark:border-circle-dark-hairline/60">
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => setCalendarMode(calendarMode === 'months' ? 'days' : 'months')}
-                    title="Bấm để chọn tháng"
-                    className={`text-xs font-bold px-1.5 py-0.5 rounded-md transition-colors ${
-                      calendarMode === 'months'
-                        ? 'bg-circle-charcoal dark:bg-circle-primary text-white dark:text-circle-charcoal'
-                        : 'text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash'
+                <button
+                  type="button"
+                  onClick={() => setIsMonthYearOpen(!isMonthYearOpen)}
+                  title={isMonthYearOpen ? 'Thu gọn về lịch ngày' : 'Sổ xuống chọn Tháng & Năm'}
+                  className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-xs font-bold text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors cursor-pointer group"
+                >
+                  <span>Tháng {month}/{year}</span>
+                  <ChevronDown
+                    className={`h-3.5 w-3.5 text-circle-slate group-hover:text-circle-charcoal dark:group-hover:text-circle-dark-text transition-transform duration-200 ${
+                      isMonthYearOpen ? 'rotate-180 text-circle-sage dark:text-circle-primary' : ''
                     }`}
-                  >
-                    Tháng {month}
-                  </button>
+                  />
+                </button>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (calendarMode === 'years') {
-                        setCalendarMode('days');
-                      } else {
-                        setYearPageStart(Math.floor(year / 12) * 12);
-                        setCalendarMode('years');
-                      }
-                    }}
-                    title="Bấm để chọn năm"
-                    className={`text-xs font-bold px-1.5 py-0.5 rounded-md transition-colors ${
-                      calendarMode === 'years'
-                        ? 'bg-circle-charcoal dark:bg-circle-primary text-white dark:text-circle-charcoal'
-                        : 'text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash'
-                    }`}
-                  >
-                    {calendarMode === 'years'
-                      ? `${yearPageStart} - ${yearPageStart + 11}`
-                      : year}
-                  </button>
-                </div>
-
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={handlePrev}
-                    className="p-1 rounded-lg hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate hover:text-circle-charcoal transition-colors"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleNext}
-                    className="p-1 rounded-lg hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate hover:text-circle-charcoal transition-colors"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-                </div>
+                {!isMonthYearOpen && (
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setCurrentViewDate(new Date(year, month - 2, 1))}
+                      className="p-1 rounded-lg hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate hover:text-circle-charcoal transition-colors"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCurrentViewDate(new Date(year, month, 1))}
+                      className="p-1 rounded-lg hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate hover:text-circle-charcoal transition-colors"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
               </div>
 
-              {/* CHẾ ĐỘ 1: CHỌN NĂM (12 năm) */}
-              {calendarMode === 'years' && (
-                <div className="h-[210px] flex flex-col justify-between py-1">
-                  <div className="grid grid-cols-3 gap-2">
-                    {Array.from({ length: 12 }, (_, i) => yearPageStart + i).map((y) => {
-                      const isCurrentYear = y === year;
+              {/* KHI SỔ XUỐNG: BÁNH XE THÁNG VÀ NĂM CÓ CỤC ĐEN CỐ ĐỊNH, ẨN TOÀN BỘ THANH CUỘN */}
+              {isMonthYearOpen ? (
+                <div className="relative h-[210px] w-full overflow-hidden flex justify-center items-center select-none">
+                  {/* CỤC ĐEN CỐ ĐỊNH Ở CHÍNH GIỮA */}
+                  <div className="absolute inset-x-1 top-[85px] h-10 rounded-xl bg-circle-charcoal dark:bg-circle-primary shadow-lg pointer-events-none z-0 border border-white/10" />
+
+                  {/* Cột Tháng (Tháng 01 - Tháng 12) - ẨN 100% THANH CUỘN */}
+                  <div
+                    ref={monthsScrollRef}
+                    onScroll={handleMonthScroll}
+                    className="h-full w-24 overflow-y-auto snap-y snap-mandatory z-10 text-center py-0 scrollbar-none [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+                    style={{ scrollBehavior: 'smooth' }}
+                  >
+                    <div className="h-[85px] shrink-0 pointer-events-none" />
+                    {MONTH_NAMES.map((mName, idx) => {
+                      const isSelected = idx === month - 1;
                       return (
-                        <button
+                        <div
+                          key={mName}
+                          onClick={() => handleSelectMonth(idx)}
+                          className={`h-10 flex items-center justify-center snap-center text-sm font-bold transition-all cursor-pointer ${
+                            isSelected
+                              ? 'text-white dark:text-circle-charcoal scale-105'
+                              : 'text-circle-slate dark:text-circle-dark-muted opacity-30 hover:opacity-80 scale-90'
+                          }`}
+                        >
+                          {mName}
+                        </div>
+                      );
+                    })}
+                    <div className="h-[85px] shrink-0 pointer-events-none" />
+                  </div>
+
+                  {/* Dấu gạch chéo phân cách */}
+                  <div className="z-10 font-bold text-sm text-white/70 dark:text-circle-charcoal/70 pointer-events-none px-1">
+                    /
+                  </div>
+
+                  {/* Cột Năm (2015 - 2049) - ẨN 100% THANH CUỘN */}
+                  <div
+                    ref={yearsScrollRef}
+                    onScroll={handleYearScroll}
+                    className="h-full w-20 overflow-y-auto snap-y snap-mandatory z-10 text-center py-0 scrollbar-none [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+                    style={{ scrollBehavior: 'smooth' }}
+                  >
+                    <div className="h-[85px] shrink-0 pointer-events-none" />
+                    {YEARS.map((y, idx) => {
+                      const isSelected = y === year;
+                      return (
+                        <div
                           key={y}
-                          type="button"
-                          onClick={() => handleSelectYear(y)}
-                          className={`py-2 rounded-xl text-xs font-bold transition-all ${
-                            isCurrentYear
-                              ? 'bg-circle-charcoal dark:bg-circle-primary text-white dark:text-circle-charcoal shadow-xs'
-                              : 'bg-circle-wash/60 dark:bg-circle-dark-wash/60 hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text'
+                          onClick={() => handleSelectYear(idx)}
+                          className={`h-10 flex items-center justify-center snap-center text-sm font-bold transition-all cursor-pointer ${
+                            isSelected
+                              ? 'text-white dark:text-circle-charcoal scale-105'
+                              : 'text-circle-slate dark:text-circle-dark-muted opacity-30 hover:opacity-80 scale-90'
                           }`}
                         >
                           {y}
-                        </button>
+                        </div>
                       );
                     })}
+                    <div className="h-[85px] shrink-0 pointer-events-none" />
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setCalendarMode('days')}
-                    className="text-[11px] font-semibold text-circle-sage dark:text-circle-primary hover:underline text-center pt-1"
-                  >
-                    ← Quay lại ngày
-                  </button>
                 </div>
-              )}
-
-              {/* CHẾ ĐỘ 2: CHỌN THÁNG (12 tháng) */}
-              {calendarMode === 'months' && (
-                <div className="h-[210px] flex flex-col justify-between py-1">
-                  <div className="grid grid-cols-3 gap-2">
-                    {Array.from({ length: 12 }, (_, i) => i).map((mIdx) => {
-                      const isCurrentMonth = mIdx === month - 1;
-                      return (
-                        <button
-                          key={mIdx}
-                          type="button"
-                          onClick={() => handleSelectMonth(mIdx)}
-                          className={`py-2 rounded-xl text-xs font-bold transition-all ${
-                            isCurrentMonth
-                              ? 'bg-circle-charcoal dark:bg-circle-primary text-white dark:text-circle-charcoal shadow-xs'
-                              : 'bg-circle-wash/60 dark:bg-circle-dark-wash/60 hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text'
-                          }`}
-                        >
-                          Tháng {mIdx + 1}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setCalendarMode('days')}
-                    className="text-[11px] font-semibold text-circle-sage dark:text-circle-primary hover:underline text-center pt-1"
-                  >
-                    ← Quay lại ngày
-                  </button>
-                </div>
-              )}
-
-              {/* CHẾ ĐỘ 3: CHỌN NGÀY (Lưới lịch tiêu chuẩn) */}
-              {calendarMode === 'days' && (
+              ) : (
+                /* CHẾ ĐỘ XEM NGÀY (Lưới lịch tiêu chuẩn) */
                 <div className="h-[210px] flex flex-col justify-start">
                   <div>
                     {/* Tên các thứ trong tuần */}
@@ -471,7 +485,7 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
                   type="button"
                   onClick={() => {
                     setIsOpen(false);
-                    setCalendarMode('days');
+                    setIsMonthYearOpen(false);
                   }}
                   className="inline-flex items-center gap-1 rounded-lg bg-circle-charcoal dark:bg-circle-primary text-white dark:text-circle-charcoal px-2.5 py-0.5 text-xs font-semibold hover:bg-circle-sage transition-all shadow-xs"
                 >

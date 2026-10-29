@@ -25,13 +25,11 @@
 
 ## Corrections & Lessons
 
-<!-- Ghi tại đây các lần người dùng sửa agent + bài học rút ra, dạng:
-- [correction] <điều đúng> (thay thế: <điều cũ>) — theo <người>, <ngày>. -->
+- [correction] Báo cáo tuần (W01–W19 nộp Khoa) phải có đầy đủ 5 mục (bổ sung mục 5. Những việc sẽ làm trong tuần tiếp theo), không phải chỉ 4 mục như quy định cũ. — theo yêu cầu người dùng, 2026-10-26.
 
 ## Decisions (chỉ mục — chi tiết ở ADR/topic)
 
 - Mô hình quản trị: toàn hệ thống chỉ 2 vai trò User / Admin — Admin gộp toàn quyền (không tách Super Admin/Admin thường) vì CIRCLE là MXH nhóm, không phải e-commerce. — chốt bởi Bình, 2026-10-25
-<!-- Dạng: - <Quyết định> — ADR-XXX / topics/<slug>.md, <ngày>. -->
 
 ## Open loops
 
@@ -43,4 +41,4 @@
 - [Gotchas](gotchas.md) — Known traps, pitfalls, and framework quirks (Prisma + Neon pooling, Expo WebRTC, Socket.IO auth, ViewShot).
 - [Verified facts](verified-facts.md) — Technical realities confirmed by inspecting code and dependencies.
 - [Decisions](decisions.md) — Summary of key Architectural Decision Records (ADRs).
-- [Reporting Workflow](reporting-workflow.md) — Quy định báo cáo kép (GVHD 2 tuần/lần vs. Khoa 1 tuần/lần, lệch track 4 tuần, cấu trúc 4 mục).
+- [Reporting Workflow](reporting-workflow.md) — Quy định báo cáo kép (GVHD 2 tuần/lần vs. Khoa 1 tuần/lần, lệch track 4 tuần, cấu trúc 5 mục).

@@ -79,3 +79,6 @@ export const useCircleStore = create<CircleState>((set) => ({
     set({ targetCalendarDate: dateStr, targetCalendarEventId: eventId }),
 }));
 
+if (typeof window !== 'undefined') {
+  (window as any).__circleStore = useCircleStore;
+}
