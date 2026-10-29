@@ -2401,6 +2401,23 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
         ? formatRecurrenceSummary(recurrenceConfig)
         : null;
 
+    let reminderLabel = 'Có bật thông báo nhắc nhở trước giờ hẹn';
+    if (detailEvent.reminderTime) {
+      const remDate = new Date(detailEvent.reminderTime);
+      const diffMinutes = Math.round((startDateObj.getTime() - remDate.getTime()) / (60 * 1000));
+      if (diffMinutes <= 0) {
+        reminderLabel = 'Khi sự kiện diễn ra';
+      } else if (diffMinutes >= 1440) {
+        const days = Math.round(diffMinutes / 1440);
+        reminderLabel = `Nhắc trước ${days} ngày (${remDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })})`;
+      } else if (diffMinutes >= 60) {
+        const hours = Math.round(diffMinutes / 60);
+        reminderLabel = `Nhắc trước ${hours} giờ (${remDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })})`;
+      } else {
+        reminderLabel = `Nhắc trước ${diffMinutes} phút (${remDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })})`;
+      }
+    }
+
     return (
       <View style={styles.detailFullScreenContainer}>
         {/* Navigation Header */}
@@ -2441,156 +2458,201 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.detailFullScreenContent}
         >
-          {/* Main Card: Tên & Trạng thái */}
-          <View style={styles.detailMainCard}>
-            <Text
-              style={[
-                styles.detailEventTitleLarge,
-                detailEvent.isCancelled && styles.eventCardTitleCancelled,
-              ]}
-            >
-              {detailEvent.eventTitle}
-            </Text>
-
-            {detailEvent.isCancelled ? (
-              <View style={styles.detailStatusCancelledBadge}>
-                <Ban size={13} color="#EF4444" />
-                <Text style={styles.detailStatusCancelledText}>Đã hủy lịch hẹn</Text>
-              </View>
-            ) : (
-              <View style={styles.detailStatusActiveBadge}>
-                <View style={styles.detailStatusActiveDot} />
-                <Text style={styles.detailStatusActiveText}>Đang hoạt động / Theo kế hoạch</Text>
-              </View>
-            )}
-          </View>
-
-          {/* Card Thời gian */}
-          <View style={styles.detailCard}>
-            <View style={styles.detailCardHeader}>
-              <View style={[styles.detailCardIconWrap, { backgroundColor: '#F0FDFA' }]}>
-                <Clock size={18} color="#0D9488" />
-              </View>
-              <Text style={styles.detailCardTitle}>Thời gian diễn ra</Text>
-            </View>
-
-            <View style={styles.detailTimeRow}>
-              <View style={styles.detailTimeCol}>
-                <Text style={styles.detailTimeLabel}>Bắt đầu</Text>
-                <Text style={styles.detailTimeValueHour}>
-                  {startDateObj.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
-                </Text>
-                <Text style={styles.detailTimeValueDate}>
-                  {startDateObj.toLocaleDateString('vi-VN', {
-                    weekday: 'short',
-                    day: '2-digit',
-                    month: '2-digit',
-                    year: 'numeric',
-                  })}
-                </Text>
-              </View>
-
-              <View style={styles.detailTimeDivider} />
-
-              <View style={styles.detailTimeCol}>
-                <Text style={styles.detailTimeLabel}>Kết thúc</Text>
-                {endDateObj ? (
-                  <>
-                    <Text style={styles.detailTimeValueHour}>
-                      {endDateObj.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
-                    </Text>
-                    <Text style={styles.detailTimeValueDate}>
-                      {endDateObj.toLocaleDateString('vi-VN', {
-                        weekday: 'short',
-                        day: '2-digit',
-                        month: '2-digit',
-                        year: 'numeric',
-                      })}
-                    </Text>
-                  </>
-                ) : (
-                  <Text style={[styles.detailTimeValueHour, { color: '#94A3B8' }]}>-- : --</Text>
-                )}
-              </View>
-            </View>
-          </View>
-
-          {/* Card Cuộc gọi trực tuyến nếu có */}
-          {isCall ? (
-            <View style={[styles.detailCard, styles.detailCallCard]}>
-              <View style={styles.detailCardHeader}>
-                <View style={[styles.detailCardIconWrap, { backgroundColor: '#E0F2FE' }]}>
-                  <Video size={18} color="#0284C7" />
-                </View>
-                <Text style={styles.detailCardTitle}>Cuộc gọi trực tuyến</Text>
-              </View>
-
-              <Text style={styles.detailCallDesc}>
-                {cleanLocationText(detailEvent.location) || 'Cuộc gọi video (Google Meet / Zoom)'}
+          {/* 1. THẺ THÔNG TIN SỰ KIỆN CHÍNH (Gom toàn bộ thông tin cốt lõi vào 1 thẻ gọn gàng) */}
+          <View style={styles.detailUnifiedCard}>
+            {/* Tên sự kiện & Trạng thái */}
+            <View style={styles.detailUnifiedHeader}>
+              <Text
+                style={[
+                  styles.detailEventTitleLarge,
+                  detailEvent.isCancelled && styles.eventCardTitleCancelled,
+                ]}
+              >
+                {detailEvent.eventTitle}
               </Text>
 
-              {callUrl && (
-                <TouchableOpacity
-                  style={styles.detailJoinCallBtn}
-                  activeOpacity={0.8}
-                  onPress={() => Linking.openURL(callUrl).catch(() => {})}
-                >
-                  <Video size={16} color="#FFFFFF" />
-                  <Text style={styles.detailJoinCallBtnText}>Tham gia ngay</Text>
-                </TouchableOpacity>
+              {detailEvent.isCancelled ? (
+                <View style={styles.detailStatusCancelledBadge}>
+                  <Ban size={13} color="#EF4444" />
+                  <Text style={styles.detailStatusCancelledText}>Đã hủy lịch hẹn</Text>
+                </View>
+              ) : (
+                <View style={styles.detailStatusActiveBadge}>
+                  <View style={styles.detailStatusActiveDot} />
+                  <Text style={styles.detailStatusActiveText}>Đang hoạt động / Theo kế hoạch</Text>
+                </View>
               )}
             </View>
-          ) : null}
 
-          {/* Card Địa điểm nếu có */}
-          {isPhysicalLoc ? (
-            <View style={styles.detailCard}>
-              <View style={styles.detailCardHeader}>
-                <View style={[styles.detailCardIconWrap, { backgroundColor: '#FEF3C7' }]}>
-                  <MapPin size={18} color="#D97706" />
-                </View>
-                <Text style={styles.detailCardTitle}>Địa điểm</Text>
+            {/* Phân cách */}
+            <View style={styles.detailUnifiedDivider} />
+
+            {/* Thời gian diễn ra */}
+            <View style={styles.detailUnifiedSection}>
+              <View style={styles.detailSectionHeader}>
+                <Clock size={16} color="#0D9488" />
+                <Text style={styles.detailSectionTitle}>Thời gian diễn ra</Text>
               </View>
 
-              <Text style={styles.detailCardBodyText}>
-                {cleanLocationText(detailEvent.location)}
-              </Text>
+              <View style={styles.detailTimeRow}>
+                <View style={styles.detailTimeCol}>
+                  <Text style={styles.detailTimeLabel}>Bắt đầu</Text>
+                  <Text style={styles.detailTimeValueHour}>
+                    {startDateObj.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                  </Text>
+                  <Text style={styles.detailTimeValueDate}>
+                    {startDateObj.toLocaleDateString('vi-VN', {
+                      weekday: 'short',
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric',
+                    })}
+                  </Text>
+                </View>
 
-              <TouchableOpacity
-                style={styles.detailMapLinkBtn}
-                activeOpacity={0.7}
-                onPress={() => {
-                  const locUrl = extractLocationUrl(detailEvent.location);
-                  if (locUrl) {
-                    Linking.openURL(locUrl).catch(() => {});
-                  } else {
-                    const mapQuery = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-                      detailEvent.location!,
-                    )}`;
-                    Linking.openURL(mapQuery).catch(() => {});
-                  }
-                }}
-              >
-                <MapPin size={14} color="#0D9488" />
-                <Text style={styles.detailMapLinkBtnText}>Xem chỉ đường trên bản đồ</Text>
-              </TouchableOpacity>
+                <View style={styles.detailTimeDivider} />
+
+                <View style={styles.detailTimeCol}>
+                  <Text style={styles.detailTimeLabel}>Kết thúc</Text>
+                  {endDateObj ? (
+                    <>
+                      <Text style={styles.detailTimeValueHour}>
+                        {endDateObj.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                      </Text>
+                      <Text style={styles.detailTimeValueDate}>
+                        {endDateObj.toLocaleDateString('vi-VN', {
+                          weekday: 'short',
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric',
+                        })}
+                      </Text>
+                    </>
+                  ) : (
+                    <Text style={[styles.detailTimeValueHour, { color: '#94A3B8' }]}>-- : --</Text>
+                  )}
+                </View>
+              </View>
+            </View>
+
+            {/* Cuộc gọi trực tuyến nếu có */}
+            {isCall ? (
+              <>
+                <View style={styles.detailUnifiedDivider} />
+                <View style={styles.detailUnifiedSection}>
+                  <View style={styles.detailSectionHeader}>
+                    <Video size={16} color="#0284C7" />
+                    <Text style={styles.detailSectionTitle}>Cuộc gọi trực tuyến</Text>
+                  </View>
+
+                  <View style={styles.detailCallEmbed}>
+                    <Text style={styles.detailCallDesc}>
+                      {cleanLocationText(detailEvent.location) || 'Cuộc gọi video (Google Meet / Zoom)'}
+                    </Text>
+
+                    {callUrl && (
+                      <TouchableOpacity
+                        style={styles.detailJoinCallBtn}
+                        activeOpacity={0.8}
+                        onPress={() => Linking.openURL(callUrl).catch(() => {})}
+                      >
+                        <Video size={16} color="#FFFFFF" />
+                        <Text style={styles.detailJoinCallBtnText}>Tham gia ngay</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </View>
+              </>
+            ) : null}
+
+            {/* Địa điểm nếu có */}
+            {isPhysicalLoc ? (
+              <>
+                <View style={styles.detailUnifiedDivider} />
+                <View style={styles.detailUnifiedSection}>
+                  <View style={styles.detailSectionHeader}>
+                    <MapPin size={16} color="#D97706" />
+                    <Text style={styles.detailSectionTitle}>Địa điểm</Text>
+                  </View>
+
+                  <Text style={styles.detailCardBodyText}>
+                    {cleanLocationText(detailEvent.location)}
+                  </Text>
+
+                  <TouchableOpacity
+                    style={styles.detailMapLinkBtn}
+                    activeOpacity={0.7}
+                    onPress={() => {
+                      const locUrl = extractLocationUrl(detailEvent.location);
+                      if (locUrl) {
+                        Linking.openURL(locUrl).catch(() => {});
+                      } else {
+                        const mapQuery = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                          detailEvent.location!,
+                        )}`;
+                        Linking.openURL(mapQuery).catch(() => {});
+                      }
+                    }}
+                  >
+                    <MapPin size={14} color="#0D9488" />
+                    <Text style={styles.detailMapLinkBtnText}>Xem chỉ đường trên bản đồ</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            ) : null}
+
+            {/* Chu kỳ lặp lại nếu có */}
+            {repeatSummary ? (
+              <>
+                <View style={styles.detailUnifiedDivider} />
+                <View style={styles.detailUnifiedSection}>
+                  <View style={styles.detailSectionHeader}>
+                    <Repeat size={16} color="#475569" />
+                    <Text style={styles.detailSectionTitle}>Chu kỳ lặp lại</Text>
+                  </View>
+                  <Text style={styles.detailCardBodyText}>{repeatSummary}</Text>
+                </View>
+              </>
+            ) : null}
+
+            {/* Người tạo */}
+            {detailEvent.creator ? (
+              <>
+                <View style={styles.detailUnifiedDivider} />
+                <View style={styles.detailUnifiedSection}>
+                  <View style={styles.detailSectionHeader}>
+                    <CalendarDays size={16} color="#64748B" />
+                    <Text style={styles.detailSectionTitle}>Người tạo</Text>
+                  </View>
+                  <Text style={styles.detailCardBodyText}>
+                    {detailEvent.creator?.nickname ||
+                      detailEvent.creator?.user?.profile?.displayName ||
+                      'Thành viên Circle'}
+                  </Text>
+                </View>
+              </>
+            ) : null}
+          </View>
+
+          {/* 2. CARD GHI CHÚ - ĐẶT TRÊN THÔNG BÁO NHẮC NHỞ */}
+          {hasValidDesc ? (
+            <View style={styles.detailCard}>
+              <View style={styles.detailCardHeader}>
+                <View
+                  style={[
+                    styles.detailCardIconWrap,
+                    { backgroundColor: '#F0FDFA' },
+                  ]}
+                >
+                  <Info size={18} color="#0D9488" />
+                </View>
+                <Text style={styles.detailCardTitle}>Ghi chú</Text>
+              </View>
+              <Text style={styles.detailNotesText}>{cleanDescriptionText}</Text>
             </View>
           ) : null}
 
-          {/* Card Chu kỳ lặp lại nếu có */}
-          {repeatSummary ? (
-            <View style={styles.detailCard}>
-              <View style={styles.detailCardHeader}>
-                <View style={[styles.detailCardIconWrap, { backgroundColor: '#F1F5F9' }]}>
-                  <Repeat size={18} color="#475569" />
-                </View>
-                <Text style={styles.detailCardTitle}>Chu kỳ lặp lại</Text>
-              </View>
-              <Text style={styles.detailCardBodyText}>{repeatSummary}</Text>
-            </View>
-          ) : null}
-
-          {/* Card Nhắc nhở nếu có */}
+          {/* 3. CARD THÔNG BÁO NHẮC NHỞ - ĐẶT DƯỚI GHI CHÚ */}
           {detailEvent.reminderTime ? (
             <View style={styles.detailCard}>
               <View style={styles.detailCardHeader}>
@@ -2599,42 +2661,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                 </View>
                 <Text style={styles.detailCardTitle}>Thông báo nhắc nhở</Text>
               </View>
-              <Text style={styles.detailCardBodyText}>Có bật thông báo nhắc nhở trước giờ hẹn</Text>
-            </View>
-          ) : null}
-
-          {/* Card Ghi chú - Chỉ hiển thị khi có nội dung thực tế (không phải 'body') */}
-          {hasValidDesc ? (
-            <View style={styles.detailCard}>
-              <View style={styles.detailCardHeader}>
-                <View
-                  style={[
-                    styles.detailCardIconWrap,
-                    { backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0' },
-                  ]}
-                >
-                  <Info size={18} color="#64748B" />
-                </View>
-                <Text style={styles.detailCardTitle}>Ghi chú</Text>
-              </View>
-              <Text style={styles.detailNotesText}>{cleanDescriptionText}</Text>
-            </View>
-          ) : null}
-
-          {/* Card Người tạo */}
-          {detailEvent.creator ? (
-            <View style={styles.detailCard}>
-              <View style={styles.detailCardHeader}>
-                <View style={[styles.detailCardIconWrap, { backgroundColor: '#F1F5F9' }]}>
-                  <CalendarDays size={18} color="#64748B" />
-                </View>
-                <Text style={styles.detailCardTitle}>Người tạo</Text>
-              </View>
-              <Text style={styles.detailCardBodyText}>
-                {detailEvent.creator?.nickname ||
-                  detailEvent.creator?.user?.profile?.displayName ||
-                  'Thành viên Circle'}
-              </Text>
+              <Text style={styles.detailCardBodyText}>{reminderLabel}</Text>
             </View>
           ) : null}
 
@@ -2667,7 +2694,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
     );
   };
 
-  const renderYearView = () => {
+    const renderYearView = () => {
     const today = new Date();
 
     return (
@@ -3804,6 +3831,49 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 40,
+  },
+  detailUnifiedCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  detailUnifiedHeader: {
+    gap: 10,
+    paddingBottom: 2,
+  },
+  detailUnifiedDivider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginVertical: 14,
+  },
+  detailUnifiedSection: {
+    gap: 10,
+  },
+  detailSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  detailSectionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  detailCallEmbed: {
+    backgroundColor: '#F0F9FF',
+    borderColor: '#BAE6FD',
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 2,
   },
   detailMainCard: {
     backgroundColor: '#FFFFFF',

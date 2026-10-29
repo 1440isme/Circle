@@ -555,24 +555,26 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                             />
                           )}
 
-                          {ev.reminderTime && (
-                            <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
-                              <Bell className="h-3 w-3" />
-                              <span>
-                                Nhắc trước lúc{' '}
-                                {new Date(ev.reminderTime).toLocaleTimeString('vi-VN', {
-                                  hour: '2-digit',
-                                  minute: '2-digit',
-                                })}
-                              </span>
-                            </div>
-                          )}
                         </div>
 
-                        {ev.description && (
-                          <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted pt-2 border-t border-circle-hairline/50 dark:border-circle-dark-hairline/50">
+                        {ev.description && ev.description.trim().toLowerCase() !== 'body' && (
+                          <div className="text-[11px] text-circle-slate dark:text-circle-dark-muted pt-2 border-t border-circle-hairline/50 dark:border-circle-dark-hairline/50">
+                            <span className="font-semibold text-circle-charcoal dark:text-circle-dark-text block mb-0.5">Ghi chú:</span>
                             {ev.description}
-                          </p>
+                          </div>
+                        )}
+
+                        {ev.reminderTime && (
+                          <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400 text-[11px] pt-1">
+                            <Bell className="h-3 w-3" />
+                            <span>
+                              Nhắc trước lúc{' '}
+                              {new Date(ev.reminderTime).toLocaleTimeString('vi-VN', {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </span>
+                          </div>
                         )}
 
                         <div className="text-[10px] text-circle-slate/80 dark:text-circle-dark-muted/80">
