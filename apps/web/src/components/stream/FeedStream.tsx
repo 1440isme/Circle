@@ -22,6 +22,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useLanguageStore } from '../../stores/language.store';
 import { useCircleStore } from '../../stores/circle.store';
 import { useMyCirclesQuery, useCircleDetailQuery } from '../../hooks/use-circle-queries';
+import dynamic from 'next/dynamic';
 import { DailyMomentsFeed } from '../moments/DailyMomentsFeed';
 import { ChannelChatView } from '../chat/ChannelChatView';
 import { CircleAlbumsView } from '../tools/CircleAlbumsView';
@@ -29,8 +30,19 @@ import { CircleCalendarView } from '../tools/CircleCalendarView';
 import { CircleWheelView } from '../tools/CircleWheelView';
 import { CircleAnonymousView } from '../tools/CircleAnonymousView';
 import { CirclePlanningView } from '../tools/CirclePlanningView';
-import { CircleLocationView } from '../tools/CircleLocationView';
 import { CirclePollView } from '../tools/CirclePollView';
+
+const CircleLocationView = dynamic(
+  () => import('../tools/CircleLocationView').then((mod) => mod.CircleLocationView),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex-1 flex items-center justify-center">
+        <Sparkles className="w-6 h-6 animate-spin text-circle-primary" />
+      </div>
+    ),
+  },
+);
 
 export const FeedStream: React.FC = () => {
   const { user } = useAuth();

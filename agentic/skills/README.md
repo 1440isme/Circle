@@ -18,6 +18,7 @@ Playbooks for AI coding agents and engineers. Skills are concise, load-on-demand
 | [`docs-update.md`](docs-update.md) | Architecture, capabilities, or APIs change | Keep diagrams, SRS, and capability catalog in sync |
 | [`learn-and-update.md`](learn-and-update.md) | After solving a non-obvious bug or finding a pattern | Record insights into `agentic/memory/` and `agentic/learning/` |
 | [`pre-completion-verification.md`](pre-completion-verification.md) | Before declaring any task, feature or release as done | 5-Tier full-spectrum verification (builds, tests, types, zero base64, fallbacks) |
+| [`feature-usability-audit.md`](feature-usability-audit.md) | Before closing or advancing beyond any feature group | 5-Pillar End-User UX & usability audit (real-life test, chat integration, ergonomics) |
 | [`ai-log-entry.md`](ai-log-entry.md) | After every AI coding / refactoring session | Automatically append record to `docs/ai-usage/log.md` |
 | [`memory-protocol.md`](memory-protocol.md) | Recall at session start; capture corrections/preferences/decisions the moment they happen; weekly consolidation | Load Layer 1 memory at session start; capture in-session triggers; weekly consolidation |
 

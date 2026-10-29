@@ -74,7 +74,16 @@ const VIETNAM_LOCATIONS = [
 const WEEKDAYS_VI = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
 const WEEKDAYS_EN = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
+const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
+
 export function getOsmTileUrl(lat: number, lng: number, zoom: number = 15): string {
+  if (MAPBOX_TOKEN) {
+    const isDark =
+      typeof document !== 'undefined' &&
+      document.documentElement.classList.contains('dark');
+    const style = isDark ? 'dark-v11' : 'streets-v12';
+    return `https://api.mapbox.com/styles/v1/mapbox/${style}/static/pin-s-camera+3b82f6(${lng},${lat})/${lng},${lat},${zoom},0/400x200@2x?access_token=${MAPBOX_TOKEN}`;
+  }
   const n = Math.pow(2, zoom);
   const x = Math.floor(((lng + 180) / 360) * n);
   const latRad = (lat * Math.PI) / 180;

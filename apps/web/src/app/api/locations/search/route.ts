@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+const MAPBOX_TOKEN =
+  process.env.MAPBOX_ACCESS_TOKEN ||
+  process.env.NEXT_PUBLIC_MAPBOX_TOKEN ||
+  '';
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const q = searchParams.get('q')?.trim();
@@ -8,8 +13,38 @@ export async function GET(req: NextRequest) {
     return NextResponse.json([]);
   }
 
+  // 1. Try Mapbox Geocoding v5 (High quality, Vietnamese address indexing)
+  if (MAPBOX_TOKEN) {
+    try {
+      const mapboxUrl = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(
+        q
+      )}.json?access_token=${MAPBOX_TOKEN}&country=vn&language=vi&limit=6`;
+
+      const mRes = await fetch(mapboxUrl, {
+        headers: { Accept: 'application/json' },
+        next: { revalidate: 60 },
+      });
+
+      if (mRes.ok) {
+        const mData = await mRes.json();
+        const features = mData.features || [];
+        if (features.length > 0) {
+          const results = features.map((f: any) => ({
+            name: f.text || f.place_name?.split(',')?.[0] || q,
+            display_name: f.place_name || f.text || q,
+            lat: f.center?.[1],
+            lon: f.center?.[0],
+          }));
+          return NextResponse.json(results);
+        }
+      }
+    } catch (err) {
+      console.warn('[Locations Search] Mapbox API error, falling back:', err);
+    }
+  }
+
   try {
-    // 1. Try Photon (fast, free, OSM-powered)
+    // 2. Try Photon (fast, free, OSM-powered fallback)
     const photonUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(
       q
     )}&lat=10.7769&lon=106.7009&limit=6`;

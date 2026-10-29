@@ -136,7 +136,12 @@ function normalizeMoment(raw: any) {
   };
 }
 
+const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN || '';
+
 export function getOsmTileUrl(lat: number, lng: number, zoom: number = 15): string {
+  if (MAPBOX_TOKEN) {
+    return `https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/pin-s-camera+3b82f6(${lng},${lat})/${lng},${lat},${zoom},0/400x200@2x?access_token=${MAPBOX_TOKEN}`;
+  }
   const n = Math.pow(2, zoom);
   const x = Math.floor(((lng + 180) / 360) * n);
   const latRad = (lat * Math.PI) / 180;
@@ -760,9 +765,16 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
         tap: true
       });
 
-      var osmUrl = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}';
-      L.tileLayer(osmUrl, {
-        maxZoom: 19,
+      var mapboxToken = '${MAPBOX_TOKEN}';
+      var mapboxStyle = '${isDark ? 'dark-v11' : 'streets-v12'}';
+      var tileUrl = mapboxToken
+        ? 'https://api.mapbox.com/styles/v1/mapbox/' + mapboxStyle + '/tiles/512/{z}/{x}/{y}@2x?access_token=' + mapboxToken
+        : 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}';
+
+      L.tileLayer(tileUrl, {
+        tileSize: mapboxToken ? 512 : 256,
+        zoomOffset: mapboxToken ? -1 : 0,
+        maxZoom: 22,
         attribution: ''
       }).addTo(map);
 
