@@ -1,3 +1,4 @@
+import { useAuthStore } from '../../stores/auth.store';
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   View,
@@ -35,6 +36,8 @@ import {
   Check,
   Search,
   Info,
+  HelpCircle,
+  Users,
   Repeat,
 } from 'lucide-react-native';
 import {
@@ -43,8 +46,9 @@ import {
   updateCalendarEventApi,
   cancelCalendarEventApi,
   deleteCalendarEventApi,
+  respondCalendarEventRsvpApi,
 } from '../../services/circle-tools.service';
-import { CalendarEventEntity } from '@circle/types';
+import { CalendarEventEntity, CalendarEventRsvpEntity, EventRsvpStatus } from '@circle/types';
 
 const isLocationUrl = (loc?: string | null): boolean => {
   if (!loc) return false;
@@ -478,6 +482,7 @@ interface MobileCalendarViewProps {
 }
 
 export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId }) => {
+  const user = useAuthStore((s) => s.user);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [events, setEvents] = useState<CalendarEventEntity[]>([]);
@@ -2379,6 +2384,49 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
     );
   };
 
+  const handleRsvp = async (status: EventRsvpStatus) => {
+    if (!detailEvent || detailEvent.isCancelled) return;
+    try {
+      Haptics.selectionAsync();
+      await respondCalendarEventRsvpApi(circleId, detailEvent.id, { status });
+
+      setDetailEvent((prev) => {
+        if (!prev) return null;
+        const existing = prev.rsvps || [];
+        const filtered = existing.filter((r) => r.userId !== user?.id);
+        const newRsvp: CalendarEventRsvpEntity = {
+          id: `rsvp-${Date.now()}`,
+          eventId: prev.id,
+          userId: user?.id || '',
+          status,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          user: user
+            ? {
+                id: user.id,
+                email: user.email,
+                profile: user.profile
+                  ? {
+                      displayName: user.profile.displayName || 'Tôi',
+                      avatarUrl: user.profile.avatarUrl,
+                    }
+                  : null,
+              }
+            : undefined,
+        };
+        return {
+          ...prev,
+          rsvps: [...filtered, newRsvp],
+        };
+      });
+
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      loadEvents();
+    } catch (err: any) {
+      Alert.alert('Lỗi', err.message || 'Không thể gửi phản hồi tham gia');
+    }
+  };
+
   const handleQuickUpdateReminder = async (optionValue: string) => {
     if (!detailEvent) return;
     setIsUpdatingReminder(true);
@@ -2456,6 +2504,13 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
       }
     }
 
+    const yesRsvps = detailEvent.rsvps?.filter((r) => r.status === EventRsvpStatus.YES) || [];
+    const maybeRsvps = detailEvent.rsvps?.filter((r) => r.status === EventRsvpStatus.MAYBE) || [];
+    const noRsvps = detailEvent.rsvps?.filter((r) => r.status === EventRsvpStatus.NO) || [];
+    const totalRsvps = yesRsvps.length + maybeRsvps.length + noRsvps.length;
+    const myRsvp = detailEvent.rsvps?.find((r) => r.userId === user?.id)?.status;
+    const isStarted = new Date(detailEvent.startTime) <= new Date();
+
     const activeReminderOptionValue = (() => {
       if (!detailEvent?.reminderTime) return 'none';
       const remMs = new Date(detailEvent.reminderTime).getTime();
@@ -2519,15 +2574,10 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                 {detailEvent.eventTitle}
               </Text>
 
-              {detailEvent.isCancelled ? (
+              {detailEvent.isCancelled && (
                 <View style={styles.detailStatusCancelledBadge}>
                   <Ban size={13} color="#EF4444" />
                   <Text style={styles.detailStatusCancelledText}>Đã hủy lịch hẹn</Text>
-                </View>
-              ) : (
-                <View style={styles.detailStatusActiveBadge}>
-                  <View style={styles.detailStatusActiveDot} />
-                  <Text style={styles.detailStatusActiveText}>Đang hoạt động / Theo kế hoạch</Text>
                 </View>
               )}
             </View>
@@ -2580,6 +2630,119 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                     <Text style={[styles.detailTimeValueHour, { color: '#94A3B8' }]}>-- : --</Text>
                   )}
                 </View>
+              </View>
+            </View>
+
+            {/* KHẢO SÁT THAM GIA / RSVP (GIỐNG WEB) */}
+            <View style={styles.detailUnifiedDivider} />
+            <View style={styles.detailUnifiedSection}>
+              <View style={styles.detailSectionHeaderBetween}>
+                <View style={styles.detailSectionHeader}>
+                  <Users size={16} color="#0D9488" />
+                  <Text style={styles.detailSectionTitle}>
+                    {detailEvent.isCancelled
+                      ? 'Lịch hẹn đã bị hủy'
+                      : isStarted
+                      ? 'Khảo sát đã đóng'
+                      : 'Khảo sát tham gia'}
+                  </Text>
+                </View>
+                <Text style={styles.detailRsvpTotalText}>
+                  {totalRsvps} phản hồi
+                </Text>
+              </View>
+
+              <View style={styles.detailRsvpOptionsCol}>
+                {[
+                  {
+                    status: EventRsvpStatus.YES,
+                    label: 'Tham gia',
+                    count: yesRsvps.length,
+                    percent: totalRsvps > 0 ? Math.round((yesRsvps.length / totalRsvps) * 100) : 0,
+                    bgColor: '#ECFDF5',
+                    activeBgColor: '#D1FAE5',
+                    borderColor: '#10B981',
+                    textColor: '#047857',
+                    icon: Check,
+                  },
+                  {
+                    status: EventRsvpStatus.MAYBE,
+                    label: 'Có thể',
+                    count: maybeRsvps.length,
+                    percent: totalRsvps > 0 ? Math.round((maybeRsvps.length / totalRsvps) * 100) : 0,
+                    bgColor: '#FFFBEB',
+                    activeBgColor: '#FEF3C7',
+                    borderColor: '#F59E0B',
+                    textColor: '#B45309',
+                    icon: HelpCircle,
+                  },
+                  {
+                    status: EventRsvpStatus.NO,
+                    label: 'Không tham gia',
+                    count: noRsvps.length,
+                    percent: totalRsvps > 0 ? Math.round((noRsvps.length / totalRsvps) * 100) : 0,
+                    bgColor: '#FEF2F2',
+                    activeBgColor: '#FEE2E2',
+                    borderColor: '#EF4444',
+                    textColor: '#B91C1C',
+                    icon: X,
+                  },
+                ].map((opt) => {
+                  const isSelected = myRsvp === opt.status;
+                  const IconComp = opt.icon;
+                  return (
+                    <TouchableOpacity
+                      key={opt.status}
+                      style={[
+                        styles.detailRsvpBtn,
+                        { backgroundColor: isSelected ? opt.activeBgColor : '#F8FAFC' },
+                        isSelected && { borderColor: opt.borderColor, borderWidth: 1.5 },
+                      ]}
+                      activeOpacity={0.7}
+                      disabled={Boolean(detailEvent.isCancelled) || isStarted}
+                      onPress={() => handleRsvp(opt.status)}
+                    >
+                      {/* Progress bar background fill */}
+                      <View
+                        style={[
+                          styles.detailRsvpProgressFill,
+                          {
+                            width: `${opt.percent}%`,
+                            backgroundColor: isSelected ? opt.activeBgColor : opt.bgColor,
+                          },
+                        ]}
+                      />
+
+                      <View style={styles.detailRsvpBtnContent}>
+                        <View style={styles.detailRsvpLabelLeft}>
+                          <View
+                            style={[
+                              styles.detailRsvpCheckCircle,
+                              isSelected && { backgroundColor: opt.borderColor, borderColor: opt.borderColor },
+                            ]}
+                          >
+                            {isSelected && <Check size={10} color="#FFFFFF" />}
+                          </View>
+                          <IconComp size={15} color={isSelected ? opt.textColor : '#64748B'} />
+                          <Text
+                            style={[
+                              styles.detailRsvpOptionLabel,
+                              isSelected && { color: opt.textColor, fontWeight: '700' },
+                            ]}
+                          >
+                            {opt.label}
+                          </Text>
+                        </View>
+
+                        <View style={styles.detailRsvpStatsRight}>
+                          <Text style={styles.detailRsvpCountText}>
+                            {opt.count} ({opt.percent}%)
+                          </Text>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             </View>
 
@@ -4009,6 +4172,67 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#0D9488',
     fontWeight: '500',
+  },
+  detailRsvpTotalText: {
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  detailRsvpOptionsCol: {
+    gap: 8,
+    marginTop: 4,
+  },
+  detailRsvpBtn: {
+    position: 'relative',
+    overflow: 'hidden',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    height: 44,
+    justifyContent: 'center',
+  },
+  detailRsvpProgressFill: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    borderRadius: 12,
+  },
+  detailRsvpBtnContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    zIndex: 1,
+  },
+  detailRsvpLabelLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  detailRsvpCheckCircle: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  detailRsvpOptionLabel: {
+    fontSize: 13,
+    color: '#334155',
+    fontWeight: '600',
+  },
+  detailRsvpStatsRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  detailRsvpCountText: {
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '600',
   },
   detailUnifiedSection: {
     gap: 10,
