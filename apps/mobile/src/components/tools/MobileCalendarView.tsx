@@ -14,6 +14,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Keyboard,
+  Image,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import {
@@ -2633,19 +2634,13 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
               </View>
             </View>
 
-            {/* KHẢO SÁT THAM GIA / RSVP (GIỐNG WEB) */}
+            {/* KHẢO SÁT / RSVP (GIỮ NGUYÊN LABEL 'Khảo sát', 3 LỰA CHỌN: Tham gia, Chưa chắc, Bận + HIỂN THỊ AVATAR NHƯ WEB) */}
             <View style={styles.detailUnifiedDivider} />
             <View style={styles.detailUnifiedSection}>
               <View style={styles.detailSectionHeaderBetween}>
                 <View style={styles.detailSectionHeader}>
                   <Users size={16} color="#0D9488" />
-                  <Text style={styles.detailSectionTitle}>
-                    {detailEvent.isCancelled
-                      ? 'Lịch hẹn đã bị hủy'
-                      : isStarted
-                      ? 'Khảo sát đã đóng'
-                      : 'Khảo sát tham gia'}
-                  </Text>
+                  <Text style={styles.detailSectionTitle}>Khảo sát</Text>
                 </View>
                 <Text style={styles.detailRsvpTotalText}>
                   {totalRsvps} phản hồi
@@ -2657,7 +2652,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                   {
                     status: EventRsvpStatus.YES,
                     label: 'Tham gia',
-                    count: yesRsvps.length,
+                    rsvps: yesRsvps,
                     percent: totalRsvps > 0 ? Math.round((yesRsvps.length / totalRsvps) * 100) : 0,
                     bgColor: '#ECFDF5',
                     activeBgColor: '#D1FAE5',
@@ -2667,8 +2662,8 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                   },
                   {
                     status: EventRsvpStatus.MAYBE,
-                    label: 'Có thể',
-                    count: maybeRsvps.length,
+                    label: 'Chưa chắc',
+                    rsvps: maybeRsvps,
                     percent: totalRsvps > 0 ? Math.round((maybeRsvps.length / totalRsvps) * 100) : 0,
                     bgColor: '#FFFBEB',
                     activeBgColor: '#FEF3C7',
@@ -2678,8 +2673,8 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                   },
                   {
                     status: EventRsvpStatus.NO,
-                    label: 'Không tham gia',
-                    count: noRsvps.length,
+                    label: 'Bận',
+                    rsvps: noRsvps,
                     percent: totalRsvps > 0 ? Math.round((noRsvps.length / totalRsvps) * 100) : 0,
                     bgColor: '#FEF2F2',
                     activeBgColor: '#FEE2E2',
@@ -2734,10 +2729,39 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                           </Text>
                         </View>
 
-                        <View style={styles.detailRsvpStatsRight}>
-                          <Text style={styles.detailRsvpCountText}>
-                            {opt.count} ({opt.percent}%)
-                          </Text>
+                        {/* Avatars giống hệt Web */}
+                        <View style={styles.detailRsvpAvatarsRow}>
+                          {opt.rsvps.slice(0, 5).map((r, rIdx) => {
+                            const isMe = r.userId === user?.id;
+                            const dName = isMe
+                              ? 'Bạn'
+                              : r.user?.profile?.displayName || r.user?.email?.split('@')[0] || 'TV';
+                            const avUrl = r.user?.profile?.avatarUrl;
+
+                            return (
+                              <View
+                                key={r.id || r.userId || rIdx}
+                                style={[styles.detailRsvpAvatarWrap, { marginLeft: rIdx === 0 ? 0 : -6 }]}
+                              >
+                                {avUrl ? (
+                                  <Image source={{ uri: avUrl }} style={styles.detailRsvpAvatarImg} />
+                                ) : (
+                                  <View style={styles.detailRsvpAvatarFallback}>
+                                    <Text style={styles.detailRsvpAvatarInitial}>
+                                      {dName.charAt(0).toUpperCase()}
+                                    </Text>
+                                  </View>
+                                )}
+                              </View>
+                            );
+                          })}
+                          {opt.rsvps.length > 5 && (
+                            <View style={[styles.detailRsvpAvatarWrap, styles.detailRsvpAvatarMoreWrap]}>
+                              <Text style={styles.detailRsvpAvatarMoreText}>
+                                +{opt.rsvps.length - 5}
+                              </Text>
+                            </View>
+                          )}
                         </View>
                       </View>
                     </TouchableOpacity>
@@ -2838,7 +2862,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
               )}
             </View>
 
-            {/* 7. THÔNG BÁO NHẮC NHỞ (CHỈNH NHANH TRỰC TIẾP TẠI CHỖ) */}
+            {/* 7. THÔNG BÁO NHẮC NHỞ (THIẾT KẾ TINH GỌN NHƯ WEB KÈM CHỈNH NHANH) */}
             <View style={styles.detailUnifiedDivider} />
             <View style={styles.detailUnifiedSection}>
               <View style={styles.detailSectionHeaderBetween}>
@@ -2848,26 +2872,36 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                 </View>
                 {!detailEvent.isCancelled && (
                   <TouchableOpacity
-                    style={styles.detailQuickReminderBtn}
+                    style={styles.detailWebStyleReminderAction}
                     activeOpacity={0.7}
                     disabled={isUpdatingReminder}
                     onPress={() => setIsQuickReminderModalOpen(true)}
                   >
-                    <Text style={styles.detailQuickReminderBtnText}>Chỉnh nhanh</Text>
-                    <ChevronDown size={14} color="#0D9488" />
+                    <Text style={styles.detailWebStyleReminderActionText}>Đổi</Text>
+                    <ChevronDown size={13} color="#0D9488" />
                   </TouchableOpacity>
                 )}
               </View>
 
               <TouchableOpacity
-                style={styles.detailReminderRowTouch}
+                style={styles.detailWebStyleReminderCard}
                 activeOpacity={0.7}
                 disabled={detailEvent.isCancelled || isUpdatingReminder}
                 onPress={() => setIsQuickReminderModalOpen(true)}
               >
-                <Text style={styles.detailReminderValueText}>{reminderLabel}</Text>
+                <View style={styles.detailWebStyleReminderContent}>
+                  <Bell size={15} color="#D97706" />
+                  <Text style={styles.detailWebStyleReminderText}>
+                    {detailEvent.reminderTime
+                      ? `Nhắc trước lúc ${new Date(detailEvent.reminderTime).toLocaleTimeString('vi-VN', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })} (${reminderLabel})`
+                      : 'Không có thông báo nhắc nhở'}
+                  </Text>
+                </View>
                 {!detailEvent.isCancelled && (
-                  <Text style={styles.detailReminderTapHint}>Chạm để đổi</Text>
+                  <ChevronRight size={15} color="#94A3B8" />
                 )}
               </TouchableOpacity>
             </View>
@@ -4233,6 +4267,87 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#64748B',
     fontWeight: '600',
+  },
+  detailRsvpAvatarsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  detailRsvpAvatarWrap: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+    overflow: 'hidden',
+    backgroundColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  detailRsvpAvatarImg: {
+    width: '100%',
+    height: '100%',
+  },
+  detailRsvpAvatarFallback: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#0D9488',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  detailRsvpAvatarInitial: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  detailRsvpAvatarMoreWrap: {
+    backgroundColor: '#F1F5F9',
+    borderColor: '#E2E8F0',
+    marginLeft: -6,
+  },
+  detailRsvpAvatarMoreText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  detailWebStyleReminderCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  detailWebStyleReminderContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  detailWebStyleReminderText: {
+    fontSize: 13,
+    color: '#B45309',
+    fontWeight: '600',
+    flex: 1,
+  },
+  detailWebStyleReminderAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: '#F0FDFA',
+    borderWidth: 1,
+    borderColor: '#CCFBF1',
+  },
+  detailWebStyleReminderActionText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#0D9488',
   },
   detailUnifiedSection: {
     gap: 10,
