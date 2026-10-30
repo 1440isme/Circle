@@ -20,6 +20,7 @@ import {
   HelpCircle,
   Lock,
   AlertCircle,
+  Repeat,
 } from 'lucide-react';
 import { EventLocationDisplay } from './EventLocationDisplay';
 import { LocationSearchInput } from './LocationSearchInput';
@@ -557,12 +558,34 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
 
                         </div>
 
-                        {ev.description && ev.description.trim().toLowerCase() !== 'body' && (
-                          <div className="text-[11px] text-circle-slate dark:text-circle-dark-muted pt-2 border-t border-circle-hairline/50 dark:border-circle-dark-hairline/50">
-                            <span className="font-semibold text-circle-charcoal dark:text-circle-dark-text block mb-0.5">Ghi chú:</span>
-                            {ev.description}
-                          </div>
-                        )}
+                        {(() => {
+                          const recurrenceMatch = ev.description?.match(/\[Lặp lại:\s*(.*?)\]/);
+                          const recurrenceText = recurrenceMatch ? recurrenceMatch[1] : null;
+                          const cleanDescription = ev.description
+                            ? ev.description
+                                .replace(/\[RECURRENCE:.*?\]/g, '')
+                                .replace(/\[Lặp lại:.*?\]/g, '')
+                                .trim()
+                            : '';
+                          const hasDesc = cleanDescription && cleanDescription.toLowerCase() !== 'body';
+
+                          return (
+                            <>
+                              {recurrenceText && (
+                                <div className="flex items-center gap-1.5 text-circle-slate dark:text-circle-dark-muted text-[11px] pt-1">
+                                  <Repeat className="h-3 w-3 text-circle-sage dark:text-circle-primary shrink-0" />
+                                  <span>Lặp lại: {recurrenceText}</span>
+                                </div>
+                              )}
+                              {hasDesc && (
+                                <div className="text-[11px] text-circle-slate dark:text-circle-dark-muted pt-2 border-t border-circle-hairline/50 dark:border-circle-dark-hairline/50">
+                                  <span className="font-semibold text-circle-charcoal dark:text-circle-dark-text block mb-0.5">Ghi chú:</span>
+                                  {cleanDescription}
+                                </div>
+                              )}
+                            </>
+                          );
+                        })()}
 
                         {ev.reminderTime && (
                           <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400 text-[11px] pt-1">

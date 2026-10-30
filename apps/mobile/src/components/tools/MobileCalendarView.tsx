@@ -567,6 +567,8 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
     createDefaultRecurrenceConfig(new Date()),
   );
   const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
+  const [isQuickReminderModalOpen, setIsQuickReminderModalOpen] = useState(false);
+  const [isUpdatingReminder, setIsUpdatingReminder] = useState(false);
 
   // End repeat date picker states (độc lập với ngày kết thúc sự kiện)
   const [isEndRepeatPickerOpen, setIsEndRepeatPickerOpen] = useState(false);
@@ -2377,6 +2379,36 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
     );
   };
 
+  const handleQuickUpdateReminder = async (optionValue: string) => {
+    if (!detailEvent) return;
+    setIsUpdatingReminder(true);
+    try {
+      let newReminderTime: string | null = null;
+      if (optionValue !== 'none') {
+        const minutes = parseInt(optionValue, 10);
+        const startMs = new Date(detailEvent.startTime).getTime();
+        newReminderTime = new Date(startMs - minutes * 60 * 1000).toISOString();
+      }
+
+      await updateCalendarEventApi(circleId, detailEvent.id, {
+        reminderTime: newReminderTime as any,
+      });
+
+      setDetailEvent((prev) =>
+        prev && prev.id === detailEvent.id
+          ? { ...prev, reminderTime: newReminderTime as any }
+          : prev,
+      );
+      setIsQuickReminderModalOpen(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      loadEvents();
+    } catch (err: any) {
+      Alert.alert('Lỗi', err.message || 'Không thể cập nhật nhắc nhở');
+    } finally {
+      setIsUpdatingReminder(false);
+    }
+  };
+
   {/* Màn hình Chi tiết lịch hẹn (Full-Screen View, không phải popup) */}
   const renderDetailScreen = () => {
     if (!detailEvent) return null;
@@ -2396,12 +2428,18 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
     const startDateObj = new Date(detailEvent.startTime);
     const endDateObj = detailEvent.endTime ? new Date(detailEvent.endTime) : null;
 
-    const repeatSummary =
-      recurrenceConfig && recurrenceConfig.frequency !== 'none'
-        ? formatRecurrenceSummary(recurrenceConfig)
-        : null;
+    // Luôn hiển thị Lặp lại rõ ràng
+    let repeatSummary = 'Không lặp lại';
+    if (recurrenceConfig && recurrenceConfig.frequency !== 'none') {
+      repeatSummary = formatRecurrenceSummary(recurrenceConfig);
+    } else if (detailEvent.description) {
+      const match = detailEvent.description.match(/\[Lặp lại:\s*(.*?)\]/);
+      if (match) {
+        repeatSummary = match[1].trim();
+      }
+    }
 
-    let reminderLabel = 'Có bật thông báo nhắc nhở trước giờ hẹn';
+    let reminderLabel = 'Không nhắc';
     if (detailEvent.reminderTime) {
       const remDate = new Date(detailEvent.reminderTime);
       const diffMinutes = Math.round((startDateObj.getTime() - remDate.getTime()) / (60 * 1000));
@@ -2409,14 +2447,24 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
         reminderLabel = 'Khi sự kiện diễn ra';
       } else if (diffMinutes >= 1440) {
         const days = Math.round(diffMinutes / 1440);
-        reminderLabel = `Nhắc trước ${days} ngày (${remDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })})`;
+        reminderLabel = `Trước ${days} ngày (${remDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })})`;
       } else if (diffMinutes >= 60) {
         const hours = Math.round(diffMinutes / 60);
-        reminderLabel = `Nhắc trước ${hours} giờ (${remDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })})`;
+        reminderLabel = `Trước ${hours} giờ (${remDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })})`;
       } else {
-        reminderLabel = `Nhắc trước ${diffMinutes} phút (${remDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })})`;
+        reminderLabel = `Trước ${diffMinutes} phút (${remDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })})`;
       }
     }
+
+    const activeReminderOptionValue = (() => {
+      if (!detailEvent?.reminderTime) return 'none';
+      const remMs = new Date(detailEvent.reminderTime).getTime();
+      const startMs = new Date(detailEvent.startTime).getTime();
+      const diffMinutes = Math.round((startMs - remMs) / (60 * 1000));
+      if (diffMinutes <= 0) return '0';
+      const found = REMINDER_OPTIONS.find((o) => o.value === String(diffMinutes));
+      return found ? found.value : String(diffMinutes);
+    })();
 
     return (
       <View style={styles.detailFullScreenContainer}>
@@ -2458,9 +2506,9 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.detailFullScreenContent}
         >
-          {/* 1. THẺ THÔNG TIN SỰ KIỆN CHÍNH (Gom toàn bộ thông tin cốt lõi vào 1 thẻ gọn gàng) */}
+          {/* TOÀN BỘ THÔNG TIN SỰ KIỆN GOM CHUNG TRONG 1 THẺ DUY NHẤT */}
           <View style={styles.detailUnifiedCard}>
-            {/* Tên sự kiện & Trạng thái */}
+            {/* 1. Tên sự kiện & Trạng thái */}
             <View style={styles.detailUnifiedHeader}>
               <Text
                 style={[
@@ -2487,7 +2535,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
             {/* Phân cách */}
             <View style={styles.detailUnifiedDivider} />
 
-            {/* Thời gian diễn ra */}
+            {/* 2. Thời gian diễn ra */}
             <View style={styles.detailUnifiedSection}>
               <View style={styles.detailSectionHeader}>
                 <Clock size={16} color="#0D9488" />
@@ -2535,7 +2583,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
               </View>
             </View>
 
-            {/* Cuộc gọi trực tuyến nếu có */}
+            {/* 3. Cuộc gọi trực tuyến nếu có */}
             {isCall ? (
               <>
                 <View style={styles.detailUnifiedDivider} />
@@ -2565,7 +2613,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
               </>
             ) : null}
 
-            {/* Địa điểm nếu có */}
+            {/* 4. Địa điểm trực tiếp nếu có */}
             {isPhysicalLoc ? (
               <>
                 <View style={styles.detailUnifiedDivider} />
@@ -2601,21 +2649,67 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
               </>
             ) : null}
 
-            {/* Chu kỳ lặp lại nếu có */}
-            {repeatSummary ? (
-              <>
-                <View style={styles.detailUnifiedDivider} />
-                <View style={styles.detailUnifiedSection}>
-                  <View style={styles.detailSectionHeader}>
-                    <Repeat size={16} color="#475569" />
-                    <Text style={styles.detailSectionTitle}>Chu kỳ lặp lại</Text>
-                  </View>
-                  <Text style={styles.detailCardBodyText}>{repeatSummary}</Text>
-                </View>
-              </>
-            ) : null}
+            {/* 5. LẶP LẠI (LUÔN HIỂN THỊ ĐẦY ĐỦ) */}
+            <View style={styles.detailUnifiedDivider} />
+            <View style={styles.detailUnifiedSection}>
+              <View style={styles.detailSectionHeader}>
+                <Repeat size={16} color="#0D9488" />
+                <Text style={styles.detailSectionTitle}>Lặp lại</Text>
+              </View>
+              <Text style={styles.detailCardBodyText}>{repeatSummary}</Text>
+            </View>
 
-            {/* Người tạo */}
+            {/* 6. GHI CHÚ (NẰM CHUNG TRONG THẺ, TRÊN THÔNG BÁO NHẮC NHỞ) */}
+            <View style={styles.detailUnifiedDivider} />
+            <View style={styles.detailUnifiedSection}>
+              <View style={styles.detailSectionHeader}>
+                <Info size={16} color="#0D9488" />
+                <Text style={styles.detailSectionTitle}>Ghi chú</Text>
+              </View>
+              {hasValidDesc ? (
+                <Text style={styles.detailNotesText}>{cleanDescriptionText}</Text>
+              ) : (
+                <Text style={[styles.detailCardBodyText, { color: '#94A3B8', fontStyle: 'italic' }]}>
+                  Không có ghi chú
+                </Text>
+              )}
+            </View>
+
+            {/* 7. THÔNG BÁO NHẮC NHỞ (CHỈNH NHANH TRỰC TIẾP TẠI CHỖ) */}
+            <View style={styles.detailUnifiedDivider} />
+            <View style={styles.detailUnifiedSection}>
+              <View style={styles.detailSectionHeaderBetween}>
+                <View style={styles.detailSectionHeader}>
+                  <Bell size={16} color="#D97706" />
+                  <Text style={styles.detailSectionTitle}>Thông báo nhắc nhở</Text>
+                </View>
+                {!detailEvent.isCancelled && (
+                  <TouchableOpacity
+                    style={styles.detailQuickReminderBtn}
+                    activeOpacity={0.7}
+                    disabled={isUpdatingReminder}
+                    onPress={() => setIsQuickReminderModalOpen(true)}
+                  >
+                    <Text style={styles.detailQuickReminderBtnText}>Chỉnh nhanh</Text>
+                    <ChevronDown size={14} color="#0D9488" />
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              <TouchableOpacity
+                style={styles.detailReminderRowTouch}
+                activeOpacity={0.7}
+                disabled={detailEvent.isCancelled || isUpdatingReminder}
+                onPress={() => setIsQuickReminderModalOpen(true)}
+              >
+                <Text style={styles.detailReminderValueText}>{reminderLabel}</Text>
+                {!detailEvent.isCancelled && (
+                  <Text style={styles.detailReminderTapHint}>Chạm để đổi</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            {/* 8. NGƯỜI TẠO */}
             {detailEvent.creator ? (
               <>
                 <View style={styles.detailUnifiedDivider} />
@@ -2633,37 +2727,6 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
               </>
             ) : null}
           </View>
-
-          {/* 2. CARD GHI CHÚ - ĐẶT TRÊN THÔNG BÁO NHẮC NHỞ */}
-          {hasValidDesc ? (
-            <View style={styles.detailCard}>
-              <View style={styles.detailCardHeader}>
-                <View
-                  style={[
-                    styles.detailCardIconWrap,
-                    { backgroundColor: '#F0FDFA' },
-                  ]}
-                >
-                  <Info size={18} color="#0D9488" />
-                </View>
-                <Text style={styles.detailCardTitle}>Ghi chú</Text>
-              </View>
-              <Text style={styles.detailNotesText}>{cleanDescriptionText}</Text>
-            </View>
-          ) : null}
-
-          {/* 3. CARD THÔNG BÁO NHẮC NHỞ - ĐẶT DƯỚI GHI CHÚ */}
-          {detailEvent.reminderTime ? (
-            <View style={styles.detailCard}>
-              <View style={styles.detailCardHeader}>
-                <View style={[styles.detailCardIconWrap, { backgroundColor: '#FEF3C7' }]}>
-                  <Bell size={18} color="#D97706" />
-                </View>
-                <Text style={styles.detailCardTitle}>Thông báo nhắc nhở</Text>
-              </View>
-              <Text style={styles.detailCardBodyText}>{reminderLabel}</Text>
-            </View>
-          ) : null}
 
           {/* Nhóm nút hành động: Hủy lịch hẹn & Xóa sự kiện */}
           <View style={styles.detailActionButtonsGroup}>
@@ -2690,6 +2753,57 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
 
           <View style={{ height: 40 }} />
         </ScrollView>
+
+        {/* Popup Overlay Chọn Nhanh Thông Báo Nhắc Nhở */}
+        {isQuickReminderModalOpen && (
+          <View style={styles.inModalPopupBackdrop}>
+            <TouchableOpacity
+              style={StyleSheet.absoluteFill}
+              activeOpacity={1}
+              onPress={() => setIsQuickReminderModalOpen(false)}
+            />
+            <View style={styles.popupCard}>
+              <View style={styles.popupHeader}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Bell size={18} color="#D97706" />
+                  <Text style={styles.popupTitle}>Chọn thông báo nhắc nhở</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => setIsQuickReminderModalOpen(false)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text style={styles.popupCloseText}>Đóng</Text>
+                </TouchableOpacity>
+              </View>
+              <ScrollView style={styles.popupList}>
+                {REMINDER_OPTIONS.map((item, idx) => {
+                  const isSelected = activeReminderOptionValue === item.value;
+                  return (
+                    <TouchableOpacity
+                      key={item.value}
+                      style={[
+                        styles.popupItem,
+                        idx < REMINDER_OPTIONS.length - 1 && styles.popupItemBorder,
+                      ]}
+                      onPress={() => handleQuickUpdateReminder(item.value)}
+                      activeOpacity={0.6}
+                    >
+                      <Text
+                        style={[
+                          styles.popupItemText,
+                          isSelected && styles.popupItemTextSelected,
+                        ]}
+                      >
+                        {item.label}
+                      </Text>
+                      {isSelected && <Check size={18} color="#0D9488" />}
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          </View>
+        )}
       </View>
     );
   };
@@ -3853,6 +3967,48 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: '#F1F5F9',
     marginVertical: 14,
+  },
+  detailSectionHeaderBetween: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  detailQuickReminderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    backgroundColor: '#F0FDFA',
+    borderWidth: 1,
+    borderColor: '#CCFBF1',
+  },
+  detailQuickReminderBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#0D9488',
+  },
+  detailReminderRowTouch: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  detailReminderValueText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1E293B',
+  },
+  detailReminderTapHint: {
+    fontSize: 12,
+    color: '#0D9488',
+    fontWeight: '500',
   },
   detailUnifiedSection: {
     gap: 10,

@@ -748,7 +748,7 @@ export interface UpdateCalendarEventInput {
   location?: string;
   startTime?: string;
   endTime?: string;
-  reminderTime?: string;
+  reminderTime?: string | null;
 }
 export interface CalendarEventMessagePayload {
   type: 'CALENDAR_EVENT';
