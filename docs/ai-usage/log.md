@@ -5542,3 +5542,30 @@
 - **Official Source Checked:** Expo SDK 58 Release Notes & Upgrade Walkthrough, React Native 0.88 TypeScript Definitions, React 19 ElementRef Guidelines.
 - **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
 - **Branch:** `fix/upgrade-mobile-expo-sdk-58`
+
+
+---
+
+### Entry AI-0148
+
+- **Timestamp:** 2026-11-01T16:32:00+07:00
+- **Author:** Trương Công Bình (23110184)
+- **Tool:** Antigravity IDE (Gemini 2.5 Pro)
+- **Task / Scope:** Khắc phục lỗi Metro Bundler SHA-1 calculation failure đối với `react-native/unstable-internals-do-not-use.js` bằng cách dọn dẹp hàm `resolveRequest` can thiệp sai lệch trong `apps/mobile/metro.config.js`.
+- **Files Touched:**
+  - `apps/mobile/metro.config.js`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:**
+  1. **Khắc phục lỗi SHA-1 Resolution Failure trên Metro:**
+     - Trong `apps/mobile/metro.config.js`, đoạn mã `resolveRequest` cũ (vốn dùng cho RN 0.74) đã can thiệp hardcode đường dẫn `monorepoRoot/node_modules/react-native/unstable-internals-do-not-use.js` (không tồn tại vì file thực tế nằm tại `react-native/src/unstable-internals-do-not-use.js`).
+     - Với Expo SDK 58 và React Native 0.88, `package.json` của React Native đã cấu hình `exports` subpath chính thức cho `asset-registry`, `setup-env`, và `unstable-internals-do-not-use`. Việc loại bỏ hook custom `resolveRequest` giúp Metro sử dụng cơ chế resolve native chuẩn của Expo SDK 58.
+  2. **Xác thực Bundle iOS Hoàn chỉnh:**
+     - Kiểm thử biên dịch thực tế: `cd apps/mobile && npx expo export --platform ios --no-bytecode` thành công 100% với 3065 modules được đóng gói hoàn chỉnh, không còn bất kỳ lỗi SHA-1 hay ENOENT nào.
+- **Human Modifications:** Trương Công Bình cung cấp log Metro bundler lỗi SHA-1 cho file `unstable-internals-do-not-use.js`, yêu cầu giải quyết triệt để.
+- **Verification Method:**
+  - Real Metro Bundle Export: `cd apps/mobile && npx expo export --platform ios --no-bytecode` (Bundled 3065 modules, exit code 0).
+  - TypeScript Check: `npx tsc --noEmit -p apps/mobile/tsconfig.json` (0 errors).
+  - Pre-commit Hook & Secret Check: `./.githooks/pre-commit` & `./scripts/check-secrets.sh` (Passed 100%, 0 leaks).
+- **Official Source Checked:** React Native 0.88 Package Exports Specification, Expo SDK 58 Metro Monorepo Configuration.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+- **Branch:** `fix/upgrade-mobile-expo-sdk-58`
