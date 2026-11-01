@@ -180,7 +180,8 @@ export const formatRecurrenceSummary = (config: RecurrenceConfig): string => {
   if (config.frequency === 'daily') {
     text = interval === 1 ? 'Hằng ngày' : `Mỗi ${interval} ngày`;
   } else if (config.frequency === 'weekly') {
-    const daysStr = config.weeklyDays
+    const days = Array.isArray(config.weeklyDays) ? [...config.weeklyDays] : [];
+    const daysStr = days
       .sort((a, b) => a - b)
       .map((d) => WEEKDAY_INFO[d]?.short || `T${d}`)
       .join(', ');
@@ -382,14 +383,14 @@ export function parseEventRecurrence(desc?: string | null): {
   recurrenceConfig: RecurrenceConfig | null;
 } {
   if (!desc) return { cleanDesc: '', recurrenceConfig: null };
-  const match = desc.match(/\[RECURRENCE:(.*?)\]/);
+  const match = desc.match(/\[RECURRENCE:([\s\S]*?)\]/);
   if (match) {
     try {
       const raw = JSON.parse(match[1]);
       const config: RecurrenceConfig = {
         frequency: raw.frequency || 'none',
         interval: raw.interval || 1,
-        weeklyDays: raw.weeklyDays || [],
+        weeklyDays: Array.isArray(raw.weeklyDays) ? raw.weeklyDays : [],
         monthlyType: raw.monthlyType || 'day_of_month',
         monthlyDay: raw.monthlyDay || 1,
         monthlyNthOrder: raw.monthlyNthOrder || 'first',
@@ -402,18 +403,39 @@ export function parseEventRecurrence(desc?: string | null): {
         yearlyNthWeekday: raw.yearlyNthWeekday || 1,
         endType: raw.endType || 'never',
         endDate: raw.endDate ? new Date(raw.endDate) : null,
+        isCustom: Boolean(raw.isCustom),
       };
       const cleanDesc = desc
-        .replace(/\[RECURRENCE:.*?\]/g, '')
-        .replace(/\[Lặp lại:.*?\]/g, '')
+        .replace(/\[RECURRENCE:[\s\S]*?\]/g, '')
+        .replace(/\[Lặp lại:[\s\S]*?\]/g, '')
         .trim();
       return { cleanDesc, recurrenceConfig: config };
     } catch {
       // ignore parse error
     }
   }
-  const cleanDesc = desc.replace(/\[Lặp lại:.*?\]/g, '').trim();
-  return { cleanDesc, recurrenceConfig: null };
+
+  // Fallback: parse from [Lặp lại: ...] tag if [RECURRENCE:...] is not present
+  const repeatTagMatch = desc.match(/\[Lặp lại:\s*([^\]]+)\]/);
+  let fallbackConfig: RecurrenceConfig | null = null;
+  if (repeatTagMatch) {
+    const txt = repeatTagMatch[1].trim();
+    if (txt.includes('Hằng ngày')) {
+      fallbackConfig = { frequency: 'daily', interval: 1, weeklyDays: [], monthlyType: 'day_of_month', monthlyDay: 1, monthlyNthOrder: 'first', monthlyNthWeekday: 1, yearlyType: 'specific_date', yearlyMonth: 1, yearlyNthMonth: 1, yearlyDay: 1, yearlyNthOrder: 'first', yearlyNthWeekday: 1, endType: 'never', endDate: null, isCustom: false };
+    } else if (txt.includes('Hằng tuần')) {
+      fallbackConfig = { frequency: 'weekly', interval: 1, weeklyDays: [], monthlyType: 'day_of_month', monthlyDay: 1, monthlyNthOrder: 'first', monthlyNthWeekday: 1, yearlyType: 'specific_date', yearlyMonth: 1, yearlyNthMonth: 1, yearlyDay: 1, yearlyNthOrder: 'first', yearlyNthWeekday: 1, endType: 'never', endDate: null, isCustom: false };
+    } else if (txt.includes('Hằng tháng')) {
+      fallbackConfig = { frequency: 'monthly', interval: 1, weeklyDays: [], monthlyType: 'day_of_month', monthlyDay: 1, monthlyNthOrder: 'first', monthlyNthWeekday: 1, yearlyType: 'specific_date', yearlyMonth: 1, yearlyNthMonth: 1, yearlyDay: 1, yearlyNthOrder: 'first', yearlyNthWeekday: 1, endType: 'never', endDate: null, isCustom: false };
+    } else if (txt.includes('Hằng năm')) {
+      fallbackConfig = { frequency: 'yearly', interval: 1, weeklyDays: [], monthlyType: 'day_of_month', monthlyDay: 1, monthlyNthOrder: 'first', monthlyNthWeekday: 1, yearlyType: 'specific_date', yearlyMonth: 1, yearlyNthMonth: 1, yearlyDay: 1, yearlyNthOrder: 'first', yearlyNthWeekday: 1, endType: 'never', endDate: null, isCustom: false };
+    }
+  }
+
+  const cleanDesc = desc
+    .replace(/\[RECURRENCE:[\s\S]*?\]/g, '')
+    .replace(/\[Lặp lại:[\s\S]*?\]/g, '')
+    .trim();
+  return { cleanDesc, recurrenceConfig: fallbackConfig };
 }
 
 export function isEventOccurringOnDate(ev: CalendarEventEntity, targetDate: Date): boolean {
@@ -472,27 +494,49 @@ export function isEventOccurringOnDate(ev: CalendarEventEntity, targetDate: Date
 
       if (!weeklyDays.includes(dayOfWeek)) return false;
 
-      const diffWeeks = Math.floor(diffDays / 7);
+      // Căn chỉnh tuần dựa vào ngày Thứ Hai đầu tuần để tránh lệch ngày
+      const getMondayTime = (d: Date) => {
+        const dow = d.getDay() === 0 ? 7 : d.getDay();
+        const mon = new Date(d.getFullYear(), d.getMonth(), d.getDate() - (dow - 1));
+        return mon.getTime();
+      };
+      const startMon = getMondayTime(startDate);
+      const targetMon = getMondayTime(targetDate);
+      const diffWeeks = Math.round((targetMon - startMon) / (7 * 24 * 60 * 60 * 1000));
       return diffWeeks >= 0 && diffWeeks % interval === 0;
     }
 
     case 'monthly': {
+      const diffMonths =
+        (targetY - startDate.getFullYear()) * 12 + (targetM - startDate.getMonth());
+      if (diffMonths < 0 || diffMonths % interval !== 0) return false;
+
       if (recurrenceConfig.monthlyType === 'day_of_month') {
         const dayOfMonth = recurrenceConfig.monthlyDay || startDate.getDate();
-        if (targetD !== dayOfMonth) return false;
-        const diffMonths =
-          (targetY - startDate.getFullYear()) * 12 + (targetM - startDate.getMonth());
-        return diffMonths >= 0 && diffMonths % interval === 0;
+        return targetD === dayOfMonth;
+      } else {
+        const dayOfWeek = targetDate.getDay() === 0 ? 7 : targetDate.getDay();
+        if (dayOfWeek !== recurrenceConfig.monthlyNthWeekday) return false;
+        const nthOrder = getNthOrderFromDate(targetDate);
+        return nthOrder === recurrenceConfig.monthlyNthOrder;
       }
-      return targetD === startDate.getDate();
     }
 
     case 'yearly': {
-      if (targetD === startDate.getDate() && targetM === startDate.getMonth()) {
-        const diffYears = targetY - startDate.getFullYear();
-        return diffYears >= 0 && diffYears % interval === 0;
+      const diffYears = targetY - startDate.getFullYear();
+      if (diffYears < 0 || diffYears % interval !== 0) return false;
+
+      if (recurrenceConfig.yearlyType === 'nth_weekday') {
+        if (targetM + 1 !== recurrenceConfig.yearlyNthMonth) return false;
+        const dayOfWeek = targetDate.getDay() === 0 ? 7 : targetDate.getDay();
+        if (dayOfWeek !== recurrenceConfig.yearlyNthWeekday) return false;
+        const nthOrder = getNthOrderFromDate(targetDate);
+        return nthOrder === recurrenceConfig.yearlyNthOrder;
+      } else {
+        const yDay = recurrenceConfig.yearlyDay || startDate.getDate();
+        const yMonth = recurrenceConfig.yearlyMonth || startDate.getMonth() + 1;
+        return targetD === yDay && targetM + 1 === yMonth;
       }
-      return false;
     }
 
     default:
@@ -1004,7 +1048,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
         reminderTime = new Date(evStart.getTime() - mins * 60 * 1000).toISOString();
       }
 
-      let fullDesc = description.trim() || undefined;
+      let fullDesc = description.trim() || (editingEvent ? '' : undefined);
       if (recurrenceConfig.frequency !== 'none') {
         const repeatSummary = formatRecurrenceSummary(recurrenceConfig);
         const serialized = JSON.stringify({
@@ -1022,6 +1066,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
           yearlyNthWeekday: recurrenceConfig.yearlyNthWeekday,
           endType: recurrenceConfig.endType,
           endDate: recurrenceConfig.endDate ? recurrenceConfig.endDate.toISOString() : null,
+          isCustom: Boolean(recurrenceConfig.isCustom),
         });
         const recurrenceTag = `[RECURRENCE:${serialized}]`;
         const userRepeatText = `[Lặp lại: ${repeatSummary}]`;
@@ -2693,12 +2738,15 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
     const endDateObj = detailEvent.endTime ? new Date(detailEvent.endTime) : null;
 
     // Recurrence summary
-    const hasRecurrence = recurrenceConfig && recurrenceConfig.frequency !== 'none';
     let repeatSummary = 'Không lặp lại';
-    if (hasRecurrence) {
-      repeatSummary = formatRecurrenceSummary(recurrenceConfig!);
+    const hasRecurrence = Boolean(
+      (recurrenceConfig && recurrenceConfig.frequency !== 'none') ||
+      (detailEvent.description && (detailEvent.description.includes('[Lặp lại:') || detailEvent.description.includes('[RECURRENCE:')))
+    );
+    if (recurrenceConfig && recurrenceConfig.frequency !== 'none') {
+      repeatSummary = formatRecurrenceSummary(recurrenceConfig);
     } else if (detailEvent.description) {
-      const match = detailEvent.description.match(/\\[Lặp lại:\\s*(.*?)\\]/);
+      const match = detailEvent.description.match(/\[Lặp lại:\s*([^\]]+)\]/);
       if (match) {
         repeatSummary = match[1].trim();
       }
@@ -3976,6 +4024,18 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
               <TouchableOpacity
                 onPress={() => {
                   Keyboard.dismiss();
+                  if (editingEvent) {
+                    const isRecurring = Boolean(
+                      recurrenceConfig.frequency !== 'none' ||
+                      (editingEvent.description && (editingEvent.description.includes('[RECURRENCE:') || editingEvent.description.includes('[Lặp lại:')))
+                    );
+                    if (isRecurring) {
+                      promptEditScope(() => {
+                        handleCreateOrUpdateEvent();
+                      });
+                      return;
+                    }
+                  }
                   handleCreateOrUpdateEvent();
                 }}
                 disabled={isSubmitting}
@@ -4209,7 +4269,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                     <View style={styles.hairlineDivider} />
                     <View style={styles.appleRow}>
                       <Text style={styles.appleRowLabel}>Kết thúc lặp</Text>
-                      <View style={styles.applePillsContainer}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                         <TouchableOpacity
                           style={[
                             styles.applePill,
@@ -4238,9 +4298,25 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                           >
                             {recurrenceConfig.endDate
                               ? formatDateOnly(recurrenceConfig.endDate)
-                              : 'dd/mm/yyyy'}
+                              : 'Không giới hạn'}
                           </Text>
                         </TouchableOpacity>
+                        {Boolean(recurrenceConfig.endDate) && (
+                          <TouchableOpacity
+                            style={{ padding: 4 }}
+                            onPress={() => {
+                              Haptics.selectionAsync();
+                              setRecurrenceConfig((prev) => ({
+                                ...prev,
+                                endType: 'never',
+                                endDate: null,
+                              }));
+                              setIsEndRepeatPickerOpen(false);
+                            }}
+                          >
+                            <X size={15} color="#94A3B8" />
+                          </TouchableOpacity>
+                        )}
                       </View>
                     </View>
 
