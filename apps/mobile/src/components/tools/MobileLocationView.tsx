@@ -289,7 +289,7 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
       height: 38px;
       border-radius: 19px;
       border: 2.5px solid #FFFFFF;
-      background: #0284C7;
+      background: ${colors.primary};
       box-shadow: 0 4px 14px rgba(0,0,0,0.35);
       position: relative;
       overflow: hidden;
@@ -301,16 +301,16 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
       font-size: 13px;
     }
     .member-avatar-box.is-me {
-      background: #3B82F6;
-      border-color: #93C5FD;
-      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.4), 0 4px 14px rgba(0,0,0,0.35);
+      background: ${colors.primary};
+      border-color: #FFFFFF;
+      box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.4), 0 4px 14px rgba(0,0,0,0.35);
     }
     .member-name-tag {
       margin-top: 3px;
       padding: 2px 7px;
       border-radius: 10px;
       background: rgba(15, 23, 42, 0.85);
-      border: 1px solid rgba(56, 189, 248, 0.4);
+      border: 1px solid rgba(16, 185, 129, 0.4);
       color: #FFFFFF;
       font-size: 10px;
       font-weight: 700;
@@ -386,8 +386,8 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
       {/* Top Controls Strip */}
       <View style={[styles.topBar, { backgroundColor: colors.surface, borderBottomColor: colors.hairline }]}>
         <View style={styles.topBarLeft}>
-          <View style={[styles.iconBox, { backgroundColor: colors.wash }]}>
-            <MapPin size={16} color="#0284C7" />
+          <View style={[styles.iconBox, { backgroundColor: `${colors.primary}20` }]}>
+            <MapPin size={16} color={colors.primary} />
           </View>
           <View>
             <Text style={[styles.topTitle, { color: colors.text }]}>
@@ -442,7 +442,7 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
               activeOpacity={0.8}
               onPress={handleStartSharing}
               disabled={isLoading}
-              style={[styles.startBtn, { backgroundColor: '#0284C7' }]}
+              style={[styles.startBtn, { backgroundColor: colors.primary }]}
             >
               {isLoading ? (
                 <ActivityIndicator size="small" color="#FFFFFF" />
@@ -488,14 +488,14 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
             onPress={handleRecenter}
             style={[styles.floatingCircleBtn, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
           >
-            <LocateFixed size={18} color="#0284C7" />
+            <LocateFixed size={18} color={colors.primary} />
           </TouchableOpacity>
 
           <TouchableOpacity
             activeOpacity={0.85}
             onPress={handleSendToChat}
             disabled={isSendingToChat || !myCoords}
-            style={[styles.floatingCheckinBtn, { backgroundColor: chatSentSuccess ? '#10B981' : '#0284C7' }]}
+            style={[styles.floatingCheckinBtn, { backgroundColor: colors.primary }]}
           >
             {isSendingToChat ? (
               <ActivityIndicator size="small" color="#FFFFFF" />
@@ -568,7 +568,7 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
                     },
                   ]}
                 >
-                  <View style={styles.memberAvatar}>
+                  <View style={[styles.memberAvatar, { backgroundColor: colors.primary }]}>
                     <Text style={styles.memberAvatarText}>{initials}</Text>
                   </View>
                   <View>
@@ -747,7 +747,6 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#0284C7',
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -5596,3 +5596,35 @@
 - **Official Source Checked:** Expo Router Root Navigation Stack Specification, React Navigation NavigationContainer Events.
 - **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
 - **Branch:** `fix/upgrade-mobile-expo-sdk-58`
+
+
+---
+
+### Entry AI-0150
+
+- **Timestamp:** 2026-11-01T16:48:00+07:00
+- **Author:** Trương Công Bình (23110184)
+- **Tool:** Antigravity IDE (Gemini 2.5 Pro)
+- **Task / Scope:** Thanh trừng triệt để mã màu xanh dương ngoại lai (`#0284C7`, `#3B82F6`, `#2563EB`) trong toàn bộ tính năng vị trí (`MobileLocationView`, `MobileChatLocationCard`, `EventLocationDisplay`), chuyển đổi 100% sang CIRCLE Brand Primary tokens (`colors.primary` / `text-circle-primary`).
+- **Files Touched:**
+  - `apps/mobile/src/components/tools/MobileLocationView.tsx`
+  - `apps/mobile/src/components/chat/MobileChatLocationCard.tsx`
+  - `apps/mobile/src/components/tools/MobileCalendarView.tsx`
+  - `apps/web/src/components/tools/EventLocationDisplay.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:**
+  1. **Chuẩn hóa nút và biểu tượng tính năng Vị trí sang Brand Primary:**
+     - Trong `MobileLocationView.tsx`: Thay thế màu xanh dương `#0284C7` của nút Bắt đầu phát sóng (`startBtn`), nút Gửi vị trí vào chat (`floatingCheckinBtn`), nút định vị GPS (`LocateFixed`), biểu tượng `MapPin` trên thanh điều khiển, và avatar thành viên đang phát sóng sang `colors.primary` (`#10B981` / `#34D399`).
+     - Cập nhật hiệu ứng sóng xung quanh và marker của Mapbox nhúng sang `colors.primary`.
+  2. **Chuẩn hóa thẻ tin nhắn chia sẻ vị trí (`MobileChatLocationCard.tsx`):**
+     - Thay thế màu xanh dương của nút `Mở chỉ đường Google Maps`, biểu tượng `MapPin`, và marker ghim trên ảnh Mapbox static sang `colors.primary` và `pin-s-heart+10b981`.
+  3. **Đồng bộ thẻ link họp/vị trí trên Lịch (`MobileCalendarView.tsx` & `EventLocationDisplay.tsx`):**
+     - Chuyển toàn bộ các nút bấm và icon cuộc gọi video sang `colors.primary` (Mobile) và `text-circle-primary` (Web).
+- **Human Modifications:** Trương Công Bình phát hiện và yêu cầu chỉnh sửa khẩn cấp màu xanh dương lạc quẻ của các nút trong tính năng vị trí, bắt buộc tuân thủ 100% Brand Primary Design Token.
+- **Verification Method:**
+  - Mobile TypeScript: `npx tsc --noEmit -p apps/mobile/tsconfig.json` (0 errors).
+  - Web TypeScript: `npx tsc --noEmit -p apps/web/tsconfig.json` (0 errors).
+  - Pre-commit Hook & Secret Check: `./.githooks/pre-commit` & `./scripts/check-secrets.sh` (Passed 100%, 0 leaks).
+- **Official Source Checked:** Circle Brand Guidelines, Circle Design Token Catalog.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+- **Branch:** `fix/upgrade-mobile-expo-sdk-58`

@@ -49,7 +49,7 @@ export const MobileChatLocationCard: React.FC<MobileChatLocationCardProps> = ({
   const subtleColor = isSenderMe ? (senderTextColor || '#FFFFFF') : colors.subtle;
 
   const mapboxStyle = isDark ? 'dark-v11' : 'streets-v12';
-  const staticMapUrl = `https://api.mapbox.com/styles/v1/mapbox/${mapboxStyle}/static/pin-s-heart+2563eb(${lng},${lat})/${lng},${lat},14,0/400x180@2x?access_token=${MAPBOX_TOKEN}`;
+  const staticMapUrl = `https://api.mapbox.com/styles/v1/mapbox/${mapboxStyle}/static/pin-s-heart+10b981(${lng},${lat})/${lng},${lat},14,0/400x180@2x?access_token=${MAPBOX_TOKEN}`;
 
   return (
     <View style={styles.container}>
@@ -59,11 +59,11 @@ export const MobileChatLocationCard: React.FC<MobileChatLocationCardProps> = ({
           style={[
             styles.iconBox,
             {
-              backgroundColor: isSenderMe ? 'rgba(0,0,0,0.15)' : 'rgba(56, 189, 248, 0.15)',
+              backgroundColor: isSenderMe ? 'rgba(0,0,0,0.15)' : `${colors.primary}20`,
             },
           ]}
         >
-          <MapPin size={16} color={isSenderMe ? textColor : '#0284C7'} />
+          <MapPin size={16} color={isSenderMe ? textColor : colors.primary} />
         </View>
         <View style={styles.headerTextWrap}>
           <Text numberOfLines={1} style={[styles.titleText, { color: textColor }]}>
@@ -90,11 +90,11 @@ export const MobileChatLocationCard: React.FC<MobileChatLocationCardProps> = ({
           />
         ) : (
           <View style={styles.pinCenterWrap}>
-            <View style={styles.pinBubble}>
+            <View style={[styles.pinBubble, { backgroundColor: colors.primary, shadowColor: colors.primary }]}>
               <Navigation size={15} color="#0F172A" style={{ transform: [{ rotate: '45deg' }] }} />
             </View>
-            <View style={styles.coordPill}>
-              <Text style={styles.coordText}>
+            <View style={[styles.coordPill, { borderColor: `${colors.primary}40` }]}>
+              <Text style={[styles.coordText, { color: colors.primary }]}>
                 {lat.toFixed(4)}, {lng.toFixed(4)}
               </Text>
             </View>
@@ -113,7 +113,7 @@ export const MobileChatLocationCard: React.FC<MobileChatLocationCardProps> = ({
           style={[
             styles.openMapsBtn,
             {
-              backgroundColor: isSenderMe ? 'rgba(255,255,255,0.2)' : '#0284C7',
+              backgroundColor: isSenderMe ? 'rgba(255,255,255,0.2)' : colors.primary,
             },
           ]}
         >
