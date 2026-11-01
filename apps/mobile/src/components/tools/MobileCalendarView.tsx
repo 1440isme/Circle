@@ -2750,7 +2750,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
 
     return (
       <View style={styles.detailFullScreenContainer}>
-        {/* Navigation Header */}
+        {/* Floating Controls Bar (Bỏ heading 'Chi tiết lịch hẹn', chỉ còn cụm điều khiển nổi dạng Sticky Text Button) */}
         <View style={styles.detailNavHeader}>
           {/* Góc trái: nút Quay lại (< Lịch dạng Sticky Text Button) */}
           <TouchableOpacity
@@ -2764,8 +2764,6 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
             <ChevronLeft size={20} color="#0D9488" />
             <Text style={styles.detailStickyTextBtnLabel}>Lịch</Text>
           </TouchableOpacity>
-
-          <Text style={styles.detailNavTitle}>Chi tiết lịch hẹn</Text>
 
           {/* Góc phải: Nút Bút (Sửa) và Nút Ba Chấm Ngang (MoreHorizontal) dạng Sticky Text Button */}
           <View style={styles.detailNavRightActions}>
@@ -5068,14 +5066,13 @@ const styles = StyleSheet.create({
     zIndex: 999,
   },
   detailNavHeader: {
-    backgroundColor: '#FFFFFF',
-    height: 52,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 12,
+    paddingTop: 8,
+    paddingBottom: 6,
   },
   detailBackBtn: {
     flexDirection: 'row',
@@ -5110,7 +5107,7 @@ const styles = StyleSheet.create({
   },
   detailFullScreenContent: {
     paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingTop: 6,
     paddingBottom: 40,
   },
   detailUnifiedCard: {
