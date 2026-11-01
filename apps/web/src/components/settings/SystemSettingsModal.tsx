@@ -243,12 +243,12 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
       {/* 2-Column Desktop Settings Dialog */}
-      <div className="relative w-full max-w-4xl h-[620px] max-h-[92vh] rounded-2xl md:rounded-[24px] bg-white dark:bg-[#18191d] border border-circle-hairline dark:border-[#2a2b31] shadow-2xl flex flex-col md:flex-row overflow-hidden text-circle-charcoal dark:text-white">
+      <div className="relative w-full max-w-4xl h-[620px] max-h-[92vh] rounded-2xl md:rounded-[24px] bg-white dark:bg-circle-dark-canvas border border-circle-hairline dark:border-circle-dark-hairline shadow-2xl flex flex-col md:flex-row overflow-hidden text-circle-charcoal dark:text-white">
 
         {/* ========================================================= */}
         {/* LEFT COLUMN: Sidebar Navigation                           */}
         {/* ========================================================= */}
-        <aside className="w-full md:w-64 shrink-0 flex flex-col border-b md:border-b-0 md:border-r border-circle-hairline dark:border-[#27282e] bg-[#fbfcfd] dark:bg-[#131417] p-3 sm:p-4">
+        <aside className="w-full md:w-64 shrink-0 flex flex-col border-b md:border-b-0 md:border-r border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas p-3 sm:p-4">
           <div className="px-2 py-1 mb-3">
             <h2 className="text-lg sm:text-xl font-bold tracking-tight text-circle-charcoal dark:text-white">
               {t.common.systemSettings || 'Settings'}
@@ -266,7 +266,7 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
                   type="button"
                   onClick={() => setActiveTab(item.id)}
                   className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all text-left ${isActive
-                      ? 'bg-circle-wash dark:bg-[#25272e] text-circle-sage dark:text-white border border-circle-hairline dark:border-[#3d4049] shadow-xs font-semibold'
+                      ? 'bg-circle-wash dark:bg-circle-dark-elevated text-circle-sage dark:text-white border border-circle-hairline dark:border-circle-dark-hairline shadow-xs font-semibold'
                       : 'text-circle-slate dark:text-white/70 hover:bg-circle-canvas dark:hover:bg-white/5 hover:text-circle-charcoal dark:hover:text-white border border-transparent'
                     }`}
                 >
@@ -285,7 +285,7 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
           </nav>
 
           {/* Bottom Action: Log Out */}
-          <div className="mt-auto pt-3 border-t border-circle-hairline dark:border-[#27282e]">
+          <div className="mt-auto pt-3 border-t border-circle-hairline dark:border-circle-dark-hairline">
             <button
               type="button"
               onClick={() => setShowLogoutConfirm(true)}
@@ -300,9 +300,9 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
         {/* ========================================================= */}
         {/* RIGHT COLUMN: Active Content Panel                        */}
         {/* ========================================================= */}
-        <main className="flex-1 flex flex-col min-w-0 bg-white dark:bg-[#1a1b1f]">
+        <main className="flex-1 flex flex-col min-w-0 bg-white dark:bg-circle-dark-canvas">
           {/* Panel Header */}
-          <header className="flex items-center justify-between px-6 py-4 border-b border-circle-hairline dark:border-[#27282e] shrink-0">
+          <header className="flex items-center justify-between px-6 py-4 border-b border-circle-hairline dark:border-circle-dark-hairline shrink-0">
             <h3 className="text-base sm:text-lg font-bold text-circle-charcoal dark:text-white truncate">
               {navItems.find((n) => n.id === activeTab)?.label}
             </h3>
@@ -310,7 +310,7 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
               type="button"
               onClick={onClose}
               aria-label={t.common.close}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-circle-canvas dark:bg-[#25272e] text-circle-slate dark:text-white/70 hover:bg-circle-wash dark:hover:bg-[#32353e] hover:text-circle-charcoal dark:hover:text-white transition-colors"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-circle-canvas dark:bg-circle-dark-elevated text-circle-slate dark:text-white/70 hover:bg-circle-wash dark:hover:bg-circle-dark-elevated hover:text-circle-charcoal dark:hover:text-white transition-colors"
             >
               <X className="h-4 w-4" />
             </button>
@@ -327,7 +327,7 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
                   <span className="text-xs font-bold uppercase tracking-wider text-circle-slate dark:text-white/60 px-1">
                     {t.common.appearanceSection}
                   </span>
-                  <div className="rounded-2xl border border-circle-hairline dark:border-[#2b2d35] bg-circle-canvas/30 dark:bg-[#212329] p-4 flex items-center justify-between flex-wrap gap-3">
+                  <div className="rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/30 dark:bg-circle-dark-surface p-4 flex items-center justify-between flex-wrap gap-3">
                     <div>
                       <p className="text-xs font-bold text-circle-charcoal dark:text-white">
                         {locale === 'vi' ? 'Chế độ hiển thị' : 'Display Mode'}
@@ -335,14 +335,14 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
                     </div>
 
                     {/* Segmented control */}
-                    <div className="flex items-center bg-circle-canvas dark:bg-[#16171a] p-1 rounded-xl border border-circle-hairline dark:border-[#33353e]">
+                    <div className="flex items-center bg-circle-canvas dark:bg-circle-dark-surface p-1 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline">
                       <button
                         type="button"
                         onClick={() => setTheme('light')}
                         title={t.common.themeLight}
                         aria-label={t.common.themeLight}
                         className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${theme === 'light'
-                            ? 'bg-white dark:bg-[#272930] text-circle-sage dark:text-circle-primary shadow-xs font-bold'
+                            ? 'bg-white dark:bg-circle-dark-surface text-circle-sage dark:text-circle-primary shadow-xs font-bold'
                             : 'text-circle-slate dark:text-white/60 hover:text-circle-charcoal dark:hover:text-white'
                           }`}
                       >
@@ -355,7 +355,7 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
                         title={t.common.themeDark}
                         aria-label={t.common.themeDark}
                         className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${theme === 'dark'
-                            ? 'bg-white dark:bg-[#272930] text-circle-sage dark:text-circle-primary shadow-xs font-bold'
+                            ? 'bg-white dark:bg-circle-dark-surface text-circle-sage dark:text-circle-primary shadow-xs font-bold'
                             : 'text-circle-slate dark:text-white/60 hover:text-circle-charcoal dark:hover:text-white'
                           }`}
                       >
@@ -368,7 +368,7 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
                         title={t.common.themeSystem}
                         aria-label={t.common.themeSystem}
                         className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${theme === 'system'
-                            ? 'bg-white dark:bg-[#272930] text-circle-sage dark:text-circle-primary shadow-xs font-bold'
+                            ? 'bg-white dark:bg-circle-dark-surface text-circle-sage dark:text-circle-primary shadow-xs font-bold'
                             : 'text-circle-slate dark:text-white/60 hover:text-circle-charcoal dark:hover:text-white'
                           }`}
                       >
@@ -397,7 +397,7 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
                       onClick={() => setUiStyle('flat')}
                       className={`p-4 rounded-2xl border text-left transition-all ${uiStyle === 'flat'
                           ? 'border-circle-sage dark:border-circle-primary bg-circle-wash/50 dark:bg-circle-primary/10 shadow-xs'
-                          : 'border-circle-hairline dark:border-[#2b2d35] bg-circle-canvas/30 dark:bg-[#212329] hover:border-circle-slate/40'
+                          : 'border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/30 dark:bg-circle-dark-surface hover:border-circle-slate/40'
                         }`}
                     >
                       <div className="flex items-center justify-between">
@@ -419,7 +419,7 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
                       onClick={() => setUiStyle('glass')}
                       className={`p-4 rounded-2xl border text-left transition-all ${uiStyle === 'glass'
                           ? 'border-circle-sage dark:border-circle-primary bg-circle-wash/50 dark:bg-circle-primary/10 shadow-xs'
-                          : 'border-circle-hairline dark:border-[#2b2d35] bg-circle-canvas/30 dark:bg-[#212329] hover:border-circle-slate/40'
+                          : 'border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/30 dark:bg-circle-dark-surface hover:border-circle-slate/40'
                         }`}
                     >
                       <div className="flex items-center justify-between">
@@ -469,7 +469,7 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
                         onChange={(e) => setCurrentPassword(e.target.value)}
                         placeholder="••••••••"
                         required
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-circle-hairline dark:border-[#32353e] bg-circle-canvas dark:bg-[#131417] text-xs sm:text-sm text-circle-charcoal dark:text-white placeholder:text-circle-slate/50 dark:placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-circle-sage/30 dark:focus:ring-circle-primary/30 transition-all"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas text-xs sm:text-sm text-circle-charcoal dark:text-white placeholder:text-circle-slate/50 dark:placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-circle-sage/30 dark:focus:ring-circle-primary/30 transition-all"
                       />
                       <button
                         type="button"
@@ -493,7 +493,7 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
                         onChange={(e) => setNewPassword(e.target.value)}
                         placeholder="••••••••"
                         required
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-circle-hairline dark:border-[#32353e] bg-circle-canvas dark:bg-[#131417] text-xs sm:text-sm text-circle-charcoal dark:text-white placeholder:text-circle-slate/50 dark:placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-circle-sage/30 dark:focus:ring-circle-primary/30 transition-all"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas text-xs sm:text-sm text-circle-charcoal dark:text-white placeholder:text-circle-slate/50 dark:placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-circle-sage/30 dark:focus:ring-circle-primary/30 transition-all"
                       />
                       <button
                         type="button"
@@ -543,7 +543,7 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
                         onChange={(e) => setConfirmPassword(e.target.value)}
                         placeholder="••••••••"
                         required
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-circle-hairline dark:border-[#32353e] bg-circle-canvas dark:bg-[#131417] text-xs sm:text-sm text-circle-charcoal dark:text-white placeholder:text-circle-slate/50 dark:placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-circle-sage/30 dark:focus:ring-circle-primary/30 transition-all"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas text-xs sm:text-sm text-circle-charcoal dark:text-white placeholder:text-circle-slate/50 dark:placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-circle-sage/30 dark:focus:ring-circle-primary/30 transition-all"
                       />
                       <button
                         type="button"
@@ -611,7 +611,7 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
                     type="button"
                     onClick={() => refetch()}
                     disabled={isRefetching}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-circle-slate dark:text-white/70 hover:text-circle-charcoal dark:hover:text-white hover:bg-circle-canvas dark:hover:bg-[#25272e] transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-circle-slate dark:text-white/70 hover:text-circle-charcoal dark:hover:text-white hover:bg-circle-canvas dark:hover:bg-circle-dark-elevated transition-colors"
                   >
                     <RefreshCw className={`h-3.5 w-3.5 ${isRefetching ? 'animate-spin' : ''}`} />
                     <span>{isRefetching ? t.common.loading : t.common.refresh}</span>
@@ -621,14 +621,14 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
                 {/* Sessions List */}
                 <div className="space-y-2">
                   {isLoading ? (
-                    <div className="flex h-40 flex-col items-center justify-center gap-2 rounded-2xl border border-circle-hairline dark:border-[#2b2d35]">
+                    <div className="flex h-40 flex-col items-center justify-center gap-2 rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline">
                       <Loader2 className="h-5 w-5 animate-spin text-circle-sage dark:text-circle-primary" />
                       <p className="text-xs text-circle-slate dark:text-white/60">
                         {t.common.loading}
                       </p>
                     </div>
                   ) : sessions.length === 0 ? (
-                    <div className="flex h-32 flex-col items-center justify-center text-center p-4 rounded-2xl border border-circle-hairline dark:border-[#2b2d35]">
+                    <div className="flex h-32 flex-col items-center justify-center text-center p-4 rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline">
                       <Shield className="h-7 w-7 text-circle-slate/40 mb-2" />
                       <p className="text-xs text-circle-slate dark:text-white/60">
                         {t.auth.noOtherSessions}
@@ -640,11 +640,11 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
                         key={session.id}
                         className={`flex items-center justify-between rounded-xl border p-3.5 transition-all ${session.isCurrent
                             ? 'border-circle-sage dark:border-circle-primary bg-circle-wash/30 dark:bg-circle-primary/10 shadow-xs'
-                            : 'border-circle-hairline dark:border-[#2b2d35] bg-circle-canvas/30 dark:bg-[#212329]'
+                            : 'border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/30 dark:bg-circle-dark-surface'
                           }`}
                       >
                         <div className="flex items-center gap-3 min-w-0 flex-1">
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white dark:bg-[#18191d] border border-circle-hairline dark:border-[#33353d] shadow-2xs">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white dark:bg-circle-dark-canvas border border-circle-hairline dark:border-circle-dark-hairline shadow-2xs">
                             {getDeviceIcon(session.deviceType)}
                           </div>
                           <div className="min-w-0 flex-1">
@@ -727,7 +727,7 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
                     onClick={() => setLocale('vi')}
                     className={`w-full p-4 rounded-2xl border flex items-center justify-between transition-all ${locale === 'vi'
                         ? 'border-circle-sage dark:border-circle-primary bg-circle-wash/50 dark:bg-circle-primary/10 shadow-xs'
-                        : 'border-circle-hairline dark:border-[#2b2d35] bg-circle-canvas/30 dark:bg-[#212329] hover:border-circle-slate/40'
+                        : 'border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/30 dark:bg-circle-dark-surface hover:border-circle-slate/40'
                       }`}
                   >
                     <div className="flex items-center gap-3">
@@ -748,7 +748,7 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
                     onClick={() => setLocale('en')}
                     className={`w-full p-4 rounded-2xl border flex items-center justify-between transition-all ${locale === 'en'
                         ? 'border-circle-sage dark:border-circle-primary bg-circle-wash/50 dark:bg-circle-primary/10 shadow-xs'
-                        : 'border-circle-hairline dark:border-[#2b2d35] bg-circle-canvas/30 dark:bg-[#212329] hover:border-circle-slate/40'
+                        : 'border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/30 dark:bg-circle-dark-surface hover:border-circle-slate/40'
                       }`}
                   >
                     <div className="flex items-center gap-3">
@@ -778,29 +778,29 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
 
                 <div className="space-y-3">
                   {/* Shortcuts Card */}
-                  <div className="rounded-2xl border border-circle-hairline dark:border-[#2b2d35] bg-circle-canvas/30 dark:bg-[#212329] p-4 space-y-2">
+                  <div className="rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/30 dark:bg-circle-dark-surface p-4 space-y-2">
                     <div className="flex items-center gap-2 text-xs font-bold text-circle-charcoal dark:text-white">
                       <Key className="h-4 w-4 text-circle-sage dark:text-circle-primary" />
                       <span>{t.common.keyboardShortcuts}</span>
                     </div>
                     <div className="space-y-1.5 text-xs text-circle-slate dark:text-white/70">
-                      <div className="flex items-center justify-between py-1 border-b border-circle-hairline dark:border-[#2b2d35]">
+                      <div className="flex items-center justify-between py-1 border-b border-circle-hairline dark:border-circle-dark-hairline">
                         <span>{t.common.sendMessage}</span>
-                        <kbd className="px-2 py-0.5 rounded bg-circle-canvas dark:bg-[#18191d] border border-circle-hairline dark:border-[#33353d] text-[10px] font-mono">Enter</kbd>
+                        <kbd className="px-2 py-0.5 rounded bg-circle-canvas dark:bg-circle-dark-canvas border border-circle-hairline dark:border-circle-dark-hairline text-[10px] font-mono">Enter</kbd>
                       </div>
-                      <div className="flex items-center justify-between py-1 border-b border-circle-hairline dark:border-[#2b2d35]">
+                      <div className="flex items-center justify-between py-1 border-b border-circle-hairline dark:border-circle-dark-hairline">
                         <span>{t.common.lineBreak}</span>
-                        <kbd className="px-2 py-0.5 rounded bg-circle-canvas dark:bg-[#18191d] border border-circle-hairline dark:border-[#33353d] text-[10px] font-mono">Shift + Enter</kbd>
+                        <kbd className="px-2 py-0.5 rounded bg-circle-canvas dark:bg-circle-dark-canvas border border-circle-hairline dark:border-circle-dark-hairline text-[10px] font-mono">Shift + Enter</kbd>
                       </div>
                       <div className="flex items-center justify-between py-1">
                         <span>{t.common.closeModal}</span>
-                        <kbd className="px-2 py-0.5 rounded bg-circle-canvas dark:bg-[#18191d] border border-circle-hairline dark:border-[#33353d] text-[10px] font-mono">Escape</kbd>
+                        <kbd className="px-2 py-0.5 rounded bg-circle-canvas dark:bg-circle-dark-canvas border border-circle-hairline dark:border-circle-dark-hairline text-[10px] font-mono">Escape</kbd>
                       </div>
                     </div>
                   </div>
 
                   {/* Standards Card */}
-                  <div className="rounded-2xl border border-circle-hairline dark:border-[#2b2d35] bg-circle-canvas/30 dark:bg-[#212329] p-4 flex items-center justify-between">
+                  <div className="rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/30 dark:bg-circle-dark-surface p-4 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <FileText className="h-4 w-4 text-circle-sage dark:text-circle-primary" />
                       <div>
@@ -816,7 +816,7 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
                   </div>
 
                   {/* Version Info Card */}
-                  <div className="rounded-2xl border border-circle-hairline dark:border-[#2b2d35] bg-circle-canvas/30 dark:bg-[#212329] p-4 text-center">
+                  <div className="rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/30 dark:bg-circle-dark-surface p-4 text-center">
                     <p className="text-xs font-bold text-circle-charcoal dark:text-white">
                       CIRCLE Web Platform v1.0.0
                     </p>
@@ -831,7 +831,7 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
         {/* Modal: Confirm Revoke All Sessions */}
         {showConfirmRevokeAll && (
           <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
-            <div className="w-full max-w-sm rounded-2xl border border-circle-hairline dark:border-[#2b2d35] bg-white dark:bg-[#1f2025] p-5 shadow-2xl animate-scaleUp">
+            <div className="w-full max-w-sm rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-5 shadow-2xl animate-scaleUp">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-circle-coral/15 text-circle-coral mb-3 border border-circle-coral/30">
                 <AlertTriangle className="h-5 w-5" />
               </div>
@@ -845,7 +845,7 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowConfirmRevokeAll(false)}
-                  className="rounded-xl border border-circle-hairline dark:border-[#2b2d35] px-3.5 py-1.5 text-xs font-semibold text-circle-charcoal dark:text-white hover:bg-circle-canvas dark:hover:bg-[#2b2d35] transition-colors"
+                  className="rounded-xl border border-circle-hairline dark:border-circle-dark-hairline px-3.5 py-1.5 text-xs font-semibold text-circle-charcoal dark:text-white hover:bg-circle-canvas dark:hover:bg-circle-dark-elevated transition-colors"
                 >
                   {t.common.cancel}
                 </button>
@@ -868,7 +868,7 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
         {/* Modal: Confirm Logout */}
         {showLogoutConfirm && (
           <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
-            <div className="w-full max-w-sm rounded-2xl border border-circle-hairline dark:border-[#2b2d35] bg-white dark:bg-[#1f2025] p-5 shadow-2xl animate-scaleUp">
+            <div className="w-full max-w-sm rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-5 shadow-2xl animate-scaleUp">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-500/15 text-red-500 mb-3 border border-red-500/30">
                 <LogOut className="h-5 w-5" />
               </div>
@@ -882,7 +882,7 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowLogoutConfirm(false)}
-                  className="rounded-xl border border-circle-hairline dark:border-[#2b2d35] px-3.5 py-1.5 text-xs font-semibold text-circle-charcoal dark:text-white hover:bg-circle-canvas dark:hover:bg-[#2b2d35] transition-colors"
+                  className="rounded-xl border border-circle-hairline dark:border-circle-dark-hairline px-3.5 py-1.5 text-xs font-semibold text-circle-charcoal dark:text-white hover:bg-circle-canvas dark:hover:bg-circle-dark-elevated transition-colors"
                 >
                   {t.common.cancel}
                 </button>

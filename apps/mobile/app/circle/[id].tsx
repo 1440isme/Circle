@@ -3284,7 +3284,7 @@ export default function CircleWorkspaceScreen() {
                 style={{ paddingHorizontal: 16, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.hairline }}
               >
                 <ArrowLeft size={16} color={colors.text} />
-                <Text style={{ fontSize: 12, fontWeight: '600', color: colors.text }}>Menu Tiện Ích</Text>
+                <Text style={{ fontSize: 12, fontWeight: '600', color: colors.text }}>{t.nav?.groupTools || "Tiện ích nhóm"}</Text>
               </TouchableOpacity>
               <MobileAlbumsView circleId={circleId} />
             </View>
@@ -3295,7 +3295,7 @@ export default function CircleWorkspaceScreen() {
                 style={{ paddingHorizontal: 16, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.hairline }}
               >
                 <ArrowLeft size={16} color={colors.text} />
-                <Text style={{ fontSize: 12, fontWeight: '600', color: colors.text }}>Menu Tiện Ích</Text>
+                <Text style={{ fontSize: 12, fontWeight: '600', color: colors.text }}>{t.nav?.groupTools || "Tiện ích nhóm"}</Text>
               </TouchableOpacity>
               <MobileCalendarView circleId={circleId} />
             </View>
@@ -3306,7 +3306,7 @@ export default function CircleWorkspaceScreen() {
                 style={{ paddingHorizontal: 16, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.hairline }}
               >
                 <ArrowLeft size={16} color={colors.text} />
-                <Text style={{ fontSize: 12, fontWeight: '600', color: colors.text }}>Menu Tiện Ích</Text>
+                <Text style={{ fontSize: 12, fontWeight: '600', color: colors.text }}>{t.nav?.groupTools || "Tiện ích nhóm"}</Text>
               </TouchableOpacity>
               <MobileWheelView circleId={circleId} />
             </View>
@@ -3317,7 +3317,7 @@ export default function CircleWorkspaceScreen() {
                 style={{ paddingHorizontal: 16, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.hairline }}
               >
                 <ArrowLeft size={16} color={colors.text} />
-                <Text style={{ fontSize: 12, fontWeight: '600', color: colors.text }}>Menu Tiện Ích</Text>
+                <Text style={{ fontSize: 12, fontWeight: '600', color: colors.text }}>{t.nav?.groupTools || "Tiện ích nhóm"}</Text>
               </TouchableOpacity>
               <MobileAnonymousView circleId={circleId} />
             </View>
@@ -3328,7 +3328,7 @@ export default function CircleWorkspaceScreen() {
                 style={{ paddingHorizontal: 16, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.hairline }}
               >
                 <ArrowLeft size={16} color={colors.text} />
-                <Text style={{ fontSize: 12, fontWeight: '600', color: colors.text }}>Menu Tiện Ích</Text>
+                <Text style={{ fontSize: 12, fontWeight: '600', color: colors.text }}>{t.nav?.groupTools || "Tiện ích nhóm"}</Text>
               </TouchableOpacity>
               <MobilePlanningView circleId={circleId} />
             </View>
@@ -3339,7 +3339,7 @@ export default function CircleWorkspaceScreen() {
                 style={{ paddingHorizontal: 16, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.hairline }}
               >
                 <ArrowLeft size={16} color={colors.text} />
-                <Text style={{ fontSize: 12, fontWeight: '600', color: colors.text }}>Menu Tiện Ích</Text>
+                <Text style={{ fontSize: 12, fontWeight: '600', color: colors.text }}>{t.nav?.groupTools || "Tiện ích nhóm"}</Text>
               </TouchableOpacity>
               <MobileLocationView circleId={circleId} />
             </View>
@@ -3350,7 +3350,7 @@ export default function CircleWorkspaceScreen() {
                 style={{ paddingHorizontal: 16, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.hairline }}
               >
                 <ArrowLeft size={16} color={colors.text} />
-                <Text style={{ fontSize: 12, fontWeight: '600', color: colors.text }}>Menu Tiện Ích</Text>
+                <Text style={{ fontSize: 12, fontWeight: '600', color: colors.text }}>{t.nav?.groupTools || "Tiện ích nhóm"}</Text>
               </TouchableOpacity>
               <MobilePollView circleId={circleId} />
             </View>

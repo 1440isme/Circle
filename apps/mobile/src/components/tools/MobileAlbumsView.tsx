@@ -35,6 +35,9 @@ import {
 } from '../../services/circle-tools.service';
 import { uploadMobileMedia } from '../../services/storage-upload.service';
 import { SharedAlbumEntity, PhotoEntity } from '@circle/types';
+import { useThemeStore } from '../../stores/theme.store';
+import { useLanguageStore } from '../../stores/language.store';
+
 
 interface MobileAlbumsViewProps {
   circleId: string;
@@ -44,6 +47,10 @@ const { width } = Dimensions.get('window');
 const PHOTO_SIZE = (width - 48) / 3;
 
 export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId }) => {
+  const { colors, resolvedTheme } = useThemeStore();
+  const isDark = resolvedTheme === 'dark';
+  const { t } = useLanguageStore();
+
   const [albums, setAlbums] = useState<SharedAlbumEntity[]>([]);
   const [selectedAlbum, setSelectedAlbum] = useState<SharedAlbumEntity | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -197,7 +204,7 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId }) 
   // =========================================================================
   if (selectedAlbum) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: colors.canvas }]}>
         {/* Navigation Bar */}
         <View style={styles.header}>
           <TouchableOpacity
@@ -238,7 +245,7 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId }) 
 
         {/* Album Metadata */}
         <View style={styles.albumMeta}>
-          <Text style={styles.albumTitle}>{selectedAlbum.albumTitle}</Text>
+          <Text style={[styles.albumTitle, { color: colors.text }]}>{selectedAlbum.albumTitle}</Text>
           {selectedAlbum.description ? (
             <Text style={styles.albumDesc}>{selectedAlbum.description}</Text>
           ) : null}
@@ -267,9 +274,9 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId }) 
             )}
           />
         ) : (
-          <View style={styles.emptyContainer}>
+          <View style={[styles.emptyContainer, { backgroundColor: colors.canvas }]}>
             <ImageIcon size={40} color="#94A3B8" />
-            <Text style={styles.emptyTitle}>Chưa có ảnh nào trong album</Text>
+            <Text style={[styles.emptyTitle, { color: colors.text }]}>Chưa có ảnh nào trong album</Text>
             <Text style={styles.emptySub}>Chạm "Thêm ảnh" để tải lên những kỷ niệm đầu tiên!</Text>
           </View>
         )}
@@ -314,7 +321,7 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId }) 
   // VIEW: ALBUMS LIST
   // =========================================================================
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.canvas }]}>
       <View style={styles.header}>
         <View>
           <Text style={styles.screenTitle}>Album Kỷ Niệm</Text>
@@ -339,7 +346,7 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId }) 
             return (
               <TouchableOpacity
                 key={album.id}
-                style={styles.albumCard}
+                style={[styles.albumCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
                 onPress={() => loadAlbumDetail(album.id)}
               >
                 <View style={styles.coverWrapper}>
@@ -376,9 +383,9 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId }) 
           })}
         </ScrollView>
       ) : (
-        <View style={styles.emptyContainer}>
+        <View style={[styles.emptyContainer, { backgroundColor: colors.canvas }]}>
           <FolderOpen size={48} color="#94A3B8" />
-          <Text style={styles.emptyTitle}>Chưa có Album kỷ niệm nào</Text>
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>Chưa có Album kỷ niệm nào</Text>
           <Text style={styles.emptySub}>
             Tạo album đầu tiên để gom ảnh chụp chung cùng các thành viên trong vòng tròn!
           </Text>
@@ -395,9 +402,9 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId }) 
       {/* Create Album Modal */}
       <Modal visible={isCreateModalOpen} transparent animationType="slide">
         <View style={styles.modalBackdrop}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Tạo Album Kỷ Niệm Mới</Text>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>Tạo Album Kỷ Niệm Mới</Text>
               <TouchableOpacity onPress={() => setIsCreateModalOpen(false)}>
                 <X size={20} color="#64748B" />
               </TouchableOpacity>
@@ -406,7 +413,7 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId }) 
             <View style={styles.formGroup}>
               <Text style={styles.label}>Tên Album *</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: colors.canvas, borderColor: colors.hairline, color: colors.text }]}
                 placeholder="Ví dụ: Chuyến đi Vũng Tàu, Kỷ niệm 2026..."
                 placeholderTextColor="#94A3B8"
                 value={albumTitle}

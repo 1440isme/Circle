@@ -45,6 +45,9 @@ import {
   deleteCalendarEventApi,
 } from '../../services/circle-tools.service';
 import { CalendarEventEntity } from '@circle/types';
+import { useThemeStore } from '../../stores/theme.store';
+import { useLanguageStore } from '../../stores/language.store';
+
 
 const isLocationUrl = (loc?: string | null): boolean => {
   if (!loc) return false;
@@ -473,11 +476,20 @@ export function formatEventTimeForDate(ev: CalendarEventEntity, targetDate: Date
   return ev.endTime ? `${startHourStr} – ${endHourStr}` : startHourStr;
 }
 
+
+const BRAND_PRIMARY = '#10B981';
+const BRAND_PRIMARY_DARK = '#059669';
+const BRAND_WASH = 'rgba(16, 185, 129, 0.08)';
+
 interface MobileCalendarViewProps {
   circleId: string;
 }
 
 export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId }) => {
+  const { colors, resolvedTheme } = useThemeStore();
+  const isDark = resolvedTheme === 'dark';
+  const { t } = useLanguageStore();
+
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [events, setEvents] = useState<CalendarEventEntity[]>([]);
@@ -1138,9 +1150,9 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
               Tháng {pickerMonth} {pickerYear}
             </Text>
             {isPickerMonthYearOpen ? (
-              <ChevronDown size={16} color="#0D9488" />
+              <ChevronDown size={16} color={colors.primary} />
             ) : (
-              <ChevronRight size={16} color="#0D9488" />
+              <ChevronRight size={16} color={colors.primary} />
             )}
           </TouchableOpacity>
 
@@ -1151,14 +1163,14 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                 style={styles.applePickerArrowBtn}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <ChevronLeft size={20} color="#0D9488" />
+                <ChevronLeft size={20} color={colors.primary} />
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handlePickerNext}
                 style={styles.applePickerArrowBtn}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <ChevronRight size={20} color="#0D9488" />
+                <ChevronRight size={20} color={colors.primary} />
               </TouchableOpacity>
             </View>
           )}
@@ -1468,9 +1480,9 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
               Tháng {endRepeatPickerMonth} {endRepeatPickerYear}
             </Text>
             {isEndRepeatMonthYearOpen ? (
-              <ChevronDown size={16} color="#0D9488" />
+              <ChevronDown size={16} color={colors.primary} />
             ) : (
-              <ChevronRight size={16} color="#0D9488" />
+              <ChevronRight size={16} color={colors.primary} />
             )}
           </TouchableOpacity>
 
@@ -1481,14 +1493,14 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                 style={styles.applePickerArrowBtn}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <ChevronLeft size={20} color="#0D9488" />
+                <ChevronLeft size={20} color={colors.primary} />
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleEndRepeatPickerNext}
                 style={styles.applePickerArrowBtn}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <ChevronRight size={20} color="#0D9488" />
+                <ChevronRight size={20} color={colors.primary} />
               </TouchableOpacity>
             </View>
           )}
@@ -1790,7 +1802,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                   }}
                   activeOpacity={0.6}
                 >
-                  <Minus size={14} color="#0D9488" strokeWidth={2.5} />
+                  <Minus size={14} color={colors.primary} strokeWidth={2.5} />
                 </TouchableOpacity>
 
                 <TextInput
@@ -1819,7 +1831,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                   }}
                   activeOpacity={0.6}
                 >
-                  <Plus size={14} color="#0D9488" strokeWidth={2.5} />
+                  <Plus size={14} color={colors.primary} strokeWidth={2.5} />
                 </TouchableOpacity>
 
                 <Text style={styles.appleStepperUnit}>
@@ -2366,7 +2378,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
           {/* Card 3: Tóm tắt */}
           <View style={[styles.appleGroupCard, { padding: 0 }]}>
             <View style={styles.appleSectionFooter}>
-              <Info size={14} color="#0D9488" style={{ marginTop: 2 }} />
+              <Info size={14} color={colors.primary} style={{ marginTop: 2 }} />
               <Text style={styles.appleSectionFooterText}>
                 {formatRecurrenceSummary(customRecConfig)}
               </Text>
@@ -2402,7 +2414,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
         : null;
 
     return (
-      <View style={styles.detailFullScreenContainer}>
+      <View style={[styles.detailFullScreenContainer, { backgroundColor: colors.canvas }]}>
         {/* Navigation Header */}
         <View style={styles.detailNavHeader}>
           <TouchableOpacity
@@ -2413,7 +2425,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
               Haptics.selectionAsync();
             }}
           >
-            <ChevronLeft size={22} color="#0D9488" />
+            <ChevronLeft size={22} color={colors.primary} />
             <Text style={styles.detailBackBtnText}>Lịch</Text>
           </TouchableOpacity>
 
@@ -2428,7 +2440,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                 handleOpenEditModal(evToEdit);
               }}
             >
-              <Pencil size={16} color="#0D9488" />
+              <Pencil size={16} color={colors.primary} />
               <Text style={styles.detailNavEditText}>Sửa</Text>
             </TouchableOpacity>
           ) : (
@@ -2468,8 +2480,8 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
           {/* Card Thời gian */}
           <View style={styles.detailCard}>
             <View style={styles.detailCardHeader}>
-              <View style={[styles.detailCardIconWrap, { backgroundColor: '#F0FDFA' }]}>
-                <Clock size={18} color="#0D9488" />
+              <View style={[styles.detailCardIconWrap, { backgroundColor: colors.wash }]}>
+                <Clock size={18} color={colors.primary} />
               </View>
               <Text style={styles.detailCardTitle}>Thời gian diễn ra</Text>
             </View>
@@ -2571,7 +2583,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                   }
                 }}
               >
-                <MapPin size={14} color="#0D9488" />
+                <MapPin size={14} color={colors.primary} />
                 <Text style={styles.detailMapLinkBtnText}>Xem chỉ đường trên bản đồ</Text>
               </TouchableOpacity>
             </View>
@@ -2671,7 +2683,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
     const today = new Date();
 
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: colors.canvas }]}>
         {/* Year View Header */}
         <View style={styles.appleYearHeader}>
           <View style={{ flex: 1 }} />
@@ -2699,7 +2711,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                 Haptics.selectionAsync();
               }}
             >
-              <Search size={18} color="#0D9488" />
+              <Search size={18} color={colors.primary} />
             </TouchableOpacity>
 
             {/* Nút Tạo sự kiện */}
@@ -2830,7 +2842,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.canvas }]}>
       {/* Month Calendar Header */}
       <View style={styles.appleMonthCalendarHeader}>
         <View style={styles.appleMonthTitleContainer}>
@@ -2871,7 +2883,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
               Haptics.selectionAsync();
             }}
           >
-            <Search size={18} color="#0D9488" />
+            <Search size={18} color={colors.primary} />
           </TouchableOpacity>
 
           {/* Nút Tạo sự kiện */}
@@ -3042,7 +3054,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
 
                   {/* 1. Thời gian */}
                   <View style={styles.eventInfoRow}>
-                    <Clock size={12} color="#0D9488" />
+                    <Clock size={12} color={colors.primary} />
                     <Text style={styles.eventInfoText}>
                       {timeDisplayStr}
                     </Text>
@@ -3113,7 +3125,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                 style={styles.appleNavBtn}
               >
                 {isSubmitting ? (
-                  <ActivityIndicator size="small" color="#0D9488" />
+                  <ActivityIndicator size="small" color={colors.primary} />
                 ) : (
                   <Text style={styles.appleAddText}>{editingEvent ? 'Lưu' : 'Thêm'}</Text>
                 )}
@@ -3534,7 +3546,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                           >
                             {item.label}
                           </Text>
-                          {isSelected && <Check size={18} color="#0D9488" />}
+                          {isSelected && <Check size={18} color={colors.primary} />}
                         </TouchableOpacity>
                       );
                     })}
@@ -3586,7 +3598,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                           >
                             {item.label}
                           </Text>
-                          {isSelected && <Check size={18} color="#0D9488" />}
+                          {isSelected && <Check size={18} color={colors.primary} />}
                         </TouchableOpacity>
                       );
                     })}
@@ -3707,7 +3719,7 @@ const styles = StyleSheet.create({
     width: 4,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#0D9488',
+    backgroundColor: BRAND_PRIMARY,
   },
   eventDotSelected: {
     backgroundColor: '#FFFFFF',
@@ -3778,7 +3790,7 @@ const styles = StyleSheet.create({
   },
   detailBackBtnText: {
     fontSize: 16,
-    color: '#0D9488',
+    color: BRAND_PRIMARY,
     fontWeight: '600',
   },
   detailNavTitle: {
@@ -3793,11 +3805,11 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 10,
     borderRadius: 8,
-    backgroundColor: '#F0FDFA',
+    backgroundColor: BRAND_WASH,
   },
   detailNavEditText: {
     fontSize: 14,
-    color: '#0D9488',
+    color: BRAND_PRIMARY,
     fontWeight: '600',
   },
   detailFullScreenContent: {
@@ -3966,7 +3978,7 @@ const styles = StyleSheet.create({
   },
   detailMapLinkBtnText: {
     fontSize: 13,
-    color: '#0D9488',
+    color: BRAND_PRIMARY,
     fontWeight: '600',
     textDecorationLine: 'underline',
   },
@@ -4014,7 +4026,7 @@ appleYearBtn: {
   appleYearBtnText: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#0D9488',
+    color: BRAND_PRIMARY,
     letterSpacing: -0.4,
   },
   appleSearchBtn: {
@@ -4120,8 +4132,8 @@ appleYearBtn: {
     borderColor: '#F1F5F9',
   },
   miniMonthBoxActive: {
-    borderColor: '#0D9488',
-    backgroundColor: '#F0FDFA',
+    borderColor: BRAND_PRIMARY,
+    backgroundColor: BRAND_WASH,
   },
   miniMonthName: {
     fontSize: 13,
@@ -4131,7 +4143,7 @@ appleYearBtn: {
     textAlign: 'center',
   },
   miniMonthNameActive: {
-    color: '#0D9488',
+    color: BRAND_PRIMARY,
   },
   miniWeekdaysHeader: {
     flexDirection: 'row',
@@ -4203,7 +4215,7 @@ appleYearBtn: {
   appleMonthTodayBtnText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#0D9488',
+    color: BRAND_PRIMARY,
   },
   appleMonthNavGroup: {
     flexDirection: 'row',
@@ -4219,7 +4231,7 @@ appleYearBtn: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#0D9488',
+    backgroundColor: BRAND_PRIMARY,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -4426,13 +4438,13 @@ appleYearBtn: {
   },
   appleCancelText: {
     fontSize: 16,
-    color: '#0D9488',
+    color: BRAND_PRIMARY,
     fontWeight: '400',
   },
   appleAddText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#0D9488',
+    color: BRAND_PRIMARY,
     textAlign: 'right',
   },
   appleScrollView: {
@@ -4505,7 +4517,7 @@ appleYearBtn: {
   popupCloseText: {
     fontSize: 15,
     fontWeight: '500',
-    color: '#0D9488',
+    color: BRAND_PRIMARY,
   },
   popupList: {
     maxHeight: 380,
@@ -4527,7 +4539,7 @@ appleYearBtn: {
     fontWeight: '400',
   },
   popupItemTextSelected: {
-    color: '#0D9488',
+    color: BRAND_PRIMARY,
     fontWeight: '600',
   },
   hairlineDivider: {
@@ -4573,7 +4585,7 @@ appleYearBtn: {
     color: '#000000',
   },
   applePillTextActive: {
-    color: '#0D9488',
+    color: BRAND_PRIMARY,
     fontWeight: '600',
   },
   appleAddEndPill: {
@@ -4585,7 +4597,7 @@ appleYearBtn: {
   appleAddEndPillText: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#0D9488',
+    color: BRAND_PRIMARY,
   },
   appleInlinePickerContainer: {
     backgroundColor: '#FFFFFF',
@@ -4653,7 +4665,7 @@ appleYearBtn: {
     justifyContent: 'center',
   },
   appleDayCircleSelected: {
-    backgroundColor: '#0D9488',
+    backgroundColor: BRAND_PRIMARY,
   },
   appleDayNumber: {
     fontSize: 17,
@@ -4661,7 +4673,7 @@ appleYearBtn: {
     fontWeight: '400',
   },
   appleDayNumberToday: {
-    color: '#0D9488',
+    color: BRAND_PRIMARY,
     fontWeight: '700',
   },
   appleDayNumberSelected: {
@@ -4681,7 +4693,7 @@ appleYearBtn: {
     backgroundColor: '#F2F2F7',
   },
   appleReminderChipSelected: {
-    backgroundColor: '#0D9488',
+    backgroundColor: BRAND_PRIMARY,
   },
   appleReminderChipText: {
     fontSize: 13,
@@ -4820,8 +4832,8 @@ appleYearBtn: {
     backgroundColor: '#F8FAFC',
   },
   splitBtnActive: {
-    borderColor: '#0D9488',
-    backgroundColor: '#F0FDFA',
+    borderColor: BRAND_PRIMARY,
+    backgroundColor: BRAND_WASH,
   },
   splitBtnText: {
     fontSize: 12,
@@ -4970,8 +4982,8 @@ appleYearBtn: {
   },
 
   pickerTriggerBtnActive: {
-    borderColor: '#0D9488',
-    backgroundColor: '#F0FDFA',
+    borderColor: BRAND_PRIMARY,
+    backgroundColor: BRAND_WASH,
   },
   inlinePickerContainer: {
     backgroundColor: '#F8FAFC',
@@ -5149,7 +5161,7 @@ appleYearBtn: {
   stepperBtnText: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#0D9488',
+    color: BRAND_PRIMARY,
     lineHeight: 20,
   },
   stepperValueText: {
@@ -5180,8 +5192,8 @@ appleYearBtn: {
     borderColor: '#E2E8F0',
   },
   weekdayBtnActive: {
-    backgroundColor: '#0D9488',
-    borderColor: '#0D9488',
+    backgroundColor: BRAND_PRIMARY,
+    borderColor: BRAND_PRIMARY,
   },
   weekdayBtnText: {
     fontSize: 13,
@@ -5209,13 +5221,13 @@ appleYearBtn: {
     marginRight: 10,
   },
   radioCircleSelected: {
-    borderColor: '#0D9488',
+    borderColor: BRAND_PRIMARY,
   },
   radioInner: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#0D9488',
+    backgroundColor: BRAND_PRIMARY,
   },
   radioLabel: {
     fontSize: 15,
@@ -5249,8 +5261,8 @@ appleYearBtn: {
     borderColor: '#E2E8F0',
   },
   monthDayCircleSelected: {
-    backgroundColor: '#0D9488',
-    borderColor: '#0D9488',
+    backgroundColor: BRAND_PRIMARY,
+    borderColor: BRAND_PRIMARY,
   },
   monthDayNumber: {
     fontSize: 13,
@@ -5277,8 +5289,8 @@ appleYearBtn: {
     borderColor: '#E2E8F0',
   },
   optionPillSelected: {
-    backgroundColor: '#0D9488',
-    borderColor: '#0D9488',
+    backgroundColor: BRAND_PRIMARY,
+    borderColor: BRAND_PRIMARY,
   },
   optionPillText: {
     fontSize: 13,
@@ -5307,8 +5319,8 @@ appleYearBtn: {
     borderColor: '#E2E8F0',
   },
   monthBtnPillSelected: {
-    backgroundColor: '#0D9488',
-    borderColor: '#0D9488',
+    backgroundColor: BRAND_PRIMARY,
+    borderColor: BRAND_PRIMARY,
   },
   monthBtnPillText: {
     fontSize: 12,
@@ -5320,11 +5332,11 @@ appleYearBtn: {
     fontWeight: '700',
   },
   summaryPreviewBox: {
-    backgroundColor: '#F0FDFA',
+    backgroundColor: BRAND_WASH,
     borderRadius: 12,
     padding: 14,
     borderWidth: 1,
-    borderColor: '#CCFBF1',
+    borderColor: BRAND_WASH,
     marginTop: 6,
     flexDirection: 'row',
     alignItems: 'center',
@@ -5332,7 +5344,7 @@ appleYearBtn: {
   },
   summaryPreviewText: {
     fontSize: 14,
-    color: '#0F766E',
+    color: BRAND_PRIMARY_DARK,
     fontWeight: '600',
     flex: 1,
     lineHeight: 20,
@@ -5394,7 +5406,7 @@ appleYearBtn: {
     justifyContent: 'center',
   },
   appleWeekdayPillActive: {
-    backgroundColor: '#0D9488',
+    backgroundColor: BRAND_PRIMARY,
   },
   appleWeekdayPillText: {
     fontSize: 14,
@@ -5434,7 +5446,7 @@ appleYearBtn: {
     color: '#8E8E93',
   },
   appleSegmentBtnTextActive: {
-    color: '#0D9488',
+    color: BRAND_PRIMARY,
     fontWeight: '600',
   },
 
@@ -5462,7 +5474,7 @@ appleYearBtn: {
     backgroundColor: 'transparent',
   },
   appleDayNumberCircleActive: {
-    backgroundColor: '#0D9488',
+    backgroundColor: BRAND_PRIMARY,
   },
   appleDayNumberText: {
     fontSize: 13,
@@ -5506,7 +5518,7 @@ appleYearBtn: {
   },
   appleSectionFooterText: {
     fontSize: 13,
-    color: '#0F766E',
+    color: BRAND_PRIMARY_DARK,
     lineHeight: 18,
     flex: 1,
     fontWeight: '500',
@@ -5544,7 +5556,7 @@ appleYearBtn: {
   },
   customRepeatDoneText: {
     fontSize: 16,
-    color: '#0D9488',
+    color: BRAND_PRIMARY,
     fontWeight: '600',
   },
   customRepeatScrollContent: {

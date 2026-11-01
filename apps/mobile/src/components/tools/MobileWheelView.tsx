@@ -28,6 +28,9 @@ import {
   deleteWheelApi,
 } from '../../services/circle-tools.service';
 import { DecisionWheelEntity } from '@circle/types';
+import { useThemeStore } from '../../stores/theme.store';
+import { useLanguageStore } from '../../stores/language.store';
+
 
 interface MobileWheelViewProps {
   circleId: string;
@@ -45,6 +48,10 @@ const DEFAULT_COLORS = [
 ];
 
 export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) => {
+  const { colors, resolvedTheme } = useThemeStore();
+  const isDark = resolvedTheme === 'dark';
+  const { t } = useLanguageStore();
+
   const [wheels, setWheels] = useState<DecisionWheelEntity[]>([]);
   const [selectedWheel, setSelectedWheel] = useState<DecisionWheelEntity | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -160,7 +167,7 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
   });
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.canvas }]}>
       {/* Header */}
       <View style={styles.header}>
         <View>
@@ -182,8 +189,8 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
       ) : selectedWheel ? (
         <ScrollView contentContainerStyle={styles.content}>
           {/* Wheel Disc Card */}
-          <View style={styles.wheelCard}>
-            <Text style={styles.wheelTitle}>{selectedWheel.title}</Text>
+          <View style={[styles.wheelCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+            <Text style={[styles.wheelTitle, { color: colors.text }]}>{selectedWheel.title}</Text>
 
             {/* Pointer */}
             <Text style={styles.pointer}>▼</Text>
@@ -196,7 +203,7 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
               ]}
             >
               <View style={styles.discInner}>
-                <Compass size={48} color="#0D9488" />
+                <Compass size={48} color={colors.primary} />
               </View>
             </Animated.View>
 
@@ -277,9 +284,9 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
           </View>
         </ScrollView>
       ) : (
-        <View style={styles.emptyContainer}>
+        <View style={[styles.emptyContainer, { backgroundColor: colors.canvas }]}>
           <Compass size={48} color="#94A3B8" />
-          <Text style={styles.emptyTitle}>Chưa có Vòng xoay nào</Text>
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>Chưa có Vòng xoay nào</Text>
           <Text style={styles.emptySub}>
             Tạo vòng xoay may mắn để cùng quyết định quán ăn hay điểm hẹn!
           </Text>
@@ -296,9 +303,9 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
       {/* Create Modal */}
       <Modal visible={isCreateModalOpen} transparent animationType="slide">
         <View style={styles.modalBackdrop}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Tạo Vòng Quay Mới</Text>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>Tạo Vòng Quay Mới</Text>
               <TouchableOpacity onPress={() => setIsCreateModalOpen(false)}>
                 <X size={20} color="#64748B" />
               </TouchableOpacity>
@@ -307,7 +314,7 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
             <View style={styles.formGroup}>
               <Text style={styles.label}>Chủ đề vòng quay *</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: colors.canvas, borderColor: colors.hairline, color: colors.text }]}
                 placeholder="Ví dụ: Ăn gì trưa nay, Đi đâu cuối tuần..."
                 placeholderTextColor="#94A3B8"
                 value={title}
@@ -437,7 +444,7 @@ const styles = StyleSheet.create({
     height: 220,
     borderRadius: 110,
     borderWidth: 6,
-    borderColor: '#0D9488',
+    borderColor: '#10B981',
     backgroundColor: '#CCFBF1',
     alignItems: 'center',
     justifyContent: 'center',
@@ -643,7 +650,7 @@ const styles = StyleSheet.create({
   addOptLink: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#0D9488',
+    color: '#10B981',
   },
   optInputRow: {
     flexDirection: 'row',

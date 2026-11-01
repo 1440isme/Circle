@@ -26,6 +26,9 @@ import {
   deleteAnonymousPostApi,
 } from '../../services/circle-tools.service';
 import { AnonymousPostEntity } from '@circle/types';
+import { useThemeStore } from '../../stores/theme.store';
+import { useLanguageStore } from '../../stores/language.store';
+
 
 interface MobileAnonymousViewProps {
   circleId: string;
@@ -90,6 +93,10 @@ const THEMES: MobileTheme[] = [
 ];
 
 export const MobileAnonymousView: React.FC<MobileAnonymousViewProps> = ({ circleId }) => {
+  const { colors, resolvedTheme } = useThemeStore();
+  const isDark = resolvedTheme === 'dark';
+  const { t } = useLanguageStore();
+
   const [posts, setPosts] = useState<AnonymousPostEntity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -154,7 +161,7 @@ export const MobileAnonymousView: React.FC<MobileAnonymousViewProps> = ({ circle
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.canvas }]}>
       {/* Header */}
       <View style={styles.header}>
         <View>
@@ -224,9 +231,9 @@ export const MobileAnonymousView: React.FC<MobileAnonymousViewProps> = ({ circle
             })}
           </View>
         ) : (
-          <View style={styles.emptyContainer}>
+          <View style={[styles.emptyContainer, { backgroundColor: colors.canvas }]}>
             <Heart size={48} color="#94A3B8" />
-            <Text style={styles.emptyTitle}>Hộp thư đang trống</Text>
+            <Text style={[styles.emptyTitle, { color: colors.text }]}>Hộp thư đang trống</Text>
             <Text style={styles.emptySub}>
               Hãy là người đầu tiên gửi lời cảm ơn hoặc tâm sự ẩn danh đến vòng tròn!
             </Text>
@@ -244,9 +251,9 @@ export const MobileAnonymousView: React.FC<MobileAnonymousViewProps> = ({ circle
       {/* Compose Modal */}
       <Modal visible={isComposeModalOpen} transparent animationType="slide">
         <View style={styles.modalBackdrop}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Gửi Lời Nhắn Ẩn Danh</Text>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>Gửi Lời Nhắn Ẩn Danh</Text>
               <TouchableOpacity onPress={() => setIsComposeModalOpen(false)}>
                 <X size={20} color="#64748B" />
               </TouchableOpacity>
