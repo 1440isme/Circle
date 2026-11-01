@@ -3070,19 +3070,19 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
         </View>
 
         {/* =========================================================================
-            NÚT TREO: THAM GIA BÌNH CHỌN (DẠNG STICKY TEXT BUTTON)
+            NÚT TREO ĐÁY: THAM GIA BÌNH CHỌN (DẠNG FLOATING PILL BUTTON)
            ========================================================================= */}
-        <View style={styles.detailFloatingBottomBar}>
+        <View style={styles.detailFloatingBottomContainer} pointerEvents="box-none">
           <TouchableOpacity
-            style={styles.detailStickyBottomBtn}
-            activeOpacity={0.8}
+            style={styles.detailFloatingPollPillBtn}
+            activeOpacity={0.85}
             onPress={() => {
               Haptics.selectionAsync();
               setIsDetailPollModalOpen(true);
             }}
           >
             <Users size={17} color="#0D9488" />
-            <Text style={styles.detailStickyBottomBtnText}>Tham gia bình chọn</Text>
+            <Text style={styles.detailFloatingPollPillText}>Tham gia bình chọn</Text>
             {myRsvp && <View style={styles.detailStickyMyRsvpDot} />}
           </TouchableOpacity>
         </View>
@@ -5048,6 +5048,36 @@ const styles = StyleSheet.create({
   },
   detailStickyBottomBtnText: {
     fontSize: 16,
+    fontWeight: '700',
+    color: '#0D9488',
+  },
+  detailFloatingBottomContainer: {
+    position: 'absolute',
+    bottom: 20,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 40,
+  },
+  detailFloatingPollPillBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    height: 44,
+    paddingHorizontal: 20,
+    borderRadius: 22,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  detailFloatingPollPillText: {
+    fontSize: 15,
     fontWeight: '700',
     color: '#0D9488',
   },
