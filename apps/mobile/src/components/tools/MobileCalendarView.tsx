@@ -383,7 +383,15 @@ export function parseEventRecurrence(desc?: string | null): {
   recurrenceConfig: RecurrenceConfig | null;
 } {
   if (!desc) return { cleanDesc: '', recurrenceConfig: null };
-  const match = desc.match(/\[RECURRENCE:([\s\S]*?)\]/);
+
+  const cleanDesc = desc
+    .replace(/\[RECURRENCE:(\{[\s\S]*?\}|[^\]]*?)\]/g, '')
+    .replace(/\[Lặp lại:[^\]]*?\]/g, '')
+    .replace(/\[RECURRENCE:[\s\S]*?\]/g, '')
+    .trim();
+
+  // Match JSON object accurately (including any inner arrays)
+  const match = desc.match(/\[RECURRENCE:(\{[\s\S]*?\})\]/);
   if (match) {
     try {
       const raw = JSON.parse(match[1]);
@@ -405,10 +413,6 @@ export function parseEventRecurrence(desc?: string | null): {
         endDate: raw.endDate ? new Date(raw.endDate) : null,
         isCustom: Boolean(raw.isCustom),
       };
-      const cleanDesc = desc
-        .replace(/\[RECURRENCE:[\s\S]*?\]/g, '')
-        .replace(/\[Lặp lại:[\s\S]*?\]/g, '')
-        .trim();
       return { cleanDesc, recurrenceConfig: config };
     } catch {
       // ignore parse error
@@ -431,10 +435,6 @@ export function parseEventRecurrence(desc?: string | null): {
     }
   }
 
-  const cleanDesc = desc
-    .replace(/\[RECURRENCE:[\s\S]*?\]/g, '')
-    .replace(/\[Lặp lại:[\s\S]*?\]/g, '')
-    .trim();
   return { cleanDesc, recurrenceConfig: fallbackConfig };
 }
 
@@ -2737,18 +2737,24 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
     const startDateObj = new Date(detailEvent.startTime);
     const endDateObj = detailEvent.endTime ? new Date(detailEvent.endTime) : null;
 
-    // Recurrence summary
+    // Recurrence summary (Luôn có chữ 'Lặp lại', ví dụ: 'Lặp lại hằng ngày', 'Lặp lại hằng tuần'...)
     let repeatSummary = 'Không lặp lại';
     const hasRecurrence = Boolean(
       (recurrenceConfig && recurrenceConfig.frequency !== 'none') ||
       (detailEvent.description && (detailEvent.description.includes('[Lặp lại:') || detailEvent.description.includes('[RECURRENCE:')))
     );
     if (recurrenceConfig && recurrenceConfig.frequency !== 'none') {
-      repeatSummary = formatRecurrenceSummary(recurrenceConfig);
+      const summary = formatRecurrenceSummary(recurrenceConfig);
+      repeatSummary = summary.toLowerCase().startsWith('lặp lại')
+        ? summary
+        : `Lặp lại ${summary.charAt(0).toLowerCase() + summary.slice(1)}`;
     } else if (detailEvent.description) {
       const match = detailEvent.description.match(/\[Lặp lại:\s*([^\]]+)\]/);
       if (match) {
-        repeatSummary = match[1].trim();
+        const rawTxt = match[1].trim();
+        repeatSummary = rawTxt.toLowerCase().startsWith('lặp lại')
+          ? rawTxt
+          : `Lặp lại ${rawTxt.charAt(0).toLowerCase() + rawTxt.slice(1)}`;
       }
     }
 
@@ -2851,7 +2857,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                       <Text style={styles.detailLinkCleanText} numberOfLines={2}>
                         {cleanLocationText(detailEvent.location) || 'Tham gia cuộc gọi video (Google Meet / Zoom)'}
                       </Text>
-                      <ChevronRight size={14} color="#0D9488" />
+                      <ChevronRight size={16} color="#94A3B8" />
                     </TouchableOpacity>
                   ) : (
                     <TouchableOpacity
@@ -2872,7 +2878,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                       <Text style={styles.detailLinkCleanText} numberOfLines={2}>
                         {cleanLocationText(detailEvent.location)}
                       </Text>
-                      <ChevronRight size={14} color="#0D9488" />
+                      <ChevronRight size={16} color="#94A3B8" />
                     </TouchableOpacity>
                   )}
                 </View>
@@ -2925,7 +2931,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
               </View>
             </View>
 
-            {/* 4. Lặp lại (chỉ icon Repeat) */}
+            {/* 4. Lặp lại (chỉ icon Repeat, text luôn có chữ Lặp lại, chỉ có kí hiệu mũi tên không còn chữ) */}
             <View style={styles.detailCleanDivider} />
             <View style={styles.detailRowClean}>
               <View style={styles.detailIconSlot}>
@@ -2945,10 +2951,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
               >
                 <Text style={styles.detailCleanBodyText}>{repeatSummary}</Text>
                 {hasRecurrence && (
-                  <View style={styles.detailJumpTagClean}>
-                    <Text style={styles.detailJumpTagCleanText}>Xem lịch lặp</Text>
-                    <ChevronRight size={13} color="#0D9488" />
-                  </View>
+                  <ChevronRight size={16} color="#94A3B8" />
                 )}
               </TouchableOpacity>
             </View>
@@ -3043,7 +3046,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                 <Text style={styles.detailAppleReminderValue}>{reminderLabel}</Text>
                 {!detailEvent.isCancelled && (
-                  <ChevronRight size={14} color="#C7C7CC" />
+                  <ChevronRight size={16} color="#94A3B8" />
                 )}
               </View>
             </TouchableOpacity>
@@ -3051,13 +3054,16 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
             {/* Phân cách */}
             <View style={styles.detailCleanDivider} />
 
-            {/* 2. Ghi chú */}
-            <View style={styles.detailRowClean}>
-              <View style={styles.detailIconSlot}>
-                <Info size={18} color="#0D9488" />
+            {/* 2. Ghi chú (Có Icon và Chữ 'Ghi chú', nội dung sạch không dính lỗi tag lặp lại) */}
+            <View style={styles.detailNotesContainer}>
+              <View style={styles.detailRowCleanLeft}>
+                <View style={styles.detailIconSlot}>
+                  <Info size={18} color="#0D9488" />
+                </View>
+                <Text style={styles.detailAppleReminderLabel}>Ghi chú</Text>
               </View>
 
-              <View style={{ flex: 1 }}>
+              <View style={styles.detailNotesContentWrap}>
                 {hasValidDesc ? (
                   <Text style={styles.detailNotesCleanText}>{cleanDescriptionText}</Text>
                 ) : (
@@ -3076,7 +3082,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
             3 NÚT FLOATING PILL BUTTONS (Nổi lơ lửng ở đỉnh, nội dung lướt qua bên dưới)
            ========================================================================= */}
         <View style={styles.detailFloatingPillHeader} pointerEvents="box-none">
-          {/* Nút 1: Quay lại (< Lịch) - Dạng Floating Pill Button */}
+          {/* Nút 1: Quay lại dạng ngày tháng năm dd/mm/yyyy - Dạng Floating Pill Button */}
           <TouchableOpacity
             style={[styles.detailFloatingPillBtn, styles.detailFloatingBackPill]}
             activeOpacity={0.7}
@@ -3086,7 +3092,9 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
             }}
           >
             <ChevronLeft size={19} color="#0D9488" />
-            <Text style={styles.detailFloatingPillText}>Lịch</Text>
+            <Text style={styles.detailFloatingPillText}>
+              {formatDateOnly(startDateObj)}
+            </Text>
           </TouchableOpacity>
 
           {/* Góc phải: Nút 2 (Sửa - bỏ chữ sửa) & Nút 3 (Ba chấm ngang) - Dạng Floating Pill Button */}
@@ -4341,7 +4349,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                   <Text style={styles.appleRowLabel}>Nhắc trước</Text>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                     <Text style={styles.appleRowValue}>{currentReminderLabel}</Text>
-                    <ChevronRight size={14} color="#C7C7CC" />
+                    <ChevronRight size={16} color="#94A3B8" />
                   </View>
                 </TouchableOpacity>
 
@@ -5109,6 +5117,13 @@ const styles = StyleSheet.create({
   detailAppleReminderValue: {
     fontSize: 14,
     color: '#8E8E93',
+  },
+  detailNotesContainer: {
+    gap: 8,
+  },
+  detailNotesContentWrap: {
+    paddingLeft: 40,
+    paddingRight: 4,
   },
   detailNotesCleanText: {
     fontSize: 14,
