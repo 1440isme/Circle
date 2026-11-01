@@ -26,6 +26,7 @@ import {
   Trash2,
   Pencil,
   MoreVertical,
+  MoreHorizontal,
   Ban,
   Video,
   X,
@@ -2697,7 +2698,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
     if (hasRecurrence) {
       repeatSummary = formatRecurrenceSummary(recurrenceConfig!);
     } else if (detailEvent.description) {
-      const match = detailEvent.description.match(/\[Lặp lại:\s*(.*?)\]/);
+      const match = detailEvent.description.match(/\\[Lặp lại:\\s*(.*?)\\]/);
       if (match) {
         repeatSummary = match[1].trim();
       }
@@ -2751,45 +2752,46 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
       <View style={styles.detailFullScreenContainer}>
         {/* Navigation Header */}
         <View style={styles.detailNavHeader}>
-          {/* Góc trái: nút Quay lại (< Lịch) */}
+          {/* Góc trái: nút Quay lại (< Lịch dạng Sticky Text Button) */}
           <TouchableOpacity
-            style={styles.detailBackBtn}
-            activeOpacity={0.7}
+            style={styles.detailStickyTextBtn}
+            activeOpacity={0.65}
             onPress={() => {
               setDetailEvent(null);
               Haptics.selectionAsync();
             }}
           >
-            <ChevronLeft size={22} color="#0D9488" />
-            <Text style={styles.detailBackBtnText}>Lịch</Text>
+            <ChevronLeft size={20} color="#0D9488" />
+            <Text style={styles.detailStickyTextBtnLabel}>Lịch</Text>
           </TouchableOpacity>
 
           <Text style={styles.detailNavTitle}>Chi tiết lịch hẹn</Text>
 
-          {/* Góc phải: Nút Bút (Sửa) và Nút Ba Chấm (Hủy / Xóa) */}
+          {/* Góc phải: Nút Bút (Sửa) và Nút Ba Chấm Ngang (MoreHorizontal) dạng Sticky Text Button */}
           <View style={styles.detailNavRightActions}>
             {!detailEvent.isCancelled && (
               <TouchableOpacity
-                style={styles.detailNavIconBtn}
-                activeOpacity={0.7}
+                style={styles.detailStickyTextBtn}
+                activeOpacity={0.65}
                 onPress={() => {
                   const evToEdit = detailEvent;
                   handleOpenEditModal(evToEdit);
                 }}
               >
-                <Pencil size={18} color="#0D9488" />
+                <Pencil size={17} color="#0D9488" />
+                <Text style={styles.detailStickyTextBtnLabel}>Sửa</Text>
               </TouchableOpacity>
             )}
 
             <TouchableOpacity
-              style={styles.detailNavIconBtn}
-              activeOpacity={0.7}
+              style={styles.detailStickyTextBtn}
+              activeOpacity={0.65}
               onPress={() => {
                 Haptics.selectionAsync();
                 setIsDetailMenuOpen(true);
               }}
             >
-              <MoreVertical size={20} color="#475569" />
+              <MoreHorizontal size={20} color="#475569" />
             </TouchableOpacity>
           </View>
         </View>
@@ -2801,10 +2803,11 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
         >
           {/* =========================================================================
               THẺ 1: TÊN, ĐỊA ĐIỂM (LINK), THỜI GIAN, LẶP LẠI (NAV), NGƯỜI THAM GIA
+              (Bỏ chữ nhãn 'Địa điểm', 'Thời gian diễn ra', 'Lặp lại',... - chỉ giữ icon)
              ========================================================================= */}
-          <View style={styles.detailUnifiedCard}>
+          <View style={styles.detailCleanCard}>
             {/* 1. Tên sự kiện & Huy hiệu hủy (nếu có) */}
-            <View style={styles.detailUnifiedHeader}>
+            <View style={styles.detailCleanHeader}>
               <Text
                 style={[
                   styles.detailEventTitleLarge,
@@ -2822,31 +2825,28 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
               )}
             </View>
 
-            {/* 2. Địa điểm (ấn vào sẽ ra Google Maps / Meet, hiển thị dạng Link) */}
+            {/* 2. Địa điểm (chỉ icon MapPin / Video, text dạng link) */}
             {(detailEvent.location || isCall) && (
               <>
-                <View style={styles.detailUnifiedDivider} />
-                <View style={styles.detailUnifiedSection}>
-                  <View style={styles.detailSectionHeader}>
+                <View style={styles.detailCleanDivider} />
+                <View style={styles.detailRowClean}>
+                  <View style={styles.detailIconSlot}>
                     {isCall ? (
-                      <Video size={16} color="#0284C7" />
+                      <Video size={18} color="#0284C7" />
                     ) : (
-                      <MapPin size={16} color="#D97706" />
+                      <MapPin size={18} color="#D97706" />
                     )}
-                    <Text style={styles.detailSectionTitle}>
-                      {isCall ? 'Cuộc gọi trực tuyến' : 'Địa điểm'}
-                    </Text>
                   </View>
 
                   {isCall ? (
                     <TouchableOpacity
                       activeOpacity={0.7}
-                      style={styles.detailLinkRow}
+                      style={styles.detailLinkCleanBtn}
                       onPress={() => {
                         if (callUrl) Linking.openURL(callUrl).catch(() => {});
                       }}
                     >
-                      <Text style={styles.detailLinkText}>
+                      <Text style={styles.detailLinkCleanText} numberOfLines={2}>
                         {cleanLocationText(detailEvent.location) || 'Tham gia cuộc gọi video (Google Meet / Zoom)'}
                       </Text>
                       <ChevronRight size={14} color="#0D9488" />
@@ -2854,7 +2854,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                   ) : (
                     <TouchableOpacity
                       activeOpacity={0.7}
-                      style={styles.detailLinkRow}
+                      style={styles.detailLinkCleanBtn}
                       onPress={() => {
                         const locUrl = extractLocationUrl(detailEvent.location);
                         if (locUrl) {
@@ -2867,7 +2867,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                         }
                       }}
                     >
-                      <Text style={styles.detailLinkText} numberOfLines={2}>
+                      <Text style={styles.detailLinkCleanText} numberOfLines={2}>
                         {cleanLocationText(detailEvent.location)}
                       </Text>
                       <ChevronRight size={14} color="#0D9488" />
@@ -2877,21 +2877,19 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
               </>
             )}
 
-            {/* 3. Thời gian diễn ra */}
-            <View style={styles.detailUnifiedDivider} />
-            <View style={styles.detailUnifiedSection}>
-              <View style={styles.detailSectionHeader}>
-                <Clock size={16} color="#0D9488" />
-                <Text style={styles.detailSectionTitle}>Thời gian diễn ra</Text>
+            {/* 3. Thời gian diễn ra (chỉ icon Clock, hàng thời gian gọn gàng không bo nền xám) */}
+            <View style={styles.detailCleanDivider} />
+            <View style={styles.detailRowClean}>
+              <View style={styles.detailIconSlot}>
+                <Clock size={18} color="#0D9488" />
               </View>
 
-              <View style={styles.detailTimeRow}>
-                <View style={styles.detailTimeCol}>
-                  <Text style={styles.detailTimeLabel}>Bắt đầu</Text>
-                  <Text style={styles.detailTimeValueHour}>
+              <View style={styles.detailCleanTimeWrap}>
+                <View style={styles.detailCleanTimeCol}>
+                  <Text style={styles.detailCleanTimeHour}>
                     {startDateObj.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
                   </Text>
-                  <Text style={styles.detailTimeValueDate}>
+                  <Text style={styles.detailCleanTimeDate}>
                     {startDateObj.toLocaleDateString('vi-VN', {
                       weekday: 'short',
                       day: '2-digit',
@@ -2901,16 +2899,15 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                   </Text>
                 </View>
 
-                <View style={styles.detailTimeDivider} />
+                <View style={styles.detailCleanTimeDivider} />
 
-                <View style={styles.detailTimeCol}>
-                  <Text style={styles.detailTimeLabel}>Kết thúc</Text>
+                <View style={styles.detailCleanTimeCol}>
                   {endDateObj ? (
                     <>
-                      <Text style={styles.detailTimeValueHour}>
+                      <Text style={styles.detailCleanTimeHour}>
                         {endDateObj.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
                       </Text>
-                      <Text style={styles.detailTimeValueDate}>
+                      <Text style={styles.detailCleanTimeDate}>
                         {endDateObj.toLocaleDateString('vi-VN', {
                           weekday: 'short',
                           day: '2-digit',
@@ -2920,22 +2917,21 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                       </Text>
                     </>
                   ) : (
-                    <Text style={[styles.detailTimeValueHour, { color: '#94A3B8' }]}>-- : --</Text>
+                    <Text style={[styles.detailCleanTimeHour, { color: '#94A3B8' }]}>-- : --</Text>
                   )}
                 </View>
               </View>
             </View>
 
-            {/* 4. Lặp lại (nếu có khi ấn vào sẽ cho chọn đi đến lần diễn ra tiếp theo hoặc lần trước đó) */}
-            <View style={styles.detailUnifiedDivider} />
-            <View style={styles.detailUnifiedSection}>
-              <View style={styles.detailSectionHeader}>
-                <Repeat size={16} color="#0D9488" />
-                <Text style={styles.detailSectionTitle}>Lặp lại</Text>
+            {/* 4. Lặp lại (chỉ icon Repeat) */}
+            <View style={styles.detailCleanDivider} />
+            <View style={styles.detailRowClean}>
+              <View style={styles.detailIconSlot}>
+                <Repeat size={18} color="#0D9488" />
               </View>
 
               <TouchableOpacity
-                style={styles.detailRecurrenceRow}
+                style={styles.detailCleanRecurrenceBtn}
                 activeOpacity={hasRecurrence ? 0.7 : 1}
                 disabled={!hasRecurrence}
                 onPress={() => {
@@ -2945,231 +2941,129 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                   }
                 }}
               >
-                <Text style={styles.detailCardBodyText}>{repeatSummary}</Text>
+                <Text style={styles.detailCleanBodyText}>{repeatSummary}</Text>
                 {hasRecurrence && (
-                  <View style={styles.detailJumpTag}>
-                    <Text style={styles.detailJumpTagText}>Xem lịch lặp</Text>
+                  <View style={styles.detailJumpTagClean}>
+                    <Text style={styles.detailJumpTagCleanText}>Xem lịch lặp</Text>
                     <ChevronRight size={13} color="#0D9488" />
                   </View>
                 )}
               </TouchableOpacity>
             </View>
 
-            {/* 5. Người tham gia (khi ấn vào sẽ hiển thị danh sách Tham gia, Chưa chắc chắn, Bận) */}
-            <View style={styles.detailUnifiedDivider} />
-            <View style={styles.detailUnifiedSection}>
+            {/* 5. Người tham gia (chỉ icon Users) */}
+            <View style={styles.detailCleanDivider} />
+            <View style={styles.detailRowClean}>
+              <View style={styles.detailIconSlot}>
+                <Users size={18} color="#0D9488" />
+              </View>
+
               <TouchableOpacity
-                style={styles.detailSectionHeaderBetween}
+                style={styles.detailCleanAttendeesBtn}
                 activeOpacity={0.7}
                 onPress={() => {
                   Haptics.selectionAsync();
                   setIsAttendeesModalOpen(true);
                 }}
               >
-                <View style={styles.detailSectionHeader}>
-                  <Users size={16} color="#0D9488" />
-                  <Text style={styles.detailSectionTitle}>Người tham gia</Text>
-                </View>
-
-                <View style={styles.detailAttendeesHeaderRight}>
-                  <Text style={styles.detailRsvpTotalText}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.detailCleanAttendeesStats}>
                     {totalRsvps} phản hồi ({yesRsvps.length} tham gia)
                   </Text>
-                  <ChevronRight size={15} color="#94A3B8" />
-                </View>
-              </TouchableOpacity>
+                  {totalRsvps > 0 ? (
+                    <View style={styles.detailRsvpAvatarsRowClean}>
+                      {(detailEvent.rsvps || []).slice(0, 7).map((r, rIdx) => {
+                        const isMe = r.userId === user?.id;
+                        const dName = isMe
+                          ? 'Bạn'
+                          : r.user?.profile?.displayName || r.user?.email?.split('@')[0] || 'TV';
+                        const avUrl = r.user?.profile?.avatarUrl;
 
-              {/* Hàng Avatars tóm tắt */}
-              <TouchableOpacity
-                style={styles.detailAttendeesPreviewRow}
-                activeOpacity={0.7}
-                onPress={() => {
-                  Haptics.selectionAsync();
-                  setIsAttendeesModalOpen(true);
-                }}
-              >
-                {totalRsvps > 0 ? (
-                  <View style={styles.detailRsvpAvatarsRow}>
-                    {(detailEvent.rsvps || []).slice(0, 7).map((r, rIdx) => {
-                      const isMe = r.userId === user?.id;
-                      const dName = isMe
-                        ? 'Bạn'
-                        : r.user?.profile?.displayName || r.user?.email?.split('@')[0] || 'TV';
-                      const avUrl = r.user?.profile?.avatarUrl;
-
-                      return (
-                        <View
-                          key={r.id || r.userId || rIdx}
-                          style={[styles.detailRsvpAvatarWrap, { marginLeft: rIdx === 0 ? 0 : -6 }]}
-                        >
-                          {avUrl ? (
-                            <Image source={{ uri: avUrl }} style={styles.detailRsvpAvatarImg} />
-                          ) : (
-                            <View style={styles.detailRsvpAvatarFallback}>
-                              <Text style={styles.detailRsvpAvatarInitial}>
-                                {dName.charAt(0).toUpperCase()}
-                              </Text>
-                            </View>
-                          )}
+                        return (
+                          <View
+                            key={r.id || r.userId || rIdx}
+                            style={[styles.detailRsvpAvatarWrap, { marginLeft: rIdx === 0 ? 0 : -6 }]}
+                          >
+                            {avUrl ? (
+                              <Image source={{ uri: avUrl }} style={styles.detailRsvpAvatarImg} />
+                            ) : (
+                              <View style={styles.detailRsvpAvatarFallback}>
+                                <Text style={styles.detailRsvpAvatarInitial}>
+                                  {dName.charAt(0).toUpperCase()}
+                                </Text>
+                              </View>
+                            )}
+                          </View>
+                        );
+                      })}
+                      {(detailEvent.rsvps || []).length > 7 && (
+                        <View style={[styles.detailRsvpAvatarWrap, styles.detailRsvpAvatarMoreWrap]}>
+                          <Text style={styles.detailRsvpAvatarMoreText}>
+                            +{(detailEvent.rsvps || []).length - 7}
+                          </Text>
                         </View>
-                      );
-                    })}
-                    {(detailEvent.rsvps || []).length > 7 && (
-                      <View style={[styles.detailRsvpAvatarWrap, styles.detailRsvpAvatarMoreWrap]}>
-                        <Text style={styles.detailRsvpAvatarMoreText}>
-                          +{(detailEvent.rsvps || []).length - 7}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                ) : (
-                  <Text style={[styles.detailCardBodyText, { color: '#94A3B8', fontSize: 13 }]}>
-                    Chưa có phản hồi nào. Chạm để xem chi tiết.
-                  </Text>
-                )}
+                      )}
+                    </View>
+                  ) : (
+                    <Text style={[styles.detailCleanBodyText, { color: '#94A3B8', fontSize: 13, marginTop: 2 }]}>
+                      Chưa có phản hồi nào
+                    </Text>
+                  )}
+                </View>
+
+                <ChevronRight size={16} color="#94A3B8" />
               </TouchableOpacity>
             </View>
           </View>
 
           {/* =========================================================================
-              THẺ 2: CẢNH BÁO (THÔNG BÁO NHẮC NHỞ), CHỈNH SỬA BÌNH CHỌN NHANH, GHI CHÚ
+              THẺ 2: CẢNH BÁO (NHẮC NHỞ XÂY NHƯ TRONG CHỈNH SỬA) VÀ GHI CHÚ
+              (Đã bỏ phản hồi ở Thẻ 2)
              ========================================================================= */}
-          <View style={styles.detailUnifiedCard}>
-            {/* 1. Cảnh báo / Thông báo nhắc nhở (cho thao tác chỉnh nhanh) */}
-            <View style={styles.detailUnifiedSection}>
-              <View style={styles.detailSectionHeaderBetween}>
-                <View style={styles.detailSectionHeader}>
-                  <Bell size={16} color="#D97706" />
-                  <Text style={styles.detailSectionTitle}>Thông báo nhắc nhở</Text>
+          <View style={styles.detailCleanCard}>
+            {/* 1. Thông báo nhắc nhở (xây dạng hàng Apple Row như trong form chỉnh sửa) */}
+            <TouchableOpacity
+              style={styles.detailAppleReminderRow}
+              activeOpacity={0.7}
+              disabled={detailEvent.isCancelled || isUpdatingReminder}
+              onPress={() => {
+                Haptics.selectionAsync();
+                setIsQuickReminderModalOpen(true);
+              }}
+            >
+              <View style={styles.detailRowCleanLeft}>
+                <View style={styles.detailIconSlot}>
+                  <Bell size={18} color="#D97706" />
                 </View>
-                {!detailEvent.isCancelled && (
-                  <TouchableOpacity
-                    style={styles.detailWebStyleReminderAction}
-                    activeOpacity={0.7}
-                    disabled={isUpdatingReminder}
-                    onPress={() => setIsQuickReminderModalOpen(true)}
-                  >
-                    <Text style={styles.detailWebStyleReminderActionText}>Đổi</Text>
-                    <ChevronDown size={13} color="#0D9488" />
-                  </TouchableOpacity>
-                )}
+                <Text style={styles.detailAppleReminderLabel}>Nhắc trước</Text>
               </View>
 
-              <TouchableOpacity
-                style={styles.detailWebStyleReminderCard}
-                activeOpacity={0.7}
-                disabled={detailEvent.isCancelled || isUpdatingReminder}
-                onPress={() => setIsQuickReminderModalOpen(true)}
-              >
-                <View style={styles.detailWebStyleReminderContent}>
-                  <Bell size={15} color="#D97706" />
-                  <Text style={styles.detailWebStyleReminderText}>
-                    {detailEvent.reminderTime
-                      ? `Nhắc trước lúc ${new Date(detailEvent.reminderTime).toLocaleTimeString('vi-VN', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })} (${reminderLabel})`
-                      : 'Không có thông báo nhắc nhở'}
-                  </Text>
-                </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={styles.detailAppleReminderValue}>{reminderLabel}</Text>
                 {!detailEvent.isCancelled && (
-                  <ChevronRight size={15} color="#94A3B8" />
+                  <ChevronRight size={14} color="#C7C7CC" />
                 )}
-              </TouchableOpacity>
-            </View>
+              </View>
+            </TouchableOpacity>
 
             {/* Phân cách */}
-            <View style={styles.detailUnifiedDivider} />
+            <View style={styles.detailCleanDivider} />
 
-            {/* 2. Chỉnh sửa bình chọn nhanh (Quick RSVP Selector) */}
-            <View style={styles.detailUnifiedSection}>
-              <View style={styles.detailSectionHeaderBetween}>
-                <View style={styles.detailSectionHeader}>
-                  <Check size={16} color="#0D9488" />
-                  <Text style={styles.detailSectionTitle}>Phản hồi của bạn</Text>
-                </View>
-                {myRsvp && (
-                  <Text style={styles.detailMyRsvpBadgeText}>
-                    Đã chọn: {myRsvp === EventRsvpStatus.YES ? 'Tham gia' : myRsvp === EventRsvpStatus.MAYBE ? 'Chưa chắc' : 'Bận'}
+            {/* 2. Ghi chú */}
+            <View style={styles.detailRowClean}>
+              <View style={styles.detailIconSlot}>
+                <Info size={18} color="#0D9488" />
+              </View>
+
+              <View style={{ flex: 1 }}>
+                {hasValidDesc ? (
+                  <Text style={styles.detailNotesCleanText}>{cleanDescriptionText}</Text>
+                ) : (
+                  <Text style={[styles.detailCleanBodyText, { color: '#94A3B8', fontStyle: 'italic' }]}>
+                    Không có ghi chú
                   </Text>
                 )}
               </View>
-
-              <View style={styles.detailQuickRsvpRow}>
-                {[
-                  {
-                    status: EventRsvpStatus.YES,
-                    label: 'Tham gia',
-                    activeBg: '#D1FAE5',
-                    activeBorder: '#10B981',
-                    textColor: '#047857',
-                    icon: Check,
-                  },
-                  {
-                    status: EventRsvpStatus.MAYBE,
-                    label: 'Chưa chắc',
-                    activeBg: '#FEF3C7',
-                    activeBorder: '#F59E0B',
-                    textColor: '#B45309',
-                    icon: HelpCircle,
-                  },
-                  {
-                    status: EventRsvpStatus.NO,
-                    label: 'Bận',
-                    activeBg: '#FEE2E2',
-                    activeBorder: '#EF4444',
-                    textColor: '#B91C1C',
-                    icon: X,
-                  },
-                ].map((item) => {
-                  const isSelected = myRsvp === item.status;
-                  const IconC = item.icon;
-                  return (
-                    <TouchableOpacity
-                      key={item.status}
-                      style={[
-                        styles.detailQuickRsvpBtn,
-                        isSelected && {
-                          backgroundColor: item.activeBg,
-                          borderColor: item.activeBorder,
-                          borderWidth: 1.5,
-                        },
-                      ]}
-                      activeOpacity={0.7}
-                      disabled={Boolean(detailEvent.isCancelled) || isStarted}
-                      onPress={() => handleRsvp(item.status)}
-                    >
-                      <IconC size={14} color={isSelected ? item.textColor : '#64748B'} />
-                      <Text
-                        style={[
-                          styles.detailQuickRsvpBtnText,
-                          isSelected && { color: item.textColor, fontWeight: '700' },
-                        ]}
-                      >
-                        {item.label}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </View>
-
-            {/* Phân cách */}
-            <View style={styles.detailUnifiedDivider} />
-
-            {/* 3. Ghi chú */}
-            <View style={styles.detailUnifiedSection}>
-              <View style={styles.detailSectionHeader}>
-                <Info size={16} color="#0D9488" />
-                <Text style={styles.detailSectionTitle}>Ghi chú</Text>
-              </View>
-              {hasValidDesc ? (
-                <Text style={styles.detailNotesText}>{cleanDescriptionText}</Text>
-              ) : (
-                <Text style={[styles.detailCardBodyText, { color: '#94A3B8', fontStyle: 'italic' }]}>
-                  Không có ghi chú
-                </Text>
-              )}
             </View>
           </View>
 
@@ -3177,22 +3071,20 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
         </ScrollView>
 
         {/* =========================================================================
-            NÚT TREO: THAM GIA BÌNH CHỌN (ẤN VÀO SẼ RA BÌNH CHỌN POLL CHI TIẾT)
+            NÚT TREO: THAM GIA BÌNH CHỌN (DẠNG STICKY TEXT BUTTON)
            ========================================================================= */}
         <View style={styles.detailFloatingBottomBar}>
           <TouchableOpacity
-            style={styles.detailFloatingPollBtn}
-            activeOpacity={0.85}
+            style={styles.detailStickyBottomBtn}
+            activeOpacity={0.8}
             onPress={() => {
               Haptics.selectionAsync();
               setIsDetailPollModalOpen(true);
             }}
           >
-            <Users size={18} color="#FFFFFF" />
-            <Text style={styles.detailFloatingPollBtnText}>Tham gia bình chọn</Text>
-            {myRsvp && (
-              <View style={styles.detailFloatingMyRsvpDot} />
-            )}
+            <Users size={17} color="#0D9488" />
+            <Text style={styles.detailStickyBottomBtnText}>Tham gia bình chọn</Text>
+            {myRsvp && <View style={styles.detailStickyMyRsvpDot} />}
           </TouchableOpacity>
         </View>
 
@@ -5001,6 +4893,170 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#64748B',
     marginTop: 2,
+  },
+  detailStickyTextBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+  },
+  detailStickyTextBtnLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#0D9488',
+  },
+  detailCleanCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  detailCleanHeader: {
+    gap: 8,
+    paddingBottom: 2,
+  },
+  detailCleanDivider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginVertical: 12,
+  },
+  detailRowClean: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  detailRowCleanLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  detailIconSlot: {
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  detailLinkCleanBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  detailLinkCleanText: {
+    fontSize: 15,
+    color: '#0D9488',
+    fontWeight: '600',
+    textDecorationLine: 'underline',
+    flex: 1,
+  },
+  detailCleanTimeWrap: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  detailCleanTimeCol: {
+    flex: 1,
+  },
+  detailCleanTimeHour: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  detailCleanTimeDate: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  detailCleanTimeDivider: {
+    width: 1,
+    height: 32,
+    backgroundColor: '#E2E8F0',
+    marginHorizontal: 16,
+  },
+  detailCleanRecurrenceBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  detailCleanBodyText: {
+    fontSize: 15,
+    color: '#1E293B',
+    fontWeight: '500',
+    flex: 1,
+  },
+  detailJumpTagClean: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  detailJumpTagCleanText: {
+    fontSize: 13,
+    color: '#0D9488',
+    fontWeight: '600',
+  },
+  detailCleanAttendeesBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  detailCleanAttendeesStats: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0F172A',
+  },
+  detailRsvpAvatarsRowClean: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  detailAppleReminderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  detailAppleReminderLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1E293B',
+  },
+  detailAppleReminderValue: {
+    fontSize: 14,
+    color: '#8E8E93',
+  },
+  detailNotesCleanText: {
+    fontSize: 14,
+    color: '#334155',
+    lineHeight: 20,
+  },
+  detailStickyBottomBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+  },
+  detailStickyBottomBtnText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0D9488',
+  },
+  detailStickyMyRsvpDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: '#10B981',
   },
   detailFullScreenContainer: {
     position: 'absolute',
