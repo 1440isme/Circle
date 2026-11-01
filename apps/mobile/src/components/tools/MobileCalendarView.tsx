@@ -524,9 +524,9 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
     return list;
   }, []);
 
-  const monthScrollRef = useRef<ScrollView>(null);
+  const monthScrollRef = useRef<React.ElementRef<typeof ScrollView>>(null);
   const yearLayoutsRef = useRef<Record<number, number>>({});
-  const yearScrollRef = useRef<ScrollView>(null);
+  const yearScrollRef = useRef<React.ElementRef<typeof ScrollView>>(null);
 
   const scrollToMonth = useCallback(
     (targetYear: number, targetMonth: number, animated = true) => {

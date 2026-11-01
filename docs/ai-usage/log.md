@@ -5505,3 +5505,40 @@
 - **Official Source Checked:** Apple Human Interface Guidelines (Modals & Navigation), Circle Design System Specifications.
 - **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
 - **Branch:** `feat/redesign-web-rail-and-mobile-apple-minimalism`
+
+
+---
+
+### Entry AI-0147
+
+- **Timestamp:** 2026-11-01T16:21:00+07:00
+- **Author:** Trương Công Bình (23110184)
+- **Tool:** Antigravity IDE (Gemini 2.5 Pro)
+- **Task / Scope:** Khắc phục lỗi không tương thích Expo Go iOS (Project SDK 57 vs Expo Go SDK 58.0.0), đồng bộ hóa toàn diện `node_modules` lên Expo SDK 58.0.x và React Native 0.88, giải quyết toàn bộ type breaking changes của React 19 trong Mobile codebase.
+- **Files Touched:**
+  - `apps/mobile/app/(auth)/verify-otp.tsx`
+  - `apps/mobile/app/(tabs)/circles.tsx`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `apps/mobile/src/components/auth/PasswordRecoveryWizard.tsx`
+  - `apps/mobile/src/components/call/MobileCallStageModal.tsx`
+  - `apps/mobile/src/components/moment/MomentsView.tsx`
+  - `apps/mobile/src/components/tools/MobileCalendarView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:**
+  1. **Đồng bộ hóa node_modules lên Expo SDK 58.0.x:**
+     - Thực thi `npm install` cập nhật triệt để thư viện `node_modules/expo` (57.0.25 -> 58.0.19) và `@expo/cli` (58.1.16) đồng bộ với `apps/mobile/package.json` và ứng dụng Expo Go trên thiết bị iOS (SDK 58.0.0).
+     - Xác nhận `expo config --type public` nhận diện chính xác `sdkVersion: '58.0.0'`.
+  2. **Khắc phục Type Breaking Changes của React 19 & React Native 0.88:**
+     - Chuyển đổi định kiểu `useRef<Component>` sang chuẩn React 19 `useRef<React.ElementRef<typeof Component>>` cho `TextInput`, `ScrollView`, `View` trong các màn hình `verify-otp.tsx`, `PasswordRecoveryWizard.tsx`, `MomentsView.tsx`, `MobileCalendarView.tsx`, và `circle/[id].tsx`.
+     - Điều chỉnh `onRefresh` trong `RefreshControl` thành `() => { refetch(); }` để thỏa mãn strict return type `void | Promise<void>`.
+     - Loại bỏ prop `backgroundColor` không hợp lệ khỏi thẻ `<StatusBar>` trong `MobileCallStageModal.tsx`.
+- **Human Modifications:** Trương Công Bình báo cáo lỗi Expo Go iOS không mở được dự án do lệch phiên bản SDK (57 vs 58), yêu cầu khắc phục triệt để.
+- **Verification Method:**
+  - Expo SDK Version Check: `cd apps/mobile && npx expo config --type public` (`sdkVersion: '58.0.0'`).
+  - Mobile TypeScript: `npx tsc --noEmit -p apps/mobile/tsconfig.json` (0 errors).
+  - Web TypeScript: `npx tsc --noEmit -p apps/web/tsconfig.json` (0 errors).
+  - Backend Unit Tests: `npm test -w @circle/backend` (11/11 test suites pass, 186/186 tests pass).
+  - Secret Check & Pre-commit Hook: `./scripts/check-secrets.sh` (486 files checked, 0 leaks detected) & `./.githooks/pre-commit` (Passed 100%).
+- **Official Source Checked:** Expo SDK 58 Release Notes & Upgrade Walkthrough, React Native 0.88 TypeScript Definitions, React 19 ElementRef Guidelines.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+- **Branch:** `fix/upgrade-mobile-expo-sdk-58`

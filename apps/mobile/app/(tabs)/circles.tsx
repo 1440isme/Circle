@@ -122,7 +122,9 @@ export default function CirclesTab() {
           refreshControl={
             <RefreshControl
               refreshing={isRefetching}
-              onRefresh={refetch}
+              onRefresh={() => {
+                refetch();
+              }}
               tintColor={colors.primary}
             />
           }
@@ -179,7 +181,9 @@ export default function CirclesTab() {
           refreshControl={
             <RefreshControl
               refreshing={isRefetching}
-              onRefresh={refetch}
+              onRefresh={() => {
+                refetch();
+              }}
               tintColor={colors.primary}
             />
           }

@@ -58,7 +58,7 @@ export function PasswordRecoveryWizard({
   const [apiError, setApiError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  const pinInputRef = useRef<TextInput>(null);
+  const pinInputRef = useRef<React.ElementRef<typeof TextInput>>(null);
 
   useEffect(() => {
     if (initialEmail && !email) {

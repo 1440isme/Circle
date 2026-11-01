@@ -1371,7 +1371,7 @@ export default function CircleWorkspaceScreen() {
   const setJoinModalVisible = useCircleStore((s) => s.setJoinModalVisible);
 
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
-  const horizontalPagerRef = useRef<ScrollView>(null);
+  const horizontalPagerRef = useRef<React.ElementRef<typeof ScrollView>>(null);
   const TAB_ORDER: WorkspaceTab[] = useMemo(() => ['moments', 'chat', 'tools'], []);
 
   const [circleSwitcherVisible, setCircleSwitcherVisible] = useState(false);
@@ -1455,7 +1455,7 @@ export default function CircleWorkspaceScreen() {
   const [momentsHistoryViewMode, setMomentsHistoryViewMode] = useState<'month' | 'map'>('month');
   const [headerHeight, setHeaderHeight] = useState(Platform.OS === 'ios' ? 128 : 112);
 
-  const scrollViewRef = useRef<ScrollView>(null);
+  const scrollViewRef = useRef<React.ElementRef<typeof ScrollView>>(null);
 
   const initiateCallMutation = useInitiateCallMutation();
   const joinCallMutation = useJoinCallMutation();
@@ -1823,9 +1823,9 @@ export default function CircleWorkspaceScreen() {
   const prevLastMessageIdRef = useRef<string | null>(null);
   const isFirstLoadRef = useRef(true);
   const isNearBottomRef = useRef(true);
-  const messageRefs = useRef<Record<string, View | null>>({});
-  const chatContainerRef = useRef<View | null>(null);
-  const messagesContentRef = useRef<View | null>(null);
+  const messageRefs = useRef<Record<string, React.ElementRef<typeof View> | null>>({});
+  const chatContainerRef = useRef<React.ElementRef<typeof View> | null>(null);
+  const messagesContentRef = useRef<React.ElementRef<typeof View> | null>(null);
   const currentScrollYRef = useRef(0);
   const scrollViewPageYRef = useRef<number | undefined>(undefined);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
@@ -2642,7 +2642,7 @@ export default function CircleWorkspaceScreen() {
             collapsable={false}
             style={styles.chatContainer}
             onLayout={() => {
-              chatContainerRef.current?.measureInWindow((_x, y) => {
+              chatContainerRef.current?.measureInWindow((_x: number, y: number) => {
                 if (typeof y === 'number' && !isNaN(y)) {
                   scrollViewPageYRef.current = y;
                 }
