@@ -6,6 +6,7 @@ import {
   Clock,
   CalendarDays,
   MapPin,
+  Navigation,
   Plus,
   ChevronRight,
   Radio,
@@ -24,7 +25,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useLanguageStore } from '../../stores/language.store';
 import { useCircleStore } from '../../stores/circle.store';
 import { useCircleMembersQuery, useCircleJoinRequestsQuery } from '../../hooks/use-circle-queries';
-import { useCalendarEventsQuery } from '../../hooks/use-circle-tools';
+import { useCalendarEventsQuery, useLiveLocationsQuery } from '../../hooks/use-circle-tools';
 import { useCirclePresence } from '../../hooks/use-circle-presence';
 import {
   useActiveCallQuery,
@@ -47,10 +48,12 @@ export const PresenceRail: React.FC = () => {
   const setActiveCallStageSession = useCircleStore((s) => s.setActiveCallStageSession);
   const setActiveCircleView = useCircleStore((s) => s.setActiveCircleView);
   const setTargetCalendarEvent = useCircleStore((s) => s.setTargetCalendarEvent);
+  const setTargetLocationCoords = useCircleStore((s) => s.setTargetLocationCoords);
   const { data: activeCall } = useActiveCallQuery(activeCircle?.id || null);
   const initiateCallMutation = useInitiateCallMutation();
   const joinCallMutation = useJoinCallMutation();
   const { data: calendarEvents = [] } = useCalendarEventsQuery(activeCircle?.id || null);
+  const { data: activeLocations = [] } = useLiveLocationsQuery(activeCircle?.id || null);
 
   const upcomingEvents = React.useMemo(() => {
     const now = new Date().getTime();
@@ -378,6 +381,84 @@ export const PresenceRail: React.FC = () => {
             >
               <Plus className="h-3 w-3" />
               <span>Lên lịch mới</span>
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Live Locations Broadcasting Status (Realtime Collab Status Column 3) */}
+      <div className="flex flex-col gap-2 pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline">
+        <div className="flex items-center justify-between px-1 mb-0.5">
+          <div className="flex items-center gap-1.5 text-[11px] font-bold text-circle-slate dark:text-circle-dark-muted uppercase tracking-wider">
+            <Navigation className="h-3.5 w-3.5 text-sky-500" />
+            <span>Vị trí trực tiếp</span>
+            {activeLocations.length > 0 && (
+              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-sky-500/10 text-sky-600 dark:text-sky-400">
+                {activeLocations.length}
+              </span>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => setActiveCircleView('location')}
+            className="text-[11px] font-semibold text-circle-sage dark:text-circle-primary hover:underline flex items-center gap-0.5"
+          >
+            <span>Bản đồ</span>
+            <ChevronRight className="h-3 w-3" />
+          </button>
+        </div>
+
+        {activeLocations.length > 0 ? (
+          <div className="space-y-1.5">
+            {activeLocations.map((loc) => {
+              const isMe = loc.member?.userId === user?.id;
+              const name = loc.member?.user?.profile?.displayName || 'Thành viên';
+              const avatar = loc.member?.user?.profile?.avatarUrl;
+              const initials = name.substring(0, 2).toUpperCase();
+
+              return (
+                <div
+                  key={loc.id}
+                  onClick={() => {
+                    setActiveCircleView('location');
+                    setTargetLocationCoords({ lat: loc.latitude, lng: loc.longitude });
+                  }}
+                  className="rounded-xl border border-circle-hairline/80 dark:border-circle-dark-hairline/80 bg-circle-canvas/60 dark:bg-circle-dark-canvas/60 p-2 hover:border-sky-500/50 transition-all cursor-pointer group flex items-center justify-between gap-2"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="relative w-6 h-6 rounded-full overflow-hidden bg-sky-500/20 text-sky-600 font-bold text-[9px] flex items-center justify-center shrink-0">
+                      {avatar ? (
+                        <img src={avatar} alt="avatar" className="w-full h-full object-cover" />
+                      ) : (
+                        <span>{initials}</span>
+                      )}
+                      <span className="absolute bottom-0 right-0 w-1.5 h-1.5 rounded-full bg-emerald-500 ring-1 ring-white dark:ring-circle-dark-surface" />
+                    </div>
+                    <span className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text group-hover:text-sky-600 dark:group-hover:text-sky-400 truncate">
+                      {name} {isMe && '(Tôi)'}
+                    </span>
+                  </div>
+
+                  <span className="text-[10px] font-medium text-sky-600 dark:text-sky-400 shrink-0 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse" />
+                    Đang chia sẻ
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="rounded-xl border border-dashed border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/40 dark:bg-circle-dark-canvas/40 p-2.5 text-center">
+            <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted">
+              Chưa có ai đang chia sẻ vị trí
+            </p>
+            <button
+              type="button"
+              onClick={() => setActiveCircleView('location')}
+              className="mt-1.5 text-[11px] font-semibold text-circle-sage dark:text-circle-primary hover:underline inline-flex items-center gap-1"
+            >
+              <Radio className="h-3 w-3" />
+              <span>Bật chia sẻ</span>
             </button>
           </div>
         )}
