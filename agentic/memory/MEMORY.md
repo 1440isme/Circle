@@ -54,6 +54,7 @@
 - Tái cấu trúc và nâng cấp trải nghiệm cụm tính năng Cộng tác nhóm (Collab Module 7) trước khi sang Module 8:
   - Issue #119 (Bình): Tích hợp Unified Interactive Map Engine toàn hệ thống (Leaflet Web + MapView Mobile), đưa Group Poll vào luồng Chat và cải thiện Planning Sheet.
   - Issue #120 (Hạnh): Hệ thống Event RSVP (3 trạng thái), Thẻ Lịch hẹn trong Chat, Lightbox Album và Realtime Wheel Sync.
+  - Issue #125 (Bình): US-UX-002 — Kiến trúc Floating Glass Controls with Scroll-Under Content toàn diện hệ thống (Web & Mobile).
 
 ## Core Reference Topics (Lớp 3 — bối cảnh sâu)
 
