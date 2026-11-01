@@ -2750,51 +2750,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
 
     return (
       <View style={styles.detailFullScreenContainer}>
-        {/* Floating Controls Bar (Bỏ heading 'Chi tiết lịch hẹn', chỉ còn cụm điều khiển nổi dạng Sticky Text Button) */}
-        <View style={styles.detailNavHeader}>
-          {/* Góc trái: nút Quay lại (< Lịch dạng Sticky Text Button) */}
-          <TouchableOpacity
-            style={styles.detailStickyTextBtn}
-            activeOpacity={0.65}
-            onPress={() => {
-              setDetailEvent(null);
-              Haptics.selectionAsync();
-            }}
-          >
-            <ChevronLeft size={20} color="#0D9488" />
-            <Text style={styles.detailStickyTextBtnLabel}>Lịch</Text>
-          </TouchableOpacity>
-
-          {/* Góc phải: Nút Bút (Sửa) và Nút Ba Chấm Ngang (MoreHorizontal) dạng Sticky Text Button */}
-          <View style={styles.detailNavRightActions}>
-            {!detailEvent.isCancelled && (
-              <TouchableOpacity
-                style={styles.detailStickyTextBtn}
-                activeOpacity={0.65}
-                onPress={() => {
-                  const evToEdit = detailEvent;
-                  handleOpenEditModal(evToEdit);
-                }}
-              >
-                <Pencil size={17} color="#0D9488" />
-                <Text style={styles.detailStickyTextBtnLabel}>Sửa</Text>
-              </TouchableOpacity>
-            )}
-
-            <TouchableOpacity
-              style={styles.detailStickyTextBtn}
-              activeOpacity={0.65}
-              onPress={() => {
-                Haptics.selectionAsync();
-                setIsDetailMenuOpen(true);
-              }}
-            >
-              <MoreHorizontal size={20} color="#475569" />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Scrollable Content */}
+        {/* Scrollable Content (Toàn màn hình, khi cuộn nội dung sẽ lướt qua bên dưới 3 nút Floating Pill) */}
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.detailFullScreenContent}
@@ -3067,6 +3023,51 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
 
           <View style={{ height: 100 }} />
         </ScrollView>
+
+        {/* =========================================================================
+            3 NÚT FLOATING PILL BUTTONS (Nổi lơ lửng ở đỉnh, nội dung lướt qua bên dưới)
+           ========================================================================= */}
+        <View style={styles.detailFloatingPillHeader} pointerEvents="box-none">
+          {/* Nút 1: Quay lại (< Lịch) - Dạng Floating Pill Button */}
+          <TouchableOpacity
+            style={[styles.detailFloatingPillBtn, styles.detailFloatingBackPill]}
+            activeOpacity={0.7}
+            onPress={() => {
+              setDetailEvent(null);
+              Haptics.selectionAsync();
+            }}
+          >
+            <ChevronLeft size={19} color="#0D9488" />
+            <Text style={styles.detailFloatingPillText}>Lịch</Text>
+          </TouchableOpacity>
+
+          {/* Góc phải: Nút 2 (Sửa - bỏ chữ sửa) & Nút 3 (Ba chấm ngang) - Dạng Floating Pill Button */}
+          <View style={styles.detailFloatingRightPills}>
+            {!detailEvent.isCancelled && (
+              <TouchableOpacity
+                style={[styles.detailFloatingPillBtn, styles.detailFloatingCirclePill]}
+                activeOpacity={0.7}
+                onPress={() => {
+                  const evToEdit = detailEvent;
+                  handleOpenEditModal(evToEdit);
+                }}
+              >
+                <Pencil size={17} color="#0D9488" />
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity
+              style={[styles.detailFloatingPillBtn, styles.detailFloatingCirclePill]}
+              activeOpacity={0.7}
+              onPress={() => {
+                Haptics.selectionAsync();
+                setIsDetailMenuOpen(true);
+              }}
+            >
+              <MoreHorizontal size={19} color="#475569" />
+            </TouchableOpacity>
+          </View>
+        </View>
 
         {/* =========================================================================
             NÚT TREO: THAM GIA BÌNH CHỌN (DẠNG STICKY TEXT BUTTON)
@@ -5107,8 +5108,51 @@ const styles = StyleSheet.create({
   },
   detailFullScreenContent: {
     paddingHorizontal: 16,
-    paddingTop: 6,
+    paddingTop: 58,
     paddingBottom: 40,
+  },
+  detailFloatingPillHeader: {
+    position: 'absolute',
+    top: 10,
+    left: 0,
+    right: 0,
+    zIndex: 50,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+  },
+  detailFloatingRightPills: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  detailFloatingPillBtn: {
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 5,
+    elevation: 3,
+  },
+  detailFloatingBackPill: {
+    paddingHorizontal: 12,
+    gap: 2,
+  },
+  detailFloatingCirclePill: {
+    width: 38,
+  },
+  detailFloatingPillText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0D9488',
   },
   detailUnifiedCard: {
     backgroundColor: '#FFFFFF',
