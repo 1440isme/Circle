@@ -20,6 +20,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { useLanguageStore } from '../../stores/language.store';
 import { useThemeStore } from '../../stores/theme.store';
+import { useCircleStore } from '../../stores/circle.store';
 import {
   useLiveLocationsQuery,
   useStartLiveLocationMutation,
@@ -61,6 +62,9 @@ export const CircleLocationView: React.FC<CircleLocationViewProps> = ({ circleId
   const [isSendingToChat, setIsSendingToChat] = useState(false);
   const [chatSentSuccess, setChatSentSuccess] = useState(false);
 
+  const targetLocationCoords = useCircleStore((s) => s.targetLocationCoords);
+  const setTargetLocationCoords = useCircleStore((s) => s.setTargetLocationCoords);
+
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markersGroupRef = useRef<L.FeatureGroup | null>(null);
@@ -85,7 +89,15 @@ export const CircleLocationView: React.FC<CircleLocationViewProps> = ({ circleId
     (loc) => loc.member?.userId === user?.id || (loc as any).memberId === user?.id,
   );
 
-  // Acquire initial GPS position on mount
+  // Fly to target coords when clicked from PresenceRail
+  useEffect(() => {
+    if (targetLocationCoords && mapRef.current) {
+      mapRef.current.setView([targetLocationCoords.lat, targetLocationCoords.lng], 16, {
+        animate: true,
+      });
+      setTargetLocationCoords(null);
+    }
+  }, [targetLocationCoords, setTargetLocationCoords]);
   useEffect(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -454,13 +466,13 @@ export const CircleLocationView: React.FC<CircleLocationViewProps> = ({ circleId
         </div>
       </div>
 
-      {/* Main Content Area: Leaflet Map + Active Members Sidebar */}
-      <div className="flex-1 flex overflow-hidden relative">
+      {/* Main Content Area: Pure Full-Width Leaflet Map Canvas */}
+      <div className="flex-1 flex overflow-hidden relative w-full h-full">
         {/* Leaflet Map Canvas */}
         <div ref={containerRef} className="flex-1 h-full w-full z-0" />
 
         {MAPBOX_TOKEN && (
-          <div className="absolute bottom-4 right-76 z-10 bg-black/60 backdrop-blur-xs text-white text-[10px] px-2 py-0.5 rounded-md pointer-events-none opacity-80 select-none">
+          <div className="absolute bottom-4 right-4 z-10 bg-black/60 backdrop-blur-xs text-white text-[10px] px-2.5 py-1 rounded-md pointer-events-none opacity-80 select-none shadow-sm">
             Mapbox
           </div>
         )}
@@ -469,101 +481,6 @@ export const CircleLocationView: React.FC<CircleLocationViewProps> = ({ circleId
         <div className="absolute bottom-4 left-4 z-10 bg-white/90 dark:bg-circle-dark-surface/90 backdrop-blur-md border border-circle-hairline dark:border-circle-dark-hairline px-3 py-1.5 rounded-xl flex items-center gap-2 text-[11px] text-circle-slate dark:text-circle-dark-muted shadow-sm">
           <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
           <span>{t.collab.locationPrivacyNotice}</span>
-        </div>
-
-        {/* Right Sidebar: Active Members List */}
-        <div className="w-72 border-l border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface flex flex-col z-10 shadow-xs">
-          <div className="p-3.5 border-b border-circle-hairline dark:border-circle-dark-hairline flex items-center justify-between">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-circle-slate dark:text-circle-dark-muted flex items-center gap-1.5">
-              <Users className="w-3.5 h-3.5" />
-              <span>
-                {t.collab.activeBroadcastingCount.replace('{count}', String(activeLocations.length))}
-              </span>
-            </h3>
-          </div>
-
-          <div className="flex-1 overflow-y-auto p-3 space-y-2">
-            {activeLocations.length === 0 ? (
-              <div className="text-center py-10 px-4 flex flex-col items-center justify-center gap-2">
-                <Navigation className="w-8 h-8 text-sky-400 stroke-[1.5]" />
-                <h4 className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
-                  {t.collab.emptyLocationTitle}
-                </h4>
-                <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted leading-relaxed">
-                  {t.collab.emptyLocationDesc}
-                </p>
-              </div>
-            ) : (
-              activeLocations.map((loc) => {
-                const isMe = loc.member?.userId === user?.id;
-                const name = loc.member?.user?.profile?.displayName || 'Thành viên';
-                const avatar = loc.member?.user?.profile?.avatarUrl;
-                const initials = name.substring(0, 2).toUpperCase();
-
-                let distanceText: string | null = null;
-                if (currentCoords && !isMe) {
-                  const dist = calculateDistanceKm(
-                    currentCoords.lat,
-                    currentCoords.lng,
-                    loc.latitude,
-                    loc.longitude,
-                  );
-                  if (dist < 1) {
-                    distanceText = t.collab.distanceAwayM.replace(
-                      '{distance}',
-                      String(Math.round(dist * 1000)),
-                    );
-                  } else {
-                    distanceText = t.collab.distanceAwayKm.replace(
-                      '{distance}',
-                      dist.toFixed(1),
-                    );
-                  }
-                }
-
-                return (
-                  <div
-                    key={loc.id}
-                    onClick={() => {
-                      if (mapRef.current) {
-                        mapRef.current.setView([loc.latitude, loc.longitude], 16, {
-                          animate: true,
-                        });
-                      }
-                    }}
-                    className="p-2.5 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-wash/60 dark:bg-circle-dark-canvas/60 hover:bg-circle-wash dark:hover:bg-circle-dark-wash cursor-pointer transition-all flex items-center justify-between gap-2.5"
-                  >
-                    <div className="flex items-center gap-2.5 truncate">
-                      <div className="relative w-8 h-8 rounded-full overflow-hidden bg-sky-500/20 text-sky-600 font-bold text-xs flex items-center justify-center shrink-0">
-                        {avatar ? (
-                          <img src={avatar} alt="avatar" className="w-full h-full object-cover" />
-                        ) : (
-                          <span>{initials}</span>
-                        )}
-                        <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-500" />
-                      </div>
-                      <div className="truncate">
-                        <p className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text truncate">
-                          {name} {isMe && '(Tôi)'}
-                        </p>
-                        {distanceText && (
-                          <p className="text-[10px] text-sky-600 dark:text-sky-400 font-medium">
-                            {distanceText}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="text-right shrink-0">
-                      <span className="text-[10px] font-mono text-amber-600 dark:text-amber-400 font-semibold block">
-                        {getRemainingTime(loc.expiresAt)}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
         </div>
       </div>
     </div>

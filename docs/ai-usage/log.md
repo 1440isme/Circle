@@ -5471,3 +5471,37 @@
 - **Official Source Checked:** Circle Design Guidelines, Apple Human Interface Guidelines, WCAG AA Contrast Ratios.
 - **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
 - **Branch:** `chore/design-system-and-ui-excellence`
+
+
+---
+
+### Entry AI-0146
+
+- **Timestamp:** 2026-11-01T16:00:00+07:00
+- **Author:** Trương Công Bình (23110184)
+- **Tool:** Antigravity IDE (Gemini 2.5 Pro)
+- **Task / Scope:** Cải tổ Web Cột 3 Realtime Status Rail (loại bỏ chia cột phụ ở cột giữa, chuyển live location sang cột 3) và Tái thiết kế Mobile Circle Workspace theo chuẩn Apple Radical Minimalism (Pager ngang Moments | Chat (Mặc định) | Tiện ích, Full-Screen Modal cho toàn bộ tiện ích nhóm).
+- **Files Touched:**
+  - `apps/web/src/stores/circle.store.ts`
+  - `apps/web/src/components/presence/PresenceRail.tsx`
+  - `apps/web/src/components/tools/CircleLocationView.tsx`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:**
+  1. **Tái cấu trúc Web Column 3 Architecture (Clean Middle Workspace & Realtime Rail):**
+     - Cột giữa (`CircleLocationView.tsx`): Xóa bỏ hoàn toàn thanh sidebar phụ 72px gây chia vụn màn hình, mở rộng bản đồ tương tác Mapbox chiếm 100% không gian chính.
+     - Cột 3 (`PresenceRail.tsx`): Bổ sung khu vực `Vị trí trực tiếp (Live Locations)` realtime hiển thị các thành viên đang chia sẻ định vị, cho phép nhấp vào để điều hướng mượt mà (`flyTo`) đến tọa độ của thành viên trên bản đồ cột giữa.
+     - Đồng bộ qua `circle.store.ts` với `targetLocationCoords` và `setTargetLocationCoords`.
+  2. **Tái cấu trúc Mobile Workspace theo chuẩn Apple Radical Minimalism:**
+     - Tái cơ cấu Pager 3 Tab ngang: **Moments (Trái - Index 0) | Chat (Giữa - Index 1, Mặc định khi vào bất kỳ Circle nào) | Tiện ích (Phải - Index 2)**. User vuốt sang trái để xem Moments, vuốt sang phải để mở Tiện ích.
+     - Tinh giản Header chuẩn iOS: Giữ capsule chuyển tab gọn gàng (`Camera | MessageSquare | Layers`), tinh giản thanh công cụ phía dưới, loại bỏ nút dư thừa rườm rà.
+     - Toàn bộ tiện ích nhóm (Album, Calendar, Planning, Location, Poll, Wheel, Anonymous) khi được chọn từ Tab Tiện ích sẽ mở ra **Full-Screen Modal edge-to-edge** với nút Back/Đóng quay về lại danh sách, mang lại trải nghiệm rộng rãi, tập trung, chuẩn Apple Human Interface Guidelines.
+- **Human Modifications:** Trương Công Bình yêu cầu phân định nghiêm ngặt nguyên tắc bố cục: Web cột giữa chỉ chứa nội dung chính không phân chia cột con, cột 3 là cột trạng thái realtime duy nhất; Mobile phải tuân thủ chuẩn Apple Minimalism, không nhồi nhét, các tiện ích bắt buộc mở toàn màn hình.
+- **Verification Method:**
+  - Web TypeScript Check: `npx tsc --noEmit -p apps/web/tsconfig.json` (0 errors).
+  - Mobile TypeScript Check: `npx tsc --noEmit -p apps/mobile/tsconfig.json` (0 errors).
+  - Web Production Build: `npm run build -w @circle/web` (0 errors, 11/11 static pages generated).
+  - Pre-commit Hook & Secret Scan: `./.githooks/pre-commit` & `./scripts/check-secrets.sh` (Passed 100%, 0 leaks).
+- **Official Source Checked:** Apple Human Interface Guidelines (Modals & Navigation), Circle Design System Specifications.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+- **Branch:** `feat/redesign-web-rail-and-mobile-apple-minimalism`
