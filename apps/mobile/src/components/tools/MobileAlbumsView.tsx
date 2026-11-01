@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -50,6 +50,7 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId }) 
   const { colors, resolvedTheme } = useThemeStore();
   const isDark = resolvedTheme === 'dark';
   const { t } = useLanguageStore();
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   const [albums, setAlbums] = useState<SharedAlbumEntity[]>([]);
   const [selectedAlbum, setSelectedAlbum] = useState<SharedAlbumEntity | null>(null);
@@ -452,10 +453,10 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId }) 
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.canvas,
   },
   header: {
     flexDirection: 'row',
@@ -465,23 +466,23 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#E2E8F0',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
   },
   screenTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#0F172A',
+    color: colors.text,
   },
   screenSub: {
     fontSize: 11,
-    color: '#64748B',
+    color: colors.subtle,
     marginTop: 2,
   },
   createBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#0F172A',
+    backgroundColor: colors.surface,
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 8,
@@ -496,16 +497,16 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   albumCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.hairline,
     overflow: 'hidden',
   },
   coverWrapper: {
     width: '100%',
     height: 140,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: colors.wash,
     position: 'relative',
   },
   coverImage: {
@@ -539,11 +540,11 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#0F172A',
+    color: colors.text,
   },
   cardDesc: {
     fontSize: 11,
-    color: '#64748B',
+    color: colors.subtle,
     marginTop: 2,
   },
   cardFooter: {
@@ -557,7 +558,7 @@ const styles = StyleSheet.create({
   },
   cardDate: {
     fontSize: 10,
-    color: '#94A3B8',
+    color: colors.subtle,
   },
   backBtn: {
     flexDirection: 'row',
@@ -567,7 +568,7 @@ const styles = StyleSheet.create({
   backText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#0F172A',
+    color: colors.text,
   },
   headerActions: {
     flexDirection: 'row',
@@ -578,7 +579,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#0F172A',
+    backgroundColor: colors.surface,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
@@ -594,23 +595,23 @@ const styles = StyleSheet.create({
   albumMeta: {
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: '#E2E8F0',
   },
   albumTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#0F172A',
+    color: colors.text,
   },
   albumDesc: {
     fontSize: 12,
-    color: '#64748B',
+    color: colors.subtle,
     marginTop: 4,
   },
   photoCountText: {
     fontSize: 11,
-    color: '#94A3B8',
+    color: colors.subtle,
     marginTop: 4,
   },
   photosGrid: {
@@ -640,12 +641,12 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#0F172A',
+    color: colors.text,
     marginTop: 12,
   },
   emptySub: {
     fontSize: 12,
-    color: '#64748B',
+    color: colors.subtle,
     textAlign: 'center',
     marginTop: 4,
     lineHeight: 18,
@@ -654,7 +655,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#0F172A',
+    backgroundColor: colors.surface,
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 10,
@@ -671,7 +672,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 20,
@@ -685,7 +686,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#0F172A',
+    color: colors.text,
   },
   formGroup: {
     marginBottom: 14,
@@ -693,18 +694,18 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#475569',
+    color: colors.subtle,
     marginBottom: 6,
   },
   input: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.canvas,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.hairline,
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 8,
     fontSize: 13,
-    color: '#0F172A',
+    color: colors.text,
   },
   textArea: {
     height: 70,
@@ -722,11 +723,11 @@ const styles = StyleSheet.create({
   },
   cancelText: {
     fontSize: 13,
-    color: '#64748B',
+    color: colors.subtle,
     fontWeight: '600',
   },
   submitBtn: {
-    backgroundColor: '#0F172A',
+    backgroundColor: colors.surface,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
