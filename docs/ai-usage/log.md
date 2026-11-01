@@ -5675,3 +5675,45 @@
 - **Official Source Checked:** Circle Design System, Socket.IO Realtime Events Specification, Tailwind CSS Breakpoint Standards.
 - **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
 - **Branch:** `fix/upgrade-mobile-expo-sdk-58`
+
+
+---
+
+### Entry AI-0152
+
+- **Timestamp:** 2026-11-01T17:23:00+07:00
+- **Author:** Trương Công Bình (23110184)
+- **Tool:** Antigravity IDE (Gemini 2.5 Pro)
+- **Task / Scope:** Module 7 (US-COLLAB-003, Issue #119 / #124) — Đưa Bình Chọn Đang Mở (Active Polls) lên Cột 3 với Socket.IO Realtime, Canh giữa Thẻ Hoạt Động Chung (Poll & Sự Kiện) trong Chat (Web & Mobile), Khắc phục Triệt để Lỗi Navigation `emit of undefined` và Vòng lặp Load Expo.
+- **Files Touched:**
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `apps/web/src/components/presence/PresenceRail.tsx`
+  - `apps/web/src/components/chat/MessageBubble.tsx`
+  - `apps/mobile/app/index.tsx`
+  - `apps/mobile/app/_layout.tsx`
+  - `apps/mobile/app/(tabs)/_layout.tsx`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:**
+  1. **Hiển thị Bình Chọn Đang Mở (Active Polls) ở Cột 3 Web:**
+     - Tích hợp `usePollsQuery` và lọc các cuộc bình chọn còn hạn / chưa kết thúc (`!isClosed && (!deadline || deadline > now)`).
+     - Thiết kế theo chuẩn giao diện Cột 3 với icon box `w-6 h-6 rounded-lg bg-circle-primary/10 text-circle-primary`, nhãn `BÌNH CHỌN ĐANG MỞ`, badge số lượng, preview câu hỏi, số phiếu và trạng thái đã bình chọn.
+     - Lắng nghe Socket.IO `circle:poll-created`, `circle:poll-voted`, `circle:poll-closed` để cập nhật kết quả theo thời gian thực.
+  2. **Canh giữa Thẻ Hoạt Động Chung trong Luồng Chat (Web & Mobile):**
+     - Tách biệt rành mạch giữa tính năng cá nhân (tin nhắn text, ảnh, check-in vị trí, tệp tin - hiển thị dạng bubble lệch trái/phải theo người gửi) và tính năng sinh hoạt chung của nhóm (Bình chọn `[GROUP_POLL]:` và Sự kiện `[CALENDAR_EVENT]:`).
+     - Đưa toàn bộ thẻ bình chọn và sự kiện ra vị trí trung tâm luồng chat (`mx-auto` / `alignItems: 'center'`) với khung thẻ nhóm trung tính, tạo trải nghiệm hội tụ cộng đồng theo đúng triết lý Group-first.
+  3. **Khắc phục Lỗi `TypeError: Cannot read property 'emit' of undefined` trên TabBar Mobile:**
+     - Trong `apps/mobile/app/(tabs)/_layout.tsx`, hàm `onPress` của CustomLiquidTabBar bọc kiểm tra an toàn `navigation && typeof navigation.emit === 'function'` và fallback sang `router.push()`, ngăn chặn văng app khi Expo Router không cung cấp navigation context.
+  4. **Giải quyết Triệt để Trạng thái Treo Loading khi Mở Ứng Dụng Mobile:**
+     - Cập nhật cả `apps/mobile/app/index.tsx` và `apps/mobile/app/_layout.tsx` xử lý chuẩn xác trạng thái khởi động: tự động điều hướng sang `/(tabs)` nếu đã đăng nhập hoặc `/(auth)/login` nếu chưa đăng nhập, không để ứng dụng bị mắc kẹt vô hạn ở màn hình `ActivityIndicator`.
+- **Human Modifications:** Trương Công Bình yêu cầu đưa tất cả những gì realtime và trạng thái chưa kết thúc (poll) lên cột 3, canh giữa các thành phần chung như poll/sự kiện trong chat, và báo cáo lỗi TypeError crash khi bấm tab icon và lỗi treo loading expo khi vào app.
+- **Verification Method:**
+  - Web TypeScript Check: `npx tsc --noEmit -p apps/web/tsconfig.json` (0 errors).
+  - Mobile TypeScript Check: `npx tsc --noEmit -p apps/mobile/tsconfig.json` (0 errors).
+  - Web Production Build: `npm run build -w @circle/web` (0 errors, 11/11 pages).
+  - Mobile Bundle Export: `cd apps/mobile && npx expo export --platform ios --no-bytecode` (3065 modules bundled successfully, exit code 0).
+  - Pre-commit Hook & Secret Check: `./.githooks/pre-commit` & `./scripts/check-secrets.sh` (Passed 100%, 0 leaks).
+- **Official Source Checked:** React Navigation TabBar Specs, Expo Router v4 Layout and Navigation Lifecycle, Circle Design System.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+- **Branch:** `fix/upgrade-mobile-expo-sdk-58`

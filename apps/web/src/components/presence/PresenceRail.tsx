@@ -20,12 +20,14 @@ import {
   Settings,
   Crown,
   Sparkles,
+  Vote,
+  CheckCircle2,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguageStore } from '../../stores/language.store';
 import { useCircleStore } from '../../stores/circle.store';
 import { useCircleMembersQuery, useCircleJoinRequestsQuery } from '../../hooks/use-circle-queries';
-import { useCalendarEventsQuery, useLiveLocationsQuery } from '../../hooks/use-circle-tools';
+import { useCalendarEventsQuery, useLiveLocationsQuery, usePollsQuery } from '../../hooks/use-circle-tools';
 import { useCirclePresence } from '../../hooks/use-circle-presence';
 import {
   useActiveCallQuery,
@@ -33,6 +35,8 @@ import {
   useJoinCallMutation,
 } from '../../hooks/use-call-queries';
 import { MemberRole, CallType, CallStatus } from '@circle/types';
+import { useQueryClient } from '@tanstack/react-query';
+import { getSocket } from '../../lib/socket';
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -54,6 +58,37 @@ export const PresenceRail: React.FC = () => {
   const joinCallMutation = useJoinCallMutation();
   const { data: calendarEvents = [] } = useCalendarEventsQuery(activeCircle?.id || null);
   const { data: activeLocations = [] } = useLiveLocationsQuery(activeCircle?.id || null);
+  const { data: polls = [] } = usePollsQuery(activeCircle?.id || null);
+  const queryClient = useQueryClient();
+
+  const activePolls = React.useMemo(() => {
+    const now = Date.now();
+    return polls.filter((p) => {
+      if (p.isClosed) return false;
+      if (p.deadline && new Date(p.deadline).getTime() <= now) return false;
+      return true;
+    });
+  }, [polls]);
+
+  React.useEffect(() => {
+    if (!activeCircle?.id) return;
+    const socket = getSocket();
+    if (!socket) return;
+
+    const handlePollUpdate = () => {
+      queryClient.invalidateQueries({ queryKey: ['circle-polls', activeCircle.id] });
+    };
+
+    socket.on('circle:poll-created', handlePollUpdate);
+    socket.on('circle:poll-voted', handlePollUpdate);
+    socket.on('circle:poll-closed', handlePollUpdate);
+
+    return () => {
+      socket.off('circle:poll-created', handlePollUpdate);
+      socket.off('circle:poll-voted', handlePollUpdate);
+      socket.off('circle:poll-closed', handlePollUpdate);
+    };
+  }, [activeCircle?.id, queryClient]);
 
   const upcomingEvents = React.useMemo(() => {
     const now = new Date().getTime();
@@ -470,6 +505,82 @@ export const PresenceRail: React.FC = () => {
             >
               <Radio className="h-3 w-3" />
               <span>{t.collab.railStartSharing}</span>
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Active Group Polls (Issue #119 / #123) */}
+      <div className="flex flex-col gap-2 pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline">
+        <div className="flex items-center justify-between mb-2 px-1">
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded-lg bg-circle-primary/10 text-circle-primary flex items-center justify-center shrink-0">
+              <Vote className="h-3.5 w-3.5" />
+            </div>
+            <span className="text-[11px] font-bold text-circle-charcoal dark:text-circle-dark-text uppercase tracking-wider">
+              {t.collab.railActivePolls}
+            </span>
+            {activePolls.length > 0 && (
+              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-circle-primary/10 text-circle-primary">
+                {activePolls.length}
+              </span>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => setActiveCircleView('poll')}
+            className="text-[11px] font-semibold text-circle-primary hover:underline flex items-center gap-0.5"
+          >
+            <span>{t.collab.railOpenPolls}</span>
+            <ChevronRight className="h-3 w-3" />
+          </button>
+        </div>
+
+        {activePolls.length > 0 ? (
+          <div className="space-y-1.5">
+            {activePolls.map((poll) => {
+              const hasVoted = Boolean(poll.userVotedOptionId);
+              return (
+                <div
+                  key={poll.id}
+                  onClick={() => setActiveCircleView('poll')}
+                  className="rounded-xl border border-circle-hairline/80 dark:border-circle-dark-hairline/80 bg-circle-canvas/60 dark:bg-circle-dark-canvas/60 p-2.5 hover:border-circle-primary/50 transition-all cursor-pointer group flex items-start gap-2.5"
+                >
+                  <div className="w-7 h-7 rounded-lg bg-circle-primary/10 text-circle-primary flex items-center justify-center shrink-0 mt-0.5">
+                    <Vote className="h-3.5 w-3.5" />
+                  </div>
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <span className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text group-hover:text-circle-primary line-clamp-2 block leading-snug">
+                      {poll.question}
+                    </span>
+                    <div className="flex items-center justify-between text-[10px] text-circle-slate dark:text-circle-dark-muted pt-0.5">
+                      <span className="font-medium">
+                        {t.collab.railTotalVotes.replace('{count}', String(poll.totalVotes || 0))}
+                      </span>
+                      {hasVoted && (
+                        <span className="text-circle-primary font-semibold flex items-center gap-1">
+                          <CheckCircle2 className="h-3 w-3" />
+                          <span>{t.collab.railVoted}</span>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="rounded-xl border border-dashed border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/40 dark:bg-circle-dark-canvas/40 p-2.5 text-center">
+            <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted">
+              {t.collab.railNoActivePolls}
+            </p>
+            <button
+              type="button"
+              onClick={() => setActiveCircleView('poll')}
+              className="mt-1.5 text-[11px] font-semibold text-circle-primary hover:underline inline-flex items-center gap-1"
+            >
+              <Plus className="h-3 w-3" />
+              <span>{t.collab.railNewPoll}</span>
             </button>
           </div>
         )}

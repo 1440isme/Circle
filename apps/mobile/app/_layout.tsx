@@ -69,12 +69,13 @@ function RootNavigator() {
     if (isLoading || isBiometricLocked) return;
 
     const inAuthGroup = segments[0] === '(auth)';
+    const isRoot = !segments[0] || (segments[0] as string) === 'index';
 
     if (!isAuthenticated && !inAuthGroup) {
       // Redirect to login if user is not authenticated and not in auth screens
       router.replace('/(auth)/login');
-    } else if (isAuthenticated && inAuthGroup) {
-      // Redirect to main tabs if authenticated and currently in auth screens
+    } else if (isAuthenticated && (inAuthGroup || isRoot)) {
+      // Redirect to main tabs if authenticated and currently in auth screens or at root
       router.replace('/(tabs)');
     }
   }, [isAuthenticated, isLoading, isBiometricLocked, segments, router]);

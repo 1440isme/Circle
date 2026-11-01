@@ -1051,6 +1051,12 @@ export const en: TranslationDictionary = {
     railSharingActive: 'Broadcasting',
     railNoOneSharing: 'No one is currently sharing location',
     railMembersGoing: '{count} going',
+    railActivePolls: 'Active Polls',
+    railOpenPolls: 'Polls',
+    railNewPoll: 'Create poll',
+    railNoActivePolls: 'No active polls at the moment',
+    railTotalVotes: '{count} votes',
+    railVoted: 'Voted',
     meLabel: '(Me)',
     memberDefault: 'Member',
 

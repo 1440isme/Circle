@@ -1049,6 +1049,12 @@ export const vi = {
     railSharingActive: 'Đang chia sẻ',
     railNoOneSharing: 'Chưa có ai đang chia sẻ vị trí',
     railMembersGoing: '{count} tham gia',
+    railActivePolls: 'Bình chọn đang mở',
+    railOpenPolls: 'Bình chọn',
+    railNewPoll: 'Tạo bình chọn',
+    railNoActivePolls: 'Chưa có cuộc bình chọn nào đang mở',
+    railTotalVotes: '{count} lượt bình chọn',
+    railVoted: 'Đã bỏ phiếu',
     meLabel: '(Tôi)',
     memberDefault: 'Thành viên',
 
