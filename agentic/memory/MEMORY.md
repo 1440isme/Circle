@@ -32,6 +32,7 @@
 - **Kỷ luật Clean Repository:** Giữ sạch kho mã nguồn tuyệt đối; không để lại file rác, file nháp, script thử nghiệm tạm thời hay các câu lệnh kỹ thuật dư thừa trong repository. — chốt bởi Bình, 2026-11-01
 - **Thẩm quyền PR & Phê duyệt:** Tuyệt đối nghiêm ngặt KHÔNG tự ý tạo Pull Request (PR) hoặc merge code khi chưa có sự chỉ thị và cho phép rõ ràng từ kỹ sư. — chốt bởi Bình, 2026-11-01
 - **Ngưỡng ghi nhận AI Log (`docs/ai-usage/log.md`):** Chỉ ghi nhận entry `AI-XXXX` khi triển khai một tính năng hoàn chỉnh, thay đổi kiến trúc hoặc logic cốt lõi có quy mô đủ lớn. Tuyệt đối không ghi log cho các tinh chỉnh giao diện nhỏ lẻ (micro UI tweaks, chỉnh style/CSS vụn vặt). — chốt bởi Bình, 2026-11-01
+- **Phong cách điều hướng Floating Pill Button & Scroll Underlay (Mobile UI/UX):** Trên mobile (màn hình chi tiết / modal / view độc lập), hạn chế dùng thanh header/heading khối hộp tĩnh chia cắt màn hình. Thay bằng các nút điều khiển nổi dạng viên thuốc (**Floating Pill Buttons** / **Capsule Buttons**) với `position: 'absolute'`, nền trắng/mờ, viền hairline (`#E2E8F0`), đổ bóng mềm mại (`elevation: 3, shadowOpacity: 0.08`), và cho phép ScrollView cuộn toàn màn hình để nội dung trượt lướt qua bên dưới các nút (**Scroll Underlay**), kết hợp `pointerEvents="box-none"` để không cản trở thao tác vuốt chạm. — chốt bởi Bình, 2026-11-01
 
 ## Corrections & Lessons
 
