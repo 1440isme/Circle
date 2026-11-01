@@ -275,7 +275,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   if (isGroupPoll && groupPollData) {
     return (
       <div id={`message-${message.id}`} className="w-full flex justify-center my-3 px-2">
-        <div className="w-full max-w-sm rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-3.5 shadow-sm">
+        <div
+          id={`message-poll-${groupPollData.pollId}`}
+          className="w-full max-w-sm rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-3.5 shadow-sm transition-all"
+        >
           <ChatPollCard
             circleId={activeCircleId || ''}
             pollId={groupPollData.pollId}

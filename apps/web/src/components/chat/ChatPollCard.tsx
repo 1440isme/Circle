@@ -81,40 +81,8 @@ export const ChatPollCard: React.FC<ChatPollCardProps> = ({
 
   return (
     <div
-      className={`flex flex-col gap-3 py-1 min-w-[260px] max-w-[340px] select-none text-left`}
+      className={`flex flex-col gap-2.5 py-0.5 min-w-[240px] max-w-[340px] select-none text-left`}
     >
-      {/* Header */}
-      <div className="flex items-center justify-between gap-2 border-b border-black/5 dark:border-white/10 pb-2">
-        <div className="flex items-center gap-2">
-          <div
-            className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
-              isSenderMe
-                ? 'bg-black/15 dark:bg-white/15 text-current'
-                : 'bg-circle-primary/10 text-circle-primary'
-            }`}
-          >
-            <Vote className="w-4 h-4" />
-          </div>
-          <span
-            className={`text-xs font-bold uppercase tracking-wider ${
-              isSenderMe ? 'text-current opacity-90' : 'text-circle-slate dark:text-circle-dark-muted'
-            }`}
-          >
-            {t.collab.pollCardHeader}
-          </span>
-        </div>
-
-        <span
-          className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-            isClosed
-              ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
-              : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-          }`}
-        >
-          {isClosed ? t.collab.pollClosedBadge : t.collab.pollOpenBadge}
-        </span>
-      </div>
-
       {/* Question */}
       <h4
         className={`text-sm font-bold leading-snug ${
@@ -185,25 +153,6 @@ export const ChatPollCard: React.FC<ChatPollCardProps> = ({
             </button>
           );
         })}
-      </div>
-
-      {/* Footer Info */}
-      <div
-        className={`flex items-center justify-between pt-1 text-[11px] font-medium ${
-          isSenderMe ? 'text-current opacity-75' : 'text-circle-slate dark:text-circle-dark-muted'
-        }`}
-      >
-        <span>
-          {totalVotes > 0
-            ? t.collab.pollTotalVotes.replace('{count}', String(totalVotes))
-            : t.collab.pollEmptyVotes}
-        </span>
-        {myVote && (
-          <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold">
-            <CheckCircle2 className="w-3.5 h-3.5" />
-            {t.collab.pollVotedBadge}
-          </span>
-        )}
       </div>
     </div>
   );

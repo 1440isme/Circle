@@ -35,88 +35,47 @@ export const ChatLocationCard: React.FC<ChatLocationCardProps> = ({
   const staticMapUrl = `https://api.mapbox.com/styles/v1/mapbox/${mapboxStyle}/static/pin-s-heart+10b981(${lng},${lat})/${lng},${lat},14,0/400x180@2x?access_token=${MAPBOX_TOKEN}`;
 
   return (
-    <div className="flex flex-col gap-2.5 py-1 min-w-[240px] max-w-[320px] select-none text-left">
-      {/* Header Info */}
-      <div className="flex items-center gap-2.5">
-        <div
-          className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-            isSenderMe
-              ? 'bg-black/15 dark:bg-white/15 text-current'
-              : 'bg-circle-primary/10 text-circle-primary'
-          }`}
-        >
-          <MapPin className="w-4 h-4" />
-        </div>
-        <div className="flex flex-col min-w-0">
-          <span
-            className={`text-xs font-bold truncate ${
-              isSenderMe ? 'text-current' : 'text-circle-charcoal dark:text-circle-dark-text'
-            }`}
-          >
-            {displayTitle}
-          </span>
-          <span
-            className={`text-[11px] truncate ${
-              isSenderMe ? 'text-current opacity-80' : 'text-circle-slate dark:text-circle-dark-muted'
-            }`}
-          >
-            {displayAddress}
-          </span>
-        </div>
-      </div>
-
-      {/* Styled Mapbox Preview */}
-      <a
-        href={googleMapsUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="relative h-32 rounded-xl overflow-hidden border border-black/10 dark:border-white/10 bg-slate-900 flex items-center justify-center group shadow-xs cursor-pointer"
-        title={t.collab.openInGoogleMaps}
-      >
-        {!imageError ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={staticMapUrl}
-            alt={displayTitle}
-            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-            onError={() => setImageError(true)}
-          />
-        ) : (
-          <>
-            {/* Fallback Grid lines */}
-            <div className="absolute inset-0 bg-[linear-gradient(to_right,#10b98110_1px,transparent_1px),linear-gradient(to_bottom,#10b98110_1px,transparent_1px)] bg-[size:16px_16px]" />
-            <div className="relative z-10 flex flex-col items-center">
-              <div className="w-8 h-8 rounded-full bg-circle-primary text-white flex items-center justify-center shadow-[0_0_15px_rgba(16,185,129,0.6)]">
-                <Navigation className="w-4 h-4 fill-current rotate-45" />
-              </div>
-              <span className="mt-1 text-[10px] font-mono font-bold text-emerald-200 bg-slate-950/80 px-2 py-0.5 rounded-full border border-emerald-500/30">
-                {lat.toFixed(4)}, {lng.toFixed(4)}
-              </span>
+    <a
+      href={googleMapsUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="relative block w-full min-w-[240px] max-w-[320px] h-36 rounded-2xl overflow-hidden border border-black/10 dark:border-white/10 bg-slate-900 group shadow-sm select-none cursor-pointer transition-transform active:scale-[0.99]"
+      title={t.collab.openInGoogleMaps}
+    >
+      {!imageError ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={staticMapUrl}
+          alt={displayTitle}
+          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+          onError={() => setImageError(true)}
+        />
+      ) : (
+        <>
+          {/* Fallback Grid lines */}
+          <div className="absolute inset-0 bg-[linear-gradient(to_right,#10b98110_1px,transparent_1px),linear-gradient(to_bottom,#10b98110_1px,transparent_1px)] bg-[size:16px_16px]" />
+          <div className="relative z-10 flex flex-col items-center justify-center h-full">
+            <div className="w-8 h-8 rounded-full bg-circle-primary text-white flex items-center justify-center shadow-[0_0_15px_rgba(16,185,129,0.6)]">
+              <Navigation className="w-4 h-4 fill-current rotate-45" />
             </div>
-          </>
-        )}
+            <span className="mt-1 text-[10px] font-mono font-bold text-emerald-200 bg-slate-950/80 px-2 py-0.5 rounded-full border border-emerald-500/30">
+              {lat.toFixed(4)}, {lng.toFixed(4)}
+            </span>
+          </div>
+        </>
+      )}
 
-        <div className="absolute bottom-1.5 right-1.5 bg-black/60 backdrop-blur-xs text-white text-[9px] px-1.5 py-0.5 rounded-md flex items-center gap-1 opacity-90 group-hover:opacity-100 transition-opacity">
-          <span>Mapbox</span>
+      {/* Floating Bottom Info Overlay (Title + Address + Mapbox attribution) */}
+      <div className="absolute inset-x-0 bottom-0 p-2.5 bg-gradient-to-t from-black/85 via-black/50 to-transparent flex items-end justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5 text-white">
+            <MapPin className="w-3.5 h-3.5 text-circle-primary shrink-0" />
+            <span className="text-xs font-bold truncate drop-shadow-xs">{displayTitle}</span>
+          </div>
+          <span className="text-[10px] text-white/80 truncate block pl-5 drop-shadow-xs">{displayAddress}</span>
         </div>
-      </a>
-
-      {/* Action: Open in Maps */}
-      <div className="pt-0.5 flex justify-end">
-        <a
-          href={googleMapsUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all active:scale-95 ${
-            isSenderMe
-              ? 'bg-black/15 hover:bg-black/25 text-current'
-              : 'bg-circle-primary hover:bg-emerald-600 text-white shadow-xs'
-          }`}
-        >
-          <ExternalLink className="w-3.5 h-3.5" />
-          <span>{t.collab.openInGoogleMaps}</span>
-        </a>
+        <span className="text-[9px] text-white/60 font-mono shrink-0">Mapbox</span>
       </div>
-    </div>
+    </a>
   );
 };

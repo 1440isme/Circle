@@ -112,55 +112,6 @@ export const MobileChatPollCard: React.FC<MobileChatPollCardProps> = ({
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={[styles.headerRow, { borderBottomColor: isSenderMe ? 'rgba(255,255,255,0.15)' : colors.hairline }]}>
-        <View style={styles.headerTitleWrap}>
-          <View
-            style={[
-              styles.iconBox,
-              {
-                backgroundColor: isSenderMe ? 'rgba(0,0,0,0.15)' : colors.wash,
-              },
-            ]}
-          >
-            <Vote size={14} color={isSenderMe ? textColor : colors.primary} />
-          </View>
-          <Text
-            style={[
-              styles.headerLabel,
-              {
-                color: textColor,
-                opacity: isSenderMe ? 0.9 : 0.8,
-              },
-            ]}
-          >
-            {t.collab?.pollCardHeader || 'Bình chọn nhóm'}
-          </Text>
-        </View>
-
-        <View
-          style={[
-            styles.badgeBox,
-            {
-              backgroundColor: isClosed
-                ? 'rgba(239, 68, 68, 0.15)'
-                : 'rgba(16, 185, 129, 0.15)',
-            },
-          ]}
-        >
-          <Text
-            style={[
-              styles.badgeText,
-              { color: isClosed ? '#EF4444' : '#10B981' },
-            ]}
-          >
-            {isClosed
-              ? (t.collab?.pollClosedBadge || 'Đã kết thúc')
-              : (t.collab?.pollOpenBadge || 'Đang diễn ra')}
-          </Text>
-        </View>
-      </View>
-
       {/* Question */}
       <Text style={[styles.questionText, { color: textColor }]}>
         {question}
@@ -192,7 +143,7 @@ export const MobileChatPollCard: React.FC<MobileChatPollCardProps> = ({
                   backgroundColor: isSelected
                     ? isSenderMe
                       ? 'rgba(255,255,255,0.18)'
-                      : colors.wash
+                      : `${colors.primary}15`
                     : isSenderMe
                     ? 'rgba(0,0,0,0.1)'
                     : colors.surface,
@@ -208,7 +159,7 @@ export const MobileChatPollCard: React.FC<MobileChatPollCardProps> = ({
                     backgroundColor: isSelected
                       ? isSenderMe
                         ? 'rgba(255,255,255,0.18)'
-                        : 'rgba(59, 130, 246, 0.18)'
+                        : `${colors.primary}25`
                       : isSenderMe
                       ? 'rgba(0,0,0,0.08)'
                       : colors.wash,
@@ -271,23 +222,6 @@ export const MobileChatPollCard: React.FC<MobileChatPollCardProps> = ({
             </TouchableOpacity>
           );
         })}
-      </View>
-
-      {/* Footer Info */}
-      <View style={styles.footerRow}>
-        <Text style={[styles.footerText, { color: subtleColor, opacity: 0.8 }]}>
-          {totalVotes > 0
-            ? (t.collab?.pollTotalVotes || '{count} lượt bình chọn').replace('{count}', String(totalVotes))
-            : (t.collab?.pollEmptyVotes || 'Chưa có lượt bình chọn')}
-        </Text>
-        {myVote && (
-          <View style={styles.votedBadgeRow}>
-            <CheckCircle2 size={12} color="#10B981" />
-            <Text style={styles.votedBadgeText}>
-              {t.collab?.pollVotedBadge || 'Đã bình chọn'}
-            </Text>
-          </View>
-        )}
       </View>
     </View>
   );

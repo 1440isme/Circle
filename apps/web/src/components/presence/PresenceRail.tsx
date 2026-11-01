@@ -51,6 +51,7 @@ export const PresenceRail: React.FC = () => {
   const setManageModalOpen = useCircleStore((s) => s.setManageModalOpen);
   const setActiveCallStageSession = useCircleStore((s) => s.setActiveCallStageSession);
   const setActiveCircleView = useCircleStore((s) => s.setActiveCircleView);
+  const activeCircleView = useCircleStore((s) => s.activeCircleView);
   const setTargetCalendarEvent = useCircleStore((s) => s.setTargetCalendarEvent);
   const setTargetLocationCoords = useCircleStore((s) => s.setTargetLocationCoords);
   const { data: activeCall } = useActiveCallQuery(activeCircle?.id || null);
@@ -118,6 +119,20 @@ export const PresenceRail: React.FC = () => {
     setActiveCallStageSession(activeCall);
   };
 
+  const handleJumpToPoll = (pollId: string) => {
+    if (activeCircleView !== 'general' && activeCircleView !== 'chat') {
+      setActiveCircleView('general');
+    }
+    setTimeout(() => {
+      const el = document.getElementById(`message-poll-${pollId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.add('ring-2', 'ring-circle-primary', 'rounded-2xl', 'transition-all');
+        setTimeout(() => el.classList.remove('ring-2', 'ring-circle-primary', 'rounded-2xl'), 2500);
+      }
+    }, 120);
+  };
+
   const activeParticipants = (activeCall?.participants || []).filter((p: any) => !p.leftAt);
 
   const { data: members = [] } = useCircleMembersQuery(activeCircle?.id || null);
@@ -144,9 +159,7 @@ export const PresenceRail: React.FC = () => {
         <div className="p-1 transition-colors">
           <div className="flex items-center justify-between mb-2.5">
             <div className="flex items-center gap-2 px-1">
-              <div className="w-6 h-6 rounded-lg bg-circle-primary/10 text-circle-primary flex items-center justify-center shrink-0">
-                <Users className="h-3.5 w-3.5" />
-              </div>
+              <Users className="h-4 w-4 text-circle-primary shrink-0" />
               <span className="text-[11px] font-bold uppercase tracking-wider text-circle-charcoal dark:text-circle-dark-text">
                 {t.circle.membersTitle} ({members.length})
               </span>
@@ -228,9 +241,7 @@ export const PresenceRail: React.FC = () => {
       <div className="p-1 transition-all">
         <div className="flex items-center justify-between mb-2 px-1">
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-lg bg-circle-primary/10 text-circle-primary flex items-center justify-center shrink-0">
-              <Radio className="h-3.5 w-3.5" />
-            </div>
+            <Radio className="h-4 w-4 text-circle-primary shrink-0" />
             <span className="text-[11px] font-bold text-circle-slate dark:text-circle-dark-muted uppercase tracking-wider">
               {t.home.realtimeVoiceStage}
             </span>
@@ -247,13 +258,11 @@ export const PresenceRail: React.FC = () => {
           /* Active Call State */
           <div>
             <div className="flex items-center gap-2.5 mb-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-circle-primary/10 text-circle-primary">
-                {activeCall.callType === CallType.VIDEO ? (
-                  <Video className="h-4 w-4" />
-                ) : (
-                  <PhoneCall className="h-4 w-4" />
-                )}
-              </div>
+              {activeCall.callType === CallType.VIDEO ? (
+                <Video className="h-5 w-5 text-circle-primary shrink-0" />
+              ) : (
+                <PhoneCall className="h-5 w-5 text-circle-primary shrink-0" />
+              )}
               <div className="min-w-0">
                 <h4 className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text truncate">
                   {activeCall.callType === CallType.VIDEO
@@ -344,9 +353,7 @@ export const PresenceRail: React.FC = () => {
       <div className="flex flex-col gap-2 pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline">
         <div className="flex items-center justify-between mb-2 px-1">
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-lg bg-circle-primary/10 text-circle-primary flex items-center justify-center shrink-0">
-              <CalendarDays className="h-3.5 w-3.5" />
-            </div>
+            <CalendarDays className="h-4 w-4 text-circle-primary shrink-0" />
             <span className="text-[11px] font-bold text-circle-charcoal dark:text-circle-dark-text uppercase tracking-wider">
               {t.collab.railUpcomingEvents}
             </span>
@@ -377,9 +384,7 @@ export const PresenceRail: React.FC = () => {
                   onClick={() => setActiveCircleView('calendar')}
                   className="rounded-xl border border-circle-hairline/80 dark:border-circle-dark-hairline/80 bg-circle-canvas/60 dark:bg-circle-dark-canvas/60 p-2.5 hover:border-circle-primary/50 transition-all cursor-pointer group flex items-start gap-2.5"
                 >
-                  <div className="w-7 h-7 rounded-lg bg-circle-primary/10 text-circle-primary flex items-center justify-center shrink-0 mt-0.5">
-                    <CalendarDays className="h-3.5 w-3.5" />
-                  </div>
+                  <CalendarDays className="h-4 w-4 text-circle-primary shrink-0 mt-0.5" />
                   <div className="min-w-0 flex-1 space-y-1">
                     <div className="flex items-center justify-between gap-1">
                       <span className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text group-hover:text-circle-primary truncate">
@@ -432,9 +437,7 @@ export const PresenceRail: React.FC = () => {
       <div className="flex flex-col gap-2 pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline">
         <div className="flex items-center justify-between mb-2 px-1">
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-lg bg-circle-primary/10 text-circle-primary flex items-center justify-center shrink-0">
-              <Navigation className="h-3.5 w-3.5" />
-            </div>
+            <Navigation className="h-4 w-4 text-circle-primary shrink-0" />
             <span className="text-[11px] font-bold text-circle-charcoal dark:text-circle-dark-text uppercase tracking-wider">
               {t.collab.railLiveLocations}
             </span>
@@ -514,9 +517,7 @@ export const PresenceRail: React.FC = () => {
       <div className="flex flex-col gap-2 pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline">
         <div className="flex items-center justify-between mb-2 px-1">
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-lg bg-circle-primary/10 text-circle-primary flex items-center justify-center shrink-0">
-              <Vote className="h-3.5 w-3.5" />
-            </div>
+            <Vote className="h-4 w-4 text-circle-primary shrink-0" />
             <span className="text-[11px] font-bold text-circle-charcoal dark:text-circle-dark-text uppercase tracking-wider">
               {t.collab.railActivePolls}
             </span>
@@ -528,7 +529,7 @@ export const PresenceRail: React.FC = () => {
           </div>
           <button
             type="button"
-            onClick={() => setActiveCircleView('poll')}
+            onClick={() => setActiveCircleView('polls')}
             className="text-[11px] font-semibold text-circle-primary hover:underline flex items-center gap-0.5"
           >
             <span>{t.collab.railOpenPolls}</span>
@@ -543,12 +544,10 @@ export const PresenceRail: React.FC = () => {
               return (
                 <div
                   key={poll.id}
-                  onClick={() => setActiveCircleView('poll')}
+                  onClick={() => handleJumpToPoll(poll.id)}
                   className="rounded-xl border border-circle-hairline/80 dark:border-circle-dark-hairline/80 bg-circle-canvas/60 dark:bg-circle-dark-canvas/60 p-2.5 hover:border-circle-primary/50 transition-all cursor-pointer group flex items-start gap-2.5"
                 >
-                  <div className="w-7 h-7 rounded-lg bg-circle-primary/10 text-circle-primary flex items-center justify-center shrink-0 mt-0.5">
-                    <Vote className="h-3.5 w-3.5" />
-                  </div>
+                  <Vote className="h-4 w-4 text-circle-primary shrink-0 mt-0.5" />
                   <div className="min-w-0 flex-1 space-y-1">
                     <span className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text group-hover:text-circle-primary line-clamp-2 block leading-snug">
                       {poll.question}
@@ -576,7 +575,7 @@ export const PresenceRail: React.FC = () => {
             </p>
             <button
               type="button"
-              onClick={() => setActiveCircleView('poll')}
+              onClick={() => setActiveCircleView('polls')}
               className="mt-1.5 text-[11px] font-semibold text-circle-primary hover:underline inline-flex items-center gap-1"
             >
               <Plus className="h-3 w-3" />

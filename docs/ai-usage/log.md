@@ -5717,3 +5717,46 @@
 - **Official Source Checked:** React Navigation TabBar Specs, Expo Router v4 Layout and Navigation Lifecycle, Circle Design System.
 - **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
 - **Branch:** `fix/upgrade-mobile-expo-sdk-58`
+
+
+---
+
+### Entry AI-0153
+
+- **Timestamp:** 2026-11-01T18:05:00+07:00
+- **Author:** Trương Công Bình (23110184)
+- **Tool:** Antigravity IDE (Gemini 2.5 Pro)
+- **Task / Scope:** Module 7 (US-COLLAB-003, Issue #119 / #124) — Chuẩn hóa Icon Mộc (Bare Icon Invariant), Tối giản Triệt để Thẻ Chat Poll/Location (Purge Header/Footer), Định vị Poll Độc nhất Luồng Chat & Tự động Cuộn Theo Dõi (Jump to Poll) (Web & Mobile).
+- **Files Touched:**
+  - `agentic/memory/MEMORY.md`
+  - `apps/web/src/components/presence/PresenceRail.tsx`
+  - `apps/web/src/components/chat/ChannelChatView.tsx`
+  - `apps/web/src/components/chat/MessageBubble.tsx`
+  - `apps/web/src/components/chat/ChatPollCard.tsx`
+  - `apps/web/src/components/chat/ChatLocationCard.tsx`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `apps/mobile/src/components/chat/MobileChatPollCard.tsx`
+  - `apps/mobile/src/components/chat/MobileChatLocationCard.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:**
+  1. **Quy chuẩn Icon Mộc (Bare Icon Invariant) tại Cột 3 và Toàn Nền tảng:**
+     - Loại bỏ hoàn toàn các viền hộp hình vuông bo góc nhân tạo (`w-6 h-6 rounded-lg bg-circle-primary/10`, `w-7 h-7`,...) bọc quanh icon tại tất cả các khối mục (Thành viên, Phòng thoại, Lịch hẹn, Vị trí trực tiếp, Bình chọn) trong `PresenceRail.tsx`.
+     - Giữ nguyên màu thương hiệu `text-circle-primary` hiển thị mộc trực tiếp trên nền của chính component cha, mang lại sự tinh gọn, sang trọng và thanh thoát.
+  2. **Tối giản Hóa Triệt để Thẻ Bình chọn và Vị trí trong Luồng Chat (Purge Header & Footer):**
+     - Thẻ Poll (`ChatPollCard.tsx` & `MobileChatPollCard.tsx`): Cắt bỏ 100% header ("Bình chọn nhóm", icon, badge trạng thái) và footer (tổng số lượt vote, badge "Đã bình chọn"). Chỉ hiển thị câu hỏi và các lựa chọn tương tác với phần trăm tiến trình và số phiếu tích hợp gọn gàng bên trong. Thay thế hoàn toàn mã màu xanh ngoại lai bằng màu chủ đạo.
+     - Thẻ Vị trí (`ChatLocationCard.tsx` & `MobileChatLocationCard.tsx`): Cắt bỏ 100% hộp header bên ngoài và nút "Mở bản đồ" ở footer. Thẻ map trực quan chiếm trọn không gian thẻ với dải thông tin overlay bán trong suốt ở chân bản đồ hiển thị tiêu đề, tọa độ và chỉ dẫn trực tiếp khi chạm.
+  3. **Định vị Poll Độc nhất (Single-Instance Invariant) & Tự động Cuộn theo dõi (Jump to Poll):**
+     - Sửa lỗi điều hướng nút mở trang bình chọn từ `setActiveCircleView('poll')` thành `'polls'`.
+     - Thêm cơ chế `handleJumpToPoll(pollId)` trên Cột 3: tự động chuyển về view chat và cuộn mượt (`scrollIntoView`) tới đúng vị trí tin nhắn poll trong đoạn chat, kèm hiệu ứng viền sáng (ring-2 ring-circle-primary) nổi bật tương tự như thao tác nhấp tin nhắn ghim.
+     - Cập nhật cả Web (`ChannelChatView.tsx`) và Mobile (`app/circle/[id].tsx`): Lắng nghe sự kiện Socket.IO `circle:poll-voted` để đưa poll lên vị trí tin nhắn mới nhất ở cuối luồng chat, đồng thời lọc bỏ mọi bản ghi cũ trong `visibleMessages` memo để mỗi poll chỉ xuất hiện duy nhất 1 lần tại vị trí được cập nhật mới nhất.
+- **Human Modifications:** Trương Công Bình yêu cầu sửa nút poll dẫn đúng trang poll, nhấp poll tự động cuộn tới tin nhắn tương tự pin message, poll cập nhật phải di chuyển lên mới nhất và không xuất hiện 2 lần, thẻ poll và thẻ vị trí chat bỏ hết header footer, và xóa bỏ triệt để viền vuông bo quanh icon ở cột 3 trên toàn nền tảng.
+- **Verification Method:**
+  - Web TypeScript Check: `npx tsc --noEmit -p apps/web/tsconfig.json` (0 errors).
+  - Mobile TypeScript Check: `npx tsc --noEmit -p apps/mobile/tsconfig.json` (0 errors).
+  - Web Production Build: `npm run build -w @circle/web` (0 errors, 11/11 static pages generated).
+  - Mobile Bundle Export: `cd apps/mobile && npx expo export --platform ios --no-bytecode` (3065 modules bundled successfully, exit code 0).
+  - Pre-commit Hook & Secret Check: `./.githooks/pre-commit` & `./scripts/check-secrets.sh` (Passed 100%, 0 leaks).
+  - Agent Map Integrity: `./scripts/check-agent-map.sh` (121/121 files resolve).
+- **Official Source Checked:** Circle Design System, Socket.IO Realtime Events Specification, Apple Human Interface Guidelines.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+- **Branch:** `fix/upgrade-mobile-expo-sdk-58`

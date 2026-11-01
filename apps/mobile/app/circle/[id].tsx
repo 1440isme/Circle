@@ -1474,14 +1474,47 @@ export default function CircleWorkspaceScreen() {
         }
       };
 
+      const handlePollVoted = (poll: any) => {
+        if (!poll?.id || !currentChannelId) return;
+        queryClient.setQueryData(['messages', 'channel', currentChannelId], (oldData: any) => {
+          if (!oldData?.pages) return oldData;
+          let targetMsg: any = null;
+          const newPages = oldData.pages.map((page: any) => {
+            const filtered = page.messages.filter((m: any) => {
+              if (m.content?.startsWith('[GROUP_POLL]:')) {
+                try {
+                  const data = JSON.parse(m.content.replace('[GROUP_POLL]:', ''));
+                  if (data?.pollId === poll.id) {
+                    targetMsg = {
+                      ...m,
+                      sentAt: new Date().toISOString(),
+                      createdAt: new Date().toISOString(),
+                    };
+                    return false; // remove from older position
+                  }
+                } catch {}
+              }
+              return true;
+            });
+            return { ...page, messages: filtered };
+          });
+          if (targetMsg && newPages.length > 0) {
+            newPages[newPages.length - 1].messages.push(targetMsg);
+          }
+          return { ...oldData, pages: newPages };
+        });
+      };
+
       socket.on('call:incoming', handleIncomingCall);
       socket.on('call:ended', handleCallEnded);
       socket.on('chat:channel-cleared', handleChannelCleared);
+      socket.on('circle:poll-voted', handlePollVoted);
 
       cleanupSocket = () => {
         socket.off('call:incoming', handleIncomingCall);
         socket.off('call:ended', handleCallEnded);
         socket.off('chat:channel-cleared', handleChannelCleared);
+        socket.off('circle:poll-voted', handlePollVoted);
       };
     });
 
@@ -1695,9 +1728,32 @@ export default function CircleWorkspaceScreen() {
   }, [currentChannelId]);
 
   const visibleMessages = useMemo(() => {
-    if (hiddenMessageIds.length === 0) return messages;
-    const hiddenSet = new Set(hiddenMessageIds);
-    return messages.filter((m) => !hiddenSet.has(m.id));
+    const unhidden = hiddenMessageIds.length === 0
+      ? messages
+      : (() => {
+          const hiddenSet = new Set(hiddenMessageIds);
+          return messages.filter((m) => !hiddenSet.has(m.id));
+        })();
+
+    // Preserve only the latest occurrence for any pollId
+    const seenPollIds = new Set<string>();
+    const result: typeof messages = [];
+    for (let i = unhidden.length - 1; i >= 0; i--) {
+      const msg = unhidden[i];
+      if (msg.content?.startsWith('[GROUP_POLL]:')) {
+        try {
+          const data = JSON.parse(msg.content.replace('[GROUP_POLL]:', ''));
+          if (data?.pollId) {
+            if (seenPollIds.has(data.pollId)) {
+              continue; // Drop older duplicate
+            }
+            seenPollIds.add(data.pollId);
+          }
+        } catch {}
+      }
+      result.unshift(msg);
+    }
+    return result;
   }, [messages, hiddenMessageIds]);
 
   const handleDeleteForMe = async (msgId: string) => {

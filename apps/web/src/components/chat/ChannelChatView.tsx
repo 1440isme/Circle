@@ -140,10 +140,42 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
         }
       };
 
+      const handlePollVoted = (poll: any) => {
+        if (!poll?.id || !channelId) return;
+        queryClient.setQueryData(CHAT_KEYS.messages(channelId), (oldData: any) => {
+          if (!oldData?.pages) return oldData;
+          let targetMsg: any = null;
+          const newPages = oldData.pages.map((page: any) => {
+            const filtered = page.messages.filter((m: any) => {
+              if (m.content?.startsWith('[GROUP_POLL]:')) {
+                try {
+                  const data = JSON.parse(m.content.replace('[GROUP_POLL]:', ''));
+                  if (data?.pollId === poll.id) {
+                    targetMsg = {
+                      ...m,
+                      sentAt: new Date().toISOString(),
+                      createdAt: new Date().toISOString(),
+                    };
+                    return false; // remove older location!
+                  }
+                } catch {}
+              }
+              return true;
+            });
+            return { ...page, messages: filtered };
+          });
+          if (targetMsg && newPages.length > 0) {
+            newPages[newPages.length - 1].messages.push(targetMsg);
+          }
+          return { ...oldData, pages: newPages };
+        });
+      };
+
       socket.on('call:incoming', handleIncomingCall);
       socket.on('call:ended', handleCallEnded);
       socket.on('circle:theme_updated', handleThemeUpdated);
       socket.on('chat:channel-cleared', handleChannelCleared);
+      socket.on('circle:poll-voted', handlePollVoted);
 
       return () => {
         unsub();
@@ -151,6 +183,7 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
         socket.off('call:ended', handleCallEnded);
         socket.off('circle:theme_updated', handleThemeUpdated);
         socket.off('chat:channel-cleared', handleChannelCleared);
+        socket.off('circle:poll-voted', handlePollVoted);
       };
     }
 
@@ -333,7 +366,28 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
   };
 
   const visibleMessages = React.useMemo(() => {
-    return messages.filter((m) => !hiddenMessageIds.has(m.id));
+    const unhidden = messages.filter((m) => !hiddenMessageIds.has(m.id));
+    const seenPollIds = new Set<string>();
+    const result: typeof messages = [];
+
+    // Traverse newest to oldest to preserve only the most recent instance of any poll
+    for (let i = unhidden.length - 1; i >= 0; i--) {
+      const msg = unhidden[i];
+      if (msg.content?.startsWith('[GROUP_POLL]:')) {
+        try {
+          const data = JSON.parse(msg.content.replace('[GROUP_POLL]:', ''));
+          if (data?.pollId) {
+            if (seenPollIds.has(data.pollId)) {
+              continue; // Drop older occurrence so poll only appears once at latest position
+            }
+            seenPollIds.add(data.pollId);
+          }
+        } catch {}
+      }
+      result.unshift(msg);
+    }
+
+    return result;
   }, [messages, hiddenMessageIds]);
 
   return (
