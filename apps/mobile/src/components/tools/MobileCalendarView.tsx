@@ -2780,7 +2780,10 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
     const noRsvps = detailEvent.rsvps?.filter((r) => r.status === EventRsvpStatus.NO) || [];
     const totalRsvps = yesRsvps.length + maybeRsvps.length + noRsvps.length;
     const myRsvp = detailEvent.rsvps?.find((r) => r.userId === user?.id)?.status;
-    const isStarted = new Date(detailEvent.startTime) <= new Date();
+    const now = new Date();
+    const isEnded = endDateObj ? now > endDateObj : now > startDateObj;
+    const isPollClosed = Boolean(detailEvent.isCancelled) || isEnded;
+    const isHappeningNow = !isPollClosed && now >= startDateObj;
 
     const activeReminderOptionValue = (() => {
       if (!detailEvent?.reminderTime) return 'none';
@@ -2796,9 +2799,12 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
       const curDate = new Date(detailEvent.startTime);
       const targetD = getNextOrPrevOccurrence(curDate, recurrenceConfig, direction);
       setIsRecurrenceNavModalOpen(false);
+      setDetailEvent(null);
       setSelectedDate(targetD);
       setCurrentDate(new Date(targetD.getFullYear(), targetD.getMonth(), 1));
-      scrollToMonth(targetD.getFullYear(), targetD.getMonth() + 1, true);
+      setTimeout(() => {
+        scrollToMonth(targetD.getFullYear(), targetD.getMonth() + 1, true);
+      }, 60);
       Haptics.selectionAsync();
     };
 
@@ -2981,7 +2987,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                         const isMe = r.userId === user?.id;
                         const dName = isMe
                           ? 'Bạn'
-                          : r.user?.profile?.displayName || r.user?.email?.split('@')[0] || 'TV';
+                          : r.user?.profile?.displayName || 'TV';
                         const avUrl = r.user?.profile?.avatarUrl;
 
                         return (
@@ -3137,9 +3143,16 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
               setIsDetailPollModalOpen(true);
             }}
           >
-            <Users size={17} color="#0D9488" />
-            <Text style={styles.detailFloatingPollPillText}>Tham gia bình chọn</Text>
-            {myRsvp && <View style={styles.detailStickyMyRsvpDot} />}
+            <Users size={17} color={isPollClosed ? '#EF4444' : '#0D9488'} />
+            <Text style={[styles.detailFloatingPollPillText, isPollClosed && { color: '#EF4444' }]}>
+              Tham gia bình chọn
+            </Text>
+            <View
+              style={[
+                styles.detailStickyMyRsvpDot,
+                { backgroundColor: isPollClosed ? '#EF4444' : '#10B981' },
+              ]}
+            />
           </TouchableOpacity>
         </View>
 
@@ -3179,7 +3192,6 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                       activeBgColor: '#D1FAE5',
                       borderColor: '#10B981',
                       textColor: '#047857',
-                      icon: Check,
                     },
                     {
                       status: EventRsvpStatus.MAYBE,
@@ -3190,7 +3202,6 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                       activeBgColor: '#FEF3C7',
                       borderColor: '#F59E0B',
                       textColor: '#B45309',
-                      icon: HelpCircle,
                     },
                     {
                       status: EventRsvpStatus.NO,
@@ -3201,11 +3212,9 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                       activeBgColor: '#FEE2E2',
                       borderColor: '#EF4444',
                       textColor: '#B91C1C',
-                      icon: X,
                     },
                   ].map((opt) => {
                     const isSelected = myRsvp === opt.status;
-                    const IconComp = opt.icon;
                     return (
                       <TouchableOpacity
                         key={opt.status}
@@ -3215,7 +3224,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                           isSelected && { borderColor: opt.borderColor, borderWidth: 1.5 },
                         ]}
                         activeOpacity={0.7}
-                        disabled={Boolean(detailEvent.isCancelled) || isStarted}
+                        disabled={isPollClosed}
                         onPress={() => {
                           handleRsvp(opt.status);
                           setIsDetailPollModalOpen(false);
@@ -3242,7 +3251,6 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                             >
                               {isSelected && <Check size={10} color="#FFFFFF" />}
                             </View>
-                            <IconComp size={15} color={isSelected ? opt.textColor : '#64748B'} />
                             <Text
                               style={[
                                 styles.detailRsvpOptionLabel,
@@ -3262,6 +3270,35 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                       </TouchableOpacity>
                     );
                   })}
+                </View>
+
+                {/* Chú thích trạng thái cuộc bình chọn */}
+                <View
+                  style={[
+                    styles.detailPollStatusFooter,
+                    { backgroundColor: isPollClosed ? '#FEF2F2' : '#F0FDFA' },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.detailPollStatusIndicatorDot,
+                      { backgroundColor: isPollClosed ? '#EF4444' : '#10B981' },
+                    ]}
+                  />
+                  <Text
+                    style={[
+                      styles.detailPollStatusFooterText,
+                      { color: isPollClosed ? '#B91C1C' : '#0F766E' },
+                    ]}
+                  >
+                    {detailEvent.isCancelled
+                      ? 'Đã đóng — Lịch hẹn đã bị hủy'
+                      : isEnded
+                      ? 'Đã đóng — Sự kiện đã kết thúc'
+                      : isHappeningNow
+                      ? 'Đang diễn ra'
+                      : 'Đang diễn ra'}
+                  </Text>
                 </View>
               </View>
             </View>
@@ -3379,7 +3416,10 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                     const isMe = r.userId === user?.id;
                     const dName = isMe
                       ? 'Bạn'
-                      : r.user?.profile?.displayName || r.user?.email?.split('@')[0] || 'Thành viên';
+                      : r.user?.profile?.displayName || 'Thành viên';
+                    const realNameOrHandle =
+                      (r.user?.profile as any)?.fullName ||
+                      ((r.user?.profile as any)?.handle ? `@${(r.user?.profile as any).handle}` : (isMe ? '@toi' : '@thanhvien'));
                     const avUrl = r.user?.profile?.avatarUrl;
 
                     return (
@@ -3399,9 +3439,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                           <Text style={styles.detailAttendeeName}>
                             {dName} {isMe && '(Tôi)'}
                           </Text>
-                          {r.user?.email && (
-                            <Text style={styles.detailAttendeeEmail}>{r.user.email}</Text>
-                          )}
+                          <Text style={styles.detailAttendeeSubText}>{realNameOrHandle}</Text>
                         </View>
                       </View>
                     );
@@ -3436,23 +3474,10 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                 </TouchableOpacity>
               </View>
 
-              <View style={{ padding: 16, gap: 12 }}>
-                <Text style={styles.detailRecurrenceNavDesc}>
-                  Lịch hẹn này có chu kỳ: <Text style={{ fontWeight: '700' }}>{repeatSummary}</Text>.
-                  Bạn có thể nhảy nhanh tới các lần diễn ra trên lịch:
-                </Text>
-
+              <View style={{ padding: 16, gap: 10 }}>
+                {/* 1. Diễn ra tiếp theo (NẰM TRÊN, GHI SÁT VỀ BÊN PHẢI) */}
                 <TouchableOpacity
-                  style={styles.detailRecurrenceNavBtn}
-                  activeOpacity={0.7}
-                  onPress={() => handleJumpOccurrence('prev')}
-                >
-                  <ChevronLeft size={16} color="#0D9488" />
-                  <Text style={styles.detailRecurrenceNavBtnText}>Đi đến lần diễn ra trước đó</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.detailRecurrenceNavBtn, { backgroundColor: '#F0FDFA', borderColor: '#CCFBF1' }]}
+                  style={[styles.detailRecurrenceNavBtn, styles.detailRecurrenceNavBtnNext]}
                   activeOpacity={0.7}
                   onPress={() => handleJumpOccurrence('next')}
                 >
@@ -3460,6 +3485,18 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                     Đi đến lần diễn ra tiếp theo
                   </Text>
                   <ChevronRight size={16} color="#0D9488" />
+                </TouchableOpacity>
+
+                {/* 2. Diễn ra trước đó (NẰM DƯỚI, GHI BÊN TRÁI) */}
+                <TouchableOpacity
+                  style={[styles.detailRecurrenceNavBtn, styles.detailRecurrenceNavBtnPrev]}
+                  activeOpacity={0.7}
+                  onPress={() => handleJumpOccurrence('prev')}
+                >
+                  <ChevronLeft size={16} color="#64748B" />
+                  <Text style={styles.detailRecurrenceNavBtnText}>
+                    Đi đến lần diễn ra trước đó
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -4936,6 +4973,30 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#64748B',
   },
+  detailAttendeeSubText: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  detailPollStatusFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+  },
+  detailPollStatusIndicatorDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+  },
+  detailPollStatusFooterText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
   detailRecurrenceNavDesc: {
     fontSize: 14,
     color: '#334155',
@@ -4944,13 +5005,24 @@ const styles = StyleSheet.create({
   detailRecurrenceNavBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     backgroundColor: '#F8FAFC',
     borderWidth: 1,
     borderColor: '#E2E8F0',
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
+  },
+  detailRecurrenceNavBtnNext: {
+    justifyContent: 'flex-end',
+    gap: 8,
+    backgroundColor: '#F0FDFA',
+    borderColor: '#CCFBF1',
+  },
+  detailRecurrenceNavBtnPrev: {
+    justifyContent: 'flex-start',
+    gap: 8,
+    backgroundColor: '#F8FAFC',
+    borderColor: '#E2E8F0',
   },
   detailRecurrenceNavBtnText: {
     fontSize: 14,

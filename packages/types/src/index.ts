@@ -315,6 +315,8 @@ export interface MomentEntity {
     email: string;
     profile?: {
       displayName: string;
+      handle?: string | null;
+      fullName?: string | null;
       avatarUrl?: string | null;
     } | null;
   };
@@ -822,6 +824,8 @@ export interface CalendarEventRsvpEntity {
     email: string;
     profile?: {
       displayName: string;
+      handle?: string | null;
+      fullName?: string | null;
       avatarUrl?: string | null;
     } | null;
   };
