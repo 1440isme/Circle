@@ -28,6 +28,8 @@ import {
   deleteWheelApi,
 } from '../../services/circle-tools.service';
 import { DecisionWheelEntity } from '@circle/types';
+import { getSocket } from '../../services/socket';
+import { useAuthStore } from '../../stores/auth.store';
 
 interface MobileWheelViewProps {
   circleId: string;
@@ -50,6 +52,46 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
   const [isLoading, setIsLoading] = useState(true);
   const [isSpinning, setIsSpinning] = useState(false);
   const [winner, setWinner] = useState<string | null>(null);
+  const [liveSpunNotice, setLiveSpunNotice] = useState<string | null>(null);
+  const user = useAuthStore((s) => s.user);
+
+  useEffect(() => {
+    let activeSocket: any = null;
+    const handleWheelSpun = (data: any) => {
+      if (data.circleId === circleId && (!selectedWheel || data.wheelId === selectedWheel.id)) {
+        if (data.spunBy?.userId !== user?.id && data.selectedOption?.optionLabel) {
+          const targetLabel = data.selectedOption.optionLabel;
+          setIsSpinning(true);
+          setWinner(null);
+          setLiveSpunNotice(`${data.spunBy?.displayName || 'Thành viên'} vừa quay vòng quay!`);
+          rotateAnim.setValue(0);
+          Animated.timing(rotateAnim, {
+            toValue: 8,
+            duration: 3500,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: true,
+          }).start(() => {
+            setIsSpinning(false);
+            setWinner(targetLabel);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            setTimeout(() => setLiveSpunNotice(null), 5000);
+          });
+        }
+      }
+    };
+
+    getSocket().then((s) => {
+      if (!s) return;
+      activeSocket = s;
+      s.on('circle:wheel-spun', handleWheelSpun);
+    });
+
+    return () => {
+      if (activeSocket) {
+        activeSocket.off('circle:wheel-spun', handleWheelSpun);
+      }
+    };
+  }, [circleId, selectedWheel, user?.id]);
 
   // Rotation animation
   const rotateAnim = useRef(new Animated.Value(0)).current;
@@ -676,5 +718,21 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '600',
+  },
+
+  liveNoticeBanner: {
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginBottom: 8,
+    alignItems: 'center',
+  },
+  liveNoticeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#92400E',
   },
 });

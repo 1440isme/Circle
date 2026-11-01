@@ -29,6 +29,9 @@
 - **Triết lý Radical Minimalism & Clean UI:** Giao diện tối giản tối đa, ít text nhất có thể. Cấm mọi text mô tả hiển nhiên, subtitle lặp lại tiêu đề, badge chú thích thừa (như lời khuyên đổi mật khẩu, hint empty state dài dòng, badge nháp thô). Ghim đưa lên header icon (rỗng/fill); cài đặt âm thanh gom vào Circle Settings; Light theme nút bấm phải phân biệt rõ với nền. — chốt bởi Bình, 2026-10-28
 - **Zero Hardcoding Invariant:** 100% text giao diện (label, error, toast, alert, placeholder, aria-label) bắt buộc đi qua `@circle/shared` (`vi.ts` và `en.ts`). Tuyệt đối cấm hardcode bất kỳ chuỗi tiếng Việt/tiếng Anh nào trong component. — chốt bởi Bình, 2026-10-28
 - **Tương tác tin nhắn ngữ cảnh & Emoji chuẩn hóa:** Web hover hiện 3 chấm dọc mở menu; Mobile nhấn giữ focus tin nhắn (nền mờ) với reaction emoji ở trên và hành động ở dưới. Toàn hệ thống dùng DUY NHẤT 1 bộ emoji; tab emoji picker chỉ dùng icon đại diện, bỏ tiêu đề chữ. — chốt bởi Bình, 2026-10-28
+- **Kỷ luật Clean Repository:** Giữ sạch kho mã nguồn tuyệt đối; không để lại file rác, file nháp, script thử nghiệm tạm thời hay các câu lệnh kỹ thuật dư thừa trong repository. — chốt bởi Bình, 2026-11-01
+- **Thẩm quyền PR & Phê duyệt:** Tuyệt đối nghiêm ngặt KHÔNG tự ý tạo Pull Request (PR) hoặc merge code khi chưa có sự chỉ thị và cho phép rõ ràng từ kỹ sư. — chốt bởi Bình, 2026-11-01
+- **Ngưỡng ghi nhận AI Log (`docs/ai-usage/log.md`):** Chỉ ghi nhận entry `AI-XXXX` khi triển khai một tính năng hoàn chỉnh, thay đổi kiến trúc hoặc logic cốt lõi có quy mô đủ lớn. Tuyệt đối không ghi log cho các tinh chỉnh giao diện nhỏ lẻ (micro UI tweaks, chỉnh style/CSS vụn vặt). — chốt bởi Bình, 2026-11-01
 
 ## Corrections & Lessons
 

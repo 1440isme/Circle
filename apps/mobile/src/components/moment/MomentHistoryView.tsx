@@ -29,12 +29,14 @@ import { useLanguageStore } from '../../stores/language.store';
 import { useAuthStore } from '../../stores/auth.store';
 import { useMyMomentsQuery, useDeleteMomentMutation } from '../../hooks/use-circle-queries';
 import { getItem, setItem } from '../../services/storage';
-import { MomentEntity } from '@circle/types';
+import { MomentEntity, SharedAlbumEntity } from '@circle/types';
+import { getAlbumsApi, addPhotosApi } from '../../services/circle-tools.service';
 import { resolveMobileMediaUrl } from '../../services/api';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface MomentHistoryViewProps {
+  circleId?: string;
   onClose?: () => void;
   allCircleMoments?: MomentEntity[];
   capturedPhotoUrl?: string | null;
@@ -212,6 +214,7 @@ export function resolveMomentLocation(m: any, fallbackIndex: number = 0) {
 }
 
 export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
+  circleId,
   onClose,
   allCircleMoments = [],
   capturedPhotoUrl,
@@ -234,6 +237,43 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
   const [activeCluster, setActiveCluster] = useState<MapClusterPin | null>(null);
   const [selectedMonthFilter, setSelectedMonthFilter] = useState<string>('all');
   const [lightboxSwapped, setLightboxSwapped] = useState<boolean>(false);
+  const [isSaveAlbumModalOpen, setIsSaveAlbumModalOpen] = useState(false);
+  const [albums, setAlbums] = useState<SharedAlbumEntity[]>([]);
+  const [isLoadingAlbums, setIsLoadingAlbums] = useState(false);
+  const [isSavingPhoto, setIsSavingPhoto] = useState(false);
+
+  const effectiveCircleId = circleId || (allCircleMoments?.[0] as any)?.circleId;
+
+  const handleOpenSaveAlbumModal = async () => {
+    if (!effectiveCircleId) {
+      Alert.alert('Thông báo', 'Không tìm thấy thông tin Vòng tròn để lưu album.');
+      return;
+    }
+    setIsSaveAlbumModalOpen(true);
+    setIsLoadingAlbums(true);
+    try {
+      const data = await getAlbumsApi(effectiveCircleId);
+      setAlbums(data);
+    } catch (err: any) {
+      Alert.alert('Lỗi', err.message || 'Không thể tải danh sách album');
+    } finally {
+      setIsLoadingAlbums(false);
+    }
+  };
+
+  const handleSaveToAlbum = async (albumId: string, albumTitle: string, photoUrl: string) => {
+    if (!effectiveCircleId) return;
+    setIsSavingPhoto(true);
+    try {
+      await addPhotosApi(effectiveCircleId, albumId, { photos: [{ fileUrl: photoUrl }] });
+      setIsSaveAlbumModalOpen(false);
+      Alert.alert('Thành công', `Đã lưu ảnh khoảnh khắc vào Album "${albumTitle}"!`);
+    } catch (err: any) {
+      Alert.alert('Lỗi', err.message || 'Không thể lưu ảnh vào album');
+    } finally {
+      setIsSavingPhoto(false);
+    }
+  };
   const webViewRef = useRef<WebView>(null);
 
   // Queries
@@ -2061,5 +2101,58 @@ const styles = StyleSheet.create({
   detailViewMapLinkText: {
     fontSize: 11,
     fontWeight: '700',
+  },
+
+  albumModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  albumModalContent: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+    padding: 16,
+    paddingBottom: 32,
+    maxHeight: 380,
+  },
+  albumModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#E2E8F0',
+    marginBottom: 8,
+  },
+  albumModalTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  albumChoiceItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#F1F5F9',
+  },
+  albumChoiceIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: '#CCFBF1',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  albumChoiceTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0F172A',
+  },
+  albumChoiceCount: {
+    fontSize: 12,
+    color: '#64748B',
   },
 });

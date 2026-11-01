@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Compass,
   Plus,
@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguageStore } from '../../stores/language.store';
+import { getSocket } from '../../lib/socket';
 import {
   useWheelsQuery,
   useCreateWheelMutation,
@@ -45,18 +46,12 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [wheelTitle, setWheelTitle] = useState('');
   const [optionsList, setOptionsList] = useState<string[]>(['Ăn phở', 'Cơm tấm', 'Bún chả']);
-
-  // Animation states
-  const [isSpinning, setIsSpinning] = useState(false);
-  const [winner, setWinner] = useState<string | null>(null);
-  const [currentRotation, setCurrentRotation] = useState(0);
-
   const { data: wheels = [], isLoading } = useWheelsQuery(circleId);
   const createMutation = useCreateWheelMutation(circleId);
   const spinMutation = useSpinWheelMutation(circleId);
   const deleteMutation = useDeleteWheelMutation(circleId);
 
-  // Active wheel
+
   const activeWheel: DecisionWheelEntity | undefined =
     wheels.find((w) => w.id === selectedWheelId) || wheels[0];
 
@@ -65,6 +60,75 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
       setSelectedWheelId(wheels[0]?.id || null);
     }
   }, [wheels, selectedWheelId]);
+
+  // Animation states
+  const [isSpinning, setIsSpinning] = useState(false);
+  const [winner, setWinner] = useState<string | null>(null);
+  const [currentRotation, setCurrentRotation] = useState(0);
+  const [liveSpunNotice, setLiveSpunNotice] = useState<string | null>(null);
+
+  const animateWheelTo = useCallback(
+    (targetLabel: string, spunByName?: string) => {
+      if (!activeWheel || !activeWheel.options || activeWheel.options.length === 0) return;
+
+      setIsSpinning(true);
+      setWinner(null);
+      if (spunByName) {
+        setLiveSpunNotice(`${spunByName} vừa quay vòng quay!`);
+      }
+
+      const numOptions = activeWheel.options.length;
+      const arcAngle = (2 * Math.PI) / numOptions;
+      const targetIndex = activeWheel.options.findIndex((o) => o.optionLabel === targetLabel);
+      const validIndex = targetIndex >= 0 ? targetIndex : 0;
+
+      const extraSpins = 6 * 2 * Math.PI;
+      const targetSliceCenter = validIndex * arcAngle + arcAngle / 2;
+      const finalAngle =
+        extraSpins + (1.5 * Math.PI - targetSliceCenter) + (Math.random() * 0.2 - 0.1);
+
+      const startTime = performance.now();
+      const spinDuration = 4000;
+
+      const animate = (now: number) => {
+        const elapsed = now - startTime;
+        const progress = Math.min(elapsed / spinDuration, 1);
+        const easeOut = 1 - Math.pow(1 - progress, 3);
+        const newRotation = finalAngle * easeOut;
+        setCurrentRotation(newRotation);
+
+        if (progress < 1) {
+          requestAnimationFrame(animate);
+        } else {
+          setIsSpinning(false);
+          setWinner(targetLabel);
+          setTimeout(() => setLiveSpunNotice(null), 5000);
+        }
+      };
+
+      requestAnimationFrame(animate);
+    },
+    [activeWheel],
+  );
+
+  // Realtime Socket.IO sync for wheel spin
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+
+    const handleWheelSpun = (data: any) => {
+      if (data.circleId === circleId && (!selectedWheelId || data.wheelId === selectedWheelId)) {
+        if (data.spunBy?.userId !== user?.id && data.selectedOption?.optionLabel) {
+          animateWheelTo(data.selectedOption.optionLabel, data.spunBy?.displayName || 'Thành viên');
+        }
+      }
+    };
+
+    socket.on('circle:wheel-spun', handleWheelSpun);
+    return () => {
+      socket.off('circle:wheel-spun', handleWheelSpun);
+    };
+  }, [circleId, selectedWheelId, user?.id, animateWheelTo]);
 
   // Draw the wheel onto HTML5 Canvas
   useEffect(() => {
@@ -133,49 +197,10 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
   const handleSpin = async () => {
     if (!activeWheel || isSpinning || activeWheel.options.length < 2) return;
 
-    setIsSpinning(true);
-    setWinner(null);
-
     try {
       const result = await spinMutation.mutateAsync(activeWheel.id);
       const targetLabel = result.selectedOption.optionLabel;
-
-      const numOptions = activeWheel.options.length;
-      const arcAngle = (2 * Math.PI) / numOptions;
-      const targetIndex = activeWheel.options.findIndex(
-        (o) => o.optionLabel === targetLabel,
-      );
-
-      // Pointer is located at TOP (-PI/2)
-      // We want slice `targetIndex` center to align with -PI/2
-      // slice center at resting position is `targetIndex * arcAngle + arcAngle / 2`
-      // rotation angle needed = 3*PI/2 - (targetIndex * arcAngle + arcAngle / 2) + extra full spins
-      const extraSpins = 6 * 2 * Math.PI; // 6 full rotations
-      const targetSliceCenter = targetIndex * arcAngle + arcAngle / 2;
-      const finalAngle =
-        extraSpins + (1.5 * Math.PI - targetSliceCenter) + (Math.random() * 0.2 - 0.1);
-
-      const startTime = performance.now();
-      const spinDuration = 4000; // 4 seconds easing
-
-      const animate = (now: number) => {
-        const elapsed = now - startTime;
-        const progress = Math.min(elapsed / spinDuration, 1);
-
-        // Ease out cubic
-        const easeOut = 1 - Math.pow(1 - progress, 3);
-        const newRotation = finalAngle * easeOut;
-        setCurrentRotation(newRotation);
-
-        if (progress < 1) {
-          requestAnimationFrame(animate);
-        } else {
-          setIsSpinning(false);
-          setWinner(targetLabel);
-        }
-      };
-
-      requestAnimationFrame(animate);
+      animateWheelTo(targetLabel);
     } catch (err: any) {
       setIsSpinning(false);
       alert(err.message || 'Lỗi khi quay vòng');

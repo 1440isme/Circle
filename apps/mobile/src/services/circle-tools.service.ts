@@ -150,6 +150,21 @@ export async function createAnonymousPostApi(
   return res.data;
 }
 
+export async function reactAnonymousPostApi(
+  circleId: string,
+  postId: string,
+  emoji: string,
+): Promise<any> {
+  const res = await mobileApiRequest<any>(
+    `/circles/${circleId}/anonymous-posts/${postId}/react`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ emoji }),
+    },
+  );
+  return res.data;
+}
+
 export async function deleteAnonymousPostApi(
   circleId: string,
   postId: string,
@@ -246,6 +261,28 @@ export async function respondCalendarEventRsvpApi(
 }
 
 // =============================================================================
+export async function getUpcomingCalendarEventsApi(
+  circleId: string,
+): Promise<CalendarEventEntity[]> {
+  const res = await mobileApiRequest<CalendarEventEntity[]>(
+    `/circles/${circleId}/calendar-events/upcoming`,
+  );
+  return res.data;
+}
+
+export async function shareCalendarEventToChatApi(
+  circleId: string,
+  eventId: string,
+): Promise<{ success: boolean; messageId: string }> {
+  const res = await mobileApiRequest<{ success: boolean; messageId: string }>(
+    `/circles/${circleId}/calendar-events/${eventId}/share-to-chat`,
+    {
+      method: 'POST',
+    },
+  );
+  return res.data;
+}
+
 // 5. COLLABORATIVE PLANNING SHEET (UC18)
 // =============================================================================
 

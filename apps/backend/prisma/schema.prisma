@@ -95,6 +95,7 @@ model User {
   filedReports        CircleReport[]      @relation("ReportedBy")
   receivedReports     CircleReport[]      @relation("ReportedUser")
   calendarEventRsvps  CalendarEventRsvp[]
+  anonymousPostReactions AnonymousPostReaction[]
 
   @@index([email])
 }
@@ -570,9 +571,25 @@ model AnonymousPost {
   cardTheme String?  @default("sunset")
   postedAt  DateTime @default(now())
 
-  circle Circle @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  circle    Circle                  @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  reactions AnonymousPostReaction[]
 
   @@index([circleId, postedAt(sort: Desc)])
+}
+
+model AnonymousPostReaction {
+  id        String   @id @default(cuid())
+  postId    String
+  userId    String
+  emoji     String
+  createdAt DateTime @default(now())
+
+  post AnonymousPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId, emoji])
+  @@index([postId])
+  @@index([userId])
 }
 
 model CalendarEvent {

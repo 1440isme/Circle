@@ -124,6 +124,7 @@ import { MomentsView, parseMomentPhotos, MomentFeedPipView, formatMomentRelative
 import { CreateCircleModal } from '../../src/components/circle/CreateCircleModal';
 import { JoinCircleModal } from '../../src/components/circle/JoinCircleModal';
 import { PinnedMessagesModal } from '../../src/components/chat/PinnedMessagesModal';
+import { MobileCalendarEventChatEmbed } from '../../src/components/chat/MobileCalendarEventChatEmbed';
 import { SearchMessagesModal } from '../../src/components/chat/SearchMessagesModal';
 import { MobileCallStageModal } from '../../src/components/call/MobileCallStageModal';
 import { Emoji } from '../../src/components/ui/Emoji';
@@ -920,77 +921,15 @@ const MobileSwipeMessageBubble = React.memo(function MobileSwipeMessageBubble({
                     {t.chat?.messageRecalled || 'Tin nhắn đã được thu hồi'}
                   </Text>
                 </View>
-              ) : Boolean(msg.content?.startsWith('[CALENDAR_EVENT]:')) ? (() => {
-                let calData: any = null;
-                try {
-                  calData = JSON.parse(msg.content.replace('[CALENDAR_EVENT]:', ''));
-                } catch {}
-                if (!calData) return null;
-                return (
-                  <View style={{ minWidth: 210, maxWidth: 280, gap: 6, paddingVertical: 4, paddingHorizontal: 2 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                      <View
-                        style={{
-                          width: 32,
-                          height: 32,
-                          borderRadius: 10,
-                          backgroundColor: isSenderMe ? 'rgba(0,0,0,0.15)' : colors.wash,
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        }}
-                      >
-                        <Calendar size={18} color={isSenderMe ? senderTextColor : colors.primary} />
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text
-                          style={{
-                            fontSize: 10,
-                            fontWeight: '700',
-                            textTransform: 'uppercase',
-                            color: isSenderMe ? senderTextColor : colors.primary,
-                            opacity: 0.85,
-                          }}
-                        >
-                          {t.chat?.calendarEventCardTitle || 'Sự kiện Vòng tròn'}
-                        </Text>
-                        <Text
-                          numberOfLines={1}
-                          style={{
-                            fontSize: 14,
-                            fontWeight: '700',
-                            color: isSenderMe ? senderTextColor : colors.text,
-                          }}
-                        >
-                          {calData.title}
-                        </Text>
-                      </View>
-                    </View>
-                    <View
-                      style={{
-                        backgroundColor: isSenderMe ? 'rgba(0,0,0,0.1)' : colors.wash,
-                        borderRadius: 8,
-                        padding: 8,
-                        gap: 4,
-                      }}
-                    >
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <Clock size={12} color={isSenderMe ? senderTextColor : colors.subtle} />
-                        <Text style={{ fontSize: 11, color: isSenderMe ? senderTextColor : colors.subtle }}>
-                          {new Date(calData.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · {new Date(calData.startTime).toLocaleDateString([], { day: '2-digit', month: '2-digit' })}
-                        </Text>
-                      </View>
-                      {calData.location ? (
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                          <MapPin size={12} color={isSenderMe ? senderTextColor : colors.subtle} />
-                          <Text numberOfLines={1} style={{ fontSize: 11, color: isSenderMe ? senderTextColor : colors.subtle, flex: 1 }}>
-                            {calData.location}
-                          </Text>
-                        </View>
-                      ) : null}
-                    </View>
-                  </View>
-                );
-              })() : callSummaryData ? (
+              ) : Boolean(msg.content?.startsWith('[CALENDAR_EVENT]:')) ? (
+                <MobileCalendarEventChatEmbed
+                  content={msg.content}
+                  circleId={msg.circleId || ''}
+                  isSenderMe={isSenderMe}
+                  senderTextColor={senderTextColor}
+                  colors={colors}
+                />
+              ) : callSummaryData ? (
                 <View style={styles.callSummaryCard}>
                   <View style={styles.callSummaryHeader}>
                     <View

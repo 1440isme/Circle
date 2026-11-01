@@ -8,7 +8,7 @@ import {
   Modal,
   Alert,
 } from 'react-native';
-import { Tabs } from 'expo-router';
+import { Tabs, useRouter } from 'expo-router';
 import { BlurView } from 'expo-blur';
 import {
   Home,
@@ -32,6 +32,8 @@ import { CircleManagementModal } from '../../src/components/circle/CircleManagem
 interface CustomTabBarProps {
   state?: any;
   navigation?: any;
+  emitter?: any;
+  navigateToTab?: (key: string) => void;
   descriptors?: any;
   onPressCreate: () => void;
   isDark: boolean;
@@ -42,11 +44,14 @@ interface CustomTabBarProps {
 function CustomLiquidTabBar({
   state,
   navigation,
+  emitter,
+  navigateToTab,
   onPressCreate,
   isDark,
   colors,
   t,
 }: CustomTabBarProps) {
+  const router = useRouter();
   const tabs = [
     {
       name: 'index',
@@ -108,19 +113,38 @@ function CustomLiquidTabBar({
               );
             }
 
-            const routeIndex = state.routes.findIndex((r: any) => r.name === tab.name);
-            const isFocused = state.index === routeIndex;
+            const routeIndex = state?.routes
+              ? state.routes.findIndex((r: any) => r.name === tab.name)
+              : -1;
+            const isFocused = state ? state.index === routeIndex : false;
             const Icon = tab.Icon!;
 
             const onPress = () => {
-              const event = navigation.emit({
-                type: 'tabPress',
-                target: state.routes[routeIndex]?.key,
-                canPreventDefault: true,
-              });
+              const route = state?.routes?.[routeIndex];
+              const routeKey = route?.key;
 
-              if (!isFocused && !event.defaultPrevented) {
-                navigation.navigate(tab.name);
+              const event = emitter?.emit
+                ? emitter.emit({
+                    type: 'tabPress',
+                    target: routeKey,
+                    canPreventDefault: true,
+                  })
+                : navigation?.emit
+                ? navigation.emit({
+                    type: 'tabPress',
+                    target: routeKey,
+                    canPreventDefault: true,
+                  })
+                : { defaultPrevented: false };
+
+              if (!isFocused && !event?.defaultPrevented) {
+                if (navigateToTab && routeKey) {
+                  navigateToTab(routeKey);
+                } else if (navigation?.navigate) {
+                  navigation.navigate(tab.name);
+                } else {
+                  router.navigate((tab.name === 'index' ? '/' : `/${tab.name}`) as any);
+                }
               }
             };
 

@@ -40,6 +40,7 @@ import {
   HelpCircle,
   Users,
   Repeat,
+  MessageSquareShare,
 } from 'lucide-react-native';
 import {
   getCalendarEventsApi,
@@ -48,7 +49,9 @@ import {
   cancelCalendarEventApi,
   deleteCalendarEventApi,
   respondCalendarEventRsvpApi,
+  shareCalendarEventToChatApi,
 } from '../../services/circle-tools.service';
+import { MobileUpcomingEventsFeed } from './MobileUpcomingEventsFeed';
 import { CalendarEventEntity, CalendarEventRsvpEntity, EventRsvpStatus } from '@circle/types';
 
 const isLocationUrl = (loc?: string | null): boolean => {
@@ -494,6 +497,24 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
   const [editingEvent, setEditingEvent] = useState<CalendarEventEntity | null>(null);
   const [detailEvent, setDetailEvent] = useState<CalendarEventEntity | null>(null);
   const [isYearView, setIsYearView] = useState(false);
+  const [calendarTab, setCalendarTab] = useState<'month' | 'upcoming'>('month');
+  const [isSharingToChat, setIsSharingToChat] = useState<string | null>(null);
+
+  const handleShareToChat = useCallback(
+    async (eventId: string) => {
+      try {
+        setIsSharingToChat(eventId);
+        Haptics.selectionAsync();
+        await shareCalendarEventToChatApi(circleId, eventId);
+        Alert.alert('Thành công', 'Đã chia sẻ thẻ sự kiện vào kênh Chat của Vòng tròn');
+      } catch (err: any) {
+        Alert.alert('Lỗi', err.message || 'Không thể chia sẻ sự kiện vào chat');
+      } finally {
+        setIsSharingToChat(null);
+      }
+    },
+    [circleId],
+  );
 
   const MONTH_PAGE_HEIGHT = 276;
 
@@ -3219,7 +3240,11 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
         </View>
       </View>
 
-      {/* PHẦN 1: LỊCH Ở TRÊN (Lướt theo từng tháng, snap chuẩn xác từng tháng) */}
+      {calendarTab === 'upcoming' ? (
+        <MobileUpcomingEventsFeed circleId={circleId} onSelectEvent={(ev) => setDetailEvent(ev)} />
+      ) : (
+        <>
+          {/* PHẦN 1: LỊCH Ở TRÊN (Lướt theo từng tháng, snap chuẩn xác từng tháng) */}
       <View style={styles.calendarTopContainer}>
         {/* Days of Week - Cố định trên đầu */}
         <View style={styles.appleMonthWeekdaysRowFixed}>
@@ -3418,6 +3443,8 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
           </View>
         )}
       </ScrollView>
+        </>
+      )}
 
       {/* Add Event Modal
       {/* Add Event Modal - Mở to sẵn lên trên, chuẩn Apple HIG */}
@@ -6115,5 +6142,49 @@ appleYearBtn: {
   customRepeatScrollContent: {
     padding: 16,
     paddingBottom: 40,
+  },
+
+  segmentTabBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 10,
+    padding: 3,
+    marginHorizontal: 16,
+    marginVertical: 6,
+  },
+  segmentTabItem: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 7,
+    borderRadius: 8,
+  },
+  segmentTabItemActive: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  segmentTabText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#64748B',
+  },
+  segmentTabTextActive: {
+    fontWeight: '700',
+    color: '#0D9488',
+  },
+  detailNavShareBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 6,
+    backgroundColor: '#CCFBF1',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

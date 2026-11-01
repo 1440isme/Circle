@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Heart,
   Plus,
@@ -14,10 +14,14 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguageStore } from '../../stores/language.store';
+import { useQueryClient } from '@tanstack/react-query';
+import { getSocket } from '../../lib/socket';
 import {
   useAnonymousPostsQuery,
   useCreateAnonymousPostMutation,
   useDeleteAnonymousPostMutation,
+  useReactAnonymousPostMutation,
+  TOOLS_KEYS,
 } from '../../hooks/use-circle-tools';
 
 interface CircleAnonymousViewProps {
@@ -86,6 +90,23 @@ export const CircleAnonymousView: React.FC<CircleAnonymousViewProps> = ({ circle
   const { data: posts = [], isLoading } = useAnonymousPostsQuery(circleId);
   const createMutation = useCreateAnonymousPostMutation(circleId);
   const deleteMutation = useDeleteAnonymousPostMutation(circleId);
+  const reactMutation = useReactAnonymousPostMutation(circleId);
+  const queryClient = useQueryClient();
+
+  // Realtime Socket.IO sync for reactions
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+
+    const handleReaction = () => {
+      queryClient.invalidateQueries({ queryKey: TOOLS_KEYS.anonymous(circleId) });
+    };
+
+    socket.on('circle:anonymous-post-reaction-updated', handleReaction);
+    return () => {
+      socket.off('circle:anonymous-post-reaction-updated', handleReaction);
+    };
+  }, [circleId, queryClient]);
 
   const handleCreatePost = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -180,7 +201,47 @@ export const CircleAnonymousView: React.FC<CircleAnonymousViewProps> = ({ circle
                   </div>
                 </div>
 
-                <div className="mt-4 pt-3 border-t border-black/5 dark:border-white/5 flex items-center justify-between text-[10px] opacity-70">
+                {/* Reactions Bar */}
+                <div className="mt-3 pt-2.5 border-t border-black/5 dark:border-white/5 flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {(post.reactions || []).map((rx) => (
+                      <button
+                        key={rx.emoji}
+                        type="button"
+                        onClick={() => reactMutation.mutate({ postId: post.id, emoji: rx.emoji })}
+                        className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border transition-all ${
+                          rx.userReacted
+                            ? 'bg-circle-charcoal/15 dark:bg-white/20 border-circle-charcoal/40 dark:border-white/40 text-circle-charcoal dark:text-white shadow-2xs scale-105'
+                            : 'bg-white/60 dark:bg-black/30 border-black/10 dark:border-white/10 text-circle-slate dark:text-circle-dark-muted hover:border-black/25'
+                        }`}
+                      >
+                        <span>{rx.emoji}</span>
+                        <span className="text-[10px] font-bold">{rx.count}</span>
+                      </button>
+                    ))}
+
+                    {/* Quick emoji reaction pickers */}
+                    <div className="flex items-center gap-0.5 ml-1 opacity-70 hover:opacity-100 transition-opacity">
+                      {['❤️', '😂', '🥺', '👏', '🔥'].map((em) => {
+                        const isAlreadyReacted = post.reactions?.some((r) => r.emoji === em && r.userReacted);
+                        if (isAlreadyReacted) return null;
+                        return (
+                          <button
+                            key={em}
+                            type="button"
+                            onClick={() => reactMutation.mutate({ postId: post.id, emoji: em })}
+                            className="p-1 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-xs transition-transform hover:scale-125 active:scale-95"
+                            title={`Thả ${em}`}
+                          >
+                            {em}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-2 pt-2 border-t border-black/5 dark:border-white/5 flex items-center justify-between text-[10px] opacity-70">
                   <div className="flex items-center gap-1">
                     <Sparkles className="h-3 w-3" />
                     <span>Điều muốn nói</span>

@@ -18,6 +18,7 @@ import {
   AddPhotosDto,
   CreateWheelDto,
   CreateAnonymousPostDto,
+  ReactAnonymousPostDto,
   CreateCalendarEventDto,
   UpdateCalendarEventDto,
   RespondEventRsvpDto,
@@ -250,6 +251,28 @@ export class CircleToolsController {
     };
   }
 
+  @Post('anonymous-posts/:postId/react')
+  @HttpCode(HttpStatus.OK)
+  async reactAnonymousPost(
+    @Param('circleId') circleId: string,
+    @Param('postId') postId: string,
+    @CurrentUser('id') userId: string,
+    @Body() dto: ReactAnonymousPostDto,
+  ): Promise<ApiResponse<any>> {
+    const data = await this.toolsService.toggleAnonymousPostReaction(
+      circleId,
+      postId,
+      userId,
+      dto.emoji,
+    );
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      data,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
   @Delete('anonymous-posts/:postId')
   async deleteAnonymousPost(
     @Param('circleId') circleId: string,
@@ -268,6 +291,25 @@ export class CircleToolsController {
   // ===========================================================================
   // 4. GROUP CALENDAR & REMINDERS (UC17)
   // ===========================================================================
+
+  @Get('calendar-events/upcoming')
+  async getUpcomingCalendarEvents(
+    @Param('circleId') circleId: string,
+    @CurrentUser('id') userId: string,
+    @Query('limit') limit?: string,
+  ): Promise<ApiResponse<any>> {
+    const data = await this.toolsService.getUpcomingCalendarEvents(
+      circleId,
+      userId,
+      limit ? parseInt(limit, 10) : 20,
+    );
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      data,
+      timestamp: new Date().toISOString(),
+    };
+  }
 
   @Get('calendar-events')
   async getCalendarEvents(
@@ -348,6 +390,22 @@ export class CircleToolsController {
       timestamp: new Date().toISOString(),
     };
   }
+  @Post('calendar-events/:eventId/share-to-chat')
+  @HttpCode(HttpStatus.OK)
+  async shareCalendarEventToChat(
+    @Param('circleId') circleId: string,
+    @Param('eventId') eventId: string,
+    @CurrentUser('id') userId: string,
+  ): Promise<ApiResponse<any>> {
+    const data = await this.toolsService.shareCalendarEventToChat(circleId, eventId, userId);
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      data,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
   @Put('calendar-events/:eventId/rsvp')
   async respondEventRsvp(
     @Param('circleId') circleId: string,

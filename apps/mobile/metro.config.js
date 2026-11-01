@@ -19,11 +19,16 @@ config.resolver.nodeModulesPaths = [
 // 3. Resolve redirects for RN 0.74+ / Expo SDK compatibility
 const originalResolveRequest = config.resolver.resolveRequest;
 config.resolver.resolveRequest = (context, moduleName, platform) => {
-  if (moduleName === 'react-native/asset-registry') {
+  if (
+    (moduleName === 'react-native/asset-registry' ||
+      moduleName === '@react-native/assets-registry/registry' ||
+      moduleName === '@react-native/assets-registry/registry.js' ||
+      moduleName === 'react-native/Libraries/Image/AssetRegistry' ||
+      moduleName === 'react-native/Libraries/Image/AssetRegistry.js') &&
+    !context.originModulePath?.replace(/\\/g, '/').includes('src/shims/asset-registry')
+  ) {
     try {
-      const target = require.resolve('@react-native/assets-registry/registry.js', {
-        paths: [projectRoot, monorepoRoot],
-      });
+      const target = path.resolve(projectRoot, 'src/shims/asset-registry.js');
       return {
         filePath: target,
         type: 'sourceFile',

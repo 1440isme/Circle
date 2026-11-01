@@ -38,6 +38,8 @@ export const TOOLS_KEYS = {
   anonymous: (circleId: string) => [...TOOLS_KEYS.all, circleId, 'anonymous-posts'] as const,
   calendar: (circleId: string, month?: number, year?: number) =>
     [...TOOLS_KEYS.all, circleId, 'calendar', month, year] as const,
+  upcomingCalendar: (circleId: string) =>
+    [...TOOLS_KEYS.all, circleId, 'calendar', 'upcoming'] as const,
   planningSheets: (circleId: string) => [...TOOLS_KEYS.all, circleId, 'planning-sheets'] as const,
   planningSheetDetail: (circleId: string, sheetId: string) =>
     [...TOOLS_KEYS.all, circleId, 'planning-sheets', sheetId] as const,
@@ -289,6 +291,22 @@ export function useCreateAnonymousPostMutation(circleId: string) {
   });
 }
 
+export function useReactAnonymousPostMutation(circleId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ postId, emoji }: { postId: string; emoji: string }) => {
+      const res = await apiRequest<any>(`/circles/${circleId}/anonymous-posts/${postId}/react`, {
+        method: 'POST',
+        body: JSON.stringify({ emoji }),
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: TOOLS_KEYS.anonymous(circleId) });
+    },
+  });
+}
+
 export function useDeleteAnonymousPostMutation(circleId: string) {
   const queryClient = useQueryClient();
   return useMutation({
@@ -416,6 +434,34 @@ export function useDeleteCalendarEventMutation(circleId: string) {
     },
   });
 }
+export function useUpcomingCalendarEventsQuery(circleId: string | null) {
+  return useQuery({
+    queryKey: TOOLS_KEYS.upcomingCalendar(circleId || ''),
+    queryFn: async () => {
+      if (!circleId) return [];
+      const res = await apiRequest<CalendarEventEntity[]>(
+        `/circles/${circleId}/calendar-events/upcoming`,
+      );
+      return res.data;
+    },
+    enabled: !!circleId,
+  });
+}
+
+export function useShareCalendarEventToChatMutation(circleId: string) {
+  return useMutation({
+    mutationFn: async (eventId: string) => {
+      const res = await apiRequest<{ success: boolean }>(
+        `/circles/${circleId}/calendar-events/${eventId}/share-to-chat`,
+        {
+          method: 'POST',
+        },
+      );
+      return res.data;
+    },
+  });
+}
+
 export function useRespondEventRsvpMutation(circleId: string) {
   const queryClient = useQueryClient();
   return useMutation({

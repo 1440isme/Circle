@@ -692,12 +692,41 @@ export interface SpinWheelResult {
   spunAt: string;
 }
 
+export interface AnonymousPostReactionSummary {
+  emoji: string;
+  count: number;
+  userReacted?: boolean;
+}
+
 export interface AnonymousPostEntity {
   id: string;
   circleId: string;
   content: string;
   cardTheme?: string | null;
   postedAt: string;
+  reactions?: AnonymousPostReactionSummary[];
+}
+
+export interface ReactAnonymousPostInput {
+  emoji: string;
+}
+
+export interface WheelSpunSocketPayload {
+  wheelId: string;
+  circleId: string;
+  selectedOption: WheelOptionEntity;
+  spunAt: string;
+  spunBy?: {
+    userId: string;
+    displayName: string;
+  };
+}
+
+export interface AnonymousPostReactionSocketPayload {
+  postId: string;
+  reactions: { emoji: string; count: number }[];
+  toggledEmoji: string;
+  action: 'ADDED' | 'REMOVED';
 }
 
 export interface CreateAnonymousPostInput {

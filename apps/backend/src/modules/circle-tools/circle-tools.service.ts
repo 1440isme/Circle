@@ -348,7 +348,7 @@ export class CircleToolsService {
   }
 
   async spinWheel(circleId: string, wheelId: string, userId: string): Promise<SpinWheelResult> {
-    await this.getMemberOrThrow(circleId, userId);
+    const member = await this.getMemberOrThrow(circleId, userId);
 
     const wheel = await this.prisma.decisionWheel.findFirst({
       where: { id: wheelId, circleId },
@@ -376,11 +376,26 @@ export class CircleToolsService {
       },
     });
 
-    return {
+    const result: SpinWheelResult = {
       wheelId,
       selectedOption: selected,
       spunAt: now.toISOString(),
     };
+
+    if (this.chatGateway) {
+      this.chatGateway.broadcastWheelSpun(circleId, {
+        wheelId,
+        circleId,
+        selectedOption: selected,
+        spunAt: now.toISOString(),
+        spunBy: {
+          userId,
+          displayName: member.nickname || 'Thành viên',
+        },
+      });
+    }
+
+    return result;
   }
 
   async deleteWheel(circleId: string, wheelId: string, userId: string) {
@@ -413,7 +428,7 @@ export class CircleToolsService {
     await this.getMemberOrThrow(circleId, userId);
 
     // Guaranteed ZERO author identification returned to client
-    return this.prisma.anonymousPost.findMany({
+    const posts = await this.prisma.anonymousPost.findMany({
       where: { circleId },
       orderBy: { postedAt: 'desc' },
       select: {
@@ -422,8 +437,112 @@ export class CircleToolsService {
         content: true,
         cardTheme: true,
         postedAt: true,
+        reactions: {
+          select: {
+            emoji: true,
+            userId: true,
+          },
+        },
       },
     });
+
+    return posts.map((post) => {
+      const map = new Map<string, { count: number; userReacted: boolean }>();
+      for (const r of post.reactions || []) {
+        const cur = map.get(r.emoji) || { count: 0, userReacted: false };
+        cur.count++;
+        if (r.userId === userId) {
+          cur.userReacted = true;
+        }
+        map.set(r.emoji, cur);
+      }
+      return {
+        id: post.id,
+        circleId: post.circleId,
+        content: post.content,
+        cardTheme: post.cardTheme,
+        postedAt: post.postedAt,
+        reactions: Array.from(map.entries()).map(([emoji, item]) => ({
+          emoji,
+          count: item.count,
+          userReacted: item.userReacted,
+        })),
+      };
+    });
+  }
+
+  async toggleAnonymousPostReaction(circleId: string, postId: string, userId: string, emoji: string) {
+    await this.getMemberOrThrow(circleId, userId);
+
+    const post = await this.prisma.anonymousPost.findFirst({
+      where: { id: postId, circleId },
+    });
+
+    if (!post) {
+      throw new NotFoundException('Không tìm thấy bài viết');
+    }
+
+    if (!emoji || emoji.trim().length === 0) {
+      throw new BadRequestException('Biểu cảm không hợp lệ');
+    }
+
+    const cleanEmoji = emoji.trim();
+
+    const existing = await this.prisma.anonymousPostReaction.findUnique({
+      where: {
+        postId_userId_emoji: {
+          postId,
+          userId,
+          emoji: cleanEmoji,
+        },
+      },
+    });
+
+    if (existing) {
+      await this.prisma.anonymousPostReaction.delete({
+        where: { id: existing.id },
+      });
+    } else {
+      await this.prisma.anonymousPostReaction.create({
+        data: {
+          postId,
+          userId,
+          emoji: cleanEmoji,
+        },
+      });
+    }
+
+    const allReactions = await this.prisma.anonymousPostReaction.findMany({
+      where: { postId },
+      select: { emoji: true, userId: true },
+    });
+
+    const reactionMap = new Map<string, number>();
+    for (const r of allReactions) {
+      reactionMap.set(r.emoji, (reactionMap.get(r.emoji) || 0) + 1);
+    }
+
+    const reactionSummary = Array.from(reactionMap.entries()).map(([em, count]) => ({
+      emoji: em,
+      count,
+    }));
+
+    if (this.chatGateway) {
+      this.chatGateway.broadcastAnonymousPostReaction(circleId, {
+        postId,
+        circleId,
+        reactions: reactionSummary,
+        toggledEmoji: cleanEmoji,
+        action: existing ? 'REMOVED' : 'ADDED',
+      });
+    }
+
+    return {
+      postId,
+      reactions: reactionSummary,
+      userReacted: !existing,
+      toggledEmoji: cleanEmoji,
+    };
   }
 
   async createAnonymousPost(circleId: string, userId: string, dto: CreateAnonymousPostDto) {
@@ -902,6 +1021,75 @@ export class CircleToolsService {
     return rsvp;
   }
 
+  async getUpcomingCalendarEvents(circleId: string, userId: string, limit = 20) {
+    await this.getMemberOrThrow(circleId, userId);
+    const now = new Date();
+
+    return this.prisma.calendarEvent.findMany({
+      where: {
+        circleId,
+        isCancelled: false,
+        OR: [
+          { startTime: { gte: now } },
+          { endTime: { gte: now } },
+        ],
+      },
+      orderBy: { startTime: 'asc' },
+      take: limit,
+      include: {
+        creator: {
+          include: {
+            user: {
+              include: {
+                profile: true,
+              },
+            },
+          },
+        },
+        rsvps: {
+          include: {
+            user: {
+              include: {
+                profile: true,
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  async shareCalendarEventToChat(circleId: string, eventId: string, userId: string) {
+    const member = await this.getMemberOrThrow(circleId, userId);
+
+    const event = await this.prisma.calendarEvent.findFirst({
+      where: { id: eventId, circleId },
+      include: {
+        creator: {
+          include: {
+            user: {
+              include: { profile: true },
+            },
+          },
+        },
+        rsvps: {
+          include: {
+            user: {
+              include: { profile: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!event) {
+      throw new NotFoundException('Không tìm thấy sự kiện');
+    }
+
+    await this.broadcastCalendarEventMessage(circleId, member, event, 'CREATED');
+    return { success: true };
+  }
+
   private computeRsvpBreakdown(rsvps: any[]) {
     let yesCount = 0;
     let noCount = 0;
@@ -1033,8 +1221,8 @@ export class CircleToolsService {
         fileSize: rawMessage.fileSize,
         audioDuration: rawMessage.audioDuration,
         replyToId: rawMessage.replyToId,
-        sentAt: rawMessage.sentAt.toISOString(),
-        updatedAt: rawMessage.updatedAt.toISOString(),
+        sentAt: rawMessage.sentAt ? rawMessage.sentAt.toISOString() : new Date().toISOString(),
+        updatedAt: rawMessage.updatedAt ? rawMessage.updatedAt.toISOString() : new Date().toISOString(),
         sender: rawMessage.sender
           ? {
               id: rawMessage.sender.id,
@@ -1042,16 +1230,16 @@ export class CircleToolsService {
               userId: rawMessage.sender.userId,
               role: rawMessage.sender.role as any,
               nickname: rawMessage.sender.nickname,
-              joinedAt: rawMessage.sender.joinedAt.toISOString(),
-              updatedAt: rawMessage.sender.updatedAt.toISOString(),
+              joinedAt: rawMessage.sender?.joinedAt ? rawMessage.sender.joinedAt.toISOString() : new Date().toISOString(),
+              updatedAt: rawMessage.sender?.updatedAt ? rawMessage.sender.updatedAt.toISOString() : new Date().toISOString(),
               user: rawMessage.sender.user
                 ? {
                     id: rawMessage.sender.user.id,
                     email: rawMessage.sender.user.email,
                     isActivated: rawMessage.sender.user.isActivated,
                     globalRole: rawMessage.sender.user.globalRole as any,
-                    createdAt: rawMessage.sender.user.createdAt.toISOString(),
-                    updatedAt: rawMessage.sender.user.updatedAt.toISOString(),
+                    createdAt: rawMessage.sender.user.createdAt ? rawMessage.sender.user.createdAt.toISOString() : new Date().toISOString(),
+                    updatedAt: rawMessage.sender.user.updatedAt ? rawMessage.sender.user.updatedAt.toISOString() : new Date().toISOString(),
                     profile: rawMessage.sender.user.profile
                       ? {
                           id: rawMessage.sender.user.profile.id,
@@ -1060,7 +1248,7 @@ export class CircleToolsService {
                           avatarUrl: rawMessage.sender.user.profile.avatarUrl,
                           bio: rawMessage.sender.user.profile.bio,
                           dateOfBirth: rawMessage.sender.user.profile.dateOfBirth?.toISOString() || null,
-                          updatedAt: rawMessage.sender.user.profile.updatedAt.toISOString(),
+                          updatedAt: rawMessage.sender.user.profile.updatedAt ? rawMessage.sender.user.profile.updatedAt.toISOString() : new Date().toISOString(),
                         }
                       : null,
                   }

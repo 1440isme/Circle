@@ -4,6 +4,7 @@ import {
   AddPhotosInput,
   CreateWheelInput,
   CreateAnonymousPostInput,
+  ReactAnonymousPostInput,
   CreateCalendarEventInput,
   UpdateCalendarEventInput,
   RespondEventRsvpInput,
@@ -48,6 +49,10 @@ export class CreateWheelDto implements CreateWheelInput {
 export class CreateAnonymousPostDto implements CreateAnonymousPostInput {
   content: string;
   cardTheme?: string;
+}
+
+export class ReactAnonymousPostDto implements ReactAnonymousPostInput {
+  emoji: string;
 }
 
 export class CreateCalendarEventDto implements CreateCalendarEventInput {

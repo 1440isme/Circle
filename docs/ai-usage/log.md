@@ -5326,3 +5326,67 @@
 - **Branch:** `feat/117-calendar-ui-recurrence-and-detail`
 - **PR:** #118 (https://github.com/1440isme/Circle/pull/118)
 
+
+
+---
+
+## AI-0145: Triển Khai Hệ Thống Event RSVP, Thẻ Sự Kiện Tương Tác Trong Chat & Realtime Delights (Web & Mobile) (#120)
+
+- **Date:** 2026-11-01 15:35:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash
+- **Related Issue:** #120 (Parent Epic: #22)
+- **Purpose:** Triển khai trọn vẹn User Story `US-COLLAB-004` (Event RSVP System, In-Chat Calendar Card & Realtime Group Delights) với tính nhất quán tuyệt đối giữa Web và Mobile. Bao gồm 3 cụm tính năng: Hệ thống RSVP sự kiện và Thẻ lịch hẹn tương tác trong Chat; Nâng cấp Lightbox Album ảnh nhóm với swipe carousel + pinch-to-zoom và lưu Moment vào Album; Đồng bộ Bánh xe may mắn và biểu cảm ẩn danh qua Socket.IO.
+- **Prompt Summary:** Thực hiện Issue #120 theo hiến pháp dự án: tuân thủ nghiêm ngặt nguyên tắc clean repo, không để lại vết tích kỹ thuật/file rác, ghi nhận log đầy đủ cho tính năng lớn, dual-platform parity giữa Web và Mobile, zero hardcoding qua từ điển shared, và tuyệt đối không tự ý PR/merge khi chưa có chỉ đạo từ kỹ sư.
+- **Files Affected:**
+  - `apps/backend/prisma/schema.prisma`
+  - `apps/backend/prisma/migrations/20261101075248_add_anonymous_post_reactions/migration.sql`
+  - `apps/backend/src/modules/chat/chat.gateway.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.controller.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.service.spec.ts`
+  - `apps/backend/src/modules/circle-tools/dto/circle-tools.dto.ts`
+  - `packages/types/src/index.ts`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `apps/web/src/hooks/use-circle-tools.ts`
+  - `apps/web/src/components/tools/CircleCalendarView.tsx`
+  - `apps/web/src/components/tools/CircleWheelView.tsx`
+  - `apps/web/src/components/tools/CircleAnonymousView.tsx`
+  - `apps/web/src/components/moments/MomentHistoryView.tsx`
+  - `apps/mobile/src/services/circle-tools.service.ts`
+  - `apps/mobile/src/services/socket.ts`
+  - `apps/mobile/src/components/chat/MobileCalendarEventChatEmbed.tsx`
+  - `apps/mobile/src/components/tools/MobileCalendarView.tsx`
+  - `apps/mobile/src/components/tools/MobileUpcomingEventsFeed.tsx`
+  - `apps/mobile/src/components/tools/MobileAlbumsView.tsx`
+  - `apps/mobile/src/components/tools/MobileWheelView.tsx`
+  - `apps/mobile/src/components/tools/MobileAnonymousView.tsx`
+  - `apps/mobile/src/components/moment/MomentHistoryView.tsx`
+  - `apps/mobile/src/components/moment/MomentsView.tsx`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `agentic/memory/MEMORY.md`
+  - `agentic/memory/2026-11-01.md`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:**
+  1. **Hệ thống RSVP Sự Kiện & Thẻ Lịch Hẹn Trong Chat (COL-09, COL-10, COL-12):**
+     - Mở rộng model RSVP 3 trạng thái (`YES` - Tham gia, `MAYBE` - Chưa chắc, `NO` - Bận) với danh sách người tham gia và avatar chips.
+     - Xây dựng Thẻ sự kiện tương tác trực tiếp trong kênh Chat (`CircleCalendarEventChatEmbed` trên Web và `MobileCalendarEventChatEmbed` trên Mobile): hiển thị ngày giờ, địa điểm, tóm tắt người tham gia, 3 nút bấm RSVP 1 chạm tích hợp haptic feedback và đồng bộ tức thời qua Socket.IO `circle:calendar-event-rsvp-updated`.
+     - Chế độ xem "Kèo sắp tới" (Upcoming Events Feed) song hành cùng Lưới lịch tháng: phân nhóm sự kiện theo Hôm nay, Ngày mai, Tuần này, Sắp diễn ra; hỗ trợ nút "Chia sẻ vào Chat" để gửi thẻ sự kiện vào kênh chat chung.
+  2. **Nâng Cấp Lightbox Album Ảnh Nhóm & Lưu Moment Vào Album (COL-02):**
+     - Nâng cấp Lightbox trên Mobile: chuyển sang swipe carousel mượt mà bằng horizontal `FlatList` (`pagingEnabled`), bọc từng ảnh bằng `ScrollView` hỗ trợ phóng to 2 ngón (pinch-to-zoom với `maximumZoomScale={3}`), hiển thị bộ đếm ảnh `{index + 1} / {total}`.
+     - Tích hợp tính năng "Lưu vào Album nhóm" trên cả Web và Mobile: cho phép lưu ảnh Khoảnh khắc (Moment) vào bất kỳ Album chủ đề nào trong Vòng tròn.
+  3. **Đồng Bộ Realtime Delights (Bánh Xe May Mắn & Điều Muốn Nói):**
+     - Đồng bộ hiệu ứng xoay và kết quả Vòng quay may mắn qua Socket.IO `circle:wheel-spun`: kích hoạt hoạt ảnh quay mượt mà, rung haptic và hiển thị banner thông báo tên người vừa quay.
+     - Bổ sung hàng thả biểu cảm ẩn danh (❤️, 😂, 🥺, 👏, 🔥) trên từng bức thư "Điều muốn nói", hiển thị pill đếm số lượng, làm nổi bật biểu cảm cá nhân và đồng bộ realtime qua Socket.IO `circle:anonymous-post-reaction-updated` bảo mật 100% danh tính người tương tác.
+- **Human Modifications:** Kỹ sư Ninh Thị Mỹ Hạnh trực tiếp định hướng tính năng, giám sát thiết kế giao diện theo phong cách tối giản thanh lịch của Circle, yêu cầu bảo toàn nghiêm ngặt quy tắc clean repo, không tự ý PR khi chưa có phê duyệt.
+- **Verification Method:**
+  - Backend Unit Tests: `npm test -- apps/backend/src/modules/circle-tools/circle-tools.service.spec.ts` (34/34 tests pass 100%).
+  - Web Production Build: `cd apps/web && npm run build` (0 errors, 11/11 static pages generated).
+  - Web TypeScript: `cd apps/web && npx tsc --noEmit` (0 errors).
+  - Mobile TypeScript: `cd apps/mobile && npx tsc --noEmit` (0 errors).
+- **Official Source Checked:** Playbook 05 (Collaboration), PROJECT_GOD §2.2, §11 (DoD).
+- **Security & License Check:** Bảo mật tuyệt đối, zero secret leaks, API bóc tách danh tính người gửi và người thả reaction ẩn danh.
+- **Branch:** `feat/120-event-rsvp-and-realtime-delights`
+- **PR:** Pending (Chờ chỉ đạo từ kỹ sư)

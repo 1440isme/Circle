@@ -21,7 +21,11 @@ import {
   Lock,
   AlertCircle,
   Repeat,
+  Share2,
+  MessageSquare,
 } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { getSocket } from '../../lib/socket';
 import { EventLocationDisplay } from './EventLocationDisplay';
 import { LocationSearchInput } from './LocationSearchInput';
 import { CustomDateTimePicker } from './CustomDateTimePicker';
@@ -35,6 +39,9 @@ import {
   useDeleteCalendarEventMutation,
   useUpdateCalendarEventMutation,
   useRespondEventRsvpMutation,
+  useUpcomingCalendarEventsQuery,
+  useShareCalendarEventToChatMutation,
+  TOOLS_KEYS,
 } from '../../hooks/use-circle-tools';
 import { CalendarEventEntity, EventRsvpStatus } from '@circle/types';
 
@@ -85,6 +92,65 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
   const cancelMutation = useCancelCalendarEventMutation(circleId);
   const deleteMutation = useDeleteCalendarEventMutation(circleId);
   const rsvpMutation = useRespondEventRsvpMutation(circleId);
+  const queryClient = useQueryClient();
+  const [viewMode, setViewMode] = useState<'month' | 'upcoming'>('month');
+  const { data: upcomingEvents = [], isLoading: isUpcomingLoading } = useUpcomingCalendarEventsQuery(circleId);
+  const shareToChatMutation = useShareCalendarEventToChatMutation(circleId);
+  const [shareSuccessId, setShareSuccessId] = useState<string | null>(null);
+
+  // Realtime Socket.IO sync for RSVP updates
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+
+    const handleRsvpUpdated = () => {
+      queryClient.invalidateQueries({ queryKey: TOOLS_KEYS.calendar(circleId) });
+      queryClient.invalidateQueries({ queryKey: TOOLS_KEYS.upcomingCalendar(circleId) });
+    };
+
+    socket.on('circle:calendar-event-rsvp-updated', handleRsvpUpdated);
+    return () => {
+      socket.off('circle:calendar-event-rsvp-updated', handleRsvpUpdated);
+    };
+  }, [circleId, queryClient]);
+
+  const handleShareToChat = async (eventId: string) => {
+    try {
+      await shareToChatMutation.mutateAsync(eventId);
+      setShareSuccessId(eventId);
+      setTimeout(() => setShareSuccessId(null), 2500);
+    } catch (err: any) {
+      alert(err.message || 'Lỗi khi chia sẻ sự kiện');
+    }
+  };
+
+  // Group upcoming events chronologically
+  const groupedUpcoming = useMemo(() => {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const tomorrowStart = todayStart + 86400000;
+    const weekEnd = todayStart + 7 * 86400000;
+
+    const today: CalendarEventEntity[] = [];
+    const tomorrow: CalendarEventEntity[] = [];
+    const thisWeek: CalendarEventEntity[] = [];
+    const later: CalendarEventEntity[] = [];
+
+    for (const ev of upcomingEvents) {
+      const start = new Date(ev.startTime).getTime();
+      if (start >= todayStart && start < tomorrowStart) {
+        today.push(ev);
+      } else if (start >= tomorrowStart && start < tomorrowStart + 86400000) {
+        tomorrow.push(ev);
+      } else if (start >= tomorrowStart + 86400000 && start < weekEnd) {
+        thisWeek.push(ev);
+      } else {
+        later.push(ev);
+      }
+    }
+
+    return { today, tomorrow, thisWeek, later };
+  }, [upcomingEvents]);
 
   const [editingEvent, setEditingEvent] = useState<CalendarEventEntity | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -340,6 +406,41 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
         </div>
 
         <div className="flex items-center gap-2">
+          {/* View mode toggle */}
+          <div className="flex items-center rounded-lg bg-circle-wash dark:bg-circle-dark-wash p-0.5 border border-circle-hairline dark:border-circle-dark-hairline mr-2">
+            <button
+              type="button"
+              onClick={() => setViewMode('month')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                viewMode === 'month'
+                  ? 'bg-white dark:bg-circle-dark-surface text-circle-charcoal dark:text-circle-dark-text shadow-2xs'
+                  : 'text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white'
+              }`}
+            >
+              <CalendarIcon className="h-3.5 w-3.5" />
+              <span>{t.collab?.monthView || 'Lưới tháng'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('upcoming')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                viewMode === 'upcoming'
+                  ? 'bg-white dark:bg-circle-dark-surface text-circle-charcoal dark:text-circle-dark-text shadow-2xs'
+                  : 'text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white'
+              }`}
+            >
+              <CalendarDays className="h-3.5 w-3.5" />
+              <span>{t.collab?.upcomingView || 'Kèo sắp tới'}</span>
+              {upcomingEvents.length > 0 && (
+                <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-circle-primary/20 text-circle-charcoal dark:text-white font-bold">
+                  {upcomingEvents.length}
+                </span>
+              )}
+            </button>
+          </div>
+
+          {viewMode === 'month' && (
+            <>
           <button
             type="button"
             onClick={today}
@@ -358,14 +459,16 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
             <span className="px-3 text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text">
               Tháng {month}, {year}
             </span>
-            <button
-              type="button"
-              onClick={nextMonth}
-              className="p-1.5 hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </div>
+            <button
+              type="button"
+              onClick={nextMonth}
+              className="p-1.5 hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+            </>
+          )}
           <button
             type="button"
             onClick={handleOpenCreateModal}
@@ -377,9 +480,231 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
         </div>
       </div>
 
-      {isLoading ? (
+      {isLoading || isUpcomingLoading ? (
         <div className="flex-1 flex items-center justify-center">
           <Loader2 className="h-6 w-6 animate-spin text-circle-slate dark:text-circle-dark-muted" />
+        </div>
+      ) : viewMode === 'upcoming' ? (
+        <div className="space-y-6">
+          {upcomingEvents.length === 0 ? (
+            <div className="flex flex-col items-center justify-center p-12 text-center rounded-2xl border border-dashed border-circle-hairline dark:border-circle-dark-hairline bg-white/40 dark:bg-circle-dark-surface/40">
+              <CalendarDays className="h-12 w-12 text-circle-slate dark:text-circle-dark-muted opacity-40 mb-3" />
+              <h4 className="text-sm font-semibold text-circle-charcoal dark:text-circle-dark-text">
+                {t.collab?.upcomingEmpty || 'Chưa có kèo nào sắp diễn ra'}
+              </h4>
+              <p className="text-xs text-circle-slate dark:text-circle-dark-muted mt-1 max-w-sm mb-4">
+                {t.collab?.upcomingEmptyDesc || 'Lên lịch tụ tập hoặc hẹn hò cùng các thành viên trong Vòng tròn!'}
+              </p>
+              <button
+                type="button"
+                onClick={handleOpenCreateModal}
+                className="flex items-center gap-1.5 rounded-lg bg-circle-charcoal dark:bg-circle-primary px-4 py-2 text-xs font-semibold text-white dark:text-circle-charcoal hover:bg-circle-sage transition-all shadow-sm"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                <span>{t.collab?.createEventPrompt || 'Tạo kèo mới'}</span>
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {[
+                { title: t.collab?.todayGroup || 'Hôm nay', events: groupedUpcoming.today },
+                { title: t.collab?.tomorrowGroup || 'Ngày mai', events: groupedUpcoming.tomorrow },
+                { title: t.collab?.thisWeekGroup || 'Tuần này', events: groupedUpcoming.thisWeek },
+                { title: t.collab?.laterGroup || 'Sắp tới', events: groupedUpcoming.later },
+              ]
+                .filter((grp) => grp.events.length > 0)
+                .map((grp) => (
+                  <div key={grp.title} className="space-y-3">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-circle-slate dark:text-circle-dark-muted flex items-center gap-2">
+                      <span>{grp.title}</span>
+                      <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-circle-wash dark:bg-circle-dark-wash">
+                        {grp.events.length}
+                      </span>
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {grp.events.map((ev) => {
+                        const startDate = new Date(ev.startTime);
+                        const isStarted = startDate.getTime() <= Date.now();
+                        const yesRsvps = ev.rsvps?.filter((r) => r.status === EventRsvpStatus.YES) || [];
+                        const maybeRsvps = ev.rsvps?.filter((r) => r.status === EventRsvpStatus.MAYBE) || [];
+                        const noRsvps = ev.rsvps?.filter((r) => r.status === EventRsvpStatus.NO) || [];
+                        const myRsvp = ev.rsvps?.find((r) => r.userId === user?.id)?.status;
+                        const totalRsvps = yesRsvps.length + maybeRsvps.length + noRsvps.length;
+
+                        return (
+                          <div
+                            key={ev.id}
+                            className="rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-canvas p-4 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between gap-3"
+                          >
+                            <div className="space-y-2.5">
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="flex items-center gap-2.5">
+                                  <div className="w-10 h-10 rounded-xl bg-circle-wash dark:bg-circle-dark-wash border border-circle-hairline dark:border-circle-dark-hairline flex flex-col items-center justify-center shrink-0">
+                                    <span className="text-[10px] font-bold text-circle-primary uppercase leading-tight">
+                                      T{startDate.getMonth() + 1}
+                                    </span>
+                                    <span className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text leading-tight">
+                                      {startDate.getDate()}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <h4 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text line-clamp-1">
+                                      {ev.eventTitle}
+                                    </h4>
+                                    <p className="text-[10px] text-circle-slate dark:text-circle-dark-muted">
+                                      Tạo bởi {ev.creator?.user?.profile?.displayName || 'Thành viên'}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleShareToChat(ev.id)}
+                                    className={`p-1 transition-colors ${
+                                      shareSuccessId === ev.id
+                                        ? 'text-emerald-600 dark:text-emerald-400 font-bold'
+                                        : 'text-circle-slate hover:text-circle-primary'
+                                    }`}
+                                    title="Chia sẻ vào kênh Chat"
+                                  >
+                                    <Share2 className="h-3.5 w-3.5" />
+                                  </button>
+                                  {!ev.isCancelled && (
+                                    <>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleOpenEditModal(ev)}
+                                        className="p-1 text-circle-slate hover:text-circle-charcoal dark:hover:text-circle-dark-text transition-colors"
+                                        title="Chỉnh sửa"
+                                      >
+                                        <Pencil className="h-3.5 w-3.5" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleCancelEvent(ev.id)}
+                                        className="p-1 text-amber-600 hover:text-amber-700 dark:text-amber-400 transition-colors"
+                                        title="Hủy lịch hẹn"
+                                      >
+                                        <Ban className="h-3.5 w-3.5" />
+                                      </button>
+                                    </>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteEvent(ev.id)}
+                                    className="p-1 text-circle-slate hover:text-rose-500 transition-colors"
+                                    title="Xóa vĩnh viễn"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+
+                              <div className="space-y-1 text-[11px] text-circle-slate dark:text-circle-dark-muted">
+                                <div className="flex items-center gap-1.5">
+                                  <Clock className="h-3 w-3 text-circle-sage dark:text-circle-primary shrink-0" />
+                                  <span>
+                                    {startDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                                    {ev.endTime && ` - ${new Date(ev.endTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`}
+                                  </span>
+                                </div>
+                                {ev.location && (
+                                  <EventLocationDisplay
+                                    location={ev.location}
+                                    className="text-[11px]"
+                                    iconClassName="h-3 w-3 shrink-0"
+                                  />
+                                )}
+                              </div>
+                            </div>
+
+                            {/* RSVP 1-touch Buttons & Avatars */}
+                            <div className="pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline space-y-2">
+                              <div className="flex items-center justify-between text-[10px] text-circle-slate dark:text-circle-dark-muted">
+                                <span className="font-semibold text-circle-charcoal dark:text-circle-dark-text">
+                                  Khảo sát tham gia
+                                </span>
+                                <span>{totalRsvps} phản hồi</span>
+                              </div>
+
+                              <div className="grid grid-cols-3 gap-1.5">
+                                {[
+                                  {
+                                    status: EventRsvpStatus.YES,
+                                    label: t.collab?.rsvpGoing || 'Tham gia',
+                                    count: yesRsvps.length,
+                                    activeClass: 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-bold',
+                                  },
+                                  {
+                                    status: EventRsvpStatus.MAYBE,
+                                    label: t.collab?.rsvpMaybe || 'Chưa chắc',
+                                    count: maybeRsvps.length,
+                                    activeClass: 'border-amber-500 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 font-bold',
+                                  },
+                                  {
+                                    status: EventRsvpStatus.NO,
+                                    label: t.collab?.rsvpDeclined || 'Bận',
+                                    count: noRsvps.length,
+                                    activeClass: 'border-rose-500 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 font-bold',
+                                  },
+                                ].map((opt) => {
+                                  const isSelected = myRsvp === opt.status;
+                                  return (
+                                    <button
+                                      key={opt.status}
+                                      type="button"
+                                      disabled={isStarted || Boolean(ev.isCancelled) || rsvpMutation.isPending}
+                                      onClick={() => rsvpMutation.mutate({ eventId: ev.id, status: opt.status })}
+                                      className={`flex flex-col items-center justify-center p-1.5 rounded-lg border text-[11px] transition-all ${
+                                        isSelected
+                                          ? opt.activeClass
+                                          : 'border-circle-hairline dark:border-circle-dark-hairline hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text'
+                                      }`}
+                                    >
+                                      <span>{opt.label}</span>
+                                      <span className="text-[10px] opacity-75">{opt.count}</span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+
+                              {/* Avatar stack for attendees */}
+                              {yesRsvps.length > 0 && (
+                                <div className="flex items-center gap-1 pt-1">
+                                  <div className="flex -space-x-1.5 overflow-hidden">
+                                    {yesRsvps.slice(0, 5).map((r, idx) => (
+                                      <div
+                                        key={r.id || idx}
+                                        className="inline-block h-4.5 w-4.5 rounded-full ring-1 ring-white dark:ring-circle-dark-surface bg-circle-wash flex items-center justify-center text-[8px] font-bold overflow-hidden"
+                                        title={r.user?.profile?.displayName || r.user?.email}
+                                      >
+                                        {r.user?.profile?.avatarUrl ? (
+                                          <img
+                                            src={r.user.profile.avatarUrl}
+                                            alt=""
+                                            className="h-full w-full object-cover"
+                                          />
+                                        ) : (
+                                          (r.user?.profile?.displayName || r.user?.email || 'U')[0]?.toUpperCase()
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold ml-1">
+                                    {yesRsvps.length} người đi
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+            </div>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -501,10 +826,22 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                           </div>
 
                           <div className="flex items-center gap-1 shrink-0">
-                            {!ev.isCancelled && (
-                              <>
-                                <button
-                                  type="button"
+                            <button
+                              type="button"
+                              onClick={() => handleShareToChat(ev.id)}
+                              className={`p-1 transition-colors ${
+                                shareSuccessId === ev.id
+                                  ? 'text-emerald-600 dark:text-emerald-400 font-bold'
+                                  : 'text-circle-slate hover:text-circle-primary'
+                              }`}
+                              title="Chia sẻ vào kênh Chat nhóm"
+                            >
+                              <Share2 className="h-3.5 w-3.5" />
+                            </button>
+                            {!ev.isCancelled && (
+                              <>
+                                <button
+                                  type="button"
                                   onClick={() => handleOpenEditModal(ev)}
                                   className="p-1 text-circle-slate hover:text-circle-charcoal dark:hover:text-circle-dark-text transition-colors"
                                   title="Chỉnh sửa sự kiện"

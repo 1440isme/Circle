@@ -24,8 +24,10 @@ import {
   getAnonymousPostsApi,
   createAnonymousPostApi,
   deleteAnonymousPostApi,
+  reactAnonymousPostApi,
 } from '../../services/circle-tools.service';
 import { AnonymousPostEntity } from '@circle/types';
+import { getSocket } from '../../services/socket';
 
 interface MobileAnonymousViewProps {
   circleId: string;
@@ -91,6 +93,69 @@ const THEMES: MobileTheme[] = [
 
 export const MobileAnonymousView: React.FC<MobileAnonymousViewProps> = ({ circleId }) => {
   const [posts, setPosts] = useState<AnonymousPostEntity[]>([]);
+
+  useEffect(() => {
+    let activeSocket: any = null;
+    const handleReactionUpdated = (data: any) => {
+      if (data.circleId === circleId) {
+        setPosts((prev) =>
+          prev.map((p) => {
+            if (p.id !== data.postId) return p;
+            return {
+              ...p,
+              reactions: data.reactions,
+            };
+          }),
+        );
+      }
+    };
+
+    getSocket().then((s) => {
+      if (!s) return;
+      activeSocket = s;
+      s.on('circle:anonymous-post-reaction-updated', handleReactionUpdated);
+    });
+
+    return () => {
+      if (activeSocket) {
+        activeSocket.off('circle:anonymous-post-reaction-updated', handleReactionUpdated);
+      }
+    };
+  }, [circleId]);
+
+  const handleToggleReaction = async (postId: string, emoji: string) => {
+    Haptics.selectionAsync();
+
+    // Optimistic UI update
+    setPosts((prev) =>
+      prev.map((p) => {
+        if (p.id !== postId) return p;
+        const curReactions = p.reactions ? [...p.reactions] : [];
+        const existing = curReactions.find((r) => r.emoji === emoji);
+        let nextReactions: any[];
+        if (existing) {
+          if (existing.userReacted) {
+            nextReactions = curReactions
+              .map((r) => (r.emoji === emoji ? { ...r, count: r.count - 1, userReacted: false } : r))
+              .filter((r) => r.count > 0);
+          } else {
+            nextReactions = curReactions.map((r) =>
+              r.emoji === emoji ? { ...r, count: r.count + 1, userReacted: true } : r,
+            );
+          }
+        } else {
+          nextReactions = [...curReactions, { emoji, count: 1, userReacted: true }];
+        }
+        return { ...p, reactions: nextReactions };
+      }),
+    );
+
+    try {
+      await reactAnonymousPostApi(circleId, postId, emoji);
+    } catch {
+      loadPosts();
+    }
+  };
   const [isLoading, setIsLoading] = useState(true);
 
   // Compose modal
@@ -537,5 +602,41 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '600',
+  },
+
+  reactionBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingTop: 8,
+    marginTop: 4,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(0,0,0,0.06)',
+  },
+  reactionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.6)',
+  },
+  reactionBtnActive: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#0D9488',
+  },
+  reactionEmoji: {
+    fontSize: 14,
+  },
+  reactionCount: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  reactionCountActive: {
+    color: '#0D9488',
+    fontWeight: '700',
   },
 });

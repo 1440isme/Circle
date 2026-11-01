@@ -20,6 +20,8 @@ describe('CircleToolsService', () => {
       broadcastPollCreated: jest.fn(),
       broadcastPollVoted: jest.fn(),
       broadcastPollClosed: jest.fn(),
+      broadcastWheelSpun: jest.fn(),
+      broadcastAnonymousPostReaction: jest.fn(),
     };
 
     mockPrisma = {
@@ -56,6 +58,12 @@ describe('CircleToolsService', () => {
         findFirst: jest.fn(),
         create: jest.fn(),
         delete: jest.fn(),
+      },
+      anonymousPostReaction: {
+        findUnique: jest.fn(),
+        create: jest.fn(),
+        delete: jest.fn(),
+        findMany: jest.fn(),
       },
       calendarEvent: {
         findMany: jest.fn(),
@@ -266,6 +274,7 @@ describe('CircleToolsService', () => {
       expect(res.wheelId).toBe('wheel-1');
       expect(['Pizza', 'Sushi']).toContain(res.selectedOption.optionLabel);
       expect(mockPrisma.decisionWheel.update).toHaveBeenCalled();
+      expect(mockChatGateway.broadcastWheelSpun).toHaveBeenCalledWith('circle-1', expect.objectContaining({ wheelId: 'wheel-1' }));
     });
   });
 
@@ -318,6 +327,24 @@ describe('CircleToolsService', () => {
 
       const res = await service.deleteAnonymousPost('circle-1', 'post-1', 'user-owner');
       expect(res).toEqual({ success: true });
+    });
+
+    it('should toggle reaction on anonymous post and broadcast update', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValue(member);
+      mockPrisma.anonymousPost.findFirst.mockResolvedValue({ id: 'post-1', circleId: 'circle-1' });
+      mockPrisma.anonymousPostReaction.findUnique.mockResolvedValue(null);
+      mockPrisma.anonymousPostReaction.create.mockResolvedValue({ id: 'rx-1', postId: 'post-1', userId: 'user-1', emoji: '❤️' });
+      mockPrisma.anonymousPostReaction.findMany.mockResolvedValue([
+        { emoji: '❤️', userId: 'user-1' },
+      ]);
+
+      const res = await service.toggleAnonymousPostReaction('circle-1', 'post-1', 'user-1', '❤️');
+      expect(res.userReacted).toBe(true);
+      expect(res.reactions).toEqual([{ emoji: '❤️', count: 1 }]);
+      expect(mockChatGateway.broadcastAnonymousPostReaction).toHaveBeenCalledWith(
+        'circle-1',
+        expect.objectContaining({ postId: 'post-1', action: 'ADDED' })
+      );
     });
   });
 
@@ -568,6 +595,34 @@ it('should throw BadRequestException if event has already started when respondin
           status: 'NO' as any,
         }),
       ).rejects.toThrow();
+    });
+
+    it('should return upcoming calendar events', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValue(member);
+      mockPrisma.calendarEvent.findMany.mockResolvedValue([
+        { id: 'ev-upcoming-1', eventTitle: 'Họp nhóm CIRCLE', startTime: new Date(Date.now() + 86400000) },
+      ]);
+
+      const upcoming = await service.getUpcomingCalendarEvents('circle-1', 'user-1');
+      expect(upcoming).toHaveLength(1);
+      expect(upcoming[0]!.eventTitle).toBe('Họp nhóm CIRCLE');
+    });
+
+    it('should share calendar event into general chat channel', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValue(member);
+      mockPrisma.calendarEvent.findFirst.mockResolvedValue({
+        id: 'event-1',
+        circleId: 'circle-1',
+        eventTitle: 'Buổi thuyết trình',
+        startTime: new Date(),
+        rsvps: [],
+      });
+      mockPrisma.channel.findFirst.mockResolvedValue({ id: 'chan-1' });
+      mockPrisma.message.create.mockResolvedValue({ id: 'msg-1', createdAt: new Date(), updatedAt: new Date(), sender: { user: { profile: { displayName: 'User 1' } } }, reactions: [] });
+
+      const res = await service.shareCalendarEventToChat('circle-1', 'event-1', 'user-1');
+      expect(res).toEqual({ success: true });
+      expect(mockPrisma.message.create).toHaveBeenCalled();
     });
   });
 

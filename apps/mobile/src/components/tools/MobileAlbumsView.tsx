@@ -48,7 +48,16 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId }) 
   const [selectedAlbum, setSelectedAlbum] = useState<SharedAlbumEntity | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
-  const [selectedPhoto, setSelectedPhoto] = useState<PhotoEntity | null>(null);
+  const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number | null>(null);
+  const photos = selectedAlbum?.photos || [];
+  const selectedPhoto = selectedPhotoIndex !== null ? photos[selectedPhotoIndex] : null;
+  const setSelectedPhoto = (photo: PhotoEntity | null) => {
+    if (!photo) setSelectedPhotoIndex(null);
+    else {
+      const idx = photos.findIndex((p) => p.id === photo.id);
+      setSelectedPhotoIndex(idx >= 0 ? idx : 0);
+    }
+  };
 
   // Create album modal
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -274,21 +283,59 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId }) 
           </View>
         )}
 
-        {/* Lightbox Modal */}
-        {selectedPhoto && (
-          <Modal visible={!!selectedPhoto} transparent animationType="fade">
+        {/* Lightbox Modal with Swipe Carousel & Pinch-to-zoom */}
+        {selectedPhotoIndex !== null && selectedPhoto && (
+          <Modal visible={selectedPhotoIndex !== null} transparent animationType="fade">
             <View style={styles.lightboxBackdrop}>
-              <TouchableOpacity
-                style={styles.closeBtn}
-                onPress={() => setSelectedPhoto(null)}
-              >
-                <X size={20} color="#FFFFFF" />
-              </TouchableOpacity>
+              {/* Header with Counter and Close */}
+              <View style={styles.lightboxHeader}>
+                <View style={styles.lightboxCounterBadge}>
+                  <Text style={styles.lightboxCounterText}>
+                    {selectedPhotoIndex + 1} / {photos.length}
+                  </Text>
+                </View>
 
-              <Image
-                source={{ uri: selectedPhoto.fileUrl }}
-                style={styles.lightboxImage}
-                resizeMode="contain"
+                <TouchableOpacity
+                  style={styles.closeBtn}
+                  onPress={() => setSelectedPhotoIndex(null)}
+                >
+                  <X size={20} color="#FFFFFF" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Swipe Carousel with Pinch-to-zoom */}
+              <FlatList
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                data={photos}
+                keyExtractor={(item) => item.id}
+                initialScrollIndex={selectedPhotoIndex}
+                getItemLayout={(_, index) => ({ length: width, offset: width * index, index })}
+                onMomentumScrollEnd={(e) => {
+                  const newIdx = Math.round(e.nativeEvent.contentOffset.x / width);
+                  if (newIdx >= 0 && newIdx < photos.length) {
+                    setSelectedPhotoIndex(newIdx);
+                  }
+                }}
+                renderItem={({ item }) => (
+                  <View style={{ width, height: '100%', alignItems: 'center', justifyContent: 'center' }}>
+                    <ScrollView
+                      maximumZoomScale={3}
+                      minimumZoomScale={1}
+                      centerContent
+                      showsHorizontalScrollIndicator={false}
+                      showsVerticalScrollIndicator={false}
+                      contentContainerStyle={{ width, height: '100%', alignItems: 'center', justifyContent: 'center' }}
+                    >
+                      <Image
+                        source={{ uri: item.fileUrl }}
+                        style={{ width, height: '80%' }}
+                        resizeMode="contain"
+                      />
+                    </ScrollView>
+                  </View>
+                )}
               />
 
               <View style={styles.lightboxFooter}>
@@ -297,7 +344,9 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId }) 
                 </Text>
                 <TouchableOpacity
                   style={styles.deletePhotoBtn}
-                  onPress={() => handleDeletePhoto(selectedPhoto.id)}
+                  onPress={() => {
+                    handleDeletePhoto(selectedPhoto.id);
+                  }}
                 >
                   <Trash2 size={16} color="#FFFFFF" />
                   <Text style={styles.deletePhotoText}>Xóa ảnh</Text>
@@ -734,6 +783,27 @@ const styles = StyleSheet.create({
     backgroundColor: '#000000',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  lightboxHeader: {
+    position: 'absolute',
+    top: 50,
+    left: 20,
+    right: 20,
+    zIndex: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  lightboxCounterBadge: {
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
+  },
+  lightboxCounterText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '600',
   },
   closeBtn: {
     position: 'absolute',
