@@ -5390,3 +5390,38 @@
 - **Security & License Check:** Bảo mật tuyệt đối, zero secret leaks, API bóc tách danh tính người gửi và người thả reaction ẩn danh.
 - **Branch:** `feat/120-event-rsvp-and-realtime-delights`
 - **PR:** Pending (Chờ chỉ đạo từ kỹ sư)
+
+
+---
+
+## AI-0146: Tinh Chỉnh Giao Diện Chi Tiết Sự Kiện, Điều Hướng Lặp Lại, Trạng Thái Poll & Bảo Mật Danh Tính Phản Hồi (#120)
+
+- **Date:** 2026-11-02 00:23:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210) & Trương Công Bình (MSSV: 23110184)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash
+- **Related Issue:** #120
+- **Purpose:** Hoàn thiện 3 tinh chỉnh quan trọng trên Màn hình chi tiết lịch hẹn & các modal phụ trên Mobile (`MobileCalendarView.tsx`):
+  1. Tinh chỉnh Modal Chu kỳ lặp lại: Lược bỏ đoạn mô tả tĩnh, giữ lại 2 nút điều hướng lần diễn ra với thứ tự trực quan: Nút "Đi đến lần diễn ra tiếp theo" nằm trên căn phải; Nút "Đi đến lần diễn ra trước đó" nằm dưới căn trái. Khắc phục lỗi chưa chuyển ngày bằng việc tự động đóng màn hình chi tiết, cập nhật ngày/tháng được chọn và cuộn mượt đến đúng vị trí sự kiện.
+  2. Nâng cấp nút Treo đáy và Modal Bình chọn (RSVP Poll): Chấm trạng thái trên nút chuyển sang màu Đỏ (`#EF4444`) khi cuộc bình chọn đã đóng (do sự kiện đã kết thúc hoặc bị hủy); Modal bình chọn bổ sung chú thích trạng thái rõ ràng ở cuối ("Đang diễn ra", "Đã đóng — Sự kiện đã kết thúc/hủy"); Tối giản hóa 3 option bình chọn bằng cách bỏ icon cạnh nhãn text.
+  3. Bảo mật danh tính trong Danh sách phản hồi: Tuyệt đối không để lộ email người dùng ở bất kỳ vị trí nào trên giao diện; Danh sách người phản hồi hiển thị Biệt danh (`displayName`) dòng chính và Tên thật/Mã định danh (`fullName` hoặc `@handle`) ở dòng phụ bên dưới.
+- **Prompt Summary:** Tinh chỉnh chu kỳ lặp lại bỏ mô tả, đổi chỗ tiếp theo lên trên căn phải và trước đó xuống dưới căn trái, fix chuyển ngày; chuyển chấm trạng thái sang đỏ khi poll đóng và thêm chú thích trạng thái, bỏ icon cạnh text lựa chọn trong poll; danh sách phản hồi chỉ hiển thị biệt danh và tên thật/handle thay cho email.
+- **Files Affected:**
+  - `apps/mobile/src/components/tools/MobileCalendarView.tsx`
+  - `packages/types/src/index.ts`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:**
+  - Cập nhật logic `handleJumpOccurrence` trong `MobileCalendarView.tsx` đóng modal chi tiết sự kiện và scroll lịch đến lần diễn ra tiếp theo/trước đó.
+  - Tái cấu trúc layout nút điều hướng lặp lại `detailRecurrenceNavBtnNext` và `detailRecurrenceNavBtnPrev`.
+  - Bổ sung kiểm tra trạng thái đóng/mở của bình chọn (`isPollClosed`, `isHappeningNow`), đổi màu chấm trạng thái sang đỏ khi đóng, vô hiệu hóa bình chọn và hiển thị chú thích trạng thái ở cuối modal poll.
+  - Tối giản các nút chọn RSVP trong poll: xóa `IconComp` cạnh nhãn text.
+  - Xóa bỏ mọi trường hiển thị email trong danh sách người phản hồi `detailAttendeesListScroll` và avatar preview, thay thế bằng `displayName` dòng trên và `fullName` / `@handle` dòng dưới.
+  - Mở rộng kiểu dữ liệu `CalendarEventRsvpEntity` trong `packages/types/src/index.ts`.
+- **Human Modifications:** Người dùng trực tiếp rà soát trải nghiệm thao tác, yêu cầu định hướng thiết kế Floating controls tối giản, chuẩn Apple Clean UI và quán triệt quy tắc cấm để lộ email.
+- **Verification Method:**
+  - TypeScript Compilation: `npx tsc --noEmit -p apps/mobile/tsconfig.json` (0 errors).
+  - Package Build: `npm run build --workspace=@circle/types` (0 errors).
+  - Git Diff & Git Status: Kiểm tra tính toàn vẹn và sạch sẽ của code.
+- **Security & License Check:** Bảo đảm 100% không còn lộ email trên giao diện người dùng, tuân thủ quy tắc bảo mật dữ liệu riêng tư.
+- **Branch:** `feat/120-event-rsvp-and-realtime-delights`
+- **Commit:** `dab3c7a` (đã push lên origin)
