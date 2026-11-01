@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+const MAPBOX_TOKEN =
+  process.env.MAPBOX_ACCESS_TOKEN ||
+  process.env.NEXT_PUBLIC_MAPBOX_TOKEN ||
+  '';
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const latStr = searchParams.get('lat');
@@ -16,8 +21,36 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid coordinates' }, { status: 400 });
   }
 
+  // 1. Try Mapbox Geocoding v5 reverse
+  if (MAPBOX_TOKEN) {
+    try {
+      const mapboxUrl = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${MAPBOX_TOKEN}&language=vi&limit=1`;
+      const mRes = await fetch(mapboxUrl, {
+        headers: { Accept: 'application/json' },
+        next: { revalidate: 300 },
+      });
+
+      if (mRes.ok) {
+        const mData = await mRes.json();
+        const f = mData.features?.[0];
+        if (f) {
+          const name = f.text || f.place_name?.split(',')?.[0] || `Vị trí (${lat.toFixed(5)}, ${lng.toFixed(5)})`;
+          const address = f.place_name || name;
+          return NextResponse.json({
+            name,
+            address,
+            lat,
+            lng,
+          });
+        }
+      }
+    } catch (err) {
+      console.warn('[Locations Reverse] Mapbox API error, falling back:', err);
+    }
+  }
+
   try {
-    // 1. Try Photon reverse
+    // 2. Try Photon reverse fallback
     const pUrl = `https://photon.komoot.io/reverse?lat=${lat}&lon=${lng}`;
     const pRes = await fetch(pUrl, {
       headers: { 'Accept': 'application/json' },

@@ -26,12 +26,15 @@ import { MessageEntity, MessageType, CalendarEventMessagePayload } from '@circle
 import { CalendarEventChatEmbed } from './CalendarEventChatEmbed';
 import { PROMINENT_QUICK_EMOJIS } from '@circle/shared';
 import { useLanguageStore } from '../../stores/language.store';
+import { useCircleStore } from '../../stores/circle.store';
 import {
   MomentCardChatEmbed,
   parseMomentReplyMetadata,
 } from './MomentCardChatEmbed';
 import { Emoji } from '../ui/Emoji';
 import { FullEmojiPickerModal } from '../ui/FullEmojiPickerModal';
+import { ChatPollCard } from './ChatPollCard';
+import { ChatLocationCard } from './ChatLocationCard';
 
 interface MessageBubbleProps {
   message: MessageEntity;
@@ -78,6 +81,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 }) => {
   const t = useLanguageStore((s) => s.t);
   const locale = useLanguageStore((s) => s.locale);
+  const activeCircleId = useCircleStore((s) => s.activeCircleId);
   const [showTimestamp, setShowTimestamp] = useState(false);
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
@@ -180,6 +184,22 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     } catch {}
   }
 
+  const isGroupPoll = Boolean(message.content?.startsWith('[GROUP_POLL]:'));
+  let groupPollData: { pollId: string; question: string; options: string[] } | null = null;
+  if (isGroupPoll) {
+    try {
+      groupPollData = JSON.parse(message.content!.replace('[GROUP_POLL]:', ''));
+    } catch {}
+  }
+
+  const isLocationPin = Boolean(message.content?.startsWith('[LOCATION_PIN]:'));
+  let locationPinData: { lat: number; lng: number; title?: string; address?: string } | null = null;
+  if (isLocationPin) {
+    try {
+      locationPinData = JSON.parse(message.content!.replace('[LOCATION_PIN]:', ''));
+    } catch {}
+  }
+
   const isCallSummary = message.content?.startsWith('[CALL_SUMMARY]:');
   let callSummaryData: {
     callType: 'AUDIO' | 'VIDEO';
@@ -194,12 +214,13 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     } catch {}
   }
 
-
   const isRecalled = Boolean(message.deletedAt);
   const isEdited = Boolean(
     !isRecalled &&
     !isCallSummary &&
     !isCalendarEvent &&
+    !isGroupPoll &&
+    !isLocationPin &&
     message.updatedAt &&
     message.sentAt &&
     new Date(message.updatedAt).getTime() - new Date(message.sentAt).getTime() > 1000,
@@ -357,12 +378,28 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             </div>
           )}
 
-          {/* Message Content: Recalled vs Calendar Event vs Call Summary vs Standard Text */}
+          {/* Message Content: Recalled vs Group Poll vs Location Pin vs Call Summary vs Standard Text */}
           {isRecalled ? (
             <div className="flex items-center gap-1.5 py-1 px-1 text-xs italic opacity-60 select-none">
               <Ban className="w-3.5 h-3.5 shrink-0" />
               <span>{t.chat.messageRecalled}</span>
             </div>
+          ) : isGroupPoll && groupPollData ? (
+            <ChatPollCard
+              circleId={activeCircleId || ''}
+              pollId={groupPollData.pollId}
+              initialQuestion={groupPollData.question}
+              initialOptions={groupPollData.options}
+              isSenderMe={isSenderMe}
+            />
+          ) : isLocationPin && locationPinData ? (
+            <ChatLocationCard
+              lat={locationPinData.lat}
+              lng={locationPinData.lng}
+              title={locationPinData.title}
+              address={locationPinData.address}
+              isSenderMe={isSenderMe}
+            />
           ) : isCallSummary && callSummaryData ? (
             <div className="flex flex-col gap-2.5 py-1 min-w-[240px] max-w-[320px]">
               <div className="flex items-center gap-3">

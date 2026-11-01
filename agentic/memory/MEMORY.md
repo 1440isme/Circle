@@ -29,6 +29,7 @@
 - **Triết lý Radical Minimalism & Clean UI:** Giao diện tối giản tối đa, ít text nhất có thể. Cấm mọi text mô tả hiển nhiên, subtitle lặp lại tiêu đề, badge chú thích thừa (như lời khuyên đổi mật khẩu, hint empty state dài dòng, badge nháp thô). Ghim đưa lên header icon (rỗng/fill); cài đặt âm thanh gom vào Circle Settings; Light theme nút bấm phải phân biệt rõ với nền. — chốt bởi Bình, 2026-10-28
 - **Zero Hardcoding Invariant:** 100% text giao diện (label, error, toast, alert, placeholder, aria-label) bắt buộc đi qua `@circle/shared` (`vi.ts` và `en.ts`). Tuyệt đối cấm hardcode bất kỳ chuỗi tiếng Việt/tiếng Anh nào trong component. — chốt bởi Bình, 2026-10-28
 - **Tương tác tin nhắn ngữ cảnh & Emoji chuẩn hóa:** Web hover hiện 3 chấm dọc mở menu; Mobile nhấn giữ focus tin nhắn (nền mờ) với reaction emoji ở trên và hành động ở dưới. Toàn hệ thống dùng DUY NHẤT 1 bộ emoji; tab emoji picker chỉ dùng icon đại diện, bỏ tiêu đề chữ. — chốt bởi Bình, 2026-10-28
+- **Tự kiểm toán Trải nghiệm & Độ hữu dụng (Feature Usability Audit):** Tuyệt đối không chuyển sang module mới khi cụm tính năng hiện tại chưa thực sự hữu ích và trơn tru. Bắt buộc nhập vai người dùng thực tế kiểm toán 5 trụ cột (đời thực, liền mạch với chat, giảm thiểu ma sát, đồng bộ thời gian thực, thẩm mỹ tinh tế) theo skill `feature-usability-audit.md`. — chốt bởi Bình, 2026-10-29
 
 ## Corrections & Lessons
 
@@ -37,6 +38,7 @@
 - [correction] Phải đọc sâu và thấu đáo toàn bộ codebase trước khi nhận xét/đánh giá; không được grep hời hợt rồi kết luận chưa làm. Phải phân tích thấu đáo xem phần nào đã có nền móng, phần nào còn dang dở hoặc trải nghiệm còn thô để cải thiện nâng tầm trải nghiệm cho user. — theo Bình, 2026-10-27.
 - [correction] Không đặt banner ghim hay modal hành động thô giữa màn hình chat (thay thế: ghim đưa lên Header icon; mobile long-press focus tin nhắn với emoji ở trên và action ở dưới) — theo Bình, 2026-10-28.
 - [correction] Cắt bỏ toàn bộ text thừa, lời khuyên rườm rà, subtitle lặp lại tiêu đề, badge giải thích hiển nhiên ở mọi nơi — theo Bình, 2026-10-28.
+- [correction] Tuyệt đối không fallback secret/token thật vào source code (`process.env.KEY || 'secret'`); bảo mật theo Hard Gate Zero Secret Leaks bằng pre-commit guard `check-secrets.sh`. Khi cập nhật git hook phải bảo toàn nguyên vẹn các pre-commit checks hiện có, cấm overwrite — theo Bình, 2026-10-29.
 
 ## Decisions (chỉ mục — chi tiết ở ADR/topic)
 
@@ -44,7 +46,9 @@
 
 ## Open loops
 
-- Rà soát toàn diện và hoàn thiện triệt để các module của Bình (Module 1, 4, 5, 6, 7.2) theo Playbook Tier MUST và Cross-cutting gate (Web + Mobile song hành) trước khi bước sang Module 8 — hạn 2026-10-26, đang thực hiện.
+- Tái cấu trúc và nâng cấp trải nghiệm cụm tính năng Cộng tác nhóm (Collab Module 7) trước khi sang Module 8:
+  - Issue #119 (Bình): Tích hợp Unified Interactive Map Engine toàn hệ thống (Leaflet Web + MapView Mobile), đưa Group Poll vào luồng Chat và cải thiện Planning Sheet.
+  - Issue #120 (Hạnh): Hệ thống Event RSVP (3 trạng thái), Thẻ Lịch hẹn trong Chat, Lightbox Album và Realtime Wheel Sync.
 
 ## Core Reference Topics (Lớp 3 — bối cảnh sâu)
 

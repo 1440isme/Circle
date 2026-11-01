@@ -136,6 +136,10 @@ import { MobileAnonymousView } from '../../src/components/tools/MobileAnonymousV
 import { MobilePlanningView } from '../../src/components/tools/MobilePlanningView';
 import { MobileLocationView } from '../../src/components/tools/MobileLocationView';
 import { MobilePollView } from '../../src/components/tools/MobilePollView';
+import { MobileChatPollCard } from '../../src/components/chat/MobileChatPollCard';
+import { MobileChatLocationCard } from '../../src/components/chat/MobileChatLocationCard';
+import { MobileCreatePollModal } from '../../src/components/chat/MobileCreatePollModal';
+import * as Location from 'expo-location';
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -388,6 +392,7 @@ function MomentCardChatEmbed({
 }
 
 interface MobileSwipeMessageBubbleProps {
+  circleId?: string;
   msg: any;
   allMessages?: any[];
   isSenderMe: boolean;
@@ -412,6 +417,7 @@ interface MobileSwipeMessageBubbleProps {
 }
 
 const MobileSwipeMessageBubble = React.memo(function MobileSwipeMessageBubble({
+  circleId,
   msg,
   allMessages,
   isSenderMe,
@@ -920,7 +926,39 @@ const MobileSwipeMessageBubble = React.memo(function MobileSwipeMessageBubble({
                     {t.chat?.messageRecalled || 'Tin nhắn đã được thu hồi'}
                   </Text>
                 </View>
-              ) : Boolean(msg.content?.startsWith('[CALENDAR_EVENT]:')) ? (() => {
+              ) : Boolean(msg.content?.startsWith('[GROUP_POLL]:')) ? (() => {
+                let pollData: any = null;
+                try {
+                  pollData = JSON.parse(msg.content.replace('[GROUP_POLL]:', ''));
+                } catch {}
+                if (!pollData) return null;
+                return (
+                  <MobileChatPollCard
+                    circleId={circleId || ''}
+                    pollId={pollData.pollId}
+                    initialQuestion={pollData.question}
+                    initialOptions={pollData.options}
+                    isSenderMe={isSenderMe}
+                    senderTextColor={senderTextColor}
+                  />
+                );
+              })() : Boolean(msg.content?.startsWith('[LOCATION_PIN]:')) ? (() => {
+                let locData: any = null;
+                try {
+                  locData = JSON.parse(msg.content.replace('[LOCATION_PIN]:', ''));
+                } catch {}
+                if (!locData) return null;
+                return (
+                  <MobileChatLocationCard
+                    lat={locData.lat}
+                    lng={locData.lng}
+                    title={locData.title}
+                    address={locData.address}
+                    isSenderMe={isSenderMe}
+                    senderTextColor={senderTextColor}
+                  />
+                );
+              })() : Boolean(msg.content?.startsWith('[CALENDAR_EVENT]:')) ? (() => {
                 let calData: any = null;
                 try {
                   calData = JSON.parse(msg.content.replace('[CALENDAR_EVENT]:', ''));
@@ -1398,6 +1436,8 @@ export default function CircleWorkspaceScreen() {
   const [isSearchModalVisible, setIsSearchModalVisible] = useState(false);
   const [isFullEmojiModalVisible, setIsFullEmojiModalVisible] = useState(false);
   const [targetReactMessageId, setTargetReactMessageId] = useState<string | null>(null);
+  const [isCreatePollModalVisible, setIsCreatePollModalVisible] = useState(false);
+  const [isLocatingChat, setIsLocatingChat] = useState(false);
   const [momentsMemberFilter, setMomentsMemberFilter] = useState<string | 'all'>('all');
   const [isMomentsFilterOpen, setIsMomentsFilterOpen] = useState(false);
   const [isMomentsHistoryActive, setIsMomentsHistoryActive] = useState(false);
@@ -1924,6 +1964,69 @@ export default function CircleWorkspaceScreen() {
     } catch (err: any) {
       Alert.alert(t.common.appName, err?.message || t.storage.uploadFailed);
     }
+  };
+
+  const handleSendMobileLocation = async () => {
+    try {
+      setIsLocatingChat(true);
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      let lat = 10.7828;
+      let lng = 106.6958;
+      let address = 'Hồ Con Rùa, Quận 3, TP. Hồ Chí Minh';
+
+      if (status === 'granted') {
+        try {
+          const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          lat = loc.coords.latitude;
+          lng = loc.coords.longitude;
+          address = 'Vị trí hiện tại';
+        } catch {}
+      }
+
+      const payload = {
+        lat,
+        lng,
+        title: t.collab?.locationCardTitle || 'Điểm hẹn nhóm',
+        address,
+      };
+
+      await sendMessageMutation.mutateAsync({
+        content: `[LOCATION_PIN]:${JSON.stringify(payload)}`,
+        type: MessageType.TEXT,
+      });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (err: any) {
+      Alert.alert('Lỗi', err.message || 'Không thể chia sẻ vị trí');
+    } finally {
+      setIsLocatingChat(false);
+    }
+  };
+
+  const handleMobilePlusAction = () => {
+    Haptics.selectionAsync();
+    Alert.alert(
+      t.collab?.groupTools || 'Tiện ích nhóm',
+      undefined,
+      [
+        {
+          text: t.chat?.attachImage || 'Chọn ảnh từ thư viện',
+          onPress: handlePickImage,
+        },
+        {
+          text: t.collab?.createPoll || 'Tạo bình chọn',
+          onPress: () => setIsCreatePollModalVisible(true),
+        },
+        {
+          text: t.collab?.sendStaticLocation || 'Gửi vị trí hiện tại',
+          onPress: handleSendMobileLocation,
+        },
+        {
+          text: t.common?.cancel || 'Hủy',
+          style: 'cancel',
+        },
+      ],
+      { cancelable: true },
+    );
   };
 
   const handleRecallMessage = async (msgId: string) => {
@@ -2682,6 +2785,7 @@ export default function CircleWorkspaceScreen() {
                                 style={{ width: '100%', alignItems: 'flex-end' }}
                               >
                                 <MobileSwipeMessageBubble
+                                  circleId={circleId}
                                   msg={msg}
                                   allMessages={messages}
                                   isSenderMe={true}
@@ -2767,6 +2871,7 @@ export default function CircleWorkspaceScreen() {
                                   style={{ width: '100%', alignItems: 'flex-start' }}
                                 >
                                   <MobileSwipeMessageBubble
+                                    circleId={circleId}
                                     msg={msg}
                                     allMessages={messages}
                                     isSenderMe={false}
@@ -3027,7 +3132,7 @@ export default function CircleWorkspaceScreen() {
                 {/* Action 1: (+) Outline Neutral Plus Button */}
                 <TouchableOpacity
                   activeOpacity={0.7}
-                  onPress={handlePickImage}
+                  onPress={handleMobilePlusAction}
                   style={[styles.plusOutlineCircle, { borderColor: colors.subtle }]}
                   accessibilityLabel="Add attachment"
                 >
@@ -4187,6 +4292,24 @@ export default function CircleWorkspaceScreen() {
           } else {
             setMessageInput((prev) => prev + emoji);
           }
+        }}
+      />
+
+      {/* Mobile Create Poll Modal */}
+      <MobileCreatePollModal
+        visible={isCreatePollModalVisible}
+        onClose={() => setIsCreatePollModalVisible(false)}
+        circleId={circleId}
+        onPollCreated={async (createdPoll) => {
+          const payload = {
+            pollId: createdPoll.id,
+            question: createdPoll.question,
+            options: (createdPoll.options || []).map((o: any) => o.optionText || o),
+          };
+          await sendMessageMutation.mutateAsync({
+            content: `[GROUP_POLL]:${JSON.stringify(payload)}`,
+            type: MessageType.TEXT,
+          });
         }}
       />
 

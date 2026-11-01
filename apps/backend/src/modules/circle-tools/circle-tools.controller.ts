@@ -358,6 +358,7 @@ export class CircleToolsController {
     const data = await this.toolsService.respondEventRsvp(circleId, eventId, userId, dto);
     return {
       success: true,
+      statusCode: HttpStatus.OK,
       data,
       timestamp: new Date().toISOString(),
     };
