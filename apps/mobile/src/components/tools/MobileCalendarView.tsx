@@ -25,6 +25,7 @@ import {
   MapPin,
   Trash2,
   Pencil,
+  MoreVertical,
   Ban,
   Video,
   X,
@@ -306,6 +307,74 @@ const REMINDER_OPTIONS = [
   { label: 'Trước 2 ngày', value: '2880' },
 ];
 
+
+
+export function getNextOrPrevOccurrence(
+  currentDate: Date,
+  config: RecurrenceConfig | null,
+  direction: 'next' | 'prev',
+): Date {
+  const result = new Date(currentDate);
+  if (!config || config.frequency === 'none') {
+    result.setDate(result.getDate() + (direction === 'next' ? 1 : -1));
+    return result;
+  }
+
+  const interval = Math.max(1, config.interval || 1);
+  const factor = direction === 'next' ? 1 : -1;
+
+  switch (config.frequency) {
+    case 'daily':
+      result.setDate(result.getDate() + factor * interval);
+      break;
+
+    case 'weekly': {
+      const weeklyDays =
+        config.weeklyDays && config.weeklyDays.length > 0
+          ? [...config.weeklyDays].sort((a, b) => a - b)
+          : [result.getDay() === 0 ? 7 : result.getDay()];
+
+      let curDay = result.getDay() === 0 ? 7 : result.getDay();
+      if (direction === 'next') {
+        const nextInWeek = weeklyDays.find((d) => d > curDay);
+        if (nextInWeek) {
+          result.setDate(result.getDate() + (nextInWeek - curDay));
+        } else {
+          // Jump to next interval week and first day
+          const firstDay = weeklyDays[0];
+          const daysToNextWeek = 7 - curDay + (interval - 1) * 7 + firstDay;
+          result.setDate(result.getDate() + daysToNextWeek);
+        }
+      } else {
+        const reversedDays = [...weeklyDays].reverse();
+        const prevInWeek = reversedDays.find((d) => d < curDay);
+        if (prevInWeek) {
+          result.setDate(result.getDate() - (curDay - prevInWeek));
+        } else {
+          // Jump back
+          const lastDay = reversedDays[0];
+          const daysBack = curDay + (interval - 1) * 7 + (7 - lastDay);
+          result.setDate(result.getDate() - daysBack);
+        }
+      }
+      break;
+    }
+
+    case 'monthly':
+      result.setMonth(result.getMonth() + factor * interval);
+      break;
+
+    case 'yearly':
+      result.setFullYear(result.getFullYear() + factor * interval);
+      break;
+
+    default:
+      result.setDate(result.getDate() + factor);
+      break;
+  }
+
+  return result;
+}
 
 export function parseEventRecurrence(desc?: string | null): {
   cleanDesc: string;
@@ -595,6 +664,13 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
   );
   const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
   const [isQuickReminderModalOpen, setIsQuickReminderModalOpen] = useState(false);
+  // Detail screen enhancements
+  const [isDetailPollModalOpen, setIsDetailPollModalOpen] = useState(false);
+  const [isAttendeesModalOpen, setIsAttendeesModalOpen] = useState(false);
+  const [isRecurrenceNavModalOpen, setIsRecurrenceNavModalOpen] = useState(false);
+  const [isDetailMenuOpen, setIsDetailMenuOpen] = useState(false);
+  const [selectedAttendeeTab, setSelectedAttendeeTab] = useState<'yes' | 'maybe' | 'no'>('yes');
+
   const [isUpdatingReminder, setIsUpdatingReminder] = useState(false);
 
   // End repeat date picker states (độc lập với ngày kết thúc sự kiện)
@@ -1031,52 +1107,169 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
     );
   };
 
-  const handleCancelEventInDetail = (eventId: string) => {
+
+  const promptEditScope = (onProceed: (scope: 'this' | 'future' | 'all') => void) => {
+    if (!editingEvent) return;
+    const { recurrenceConfig: savedConfig } = parseEventRecurrence(editingEvent.description);
+    if (!savedConfig || savedConfig.frequency === 'none') {
+      onProceed('this');
+      return;
+    }
+
     Alert.alert(
-      'Hủy lịch hẹn',
-      'Bạn có chắc chắn muốn hủy lịch hẹn này? Sự kiện sẽ được đánh dấu là Đã hủy và hiển thị trên lịch nhóm.',
+      'Cập nhật sự kiện lặp lại',
+      'Bạn muốn áp dụng các thay đổi này cho lần diễn ra này hay toàn bộ các lần trong tương lai?',
       [
-        { text: 'Quay lại', style: 'cancel' },
+        { text: 'Hủy bỏ', style: 'cancel' },
         {
-          text: 'Xác nhận hủy',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await cancelCalendarEventApi(circleId, eventId);
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-              setDetailEvent((prev) => (prev && prev.id === eventId ? { ...prev, isCancelled: true } : prev));
-              loadEvents();
-            } catch (err: any) {
-              Alert.alert('Lỗi', err.message || 'Không thể hủy lịch hẹn');
-            }
-          },
+          text: 'Chỉ lần này',
+          onPress: () => onProceed('this'),
+        },
+        {
+          text: 'Lần này và các lần tiếp theo',
+          style: 'default',
+          onPress: () => onProceed('future'),
         },
       ],
     );
   };
 
-  const handleDeleteEventInDetail = (eventId: string) => {
-    Alert.alert(
-      'Xóa vĩnh viễn',
-      'Bạn có chắc chắn muốn xóa vĩnh viễn sự kiện này khỏi lịch nhóm?',
-      [
-        { text: 'Hủy', style: 'cancel' },
-        {
-          text: 'Xóa vĩnh viễn',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteCalendarEventApi(circleId, eventId);
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-              setDetailEvent(null);
-              loadEvents();
-            } catch (err: any) {
-              Alert.alert('Lỗi', err.message || 'Không thể xóa sự kiện');
-            }
+  const handleCancelEventInDetail = (eventId: string) => {
+    if (!detailEvent) return;
+    const { recurrenceConfig: savedConfig } = parseEventRecurrence(detailEvent.description);
+    const isRecurring = savedConfig && savedConfig.frequency !== 'none';
+
+    if (isRecurring) {
+      Alert.alert(
+        'Hủy sự kiện lặp lại',
+        'Bạn muốn hủy sự kiện này cho lần diễn ra này hay toàn bộ các lần trong tương lai?',
+        [
+          { text: 'Đóng', style: 'cancel' },
+          {
+            text: 'Chỉ hủy lần này',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await cancelCalendarEventApi(circleId, eventId);
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                setDetailEvent((prev) => (prev && prev.id === eventId ? { ...prev, isCancelled: true } : prev));
+                setIsDetailMenuOpen(false);
+                loadEvents();
+              } catch (err: any) {
+                Alert.alert('Lỗi', err.message || 'Không thể hủy lịch hẹn');
+              }
+            },
           },
-        },
-      ],
-    );
+          {
+            text: 'Hủy toàn bộ lần tiếp theo',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await cancelCalendarEventApi(circleId, eventId);
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                setDetailEvent((prev) => (prev && prev.id === eventId ? { ...prev, isCancelled: true } : prev));
+                setIsDetailMenuOpen(false);
+                loadEvents();
+              } catch (err: any) {
+                Alert.alert('Lỗi', err.message || 'Không thể hủy lịch hẹn');
+              }
+            },
+          },
+        ],
+      );
+    } else {
+      Alert.alert(
+        'Hủy lịch hẹn',
+        'Bạn có chắc chắn muốn hủy lịch hẹn này? Sự kiện sẽ được đánh dấu là Đã hủy và hiển thị trên lịch nhóm.',
+        [
+          { text: 'Quay lại', style: 'cancel' },
+          {
+            text: 'Xác nhận hủy',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await cancelCalendarEventApi(circleId, eventId);
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                setDetailEvent((prev) => (prev && prev.id === eventId ? { ...prev, isCancelled: true } : prev));
+                setIsDetailMenuOpen(false);
+                loadEvents();
+              } catch (err: any) {
+                Alert.alert('Lỗi', err.message || 'Không thể hủy lịch hẹn');
+              }
+            },
+          },
+        ],
+      );
+    }
+  };
+
+  const handleDeleteEventInDetail = (eventId: string) => {
+    if (!detailEvent) return;
+    const { recurrenceConfig: savedConfig } = parseEventRecurrence(detailEvent.description);
+    const isRecurring = savedConfig && savedConfig.frequency !== 'none';
+
+    if (isRecurring) {
+      Alert.alert(
+        'Xóa sự kiện lặp lại',
+        'Bạn muốn xóa sự kiện này cho lần diễn ra này hay toàn bộ sự kiện trong tương lai?',
+        [
+          { text: 'Đóng', style: 'cancel' },
+          {
+            text: 'Chỉ xóa lần này',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await deleteCalendarEventApi(circleId, eventId);
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                setIsDetailMenuOpen(false);
+                setDetailEvent(null);
+                loadEvents();
+              } catch (err: any) {
+                Alert.alert('Lỗi', err.message || 'Không thể xóa sự kiện');
+              }
+            },
+          },
+          {
+            text: 'Xóa toàn bộ lần tiếp theo',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await deleteCalendarEventApi(circleId, eventId);
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                setIsDetailMenuOpen(false);
+                setDetailEvent(null);
+                loadEvents();
+              } catch (err: any) {
+                Alert.alert('Lỗi', err.message || 'Không thể xóa sự kiện');
+              }
+            },
+          },
+        ],
+      );
+    } else {
+      Alert.alert(
+        'Xóa vĩnh viễn',
+        'Bạn có chắc chắn muốn xóa vĩnh viễn sự kiện này khỏi lịch nhóm?',
+        [
+          { text: 'Hủy', style: 'cancel' },
+          {
+            text: 'Xóa vĩnh viễn',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await deleteCalendarEventApi(circleId, eventId);
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                setIsDetailMenuOpen(false);
+                setDetailEvent(null);
+                loadEvents();
+              } catch (err: any) {
+                Alert.alert('Lỗi', err.message || 'Không thể xóa sự kiện');
+              }
+            },
+          },
+        ],
+      );
+    }
   };
 
   const togglePickerTarget = (
@@ -2498,10 +2691,11 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
     const startDateObj = new Date(detailEvent.startTime);
     const endDateObj = detailEvent.endTime ? new Date(detailEvent.endTime) : null;
 
-    // Luôn hiển thị Lặp lại rõ ràng
+    // Recurrence summary
+    const hasRecurrence = recurrenceConfig && recurrenceConfig.frequency !== 'none';
     let repeatSummary = 'Không lặp lại';
-    if (recurrenceConfig && recurrenceConfig.frequency !== 'none') {
-      repeatSummary = formatRecurrenceSummary(recurrenceConfig);
+    if (hasRecurrence) {
+      repeatSummary = formatRecurrenceSummary(recurrenceConfig!);
     } else if (detailEvent.description) {
       const match = detailEvent.description.match(/\[Lặp lại:\s*(.*?)\]/);
       if (match) {
@@ -2543,10 +2737,21 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
       return found ? found.value : String(diffMinutes);
     })();
 
+    const handleJumpOccurrence = (direction: 'next' | 'prev') => {
+      const curDate = new Date(detailEvent.startTime);
+      const targetD = getNextOrPrevOccurrence(curDate, recurrenceConfig, direction);
+      setIsRecurrenceNavModalOpen(false);
+      setSelectedDate(targetD);
+      setCurrentDate(new Date(targetD.getFullYear(), targetD.getMonth(), 1));
+      scrollToMonth(targetD.getFullYear(), targetD.getMonth() + 1, true);
+      Haptics.selectionAsync();
+    };
+
     return (
       <View style={styles.detailFullScreenContainer}>
         {/* Navigation Header */}
         <View style={styles.detailNavHeader}>
+          {/* Góc trái: nút Quay lại (< Lịch) */}
           <TouchableOpacity
             style={styles.detailBackBtn}
             activeOpacity={0.7}
@@ -2561,21 +2766,32 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
 
           <Text style={styles.detailNavTitle}>Chi tiết lịch hẹn</Text>
 
-          {!detailEvent.isCancelled ? (
+          {/* Góc phải: Nút Bút (Sửa) và Nút Ba Chấm (Hủy / Xóa) */}
+          <View style={styles.detailNavRightActions}>
+            {!detailEvent.isCancelled && (
+              <TouchableOpacity
+                style={styles.detailNavIconBtn}
+                activeOpacity={0.7}
+                onPress={() => {
+                  const evToEdit = detailEvent;
+                  handleOpenEditModal(evToEdit);
+                }}
+              >
+                <Pencil size={18} color="#0D9488" />
+              </TouchableOpacity>
+            )}
+
             <TouchableOpacity
-              style={styles.detailNavEditBtn}
+              style={styles.detailNavIconBtn}
               activeOpacity={0.7}
               onPress={() => {
-                const evToEdit = detailEvent;
-                handleOpenEditModal(evToEdit);
+                Haptics.selectionAsync();
+                setIsDetailMenuOpen(true);
               }}
             >
-              <Pencil size={16} color="#0D9488" />
-              <Text style={styles.detailNavEditText}>Sửa</Text>
+              <MoreVertical size={20} color="#475569" />
             </TouchableOpacity>
-          ) : (
-            <View style={{ width: 50 }} />
-          )}
+          </View>
         </View>
 
         {/* Scrollable Content */}
@@ -2583,9 +2799,11 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.detailFullScreenContent}
         >
-          {/* TOÀN BỘ THÔNG TIN SỰ KIỆN GOM CHUNG TRONG 1 THẺ DUY NHẤT */}
+          {/* =========================================================================
+              THẺ 1: TÊN, ĐỊA ĐIỂM (LINK), THỜI GIAN, LẶP LẠI (NAV), NGƯỜI THAM GIA
+             ========================================================================= */}
           <View style={styles.detailUnifiedCard}>
-            {/* 1. Tên sự kiện & Trạng thái */}
+            {/* 1. Tên sự kiện & Huy hiệu hủy (nếu có) */}
             <View style={styles.detailUnifiedHeader}>
               <Text
                 style={[
@@ -2604,10 +2822,63 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
               )}
             </View>
 
-            {/* Phân cách */}
-            <View style={styles.detailUnifiedDivider} />
+            {/* 2. Địa điểm (ấn vào sẽ ra Google Maps / Meet, hiển thị dạng Link) */}
+            {(detailEvent.location || isCall) && (
+              <>
+                <View style={styles.detailUnifiedDivider} />
+                <View style={styles.detailUnifiedSection}>
+                  <View style={styles.detailSectionHeader}>
+                    {isCall ? (
+                      <Video size={16} color="#0284C7" />
+                    ) : (
+                      <MapPin size={16} color="#D97706" />
+                    )}
+                    <Text style={styles.detailSectionTitle}>
+                      {isCall ? 'Cuộc gọi trực tuyến' : 'Địa điểm'}
+                    </Text>
+                  </View>
 
-            {/* 2. Thời gian diễn ra */}
+                  {isCall ? (
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      style={styles.detailLinkRow}
+                      onPress={() => {
+                        if (callUrl) Linking.openURL(callUrl).catch(() => {});
+                      }}
+                    >
+                      <Text style={styles.detailLinkText}>
+                        {cleanLocationText(detailEvent.location) || 'Tham gia cuộc gọi video (Google Meet / Zoom)'}
+                      </Text>
+                      <ChevronRight size={14} color="#0D9488" />
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      style={styles.detailLinkRow}
+                      onPress={() => {
+                        const locUrl = extractLocationUrl(detailEvent.location);
+                        if (locUrl) {
+                          Linking.openURL(locUrl).catch(() => {});
+                        } else {
+                          const mapQuery = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                            detailEvent.location!,
+                          )}`;
+                          Linking.openURL(mapQuery).catch(() => {});
+                        }
+                      }}
+                    >
+                      <Text style={styles.detailLinkText} numberOfLines={2}>
+                        {cleanLocationText(detailEvent.location)}
+                      </Text>
+                      <ChevronRight size={14} color="#0D9488" />
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </>
+            )}
+
+            {/* 3. Thời gian diễn ra */}
+            <View style={styles.detailUnifiedDivider} />
             <View style={styles.detailUnifiedSection}>
               <View style={styles.detailSectionHeader}>
                 <Clock size={16} color="#0D9488" />
@@ -2655,236 +2926,116 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
               </View>
             </View>
 
-            {/* KHẢO SÁT / RSVP (GIỮ NGUYÊN LABEL 'Khảo sát', 3 LỰA CHỌN: Tham gia, Chưa chắc, Bận + HIỂN THỊ AVATAR NHƯ WEB) */}
-            <View style={styles.detailUnifiedDivider} />
-            <View style={styles.detailUnifiedSection}>
-              <View style={styles.detailSectionHeaderBetween}>
-                <View style={styles.detailSectionHeader}>
-                  <Users size={16} color="#0D9488" />
-                  <Text style={styles.detailSectionTitle}>Khảo sát</Text>
-                </View>
-                <Text style={styles.detailRsvpTotalText}>
-                  {totalRsvps} phản hồi
-                </Text>
-              </View>
-
-              <View style={styles.detailRsvpOptionsCol}>
-                {[
-                  {
-                    status: EventRsvpStatus.YES,
-                    label: 'Tham gia',
-                    rsvps: yesRsvps,
-                    percent: totalRsvps > 0 ? Math.round((yesRsvps.length / totalRsvps) * 100) : 0,
-                    bgColor: '#ECFDF5',
-                    activeBgColor: '#D1FAE5',
-                    borderColor: '#10B981',
-                    textColor: '#047857',
-                    icon: Check,
-                  },
-                  {
-                    status: EventRsvpStatus.MAYBE,
-                    label: 'Chưa chắc',
-                    rsvps: maybeRsvps,
-                    percent: totalRsvps > 0 ? Math.round((maybeRsvps.length / totalRsvps) * 100) : 0,
-                    bgColor: '#FFFBEB',
-                    activeBgColor: '#FEF3C7',
-                    borderColor: '#F59E0B',
-                    textColor: '#B45309',
-                    icon: HelpCircle,
-                  },
-                  {
-                    status: EventRsvpStatus.NO,
-                    label: 'Bận',
-                    rsvps: noRsvps,
-                    percent: totalRsvps > 0 ? Math.round((noRsvps.length / totalRsvps) * 100) : 0,
-                    bgColor: '#FEF2F2',
-                    activeBgColor: '#FEE2E2',
-                    borderColor: '#EF4444',
-                    textColor: '#B91C1C',
-                    icon: X,
-                  },
-                ].map((opt) => {
-                  const isSelected = myRsvp === opt.status;
-                  const IconComp = opt.icon;
-                  return (
-                    <TouchableOpacity
-                      key={opt.status}
-                      style={[
-                        styles.detailRsvpBtn,
-                        { backgroundColor: isSelected ? opt.activeBgColor : '#F8FAFC' },
-                        isSelected && { borderColor: opt.borderColor, borderWidth: 1.5 },
-                      ]}
-                      activeOpacity={0.7}
-                      disabled={Boolean(detailEvent.isCancelled) || isStarted}
-                      onPress={() => handleRsvp(opt.status)}
-                    >
-                      {/* Progress bar background fill */}
-                      <View
-                        style={[
-                          styles.detailRsvpProgressFill,
-                          {
-                            width: `${opt.percent}%`,
-                            backgroundColor: isSelected ? opt.activeBgColor : opt.bgColor,
-                          },
-                        ]}
-                      />
-
-                      <View style={styles.detailRsvpBtnContent}>
-                        <View style={styles.detailRsvpLabelLeft}>
-                          <View
-                            style={[
-                              styles.detailRsvpCheckCircle,
-                              isSelected && { backgroundColor: opt.borderColor, borderColor: opt.borderColor },
-                            ]}
-                          >
-                            {isSelected && <Check size={10} color="#FFFFFF" />}
-                          </View>
-                          <IconComp size={15} color={isSelected ? opt.textColor : '#64748B'} />
-                          <Text
-                            style={[
-                              styles.detailRsvpOptionLabel,
-                              isSelected && { color: opt.textColor, fontWeight: '700' },
-                            ]}
-                          >
-                            {opt.label}
-                          </Text>
-                        </View>
-
-                        {/* Avatars giống hệt Web */}
-                        <View style={styles.detailRsvpAvatarsRow}>
-                          {opt.rsvps.slice(0, 5).map((r, rIdx) => {
-                            const isMe = r.userId === user?.id;
-                            const dName = isMe
-                              ? 'Bạn'
-                              : r.user?.profile?.displayName || r.user?.email?.split('@')[0] || 'TV';
-                            const avUrl = r.user?.profile?.avatarUrl;
-
-                            return (
-                              <View
-                                key={r.id || r.userId || rIdx}
-                                style={[styles.detailRsvpAvatarWrap, { marginLeft: rIdx === 0 ? 0 : -6 }]}
-                              >
-                                {avUrl ? (
-                                  <Image source={{ uri: avUrl }} style={styles.detailRsvpAvatarImg} />
-                                ) : (
-                                  <View style={styles.detailRsvpAvatarFallback}>
-                                    <Text style={styles.detailRsvpAvatarInitial}>
-                                      {dName.charAt(0).toUpperCase()}
-                                    </Text>
-                                  </View>
-                                )}
-                              </View>
-                            );
-                          })}
-                          {opt.rsvps.length > 5 && (
-                            <View style={[styles.detailRsvpAvatarWrap, styles.detailRsvpAvatarMoreWrap]}>
-                              <Text style={styles.detailRsvpAvatarMoreText}>
-                                +{opt.rsvps.length - 5}
-                              </Text>
-                            </View>
-                          )}
-                        </View>
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </View>
-
-            {/* 3. Cuộc gọi trực tuyến nếu có */}
-            {isCall ? (
-              <>
-                <View style={styles.detailUnifiedDivider} />
-                <View style={styles.detailUnifiedSection}>
-                  <View style={styles.detailSectionHeader}>
-                    <Video size={16} color="#0284C7" />
-                    <Text style={styles.detailSectionTitle}>Cuộc gọi trực tuyến</Text>
-                  </View>
-
-                  <View style={styles.detailCallEmbed}>
-                    <Text style={styles.detailCallDesc}>
-                      {cleanLocationText(detailEvent.location) || 'Cuộc gọi video (Google Meet / Zoom)'}
-                    </Text>
-
-                    {callUrl && (
-                      <TouchableOpacity
-                        style={styles.detailJoinCallBtn}
-                        activeOpacity={0.8}
-                        onPress={() => Linking.openURL(callUrl).catch(() => {})}
-                      >
-                        <Video size={16} color="#FFFFFF" />
-                        <Text style={styles.detailJoinCallBtnText}>Tham gia ngay</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                </View>
-              </>
-            ) : null}
-
-            {/* 4. Địa điểm trực tiếp nếu có */}
-            {isPhysicalLoc ? (
-              <>
-                <View style={styles.detailUnifiedDivider} />
-                <View style={styles.detailUnifiedSection}>
-                  <View style={styles.detailSectionHeader}>
-                    <MapPin size={16} color="#D97706" />
-                    <Text style={styles.detailSectionTitle}>Địa điểm</Text>
-                  </View>
-
-                  <Text style={styles.detailCardBodyText}>
-                    {cleanLocationText(detailEvent.location)}
-                  </Text>
-
-                  <TouchableOpacity
-                    style={styles.detailMapLinkBtn}
-                    activeOpacity={0.7}
-                    onPress={() => {
-                      const locUrl = extractLocationUrl(detailEvent.location);
-                      if (locUrl) {
-                        Linking.openURL(locUrl).catch(() => {});
-                      } else {
-                        const mapQuery = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-                          detailEvent.location!,
-                        )}`;
-                        Linking.openURL(mapQuery).catch(() => {});
-                      }
-                    }}
-                  >
-                    <MapPin size={14} color="#0D9488" />
-                    <Text style={styles.detailMapLinkBtnText}>Xem chỉ đường trên bản đồ</Text>
-                  </TouchableOpacity>
-                </View>
-              </>
-            ) : null}
-
-            {/* 5. LẶP LẠI (LUÔN HIỂN THỊ ĐẦY ĐỦ) */}
+            {/* 4. Lặp lại (nếu có khi ấn vào sẽ cho chọn đi đến lần diễn ra tiếp theo hoặc lần trước đó) */}
             <View style={styles.detailUnifiedDivider} />
             <View style={styles.detailUnifiedSection}>
               <View style={styles.detailSectionHeader}>
                 <Repeat size={16} color="#0D9488" />
                 <Text style={styles.detailSectionTitle}>Lặp lại</Text>
               </View>
-              <Text style={styles.detailCardBodyText}>{repeatSummary}</Text>
+
+              <TouchableOpacity
+                style={styles.detailRecurrenceRow}
+                activeOpacity={hasRecurrence ? 0.7 : 1}
+                disabled={!hasRecurrence}
+                onPress={() => {
+                  if (hasRecurrence) {
+                    Haptics.selectionAsync();
+                    setIsRecurrenceNavModalOpen(true);
+                  }
+                }}
+              >
+                <Text style={styles.detailCardBodyText}>{repeatSummary}</Text>
+                {hasRecurrence && (
+                  <View style={styles.detailJumpTag}>
+                    <Text style={styles.detailJumpTagText}>Xem lịch lặp</Text>
+                    <ChevronRight size={13} color="#0D9488" />
+                  </View>
+                )}
+              </TouchableOpacity>
             </View>
 
-            {/* 6. GHI CHÚ (NẰM CHUNG TRONG THẺ, TRÊN THÔNG BÁO NHẮC NHỞ) */}
+            {/* 5. Người tham gia (khi ấn vào sẽ hiển thị danh sách Tham gia, Chưa chắc chắn, Bận) */}
             <View style={styles.detailUnifiedDivider} />
             <View style={styles.detailUnifiedSection}>
-              <View style={styles.detailSectionHeader}>
-                <Info size={16} color="#0D9488" />
-                <Text style={styles.detailSectionTitle}>Ghi chú</Text>
-              </View>
-              {hasValidDesc ? (
-                <Text style={styles.detailNotesText}>{cleanDescriptionText}</Text>
-              ) : (
-                <Text style={[styles.detailCardBodyText, { color: '#94A3B8', fontStyle: 'italic' }]}>
-                  Không có ghi chú
-                </Text>
-              )}
-            </View>
+              <TouchableOpacity
+                style={styles.detailSectionHeaderBetween}
+                activeOpacity={0.7}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setIsAttendeesModalOpen(true);
+                }}
+              >
+                <View style={styles.detailSectionHeader}>
+                  <Users size={16} color="#0D9488" />
+                  <Text style={styles.detailSectionTitle}>Người tham gia</Text>
+                </View>
 
-            {/* 7. THÔNG BÁO NHẮC NHỞ (THIẾT KẾ TINH GỌN NHƯ WEB KÈM CHỈNH NHANH) */}
-            <View style={styles.detailUnifiedDivider} />
+                <View style={styles.detailAttendeesHeaderRight}>
+                  <Text style={styles.detailRsvpTotalText}>
+                    {totalRsvps} phản hồi ({yesRsvps.length} tham gia)
+                  </Text>
+                  <ChevronRight size={15} color="#94A3B8" />
+                </View>
+              </TouchableOpacity>
+
+              {/* Hàng Avatars tóm tắt */}
+              <TouchableOpacity
+                style={styles.detailAttendeesPreviewRow}
+                activeOpacity={0.7}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setIsAttendeesModalOpen(true);
+                }}
+              >
+                {totalRsvps > 0 ? (
+                  <View style={styles.detailRsvpAvatarsRow}>
+                    {(detailEvent.rsvps || []).slice(0, 7).map((r, rIdx) => {
+                      const isMe = r.userId === user?.id;
+                      const dName = isMe
+                        ? 'Bạn'
+                        : r.user?.profile?.displayName || r.user?.email?.split('@')[0] || 'TV';
+                      const avUrl = r.user?.profile?.avatarUrl;
+
+                      return (
+                        <View
+                          key={r.id || r.userId || rIdx}
+                          style={[styles.detailRsvpAvatarWrap, { marginLeft: rIdx === 0 ? 0 : -6 }]}
+                        >
+                          {avUrl ? (
+                            <Image source={{ uri: avUrl }} style={styles.detailRsvpAvatarImg} />
+                          ) : (
+                            <View style={styles.detailRsvpAvatarFallback}>
+                              <Text style={styles.detailRsvpAvatarInitial}>
+                                {dName.charAt(0).toUpperCase()}
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                      );
+                    })}
+                    {(detailEvent.rsvps || []).length > 7 && (
+                      <View style={[styles.detailRsvpAvatarWrap, styles.detailRsvpAvatarMoreWrap]}>
+                        <Text style={styles.detailRsvpAvatarMoreText}>
+                          +{(detailEvent.rsvps || []).length - 7}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                ) : (
+                  <Text style={[styles.detailCardBodyText, { color: '#94A3B8', fontSize: 13 }]}>
+                    Chưa có phản hồi nào. Chạm để xem chi tiết.
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* =========================================================================
+              THẺ 2: CẢNH BÁO (THÔNG BÁO NHẮC NHỞ), CHỈNH SỬA BÌNH CHỌN NHANH, GHI CHÚ
+             ========================================================================= */}
+          <View style={styles.detailUnifiedCard}>
+            {/* 1. Cảnh báo / Thông báo nhắc nhở (cho thao tác chỉnh nhanh) */}
             <View style={styles.detailUnifiedSection}>
               <View style={styles.detailSectionHeaderBetween}>
                 <View style={styles.detailSectionHeader}>
@@ -2927,50 +3078,512 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
               </TouchableOpacity>
             </View>
 
-            {/* 8. NGƯỜI TẠO */}
-            {detailEvent.creator ? (
-              <>
-                <View style={styles.detailUnifiedDivider} />
-                <View style={styles.detailUnifiedSection}>
-                  <View style={styles.detailSectionHeader}>
-                    <CalendarDays size={16} color="#64748B" />
-                    <Text style={styles.detailSectionTitle}>Người tạo</Text>
-                  </View>
-                  <Text style={styles.detailCardBodyText}>
-                    {detailEvent.creator?.nickname ||
-                      detailEvent.creator?.user?.profile?.displayName ||
-                      'Thành viên Circle'}
-                  </Text>
+            {/* Phân cách */}
+            <View style={styles.detailUnifiedDivider} />
+
+            {/* 2. Chỉnh sửa bình chọn nhanh (Quick RSVP Selector) */}
+            <View style={styles.detailUnifiedSection}>
+              <View style={styles.detailSectionHeaderBetween}>
+                <View style={styles.detailSectionHeader}>
+                  <Check size={16} color="#0D9488" />
+                  <Text style={styles.detailSectionTitle}>Phản hồi của bạn</Text>
                 </View>
-              </>
-            ) : null}
+                {myRsvp && (
+                  <Text style={styles.detailMyRsvpBadgeText}>
+                    Đã chọn: {myRsvp === EventRsvpStatus.YES ? 'Tham gia' : myRsvp === EventRsvpStatus.MAYBE ? 'Chưa chắc' : 'Bận'}
+                  </Text>
+                )}
+              </View>
+
+              <View style={styles.detailQuickRsvpRow}>
+                {[
+                  {
+                    status: EventRsvpStatus.YES,
+                    label: 'Tham gia',
+                    activeBg: '#D1FAE5',
+                    activeBorder: '#10B981',
+                    textColor: '#047857',
+                    icon: Check,
+                  },
+                  {
+                    status: EventRsvpStatus.MAYBE,
+                    label: 'Chưa chắc',
+                    activeBg: '#FEF3C7',
+                    activeBorder: '#F59E0B',
+                    textColor: '#B45309',
+                    icon: HelpCircle,
+                  },
+                  {
+                    status: EventRsvpStatus.NO,
+                    label: 'Bận',
+                    activeBg: '#FEE2E2',
+                    activeBorder: '#EF4444',
+                    textColor: '#B91C1C',
+                    icon: X,
+                  },
+                ].map((item) => {
+                  const isSelected = myRsvp === item.status;
+                  const IconC = item.icon;
+                  return (
+                    <TouchableOpacity
+                      key={item.status}
+                      style={[
+                        styles.detailQuickRsvpBtn,
+                        isSelected && {
+                          backgroundColor: item.activeBg,
+                          borderColor: item.activeBorder,
+                          borderWidth: 1.5,
+                        },
+                      ]}
+                      activeOpacity={0.7}
+                      disabled={Boolean(detailEvent.isCancelled) || isStarted}
+                      onPress={() => handleRsvp(item.status)}
+                    >
+                      <IconC size={14} color={isSelected ? item.textColor : '#64748B'} />
+                      <Text
+                        style={[
+                          styles.detailQuickRsvpBtnText,
+                          isSelected && { color: item.textColor, fontWeight: '700' },
+                        ]}
+                      >
+                        {item.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* Phân cách */}
+            <View style={styles.detailUnifiedDivider} />
+
+            {/* 3. Ghi chú */}
+            <View style={styles.detailUnifiedSection}>
+              <View style={styles.detailSectionHeader}>
+                <Info size={16} color="#0D9488" />
+                <Text style={styles.detailSectionTitle}>Ghi chú</Text>
+              </View>
+              {hasValidDesc ? (
+                <Text style={styles.detailNotesText}>{cleanDescriptionText}</Text>
+              ) : (
+                <Text style={[styles.detailCardBodyText, { color: '#94A3B8', fontStyle: 'italic' }]}>
+                  Không có ghi chú
+                </Text>
+              )}
+            </View>
           </View>
 
-          {/* Nhóm nút hành động: Hủy lịch hẹn & Xóa sự kiện */}
-          <View style={styles.detailActionButtonsGroup}>
-            {!detailEvent.isCancelled && (
-              <TouchableOpacity
-                style={styles.detailActionCancelBtn}
-                activeOpacity={0.8}
-                onPress={() => handleCancelEventInDetail(detailEvent.id)}
-              >
-                <Ban size={18} color="#D97706" />
-                <Text style={styles.detailActionCancelBtnText}>Hủy lịch hẹn này</Text>
-              </TouchableOpacity>
-            )}
-
-            <TouchableOpacity
-              style={styles.detailActionDeleteBtn}
-              activeOpacity={0.8}
-              onPress={() => handleDeleteEventInDetail(detailEvent.id)}
-            >
-              <Trash2 size={18} color="#EF4444" />
-              <Text style={styles.detailActionDeleteBtnText}>Xóa vĩnh viễn khỏi lịch nhóm</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={{ height: 40 }} />
+          <View style={{ height: 100 }} />
         </ScrollView>
+
+        {/* =========================================================================
+            NÚT TREO: THAM GIA BÌNH CHỌN (ẤN VÀO SẼ RA BÌNH CHỌN POLL CHI TIẾT)
+           ========================================================================= */}
+        <View style={styles.detailFloatingBottomBar}>
+          <TouchableOpacity
+            style={styles.detailFloatingPollBtn}
+            activeOpacity={0.85}
+            onPress={() => {
+              Haptics.selectionAsync();
+              setIsDetailPollModalOpen(true);
+            }}
+          >
+            <Users size={18} color="#FFFFFF" />
+            <Text style={styles.detailFloatingPollBtnText}>Tham gia bình chọn</Text>
+            {myRsvp && (
+              <View style={styles.detailFloatingMyRsvpDot} />
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {/* =========================================================================
+            POPUP / MODAL 1: MODAL BÌNH CHỌN POLL CHO NGƯỜI DÙNG CHỌN
+           ========================================================================= */}
+        {isDetailPollModalOpen && (
+          <View style={styles.inModalPopupBackdrop}>
+            <TouchableOpacity
+              style={StyleSheet.absoluteFill}
+              activeOpacity={1}
+              onPress={() => setIsDetailPollModalOpen(false)}
+            />
+            <View style={styles.popupCard}>
+              <View style={styles.popupHeader}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Users size={18} color="#0D9488" />
+                  <Text style={styles.popupTitle}>Bình chọn tham gia</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => setIsDetailPollModalOpen(false)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text style={styles.popupCloseText}>Đóng</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={{ padding: 16 }}>
+                <View style={styles.detailRsvpOptionsCol}>
+                  {[
+                    {
+                      status: EventRsvpStatus.YES,
+                      label: 'Tham gia',
+                      rsvps: yesRsvps,
+                      percent: totalRsvps > 0 ? Math.round((yesRsvps.length / totalRsvps) * 100) : 0,
+                      bgColor: '#ECFDF5',
+                      activeBgColor: '#D1FAE5',
+                      borderColor: '#10B981',
+                      textColor: '#047857',
+                      icon: Check,
+                    },
+                    {
+                      status: EventRsvpStatus.MAYBE,
+                      label: 'Chưa chắc',
+                      rsvps: maybeRsvps,
+                      percent: totalRsvps > 0 ? Math.round((maybeRsvps.length / totalRsvps) * 100) : 0,
+                      bgColor: '#FFFBEB',
+                      activeBgColor: '#FEF3C7',
+                      borderColor: '#F59E0B',
+                      textColor: '#B45309',
+                      icon: HelpCircle,
+                    },
+                    {
+                      status: EventRsvpStatus.NO,
+                      label: 'Bận',
+                      rsvps: noRsvps,
+                      percent: totalRsvps > 0 ? Math.round((noRsvps.length / totalRsvps) * 100) : 0,
+                      bgColor: '#FEF2F2',
+                      activeBgColor: '#FEE2E2',
+                      borderColor: '#EF4444',
+                      textColor: '#B91C1C',
+                      icon: X,
+                    },
+                  ].map((opt) => {
+                    const isSelected = myRsvp === opt.status;
+                    const IconComp = opt.icon;
+                    return (
+                      <TouchableOpacity
+                        key={opt.status}
+                        style={[
+                          styles.detailRsvpBtn,
+                          { backgroundColor: isSelected ? opt.activeBgColor : '#F8FAFC' },
+                          isSelected && { borderColor: opt.borderColor, borderWidth: 1.5 },
+                        ]}
+                        activeOpacity={0.7}
+                        disabled={Boolean(detailEvent.isCancelled) || isStarted}
+                        onPress={() => {
+                          handleRsvp(opt.status);
+                          setIsDetailPollModalOpen(false);
+                        }}
+                      >
+                        {/* Progress bar background fill */}
+                        <View
+                          style={[
+                            styles.detailRsvpProgressFill,
+                            {
+                              width: `${opt.percent}%`,
+                              backgroundColor: isSelected ? opt.activeBgColor : opt.bgColor,
+                            },
+                          ]}
+                        />
+
+                        <View style={styles.detailRsvpBtnContent}>
+                          <View style={styles.detailRsvpLabelLeft}>
+                            <View
+                              style={[
+                                styles.detailRsvpCheckCircle,
+                                isSelected && { backgroundColor: opt.borderColor, borderColor: opt.borderColor },
+                              ]}
+                            >
+                              {isSelected && <Check size={10} color="#FFFFFF" />}
+                            </View>
+                            <IconComp size={15} color={isSelected ? opt.textColor : '#64748B'} />
+                            <Text
+                              style={[
+                                styles.detailRsvpOptionLabel,
+                                isSelected && { color: opt.textColor, fontWeight: '700' },
+                              ]}
+                            >
+                              {opt.label}
+                            </Text>
+                          </View>
+
+                          <View style={styles.detailRsvpStatsRight}>
+                            <Text style={styles.detailRsvpCountText}>
+                              {opt.rsvps.length} ({opt.percent}%)
+                            </Text>
+                          </View>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* =========================================================================
+            POPUP / MODAL 2: HIỂN THỊ DANH SÁCH NGƯỜI THAM GIA (THAM GIA, CHƯA CHẮC, BẬN)
+           ========================================================================= */}
+        {isAttendeesModalOpen && (
+          <View style={styles.inModalPopupBackdrop}>
+            <TouchableOpacity
+              style={StyleSheet.absoluteFill}
+              activeOpacity={1}
+              onPress={() => setIsAttendeesModalOpen(false)}
+            />
+            <View style={styles.popupCardLarge}>
+              <View style={styles.popupHeader}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Users size={18} color="#0D9488" />
+                  <Text style={styles.popupTitle}>Danh sách phản hồi</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => setIsAttendeesModalOpen(false)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text style={styles.popupCloseText}>Đóng</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* 3 Tabs: Tham gia | Chưa chắc | Bận */}
+              <View style={styles.detailAttendeesTabBar}>
+                <TouchableOpacity
+                  style={[
+                    styles.detailAttendeesTabItem,
+                    selectedAttendeeTab === 'yes' && styles.detailAttendeesTabItemActive,
+                  ]}
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    setSelectedAttendeeTab('yes');
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.detailAttendeesTabLabel,
+                      selectedAttendeeTab === 'yes' && styles.detailAttendeesTabLabelActive,
+                    ]}
+                  >
+                    Tham gia ({yesRsvps.length})
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.detailAttendeesTabItem,
+                    selectedAttendeeTab === 'maybe' && styles.detailAttendeesTabItemActive,
+                  ]}
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    setSelectedAttendeeTab('maybe');
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.detailAttendeesTabLabel,
+                      selectedAttendeeTab === 'maybe' && styles.detailAttendeesTabLabelActive,
+                    ]}
+                  >
+                    Chưa chắc ({maybeRsvps.length})
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.detailAttendeesTabItem,
+                    selectedAttendeeTab === 'no' && styles.detailAttendeesTabItemActive,
+                  ]}
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    setSelectedAttendeeTab('no');
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.detailAttendeesTabLabel,
+                      selectedAttendeeTab === 'no' && styles.detailAttendeesTabLabelActive,
+                    ]}
+                  >
+                    Bận ({noRsvps.length})
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Danh sách người dùng của Tab đang chọn */}
+              <ScrollView style={styles.detailAttendeesListScroll}>
+                {(() => {
+                  const list =
+                    selectedAttendeeTab === 'yes'
+                      ? yesRsvps
+                      : selectedAttendeeTab === 'maybe'
+                      ? maybeRsvps
+                      : noRsvps;
+
+                  if (list.length === 0) {
+                    return (
+                      <View style={styles.detailAttendeesEmptyWrap}>
+                        <Text style={styles.detailAttendeesEmptyText}>
+                          Chưa có thành viên nào chọn mục này
+                        </Text>
+                      </View>
+                    );
+                  }
+
+                  return list.map((r, idx) => {
+                    const isMe = r.userId === user?.id;
+                    const dName = isMe
+                      ? 'Bạn'
+                      : r.user?.profile?.displayName || r.user?.email?.split('@')[0] || 'Thành viên';
+                    const avUrl = r.user?.profile?.avatarUrl;
+
+                    return (
+                      <View key={r.id || r.userId || idx} style={styles.detailAttendeeRow}>
+                        <View style={styles.detailAttendeeAvatarWrap}>
+                          {avUrl ? (
+                            <Image source={{ uri: avUrl }} style={styles.detailAttendeeAvatarImg} />
+                          ) : (
+                            <View style={styles.detailAttendeeAvatarFallback}>
+                              <Text style={styles.detailAttendeeAvatarInitial}>
+                                {dName.charAt(0).toUpperCase()}
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.detailAttendeeName}>
+                            {dName} {isMe && '(Tôi)'}
+                          </Text>
+                          {r.user?.email && (
+                            <Text style={styles.detailAttendeeEmail}>{r.user.email}</Text>
+                          )}
+                        </View>
+                      </View>
+                    );
+                  });
+                })()}
+              </ScrollView>
+            </View>
+          </View>
+        )}
+
+        {/* =========================================================================
+            POPUP / MODAL 3: ĐI ĐẾN LẦN DIỄN RA TIẾP THEO HOẶC LẦN TRƯỚC ĐÓ
+           ========================================================================= */}
+        {isRecurrenceNavModalOpen && (
+          <View style={styles.inModalPopupBackdrop}>
+            <TouchableOpacity
+              style={StyleSheet.absoluteFill}
+              activeOpacity={1}
+              onPress={() => setIsRecurrenceNavModalOpen(false)}
+            />
+            <View style={styles.popupCard}>
+              <View style={styles.popupHeader}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Repeat size={18} color="#0D9488" />
+                  <Text style={styles.popupTitle}>Chu kỳ lặp lại</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => setIsRecurrenceNavModalOpen(false)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text style={styles.popupCloseText}>Đóng</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={{ padding: 16, gap: 12 }}>
+                <Text style={styles.detailRecurrenceNavDesc}>
+                  Lịch hẹn này có chu kỳ: <Text style={{ fontWeight: '700' }}>{repeatSummary}</Text>.
+                  Bạn có thể nhảy nhanh tới các lần diễn ra trên lịch:
+                </Text>
+
+                <TouchableOpacity
+                  style={styles.detailRecurrenceNavBtn}
+                  activeOpacity={0.7}
+                  onPress={() => handleJumpOccurrence('prev')}
+                >
+                  <ChevronLeft size={16} color="#0D9488" />
+                  <Text style={styles.detailRecurrenceNavBtnText}>Đi đến lần diễn ra trước đó</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.detailRecurrenceNavBtn, { backgroundColor: '#F0FDFA', borderColor: '#CCFBF1' }]}
+                  activeOpacity={0.7}
+                  onPress={() => handleJumpOccurrence('next')}
+                >
+                  <Text style={[styles.detailRecurrenceNavBtnText, { color: '#0D9488' }]}>
+                    Đi đến lần diễn ra tiếp theo
+                  </Text>
+                  <ChevronRight size={16} color="#0D9488" />
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* =========================================================================
+            POPUP / MODAL 4: MENU BA CHẤM (HỦY VÀ XÓA SỰ KIỆN)
+           ========================================================================= */}
+        {isDetailMenuOpen && (
+          <View style={styles.inModalPopupBackdrop}>
+            <TouchableOpacity
+              style={StyleSheet.absoluteFill}
+              activeOpacity={1}
+              onPress={() => setIsDetailMenuOpen(false)}
+            />
+            <View style={styles.popupCard}>
+              <View style={styles.popupHeader}>
+                <Text style={styles.popupTitle}>Tùy chọn sự kiện</Text>
+                <TouchableOpacity
+                  onPress={() => setIsDetailMenuOpen(false)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text style={styles.popupCloseText}>Đóng</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={{ padding: 16, gap: 10 }}>
+                {!detailEvent.isCancelled && (
+                  <TouchableOpacity
+                    style={styles.detailMenuActionBtn}
+                    activeOpacity={0.7}
+                    onPress={() => {
+                      setIsDetailMenuOpen(false);
+                      handleCancelEventInDetail(detailEvent.id);
+                    }}
+                  >
+                    <Ban size={18} color="#D97706" />
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.detailMenuActionBtnText, { color: '#D97706' }]}>
+                        Hủy lịch hẹn
+                      </Text>
+                      <Text style={styles.detailMenuActionSubText}>
+                        Đánh dấu đã hủy nhưng vẫn lưu lại trên lịch nhóm
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+
+                <TouchableOpacity
+                  style={[styles.detailMenuActionBtn, { backgroundColor: '#FEF2F2', borderColor: '#FECACA' }]}
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    setIsDetailMenuOpen(false);
+                    handleDeleteEventInDetail(detailEvent.id);
+                  }}
+                >
+                  <Trash2 size={18} color="#EF4444" />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.detailMenuActionBtnText, { color: '#EF4444' }]}>
+                      Xóa vĩnh viễn
+                    </Text>
+                    <Text style={styles.detailMenuActionSubText}>
+                      Xóa hoàn toàn sự kiện khỏi lịch của cả nhóm
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        )}
 
         {/* Popup Overlay Chọn Nhanh Thông Báo Nhắc Nhở */}
         {isQuickReminderModalOpen && (
@@ -3026,7 +3639,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
     );
   };
 
-    const renderYearView = () => {
+  const renderYearView = () => {
     const today = new Date();
 
     return (
@@ -4115,6 +4728,280 @@ const styles = StyleSheet.create({
     padding: 2,
   },
   // Full-Screen Event Detail View Styles
+  detailNavRightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  detailNavIconBtn: {
+    padding: 6,
+    borderRadius: 8,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  detailLinkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F0FDFA',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#CCFBF1',
+    gap: 8,
+  },
+  detailLinkText: {
+    fontSize: 14,
+    color: '#0D9488',
+    fontWeight: '600',
+    flex: 1,
+    textDecorationLine: 'underline',
+  },
+  detailRecurrenceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 8,
+  },
+  detailJumpTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    backgroundColor: '#F0FDFA',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#CCFBF1',
+  },
+  detailJumpTagText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#0D9488',
+  },
+  detailAttendeesHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  detailAttendeesPreviewRow: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginTop: 2,
+  },
+  detailQuickRsvpRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 4,
+  },
+  detailQuickRsvpBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 10,
+    paddingVertical: 9,
+  },
+  detailQuickRsvpBtnText: {
+    fontSize: 13,
+    color: '#475569',
+    fontWeight: '600',
+  },
+  detailMyRsvpBadgeText: {
+    fontSize: 12,
+    color: '#0D9488',
+    fontWeight: '600',
+  },
+  detailFloatingBottomBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#E2E8F0',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 8,
+  },
+  detailFloatingPollBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#0D9488',
+    borderRadius: 14,
+    paddingVertical: 14,
+    shadowColor: '#0D9488',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  detailFloatingPollBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  detailFloatingMyRsvpDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: '#34D399',
+    marginLeft: 2,
+  },
+  popupCardLarge: {
+    width: '90%',
+    maxHeight: '80%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  detailAttendeesTabBar: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+    backgroundColor: '#F8FAFC',
+  },
+  detailAttendeesTabItem: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  detailAttendeesTabItemActive: {
+    borderBottomColor: '#0D9488',
+    backgroundColor: '#FFFFFF',
+  },
+  detailAttendeesTabLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  detailAttendeesTabLabelActive: {
+    color: '#0D9488',
+    fontWeight: '700',
+  },
+  detailAttendeesListScroll: {
+    maxHeight: 350,
+    padding: 14,
+  },
+  detailAttendeesEmptyWrap: {
+    paddingVertical: 30,
+    alignItems: 'center',
+  },
+  detailAttendeesEmptyText: {
+    fontSize: 13,
+    color: '#94A3B8',
+    fontStyle: 'italic',
+  },
+  detailAttendeeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#F1F5F9',
+  },
+  detailAttendeeAvatarWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    overflow: 'hidden',
+    backgroundColor: '#E2E8F0',
+  },
+  detailAttendeeAvatarImg: {
+    width: '100%',
+    height: '100%',
+  },
+  detailAttendeeAvatarFallback: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#0D9488',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  detailAttendeeAvatarInitial: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  detailAttendeeName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1E293B',
+  },
+  detailAttendeeEmail: {
+    fontSize: 12,
+    color: '#64748B',
+  },
+  detailRecurrenceNavDesc: {
+    fontSize: 14,
+    color: '#334155',
+    lineHeight: 20,
+  },
+  detailRecurrenceNavBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  detailRecurrenceNavBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  detailMenuActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  detailMenuActionBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  detailMenuActionSubText: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
   detailFullScreenContainer: {
     position: 'absolute',
     top: 0,
