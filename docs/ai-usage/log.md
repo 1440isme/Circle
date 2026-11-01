@@ -5429,3 +5429,45 @@
 - **Security & License Check:** An toàn tuyệt đối, tuân thủ nghiêm ngặt Hard Gate Zero Secret Leaks.
 - **Branch:** `feat/119-interactive-map-and-poll-chat`
 - **PR:** #121
+
+
+---
+
+### Entry AI-0145
+
+- **Timestamp:** 2026-11-01T15:30:00+07:00
+- **Author:** Trương Công Bình (23110184)
+- **Tool:** Antigravity IDE (Gemini 2.5 Pro)
+- **Task / Scope:** UI/UX & Design Token Excellence Audit — Purging Foreign Teal/Slate Hex Colors, Unifying Brand Tokens across Web & Mobile, Full Dark Mode Support for Mobile Group Tools, and Shared i18n Dictionary Parity.
+- **Files Touched:**
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `apps/web/src/components/settings/SystemSettingsModal.tsx`
+  - `apps/web/src/components/tools/EventLocationDisplay.tsx`
+  - `apps/mobile/src/components/tools/MobileCalendarView.tsx`
+  - `apps/mobile/src/components/tools/MobileWheelView.tsx`
+  - `apps/mobile/src/components/tools/MobileAnonymousView.tsx`
+  - `apps/mobile/src/components/tools/MobileAlbumsView.tsx`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:**
+  1. **Chuẩn hóa Nhận diện Thương hiệu & Loại bỏ Màu Lạc Quẻ:**
+     - Loại bỏ triệt để màu xanh Teal `#0D9488` (hơn 56 vị trí trong `MobileCalendarView`) và các biến thể `#F0FDFA`, chuyển đổi 100% về Brand Primary `#10B981` (Light) và `#34D399` (Dark).
+     - Loại bỏ các mã màu xám tùy tiện `#2b2d35`, `#212329`, `#18191d` trong `SystemSettingsModal.tsx` trên Web, chuyển 100% sang Tailwind design tokens (`circle-dark-hairline`, `circle-dark-surface`, `circle-dark-canvas`).
+     - Chuẩn hóa màu liên kết trong `EventLocationDisplay.tsx` trên Web từ `teal` sang `text-circle-sage dark:text-circle-primary`.
+  2. **Đồng bộ Theme Store & Dark Mode Toàn Diện cho Mobile:**
+     - Tích hợp `useThemeStore()` vào 4 màn hình tiện ích Mobile còn thiếu: `MobileCalendarView`, `MobileWheelView`, `MobileAnonymousView`, `MobileAlbumsView`.
+     - Chuyển toàn bộ khung nền, thanh tiêu đề, thẻ card, lưới ngày tháng và ô nhập liệu sang `colors.canvas`, `colors.surface`, `colors.hairline`, `colors.text` chuẩn Obsidian Dark và Neutral Light.
+  3. **Đồng bộ Song Ngữ i18n (`@circle/shared`):**
+     - Bổ sung cấu trúc song ngữ (VI + EN) cho các module `calendar`, `wheel`, `anonymous`, `albums` trong từ điển `collab` của `@circle/shared`.
+     - Thay thế các chuỗi giao diện hardcoded (ví dụ: `Menu Tiện Ích` -> `t.nav.groupTools`) trên Mobile.
+- **Human Modifications:** Trương Công Bình yêu cầu kiểm toán toàn diện tính nhất quán UI/UX và màu sắc của toàn bộ hệ thống từ trước đến nay, đặt yêu cầu chuẩn hóa tuyệt đối theo Design Tokens và Radical Minimalism trước khi bước sang tính năng mới.
+- **Verification Method:**
+  - Backend Unit Tests: `npm test -w @circle/backend` (11/11 test suites pass, 186/186 tests pass).
+  - Web TypeScript: `npx tsc --noEmit -p apps/web/tsconfig.json` (0 errors).
+  - Mobile TypeScript: `npx tsc --noEmit -p apps/mobile/tsconfig.json` (0 errors).
+  - Web Production Build: `npm run build -w @circle/web` (Pass 100%, 11/11 static pages generated).
+  - Pre-commit Hook & Secret Scan: `./.githooks/pre-commit` & `./scripts/check-secrets.sh` (Passed 100%, 0 leaks).
+- **Official Source Checked:** Circle Design Guidelines, Apple Human Interface Guidelines, WCAG AA Contrast Ratios.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+- **Branch:** `chore/design-system-and-ui-excellence`

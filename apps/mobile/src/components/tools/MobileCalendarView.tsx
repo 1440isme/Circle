@@ -45,6 +45,9 @@ import {
   deleteCalendarEventApi,
 } from '../../services/circle-tools.service';
 import { CalendarEventEntity } from '@circle/types';
+import { useThemeStore } from '../../stores/theme.store';
+import { useLanguageStore } from '../../stores/language.store';
+
 
 const isLocationUrl = (loc?: string | null): boolean => {
   if (!loc) return false;
@@ -473,11 +476,21 @@ export function formatEventTimeForDate(ev: CalendarEventEntity, targetDate: Date
   return ev.endTime ? `${startHourStr} – ${endHourStr}` : startHourStr;
 }
 
+
+const BRAND_PRIMARY = '#10B981';
+const BRAND_PRIMARY_DARK = '#059669';
+const BRAND_WASH = 'rgba(16, 185, 129, 0.08)';
+
 interface MobileCalendarViewProps {
   circleId: string;
 }
 
 export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId }) => {
+  const { colors, resolvedTheme } = useThemeStore();
+  const isDark = resolvedTheme === 'dark';
+  const { t } = useLanguageStore();
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [events, setEvents] = useState<CalendarEventEntity[]>([]);
@@ -1138,9 +1151,9 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
               Tháng {pickerMonth} {pickerYear}
             </Text>
             {isPickerMonthYearOpen ? (
-              <ChevronDown size={16} color="#0D9488" />
+              <ChevronDown size={16} color={colors.primary} />
             ) : (
-              <ChevronRight size={16} color="#0D9488" />
+              <ChevronRight size={16} color={colors.primary} />
             )}
           </TouchableOpacity>
 
@@ -1151,14 +1164,14 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                 style={styles.applePickerArrowBtn}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <ChevronLeft size={20} color="#0D9488" />
+                <ChevronLeft size={20} color={colors.primary} />
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handlePickerNext}
                 style={styles.applePickerArrowBtn}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <ChevronRight size={20} color="#0D9488" />
+                <ChevronRight size={20} color={colors.primary} />
               </TouchableOpacity>
             </View>
           )}
@@ -1468,9 +1481,9 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
               Tháng {endRepeatPickerMonth} {endRepeatPickerYear}
             </Text>
             {isEndRepeatMonthYearOpen ? (
-              <ChevronDown size={16} color="#0D9488" />
+              <ChevronDown size={16} color={colors.primary} />
             ) : (
-              <ChevronRight size={16} color="#0D9488" />
+              <ChevronRight size={16} color={colors.primary} />
             )}
           </TouchableOpacity>
 
@@ -1481,14 +1494,14 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                 style={styles.applePickerArrowBtn}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <ChevronLeft size={20} color="#0D9488" />
+                <ChevronLeft size={20} color={colors.primary} />
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleEndRepeatPickerNext}
                 style={styles.applePickerArrowBtn}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <ChevronRight size={20} color="#0D9488" />
+                <ChevronRight size={20} color={colors.primary} />
               </TouchableOpacity>
             </View>
           )}
@@ -1673,7 +1686,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
             borderTopColor: '#E5E5EA',
           }}
         >
-          <Text style={{ fontSize: 13, color: '#8E8E93' }}>
+          <Text style={{ fontSize: 13, color: colors.subtle }}>
             {recurrenceConfig.endDate ? 'Đang chọn ngày kết thúc' : 'Chưa đặt ngày kết thúc'}
           </Text>
           <TouchableOpacity
@@ -1790,7 +1803,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                   }}
                   activeOpacity={0.6}
                 >
-                  <Minus size={14} color="#0D9488" strokeWidth={2.5} />
+                  <Minus size={14} color={colors.primary} strokeWidth={2.5} />
                 </TouchableOpacity>
 
                 <TextInput
@@ -1819,7 +1832,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                   }}
                   activeOpacity={0.6}
                 >
-                  <Plus size={14} color="#0D9488" strokeWidth={2.5} />
+                  <Plus size={14} color={colors.primary} strokeWidth={2.5} />
                 </TouchableOpacity>
 
                 <Text style={styles.appleStepperUnit}>
@@ -2366,7 +2379,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
           {/* Card 3: Tóm tắt */}
           <View style={[styles.appleGroupCard, { padding: 0 }]}>
             <View style={styles.appleSectionFooter}>
-              <Info size={14} color="#0D9488" style={{ marginTop: 2 }} />
+              <Info size={14} color={colors.primary} style={{ marginTop: 2 }} />
               <Text style={styles.appleSectionFooterText}>
                 {formatRecurrenceSummary(customRecConfig)}
               </Text>
@@ -2402,7 +2415,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
         : null;
 
     return (
-      <View style={styles.detailFullScreenContainer}>
+      <View style={[styles.detailFullScreenContainer, { backgroundColor: colors.canvas }]}>
         {/* Navigation Header */}
         <View style={styles.detailNavHeader}>
           <TouchableOpacity
@@ -2413,7 +2426,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
               Haptics.selectionAsync();
             }}
           >
-            <ChevronLeft size={22} color="#0D9488" />
+            <ChevronLeft size={22} color={colors.primary} />
             <Text style={styles.detailBackBtnText}>Lịch</Text>
           </TouchableOpacity>
 
@@ -2428,7 +2441,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                 handleOpenEditModal(evToEdit);
               }}
             >
-              <Pencil size={16} color="#0D9488" />
+              <Pencil size={16} color={colors.primary} />
               <Text style={styles.detailNavEditText}>Sửa</Text>
             </TouchableOpacity>
           ) : (
@@ -2468,8 +2481,8 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
           {/* Card Thời gian */}
           <View style={styles.detailCard}>
             <View style={styles.detailCardHeader}>
-              <View style={[styles.detailCardIconWrap, { backgroundColor: '#F0FDFA' }]}>
-                <Clock size={18} color="#0D9488" />
+              <View style={[styles.detailCardIconWrap, { backgroundColor: colors.wash }]}>
+                <Clock size={18} color={colors.primary} />
               </View>
               <Text style={styles.detailCardTitle}>Thời gian diễn ra</Text>
             </View>
@@ -2509,7 +2522,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                     </Text>
                   </>
                 ) : (
-                  <Text style={[styles.detailTimeValueHour, { color: '#94A3B8' }]}>-- : --</Text>
+                  <Text style={[styles.detailTimeValueHour, { color: colors.subtle }]}>-- : --</Text>
                 )}
               </View>
             </View>
@@ -2571,7 +2584,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                   }
                 }}
               >
-                <MapPin size={14} color="#0D9488" />
+                <MapPin size={14} color={colors.primary} />
                 <Text style={styles.detailMapLinkBtnText}>Xem chỉ đường trên bản đồ</Text>
               </TouchableOpacity>
             </View>
@@ -2581,7 +2594,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
           {repeatSummary ? (
             <View style={styles.detailCard}>
               <View style={styles.detailCardHeader}>
-                <View style={[styles.detailCardIconWrap, { backgroundColor: '#F1F5F9' }]}>
+                <View style={[styles.detailCardIconWrap, { backgroundColor: colors.wash }]}>
                   <Repeat size={18} color="#475569" />
                 </View>
                 <Text style={styles.detailCardTitle}>Chu kỳ lặp lại</Text>
@@ -2610,7 +2623,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                 <View
                   style={[
                     styles.detailCardIconWrap,
-                    { backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0' },
+                    { backgroundColor: colors.canvas, borderWidth: 1, borderColor: colors.hairline },
                   ]}
                 >
                   <Info size={18} color="#64748B" />
@@ -2625,7 +2638,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
           {detailEvent.creator ? (
             <View style={styles.detailCard}>
               <View style={styles.detailCardHeader}>
-                <View style={[styles.detailCardIconWrap, { backgroundColor: '#F1F5F9' }]}>
+                <View style={[styles.detailCardIconWrap, { backgroundColor: colors.wash }]}>
                   <CalendarDays size={18} color="#64748B" />
                 </View>
                 <Text style={styles.detailCardTitle}>Người tạo</Text>
@@ -2671,7 +2684,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
     const today = new Date();
 
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: colors.canvas }]}>
         {/* Year View Header */}
         <View style={styles.appleYearHeader}>
           <View style={{ flex: 1 }} />
@@ -2699,7 +2712,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                 Haptics.selectionAsync();
               }}
             >
-              <Search size={18} color="#0D9488" />
+              <Search size={18} color={colors.primary} />
             </TouchableOpacity>
 
             {/* Nút Tạo sự kiện */}
@@ -2830,7 +2843,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.canvas }]}>
       {/* Month Calendar Header */}
       <View style={styles.appleMonthCalendarHeader}>
         <View style={styles.appleMonthTitleContainer}>
@@ -2871,7 +2884,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
               Haptics.selectionAsync();
             }}
           >
-            <Search size={18} color="#0D9488" />
+            <Search size={18} color={colors.primary} />
           </TouchableOpacity>
 
           {/* Nút Tạo sự kiện */}
@@ -3042,7 +3055,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
 
                   {/* 1. Thời gian */}
                   <View style={styles.eventInfoRow}>
-                    <Clock size={12} color="#0D9488" />
+                    <Clock size={12} color={colors.primary} />
                     <Text style={styles.eventInfoText}>
                       {timeDisplayStr}
                     </Text>
@@ -3113,7 +3126,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                 style={styles.appleNavBtn}
               >
                 {isSubmitting ? (
-                  <ActivityIndicator size="small" color="#0D9488" />
+                  <ActivityIndicator size="small" color={colors.primary} />
                 ) : (
                   <Text style={styles.appleAddText}>{editingEvent ? 'Lưu' : 'Thêm'}</Text>
                 )}
@@ -3364,7 +3377,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                             style={[
                               styles.applePillText,
                               isEndRepeatPickerOpen && styles.applePillTextActive,
-                              !recurrenceConfig.endDate && { color: '#8E8E93', fontWeight: '400' },
+                              !recurrenceConfig.endDate && { color: colors.subtle, fontWeight: '400' },
                             ]}
                           >
                             {recurrenceConfig.endDate
@@ -3534,7 +3547,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                           >
                             {item.label}
                           </Text>
-                          {isSelected && <Check size={18} color="#0D9488" />}
+                          {isSelected && <Check size={18} color={colors.primary} />}
                         </TouchableOpacity>
                       );
                     })}
@@ -3586,7 +3599,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                           >
                             {item.label}
                           </Text>
-                          {isSelected && <Check size={18} color="#0D9488" />}
+                          {isSelected && <Check size={18} color={colors.primary} />}
                         </TouchableOpacity>
                       );
                     })}
@@ -3607,10 +3620,10 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.canvas,
   },
   header: {
     flexDirection: 'row',
@@ -3620,7 +3633,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#E2E8F0',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
   },
   monthNav: {
     flexDirection: 'row',
@@ -3633,13 +3646,13 @@ const styles = StyleSheet.create({
   monthTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#0F172A',
+    color: colors.text,
   },
   addBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#0F172A',
+    backgroundColor: colors.primary,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
@@ -3657,18 +3670,18 @@ const styles = StyleSheet.create({
   weekdayText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#94A3B8',
+    color: colors.subtle,
     width: 36,
     textAlign: 'center',
   },
   daysGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderRadius: 14,
     padding: 8,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.hairline,
   },
   emptyDayCell: {
     width: `${100 / 7}%`,
@@ -3684,12 +3697,12 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   dayCellSelected: {
-    backgroundColor: '#0F172A',
+    backgroundColor: colors.primary,
   },
   dayText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#334155',
+    color: colors.text,
   },
   dayTextSelected: {
     color: '#FFFFFF',
@@ -3707,10 +3720,10 @@ const styles = StyleSheet.create({
     width: 4,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#0D9488',
+    backgroundColor: BRAND_PRIMARY,
   },
   eventDotSelected: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
   },
   eventsSection: {
     marginTop: 18,
@@ -3718,17 +3731,17 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#0F172A',
+    color: colors.text,
     marginBottom: 4,
   },
   eventCardCancelled: {
     opacity: 0.75,
-    borderColor: '#E2E8F0',
-    backgroundColor: '#F8FAFC',
+    borderColor: colors.hairline,
+    backgroundColor: colors.canvas,
   },
   eventCardTitleCancelled: {
     textDecorationLine: 'line-through',
-    color: '#64748B',
+    color: colors.subtle,
   },
   cancelledBadge: {
     backgroundColor: '#FEE2E2',
@@ -3756,11 +3769,11 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.canvas,
     zIndex: 999,
   },
   detailNavHeader: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     height: 52,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#E2E8F0',
@@ -3778,13 +3791,13 @@ const styles = StyleSheet.create({
   },
   detailBackBtnText: {
     fontSize: 16,
-    color: '#0D9488',
+    color: BRAND_PRIMARY,
     fontWeight: '600',
   },
   detailNavTitle: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#0F172A',
+    color: colors.text,
   },
   detailNavEditBtn: {
     flexDirection: 'row',
@@ -3793,11 +3806,11 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 10,
     borderRadius: 8,
-    backgroundColor: '#F0FDFA',
+    backgroundColor: BRAND_WASH,
   },
   detailNavEditText: {
     fontSize: 14,
-    color: '#0D9488',
+    color: BRAND_PRIMARY,
     fontWeight: '600',
   },
   detailFullScreenContent: {
@@ -3806,18 +3819,18 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   detailMainCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderRadius: 16,
     padding: 18,
     marginBottom: 14,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.hairline,
     gap: 10,
   },
   detailEventTitleLarge: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#0F172A',
+    color: colors.text,
     lineHeight: 30,
   },
   detailStatusCancelledBadge: {
@@ -3861,12 +3874,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   detailCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderRadius: 16,
     padding: 16,
     marginBottom: 14,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.hairline,
   },
   detailCallCard: {
     backgroundColor: '#F0F9FF',
@@ -3888,13 +3901,13 @@ const styles = StyleSheet.create({
   detailCardTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#1E293B',
+    color: colors.text,
   },
   detailTimeRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.canvas,
     borderRadius: 12,
     padding: 12,
   },
@@ -3909,31 +3922,31 @@ const styles = StyleSheet.create({
   },
   detailTimeLabel: {
     fontSize: 12,
-    color: '#64748B',
+    color: colors.subtle,
     marginBottom: 2,
     fontWeight: '500',
   },
   detailTimeValueHour: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#0F172A',
+    color: colors.text,
   },
   detailTimeValueDate: {
     fontSize: 12,
-    color: '#64748B',
+    color: colors.subtle,
     marginTop: 2,
   },
   detailCardBodyText: {
     fontSize: 14,
-    color: '#334155',
+    color: colors.text,
     lineHeight: 20,
     fontWeight: '500',
   },
   detailNotesText: {
     fontSize: 14,
-    color: '#334155',
+    color: colors.text,
     lineHeight: 22,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.canvas,
     padding: 12,
     borderRadius: 10,
   },
@@ -3966,7 +3979,7 @@ const styles = StyleSheet.create({
   },
   detailMapLinkBtnText: {
     fontSize: 13,
-    color: '#0D9488',
+    color: BRAND_PRIMARY,
     fontWeight: '600',
     textDecorationLine: 'underline',
   },
@@ -4014,19 +4027,19 @@ appleYearBtn: {
   appleYearBtnText: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#0D9488',
+    color: BRAND_PRIMARY,
     letterSpacing: -0.4,
   },
   appleSearchBtn: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
   calendarTopContainer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     height: 312,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#E5E5EA',
@@ -4039,7 +4052,7 @@ appleYearBtn: {
     paddingBottom: 6,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#F2F2F7',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
   },
   monthScrollViewport: {
     height: 276,
@@ -4058,14 +4071,14 @@ appleYearBtn: {
   yearSectionTitle: {
     fontSize: 28,
     fontWeight: '800',
-    color: '#000000',
+    color: colors.text,
     letterSpacing: -0.5,
     marginBottom: 12,
     paddingHorizontal: 4,
   },
   eventsScrollView: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.canvas,
   },
   eventsScrollContent: {
     paddingHorizontal: 16,
@@ -4074,7 +4087,7 @@ appleYearBtn: {
   },
   yearViewContainer: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
   },
   appleYearHeader: {
     flexDirection: 'row',
@@ -4089,14 +4102,14 @@ appleYearBtn: {
   appleYearHeaderTitle: {
     fontSize: 32,
     fontWeight: '800',
-    color: '#000000',
+    color: colors.text,
     letterSpacing: -0.5,
   },
   yearCloseBtn: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -4120,18 +4133,18 @@ appleYearBtn: {
     borderColor: '#F1F5F9',
   },
   miniMonthBoxActive: {
-    borderColor: '#0D9488',
-    backgroundColor: '#F0FDFA',
+    borderColor: BRAND_PRIMARY,
+    backgroundColor: BRAND_WASH,
   },
   miniMonthName: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#1C1C1E',
+    color: colors.text,
     marginBottom: 4,
     textAlign: 'center',
   },
   miniMonthNameActive: {
-    color: '#0D9488',
+    color: BRAND_PRIMARY,
   },
   miniWeekdaysHeader: {
     flexDirection: 'row',
@@ -4141,7 +4154,7 @@ appleYearBtn: {
   miniWeekdayChar: {
     fontSize: 7.5,
     fontWeight: '600',
-    color: '#94A3B8',
+    color: colors.subtle,
     width: `${100 / 7}%`,
     textAlign: 'center',
   },
@@ -4157,7 +4170,7 @@ appleYearBtn: {
   },
   miniDayNumText: {
     fontSize: 7.5,
-    color: '#334155',
+    color: colors.text,
     fontWeight: '400',
   },
   miniDayNumToday: {
@@ -4171,7 +4184,7 @@ appleYearBtn: {
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 8,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
   },
   appleMonthTitleContainer: {
     flexDirection: 'row',
@@ -4181,13 +4194,13 @@ appleYearBtn: {
   appleMonthTitleText: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#000000',
+    color: colors.text,
     letterSpacing: -0.4,
   },
   appleYearSubtitleText: {
     fontSize: 17,
     fontWeight: '400',
-    color: '#8E8E93',
+    color: colors.subtle,
   },
   appleHeaderActions: {
     flexDirection: 'row',
@@ -4198,17 +4211,17 @@ appleYearBtn: {
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 14,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: colors.surface,
   },
   appleMonthTodayBtnText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#0D9488',
+    color: BRAND_PRIMARY,
   },
   appleMonthNavGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F2F2F7',
+    backgroundColor: colors.surface,
     borderRadius: 14,
     paddingHorizontal: 2,
   },
@@ -4219,7 +4232,7 @@ appleYearBtn: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#0D9488',
+    backgroundColor: BRAND_PRIMARY,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -4227,21 +4240,21 @@ appleYearBtn: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     paddingVertical: 8,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#E5E5EA',
   },
   appleMonthWeekdayText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#8E8E93',
+    color: colors.subtle,
     width: `${100 / 7}%`,
     textAlign: 'center',
   },
   appleMainMonthGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     paddingVertical: 4,
   },
   appleMonthEmptyDayCell: {
@@ -4271,7 +4284,7 @@ appleYearBtn: {
   appleMonthDayText: {
     fontSize: 15,
     fontWeight: '500',
-    color: '#000000',
+    color: colors.text,
   },
   appleMonthDayTextToday: {
     color: '#FF3B30',
@@ -4300,7 +4313,7 @@ appleYearBtn: {
   },
   appleMonthHairline: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: '#E5E5EA',
+    backgroundColor: colors.hairline,
     marginTop: 10,
     marginBottom: 4,
   },
@@ -4314,20 +4327,20 @@ appleYearBtn: {
   appleMonthSelectedDayDate: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#1C1C1E',
+    color: colors.text,
     textTransform: 'capitalize',
   },
   appleMonthSelectedDayCount: {
     fontSize: 13,
     fontWeight: '500',
-    color: '#8E8E93',
+    color: colors.subtle,
   },
   eventCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderRadius: 12,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.hairline,
     gap: 6,
   },
   eventCardHeader: {
@@ -4338,7 +4351,7 @@ appleYearBtn: {
   eventCardTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#0F172A',
+    color: colors.text,
     flex: 1,
   },
   eventInfoRow: {
@@ -4348,29 +4361,29 @@ appleYearBtn: {
   },
   eventInfoText: {
     fontSize: 11,
-    color: '#475569',
+    color: colors.subtle,
     fontWeight: '500',
   },
   eventCardDesc: {
     fontSize: 11,
-    color: '#64748B',
+    color: colors.subtle,
     marginTop: 2,
     lineHeight: 16,
   },
   noEventsCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderRadius: 12,
     padding: 24,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.hairline,
     gap: 8,
     marginTop: 8,
   },
   noEventsText: {
     fontSize: 12,
-    color: '#94A3B8',
+    color: colors.subtle,
     fontWeight: '500',
   },
   modalBackdrop: {
@@ -4379,7 +4392,7 @@ appleYearBtn: {
     justifyContent: 'flex-end',
   },
   appleModalContent: {
-    backgroundColor: '#F2F2F7',
+    backgroundColor: colors.surface,
     borderTopLeftRadius: 18,
     borderTopRightRadius: 18,
     height: '92%',
@@ -4407,7 +4420,7 @@ appleYearBtn: {
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 14,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderTopLeftRadius: 18,
     borderTopRightRadius: 18,
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -4421,18 +4434,18 @@ appleYearBtn: {
   appleNavTitle: {
     fontSize: 17,
     fontWeight: '600',
-    color: '#000000',
+    color: colors.text,
     textAlign: 'center',
   },
   appleCancelText: {
     fontSize: 16,
-    color: '#0D9488',
+    color: BRAND_PRIMARY,
     fontWeight: '400',
   },
   appleAddText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#0D9488',
+    color: BRAND_PRIMARY,
     textAlign: 'right',
   },
   appleScrollView: {
@@ -4440,7 +4453,7 @@ appleYearBtn: {
     paddingBottom: 36,
   },
   appleGroupCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderRadius: 12,
     marginBottom: 16,
     overflow: 'hidden',
@@ -4461,11 +4474,11 @@ appleYearBtn: {
   appleRowLabel: {
     fontSize: 15,
     fontWeight: '500',
-    color: '#000000',
+    color: colors.text,
   },
   appleRowValue: {
     fontSize: 15,
-    color: '#8E8E93',
+    color: colors.subtle,
     fontWeight: '400',
   },
   popupBackdrop: {
@@ -4478,7 +4491,7 @@ appleYearBtn: {
   popupCard: {
     width: '100%',
     maxWidth: 340,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderRadius: 16,
     overflow: 'hidden',
     shadowColor: '#000',
@@ -4495,17 +4508,17 @@ appleYearBtn: {
     paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#E5E5EA',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.canvas,
   },
   popupTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#000000',
+    color: colors.text,
   },
   popupCloseText: {
     fontSize: 15,
     fontWeight: '500',
-    color: '#0D9488',
+    color: BRAND_PRIMARY,
   },
   popupList: {
     maxHeight: 380,
@@ -4523,21 +4536,21 @@ appleYearBtn: {
   },
   popupItemText: {
     fontSize: 15,
-    color: '#000000',
+    color: colors.text,
     fontWeight: '400',
   },
   popupItemTextSelected: {
-    color: '#0D9488',
+    color: BRAND_PRIMARY,
     fontWeight: '600',
   },
   hairlineDivider: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: '#E5E5EA',
+    backgroundColor: colors.hairline,
     marginLeft: 16,
   },
   appleTitleInput: {
     fontSize: 16,
-    color: '#000000',
+    color: colors.text,
     paddingHorizontal: 16,
     paddingVertical: 13,
   },
@@ -4550,7 +4563,7 @@ appleYearBtn: {
   appleLocationInput: {
     flex: 1,
     fontSize: 15,
-    color: '#000000',
+    color: colors.text,
     padding: 0,
   },
   applePillsContainer: {
@@ -4570,10 +4583,10 @@ appleYearBtn: {
   applePillText: {
     fontSize: 15,
     fontWeight: '400',
-    color: '#000000',
+    color: colors.text,
   },
   applePillTextActive: {
-    color: '#0D9488',
+    color: BRAND_PRIMARY,
     fontWeight: '600',
   },
   appleAddEndPill: {
@@ -4585,10 +4598,10 @@ appleYearBtn: {
   appleAddEndPillText: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#0D9488',
+    color: BRAND_PRIMARY,
   },
   appleInlinePickerContainer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     paddingHorizontal: 8,
     paddingTop: 8,
     paddingBottom: 14,
@@ -4611,7 +4624,7 @@ appleYearBtn: {
   applePickerMonthText: {
     fontSize: 17,
     fontWeight: '600',
-    color: '#000000',
+    color: colors.text,
   },
   applePickerArrows: {
     flexDirection: 'row',
@@ -4630,7 +4643,7 @@ appleYearBtn: {
   appleWeekdayText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#8E8E93',
+    color: colors.subtle,
     width: `${100 / 7}%`,
     textAlign: 'center',
   },
@@ -4653,15 +4666,15 @@ appleYearBtn: {
     justifyContent: 'center',
   },
   appleDayCircleSelected: {
-    backgroundColor: '#0D9488',
+    backgroundColor: BRAND_PRIMARY,
   },
   appleDayNumber: {
     fontSize: 17,
-    color: '#000000',
+    color: colors.text,
     fontWeight: '400',
   },
   appleDayNumberToday: {
-    color: '#0D9488',
+    color: BRAND_PRIMARY,
     fontWeight: '700',
   },
   appleDayNumberSelected: {
@@ -4671,17 +4684,17 @@ appleYearBtn: {
   appleRemoveEndBtn: {
     padding: 4,
     borderRadius: 12,
-    backgroundColor: '#E5E5EA',
+    backgroundColor: colors.hairline,
     marginLeft: 2,
   },
   appleReminderChip: {
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: colors.surface,
   },
   appleReminderChipSelected: {
-    backgroundColor: '#0D9488',
+    backgroundColor: BRAND_PRIMARY,
   },
   appleReminderChipText: {
     fontSize: 13,
@@ -4698,13 +4711,13 @@ appleYearBtn: {
   },
   appleNotesInput: {
     fontSize: 15,
-    color: '#000000',
+    color: colors.text,
     minHeight: 60,
     textAlignVertical: 'top',
     padding: 0,
   },
   appleSubmitBtn: {
-    backgroundColor: '#0F172A',
+    backgroundColor: colors.primary,
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
@@ -4717,7 +4730,7 @@ appleYearBtn: {
     fontWeight: '600',
   },
   modalContent: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 18,
@@ -4735,7 +4748,7 @@ appleYearBtn: {
   modalTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#0F172A',
+    color: colors.text,
   },
   formGroup: {
     marginBottom: 12,
@@ -4743,32 +4756,32 @@ appleYearBtn: {
   label: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#475569',
+    color: colors.subtle,
     marginBottom: 6,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.hairline,
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 9,
     fontSize: 12,
-    color: '#0F172A',
-    backgroundColor: '#F8FAFC',
+    color: colors.text,
+    backgroundColor: colors.canvas,
   },
   locationInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.hairline,
     borderRadius: 10,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.canvas,
   },
   suggestionsDropdown: {
     marginTop: 6,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.hairline,
     borderRadius: 10,
     overflow: 'hidden',
     shadowColor: '#000',
@@ -4779,10 +4792,10 @@ appleYearBtn: {
   suggestionsHeader: {
     fontSize: 9,
     fontWeight: '700',
-    color: '#94A3B8',
+    color: colors.subtle,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: colors.wash,
   },
   suggestionItem: {
     flexDirection: 'row',
@@ -4796,11 +4809,11 @@ appleYearBtn: {
   suggestionName: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#0F172A',
+    color: colors.text,
   },
   suggestionAddress: {
     fontSize: 10,
-    color: '#64748B',
+    color: colors.subtle,
     marginTop: 1,
   },
   splitRow: {
@@ -4813,20 +4826,20 @@ appleYearBtn: {
     alignItems: 'center',
     gap: 8,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.hairline,
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.canvas,
   },
   splitBtnActive: {
-    borderColor: '#0D9488',
-    backgroundColor: '#F0FDFA',
+    borderColor: BRAND_PRIMARY,
+    backgroundColor: BRAND_WASH,
   },
   splitBtnText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#0F172A',
+    color: colors.text,
   },
   endTimeHeaderRow: {
     flexDirection: 'row',
@@ -4850,12 +4863,12 @@ appleYearBtn: {
     borderWidth: 1,
     borderColor: '#CBD5E1',
     borderStyle: 'dashed',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.canvas,
   },
   addEndTimeBtnText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#64748B',
+    color: colors.subtle,
   },
   dateTimeGrid: {
     flexDirection: 'row',
@@ -4876,25 +4889,25 @@ appleYearBtn: {
     alignItems: 'center',
     gap: 6,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.hairline,
     borderRadius: 10,
     paddingHorizontal: 10,
     paddingVertical: 9,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.canvas,
   },
   pickerTriggerBtnEmpty: {
     borderStyle: 'dashed',
-    backgroundColor: '#F1F5F9',
+    backgroundColor: colors.wash,
   },
   pickerTriggerText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#0F172A',
+    color: colors.text,
   },
   pickerTriggerEmptyText: {
     fontSize: 11,
     fontWeight: '500',
-    color: '#64748B',
+    color: colors.subtle,
   },
   errorBanner: {
     flexDirection: 'row',
@@ -4917,19 +4930,19 @@ appleYearBtn: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: colors.wash,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.hairline,
     marginRight: 6,
   },
   chipSelected: {
-    backgroundColor: '#0F172A',
+    backgroundColor: colors.primary,
     borderColor: '#0F172A',
   },
   chipText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#475569',
+    color: colors.subtle,
   },
   chipTextSelected: {
     color: '#FFFFFF',
@@ -4952,10 +4965,10 @@ appleYearBtn: {
   cancelText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#64748B',
+    color: colors.subtle,
   },
   submitBtn: {
-    backgroundColor: '#0F172A',
+    backgroundColor: colors.primary,
     paddingHorizontal: 16,
     paddingVertical: 9,
     borderRadius: 8,
@@ -4970,11 +4983,11 @@ appleYearBtn: {
   },
 
   pickerTriggerBtnActive: {
-    borderColor: '#0D9488',
-    backgroundColor: '#F0FDFA',
+    borderColor: BRAND_PRIMARY,
+    backgroundColor: BRAND_WASH,
   },
   inlinePickerContainer: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.canvas,
     padding: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: '#E5E5EA',
@@ -4991,13 +5004,13 @@ appleYearBtn: {
   inlinePickerTargetBadge: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#0F172A',
+    color: colors.text,
   },
   inlinePickerCloseBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#0F172A',
+    backgroundColor: colors.primary,
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 4,
@@ -5021,12 +5034,12 @@ appleYearBtn: {
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 8,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: colors.wash,
   },
   pickerMonthYearHeaderText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#0F172A',
+    color: colors.text,
   },
   // BỎ BO KHUNG: không có border, không có backgroundColor thẻ hộp
   wheelStage: {
@@ -5044,7 +5057,7 @@ appleYearBtn: {
     right: 8,
     top: WHEEL_PADDING,
     height: WHEEL_ITEM_HEIGHT,
-    backgroundColor: '#E5E5EA', // Màu xám nhạt Apple thay vì màu đen
+    backgroundColor: colors.hairline, // Màu xám nhạt Apple thay vì màu đen
     borderRadius: 10,
     zIndex: 1,
   },
@@ -5061,11 +5074,11 @@ appleYearBtn: {
   wheelItemText: {
     fontSize: 15,
     fontWeight: '500',
-    color: '#8E8E93',
+    color: colors.subtle,
     opacity: 0.65,
   },
   wheelItemTextSelected: {
-    color: '#0F172A', // Chữ tối đậm, nổi bật trên nền xám nhạt
+    color: colors.text, // Chữ tối đậm, nổi bật trên nền xám nhạt
     fontWeight: '700',
     opacity: 1,
     transform: [{ scale: 1.08 }],
@@ -5079,7 +5092,7 @@ appleYearBtn: {
   wheelDividerText: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#64748B', // Màu xám trung tính thay vì màu trắng
+    color: colors.subtle, // Màu xám trung tính thay vì màu trắng
   },
   pickerDaysGrid: {
     flexDirection: 'row',
@@ -5095,12 +5108,12 @@ appleYearBtn: {
     marginVertical: 1,
   },
   pickerDayCellSelected: {
-    backgroundColor: '#0F172A',
+    backgroundColor: colors.primary,
   },
   pickerDayText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#334155',
+    color: colors.text,
   },
   pickerDayTextSelected: {
     color: '#FFFFFF',
@@ -5115,7 +5128,7 @@ appleYearBtn: {
   timeSectionHeader: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#475569',
+    color: colors.subtle,
     marginBottom: 4,
     textAlign: 'center',
   },
@@ -5129,7 +5142,7 @@ appleYearBtn: {
   stepperLabel: {
     fontSize: 15,
     fontWeight: '500',
-    color: '#000000',
+    color: colors.text,
   },
   stepperControls: {
     flexDirection: 'row',
@@ -5140,28 +5153,28 @@ appleYearBtn: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: colors.wash,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.hairline,
   },
   stepperBtnText: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#0D9488',
+    color: BRAND_PRIMARY,
     lineHeight: 20,
   },
   stepperValueText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#0F172A',
+    color: colors.text,
     minWidth: 26,
     textAlign: 'center',
   },
   stepperUnitText: {
     fontSize: 15,
-    color: '#64748B',
+    color: colors.subtle,
     fontWeight: '500',
   },
   weekdaysSelectionRow: {
@@ -5173,20 +5186,20 @@ appleYearBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: colors.wash,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.hairline,
   },
   weekdayBtnActive: {
-    backgroundColor: '#0D9488',
-    borderColor: '#0D9488',
+    backgroundColor: BRAND_PRIMARY,
+    borderColor: BRAND_PRIMARY,
   },
   weekdayBtnText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#334155',
+    color: colors.text,
   },
   weekdayBtnTextActive: {
     color: '#FFFFFF',
@@ -5209,17 +5222,17 @@ appleYearBtn: {
     marginRight: 10,
   },
   radioCircleSelected: {
-    borderColor: '#0D9488',
+    borderColor: BRAND_PRIMARY,
   },
   radioInner: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#0D9488',
+    backgroundColor: BRAND_PRIMARY,
   },
   radioLabel: {
     fontSize: 15,
-    color: '#000000',
+    color: colors.text,
     fontWeight: '500',
     flex: 1,
   },
@@ -5242,20 +5255,20 @@ appleYearBtn: {
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.canvas,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.hairline,
   },
   monthDayCircleSelected: {
-    backgroundColor: '#0D9488',
-    borderColor: '#0D9488',
+    backgroundColor: BRAND_PRIMARY,
+    borderColor: BRAND_PRIMARY,
   },
   monthDayNumber: {
     fontSize: 13,
     fontWeight: '500',
-    color: '#1E293B',
+    color: colors.text,
   },
   monthDayNumberSelected: {
     color: '#FFFFFF',
@@ -5272,18 +5285,18 @@ appleYearBtn: {
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: colors.wash,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.hairline,
   },
   optionPillSelected: {
-    backgroundColor: '#0D9488',
-    borderColor: '#0D9488',
+    backgroundColor: BRAND_PRIMARY,
+    borderColor: BRAND_PRIMARY,
   },
   optionPillText: {
     fontSize: 13,
     fontWeight: '500',
-    color: '#334155',
+    color: colors.text,
   },
   optionPillTextSelected: {
     color: '#FFFFFF',
@@ -5300,31 +5313,31 @@ appleYearBtn: {
     width: '22.8%',
     paddingVertical: 9,
     borderRadius: 8,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.canvas,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.hairline,
   },
   monthBtnPillSelected: {
-    backgroundColor: '#0D9488',
-    borderColor: '#0D9488',
+    backgroundColor: BRAND_PRIMARY,
+    borderColor: BRAND_PRIMARY,
   },
   monthBtnPillText: {
     fontSize: 12,
     fontWeight: '500',
-    color: '#334155',
+    color: colors.text,
   },
   monthBtnPillTextSelected: {
     color: '#FFFFFF',
     fontWeight: '700',
   },
   summaryPreviewBox: {
-    backgroundColor: '#F0FDFA',
+    backgroundColor: BRAND_WASH,
     borderRadius: 12,
     padding: 14,
     borderWidth: 1,
-    borderColor: '#CCFBF1',
+    borderColor: BRAND_WASH,
     marginTop: 6,
     flexDirection: 'row',
     alignItems: 'center',
@@ -5332,7 +5345,7 @@ appleYearBtn: {
   },
   summaryPreviewText: {
     fontSize: 14,
-    color: '#0F766E',
+    color: BRAND_PRIMARY_DARK,
     fontWeight: '600',
     flex: 1,
     lineHeight: 20,
@@ -5367,13 +5380,13 @@ appleYearBtn: {
     textAlign: 'center',
     fontSize: 15,
     fontWeight: '600',
-    color: '#000000',
+    color: colors.text,
     paddingVertical: 0,
     paddingHorizontal: 6,
   },
   appleStepperUnit: {
     fontSize: 15,
-    color: '#8E8E93',
+    color: colors.subtle,
     fontWeight: '400',
     marginLeft: 4,
   },
@@ -5394,12 +5407,12 @@ appleYearBtn: {
     justifyContent: 'center',
   },
   appleWeekdayPillActive: {
-    backgroundColor: '#0D9488',
+    backgroundColor: BRAND_PRIMARY,
   },
   appleWeekdayPillText: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#000000',
+    color: colors.text,
   },
   appleWeekdayPillTextActive: {
     color: '#FFFFFF',
@@ -5421,7 +5434,7 @@ appleYearBtn: {
     justifyContent: 'center',
   },
   appleSegmentBtnActive: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.12,
@@ -5431,10 +5444,10 @@ appleYearBtn: {
   appleSegmentBtnText: {
     fontSize: 13,
     fontWeight: '500',
-    color: '#8E8E93',
+    color: colors.subtle,
   },
   appleSegmentBtnTextActive: {
-    color: '#0D9488',
+    color: BRAND_PRIMARY,
     fontWeight: '600',
   },
 
@@ -5444,7 +5457,7 @@ appleYearBtn: {
     flexWrap: 'wrap',
     paddingHorizontal: 12,
     paddingVertical: 10,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
   },
   appleDayCellContainer: {
     width: `${100 / 7}%`,
@@ -5462,12 +5475,12 @@ appleYearBtn: {
     backgroundColor: 'transparent',
   },
   appleDayNumberCircleActive: {
-    backgroundColor: '#0D9488',
+    backgroundColor: BRAND_PRIMARY,
   },
   appleDayNumberText: {
     fontSize: 13,
     fontWeight: '500',
-    color: '#000000',
+    color: colors.text,
   },
   appleDayNumberTextActive: {
     color: '#FFFFFF',
@@ -5482,7 +5495,7 @@ appleYearBtn: {
   appleSubRowLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#8E8E93',
+    color: colors.subtle,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 8,
@@ -5506,7 +5519,7 @@ appleYearBtn: {
   },
   appleSectionFooterText: {
     fontSize: 13,
-    color: '#0F766E',
+    color: BRAND_PRIMARY_DARK,
     lineHeight: 18,
     flex: 1,
     fontWeight: '500',
@@ -5519,7 +5532,7 @@ appleYearBtn: {
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.canvas,
     zIndex: 1100,
   },
   customRepeatHeader: {
@@ -5530,21 +5543,21 @@ appleYearBtn: {
     paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#E5E5EA',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
   },
   customRepeatTitle: {
     fontSize: 17,
     fontWeight: '600',
-    color: '#000000',
+    color: colors.text,
   },
   customRepeatCancelText: {
     fontSize: 16,
-    color: '#000000',
+    color: colors.text,
     fontWeight: '400',
   },
   customRepeatDoneText: {
     fontSize: 16,
-    color: '#0D9488',
+    color: BRAND_PRIMARY,
     fontWeight: '600',
   },
   customRepeatScrollContent: {

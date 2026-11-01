@@ -171,7 +171,7 @@ export const EventLocationDisplay: React.FC<EventLocationDisplayProps> = ({
               ? 'text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300'
               : isMapCategory
               ? 'text-circle-charcoal dark:text-circle-dark-text hover:text-rose-600 dark:hover:text-rose-400'
-              : 'text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300'
+              : 'text-circle-sage dark:text-circle-primary hover:text-emerald-700 dark:hover:text-emerald-300'
           }`}
           title={isMapCategory ? `Mở trên Google Maps: ${parsed.url}` : parsed.url}
         >
@@ -185,13 +185,13 @@ export const EventLocationDisplay: React.FC<EventLocationDisplayProps> = ({
   // 5. Generic Web Link
   return (
     <div className={`flex items-center gap-1.5 min-w-0 ${className}`}>
-      <Globe className={`${iconClassName} text-teal-500`} />
+      <Globe className={`${iconClassName} text-circle-sage dark:text-circle-primary`} />
       <a
         href={parsed.url}
         target="_blank"
         rel="noopener noreferrer"
         onClick={(e) => e.stopPropagation()}
-        className="truncate font-semibold text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 hover:underline inline-flex items-center gap-1"
+        className="truncate font-semibold text-circle-sage dark:text-circle-primary hover:text-emerald-700 dark:hover:text-emerald-300 hover:underline inline-flex items-center gap-1"
         title={parsed.url}
       >
         <span className="truncate">{parsed.text}</span>

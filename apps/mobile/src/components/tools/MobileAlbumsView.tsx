@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -35,6 +35,9 @@ import {
 } from '../../services/circle-tools.service';
 import { uploadMobileMedia } from '../../services/storage-upload.service';
 import { SharedAlbumEntity, PhotoEntity } from '@circle/types';
+import { useThemeStore } from '../../stores/theme.store';
+import { useLanguageStore } from '../../stores/language.store';
+
 
 interface MobileAlbumsViewProps {
   circleId: string;
@@ -44,6 +47,11 @@ const { width } = Dimensions.get('window');
 const PHOTO_SIZE = (width - 48) / 3;
 
 export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId }) => {
+  const { colors, resolvedTheme } = useThemeStore();
+  const isDark = resolvedTheme === 'dark';
+  const { t } = useLanguageStore();
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
   const [albums, setAlbums] = useState<SharedAlbumEntity[]>([]);
   const [selectedAlbum, setSelectedAlbum] = useState<SharedAlbumEntity | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -197,7 +205,7 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId }) 
   // =========================================================================
   if (selectedAlbum) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: colors.canvas }]}>
         {/* Navigation Bar */}
         <View style={styles.header}>
           <TouchableOpacity
@@ -238,7 +246,7 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId }) 
 
         {/* Album Metadata */}
         <View style={styles.albumMeta}>
-          <Text style={styles.albumTitle}>{selectedAlbum.albumTitle}</Text>
+          <Text style={[styles.albumTitle, { color: colors.text }]}>{selectedAlbum.albumTitle}</Text>
           {selectedAlbum.description ? (
             <Text style={styles.albumDesc}>{selectedAlbum.description}</Text>
           ) : null}
@@ -267,9 +275,9 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId }) 
             )}
           />
         ) : (
-          <View style={styles.emptyContainer}>
+          <View style={[styles.emptyContainer, { backgroundColor: colors.canvas }]}>
             <ImageIcon size={40} color="#94A3B8" />
-            <Text style={styles.emptyTitle}>Chưa có ảnh nào trong album</Text>
+            <Text style={[styles.emptyTitle, { color: colors.text }]}>Chưa có ảnh nào trong album</Text>
             <Text style={styles.emptySub}>Chạm "Thêm ảnh" để tải lên những kỷ niệm đầu tiên!</Text>
           </View>
         )}
@@ -314,7 +322,7 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId }) 
   // VIEW: ALBUMS LIST
   // =========================================================================
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.canvas }]}>
       <View style={styles.header}>
         <View>
           <Text style={styles.screenTitle}>Album Kỷ Niệm</Text>
@@ -339,7 +347,7 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId }) 
             return (
               <TouchableOpacity
                 key={album.id}
-                style={styles.albumCard}
+                style={[styles.albumCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
                 onPress={() => loadAlbumDetail(album.id)}
               >
                 <View style={styles.coverWrapper}>
@@ -376,9 +384,9 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId }) 
           })}
         </ScrollView>
       ) : (
-        <View style={styles.emptyContainer}>
+        <View style={[styles.emptyContainer, { backgroundColor: colors.canvas }]}>
           <FolderOpen size={48} color="#94A3B8" />
-          <Text style={styles.emptyTitle}>Chưa có Album kỷ niệm nào</Text>
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>Chưa có Album kỷ niệm nào</Text>
           <Text style={styles.emptySub}>
             Tạo album đầu tiên để gom ảnh chụp chung cùng các thành viên trong vòng tròn!
           </Text>
@@ -395,9 +403,9 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId }) 
       {/* Create Album Modal */}
       <Modal visible={isCreateModalOpen} transparent animationType="slide">
         <View style={styles.modalBackdrop}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Tạo Album Kỷ Niệm Mới</Text>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>Tạo Album Kỷ Niệm Mới</Text>
               <TouchableOpacity onPress={() => setIsCreateModalOpen(false)}>
                 <X size={20} color="#64748B" />
               </TouchableOpacity>
@@ -406,7 +414,7 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId }) 
             <View style={styles.formGroup}>
               <Text style={styles.label}>Tên Album *</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: colors.canvas, borderColor: colors.hairline, color: colors.text }]}
                 placeholder="Ví dụ: Chuyến đi Vũng Tàu, Kỷ niệm 2026..."
                 placeholderTextColor="#94A3B8"
                 value={albumTitle}
@@ -445,10 +453,10 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId }) 
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.canvas,
   },
   header: {
     flexDirection: 'row',
@@ -458,23 +466,23 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#E2E8F0',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
   },
   screenTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#0F172A',
+    color: colors.text,
   },
   screenSub: {
     fontSize: 11,
-    color: '#64748B',
+    color: colors.subtle,
     marginTop: 2,
   },
   createBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#0F172A',
+    backgroundColor: colors.surface,
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 8,
@@ -489,16 +497,16 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   albumCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.hairline,
     overflow: 'hidden',
   },
   coverWrapper: {
     width: '100%',
     height: 140,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: colors.wash,
     position: 'relative',
   },
   coverImage: {
@@ -532,11 +540,11 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#0F172A',
+    color: colors.text,
   },
   cardDesc: {
     fontSize: 11,
-    color: '#64748B',
+    color: colors.subtle,
     marginTop: 2,
   },
   cardFooter: {
@@ -550,7 +558,7 @@ const styles = StyleSheet.create({
   },
   cardDate: {
     fontSize: 10,
-    color: '#94A3B8',
+    color: colors.subtle,
   },
   backBtn: {
     flexDirection: 'row',
@@ -560,7 +568,7 @@ const styles = StyleSheet.create({
   backText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#0F172A',
+    color: colors.text,
   },
   headerActions: {
     flexDirection: 'row',
@@ -571,7 +579,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#0F172A',
+    backgroundColor: colors.surface,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
@@ -587,23 +595,23 @@ const styles = StyleSheet.create({
   albumMeta: {
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: '#E2E8F0',
   },
   albumTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#0F172A',
+    color: colors.text,
   },
   albumDesc: {
     fontSize: 12,
-    color: '#64748B',
+    color: colors.subtle,
     marginTop: 4,
   },
   photoCountText: {
     fontSize: 11,
-    color: '#94A3B8',
+    color: colors.subtle,
     marginTop: 4,
   },
   photosGrid: {
@@ -633,12 +641,12 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#0F172A',
+    color: colors.text,
     marginTop: 12,
   },
   emptySub: {
     fontSize: 12,
-    color: '#64748B',
+    color: colors.subtle,
     textAlign: 'center',
     marginTop: 4,
     lineHeight: 18,
@@ -647,7 +655,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#0F172A',
+    backgroundColor: colors.surface,
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 10,
@@ -664,7 +672,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 20,
@@ -678,7 +686,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#0F172A',
+    color: colors.text,
   },
   formGroup: {
     marginBottom: 14,
@@ -686,18 +694,18 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#475569',
+    color: colors.subtle,
     marginBottom: 6,
   },
   input: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.canvas,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.hairline,
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 8,
     fontSize: 13,
-    color: '#0F172A',
+    color: colors.text,
   },
   textArea: {
     height: 70,
@@ -715,11 +723,11 @@ const styles = StyleSheet.create({
   },
   cancelText: {
     fontSize: 13,
-    color: '#64748B',
+    color: colors.subtle,
     fontWeight: '600',
   },
   submitBtn: {
-    backgroundColor: '#0F172A',
+    backgroundColor: colors.surface,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
