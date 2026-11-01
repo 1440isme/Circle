@@ -1,11 +1,13 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Vote, Check, Clock, CheckCircle2, Lock } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguageStore } from '../../stores/language.store';
-import { usePollDetailQuery, useVotePollMutation } from '../../hooks/use-circle-tools';
+import { usePollDetailQuery, useVotePollMutation, TOOLS_KEYS } from '../../hooks/use-circle-tools';
 import { playReactionPopSound } from '../../utils/sound-effects';
+import { getSocket } from '../../lib/socket';
 
 interface ChatPollCardProps {
   circleId: string;
@@ -23,9 +25,31 @@ export const ChatPollCard: React.FC<ChatPollCardProps> = ({
   isSenderMe = false,
 }) => {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const t = useLanguageStore((s) => s.t);
   const { data: poll, isLoading } = usePollDetailQuery(circleId, pollId);
   const voteMutation = useVotePollMutation(circleId);
+
+  // Realtime Socket Listener for Poll Votes & Status Changes
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket || !pollId) return;
+
+    const onPollUpdated = (updatedPoll: any) => {
+      if (updatedPoll?.id === pollId) {
+        queryClient.setQueryData(TOOLS_KEYS.pollDetail(circleId, pollId), updatedPoll);
+        queryClient.invalidateQueries({ queryKey: TOOLS_KEYS.polls(circleId) });
+      }
+    };
+
+    socket.on('circle:poll-voted', onPollUpdated);
+    socket.on('circle:poll-closed', onPollUpdated);
+
+    return () => {
+      socket.off('circle:poll-voted', onPollUpdated);
+      socket.off('circle:poll-closed', onPollUpdated);
+    };
+  }, [circleId, pollId, queryClient]);
 
   const question = poll?.question || initialQuestion || t.collab.pollTitle;
   const isClosed = poll?.isClosed || false;

@@ -28,6 +28,7 @@ import {
   closePollApi,
   deletePollApi,
 } from '../../services/circle-tools.service';
+import { getMobileSocket } from '../../services/socket';
 import { GroupPollEntity } from '@circle/types';
 import { useThemeStore } from '../../stores/theme.store';
 
@@ -59,7 +60,32 @@ export const MobilePollView: React.FC<MobilePollViewProps> = ({ circleId }) => {
   };
 
   useEffect(() => {
+    let isMounted = true;
+    let sockInstance: any = null;
+
     loadPolls();
+
+    getMobileSocket().then((sock) => {
+      if (!isMounted || !sock) return;
+      sockInstance = sock;
+
+      const refresh = () => {
+        if (isMounted) loadPolls();
+      };
+
+      sock.on('circle:poll-created', refresh);
+      sock.on('circle:poll-voted', refresh);
+      sock.on('circle:poll-closed', refresh);
+    });
+
+    return () => {
+      isMounted = false;
+      if (sockInstance) {
+        sockInstance.off('circle:poll-created');
+        sockInstance.off('circle:poll-voted');
+        sockInstance.off('circle:poll-closed');
+      }
+    };
   }, [circleId]);
 
   const handleAddOptionField = () => {

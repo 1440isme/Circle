@@ -32,7 +32,7 @@ export const ChatLocationCard: React.FC<ChatLocationCardProps> = ({
   const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
 
   const mapboxStyle = isDark ? 'dark-v11' : 'streets-v12';
-  const staticMapUrl = `https://api.mapbox.com/styles/v1/mapbox/${mapboxStyle}/static/pin-s-heart+2563eb(${lng},${lat})/${lng},${lat},14,0/400x180@2x?access_token=${MAPBOX_TOKEN}`;
+  const staticMapUrl = `https://api.mapbox.com/styles/v1/mapbox/${mapboxStyle}/static/pin-s-heart+10b981(${lng},${lat})/${lng},${lat},14,0/400x180@2x?access_token=${MAPBOX_TOKEN}`;
 
   return (
     <div className="flex flex-col gap-2.5 py-1 min-w-[240px] max-w-[320px] select-none text-left">
@@ -42,7 +42,7 @@ export const ChatLocationCard: React.FC<ChatLocationCardProps> = ({
           className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
             isSenderMe
               ? 'bg-black/15 dark:bg-white/15 text-current'
-              : 'bg-sky-500/10 text-sky-600 dark:text-sky-400'
+              : 'bg-circle-primary/10 text-circle-primary'
           }`}
         >
           <MapPin className="w-4 h-4" />
@@ -84,12 +84,12 @@ export const ChatLocationCard: React.FC<ChatLocationCardProps> = ({
         ) : (
           <>
             {/* Fallback Grid lines */}
-            <div className="absolute inset-0 bg-[linear-gradient(to_right,#38bdf810_1px,transparent_1px),linear-gradient(to_bottom,#38bdf810_1px,transparent_1px)] bg-[size:16px_16px]" />
+            <div className="absolute inset-0 bg-[linear-gradient(to_right,#10b98110_1px,transparent_1px),linear-gradient(to_bottom,#10b98110_1px,transparent_1px)] bg-[size:16px_16px]" />
             <div className="relative z-10 flex flex-col items-center">
-              <div className="w-8 h-8 rounded-full bg-sky-500 text-slate-950 flex items-center justify-center shadow-[0_0_15px_rgba(56,189,248,0.6)]">
+              <div className="w-8 h-8 rounded-full bg-circle-primary text-white flex items-center justify-center shadow-[0_0_15px_rgba(16,185,129,0.6)]">
                 <Navigation className="w-4 h-4 fill-current rotate-45" />
               </div>
-              <span className="mt-1 text-[10px] font-mono font-bold text-sky-200 bg-slate-950/80 px-2 py-0.5 rounded-full border border-sky-400/30">
+              <span className="mt-1 text-[10px] font-mono font-bold text-emerald-200 bg-slate-950/80 px-2 py-0.5 rounded-full border border-emerald-500/30">
                 {lat.toFixed(4)}, {lng.toFixed(4)}
               </span>
             </div>
@@ -110,7 +110,7 @@ export const ChatLocationCard: React.FC<ChatLocationCardProps> = ({
           className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all active:scale-95 ${
             isSenderMe
               ? 'bg-black/15 hover:bg-black/25 text-current'
-              : 'bg-sky-500 hover:bg-sky-600 text-white shadow-xs'
+              : 'bg-circle-primary hover:bg-emerald-600 text-white shadow-xs'
           }`}
         >
           <ExternalLink className="w-3.5 h-3.5" />

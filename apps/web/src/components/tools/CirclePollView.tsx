@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Vote,
   Plus,
@@ -15,6 +15,7 @@ import {
   ChevronRight,
   X,
 } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../context/AuthContext';
 import {
   usePollsQuery,
@@ -22,7 +23,9 @@ import {
   useVotePollMutation,
   useClosePollMutation,
   useDeletePollMutation,
+  TOOLS_KEYS,
 } from '../../hooks/use-circle-tools';
+import { getSocket } from '../../lib/socket';
 import { GroupPollEntity } from '@circle/types';
 
 interface CirclePollViewProps {
@@ -37,6 +40,26 @@ export const CirclePollView: React.FC<CirclePollViewProps> = ({ circleId }) => {
   const [deadline, setDeadline] = useState('');
 
   const { data: polls = [], isLoading: isLoadingPolls } = usePollsQuery(circleId);
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket || !circleId) return;
+
+    const onPollUpdated = () => {
+      queryClient.invalidateQueries({ queryKey: TOOLS_KEYS.polls(circleId) });
+    };
+
+    socket.on('circle:poll-created', onPollUpdated);
+    socket.on('circle:poll-voted', onPollUpdated);
+    socket.on('circle:poll-closed', onPollUpdated);
+
+    return () => {
+      socket.off('circle:poll-created', onPollUpdated);
+      socket.off('circle:poll-voted', onPollUpdated);
+      socket.off('circle:poll-closed', onPollUpdated);
+    };
+  }, [circleId, queryClient]);
 
   const createPollMutation = useCreatePollMutation(circleId);
   const votePollMutation = useVotePollMutation(circleId);

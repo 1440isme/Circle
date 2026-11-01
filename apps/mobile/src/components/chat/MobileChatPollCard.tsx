@@ -12,6 +12,7 @@ import { useThemeStore } from '../../stores/theme.store';
 import { useLanguageStore } from '../../stores/language.store';
 import { useAuthStore } from '../../stores/auth.store';
 import { getPollsApi, votePollApi } from '../../services/circle-tools.service';
+import { getMobileSocket } from '../../services/socket';
 import { GroupPollEntity } from '@circle/types';
 
 interface MobileChatPollCardProps {
@@ -41,6 +42,8 @@ export const MobileChatPollCard: React.FC<MobileChatPollCardProps> = ({
 
   useEffect(() => {
     let isMounted = true;
+    let sockInstance: any = null;
+
     const fetchPoll = async () => {
       try {
         const polls = await getPollsApi(circleId);
@@ -51,8 +54,27 @@ export const MobileChatPollCard: React.FC<MobileChatPollCardProps> = ({
       } catch {}
     };
     fetchPoll();
+
+    getMobileSocket().then((sock) => {
+      if (!isMounted || !sock) return;
+      sockInstance = sock;
+
+      const onVoted = (updatedPoll: GroupPollEntity) => {
+        if (updatedPoll?.id === pollId && isMounted) {
+          setPoll(updatedPoll);
+        }
+      };
+
+      sock.on('circle:poll-voted', onVoted);
+      sock.on('circle:poll-closed', onVoted);
+    });
+
     return () => {
       isMounted = false;
+      if (sockInstance) {
+        sockInstance.off('circle:poll-voted');
+        sockInstance.off('circle:poll-closed');
+      }
     };
   }, [circleId, pollId]);
 

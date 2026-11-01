@@ -5628,3 +5628,50 @@
 - **Official Source Checked:** Circle Brand Guidelines, Circle Design Token Catalog.
 - **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
 - **Branch:** `fix/upgrade-mobile-expo-sdk-58`
+
+
+---
+
+### Entry AI-0151
+
+- **Timestamp:** 2026-11-01T17:08:00+07:00
+- **Author:** Trương Công Bình (23110184)
+- **Tool:** Antigravity IDE (Gemini 2.5 Pro)
+- **Task / Scope:** Module 7 (US-COLLAB-003, Issue #119 / #123) — Đồng bộ Realtime Socket.IO cho Bình chọn (Web & Mobile), Khôi phục hiển thị Cột 3 trên màn hình Laptop (`hidden lg:flex`), Chuẩn hóa toàn diện ngôn ngữ thiết kế thẻ Cột 3 và Xóa bỏ triệt để hardcoded text.
+- **Files Touched:**
+  - `agentic/memory/MEMORY.md`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `apps/web/src/components/chat/ChatLocationCard.tsx`
+  - `apps/web/src/components/chat/ChatPollCard.tsx`
+  - `apps/web/src/components/presence/PresenceRail.tsx`
+  - `apps/web/src/components/tools/CircleLocationView.tsx`
+  - `apps/web/src/components/tools/CirclePollView.tsx`
+  - `apps/mobile/app/index.tsx`
+  - `apps/mobile/src/components/chat/MobileChatPollCard.tsx`
+  - `apps/mobile/src/components/tools/MobilePollView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:**
+  1. **Đồng bộ Kết quả Bình chọn Thời gian thực (Realtime Poll Sync):**
+     - Bổ sung Socket.IO event listeners (`circle:poll-created`, `circle:poll-voted`, `circle:poll-closed`) trong cả Thẻ chat (`ChatPollCard.tsx` & `MobileChatPollCard.tsx`) và Màn hình công cụ bình chọn (`CirclePollView.tsx` & `MobilePollView.tsx`) trên cả Web và Mobile.
+     - Tự động invalidate query cache và cập nhật tức thì tỷ lệ % và số phiếu bình chọn giữa các thiết bị mà không cần tải lại trang hay chuyển tab.
+  2. **Hiển thị Cột 3 trên Màn hình Laptop & Desktop:**
+     - Điều chỉnh breakpoint hiển thị của `PresenceRail.tsx` từ `hidden xl:flex` (chỉ hiện trên màn hình rộng 1280px+) sang `hidden lg:flex w-72 2xl:w-76` (hiển thị đầy đủ từ màn hình 1024px trở lên).
+  3. **Chuẩn hóa Ngôn ngữ Thiết kế Thẻ Cột 3 & Xóa bỏ Triệt để Hardcoding:**
+     - Chuẩn hóa toàn bộ 4 khối mục trong Cột 3 (`Thành viên`, `Phòng thoại`, `Lịch hẹn sắp tới`, `Vị trí trực tiếp`) với icon box thống nhất `w-6 h-6 rounded-lg bg-circle-primary/10 text-circle-primary`, nhãn uppercase, badge số lượng và liên kết điều hướng màu thương hiệu.
+     - Chuẩn hóa cấu trúc thẻ sự kiện và thẻ thành viên chia sẻ vị trí với icon box `w-7 h-7 rounded-lg bg-circle-primary/10 text-circle-primary`, đồng bộ màu icon `Clock`, `MapPin` sang `text-circle-primary`.
+     - Chuyển 100% chuỗi tiếng Việt hardcoded sang từ điển `@circle/shared` (`railUpcomingEvents`, `railOpenCalendar`, `railNewEvent`, `railLiveLocations`, `railOpenMap`, `railStartSharing`, `railSharingActive`, `railNoOneSharing`, `railMembersGoing`, `meLabel`, `memberDefault`).
+  4. **Thanh trừng Màu Xanh dương Ngoại lai trên Web & Ngăn chặn Race Condition Mobile:**
+     - Làm sạch toàn bộ các class `bg-sky-500`, `text-sky-500`, và marker `pin-s-heart+2563eb` trong `CircleLocationView.tsx` và `ChatLocationCard.tsx` trên Web sang `bg-circle-primary`, `text-circle-primary`, và `pin-s-heart+10b981`.
+     - Thay thế lệnh `<Redirect>` chạy trùng lặp trong `apps/mobile/app/index.tsx` bằng component loading trung tính để trao quyền điều hướng duy nhất cho `_layout.tsx`, triệt tiêu hoàn toàn race condition gây văng màn hình hoặc unhandled actions.
+- **Human Modifications:** Trương Công Bình trực tiếp chỉ rõ các lỗi còn tồn đọng: kết quả poll chưa realtime, cột 3 không hiển thị trên laptop, màu xanh dương còn sót trên web, các thẻ cột 3 chưa đồng nhất quy chuẩn (lúc có màu icon lúc không), và hardcode chuỗi hiển thị.
+- **Verification Method:**
+  - Web TypeScript Check: `npx tsc --noEmit -p apps/web/tsconfig.json` (0 errors).
+  - Mobile TypeScript Check: `npx tsc --noEmit -p apps/mobile/tsconfig.json` (0 errors).
+  - Web Production Build: `npm run build -w @circle/web` (0 errors, 11/11 static pages generated).
+  - Mobile Bundle Export: `cd apps/mobile && npx expo export --platform ios --no-bytecode` (3065 modules bundled successfully, exit code 0).
+  - Pre-commit Hook & Secret Check: `./.githooks/pre-commit` & `./scripts/check-secrets.sh` (Passed 100%, 0 leaks).
+  - Agent Map Integrity: `./scripts/check-agent-map.sh` (121/121 files resolve).
+- **Official Source Checked:** Circle Design System, Socket.IO Realtime Events Specification, Tailwind CSS Breakpoint Standards.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+- **Branch:** `fix/upgrade-mobile-expo-sdk-58`

@@ -39,6 +39,7 @@
 - [correction] Không đặt banner ghim hay modal hành động thô giữa màn hình chat (thay thế: ghim đưa lên Header icon; mobile long-press focus tin nhắn với emoji ở trên và action ở dưới) — theo Bình, 2026-10-28.
 - [correction] Cắt bỏ toàn bộ text thừa, lời khuyên rườm rà, subtitle lặp lại tiêu đề, badge giải thích hiển nhiên ở mọi nơi — theo Bình, 2026-10-28.
 - [correction] Tuyệt đối không fallback secret/token thật vào source code (`process.env.KEY || 'secret'`); bảo mật theo Hard Gate Zero Secret Leaks bằng pre-commit guard `check-secrets.sh`. Khi cập nhật git hook phải bảo toàn nguyên vẹn các pre-commit checks hiện có, cấm overwrite — theo Bình, 2026-10-29.
+- [correction] Nguyên tắc song hành tuyệt đối (Web + Mobile Parity Invariant): Mọi chức năng, trừ khi người dùng nói rõ đích danh chỉ làm riêng cho Web hoặc riêng cho Mobile, mặc định BẮT BUỘC triển khai/sửa lỗi/tinh chỉnh đồng bộ trên CẢ 2 NỀN TẢNG (Web + Mobile) trong cùng một lượt. Tuyệt đối cấm chỉ làm một bên mà bỏ quên bên kia. — chốt bởi Bình, 2026-11-01.
 
 ## Decisions (chỉ mục — chi tiết ở ADR/topic)
 
