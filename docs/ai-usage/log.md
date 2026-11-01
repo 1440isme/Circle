@@ -5569,3 +5569,30 @@
 - **Official Source Checked:** React Native 0.88 Package Exports Specification, Expo SDK 58 Metro Monorepo Configuration.
 - **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
 - **Branch:** `fix/upgrade-mobile-expo-sdk-58`
+
+
+---
+
+### Entry AI-0149
+
+- **Timestamp:** 2026-11-01T16:36:00+07:00
+- **Author:** Trương Công Bình (23110184)
+- **Tool:** Antigravity IDE (Gemini 2.5 Pro)
+- **Task / Scope:** Chuẩn hóa Root Layout của Mobile từ `<Slot />` sang `<Stack />` và giải quyết xung đột điều hướng ban đầu trong `app/index.tsx` (loại bỏ hoàn toàn cảnh báo unhandled action `ROUTE_NAMES_CHANGED`).
+- **Files Touched:**
+  - `apps/mobile/app/_layout.tsx`
+  - `apps/mobile/app/index.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:**
+  1. **Chuẩn hóa Root Navigator Stack trong Expo Router:**
+     - Thay thế thẻ `<Slot />` phẳng ở root bằng thẻ `<Stack screenOptions={{ headerShown: false }}>` quản lý tập trung các route `index`, `(auth)`, `(tabs)`, và `circle/[id]`. Cung cấp navigator container chính quy để tiếp nhận và xử lý đầy đủ các action điều hướng nội bộ (`ROUTE_NAMES_CHANGED`).
+  2. **Giải quyết xung đột điều hướng (Navigation Race Condition):**
+     - Sửa `apps/mobile/app/index.tsx`: Kiểm tra trạng thái `isAuthenticated` từ `useAuthStore` trước khi điều hướng (`/(tabs)` nếu đã đăng nhập, `/(auth)/login` nếu chưa đăng nhập), thay vì chuyển hướng mù quáng vào `/(tabs)` gây xung đột vòng lặp với auth guard trong `_layout.tsx`.
+- **Human Modifications:** Trương Công Bình báo cáo log cảnh báo `The action 'ROUTE_NAMES_CHANGED' with payload ... was not handled by any navigator` khi nạp app, yêu cầu rà soát và cấu hình chuẩn mực.
+- **Verification Method:**
+  - Real Metro Bundle Export: `cd apps/mobile && npx expo export --platform ios --no-bytecode` (3065 modules bundled successfully, exit code 0).
+  - TypeScript Check: `npx tsc --noEmit -p apps/mobile/tsconfig.json` (0 errors).
+  - Pre-commit Hook & Secret Check: `./.githooks/pre-commit` & `./scripts/check-secrets.sh` (Passed 100%, 0 leaks).
+- **Official Source Checked:** Expo Router Root Navigation Stack Specification, React Navigation NavigationContainer Events.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+- **Branch:** `fix/upgrade-mobile-expo-sdk-58`
