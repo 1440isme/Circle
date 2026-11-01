@@ -5760,3 +5760,43 @@
 - **Official Source Checked:** Circle Design System, Socket.IO Realtime Events Specification, Apple Human Interface Guidelines.
 - **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
 - **Branch:** `fix/upgrade-mobile-expo-sdk-58`
+
+
+---
+
+### Entry AI-0154
+
+- **Timestamp:** 2026-11-01T18:20:00+07:00
+- **Author:** Trương Công Bình (23110184)
+- **Tool:** Antigravity IDE (Gemini 2.5 Pro)
+- **Task / Scope:** Module 7 (US-COLLAB-003, Issue #119 / #124) — Toàn diện Cải tổ UI/UX theo Chuẩn "Floating Glass Controls with Scroll-Under Content" trên cả Web và Mobile.
+- **Files Touched:**
+  - `apps/web/src/components/chat/ChannelChatView.tsx`
+  - `apps/web/src/components/chat/ChatComposer.tsx`
+  - `apps/web/src/components/chat/MessageList.tsx`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `apps/mobile/app/(tabs)/index.tsx`
+  - `apps/mobile/app/(tabs)/circles.tsx`
+  - `apps/mobile/app/(tabs)/messages.tsx`
+  - `apps/mobile/app/(tabs)/profile.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:**
+  1. **Cải tổ Web Channel Chat & Composer sang Floating Glass Controls:**
+     - `ChannelChatView.tsx`: Thay thế thanh header tĩnh chiếm trọn chiều ngang bằng một **Floating Glass Toolbar** dạng viên thuốc (`pointer-events-none absolute top-3 flex justify-center px-4`) chứa tên kênh và các glass button (cuộc gọi thoại/video, tìm kiếm, tin nhắn ghim, menu tùy chọn). Thanh tìm kiếm lơ lửng ngay phía dưới khi kích hoạt.
+     - `ChatComposer.tsx`: Chuyển đổi khung soạn thảo tin nhắn từ khối dính đáy cứng nhắc sang **Floating Glass Composer Container** lơ lửng phía trên luồng chat (`pointer-events-none absolute bottom-0` với dải gradient mờ quang học `from-white/95 via-white/50 to-transparent`).
+     - `MessageList.tsx`: Cung cấp khoảng đệm cuộn an toàn (`pt-16 pb-24`) cho danh sách tin nhắn để toàn bộ nội dung trượt ngầm hoàn hảo bên dưới lớp kính (**scroll-under**) mà không bị che khuất điểm đầu và điểm cuối.
+  2. **Cải tổ Mobile Circle Workspace & Tab Screens sang Floating Controls:**
+     - `apps/mobile/app/circle/[id].tsx`: Đưa `composerFloatingContainer` thành floating glass control đích thực (`position: 'absolute', bottom: 0, left: 0, right: 0`), kết hợp `paddingBottom: insets.bottom + 75` trên `messagesScrollContent`, tạo trải nghiệm tin nhắn trượt tự do dưới thanh nhập liệu.
+     - `apps/mobile/app/(tabs)/index.tsx`: Tách `headerBar` thành lớp điều khiển lơ lửng (`position: 'absolute', top: 0, zIndex: 30`) với Brand Capsule Pill bo tròn bên trái và Nút avatar Circle nổi bật bên phải; nội dung `ScrollView` kéo dài từ đỉnh màn hình và cuộn trượt ngầm phía dưới.
+     - `apps/mobile/app/(tabs)/circles.tsx`, `messages.tsx`, `profile.tsx`: Đồng bộ kiến trúc floating glass header, loại bỏ thanh ngang thô cứng, cho phép danh sách vòng tròn, kênh chat và hồ sơ cá nhân cuộn trượt mượt mà dưới lớp kính.
+- **Human Modifications:** Trương Công Bình trực tiếp chỉ thị và ban hành quy tắc mới trên toàn hệ thống: đi theo thiết kế floating controls (floating tab bar, floating toolbar, FAB, glass button) nổi trên lớp kính tách biệt, nội dung cuộn trượt ngầm bên dưới (scroll-under) với hiệu ứng làm mờ mép cuộn (scroll edge effect), triệt tiêu các header/footer dạng khối hộp đặc ở các component chính trên cả Web và Mobile.
+- **Verification Method:**
+  - Web TypeScript Check: `npx tsc --noEmit -p apps/web/tsconfig.json` (0 errors).
+  - Mobile TypeScript Check: `npx tsc --noEmit -p apps/mobile/tsconfig.json` (0 errors).
+  - Web Production Build: `npm run build -w @circle/web` (0 errors, 11/11 static pages generated).
+  - Mobile Bundle Export: `cd apps/mobile && npx expo export --platform ios --no-bytecode` (3065 modules bundled successfully, exit code 0).
+  - Pre-commit Hook & Secret Check: `./.githooks/pre-commit` & `./scripts/check-secrets.sh` (Passed 100%, 0 leaks).
+  - Agent Map Integrity: `./scripts/check-agent-map.sh` (122/122 files resolve).
+- **Official Source Checked:** Apple Human Interface Guidelines (Liquid Glass Architecture & Scroll Edge Effect), React Native Flexbox & Absolute Layout Specifications.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+- **Branch:** `fix/upgrade-mobile-expo-sdk-58`

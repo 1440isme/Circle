@@ -2671,7 +2671,10 @@ export default function CircleWorkspaceScreen() {
             style={styles.messagesList}
             contentContainerStyle={[
               styles.messagesScrollContent,
-              { paddingTop: headerHeight + 8 },
+              {
+                paddingTop: headerHeight + 8,
+                paddingBottom: isKeyboardVisible ? 70 : (insets.bottom > 0 ? insets.bottom + 75 : 85),
+              },
             ]}
             showsVerticalScrollIndicator={false}
             onScroll={handleScroll}
@@ -2953,12 +2956,13 @@ export default function CircleWorkspaceScreen() {
             </View>
           </ScrollView>
 
-          {/* Floating Rounded Composer Area */}
+          {/* Floating Rounded Composer Area (Floating glass control with scroll-under content) */}
           <View
             style={[
               styles.composerFloatingContainer,
               { paddingBottom: isKeyboardVisible ? 6 : (insets.bottom > 0 ? insets.bottom + 2 : 10) },
             ]}
+            pointerEvents="box-none"
           >
             {/* Realtime Typing Indicator Bar */}
             {typingUsers.length > 0 && (
@@ -5042,8 +5046,13 @@ const styles = StyleSheet.create({
     lineHeight: 13,
   },
   composerFloatingContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 40,
     paddingHorizontal: 14,
-    paddingTop: 4,
+    paddingTop: 6,
     gap: 6,
   },
   replyPreviewBar: {

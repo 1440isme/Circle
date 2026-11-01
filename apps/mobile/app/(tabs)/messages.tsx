@@ -40,7 +40,8 @@ export default function MessagesTab() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.canvas }]}>
-      <View style={[styles.headerBar, { backgroundColor: colors.canvas }]}>
+      {/* Top Floating Glass Header (Floating glass controls with scroll-under content) */}
+      <View style={styles.headerBar} pointerEvents="box-none">
         <View>
           <Text style={[styles.headerTitle, { color: colors.text }]}>
             {t.nav.chatChannels}
@@ -145,8 +146,13 @@ export default function MessagesTab() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   headerBar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 30,
     paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'ios' ? 56 : 40,
+    paddingTop: Platform.OS === 'ios' ? 52 : 36,
     paddingBottom: 10,
     flexDirection: 'row',
     alignItems: 'center',
@@ -154,7 +160,11 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontSize: 22, fontWeight: '800', letterSpacing: -0.4 },
   headerSubtitle: { fontSize: 12, fontWeight: '500', marginTop: 2 },
-  content: { padding: 20, paddingBottom: 100 },
+  content: {
+    padding: 20,
+    paddingTop: Platform.OS === 'ios' ? 104 : 88,
+    paddingBottom: 110,
+  },
   emptyBox: {
     borderRadius: 28,
     padding: 24,

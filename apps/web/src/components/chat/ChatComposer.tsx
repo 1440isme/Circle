@@ -416,21 +416,22 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
   };
 
   return (
-    <div className="sticky bottom-0 z-20 shrink-0 bg-white dark:bg-circle-dark-surface p-3 transition-colors">
-      {/* Hidden file inputs */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        className="hidden"
-        onChange={(e) => handleFileChange(e, false)}
-      />
-      <input
-        ref={imageInputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={(e) => handleFileChange(e, true)}
-      />
+    <div className="pointer-events-none absolute bottom-0 left-0 right-0 z-20 p-3 sm:pb-4 flex flex-col items-center bg-gradient-to-t from-white/95 dark:from-circle-dark-surface/95 via-white/50 dark:via-circle-dark-surface/50 to-transparent backdrop-blur-[2px] transition-colors">
+      <div className="pointer-events-auto w-full max-w-3xl flex flex-col gap-2">
+        {/* Hidden file inputs */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          className="hidden"
+          onChange={(e) => handleFileChange(e, false)}
+        />
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => handleFileChange(e, true)}
+        />
 
       {/* Reply Quote Banner */}
       {replyingMessage && (
@@ -697,6 +698,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
           onPollCreated={handlePollCreated}
         />
       )}
+      </div>
     </div>
   );
 };

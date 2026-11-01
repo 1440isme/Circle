@@ -45,6 +45,7 @@ export default function HomeScreen() {
   const { user } = useAuthStore();
 
   const isDark = resolvedTheme === 'dark';
+  const isGlass = uiStyle === 'glass';
   const glassTheme = getGlassTheme(isDark, uiStyle);
   const displayName = user?.profile?.displayName || user?.email?.split('@')[0] || t.auth.guest;
   const initials = getInitials(displayName);
@@ -76,9 +77,22 @@ export default function HomeScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.canvas }]}>
-      {/* Top Header - Brand + Circular Active Circle Avatar Button */}
-      <View style={[styles.headerBar, { backgroundColor: colors.canvas }]}>
-        <View style={styles.brandGroup}>
+      {/* Top Floating Glass Header (Floating glass controls with scroll-under content) */}
+      <View style={styles.headerBar} pointerEvents="box-none">
+        <View
+          style={[
+            styles.brandCapsule,
+            {
+              backgroundColor: isGlass
+                ? (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.85)')
+                : colors.surface,
+              borderColor: isGlass
+                ? (isDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.08)')
+                : colors.hairline,
+            },
+          ]}
+          pointerEvents="auto"
+        >
           <View style={[styles.logoPill, { backgroundColor: colors.primary }]}>
             <Text style={[styles.logoText, { color: colors.onPrimary }]}>C</Text>
           </View>
@@ -93,7 +107,7 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Header Right: Circular Active Circle Avatar Button (No text, opens switcher) */}
+        {/* Header Right: Floating Glass Button for Active Circle Avatar (No text, opens switcher) */}
         <TouchableOpacity
           activeOpacity={0.8}
           onPress={() => setCircleSwitcherVisible(true)}
@@ -101,7 +115,9 @@ export default function HomeScreen() {
             styles.headerCircleAvatarBtn,
             {
               backgroundColor: colors.primary,
-              borderColor: colors.hairline,
+              borderColor: isGlass
+                ? (isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)')
+                : colors.hairline,
             },
           ]}
         >
@@ -343,12 +359,31 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerBar: {
-    paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'ios' ? 56 : 40,
-    paddingBottom: 10,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 30,
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'ios' ? 52 : 36,
+    paddingBottom: 8,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  brandCapsule: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingLeft: 4,
+    paddingRight: 14,
+    paddingVertical: 4,
+    borderRadius: 24,
+    borderWidth: 1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
   },
   brandGroup: {
     flexDirection: 'row',
@@ -356,18 +391,18 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   logoPill: {
-    width: 34,
-    height: 34,
-    borderRadius: 12,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
   logoText: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '800',
   },
   brandText: {
-    fontSize: 17,
+    fontSize: 15,
     fontWeight: '800',
     letterSpacing: -0.4,
   },
@@ -383,12 +418,12 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   subBrandText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '500',
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingTop: 8,
+    paddingTop: Platform.OS === 'ios' ? 104 : 88,
     paddingBottom: 110,
     gap: 18,
   },
