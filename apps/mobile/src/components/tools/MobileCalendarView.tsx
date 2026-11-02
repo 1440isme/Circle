@@ -4181,9 +4181,9 @@ appleYearBtn: {
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 12,
+    paddingTop: Platform.OS === 'ios' ? 68 : 58,
     paddingBottom: 8,
-    backgroundColor: colors.surface,
+    backgroundColor: 'transparent',
   },
   appleMonthTitleContainer: {
     flexDirection: 'row',

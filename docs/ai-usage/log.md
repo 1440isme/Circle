@@ -5800,3 +5800,61 @@
 - **Official Source Checked:** Apple Human Interface Guidelines (Liquid Glass Architecture & Scroll Edge Effect), React Native Flexbox & Absolute Layout Specifications.
 - **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
 - **Branch:** `fix/upgrade-mobile-expo-sdk-58`
+
+---
+
+### Entry AI-0155
+
+- **Timestamp:** 2026-11-02T22:30:00+07:00
+- **Author:** Trương Công Bình (23110184)
+- **Tool:** Antigravity IDE (Gemini 2.5 Pro)
+- **Task / Scope:** Module 7 (US-COLLAB-003, Issue #125) — Hoàn tất Kiến trúc "Floating Glass Controls with Scroll-Under Content" & Chuẩn "Balanced Legible Glass" trên toàn bộ Tiện ích Nhóm Circle Tools (Web & Mobile).
+- **Files Touched:**
+  - `apps/mobile/src/constants/glass-theme.ts`
+  - `apps/web/src/components/header/Header.tsx`
+  - `apps/web/src/components/chat/ChannelChatView.tsx`
+  - `apps/web/src/components/chat/ChatComposer.tsx`
+  - `apps/web/src/components/tools/CirclePollView.tsx`
+  - `apps/web/src/components/tools/CircleLocationView.tsx`
+  - `apps/web/src/components/tools/CircleCalendarView.tsx`
+  - `apps/web/src/components/tools/CirclePlanningView.tsx`
+  - `apps/web/src/components/tools/CircleAlbumsView.tsx`
+  - `apps/web/src/components/tools/CircleWheelView.tsx`
+  - `apps/web/src/components/tools/CircleAnonymousView.tsx`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `apps/mobile/src/components/tools/MobilePollView.tsx`
+  - `apps/mobile/src/components/tools/MobileAlbumsView.tsx`
+  - `apps/mobile/src/components/tools/MobileWheelView.tsx`
+  - `apps/mobile/src/components/tools/MobileAnonymousView.tsx`
+  - `apps/mobile/src/components/tools/MobileLocationView.tsx`
+  - `apps/mobile/src/components/tools/MobilePlanningView.tsx`
+  - `apps/mobile/src/components/tools/MobileCalendarView.tsx`
+  - `agentic/memory/MEMORY.md`
+  - `agentic/memory/topics/floating-glass-controls.md`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:**
+  1. **Thiết lập Chuẩn Độ mờ Kính Cân Bằng (Balanced Legible Glass Invariant):**
+     - Giải quyết triệt để vấn đề kính quá trong suốt gây chìm/khó đọc chữ và icon theo yêu cầu người dùng ("glass có độ mờ vừa phải chứ k xoá trong suốt để khó nhìn thấy").
+     - Cập nhật bộ token `glass-theme.ts` và toàn bộ CSS glass utility: Light mode cố định độ mờ 90% - 94% (`bg-white/94`), Dark mode 88% - 92% (`bg-circle-dark-surface/92`), kết hợp khuếch tán quang học cường độ cao (`backdrop-blur-xl`, Blur intensity 75–85) và đường viền siêu mỏng hairline (`border-circle-hairline/80`, `border-white/12`).
+  2. **Toàn diện Hóa Web Circle Tools sang Floating Glass Toolbars:**
+     - `CirclePollView.tsx`, `CircleCalendarView.tsx`, `CirclePlanningView.tsx`, `CircleAlbumsView.tsx`, `CircleWheelView.tsx`, `CircleAnonymousView.tsx`: Loại bỏ triệt để mọi thanh header đặc với đường kẻ chia cắt `border-b`. Thay thế bằng Floating Glass Toolbar Capsule lơ lửng ở đỉnh (`absolute top-3 z-20`) hiển thị icon thuần không đóng khung (`bare icon`) và tên tiện ích; nội dung cuộn trượt tự do ngầm phía dưới (`pt-20 pb-12`).
+     - `CircleLocationView.tsx`: Bản đồ Leaflet mở rộng toàn màn hình (`absolute inset-0`), thanh điều khiển chia sẻ vị trí chuyển thành floating glass toolbar lơ lửng trên nền bản đồ (`z-[1000]`).
+  3. **Đồng bộ Native Mobile Circle Tools sang Floating Glass & Floating Action Buttons (FAB):**
+     - `apps/mobile/app/circle/[id].tsx`: Tái cấu trúc thanh điều hướng modal tiện ích thành cụm 3 Floating Glass Capsules lơ lửng phía trên đỉnh màn hình (Nút Quay lại "Tiện ích", Nhãn tên công cụ đang mở, Nút đóng `X`), nội dung kéo dài vô cực từ đỉnh màn hình và cuộn trượt ngầm phía dưới.
+     - `MobilePollView.tsx`, `MobileAlbumsView.tsx`, `MobileWheelView.tsx`, `MobileAnonymousView.tsx`, `MobilePlanningView.tsx`: Xóa bỏ toàn bộ các khối header đặc với `borderBottomWidth`. Chuyển nút tạo mới thành Floating Action Button (FAB) dạng viên thuốc lơ lửng ở góc dưới bên phải (`position: 'absolute', bottom: 24, right: 16`), nội dung cuộn trượt mượt mà với khoảng đệm an toàn (`paddingTop: 74, paddingBottom: 100`).
+     - `MobileLocationView.tsx`: Xóa bỏ thanh topBar khối cứng và viền bo icon (`iconBox`). Thanh điều khiển thời gian và bật/tắt chia sẻ biến thành Floating Glass Toolbar lơ lửng trên bản đồ, dải danh sách thành viên biến thành Floating Glass Bottom Drawer lơ lửng đáy màn hình.
+     - `MobileCalendarView.tsx`: Điều chỉnh khoảng đệm `appleMonthCalendarHeader` (`paddingTop: 68`) và nền trong suốt, tránh xung đột với cụm điều khiển kính nổi phía trên.
+  4. **Cập nhật Memory Protocol & Tài liệu Kiến trúc:**
+     - Ghi nhận `Balanced Legible Glass Standard` vào Layer 1 `agentic/memory/MEMORY.md`.
+     - Bổ sung Mục 4 (Độ mờ cân bằng & Tiêu chuẩn hiển thị) vào tài liệu kiến trúc Layer 3 `agentic/memory/topics/floating-glass-controls.md`.
+- **Human Modifications:** Trương Công Bình yêu cầu mở Issue chính thức (#125), đặt ra quy chuẩn kính có độ mờ vừa phải không xóa trong suốt quá mức gây khó nhìn, và kiểm soát chặt chẽ quy chuẩn floating controls và bare icon trên cả Web lẫn Mobile.
+- **Verification Method:**
+  - Web TypeScript Check: `npx tsc --noEmit -p apps/web/tsconfig.json` (0 errors).
+  - Mobile TypeScript Check: `npx tsc --noEmit -p apps/mobile/tsconfig.json` (0 errors).
+  - Web Production Build: `npm run build -w @circle/web` (0 errors, 11/11 static pages generated).
+  - Mobile Bundle Export: `cd apps/mobile && npx expo export --platform ios --no-bytecode` (3065 modules bundled successfully, exit code 0).
+  - Pre-commit Hook & Secret Check: `./.githooks/pre-commit` & `./scripts/check-secrets.sh` (Passed 100%, 0 leaks).
+  - Agent Map Integrity: `./scripts/check-agent-map.sh` (122/122 files resolve).
+- **Official Source Checked:** Apple Human Interface Guidelines (Liquid Glass Controls & Frosted Legibility Standards), Issue #125 Specifications.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+- **Branch:** `fix/upgrade-mobile-expo-sdk-58`

@@ -84,10 +84,10 @@ export default function HomeScreen() {
             styles.brandCapsule,
             {
               backgroundColor: isGlass
-                ? (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.85)')
+                ? (isDark ? 'rgba(22,22,26,0.92)' : 'rgba(255,255,255,0.94)')
                 : colors.surface,
               borderColor: isGlass
-                ? (isDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.08)')
+                ? (isDark ? 'rgba(255,255,255,0.16)' : 'rgba(0,0,0,0.08)')
                 : colors.hairline,
             },
           ]}

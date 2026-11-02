@@ -11,6 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
+import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
 import {
@@ -383,26 +384,63 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
 
   return (
     <View style={[styles.container, { backgroundColor: colors.canvas }]}>
-      {/* Top Controls Strip */}
-      <View style={[styles.topBar, { backgroundColor: colors.surface, borderBottomColor: colors.hairline }]}>
-        <View style={styles.topBarLeft}>
-          <View style={[styles.iconBox, { backgroundColor: `${colors.primary}20` }]}>
-            <MapPin size={16} color={colors.primary} />
-          </View>
-          <View>
-            <Text style={[styles.topTitle, { color: colors.text }]}>
-              {t.collab?.locationTitle || 'Chia sẻ vị trí'}
-            </Text>
-            <Text style={[styles.topSub, { color: colors.subtle }]}>
-              {t.collab?.activeBroadcastingCount?.replace('{count}', String(locations.length)) ||
-                `${locations.length} người đang phát sóng`}
-            </Text>
-          </View>
-        </View>
+      {/* Floating Glass Top Toolbar */}
+      <View
+        pointerEvents="box-none"
+        style={{
+          position: 'absolute',
+          top: Platform.OS === 'ios' ? 68 : 58,
+          left: 14,
+          right: 14,
+          zIndex: 30,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}
+      >
+        <BlurView
+          intensity={isDark ? 85 : 75}
+          tint={isDark ? 'dark' : 'light'}
+          style={{
+            borderRadius: 999,
+            overflow: 'hidden',
+            backgroundColor: isDark ? 'rgba(22, 22, 26, 0.90)' : 'rgba(255, 255, 255, 0.92)',
+            borderWidth: StyleSheet.hairlineWidth,
+            borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : colors.hairline,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: isDark ? 0.3 : 0.08,
+            shadowRadius: 8,
+            elevation: 3,
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingVertical: 6,
+            paddingHorizontal: 12,
+            gap: 8,
+          }}
+        >
+          <MapPin size={16} color={colors.primary} />
+          <Text style={[styles.topTitle, { color: colors.text }]}>
+            {locations.length > 0 ? `${locations.length} trực tiếp` : 'Bản đồ'}
+          </Text>
+        </BlurView>
 
         {/* Duration Selector or Stop Button */}
         {!isSharing ? (
-          <View style={[styles.durationWrap, { backgroundColor: colors.wash, borderColor: colors.hairline }]}>
+          <BlurView
+            intensity={isDark ? 85 : 75}
+            tint={isDark ? 'dark' : 'light'}
+            style={{
+              borderRadius: 999,
+              overflow: 'hidden',
+              backgroundColor: isDark ? 'rgba(22, 22, 26, 0.90)' : 'rgba(255, 255, 255, 0.92)',
+              borderWidth: StyleSheet.hairlineWidth,
+              borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : colors.hairline,
+              flexDirection: 'row',
+              padding: 3,
+              gap: 2,
+            }}
+          >
             {[15, 30, 60].map((dur) => (
               <TouchableOpacity
                 key={dur}
@@ -423,7 +461,7 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
                 </Text>
               </TouchableOpacity>
             ))}
-          </View>
+          </BlurView>
         ) : null}
 
         <View style={styles.topActionsRow}>
@@ -460,7 +498,13 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
           <TouchableOpacity
             activeOpacity={0.7}
             onPress={loadLocations}
-            style={[styles.iconActionBtn, { borderColor: colors.hairline }]}
+            style={[
+              styles.iconActionBtn,
+              {
+                backgroundColor: isDark ? 'rgba(22, 22, 26, 0.90)' : 'rgba(255, 255, 255, 0.92)',
+                borderColor: colors.hairline,
+              },
+            ]}
           >
             <RotateCw size={15} color={colors.subtle} />
           </TouchableOpacity>
@@ -511,8 +555,18 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
         </View>
       </View>
 
-      {/* Active Members Horizontal Strip */}
-      <View style={[styles.bottomStrip, { backgroundColor: colors.surface, borderTopColor: colors.hairline }]}>
+      {/* Active Members Floating Glass Strip */}
+      <BlurView
+        intensity={isDark ? 85 : 75}
+        tint={isDark ? 'dark' : 'light'}
+        style={[
+          styles.bottomStrip,
+          {
+            backgroundColor: isDark ? 'rgba(22, 22, 26, 0.90)' : 'rgba(255, 255, 255, 0.92)',
+            borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : colors.hairline,
+          },
+        ]}
+      >
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -585,7 +639,7 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
             })
           )}
         </ScrollView>
-      </View>
+      </BlurView>
     </View>
   );
 };
@@ -684,7 +738,7 @@ const styles = StyleSheet.create({
   },
   floatingActionGroup: {
     position: 'absolute',
-    bottom: 16,
+    bottom: 84,
     right: 16,
     flexDirection: 'column',
     alignItems: 'flex-end',
@@ -718,8 +772,20 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   bottomStrip: {
+    position: 'absolute',
+    bottom: 14,
+    left: 14,
+    right: 14,
+    zIndex: 30,
+    borderRadius: 20,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: 'hidden',
     paddingVertical: 10,
-    borderTopWidth: StyleSheet.hairlineWidth,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 4,
   },
   bottomScroll: {
     paddingHorizontal: 16,

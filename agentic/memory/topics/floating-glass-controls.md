@@ -35,3 +35,7 @@ Giao diện được tổ chức theo 2 lớp tách biệt:
    - **Web:** Sử dụng Tailwind `fixed` hoặc `sticky top-4`/`bottom-4`, `backdrop-blur-md`, `bg-white/70 dark:bg-black/70`, `border border-white/20 dark:border-white/10`, `rounded-full` hoặc `rounded-2xl`, `shadow-lg shadow-black/5`.
    - **Mobile (React Native):** Sử dụng `position: 'absolute'`, thư viện blur (`expo-blur` `BlurView`), `borderRadius`, `overflow: 'hidden'`, khoảng cách đáy `bottom: insets.bottom + 8`.
 3. **Scroll Padding:** Nội dung cuộn ở bên dưới phải luôn có `paddingBottom` hoặc `paddingTop` phù hợp (bằng chiều cao control + khoảng đệm an toàn) để khi cuộn tới cuối, nội dung không bao giờ bị control che khuất tầm nhìn.
+4. **Độ Mờ & Độ Đục Kính Cân Bằng (Balanced Legible Glass Standard):**
+   - Tuyệt đối KHÔNG xóa trong suốt quá mức (dưới 80% opacity) khiến text, icon hoặc các nút bấm bị chìm hoặc lẫn vào hình ảnh/chữ trượt bên dưới content layer.
+   - **Tỉ lệ chuẩn:** Light mode đạt `90% - 94%` opacity (`bg-white/92` đến `bg-white/95`); Dark mode đạt `88% - 92%` opacity (`bg-circle-dark-surface/92` hoặc `rgba(20, 20, 24, 0.90)`).
+   - **Độ nhòe:** Luôn kết hợp độ mờ cao (`backdrop-blur-xl` trên Web, `intensity={75-85}` trên Mobile) để tán xạ ánh sáng nền, giữ vững độ tương phản và sự sắc nét tuyệt đối của các điều khiển trên lớp kính.

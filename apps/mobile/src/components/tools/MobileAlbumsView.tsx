@@ -12,6 +12,7 @@ import {
   Alert,
   FlatList,
   Dimensions,
+  Platform,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
@@ -206,22 +207,34 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId }) 
   if (selectedAlbum) {
     return (
       <View style={[styles.container, { backgroundColor: colors.canvas }]}>
-        {/* Navigation Bar */}
-        <View style={styles.header}>
+        {/* Floating Glass Sub-toolbar */}
+        <View
+          pointerEvents="box-none"
+          style={{
+            position: 'absolute',
+            top: Platform.OS === 'ios' ? 68 : 58,
+            left: 16,
+            right: 16,
+            zIndex: 30,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
           <TouchableOpacity
-            style={styles.backBtn}
+            style={[styles.glassPill, { backgroundColor: isDark ? 'rgba(22, 22, 26, 0.90)' : 'rgba(255, 255, 255, 0.92)' }]}
             onPress={() => {
               setSelectedAlbum(null);
               loadAlbums();
             }}
           >
-            <ArrowLeft size={18} color="#1E293B" />
+            <ArrowLeft size={16} color={colors.text} />
             <Text style={styles.backText}>Quay lại</Text>
           </TouchableOpacity>
 
-          <View style={styles.headerActions}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <TouchableOpacity
-              style={styles.uploadBtn}
+              style={[styles.uploadBtn, { backgroundColor: colors.primary }]}
               disabled={isUploading}
               onPress={handlePickAndUploadPhotos}
             >
@@ -236,7 +249,7 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId }) 
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.deleteAlbumBtn}
+              style={[styles.glassIconBtn, { backgroundColor: isDark ? 'rgba(22, 22, 26, 0.90)' : 'rgba(255, 255, 255, 0.92)' }]}
               onPress={() => handleDeleteAlbum(selectedAlbum.id)}
             >
               <Trash2 size={16} color="#EF4444" />
@@ -244,27 +257,33 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId }) 
           </View>
         </View>
 
-        {/* Album Metadata */}
-        <View style={styles.albumMeta}>
-          <Text style={[styles.albumTitle, { color: colors.text }]}>{selectedAlbum.albumTitle}</Text>
-          {selectedAlbum.description ? (
-            <Text style={styles.albumDesc}>{selectedAlbum.description}</Text>
-          ) : null}
-          <Text style={styles.photoCountText}>
-            {selectedAlbum.photos?.length || 0} ảnh • Tạo bởi{' '}
-            {selectedAlbum.creator?.user?.profile?.displayName || 'Thành viên'}
-          </Text>
-        </View>
-
-        {/* Photos Grid */}
+        {/* Photos Grid with scroll-under header */}
         {isLoading ? (
-          <ActivityIndicator size="large" color="#475569" style={{ marginTop: 40 }} />
-        ) : selectedAlbum.photos && selectedAlbum.photos.length > 0 ? (
+          <ActivityIndicator size="large" color="#475569" style={{ marginTop: 120 }} />
+        ) : (
           <FlatList
-            data={selectedAlbum.photos}
+            data={selectedAlbum.photos || []}
             keyExtractor={(item) => item.id}
             numColumns={3}
-            contentContainerStyle={styles.photosGrid}
+            contentContainerStyle={[styles.photosGrid, { paddingTop: Platform.OS === 'ios' ? 124 : 114, paddingBottom: 60 }]}
+            ListHeaderComponent={
+              <View style={[styles.albumMetaPill, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+                <Text style={[styles.albumTitle, { color: colors.text }]}>{selectedAlbum.albumTitle}</Text>
+                {selectedAlbum.description ? (
+                  <Text style={styles.albumDesc}>{selectedAlbum.description}</Text>
+                ) : null}
+                <Text style={styles.photoCountText}>
+                  {selectedAlbum.photos?.length || 0} ảnh • Tạo bởi{' '}
+                  {selectedAlbum.creator?.user?.profile?.displayName || 'Thành viên'}
+                </Text>
+              </View>
+            }
+            ListEmptyComponent={
+              <View style={[styles.emptyContainer, { backgroundColor: colors.canvas, paddingTop: 40 }]}>
+                <ImageIcon size={40} color="#94A3B8" />
+                <Text style={[styles.emptyTitle, { color: colors.text }]}>Chưa có ảnh nào trong album</Text>
+              </View>
+            }
             renderItem={({ item }) => (
               <TouchableOpacity
                 style={styles.photoThumbWrapper}
@@ -274,12 +293,6 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId }) 
               </TouchableOpacity>
             )}
           />
-        ) : (
-          <View style={[styles.emptyContainer, { backgroundColor: colors.canvas }]}>
-            <ImageIcon size={40} color="#94A3B8" />
-            <Text style={[styles.emptyTitle, { color: colors.text }]}>Chưa có ảnh nào trong album</Text>
-            <Text style={styles.emptySub}>Chạm "Thêm ảnh" để tải lên những kỷ niệm đầu tiên!</Text>
-          </View>
         )}
 
         {/* Lightbox Modal */}
@@ -323,23 +336,9 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId }) 
   // =========================================================================
   return (
     <View style={[styles.container, { backgroundColor: colors.canvas }]}>
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.screenTitle}>Album Kỷ Niệm</Text>
-          <Text style={styles.screenSub}>Kho ảnh và kỷ niệm chung của nhóm</Text>
-        </View>
-
-        <TouchableOpacity
-          style={styles.createBtn}
-          onPress={() => setIsCreateModalOpen(true)}
-        >
-          <Plus size={14} color="#FFFFFF" />
-          <Text style={styles.createBtnText}>Tạo Album</Text>
-        </TouchableOpacity>
-      </View>
-
+      {/* Scroll-under Content Layer */}
       {isLoading ? (
-        <ActivityIndicator size="large" color="#475569" style={{ marginTop: 40 }} />
+        <ActivityIndicator size="large" color="#475569" style={{ marginTop: 120 }} />
       ) : albums.length > 0 ? (
         <ScrollView contentContainerStyle={styles.albumsList}>
           {albums.map((album) => {
@@ -384,7 +383,7 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId }) 
           })}
         </ScrollView>
       ) : (
-        <View style={[styles.emptyContainer, { backgroundColor: colors.canvas }]}>
+        <View style={[styles.emptyContainer, { backgroundColor: colors.canvas, paddingTop: Platform.OS === 'ios' ? 80 : 70 }]}>
           <FolderOpen size={48} color="#94A3B8" />
           <Text style={[styles.emptyTitle, { color: colors.text }]}>Chưa có Album kỷ niệm nào</Text>
           <Text style={styles.emptySub}>
@@ -399,6 +398,22 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId }) 
           </TouchableOpacity>
         </View>
       )}
+
+      {/* Floating Action Button (FAB) */}
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={() => setIsCreateModalOpen(true)}
+        style={[
+          styles.fab,
+          {
+            backgroundColor: colors.primary,
+            shadowColor: colors.primary,
+          },
+        ]}
+      >
+        <Plus size={18} color="#FFF" />
+        <Text style={styles.fabText}>Tạo Album</Text>
+      </TouchableOpacity>
 
       {/* Create Album Modal */}
       <Modal visible={isCreateModalOpen} transparent animationType="slide">
@@ -493,8 +508,65 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
     fontWeight: '600',
   },
   albumsList: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'ios' ? 74 : 64,
+    paddingBottom: 100,
     gap: 12,
+  },
+  glassPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: isDark ? 0.3 : 0.08,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  glassIconBtn: {
+    padding: 8,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: isDark ? 0.3 : 0.08,
+    shadowRadius: 6,
+    elevation: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  albumMetaPill: {
+    marginBottom: 16,
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 24,
+    right: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: 999,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
+    zIndex: 20,
+  },
+  fabText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFF',
   },
   albumCard: {
     backgroundColor: colors.surface,

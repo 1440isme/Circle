@@ -397,7 +397,7 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
     >
       {/* Floating Channel Header Toolbar (Floating glass capsule with scroll-under content) */}
       <div className="pointer-events-none absolute top-3 left-0 right-0 z-20 flex flex-col items-center px-4 gap-2">
-        <div className="pointer-events-auto flex items-center justify-between px-4 py-2 rounded-full backdrop-blur-md bg-white/80 dark:bg-circle-dark-surface/80 border border-white/60 dark:border-white/10 shadow-sm max-w-2xl w-full transition-all">
+        <div className="pointer-events-auto flex items-center justify-between px-4 py-2 rounded-full backdrop-blur-xl bg-white/94 dark:bg-circle-dark-surface/92 border border-circle-hairline/80 dark:border-white/12 shadow-sm max-w-2xl w-full transition-all">
           <div className="flex items-center gap-2 min-w-0">
             <Hash className="h-4 w-4 shrink-0 text-circle-slate dark:text-circle-dark-muted" />
             <h3 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text truncate">
@@ -524,7 +524,7 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
 
         {/* Floating Channel Message Search Bar (CHT-17) */}
         {isSearchOpen && (
-          <div className="pointer-events-auto w-full max-w-xl rounded-2xl border border-white/60 dark:border-white/10 bg-white/95 dark:bg-circle-dark-surface/95 backdrop-blur-md p-2 shadow-lg animate-in fade-in slide-in-from-top-2 duration-150">
+          <div className="pointer-events-auto w-full max-w-xl rounded-2xl border border-circle-hairline/80 dark:border-white/12 bg-white/96 dark:bg-circle-dark-surface/96 backdrop-blur-xl p-2 shadow-lg animate-in fade-in slide-in-from-top-2 duration-150">
             <div className="relative flex items-center">
               <Search className="absolute left-3 h-4 w-4 text-circle-slate dark:text-circle-dark-muted" />
               <input

@@ -2214,13 +2214,13 @@ export default function CircleWorkspaceScreen() {
         {/* Header Background Layer: Dynamic Frosted Glass in Glass Mode vs Clean Solid Surface in Flat Mode */}
         {isGlass ? (
           <BlurView
-            intensity={isDark ? 55 : 45}
+            intensity={isDark ? 85 : 75}
             tint={glassTheme.blur.tint}
             style={[
               StyleSheet.absoluteFill,
               styles.floatingHeaderBlur,
               {
-                backgroundColor: isDark ? 'rgba(15,15,20,0.72)' : 'rgba(255,255,255,0.78)',
+                backgroundColor: isDark ? 'rgba(18,18,22,0.92)' : 'rgba(255,255,255,0.94)',
               },
             ]}
             pointerEvents="none"
@@ -3130,10 +3130,10 @@ export default function CircleWorkspaceScreen() {
                   styles.composerInputCapsule,
                   {
                     backgroundColor: isGlass
-                      ? (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.85)')
+                      ? (isDark ? 'rgba(24,24,28,0.92)' : 'rgba(255,255,255,0.94)')
                       : colors.surface,
                     borderColor: isGlass
-                      ? (isDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.08)')
+                      ? (isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.10)')
                       : colors.hairline,
                   },
                 ]}
@@ -3236,10 +3236,10 @@ export default function CircleWorkspaceScreen() {
                     ? { backgroundColor: activeCircleBubbleTheme.sendBtnBg }
                     : {
                         backgroundColor: isGlass
-                          ? (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.85)')
+                          ? (isDark ? 'rgba(24,24,28,0.92)' : 'rgba(255,255,255,0.94)')
                           : colors.surface,
                         borderColor: isGlass
-                          ? (isDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.08)')
+                          ? (isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.10)')
                           : colors.hairline,
                         borderWidth: 1.2,
                       },
@@ -4332,66 +4332,125 @@ export default function CircleWorkspaceScreen() {
         onRequestClose={() => setSelectedTool('menu')}
       >
         <View style={{ flex: 1, backgroundColor: colors.canvas }}>
+          {/* Floating Glass Navigation Bar (Floating glass controls with scroll-under content) */}
           <View
+            pointerEvents="box-none"
             style={{
-              paddingTop: Platform.OS === 'ios' ? 48 : 16,
-              paddingBottom: 12,
-              paddingHorizontal: 16,
+              position: 'absolute',
+              top: Platform.OS === 'ios' ? insets.top + 8 : 16,
+              left: 16,
+              right: 16,
+              zIndex: 50,
               flexDirection: 'row',
               alignItems: 'center',
               justifyContent: 'space-between',
-              backgroundColor: colors.surface,
-              borderBottomWidth: StyleSheet.hairlineWidth,
-              borderBottomColor: colors.hairline,
             }}
           >
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => setSelectedTool('menu')}
+            <BlurView
+              intensity={isDark ? 85 : 75}
+              tint={isDark ? 'dark' : 'light'}
               style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 4,
-                paddingVertical: 4,
-                paddingHorizontal: 8,
-                borderRadius: 8,
+                borderRadius: 999,
+                overflow: 'hidden',
+                backgroundColor: isDark ? 'rgba(22, 22, 26, 0.90)' : 'rgba(255, 255, 255, 0.92)',
+                borderWidth: StyleSheet.hairlineWidth,
+                borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : colors.hairline,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: isDark ? 0.3 : 0.08,
+                shadowRadius: 8,
+                elevation: 3,
               }}
             >
-              <ArrowLeft size={18} color={colors.primary} />
-              <Text style={{ fontSize: 14, fontWeight: '600', color: colors.primary }}>
-                {t.nav?.groupTools || 'Tiện ích'}
-              </Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => setSelectedTool('menu')}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 6,
+                  paddingVertical: 7,
+                  paddingHorizontal: 12,
+                }}
+              >
+                <ArrowLeft size={16} color={colors.text} />
+                <Text style={{ fontSize: 13, fontWeight: '600', color: colors.text }}>
+                  {t.nav?.groupTools || 'Tiện ích'}
+                </Text>
+              </TouchableOpacity>
+            </BlurView>
 
-            <Text style={{ fontSize: 15, fontWeight: '700', color: colors.text }}>
-              {selectedTool === 'album'
-                ? t.nav.photoAlbum
-                : selectedTool === 'calendar'
-                ? t.nav.calendarEvents
-                : selectedTool === 'planning'
-                ? t.nav.planningSheet
-                : selectedTool === 'location'
-                ? t.nav.liveLocation
-                : selectedTool === 'poll'
-                ? t.nav.groupPoll
-                : selectedTool === 'wheel'
-                ? t.nav.luckyWheel
-                : selectedTool === 'anonymous'
-                ? t.nav.reflectionMailbox
-                : ''}
-            </Text>
-
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => setSelectedTool('menu')}
+            <BlurView
+              intensity={isDark ? 85 : 75}
+              tint={isDark ? 'dark' : 'light'}
               style={{
-                padding: 6,
-                borderRadius: 16,
-                backgroundColor: colors.wash,
+                borderRadius: 999,
+                overflow: 'hidden',
+                backgroundColor: isDark ? 'rgba(22, 22, 26, 0.90)' : 'rgba(255, 255, 255, 0.92)',
+                borderWidth: StyleSheet.hairlineWidth,
+                borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : colors.hairline,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: isDark ? 0.3 : 0.08,
+                shadowRadius: 8,
+                elevation: 3,
               }}
             >
-              <X size={16} color={colors.text} />
-            </TouchableOpacity>
+              <View
+                style={{
+                  paddingVertical: 7,
+                  paddingHorizontal: 16,
+                  alignItems: 'center',
+                }}
+              >
+                <Text style={{ fontSize: 13, fontWeight: '700', color: colors.text }}>
+                  {selectedTool === 'album'
+                    ? t.nav.photoAlbum
+                    : selectedTool === 'calendar'
+                    ? t.nav.calendarEvents
+                    : selectedTool === 'planning'
+                    ? t.nav.planningSheet
+                    : selectedTool === 'location'
+                    ? t.nav.liveLocation
+                    : selectedTool === 'poll'
+                    ? t.nav.groupPoll
+                    : selectedTool === 'wheel'
+                    ? t.nav.luckyWheel
+                    : selectedTool === 'anonymous'
+                    ? t.nav.reflectionMailbox
+                    : ''}
+                </Text>
+              </View>
+            </BlurView>
+
+            <BlurView
+              intensity={isDark ? 85 : 75}
+              tint={isDark ? 'dark' : 'light'}
+              style={{
+                borderRadius: 999,
+                overflow: 'hidden',
+                backgroundColor: isDark ? 'rgba(22, 22, 26, 0.90)' : 'rgba(255, 255, 255, 0.92)',
+                borderWidth: StyleSheet.hairlineWidth,
+                borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : colors.hairline,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: isDark ? 0.3 : 0.08,
+                shadowRadius: 8,
+                elevation: 3,
+              }}
+            >
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => setSelectedTool('menu')}
+                style={{
+                  padding: 8,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <X size={16} color={colors.text} />
+              </TouchableOpacity>
+            </BlurView>
           </View>
 
           <View style={{ flex: 1 }}>

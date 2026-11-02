@@ -354,115 +354,111 @@ export const CircleLocationView: React.FC<CircleLocationViewProps> = ({ circleId
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-white dark:bg-circle-dark-bg overflow-hidden">
-      {/* Top Header Bar */}
-      <div className="px-6 py-3.5 border-b border-circle-hairline dark:border-circle-dark-hairline flex items-center justify-between bg-white dark:bg-circle-dark-surface shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-xl bg-circle-primary/10 text-circle-primary flex items-center justify-center font-bold">
-            <MapPin className="w-4 h-4" />
-          </div>
-          <div>
-            <h2 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text flex items-center gap-2">
-              {t.collab.locationTitle}
+    <div className="relative flex-1 flex flex-col h-full bg-white dark:bg-circle-dark-bg overflow-hidden">
+      {/* Floating Glass Toolbar (Floating glass controls over interactive map) */}
+      <div className="pointer-events-none absolute top-4 left-0 right-0 z-[1000] flex justify-center px-4">
+        <div className="pointer-events-auto flex items-center justify-between px-5 py-2.5 rounded-full backdrop-blur-xl bg-white/94 dark:bg-circle-dark-surface/92 border border-circle-hairline/80 dark:border-white/12 shadow-md max-w-4xl w-full transition-all">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <MapPin className="w-5 h-5 text-circle-primary shrink-0" />
+            <div className="flex items-center gap-2 min-w-0">
+              <h2 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text truncate">
+                {t.collab.locationTitle}
+              </h2>
               {activeLocations.length > 0 && (
                 <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-circle-primary/15 text-circle-primary">
                   {t.collab.activeBroadcastingCount.replace('{count}', String(activeLocations.length))}
                 </span>
               )}
-            </h2>
-            <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted">
-              {t.collab.locationSubtitle}
-            </p>
-          </div>
-        </div>
-
-        {/* Controls: Duration Selector + Actions */}
-        <div className="flex items-center gap-2.5">
-          {!myActiveShare ? (
-            <div className="flex items-center rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-wash dark:bg-circle-dark-canvas p-0.5 text-xs">
-              {[15, 30, 60].map((dur) => (
-                <button
-                  key={dur}
-                  type="button"
-                  onClick={() => setSelectedDuration(dur)}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
-                    selectedDuration === dur
-                      ? 'bg-white dark:bg-circle-dark-surface text-circle-charcoal dark:text-circle-dark-text shadow-2xs'
-                      : 'text-circle-slate hover:text-circle-charcoal dark:hover:text-circle-dark-text'
-                  }`}
-                >
-                  {dur}m
-                </button>
-              ))}
             </div>
-          ) : null}
+          </div>
 
-          {myActiveShare ? (
-            <button
-              type="button"
-              onClick={handleStopSharing}
-              disabled={stopMutation.isPending}
-              className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-rose-500 hover:bg-rose-600 text-white transition-all shadow-xs"
-            >
-              {t.collab.stopLiveShare}
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={handleStartSharing}
-              disabled={isLocating || startMutation.isPending}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-circle-primary hover:bg-emerald-600 text-white transition-all shadow-xs disabled:opacity-50"
-            >
-              {isLocating ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <Radio className="w-3.5 h-3.5 animate-pulse" />
-              )}
-              <span>{t.collab.startLiveShare}</span>
-            </button>
-          )}
+          {/* Controls: Duration Selector + Actions */}
+          <div className="flex items-center gap-2 shrink-0">
+            {!myActiveShare ? (
+              <div className="flex items-center rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-circle-wash/80 dark:bg-circle-dark-canvas/80 p-0.5 text-xs">
+                {[15, 30, 60].map((dur) => (
+                  <button
+                    key={dur}
+                    type="button"
+                    onClick={() => setSelectedDuration(dur)}
+                    className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-all ${
+                      selectedDuration === dur
+                        ? 'bg-white dark:bg-circle-dark-surface text-circle-charcoal dark:text-circle-dark-text shadow-2xs'
+                        : 'text-circle-slate hover:text-circle-charcoal dark:hover:text-circle-dark-text'
+                    }`}
+                  >
+                    {dur}m
+                  </button>
+                ))}
+              </div>
+            ) : null}
 
-          {/* Send static checkin to chat */}
-          <button
-            type="button"
-            onClick={handleSendLocationToChat}
-            disabled={isSendingToChat || !currentCoords}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
-              chatSentSuccess
-                ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                : 'border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash'
-            }`}
-            title={t.collab.sendStaticLocationHint}
-          >
-            {isSendingToChat ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            ) : chatSentSuccess ? (
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+            {myActiveShare ? (
+              <button
+                type="button"
+                onClick={handleStopSharing}
+                disabled={stopMutation.isPending}
+                className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-rose-500 hover:bg-rose-600 text-white transition-all shadow-xs"
+              >
+                {t.collab.stopLiveShare}
+              </button>
             ) : (
-              <Send className="w-3.5 h-3.5 text-circle-primary" />
+              <button
+                type="button"
+                onClick={handleStartSharing}
+                disabled={isLocating || startMutation.isPending}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold bg-circle-primary hover:bg-circle-sage text-white transition-all shadow-xs disabled:opacity-50"
+              >
+                {isLocating ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Radio className="w-3.5 h-3.5 animate-pulse" />
+                )}
+                <span>{t.collab.startLiveShare}</span>
+              </button>
             )}
-            <span>{chatSentSuccess ? 'Đã gửi vào Chat' : t.collab.sendStaticLocation}</span>
-          </button>
 
-          {/* Recenter */}
-          <button
-            type="button"
-            onClick={handleRecenter}
-            className="p-1.5 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate dark:text-circle-dark-muted transition-colors"
-            title={t.collab.recenterMap}
-          >
-            <LocateFixed className="w-4 h-4" />
-          </button>
+            {/* Send static checkin to chat */}
+            <button
+              type="button"
+              onClick={handleSendLocationToChat}
+              disabled={isSendingToChat || !currentCoords}
+              className={`p-1.5 rounded-full border transition-all shadow-xs ${
+                chatSentSuccess
+                  ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                  : 'border-circle-hairline dark:border-circle-dark-hairline bg-white/90 dark:bg-circle-dark-surface/90 text-circle-slate hover:text-circle-charcoal dark:hover:text-white'
+              }`}
+              title={t.collab.sendStaticLocationHint}
+            >
+              {isSendingToChat ? (
+                <Loader2 className="w-4 h-4 animate-spin text-circle-primary" />
+              ) : chatSentSuccess ? (
+                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+              ) : (
+                <Send className="w-4 h-4 text-circle-primary" />
+              )}
+            </button>
 
-          {/* Refresh */}
-          <button
-            type="button"
-            onClick={() => refetch()}
-            className="p-1.5 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate dark:text-circle-dark-muted transition-colors"
-            title={t.common.refresh}
-          >
-            <RotateCw className="w-4 h-4" />
-          </button>
+            {/* Recenter */}
+            <button
+              type="button"
+              onClick={handleRecenter}
+              className="p-1.5 rounded-full border border-circle-hairline dark:border-circle-dark-hairline hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate dark:text-circle-dark-muted transition-colors shadow-xs"
+              title={t.collab.recenterMap}
+            >
+              <LocateFixed className="w-4 h-4" />
+            </button>
+
+            {/* Refresh */}
+            <button
+              type="button"
+              onClick={() => refetch()}
+              className="p-1.5 rounded-full border border-circle-hairline dark:border-circle-dark-hairline hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate dark:text-circle-dark-muted transition-colors shadow-xs"
+              title={t.common.refresh}
+            >
+              <RotateCw className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -478,7 +474,7 @@ export const CircleLocationView: React.FC<CircleLocationViewProps> = ({ circleId
         )}
 
         {/* Floating Privacy Notice */}
-        <div className="absolute bottom-4 left-4 z-10 bg-white/90 dark:bg-circle-dark-surface/90 backdrop-blur-md border border-circle-hairline dark:border-circle-dark-hairline px-3 py-1.5 rounded-xl flex items-center gap-2 text-[11px] text-circle-slate dark:text-circle-dark-muted shadow-sm">
+        <div className="absolute bottom-4 left-4 z-10 bg-white/94 dark:bg-circle-dark-surface/92 backdrop-blur-xl border border-circle-hairline/80 dark:border-white/12 px-3.5 py-1.5 rounded-full flex items-center gap-2 text-[11px] text-circle-slate dark:text-circle-dark-muted shadow-md">
           <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
           <span>{t.collab.locationPrivacyNotice}</span>
         </div>

@@ -362,34 +362,29 @@ export const CirclePlanningView: React.FC<CirclePlanningViewProps> = ({ circleId
   // VIEW: LIST OF PLANNING SHEETS
   // =========================================================================
   return (
-    <div className="flex-1 flex flex-col h-full bg-white dark:bg-circle-dark-bg overflow-hidden">
-      {/* Header */}
-      <div className="px-8 py-6 border-b border-gray-100 dark:border-circle-dark-border flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold">
-            <FileSpreadsheet className="w-5 h-5" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+    <div className="relative flex-1 flex flex-col h-full bg-white dark:bg-circle-dark-bg overflow-hidden">
+      {/* Floating Glass Toolbar (Floating glass controls with scroll-under content) */}
+      <div className="pointer-events-none absolute top-3 left-0 right-0 z-20 flex justify-center px-4">
+        <div className="pointer-events-auto flex items-center justify-between px-5 py-2.5 rounded-full backdrop-blur-xl bg-white/94 dark:bg-circle-dark-surface/92 border border-circle-hairline/80 dark:border-white/12 shadow-sm max-w-4xl w-full">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <FileSpreadsheet className="w-5 h-5 text-circle-primary shrink-0" />
+            <h1 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text truncate">
               {t.collab.planningTitle}
             </h1>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              {t.collab.planningSubtitle}
-            </p>
           </div>
-        </div>
 
-        <button
-          onClick={() => setIsCreateModalOpen(true)}
-          className="px-4 py-2.5 rounded-xl bg-circle-primary hover:bg-circle-primary-hover text-white text-xs font-bold transition-all shadow-xs flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          {t.collab.createSheet}
-        </button>
+          <button
+            onClick={() => setIsCreateModalOpen(true)}
+            className="px-3.5 py-1.5 rounded-full bg-circle-primary hover:bg-circle-sage text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 active:scale-95"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>{t.collab.createSheet}</span>
+          </button>
+        </div>
       </div>
 
-      {/* Sheet Grid Cards */}
-      <div className="flex-1 overflow-y-auto p-8">
+      {/* Sheet Grid Cards (Scroll-under content with safe top padding) */}
+      <div className="flex-1 overflow-y-auto px-6 pt-20 pb-12">
         {isLoadingSheets ? (
           <div className="h-64 flex items-center justify-center">
             <Loader2 className="w-8 h-8 animate-spin text-circle-primary" />
