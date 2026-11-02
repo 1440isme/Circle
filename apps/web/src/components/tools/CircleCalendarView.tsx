@@ -326,55 +326,58 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
   }, [targetCalendarEventId, selectedDayEvents]);
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-circle-canvas dark:bg-circle-dark-surface overflow-y-auto p-4 md:p-6 transition-colors">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between pb-4 border-b border-circle-hairline dark:border-circle-dark-hairline mb-6 gap-3">
-        <div>
-          <h1 className="text-lg font-bold text-circle-charcoal dark:text-circle-dark-text">
-            {t.nav.calendarEvents}
-          </h1>
-          <p className="text-xs text-circle-slate dark:text-circle-dark-muted mt-0.5">
-            Lịch hẹn, sự kiện và nhắc nhở dành riêng cho các thành viên trong nhóm
-          </p>
-        </div>
+    <div className="relative flex-1 flex flex-col h-full bg-circle-canvas dark:bg-circle-dark-surface overflow-hidden transition-colors">
+      {/* Floating Glass Toolbar (Floating glass controls with scroll-under calendar content) */}
+      <div className="pointer-events-none absolute top-3 left-0 right-0 z-20 flex justify-center px-4">
+        <div className="pointer-events-auto flex flex-wrap items-center justify-between px-5 py-2 rounded-full backdrop-blur-xl bg-white/94 dark:bg-circle-dark-surface/92 border border-circle-hairline/80 dark:border-white/12 shadow-sm max-w-5xl w-full gap-3 transition-all">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <CalendarDays className="h-5 w-5 text-circle-primary shrink-0" />
+            <h1 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text truncate">
+              {t.nav.calendarEvents}
+            </h1>
+          </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={today}
-            className="rounded-lg border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-canvas px-3 py-1.5 text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash transition-colors shadow-2xs"
-          >
-            Hôm nay
-          </button>
-          <div className="flex items-center rounded-lg border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-canvas overflow-hidden shadow-2xs">
+          <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
-              onClick={prevMonth}
-              className="p-1.5 hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate"
+              onClick={today}
+              className="rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-circle-wash/80 dark:bg-circle-dark-canvas/80 px-3 py-1 text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash transition-colors shadow-2xs"
             >
-              <ChevronLeft className="h-4 w-4" />
+              Hôm nay
             </button>
-            <span className="px-3 text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text">
-              Tháng {month}, {year}
-            </span>
+            <div className="flex items-center rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-circle-wash/80 dark:bg-circle-dark-canvas/80 overflow-hidden shadow-2xs">
+              <button
+                type="button"
+                onClick={prevMonth}
+                className="p-1.5 hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+              </button>
+              <span className="px-2.5 text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text">
+                Tháng {month}, {year}
+              </span>
+              <button
+                type="button"
+                onClick={nextMonth}
+                className="p-1.5 hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate"
+              >
+                <ChevronRight className="h-3.5 w-3.5" />
+              </button>
+            </div>
             <button
               type="button"
-              onClick={nextMonth}
-              className="p-1.5 hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate"
+              onClick={handleOpenCreateModal}
+              className="flex items-center gap-1.5 rounded-full bg-circle-charcoal dark:bg-circle-primary px-3.5 py-1 text-xs font-semibold text-white dark:text-circle-charcoal hover:bg-circle-sage transition-all shadow-sm active:scale-98"
             >
-              <ChevronRight className="h-4 w-4" />
+              <Plus className="h-3.5 w-3.5" />
+              <span>Tạo sự kiện</span>
             </button>
           </div>
-          <button
-            type="button"
-            onClick={handleOpenCreateModal}
-            className="flex items-center gap-1.5 rounded-lg bg-circle-charcoal dark:bg-circle-primary px-3.5 py-1.5 text-xs font-semibold text-white dark:text-circle-charcoal hover:bg-circle-sage transition-all shadow-sm active:scale-98"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            <span>Tạo sự kiện</span>
-          </button>
         </div>
       </div>
+
+      {/* Calendar Scroll-Under Content */}
+      <div className="flex-1 overflow-y-auto px-4 md:px-6 pt-20 pb-12">
 
       {isLoading ? (
         <div className="flex-1 flex items-center justify-center">
@@ -753,6 +756,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
           </div>
         </div>
       )}
+      </div>
 
       {/* Add Event Modal */}
       {isAddModalOpen && (

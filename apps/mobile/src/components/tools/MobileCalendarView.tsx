@@ -524,9 +524,9 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
     return list;
   }, []);
 
-  const monthScrollRef = useRef<ScrollView>(null);
+  const monthScrollRef = useRef<React.ElementRef<typeof ScrollView>>(null);
   const yearLayoutsRef = useRef<Record<number, number>>({});
-  const yearScrollRef = useRef<ScrollView>(null);
+  const yearScrollRef = useRef<React.ElementRef<typeof ScrollView>>(null);
 
   const scrollToMonth = useCallback(
     (targetYear: number, targetMonth: number, animated = true) => {
@@ -2532,8 +2532,8 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
           {isCall ? (
             <View style={[styles.detailCard, styles.detailCallCard]}>
               <View style={styles.detailCardHeader}>
-                <View style={[styles.detailCardIconWrap, { backgroundColor: '#E0F2FE' }]}>
-                  <Video size={18} color="#0284C7" />
+                <View style={[styles.detailCardIconWrap, { backgroundColor: `${colors.primary}20` }]}>
+                  <Video size={18} color={colors.primary} />
                 </View>
                 <Text style={styles.detailCardTitle}>Cuộc gọi trực tuyến</Text>
               </View>
@@ -2544,7 +2544,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
 
               {callUrl && (
                 <TouchableOpacity
-                  style={styles.detailJoinCallBtn}
+                  style={[styles.detailJoinCallBtn, { backgroundColor: colors.primary }]}
                   activeOpacity={0.8}
                   onPress={() => Linking.openURL(callUrl).catch(() => {})}
                 >
@@ -3074,8 +3074,8 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                   {/* 3. Cuộc gọi video */}
                   {ev.location && (isCall || ev.location.includes('meet.google.com') || ev.location.includes('zoom.us')) ? (
                     <View style={styles.eventInfoRow}>
-                      <Video size={12} color="#0284C7" />
-                      <Text style={[styles.eventInfoText, { color: '#0284C7', fontWeight: '500' }]} numberOfLines={1}>
+                      <Video size={12} color={colors.primary} />
+                      <Text style={[styles.eventInfoText, { color: colors.primary, fontWeight: '500' }]} numberOfLines={1}>
                         {locClean.includes('Meet') || locClean.includes('Zoom') || locClean.includes('Google')
                           ? locClean
                           : 'Cuộc gọi video (Google Meet)'}
@@ -3961,7 +3961,6 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#0284C7',
     borderRadius: 12,
     paddingVertical: 12,
   },
@@ -4182,9 +4181,9 @@ appleYearBtn: {
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 12,
+    paddingTop: Platform.OS === 'ios' ? 68 : 58,
     paddingBottom: 8,
-    backgroundColor: colors.surface,
+    backgroundColor: 'transparent',
   },
   appleMonthTitleContainer: {
     flexDirection: 'row',

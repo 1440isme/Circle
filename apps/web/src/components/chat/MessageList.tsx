@@ -239,7 +239,7 @@ export const MessageList: React.FC<MessageListProps> = ({
   return (
     <div
       ref={containerRef}
-      className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-4"
+      className="flex-1 min-h-0 overflow-y-auto px-4 pt-16 pb-24 space-y-4"
     >
       {/* Load earlier messages button */}
       {hasMore && (

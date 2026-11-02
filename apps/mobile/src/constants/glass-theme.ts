@@ -66,17 +66,17 @@ export const lightGlass: GlassTheme = {
     inkMuted: 'rgba(23, 23, 26, 0.62)',
     accent: '#10B981', // Clean Circle primary green
     warning: '#F59E0B',
-    // Functional layer (Liquid Glass)
-    glassBg: 'rgba(255, 255, 255, 0.65)',
-    glassBgSheet: 'rgba(255, 255, 255, 0.90)',
-    glassBgClear: 'rgba(255, 255, 255, 0.28)',
-    glassBorder: 'rgba(227, 227, 232, 0.75)',
-    glassHighlight: 'rgba(255, 255, 255, 0.65)',
-    glassShadow: 'rgba(0, 0, 0, 0.08)',
+    // Functional layer (Liquid Glass - Balanced Legible Standard)
+    glassBg: 'rgba(255, 255, 255, 0.92)',
+    glassBgSheet: 'rgba(255, 255, 255, 0.96)',
+    glassBgClear: 'rgba(255, 255, 255, 0.82)',
+    glassBorder: 'rgba(227, 227, 232, 0.85)',
+    glassHighlight: 'rgba(255, 255, 255, 0.85)',
+    glassShadow: 'rgba(0, 0, 0, 0.10)',
     glassFg: '#17171A',
   },
   blur: {
-    intensity: 45,
+    intensity: 75,
     tint: 'light',
   },
   radius: {
@@ -107,17 +107,17 @@ export const darkGlass: GlassTheme = {
     inkMuted: 'rgba(242, 242, 244, 0.62)',
     accent: '#34D399', // Clean Circle dark mint green
     warning: '#FBBF24',
-    // Functional layer (Liquid Glass)
-    glassBg: 'rgba(29, 29, 33, 0.70)',
-    glassBgSheet: 'rgba(24, 24, 28, 0.92)',
-    glassBgClear: 'rgba(255, 255, 255, 0.12)',
-    glassBorder: 'rgba(255, 255, 255, 0.15)',
-    glassHighlight: 'rgba(255, 255, 255, 0.18)',
-    glassShadow: 'rgba(0, 0, 0, 0.35)',
+    // Functional layer (Liquid Glass - Balanced Legible Standard)
+    glassBg: 'rgba(22, 22, 26, 0.90)',
+    glassBgSheet: 'rgba(18, 18, 22, 0.95)',
+    glassBgClear: 'rgba(255, 255, 255, 0.18)',
+    glassBorder: 'rgba(255, 255, 255, 0.18)',
+    glassHighlight: 'rgba(255, 255, 255, 0.22)',
+    glassShadow: 'rgba(0, 0, 0, 0.40)',
     glassFg: '#F2F2F4',
   },
   blur: {
-    intensity: 45,
+    intensity: 85,
     tint: 'dark',
   },
   radius: lightGlass.radius,

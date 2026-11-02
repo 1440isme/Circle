@@ -109,13 +109,13 @@ export const EventLocationDisplay: React.FC<EventLocationDisplayProps> = ({
   if (parsed.type === 'meet') {
     return (
       <div className={`flex items-center gap-1.5 min-w-0 ${className}`}>
-        <Video className={`${iconClassName} text-blue-500`} />
+        <Video className={`${iconClassName} text-circle-primary`} />
         <a
           href={parsed.url}
           target="_blank"
           rel="noopener noreferrer"
           onClick={(e) => e.stopPropagation()}
-          className="truncate font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:underline inline-flex items-center gap-1"
+          className="truncate font-semibold text-circle-primary hover:text-emerald-700 dark:hover:text-emerald-300 hover:underline inline-flex items-center gap-1"
           title={`Mở cuộc họp: ${parsed.url}`}
         >
           <span className="truncate">{parsed.text}</span>
@@ -153,7 +153,7 @@ export const EventLocationDisplay: React.FC<EventLocationDisplayProps> = ({
     return (
       <div className={`flex items-center gap-1.5 min-w-0 ${className}`}>
         {isMeetCategory ? (
-          <Video className={`${iconClassName} text-blue-500`} />
+          <Video className={`${iconClassName} text-circle-primary`} />
         ) : (
           <MapPin
             className={`${iconClassName} ${
@@ -168,7 +168,7 @@ export const EventLocationDisplay: React.FC<EventLocationDisplayProps> = ({
           onClick={(e) => e.stopPropagation()}
           className={`truncate font-semibold hover:underline inline-flex items-center gap-1 transition-colors ${
             isMeetCategory
-              ? 'text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300'
+              ? 'text-circle-primary hover:text-emerald-700 dark:hover:text-emerald-300'
               : isMapCategory
               ? 'text-circle-charcoal dark:text-circle-dark-text hover:text-rose-600 dark:hover:text-rose-400'
               : 'text-circle-sage dark:text-circle-primary hover:text-emerald-700 dark:hover:text-emerald-300'

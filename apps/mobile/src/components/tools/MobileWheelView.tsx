@@ -11,6 +11,7 @@ import {
   Alert,
   Animated,
   Easing,
+  Platform,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import {
@@ -169,24 +170,9 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
 
   return (
     <View style={[styles.container, { backgroundColor: colors.canvas }]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.screenTitle}>Vòng Xoay May Mắn</Text>
-          <Text style={styles.screenSub}>Chọn ngẫu nhiên công bằng và thú vị</Text>
-        </View>
-
-        <TouchableOpacity
-          style={styles.createBtn}
-          onPress={() => setIsCreateModalOpen(true)}
-        >
-          <Plus size={14} color="#FFFFFF" />
-          <Text style={styles.createBtnText}>Tạo mới</Text>
-        </TouchableOpacity>
-      </View>
-
+      {/* Scroll-under Content Layer */}
       {isLoading ? (
-        <ActivityIndicator size="large" color="#475569" style={{ marginTop: 40 }} />
+        <ActivityIndicator size="large" color="#475569" style={{ marginTop: 120 }} />
       ) : selectedWheel ? (
         <ScrollView contentContainerStyle={styles.content}>
           {/* Wheel Disc Card */}
@@ -300,6 +286,22 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
           </TouchableOpacity>
         </View>
       )}
+
+      {/* Floating Action Button (FAB) */}
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={() => setIsCreateModalOpen(true)}
+        style={[
+          styles.fab,
+          {
+            backgroundColor: colors.primary,
+            shadowColor: colors.primary,
+          },
+        ]}
+      >
+        <Plus size={18} color="#FFF" />
+        <Text style={styles.fabText}>Tạo mới</Text>
+      </TouchableOpacity>
 
       {/* Create Modal */}
       <Modal visible={isCreateModalOpen} transparent animationType="slide">
@@ -417,8 +419,31 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
     fontWeight: '600',
   },
   content: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'ios' ? 74 : 64,
+    paddingBottom: 100,
     gap: 16,
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 24,
+    right: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: 999,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
+    zIndex: 20,
+  },
+  fabText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFF',
   },
   wheelCard: {
     backgroundColor: colors.surface,

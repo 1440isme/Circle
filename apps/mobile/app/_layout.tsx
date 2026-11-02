@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   Platform,
 } from 'react-native';
-import { Slot, useRouter, useSegments } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -69,12 +69,13 @@ function RootNavigator() {
     if (isLoading || isBiometricLocked) return;
 
     const inAuthGroup = segments[0] === '(auth)';
+    const isRoot = !segments[0] || (segments[0] as string) === 'index';
 
     if (!isAuthenticated && !inAuthGroup) {
       // Redirect to login if user is not authenticated and not in auth screens
       router.replace('/(auth)/login');
-    } else if (isAuthenticated && inAuthGroup) {
-      // Redirect to main tabs if authenticated and currently in auth screens
+    } else if (isAuthenticated && (inAuthGroup || isRoot)) {
+      // Redirect to main tabs if authenticated and currently in auth screens or at root
       router.replace('/(tabs)');
     }
   }, [isAuthenticated, isLoading, isBiometricLocked, segments, router]);
@@ -153,7 +154,17 @@ function RootNavigator() {
   return (
     <>
       <StatusBar style={resolvedTheme === 'dark' ? 'light' : 'dark'} />
-      <Slot />
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: colors.canvas },
+        }}
+      >
+        <Stack.Screen name="index" />
+        <Stack.Screen name="(auth)" />
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="circle/[id]" />
+      </Stack>
     </>
   );
 }

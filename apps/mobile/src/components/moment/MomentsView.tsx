@@ -909,7 +909,7 @@ export function MomentsView({
     cornerIndex: number;
     caption?: string | null;
   } | null>(null);
-  const compositeCaptureViewRef = useRef<View>(null);
+  const compositeCaptureViewRef = useRef<React.ElementRef<typeof View>>(null);
   const compositeMainLoadedRef = useRef(false);
   const compositePipLoadedRef = useRef(false);
   const compositeResolveRef = useRef<(() => void) | null>(null);
@@ -1986,14 +1986,14 @@ export function MomentsView({
       if (compositeCaptureViewRef.current) {
         let capturedUri: string;
         try {
-          capturedUri = await captureRef(compositeCaptureViewRef.current, {
+          capturedUri = await captureRef(compositeCaptureViewRef.current as any, {
             format: 'jpg',
             quality: 0.96,
             result: 'tmpfile',
             useRenderInContext: true,
           });
         } catch {
-          capturedUri = await captureRef(compositeCaptureViewRef.current, {
+          capturedUri = await captureRef(compositeCaptureViewRef.current as any, {
             format: 'jpg',
             quality: 0.96,
             result: 'tmpfile',

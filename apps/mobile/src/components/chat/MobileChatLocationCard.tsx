@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Linking,
   Image,
+  Platform,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { MapPin, Navigation, ExternalLink } from 'lucide-react-native';
@@ -49,139 +50,92 @@ export const MobileChatLocationCard: React.FC<MobileChatLocationCardProps> = ({
   const subtleColor = isSenderMe ? (senderTextColor || '#FFFFFF') : colors.subtle;
 
   const mapboxStyle = isDark ? 'dark-v11' : 'streets-v12';
-  const staticMapUrl = `https://api.mapbox.com/styles/v1/mapbox/${mapboxStyle}/static/pin-s-heart+2563eb(${lng},${lat})/${lng},${lat},14,0/400x180@2x?access_token=${MAPBOX_TOKEN}`;
+  const staticMapUrl = `https://api.mapbox.com/styles/v1/mapbox/${mapboxStyle}/static/pin-s-heart+10b981(${lng},${lat})/${lng},${lat},14,0/400x180@2x?access_token=${MAPBOX_TOKEN}`;
 
   return (
-    <View style={styles.container}>
-      {/* Header Info */}
-      <View style={styles.headerRow}>
-        <View
-          style={[
-            styles.iconBox,
-            {
-              backgroundColor: isSenderMe ? 'rgba(0,0,0,0.15)' : 'rgba(56, 189, 248, 0.15)',
-            },
-          ]}
-        >
-          <MapPin size={16} color={isSenderMe ? textColor : '#0284C7'} />
+    <TouchableOpacity
+      activeOpacity={0.9}
+      onPress={handleOpenMaps}
+      style={[styles.mapPreviewBox, { backgroundColor: '#0F172A' }]}
+    >
+      {!imageError ? (
+        <Image
+          source={{ uri: staticMapUrl }}
+          style={StyleSheet.absoluteFill}
+          onError={() => setImageError(true)}
+          resizeMode="cover"
+        />
+      ) : (
+        <View style={styles.pinCenterWrap}>
+          <View style={[styles.pinBubble, { backgroundColor: colors.primary, shadowColor: colors.primary }]}>
+            <Navigation size={15} color="#0F172A" style={{ transform: [{ rotate: '45deg' }] }} />
+          </View>
+          <View style={[styles.coordPill, { borderColor: `${colors.primary}40` }]}>
+            <Text style={[styles.coordText, { color: colors.primary }]}>
+              {lat.toFixed(4)}, {lng.toFixed(4)}
+            </Text>
+          </View>
         </View>
-        <View style={styles.headerTextWrap}>
-          <Text numberOfLines={1} style={[styles.titleText, { color: textColor }]}>
-            {displayTitle}
-          </Text>
-          <Text numberOfLines={1} style={[styles.addressText, { color: subtleColor, opacity: 0.85 }]}>
+      )}
+
+      {/* Floating Bottom Info Overlay */}
+      <View style={styles.mapBottomOverlay}>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <MapPin size={12} color={colors.primary} />
+            <Text numberOfLines={1} style={styles.overlayTitleText}>
+              {displayTitle}
+            </Text>
+          </View>
+          <Text numberOfLines={1} style={styles.overlayAddressText}>
             {displayAddress}
           </Text>
         </View>
+        <Text style={styles.mapboxBadgeText}>Mapbox</Text>
       </View>
-
-      {/* Styled Mapbox Preview Canvas */}
-      <TouchableOpacity
-        activeOpacity={0.9}
-        onPress={handleOpenMaps}
-        style={[styles.mapPreviewBox, { backgroundColor: '#0F172A' }]}
-      >
-        {!imageError ? (
-          <Image
-            source={{ uri: staticMapUrl }}
-            style={styles.mapImage}
-            onError={() => setImageError(true)}
-            resizeMode="cover"
-          />
-        ) : (
-          <View style={styles.pinCenterWrap}>
-            <View style={styles.pinBubble}>
-              <Navigation size={15} color="#0F172A" style={{ transform: [{ rotate: '45deg' }] }} />
-            </View>
-            <View style={styles.coordPill}>
-              <Text style={styles.coordText}>
-                {lat.toFixed(4)}, {lng.toFixed(4)}
-              </Text>
-            </View>
-          </View>
-        )}
-        <View style={styles.mapboxBadge}>
-          <Text style={styles.mapboxBadgeText}>Mapbox</Text>
-        </View>
-      </TouchableOpacity>
-
-      {/* Action Button: Open in Maps */}
-      <View style={styles.actionRow}>
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={handleOpenMaps}
-          style={[
-            styles.openMapsBtn,
-            {
-              backgroundColor: isSenderMe ? 'rgba(255,255,255,0.2)' : '#0284C7',
-            },
-          ]}
-        >
-          <ExternalLink size={12} color="#FFFFFF" />
-          <Text style={styles.openMapsBtnText}>
-            {t.collab?.openInGoogleMaps || 'Mở chỉ đường Google Maps'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+    </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    minWidth: 220,
-    maxWidth: 280,
-    paddingVertical: 2,
-    gap: 8,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  iconBox: {
-    width: 32,
-    height: 32,
-    borderRadius: 9,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTextWrap: {
-    flex: 1,
-  },
-  titleText: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  addressText: {
-    fontSize: 11,
-    marginTop: 1,
-  },
   mapPreviewBox: {
-    height: 100,
-    borderRadius: 10,
+    width: 260,
+    height: 130,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
     position: 'relative',
   },
-  mapImage: {
-    width: '100%',
-    height: '100%',
-  },
-  mapboxBadge: {
+  mapBottomOverlay: {
     position: 'absolute',
-    bottom: 4,
-    right: 4,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-    borderRadius: 4,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.72)',
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    gap: 6,
+  },
+  overlayTitleText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  overlayAddressText: {
+    fontSize: 10,
+    color: 'rgba(255, 255, 255, 0.8)',
+    paddingLeft: 16,
+    marginTop: 1,
   },
   mapboxBadgeText: {
-    color: '#FFFFFF',
+    color: 'rgba(255, 255, 255, 0.6)',
     fontSize: 8,
     fontWeight: '600',
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
   },
   pinCenterWrap: {
     alignItems: 'center',
@@ -190,10 +144,8 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#38BDF8',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#38BDF8',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.5,
     shadowRadius: 4,
@@ -206,28 +158,10 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     backgroundColor: 'rgba(0,0,0,0.6)',
     borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.3)',
   },
   coordText: {
-    color: '#BAE6FD',
     fontSize: 9,
-    fontFamily: 'monospace',
-    fontWeight: '700',
-  },
-  actionRow: {
-    alignItems: 'flex-end',
-  },
-  openMapsBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  openMapsBtnText: {
-    color: '#FFFFFF',
-    fontSize: 11,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
     fontWeight: '700',
   },
 });

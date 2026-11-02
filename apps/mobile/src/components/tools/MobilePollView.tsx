@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Modal,
   Alert,
+  Platform,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import {
@@ -28,6 +29,7 @@ import {
   closePollApi,
   deletePollApi,
 } from '../../services/circle-tools.service';
+import { getMobileSocket } from '../../services/socket';
 import { GroupPollEntity } from '@circle/types';
 import { useThemeStore } from '../../stores/theme.store';
 
@@ -59,7 +61,32 @@ export const MobilePollView: React.FC<MobilePollViewProps> = ({ circleId }) => {
   };
 
   useEffect(() => {
+    let isMounted = true;
+    let sockInstance: any = null;
+
     loadPolls();
+
+    getMobileSocket().then((sock) => {
+      if (!isMounted || !sock) return;
+      sockInstance = sock;
+
+      const refresh = () => {
+        if (isMounted) loadPolls();
+      };
+
+      sock.on('circle:poll-created', refresh);
+      sock.on('circle:poll-voted', refresh);
+      sock.on('circle:poll-closed', refresh);
+    });
+
+    return () => {
+      isMounted = false;
+      if (sockInstance) {
+        sockInstance.off('circle:poll-created');
+        sockInstance.off('circle:poll-voted');
+        sockInstance.off('circle:poll-closed');
+      }
+    };
   }, [circleId]);
 
   const handleAddOptionField = () => {
@@ -151,31 +178,13 @@ export const MobilePollView: React.FC<MobilePollViewProps> = ({ circleId }) => {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.canvas }]}>
-      {/* Header */}
-      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.hairline }]}>
-        <View style={styles.headerTextGroup}>
-          <Text style={[styles.title, { color: colors.text }]}>Bình chọn nhóm</Text>
-          <Text style={[styles.subtitle, { color: colors.subtle }]}>
-            Thăm dò ý kiến và biểu quyết tập thể
-          </Text>
-        </View>
-
-        <TouchableOpacity
-          onPress={() => setIsCreateModalOpen(true)}
-          style={[styles.createButton, { backgroundColor: colors.primary }]}
-        >
-          <Plus size={16} color="#FFF" />
-          <Text style={styles.createButtonText}>Tạo poll</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Polls List */}
+      {/* Polls List (Floating glass controls with scroll-under content) */}
       {isLoading ? (
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : polls.length === 0 ? (
-        <View style={styles.emptyContainer}>
+        <View style={[styles.emptyContainer, { paddingTop: Platform.OS === 'ios' ? 80 : 70 }]}>
           <Vote size={48} color={colors.subtle} />
           <Text style={[styles.emptyTitle, { color: colors.text }]}>Chưa có cuộc bình chọn nào</Text>
           <Text style={[styles.emptySubtitle, { color: colors.subtle }]}>
@@ -310,6 +319,22 @@ export const MobilePollView: React.FC<MobilePollViewProps> = ({ circleId }) => {
           })}
         </ScrollView>
       )}
+
+      {/* Floating Action Button (FAB) */}
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={() => setIsCreateModalOpen(true)}
+        style={[
+          styles.fab,
+          {
+            backgroundColor: colors.primary,
+            shadowColor: colors.primary,
+          },
+        ]}
+      >
+        <Plus size={18} color="#FFF" />
+        <Text style={styles.fabText}>Tạo poll</Text>
+      </TouchableOpacity>
 
       {/* Modal: Create Poll */}
       <Modal
@@ -466,8 +491,31 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   listContent: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'ios' ? 74 : 64,
+    paddingBottom: 100,
     gap: 12,
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 24,
+    right: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: 999,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
+    zIndex: 20,
+  },
+  fabText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFF',
   },
   pollCard: {
     backgroundColor: '#FFF',

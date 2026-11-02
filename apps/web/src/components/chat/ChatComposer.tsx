@@ -416,21 +416,22 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
   };
 
   return (
-    <div className="sticky bottom-0 z-20 shrink-0 bg-white dark:bg-circle-dark-surface p-3 transition-colors">
-      {/* Hidden file inputs */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        className="hidden"
-        onChange={(e) => handleFileChange(e, false)}
-      />
-      <input
-        ref={imageInputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={(e) => handleFileChange(e, true)}
-      />
+    <div className="pointer-events-none absolute bottom-0 left-0 right-0 z-20 p-3 sm:pb-4 flex flex-col items-center bg-gradient-to-t from-white/98 dark:from-circle-dark-surface/98 via-white/80 dark:via-circle-dark-surface/80 to-transparent backdrop-blur-[2px] transition-colors">
+      <div className="pointer-events-auto w-full max-w-3xl flex flex-col gap-2">
+        {/* Hidden file inputs */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          className="hidden"
+          onChange={(e) => handleFileChange(e, false)}
+        />
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => handleFileChange(e, true)}
+        />
 
       {/* Reply Quote Banner */}
       {replyingMessage && (
@@ -550,7 +551,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
         <div
           className={`flex-1 flex items-center gap-2 rounded-full border px-3 py-1.5 min-h-[48px] transition-all ${
             isGlass
-              ? 'backdrop-blur-md bg-white/80 dark:bg-circle-dark-surface/80 border-white/60 dark:border-white/10 shadow-xs'
+              ? 'backdrop-blur-xl bg-white/95 dark:bg-circle-dark-surface/94 border-circle-hairline dark:border-white/15 shadow-sm'
               : 'bg-white dark:bg-circle-dark-surface border-circle-hairline dark:border-circle-dark-hairline shadow-2xs'
           }`}
         >
@@ -697,6 +698,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
           onPollCreated={handlePollCreated}
         />
       )}
+      </div>
     </div>
   );
 };
