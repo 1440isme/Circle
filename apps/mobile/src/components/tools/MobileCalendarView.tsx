@@ -610,6 +610,7 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CalendarEventEntity | null>(null);
   const [detailEvent, setDetailEvent] = useState<CalendarEventEntity | null>(null);
+  const [detailOccurrenceDate, setDetailOccurrenceDate] = useState<Date | null>(null);
   const [isYearView, setIsYearView] = useState(false);
   const [calendarTab, setCalendarTab] = useState<'month' | 'upcoming'>('month');
   const [isSharingToChat, setIsSharingToChat] = useState<string | null>(null);
@@ -2734,8 +2735,20 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
     const callUrl = isCall ? extractLocationUrl(detailEvent.location) : null;
     const isPhysicalLoc = Boolean(detailEvent.location && !isCall);
 
+    const currentOccDate = detailOccurrenceDate || selectedDate || new Date(detailEvent.startTime);
     const startDateObj = new Date(detailEvent.startTime);
     const endDateObj = detailEvent.endTime ? new Date(detailEvent.endTime) : null;
+
+    // Tính ngày kết thúc của lần diễn ra này (occurrence end date)
+    const occEndDate = (() => {
+      if (!endDateObj) return currentOccDate;
+      const startBaseDay = new Date(startDateObj.getFullYear(), startDateObj.getMonth(), startDateObj.getDate()).getTime();
+      const endBaseDay = new Date(endDateObj.getFullYear(), endDateObj.getMonth(), endDateObj.getDate()).getTime();
+      const dayOffset = Math.round((endBaseDay - startBaseDay) / (24 * 60 * 60 * 1000));
+      const res = new Date(currentOccDate);
+      res.setDate(res.getDate() + dayOffset);
+      return res;
+    })();
 
     // Recurrence summary (Luôn có chữ 'Lặp lại', ví dụ: 'Lặp lại hằng ngày', 'Lặp lại hằng tuần'...)
     let repeatSummary = 'Không lặp lại';
@@ -2781,9 +2794,31 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
     const totalRsvps = yesRsvps.length + maybeRsvps.length + noRsvps.length;
     const myRsvp = detailEvent.rsvps?.find((r) => r.userId === user?.id)?.status;
     const now = new Date();
-    const isEnded = endDateObj ? now > endDateObj : now > startDateObj;
+    const occStartDateTime = new Date(
+      currentOccDate.getFullYear(),
+      currentOccDate.getMonth(),
+      currentOccDate.getDate(),
+      startDateObj.getHours(),
+      startDateObj.getMinutes(),
+      0,
+    );
+    let occEndDateTime: Date;
+    if (endDateObj) {
+      const durationMs = Math.max(0, endDateObj.getTime() - startDateObj.getTime());
+      occEndDateTime = new Date(occStartDateTime.getTime() + durationMs);
+    } else {
+      occEndDateTime = new Date(
+        currentOccDate.getFullYear(),
+        currentOccDate.getMonth(),
+        currentOccDate.getDate(),
+        23,
+        59,
+        59,
+      );
+    }
+    const isEnded = now.getTime() > occEndDateTime.getTime();
     const isPollClosed = Boolean(detailEvent.isCancelled) || isEnded;
-    const isHappeningNow = !isPollClosed && now >= startDateObj;
+    const isHappeningNow = !isPollClosed && now.getTime() >= occStartDateTime.getTime();
 
     const activeReminderOptionValue = (() => {
       if (!detailEvent?.reminderTime) return 'none';
@@ -2796,10 +2831,10 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
     })();
 
     const handleJumpOccurrence = (direction: 'next' | 'prev') => {
-      const curDate = new Date(detailEvent.startTime);
-      const targetD = getNextOrPrevOccurrence(curDate, recurrenceConfig, direction);
+      const baseDate = currentOccDate;
+      const targetD = getNextOrPrevOccurrence(baseDate, recurrenceConfig, direction);
       setIsRecurrenceNavModalOpen(false);
-      setDetailEvent(null);
+      setDetailOccurrenceDate(targetD);
       setSelectedDate(targetD);
       setCurrentDate(new Date(targetD.getFullYear(), targetD.getMonth(), 1));
       setTimeout(() => {
@@ -2904,7 +2939,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                     {startDateObj.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
                   </Text>
                   <Text style={styles.detailCleanTimeDate}>
-                    {startDateObj.toLocaleDateString('vi-VN', {
+                    {currentOccDate.toLocaleDateString('vi-VN', {
                       weekday: 'short',
                       day: '2-digit',
                       month: '2-digit',
@@ -2922,7 +2957,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                         {endDateObj.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
                       </Text>
                       <Text style={styles.detailCleanTimeDate}>
-                        {endDateObj.toLocaleDateString('vi-VN', {
+                        {occEndDate.toLocaleDateString('vi-VN', {
                           weekday: 'short',
                           day: '2-digit',
                           month: '2-digit',
@@ -3094,12 +3129,13 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
             activeOpacity={0.7}
             onPress={() => {
               setDetailEvent(null);
+              setDetailOccurrenceDate(null);
               Haptics.selectionAsync();
             }}
           >
             <ChevronLeft size={19} color="#0D9488" />
             <Text style={styles.detailFloatingPillText}>
-              {formatDateOnly(startDateObj)}
+              {formatDateOnly(currentOccDate)}
             </Text>
           </TouchableOpacity>
 
@@ -3838,7 +3874,13 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
       </View>
 
       {calendarTab === 'upcoming' ? (
-        <MobileUpcomingEventsFeed circleId={circleId} onSelectEvent={(ev) => setDetailEvent(ev)} />
+        <MobileUpcomingEventsFeed
+          circleId={circleId}
+          onSelectEvent={(ev) => {
+            setDetailOccurrenceDate(new Date(ev.startTime));
+            setDetailEvent(ev);
+          }}
+        />
       ) : (
         <>
           {/* PHẦN 1: LỊCH Ở TRÊN (Lướt theo từng tháng, snap chuẩn xác từng tháng) */}
@@ -3983,6 +4025,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                   activeOpacity={0.7}
                   onPress={() => {
                     Haptics.selectionAsync();
+                    setDetailOccurrenceDate(new Date(selectedDate));
                     setDetailEvent(ev);
                   }}
                 >

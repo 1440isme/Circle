@@ -5425,3 +5425,36 @@
 - **Security & License Check:** Bảo đảm 100% không còn lộ email trên giao diện người dùng, tuân thủ quy tắc bảo mật dữ liệu riêng tư.
 - **Branch:** `feat/120-event-rsvp-and-realtime-delights`
 - **Commit:** `dab3c7a` (đã push lên origin)
+
+
+---
+
+## AI-0147: Khắc Phục Điều Hướng Lặp Lại Theo Occurrence, Đồng Bộ BTN Ngày Tháng Năm & Mở Rộng Trạng Thái Poll Đến Khi Kết Thúc (#120)
+
+- **Date:** 2026-11-03 02:09:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh (MSSV: 23110210) & Trương Công Bình (MSSV: 23110184)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash
+- **Related Issue:** #120
+- **Purpose:** Khắc phục triệt để 3 vấn đề do người dùng phản hồi:
+  1. Điều hướng lần diễn ra lặp lại: Lưu giữ và tính toán theo `detailOccurrenceDate` (thay vì ngày khởi tạo sự kiện), giữ màn hình chi tiết mở và lập tức cập nhật giao diện sang lần diễn ra tiếp theo/trước đó.
+  2. Nút Floating Pill ngày tháng năm (BTN góc trái) & Hàng thời gian diễn ra: Hiển thị đúng chính xác ngày của lần diễn ra công việc/sự kiện đang xem (`formatDateOnly(currentOccDate)`), không bị hiển thị ngày khởi tạo sự kiện trong quá khứ.
+  3. Trạng thái nút Tham gia bình chọn & Modal Poll: Poll chỉ đóng khi sự kiện thực sự đã KẾT THÚC (`isEnded` sau khi `occEndDateTime` đã qua) hoặc bị hủy; Trong suốt quá trình mới tạo, trước và đang diễn ra sự kiện, poll luôn mở (`isPollClosed = false`), chấm xanh ngọc, cho phép người dùng tự do bình chọn hoặc đổi lựa chọn (Tham gia, Chưa chắc, Bận). Đồng thời loại bỏ việc tự động ép RSVP YES cho người tạo khi vừa khởi tạo sự kiện trên backend.
+- **Prompt Summary:** Khắc phục ấn vào chu kỳ chưa chuyển ngày tiếp theo, BTN ngày tháng năm hiển thị đúng ngày của công việc, và nút bình chọn chỉ đóng khi kết thúc, hỗ trợ mới tạo hay bình chọn mỗi sự kiện một kiểu tự do.
+- **Files Affected:**
+  - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
+  - `apps/mobile/src/components/tools/MobileCalendarView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:**
+  - Thêm state `detailOccurrenceDate` trong `MobileCalendarView.tsx`, đồng bộ khi chọn sự kiện từ lưới ngày hoặc danh sách sự kiện sắp tới.
+  - Sửa `handleJumpOccurrence` tính toán target occurrence dựa trên `currentOccDate`, cập nhật `detailOccurrenceDate` và `selectedDate`, giữ màn hình chi tiết hiển thị dữ liệu mới của ngày tiếp theo/trước đó.
+  - Hiển thị ngày bắt đầu/kết thúc trên Thẻ 1 và BTN góc trái theo `currentOccDate` và `occEndDate`.
+  - Cập nhật cách tính `isEnded` theo `occEndDateTime` (kết thúc sự kiện hoặc 23:59:59 của ngày diễn ra), bảo đảm không đóng nhầm khi mới tạo hoặc đang diễn ra.
+  - Trong `circle-tools.service.ts`: bỏ auto-insert `status: 'YES'` khi tạo sự kiện; sửa `respondEventRsvp` chỉ chặn khi sự kiện không lặp và đã kết thúc.
+- **Human Modifications:** Người dùng phản ánh trải nghiệm thực tế khi bấm nhảy ngày không cập nhật và nút poll bị đóng nhầm do kiểm tra thời gian bắt đầu.
+- **Verification Method:**
+  - Backend Unit Tests: `npm test -- apps/backend/src/modules/circle-tools/circle-tools.service.spec.ts` (34/34 tests pass 100%).
+  - Mobile TypeScript: `npx tsc --noEmit -p apps/mobile/tsconfig.json` (0 errors).
+- **Official Source Checked:** Playbook 05, PROJECT_GOD §2.2, §11 (DoD).
+- **Security & License Check:** Bảo đảm logic chuẩn xác, không lộ credential.
+- **Branch:** `feat/120-event-rsvp-and-realtime-delights`

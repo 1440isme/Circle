@@ -684,12 +684,6 @@ export class CircleToolsService {
         startTime: start,
         endTime: end,
         reminderTime: dto.reminderTime ? new Date(dto.reminderTime) : null,
-        rsvps: {
-          create: {
-            userId,
-            status: 'YES',
-          },
-        },
       },
       include: {
         creator: {
@@ -935,9 +929,18 @@ export class CircleToolsService {
       throw new NotFoundException('Không tìm thấy sự kiện');
     }
 
-    if (new Date(event.startTime) <= new Date()) {
+    const isRecurring = Boolean(
+      event.description &&
+        (event.description.includes('[RECURRENCE:') ||
+          event.description.includes('[Lặp lại:')),
+    );
+    const effectiveEnd = event.endTime
+      ? new Date(event.endTime)
+      : new Date(new Date(event.startTime).getTime() + 60 * 60 * 1000);
+
+    if (!isRecurring && effectiveEnd <= new Date()) {
       throw new BadRequestException(
-        'Sự kiện đang diễn ra hoặc đã kết thúc, không thể bình chọn tham gia nữa',
+        'Sự kiện đã kết thúc, không thể bình chọn tham gia nữa',
       );
     }
 
@@ -1144,20 +1147,12 @@ export class CircleToolsService {
           ? this.computeRsvpBreakdown(event.rsvps)
           : undefined;
 
-      // Always guarantee creator RSVP is included from the very beginning
-      if (!rsvpsData || rsvpsData.userRsvps.length === 0) {
+      if (!rsvpsData) {
         rsvpsData = {
-          yesCount: 1,
+          yesCount: 0,
           noCount: 0,
           maybeCount: 0,
-          userRsvps: [
-            {
-              userId: member.userId,
-              status: 'YES' as any,
-              displayName: creatorName,
-              avatarUrl: member.user?.profile?.avatarUrl || null,
-            },
-          ],
+          userRsvps: [],
         };
       }
 
