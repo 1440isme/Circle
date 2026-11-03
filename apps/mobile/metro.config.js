@@ -1,5 +1,6 @@
 const { getDefaultConfig } = require('expo/metro-config');
 const path = require('path');
+const fs = require('fs');
 
 // Find the project and workspace directories
 const projectRoot = __dirname;
@@ -27,38 +28,44 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
       moduleName === 'react-native/Libraries/Image/AssetRegistry.js') &&
     !context.originModulePath?.replace(/\\/g, '/').includes('src/shims/asset-registry')
   ) {
-    try {
-      const target = path.resolve(projectRoot, 'src/shims/asset-registry.js');
+    const target = path.resolve(projectRoot, 'src/shims/asset-registry.js');
+    if (fs.existsSync(target)) {
       return {
         filePath: target,
         type: 'sourceFile',
       };
-    } catch {
-      // Fallback
     }
   }
 
   if (moduleName === 'react-native/unstable-internals-do-not-use') {
-    try {
-      const target = path.resolve(monorepoRoot, 'node_modules/react-native/unstable-internals-do-not-use.js');
-      return {
-        filePath: target,
-        type: 'sourceFile',
-      };
-    } catch {
-      // Fallback
+    const candidatePaths = [
+      path.resolve(monorepoRoot, 'node_modules/react-native/src/unstable-internals-do-not-use.js'),
+      path.resolve(projectRoot, 'node_modules/react-native/src/unstable-internals-do-not-use.js'),
+      path.resolve(monorepoRoot, 'node_modules/react-native/unstable-internals-do-not-use.js'),
+    ];
+    for (const p of candidatePaths) {
+      if (fs.existsSync(p)) {
+        return {
+          filePath: p,
+          type: 'sourceFile',
+        };
+      }
     }
   }
 
   if (moduleName === 'react-native/setup-env') {
-    try {
-      const target = path.resolve(monorepoRoot, 'node_modules/react-native/Libraries/Core/InitializeCore.js');
-      return {
-        filePath: target,
-        type: 'sourceFile',
-      };
-    } catch {
-      // Fallback
+    const candidatePaths = [
+      path.resolve(monorepoRoot, 'node_modules/react-native/src/setup-env.js'),
+      path.resolve(projectRoot, 'node_modules/react-native/src/setup-env.js'),
+      path.resolve(monorepoRoot, 'node_modules/react-native/Libraries/Core/InitializeCore.js'),
+    ];
+    for (const p of candidatePaths) {
+      if (fs.existsSync(p)) {
+        return {
+          filePath: p,
+          type: 'sourceFile',
+        };
+      }
     }
   }
 
