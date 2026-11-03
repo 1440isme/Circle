@@ -5534,3 +5534,34 @@
 - **AI Errors / Hallucinations Found:** Không.
 - **Commit:** Pending
 - **PR:** Pending
+
+## AI-0150: Đồng Bộ Giao Diện & Tính Năng Tạo Sự Kiện Lịch Hẹn Trên Web Chuẩn Apple HIG Đạt Parity Với Mobile (#120)
+
+- **Date:** 2026-11-03 23:55:00 +07:00
+- **Developer:** Trương Công Bình (MSSV: 23110184) & Ninh Thị Mỹ Hạnh (MSSV: 23110210)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash
+- **Related Issue:** #120
+- **Purpose:** Tái cấu trúc toàn diện modal tạo/chỉnh sửa sự kiện trên Web (`CircleCalendarView.tsx`) đồng bộ 100% với phiên bản Mobile: thiết kế theo chuẩn Apple HIG 4 thẻ nhóm bo cong, tích hợp đầy đủ bộ cấu hình lặp lại (chu kỳ, khoảng cách lặp, ngày trong tuần, quy tắc tháng/năm), bộ chọn ngày/giờ inline tương tác mượt mà, và xử lý độc lập các scope lưu/hủy/xóa sự kiện lặp lại.
+- **Prompt Summary:** Sửa lại tạo sự kiện của web giống cách trình bày và các trường giống mobile.
+- **Files Affected:**
+  - `apps/web/src/components/tools/CircleCalendarView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:**
+  - Chuyển đổi giao diện modal sang dạng Apple Navigation Bar chuẩn mực ("Hủy" bên trái, Tiêu đề căn giữa, nút "Thêm/Lưu" dạng pill bên phải).
+  - Phân bổ 4 nhóm thẻ thông tin có đường viền hairline:
+    - Card 1: Tiêu đề không viền & Vị trí/cuộc gọi video tích hợp icon MapPin, nút xóa nhanh, cùng danh sách gợi ý địa điểm từ bản đồ.
+    - Card 2: Hàng Bắt đầu và Kết thúc hiển thị các pill Ngày và Giờ riêng biệt; khi nhấn sẽ trượt mở bộ chọn lịch (Calendar Grid) hoặc bộ chọn giờ (24h/phút) inline ngay dưới hàng.
+    - Card 3: Cấu hình lặp lại hiển thị tóm tắt trực quan kèm mũi tên, mở popup chọn chu kỳ nhanh hoặc mở toàn bộ màn hình "Tùy chỉnh" (Custom Recurrence); hỗ trợ cấu hình kết thúc lặp bằng pill ngày inline.
+    - Card 4: Nhắc nhở trước với popup danh sách tùy chọn và trường Ghi chú dạng textarea tinh tế.
+  - Tích hợp toàn diện logic tính toán chu kỳ lặp lại `isEventOccurringOnDate` vào lưới tháng của Web (`eventsByDay`) và kiểm tra cờ hủy `isEventCancelledOnDate` trên từng lần diễn ra.
+  - Tích hợp hộp thoại xác nhận phạm vi lưu thay đổi (Chỉ lần này / Lần này và các lần tiếp theo / Tất cả các lần) khi chỉnh sửa sự kiện lặp lại.
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+  - Chạy `npx tsc --noEmit -p apps/web/tsconfig.json` đạt 0 lỗi.
+  - Chạy `npm run build --workspace=@circle/web` xác nhận Next.js 14 production build hoàn toàn thành công.
+- **Official Source Checked:** Apple Human Interface Guidelines (Calendar Event Form layout & presentation).
+- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc không để lộ email.
+- **AI Errors / Hallucinations Found:** Không.
+- **Commit:** Pending
+- **PR:** Pending
