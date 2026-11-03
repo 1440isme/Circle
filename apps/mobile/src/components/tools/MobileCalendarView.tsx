@@ -110,6 +110,8 @@ export interface RecurrenceConfig {
   endType: RecurrenceEndType;
   endDate: Date | null;
   isCustom?: boolean;
+  excludedDates?: string[]; // Danh sách 'YYYY-MM-DD' các lần diễn ra đã bị xóa riêng
+  cancelledDates?: string[]; // Danh sách 'YYYY-MM-DD' các lần diễn ra đã bị hủy riêng
 }
 
 export const WEEKDAY_INFO: Record<number, { full: string; short: string }> = {
@@ -311,7 +313,41 @@ const REMINDER_OPTIONS = [
 
 
 
-export function getNextOrPrevOccurrence(
+export const formatDateKey = (d: Date): string => {
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+};
+
+export function serializeRecurrence(config: RecurrenceConfig, baseDesc?: string): string {
+  const repeatSummary = formatRecurrenceSummary(config);
+  const serialized = JSON.stringify({
+    frequency: config.frequency,
+    interval: config.interval,
+    weeklyDays: config.weeklyDays,
+    monthlyType: config.monthlyType,
+    monthlyDay: config.monthlyDay,
+    monthlyNthOrder: config.monthlyNthOrder,
+    monthlyNthWeekday: config.monthlyNthWeekday,
+    yearlyType: config.yearlyType,
+    yearlyMonth: config.yearlyMonth,
+    yearlyDay: config.yearlyDay,
+    yearlyNthOrder: config.yearlyNthOrder,
+    yearlyNthWeekday: config.yearlyNthWeekday,
+    endType: config.endType,
+    endDate: config.endDate ? (config.endDate instanceof Date ? config.endDate.toISOString() : config.endDate) : null,
+    isCustom: Boolean(config.isCustom),
+    excludedDates: config.excludedDates || [],
+    cancelledDates: config.cancelledDates || [],
+  });
+  const recurrenceTag = `[RECURRENCE:${serialized}]`;
+  const userRepeatText = `[Lặp lại: ${repeatSummary}]`;
+  const clean = (baseDesc || '')
+    .replace(/\[RECURRENCE:[\s\S]*?\]/g, '')
+    .replace(/\[Lặp lại:[^\]]*?\]/g, '')
+    .trim();
+  return clean ? `${clean}\n${userRepeatText}\n${recurrenceTag}` : `${userRepeatText}\n${recurrenceTag}`;
+}
+
+function getNextOrPrevOccurrenceStep(
   currentDate: Date,
   config: RecurrenceConfig | null,
   direction: 'next' | 'prev',
@@ -378,6 +414,25 @@ export function getNextOrPrevOccurrence(
   return result;
 }
 
+export function getNextOrPrevOccurrence(
+  currentDate: Date,
+  config: RecurrenceConfig | null,
+  direction: 'next' | 'prev',
+): Date {
+  let iter = new Date(currentDate);
+  for (let step = 0; step < 100; step++) {
+    iter = getNextOrPrevOccurrenceStep(iter, config, direction);
+    if (!config?.excludedDates || config.excludedDates.length === 0) {
+      return iter;
+    }
+    const key = formatDateKey(iter);
+    if (!config.excludedDates.includes(key)) {
+      return iter;
+    }
+  }
+  return iter;
+}
+
 export function parseEventRecurrence(desc?: string | null): {
   cleanDesc: string;
   recurrenceConfig: RecurrenceConfig | null;
@@ -412,6 +467,8 @@ export function parseEventRecurrence(desc?: string | null): {
         endType: raw.endType || 'never',
         endDate: raw.endDate ? new Date(raw.endDate) : null,
         isCustom: Boolean(raw.isCustom),
+        excludedDates: Array.isArray(raw.excludedDates) ? raw.excludedDates : [],
+        cancelledDates: Array.isArray(raw.cancelledDates) ? raw.cancelledDates : [],
       };
       return { cleanDesc, recurrenceConfig: config };
     } catch {
@@ -468,6 +525,12 @@ export function isEventOccurringOnDate(ev: CalendarEventEntity, targetDate: Date
   }
 
   // Trường hợp lặp lại (Recurrence)
+  // 1. Kiểm tra nếu lần diễn ra này đã bị xóa riêng (excludedDates)
+  const targetDateKey = `${targetY}-${pad2(targetM + 1)}-${pad2(targetD)}`;
+  if (recurrenceConfig.excludedDates && recurrenceConfig.excludedDates.includes(targetDateKey)) {
+    return false;
+  }
+
   if (recurrenceConfig.endType === 'on_date' && recurrenceConfig.endDate) {
     const repeatEndDate = new Date(recurrenceConfig.endDate);
     const repeatEndDayTime = new Date(
@@ -544,6 +607,14 @@ export function isEventOccurringOnDate(ev: CalendarEventEntity, targetDate: Date
   }
 }
 
+export function isEventCancelledOnDate(ev: CalendarEventEntity, targetDate: Date): boolean {
+  if (ev.isCancelled) return true;
+  const { recurrenceConfig } = parseEventRecurrence(ev.description);
+  if (!recurrenceConfig) return false;
+  const targetDateKey = formatDateKey(targetDate);
+  return Boolean(recurrenceConfig.cancelledDates && recurrenceConfig.cancelledDates.includes(targetDateKey));
+}
+
 export function formatEventTimeForDate(ev: CalendarEventEntity, targetDate: Date): string {
   const evStart = new Date(ev.startTime);
   const evEnd = ev.endTime ? new Date(ev.endTime) : evStart;
@@ -611,6 +682,7 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
   const [editingEvent, setEditingEvent] = useState<CalendarEventEntity | null>(null);
   const [detailEvent, setDetailEvent] = useState<CalendarEventEntity | null>(null);
   const [detailOccurrenceDate, setDetailOccurrenceDate] = useState<Date | null>(null);
+  const [editingOccurrenceDate, setEditingOccurrenceDate] = useState<Date | null>(null);
   const [isYearView, setIsYearView] = useState(false);
   const [calendarTab, setCalendarTab] = useState<'month' | 'upcoming'>('month');
   const [isSharingToChat, setIsSharingToChat] = useState<string | null>(null);
@@ -653,9 +725,9 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
     return list;
   }, []);
 
-  const monthScrollRef = useRef<ScrollView>(null);
+  const monthScrollRef = useRef<any>(null);
   const yearLayoutsRef = useRef<Record<number, number>>({});
-  const yearScrollRef = useRef<ScrollView>(null);
+  const yearScrollRef = useRef<any>(null);
 
   const scrollToMonth = useCallback(
     (targetYear: number, targetMonth: number, animated = true) => {
@@ -980,20 +1052,33 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
     const validDesc = cleanDesc.trim().toLowerCase() === 'body' ? '' : cleanDesc;
     setDescription(validDesc);
 
+    const occD = detailOccurrenceDate || selectedDate || new Date(ev.startTime);
+    setEditingOccurrenceDate(occD);
+
     const evStart = new Date(ev.startTime);
-    setStartDate(evStart);
+    const occStart = new Date(
+      occD.getFullYear(),
+      occD.getMonth(),
+      occD.getDate(),
+      evStart.getHours(),
+      evStart.getMinutes(),
+      0,
+    );
+    setStartDate(occStart);
     setStartHour(evStart.getHours());
     setStartMinute(evStart.getMinutes());
 
     if (ev.endTime) {
       const evEnd = new Date(ev.endTime);
+      const durationMs = Math.max(0, evEnd.getTime() - evStart.getTime());
+      const occEnd = new Date(occStart.getTime() + durationMs);
       setHasEndTime(true);
-      setEndDate(evEnd);
-      setEndHour(evEnd.getHours());
-      setEndMinute(evEnd.getMinutes());
+      setEndDate(occEnd);
+      setEndHour(occEnd.getHours());
+      setEndMinute(occEnd.getMinutes());
     } else {
       setHasEndTime(false);
-      setEndDate(evStart);
+      setEndDate(occStart);
       setEndHour(23);
       setEndMinute(59);
     }
@@ -1030,7 +1115,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
     setIsAddModalOpen(true);
   };
 
-  const handleCreateOrUpdateEvent = async () => {
+  const handleCreateOrUpdateEvent = async (scope: 'this' | 'future' | 'all' = 'all') => {
     const validationError = validateForm();
     if (validationError) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -1051,41 +1136,103 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
 
       let fullDesc = description.trim() || (editingEvent ? '' : undefined);
       if (recurrenceConfig.frequency !== 'none') {
-        const repeatSummary = formatRecurrenceSummary(recurrenceConfig);
-        const serialized = JSON.stringify({
-          frequency: recurrenceConfig.frequency,
-          interval: recurrenceConfig.interval,
-          weeklyDays: recurrenceConfig.weeklyDays,
-          monthlyType: recurrenceConfig.monthlyType,
-          monthlyDay: recurrenceConfig.monthlyDay,
-          monthlyNthOrder: recurrenceConfig.monthlyNthOrder,
-          monthlyNthWeekday: recurrenceConfig.monthlyNthWeekday,
-          yearlyType: recurrenceConfig.yearlyType,
-          yearlyMonth: recurrenceConfig.yearlyMonth,
-          yearlyDay: recurrenceConfig.yearlyDay,
-          yearlyNthOrder: recurrenceConfig.yearlyNthOrder,
-          yearlyNthWeekday: recurrenceConfig.yearlyNthWeekday,
-          endType: recurrenceConfig.endType,
-          endDate: recurrenceConfig.endDate ? recurrenceConfig.endDate.toISOString() : null,
-          isCustom: Boolean(recurrenceConfig.isCustom),
-        });
-        const recurrenceTag = `[RECURRENCE:${serialized}]`;
-        const userRepeatText = `[Lặp lại: ${repeatSummary}]`;
-        fullDesc = description.trim()
-          ? `${description.trim()}\n${userRepeatText}\n${recurrenceTag}`
-          : `${userRepeatText}\n${recurrenceTag}`;
+        fullDesc = serializeRecurrence(recurrenceConfig, description.trim());
       }
 
       if (editingEvent) {
-        const updatedEv = await updateCalendarEventApi(circleId, editingEvent.id, {
-          eventTitle: title.trim(),
-          description: fullDesc,
-          location: location.trim() || undefined,
-          startTime: evStart.toISOString(),
-          endTime: evEnd ? evEnd.toISOString() : undefined,
-          reminderTime,
-        });
-        setDetailEvent((prev) => (prev && prev.id === editingEvent.id ? updatedEv : prev));
+        const { recurrenceConfig: oldRecConfig, cleanDesc: oldCleanDesc } = parseEventRecurrence(editingEvent.description);
+        const isOldRecurring = Boolean(oldRecConfig && oldRecConfig.frequency !== 'none');
+
+        if (isOldRecurring && scope === 'this') {
+          // =========================================================================
+          // CHỈ SỬA LẦN NÀY:
+          // 1. Thêm ngày của lần diễn ra này vào excludedDates của chuỗi lặp
+          // 2. Tạo một sự kiện độc lập riêng (single event) cho ngày này với dữ liệu mới
+          // =========================================================================
+          const occD = editingOccurrenceDate || detailOccurrenceDate || selectedDate || new Date(editingEvent.startTime);
+          const occKey = formatDateKey(occD);
+
+          const updatedOldConfig: RecurrenceConfig = {
+            ...oldRecConfig!,
+            excludedDates: Array.from(new Set([...(oldRecConfig!.excludedDates || []), occKey])),
+          };
+          const updatedOldDesc = serializeRecurrence(updatedOldConfig, oldCleanDesc);
+          await updateCalendarEventApi(circleId, editingEvent.id, {
+            description: updatedOldDesc,
+          });
+
+          // Tạo sự kiện độc lập riêng (không lặp) cho ngày này
+          const createdSingle = await createCalendarEventApi(circleId, {
+            eventTitle: title.trim(),
+            description: description.trim() || undefined,
+            location: location.trim() || undefined,
+            startTime: evStart.toISOString(),
+            endTime: evEnd ? evEnd.toISOString() : undefined,
+            reminderTime,
+          });
+
+          setDetailEvent(createdSingle);
+          setDetailOccurrenceDate(new Date(createdSingle.startTime));
+        } else if (isOldRecurring && scope === 'future') {
+          // =========================================================================
+          // LẦN NÀY VÀ CÁC LẦN TIẾP THEO:
+          // 1. Cắt ngắn chuỗi lặp cũ kết thúc trước ngày này
+          // 2. Khởi tạo chuỗi lặp mới bắt đầu từ evStart với cấu hình mới
+          // =========================================================================
+          const occD = editingOccurrenceDate || detailOccurrenceDate || selectedDate || new Date(editingEvent.startTime);
+          const startOfOld = new Date(editingEvent.startTime);
+
+          if (formatDateKey(occD) <= formatDateKey(startOfOld)) {
+            // Đang sửa từ lần đầu tiên -> Cập nhật trực tiếp chuỗi lặp
+            const updatedEv = await updateCalendarEventApi(circleId, editingEvent.id, {
+              eventTitle: title.trim(),
+              description: fullDesc,
+              location: location.trim() || undefined,
+              startTime: evStart.toISOString(),
+              endTime: evEnd ? evEnd.toISOString() : undefined,
+              reminderTime,
+            });
+            setDetailEvent((prev) => (prev && prev.id === editingEvent.id ? updatedEv : prev));
+          } else {
+            // Cắt ngắn chuỗi lặp cũ
+            const dayBefore = new Date(occD);
+            dayBefore.setDate(dayBefore.getDate() - 1);
+            const truncatedConfig: RecurrenceConfig = {
+              ...oldRecConfig!,
+              endType: 'on_date',
+              endDate: dayBefore,
+            };
+            const truncatedDesc = serializeRecurrence(truncatedConfig, oldCleanDesc);
+            await updateCalendarEventApi(circleId, editingEvent.id, {
+              description: truncatedDesc,
+            });
+
+            // Tạo chuỗi lặp mới từ ngày này
+            const createdNewSeries = await createCalendarEventApi(circleId, {
+              eventTitle: title.trim(),
+              description: fullDesc,
+              location: location.trim() || undefined,
+              startTime: evStart.toISOString(),
+              endTime: evEnd ? evEnd.toISOString() : undefined,
+              reminderTime,
+            });
+            setDetailEvent(createdNewSeries);
+            setDetailOccurrenceDate(new Date(createdNewSeries.startTime));
+          }
+        } else {
+          // =========================================================================
+          // TẤT CẢ CÁC LẦN: Cập nhật trực tiếp chuỗi sự kiện
+          // =========================================================================
+          const updatedEv = await updateCalendarEventApi(circleId, editingEvent.id, {
+            eventTitle: title.trim(),
+            description: fullDesc,
+            location: location.trim() || undefined,
+            startTime: evStart.toISOString(),
+            endTime: evEnd ? evEnd.toISOString() : undefined,
+            reminderTime,
+          });
+          setDetailEvent((prev) => (prev && prev.id === editingEvent.id ? updatedEv : prev));
+        }
       } else {
         await createCalendarEventApi(circleId, {
           eventTitle: title.trim(),
@@ -1099,6 +1246,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
 
       setIsAddModalOpen(false);
       setEditingEvent(null);
+      setEditingOccurrenceDate(null);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       loadEvents();
     } catch (err: any) {
@@ -1108,64 +1256,17 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
     }
   };
 
-  const handleCancelEvent = (eventId: string) => {
-    Alert.alert(
-      'Hủy lịch hẹn',
-      'Bạn có chắc chắn muốn hủy lịch hẹn này? Sự kiện sẽ được đánh dấu là Đã hủy và hiển thị trên lịch nhóm.',
-      [
-        { text: 'Quay lại', style: 'cancel' },
-        {
-          text: 'Xác nhận hủy',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await cancelCalendarEventApi(circleId, eventId);
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-              loadEvents();
-            } catch (err: any) {
-              Alert.alert('Lỗi', err.message || 'Không thể hủy lịch hẹn');
-            }
-          },
-        },
-      ],
-    );
-  };
-
-  const handleDeleteEvent = (eventId: string) => {
-    Alert.alert(
-      'Xóa vĩnh viễn',
-      'Bạn có chắc chắn muốn xóa vĩnh viễn sự kiện này khỏi lịch nhóm?',
-      [
-        { text: 'Hủy', style: 'cancel' },
-        {
-          text: 'Xóa vĩnh viễn',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteCalendarEventApi(circleId, eventId);
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-              loadEvents();
-            } catch (err: any) {
-              Alert.alert('Lỗi', err.message || 'Không thể xóa sự kiện');
-            }
-          },
-        },
-      ],
-    );
-  };
-
-
   const promptEditScope = (onProceed: (scope: 'this' | 'future' | 'all') => void) => {
     if (!editingEvent) return;
     const { recurrenceConfig: savedConfig } = parseEventRecurrence(editingEvent.description);
     if (!savedConfig || savedConfig.frequency === 'none') {
-      onProceed('this');
+      onProceed('all');
       return;
     }
 
     Alert.alert(
       'Cập nhật sự kiện lặp lại',
-      'Bạn muốn áp dụng các thay đổi này cho lần diễn ra này hay toàn bộ các lần trong tương lai?',
+      'Bạn muốn áp dụng các thay đổi này cho lần diễn ra này, các lần tiếp theo hay tất cả các lần?',
       [
         { text: 'Hủy bỏ', style: 'cancel' },
         {
@@ -1174,8 +1275,11 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
         },
         {
           text: 'Lần này và các lần tiếp theo',
-          style: 'default',
           onPress: () => onProceed('future'),
+        },
+        {
+          text: 'Tất cả các lần',
+          onPress: () => onProceed('all'),
         },
       ],
     );
@@ -1183,13 +1287,14 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
 
   const handleCancelEventInDetail = (eventId: string) => {
     if (!detailEvent) return;
-    const { recurrenceConfig: savedConfig } = parseEventRecurrence(detailEvent.description);
-    const isRecurring = savedConfig && savedConfig.frequency !== 'none';
+    const { recurrenceConfig: savedConfig, cleanDesc } = parseEventRecurrence(detailEvent.description);
+    const isRecurring = Boolean(savedConfig && savedConfig.frequency !== 'none');
+    const currentOccD = detailOccurrenceDate || selectedDate || new Date(detailEvent.startTime);
 
-    if (isRecurring) {
+    if (isRecurring && savedConfig) {
       Alert.alert(
         'Hủy sự kiện lặp lại',
-        'Bạn muốn hủy sự kiện này cho lần diễn ra này hay toàn bộ các lần trong tương lai?',
+        'Bạn muốn hủy sự kiện này cho lần diễn ra này hay tất cả các lần?',
         [
           { text: 'Đóng', style: 'cancel' },
           {
@@ -1197,9 +1302,17 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
             style: 'destructive',
             onPress: async () => {
               try {
-                await cancelCalendarEventApi(circleId, eventId);
+                const occKey = formatDateKey(currentOccD);
+                const updatedConfig: RecurrenceConfig = {
+                  ...savedConfig,
+                  cancelledDates: Array.from(new Set([...(savedConfig.cancelledDates || []), occKey])),
+                };
+                const newDesc = serializeRecurrence(updatedConfig, cleanDesc);
+                const updatedEv = await updateCalendarEventApi(circleId, eventId, {
+                  description: newDesc,
+                });
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                setDetailEvent((prev) => (prev && prev.id === eventId ? { ...prev, isCancelled: true } : prev));
+                setDetailEvent(updatedEv);
                 setIsDetailMenuOpen(false);
                 loadEvents();
               } catch (err: any) {
@@ -1208,7 +1321,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
             },
           },
           {
-            text: 'Hủy toàn bộ lần tiếp theo',
+            text: 'Hủy tất cả các lần',
             style: 'destructive',
             onPress: async () => {
               try {
@@ -1250,15 +1363,43 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
     }
   };
 
+  const handleRestoreEventInDetail = async (eventId: string) => {
+    if (!detailEvent) return;
+    const { recurrenceConfig: savedConfig, cleanDesc } = parseEventRecurrence(detailEvent.description);
+    const isRecurring = Boolean(savedConfig && savedConfig.frequency !== 'none');
+    const currentOccD = detailOccurrenceDate || selectedDate || new Date(detailEvent.startTime);
+    const occKey = formatDateKey(currentOccD);
+
+    try {
+      if (isRecurring && savedConfig) {
+        const updatedConfig: RecurrenceConfig = {
+          ...savedConfig,
+          cancelledDates: (savedConfig.cancelledDates || []).filter((d) => d !== occKey),
+        };
+        const newDesc = serializeRecurrence(updatedConfig, cleanDesc);
+        const updatedEv = await updateCalendarEventApi(circleId, eventId, {
+          description: newDesc,
+        });
+        setDetailEvent(updatedEv);
+      }
+      setIsDetailMenuOpen(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      loadEvents();
+    } catch (err: any) {
+      Alert.alert('Lỗi', err.message || 'Không thể khôi phục lịch hẹn');
+    }
+  };
+
   const handleDeleteEventInDetail = (eventId: string) => {
     if (!detailEvent) return;
-    const { recurrenceConfig: savedConfig } = parseEventRecurrence(detailEvent.description);
-    const isRecurring = savedConfig && savedConfig.frequency !== 'none';
+    const { recurrenceConfig: savedConfig, cleanDesc } = parseEventRecurrence(detailEvent.description);
+    const isRecurring = Boolean(savedConfig && savedConfig.frequency !== 'none');
+    const currentOccD = detailOccurrenceDate || selectedDate || new Date(detailEvent.startTime);
 
-    if (isRecurring) {
+    if (isRecurring && savedConfig) {
       Alert.alert(
         'Xóa sự kiện lặp lại',
-        'Bạn muốn xóa sự kiện này cho lần diễn ra này hay toàn bộ sự kiện trong tương lai?',
+        'Bạn muốn xóa sự kiện này cho lần diễn ra này, các lần tiếp theo hay tất cả các lần?',
         [
           { text: 'Đóng', style: 'cancel' },
           {
@@ -1266,10 +1407,19 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
             style: 'destructive',
             onPress: async () => {
               try {
-                await deleteCalendarEventApi(circleId, eventId);
+                const occKey = formatDateKey(currentOccD);
+                const updatedConfig: RecurrenceConfig = {
+                  ...savedConfig,
+                  excludedDates: Array.from(new Set([...(savedConfig.excludedDates || []), occKey])),
+                };
+                const newDesc = serializeRecurrence(updatedConfig, cleanDesc);
+                await updateCalendarEventApi(circleId, eventId, {
+                  description: newDesc,
+                });
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                 setIsDetailMenuOpen(false);
                 setDetailEvent(null);
+                setDetailOccurrenceDate(null);
                 loadEvents();
               } catch (err: any) {
                 Alert.alert('Lỗi', err.message || 'Không thể xóa sự kiện');
@@ -1281,10 +1431,42 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
             style: 'destructive',
             onPress: async () => {
               try {
+                const startOfOld = new Date(detailEvent.startTime);
+                if (formatDateKey(currentOccD) <= formatDateKey(startOfOld)) {
+                  await deleteCalendarEventApi(circleId, eventId);
+                } else {
+                  const dayBefore = new Date(currentOccD);
+                  dayBefore.setDate(dayBefore.getDate() - 1);
+                  const updatedConfig: RecurrenceConfig = {
+                    ...savedConfig,
+                    endType: 'on_date',
+                    endDate: dayBefore,
+                  };
+                  const newDesc = serializeRecurrence(updatedConfig, cleanDesc);
+                  await updateCalendarEventApi(circleId, eventId, {
+                    description: newDesc,
+                  });
+                }
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                setIsDetailMenuOpen(false);
+                setDetailEvent(null);
+                setDetailOccurrenceDate(null);
+                loadEvents();
+              } catch (err: any) {
+                Alert.alert('Lỗi', err.message || 'Không thể xóa sự kiện');
+              }
+            },
+          },
+          {
+            text: 'Xóa tất cả các lần',
+            style: 'destructive',
+            onPress: async () => {
+              try {
                 await deleteCalendarEventApi(circleId, eventId);
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                 setIsDetailMenuOpen(false);
                 setDetailEvent(null);
+                setDetailOccurrenceDate(null);
                 loadEvents();
               } catch (err: any) {
                 Alert.alert('Lỗi', err.message || 'Không thể xóa sự kiện');
@@ -2816,8 +2998,9 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
         59,
       );
     }
+    const isThisOccurrenceCancelled = isEventCancelledOnDate(detailEvent, currentOccDate);
     const isEnded = now.getTime() > occEndDateTime.getTime();
-    const isPollClosed = Boolean(detailEvent.isCancelled) || isEnded;
+    const isPollClosed = isThisOccurrenceCancelled || isEnded;
     const isHappeningNow = !isPollClosed && now.getTime() >= occStartDateTime.getTime();
 
     const activeReminderOptionValue = (() => {
@@ -2860,13 +3043,13 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
               <Text
                 style={[
                   styles.detailEventTitleLarge,
-                  detailEvent.isCancelled && styles.eventCardTitleCancelled,
+                  isThisOccurrenceCancelled && styles.eventCardTitleCancelled,
                 ]}
               >
                 {detailEvent.eventTitle}
               </Text>
 
-              {detailEvent.isCancelled && (
+              {isThisOccurrenceCancelled && (
                 <View style={styles.detailStatusCancelledBadge}>
                   <Ban size={13} color="#EF4444" />
                   <Text style={styles.detailStatusCancelledText}>Đã hủy lịch hẹn</Text>
@@ -3071,7 +3254,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
             <TouchableOpacity
               style={styles.detailAppleReminderRow}
               activeOpacity={0.7}
-              disabled={detailEvent.isCancelled || isUpdatingReminder}
+              disabled={isThisOccurrenceCancelled || isUpdatingReminder}
               onPress={() => {
                 Haptics.selectionAsync();
                 setIsQuickReminderModalOpen(true);
@@ -3086,7 +3269,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
 
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                 <Text style={styles.detailAppleReminderValue}>{reminderLabel}</Text>
-                {!detailEvent.isCancelled && (
+                {!isThisOccurrenceCancelled && (
                   <ChevronRight size={16} color="#94A3B8" />
                 )}
               </View>
@@ -3141,7 +3324,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
 
           {/* Góc phải: Nút 2 (Sửa - bỏ chữ sửa) & Nút 3 (Ba chấm ngang) - Dạng Floating Pill Button */}
           <View style={styles.detailFloatingRightPills}>
-            {!detailEvent.isCancelled && (
+            {!isThisOccurrenceCancelled && (
               <TouchableOpacity
                 style={[styles.detailFloatingPillBtn, styles.detailFloatingCirclePill]}
                 activeOpacity={0.7}
@@ -3327,7 +3510,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                       { color: isPollClosed ? '#B91C1C' : '#0F766E' },
                     ]}
                   >
-                    {detailEvent.isCancelled
+                    {isThisOccurrenceCancelled
                       ? 'Đã đóng — Lịch hẹn đã bị hủy'
                       : isEnded
                       ? 'Đã đóng — Sự kiện đã kết thúc'
@@ -3561,7 +3744,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
               </View>
 
               <View style={{ padding: 16, gap: 10 }}>
-                {!detailEvent.isCancelled && (
+                {!isThisOccurrenceCancelled ? (
                   <TouchableOpacity
                     style={styles.detailMenuActionBtn}
                     activeOpacity={0.7}
@@ -3577,6 +3760,25 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                       </Text>
                       <Text style={styles.detailMenuActionSubText}>
                         Đánh dấu đã hủy nhưng vẫn lưu lại trên lịch nhóm
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    style={[styles.detailMenuActionBtn, { backgroundColor: '#ECFDF5', borderColor: '#A7F3D0' }]}
+                    activeOpacity={0.7}
+                    onPress={() => {
+                      setIsDetailMenuOpen(false);
+                      handleRestoreEventInDetail(detailEvent.id);
+                    }}
+                  >
+                    <Check size={18} color="#059669" />
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.detailMenuActionBtnText, { color: '#059669' }]}>
+                        Khôi phục lịch hẹn
+                      </Text>
+                      <Text style={styles.detailMenuActionSubText}>
+                        Khôi phục lại lịch hẹn đã bị hủy trước đó
                       </Text>
                     </View>
                   </TouchableOpacity>
@@ -4017,11 +4219,12 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
               const timeDisplayStr = formatEventTimeForDate(ev, selectedDate);
               const isCall = isCallUrl(ev.location);
               const locClean = cleanLocationText(ev.location);
+              const isOccCancelled = isEventCancelledOnDate(ev, selectedDate);
 
               return (
                 <TouchableOpacity
                   key={ev.id}
-                  style={[styles.eventCard, ev.isCancelled && styles.eventCardCancelled]}
+                  style={[styles.eventCard, isOccCancelled && styles.eventCardCancelled]}
                   activeOpacity={0.7}
                   onPress={() => {
                     Haptics.selectionAsync();
@@ -4031,10 +4234,10 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                 >
                   <View style={styles.eventCardHeader}>
                     <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                      <Text style={[styles.eventCardTitle, ev.isCancelled && styles.eventCardTitleCancelled]}>
+                      <Text style={[styles.eventCardTitle, isOccCancelled && styles.eventCardTitleCancelled]}>
                         {ev.eventTitle}
                       </Text>
-                      {ev.isCancelled && (
+                      {isOccCancelled && (
                         <View style={styles.cancelledBadge}>
                           <Text style={styles.cancelledBadgeText}>Đã hủy</Text>
                         </View>
@@ -4118,13 +4321,13 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                       (editingEvent.description && (editingEvent.description.includes('[RECURRENCE:') || editingEvent.description.includes('[Lặp lại:')))
                     );
                     if (isRecurring) {
-                      promptEditScope(() => {
-                        handleCreateOrUpdateEvent();
+                      promptEditScope((scope) => {
+                        handleCreateOrUpdateEvent(scope);
                       });
                       return;
                     }
                   }
-                  handleCreateOrUpdateEvent();
+                  handleCreateOrUpdateEvent('all');
                 }}
                 disabled={isSubmitting}
                 style={styles.appleNavBtn}

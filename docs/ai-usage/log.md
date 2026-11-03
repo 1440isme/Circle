@@ -5458,3 +5458,79 @@
 - **Official Source Checked:** Playbook 05, PROJECT_GOD §2.2, §11 (DoD).
 - **Security & License Check:** Bảo đảm logic chuẩn xác, không lộ credential.
 - **Branch:** `feat/120-event-rsvp-and-realtime-delights`
+
+
+---
+
+## AI-0148: Nâng Cấp Expo SDK 58.0.19 Lên ~58.0.22 Và Đồng Bộ Các Native Modules Tương Thích
+
+- **Date:** 2026-11-03 14:18:00 +07:00
+- **Developer:** Trương Công Bình (MSSV: 23110184) & Ninh Thị Mỹ Hạnh (MSSV: 23110210)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash
+- **Related Issue:** #120
+- **Purpose:** Nâng cấp Expo SDK từ 58.0.19 lên phiên bản mới nhất 58.0.22, đồng bộ toàn bộ 12 native modules của Expo, cập nhật root monorepo overrides (expo-modules-core 58.0.29, @expo/metro-config 58.0.20) và chuẩn hóa kiểu tham chiếu (useRef / onRefresh) cho React 19 / RN 0.88 đảm bảo typecheck 0 lỗi.
+- **Prompt Summary:** Nâng cấp Expo từ 58.0.19 lên ~58.0.22 theo thông báo của hệ thống.
+- **Files Affected:**
+  - `package.json`
+  - `package-lock.json`
+  - `apps/mobile/package.json`
+  - `apps/mobile/app/(auth)/verify-otp.tsx`
+  - `apps/mobile/app/(tabs)/circles.tsx`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `apps/mobile/src/components/auth/PasswordRecoveryWizard.tsx`
+  - `apps/mobile/src/components/call/MobileCallStageModal.tsx`
+  - `apps/mobile/src/components/moment/MomentsView.tsx`
+  - `apps/mobile/src/components/tools/MobileCalendarView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** Toàn bộ quá trình phân tích dependency tree, nâng cấp phiên bản trong package.json, cấu hình overrides tại root monorepo, và cập nhật typing cho các ref.
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+  - Chạy `cd apps/mobile && npx expo install --check` xác nhận tất cả các module Expo không còn thông báo lệch phiên bản.
+  - Chạy `npm run typecheck --workspace=@circle/mobile` xác nhận 0 lỗi TypeScript.
+  - Chạy `npm run build` xác nhận toàn bộ monorepo (types, shared, backend, web) build thành công.
+- **Official Source Checked:** Expo SDK 58 Release Notes & bundledNativeModules.
+- **Security & License Check:** An toàn, không có secret nào bị rò rỉ.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** Khi chạy `npx expo install --fix` trong workspace con `apps/mobile`, npm tạo thư mục node_modules lồng gây xung đột resolution và xóa nhầm expo ở root.
+  - **Root Cause:** npm workspaces yêu cầu chạy cài đặt từ thư mục gốc monorepo với cờ workspace.
+  - **Resolution / Fix:** Cập nhật phiên bản trực tiếp qua `npm install --workspace=@circle/mobile` từ root và cập nhật `overrides` trong root `package.json`.
+- **Commit:** Pending
+- **PR:** Pending
+
+## AI-0149: Triển Khai Xử Lý Độc Lập Scope Lưu, Hủy, Xóa Cho Lần Này, Tương Lai Và Tất Cả Các Lần Sự Kiện Lặp Lại (#120)
+
+- **Date:** 2026-11-03 23:25:00 +07:00
+- **Developer:** Trương Công Bình (MSSV: 23110184) & Ninh Thị Mỹ Hạnh (MSSV: 23110210)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash
+- **Related Issue:** #120
+- **Purpose:** Khắc phục triệt để lỗi khi người dùng chọn "Chỉ lần này" hoặc "Lần này và các lần tiếp theo" khi lưu, hủy, hoặc xóa một sự kiện lặp lại trên Mobile Calendar, làm cho các lần diễn ra khác trong chuỗi không bị ảnh hưởng sai lệch.
+- **Prompt Summary:** Xem lại chức năng lưu, hủy, xóa cho lần này hoặc tất cả do chọn "cho lần này" mà các lần sau cũng bị đổi theo.
+- **Files Affected:**
+  - `apps/mobile/src/components/tools/MobileCalendarView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:**
+  - Thiết kế cấu trúc lưu trữ ngoại lệ lặp lại (occurrence exceptions) thông qua hai trường `excludedDates` (danh sách ngày YYYY-MM-DD bị loại bỏ/tách riêng) và `cancelledDates` (danh sách ngày YYYY-MM-DD bị hủy riêng) tích hợp an toàn vào payload cấu hình lặp lại `[RECURRENCE:{...}]`.
+  - Cập nhật hàm tính toán xuất hiện sự kiện `isEventOccurringOnDate` và trạng thái hủy `isEventCancelledOnDate` để kiểm tra chính xác từng lần diễn ra dựa trên ngày thực tế (`occurrenceDate`).
+  - Cập nhật logic `handleCreateOrUpdateEvent`:
+    - Scope `this`: Đưa ngày hiện tại vào `excludedDates` của sự kiện gốc và tạo một sự kiện đơn độc lập trên ngày đó với thông tin mới.
+    - Scope `future`: Cắt chuỗi lặp lại cũ tại ngày hôm trước (`endDate = dayBefore`) và tạo chuỗi lặp lại mới từ ngày được chọn trở đi.
+    - Scope `all`: Cập nhật toàn bộ thực thể sự kiện lặp lại.
+  - Cập nhật logic `handleCancelEventInDetail`:
+    - Scope `this`: Đưa ngày hiện tại vào `cancelledDates` của sự kiện gốc, chỉ hiển thị trạng thái "Đã hủy" và đóng bình chọn cho lần này, các lần sau vẫn hoạt động bình thường.
+    - Scope `all`: Hủy toàn bộ chuỗi sự kiện.
+  - Cập nhật logic `handleDeleteEventInDetail`:
+    - Scope `this`: Thêm ngày hiện tại vào `excludedDates` của sự kiện gốc, ẩn riêng lần diễn ra này khỏi lịch.
+    - Scope `future`: Cắt chuỗi lặp lại tại ngày hôm trước (`endDate = dayBefore`).
+    - Scope `all`: Xóa toàn bộ sự kiện.
+  - Cập nhật hàm điều hướng chuỗi lặp `getNextOrPrevOccurrence` để tự động bỏ qua các ngày nằm trong `excludedDates`.
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+  - Chạy `npx tsc --noEmit -p apps/mobile/tsconfig.json` xác nhận 0 lỗi TypeScript.
+  - Kiểm tra diff logic bảo toàn tính nhất quán giữa client và database.
+- **Official Source Checked:** RFC 5545 iCalendar (EXDATE & RECURRENCE-ID exception model).
+- **Security & License Check:** An toàn, không có secret nào bị rò rỉ, tuân thủ nguyên tắc không lộ email hay dữ liệu riêng tư.
+- **AI Errors / Hallucinations Found:** Không.
+- **Commit:** Pending
+- **PR:** Pending
