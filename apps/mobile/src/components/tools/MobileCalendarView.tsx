@@ -284,7 +284,7 @@ const createDateFromParts = (d: Date, h: number, m: number): Date => {
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const MINUTES = Array.from({ length: 60 }, (_, i) => i); // 00 - 59
 const MONTH_NAMES = Array.from({ length: 12 }, (_, i) => `Tháng ${String(i + 1).padStart(2, '0')}`);
-const YEARS = Array.from({ length: 35 }, (_, i) => 2015 + i); // 2015 - 2049
+const YEARS = Array.from({ length: 251 }, (_, i) => 1900 + i); // 1900 - 2150 (dải năm mở rộng chuẩn)
 
 const WHEEL_ITEM_HEIGHT = 38;
 const WHEEL_VISIBLE_HEIGHT = 228;

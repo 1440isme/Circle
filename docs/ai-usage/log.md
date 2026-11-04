@@ -5605,3 +5605,35 @@
   - **Resolution / Fix:** Đã xóa dòng thừa và biên dịch kiểm tra thành công với TypeScript.
 - **Commit:** Pending
 - **PR:** Pending
+
+
+---
+
+## AI-0152: Mở Rộng Cuộn Năm Vô Hạn Cho Bộ Chọn Lịch Web & Mobile (#120)
+
+- **Date:** 2026-11-04 14:18:00 +07:00
+- **Developer:** Trương Công Bình (MSSV: 23110184) & Ninh Thị Mỹ Hạnh (MSSV: 23110210)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash
+- **Related Issue:** #120
+- **Purpose:** Khắc phục giới hạn năm cố định chỉ 35 năm (2015-2049) trên cả 3 bộ chọn lịch web (`CustomDateTimePicker.tsx`) và mobile (`MobileCalendarView.tsx`). Thiết lập cơ chế dynamic infinite scroll trên web: mở rộng dải năm mặc định từ 1900 đến 2150 (251 năm), đồng thời tự động nối dài thêm 50 năm về quá khứ hoặc tương lai khi người dùng cuộn gần tới mép cuộn (không giật lag scroll) giúp cuộn năm vô hạn như các ứng dụng lịch tiêu chuẩn. Mở rộng dải năm trên mobile lên 251 năm (1900 - 2150).
+- **Prompt Summary:** Khắc phục cuộn năm bị ít ở cả 3 lịch, chuyển sang dạng vô hạn như app chuẩn.
+- **Files Affected:**
+- `apps/web/src/components/tools/CustomDateTimePicker.tsx`
+- `apps/mobile/src/components/tools/MobileCalendarView.tsx`
+- `docs/ai-usage/log.md`
+- **AI-Generated Portion:**
+- Triển khai `yearRange` động (`min`, `max`) và memoized `years` trong `CustomDateTimePicker.tsx`.
+- Thêm logic kiểm tra ngưỡng cuộn (`scrollTop < 10 * ITEM_HEIGHT` và `scrollTop > (years.length - 10) * ITEM_HEIGHT`) trong `handleYearScroll` để tự động kéo giãn dải năm về cả hai đầu vô hạn.
+- Đảm bảo animation và `requestAnimationFrame` bù trừ `scrollTop` mượt mà không làm rung giật bánh xe.
+- Mở rộng mảng `YEARS` trên `MobileCalendarView.tsx` từ 35 năm lên 251 năm (1900 - 2150).
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+- Chạy `npx tsc --noEmit -p apps/web/tsconfig.json` đạt 0 lỗi.
+- Chạy `npx tsc --noEmit -p apps/mobile/tsconfig.json` đạt 0 lỗi.
+- Chạy `npm run build --workspace=@circle/web` biên dịch Next.js production thành công 100%.
+- **Official Source Checked:** `PROJECT_GOD.md` & `agentic/CONVENTIONS.md`.
+- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc không lộ thông tin nhạy cảm.
+- **AI Errors / Hallucinations Found:** Không.
+- **Commit:** Pending
+- **PR:** Pending

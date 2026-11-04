@@ -20,7 +20,8 @@ const STAGE_HEIGHT = 210; // 210px tổng chiều cao bánh xe khớp với cộ
 const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
 const MINUTES = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
 const MONTH_NAMES = Array.from({ length: 12 }, (_, i) => `Tháng ${String(i + 1).padStart(2, '0')}`);
-const YEARS = Array.from({ length: 35 }, (_, i) => 2015 + i); // 2015 - 2049
+const DEFAULT_START_YEAR = 1900;
+const DEFAULT_END_YEAR = 2150;
 
 export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
   value,
@@ -96,6 +97,26 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
   const monthsScrollRef = useRef<HTMLDivElement>(null);
   const yearsScrollRef = useRef<HTMLDivElement>(null);
 
+  // Dynamic infinite year range
+  const [yearRange, setYearRange] = useState(() => {
+    const currentY = new Date().getFullYear();
+    return {
+      min: Math.min(DEFAULT_START_YEAR, currentY - 100),
+      max: Math.max(DEFAULT_END_YEAR, currentY + 100),
+    };
+  });
+
+  const years = useMemo(() => {
+    const list: number[] = [];
+    for (let y = yearRange.min; y <= yearRange.max; y++) {
+      list.push(y);
+    }
+    return list;
+  }, [yearRange.min, yearRange.max]);
+
+  const isExtendingYearsRef = useRef(false);
+  const prevIsMonthYearOpenRef = useRef(false);
+
   // Sync state khi value thay đổi từ ngoài
   useEffect(() => {
     if (datePart) {
@@ -164,17 +185,26 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
 
   // Tự động cuộn bánh xe Tháng & Năm vào vị trí trung tâm khi sổ xuống
   useEffect(() => {
-    if (isMonthYearOpen) {
+    if (isMonthYearOpen && !prevIsMonthYearOpenRef.current) {
+      prevIsMonthYearOpenRef.current = true;
+      if (year < yearRange.min || year > yearRange.max) {
+        setYearRange((prev) => ({
+          min: Math.min(year - 50, prev.min),
+          max: Math.max(year + 50, prev.max),
+        }));
+      }
       const timer = setTimeout(() => {
         scrollTo(monthsScrollRef.current, month - 1, false);
-        const yIdx = YEARS.indexOf(year);
+        const yIdx = years.indexOf(year);
         if (yIdx !== -1) {
           scrollTo(yearsScrollRef.current, yIdx, false);
         }
       }, 30);
       return () => clearTimeout(timer);
+    } else if (!isMonthYearOpen) {
+      prevIsMonthYearOpenRef.current = false;
     }
-  }, [isMonthYearOpen, month, year, scrollTo]);
+  }, [isMonthYearOpen, month, year, years, scrollTo, yearRange.min, yearRange.max]);
 
   const handleSelectDay = (dayNum: number) => {
     if (isDayDisabled(dayNum)) return;
@@ -208,13 +238,39 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
     }
   };
 
-  // Cuộn & chọn Năm
+  // Cuộn & chọn Năm (hỗ trợ cuộn mở rộng vô hạn)
   const handleYearScroll = () => {
     if (!yearsScrollRef.current) return;
-    const scrollTop = yearsScrollRef.current.scrollTop;
-    const idx = Math.min(YEARS.length - 1, Math.max(0, Math.round(scrollTop / ITEM_HEIGHT)));
-    const targetYear = YEARS[idx];
-    if (targetYear !== year) {
+    const el = yearsScrollRef.current;
+    const scrollTop = el.scrollTop;
+    const idx = Math.min(years.length - 1, Math.max(0, Math.round(scrollTop / ITEM_HEIGHT)));
+    const targetYear = years[idx];
+
+    // Mở rộng vô hạn về quá khứ khi cuộn gần đỉnh (còn dưới 10 năm)
+    if (scrollTop < 10 * ITEM_HEIGHT && !isExtendingYearsRef.current) {
+      isExtendingYearsRef.current = true;
+      const extendCount = 50;
+      setYearRange((prev) => ({ ...prev, min: prev.min - extendCount }));
+      requestAnimationFrame(() => {
+        if (yearsScrollRef.current) {
+          yearsScrollRef.current.scrollTop += extendCount * ITEM_HEIGHT;
+        }
+        setTimeout(() => {
+          isExtendingYearsRef.current = false;
+        }, 120);
+      });
+    }
+    // Mở rộng vô hạn về tương lai khi cuộn gần đáy (còn dưới 10 năm)
+    else if (scrollTop > (years.length - 10) * ITEM_HEIGHT && !isExtendingYearsRef.current) {
+      isExtendingYearsRef.current = true;
+      const extendCount = 50;
+      setYearRange((prev) => ({ ...prev, max: prev.max + extendCount }));
+      setTimeout(() => {
+        isExtendingYearsRef.current = false;
+      }, 120);
+    }
+
+    if (targetYear !== undefined && targetYear !== year) {
       const daysInTargetMonth = new Date(targetYear, month, 0).getDate();
       const currentDay = datePart ? parseInt(datePart.split('-')[2], 10) : 1;
       const targetDay = Math.min(currentDay, daysInTargetMonth);
@@ -244,7 +300,8 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
 
   const handleSelectYear = (yIdx: number) => {
     scrollTo(yearsScrollRef.current, yIdx, true);
-    const targetYear = YEARS[yIdx];
+    const targetYear = years[yIdx];
+    if (targetYear === undefined) return;
     const daysInTargetMonth = new Date(targetYear, month, 0).getDate();
     const currentDay = datePart ? parseInt(datePart.split('-')[2], 10) : 1;
     const targetDay = Math.min(currentDay, daysInTargetMonth);
@@ -445,7 +502,7 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
                     /
                   </div>
 
-                  {/* Cột Năm (2015 - 2049) - ẨN 100% THANH CUỘN */}
+                  {/* Cột Năm (Cuộn vô hạn) - ẨN 100% THANH CUỘN */}
                   <div
                     ref={yearsScrollRef}
                     onScroll={handleYearScroll}
@@ -453,7 +510,7 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
                     style={{ scrollBehavior: 'smooth' }}
                   >
                     <div className="h-[85px] shrink-0 pointer-events-none" />
-                    {YEARS.map((y, idx) => {
+                    {years.map((y, idx) => {
                       const isSelected = y === year;
                       return (
                         <div
