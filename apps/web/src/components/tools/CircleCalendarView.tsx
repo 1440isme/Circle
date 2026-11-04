@@ -230,8 +230,9 @@ export const formatDateOnly = (d: Date) => {
 
 export const serializeRecurrence = (config: RecurrenceConfig, baseDesc?: string): string => {
   const clean = (baseDesc || '')
+    .replace(/\[RECURRENCE:(\{[\s\S]*?\}|[^\]]*?)\]/g, '')
+    .replace(/\[Lặp lại:[^\]]*?\]/g, '')
     .replace(/\[RECURRENCE:[\s\S]*?\]/g, '')
-    .replace(/\[Lặp lại:[\s\S]*?\]/g, '')
     .trim();
   const normalizedClean = clean.toLowerCase() === 'body' || clean === 'null' ? '' : clean;
 
@@ -273,8 +274,9 @@ export const parseEventRecurrence = (desc?: string | null): {
   }
 
   let cleanDesc = desc
+    .replace(/\[RECURRENCE:(\{[\s\S]*?\}|[^\]]*?)\]/g, '')
+    .replace(/\[Lặp lại:[^\]]*?\]/g, '')
     .replace(/\[RECURRENCE:[\s\S]*?\]/g, '')
-    .replace(/\[Lặp lại:[\s\S]*?\]/g, '')
     .trim();
 
   if (cleanDesc.toLowerCase() === 'body' || cleanDesc === 'null') {
@@ -282,7 +284,7 @@ export const parseEventRecurrence = (desc?: string | null): {
   }
 
   let recurrenceConfig: RecurrenceConfig | null = null;
-  const recurrenceMatch = desc.match(/\[RECURRENCE:([\s\S]*?)\]/);
+  const recurrenceMatch = desc.match(/\[RECURRENCE:(\{[\s\S]*?\})\]/);
   if (recurrenceMatch && recurrenceMatch[1]) {
     try {
       const raw = JSON.parse(recurrenceMatch[1]);

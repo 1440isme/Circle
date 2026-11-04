@@ -5697,3 +5697,35 @@
 - **AI Errors / Hallucinations Found:** Không.
 - **Commit:** Pending
 - **PR:** Pending
+
+
+---
+
+## AI-0155: Sửa Lỗi Regex Bóc Tách RECURRENCE Tránh Rò Rỉ JSON Trong Ghi Chú Web (#120)
+
+- **Date:** 2026-11-04 15:10:00 +07:00
+- **Developer:** Trương Công Bình (MSSV: 23110184) & Ninh Thị Mỹ Hạnh (MSSV: 23110210)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash
+- **Related Issue:** #120
+- **Purpose:** Khắc phục triệt để lỗi rò rỉ mã JSON thô vào ô ghi chú khi chỉnh sửa và hiển thị trên Web (`CircleCalendarView.tsx`):
+  - **Nguyên nhân gốc rễ:** Biểu thức chính quy cũ `\[RECURRENCE:[\s\S]*?\]` dừng ngay tại dấu đóng ngoặc vuông `]` đầu tiên của các mảng bên trong JSON (như `weeklyDays: [3]` hay `excludedDates: [...]`). Do đó, chỉ có nửa đầu tag bị xóa, phần JSON còn lại (`,"monthlyType":"day_of_month",...}]`) bị để lại trong `cleanDesc`, khiến ô ghi chú hiển thị chuỗi JSON rác và `JSON.parse` bị lỗi.
+  - **Giải pháp:** Cập nhật regex chuẩn xác `\[RECURRENCE:(\{[\s\S]*?\}|[^\]]*?)\]` và match chính xác khối đối tượng JSON `(\{[\s\S]*?\})`. Kiểm thử thành công 100% trên toàn bộ 28 bản ghi sự kiện thực tế trong cơ sở dữ liệu.
+- **Prompt Summary:** Phần ghi chú trong khi sửa ở web vẫn bị lỗi và lỗi ở hiển thị luôn.
+- **Files Affected:**
+  - `apps/web/src/components/tools/CircleCalendarView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** Toàn bộ logic cập nhật regex và kiểm thử trực tiếp trên database.
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+  - Chạy script kiểm thử trực tiếp trên 28 bản ghi thực tế của database: 100% bản ghi được bóc tách sạch sẽ, không còn sót bất kỳ ký tự JSON nào.
+  - Chạy `npx tsc --noEmit -p apps/web/tsconfig.json`: 0 lỗi.
+  - Chạy `npm run build --workspace=@circle/web`: Next.js 14 production build thành công 100%.
+- **Official Source Checked:** `PROJECT_GOD.md` & `agentic/CONVENTIONS.md`.
+- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc không lộ thông tin nhạy cảm.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** Regex `\[RECURRENCE:[\s\S]*?\]` dừng sai tại `]` của mảng con trong JSON.
+  - **Root Cause:** Cú pháp lazy match `*?\]` gặp dấu `]` đầu tiên bên trong chuỗi JSON lồng nhau.
+  - **Resolution / Fix:** Bắt cặp ngoặc nhọn JSON `(\{[\s\S]*?\})` trước khi đóng ngoặc vuông `\]`.
+- **Commit:** Pending
+- **PR:** Pending
