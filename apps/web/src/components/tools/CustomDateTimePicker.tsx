@@ -4,13 +4,14 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Calendar as CalendarIcon, Clock, ChevronLeft, ChevronRight, ChevronDown, X, Check } from 'lucide-react';
 
 interface CustomDateTimePickerProps {
-  value: string; // "YYYY-MM-DDTHH:mm" hoặc ""
+  value: string; // "YYYY-MM-DDTHH:mm" hoặc "YYYY-MM-DD" hoặc ""
   onChange: (val: string) => void;
   required?: boolean;
-  min?: string; // "YYYY-MM-DDTHH:mm"
+  min?: string; // "YYYY-MM-DDTHH:mm" hoặc "YYYY-MM-DD"
   placeholder?: string;
   align?: 'left' | 'right';
   className?: string;
+  dateOnly?: boolean; // Khi chỉ chọn ngày, không có phần giờ
 }
 
 const ITEM_HEIGHT = 40; // 40px mỗi slot
@@ -26,41 +27,53 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
   onChange,
   required = false,
   min,
-  placeholder = 'dd/mm/yyyy --:--',
+  placeholder,
   align = 'left',
   className = '',
+  dateOnly = false,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isMonthYearOpen, setIsMonthYearOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  const effectivePlaceholder = placeholder || (dateOnly ? 'dd/mm/yyyy' : 'dd/mm/yyyy --:--');
+
   // Phân tích value thành date ("YYYY-MM-DD") và time ("HH:mm")
   const { datePart, timePart } = useMemo(() => {
-    if (!value || !value.includes('T')) {
+    if (!value) {
       return { datePart: '', timePart: '00:00' };
     }
-    const [d, t] = value.split('T');
-    return { datePart: d, timePart: t ? t.slice(0, 5) : '00:00' };
+    if (value.includes('T')) {
+      const [d, t] = value.split('T');
+      return { datePart: d, timePart: t ? t.slice(0, 5) : '00:00' };
+    }
+    return { datePart: value, timePart: '00:00' };
   }, [value]);
 
   // Phân tích min
   const { minDatePart } = useMemo(() => {
-    if (!min || !min.includes('T')) {
+    if (!min) {
       return { minDatePart: '', minTimePart: '' };
     }
-    const [d, t] = min.split('T');
-    return { minDatePart: d, minTimePart: t ? t.slice(0, 5) : '' };
+    if (min.includes('T')) {
+      const [d, t] = min.split('T');
+      return { minDatePart: d, minTimePart: t ? t.slice(0, 5) : '' };
+    }
+    return { minDatePart: min, minTimePart: '' };
   }, [min]);
 
-  // Hiển thị ngày dạng dd/mm/yyyy HH:mm
+  // Hiển thị ngày dạng dd/mm/yyyy (hoặc dd/mm/yyyy HH:mm nếu có giờ)
   const formattedDisplay = useMemo(() => {
     if (!datePart) return '';
     const parts = datePart.split('-');
     if (parts.length !== 3) return value;
     const [y, m, d] = parts;
+    if (dateOnly) {
+      return `${d.padStart(2, '0')}/${m.padStart(2, '0')}/${y}`;
+    }
     const timeDisplay = timePart || '00:00';
     return `${d.padStart(2, '0')}/${m.padStart(2, '0')}/${y} ${timeDisplay}`;
-  }, [datePart, timePart, value]);
+  }, [datePart, timePart, value, dateOnly]);
 
   // Calendar view state
   const initialCalendarDate = useMemo(() => {
@@ -164,8 +177,14 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
   }, [isMonthYearOpen, month, year, scrollTo]);
 
   const handleSelectDay = (dayNum: number) => {
+    if (isDayDisabled(dayNum)) return;
     const pad = (n: number) => String(n).padStart(2, '0');
     const newDatePart = `${year}-${pad(month)}-${pad(dayNum)}`;
+    if (dateOnly) {
+      onChange(newDatePart);
+      setIsOpen(false);
+      return;
+    }
     const curTime = `${pad(activeHour)}:${pad(activeMinute)}`;
     onChange(`${newDatePart}T${curTime}`);
   };
@@ -181,7 +200,11 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
       const targetDay = Math.min(currentDay, daysInTargetMonth);
       const pad = (n: number) => String(n).padStart(2, '0');
       const newDatePart = `${year}-${pad(idx + 1)}-${pad(targetDay)}`;
-      onChange(`${newDatePart}T${pad(activeHour)}:${pad(activeMinute)}`);
+      if (dateOnly) {
+        onChange(newDatePart);
+      } else {
+        onChange(`${newDatePart}T${pad(activeHour)}:${pad(activeMinute)}`);
+      }
     }
   };
 
@@ -197,7 +220,11 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
       const targetDay = Math.min(currentDay, daysInTargetMonth);
       const pad = (n: number) => String(n).padStart(2, '0');
       const newDatePart = `${targetYear}-${pad(month)}-${pad(targetDay)}`;
-      onChange(`${newDatePart}T${pad(activeHour)}:${pad(activeMinute)}`);
+      if (dateOnly) {
+        onChange(newDatePart);
+      } else {
+        onChange(`${newDatePart}T${pad(activeHour)}:${pad(activeMinute)}`);
+      }
     }
   };
 
@@ -208,7 +235,11 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
     const targetDay = Math.min(currentDay, daysInTargetMonth);
     const pad = (n: number) => String(n).padStart(2, '0');
     const newDatePart = `${year}-${pad(mIdx + 1)}-${pad(targetDay)}`;
-    onChange(`${newDatePart}T${pad(activeHour)}:${pad(activeMinute)}`);
+    if (dateOnly) {
+      onChange(newDatePart);
+    } else {
+      onChange(`${newDatePart}T${pad(activeHour)}:${pad(activeMinute)}`);
+    }
   };
 
   const handleSelectYear = (yIdx: number) => {
@@ -219,7 +250,11 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
     const targetDay = Math.min(currentDay, daysInTargetMonth);
     const pad = (n: number) => String(n).padStart(2, '0');
     const newDatePart = `${targetYear}-${pad(month)}-${pad(targetDay)}`;
-    onChange(`${newDatePart}T${pad(activeHour)}:${pad(activeMinute)}`);
+    if (dateOnly) {
+      onChange(newDatePart);
+    } else {
+      onChange(`${newDatePart}T${pad(activeHour)}:${pad(activeMinute)}`);
+    }
   };
 
   // Wheel scroll handlers cho Giờ & Phút
@@ -287,7 +322,7 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
               : 'text-circle-slate/60 dark:text-circle-dark-muted/60'
           }`}
         >
-          {formattedDisplay || placeholder}
+          {formattedDisplay || effectivePlaceholder}
         </span>
 
         <div className="flex items-center gap-1.5 shrink-0 ml-1">
@@ -308,14 +343,16 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
         </div>
       </div>
 
-      {/* Popover Picker: 1 BÊN LỊCH & 1 BÊN GIỜ (Side-by-side) */}
+      {/* Popover Picker */}
       {isOpen && (
         <div
           className={`absolute ${
             align === 'right' ? 'right-0' : 'left-0'
-          } top-full mt-1.5 z-50 w-[380px] max-w-[calc(100vw-32px)] rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface shadow-2xl p-3 animate-in fade-in zoom-in-95 duration-150`}
+          } top-full mt-1.5 z-50 ${
+            dateOnly ? 'w-[250px]' : 'w-[380px]'
+          } max-w-[calc(100vw-32px)] rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface shadow-2xl p-3 animate-in fade-in zoom-in-95 duration-150`}
         >
-          {/* Khu vực chính: 2 Cột song song */}
+          {/* Khu vực chính */}
           <div className="flex gap-3 items-stretch">
             {/* CỘT BÊN TRÁI: LỊCH (Tháng, Năm, Ngày) */}
             <div className="flex-1 min-w-[210px] flex flex-col justify-between">
@@ -335,24 +372,39 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
                   />
                 </button>
 
-                {!isMonthYearOpen && (
-                  <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1">
+                  {!isMonthYearOpen && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setCurrentViewDate(new Date(year, month - 2, 1))}
+                        className="p-1 rounded-lg hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate hover:text-circle-charcoal transition-colors"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCurrentViewDate(new Date(year, month, 1))}
+                        className="p-1 rounded-lg hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate hover:text-circle-charcoal transition-colors"
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </button>
+                    </>
+                  )}
+                  {dateOnly && (
                     <button
                       type="button"
-                      onClick={() => setCurrentViewDate(new Date(year, month - 2, 1))}
+                      onClick={() => {
+                        setIsOpen(false);
+                        setIsMonthYearOpen(false);
+                      }}
                       className="p-1 rounded-lg hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate hover:text-circle-charcoal transition-colors"
+                      title="Xong"
                     >
-                      <ChevronLeft className="h-4 w-4" />
+                      <Check className="h-3.5 w-3.5 text-teal-600" />
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => setCurrentViewDate(new Date(year, month, 1))}
-                      className="p-1 rounded-lg hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate hover:text-circle-charcoal transition-colors"
-                    >
-                      <ChevronRight className="h-4 w-4" />
-                    </button>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
 
               {/* KHI SỔ XUỐNG: BÁNH XE THÁNG VÀ NĂM CÓ CỤC ĐEN CỐ ĐỊNH, ẨN TOÀN BỘ THANH CUỘN */}
@@ -474,91 +526,95 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
               )}
             </div>
 
-            {/* ĐƯỜNG KẺ DỌC PHÂN CHIA LỊCH VÀ GIỜ */}
-            <div className="w-px bg-circle-hairline/60 dark:bg-circle-dark-hairline/60 self-stretch my-0.5" />
+            {!dateOnly && (
+              <>
+                {/* ĐƯỜNG KẺ DỌC PHÂN CHIA LỊCH VÀ GIỜ */}
+                <div className="w-px bg-circle-hairline/60 dark:bg-circle-dark-hairline/60 self-stretch my-0.5" />
 
-            {/* CỘT BÊN PHẢI: BÁNH XE GIỜ 24H (KHÔNG KHUNG BO, KHÔNG THANH CUỘN, KHÔNG GỢI Ý, CỤC ĐEN CỐ ĐỊNH) */}
-            <div className="w-[120px] shrink-0 flex flex-col justify-between">
-              {/* Header góc trên bên phải: Nút Xong */}
-              <div className="flex items-center justify-end pb-2 mb-1.5 border-b border-circle-hairline/60 dark:border-circle-dark-hairline/60">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsOpen(false);
-                    setIsMonthYearOpen(false);
-                  }}
-                  className="inline-flex items-center gap-1 rounded-lg bg-circle-charcoal dark:bg-circle-primary text-white dark:text-circle-charcoal px-2.5 py-0.5 text-xs font-semibold hover:bg-circle-sage transition-all shadow-xs"
-                >
-                  <Check className="h-3 w-3" />
-                  <span>Xong</span>
-                </button>
-              </div>
+                {/* CỘT BÊN PHẢI: BÁNH XE GIỜ 24H (KHÔNG KHUNG BO, KHÔNG THANH CUỘN, KHÔNG GỢI Ý, CỤC ĐEN CỐ ĐỊNH) */}
+                <div className="w-[120px] shrink-0 flex flex-col justify-between">
+                  {/* Header góc trên bên phải: Nút Xong */}
+                  <div className="flex items-center justify-end pb-2 mb-1.5 border-b border-circle-hairline/60 dark:border-circle-dark-hairline/60">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsOpen(false);
+                        setIsMonthYearOpen(false);
+                      }}
+                      className="inline-flex items-center gap-1 rounded-lg bg-circle-charcoal dark:bg-circle-primary text-white dark:text-circle-charcoal px-2.5 py-0.5 text-xs font-semibold hover:bg-circle-sage transition-all shadow-xs"
+                    >
+                      <Check className="h-3 w-3" />
+                      <span>Xong</span>
+                    </button>
+                  </div>
 
-              {/* Vùng bánh xe tinh gọn không viền hộp */}
-              <div className="relative h-[210px] w-full overflow-hidden flex justify-center items-center select-none">
-                {/* CỤC ĐEN CỐ ĐỊNH LƯỚT GIỜ Ở CHÍNH GIỮA */}
-                <div className="absolute inset-x-1 top-[85px] h-10 rounded-xl bg-circle-charcoal dark:bg-circle-primary shadow-lg pointer-events-none z-0 border border-white/10" />
+                  {/* Vùng bánh xe tinh gọn không viền hộp */}
+                  <div className="relative h-[210px] w-full overflow-hidden flex justify-center items-center select-none">
+                    {/* CỤC ĐEN CỐ ĐỊNH LƯỚT GIỜ Ở CHÍNH GIỮA */}
+                    <div className="absolute inset-x-1 top-[85px] h-10 rounded-xl bg-circle-charcoal dark:bg-circle-primary shadow-lg pointer-events-none z-0 border border-white/10" />
 
-                {/* Cột Giờ 24h (00 - 23) - ẨN 100% THANH CUỘN */}
-                <div
-                  ref={hoursScrollRef}
-                  onScroll={handleHoursScroll}
-                  className="h-full w-14 overflow-y-auto snap-y snap-mandatory z-10 text-center py-0 scrollbar-none [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
-                  style={{ scrollBehavior: 'smooth' }}
-                >
-                  <div className="h-[85px] shrink-0 pointer-events-none" />
-                  {HOURS.map((h, idx) => {
-                    const isSelected = idx === activeHour;
-                    return (
-                      <div
-                        key={h}
-                        onClick={() => handleSelectHour(idx)}
-                        className={`h-10 flex items-center justify-center snap-center text-sm font-bold transition-all cursor-pointer ${
-                          isSelected
-                            ? 'text-white dark:text-circle-charcoal scale-110'
-                            : 'text-circle-slate dark:text-circle-dark-muted opacity-30 hover:opacity-80 scale-90'
-                        }`}
-                      >
-                        {h}
-                      </div>
-                    );
-                  })}
-                  <div className="h-[85px] shrink-0 pointer-events-none" />
+                    {/* Cột Giờ 24h (00 - 23) - ẨN 100% THANH CUỘN */}
+                    <div
+                      ref={hoursScrollRef}
+                      onScroll={handleHoursScroll}
+                      className="h-full w-14 overflow-y-auto snap-y snap-mandatory z-10 text-center py-0 scrollbar-none [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+                      style={{ scrollBehavior: 'smooth' }}
+                    >
+                      <div className="h-[85px] shrink-0 pointer-events-none" />
+                      {HOURS.map((h, idx) => {
+                        const isSelected = idx === activeHour;
+                        return (
+                          <div
+                            key={h}
+                            onClick={() => handleSelectHour(idx)}
+                            className={`h-10 flex items-center justify-center snap-center text-sm font-bold transition-all cursor-pointer ${
+                              isSelected
+                                ? 'text-white dark:text-circle-charcoal scale-110'
+                                : 'text-circle-slate dark:text-circle-dark-muted opacity-30 hover:opacity-80 scale-90'
+                            }`}
+                          >
+                            {h}
+                          </div>
+                        );
+                      })}
+                      <div className="h-[85px] shrink-0 pointer-events-none" />
+                    </div>
+
+                    {/* Dấu hai chấm cố định */}
+                    <div className="z-10 font-black text-sm text-white dark:text-circle-charcoal pointer-events-none px-0.5">
+                      :
+                    </div>
+
+                    {/* Cột Phút (00 - 59) - ẨN 100% THANH CUỘN */}
+                    <div
+                      ref={minutesScrollRef}
+                      onScroll={handleMinutesScroll}
+                      className="h-full w-14 overflow-y-auto snap-y snap-mandatory z-10 text-center py-0 scrollbar-none [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+                      style={{ scrollBehavior: 'smooth' }}
+                    >
+                      <div className="h-[85px] shrink-0 pointer-events-none" />
+                      {MINUTES.map((m, idx) => {
+                        const isSelected = idx === activeMinute;
+                        return (
+                          <div
+                            key={m}
+                            onClick={() => handleSelectMinute(idx)}
+                            className={`h-10 flex items-center justify-center snap-center text-sm font-bold transition-all cursor-pointer ${
+                              isSelected
+                                ? 'text-white dark:text-circle-charcoal scale-110'
+                                : 'text-circle-slate dark:text-circle-dark-muted opacity-30 hover:opacity-80 scale-90'
+                            }`}
+                          >
+                            {m}
+                          </div>
+                        );
+                      })}
+                      <div className="h-[85px] shrink-0 pointer-events-none" />
+                    </div>
+                  </div>
                 </div>
-
-                {/* Dấu hai chấm cố định */}
-                <div className="z-10 font-black text-sm text-white dark:text-circle-charcoal pointer-events-none px-0.5">
-                  :
-                </div>
-
-                {/* Cột Phút (00 - 59) - ẨN 100% THANH CUỘN */}
-                <div
-                  ref={minutesScrollRef}
-                  onScroll={handleMinutesScroll}
-                  className="h-full w-14 overflow-y-auto snap-y snap-mandatory z-10 text-center py-0 scrollbar-none [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
-                  style={{ scrollBehavior: 'smooth' }}
-                >
-                  <div className="h-[85px] shrink-0 pointer-events-none" />
-                  {MINUTES.map((m, idx) => {
-                    const isSelected = idx === activeMinute;
-                    return (
-                      <div
-                        key={m}
-                        onClick={() => handleSelectMinute(idx)}
-                        className={`h-10 flex items-center justify-center snap-center text-sm font-bold transition-all cursor-pointer ${
-                          isSelected
-                            ? 'text-white dark:text-circle-charcoal scale-110'
-                            : 'text-circle-slate dark:text-circle-dark-muted opacity-30 hover:opacity-80 scale-90'
-                        }`}
-                      >
-                        {m}
-                      </div>
-                    );
-                  })}
-                  <div className="h-[85px] shrink-0 pointer-events-none" />
-                </div>
-              </div>
-            </div>
+              </>
+            )}
           </div>
         </div>
       )}

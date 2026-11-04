@@ -1646,15 +1646,15 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
 
                       {recurrenceConfig.endType === 'on_date' && (
                         <div className="pt-1">
-                          <input
-                            type="date"
+                          <CustomDateTimePicker
+                            dateOnly
+                            required
                             value={
                               recurrenceConfig.endDate
                                 ? formatDateKey(recurrenceConfig.endDate)
                                 : formatDateKey(new Date())
                             }
-                            onChange={(e) => {
-                              const val = e.target.value;
+                            onChange={(val) => {
                               if (val) {
                                 const parts = val.split('-').map(Number);
                                 setRecurrenceConfig((prev) => ({
@@ -1664,7 +1664,9 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                                 }));
                               }
                             }}
-                            className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface px-3 py-1.5 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-hidden focus:ring-1 focus:ring-circle-sage"
+                            min={startTime ? startTime.split('T')[0] : undefined}
+                            placeholder="dd/mm/yyyy"
+                            align="left"
                           />
                         </div>
                       )}

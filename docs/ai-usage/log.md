@@ -5565,3 +5565,43 @@
 - **AI Errors / Hallucinations Found:** Không.
 - **Commit:** Pending
 - **PR:** Pending
+
+
+---
+
+## AI-0151: Cập nhật CustomDateTimePicker chế độ dateOnly cho trường Kết thúc lặp & Chuẩn hóa Modal Sự kiện Web (#120)
+
+- **Date:** 2026-11-04 14:10:00 +07:00
+- **Developer:** Trương Công Bình (MSSV: 23110184) & Ninh Thị Mỹ Hạnh (MSSV: 23110210)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash
+- **Related Issue:** #120
+- **Purpose:** Mở rộng component `CustomDateTimePicker` hỗ trợ prop `dateOnly?: boolean` để tái sử dụng toàn bộ giao diện lịch tự thiết kế (drum roll cuộn tháng/năm, grid ngày trong tuần, style theme Light/Dark) cho phần chọn ngày kết thúc lặp lại ("Kết thúc lặp") mà không hiển thị cột giờ; loại bỏ input date mặc định của trình duyệt; loại bỏ các label tiêu đề section thừa theo nguyên tắc Radical Minimalism; thiết lập mặc định khung giờ 06:00 đến 23:59 và bắt buộc cả Bắt đầu và Kết thúc.
+- **Prompt Summary:** Chỉnh sửa web event modal: bỏ label Thẻ 1/Thẻ 2, mặc định bắt đầu và kết thúc từ 06:00 đến 23:59 (bắt buộc), lịch kết thúc lặp giống lịch bắt đầu lúc không có thời gian.
+- **Files Affected:**
+  - `apps/web/src/components/tools/CustomDateTimePicker.tsx`
+  - `apps/web/src/components/tools/CircleCalendarView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:**
+  - `CustomDateTimePicker.tsx`:
+    - Thêm `dateOnly?: boolean` vào `CustomDateTimePickerProps`.
+    - Điều chỉnh parser `value` và `min` linh hoạt nhận cả format `"YYYY-MM-DD"` và `"YYYY-MM-DDTHH:mm"`.
+    - Cập nhật format hiển thị dạng `dd/mm/yyyy` khi `dateOnly` bật.
+    - Điều chỉnh `handleSelectDay` lập tức kích hoạt `onChange(newDatePart)` và đóng popover khi ở chế độ `dateOnly`.
+    - Tối ưu chiều rộng popover (`w-[250px]` khi `dateOnly`, `w-[380px]` khi đầy đủ ngày giờ) và ẩn toàn bộ cột con lăn 24h/phút cùng thanh phân cách dọc.
+    - Thêm nút Check "Xong" tiện lợi trên thanh header tháng/năm.
+  - `CircleCalendarView.tsx`:
+    - Thay thế `<input type="date">` của "Kết thúc lặp" bằng `<CustomDateTimePicker dateOnly required ... />`.
+    - Thiết lập giới hạn tối thiểu `min` theo ngày bắt đầu của sự kiện.
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+  - Chạy `npx tsc --noEmit -p apps/web/tsconfig.json` kiểm tra kiểu dữ liệu, đạt 0 lỗi.
+  - Chạy `npm run build --workspace=@circle/web` biên dịch Next.js thành công 100%.
+- **Official Source Checked:** `PROJECT_GOD.md` & `agentic/CONVENTIONS.md`.
+- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc không lộ email hay thông tin nhạy cảm.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** Trùng lặp một khối `return ... }, [datePart, timePart, value]);` trong `CustomDateTimePicker.tsx` khi chỉnh sửa.
+  - **Root Cause:** Sơ suất gộp cú pháp replace string.
+  - **Resolution / Fix:** Đã xóa dòng thừa và biên dịch kiểm tra thành công với TypeScript.
+- **Commit:** Pending
+- **PR:** Pending
