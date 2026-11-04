@@ -705,10 +705,10 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
 
   const MONTH_PAGE_HEIGHT = 276;
 
-  // Dải tháng hiển thị cuộn lướt theo từng tháng (từ 2024 đến 2028: 60 tháng)
+  // Dải tháng hiển thị cuộn lướt theo từng tháng (từ 2015 đến 2050)
   const MONTHS_RANGE = useMemo(() => {
     const list: { year: number; month: number; key: string }[] = [];
-    for (let y = 2024; y <= 2028; y++) {
+    for (let y = 2015; y <= 2050; y++) {
       for (let m = 1; m <= 12; m++) {
         list.push({ year: y, month: m, key: `${y}-${m}` });
       }
@@ -716,10 +716,10 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
     return list;
   }, []);
 
-  // Dải năm hiển thị cuộn dọc trong chế độ Year View (2023 đến 2028)
+  // Dải năm hiển thị cuộn dọc trong chế độ Year View (1970 đến 2070)
   const YEARS_RANGE = useMemo(() => {
     const list: number[] = [];
-    for (let y = 2023; y <= 2028; y++) {
+    for (let y = 1970; y <= 2070; y++) {
       list.push(y);
     }
     return list;

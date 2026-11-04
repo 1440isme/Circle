@@ -5637,3 +5637,30 @@
 - **AI Errors / Hallucinations Found:** Không.
 - **Commit:** Pending
 - **PR:** Pending
+
+
+---
+
+## AI-0153: Đồng Bộ Mở Rộng Dải Năm & Tháng Toàn Diện Trên Ứng Dụng Di Động (#120)
+
+- **Date:** 2026-11-04 14:25:00 +07:00
+- **Developer:** Trương Công Bình (MSSV: 23110184) & Ninh Thị Mỹ Hạnh (MSSV: 23110210)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash
+- **Related Issue:** #120
+- **Purpose:** Đồng bộ mở rộng phạm vi năm và tháng trên toàn bộ ứng dụng di động (`MobileCalendarView.tsx`): mở rộng `YEARS_RANGE` (Year View - chế độ xem danh sách năm) từ giới hạn cũ 2023-2028 lên 1970 - 2070 (101 năm); mở rộng `MONTHS_RANGE` (chế độ lướt chuyển tháng) từ 2024-2028 lên 2015 - 2050 (hơn 420 tháng); kết hợp cùng dải bánh xe chọn ngày giờ modal (`YEARS`) đã nâng lên 251 năm (1900 - 2150).
+- **Prompt Summary:** Đồng bộ mở rộng toàn bộ các dải năm trên mobile app tương xứng với web.
+- **Files Affected:**
+  - `apps/mobile/src/components/tools/MobileCalendarView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:**
+  - Mở rộng vòng lặp `MONTHS_RANGE` từ 2015 đến 2050.
+  - Mở rộng vòng lặp `YEARS_RANGE` từ 1970 đến 2070.
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+  - Chạy `npx tsc --noEmit -p apps/mobile/tsconfig.json` kiểm tra kiểu dữ liệu, đạt 0 lỗi.
+- **Official Source Checked:** `PROJECT_GOD.md` & `agentic/CONVENTIONS.md`.
+- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc không lộ thông tin nhạy cảm.
+- **AI Errors / Hallucinations Found:** Không.
+- **Commit:** Pending
+- **PR:** Pending
