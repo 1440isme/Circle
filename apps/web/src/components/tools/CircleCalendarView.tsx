@@ -490,18 +490,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
-  // Form states matching web style
-  const [title, setTitle] = useState('');
-  const [location, setLocation] = useState('');
-  const [description, setDescription] = useState('');
-  const [startTime, setStartTime] = useState('');
-  const [endTime, setEndTime] = useState('');
-  const [reminderMinutes, setReminderMinutes] = useState('15');
-
-  const [recurrenceConfig, setRecurrenceConfig] = useState<RecurrenceConfig>(() =>
-    createDefaultRecurrenceConfig(new Date())
-  );
-
+  const now = new Date();
   const formatToLocalDateTimeInput = (date: Date, hours = 0, minutes = 0) => {
     const d = new Date(date);
     d.setHours(hours, minutes, 0, 0);
@@ -513,8 +502,19 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
     return `${y}-${m}-${day}T${h}:${min}`;
   };
 
-  const now = new Date();
   const nowIsoLocal = formatToLocalDateTimeInput(now, now.getHours(), now.getMinutes());
+
+  // Form states matching web style (mặc định 06:00 đến 23:59)
+  const [title, setTitle] = useState('');
+  const [location, setLocation] = useState('');
+  const [description, setDescription] = useState('');
+  const [startTime, setStartTime] = useState(() => formatToLocalDateTimeInput(now, 6, 0));
+  const [endTime, setEndTime] = useState(() => formatToLocalDateTimeInput(now, 23, 59));
+  const [reminderMinutes, setReminderMinutes] = useState('15');
+
+  const [recurrenceConfig, setRecurrenceConfig] = useState<RecurrenceConfig>(() =>
+    createDefaultRecurrenceConfig(new Date())
+  );
 
   // Scope modal state for recurring event edit
   const [editingEvent, setEditingEvent] = useState<CalendarEventEntity | null>(null);
@@ -601,17 +601,9 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
     setReminderMinutes('15');
 
     const baseDate = new Date(selectedDate);
-    const curNow = new Date();
-    const isToday =
-      baseDate.getFullYear() === curNow.getFullYear() &&
-      baseDate.getMonth() === curNow.getMonth() &&
-      baseDate.getDate() === curNow.getDate();
-
-    const initStartH = isToday ? Math.min(23, curNow.getHours() + 1) : 9;
-    const initEndH = Math.min(23, initStartH + 1);
-
-    setStartTime(formatToLocalDateTimeInput(baseDate, initStartH, 0));
-    setEndTime(formatToLocalDateTimeInput(baseDate, initEndH, 0));
+    // Mặc định ngày đó từ 06:00 đến 23:59 (cả 2 đều bắt buộc)
+    setStartTime(formatToLocalDateTimeInput(baseDate, 6, 0));
+    setEndTime(formatToLocalDateTimeInput(baseDate, 23, 59));
     setRecurrenceConfig(createDefaultRecurrenceConfig(baseDate));
     setIsAddModalOpen(true);
   };
@@ -797,6 +789,10 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
       setSubmitError('Vui lòng chọn thời gian bắt đầu');
       return;
     }
+    if (!endTime) {
+      setSubmitError('Vui lòng chọn thời gian kết thúc');
+      return;
+    }
 
     const start = new Date(startTime);
     if (isNaN(start.getTime())) {
@@ -804,19 +800,14 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
       return;
     }
 
-    let end: Date;
-    if (endTime) {
-      end = new Date(endTime);
-      if (isNaN(end.getTime())) {
-        setSubmitError('Thời gian kết thúc không hợp lệ');
-        return;
-      }
-      if (end.getTime() <= start.getTime()) {
-        setSubmitError('Thời gian kết thúc phải lớn hơn thời gian bắt đầu');
-        return;
-      }
-    } else {
-      end = new Date(start.getTime() + 3600000);
+    const end = new Date(endTime);
+    if (isNaN(end.getTime())) {
+      setSubmitError('Thời gian kết thúc không hợp lệ');
+      return;
+    }
+    if (end.getTime() <= start.getTime()) {
+      setSubmitError('Thời gian kết thúc phải lớn hơn thời gian bắt đầu');
+      return;
     }
 
     const finalDesc = serializeRecurrence(recurrenceConfig, description);
@@ -1569,9 +1560,10 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-circle-slate dark:text-circle-dark-muted mb-1">
-                      Kết thúc (tùy chọn)
+                      Kết thúc lúc *
                     </label>
                     <CustomDateTimePicker
+                      required
                       value={endTime}
                       onChange={setEndTime}
                       min={startTime || (!editingEvent ? nowIsoLocal : undefined)}
