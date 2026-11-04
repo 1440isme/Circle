@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Calendar as CalendarIcon,
   Plus,
@@ -13,23 +13,20 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
-  ChevronDown,
   Bell,
   Loader2,
   CalendarDays,
-  Users,
   Check,
   HelpCircle,
-  Lock,
   AlertCircle,
   Repeat,
   Share2,
-  MessageSquare,
-  RotateCcw,
 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { getSocket } from '../../lib/socket';
 import { EventLocationDisplay } from './EventLocationDisplay';
+import { LocationSearchInput } from './LocationSearchInput';
+import { CustomDateTimePicker } from './CustomDateTimePicker';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguageStore } from '../../stores/language.store';
 import { useCircleStore } from '../../stores/circle.store';
@@ -230,40 +227,7 @@ export const formatDateOnly = (d: Date) => {
   return `${day}/${month}/${year}`;
 };
 
-export const formatAppleDate = (d: Date) => {
-  return `${d.getDate()} thg ${d.getMonth() + 1}, ${d.getFullYear()}`;
-};
-
-export const formatTimeOnly = (h: number, m: number) => {
-  return `${pad2(h)}:${pad2(m)}`;
-};
-
-export const createDateFromParts = (d: Date, h: number, m: number): Date => {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), h, m, 0, 0);
-};
-
-export const REPEAT_OPTIONS = [
-  { label: 'Không lặp lại', value: 'none' },
-  { label: 'Hằng ngày', value: 'daily' },
-  { label: 'Hằng tuần', value: 'weekly' },
-  { label: 'Hằng tháng', value: 'monthly' },
-  { label: 'Hằng năm', value: 'yearly' },
-  { label: 'Tùy chỉnh...', value: 'custom' },
-];
-
-export const REMINDER_OPTIONS = [
-  { label: 'Không nhắc', value: 'none' },
-  { label: 'Khi sự kiện diễn ra', value: '0' },
-  { label: 'Trước 5 phút', value: '5' },
-  { label: 'Trước 15 phút', value: '15' },
-  { label: 'Trước 30 phút', value: '30' },
-  { label: 'Trước 1 giờ', value: '60' },
-  { label: 'Trước 2 giờ', value: '120' },
-  { label: 'Trước 1 ngày', value: '1440' },
-  { label: 'Trước 2 ngày', value: '2880' },
-];
-
-export function serializeRecurrence(config: RecurrenceConfig, baseDesc?: string): string {
+export const serializeRecurrence = (config: RecurrenceConfig, baseDesc?: string): string => {
   const repeatSummary = formatRecurrenceSummary(config);
   const serialized = JSON.stringify({
     frequency: config.frequency,
@@ -291,12 +255,12 @@ export function serializeRecurrence(config: RecurrenceConfig, baseDesc?: string)
     .replace(/\[Lặp lại:[^\]]*?\]/g, '')
     .trim();
   return clean ? `${clean}\n${userRepeatText}\n${recurrenceTag}` : `${userRepeatText}\n${recurrenceTag}`;
-}
+};
 
-export function parseEventRecurrence(desc?: string | null): {
+export const parseEventRecurrence = (desc?: string | null): {
   cleanDesc: string;
   recurrenceConfig: RecurrenceConfig | null;
-} {
+} => {
   if (!desc) {
     return { cleanDesc: '', recurrenceConfig: null };
   }
@@ -328,21 +292,23 @@ export function parseEventRecurrence(desc?: string | null): {
         excludedDates: Array.isArray(raw.excludedDates) ? raw.excludedDates : [],
         cancelledDates: Array.isArray(raw.cancelledDates) ? raw.cancelledDates : [],
       };
-      return { cleanDesc: cleanDesc.replace(/\[RECURRENCE:[\s\S]*?\]/g, '').replace(/\[Lặp lại:[^\]]*?\]/g, '').trim(), recurrenceConfig: config };
+      return {
+        cleanDesc: cleanDesc.replace(/\[RECURRENCE:[\s\S]*?\]/g, '').replace(/\[Lặp lại:[^\]]*?\]/g, '').trim(),
+        recurrenceConfig: config,
+      };
     } catch {
       // Fallback
     }
   }
 
-  // Fallback nếu có tag chữ [Lặp lại: ...]
   if (desc.includes('[Lặp lại:')) {
     cleanDesc = cleanDesc.replace(/\[Lặp lại:[^\]]*?\]/g, '').trim();
   }
 
   return { cleanDesc, recurrenceConfig };
-}
+};
 
-export function isEventOccurringOnDate(ev: CalendarEventEntity, targetDate: Date): boolean {
+export const isEventOccurringOnDate = (ev: CalendarEventEntity, targetDate: Date): boolean => {
   const evStart = new Date(ev.startTime);
   const evEnd = ev.endTime ? new Date(ev.endTime) : evStart;
 
@@ -353,18 +319,14 @@ export function isEventOccurringOnDate(ev: CalendarEventEntity, targetDate: Date
   const dayStartTime = new Date(targetY, targetM, targetD, 0, 0, 0, 0).getTime();
   const dayEndTime = new Date(targetY, targetM, targetD, 23, 59, 59, 999).getTime();
 
-  // Kiểm tra cấu hình lặp lại
   const { recurrenceConfig } = parseEventRecurrence(ev.description);
 
-  // Không có cấu hình lặp lại -> So sánh khoảng thời gian gốc
   if (!recurrenceConfig || recurrenceConfig.frequency === 'none') {
     const startMs = evStart.getTime();
     const endMs = evEnd.getTime();
     return startMs <= dayEndTime && endMs >= dayStartTime;
   }
 
-  // Trường hợp lặp lại (Recurrence)
-  // 1. Kiểm tra nếu lần diễn ra này đã bị xóa riêng (excludedDates)
   const targetDateKey = `${targetY}-${pad2(targetM + 1)}-${pad2(targetD)}`;
   if (recurrenceConfig.excludedDates && recurrenceConfig.excludedDates.includes(targetDateKey)) {
     return false;
@@ -481,17 +443,17 @@ export function isEventOccurringOnDate(ev: CalendarEventEntity, targetDate: Date
   }
 
   return false;
-}
+};
 
-export function isEventCancelledOnDate(ev: CalendarEventEntity, targetDate: Date): boolean {
+export const isEventCancelledOnDate = (ev: CalendarEventEntity, targetDate: Date): boolean => {
   if (ev.isCancelled) return true;
   const { recurrenceConfig } = parseEventRecurrence(ev.description);
   if (!recurrenceConfig) return false;
   const targetDateKey = formatDateKey(targetDate);
   return Boolean(recurrenceConfig.cancelledDates && recurrenceConfig.cancelledDates.includes(targetDateKey));
-}
+};
 
-export function formatEventTimeForDate(ev: CalendarEventEntity, targetDate: Date): string {
+export const formatEventTimeForDate = (ev: CalendarEventEntity, targetDate: Date): string => {
   const evStart = new Date(ev.startTime);
   const evEnd = ev.endTime ? new Date(ev.endTime) : null;
   const { recurrenceConfig } = parseEventRecurrence(ev.description);
@@ -511,7 +473,7 @@ export function formatEventTimeForDate(ev: CalendarEventEntity, targetDate: Date
   if (!evEnd) return sStr;
   const eStr = `${pad2(evEnd.getHours())}:${pad2(evEnd.getMinutes())}`;
   return `${sStr} - ${eStr}`;
-}
+};
 
 interface CircleCalendarViewProps {
   circleId: string;
@@ -523,48 +485,36 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
   const setActiveCircleView = useCircleStore((s) => s.setActiveCircleView);
   const targetCalendarDate = useCircleStore((s) => s.targetCalendarDate);
   const targetCalendarEventId = useCircleStore((s) => s.targetCalendarEventId);
-  const setTargetCalendarEvent = useCircleStore((s) => s.setTargetCalendarEvent);
 
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
-  // Form states matching Mobile
+  // Form states matching web style
   const [title, setTitle] = useState('');
   const [location, setLocation] = useState('');
   const [description, setDescription] = useState('');
-  const [startDate, setStartDate] = useState<Date>(new Date());
-  const [startHour, setStartHour] = useState<number>(9);
-  const [startMinute, setStartMinute] = useState<number>(0);
-  const [endDate, setEndDate] = useState<Date>(new Date());
-  const [endHour, setEndHour] = useState<number>(10);
-  const [endMinute, setEndMinute] = useState<number>(0);
+  const [startTime, setStartTime] = useState('');
+  const [endTime, setEndTime] = useState('');
   const [reminderMinutes, setReminderMinutes] = useState('15');
 
   const [recurrenceConfig, setRecurrenceConfig] = useState<RecurrenceConfig>(() =>
     createDefaultRecurrenceConfig(new Date())
   );
-  const [customRecConfig, setCustomRecConfig] = useState<RecurrenceConfig>(() =>
-    createDefaultRecurrenceConfig(new Date())
-  );
 
-  // Pickers and sub-modals state
-  const [activePickerTarget, setActivePickerTarget] = useState<
-    'none' | 'start_date' | 'start_time' | 'end_date' | 'end_time' | 'end_repeat_date'
-  >('none');
-  const [pickerYear, setPickerYear] = useState<number>(new Date().getFullYear());
-  const [pickerMonth, setPickerMonth] = useState<number>(new Date().getMonth() + 1);
+  const formatToLocalDateTimeInput = (date: Date, hours = 0, minutes = 0) => {
+    const d = new Date(date);
+    d.setHours(hours, minutes, 0, 0);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const h = String(d.getHours()).padStart(2, '0');
+    const min = String(d.getMinutes()).padStart(2, '0');
+    return `${y}-${m}-${day}T${h}:${min}`;
+  };
 
-  const [isRepeatModalOpen, setIsRepeatModalOpen] = useState(false);
-  const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
-  const [isCustomRepeatOpen, setIsCustomRepeatOpen] = useState(false);
-  const [isEndRepeatPickerOpen, setIsEndRepeatPickerOpen] = useState(false);
-
-  // Location suggestions state
-  const [locationSuggestions, setLocationSuggestions] = useState<any[]>([]);
-  const [isSearchingLocation, setIsSearchingLocation] = useState(false);
-  const [showLocationSuggestions, setShowLocationSuggestions] = useState(false);
-  const locationWrapperRef = useRef<HTMLDivElement>(null);
+  const now = new Date();
+  const nowIsoLocal = formatToLocalDateTimeInput(now, now.getHours(), now.getMinutes());
 
   // Scope modal state for recurring event edit
   const [editingEvent, setEditingEvent] = useState<CalendarEventEntity | null>(null);
@@ -603,58 +553,6 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
     };
   }, [circleId, queryClient]);
 
-  // Debounced location search
-  useEffect(() => {
-    const trimmed = location.trim();
-    if (
-      !trimmed ||
-      trimmed.length < 2 ||
-      trimmed.startsWith('http://') ||
-      trimmed.startsWith('https://') ||
-      trimmed.includes('meet.google.com') ||
-      trimmed.includes('google.com/maps')
-    ) {
-      setLocationSuggestions([]);
-      setShowLocationSuggestions(false);
-      return;
-    }
-
-    const timer = setTimeout(async () => {
-      setIsSearchingLocation(true);
-      try {
-        const res = await fetch(`/api/locations/search?q=${encodeURIComponent(trimmed)}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data) && data.length > 0) {
-            setLocationSuggestions(data);
-            setShowLocationSuggestions(true);
-          } else {
-            setLocationSuggestions([]);
-            setShowLocationSuggestions(false);
-          }
-        }
-      } catch (err) {
-        setLocationSuggestions([]);
-        setShowLocationSuggestions(false);
-      } finally {
-        setIsSearchingLocation(false);
-      }
-    }, 300);
-
-    return () => clearTimeout(timer);
-  }, [location]);
-
-  // Close location suggestions on outside click
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (locationWrapperRef.current && !locationWrapperRef.current.contains(e.target as Node)) {
-        setShowLocationSuggestions(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
   const handleShareToChat = async (eventId: string) => {
     try {
       await shareToChatMutation.mutateAsync(eventId);
@@ -667,30 +565,30 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
 
   // Group upcoming events chronologically
   const groupedUpcoming = useMemo(() => {
-    const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const nowTime = new Date();
+    const todayStart = new Date(nowTime.getFullYear(), nowTime.getMonth(), nowTime.getDate()).getTime();
     const tomorrowStart = todayStart + 86400000;
     const weekEnd = todayStart + 7 * 86400000;
 
-    const today: CalendarEventEntity[] = [];
-    const tomorrow: CalendarEventEntity[] = [];
-    const thisWeek: CalendarEventEntity[] = [];
-    const later: CalendarEventEntity[] = [];
+    const todayList: CalendarEventEntity[] = [];
+    const tomorrowList: CalendarEventEntity[] = [];
+    const thisWeekList: CalendarEventEntity[] = [];
+    const laterList: CalendarEventEntity[] = [];
 
     for (const ev of upcomingEvents) {
       const start = new Date(ev.startTime).getTime();
       if (start >= todayStart && start < tomorrowStart) {
-        today.push(ev);
+        todayList.push(ev);
       } else if (start >= tomorrowStart && start < tomorrowStart + 86400000) {
-        tomorrow.push(ev);
+        tomorrowList.push(ev);
       } else if (start >= tomorrowStart + 86400000 && start < weekEnd) {
-        thisWeek.push(ev);
+        thisWeekList.push(ev);
       } else {
-        later.push(ev);
+        laterList.push(ev);
       }
     }
 
-    return { today, tomorrow, thisWeek, later };
+    return { today: todayList, tomorrow: tomorrowList, thisWeek: thisWeekList, later: laterList };
   }, [upcomingEvents]);
 
   const handleOpenCreateModal = () => {
@@ -709,25 +607,12 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
       baseDate.getMonth() === curNow.getMonth() &&
       baseDate.getDate() === curNow.getDate();
 
-    const initStartHour = isToday ? Math.min(23, curNow.getHours() + 1) : 9;
-    const initStartMinute = 0;
-    const initEndHour = Math.min(23, initStartHour + 1);
-    const initEndMinute = 0;
+    const initStartH = isToday ? Math.min(23, curNow.getHours() + 1) : 9;
+    const initEndH = Math.min(23, initStartH + 1);
 
-    setStartDate(baseDate);
-    setStartHour(initStartHour);
-    setStartMinute(initStartMinute);
-
-    const initEndDate = new Date(baseDate);
-    if (initStartHour === 23) {
-      initEndDate.setDate(initEndDate.getDate() + 1);
-    }
-    setEndDate(initEndDate);
-    setEndHour(initEndHour);
-    setEndMinute(initEndMinute);
-
-    setRecurrenceConfig(createDefaultRecurrenceConfig(baseDate, initEndDate));
-    setActivePickerTarget('none');
+    setStartTime(formatToLocalDateTimeInput(baseDate, initStartH, 0));
+    setEndTime(formatToLocalDateTimeInput(baseDate, initEndH, 0));
+    setRecurrenceConfig(createDefaultRecurrenceConfig(baseDate));
     setIsAddModalOpen(true);
   };
 
@@ -747,7 +632,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
     if (parsedRec && parsedRec.frequency !== 'none' && selectedDate) {
       const occStart = new Date(selectedDate);
       occStart.setHours(s.getHours(), s.getMinutes(), 0, 0);
-      setStartDate(occStart);
+      setStartTime(formatToLocalDateTimeInput(occStart, s.getHours(), s.getMinutes()));
 
       const diffDays = Math.round(
         (new Date(e.getFullYear(), e.getMonth(), e.getDate()).getTime() -
@@ -756,17 +641,11 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
       );
       const occEnd = new Date(selectedDate);
       occEnd.setDate(occEnd.getDate() + Math.max(0, diffDays));
-      occEnd.setHours(e.getHours(), e.getMinutes(), 0, 0);
-      setEndDate(occEnd);
+      setEndTime(formatToLocalDateTimeInput(occEnd, e.getHours(), e.getMinutes()));
     } else {
-      setStartDate(s);
-      setEndDate(e);
+      setStartTime(formatToLocalDateTimeInput(s, s.getHours(), s.getMinutes()));
+      setEndTime(formatToLocalDateTimeInput(e, e.getHours(), e.getMinutes()));
     }
-
-    setStartHour(s.getHours());
-    setStartMinute(s.getMinutes());
-    setEndHour(e.getHours());
-    setEndMinute(e.getMinutes());
 
     if (parsedRec) {
       setRecurrenceConfig(parsedRec);
@@ -787,8 +666,50 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
       setReminderMinutes('none');
     }
 
-    setActivePickerTarget('none');
     setIsAddModalOpen(true);
+  };
+
+  const handleRepeatOptionChange = (value: string) => {
+    if (value === 'custom') {
+      const sDate = startTime ? new Date(startTime) : new Date();
+      const eDate = endTime ? new Date(endTime) : sDate;
+      const baseWk = getDefaultWeeklyDays(sDate, eDate);
+      setRecurrenceConfig((prev) => ({
+        ...prev,
+        frequency: prev.frequency === 'none' ? 'weekly' : prev.frequency,
+        interval: Math.max(1, prev.interval || 1),
+        weeklyDays: prev.weeklyDays.length > 0 ? prev.weeklyDays : baseWk,
+        isCustom: true,
+      }));
+      return;
+    }
+
+    const freq = value as RecurrenceFrequency;
+    if (freq === 'none') {
+      setRecurrenceConfig((prev) => ({
+        ...prev,
+        frequency: 'none',
+        isCustom: false,
+      }));
+    } else {
+      const sDate = startTime ? new Date(startTime) : new Date();
+      const eDate = endTime ? new Date(endTime) : sDate;
+      const baseWk = getDefaultWeeklyDays(sDate, eDate);
+      setRecurrenceConfig((prev) => ({
+        ...prev,
+        frequency: freq,
+        interval: 1,
+        weeklyDays: baseWk,
+        monthlyType: 'day_of_month',
+        monthlyDay: sDate.getDate(),
+        monthlyNthWeekday: getWeekdayNumber(sDate),
+        monthlyNthOrder: getNthOrderFromDate(sDate),
+        yearlyType: 'specific_date',
+        yearlyDay: sDate.getDate(),
+        yearlyMonth: sDate.getMonth() + 1,
+        isCustom: false,
+      }));
+    }
   };
 
   // Calendar math
@@ -809,9 +730,9 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
   };
 
   const today = () => {
-    const now = new Date();
-    setCurrentDate(now);
-    setSelectedDate(now);
+    const nowTime = new Date();
+    setCurrentDate(nowTime);
+    setSelectedDate(nowTime);
   };
 
   // Recurrence aware events by day
@@ -869,16 +790,33 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
     setSubmitError(null);
 
     if (!title.trim()) {
-      setSubmitError('Vui lòng nhập tiêu đề sự kiện');
+      setSubmitError('Vui lòng nhập tên sự kiện');
+      return;
+    }
+    if (!startTime) {
+      setSubmitError('Vui lòng chọn thời gian bắt đầu');
       return;
     }
 
-    const start = createDateFromParts(startDate, startHour, startMinute);
-    const end = createDateFromParts(endDate, endHour, endMinute);
-
-    if (end.getTime() <= start.getTime()) {
-      setSubmitError('Thời gian kết thúc phải sau thời gian bắt đầu');
+    const start = new Date(startTime);
+    if (isNaN(start.getTime())) {
+      setSubmitError('Thời gian bắt đầu không hợp lệ');
       return;
+    }
+
+    let end: Date;
+    if (endTime) {
+      end = new Date(endTime);
+      if (isNaN(end.getTime())) {
+        setSubmitError('Thời gian kết thúc không hợp lệ');
+        return;
+      }
+      if (end.getTime() <= start.getTime()) {
+        setSubmitError('Thời gian kết thúc phải lớn hơn thời gian bắt đầu');
+        return;
+      }
+    } else {
+      end = new Date(start.getTime() + 3600000);
     }
 
     const finalDesc = serializeRecurrence(recurrenceConfig, description);
@@ -898,7 +836,6 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
         );
 
         if (isRecurring && scope === 'this' && editingOccurrenceDate) {
-          // Thêm ngày này vào excludedDates của sự kiện lặp gốc
           const occKey = formatDateKey(editingOccurrenceDate);
           const { recurrenceConfig: parentConfig, cleanDesc: parentCleanDesc } = parseEventRecurrence(editingEvent.description);
           const currentExcluded = parentConfig?.excludedDates || [];
@@ -916,7 +853,6 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
             },
           });
 
-          // Tạo sự kiện đơn lẻ riêng biệt cho ngày này
           const standaloneConfig: RecurrenceConfig = {
             ...recurrenceConfig,
             frequency: 'none',
@@ -935,7 +871,6 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
             reminderTime: reminderIso,
           });
         } else if (isRecurring && scope === 'future' && editingOccurrenceDate) {
-          // Cắt chuỗi lặp lại cũ tại ngày hôm trước
           const dayBefore = new Date(editingOccurrenceDate);
           dayBefore.setDate(dayBefore.getDate() - 1);
 
@@ -954,7 +889,6 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
             },
           });
 
-          // Tạo chuỗi lặp mới từ ngày được chọn trở đi
           await createMutation.mutateAsync({
             eventTitle: title.trim(),
             description: finalDesc,
@@ -964,7 +898,6 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
             reminderTime: reminderIso,
           });
         } else {
-          // Cập nhật toàn bộ chuỗi
           await updateMutation.mutateAsync({
             eventId: editingEvent.id,
             input: {
@@ -1021,7 +954,6 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
         'Bạn có muốn CHỈ HỦY LẦN NÀY không?\n\n- Nhấn OK để CHỈ HỦY LẦN NÀY (các lần khác vẫn diễn ra bình thường).\n- Nhấn Cancel để chọn tiếp xem có muốn hủy toàn bộ chuỗi không.'
       );
       if (answer) {
-        // Chỉ hủy lần này
         const occKey = formatDateKey(selectedDate);
         const { recurrenceConfig: parentConfig, cleanDesc: parentCleanDesc } = parseEventRecurrence(ev.description);
         const currentCancelled = parentConfig?.cancelledDates || [];
@@ -1100,208 +1032,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
     }
   };
 
-  // Inline Picker toggle
-  const togglePicker = (target: 'start_date' | 'start_time' | 'end_date' | 'end_time' | 'end_repeat_date') => {
-    if (activePickerTarget === target) {
-      setActivePickerTarget('none');
-    } else {
-      setActivePickerTarget(target);
-      if (target === 'start_date') {
-        setPickerYear(startDate.getFullYear());
-        setPickerMonth(startDate.getMonth() + 1);
-      } else if (target === 'end_date') {
-        setPickerYear(endDate.getFullYear());
-        setPickerMonth(endDate.getMonth() + 1);
-      } else if (target === 'end_repeat_date') {
-        const base = recurrenceConfig.endDate || startDate;
-        setPickerYear(base.getFullYear());
-        setPickerMonth(base.getMonth() + 1);
-      }
-    }
-  };
-
-  const currentRepeatLabel = useMemo(() => {
-    return formatRecurrenceSummary(recurrenceConfig);
-  }, [recurrenceConfig]);
-
-  const currentReminderLabel = useMemo(() => {
-    const item = REMINDER_OPTIONS.find((r) => r.value === reminderMinutes);
-    return item ? item.label : 'Trước 15 phút';
-  }, [reminderMinutes]);
-
   const isSubmitting = createMutation.isPending || updateMutation.isPending;
-
-  // Inline Month / Year Nav for Inline DatePicker
-  const handleInlinePickerPrevMonth = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (pickerMonth === 1) {
-      setPickerMonth(12);
-      setPickerYear((y) => y - 1);
-    } else {
-      setPickerMonth((m) => m - 1);
-    }
-  };
-
-  const handleInlinePickerNextMonth = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (pickerMonth === 12) {
-      setPickerMonth(1);
-      setPickerYear((y) => y + 1);
-    } else {
-      setPickerMonth((m) => m + 1);
-    }
-  };
-
-  // Render Inline Date Picker (Calendar Grid)
-  const renderInlineDatePicker = (
-    currentSelectedDate: Date,
-    onSelectDate: (d: Date) => void
-  ) => {
-    const totalDays = new Date(pickerYear, pickerMonth, 0).getDate();
-    const rawFirstDay = new Date(pickerYear, pickerMonth - 1, 1).getDay();
-    const firstCol = rawFirstDay === 0 ? 7 : rawFirstDay; // 1 = T2, 7 = CN
-
-    return (
-      <div className="p-3 bg-white dark:bg-circle-dark-surface border-t border-circle-hairline dark:border-circle-dark-hairline animate-in fade-in duration-100">
-        <div className="flex items-center justify-between pb-2 mb-2 border-b border-circle-hairline/60 dark:border-circle-dark-hairline/60">
-          <span className="text-xs font-bold text-teal-700 dark:text-teal-400">
-            Tháng {pickerMonth} {pickerYear}
-          </span>
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={handleInlinePickerPrevMonth}
-              className="p-1 rounded-md text-circle-slate hover:text-circle-charcoal dark:hover:text-white hover:bg-circle-wash dark:hover:bg-circle-dark-wash"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={handleInlinePickerNextMonth}
-              className="p-1 rounded-md text-circle-slate hover:text-circle-charcoal dark:hover:text-white hover:bg-circle-wash dark:hover:bg-circle-dark-wash"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-bold text-circle-slate dark:text-circle-dark-muted mb-1.5">
-          <span>T2</span>
-          <span>T3</span>
-          <span>T4</span>
-          <span>T5</span>
-          <span>T6</span>
-          <span>T7</span>
-          <span className="text-rose-500">CN</span>
-        </div>
-
-        <div className="grid grid-cols-7 gap-1">
-          {Array.from({ length: firstCol - 1 }).map((_, i) => (
-            <div key={`empty-${i}`} className="h-7 w-7" />
-          ))}
-
-          {Array.from({ length: totalDays }).map((_, i) => {
-            const dayNum = i + 1;
-            const isSel =
-              currentSelectedDate.getDate() === dayNum &&
-              currentSelectedDate.getMonth() + 1 === pickerMonth &&
-              currentSelectedDate.getFullYear() === pickerYear;
-
-            const isToday =
-              new Date().getDate() === dayNum &&
-              new Date().getMonth() + 1 === pickerMonth &&
-              new Date().getFullYear() === pickerYear;
-
-            return (
-              <button
-                key={`day-${dayNum}`}
-                type="button"
-                onClick={() => onSelectDate(new Date(pickerYear, pickerMonth - 1, dayNum))}
-                className={`h-7 w-7 mx-auto rounded-full flex items-center justify-center text-xs font-medium transition-all ${
-                  isSel
-                    ? 'bg-teal-600 text-white font-bold shadow-xs'
-                    : isToday
-                    ? 'border border-teal-500 text-teal-600 dark:text-teal-400 font-semibold'
-                    : 'text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash'
-                }`}
-              >
-                {dayNum}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-    );
-  };
-
-  // Render Inline Time Picker (Hours & Minutes)
-  const renderInlineTimePicker = (
-    currentH: number,
-    currentM: number,
-    onSelectH: (h: number) => void,
-    onSelectM: (m: number) => void
-  ) => {
-    const hours = Array.from({ length: 24 }, (_, i) => i);
-    const minuteSlots = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
-
-    return (
-      <div className="p-3 bg-white dark:bg-circle-dark-surface border-t border-circle-hairline dark:border-circle-dark-hairline animate-in fade-in duration-100">
-        <div className="grid grid-cols-2 gap-3">
-          {/* Cột Giờ */}
-          <div>
-            <span className="block text-[11px] font-bold text-circle-slate dark:text-circle-dark-muted mb-1.5 text-center">
-              Giờ (24h)
-            </span>
-            <div className="max-h-44 overflow-y-auto grid grid-cols-4 gap-1 p-1 bg-circle-canvas dark:bg-circle-dark-canvas rounded-xl border border-circle-hairline/80 dark:border-circle-dark-hairline/80">
-              {hours.map((h) => {
-                const isSel = currentH === h;
-                return (
-                  <button
-                    key={`h-${h}`}
-                    type="button"
-                    onClick={() => onSelectH(h)}
-                    className={`py-1.5 text-center text-xs rounded-lg font-medium transition-colors ${
-                      isSel
-                        ? 'bg-teal-600 text-white font-bold'
-                        : 'text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash'
-                    }`}
-                  >
-                    {pad2(h)}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Cột Phút */}
-          <div>
-            <span className="block text-[11px] font-bold text-circle-slate dark:text-circle-dark-muted mb-1.5 text-center">
-              Phút
-            </span>
-            <div className="max-h-44 overflow-y-auto grid grid-cols-3 gap-1 p-1 bg-circle-canvas dark:bg-circle-dark-canvas rounded-xl border border-circle-hairline/80 dark:border-circle-dark-hairline/80">
-              {minuteSlots.map((m) => {
-                const isSel = currentM === m;
-                return (
-                  <button
-                    key={`m-${m}`}
-                    type="button"
-                    onClick={() => onSelectM(m)}
-                    className={`py-2 text-center text-xs rounded-lg font-medium transition-colors ${
-                      isSel
-                        ? 'bg-teal-600 text-white font-bold'
-                        : 'text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash'
-                    }`}
-                  >
-                    :{pad2(m)}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
 
   return (
     <div className="flex-1 flex flex-col h-full bg-circle-canvas dark:bg-circle-dark-surface overflow-y-auto p-4 md:p-6 transition-colors">
@@ -1723,7 +1454,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                             { status: EventRsvpStatus.YES, label: 'Tham gia', icon: Check, color: 'emerald' },
                             { status: EventRsvpStatus.MAYBE, label: 'Có thể', icon: HelpCircle, color: 'amber' },
                             { status: EventRsvpStatus.NO, label: 'Bận', icon: X, color: 'rose' },
-                          ].map(({ status, label, icon: Icon, color }) => {
+                          ].map(({ status, label, icon: Icon }) => {
                             const isMyVote = ev.rsvps?.some(
                               (r) => r.userId === user?.id && r.status === status
                             );
@@ -1759,897 +1490,486 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
       )}
 
       {/* ============================================================== */}
-      {/* ADD / EDIT EVENT MODAL (APPLE CALENDAR HIG STYLE - IDENTICAL TO MOBILE) */}
+      {/* ADD / EDIT EVENT MODAL - WEB STYLE VỚI 2 THẺ (THÔNG TIN & NHẮC NHỞ) */}
       {/* ============================================================== */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-3 md:p-4 animate-in fade-in duration-150">
-          <div className="w-full max-w-lg rounded-3xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface shadow-2xl flex flex-col max-h-[92vh] overflow-hidden relative">
-            {/* Apple Navigation Bar */}
-            <div className="flex items-center justify-between px-5 py-3.5 border-b border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface sticky top-0 z-20">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-3 md:p-4 animate-in fade-in duration-150">
+          <div className="w-full max-w-xl rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-5 md:p-6 shadow-2xl max-h-[92vh] overflow-y-auto space-y-4">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-circle-hairline dark:border-circle-dark-hairline">
+              <div>
+                <h3 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
+                  {editingEvent ? 'Chỉnh Sửa Lịch Hẹn' : 'Lên Lịch Hẹn & Sự Kiện Nhóm'}
+                </h3>
+                <p className="text-xs text-circle-slate dark:text-circle-dark-muted mt-0.5">
+                  Lịch hẹn, sự kiện và nhắc nhở dành riêng cho các thành viên trong nhóm
+                </p>
+              </div>
               <button
                 type="button"
                 onClick={() => setIsAddModalOpen(false)}
-                disabled={isSubmitting}
-                className="text-sm font-semibold text-circle-slate hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
+                className="p-1.5 rounded-lg text-circle-slate hover:text-circle-charcoal dark:hover:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors"
               >
-                Hủy
-              </button>
-
-              <h3 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
-                {editingEvent ? 'Chỉnh sửa lịch hẹn' : 'Sự kiện mới'}
-              </h3>
-
-              <button
-                type="button"
-                onClick={handleAttemptSubmit}
-                disabled={isSubmitting}
-                className="px-4 py-1.5 rounded-full text-xs font-bold bg-teal-600 hover:bg-teal-700 text-white shadow-xs transition-all disabled:opacity-50 flex items-center gap-1.5"
-              >
-                {isSubmitting ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <span>{editingEvent ? 'Lưu' : 'Thêm'}</span>
-                )}
+                <X className="h-4 w-4" />
               </button>
             </div>
 
-            {/* Scrollable Content */}
-            <div className="flex-1 overflow-y-auto p-4 md:p-5 space-y-4">
-              {/* Group 1: Tiêu đề & Vị trí */}
-              <div className="rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-slate-50/80 dark:bg-circle-dark-canvas/60 overflow-hidden divide-y divide-circle-hairline/80 dark:divide-circle-dark-hairline/80 shadow-2xs">
-                {/* Hàng Tiêu đề */}
-                <div className="px-4 py-3 bg-transparent">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleAttemptSubmit();
+              }}
+              className="space-y-4"
+            >
+              {/* ========================================== */}
+              {/* THẺ 1: THÔNG TIN SỰ KIỆN & LỊCH TRÌNH */}
+              {/* ========================================== */}
+              <div className="rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/50 dark:bg-circle-dark-canvas/40 p-4 space-y-3.5 shadow-2xs">
+                <div className="flex items-center gap-2 pb-2 border-b border-circle-hairline/70 dark:border-circle-dark-hairline/70">
+                  <CalendarIcon className="h-4 w-4 text-teal-600 dark:text-teal-400" />
+                  <h4 className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text uppercase tracking-wider">
+                    Thẻ 1: Thông tin sự kiện & Lịch trình
+                  </h4>
+                </div>
+
+                {/* Tên sự kiện */}
+                <div>
+                  <label className="block text-xs font-semibold text-circle-slate dark:text-circle-dark-muted mb-1">
+                    Tên sự kiện / Lịch hẹn *
+                  </label>
                   <input
                     type="text"
                     required
-                    placeholder="Tiêu đề"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    className="w-full bg-transparent text-sm font-semibold text-circle-charcoal dark:text-circle-dark-text placeholder:text-circle-slate/60 dark:placeholder:text-circle-dark-muted/60 focus:outline-hidden"
+                    placeholder="Ví dụ: Họp đồ án tốt nghiệp, Đi ăn sinh nhật..."
+                    className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface px-3.5 py-2 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-hidden focus:ring-1 focus:ring-circle-sage"
                   />
                 </div>
 
-                {/* Hàng Vị trí */}
-                <div ref={locationWrapperRef} className="px-4 py-2.5 flex items-center gap-2.5 relative bg-transparent">
-                  <MapPin className="h-4 w-4 text-circle-slate dark:text-circle-dark-muted shrink-0" />
-                  <input
-                    type="text"
-                    placeholder="Vị trí hoặc Cuộc gọi video"
+                {/* Vị trí / Địa điểm */}
+                <div>
+                  <label className="block text-xs font-semibold text-circle-slate dark:text-circle-dark-muted mb-1">
+                    Địa điểm (tùy chọn)
+                  </label>
+                  <LocationSearchInput
                     value={location}
-                    onChange={(e) => setLocation(e.target.value)}
-                    className="flex-1 bg-transparent text-xs text-circle-charcoal dark:text-circle-dark-text placeholder:text-circle-slate/60 dark:placeholder:text-circle-dark-muted/60 focus:outline-hidden"
+                    onChange={setLocation}
+                    placeholder="Tìm kiếm địa điểm trên bản đồ hoặc dán link Google Meet / Google Maps..."
                   />
-                  {isSearchingLocation && (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin text-circle-slate shrink-0" />
-                  )}
-                  {location.length > 0 && !isSearchingLocation && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setLocation('');
-                        setLocationSuggestions([]);
-                        setShowLocationSuggestions(false);
-                      }}
-                      className="p-1 text-circle-slate hover:text-circle-charcoal"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-
-                  {/* Autocomplete dropdown */}
-                  {showLocationSuggestions && locationSuggestions.length > 0 && (
-                    <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-56 overflow-y-auto rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface shadow-xl p-1.5 space-y-1">
-                      <div className="px-2 py-1 text-[10px] font-bold text-circle-slate uppercase tracking-wider">
-                        Gợi ý địa điểm từ bản đồ
-                      </div>
-                      {locationSuggestions.map((item, idx) => (
-                        <button
-                          key={idx}
-                          type="button"
-                          onClick={() => {
-                            const name = item.name || item.display_name?.split(',')?.[0] || 'Địa điểm';
-                            setLocation(name);
-                            setShowLocationSuggestions(false);
-                          }}
-                          className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-circle-wash dark:hover:bg-circle-dark-wash flex items-start gap-2 transition-colors"
-                        >
-                          <MapPin className="h-3.5 w-3.5 text-rose-500 shrink-0 mt-0.5" />
-                          <div className="min-w-0 flex-1">
-                            <p className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text truncate">
-                              {item.name || item.display_name?.split(',')?.[0]}
-                            </p>
-                            <p className="text-[10px] text-circle-slate dark:text-circle-dark-muted truncate">
-                              {item.display_name}
-                            </p>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  )}
                 </div>
-              </div>
 
-              {/* Group 2: Thời gian (Bắt đầu & Kết thúc) */}
-              <div className="rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-slate-50/80 dark:bg-circle-dark-canvas/60 overflow-hidden divide-y divide-circle-hairline/80 dark:divide-circle-dark-hairline/80 shadow-2xs">
-                {/* Hàng Bắt đầu */}
-                <div className="px-4 py-2.5 flex items-center justify-between">
-                  <span className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text">
-                    Bắt đầu
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => togglePicker('start_date')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
-                        activePickerTarget === 'start_date'
-                          ? 'border-teal-500 bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 ring-1 ring-teal-500/20'
-                          : 'border-circle-hairline bg-white dark:bg-circle-dark-surface text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash'
-                      }`}
-                    >
-                      {formatDateOnly(startDate)}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => togglePicker('start_time')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
-                        activePickerTarget === 'start_time'
-                          ? 'border-teal-500 bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 ring-1 ring-teal-500/20'
-                          : 'border-circle-hairline bg-white dark:bg-circle-dark-surface text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash'
-                      }`}
-                    >
-                      {formatTimeOnly(startHour, startMinute)}
-                    </button>
+                {/* Thời gian Bắt đầu & Kết thúc */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-circle-slate dark:text-circle-dark-muted mb-1">
+                      Bắt đầu lúc *
+                    </label>
+                    <CustomDateTimePicker
+                      required
+                      value={startTime}
+                      onChange={setStartTime}
+                      min={!editingEvent ? nowIsoLocal : undefined}
+                      placeholder="dd/mm/yyyy --:--"
+                      align="left"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-circle-slate dark:text-circle-dark-muted mb-1">
+                      Kết thúc (tùy chọn)
+                    </label>
+                    <CustomDateTimePicker
+                      value={endTime}
+                      onChange={setEndTime}
+                      min={startTime || (!editingEvent ? nowIsoLocal : undefined)}
+                      placeholder="dd/mm/yyyy --:--"
+                      align="right"
+                    />
                   </div>
                 </div>
 
-                {/* Inline DatePicker Bắt đầu */}
-                {activePickerTarget === 'start_date' &&
-                  renderInlineDatePicker(startDate, (d) => {
-                    setStartDate(d);
-                    if (endDate.getTime() < d.getTime()) {
-                      setEndDate(d);
-                    }
-                  })}
-
-                {/* Inline TimePicker Bắt đầu */}
-                {activePickerTarget === 'start_time' &&
-                  renderInlineTimePicker(startHour, startMinute, setStartHour, setStartMinute)}
-
-                {/* Hàng Kết thúc */}
-                <div className="px-4 py-2.5 flex items-center justify-between">
-                  <span className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text">
-                    Kết thúc
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => togglePicker('end_date')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
-                        activePickerTarget === 'end_date'
-                          ? 'border-teal-500 bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 ring-1 ring-teal-500/20'
-                          : 'border-circle-hairline bg-white dark:bg-circle-dark-surface text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash'
-                      }`}
-                    >
-                      {formatDateOnly(endDate)}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => togglePicker('end_time')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
-                        activePickerTarget === 'end_time'
-                          ? 'border-teal-500 bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 ring-1 ring-teal-500/20'
-                          : 'border-circle-hairline bg-white dark:bg-circle-dark-surface text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash'
-                      }`}
-                    >
-                      {formatTimeOnly(endHour, endMinute)}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Inline DatePicker Kết thúc */}
-                {activePickerTarget === 'end_date' &&
-                  renderInlineDatePicker(endDate, (d) => {
-                    setEndDate(d);
-                  })}
-
-                {/* Inline TimePicker Kết thúc */}
-                {activePickerTarget === 'end_time' &&
-                  renderInlineTimePicker(endHour, endMinute, setEndHour, setEndMinute)}
-              </div>
-
-              {/* Group 3: Cấu hình Lặp lại (Recurrence) */}
-              <div className="rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-slate-50/80 dark:bg-circle-dark-canvas/60 overflow-hidden divide-y divide-circle-hairline/80 dark:divide-circle-dark-hairline/80 shadow-2xs">
-                {/* Hàng Lặp lại */}
-                <button
-                  type="button"
-                  onClick={() => setIsRepeatModalOpen(true)}
-                  className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-circle-wash/50 transition-colors"
-                >
-                  <span className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text shrink-0">
-                    Lặp lại
-                  </span>
-                  <div className="flex items-center gap-1.5 text-xs text-circle-slate dark:text-circle-dark-muted max-w-[280px] text-right truncate">
-                    <span className="truncate">{currentRepeatLabel}</span>
-                    <ChevronRight className="h-4 w-4 text-circle-slate/60 shrink-0" />
-                  </div>
-                </button>
-
-                {/* Hàng Kết thúc lặp lại */}
-                {recurrenceConfig.frequency !== 'none' && (
-                  <>
-                    <div className="px-4 py-2.5 flex items-center justify-between">
-                      <span className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text">
-                        Kết thúc lặp
+                {/* Cấu hình Lặp lại */}
+                <div className="space-y-2.5 pt-2 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-semibold text-circle-slate dark:text-circle-dark-muted">
+                      Lặp lại
+                    </label>
+                    {recurrenceConfig.frequency !== 'none' && (
+                      <span className="text-[11px] font-semibold text-teal-600 dark:text-teal-400">
+                        {formatRecurrenceSummary(recurrenceConfig)}
                       </span>
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => togglePicker('end_repeat_date')}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
-                            activePickerTarget === 'end_repeat_date'
-                              ? 'border-teal-500 bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 ring-1 ring-teal-500/20'
-                              : 'border-circle-hairline bg-white dark:bg-circle-dark-surface text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash'
-                          }`}
-                        >
-                          {recurrenceConfig.endDate
-                            ? formatDateOnly(recurrenceConfig.endDate)
-                            : 'Không giới hạn'}
-                        </button>
-                        {Boolean(recurrenceConfig.endDate) && (
+                    )}
+                  </div>
+
+                  <select
+                    value={recurrenceConfig.isCustom ? 'custom' : recurrenceConfig.frequency}
+                    onChange={(e) => handleRepeatOptionChange(e.target.value)}
+                    className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface px-3.5 py-2 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-hidden focus:ring-1 focus:ring-circle-sage"
+                  >
+                    <option value="none">Không lặp lại</option>
+                    <option value="daily">Hằng ngày</option>
+                    <option value="weekly">Hằng tuần</option>
+                    <option value="monthly">Hằng tháng</option>
+                    <option value="yearly">Hằng năm</option>
+                    <option value="custom">Tùy chỉnh...</option>
+                  </select>
+
+                  {/* Kết thúc lặp lại (chỉ hiển thị khi có lặp lại) */}
+                  {recurrenceConfig.frequency !== 'none' && (
+                    <div className="pt-2 space-y-2 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-circle-slate dark:text-circle-dark-muted">
+                          Kết thúc lặp
+                        </span>
+                        <div className="flex items-center gap-1.5">
                           <button
                             type="button"
-                            onClick={() => {
+                            onClick={() =>
                               setRecurrenceConfig((prev) => ({
                                 ...prev,
                                 endType: 'never',
                                 endDate: null,
-                              }));
-                              setActivePickerTarget('none');
+                              }))
+                            }
+                            className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all ${
+                              recurrenceConfig.endType === 'never'
+                                ? 'bg-teal-600 text-white border-teal-600 shadow-2xs'
+                                : 'bg-white dark:bg-circle-dark-surface border-circle-hairline text-circle-slate hover:text-circle-charcoal'
+                            }`}
+                          >
+                            Không giới hạn
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setRecurrenceConfig((prev) => ({
+                                ...prev,
+                                endType: 'on_date',
+                                endDate: prev.endDate || (startTime ? new Date(startTime) : new Date()),
+                              }))
+                            }
+                            className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all ${
+                              recurrenceConfig.endType === 'on_date'
+                                ? 'bg-teal-600 text-white border-teal-600 shadow-2xs'
+                                : 'bg-white dark:bg-circle-dark-surface border-circle-hairline text-circle-slate hover:text-circle-charcoal'
+                            }`}
+                          >
+                            Đến ngày
+                          </button>
+                        </div>
+                      </div>
+
+                      {recurrenceConfig.endType === 'on_date' && (
+                        <div className="pt-1">
+                          <input
+                            type="date"
+                            value={
+                              recurrenceConfig.endDate
+                                ? formatDateKey(recurrenceConfig.endDate)
+                                : formatDateKey(new Date())
+                            }
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val) {
+                                const parts = val.split('-').map(Number);
+                                setRecurrenceConfig((prev) => ({
+                                  ...prev,
+                                  endType: 'on_date',
+                                  endDate: new Date(parts[0], parts[1] - 1, parts[2]),
+                                }));
+                              }
                             }}
-                            className="p-1 text-circle-slate hover:text-circle-charcoal"
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    {activePickerTarget === 'end_repeat_date' &&
-                      renderInlineDatePicker(recurrenceConfig.endDate || startDate, (d) => {
-                        setRecurrenceConfig((prev) => ({
-                          ...prev,
-                          endType: 'on_date',
-                          endDate: d,
-                        }));
-                      })}
-                  </>
-                )}
-              </div>
-
-              {/* Group 4: Nhắc trước & Ghi chú */}
-              <div className="rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-slate-50/80 dark:bg-circle-dark-canvas/60 overflow-hidden divide-y divide-circle-hairline/80 dark:divide-circle-dark-hairline/80 shadow-2xs">
-                {/* Hàng Nhắc trước */}
-                <button
-                  type="button"
-                  onClick={() => setIsReminderModalOpen(true)}
-                  className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-circle-wash/50 transition-colors"
-                >
-                  <span className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text shrink-0">
-                    Nhắc trước
-                  </span>
-                  <div className="flex items-center gap-1.5 text-xs text-circle-slate dark:text-circle-dark-muted">
-                    <span>{currentReminderLabel}</span>
-                    <ChevronRight className="h-4 w-4 text-circle-slate/60 shrink-0" />
-                  </div>
-                </button>
-
-                {/* Hàng Ghi chú */}
-                <div className="px-4 py-3 bg-transparent">
-                  <textarea
-                    rows={3}
-                    placeholder="Ghi chú"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    className="w-full bg-transparent text-xs text-circle-charcoal dark:text-circle-dark-text placeholder:text-circle-slate/60 dark:placeholder:text-circle-dark-muted/60 focus:outline-hidden resize-none"
-                  />
-                </div>
-              </div>
-
-              {submitError && (
-                <div className="flex items-center gap-1.5 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-600 dark:text-rose-400 font-medium">
-                  <AlertCircle className="h-4 w-4 shrink-0" />
-                  <span>{submitError}</span>
-                </div>
-              )}
-            </div>
-
-            {/* ============================================================== */}
-            {/* SUB-MODAL 1: CHỌN LẶP LẠI (IN-MODAL OVERLAY) */}
-            {/* ============================================================== */}
-            {isRepeatModalOpen && (
-              <div className="absolute inset-0 z-30 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
-                <div className="w-full max-w-sm rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-4 shadow-xl space-y-3">
-                  <div className="flex items-center justify-between pb-2 border-b border-circle-hairline dark:border-circle-dark-hairline">
-                    <h4 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
-                      Lặp lại
-                    </h4>
-                    <button
-                      type="button"
-                      onClick={() => setIsRepeatModalOpen(false)}
-                      className="text-xs font-bold text-circle-primary hover:underline"
-                    >
-                      Đóng
-                    </button>
-                  </div>
-
-                  <div className="divide-y divide-circle-hairline dark:divide-circle-dark-hairline max-h-64 overflow-y-auto">
-                    {REPEAT_OPTIONS.map((item) => {
-                      const isSelected =
-                        item.value === 'custom'
-                          ? Boolean(recurrenceConfig.isCustom)
-                          : !recurrenceConfig.isCustom && recurrenceConfig.frequency === item.value;
-
-                      return (
-                        <button
-                          key={item.value}
-                          type="button"
-                          onClick={() => {
-                            setIsRepeatModalOpen(false);
-                            if (item.value === 'custom') {
-                              const baseWk = getDefaultWeeklyDays(startDate, endDate);
-                              const baseDay = startDate.getDate();
-                              const baseMonth = startDate.getMonth() + 1;
-                              const baseOrder = getNthOrderFromDate(startDate);
-                              setCustomRecConfig({
-                                ...recurrenceConfig,
-                                frequency:
-                                  recurrenceConfig.frequency === 'none'
-                                    ? 'weekly'
-                                    : recurrenceConfig.frequency,
-                                interval: Math.max(1, recurrenceConfig.interval || 1),
-                                weeklyDays:
-                                  recurrenceConfig.weeklyDays.length > 0
-                                    ? recurrenceConfig.weeklyDays
-                                    : baseWk,
-                                monthlyDay: recurrenceConfig.monthlyDay || baseDay,
-                                monthlyNthWeekday:
-                                  recurrenceConfig.monthlyNthWeekday || getWeekdayNumber(startDate),
-                                monthlyNthOrder: recurrenceConfig.monthlyNthOrder || baseOrder,
-                                yearlyDay: recurrenceConfig.yearlyDay || baseDay,
-                                yearlyMonth: recurrenceConfig.yearlyMonth || baseMonth,
-                                yearlyNthWeekday:
-                                  recurrenceConfig.yearlyNthWeekday || getWeekdayNumber(startDate),
-                                yearlyNthOrder: recurrenceConfig.yearlyNthOrder || baseOrder,
-                                yearlyNthMonth: recurrenceConfig.yearlyNthMonth || baseMonth,
-                                isCustom: true,
-                              });
-                              setIsCustomRepeatOpen(true);
-                              return;
-                            }
-
-                            const nextFreq = item.value as RecurrenceFrequency;
-                            if (nextFreq === 'none') {
-                              setRecurrenceConfig((prev) => ({
-                                ...prev,
-                                frequency: 'none',
-                                isCustom: false,
-                              }));
-                            } else {
-                              const baseWk = getDefaultWeeklyDays(startDate, endDate);
-                              const baseDay = startDate.getDate();
-                              const baseMonth = startDate.getMonth() + 1;
-                              const baseOrder = getNthOrderFromDate(startDate);
-                              setRecurrenceConfig((prev) => ({
-                                ...prev,
-                                frequency: nextFreq,
-                                interval: 1,
-                                weeklyDays: baseWk,
-                                monthlyType: 'day_of_month',
-                                monthlyDay: baseDay,
-                                monthlyNthWeekday: getWeekdayNumber(startDate),
-                                monthlyNthOrder: baseOrder,
-                                yearlyType: 'specific_date',
-                                yearlyDay: baseDay,
-                                yearlyMonth: baseMonth,
-                                yearlyNthWeekday: getWeekdayNumber(startDate),
-                                yearlyNthOrder: baseOrder,
-                                yearlyNthMonth: baseMonth,
-                                isCustom: false,
-                              }));
-                            }
-                          }}
-                          className="w-full py-2.5 px-2 flex items-center justify-between text-left hover:bg-circle-wash dark:hover:bg-circle-dark-wash rounded-lg transition-colors"
-                        >
-                          <span
-                            className={`text-xs ${
-                              isSelected
-                                ? 'font-bold text-teal-600 dark:text-teal-400'
-                                : 'text-circle-charcoal dark:text-circle-dark-text'
-                            }`}
-                          >
-                            {item.label}
-                          </span>
-                          {isSelected && <Check className="h-4 w-4 text-teal-600 dark:text-teal-400" />}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* ============================================================== */}
-            {/* SUB-MODAL 2: CHỌN NHẮC TRƯỚC (IN-MODAL OVERLAY) */}
-            {/* ============================================================== */}
-            {isReminderModalOpen && (
-              <div className="absolute inset-0 z-30 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
-                <div className="w-full max-w-sm rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-4 shadow-xl space-y-3">
-                  <div className="flex items-center justify-between pb-2 border-b border-circle-hairline dark:border-circle-dark-hairline">
-                    <h4 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
-                      Nhắc trước
-                    </h4>
-                    <button
-                      type="button"
-                      onClick={() => setIsReminderModalOpen(false)}
-                      className="text-xs font-bold text-circle-primary hover:underline"
-                    >
-                      Đóng
-                    </button>
-                  </div>
-
-                  <div className="divide-y divide-circle-hairline dark:divide-circle-dark-hairline max-h-64 overflow-y-auto">
-                    {REMINDER_OPTIONS.map((item) => {
-                      const isSelected = reminderMinutes === item.value;
-                      return (
-                        <button
-                          key={item.value}
-                          type="button"
-                          onClick={() => {
-                            setReminderMinutes(item.value);
-                            setIsReminderModalOpen(false);
-                          }}
-                          className="w-full py-2.5 px-2 flex items-center justify-between text-left hover:bg-circle-wash dark:hover:bg-circle-dark-wash rounded-lg transition-colors"
-                        >
-                          <span
-                            className={`text-xs ${
-                              isSelected
-                                ? 'font-bold text-teal-600 dark:text-teal-400'
-                                : 'text-circle-charcoal dark:text-circle-dark-text'
-                            }`}
-                          >
-                            {item.label}
-                          </span>
-                          {isSelected && <Check className="h-4 w-4 text-teal-600 dark:text-teal-400" />}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* ============================================================== */}
-            {/* SUB-MODAL 3: TÙY CHỈNH LẶP LẠI (CUSTOM RECURRENCE VIEW) */}
-            {/* ============================================================== */}
-            {isCustomRepeatOpen && (
-              <div className="absolute inset-0 z-40 bg-white dark:bg-circle-dark-surface flex flex-col animate-in slide-in-from-right duration-200">
-                {/* Header */}
-                <div className="flex items-center justify-between px-5 py-3.5 border-b border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface sticky top-0 z-10">
-                  <button
-                    type="button"
-                    onClick={() => setIsCustomRepeatOpen(false)}
-                    className="text-sm font-semibold text-circle-slate hover:text-rose-600 transition-colors"
-                  >
-                    Hủy
-                  </button>
-
-                  <h4 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
-                    Tùy chỉnh
-                  </h4>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setRecurrenceConfig({
-                        ...customRecConfig,
-                        isCustom: true,
-                      });
-                      setIsCustomRepeatOpen(false);
-                    }}
-                    className="text-sm font-bold text-teal-600 dark:text-teal-400 hover:underline"
-                  >
-                    Xong
-                  </button>
-                </div>
-
-                {/* Content */}
-                <div className="flex-1 overflow-y-auto p-4 md:p-5 space-y-4">
-                  {/* Card 1: Chu kỳ & Khoảng cách lặp */}
-                  <div className="rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-slate-50/80 dark:bg-circle-dark-canvas/60 overflow-hidden divide-y divide-circle-hairline/80 dark:divide-circle-dark-hairline/80 shadow-2xs">
-                    {/* Hàng Chu kỳ */}
-                    <div className="px-4 py-3 flex items-center justify-between">
-                      <span className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text">
-                        Chu kỳ
-                      </span>
-                      <div className="flex items-center rounded-xl bg-circle-wash dark:bg-circle-dark-wash p-1 border border-circle-hairline dark:border-circle-dark-hairline">
-                        {[
-                          { key: 'daily', label: 'Ngày' },
-                          { key: 'weekly', label: 'Tuần' },
-                          { key: 'monthly', label: 'Tháng' },
-                          { key: 'yearly', label: 'Năm' },
-                        ].map((seg) => {
-                          const isSel = customRecConfig.frequency === seg.key;
-                          return (
-                            <button
-                              key={seg.key}
-                              type="button"
-                              onClick={() =>
-                                setCustomRecConfig((prev) => ({
-                                  ...prev,
-                                  frequency: seg.key as RecurrenceFrequency,
-                                }))
-                              }
-                              className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all ${
-                                isSel
-                                  ? 'bg-white dark:bg-circle-dark-surface text-circle-charcoal dark:text-circle-dark-text shadow-2xs'
-                                  : 'text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal'
-                              }`}
-                            >
-                              {seg.label}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    {/* Hàng Khoảng cách lặp */}
-                    <div className="px-4 py-3 flex items-center justify-between">
-                      <span className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text">
-                        Khoảng cách lặp
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setCustomRecConfig((prev) => ({
-                              ...prev,
-                              interval: Math.max(1, prev.interval - 1),
-                            }))
-                          }
-                          className="h-7 w-7 rounded-lg border border-circle-hairline bg-white dark:bg-circle-dark-surface flex items-center justify-center text-teal-600 hover:bg-circle-wash transition-colors"
-                        >
-                          <Minus className="h-3.5 w-3.5 stroke-[2.5]" />
-                        </button>
-                        <input
-                          type="number"
-                          min={1}
-                          max={99}
-                          value={customRecConfig.interval || 1}
-                          onChange={(e) => {
-                            const val = parseInt(e.target.value, 10);
-                            setCustomRecConfig((prev) => ({
-                              ...prev,
-                              interval: isNaN(val) ? 1 : Math.max(1, Math.min(99, val)),
-                            }));
-                          }}
-                          className="w-10 text-center font-bold text-xs bg-white dark:bg-circle-dark-surface border border-circle-hairline rounded-lg py-1 text-circle-charcoal dark:text-circle-dark-text"
-                        />
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setCustomRecConfig((prev) => ({
-                              ...prev,
-                              interval: Math.min(99, prev.interval + 1),
-                            }))
-                          }
-                          className="h-7 w-7 rounded-lg border border-circle-hairline bg-white dark:bg-circle-dark-surface flex items-center justify-center text-teal-600 hover:bg-circle-wash transition-colors"
-                        >
-                          <Plus className="h-3.5 w-3.5 stroke-[2.5]" />
-                        </button>
-                        <span className="text-xs text-circle-slate dark:text-circle-dark-muted ml-1">
-                          {customRecConfig.frequency === 'daily' && 'ngày'}
-                          {customRecConfig.frequency === 'weekly' && 'tuần'}
-                          {customRecConfig.frequency === 'monthly' && 'tháng'}
-                          {customRecConfig.frequency === 'yearly' && 'năm'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Card 2: Chi tiết theo chu kỳ */}
-                  {customRecConfig.frequency === 'weekly' && (
-                    <div className="rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-slate-50/80 dark:bg-circle-dark-canvas/60 p-4 shadow-2xs space-y-3">
-                      <span className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text">
-                        Vào các ngày trong tuần
-                      </span>
-                      <div className="grid grid-cols-7 gap-1.5">
-                        {[
-                          { w: 1, label: 'T2' },
-                          { w: 2, label: 'T3' },
-                          { w: 3, label: 'T4' },
-                          { w: 4, label: 'T5' },
-                          { w: 5, label: 'T6' },
-                          { w: 6, label: 'T7' },
-                          { w: 7, label: 'CN' },
-                        ].map(({ w, label }) => {
-                          const isSel = customRecConfig.weeklyDays.includes(w);
-                          return (
-                            <button
-                              key={w}
-                              type="button"
-                              onClick={() =>
-                                setCustomRecConfig((prev) => {
-                                  const exists = prev.weeklyDays.includes(w);
-                                  if (exists && prev.weeklyDays.length === 1) return prev;
-                                  const next = exists
-                                    ? prev.weeklyDays.filter((d) => d !== w)
-                                    : [...prev.weeklyDays, w];
-                                  return { ...prev, weeklyDays: next };
-                                })
-                              }
-                              className={`h-9 rounded-xl flex items-center justify-center text-xs font-semibold transition-all border ${
-                                isSel
-                                  ? 'bg-teal-600 text-white border-teal-600 shadow-xs'
-                                  : 'border-circle-hairline bg-white dark:bg-circle-dark-surface text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash'
-                              }`}
-                            >
-                              {label}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {customRecConfig.frequency === 'monthly' && (
-                    <div className="rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-slate-50/80 dark:bg-circle-dark-canvas/60 p-4 shadow-2xs space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text">
-                          Quy tắc lặp
-                        </span>
-                        <div className="flex items-center rounded-xl bg-circle-wash dark:bg-circle-dark-wash p-1 border border-circle-hairline">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setCustomRecConfig((prev) => ({
-                                ...prev,
-                                monthlyType: 'day_of_month',
-                              }))
-                            }
-                            className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
-                              customRecConfig.monthlyType === 'day_of_month'
-                                ? 'bg-white dark:bg-circle-dark-surface text-circle-charcoal shadow-2xs'
-                                : 'text-circle-slate'
-                            }`}
-                          >
-                            Theo ngày
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setCustomRecConfig((prev) => ({
-                                ...prev,
-                                monthlyType: 'nth_weekday',
-                              }))
-                            }
-                            className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
-                              customRecConfig.monthlyType === 'nth_weekday'
-                                ? 'bg-white dark:bg-circle-dark-surface text-circle-charcoal shadow-2xs'
-                                : 'text-circle-slate'
-                            }`}
-                          >
-                            Theo thứ
-                          </button>
-                        </div>
-                      </div>
-
-                      {customRecConfig.monthlyType === 'day_of_month' ? (
-                        <div>
-                          <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted mb-2">
-                            Chọn ngày trong tháng:
-                          </p>
-                          <div className="grid grid-cols-7 gap-1">
-                            {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
-                              <button
-                                key={d}
-                                type="button"
-                                onClick={() =>
-                                  setCustomRecConfig((prev) => ({
-                                    ...prev,
-                                    monthlyDay: d,
-                                  }))
-                                }
-                                className={`h-7 rounded-lg text-xs font-medium transition-colors border ${
-                                  customRecConfig.monthlyDay === d
-                                    ? 'bg-teal-600 text-white border-teal-600 font-bold'
-                                    : 'border-circle-hairline bg-white dark:bg-circle-dark-surface text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash'
-                                }`}
-                              >
-                                {d}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <label className="block text-[10px] font-bold text-circle-slate mb-1">
-                              Thứ tự
-                            </label>
-                            <select
-                              value={customRecConfig.monthlyNthOrder}
-                              onChange={(e) =>
-                                setCustomRecConfig((prev) => ({
-                                  ...prev,
-                                  monthlyNthOrder: e.target.value as NthWeekdayOrder,
-                                }))
-                              }
-                              className="w-full text-xs font-semibold rounded-xl border border-circle-hairline bg-white dark:bg-circle-dark-surface p-2 text-circle-charcoal dark:text-circle-dark-text"
-                            >
-                              <option value="first">Đầu tiên</option>
-                              <option value="second">Thứ hai</option>
-                              <option value="third">Thứ ba</option>
-                              <option value="fourth">Thứ tư</option>
-                              <option value="last">Cuối cùng</option>
-                            </select>
-                          </div>
-                          <div>
-                            <label className="block text-[10px] font-bold text-circle-slate mb-1">
-                              Thứ trong tuần
-                            </label>
-                            <select
-                              value={customRecConfig.monthlyNthWeekday}
-                              onChange={(e) =>
-                                setCustomRecConfig((prev) => ({
-                                  ...prev,
-                                  monthlyNthWeekday: Number(e.target.value),
-                                }))
-                              }
-                              className="w-full text-xs font-semibold rounded-xl border border-circle-hairline bg-white dark:bg-circle-dark-surface p-2 text-circle-charcoal dark:text-circle-dark-text"
-                            >
-                              <option value={1}>Thứ Hai</option>
-                              <option value={2}>Thứ Ba</option>
-                              <option value={3}>Thứ Tư</option>
-                              <option value={4}>Thứ Năm</option>
-                              <option value={5}>Thứ Sáu</option>
-                              <option value={6}>Thứ Bảy</option>
-                              <option value={7}>Chủ Nhật</option>
-                            </select>
-                          </div>
+                            className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface px-3 py-1.5 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-hidden focus:ring-1 focus:ring-circle-sage"
+                          />
                         </div>
                       )}
                     </div>
                   )}
 
-                  {customRecConfig.frequency === 'yearly' && (
-                    <div className="rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-slate-50/80 dark:bg-circle-dark-canvas/60 p-4 shadow-2xs space-y-3">
-                      <span className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text">
-                        Vào ngày / tháng
-                      </span>
+                  {/* Bảng tùy chỉnh nâng cao (khi chọn Tùy chỉnh...) */}
+                  {recurrenceConfig.isCustom && (
+                    <div className="p-3 rounded-xl border border-teal-500/30 bg-teal-50/40 dark:bg-teal-950/20 space-y-3 pt-2 mt-2">
+                      <div className="flex items-center justify-between pb-1.5 border-b border-teal-500/20">
+                        <span className="text-xs font-bold text-teal-800 dark:text-teal-300">
+                          Tùy chỉnh quy tắc lặp
+                        </span>
+                      </div>
+
+                      {/* Chu kỳ & Khoảng cách */}
                       <div className="grid grid-cols-2 gap-2">
                         <div>
                           <label className="block text-[10px] font-bold text-circle-slate mb-1">
-                            Ngày
-                          </label>
-                          <input
-                            type="number"
-                            min={1}
-                            max={31}
-                            value={customRecConfig.yearlyDay}
-                            onChange={(e) =>
-                              setCustomRecConfig((prev) => ({
-                                ...prev,
-                                yearlyDay: Math.max(1, Math.min(31, parseInt(e.target.value, 10) || 1)),
-                              }))
-                            }
-                            className="w-full text-xs font-semibold rounded-xl border border-circle-hairline bg-white dark:bg-circle-dark-surface p-2 text-circle-charcoal dark:text-circle-dark-text"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[10px] font-bold text-circle-slate mb-1">
-                            Tháng
+                            Chu kỳ
                           </label>
                           <select
-                            value={customRecConfig.yearlyMonth}
+                            value={recurrenceConfig.frequency}
                             onChange={(e) =>
-                              setCustomRecConfig((prev) => ({
+                              setRecurrenceConfig((prev) => ({
                                 ...prev,
-                                yearlyMonth: Number(e.target.value),
+                                frequency: e.target.value as RecurrenceFrequency,
                               }))
                             }
-                            className="w-full text-xs font-semibold rounded-xl border border-circle-hairline bg-white dark:bg-circle-dark-surface p-2 text-circle-charcoal dark:text-circle-dark-text"
+                            className="w-full text-xs font-semibold rounded-xl border border-circle-hairline bg-white dark:bg-circle-dark-surface p-1.5 text-circle-charcoal dark:text-circle-dark-text"
                           >
-                            {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                              <option key={m} value={m}>
-                                Tháng {m}
-                              </option>
-                            ))}
+                            <option value="daily">Ngày</option>
+                            <option value="weekly">Tuần</option>
+                            <option value="monthly">Tháng</option>
+                            <option value="yearly">Năm</option>
                           </select>
                         </div>
+
+                        <div>
+                          <label className="block text-[10px] font-bold text-circle-slate mb-1">
+                            Khoảng cách ({recurrenceConfig.frequency === 'daily' ? 'ngày' : recurrenceConfig.frequency === 'weekly' ? 'tuần' : recurrenceConfig.frequency === 'monthly' ? 'tháng' : 'năm'})
+                          </label>
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setRecurrenceConfig((prev) => ({
+                                  ...prev,
+                                  interval: Math.max(1, prev.interval - 1),
+                                }))
+                              }
+                              className="h-7 w-7 rounded-lg border border-circle-hairline bg-white dark:bg-circle-dark-surface flex items-center justify-center text-teal-600 hover:bg-circle-wash"
+                            >
+                              <Minus className="h-3 w-3" />
+                            </button>
+                            <input
+                              type="number"
+                              min={1}
+                              max={99}
+                              value={recurrenceConfig.interval || 1}
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value, 10);
+                                setRecurrenceConfig((prev) => ({
+                                  ...prev,
+                                  interval: isNaN(val) ? 1 : Math.max(1, Math.min(99, val)),
+                                }));
+                              }}
+                              className="w-10 text-center font-bold text-xs bg-white dark:bg-circle-dark-surface border border-circle-hairline rounded-lg py-1 text-circle-charcoal dark:text-circle-dark-text"
+                            />
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setRecurrenceConfig((prev) => ({
+                                  ...prev,
+                                  interval: Math.min(99, prev.interval + 1),
+                                }))
+                              }
+                              className="h-7 w-7 rounded-lg border border-circle-hairline bg-white dark:bg-circle-dark-surface flex items-center justify-center text-teal-600 hover:bg-circle-wash"
+                            >
+                              <Plus className="h-3 w-3" />
+                            </button>
+                          </div>
+                        </div>
                       </div>
+
+                      {/* Nếu là Tuần: 7 nút chọn thứ */}
+                      {recurrenceConfig.frequency === 'weekly' && (
+                        <div>
+                          <label className="block text-[10px] font-bold text-circle-slate mb-1.5">
+                            Vào các ngày trong tuần:
+                          </label>
+                          <div className="grid grid-cols-7 gap-1">
+                            {[
+                              { w: 1, label: 'T2' },
+                              { w: 2, label: 'T3' },
+                              { w: 3, label: 'T4' },
+                              { w: 4, label: 'T5' },
+                              { w: 5, label: 'T6' },
+                              { w: 6, label: 'T7' },
+                              { w: 7, label: 'CN' },
+                            ].map(({ w, label }) => {
+                              const isSel = recurrenceConfig.weeklyDays.includes(w);
+                              return (
+                                <button
+                                  key={w}
+                                  type="button"
+                                  onClick={() => {
+                                    const exists = recurrenceConfig.weeklyDays.includes(w);
+                                    if (exists && recurrenceConfig.weeklyDays.length === 1) return;
+                                    const next = exists
+                                      ? recurrenceConfig.weeklyDays.filter((d) => d !== w)
+                                      : [...recurrenceConfig.weeklyDays, w];
+                                    setRecurrenceConfig((prev) => ({ ...prev, weeklyDays: next }));
+                                  }}
+                                  className={`h-7 rounded-lg text-xs font-semibold transition-all border ${
+                                    isSel
+                                      ? 'bg-teal-600 text-white border-teal-600 font-bold shadow-2xs'
+                                      : 'bg-white dark:bg-circle-dark-surface border-circle-hairline text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash'
+                                  }`}
+                                >
+                                  {label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
               </div>
-            )}
 
-            {/* ============================================================== */}
-            {/* SUB-MODAL 4: SCOPE CONFIRMATION (CHỈNH SỬA SỰ KIỆN LẶP LẠI) */}
-            {/* ============================================================== */}
-            {showScopeModal && (
-              <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-                <div className="w-full max-w-sm rounded-3xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-5 shadow-2xl space-y-4">
-                  <div>
-                    <h4 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
-                      Chỉnh sửa sự kiện lặp lại
-                    </h4>
-                    <p className="text-xs text-circle-slate dark:text-circle-dark-muted mt-1">
-                      Đây là sự kiện thuộc chuỗi lặp lại. Bạn muốn lưu thay đổi này cho:
-                    </p>
-                  </div>
+              {/* ========================================== */}
+              {/* THẺ 2: NHẮC NHỞ & GHI CHÚ */}
+              {/* ========================================== */}
+              <div className="rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/50 dark:bg-circle-dark-canvas/40 p-4 space-y-3.5 shadow-2xs">
+                <div className="flex items-center gap-2 pb-2 border-b border-circle-hairline/70 dark:border-circle-dark-hairline/70">
+                  <Bell className="h-4 w-4 text-teal-600 dark:text-teal-400" />
+                  <h4 className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text uppercase tracking-wider">
+                    Thẻ 2: Nhắc nhở & Ghi chú
+                  </h4>
+                </div>
 
-                  <div className="space-y-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowScopeModal(false);
-                        handleCreateOrUpdateEvent('this');
-                      }}
-                      className="w-full text-left p-3 rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-slate-50 dark:bg-circle-dark-canvas hover:border-teal-500 hover:bg-teal-50/50 dark:hover:bg-teal-950/20 transition-all"
-                    >
-                      <p className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
-                        Chỉ lần này
-                      </p>
-                      <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted mt-0.5">
-                        Chỉ thay đổi riêng ngày {editingOccurrenceDate ? formatDateOnly(editingOccurrenceDate) : ''}, các lần khác giữ nguyên.
-                      </p>
-                    </button>
+                {/* Nhắc nhở trước */}
+                <div>
+                  <label className="block text-xs font-semibold text-circle-slate dark:text-circle-dark-muted mb-1">
+                    Nhắc nhở trước
+                  </label>
+                  <select
+                    value={reminderMinutes}
+                    onChange={(e) => setReminderMinutes(e.target.value)}
+                    className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface px-3.5 py-2 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-hidden focus:ring-1 focus:ring-circle-sage"
+                  >
+                    <option value="none">Không nhắc</option>
+                    <option value="0">Khi sự kiện diễn ra</option>
+                    <option value="5">Trước 5 phút</option>
+                    <option value="15">Trước 15 phút</option>
+                    <option value="30">Trước 30 phút</option>
+                    <option value="60">Trước 1 giờ</option>
+                    <option value="120">Trước 2 giờ</option>
+                    <option value="1440">Trước 1 ngày</option>
+                    <option value="2880">Trước 2 ngày</option>
+                  </select>
+                </div>
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowScopeModal(false);
-                        handleCreateOrUpdateEvent('future');
-                      }}
-                      className="w-full text-left p-3 rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-slate-50 dark:bg-circle-dark-canvas hover:border-teal-500 hover:bg-teal-50/50 dark:hover:bg-teal-950/20 transition-all"
-                    >
-                      <p className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
-                        Lần này và các lần tiếp theo
-                      </p>
-                      <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted mt-0.5">
-                        Áp dụng thay đổi từ ngày {editingOccurrenceDate ? formatDateOnly(editingOccurrenceDate) : ''} trở đi.
-                      </p>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowScopeModal(false);
-                        handleCreateOrUpdateEvent('all');
-                      }}
-                      className="w-full text-left p-3 rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-slate-50 dark:bg-circle-dark-canvas hover:border-teal-500 hover:bg-teal-50/50 dark:hover:bg-teal-950/20 transition-all"
-                    >
-                      <p className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
-                        Tất cả các lần
-                      </p>
-                      <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted mt-0.5">
-                        Cập nhật toàn bộ các lần diễn ra trong chuỗi lặp lại.
-                      </p>
-                    </button>
-                  </div>
-
-                  <div className="pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline flex justify-end">
-                    <button
-                      type="button"
-                      onClick={() => setShowScopeModal(false)}
-                      className="px-4 py-1.5 rounded-xl text-xs font-semibold text-circle-slate hover:bg-circle-wash transition-colors"
-                    >
-                      Hủy thao tác
-                    </button>
-                  </div>
+                {/* Ghi chú nội dung */}
+                <div>
+                  <label className="block text-xs font-semibold text-circle-slate dark:text-circle-dark-muted mb-1">
+                    Ghi chú nội dung
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Chi tiết công việc hoặc nội dung chuẩn bị cho cuộc họp / sự kiện..."
+                    className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface px-3.5 py-2 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-hidden focus:ring-1 focus:ring-circle-sage resize-none"
+                  />
                 </div>
               </div>
-            )}
+
+              {submitError && (
+                <div className="flex items-center gap-1.5 p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-600 dark:text-rose-400 font-medium">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  <span>{submitError}</span>
+                </div>
+              )}
+
+              {/* Modal Footer Actions */}
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline">
+                <button
+                  type="button"
+                  onClick={() => setIsAddModalOpen(false)}
+                  className="rounded-xl px-4 py-2 text-xs font-semibold text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="rounded-xl bg-circle-charcoal dark:bg-circle-primary px-5 py-2 text-xs font-semibold text-white dark:text-circle-charcoal hover:bg-circle-sage transition-all disabled:opacity-50 flex items-center gap-1.5 shadow-2xs"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      <span>Đang lưu...</span>
+                    </>
+                  ) : (
+                    <span>{editingEvent ? 'Lưu thay đổi' : 'Lên lịch ngay'}</span>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* SCOPE CONFIRMATION MODAL (KHI CHỈNH SỬA SỰ KIỆN LẶP LẠI) */}
+      {/* ============================================================== */}
+      {showScopeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="w-full max-w-sm rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-5 shadow-2xl space-y-4">
+            <div>
+              <h4 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
+                Chỉnh sửa sự kiện lặp lại
+              </h4>
+              <p className="text-xs text-circle-slate dark:text-circle-dark-muted mt-1">
+                Đây là sự kiện thuộc chuỗi lặp lại. Bạn muốn lưu thay đổi này cho:
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowScopeModal(false);
+                  handleCreateOrUpdateEvent('this');
+                }}
+                className="w-full text-left p-3 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas hover:border-teal-500 hover:bg-teal-50/40 dark:hover:bg-teal-950/20 transition-all"
+              >
+                <p className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
+                  Chỉ lần này
+                </p>
+                <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted mt-0.5">
+                  Chỉ thay đổi riêng ngày {editingOccurrenceDate ? formatDateOnly(editingOccurrenceDate) : ''}, các lần khác giữ nguyên.
+                </p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowScopeModal(false);
+                  handleCreateOrUpdateEvent('future');
+                }}
+                className="w-full text-left p-3 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas hover:border-teal-500 hover:bg-teal-50/40 dark:hover:bg-teal-950/20 transition-all"
+              >
+                <p className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
+                  Lần này và các lần tiếp theo
+                </p>
+                <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted mt-0.5">
+                  Áp dụng thay đổi từ ngày {editingOccurrenceDate ? formatDateOnly(editingOccurrenceDate) : ''} trở đi.
+                </p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowScopeModal(false);
+                  handleCreateOrUpdateEvent('all');
+                }}
+                className="w-full text-left p-3 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas hover:border-teal-500 hover:bg-teal-50/40 dark:hover:bg-teal-950/20 transition-all"
+              >
+                <p className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
+                  Tất cả các lần
+                </p>
+                <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted mt-0.5">
+                  Cập nhật toàn bộ các lần diễn ra trong chuỗi lặp lại.
+                </p>
+              </button>
+            </div>
+
+            <div className="pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowScopeModal(false)}
+                className="px-4 py-1.5 rounded-xl text-xs font-semibold text-circle-slate hover:bg-circle-wash transition-colors"
+              >
+                Hủy thao tác
+              </button>
+            </div>
           </div>
         </div>
       )}
