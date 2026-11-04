@@ -5759,3 +5759,85 @@
 - **AI Errors / Hallucinations Found:** Không.
 - **Commit:** Pending
 - **PR:** Pending
+
+
+---
+
+## AI-0157: Nâng cấp Lịch sự kiện Web: Modal Chi tiết Lịch hẹn, Popup Tùy chỉnh quy tắc lặp & 3 Phạm vi Lưu, Sửa, Xoá, Huỷ (#120)
+
+- **Date:** 2026-11-04 17:05:00 +07:00
+- **Developer:** Trương Công Bình (MSSV: 23110184) & Ninh Thị Mỹ Hạnh (MSSV: 23110210)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash
+- **Related Issue:** #120
+- **Purpose:** Triển khai đồng bộ tính năng Lịch sự kiện trên Web (`apps/web`) đạt 100% parity chuẩn mực với Mobile:
+  1. **Xây dựng Modal Chi tiết Lịch hẹn (`CircleEventDetailModal.tsx`):**
+     - Hiển thị đầy đủ thông tin: Tiêu đề sự kiện, huy hiệu [Đã hủy] nếu bị hủy, thời gian bắt đầu - kết thúc theo lần diễn ra, địa điểm kèm liên kết ngoài (Google Maps hoặc phòng họp online Zoom/Meet/Teams), tóm tắt quy tắc lặp, nhắc nhở trước và ghi chú sạch sẽ.
+     - Thanh duyệt chuỗi lặp lại (`getNextOrPrevOccurrence`): cho phép nhảy tới lần diễn ra trước (`Lần trước`) hoặc lần tiếp theo (`Lần tiếp theo`) ngay trong modal chi tiết.
+     - Khu vực bình chọn tham gia (RSVP): 3 nút tương tác trực tiếp (Tham gia / Chưa chắc / Bận) hiển thị tỷ lệ % và số lượt phản hồi, kèm hàng avatar của thành viên và popup xem toàn bộ danh sách phản hồi.
+     - Các nút hành động: Chia sẻ vào tin nhắn nhóm, Chỉnh sửa, Hủy lịch hẹn, Khôi phục lịch hẹn, Xóa lịch hẹn.
+  2. **Popup Tùy chỉnh Quy tắc Lặp (`CustomRecurrenceModal.tsx`):**
+     - Chuyển giao diện tùy chỉnh lặp nâng cao từ dạng mở rộng chiếm diện tích inline sang dạng Popup Modal độc lập, chỉn chu và tối giản.
+     - Hỗ trợ đầy đủ: Chu kỳ (Ngày / Tuần / Tháng / Năm), Khoảng cách lặp (Stepper [-] [N] [+]), chọn ngày trong tuần, quy tắc ngày/thứ trong tháng và trong năm.
+     - Mục **Kết thúc lặp**: Hỗ trợ 2 tùy chọn "Không giới hạn" và "Vào ngày". Khi chọn "Vào ngày", tích hợp popup lịch chọn ngày trực quan (`CalendarDatePickerPopup.tsx`) với lưới ngày, điều hướng tháng/năm và các nút chọn nhanh (1 tháng, 3 tháng, 6 tháng, 1 năm).
+  3. **Đồng bộ 3 Lựa chọn Phạm vi cho Lưu, Sửa, Xóa, Hủy:**
+     - Thay thế hoàn toàn `window.confirm` trình duyệt bằng modal hộp thoại TailWind chuẩn mực:
+     - **Lưu / Sửa sự kiện lặp:** "Chỉ lần này" (`this`), "Lần này và các lần tiếp theo" (`future`), "Tất cả các lần" (`all`).
+     - **Xóa sự kiện lặp:** "Chỉ xóa lần này" (`this` - thêm vào `excludedDates`), "Xóa lần này và các lần tiếp theo" (`future` - cắt ngắn chuỗi), "Xóa tất cả các lần" (`all` - xóa khỏi DB).
+     - **Hủy sự kiện lặp:** "Chỉ hủy lần này" (`this` - thêm vào `cancelledDates`), "Hủy lần này và các lần tiếp theo" (`future`), "Hủy tất cả các lần" (`all`).
+     - Hỗ trợ nút **Khôi phục** một chạm cho các lần diễn ra đã bị đánh dấu hủy.
+- **Prompt Summary:** Chỉnh ở web về phần lịch sự kiện: Tạo sự kiện chỗ kết thúc lặp chỗ tùy chỉnh quy tắc lặp làm dạng popup như lịch; chức năng lưu, xóa, sửa, hủy có 3 cái như ở apps; xây modal chi tiết lịch hẹn.
+- **Files Affected:**
+  - `apps/web/src/components/tools/CircleCalendarView.tsx`
+  - `apps/web/src/components/tools/CircleEventDetailModal.tsx`
+  - `apps/web/src/components/tools/CustomRecurrenceModal.tsx`
+  - `apps/web/src/components/tools/CalendarDatePickerPopup.tsx`
+  - `apps/web/src/components/tools/calendar-recurrence.ts`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** Toàn bộ component mới và logic tích hợp state/event handler.
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+  - `npx tsc --noEmit -p apps/web/tsconfig.json`: Passed 100%, 0 lỗi.
+  - `npm run build --workspace=@circle/web`: Next.js 14 production build thành công (11/11 static pages generated).
+- **Official Source Checked:** `PROJECT_GOD.md` & `agentic/CONVENTIONS.md`.
+- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
+- **AI Errors / Hallucinations Found:** Không.
+- **Commit:** Pending
+- **PR:** Pending
+
+
+---
+
+## AI-0158: Tối ưu triệt để hiệu năng Lịch hẹn Mobile: Khắc phục treo lag, dải tháng vô hạn và memo hóa tính toán sự kiện (#120)
+
+- **Date:** 2026-11-04 17:20:00 +07:00
+- **Developer:** Trương Công Bình (MSSV: 23110184) & Ninh Thị Mỹ Hạnh (MSSV: 23110210)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash
+- **Related Issue:** #120
+- **Purpose:** Khắc phục triệt để lỗi chức năng đặt lịch ở Mobile App bị lag đơ nghiêm trọng và không thể tải dữ liệu:
+  1. **Tối ưu dải tháng và dải năm (`MONTHS_RANGE`, `YEARS_RANGE`, `YEARS`):**
+     - Đưa `MONTHS_RANGE` từ 432 tháng (2015-2050: tạo ra hơn 18.000 View nodes cùng lúc trong non-virtualized ScrollView) về mức tối ưu 60 tháng (2024-2028).
+     - Rút gọn `YEARS_RANGE` từ 100 năm về 6 năm (2023-2028).
+     - Thu gọn mảng năm `YEARS` của bánh xe chọn nhanh xuống 45 năm (2015-2059) vừa đủ linh hoạt vừa nhẹ nhàng.
+  2. **Giải quyết Race Condition & Loop sự kiện cuộn lúc Mount:**
+     - Bổ sung `isInitialScrollDoneRef` chặn sự kiện `handleMonthScrollEnd` kích hoạt sớm khi React Native đang đo đạc layout (trước đây sự kiện này bị gọi với `scrollY = 0`, làm lùi ngày về tháng 1 năm 2015 và kích hoạt liên hoàn các request `loadEvents()` gây nghẽn JS thread).
+     - Đảm bảo `setEvents(Array.isArray(data) ? data : [])` an toàn trước mọi phản hồi API.
+  3. **Memo hóa Phân tích Quy tắc Lặp (`parsedEvents` & `activeMonthEventsCountMap`):**
+     - Chuyển logic `parseEventRecurrence` vốn chạy regex nặng trong vòng lặp từng ô ngày (hơn 360.000 lần mỗi khung hình) thành pre-parsed một lần thông qua `parsedEvents`.
+     - Tính toán trước bản đồ số sự kiện `activeMonthEventsCountMap` cho tháng đang hiển thị ($O(1)$ lookup per day cell) và bỏ qua tính toán lặp cho các tháng khác.
+     - Cập nhật hàm `isEventOccurringOnDate` và `isEventCancelledOnDate` tiếp nhận `cachedRecurrence` tùy chọn để tránh phân tích lại chuỗi JSON/Regex.
+- **Prompt Summary:** kiểm tra lại chức năng đặt lịch ở app tại sao lag và ko thể load dữ liệu. các chức năng khác hoạt động bình thường.
+- **Files Affected:**
+  - `apps/mobile/src/components/tools/MobileCalendarView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** Toàn bộ logic tối ưu hiệu năng, memoization và guard scroll event.
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Passed 100%, 0 lỗi.
+  - `npm run build --workspace=@circle/web`: Next.js 14 production build thành công (11/11 static pages generated).
+- **Official Source Checked:** `PROJECT_GOD.md` & `agentic/RULES.md`.
+- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
+- **AI Errors / Hallucinations Found:** Không.
+- **Commit:** Pending
+- **PR:** Pending

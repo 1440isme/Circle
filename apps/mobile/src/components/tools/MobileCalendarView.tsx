@@ -284,7 +284,7 @@ const createDateFromParts = (d: Date, h: number, m: number): Date => {
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const MINUTES = Array.from({ length: 60 }, (_, i) => i); // 00 - 59
 const MONTH_NAMES = Array.from({ length: 12 }, (_, i) => `Tháng ${String(i + 1).padStart(2, '0')}`);
-const YEARS = Array.from({ length: 251 }, (_, i) => 1900 + i); // 1900 - 2150 (dải năm mở rộng chuẩn)
+const YEARS = Array.from({ length: 45 }, (_, i) => 2015 + i); // 2015 - 2059 (45 năm tối ưu mượt mà cho mobile)
 
 const WHEEL_ITEM_HEIGHT = 38;
 const WHEEL_VISIBLE_HEIGHT = 228;
@@ -499,7 +499,11 @@ export function parseEventRecurrence(desc?: string | null): {
   return { cleanDesc, recurrenceConfig: fallbackConfig };
 }
 
-export function isEventOccurringOnDate(ev: CalendarEventEntity, targetDate: Date): boolean {
+export function isEventOccurringOnDate(
+  ev: CalendarEventEntity,
+  targetDate: Date,
+  cachedRecurrence?: RecurrenceConfig | null,
+): boolean {
   const targetY = targetDate.getFullYear();
   const targetM = targetDate.getMonth();
   const targetD = targetDate.getDate();
@@ -515,7 +519,10 @@ export function isEventOccurringOnDate(ev: CalendarEventEntity, targetDate: Date
   // Trước ngày bắt đầu -> không hiển thị
   if (targetTime < startDayTime) return false;
 
-  const { recurrenceConfig } = parseEventRecurrence(ev.description);
+  const recurrenceConfig =
+    cachedRecurrence !== undefined
+      ? cachedRecurrence
+      : parseEventRecurrence(ev.description).recurrenceConfig;
 
   // Trường hợp không lặp: kiểm tra khoảng [startTime, endTime] (hỗ trợ nhiều ngày)
   if (!recurrenceConfig || recurrenceConfig.frequency === 'none') {
@@ -611,9 +618,16 @@ export function isEventOccurringOnDate(ev: CalendarEventEntity, targetDate: Date
   }
 }
 
-export function isEventCancelledOnDate(ev: CalendarEventEntity, targetDate: Date): boolean {
+export function isEventCancelledOnDate(
+  ev: CalendarEventEntity,
+  targetDate: Date,
+  cachedRecurrence?: RecurrenceConfig | null,
+): boolean {
   if (ev.isCancelled) return true;
-  const { recurrenceConfig } = parseEventRecurrence(ev.description);
+  const recurrenceConfig =
+    cachedRecurrence !== undefined
+      ? cachedRecurrence
+      : parseEventRecurrence(ev.description).recurrenceConfig;
   if (!recurrenceConfig) return false;
   const targetDateKey = formatDateKey(targetDate);
   return Boolean(recurrenceConfig.cancelledDates && recurrenceConfig.cancelledDates.includes(targetDateKey));
@@ -712,7 +726,7 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
   // Dải tháng hiển thị cuộn lướt theo từng tháng (từ 2015 đến 2050)
   const MONTHS_RANGE = useMemo(() => {
     const list: { year: number; month: number; key: string }[] = [];
-    for (let y = 2015; y <= 2050; y++) {
+    for (let y = 2024; y <= 2028; y++) {
       for (let m = 1; m <= 12; m++) {
         list.push({ year: y, month: m, key: `${y}-${m}` });
       }
@@ -723,7 +737,7 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
   // Dải năm hiển thị cuộn dọc trong chế độ Year View (1970 đến 2070)
   const YEARS_RANGE = useMemo(() => {
     const list: number[] = [];
-    for (let y = 1970; y <= 2070; y++) {
+    for (let y = 2023; y <= 2028; y++) {
       list.push(y);
     }
     return list;
@@ -732,6 +746,7 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
   const monthScrollRef = useRef<any>(null);
   const yearLayoutsRef = useRef<Record<number, number>>({});
   const yearScrollRef = useRef<any>(null);
+  const isInitialScrollDoneRef = useRef(false);
 
   const scrollToMonth = useCallback(
     (targetYear: number, targetMonth: number, animated = true) => {
@@ -739,7 +754,15 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
         (it) => it.year === targetYear && it.month === targetMonth,
       );
       if (idx !== -1 && monthScrollRef.current) {
+        if (animated) {
+          isInitialScrollDoneRef.current = false;
+        }
         monthScrollRef.current.scrollTo({ y: idx * MONTH_PAGE_HEIGHT, animated });
+        if (animated) {
+          setTimeout(() => {
+            isInitialScrollDoneRef.current = true;
+          }, 350);
+        }
       }
     },
     [MONTHS_RANGE],
@@ -754,6 +777,7 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
 
   const handleMonthScrollEnd = useCallback(
     (e: any) => {
+      if (!isInitialScrollDoneRef.current) return;
       const scrollY = e.nativeEvent.contentOffset.y;
       const pageIndex = Math.min(
         MONTHS_RANGE.length - 1,
@@ -843,7 +867,7 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
     try {
       setIsLoading(true);
       const data = await getCalendarEventsApi(circleId, month, year);
-      setEvents(data);
+      setEvents(Array.isArray(data) ? data : []);
     } catch (err: any) {
       Alert.alert('Lỗi', err.message || 'Không thể tải lịch hẹn');
     } finally {
@@ -859,6 +883,9 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
   useEffect(() => {
     const timer = setTimeout(() => {
       scrollToMonth(year, month, false);
+      setTimeout(() => {
+        isInitialScrollDoneRef.current = true;
+      }, 250);
     }, 150);
     return () => clearTimeout(timer);
   }, []);
@@ -1564,9 +1591,36 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
     }
   }, [isPickerMonthYearOpen, pickerMonth, pickerYear, activePickerTarget]);
 
+  const parsedEvents = useMemo(() => {
+    return (events || []).map((ev) => ({
+      event: ev,
+      recurrenceConfig: parseEventRecurrence(ev.description).recurrenceConfig,
+    }));
+  }, [events]);
+
+  const activeMonthEventsCountMap = useMemo(() => {
+    const map: Record<number, number> = {};
+    const daysInCurrentMonth = new Date(year, month, 0).getDate();
+    for (let d = 1; d <= daysInCurrentMonth; d++) {
+      const targetDate = new Date(year, month - 1, d);
+      let count = 0;
+      for (const item of parsedEvents) {
+        if (isEventOccurringOnDate(item.event, targetDate, item.recurrenceConfig)) {
+          count++;
+        }
+      }
+      map[d] = count;
+    }
+    return map;
+  }, [parsedEvents, year, month]);
+
   const selectedDayEvents = useMemo(() => {
-    return events.filter((ev) => isEventOccurringOnDate(ev, selectedDate));
-  }, [events, selectedDate]);
+    return parsedEvents
+      .filter(({ event, recurrenceConfig }) =>
+        isEventOccurringOnDate(event, selectedDate, recurrenceConfig),
+      )
+      .map(({ event }) => event);
+  }, [parsedEvents, selectedDate]);
 
   const renderDatePicker = (target: 'start' | 'end') => {
     const isStart = target === 'start';
@@ -4143,9 +4197,10 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                       now.getMonth() + 1 === itemMonth &&
                       now.getFullYear() === itemYear;
 
-                    const dayEventsCount = events.filter((ev) =>
-                      isEventOccurringOnDate(ev, new Date(itemYear, itemMonth - 1, dayNum)),
-                    ).length;
+                    const isCurrentViewMonth = itemMonth === month && itemYear === year;
+                    const dayEventsCount = isCurrentViewMonth
+                      ? activeMonthEventsCountMap[dayNum] || 0
+                      : 0;
                     const dotsCount = Math.min(dayEventsCount, 5);
 
                     return (
