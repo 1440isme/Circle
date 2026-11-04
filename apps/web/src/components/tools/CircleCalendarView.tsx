@@ -1525,13 +1525,6 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
               {/* THẺ 1: THÔNG TIN SỰ KIỆN & LỊCH TRÌNH */}
               {/* ========================================== */}
               <div className="rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/50 dark:bg-circle-dark-canvas/40 p-4 space-y-3.5 shadow-2xs">
-                <div className="flex items-center gap-2 pb-2 border-b border-circle-hairline/70 dark:border-circle-dark-hairline/70">
-                  <CalendarIcon className="h-4 w-4 text-teal-600 dark:text-teal-400" />
-                  <h4 className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text uppercase tracking-wider">
-                    Thẻ 1: Thông tin sự kiện & Lịch trình
-                  </h4>
-                </div>
-
                 {/* Tên sự kiện */}
                 <div>
                   <label className="block text-xs font-semibold text-circle-slate dark:text-circle-dark-muted mb-1">
@@ -1816,13 +1809,6 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
               {/* THẺ 2: NHẮC NHỞ & GHI CHÚ */}
               {/* ========================================== */}
               <div className="rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/50 dark:bg-circle-dark-canvas/40 p-4 space-y-3.5 shadow-2xs">
-                <div className="flex items-center gap-2 pb-2 border-b border-circle-hairline/70 dark:border-circle-dark-hairline/70">
-                  <Bell className="h-4 w-4 text-teal-600 dark:text-teal-400" />
-                  <h4 className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text uppercase tracking-wider">
-                    Thẻ 2: Nhắc nhở & Ghi chú
-                  </h4>
-                </div>
-
                 {/* Nhắc nhở trước */}
                 <div>
                   <label className="block text-xs font-semibold text-circle-slate dark:text-circle-dark-muted mb-1">
