@@ -342,6 +342,8 @@ export function serializeRecurrence(config: RecurrenceConfig, baseDesc?: string)
   const userRepeatText = `[Lặp lại: ${repeatSummary}]`;
   const clean = (baseDesc || '')
     .replace(/\[RECURRENCE:[\s\S]*?\]/g, '')
+    .replace(/,?\s*\"(?:monthlyType|frequency|interval|weeklyDays|endType|yearlyType|yearlyMonth|yearlyDay|monthlyDay|monthlyNthOrder|monthlyNthWeekday|yearlyNthOrder|yearlyNthWeekday|yearlyNthMonth|endDate|isCustom|excludedDates|cancelledDates)\":[\s\S]*?\}\]/g, '')
+    .replace(/,?\s*\"(?:monthlyType|frequency|interval|weeklyDays|endType|yearlyType|yearlyMonth|yearlyDay|monthlyDay|monthlyNthOrder|monthlyNthWeekday|yearlyNthOrder|yearlyNthWeekday|yearlyNthMonth|endDate|isCustom|excludedDates|cancelledDates)\":[\s\S]*?$/g, '')
     .replace(/\[Lặp lại:[^\]]*?\]/g, '')
     .trim();
   return clean ? `${clean}\n${userRepeatText}\n${recurrenceTag}` : `${userRepeatText}\n${recurrenceTag}`;
@@ -443,6 +445,8 @@ export function parseEventRecurrence(desc?: string | null): {
     .replace(/\[RECURRENCE:(\{[\s\S]*?\}|[^\]]*?)\]/g, '')
     .replace(/\[Lặp lại:[^\]]*?\]/g, '')
     .replace(/\[RECURRENCE:[\s\S]*?\]/g, '')
+    .replace(/,?\s*\"(?:monthlyType|frequency|interval|weeklyDays|endType|yearlyType|yearlyMonth|yearlyDay|monthlyDay|monthlyNthOrder|monthlyNthWeekday|yearlyNthOrder|yearlyNthWeekday|yearlyNthMonth|endDate|isCustom|excludedDates|cancelledDates)\":[\s\S]*?\}\]/g, '')
+    .replace(/,?\s*\"(?:monthlyType|frequency|interval|weeklyDays|endType|yearlyType|yearlyMonth|yearlyDay|monthlyDay|monthlyNthOrder|monthlyNthWeekday|yearlyNthOrder|yearlyNthWeekday|yearlyNthMonth|endDate|isCustom|excludedDates|cancelledDates)\":[\s\S]*?$/g, '')
     .trim();
 
   // Match JSON object accurately (including any inner arrays)

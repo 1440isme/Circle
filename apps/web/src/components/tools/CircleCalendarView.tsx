@@ -233,6 +233,8 @@ export const serializeRecurrence = (config: RecurrenceConfig, baseDesc?: string)
     .replace(/\[RECURRENCE:(\{[\s\S]*?\}|[^\]]*?)\]/g, '')
     .replace(/\[Lặp lại:[^\]]*?\]/g, '')
     .replace(/\[RECURRENCE:[\s\S]*?\]/g, '')
+    .replace(/,?\s*\"(?:monthlyType|frequency|interval|weeklyDays|endType|yearlyType|yearlyMonth|yearlyDay|monthlyDay|monthlyNthOrder|monthlyNthWeekday|yearlyNthOrder|yearlyNthWeekday|yearlyNthMonth|endDate|isCustom|excludedDates|cancelledDates)\":[\s\S]*?\}\]/g, '')
+    .replace(/,?\s*\"(?:monthlyType|frequency|interval|weeklyDays|endType|yearlyType|yearlyMonth|yearlyDay|monthlyDay|monthlyNthOrder|monthlyNthWeekday|yearlyNthOrder|yearlyNthWeekday|yearlyNthMonth|endDate|isCustom|excludedDates|cancelledDates)\":[\s\S]*?$/g, '')
     .trim();
   const normalizedClean = clean.toLowerCase() === 'body' || clean === 'null' ? '' : clean;
 
@@ -277,6 +279,8 @@ export const parseEventRecurrence = (desc?: string | null): {
     .replace(/\[RECURRENCE:(\{[\s\S]*?\}|[^\]]*?)\]/g, '')
     .replace(/\[Lặp lại:[^\]]*?\]/g, '')
     .replace(/\[RECURRENCE:[\s\S]*?\]/g, '')
+    .replace(/,?\s*\"(?:monthlyType|frequency|interval|weeklyDays|endType|yearlyType|yearlyMonth|yearlyDay|monthlyDay|monthlyNthOrder|monthlyNthWeekday|yearlyNthOrder|yearlyNthWeekday|yearlyNthMonth|endDate|isCustom|excludedDates|cancelledDates)\":[\s\S]*?\}\]/g, '')
+    .replace(/,?\s*\"(?:monthlyType|frequency|interval|weeklyDays|endType|yearlyType|yearlyMonth|yearlyDay|monthlyDay|monthlyNthOrder|monthlyNthWeekday|yearlyNthOrder|yearlyNthWeekday|yearlyNthMonth|endDate|isCustom|excludedDates|cancelledDates)\":[\s\S]*?$/g, '')
     .trim();
 
   if (cleanDesc.toLowerCase() === 'body' || cleanDesc === 'null') {

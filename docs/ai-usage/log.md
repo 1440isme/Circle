@@ -5729,3 +5729,33 @@
   - **Resolution / Fix:** Bắt cặp ngoặc nhọn JSON `(\{[\s\S]*?\})` trước khi đóng ngoặc vuông `\]`.
 - **Commit:** Pending
 - **PR:** Pending
+
+
+---
+
+## AI-0156: Tăng Cường Bộ Lọc Phòng Thủ Chống Rò Rỉ Chuỗi JSON Thô Trong Ghi Chú (#120)
+
+- **Date:** 2026-11-04 15:18:00 +07:00
+- **Developer:** Trương Công Bình (MSSV: 23110184) & Ninh Thị Mỹ Hạnh (MSSV: 23110210)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash
+- **Related Issue:** #120
+- **Purpose:** Khắc phục triệt để trường hợp chuỗi JSON thô (như `,"monthlyType":"day_of_month",...}]`) đã bị lưu vào database hoặc dính vào form từ các lần thao tác trước đó:
+  - Bổ sung bộ lọc phòng thủ (defensive residual json cleanup) trong cả `parseEventRecurrence` và `serializeRecurrence` trên cả Web (`CircleCalendarView.tsx`) và Mobile (`MobileCalendarView.tsx`): tự động quét và xóa sạch bất kỳ đoạn JSON kỹ thuật nào (`"monthlyType"`, `"weeklyDays"`, `"frequency"`, ...) dù có hay không có thẻ bọc `[RECURRENCE:]`.
+  - Quét và sửa sạch sẽ các bản ghi sự kiện cũ bị lưu tì vết trong cơ sở dữ liệu.
+- **Prompt Summary:** Khắc phục dứt điểm phần chuỗi JSON rơi rụng `,"monthlyType":...` còn dính trong ô ghi chú.
+- **Files Affected:**
+  - `apps/web/src/components/tools/CircleCalendarView.tsx`
+  - `apps/mobile/src/components/tools/MobileCalendarView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** Toàn bộ regex phòng thủ và cập nhật database.
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+  - Chạy `npx tsc --noEmit -p apps/web/tsconfig.json`: 0 lỗi.
+  - Chạy `npx tsc --noEmit -p apps/mobile/tsconfig.json`: 0 lỗi.
+  - Chạy `npm run build --workspace=@circle/web`: Next.js 14 production build thành công 100%.
+- **Official Source Checked:** `PROJECT_GOD.md` & `agentic/CONVENTIONS.md`.
+- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc không lộ thông tin nhạy cảm.
+- **AI Errors / Hallucinations Found:** Không.
+- **Commit:** Pending
+- **PR:** Pending
