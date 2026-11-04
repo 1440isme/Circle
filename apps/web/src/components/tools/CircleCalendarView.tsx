@@ -21,6 +21,7 @@ import {
   AlertCircle,
   Repeat,
   Share2,
+  Info,
 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { getSocket } from '../../lib/socket';
@@ -228,6 +229,16 @@ export const formatDateOnly = (d: Date) => {
 };
 
 export const serializeRecurrence = (config: RecurrenceConfig, baseDesc?: string): string => {
+  const clean = (baseDesc || '')
+    .replace(/\[RECURRENCE:[\s\S]*?\]/g, '')
+    .replace(/\[Lặp lại:[\s\S]*?\]/g, '')
+    .trim();
+  const normalizedClean = clean.toLowerCase() === 'body' || clean === 'null' ? '' : clean;
+
+  if (!config || config.frequency === 'none') {
+    return normalizedClean;
+  }
+
   const repeatSummary = formatRecurrenceSummary(config);
   const serialized = JSON.stringify({
     frequency: config.frequency,
@@ -250,11 +261,7 @@ export const serializeRecurrence = (config: RecurrenceConfig, baseDesc?: string)
   });
   const recurrenceTag = `[RECURRENCE:${serialized}]`;
   const userRepeatText = `[Lặp lại: ${repeatSummary}]`;
-  const clean = (baseDesc || '')
-    .replace(/\[RECURRENCE:[\s\S]*?\]/g, '')
-    .replace(/\[Lặp lại:[^\]]*?\]/g, '')
-    .trim();
-  return clean ? `${clean}\n${userRepeatText}\n${recurrenceTag}` : `${userRepeatText}\n${recurrenceTag}`;
+  return normalizedClean ? `${normalizedClean}\n${userRepeatText}\n${recurrenceTag}` : `${userRepeatText}\n${recurrenceTag}`;
 };
 
 export const parseEventRecurrence = (desc?: string | null): {
@@ -265,14 +272,21 @@ export const parseEventRecurrence = (desc?: string | null): {
     return { cleanDesc: '', recurrenceConfig: null };
   }
 
-  let cleanDesc = desc;
-  let recurrenceConfig: RecurrenceConfig | null = null;
+  let cleanDesc = desc
+    .replace(/\[RECURRENCE:[\s\S]*?\]/g, '')
+    .replace(/\[Lặp lại:[\s\S]*?\]/g, '')
+    .trim();
 
+  if (cleanDesc.toLowerCase() === 'body' || cleanDesc === 'null') {
+    cleanDesc = '';
+  }
+
+  let recurrenceConfig: RecurrenceConfig | null = null;
   const recurrenceMatch = desc.match(/\[RECURRENCE:([\s\S]*?)\]/);
   if (recurrenceMatch && recurrenceMatch[1]) {
     try {
       const raw = JSON.parse(recurrenceMatch[1]);
-      const config: RecurrenceConfig = {
+      recurrenceConfig = {
         frequency: raw.frequency || 'none',
         interval: Number(raw.interval) || 1,
         weeklyDays: Array.isArray(raw.weeklyDays) ? raw.weeklyDays : [],
@@ -292,17 +306,9 @@ export const parseEventRecurrence = (desc?: string | null): {
         excludedDates: Array.isArray(raw.excludedDates) ? raw.excludedDates : [],
         cancelledDates: Array.isArray(raw.cancelledDates) ? raw.cancelledDates : [],
       };
-      return {
-        cleanDesc: cleanDesc.replace(/\[RECURRENCE:[\s\S]*?\]/g, '').replace(/\[Lặp lại:[^\]]*?\]/g, '').trim(),
-        recurrenceConfig: config,
-      };
     } catch {
       // Fallback
     }
-  }
-
-  if (desc.includes('[Lặp lại:')) {
-    cleanDesc = cleanDesc.replace(/\[Lặp lại:[^\]]*?\]/g, '').trim();
   }
 
   return { cleanDesc, recurrenceConfig };
@@ -1207,6 +1213,17 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                           {ev.location && (
                             <EventLocationDisplay location={ev.location} className="text-xs" />
                           )}
+
+                          {(() => {
+                            const { cleanDesc } = parseEventRecurrence(ev.description);
+                            if (!cleanDesc) return null;
+                            return (
+                              <div className="flex items-start gap-1.5 text-xs text-circle-slate dark:text-circle-dark-muted mt-1 bg-circle-wash/40 dark:bg-circle-dark-surface/60 px-2.5 py-1.5 rounded-lg border border-circle-hairline/40">
+                                <Info className="h-3.5 w-3.5 text-circle-slate/70 dark:text-circle-dark-muted/70 shrink-0 mt-0.5" />
+                                <span className="whitespace-pre-wrap line-clamp-3">{cleanDesc}</span>
+                              </div>
+                            );
+                          })()}
                         </div>
                       ))}
                     </div>
@@ -1430,6 +1447,17 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                       {ev.location && (
                         <EventLocationDisplay location={ev.location} className="text-xs" />
                       )}
+
+                      {(() => {
+                        const { cleanDesc } = parseEventRecurrence(ev.description);
+                        if (!cleanDesc) return null;
+                        return (
+                          <div className="flex items-start gap-1.5 text-xs text-circle-slate dark:text-circle-dark-muted mt-1 bg-circle-wash/40 dark:bg-circle-dark-surface/60 px-2.5 py-1.5 rounded-lg border border-circle-hairline/40">
+                            <Info className="h-3.5 w-3.5 text-circle-slate/70 dark:text-circle-dark-muted/70 shrink-0 mt-0.5" />
+                            <span className="whitespace-pre-wrap line-clamp-3">{cleanDesc}</span>
+                          </div>
+                        );
+                      })()}
 
                       {/* RSVP Poll Section */}
                       <div className="pt-2 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60 space-y-1.5">
@@ -1825,11 +1853,14 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                   </select>
                 </div>
 
-                {/* Ghi chú nội dung */}
+                {/* Ghi chú */}
                 <div>
-                  <label className="block text-xs font-semibold text-circle-slate dark:text-circle-dark-muted mb-1">
-                    Ghi chú nội dung
-                  </label>
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <Info className="h-3.5 w-3.5 text-circle-sage dark:text-circle-primary shrink-0" />
+                    <label className="block text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text">
+                      Ghi chú
+                    </label>
+                  </div>
                   <textarea
                     rows={3}
                     value={description}

@@ -5664,3 +5664,36 @@
 - **AI Errors / Hallucinations Found:** Không.
 - **Commit:** Pending
 - **PR:** Pending
+
+
+---
+
+## AI-0154: Khắc Phục Triệt Để Lỗi Ghi Chú & Hiển Thị Ghi Chú Sạch Trên Web Calendar (#120)
+
+- **Date:** 2026-11-04 14:55:00 +07:00
+- **Developer:** Trương Công Bình (MSSV: 23110184) & Ninh Thị Mỹ Hạnh (MSSV: 23110210)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash
+- **Related Issue:** #120
+- **Purpose:** Khắc phục lỗi hiển thị ghi chú trên Web (`CircleCalendarView.tsx`):
+  - Chuẩn hóa hàm `parseEventRecurrence` luôn bóc tách sạch 100% các tag metadata `[RECURRENCE:...]` và `[Lặp lại:...]`, đồng thời loại bỏ các placeholder rác (như `body`, `null`).
+  - Sửa `serializeRecurrence` để khi sự kiện không lặp lại (`frequency === 'none'`), hệ thống không tự động chèn tag metadata thừa `[Lặp lại: Không lặp lại]` vào trường ghi chú.
+  - Bổ sung hiển thị ghi chú đã làm sạch trực quan trong danh sách sự kiện (cả chế độ Lưới tháng - Day list và Lịch trình - Agenda view) kèm icon Info tinh tế.
+  - Cập nhật Thẻ 2 trong modal tạo/chỉnh sửa sự kiện: có icon Info kèm nhãn "Ghi chú" chuẩn mực đồng bộ với mobile.
+- **Prompt Summary:** Sửa lỗi hiển thị ghi chú trên web.
+- **Files Affected:**
+  - `apps/web/src/components/tools/CircleCalendarView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:**
+  - Nâng cấp `serializeRecurrence` và `parseEventRecurrence` trong `CircleCalendarView.tsx`.
+  - Hiển thị ghi chú dưới địa điểm trong cả 2 view (Month day events & Agenda view).
+  - Tích hợp icon Info và label "Ghi chú" tại Thẻ 2 modal.
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+  - Chạy `npx tsc --noEmit -p apps/web/tsconfig.json` đạt 0 lỗi.
+  - Chạy `npm run build --workspace=@circle/web` biên dịch Next.js 14 production thành công 100%.
+- **Official Source Checked:** `PROJECT_GOD.md` & `agentic/CONVENTIONS.md`.
+- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc không lộ thông tin nhạy cảm.
+- **AI Errors / Hallucinations Found:** Không.
+- **Commit:** Pending
+- **PR:** Pending
