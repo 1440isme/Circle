@@ -27,6 +27,8 @@ interface CircleState {
   setTargetCalendarEvent: (dateStr: string | null, eventId?: string | null) => void;
   targetLocationCoords: { lat: number; lng: number } | null;
   setTargetLocationCoords: (coords: { lat: number; lng: number } | null) => void;
+  targetPollId: string | null;
+  setTargetPollId: (pollId: string | null) => void;
 }
 
 export const useCircleStore = create<CircleState>((set) => ({
@@ -43,6 +45,8 @@ export const useCircleStore = create<CircleState>((set) => ({
   setActiveCircleId: (id) => set({ activeCircleId: id }),
   targetLocationCoords: null,
   setTargetLocationCoords: (coords) => set({ targetLocationCoords: coords }),
+  targetPollId: null,
+  setTargetPollId: (pollId) => set({ targetPollId: pollId }),
   setActiveCircle: (circle) => {
     set((state) => {
       if (!circle) {

@@ -292,9 +292,7 @@ export default function TabsLayout() {
                   )
                 }
               >
-                <View style={[styles.optionIconBox, { backgroundColor: `${colors.primary}20` }]}>
-                  <Camera size={22} color={colors.primary} />
-                </View>
+                <Camera size={24} color={colors.primary} />
                 <View style={styles.optionContent}>
                   <Text style={[styles.optionTitle, { color: colors.text }]}>
                     {t.composer.momentTitle}
@@ -316,9 +314,7 @@ export default function TabsLayout() {
                   )
                 }
               >
-                <View style={[styles.optionIconBox, { backgroundColor: `${colors.coral}20` }]}>
-                  <HeartHandshake size={22} color={colors.coral} />
-                </View>
+                <HeartHandshake size={24} color={colors.coral} />
                 <View style={styles.optionContent}>
                   <Text style={[styles.optionTitle, { color: colors.text }]}>
                     {t.composer.reflectionTitle}
@@ -338,9 +334,7 @@ export default function TabsLayout() {
                   setCircleCreateModalVisible(true);
                 }}
               >
-                <View style={[styles.optionIconBox, { backgroundColor: `${colors.peach}40` }]}>
-                  <Sparkles size={22} color={colors.warning} />
-                </View>
+                <Sparkles size={24} color={colors.warning} />
                 <View style={styles.optionContent}>
                   <Text style={[styles.optionTitle, { color: colors.text }]}>
                     {t.composer.newCircleTitle}
@@ -362,9 +356,7 @@ export default function TabsLayout() {
                   )
                 }
               >
-                <View style={[styles.optionIconBox, { backgroundColor: `${colors.primary}20` }]}>
-                  <Calendar size={22} color={colors.primary} />
-                </View>
+                <Calendar size={24} color={colors.primary} />
                 <View style={styles.optionContent}>
                   <Text style={[styles.optionTitle, { color: colors.text }]}>
                     {t.composer.eventTitle}

@@ -88,9 +88,7 @@ export const CreatePollChatModal: React.FC<CreatePollChatModalProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-circle-hairline dark:border-circle-dark-hairline mb-4">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-circle-primary/10 text-circle-primary flex items-center justify-center font-bold">
-              <Vote className="w-4 h-4" />
-            </div>
+            <Vote className="w-5 h-5 text-circle-primary shrink-0" />
             <div>
               <h3 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
                 {t.collab.createPoll}

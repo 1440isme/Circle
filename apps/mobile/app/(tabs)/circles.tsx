@@ -140,9 +140,7 @@ export default function CirclesTab() {
               },
             ]}
           >
-            <View style={[styles.iconBox, { backgroundColor: colors.wash }]}>
-              <Users size={32} color={colors.primary} />
-            </View>
+            <Users size={36} color={colors.primary} />
             <Text style={[styles.title, { color: colors.text }]}>
               {t.home.emptyCirclesTitle}
             </Text>

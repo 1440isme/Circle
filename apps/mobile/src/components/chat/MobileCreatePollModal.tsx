@@ -113,9 +113,7 @@ export const MobileCreatePollModal: React.FC<MobileCreatePollModalProps> = ({
           {/* Header */}
           <View style={[styles.headerRow, { borderBottomColor: colors.hairline }]}>
             <View style={styles.headerLeft}>
-              <View style={[styles.iconBox, { backgroundColor: colors.wash }]}>
-                <Vote size={18} color={colors.primary} />
-              </View>
+              <Vote size={20} color={colors.primary} />
               <Text style={[styles.headerTitle, { color: colors.text }]}>
                 {t.collab?.createPoll || 'Tạo bình chọn'}
               </Text>

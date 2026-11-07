@@ -44,6 +44,7 @@ interface CircleCalendarViewProps {
 export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId }) => {
   const { user } = useAuth();
   const t = useLanguageStore((s) => s.t);
+  const locale = useLanguageStore((s) => s.locale);
   const setActiveCircleView = useCircleStore((s) => s.setActiveCircleView);
   const targetCalendarDate = useCircleStore((s) => s.targetCalendarDate);
   const targetCalendarEventId = useCircleStore((s) => s.targetCalendarEventId);
@@ -333,7 +334,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
           <div className="flex items-center gap-2.5 min-w-0">
             <CalendarDays className="h-5 w-5 text-circle-primary shrink-0" />
             <h1 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text truncate">
-              {t.nav.calendarEvents}
+              {t.collab.calendarTitle}
             </h1>
           </div>
 
@@ -343,7 +344,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
               onClick={today}
               className="rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-circle-wash/80 dark:bg-circle-dark-canvas/80 px-3 py-1 text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash transition-colors shadow-2xs"
             >
-              Hôm nay
+              {t.collab.today}
             </button>
             <div className="flex items-center rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-circle-wash/80 dark:bg-circle-dark-canvas/80 overflow-hidden shadow-2xs">
               <button
@@ -354,7 +355,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                 <ChevronLeft className="h-3.5 w-3.5" />
               </button>
               <span className="px-2.5 text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text">
-                Tháng {month}, {year}
+                {locale === 'vi' ? `Tháng ${month}, ${year}` : `${new Date(year, month - 1).toLocaleString('en', { month: 'short' })} ${year}`}
               </span>
               <button
                 type="button"
@@ -367,10 +368,10 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
             <button
               type="button"
               onClick={handleOpenCreateModal}
-              className="flex items-center gap-1.5 rounded-full bg-circle-charcoal dark:bg-circle-primary px-3.5 py-1 text-xs font-semibold text-white dark:text-circle-charcoal hover:bg-circle-sage transition-all shadow-sm active:scale-98"
+              className="flex items-center gap-1.5 rounded-full bg-circle-primary hover:bg-circle-sage px-3.5 py-1 text-xs font-semibold text-white transition-all shadow-sm active:scale-98"
             >
               <Plus className="h-3.5 w-3.5" />
-              <span>Tạo sự kiện</span>
+              <span>{t.collab.createEvent}</span>
             </button>
           </div>
         </div>
@@ -389,13 +390,9 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
           <div className="lg:col-span-2 rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-canvas p-4 shadow-2xs">
             {/* Weekdays */}
             <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-bold text-circle-slate dark:text-circle-dark-muted pb-2 border-b border-circle-hairline dark:border-circle-dark-hairline">
-              <span>CN</span>
-              <span>T2</span>
-              <span>T3</span>
-              <span>T4</span>
-              <span>T5</span>
-              <span>T6</span>
-              <span>T7</span>
+              {(locale === 'vi' ? ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'] : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']).map((day) => (
+                <span key={day}>{day}</span>
+              ))}
             </div>
 
             {/* Days grid */}
@@ -451,10 +448,10 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
           <div className="rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-canvas p-4 shadow-2xs flex flex-col h-full">
             <div className="flex items-center justify-between pb-3 border-b border-circle-hairline dark:border-circle-dark-hairline mb-3">
               <h3 className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text uppercase tracking-wider">
-                Sự kiện ngày {selectedDate.toLocaleDateString('vi-VN')}
+                {locale === 'vi' ? `Sự kiện ngày ${selectedDate.toLocaleDateString('vi-VN')}` : `Events on ${selectedDate.toLocaleDateString('en-US')}`}
               </h3>
               <span className="text-[11px] text-circle-slate dark:text-circle-dark-muted font-medium">
-                {selectedDayEvents.length} sự kiện
+                {selectedDayEvents.length} {locale === 'vi' ? 'sự kiện' : 'events'}
               </span>
             </div>
 
@@ -742,14 +739,14 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
               <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
                 <CalendarDays className="h-10 w-10 text-circle-slate dark:text-circle-dark-muted opacity-40 mb-2" />
                 <p className="text-xs text-circle-slate dark:text-circle-dark-muted">
-                  Không có sự kiện nào trong ngày này
+                  {t.collab.noEventsOnDay}
                 </p>
                 <button
                   type="button"
                   onClick={handleOpenCreateModal}
                   className="mt-3 text-xs font-semibold text-circle-sage dark:text-circle-primary hover:underline"
                 >
-                  + Lên lịch hẹn mới
+                  + {t.collab.newEventSchedulePrompt || 'Lên lịch hẹn mới'}
                 </button>
               </div>
             )}

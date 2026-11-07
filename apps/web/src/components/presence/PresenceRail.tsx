@@ -54,6 +54,7 @@ export const PresenceRail: React.FC = () => {
   const activeCircleView = useCircleStore((s) => s.activeCircleView);
   const setTargetCalendarEvent = useCircleStore((s) => s.setTargetCalendarEvent);
   const setTargetLocationCoords = useCircleStore((s) => s.setTargetLocationCoords);
+  const setTargetPollId = useCircleStore((s) => s.setTargetPollId);
   const { data: activeCall } = useActiveCallQuery(activeCircle?.id || null);
   const initiateCallMutation = useInitiateCallMutation();
   const joinCallMutation = useJoinCallMutation();
@@ -121,14 +122,29 @@ export const PresenceRail: React.FC = () => {
 
   const handleJumpToPoll = (pollId: string) => {
     if (activeCircleView !== 'general' && activeCircleView !== 'chat') {
-      setActiveCircleView('general');
+      setActiveCircleView('chat');
     }
+    setTargetPollId(pollId);
+
+    // Precise scroll into view with container relative offset
     setTimeout(() => {
       const el = document.getElementById(`message-poll-${pollId}`);
       if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        el.classList.add('ring-2', 'ring-circle-primary', 'rounded-2xl', 'transition-all');
-        setTimeout(() => el.classList.remove('ring-2', 'ring-circle-primary', 'rounded-2xl'), 2500);
+        const container = el.closest('.overflow-y-auto') as HTMLElement;
+        if (container) {
+          let offset = 0;
+          let curr: HTMLElement | null = el;
+          while (curr && curr !== container) {
+            offset += curr.offsetTop;
+            curr = curr.offsetParent as HTMLElement;
+          }
+          const targetScrollTop = offset - (container.clientHeight / 2) + (el.clientHeight / 2);
+          container.scrollTo({ top: Math.max(0, targetScrollTop), behavior: 'smooth' });
+        } else {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        el.classList.add('ring-2', 'ring-circle-primary', 'shadow-lg', 'transition-all');
+        setTimeout(() => el.classList.remove('ring-2', 'ring-circle-primary', 'shadow-lg'), 2500);
       }
     }, 120);
   };
@@ -171,10 +187,10 @@ export const PresenceRail: React.FC = () => {
               </span>
               <button
                 onClick={() => setManageModalOpen(true, 'members')}
-                className="relative p-1.5 rounded-lg bg-circle-canvas dark:bg-circle-dark-canvas hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate hover:text-circle-charcoal dark:text-circle-dark-muted dark:hover:text-circle-dark-text transition-colors"
+                className="relative p-1.5 rounded-lg bg-circle-canvas dark:bg-circle-dark-canvas hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-primary transition-colors"
                 title={t.circle.manageMembers}
               >
-                <Settings className="h-3.5 w-3.5" />
+                <Settings className="h-3.5 w-3.5 text-circle-primary" />
                 {joinRequests.length > 0 && (
                   <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-circle-primary ring-2 ring-white dark:ring-circle-dark-surface animate-pulse" />
                 )}
@@ -211,7 +227,7 @@ export const PresenceRail: React.FC = () => {
                   </div>
 
                   {m.role === MemberRole.OWNER && (
-                    <Crown className="h-3.5 w-3.5 text-circle-slate dark:text-circle-dark-muted flex-shrink-0" />
+                    <Crown className="h-3.5 w-3.5 text-amber-500 shrink-0" />
                   )}
                 </div>
               );
@@ -426,7 +442,7 @@ export const PresenceRail: React.FC = () => {
               onClick={() => setActiveCircleView('calendar')}
               className="mt-2 text-[11px] font-semibold text-circle-primary hover:underline inline-flex items-center gap-1"
             >
-              <Plus className="h-3 w-3" />
+              <Plus className="h-3 w-3 text-circle-primary" />
               <span>{t.collab.railNewEvent}</span>
             </button>
           </div>
@@ -506,7 +522,7 @@ export const PresenceRail: React.FC = () => {
               onClick={() => setActiveCircleView('location')}
               className="mt-1.5 text-[11px] font-semibold text-circle-primary hover:underline inline-flex items-center gap-1"
             >
-              <Radio className="h-3 w-3" />
+              <Radio className="h-3 w-3 text-circle-primary" />
               <span>{t.collab.railStartSharing}</span>
             </button>
           </div>
@@ -578,7 +594,7 @@ export const PresenceRail: React.FC = () => {
               onClick={() => setActiveCircleView('polls')}
               className="mt-1.5 text-[11px] font-semibold text-circle-primary hover:underline inline-flex items-center gap-1"
             >
-              <Plus className="h-3 w-3" />
+              <Plus className="h-3 w-3 text-circle-primary" />
               <span>{t.collab.railNewPoll}</span>
             </button>
           </div>

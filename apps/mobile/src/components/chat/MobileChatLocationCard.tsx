@@ -77,22 +77,6 @@ export const MobileChatLocationCard: React.FC<MobileChatLocationCardProps> = ({
           </View>
         </View>
       )}
-
-      {/* Floating Bottom Info Overlay */}
-      <View style={styles.mapBottomOverlay}>
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-            <MapPin size={12} color={colors.primary} />
-            <Text numberOfLines={1} style={styles.overlayTitleText}>
-              {displayTitle}
-            </Text>
-          </View>
-          <Text numberOfLines={1} style={styles.overlayAddressText}>
-            {displayAddress}
-          </Text>
-        </View>
-        <Text style={styles.mapboxBadgeText}>Mapbox</Text>
-      </View>
     </TouchableOpacity>
   );
 };

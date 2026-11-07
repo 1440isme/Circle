@@ -176,6 +176,7 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
       socket.on('circle:theme_updated', handleThemeUpdated);
       socket.on('chat:channel-cleared', handleChannelCleared);
       socket.on('circle:poll-voted', handlePollVoted);
+      socket.on('circle:poll-closed', handlePollVoted);
 
       return () => {
         unsub();
@@ -184,11 +185,12 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
         socket.off('circle:theme_updated', handleThemeUpdated);
         socket.off('chat:channel-cleared', handleChannelCleared);
         socket.off('circle:poll-voted', handlePollVoted);
+        socket.off('circle:poll-closed', handlePollVoted);
       };
     }
 
     return unsub;
-  }, [circleId, user?.id, activeCircle, setActiveCircle]);
+  }, [circleId, user?.id, activeCircle, setActiveCircle, channelId, queryClient]);
 
   // Queries & Mutations
   const {
@@ -395,6 +397,9 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
       data-circle-theme={circleTheme}
       className="relative flex-1 flex flex-col h-full min-h-0 bg-white dark:bg-circle-dark-surface overflow-hidden transition-colors"
     >
+      {/* Top Scroll Edge Fade (Apple Liquid Glass scroll edge effect) */}
+      <div className="pointer-events-none absolute top-0 left-0 right-0 h-12 bg-gradient-to-b from-white/90 dark:from-circle-dark-surface/90 to-transparent z-10" />
+
       {/* Floating Channel Header Toolbar (Floating glass capsule with scroll-under content) */}
       <div className="pointer-events-none absolute top-3 left-0 right-0 z-20 flex flex-col items-center px-4 gap-2">
         <div className="pointer-events-auto flex items-center justify-between px-4 py-2 rounded-full backdrop-blur-xl bg-white/94 dark:bg-circle-dark-surface/92 border border-circle-hairline/80 dark:border-white/12 shadow-sm max-w-2xl w-full transition-all">

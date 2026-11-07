@@ -125,58 +125,60 @@ export const CircleAlbumsView: React.FC<CircleAlbumsViewProps> = ({ circleId }) 
   if (selectedAlbumId) {
     return (
       <div className="relative flex-1 flex flex-col h-full bg-circle-canvas dark:bg-circle-dark-surface overflow-hidden transition-colors">
-        {/* Floating Glass Toolbar */}
-        <div className="pointer-events-none absolute top-3 left-4 right-4 z-20 flex items-center justify-between">
-          <div className="pointer-events-auto flex items-center gap-2 rounded-full backdrop-blur-xl bg-white/94 dark:bg-circle-dark-surface/92 border border-circle-hairline/80 dark:border-white/12 px-3.5 py-1.5 shadow-sm">
-            <button
-              type="button"
-              onClick={() => setSelectedAlbumId(null)}
-              className="flex items-center gap-1.5 text-xs font-semibold text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text transition-colors"
-            >
-              <ChevronLeft className="h-4 w-4" />
-              <span className="truncate max-w-[150px] sm:max-w-[220px] font-bold text-circle-charcoal dark:text-circle-dark-text">
-                {albumDetail?.albumTitle || 'Album'}
-              </span>
-            </button>
-          </div>
-
-          <div className="pointer-events-auto flex items-center gap-2">
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileChange}
-              multiple
-              accept="image/*"
-              className="hidden"
-            />
-            <button
-              type="button"
-              disabled={isUploading || addPhotosMutation.isPending}
-              onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-1.5 rounded-full backdrop-blur-xl bg-circle-charcoal/95 dark:bg-circle-primary/95 px-3.5 py-2 text-xs font-semibold text-white dark:text-circle-charcoal hover:bg-circle-sage transition-all disabled:opacity-50 shadow-sm"
-            >
-              {isUploading || addPhotosMutation.isPending ? (
-                <>
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  <span>Đang tải...</span>
-                </>
-              ) : (
-                <>
-                  <UploadCloud className="h-3.5 w-3.5" />
-                  <span>Thêm ảnh</span>
-                </>
-              )}
-            </button>
-            {albumDetail && (
+        {/* Floating Glass Toolbar (Floating glass controls with scroll-under content) */}
+        <div className="pointer-events-none absolute top-3 left-0 right-0 z-20 flex justify-center px-4">
+          <div className="pointer-events-auto flex items-center justify-between px-4 py-2 rounded-full backdrop-blur-xl bg-white/94 dark:bg-circle-dark-surface/92 border border-circle-hairline/80 dark:border-white/12 shadow-sm max-w-4xl w-full">
+            <div className="flex items-center gap-2 min-w-0">
               <button
                 type="button"
-                onClick={() => handleDeleteAlbum(albumDetail.id)}
-                className="p-2 rounded-full backdrop-blur-xl bg-white/94 dark:bg-circle-dark-surface/92 border border-circle-hairline/80 dark:border-white/12 text-circle-slate hover:text-red-500 transition-colors shadow-sm"
-                title="Xóa album"
+                onClick={() => setSelectedAlbumId(null)}
+                className="flex items-center gap-1.5 text-xs font-semibold text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text transition-colors"
               >
-                <Trash2 className="h-4 w-4" />
+                <ChevronLeft className="h-4 w-4" />
+                <span className="truncate max-w-[150px] sm:max-w-[220px] font-bold text-circle-charcoal dark:text-circle-dark-text">
+                  {albumDetail?.albumTitle || 'Album'}
+                </span>
               </button>
-            )}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                multiple
+                accept="image/*"
+                className="hidden"
+              />
+              <button
+                type="button"
+                disabled={isUploading || addPhotosMutation.isPending}
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center gap-1.5 rounded-full bg-circle-primary hover:bg-circle-sage px-3.5 py-1.5 text-xs font-semibold text-white transition-all disabled:opacity-50 shadow-xs active:scale-95"
+              >
+                {isUploading || addPhotosMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <span>Đang tải...</span>
+                  </>
+                ) : (
+                  <>
+                    <UploadCloud className="h-3.5 w-3.5" />
+                    <span>Thêm ảnh</span>
+                  </>
+                )}
+              </button>
+              {albumDetail && (
+                <button
+                  type="button"
+                  onClick={() => handleDeleteAlbum(albumDetail.id)}
+                  className="p-1.5 rounded-full hover:bg-red-500/10 text-circle-slate hover:text-red-500 transition-colors"
+                  title="Xóa album"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -317,23 +319,23 @@ export const CircleAlbumsView: React.FC<CircleAlbumsViewProps> = ({ circleId }) 
   // =========================================================================
   return (
     <div className="relative flex-1 flex flex-col h-full bg-circle-canvas dark:bg-circle-dark-surface overflow-hidden transition-colors">
-      {/* Floating Glass Toolbar */}
-      <div className="pointer-events-none absolute top-3 left-4 right-4 z-20 flex items-center justify-between">
-        <div className="pointer-events-auto flex items-center gap-2.5 rounded-full backdrop-blur-xl bg-white/94 dark:bg-circle-dark-surface/92 border border-circle-hairline/80 dark:border-white/12 px-4 py-2 shadow-sm">
-          <ImageIcon className="h-4 w-4 text-circle-charcoal dark:text-circle-dark-text shrink-0" />
-          <span className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
-            {t.nav.photoAlbum}
-          </span>
-          <span className="text-xs text-circle-slate dark:text-circle-dark-muted hidden sm:inline">
-            • {albums.length} album
-          </span>
-        </div>
+      {/* Floating Glass Toolbar (Floating glass controls with scroll-under content) */}
+      <div className="pointer-events-none absolute top-3 left-0 right-0 z-20 flex justify-center px-4">
+        <div className="pointer-events-auto flex items-center justify-between px-5 py-2.5 rounded-full backdrop-blur-xl bg-white/94 dark:bg-circle-dark-surface/92 border border-circle-hairline/80 dark:border-white/12 shadow-sm max-w-4xl w-full">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <ImageIcon className="h-4 w-4 text-circle-primary shrink-0" />
+            <h1 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text truncate">
+              {t.nav.photoAlbum}
+            </h1>
+            <span className="text-xs text-circle-slate dark:text-circle-dark-muted hidden sm:inline">
+              • {albums.length} album
+            </span>
+          </div>
 
-        <div className="pointer-events-auto">
           <button
             type="button"
             onClick={() => setIsCreateModalOpen(true)}
-            className="flex items-center gap-1.5 rounded-full backdrop-blur-xl bg-circle-charcoal/95 dark:bg-circle-primary/95 px-4 py-2 text-xs font-semibold text-white dark:text-circle-charcoal hover:bg-circle-sage transition-all shadow-sm active:scale-98"
+            className="flex items-center gap-1.5 rounded-full bg-circle-primary hover:bg-circle-sage px-4 py-1.5 text-xs font-semibold text-white transition-all shadow-xs active:scale-98"
           >
             <Plus className="h-3.5 w-3.5" />
             <span>Tạo Album mới</span>
@@ -365,6 +367,16 @@ export const CircleAlbumsView: React.FC<CircleAlbumsViewProps> = ({ circleId }) 
                       alt={album.albumTitle}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       loading="lazy"
+                      onError={(e) => {
+                        (e.target as HTMLElement).style.display = 'none';
+                        const parent = (e.target as HTMLElement).parentElement;
+                        if (parent) {
+                          const fallback = document.createElement('div');
+                          fallback.className = 'w-full h-full flex items-center justify-center text-circle-slate dark:text-circle-dark-muted opacity-40';
+                          fallback.innerHTML = '<svg class=\"h-10 w-10\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z\" /></svg>';
+                          parent.appendChild(fallback);
+                        }
+                      }}
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-circle-slate dark:text-circle-dark-muted opacity-40">

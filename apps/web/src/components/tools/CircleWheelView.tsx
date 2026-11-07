@@ -227,25 +227,25 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
 
   return (
     <div className="relative flex-1 flex flex-col h-full bg-circle-canvas dark:bg-circle-dark-surface overflow-hidden transition-colors">
-      {/* Floating Glass Toolbar */}
-      <div className="pointer-events-none absolute top-3 left-4 right-4 z-20 flex items-center justify-between">
-        <div className="pointer-events-auto flex items-center gap-2.5 rounded-full backdrop-blur-xl bg-white/94 dark:bg-circle-dark-surface/92 border border-circle-hairline/80 dark:border-white/12 px-4 py-2 shadow-sm">
-          <Compass className="h-4 w-4 text-circle-charcoal dark:text-circle-dark-text shrink-0" />
-          <span className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
-            {t.nav.luckyWheel}
-          </span>
-          {wheels.length > 0 && (
-            <span className="text-xs text-circle-slate dark:text-circle-dark-muted hidden sm:inline">
-              • {wheels.length} vòng quay
-            </span>
-          )}
-        </div>
+      {/* Floating Glass Toolbar (Floating glass controls with scroll-under content) */}
+      <div className="pointer-events-none absolute top-3 left-0 right-0 z-20 flex justify-center px-4">
+        <div className="pointer-events-auto flex items-center justify-between px-5 py-2.5 rounded-full backdrop-blur-xl bg-white/94 dark:bg-circle-dark-surface/92 border border-circle-hairline/80 dark:border-white/12 shadow-sm max-w-4xl w-full">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <Compass className="h-4 w-4 text-circle-primary shrink-0" />
+            <h1 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text truncate">
+              {t.nav.luckyWheel}
+            </h1>
+            {wheels.length > 0 && (
+              <span className="text-xs text-circle-slate dark:text-circle-dark-muted hidden sm:inline">
+                • {wheels.length} vòng quay
+              </span>
+            )}
+          </div>
 
-        <div className="pointer-events-auto">
           <button
             type="button"
             onClick={() => setIsCreateModalOpen(true)}
-            className="flex items-center gap-1.5 rounded-full backdrop-blur-xl bg-circle-charcoal/95 dark:bg-circle-primary/95 px-4 py-2 text-xs font-semibold text-white dark:text-circle-charcoal hover:bg-circle-sage transition-all shadow-sm active:scale-98"
+            className="flex items-center gap-1.5 rounded-full bg-circle-primary hover:bg-circle-sage px-4 py-1.5 text-xs font-semibold text-white transition-all shadow-xs active:scale-98"
           >
             <Plus className="h-3.5 w-3.5" />
             <span>Tạo Vòng quay mới</span>

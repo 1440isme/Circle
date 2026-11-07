@@ -1092,6 +1092,9 @@ export const en: TranslationDictionary = {
 
     // Calendar & Events
     calendarTitle: 'Circle Calendar & Events',
+    today: 'Today',
+    createEvent: 'Create event',
+    newEventSchedulePrompt: 'Schedule new event',
     addEvent: 'Add event',
     createEventTitle: 'New Circle Event',
     editEventTitle: 'Edit Event',

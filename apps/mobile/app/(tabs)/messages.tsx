@@ -64,9 +64,7 @@ export default function MessagesTab() {
               },
             ]}
           >
-            <View style={[styles.iconBox, { backgroundColor: colors.wash }]}>
-              <MessageSquare size={32} color={colors.primary} />
-            </View>
+            <MessageSquare size={36} color={colors.primary} />
             <Text style={[styles.title, { color: colors.text }]}>
               {t.home.feedEmptyTitle}
             </Text>

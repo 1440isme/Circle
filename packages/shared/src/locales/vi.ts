@@ -1090,6 +1090,9 @@ export const vi = {
 
     // Calendar & Events
     calendarTitle: 'Lịch hoạt động nhóm',
+    today: 'Hôm nay',
+    createEvent: 'Tạo sự kiện',
+    newEventSchedulePrompt: 'Lên lịch hẹn mới',
     addEvent: 'Thêm sự kiện',
     createEventTitle: 'Tạo sự kiện mới',
     editEventTitle: 'Chỉnh sửa sự kiện',

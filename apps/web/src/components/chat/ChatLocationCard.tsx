@@ -64,18 +64,6 @@ export const ChatLocationCard: React.FC<ChatLocationCardProps> = ({
           </div>
         </>
       )}
-
-      {/* Floating Bottom Info Overlay (Title + Address + Mapbox attribution) */}
-      <div className="absolute inset-x-0 bottom-0 p-2.5 bg-gradient-to-t from-black/85 via-black/50 to-transparent flex items-end justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5 text-white">
-            <MapPin className="w-3.5 h-3.5 text-circle-primary shrink-0" />
-            <span className="text-xs font-bold truncate drop-shadow-xs">{displayTitle}</span>
-          </div>
-          <span className="text-[10px] text-white/80 truncate block pl-5 drop-shadow-xs">{displayAddress}</span>
-        </div>
-        <span className="text-[9px] text-white/60 font-mono shrink-0">Mapbox</span>
-      </div>
     </a>
   );
 };

@@ -5858,3 +5858,69 @@
 - **Official Source Checked:** Apple Human Interface Guidelines (Liquid Glass Controls & Frosted Legibility Standards), Issue #125 Specifications.
 - **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
 - **Branch:** `fix/upgrade-mobile-expo-sdk-58`
+
+
+---
+
+### Entry AI-0156
+
+- **Timestamp:** 2026-11-08T00:52:00+07:00
+- **Author:** Trương Công Bình (23110184)
+- **Tool:** Antigravity IDE (Gemini 2.5 Pro)
+- **Task / Scope:** Module 7 (US-COLLAB-003, Issue #125) — Hoàn tất Đồng bộ Chuẩn Bare Icon Không Viền Hộp, Deduplication & Auto-Follow Cuộn Polls Cột 3, Loại bỏ Header/Footer Thẻ Chat, và Khởi chạy Persistent Brave Bridge Daemon phục vụ Kiểm thử Trực tiếp.
+- **Files Touched:**
+  - `scripts/brave-bridge.mjs`
+  - `scripts/brave-ctl.mjs`
+  - `apps/web/src/stores/circle.store.ts`
+  - `apps/web/src/components/presence/PresenceRail.tsx`
+  - `apps/web/src/components/chat/MessageList.tsx`
+  - `apps/web/src/components/chat/ChannelChatView.tsx`
+  - `apps/web/src/components/chat/ChatLocationCard.tsx`
+  - `apps/web/src/components/chat/CreatePollChatModal.tsx`
+  - `apps/web/src/components/tools/CircleAlbumsView.tsx`
+  - `apps/web/src/components/tools/CircleWheelView.tsx`
+  - `apps/web/src/components/tools/CircleAnonymousView.tsx`
+  - `apps/web/src/components/tools/CirclePlanningView.tsx`
+  - `apps/web/src/components/tools/CircleCalendarView.tsx`
+  - `apps/web/src/components/tools/CircleLocationView.tsx`
+  - `apps/web/src/hooks/use-circle-tools.ts`
+  - `apps/mobile/app/(tabs)/_layout.tsx`
+  - `apps/mobile/app/(tabs)/circles.tsx`
+  - `apps/mobile/app/(tabs)/messages.tsx`
+  - `apps/mobile/src/components/chat/MobileChatLocationCard.tsx`
+  - `apps/mobile/src/components/chat/MobileCreatePollModal.tsx`
+  - `apps/mobile/src/components/chat/PinnedMessagesModal.tsx`
+  - `apps/mobile/src/components/chat/SearchMessagesModal.tsx`
+  - `apps/mobile/src/components/circle/CreateCircleModal.tsx`
+  - `apps/mobile/src/components/moment/MomentsView.tsx`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:**
+  1. **Persistent Brave Debugging Bridge (`scripts/brave-bridge.mjs` & `scripts/brave-ctl.mjs`):**
+     - Xử lý dứt điểm tình trạng Brave liên tục hiện thông báo xin quyền "Allow remote debugging" do mỗi lần gọi script ngắt kết nối WebSocket. Triển khai daemon chạy ngầm giữ kết nối liên tục qua cổng 9333, cho phép thực thi `eval`, `click`, `screenshot`, `navigate` trực tiếp trên trình duyệt của người dùng với 0 popup phiền phức.
+  2. **Chuẩn hóa Cột 3 (PresenceRail) & Tính năng Poll Auto-Follow / Deduplication:**
+     - Chuẩn hóa Cột 3: Nút "Polls >" điều hướng tức thời vào view Group Poll (`activeCircleView = 'polls'`).
+     - Bấm vào từng cuộc bình chọn ở Cột 3 tự động chuyển về view chat (nếu đang ở view khác), tính toán vị trí offset chính xác `offset - (container.clientHeight / 2) + (el.clientHeight / 2)` để cuộn mượt và căn giữa chuẩn xác 1.3px kèm hiệu ứng viền sáng `ring-2 ring-circle-primary shadow-lg` trong 2.5s.
+     - Triển khai cơ chế khử trùng lặp (Deduplication) và đẩy vị trí mới nhất (Bump to latest) cho thẻ Poll trong chat khi có thành viên bỏ phiếu hoặc đóng bình chọn (`circle:poll-voted`, `circle:poll-closed` và cập nhật lạc quan `useVotePollMutation`/`useClosePollMutation`).
+  3. **Tối giản Hóa Thẻ Nhúng Trò Chuyện (Chat Embed Cleanups):**
+     - `ChatPollCard.tsx` & `MobileChatPollCard.tsx`: Bỏ toàn bộ header và footer dư thừa, hiển thị trực quan câu hỏi và danh sách lựa chọn kèm thanh tiến trình vote xanh lá.
+     - `ChatLocationCard.tsx` & `MobileChatLocationCard.tsx`: Bỏ lớp phủ gradient tối đen dưới chân ("Circle Meetup Point, Vị trí hiện tại, Mapbox"), giữ lại bản đồ tĩnh kèm pin tối giản và sắc nét.
+     - Thêm hiệu ứng mờ mép cuộn (scroll edge effect fade) ở đỉnh khung chat (`ChannelChatView.tsx`).
+  4. **Triệt tiêu Viền Hộp Bo Góc quanh Icon (Bare Icon Standard across Web & Mobile):**
+     - Loại bỏ toàn bộ các khối `iconBox`, `optionIconBox`, `approvalIconBox`, `actionIconBox` trên toàn bộ hệ thống (Web Column 3, Mobile Tab Layout Action Sheet, Messages Empty State, Circles Empty State, Pinned Messages Modal, Search Messages Modal, Create Circle Modal, Moments Action Sheet, Create Poll Modal). Tất cả icon hiển thị trực tiếp trên nền component cha.
+  5. **Hợp nhất Floating Glass Controls trên cả 8 Tiện ích Nhóm:**
+     - Đồng bộ kiểu dáng thanh công cụ viên thuốc kính nổi (Floating Glass Capsule Toolbar) lơ lửng ở đỉnh với nhãn tên tiện ích và các nút hành động chính trên toàn bộ 8 công cụ: `CirclePollView`, `CircleAlbumsView`, `CircleWheelView`, `CircleAnonymousView`, `CirclePlanningView` (cả danh sách và chi tiết bảng tính), `CircleLocationView` (dịch chuyển bộ zoom Leaflet tránh đè nút), `CircleCalendarView` (chuẩn hóa i18n VI/EN).
+- **Human Modifications:** Trương Công Bình yêu cầu không dùng Playwright, bật DevTools trực tiếp trên trình duyệt Brave của máy người dùng, giữ kết nối thông suốt không hỏi quyền liên tục, đồng bộ icon không có viền hộp bo góc trên toàn hệ thống, loại bỏ triệt để header/footer thẻ chat, và kiểm thử nghiêm ngặt trực tiếp trên trình duyệt.
+- **Verification Method:**
+  - Kết nối và kiểm thử trực tiếp trên trình duyệt Brave của người dùng (`127.0.0.1:9222`) thông qua daemon bridge.
+  - Kiểm tra độ chính xác căn giữa thẻ Poll khi nhấn từ Cột 3: `diffPx: 1.375px` (chuẩn xác sub-pixel).
+  - Kiểm tra thực tế bỏ phiếu bình chọn trên Brave: Poll `q` từ vị trí giữa danh sách nhảy ngay lập tức xuống vị trí mới nhất cuối khung chat, vị trí cũ biến mất hoàn toàn.
+  - Chụp ảnh màn hình kiểm thử toàn diện cả 8 tiện ích trên Brave ở cả Light mode và Dark mode: `live_moments_light.png`, `live_calendar_light.png`, `live_planning_light.png`, `live_planning_sheet_detail_light.png`, `live_location_light.png`, `live_wheel_light.png`, `live_mailbox_light.png`, `live_albums_light.png`, `live_poll_dark.png`, `live_chat_dark.png`, `live_scrolled_dark_bxbxb.png`, `live_poll_bumped_to_latest.png`.
+  - Typecheck Web: `npx tsc --noEmit -p apps/web/tsconfig.json` (0 errors).
+  - Typecheck Mobile: `npx tsc --noEmit -p apps/mobile/tsconfig.json` (0 errors).
+  - Build Shared: `npm run build --workspace=@circle/shared` (Success).
+  - Integrity check: `./scripts/check-agent-map.sh` (Passed 100%, 122/122 files).
+- **Official Source Checked:** Issue #125, Apple Human Interface Guidelines (Liquid Glass Controls), Figma specifications.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+- **Branch:** `fix/upgrade-mobile-expo-sdk-58`
