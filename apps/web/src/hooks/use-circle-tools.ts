@@ -620,7 +620,6 @@ export function useShareCalendarEventToChatMutation(circleId: string) {
     },
   });
 }
-
 export function useRespondEventRsvpMutation(circleId: string) {
   const queryClient = useQueryClient();
   return useMutation({

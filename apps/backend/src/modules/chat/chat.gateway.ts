@@ -359,7 +359,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.server.to('circle:' + circleId).emit('circle:anonymous-post-reaction-updated', payload);
     }
   }
-
   broadcastCalendarEventRsvp(circleId: string, payload: any) {
     if (this.server) {
       this.server.to(`circle:${circleId}`).emit('circle:calendar-event-rsvp-updated', payload);

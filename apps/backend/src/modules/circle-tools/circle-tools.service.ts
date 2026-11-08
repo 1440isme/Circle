@@ -1200,6 +1200,12 @@ export class CircleToolsService {
         startTime: start,
         endTime: end,
         reminderTime: dto.reminderTime ? new Date(dto.reminderTime) : null,
+        rsvps: {
+          create: {
+            userId,
+            status: 'YES',
+          },
+        },
       },
       include: {
         creator: {
@@ -1663,12 +1669,20 @@ export class CircleToolsService {
           ? this.computeRsvpBreakdown(event.rsvps)
           : undefined;
 
-      if (!rsvpsData) {
+      // Always guarantee creator RSVP is included from the very beginning
+      if (!rsvpsData || rsvpsData.userRsvps.length === 0) {
         rsvpsData = {
-          yesCount: 0,
+          yesCount: 1,
           noCount: 0,
           maybeCount: 0,
-          userRsvps: [],
+          userRsvps: [
+            {
+              userId: member.userId,
+              status: 'YES' as any,
+              displayName: creatorName,
+              avatarUrl: member.user?.profile?.avatarUrl || null,
+            },
+          ],
         };
       }
 

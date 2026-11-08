@@ -27,6 +27,8 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ArrowLeft,
+  BarChart3,
+  Compass,
   Settings,
   Phone,
   Video,
@@ -137,6 +139,10 @@ import { MobileAnonymousView } from '../../src/components/tools/MobileAnonymousV
 import { MobilePlanningView } from '../../src/components/tools/MobilePlanningView';
 import { MobileLocationView } from '../../src/components/tools/MobileLocationView';
 import { MobilePollView } from '../../src/components/tools/MobilePollView';
+import { MobileChatPollCard } from '../../src/components/chat/MobileChatPollCard';
+import { MobileChatLocationCard } from '../../src/components/chat/MobileChatLocationCard';
+import { MobileCreatePollModal } from '../../src/components/chat/MobileCreatePollModal';
+import * as Location from 'expo-location';
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -389,6 +395,7 @@ function MomentCardChatEmbed({
 }
 
 interface MobileSwipeMessageBubbleProps {
+  circleId?: string;
   msg: any;
   allMessages?: any[];
   isSenderMe: boolean;
@@ -413,6 +420,7 @@ interface MobileSwipeMessageBubbleProps {
 }
 
 const MobileSwipeMessageBubble = React.memo(function MobileSwipeMessageBubble({
+  circleId,
   msg,
   allMessages,
   isSenderMe,
@@ -921,7 +929,39 @@ const MobileSwipeMessageBubble = React.memo(function MobileSwipeMessageBubble({
                     {t.chat?.messageRecalled || 'Tin nhắn đã được thu hồi'}
                   </Text>
                 </View>
-              ) : Boolean(msg.content?.startsWith('[CALENDAR_EVENT]:')) ? (
+              ) : Boolean(msg.content?.startsWith('[GROUP_POLL]:')) ? (() => {
+                let pollData: any = null;
+                try {
+                  pollData = JSON.parse(msg.content.replace('[GROUP_POLL]:', ''));
+                } catch {}
+                if (!pollData) return null;
+                return (
+                  <MobileChatPollCard
+                    circleId={circleId || ''}
+                    pollId={pollData.pollId}
+                    initialQuestion={pollData.question}
+                    initialOptions={pollData.options}
+                    isSenderMe={isSenderMe}
+                    senderTextColor={senderTextColor}
+                  />
+                );
+              })() : Boolean(msg.content?.startsWith('[LOCATION_PIN]:')) ? (() => {
+                let locData: any = null;
+                try {
+                  locData = JSON.parse(msg.content.replace('[LOCATION_PIN]:', ''));
+                } catch {}
+                if (!locData) return null;
+                return (
+                  <MobileChatLocationCard
+                    lat={locData.lat}
+                    lng={locData.lng}
+                    title={locData.title}
+                    address={locData.address}
+                    isSenderMe={isSenderMe}
+                    senderTextColor={senderTextColor}
+                  />
+                );
+              })() : Boolean(msg.content?.startsWith('[CALENDAR_EVENT]:')) ? (
                 <MobileCalendarEventChatEmbed
                   content={msg.content}
                   circleId={msg.circleId || ''}
@@ -1279,7 +1319,7 @@ export default function CircleWorkspaceScreen() {
 
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const horizontalPagerRef = useRef<any>(null);
-  const TAB_ORDER: WorkspaceTab[] = useMemo(() => ['chat', 'moments', 'tools'], []);
+  const TAB_ORDER: WorkspaceTab[] = useMemo(() => ['moments', 'chat', 'tools'], []);
 
   const [circleSwitcherVisible, setCircleSwitcherVisible] = useState(false);
 
@@ -1303,6 +1343,15 @@ export default function CircleWorkspaceScreen() {
   };
 
   const [activeTab, setActiveTab] = useState<WorkspaceTab>('chat');
+
+  useEffect(() => {
+    // Default to Chat (index 1) when entering any Circle
+    const timer = setTimeout(() => {
+      horizontalPagerRef.current?.scrollTo({ x: screenWidth, animated: false });
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [screenWidth]);
+
   const [selectedTool, setSelectedTool] = useState<
     'menu' | 'album' | 'calendar' | 'wheel' | 'anonymous' | 'planning' | 'location' | 'poll'
   >('menu');
@@ -1345,6 +1394,8 @@ export default function CircleWorkspaceScreen() {
   const [isSearchModalVisible, setIsSearchModalVisible] = useState(false);
   const [isFullEmojiModalVisible, setIsFullEmojiModalVisible] = useState(false);
   const [targetReactMessageId, setTargetReactMessageId] = useState<string | null>(null);
+  const [isCreatePollModalVisible, setIsCreatePollModalVisible] = useState(false);
+  const [isLocatingChat, setIsLocatingChat] = useState(false);
   const [momentsMemberFilter, setMomentsMemberFilter] = useState<string | 'all'>('all');
   const [isMomentsFilterOpen, setIsMomentsFilterOpen] = useState(false);
   const [isMomentsHistoryActive, setIsMomentsHistoryActive] = useState(false);
@@ -1873,6 +1924,69 @@ export default function CircleWorkspaceScreen() {
     }
   };
 
+  const handleSendMobileLocation = async () => {
+    try {
+      setIsLocatingChat(true);
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      let lat = 10.7828;
+      let lng = 106.6958;
+      let address = 'Hồ Con Rùa, Quận 3, TP. Hồ Chí Minh';
+
+      if (status === 'granted') {
+        try {
+          const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          lat = loc.coords.latitude;
+          lng = loc.coords.longitude;
+          address = 'Vị trí hiện tại';
+        } catch {}
+      }
+
+      const payload = {
+        lat,
+        lng,
+        title: t.collab?.locationCardTitle || 'Điểm hẹn nhóm',
+        address,
+      };
+
+      await sendMessageMutation.mutateAsync({
+        content: `[LOCATION_PIN]:${JSON.stringify(payload)}`,
+        type: MessageType.TEXT,
+      });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (err: any) {
+      Alert.alert('Lỗi', err.message || 'Không thể chia sẻ vị trí');
+    } finally {
+      setIsLocatingChat(false);
+    }
+  };
+
+  const handleMobilePlusAction = () => {
+    Haptics.selectionAsync();
+    Alert.alert(
+      t.collab?.groupTools || 'Tiện ích nhóm',
+      undefined,
+      [
+        {
+          text: t.chat?.attachImage || 'Chọn ảnh từ thư viện',
+          onPress: handlePickImage,
+        },
+        {
+          text: t.collab?.createPoll || 'Tạo bình chọn',
+          onPress: () => setIsCreatePollModalVisible(true),
+        },
+        {
+          text: t.collab?.sendStaticLocation || 'Gửi vị trí hiện tại',
+          onPress: handleSendMobileLocation,
+        },
+        {
+          text: t.common?.cancel || 'Hủy',
+          style: 'cancel',
+        },
+      ],
+      { cancelable: true },
+    );
+  };
+
   const handleRecallMessage = async (msgId: string) => {
     try {
       await recallMessageApi(msgId);
@@ -2095,22 +2209,6 @@ export default function CircleWorkspaceScreen() {
               >
                 <TouchableOpacity
                   activeOpacity={0.7}
-                  onPress={() => handleTabSelect('chat')}
-                  style={[
-                    styles.tabSliderItem,
-                    activeTab === 'chat'
-                      ? [styles.tabSliderItemActive, { backgroundColor: isDark ? 'rgba(255,255,255,0.16)' : 'rgba(0,0,0,0.08)' }]
-                      : styles.tabSliderItemFaded,
-                  ]}
-                >
-                  <MessageSquare
-                    size={16}
-                    color={activeTab === 'chat' ? colors.primary : colors.subtle}
-                  />
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  activeOpacity={0.7}
                   onPress={() => handleTabSelect('moments')}
                   style={[
                     styles.tabSliderItem,
@@ -2122,6 +2220,22 @@ export default function CircleWorkspaceScreen() {
                   <Camera
                     size={16}
                     color={activeTab === 'moments' ? colors.primary : colors.subtle}
+                  />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => handleTabSelect('chat')}
+                  style={[
+                    styles.tabSliderItem,
+                    activeTab === 'chat'
+                      ? [styles.tabSliderItemActive, { backgroundColor: isDark ? 'rgba(255,255,255,0.16)' : 'rgba(0,0,0,0.08)' }]
+                      : styles.tabSliderItemFaded,
+                  ]}
+                >
+                  <MessageSquare
+                    size={16}
+                    color={activeTab === 'chat' ? colors.primary : colors.subtle}
                   />
                 </TouchableOpacity>
 
@@ -2156,22 +2270,6 @@ export default function CircleWorkspaceScreen() {
               >
                 <TouchableOpacity
                   activeOpacity={0.7}
-                  onPress={() => handleTabSelect('chat')}
-                  style={[
-                    styles.tabSliderItem,
-                    activeTab === 'chat'
-                      ? [styles.tabSliderItemActive, { backgroundColor: colors.surface }]
-                      : styles.tabSliderItemFaded,
-                  ]}
-                >
-                  <MessageSquare
-                    size={16}
-                    color={activeTab === 'chat' ? colors.primary : colors.subtle}
-                  />
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  activeOpacity={0.7}
                   onPress={() => handleTabSelect('moments')}
                   style={[
                     styles.tabSliderItem,
@@ -2183,6 +2281,22 @@ export default function CircleWorkspaceScreen() {
                   <Camera
                     size={16}
                     color={activeTab === 'moments' ? colors.primary : colors.subtle}
+                  />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => handleTabSelect('chat')}
+                  style={[
+                    styles.tabSliderItem,
+                    activeTab === 'chat'
+                      ? [styles.tabSliderItemActive, { backgroundColor: colors.surface }]
+                      : styles.tabSliderItemFaded,
+                  ]}
+                >
+                  <MessageSquare
+                    size={16}
+                    color={activeTab === 'chat' ? colors.primary : colors.subtle}
                   />
                 </TouchableOpacity>
 
@@ -2372,7 +2486,7 @@ export default function CircleWorkspaceScreen() {
                     ]}
                     accessibilityLabel={t.chat?.searchInChannel || 'Tìm kiếm tin nhắn'}
                   >
-                    <Search size={13} color={colors.text} />
+                    <Search size={14} color={colors.text} />
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -2389,28 +2503,9 @@ export default function CircleWorkspaceScreen() {
                           : colors.hairline,
                       },
                     ]}
-                    accessibilityLabel="Bắt đầu gọi thoại"
+                    accessibilityLabel="Gọi nhóm"
                   >
-                    <Phone size={13} color={colors.text} />
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    activeOpacity={0.7}
-                    onPress={() => handleStartCall('video')}
-                    style={[
-                      styles.headerActionCircleBtn,
-                      {
-                        backgroundColor: isGlass
-                          ? (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)')
-                          : colors.surface,
-                        borderColor: isGlass
-                          ? (isDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.07)')
-                          : colors.hairline,
-                      },
-                    ]}
-                    accessibilityLabel="Bắt đầu gọi video"
-                  >
-                    <Video size={13} color={colors.text} />
+                    <Phone size={14} color={colors.primary} />
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -2437,29 +2532,10 @@ export default function CircleWorkspaceScreen() {
                     accessibilityLabel={t.chat?.pinnedBadge || 'Tin nhắn đã ghim'}
                   >
                     <Pin
-                      size={13}
+                      size={14}
                       color={pinnedMessages.length > 0 ? colors.primary : colors.text}
                       fill={pinnedMessages.length > 0 ? colors.primary : 'transparent'}
                     />
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    activeOpacity={0.7}
-                    onPress={() => setIsClearChatModalOpen(true)}
-                    style={[
-                      styles.headerActionCircleBtn,
-                      {
-                        backgroundColor: isGlass
-                          ? (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)')
-                          : colors.surface,
-                        borderColor: isGlass
-                          ? (isDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.07)')
-                          : colors.hairline,
-                      },
-                    ]}
-                    accessibilityLabel={t.chat?.clearChatAction || 'Xóa lịch sử trò chuyện'}
-                  >
-                    <Trash2 size={13} color={colors.text} />
                   </TouchableOpacity>
                 </>
               )}
@@ -2490,6 +2566,22 @@ export default function CircleWorkspaceScreen() {
         style={{ flex: 1 }}
         contentContainerStyle={{ flexGrow: 1 }}
       >
+        
+        {/* TAB 2: KHOẢNH KHẮC THƯỜNG NGÀY (AUTHENTIC MOMENTS VIEW) */}
+        <View style={{ width: screenWidth, flex: 1, paddingTop: headerHeight }}>
+          <MomentsView
+            circleId={circleId}
+            circleName={circle.name}
+            isActive={activeTab === 'moments'}
+            selectedMemberId={momentsMemberFilter}
+            onSelectMemberId={setMomentsMemberFilter}
+            isHistoryActive={isMomentsHistoryActive}
+            onHistoryActiveChange={setIsMomentsHistoryActive}
+            historyViewMode={momentsHistoryViewMode}
+            onHistoryViewModeChange={setMomentsHistoryViewMode}
+          />
+        </View>
+
         {/* TAB 1: TRÒ CHUYỆN TRỰC TIẾP TRONG CIRCLE */}
         <View style={{ width: screenWidth, flex: 1 }}>
           <View
@@ -2629,6 +2721,7 @@ export default function CircleWorkspaceScreen() {
                                 style={{ width: '100%', alignItems: 'flex-end' }}
                               >
                                 <MobileSwipeMessageBubble
+                                  circleId={circleId}
                                   msg={msg}
                                   allMessages={messages}
                                   isSenderMe={true}
@@ -2714,6 +2807,7 @@ export default function CircleWorkspaceScreen() {
                                   style={{ width: '100%', alignItems: 'flex-start' }}
                                 >
                                   <MobileSwipeMessageBubble
+                                    circleId={circleId}
                                     msg={msg}
                                     allMessages={messages}
                                     isSenderMe={false}
@@ -2974,7 +3068,7 @@ export default function CircleWorkspaceScreen() {
                 {/* Action 1: (+) Outline Neutral Plus Button */}
                 <TouchableOpacity
                   activeOpacity={0.7}
-                  onPress={handlePickImage}
+                  onPress={handleMobilePlusAction}
                   style={[styles.plusOutlineCircle, { borderColor: colors.subtle }]}
                   accessibilityLabel="Add attachment"
                 >
@@ -3102,225 +3196,131 @@ export default function CircleWorkspaceScreen() {
         </View>
       </View>
 
-        {/* TAB 2: KHOẢNH KHẮC THƯỜNG NGÀY (AUTHENTIC MOMENTS VIEW) */}
-        <View style={{ width: screenWidth, flex: 1, paddingTop: headerHeight }}>
-          <MomentsView
-            circleId={circleId}
-            circleName={circle.name}
-            isActive={activeTab === 'moments'}
-            selectedMemberId={momentsMemberFilter}
-            onSelectMemberId={setMomentsMemberFilter}
-            isHistoryActive={isMomentsHistoryActive}
-            onHistoryActiveChange={setIsMomentsHistoryActive}
-            historyViewMode={momentsHistoryViewMode}
-            onHistoryViewModeChange={setMomentsHistoryViewMode}
-          />
-        </View>
-
         {/* TAB 3: TIỆN ÍCH NHÓM */}
         <View style={{ width: screenWidth, flex: 1, paddingTop: headerHeight }}>
-          {selectedTool === 'album' ? (
-            <View style={{ flex: 1 }}>
+          <ScrollView contentContainerStyle={[styles.toolsContainer, { paddingTop: 12 }]} showsVerticalScrollIndicator={false}>
+            <View style={[styles.toolsCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+              {/* Tool 1: Realtime Voice Stage */}
               <TouchableOpacity
-                onPress={() => setSelectedTool('menu')}
-                style={{ paddingHorizontal: 16, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.hairline }}
+                activeOpacity={0.7}
+                onPress={() => handleStartCall('audio')}
+                style={[styles.toolRow, { borderBottomColor: colors.hairline }]}
               >
-                <ArrowLeft size={16} color={colors.text} />
-                <Text style={{ fontSize: 12, fontWeight: '600', color: colors.text }}>Menu Tiện Ích</Text>
+                <Radio size={20} color={colors.text} />
+                <View style={styles.toolInfo}>
+                  <Text style={[styles.toolTitle, { color: colors.text }]}>
+                    {t.nav.groupCall}
+                  </Text>
+                </View>
+                <ChevronRight size={16} color={colors.subtle} />
               </TouchableOpacity>
-              <MobileAlbumsView circleId={circleId} />
-            </View>
-          ) : selectedTool === 'calendar' ? (
-            <View style={{ flex: 1 }}>
+
+              {/* Tool 2: Photo Album */}
               <TouchableOpacity
-                onPress={() => setSelectedTool('menu')}
-                style={{ paddingHorizontal: 16, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.hairline }}
+                activeOpacity={0.7}
+                onPress={() => setSelectedTool('album')}
+                style={[styles.toolRow, { borderBottomColor: colors.hairline }]}
               >
-                <ArrowLeft size={16} color={colors.text} />
-                <Text style={{ fontSize: 12, fontWeight: '600', color: colors.text }}>Menu Tiện Ích</Text>
+                <ImageIcon size={20} color={colors.text} />
+                <View style={styles.toolInfo}>
+                  <Text style={[styles.toolTitle, { color: colors.text }]}>
+                    {t.nav.photoAlbum}
+                  </Text>
+                </View>
+                <ChevronRight size={16} color={colors.subtle} />
               </TouchableOpacity>
-              <MobileCalendarView circleId={circleId} />
-            </View>
-          ) : selectedTool === 'wheel' ? (
-            <View style={{ flex: 1 }}>
+
+              {/* Tool 3: Calendar Events */}
               <TouchableOpacity
-                onPress={() => setSelectedTool('menu')}
-                style={{ paddingHorizontal: 16, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.hairline }}
+                activeOpacity={0.7}
+                onPress={() => setSelectedTool('calendar')}
+                style={[styles.toolRow, { borderBottomColor: colors.hairline }]}
               >
-                <ArrowLeft size={16} color={colors.text} />
-                <Text style={{ fontSize: 12, fontWeight: '600', color: colors.text }}>Menu Tiện Ích</Text>
+                <Calendar size={20} color={colors.text} />
+                <View style={styles.toolInfo}>
+                  <Text style={[styles.toolTitle, { color: colors.text }]}>
+                    {t.nav.calendarEvents}
+                  </Text>
+                </View>
+                <ChevronRight size={16} color={colors.subtle} />
               </TouchableOpacity>
-              <MobileWheelView circleId={circleId} />
-            </View>
-          ) : selectedTool === 'anonymous' ? (
-            <View style={{ flex: 1 }}>
+
+              {/* Tool 4: Planning Sheet (UC18) */}
               <TouchableOpacity
-                onPress={() => setSelectedTool('menu')}
-                style={{ paddingHorizontal: 16, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.hairline }}
+                activeOpacity={0.7}
+                onPress={() => setSelectedTool('planning')}
+                style={[styles.toolRow, { borderBottomColor: colors.hairline }]}
               >
-                <ArrowLeft size={16} color={colors.text} />
-                <Text style={{ fontSize: 12, fontWeight: '600', color: colors.text }}>Menu Tiện Ích</Text>
+                <FileSpreadsheet size={20} color={colors.text} />
+                <View style={styles.toolInfo}>
+                  <Text style={[styles.toolTitle, { color: colors.text }]}>
+                    {t.nav.planningSheet}
+                  </Text>
+                </View>
+                <ChevronRight size={16} color={colors.subtle} />
               </TouchableOpacity>
-              <MobileAnonymousView circleId={circleId} />
-            </View>
-          ) : selectedTool === 'planning' ? (
-            <View style={{ flex: 1 }}>
+
+              {/* Tool 5: Live Location (UC19) */}
               <TouchableOpacity
-                onPress={() => setSelectedTool('menu')}
-                style={{ paddingHorizontal: 16, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.hairline }}
+                activeOpacity={0.7}
+                onPress={() => setSelectedTool('location')}
+                style={[styles.toolRow, { borderBottomColor: colors.hairline }]}
               >
-                <ArrowLeft size={16} color={colors.text} />
-                <Text style={{ fontSize: 12, fontWeight: '600', color: colors.text }}>Menu Tiện Ích</Text>
+                <MapPin size={20} color={colors.text} />
+                <View style={styles.toolInfo}>
+                  <Text style={[styles.toolTitle, { color: colors.text }]}>
+                    {t.nav.liveLocation}
+                  </Text>
+                </View>
+                <ChevronRight size={16} color={colors.subtle} />
               </TouchableOpacity>
-              <MobilePlanningView circleId={circleId} />
-            </View>
-          ) : selectedTool === 'location' ? (
-            <View style={{ flex: 1 }}>
+
+              {/* Tool 6: Group Poll (UC15) */}
               <TouchableOpacity
-                onPress={() => setSelectedTool('menu')}
-                style={{ paddingHorizontal: 16, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.hairline }}
+                activeOpacity={0.7}
+                onPress={() => setSelectedTool('poll')}
+                style={[styles.toolRow, { borderBottomColor: colors.hairline }]}
               >
-                <ArrowLeft size={16} color={colors.text} />
-                <Text style={{ fontSize: 12, fontWeight: '600', color: colors.text }}>Menu Tiện Ích</Text>
+                <BarChart3 size={20} color={colors.text} />
+                <View style={styles.toolInfo}>
+                  <Text style={[styles.toolTitle, { color: colors.text }]}>
+                    {t.nav.groupPoll}
+                  </Text>
+                </View>
+                <ChevronRight size={16} color={colors.subtle} />
               </TouchableOpacity>
-              <MobileLocationView circleId={circleId} />
-            </View>
-          ) : selectedTool === 'poll' ? (
-            <View style={{ flex: 1 }}>
+
+              {/* Tool 7: Lucky Wheel */}
               <TouchableOpacity
-                onPress={() => setSelectedTool('menu')}
-                style={{ paddingHorizontal: 16, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.hairline }}
+                activeOpacity={0.7}
+                onPress={() => setSelectedTool('wheel')}
+                style={[styles.toolRow, { borderBottomColor: colors.hairline }]}
               >
-                <ArrowLeft size={16} color={colors.text} />
-                <Text style={{ fontSize: 12, fontWeight: '600', color: colors.text }}>Menu Tiện Ích</Text>
+                <Compass size={20} color={colors.text} />
+                <View style={styles.toolInfo}>
+                  <Text style={[styles.toolTitle, { color: colors.text }]}>
+                    {t.nav.luckyWheel}
+                  </Text>
+                </View>
+                <ChevronRight size={16} color={colors.subtle} />
               </TouchableOpacity>
-              <MobilePollView circleId={circleId} />
+
+              {/* Tool 8: Anonymous Mailbox */}
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => setSelectedTool('anonymous')}
+                style={styles.toolRow}
+              >
+                <Heart size={20} color={colors.text} />
+                <View style={styles.toolInfo}>
+                  <Text style={[styles.toolTitle, { color: colors.text }]}>
+                    {t.nav.reflectionMailbox}
+                  </Text>
+                </View>
+                <ChevronRight size={16} color={colors.subtle} />
+              </TouchableOpacity>
             </View>
-          ) : (
-            <ScrollView contentContainerStyle={[styles.toolsContainer, { paddingTop: 12 }]} showsVerticalScrollIndicator={false}>
-              <View style={[styles.toolsCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
-                {/* Tool 1: Realtime Voice Stage */}
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() => handleStartCall('audio')}
-                  style={[styles.toolRow, { borderBottomColor: colors.hairline }]}
-                >
-                  <Radio size={20} color={colors.text} />
-                  <View style={styles.toolInfo}>
-                    <Text style={[styles.toolTitle, { color: colors.text }]}>
-                      {t.nav.groupCall}
-                    </Text>
-                  </View>
-                  <ChevronRight size={16} color={colors.subtle} />
-                </TouchableOpacity>
-
-                {/* Tool 2: Photo Album */}
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() => setSelectedTool('album')}
-                  style={[styles.toolRow, { borderBottomColor: colors.hairline }]}
-                >
-                  <ImageIcon size={20} color={colors.text} />
-                  <View style={styles.toolInfo}>
-                    <Text style={[styles.toolTitle, { color: colors.text }]}>
-                      {t.nav.photoAlbum}
-                    </Text>
-                  </View>
-                  <ChevronRight size={16} color={colors.subtle} />
-                </TouchableOpacity>
-
-                {/* Tool 3: Calendar Events */}
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() => setSelectedTool('calendar')}
-                  style={[styles.toolRow, { borderBottomColor: colors.hairline }]}
-                >
-                  <Calendar size={20} color={colors.text} />
-                  <View style={styles.toolInfo}>
-                    <Text style={[styles.toolTitle, { color: colors.text }]}>
-                      {t.nav.calendarEvents}
-                    </Text>
-                  </View>
-                  <ChevronRight size={16} color={colors.subtle} />
-                </TouchableOpacity>
-
-                {/* Tool 4: Planning Sheet (UC18) */}
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() => setSelectedTool('planning')}
-                  style={[styles.toolRow, { borderBottomColor: colors.hairline }]}
-                >
-                  <FileSpreadsheet size={20} color={colors.text} />
-                  <View style={styles.toolInfo}>
-                    <Text style={[styles.toolTitle, { color: colors.text }]}>
-                      {t.nav.planningSheet}
-                    </Text>
-                  </View>
-                  <ChevronRight size={16} color={colors.subtle} />
-                </TouchableOpacity>
-
-                {/* Tool 5: Live Location (UC19) */}
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() => setSelectedTool('location')}
-                  style={[styles.toolRow, { borderBottomColor: colors.hairline }]}
-                >
-                  <MapPin size={20} color={colors.text} />
-                  <View style={styles.toolInfo}>
-                    <Text style={[styles.toolTitle, { color: colors.text }]}>
-                      {t.nav.liveLocation}
-                    </Text>
-                  </View>
-                  <ChevronRight size={16} color={colors.subtle} />
-                </TouchableOpacity>
-
-                {/* Tool 6: Group Poll (UC15) */}
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() => setSelectedTool('poll')}
-                  style={[styles.toolRow, { borderBottomColor: colors.hairline }]}
-                >
-                  <Vote size={20} color={colors.text} />
-                  <View style={styles.toolInfo}>
-                    <Text style={[styles.toolTitle, { color: colors.text }]}>
-                      {t.nav.groupPoll}
-                    </Text>
-                  </View>
-                  <ChevronRight size={16} color={colors.subtle} />
-                </TouchableOpacity>
-
-                {/* Tool 7: Lucky Wheel */}
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() => setSelectedTool('wheel')}
-                  style={[styles.toolRow, { borderBottomColor: colors.hairline }]}
-                >
-                  <Sparkles size={20} color={colors.text} />
-                  <View style={styles.toolInfo}>
-                    <Text style={[styles.toolTitle, { color: colors.text }]}>
-                      {t.nav.luckyWheel}
-                    </Text>
-                  </View>
-                  <ChevronRight size={16} color={colors.subtle} />
-                </TouchableOpacity>
-
-                {/* Tool 8: Anonymous Words Unsaid */}
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() => setSelectedTool('anonymous')}
-                  style={[styles.toolRow, { borderBottomColor: 'transparent', borderBottomWidth: 0 }]}
-                >
-                  <Heart size={20} color={colors.text} />
-                  <View style={styles.toolInfo}>
-                    <Text style={[styles.toolTitle, { color: colors.text }]}>
-                      {t.nav.reflectionMailbox}
-                    </Text>
-                  </View>
-                  <ChevronRight size={16} color={colors.subtle} />
-                </TouchableOpacity>
-              </View>
-            </ScrollView>
-          )}
+          </ScrollView>
         </View>
       </ScrollView>
 
@@ -4137,6 +4137,24 @@ export default function CircleWorkspaceScreen() {
         }}
       />
 
+      {/* Mobile Create Poll Modal */}
+      <MobileCreatePollModal
+        visible={isCreatePollModalVisible}
+        onClose={() => setIsCreatePollModalVisible(false)}
+        circleId={circleId}
+        onPollCreated={async (createdPoll) => {
+          const payload = {
+            pollId: createdPoll.id,
+            question: createdPoll.question,
+            options: (createdPoll.options || []).map((o: any) => o.optionText || o),
+          };
+          await sendMessageMutation.mutateAsync({
+            content: `[GROUP_POLL]:${JSON.stringify(payload)}`,
+            type: MessageType.TEXT,
+          });
+        }}
+      />
+
       {/* Inline Member Filter Dropdown for Moments Tab */}
       {isMomentsFilterOpen && activeTab === 'moments' && (
         <View style={styles.momentsFilterDropdownOverlay}>
@@ -4232,6 +4250,97 @@ export default function CircleWorkspaceScreen() {
           </View>
         </View>
       )}
+    
+      {/* Full-Screen Tool Modal: Expands edge-to-edge with native iOS header */}
+      <Modal
+        visible={selectedTool !== 'menu'}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={() => setSelectedTool('menu')}
+      >
+        <View style={{ flex: 1, backgroundColor: colors.canvas }}>
+          <View
+            style={{
+              paddingTop: Platform.OS === 'ios' ? 48 : 16,
+              paddingBottom: 12,
+              paddingHorizontal: 16,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              backgroundColor: colors.surface,
+              borderBottomWidth: StyleSheet.hairlineWidth,
+              borderBottomColor: colors.hairline,
+            }}
+          >
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => setSelectedTool('menu')}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 4,
+                paddingVertical: 4,
+                paddingHorizontal: 8,
+                borderRadius: 8,
+              }}
+            >
+              <ArrowLeft size={18} color={colors.primary} />
+              <Text style={{ fontSize: 14, fontWeight: '600', color: colors.primary }}>
+                {t.nav?.groupTools || 'Tiện ích'}
+              </Text>
+            </TouchableOpacity>
+
+            <Text style={{ fontSize: 15, fontWeight: '700', color: colors.text }}>
+              {selectedTool === 'album'
+                ? t.nav.photoAlbum
+                : selectedTool === 'calendar'
+                ? t.nav.calendarEvents
+                : selectedTool === 'planning'
+                ? t.nav.planningSheet
+                : selectedTool === 'location'
+                ? t.nav.liveLocation
+                : selectedTool === 'poll'
+                ? t.nav.groupPoll
+                : selectedTool === 'wheel'
+                ? t.nav.luckyWheel
+                : selectedTool === 'anonymous'
+                ? t.nav.reflectionMailbox
+                : ''}
+            </Text>
+
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => setSelectedTool('menu')}
+              style={{
+                padding: 6,
+                borderRadius: 16,
+                backgroundColor: colors.wash,
+              }}
+            >
+              <X size={16} color={colors.text} />
+            </TouchableOpacity>
+          </View>
+
+          <View style={{ flex: 1 }}>
+            {selectedTool === 'album' ? (
+              <MobileAlbumsView circleId={circleId} />
+            ) : selectedTool === 'calendar' ? (
+              <MobileCalendarView circleId={circleId} />
+            ) : selectedTool === 'planning' ? (
+              <MobilePlanningView circleId={circleId} />
+            ) : selectedTool === 'location' ? (
+              <MobileLocationView circleId={circleId} />
+            ) : selectedTool === 'poll' ? (
+              <MobilePollView circleId={circleId} />
+            ) : selectedTool === 'wheel' ? (
+              <MobileWheelView circleId={circleId} />
+            ) : selectedTool === 'anonymous' ? (
+              <MobileAnonymousView circleId={circleId} />
+            ) : null}
+          </View>
+        </View>
+      </Modal>
+
     </KeyboardAvoidingView>
   );
 }

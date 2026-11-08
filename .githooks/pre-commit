@@ -13,5 +13,9 @@ bash scripts/check-agent-map.sh
 echo "2️⃣ Checking AI usage log adherence..."
 bash scripts/verify-ai-log.sh --staged
 
+# 3. Verify Zero Secret Leaks (Hard Gate: Zero Secret Leaks)
+echo "3️⃣ Checking for hardcoded secrets and API keys..."
+bash scripts/check-secrets.sh --staged
+
 echo "🎉 All local pre-commit checks passed successfully!"
 exit 0

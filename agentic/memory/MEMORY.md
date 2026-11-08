@@ -1,21 +1,18 @@
-# MEMORY.md — Lớp 1: Index trí nhớ CIRCLE
+# MEMORY.md — Layer 1 Long-term Index
 
-> Nạp đầu MỌI phiên làm việc. Giới hạn ~200 dòng — vượt là phải tổng hợp/cắt tỉa
-> (xem skill `memory-protocol`). Mỗi mục có ngày + nguồn. Mục hết hiệu lực:
-> sửa tại chỗ, không để hai sự thật mâu thuẫn cùng tồn tại.
-> Bản này được điền sẵn từ PROJECT_GOD.md + AGENTS.md ngày 2026-10-25 — nhóm rà
-> lại một lượt trước khi dùng chính thức.
+> Sổ tay ghi nhớ dài hạn (tối đa ~200 dòng). Được đọc tự động ở đầu mỗi phiên.
+> Cập nhật theo `agentic/memory/MEMORY-PROTOCOL.md`.
+> Các mục chi tiết theo chủ đề nằm ở `agentic/memory/topics/`.
+> Nhật ký theo ngày nằm ở `agentic/memory/YYYY-MM-DD.md`.
 
-## Facts — Dự án & nhóm
+## Facts & Context
 
-- CIRCLE: đồ án tốt nghiệp — MXH theo nhóm; SSOT là `PROJECT_GOD.md` (mục 2.2 là scope đã đăng ký). — 2026-10-25
-- Nhóm 2 người: Trương Công Bình (23110184), Ninh Thị Mỹ Hạnh (23110210). PR của người này bắt buộc người kia review & approve; cấm self-merge. — theo AGENTS.md, 2026-10-25
-- Stack: NestJS + Prisma + PostgreSQL + Redis; Next.js web (Admin tích hợp tại /admin); React Native + Expo; Socket.IO + WebRTC; Docker + Traefik. — theo AGENTS.md, 2026-10-25
-- GitHub là project OS (Issues/Projects/PR/Actions). Figma là UI/UX source of truth. — theo PROJECT_GOD.md, 2026-10-25
-- Roadmap 19 tuần; mục tiêu rubric Level 5; 10 Hard Gates ở PROJECT_GOD §7 là bất khả xâm phạm. — 2026-10-25
-- **Triết lý sản phẩm group-first:** mọi tính năng vì hoạt động nhóm; KHÔNG có chat 1-1 (chat là chat nhóm của Circle); không có đồ thị bạn bè độc lập — gia nhập bằng mời thẳng vào Circle; tạo Circle + chọn thành viên phải tiện cho user. — chốt bởi Bình, 2026-10-25 (PROJECT_GOD §2.2 & §11 mục K đã được amendment đồng bộ).
+- Trương Công Bình (23110184) & Ninh Thị Mỹ Hạnh (23110210) — đồ án tốt nghiệp CIRCLE, HCMUTE.
+- Tech stack: NestJS + Prisma + PostgreSQL + Redis (apps/api), Next.js (apps/web), Expo (apps/mobile).
+- 10 Hard Gates là bất khả xâm phạm (sản phẩm thực, zero secret leaks, testing tự động, báo cáo tuần...).
+- Peer review bắt buộc giữa Bình và Hạnh; không bao giờ tự merge PR.
 
-## Preferences — Cách làm việc đã chốt
+## User Preferences & Rules
 
 - Báo cáo/giao tiếp với nhóm: tiếng Việt. Code, commit, tài liệu kỹ thuật: tiếng Anh. — 2026-10-25
 - Conventional Commits; branch dạng `<type>/<issue-id>-<slug>`; không commit thẳng vào `main`/`develop`. — theo AGENTS.md, 2026-10-25
@@ -29,6 +26,7 @@
 - **Triết lý Radical Minimalism & Clean UI:** Giao diện tối giản tối đa, ít text nhất có thể. Cấm mọi text mô tả hiển nhiên, subtitle lặp lại tiêu đề, badge chú thích thừa (như lời khuyên đổi mật khẩu, hint empty state dài dòng, badge nháp thô). Ghim đưa lên header icon (rỗng/fill); cài đặt âm thanh gom vào Circle Settings; Light theme nút bấm phải phân biệt rõ với nền. — chốt bởi Bình, 2026-10-28
 - **Zero Hardcoding Invariant:** 100% text giao diện (label, error, toast, alert, placeholder, aria-label) bắt buộc đi qua `@circle/shared` (`vi.ts` và `en.ts`). Tuyệt đối cấm hardcode bất kỳ chuỗi tiếng Việt/tiếng Anh nào trong component. — chốt bởi Bình, 2026-10-28
 - **Tương tác tin nhắn ngữ cảnh & Emoji chuẩn hóa:** Web hover hiện 3 chấm dọc mở menu; Mobile nhấn giữ focus tin nhắn (nền mờ) với reaction emoji ở trên và hành động ở dưới. Toàn hệ thống dùng DUY NHẤT 1 bộ emoji; tab emoji picker chỉ dùng icon đại diện, bỏ tiêu đề chữ. — chốt bởi Bình, 2026-10-28
+- **Tự kiểm toán Trải nghiệm & Độ hữu dụng (Feature Usability Audit):** Tuyệt đối không chuyển sang module mới khi cụm tính năng hiện tại chưa thực sự hữu ích và trơn tru. Bắt buộc nhập vai người dùng thực tế kiểm toán 5 trụ cột (đời thực, liền mạch với chat, giảm thiểu ma sát, đồng bộ thời gian thực, thẩm mỹ tinh tế) theo skill `feature-usability-audit.md`. — chốt bởi Bình, 2026-10-29
 - **Kỷ luật Clean Repository:** Giữ sạch kho mã nguồn tuyệt đối; không để lại file rác, file nháp, script thử nghiệm tạm thời hay các câu lệnh kỹ thuật dư thừa trong repository. — chốt bởi Bình, 2026-11-01
 - **Thẩm quyền PR & Phê duyệt:** Tuyệt đối nghiêm ngặt KHÔNG tự ý tạo Pull Request (PR) hoặc merge code khi chưa có sự chỉ thị và cho phép rõ ràng từ kỹ sư. — chốt bởi Bình, 2026-11-01
 - **Ngưỡng ghi nhận AI Log (`docs/ai-usage/log.md`):** Chỉ ghi nhận entry `AI-XXXX` khi triển khai một tính năng hoàn chỉnh, thay đổi kiến trúc hoặc logic cốt lõi có quy mô đủ lớn. Tuyệt đối không ghi log cho các tinh chỉnh giao diện nhỏ lẻ (micro UI tweaks, chỉnh style/CSS vụn vặt). — chốt bởi Bình, 2026-11-01
@@ -41,19 +39,15 @@
 - [correction] Phải đọc sâu và thấu đáo toàn bộ codebase trước khi nhận xét/đánh giá; không được grep hời hợt rồi kết luận chưa làm. Phải phân tích thấu đáo xem phần nào đã có nền móng, phần nào còn dang dở hoặc trải nghiệm còn thô để cải thiện nâng tầm trải nghiệm cho user. — theo Bình, 2026-10-27.
 - [correction] Không đặt banner ghim hay modal hành động thô giữa màn hình chat (thay thế: ghim đưa lên Header icon; mobile long-press focus tin nhắn với emoji ở trên và action ở dưới) — theo Bình, 2026-10-28.
 - [correction] Cắt bỏ toàn bộ text thừa, lời khuyên rườm rà, subtitle lặp lại tiêu đề, badge giải thích hiển nhiên ở mọi nơi — theo Bình, 2026-10-28.
+- [correction] Tuyệt đối không fallback secret/token thật vào source code (`process.env.KEY || 'secret'`); bảo mật theo Hard Gate Zero Secret Leaks bằng pre-commit guard `check-secrets.sh`. Khi cập nhật git hook phải bảo toàn nguyên vẹn các pre-commit checks hiện có, cấm overwrite — theo Bình, 2026-10-29.
 
 ## Decisions (chỉ mục — chi tiết ở ADR/topic)
 
-- Mô hình quản trị: toàn hệ thống chỉ 2 vai trò User / Admin — Admin gộp toàn quyền (không tách Super Admin/Admin thường) vì CIRCLE là MXH nhóm, không phải e-commerce. — chốt bởi Bình, 2026-10-25
-
-## Open loops
-
-- Rà soát toàn diện và hoàn thiện triệt để các module của Bình (Module 1, 4, 5, 6, 7.2) theo Playbook Tier MUST và Cross-cutting gate (Web + Mobile song hành) trước khi bước sang Module 8 — hạn 2026-10-26, đang thực hiện.
-
-## Core Reference Topics (Lớp 3 — bối cảnh sâu)
-
-- [Architecture](architecture.md) — Durable architectural choices: Modular Monolith, module encapsulation, shared types contract.
-- [Gotchas](gotchas.md) — Known traps, pitfalls, and framework quirks (Prisma + Neon pooling, Expo WebRTC, Socket.IO auth, ViewShot).
-- [Verified facts](verified-facts.md) — Technical realities confirmed by inspecting code and dependencies.
-- [Decisions](decisions.md) — Summary of key Architectural Decision Records (ADRs).
-- [Reporting Workflow](reporting-workflow.md) — Quy định báo cáo kép (GVHD 2 tuần/lần vs. Khoa 1 tuần/lần, lệch track 4 tuần, cấu trúc 5 mục).
+- D-001: Mobile dùng Expo bare workflow — 2026-10-20
+- D-002: Realtime dùng Socket.IO kết hợp WebRTC mesh — 2026-10-21
+- D-003: Giữ cấu trúc monorepo npm workspaces — 2026-10-22
+- D-004: Mọi tính năng giao diện mới phải đạt song hành Web và Mobile (Web + Mobile parity) ngay từ đầu — 2026-10-25
+- D-005: Loại bỏ hoàn toàn AI Slop, hướng tới thẩm mỹ tinh tế, sang trọng, tối giản và chuyên nghiệp — 2026-10-27
+- D-006: Khắc cốt ghi tâm Radical Minimalism: Cắt giảm mọi text/chú thích thừa, ghim lên header icon, gom sound settings, emoji chuẩn hóa — 2026-10-28
+- D-007: Tự kiểm toán Usability theo 5 trụ cột trước khi chuyển tính năng mới — 2026-10-29
+- D-008: Hard Gate Zero Secret Leaks với pre-commit git guard và CI check; cấm lộ token/credentials trong source code — 2026-10-29

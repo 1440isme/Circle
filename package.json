@@ -13,6 +13,8 @@
     "docker:logs": "docker compose logs -f",
     "docker:ps": "docker compose ps",
     "check:integrity": "./scripts/check-agent-map.sh",
+    "check:secrets": "./scripts/check-secrets.sh",
+    "prepare": "git config core.hooksPath .githooks 2>/dev/null || true",
     "dev:backend": "npm run start:dev --workspace=@circle/backend",
     "dev:web": "npm run dev --workspace=@circle/web",
     "dev:mobile": "npm run start --workspace=@circle/mobile",

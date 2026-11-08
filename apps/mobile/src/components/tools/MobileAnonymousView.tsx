@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -28,6 +28,8 @@ import {
 } from '../../services/circle-tools.service';
 import { AnonymousPostEntity } from '@circle/types';
 import { getSocket } from '../../services/socket';
+import { useThemeStore } from '../../stores/theme.store';
+import { useLanguageStore } from '../../stores/language.store';
 
 interface MobileAnonymousViewProps {
   circleId: string;
@@ -92,6 +94,11 @@ const THEMES: MobileTheme[] = [
 ];
 
 export const MobileAnonymousView: React.FC<MobileAnonymousViewProps> = ({ circleId }) => {
+  const { colors, resolvedTheme } = useThemeStore();
+  const isDark = resolvedTheme === 'dark';
+  const { t } = useLanguageStore();
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
   const [posts, setPosts] = useState<AnonymousPostEntity[]>([]);
 
   useEffect(() => {
@@ -219,7 +226,7 @@ export const MobileAnonymousView: React.FC<MobileAnonymousViewProps> = ({ circle
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.canvas }]}>
       {/* Header */}
       <View style={styles.header}>
         <View>
@@ -289,9 +296,9 @@ export const MobileAnonymousView: React.FC<MobileAnonymousViewProps> = ({ circle
             })}
           </View>
         ) : (
-          <View style={styles.emptyContainer}>
+          <View style={[styles.emptyContainer, { backgroundColor: colors.canvas }]}>
             <Heart size={48} color="#94A3B8" />
-            <Text style={styles.emptyTitle}>Hộp thư đang trống</Text>
+            <Text style={[styles.emptyTitle, { color: colors.text }]}>Hộp thư đang trống</Text>
             <Text style={styles.emptySub}>
               Hãy là người đầu tiên gửi lời cảm ơn hoặc tâm sự ẩn danh đến vòng tròn!
             </Text>
@@ -309,9 +316,9 @@ export const MobileAnonymousView: React.FC<MobileAnonymousViewProps> = ({ circle
       {/* Compose Modal */}
       <Modal visible={isComposeModalOpen} transparent animationType="slide">
         <View style={styles.modalBackdrop}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Gửi Lời Nhắn Ẩn Danh</Text>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>Gửi Lời Nhắn Ẩn Danh</Text>
               <TouchableOpacity onPress={() => setIsComposeModalOpen(false)}>
                 <X size={20} color="#64748B" />
               </TouchableOpacity>
@@ -373,10 +380,10 @@ export const MobileAnonymousView: React.FC<MobileAnonymousViewProps> = ({ circle
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.canvas,
   },
   header: {
     flexDirection: 'row',
@@ -386,23 +393,23 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#E2E8F0',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
   },
   screenTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#0F172A',
+    color: colors.text,
   },
   screenSub: {
     fontSize: 11,
-    color: '#64748B',
+    color: colors.subtle,
     marginTop: 2,
   },
   createBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#0F172A',
+    backgroundColor: colors.primary,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
@@ -468,7 +475,7 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 10,
-    color: '#64748B',
+    color: colors.subtle,
   },
   emptyContainer: {
     flex: 1,
@@ -480,12 +487,12 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#0F172A',
+    color: colors.text,
     marginTop: 12,
   },
   emptySub: {
     fontSize: 12,
-    color: '#64748B',
+    color: colors.subtle,
     textAlign: 'center',
     marginTop: 4,
     lineHeight: 18,
@@ -494,7 +501,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#0F172A',
+    backgroundColor: colors.primary,
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 10,
@@ -511,7 +518,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 20,
@@ -525,7 +532,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#0F172A',
+    color: colors.text,
   },
   formGroup: {
     marginBottom: 12,
@@ -533,7 +540,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#475569',
+    color: colors.subtle,
     marginBottom: 6,
   },
   themesRow: {
@@ -557,20 +564,20 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   textArea: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.canvas,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.hairline,
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 13,
-    color: '#0F172A',
+    color: colors.text,
     height: 100,
     textAlignVertical: 'top',
   },
   charCount: {
     fontSize: 10,
-    color: '#94A3B8',
+    color: colors.subtle,
     textAlign: 'right',
     marginTop: 4,
   },
@@ -586,14 +593,14 @@ const styles = StyleSheet.create({
   },
   cancelText: {
     fontSize: 13,
-    color: '#64748B',
+    color: colors.subtle,
     fontWeight: '600',
   },
   submitBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#0F172A',
+    backgroundColor: colors.primary,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,

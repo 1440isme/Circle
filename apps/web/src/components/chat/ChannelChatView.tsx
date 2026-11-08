@@ -587,6 +587,7 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
 
         {/* Chat Composer */}
         <ChatComposer
+          circleId={circleId}
           channelId={channelId}
           channelName={channelName}
           members={circleMembers}

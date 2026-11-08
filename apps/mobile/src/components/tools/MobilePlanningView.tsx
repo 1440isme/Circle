@@ -33,6 +33,7 @@ import {
 } from '../../services/circle-tools.service';
 import { PlanningSheetEntity, SheetCellEntity } from '@circle/types';
 import { useThemeStore } from '../../stores/theme.store';
+import { useLanguageStore } from '../../stores/language.store';
 
 interface MobilePlanningViewProps {
   circleId: string;
@@ -43,6 +44,7 @@ const { width } = Dimensions.get('window');
 export const MobilePlanningView: React.FC<MobilePlanningViewProps> = ({ circleId }) => {
   const { colors, resolvedTheme } = useThemeStore();
   const isDark = resolvedTheme === 'dark';
+  const { t } = useLanguageStore();
   const [sheets, setSheets] = useState<PlanningSheetEntity[]>([]);
   const [selectedSheet, setSelectedSheet] = useState<PlanningSheetEntity | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -68,7 +70,7 @@ export const MobilePlanningView: React.FC<MobilePlanningViewProps> = ({ circleId
       const data = await getPlanningSheetsApi(circleId);
       setSheets(data);
     } catch (err: any) {
-      Alert.alert('Lỗi', err.message || 'Không thể tải danh sách bảng kế hoạch');
+      Alert.alert(t.common?.error || 'Lỗi', err.message || t.collab?.loadSheetsError || 'Không thể tải bảng');
     } finally {
       setIsLoading(false);
     }
@@ -80,7 +82,7 @@ export const MobilePlanningView: React.FC<MobilePlanningViewProps> = ({ circleId
       const data = await getPlanningSheetDetailApi(circleId, sheetId);
       setSelectedSheet(data);
     } catch (err: any) {
-      Alert.alert('Lỗi', err.message || 'Không thể tải chi tiết bảng');
+      Alert.alert(t.common?.error || 'Lỗi', err.message || t.collab?.loadSheetDetailError || 'Không thể tải chi tiết');
     } finally {
       setIsLoading(false);
     }
@@ -92,7 +94,7 @@ export const MobilePlanningView: React.FC<MobilePlanningViewProps> = ({ circleId
 
   const handleCreateSheet = async () => {
     if (!newTitle.trim()) {
-      Alert.alert('Thông báo', 'Vui lòng nhập tên bảng kế hoạch');
+      Alert.alert(t.common?.notice || 'Thông báo', t.collab?.enterSheetTitleError || 'Vui lòng nhập tên bảng');
       return;
     }
 
@@ -106,7 +108,7 @@ export const MobilePlanningView: React.FC<MobilePlanningViewProps> = ({ circleId
       loadSheets();
       setSelectedSheet(created);
     } catch (err: any) {
-      Alert.alert('Lỗi', err.message || 'Không thể tạo bảng');
+      Alert.alert(t.common?.error || 'Lỗi', err.message || t.collab?.createSheetError || 'Lỗi');
     }
   };
 
@@ -122,7 +124,7 @@ export const MobilePlanningView: React.FC<MobilePlanningViewProps> = ({ circleId
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setSelectedSheet(updated);
     } catch (err: any) {
-      Alert.alert('Lỗi', err.message || 'Không thể thêm cột');
+      Alert.alert(t.common?.error || 'Lỗi', err.message || t.collab?.addColumnError || 'Lỗi');
     }
   };
 
@@ -134,7 +136,7 @@ export const MobilePlanningView: React.FC<MobilePlanningViewProps> = ({ circleId
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       setSelectedSheet(updated);
     } catch (err: any) {
-      Alert.alert('Lỗi', err.message || 'Không thể thêm dòng');
+      Alert.alert(t.common?.error || 'Lỗi', err.message || t.collab?.addRowError || 'Lỗi');
     }
   };
 
@@ -150,18 +152,18 @@ export const MobilePlanningView: React.FC<MobilePlanningViewProps> = ({ circleId
       loadSheetDetail(selectedSheet.id);
       setEditingCell(null);
     } catch (err: any) {
-      Alert.alert('Lỗi', err.message || 'Không thể lưu ô bảng tính');
+      Alert.alert(t.common?.error || 'Lỗi', err.message || t.collab?.updateCellError || 'Lỗi');
     }
   };
 
   const handleDeleteSheet = async (sheetId: string) => {
     Alert.alert(
-      'Xác nhận xóa',
-      'Bạn có chắc chắn muốn xóa bảng kế hoạch này?',
+      t.collab?.deleteSheet || 'Xác nhận xóa',
+      t.collab?.deleteSheetConfirm || 'Bạn có chắc chắn muốn xóa bảng kế hoạch này?',
       [
-        { text: 'Hủy', style: 'cancel' },
+        { text: t.common?.cancel || 'Hủy', style: 'cancel' },
         {
-          text: 'Xóa',
+          text: t.common?.delete || 'Xóa',
           style: 'destructive',
           onPress: async () => {
             try {
@@ -170,7 +172,7 @@ export const MobilePlanningView: React.FC<MobilePlanningViewProps> = ({ circleId
               setSelectedSheet(null);
               loadSheets();
             } catch (err: any) {
-              Alert.alert('Lỗi', err.message || 'Không thể xóa bảng');
+              Alert.alert(t.common?.error || 'Lỗi', err.message || t.collab?.deleteSheetError || 'Lỗi');
             }
           },
         },

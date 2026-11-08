@@ -67,6 +67,7 @@ Indexed in [`agentic/skills/README.md`](./agentic/skills/README.md). The core fl
 - [`docs-update`](./agentic/skills/docs-update.md) — Keep maps, capabilities, and diagrams in sync.
 - [`learn-and-update`](./agentic/skills/learn-and-update.md) — Capture best practices, gotchas, and lessons.
 - [`pre-completion-verification`](./agentic/skills/pre-completion-verification.md) — 5-Tier full-spectrum verification before claiming completion.
+- [`feature-usability-audit`](./agentic/skills/feature-usability-audit.md) — 5-Pillar End-User UX & usability audit (real-life test, chat integration, ergonomics).
 - [`ai-log-entry`](./agentic/skills/ai-log-entry.md) — Automated `AI-XXXX` usage logging.
 - [`memory-protocol`](./agentic/skills/memory-protocol.md) — Recall at session start; capture corrections/preferences/decisions the moment they happen; weekly consolidation.
 

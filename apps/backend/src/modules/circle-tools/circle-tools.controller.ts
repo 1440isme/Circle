@@ -548,7 +548,6 @@ export class CircleToolsController {
       timestamp: new Date().toISOString(),
     };
   }
-
   @Put('calendar-events/:eventId/rsvp')
   async respondEventRsvp(
     @Param('circleId') circleId: string,

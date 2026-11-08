@@ -5,6 +5,8 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Search, MapPin, X, LocateFixed, Check, Loader2 } from 'lucide-react';
 
+const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
+
 export interface SelectedLocationData {
   name: string;
   address: string;
@@ -179,14 +181,21 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
       attributionControl: false,
     });
 
-    // ArcGIS Online World Street Map
-    L.tileLayer(
-      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
-      {
-        maxZoom: 19,
-        attribution: 'Esri',
-      }
-    ).addTo(map);
+    // Mapbox Raster Tiles (streets-v12 / dark-v11) with ESRI fallback
+    const isDark =
+      typeof document !== 'undefined' &&
+      document.documentElement.classList.contains('dark');
+    const mapboxStyle = isDark ? 'dark-v11' : 'streets-v12';
+    const tileUrl = MAPBOX_TOKEN
+      ? `https://api.mapbox.com/styles/v1/mapbox/${mapboxStyle}/tiles/512/{z}/{x}/{y}@2x?access_token=${MAPBOX_TOKEN}`
+      : 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}';
+
+    L.tileLayer(tileUrl, {
+      tileSize: MAPBOX_TOKEN ? 512 : 256,
+      zoomOffset: MAPBOX_TOKEN ? -1 : 0,
+      maxZoom: 22,
+      attribution: MAPBOX_TOKEN ? '© Mapbox © OpenStreetMap' : 'Esri',
+    }).addTo(map);
 
     mapRef.current = map;
 
@@ -391,6 +400,15 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
         {/* Map Container */}
         <div className="relative flex-1 w-full bg-circle-canvas dark:bg-circle-dark-canvas overflow-hidden">
           <div ref={mapContainerRef} className="h-full w-full" />
+
+          {/* Mapbox badge */}
+          {MAPBOX_TOKEN && (
+            <div className="absolute top-3 left-3 z-10 pointer-events-none">
+              <span className="px-2 py-0.5 rounded-md bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border border-circle-hairline dark:border-circle-dark-hairline text-[10px] font-semibold text-circle-charcoal dark:text-circle-dark-text shadow-sm">
+                Mapbox
+              </span>
+            </div>
+          )}
 
           {/* GPS Locate Me Button */}
           <button
