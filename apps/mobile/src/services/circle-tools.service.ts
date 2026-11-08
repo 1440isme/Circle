@@ -6,6 +6,10 @@ import {
   AddPhotosInput,
   DecisionWheelEntity,
   CreateWheelInput,
+  UpdateWheelInput,
+  WheelFolderEntity,
+  CreateWheelFolderInput,
+  UpdateWheelFolderInput,
   SpinWheelResult,
   AnonymousPostEntity,
   CreateAnonymousPostInput,
@@ -104,6 +108,30 @@ export async function createWheelApi(
   return res.data;
 }
 
+export async function updateWheelApi(
+  circleId: string,
+  wheelId: string,
+  input: UpdateWheelInput,
+): Promise<DecisionWheelEntity> {
+  const res = await mobileApiRequest<DecisionWheelEntity>(`/circles/${circleId}/wheels/${wheelId}`, {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  });
+  return res.data;
+}
+
+export async function spinAllWheelsApi(
+  circleId: string,
+): Promise<SpinWheelResult[]> {
+  const res = await mobileApiRequest<SpinWheelResult[]>(
+    `/circles/${circleId}/wheels/spin-all`,
+    {
+      method: 'POST',
+    },
+  );
+  return res.data;
+}
+
 export async function spinWheelApi(
   circleId: string,
   wheelId: string,
@@ -115,6 +143,77 @@ export async function spinWheelApi(
     },
   );
   return res.data;
+}
+
+
+export async function getWheelFoldersApi(
+  circleId: string,
+): Promise<WheelFolderEntity[]> {
+  const res = await mobileApiRequest<WheelFolderEntity[]>(
+    `/circles/${circleId}/wheels/folders`,
+  );
+  return res.data;
+}
+
+export async function createWheelFolderApi(
+  circleId: string,
+  input: CreateWheelFolderInput,
+): Promise<WheelFolderEntity> {
+  const res = await mobileApiRequest<WheelFolderEntity>(
+    `/circles/${circleId}/wheels/folders`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    },
+  );
+  return res.data;
+}
+
+export async function restoreWheelFolderApi(
+  circleId: string,
+  folderId: string,
+): Promise<DecisionWheelEntity[]> {
+  const res = await mobileApiRequest<DecisionWheelEntity[]>(
+    `/circles/${circleId}/wheels/folders/${folderId}/restore`,
+    {
+      method: 'POST',
+    },
+  );
+  return res.data;
+}
+
+export async function updateWheelFolderApi(
+  circleId: string,
+  folderId: string,
+  input: UpdateWheelFolderInput,
+): Promise<WheelFolderEntity> {
+  const res = await mobileApiRequest<WheelFolderEntity>(
+    `/circles/${circleId}/wheels/folders/${folderId}`,
+    {
+      method: 'PUT',
+      body: JSON.stringify(input),
+    },
+  );
+  return res.data;
+}
+
+export async function deleteWheelFolderApi(
+  circleId: string,
+  folderId: string,
+): Promise<void> {
+  await mobileApiRequest(`/circles/${circleId}/wheels/folders/${folderId}`, {
+    method: 'DELETE',
+  });
+}
+
+
+export async function deleteAllWheelsApi(circleId: string, defaultTitle?: string): Promise<void> {
+  const url = defaultTitle
+    ? `/circles/${circleId}/wheels?title=${encodeURIComponent(defaultTitle)}`
+    : `/circles/${circleId}/wheels`;
+  await mobileApiRequest(url, {
+    method: 'DELETE',
+  });
 }
 
 export async function deleteWheelApi(circleId: string, wheelId: string): Promise<void> {
@@ -479,5 +578,19 @@ export async function deletePollApi(circleId: string, pollId: string): Promise<v
   await mobileApiRequest(`/circles/${circleId}/polls/${pollId}`, {
     method: 'DELETE',
   });
+}
+
+export async function shareWheelResultsToChatApi(
+  circleId: string,
+  results: { wheelTitle: string; winner: string }[],
+): Promise<{ success: boolean; messageId: string }> {
+  const res = await mobileApiRequest<{ success: boolean; messageId: string }>(
+    `/circles/${circleId}/tools/wheels/share-results`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ results }),
+    },
+  );
+  return res.data;
 }
 

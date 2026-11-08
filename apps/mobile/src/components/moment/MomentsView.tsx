@@ -909,7 +909,7 @@ export function MomentsView({
     cornerIndex: number;
     caption?: string | null;
   } | null>(null);
-  const compositeCaptureViewRef = useRef<View>(null);
+  const compositeCaptureViewRef = useRef<any>(null);
   const compositeMainLoadedRef = useRef(false);
   const compositePipLoadedRef = useRef(false);
   const compositeResolveRef = useRef<(() => void) | null>(null);

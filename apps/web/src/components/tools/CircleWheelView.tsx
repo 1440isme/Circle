@@ -1,15 +1,25 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   Compass,
   Plus,
   Trash2,
   X,
-  Sparkles,
   Trophy,
   Loader2,
   RotateCw,
+  Volume2,
+  VolumeX,
+  Shuffle,
+  RotateCcw,
+  Edit2,
+  Check,
+  ArrowDownAZ,
+  PanelRightClose,
+  PanelRightOpen,
+  BookmarkCheck,
+  Share2,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguageStore } from '../../stores/language.store';
@@ -17,109 +27,876 @@ import { getSocket } from '../../lib/socket';
 import {
   useWheelsQuery,
   useCreateWheelMutation,
+  useUpdateWheelMutation,
   useSpinWheelMutation,
+  useSpinAllWheelsMutation,
   useDeleteWheelMutation,
+  useDeleteAllWheelsMutation,
+  useShareWheelResultsToChatMutation,
 } from '../../hooks/use-circle-tools';
-import { DecisionWheelEntity, WheelOptionEntity } from '@circle/types';
+import { DecisionWheelEntity, SpinWheelResult } from '@circle/types';
 
 interface CircleWheelViewProps {
   circleId: string;
 }
 
-const DEFAULT_COLORS = [
-  '#F87171', // red
-  '#FB923C', // orange
-  '#FBBF24', // amber
-  '#34D399', // emerald
-  '#60A5FA', // blue
-  '#818CF8', // indigo
-  '#A78BFA', // purple
-  '#F472B6', // pink
+const PASTEL_WHEEL_COLORS = [
+  '#FFD6A5', // Pastel Warm Apricot
+  '#CAFFBF', // Pastel Mint Green
+  '#9BF6FF', // Pastel Sky Cyan
+  '#FFADAD', // Pastel Coral Pink
+  '#BDB2FF', // Pastel Soft Lavender
+  '#FDFFB6', // Pastel Cream Butter
+  '#A0C4FF', // Pastel Powder Blue
+  '#FFC6FF', // Pastel Light Orchid
+  '#B8E0D2', // Pastel Celadon Sage
+  '#FED1BA', // Pastel Peach
+  '#D7E3FC', // Pastel Periwinkle
+  '#FDE2E4', // Pastel Rose Blossom
 ];
+
+const RESULT_CARD_THEMES = [
+  {
+    bg: 'bg-amber-100 dark:bg-amber-950/80',
+    border: 'border-amber-400 dark:border-amber-600',
+    badge: 'bg-amber-200 dark:bg-amber-900 text-amber-900 dark:text-amber-100',
+    text: 'text-amber-950 dark:text-amber-50',
+    btn: 'bg-white/90 dark:bg-black/50 text-amber-900 hover:bg-white dark:text-amber-100 border-amber-300 dark:border-amber-700',
+  },
+  {
+    bg: 'bg-emerald-100 dark:bg-emerald-950/80',
+    border: 'border-emerald-400 dark:border-emerald-600',
+    badge: 'bg-emerald-200 dark:bg-emerald-900 text-emerald-900 dark:text-emerald-200',
+    text: 'text-emerald-950 dark:text-emerald-50',
+    btn: 'bg-white/90 dark:bg-black/50 text-emerald-900 hover:bg-white dark:text-emerald-100 border-emerald-300 dark:border-emerald-700',
+  },
+  {
+    bg: 'bg-sky-100 dark:bg-sky-950/80',
+    border: 'border-sky-400 dark:border-sky-600',
+    badge: 'bg-sky-200 dark:bg-sky-900 text-sky-900 dark:text-sky-200',
+    text: 'text-sky-950 dark:text-sky-50',
+    btn: 'bg-white/90 dark:bg-black/50 text-sky-900 hover:bg-white dark:text-sky-100 border-sky-300 dark:border-sky-700',
+  },
+  {
+    bg: 'bg-purple-100 dark:bg-purple-950/80',
+    border: 'border-purple-400 dark:border-purple-600',
+    badge: 'bg-purple-200 dark:bg-purple-900 text-purple-900 dark:text-purple-200',
+    text: 'text-purple-950 dark:text-purple-50',
+    btn: 'bg-white/90 dark:bg-black/50 text-purple-900 hover:bg-white dark:text-purple-100 border-purple-300 dark:border-purple-700',
+  },
+];
+
+// Web Audio API Synthesizer (Zero external dependencies)
+class WheelAudioEngine {
+  private ctx: AudioContext | null = null;
+
+  private getContext(): AudioContext | null {
+    if (typeof window === 'undefined') return null;
+    if (!this.ctx) {
+      const AudioCtx =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (AudioCtx) this.ctx = new AudioCtx();
+    }
+    if (this.ctx && this.ctx.state === 'suspended') {
+      this.ctx.resume().catch(() => {});
+    }
+    return this.ctx;
+  }
+
+  playTick() {
+    try {
+      const ctx = this.getContext();
+      if (!ctx) return;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(650, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(120, ctx.currentTime + 0.035);
+      gain.gain.setValueAtTime(0.12, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.035);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.035);
+    } catch {}
+  }
+
+  playFanfare() {
+    try {
+      const ctx = this.getContext();
+      if (!ctx) return;
+      const notes = [523.25, 659.25, 783.99, 1046.5]; // C5, E5, G5, C6
+      notes.forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        const start = ctx.currentTime + idx * 0.1;
+        osc.frequency.setValueAtTime(freq, start);
+        gain.gain.setValueAtTime(0, start);
+        gain.gain.linearRampToValueAtTime(0.2, start + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, start + 0.55);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(start);
+        osc.stop(start + 0.55);
+      });
+    } catch {}
+  }
+}
+
+const audio = new WheelAudioEngine();
+
+// Canvas Wheel Component
+const WheelCanvas: React.FC<{
+  options: { label: string; color: string }[];
+  rotation: number;
+  size?: number;
+  onClick?: () => void;
+}> = ({ options, rotation, size = 260, onClick }) => {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = size * dpr;
+    canvas.height = size * dpr;
+    ctx.scale(dpr, dpr);
+
+    const center = size / 2;
+    const radius = center - 1;
+    const count = Math.max(options.length, 1);
+    const sliceAngle = (2 * Math.PI) / count;
+
+    ctx.clearRect(0, 0, size, size);
+
+    // Save and rotate context
+    ctx.save();
+    ctx.translate(center, center);
+    ctx.rotate((rotation * Math.PI) / 180);
+
+    // Draw slices
+    options.forEach((opt, idx) => {
+      const startAngle = idx * sliceAngle;
+      const endAngle = startAngle + sliceAngle;
+
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.arc(0, 0, radius, startAngle, endAngle);
+      ctx.closePath();
+      ctx.fillStyle = opt.color || PASTEL_WHEEL_COLORS[idx % PASTEL_WHEEL_COLORS.length]!;
+      ctx.fill();
+
+      // Border between slices
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#FFFFFF';
+      ctx.stroke();
+
+      // Label text: Modern, crisp, dark charcoal color for high readability on pastel
+      ctx.save();
+      const midAngle = startAngle + sliceAngle / 2;
+      ctx.rotate(midAngle);
+      ctx.textAlign = 'right';
+      ctx.fillStyle = '#1E293B';
+      ctx.font = `600 ${size > 280 ? 13 : 11}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+      ctx.shadowColor = 'rgba(255, 255, 255, 0.7)';
+      ctx.shadowBlur = 2;
+
+      const maxLabelLen = size > 280 ? 15 : 11;
+      let label = opt.label;
+      if (label.length > maxLabelLen) {
+        label = label.substring(0, maxLabelLen - 1) + '…';
+      }
+      ctx.fillText(label, radius - 16, 4);
+      ctx.restore();
+    });
+
+    ctx.restore();
+
+    // Center circular hub
+    ctx.beginPath();
+    ctx.arc(center, center, size > 280 ? 22 : 18, 0, 2 * Math.PI);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.12)';
+    ctx.shadowBlur = 5;
+    ctx.shadowOffsetY = 2;
+    ctx.fill();
+    ctx.shadowColor = 'transparent';
+
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = '#E2E8F0';
+    ctx.stroke();
+
+    // Center small circle (brand teal)
+    ctx.beginPath();
+    ctx.arc(center, center, size > 280 ? 8 : 6, 0, 2 * Math.PI);
+    ctx.fillStyle = '#0D9488';
+    ctx.fill();
+  }, [options, rotation, size]);
+
+  return (
+    <div
+      onClick={onClick}
+      className="relative cursor-pointer transition-transform hover:scale-[1.02] active:scale-[0.99]"
+      style={{ width: size, height: size }}
+    >
+      <canvas
+        ref={canvasRef}
+        style={{ width: size, height: size }}
+        className="rounded-full shadow-lg"
+      />
+      {/* Sleek needle pointer anchored on the RIGHT OUTSIDE, pointing into the wheel */}
+      <div
+        className="absolute top-1/2 -translate-y-1/2 z-20 pointer-events-none drop-shadow-md flex items-center"
+        style={{ right: -26 }}
+      >
+        <svg width="34" height="24" viewBox="0 0 34 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          {/* Needle body pointing left */}
+          <path
+            d="M 2 12 L 20 3 C 22 2 24 3 24 5.5 V 18.5 C 24 21 22 22 20 21 L 2 12 Z"
+            fill="#0D9488"
+            stroke="#FFFFFF"
+            strokeWidth="1.5"
+            strokeLinejoin="round"
+          />
+          {/* Base mounting bracket on the right (firmly outside the wheel) */}
+          <rect x="22" y="5" width="10" height="14" rx="3.5" fill="#0F766E" stroke="#FFFFFF" strokeWidth="1.5" />
+          <circle cx="27" cy="12" r="3" fill="#FFFFFF" />
+          <circle cx="27" cy="12" r="1.5" fill="#0D9488" />
+        </svg>
+      </div>
+    </div>
+  );
+};
 
 export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) => {
   const { user } = useAuth();
-  const t = useLanguageStore((s) => s.t);
+  const { t } = useLanguageStore();
 
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [selectedWheelId, setSelectedWheelId] = useState<string | null>(null);
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [wheelTitle, setWheelTitle] = useState('');
-  const [optionsList, setOptionsList] = useState<string[]>(['Ăn phở', 'Cơm tấm', 'Bún chả']);
-  const { data: wheels = [], isLoading } = useWheelsQuery(circleId);
-  const createMutation = useCreateWheelMutation(circleId);
-  const spinMutation = useSpinWheelMutation(circleId);
-  const deleteMutation = useDeleteWheelMutation(circleId);
+  const { data: wheels = [], isLoading: isLoadingWheels } = useWheelsQuery(circleId);
 
+  const createWheelMutation = useCreateWheelMutation(circleId);
+  const updateWheelMutation = useUpdateWheelMutation(circleId);
+  const deleteWheelMutation = useDeleteWheelMutation(circleId);
+  const deleteAllMutation = useDeleteAllWheelsMutation(circleId);
+  const spinWheelMutation = useSpinWheelMutation(circleId);
+  const spinAllMutation = useSpinAllWheelsMutation(circleId);
 
-  const activeWheel: DecisionWheelEntity | undefined =
-    wheels.find((w) => w.id === selectedWheelId) || wheels[0];
+  const shareResultsMutation = useShareWheelResultsToChatMutation(circleId);
+  const [shareSuccess, setShareSuccess] = useState(false);
 
+  // Active Tab: Selected Wheel ID or 'results'
+  const [activeTab, setActiveTab] = useState<string>('wheel');
+  const [activeWheelId, setActiveWheelId] = useState<string | null>(null);
+
+  // Results Text: Mỗi dòng là kết quả của 1 lần quay (các vòng cách nhau bởi dấu " - ")
+  const [resultsText, setResultsText] = useState<string>('');
+  const resultLines = useMemo(() => {
+    return resultsText
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0);
+  }, [resultsText]);
+  const resultLinesCount = resultLines.length;
+
+  // Panel Collapsed State (cho phép ẩn bảng để vòng tròn to hơn, mặc định thu gọn khi mới vào)
+  const [isPanelCollapsed, setIsPanelCollapsed] = useState(true);
+
+  // Auto-seed: Khởi tạo 1 vòng mặc định ngay khi tải trang nếu Circle chưa có vòng nào (mở ra là quay ngay)
+  const autoSeedRef = useRef(false);
   useEffect(() => {
-    if (!selectedWheelId && wheels.length > 0) {
-      setSelectedWheelId(wheels[0]?.id || null);
+    if (!isLoadingWheels && wheels.length === 0 && !autoSeedRef.current && !createWheelMutation.isPending) {
+      autoSeedRef.current = true;
+      const defaultTitle = t.luckyWheel.wheelNumber.replace('{number}', '1');
+      const sampleOptions = [
+        { optionLabel: 'Phở bò' },
+        { optionLabel: 'Bún chả' },
+        { optionLabel: 'Cơm tấm' },
+        { optionLabel: 'Bánh mì' },
+      ];
+
+      createWheelMutation.mutate(
+        {
+          title: defaultTitle,
+          options: sampleOptions,
+          initialOptions: sampleOptions.map((o) => o.optionLabel),
+          soundEnabled: true,
+          confettiEnabled: false,
+        },
+        {
+          onSuccess: (newWheel) => {
+            if (newWheel?.id) {
+              setActiveWheelId(newWheel.id);
+            }
+          },
+        }
+      );
     }
-  }, [wheels, selectedWheelId]);
+  }, [isLoadingWheels, wheels.length, createWheelMutation, t.luckyWheel.wheelNumber]);
 
-  // Animation states
-  const [isSpinning, setIsSpinning] = useState(false);
-  const [winner, setWinner] = useState<string | null>(null);
-  const [currentRotation, setCurrentRotation] = useState(0);
-  const [liveSpunNotice, setLiveSpunNotice] = useState<string | null>(null);
+  // Local state per wheel (textarea, rotation, isSpinning)
+  interface WheelLocalState {
+    optionsText: string;
+    rotation: number;
+    isSpinning: boolean;
+    lastResult: string | null;
+  }
+  const [wheelsState, setWheelsState] = useState<Record<string, WheelLocalState>>({});
 
-  const animateWheelTo = useCallback(
-    (targetLabel: string, spunByName?: string) => {
-      if (!activeWheel || !activeWheel.options || activeWheel.options.length === 0) return;
+  // Batch Spinning Accumulator (gom kết quả chung khi quay nhiều vòng cùng lúc)
+  const activeSpinningBatchRef = useRef<Set<string>>(new Set());
+  const batchResultsAccumulatorRef = useRef<
+    { wheelId: string; wheelTitle: string; result: string; resultIndex: number }[]
+  >([]);
 
-      setIsSpinning(true);
-      setWinner(null);
-      if (spunByName) {
-        setLiveSpunNotice(`${spunByName} vừa quay vòng quay!`);
+  // Batch Results Modal
+  const [combinedResultsModal, setCombinedResultsModal] = useState<
+    { wheelId: string; wheelTitle: string; result: string; resultIndex: number }[] | null
+  >(null);
+
+  // Synchronize wheels into local state
+  useEffect(() => {
+    if (wheels.length === 0) return;
+
+    setWheelsState((prev) => {
+      const next = { ...prev };
+      wheels.forEach((w) => {
+        if (!next[w.id]) {
+          const text = (w.options || []).map((o) => o.optionLabel).join('\n');
+          next[w.id] = {
+            optionsText: text,
+            rotation: 0,
+            isSpinning: false,
+            lastResult: w.lastResult || null,
+          };
+        }
+      });
+      return next;
+    });
+
+    if (!activeWheelId || !wheels.some((w) => w.id === activeWheelId)) {
+      const fallbackId = wheels[0]?.id || null;
+      setActiveWheelId(fallbackId);
+      if (activeTab !== 'results' && fallbackId) {
+        setActiveTab(fallbackId);
       }
+    }
+  }, [wheels, activeWheelId, activeTab]);
 
-      const numOptions = activeWheel.options.length;
-      const arcAngle = (2 * Math.PI) / numOptions;
-      const targetIndex = activeWheel.options.findIndex((o) => o.optionLabel === targetLabel);
-      const validIndex = targetIndex >= 0 ? targetIndex : 0;
+  // Active Wheel entity
+  const activeWheel = useMemo(
+    () => wheels.find((w) => w.id === activeWheelId) || wheels[0] || null,
+    [wheels, activeWheelId]
+  );
 
-      const extraSpins = 6 * 2 * Math.PI;
-      const targetSliceCenter = validIndex * arcAngle + arcAngle / 2;
-      const finalAngle =
-        extraSpins + (1.5 * Math.PI - targetSliceCenter) + (Math.random() * 0.2 - 0.1);
+  const activeLocalState = useMemo(() => {
+    if (!activeWheel) return null;
+    return (
+      wheelsState[activeWheel.id] || {
+        optionsText: (activeWheel.options || []).map((o) => o.optionLabel).join('\n'),
+        rotation: 0,
+        isSpinning: false,
+        lastResult: activeWheel.lastResult || null,
+      }
+    );
+  }, [activeWheel, wheelsState]);
 
+  // Is any wheel spinning currently?
+  const isAnySpinning = useMemo(
+    () => Object.values(wheelsState).some((s) => s.isSpinning),
+    [wheelsState]
+  );
+
+  // Parse lines to options helper
+  const parseOptions = useCallback((text: string) => {
+    const lines = text
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0);
+    return lines.map((label, idx) => ({
+      label,
+      color: PASTEL_WHEEL_COLORS[idx % PASTEL_WHEEL_COLORS.length]!,
+    }));
+  }, []);
+
+  // Debounced auto-save timer
+  const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const triggerAutoSave = useCallback(
+    (wheelId: string, text: string) => {
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = setTimeout(() => {
+        const lines = text
+          .split('\n')
+          .map((l) => l.trim())
+          .filter((l) => l.length > 0);
+        if (lines.length >= 2) {
+          updateWheelMutation.mutate({
+            wheelId,
+            input: {
+              options: lines.map((opt, idx) => ({
+                optionLabel: opt,
+                color: PASTEL_WHEEL_COLORS[idx % PASTEL_WHEEL_COLORS.length],
+              })),
+            },
+          });
+        }
+      }, 900);
+    },
+    [updateWheelMutation]
+  );
+
+  // Add default wheel without popup
+  const handleAddDefaultWheel = () => {
+    if (wheels.length >= 4 || isAnySpinning) return;
+    const nextNumber = wheels.length + 1;
+    const defaultTitle = t.luckyWheel.wheelNumber.replace('{number}', String(nextNumber));
+    const sampleOptions = [
+      { optionLabel: 'Phở bò' },
+      { optionLabel: 'Bún chả' },
+      { optionLabel: 'Cơm tấm' },
+      { optionLabel: 'Bánh mì' },
+    ];
+
+    createWheelMutation.mutate(
+      {
+        title: defaultTitle,
+        options: sampleOptions,
+        initialOptions: sampleOptions.map((o) => o.optionLabel),
+        soundEnabled: true,
+        confettiEnabled: true,
+      },
+      {
+        onSuccess: (newWheel) => {
+          if (newWheel?.id) {
+            setActiveWheelId(newWheel.id);
+          }
+        },
+      }
+    );
+  };
+
+  // Textarea change handler for active wheel
+  const handleOptionsChange = (newText: string) => {
+    if (!activeWheel || isAnySpinning) return;
+    setWheelsState((prev) => ({
+      ...prev,
+      [activeWheel.id]: {
+        ...(prev[activeWheel.id] || { rotation: 0, isSpinning: false, lastResult: null }),
+        optionsText: newText,
+      },
+    }));
+    triggerAutoSave(activeWheel.id, newText);
+  };
+
+  // Shuffle options for active wheel
+  const handleShuffle = () => {
+    if (!activeWheel || !activeLocalState || isAnySpinning) return;
+    const lines = activeLocalState.optionsText
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0);
+    if (lines.length < 2) return;
+
+    for (let i = lines.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [lines[i], lines[j]] = [lines[j]!, lines[i]!];
+    }
+    const shuffledText = lines.join('\n');
+    handleOptionsChange(shuffledText);
+  };
+
+  // Sort options A-Z (Alphabetical)
+  const handleSortAZ = () => {
+    if (!activeWheel || !activeLocalState || isAnySpinning) return;
+    const lines = activeLocalState.optionsText
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0);
+    if (lines.length < 2) return;
+
+    lines.sort((a, b) => a.localeCompare(b, 'vi', { sensitivity: 'base' }));
+    const sortedText = lines.join('\n');
+    handleOptionsChange(sortedText);
+  };
+
+  // Save current options as initial baseline
+  const [saveInitialFeedback, setSaveInitialFeedback] = useState(false);
+  const handleSaveAsInitial = () => {
+    if (!activeWheel || !activeLocalState || isAnySpinning) return;
+    const lines = activeLocalState.optionsText
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0);
+    if (lines.length < 2) return;
+
+    updateWheelMutation.mutate(
+      {
+        wheelId: activeWheel.id,
+        input: {
+          initialOptions: lines,
+        },
+      },
+      {
+        onSuccess: () => {
+          setSaveInitialFeedback(true);
+          setTimeout(() => setSaveInitialFeedback(false), 2000);
+        },
+      }
+    );
+  };
+
+  // Reset options to initial
+  const handleReset = () => {
+    if (!activeWheel || isAnySpinning) return;
+    const initial = activeWheel.initialOptions || [];
+    if (initial.length >= 2) {
+      if (window.confirm(t.luckyWheel.confirmReset)) {
+        handleOptionsChange(initial.join('\n'));
+      }
+    } else {
+      alert(t.luckyWheel.resetEmptyWarning);
+    }
+  };
+
+  // Delete All Wheels (leaves 1 default wheel)
+  const handleDeleteAllWheels = () => {
+    if (isAnySpinning || wheels.length === 0) return;
+    if (window.confirm(t.luckyWheel.confirmDeleteAllWheels)) {
+      const defaultTitle = t.luckyWheel.wheelNumber.replace('{number}', '1');
+      deleteAllMutation.mutate(defaultTitle, {
+        onSuccess: (res: any) => {
+          if (res?.defaultWheel?.id) {
+            setActiveWheelId(res.defaultWheel.id);
+          }
+        },
+      });
+    }
+  };
+
+  // Settings toggle (hoạt động cho cả tab setup lẫn tab kết quả)
+  const currentSoundEnabled = activeWheel
+    ? (activeWheel.soundEnabled ?? true)
+    : (wheels[0]?.soundEnabled ?? true);
+
+  const handleToggleSound = () => {
+    const target = activeWheel || wheels[0];
+    if (!target || isAnySpinning) return;
+    updateWheelMutation.mutate({
+      wheelId: target.id,
+      input: { soundEnabled: !currentSoundEnabled },
+    });
+  };
+
+  // Inline rename title
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editingTitleText, setEditingTitleText] = useState('');
+
+  const startEditTitle = () => {
+    if (!activeWheel || isAnySpinning) return;
+    setEditingTitleText(activeWheel.title);
+    setIsEditingTitle(true);
+  };
+
+  const saveEditTitle = () => {
+    if (!activeWheel || isAnySpinning) return;
+    const trimmed = editingTitleText.trim();
+    if (trimmed && trimmed !== activeWheel.title) {
+      updateWheelMutation.mutate({
+        wheelId: activeWheel.id,
+        input: { title: trimmed },
+      });
+    }
+    setIsEditingTitle(false);
+  };
+
+  // Animate a single wheel rotation
+  const animateWheelRotation = useCallback(
+    (
+      wheelId: string,
+      targetIndex: number,
+      totalCount: number,
+      soundEnabled: boolean,
+      wheelTitle: string,
+      resultLabel: string
+    ) => {
+      const sliceDeg = 360 / totalCount;
+      const targetCenterDeg = targetIndex * sliceDeg + sliceDeg / 2;
+      const stopAngle = (360 - (targetCenterDeg % 360)) % 360;
+
+      const currentRotation = wheelsState[wheelId]?.rotation || 0;
+      const currentNorm = currentRotation % 360;
+      const extraSpins = 6 * 360;
+      let delta = stopAngle - currentNorm;
+      if (delta < 0) delta += 360;
+      const finalRotation = currentRotation + extraSpins + delta;
+
+      const duration = 5200; // 5.2 seconds
       const startTime = performance.now();
-      const spinDuration = 4000;
+      let lastTickAngle = currentRotation;
 
-      const animate = (now: number) => {
+      setWheelsState((prev) => ({
+        ...prev,
+        [wheelId]: {
+          ...(prev[wheelId] || { optionsText: '', lastResult: null }),
+          isSpinning: true,
+          rotation: currentRotation,
+        },
+      }));
+
+      const step = (now: number) => {
         const elapsed = now - startTime;
-        const progress = Math.min(elapsed / spinDuration, 1);
-        const easeOut = 1 - Math.pow(1 - progress, 3);
-        const newRotation = finalAngle * easeOut;
-        setCurrentRotation(newRotation);
+        const progress = Math.min(elapsed / duration, 1);
+        const easeOut = 1 - Math.pow(1 - progress, 4);
+        const currRot = currentRotation + (finalRotation - currentRotation) * easeOut;
+
+        if (soundEnabled && Math.abs(currRot - lastTickAngle) >= sliceDeg) {
+          audio.playTick();
+          lastTickAngle = currRot;
+        }
+
+        setWheelsState((prev) => ({
+          ...prev,
+          [wheelId]: {
+            ...(prev[wheelId] || { optionsText: '', lastResult: null }),
+            isSpinning: true,
+            rotation: currRot,
+          },
+        }));
 
         if (progress < 1) {
-          requestAnimationFrame(animate);
+          requestAnimationFrame(step);
         } else {
-          setIsSpinning(false);
-          setWinner(targetLabel);
-          setTimeout(() => setLiveSpunNotice(null), 5000);
+          setWheelsState((prev) => ({
+            ...prev,
+            [wheelId]: {
+              ...(prev[wheelId] || { optionsText: '' }),
+              isSpinning: false,
+              rotation: finalRotation,
+              lastResult: resultLabel,
+            },
+          }));
+
+          if (soundEnabled) audio.playFanfare();
+
+          // Add this result to the batch accumulator
+          batchResultsAccumulatorRef.current.push({
+            wheelId,
+            wheelTitle,
+            result: resultLabel,
+            resultIndex: targetIndex,
+          });
+
+          // Remove from active batch
+          activeSpinningBatchRef.current.delete(wheelId);
+
+          // If ALL spinning wheels in this active batch have completed, display combined modal!
+          if (activeSpinningBatchRef.current.size === 0) {
+            const rawBatch = [...batchResultsAccumulatorRef.current];
+
+            // Sắp xếp các kết quả theo thứ tự của wheels
+            const sortedBatch = [...rawBatch].sort((a, b) => {
+              const idxA = wheels.findIndex((w) => w.id === a.wheelId);
+              const idxB = wheels.findIndex((w) => w.id === b.wheelId);
+              return idxA - idxB;
+            });
+
+            setCombinedResultsModal(sortedBatch);
+
+            // Nối kết quả của các vòng trong lần này bằng dấu " - " (ghi dạng text như khi nhập)
+            const roundLine = sortedBatch.map((b) => b.result).join(' - ');
+            setResultsText((prev) => (prev ? `${prev}\n${roundLine}` : roundLine));
+
+            batchResultsAccumulatorRef.current = [];
+          }
         }
       };
 
-      requestAnimationFrame(animate);
+      requestAnimationFrame(step);
     },
-    [activeWheel],
+    [wheelsState]
   );
 
-  // Realtime Socket.IO sync for wheel spin
+  // Spin a single wheel
+  const handleSpinSingle = (wheel: DecisionWheelEntity) => {
+    const localState = wheelsState[wheel.id];
+    if (localState?.isSpinning) return;
+
+    const parsed = parseOptions(localState?.optionsText || '');
+    if (parsed.length < 2) return;
+
+    // Register into active batch
+    activeSpinningBatchRef.current.add(wheel.id);
+
+    spinWheelMutation.mutate(wheel.id, {
+      onSuccess: (res) => {
+        const targetIdx =
+          res.selectedOptionIndex !== undefined
+            ? res.selectedOptionIndex
+            : parsed.findIndex((p) => p.label === res.selectedOption.optionLabel);
+        const validIdx = targetIdx >= 0 ? targetIdx : 0;
+
+        animateWheelRotation(
+          wheel.id,
+          validIdx,
+          parsed.length,
+          wheel.soundEnabled ?? true,
+          wheel.title,
+          res.selectedOption.optionLabel
+        );
+      },
+      onError: () => {
+        activeSpinningBatchRef.current.delete(wheel.id);
+      },
+    });
+  };
+
+  // Spin ALL wheels simultaneously
+  const handleSpinAll = () => {
+    if (wheels.length === 0 || isAnySpinning || spinAllMutation.isPending) return;
+
+    wheels.forEach((w) => {
+      const parsed = parseOptions(wheelsState[w.id]?.optionsText || '');
+      if (parsed.length >= 2) {
+        activeSpinningBatchRef.current.add(w.id);
+      }
+    });
+
+    spinAllMutation.mutate(undefined, {
+      onSuccess: (results: SpinWheelResult[]) => {
+        results.forEach((r: SpinWheelResult) => {
+          const w = wheels.find((item) => item.id === r.wheelId);
+          if (!w) return;
+          const parsed = parseOptions(wheelsState[w.id]?.optionsText || '');
+          if (parsed.length < 2) return;
+
+          const targetIdx =
+            r.selectedOptionIndex !== undefined
+              ? r.selectedOptionIndex
+              : parsed.findIndex((p) => p.label === r.selectedOption.optionLabel);
+          const validIdx = targetIdx >= 0 ? targetIdx : 0;
+
+          animateWheelRotation(
+            w.id,
+            validIdx,
+            parsed.length,
+            w.soundEnabled ?? true,
+            w.title,
+            r.selectedOption.optionLabel
+          );
+        });
+      },
+      onError: () => {
+        activeSpinningBatchRef.current.clear();
+      },
+    });
+  };
+
+  // Remove result from a wheel
+  const handleRemoveResult = (wheelId: string, resultIndex: number) => {
+    const local = wheelsState[wheelId];
+    if (!local) return;
+    const lines = local.optionsText
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0);
+
+    if (resultIndex >= 0 && resultIndex < lines.length) {
+      lines.splice(resultIndex, 1);
+      const newText = lines.join('\n');
+      setWheelsState((prev) => ({
+        ...prev,
+        [wheelId]: {
+          ...prev[wheelId]!,
+          optionsText: newText,
+        },
+      }));
+      triggerAutoSave(wheelId, newText);
+    }
+
+    setCombinedResultsModal((prev) =>
+      prev ? prev.filter((p) => !(p.wheelId === wheelId && p.resultIndex === resultIndex)) : null
+    );
+  };
+
+  // Sort results: toggle between alphabetical (A-Z) and reverse order
+  const handleSortResults = () => {
+    if (resultLines.length < 2) return;
+    const isSortedAZ = resultLines.every(
+      (line, idx, arr) => idx === 0 || line.localeCompare(arr[idx - 1]!, 'vi') >= 0
+    );
+    const sorted = isSortedAZ
+      ? [...resultLines].reverse()
+      : [...resultLines].sort((a, b) => a.localeCompare(b, 'vi'));
+    setResultsText(sorted.join('\n'));
+  };
+
+  // Share results board to circle chat channel
+  const handleShareResultsToChat = () => {
+    if (resultLines.length === 0 || shareResultsMutation.isPending) return;
+    shareResultsMutation.mutate(
+      resultLines.map((line, idx) => ({
+        wheelTitle: `Lần ${idx + 1}`,
+        winner: line,
+      })),
+      {
+        onSuccess: () => {
+          setShareSuccess(true);
+          setTimeout(() => setShareSuccess(false), 2500);
+        },
+      }
+    );
+  };
+
+  // Clear all results history with confirmation
+  const handleClearResults = () => {
+    if (resultLines.length === 0) return;
+    if (window.confirm(t.luckyWheel.confirmClearResultsDesc)) {
+      setResultsText('');
+    }
+  };
+
+  // Realtime Socket.IO listener
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
 
     const handleWheelSpun = (data: any) => {
-      if (data.circleId === circleId && (!selectedWheelId || data.wheelId === selectedWheelId)) {
-        if (data.spunBy?.userId !== user?.id && data.selectedOption?.optionLabel) {
-          animateWheelTo(data.selectedOption.optionLabel, data.spunBy?.displayName || 'Thành viên');
+      if (data.spunBy?.userId === user?.id) return; // Ignore own trigger already animated
+
+      if (data.isSpinAll && Array.isArray(data.results)) {
+        data.results.forEach((r: any) => {
+          const w = wheels.find((item) => item.id === r.wheelId);
+          if (!w) return;
+          const parsed = parseOptions(wheelsState[w.id]?.optionsText || '');
+          if (parsed.length >= 2) {
+            animateWheelRotation(
+              w.id,
+              r.selectedOptionIndex ?? 0,
+              parsed.length,
+              w.soundEnabled ?? true,
+              w.title,
+              r.selectedOption.optionLabel
+            );
+          }
+        });
+      } else if (data.wheelId) {
+        const w = wheels.find((item) => item.id === data.wheelId);
+        if (w) {
+          const parsed = parseOptions(wheelsState[w.id]?.optionsText || '');
+          if (parsed.length >= 2) {
+            animateWheelRotation(
+              w.id,
+              data.selectedOptionIndex ?? 0,
+              parsed.length,
+              w.soundEnabled ?? true,
+              w.title,
+              data.selectedOption.optionLabel
+            );
+          }
         }
       }
     };
@@ -128,377 +905,732 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
     return () => {
       socket.off('circle:wheel-spun', handleWheelSpun);
     };
-  }, [circleId, selectedWheelId, user?.id, animateWheelTo]);
+  }, [wheels, wheelsState, user?.id, animateWheelRotation, parseOptions]);
 
-  // Draw the wheel onto HTML5 Canvas
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || !activeWheel || !activeWheel.options || activeWheel.options.length === 0)
-      return;
+  if (isLoadingWheels) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] gap-3">
+        <Loader2 className="w-8 h-8 text-primary animate-spin" />
+        <p className="text-sm text-muted-foreground">{t.luckyWheel.saving}</p>
+      </div>
+    );
+  }
 
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+  // Active wheel parsed options
+  const activeParsedOptions = parseOptions(activeLocalState?.optionsText || '');
 
-    const width = canvas.width;
-    const height = canvas.height;
-    const centerX = width / 2;
-    const centerY = height / 2;
-    const radius = Math.min(centerX, centerY) - 10;
-    const options = activeWheel.options;
-    const numOptions = options.length;
-    const arcAngle = (2 * Math.PI) / numOptions;
+  // Calculate dynamic wheel size depending on panel collapsed state
+  const getWheelSize = (count: number) => {
+    if (isPanelCollapsed) {
+      if (count === 1) return 460;
+      if (count === 2) return 320;
+      if (count === 3) return 280;
+      return 260; // 4 wheels 2x2
+    } else {
+      if (count === 1) return 360;
+      if (count === 2) return 250;
+      if (count === 3) return 220;
+      return 210; // 4 wheels 2x2
+    }
+  };
 
-    ctx.clearRect(0, 0, width, height);
-    ctx.save();
-    ctx.translate(centerX, centerY);
-    ctx.rotate(currentRotation);
+  const wheelSize = getWheelSize(wheels.length);
 
-    options.forEach((opt, idx) => {
-      const angle = idx * arcAngle;
-      const color = opt.color || DEFAULT_COLORS[idx % DEFAULT_COLORS.length]!;
-
-      // Draw slice
-      ctx.beginPath();
-      ctx.fillStyle = color;
-      ctx.moveTo(0, 0);
-      ctx.arc(0, 0, radius, angle, angle + arcAngle);
-      ctx.lineTo(0, 0);
-      ctx.fill();
-
-      // Border line
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-
-      // Draw text
-      ctx.save();
-      ctx.rotate(angle + arcAngle / 2);
-      ctx.textAlign = 'right';
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 12px sans-serif';
-      ctx.shadowColor = 'rgba(0,0,0,0.5)';
-      ctx.shadowBlur = 4;
-      ctx.fillText(opt.optionLabel, radius - 20, 4);
-      ctx.restore();
+  // Loại bỏ tất cả kết quả trúng thưởng vừa quay và đóng modal
+  const handleRemoveAllBatchResults = () => {
+    if (!combinedResultsModal) return;
+    combinedResultsModal.forEach((item) => {
+      handleRemoveResult(item.wheelId, item.resultIndex);
     });
-
-    // Draw center circle hub
-    ctx.beginPath();
-    ctx.arc(0, 0, 26, 0, 2 * Math.PI);
-    ctx.fillStyle = '#ffffff';
-    ctx.fill();
-    ctx.strokeStyle = '#e2e8f0';
-    ctx.lineWidth = 3;
-    ctx.stroke();
-
-    ctx.restore();
-  }, [activeWheel, currentRotation]);
-
-  const handleSpin = async () => {
-    if (!activeWheel || isSpinning || activeWheel.options.length < 2) return;
-
-    try {
-      const result = await spinMutation.mutateAsync(activeWheel.id);
-      const targetLabel = result.selectedOption.optionLabel;
-      animateWheelTo(targetLabel);
-    } catch (err: any) {
-      setIsSpinning(false);
-      alert(err.message || 'Lỗi khi quay vòng');
-    }
-  };
-
-  const handleAddOptionInput = () => {
-    if (optionsList.length < 16) {
-      setOptionsList([...optionsList, `Lựa chọn ${optionsList.length + 1}`]);
-    }
-  };
-
-  const handleRemoveOptionInput = (idx: number) => {
-    if (optionsList.length > 2) {
-      setOptionsList(optionsList.filter((_, i) => i !== idx));
-    }
-  };
-
-  const handleCreateWheel = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!wheelTitle.trim() || optionsList.filter((o) => o.trim()).length < 2) return;
-
-    const validOptions = optionsList
-      .filter((o) => o.trim())
-      .map((label, idx) => ({
-        optionLabel: label.trim(),
-        color: DEFAULT_COLORS[idx % DEFAULT_COLORS.length],
-      }));
-
-    const res = await createMutation.mutateAsync({
-      title: wheelTitle.trim(),
-      options: validOptions,
-    });
-
-    setSelectedWheelId(res.id);
-    setWheelTitle('');
-    setOptionsList(['Ăn phở', 'Cơm tấm', 'Bún chả']);
-    setIsCreateModalOpen(false);
-  };
-
-  const handleDeleteWheel = async (wheelId: string) => {
-    if (confirm('Bạn có chắc chắn muốn xóa vòng quay này?')) {
-      await deleteMutation.mutateAsync(wheelId);
-      if (selectedWheelId === wheelId) {
-        setSelectedWheelId(null);
-      }
-    }
+    setCombinedResultsModal(null);
   };
 
   return (
     <div className="flex-1 flex flex-col h-full bg-circle-canvas dark:bg-circle-dark-surface overflow-y-auto p-4 md:p-6 transition-colors">
-      {/* Header */}
-      <div className="flex items-center justify-between pb-4 border-b border-circle-hairline dark:border-circle-dark-hairline mb-6">
-        <div>
-          <h1 className="text-lg font-bold text-circle-charcoal dark:text-circle-dark-text">
-            {t.nav.luckyWheel}
-          </h1>
-          <p className="text-xs text-circle-slate dark:text-circle-dark-muted mt-0.5">
-            Quyết định ngẫu nhiên công bằng và thú vị cho các kèo ăn uống, đi chơi
-          </p>
+      {/* Arena Header: Tiêu đề + Nút thêm vòng xoay + Nút quay tất cả */}
+      <div className="flex flex-wrap items-center justify-between pb-4 border-b border-circle-hairline dark:border-circle-dark-hairline mb-6 gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-teal-50 dark:bg-teal-950/40 text-teal-600 dark:text-teal-400 flex items-center justify-center font-bold shadow-2xs">
+            <Compass className="w-5 h-5" />
+          </div>
+          <div>
+            <h1 className="text-lg md:text-xl font-bold text-circle-charcoal dark:text-circle-dark-text leading-tight">
+              {t.luckyWheel.title}
+            </h1>
+            <div className="flex items-center gap-2 text-xs text-teal-600 dark:text-teal-400 font-medium mt-0.5">
+              <span className="inline-block w-2 h-2 rounded-full bg-teal-500 animate-pulse" />
+              <span>
+                {wheels.length}/4 {t.luckyWheel.title.toLowerCase()}
+              </span>
+            </div>
+          </div>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setIsCreateModalOpen(true)}
-          className="flex items-center gap-1.5 rounded-lg bg-circle-charcoal dark:bg-circle-primary px-3.5 py-2 text-xs font-semibold text-white dark:text-circle-charcoal hover:bg-circle-sage transition-all shadow-sm active:scale-98"
-        >
-          <Plus className="h-3.5 w-3.5" />
-          <span>Tạo Vòng quay mới</span>
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Toggle Panel Button (Thu gọn/mở rộng bảng) */}
+          <button
+            onClick={() => setIsPanelCollapsed((prev) => !prev)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border border-border/80 bg-background/80 hover:bg-muted text-foreground transition-all shadow-sm active:scale-95"
+            title={isPanelCollapsed ? t.luckyWheel.expandPanel : t.luckyWheel.collapsePanel}
+          >
+            {isPanelCollapsed ? (
+              <PanelRightOpen className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+            ) : (
+              <PanelRightClose className="w-4 h-4 text-muted-foreground" />
+            )}
+            <span className="hidden sm:inline">
+              {isPanelCollapsed ? t.luckyWheel.expandPanel : t.luckyWheel.collapsePanel}
+            </span>
+          </button>
+
+          {/* Thêm vòng xoay: luôn hiển thị, khi đạt tối đa 4 vòng thì vô hiệu hóa chứ không làm mất */}
+          <button
+            onClick={handleAddDefaultWheel}
+            disabled={wheels.length >= 4 || isAnySpinning || createWheelMutation.isPending}
+            className="px-3.5 py-2 text-xs font-semibold rounded-xl bg-gray-100 hover:bg-gray-200 dark:bg-circle-dark-border dark:hover:bg-circle-dark-hover text-gray-800 dark:text-white transition-colors flex items-center gap-1.5 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+            title={wheels.length >= 4 ? t.luckyWheel.maxWheelsBadge : undefined}
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>{t.luckyWheel.addWheel}</span>
+          </button>
+
+          {/* SPIN ALL Button: khi quay tất cả không đổi chữ, chỉ vô hiệu hóa nút */}
+          {wheels.length > 0 && (
+            <button
+              onClick={handleSpinAll}
+              disabled={isAnySpinning || spinAllMutation.isPending}
+              className="flex items-center gap-2 px-4 py-2 text-xs sm:text-sm font-bold rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95"
+            >
+              <RotateCw className={`w-4 h-4 ${isAnySpinning ? 'animate-spin' : ''}`} />
+              <span>{t.luckyWheel.spinAll}</span>
+            </button>
+          )}
+        </div>
       </div>
 
-      {isLoading ? (
-        <div className="flex-1 flex items-center justify-center">
-          <Loader2 className="h-6 w-6 animate-spin text-circle-slate dark:text-circle-dark-muted" />
-        </div>
-      ) : activeWheel ? (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Wheel Stage (2 cols) */}
-          <div className="lg:col-span-2 flex flex-col items-center justify-center rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-canvas p-6 shadow-2xs relative">
-            <h2 className="text-base font-bold text-circle-charcoal dark:text-circle-dark-text mb-4">
-              {activeWheel.title}
-            </h2>
-
-            {/* Pointer marker */}
-            <div className="relative flex flex-col items-center">
-              <div className="z-10 -mb-3 text-circle-charcoal dark:text-circle-primary filter drop-shadow-md">
-                ▼
-              </div>
-
-              {/* Canvas Wheel */}
-              <canvas
-                ref={canvasRef}
-                width={340}
-                height={340}
-                className="rounded-full shadow-lg"
-              />
-            </div>
-
-            {/* Winner Announcement Banner */}
-            {winner && (
-              <div className="mt-4 flex items-center gap-2 rounded-xl bg-amber-500/10 border border-amber-500/30 px-4 py-2 text-amber-700 dark:text-amber-400 font-bold text-sm animate-bounce shadow-2xs">
-                <Trophy className="h-4 w-4" />
-                <span>Kết quả: {winner}</span>
-              </div>
-            )}
-
-            {/* Spin button */}
-            <div className="mt-6 flex items-center gap-3">
+      {/* Main Responsive Layout */}
+      <div className="flex flex-col lg:flex-row gap-6 w-full flex-1 items-stretch">
+        {/* LEFT COLUMN: Visual Arena */}
+        <div className="flex-1 flex flex-col bg-card rounded-2xl border border-border/70 shadow-sm p-4 sm:p-6 transition-all min-h-[460px]">
+          {/* SÂN KHẤU VÒNG QUAY (VISUAL ARENA) */}
+          {wheels.length === 0 ? (
+            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
+              <Compass className="w-16 h-16 text-muted-foreground/30 mb-3" />
+              <h3 className="text-base font-semibold text-foreground mb-1">
+                {t.luckyWheel.emptyWheelsTitle}
+              </h3>
+              <p className="text-xs text-muted-foreground max-w-sm mb-4">
+                {t.luckyWheel.emptyWheelsDesc}
+              </p>
               <button
-                type="button"
-                disabled={isSpinning}
-                onClick={handleSpin}
-                className="flex items-center gap-2 rounded-full bg-circle-charcoal dark:bg-circle-primary px-6 py-2.5 text-xs font-bold text-white dark:text-circle-charcoal hover:bg-circle-sage transition-all shadow-md active:scale-95 disabled:opacity-50"
+                onClick={handleAddDefaultWheel}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 transition-all"
               >
-                <RotateCw className={`h-4 w-4 ${isSpinning ? 'animate-spin' : ''}`} />
-                <span>{isSpinning ? 'Đang quay...' : 'QUAY NGAY'}</span>
+                <Plus className="w-4 h-4" />
+                {t.luckyWheel.createWheel}
               </button>
             </div>
-          </div>
-
-          {/* Wheel Selector & Options List (1 col) */}
-          <div className="space-y-4">
-            <div className="rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-canvas p-4 shadow-2xs">
-              <h3 className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text uppercase tracking-wider mb-3">
-                Danh sách Vòng quay ({wheels.length})
-              </h3>
-              <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                {wheels.map((w) => (
-                  <div
-                    key={w.id}
-                    onClick={() => {
-                      setSelectedWheelId(w.id);
-                      setWinner(null);
-                    }}
-                    className={`flex items-center justify-between rounded-xl px-3 py-2 text-xs font-medium cursor-pointer transition-colors ${
-                      activeWheel.id === w.id
-                        ? 'bg-circle-sage/10 text-circle-sage dark:bg-circle-primary/10 dark:text-circle-primary font-bold'
-                        : 'hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text'
-                    }`}
-                  >
-                    <span className="truncate">{w.title}</span>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteWheel(w.id);
-                      }}
-                      className="p-1 text-circle-slate hover:text-red-500"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-canvas p-4 shadow-2xs">
-              <h3 className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text uppercase tracking-wider mb-3">
-                Các phương án lựa chọn ({activeWheel.options.length})
-              </h3>
-              <div className="space-y-2">
-                {activeWheel.options.map((opt, idx) => (
-                  <div
-                    key={opt.id}
-                    className="flex items-center gap-2.5 rounded-lg bg-circle-wash/50 dark:bg-circle-dark-wash/50 px-3 py-1.5 text-xs text-circle-charcoal dark:text-circle-dark-text"
-                  >
-                    <span
-                      className="h-3 w-3 rounded-full shrink-0"
-                      style={{
-                        backgroundColor:
-                          opt.color || DEFAULT_COLORS[idx % DEFAULT_COLORS.length],
-                      }}
-                    />
-                    <span className="truncate">{opt.optionLabel}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="flex-1 flex flex-col items-center justify-center p-12 text-center rounded-2xl border border-dashed border-circle-hairline dark:border-circle-dark-hairline bg-white/40 dark:bg-circle-dark-surface/40">
-          <Compass className="h-12 w-12 text-circle-slate dark:text-circle-dark-muted opacity-40 mb-3" />
-          <h4 className="text-sm font-semibold text-circle-charcoal dark:text-circle-dark-text">
-            Chưa có Vòng xoay nào
-          </h4>
-          <p className="text-xs text-circle-slate dark:text-circle-dark-muted mt-1 max-w-sm mb-4">
-            Tạo vòng xoay để cùng chọn quán ăn trưa, địa điểm du lịch hoặc chọn người may mắn!
-          </p>
-          <button
-            type="button"
-            onClick={() => setIsCreateModalOpen(true)}
-            className="flex items-center gap-1.5 rounded-lg bg-circle-charcoal dark:bg-circle-primary px-4 py-2 text-xs font-semibold text-white dark:text-circle-charcoal hover:bg-circle-sage transition-all shadow-sm"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            <span>Tạo Vòng quay ngay</span>
-          </button>
-        </div>
-      )}
-
-      {/* Create Wheel Modal */}
-      {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-          <div className="w-full max-w-md rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-5 shadow-2xl">
-            <div className="flex items-center justify-between pb-3 border-b border-circle-hairline dark:border-circle-dark-hairline mb-4">
-              <h3 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
-                Tạo Vòng Quay May Mắn Mới
-              </h3>
-              <button
-                type="button"
-                onClick={() => setIsCreateModalOpen(false)}
-                className="p-1 text-circle-slate hover:text-circle-charcoal dark:hover:text-circle-dark-text"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateWheel} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-circle-slate dark:text-circle-dark-muted mb-1">
-                  Chủ đề / Tiêu đề vòng quay *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={wheelTitle}
-                  onChange={(e) => setWheelTitle(e.target.value)}
-                  placeholder="Ví dụ: Trưa nay ăn gì? Đi chơi ở đâu?..."
-                  className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas px-3.5 py-2 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-hidden focus:ring-1 focus:ring-circle-sage"
-                />
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs font-semibold text-circle-slate dark:text-circle-dark-muted">
-                    Các phương án (tối thiểu 2)
-                  </label>
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center py-6 w-full">
+              {/* 1 VÒNG: Hiển thị 1 vòng to chính giữa */}
+              {wheels.length === 1 && (
+                <div className="flex flex-col items-center justify-center gap-3">
+                  {/* Tên vòng xoay ghi trên vòng: ấn vào tên mới mở bảng setup */}
                   <button
                     type="button"
-                    onClick={handleAddOptionInput}
-                    className="text-xs font-semibold text-circle-sage dark:text-circle-primary hover:underline"
+                    onClick={() => {
+                      setActiveWheelId(wheels[0]!.id);
+                      setActiveTab(wheels[0]!.id);
+                      setIsPanelCollapsed(false);
+                    }}
+                    className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border text-sm sm:text-base font-bold transition-all shadow-2xs max-w-[260px] ${
+                      activeWheelId === wheels[0]!.id
+                        ? 'bg-primary/10 border-primary/40 text-primary'
+                        : 'bg-card border-border/80 text-foreground hover:bg-muted'
+                    }`}
+                    title={wheels[0]!.title}
                   >
-                    + Thêm phương án
+                    <Compass className="w-4 h-4 shrink-0 text-primary" />
+                    <span className="truncate">{wheels[0]!.title}</span>
+                  </button>
+
+                  <WheelCanvas
+                    options={parseOptions(wheelsState[wheels[0]!.id]?.optionsText || '')}
+                    rotation={wheelsState[wheels[0]!.id]?.rotation || 0}
+                    size={wheelSize}
+                    onClick={() => {
+                      handleSpinSingle(wheels[0]!);
+                    }}
+                  />
+                </div>
+              )}
+
+              {/* 2 VÒNG: Hàng trên 2 vòng đặt cạnh nhau */}
+              {wheels.length === 2 && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-3xl justify-items-center">
+                  {wheels.map((wheel) => {
+                    const local = wheelsState[wheel.id];
+                    const parsed = parseOptions(local?.optionsText || '');
+                    return (
+                      <div
+                        key={wheel.id}
+                        className="flex flex-col items-center gap-2.5 p-2 rounded-2xl transition-all"
+                      >
+                        {/* Tên vòng xoay ghi trên vòng: ấn vào tên mới mở bảng setup */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveWheelId(wheel.id);
+                            setActiveTab(wheel.id);
+                            setIsPanelCollapsed(false);
+                          }}
+                          className={`flex items-center gap-1.5 px-3 py-1 rounded-xl border text-xs sm:text-sm font-bold transition-all shadow-2xs max-w-[200px] ${
+                            activeWheelId === wheel.id
+                              ? 'bg-primary/10 border-primary/40 text-primary'
+                              : 'bg-card border-border/80 text-foreground hover:bg-muted'
+                          }`}
+                          title={wheel.title}
+                        >
+                          <Compass className="w-3.5 h-3.5 shrink-0 text-primary" />
+                          <span className="truncate">{wheel.title}</span>
+                        </button>
+
+                        <WheelCanvas
+                          options={parsed}
+                          rotation={local?.rotation || 0}
+                          size={wheelSize}
+                          onClick={() => {
+                            handleSpinSingle(wheel);
+                          }}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* 3 VÒNG: Hàng trên 2 vòng, Hàng dưới 1 vòng ở giữa */}
+              {wheels.length === 3 && (
+                <div className="flex flex-col items-center gap-8 w-full max-w-3xl">
+                  {/* Top row: 2 wheels */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 w-full justify-items-center">
+                    {wheels.slice(0, 2).map((wheel) => {
+                      const local = wheelsState[wheel.id];
+                      const parsed = parseOptions(local?.optionsText || '');
+                      return (
+                        <div
+                          key={wheel.id}
+                          className="flex flex-col items-center gap-2.5 p-2 rounded-2xl transition-all"
+                        >
+                          {/* Tên vòng xoay ghi trên vòng: ấn vào tên mới mở bảng setup */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveWheelId(wheel.id);
+                              setActiveTab(wheel.id);
+                              setIsPanelCollapsed(false);
+                            }}
+                            className={`flex items-center gap-1.5 px-3 py-1 rounded-xl border text-xs sm:text-sm font-bold transition-all shadow-2xs max-w-[200px] ${
+                              activeWheelId === wheel.id
+                                ? 'bg-primary/10 border-primary/40 text-primary'
+                                : 'bg-card border-border/80 text-foreground hover:bg-muted'
+                            }`}
+                            title={wheel.title}
+                          >
+                            <Compass className="w-3.5 h-3.5 shrink-0 text-primary" />
+                            <span className="truncate">{wheel.title}</span>
+                          </button>
+
+                          <WheelCanvas
+                            options={parsed}
+                            rotation={local?.rotation || 0}
+                            size={wheelSize}
+                            onClick={() => {
+                              handleSpinSingle(wheel);
+                            }}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Bottom row: 1 wheel centered */}
+                  {wheels[2] && (
+                    <div className="flex flex-col items-center gap-2.5 p-2 rounded-2xl transition-all">
+                      {/* Tên vòng xoay ghi trên vòng: ấn vào tên mới mở bảng setup */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveWheelId(wheels[2]!.id);
+                          setActiveTab(wheels[2]!.id);
+                          setIsPanelCollapsed(false);
+                        }}
+                        className={`flex items-center gap-1.5 px-3 py-1 rounded-xl border text-xs sm:text-sm font-bold transition-all shadow-2xs max-w-[200px] ${
+                          activeWheelId === wheels[2]!.id
+                            ? 'bg-primary/10 border-primary/40 text-primary'
+                            : 'bg-card border-border/80 text-foreground hover:bg-muted'
+                        }`}
+                        title={wheels[2]!.title}
+                      >
+                        <Compass className="w-3.5 h-3.5 shrink-0 text-primary" />
+                        <span className="truncate">{wheels[2]!.title}</span>
+                      </button>
+
+                      <WheelCanvas
+                        options={parseOptions(wheelsState[wheels[2]!.id]?.optionsText || '')}
+                        rotation={wheelsState[wheels[2]!.id]?.rotation || 0}
+                        size={wheelSize}
+                        onClick={() => {
+                          handleSpinSingle(wheels[2]!);
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* 4 VÒNG: LƯỚI 2x2 (2 vòng hàng trên, 2 vòng hàng dưới) */}
+              {wheels.length === 4 && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 w-full max-w-3xl justify-items-center">
+                  {wheels.map((wheel) => {
+                    const local = wheelsState[wheel.id];
+                    const parsed = parseOptions(local?.optionsText || '');
+                    return (
+                      <div
+                        key={wheel.id}
+                        className="flex flex-col items-center gap-2.5 p-2 rounded-2xl transition-all"
+                      >
+                        {/* Tên vòng xoay ghi trên vòng: ấn vào tên mới mở bảng setup */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveWheelId(wheel.id);
+                            setActiveTab(wheel.id);
+                            setIsPanelCollapsed(false);
+                          }}
+                          className={`flex items-center gap-1.5 px-3 py-1 rounded-xl border text-xs sm:text-sm font-bold transition-all shadow-2xs max-w-[200px] ${
+                            activeWheelId === wheel.id
+                              ? 'bg-primary/10 border-primary/40 text-primary'
+                              : 'bg-card border-border/80 text-foreground hover:bg-muted'
+                          }`}
+                          title={wheel.title}
+                        >
+                          <Compass className="w-3.5 h-3.5 shrink-0 text-primary" />
+                          <span className="truncate">{wheel.title}</span>
+                        </button>
+
+                        <WheelCanvas
+                          options={parsed}
+                          rotation={local?.rotation || 0}
+                          size={wheelSize}
+                          onClick={() => {
+                            handleSpinSingle(wheel);
+                          }}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* RIGHT COLUMN: "CÁI BẢNG" (TABBED OPTIONS BOARD & RESULTS) */}
+        {!isPanelCollapsed && (
+          <div className="w-full lg:w-[380px] xl:w-[420px] flex flex-col bg-card rounded-2xl border border-border/70 shadow-sm p-4 sm:p-5 transition-all">
+            {/* Tabs Header: Hiển thị thẳng tên của từng vòng + TAB KẾT QUẢ */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-3 border-b border-border/60 no-scrollbar">
+              {wheels.map((wheel) => {
+                const isSelected = activeTab === wheel.id;
+                return (
+                  <button
+                    key={wheel.id}
+                    onClick={() => {
+                      setActiveTab(wheel.id);
+                      setActiveWheelId(wheel.id);
+                    }}
+                    className={`flex items-center px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+                      isSelected
+                        ? 'bg-primary text-primary-foreground shadow-sm'
+                        : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground'
+                    }`}
+                  >
+                    <span className="max-w-[130px] truncate">{wheel.title}</span>
+                  </button>
+                );
+              })}
+
+              {/* Tab Kết Quả */}
+              <button
+                onClick={() => setActiveTab('results')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+                  activeTab === 'results'
+                    ? 'bg-amber-500 text-white shadow-sm font-bold'
+                    : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground'
+                }`}
+              >
+                <Trophy className="w-3.5 h-3.5" />
+                <span>{t.luckyWheel.resultsTab}</span>
+                {resultLinesCount > 0 && (
+                  <span
+                    className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                      activeTab === 'results'
+                        ? 'bg-white/20 text-white'
+                        : 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+                    }`}
+                  >
+                    {resultLinesCount}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            {/* TAB CONTENT: KẾT QUẢ (DẠNG TEXT NHƯ KHI NHẬP, GHI THEO LẦN) */}
+            {activeTab === 'results' ? (
+              <div className="flex-1 flex flex-col pt-4 gap-3">
+                <div className="flex items-center justify-between pb-2 border-b border-border/50">
+                  <div className="flex items-center gap-2">
+                    <Trophy className="w-4 h-4 text-amber-500" />
+                    <span className="font-bold text-sm text-foreground">
+                      {t.luckyWheel.resultsHistoryTitle}
+                    </span>
+                    <span className="text-xs text-muted-foreground font-semibold">
+                      ({resultLinesCount})
+                    </span>
+                  </div>
+                </div>
+
+                {/* Textarea lớn hiển thị & cho phép sửa kết quả dạng text */}
+                <div className="flex-1 flex flex-col gap-1.5">
+                  <textarea
+                    value={resultsText}
+                    onChange={(e) => setResultsText(e.target.value)}
+                    placeholder={t.luckyWheel.resultsPlaceholder}
+                    className="w-full flex-1 min-h-[220px] p-3 text-sm rounded-xl border border-border/80 bg-background/50 focus:bg-background focus:ring-2 focus:ring-primary/40 focus:outline-none resize-none leading-relaxed transition-all font-mono"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    {t.luckyWheel.resultsHint}
+                  </p>
+                </div>
+
+                {/* Thanh tác vụ dưới cùng: Sắp xếp, Gửi tin nhắn, Xoá tất cả (Icons only) */}
+                <div className="grid grid-cols-3 gap-2 pt-2 border-t border-border/50">
+                  {/* Nút Sắp xếp */}
+                  <button
+                    onClick={handleSortResults}
+                    disabled={resultLinesCount < 2}
+                    className="flex items-center justify-center py-2 px-2 rounded-xl border border-border hover:bg-muted disabled:opacity-40 transition-all active:scale-95 text-foreground"
+                    title={t.luckyWheel.sortResults}
+                    aria-label={t.luckyWheel.sortResults}
+                  >
+                    <ArrowDownAZ className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                  </button>
+
+                  {/* Nút Gửi bảng kết quả vào tin nhắn */}
+                  <button
+                    onClick={handleShareResultsToChat}
+                    disabled={resultLinesCount === 0 || shareResultsMutation.isPending}
+                    className="flex items-center justify-center py-2 px-2 rounded-xl border border-border hover:bg-muted disabled:opacity-40 transition-all active:scale-95 text-foreground"
+                    title={shareSuccess ? t.luckyWheel.shareResultsSuccess : t.luckyWheel.shareResultsToChat}
+                    aria-label={t.luckyWheel.shareResultsToChat}
+                  >
+                    {shareSuccess ? (
+                      <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    ) : (
+                      <Share2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    )}
+                  </button>
+
+                  {/* Nút Xoá tất cả kết quả */}
+                  <button
+                    onClick={handleClearResults}
+                    disabled={resultLinesCount === 0}
+                    className="flex items-center justify-center py-2 px-2 rounded-xl border border-border hover:bg-destructive/10 hover:border-destructive/30 disabled:opacity-40 transition-all active:scale-95 text-foreground"
+                    title={t.luckyWheel.clearResults}
+                    aria-label={t.luckyWheel.clearResults}
+                  >
+                    <Trash2 className="w-4 h-4 text-rose-600 dark:text-rose-400" />
                   </button>
                 </div>
 
-                <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                  {optionsList.map((opt, idx) => (
-                    <div key={idx} className="flex items-center gap-2">
-                      <span
-                        className="h-3 w-3 rounded-full shrink-0"
-                        style={{
-                          backgroundColor: DEFAULT_COLORS[idx % DEFAULT_COLORS.length],
-                        }}
-                      />
-                      <input
-                        type="text"
-                        required
-                        value={opt}
-                        onChange={(e) => {
-                          const updated = [...optionsList];
-                          updated[idx] = e.target.value;
-                          setOptionsList(updated);
-                        }}
-                        className="flex-1 rounded-lg border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas px-3 py-1.5 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-hidden focus:ring-1 focus:ring-circle-sage"
-                      />
-                      {optionsList.length > 2 && (
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveOptionInput(idx)}
-                          className="p-1 text-circle-slate hover:text-red-500"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
+                {/* Hàng thiết lập ở đáy: Bật/Tắt âm thanh & Xoá tất cả vòng quay (đồng bộ với Tab Setup) */}
+                <div className="flex items-center justify-between pt-2 border-t border-border/50 text-xs">
+                  {/* Sound Toggle */}
+                  <button
+                    onClick={handleToggleSound}
+                    disabled={isAnySpinning}
+                    className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground disabled:opacity-40 transition-colors"
+                  >
+                    {currentSoundEnabled ? (
+                      <Volume2 className="w-4 h-4 text-primary" />
+                    ) : (
+                      <VolumeX className="w-4 h-4 text-muted-foreground/60" />
+                    )}
+                    <span>{t.luckyWheel.soundSetting}</span>
+                  </button>
+
+                  {/* Delete All Wheels Button */}
+                  <button
+                    onClick={handleDeleteAllWheels}
+                    disabled={isAnySpinning || wheels.length === 0}
+                    className="flex items-center gap-1 text-destructive hover:text-destructive/80 font-semibold disabled:opacity-30 transition-colors"
+                    title={t.luckyWheel.deleteAllWheels}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>{t.luckyWheel.deleteAllWheels}</span>
+                  </button>
                 </div>
               </div>
+            ) : (
+              /* TAB CONTENT: ACTIVE WHEEL (OPTIONS & SETTINGS) */
+              activeWheel && (
+                <div className="flex-1 flex flex-col pt-4 gap-4">
+                  {/* Wheel Title Row */}
+                  <div className="flex items-center justify-between gap-2">
+                    {isEditingTitle ? (
+                      <div className="flex items-center gap-1.5 flex-1">
+                        <input
+                          type="text"
+                          value={editingTitleText}
+                          onChange={(e) => setEditingTitleText(e.target.value)}
+                          onBlur={saveEditTitle}
+                          onKeyDown={(e) => e.key === 'Enter' && saveEditTitle()}
+                          autoFocus
+                          disabled={isAnySpinning}
+                          className="flex-1 px-2.5 py-1 text-sm font-semibold rounded-lg border border-primary bg-background focus:outline-none disabled:opacity-50"
+                        />
+                        <button
+                          onClick={saveEditTitle}
+                          disabled={isAnySpinning}
+                          className="p-1 rounded-md bg-primary text-primary-foreground disabled:opacity-50"
+                        >
+                          <Check className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 flex-1 group">
+                        <span className="font-bold text-sm text-foreground truncate max-w-[240px]">
+                          {activeWheel.title}
+                        </span>
+                        {!isAnySpinning && (
+                          <button
+                            onClick={startEditTitle}
+                            className="opacity-70 group-hover:opacity-100 p-1 rounded hover:bg-muted text-muted-foreground transition-opacity"
+                            title={t.luckyWheel.renameWheel}
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    )}
 
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsCreateModalOpen(false)}
-                  className="rounded-lg px-3.5 py-2 text-xs font-semibold text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors"
-                >
-                  Hủy
-                </button>
-                <button
-                  type="submit"
-                  disabled={createMutation.isPending || !wheelTitle.trim()}
-                  className="rounded-lg bg-circle-charcoal dark:bg-circle-primary px-4 py-2 text-xs font-semibold text-white dark:text-circle-charcoal hover:bg-circle-sage transition-all disabled:opacity-50"
-                >
-                  {createMutation.isPending ? 'Đang tạo...' : 'Tạo Vòng quay'}
-                </button>
-              </div>
-            </form>
+                    {/* Delete wheel if more than 1 wheel */}
+                    {wheels.length > 1 && (
+                      <button
+                        onClick={() => {
+                          if (isAnySpinning) return;
+                          if (window.confirm(t.luckyWheel.confirmDeleteDesc)) {
+                            deleteWheelMutation.mutate(activeWheel.id);
+                          }
+                        }}
+                        disabled={isAnySpinning}
+                        className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 disabled:opacity-30 transition-colors"
+                        title={t.luckyWheel.confirmDeleteTitle}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Textarea: Large, 1 line = 1 option */}
+                  <div className="flex-1 flex flex-col gap-1.5">
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span className="font-medium">{t.luckyWheel.optionsListTitle}</span>
+                      <span
+                        className={`font-semibold ${
+                          activeParsedOptions.length < 2 ? 'text-amber-500' : 'text-primary'
+                        }`}
+                      >
+                        {t.luckyWheel.optionsCount.replace(
+                          '{count}',
+                          String(activeParsedOptions.length)
+                        )}
+                      </span>
+                    </div>
+
+                    <textarea
+                      value={activeLocalState?.optionsText || ''}
+                      onChange={(e) => handleOptionsChange(e.target.value)}
+                      readOnly={isAnySpinning}
+                      placeholder={t.luckyWheel.optionsPlaceholder}
+                      className="w-full flex-1 min-h-[200px] p-3 text-sm rounded-xl border border-border/80 bg-background/50 focus:bg-background focus:ring-2 focus:ring-primary/40 focus:outline-none resize-none leading-relaxed transition-all font-mono disabled:opacity-50"
+                    />
+
+                    <p className="text-[11px] text-muted-foreground">{t.luckyWheel.optionsHint}</p>
+                  </div>
+
+                  {/* Action Buttons: Shuffle, Sort A-Z, Save Initial & Reset (Icons only, no text) */}
+                  <div className="grid grid-cols-4 gap-2 pt-1 border-t border-border/50">
+                    {/* Shuffle Button */}
+                    <button
+                      onClick={handleShuffle}
+                      disabled={isAnySpinning}
+                      className="flex items-center justify-center py-2 px-2 rounded-xl border border-border hover:bg-muted disabled:opacity-40 transition-all active:scale-95 text-foreground"
+                      title={t.luckyWheel.shuffleOptions}
+                      aria-label={t.luckyWheel.shuffleOptions}
+                    >
+                      <Shuffle className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                    </button>
+
+                    {/* Sort A-Z Button */}
+                    <button
+                      onClick={handleSortAZ}
+                      disabled={isAnySpinning}
+                      className="flex items-center justify-center py-2 px-2 rounded-xl border border-border hover:bg-muted disabled:opacity-40 transition-all active:scale-95 text-foreground"
+                      title={t.luckyWheel.sortAZ}
+                      aria-label={t.luckyWheel.sortAZ}
+                    >
+                      <ArrowDownAZ className="w-4 h-4 text-indigo-500" />
+                    </button>
+
+                    {/* Save as Initial Button */}
+                    <button
+                      onClick={handleSaveAsInitial}
+                      disabled={isAnySpinning || updateWheelMutation.isPending}
+                      className={`flex items-center justify-center py-2 px-2 rounded-xl border transition-all active:scale-95 ${
+                        saveInitialFeedback
+                          ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400'
+                          : 'border-border hover:bg-muted text-foreground disabled:opacity-40'
+                      }`}
+                      title={t.luckyWheel.saveAsInitial}
+                      aria-label={t.luckyWheel.saveAsInitial}
+                    >
+                      <BookmarkCheck
+                        className={`w-4 h-4 ${
+                          saveInitialFeedback ? 'text-emerald-500' : 'text-teal-600 dark:text-teal-400'
+                        }`}
+                      />
+                    </button>
+
+                    {/* Reset Button */}
+                    <button
+                      onClick={handleReset}
+                      disabled={isAnySpinning}
+                      className="flex items-center justify-center py-2 px-2 rounded-xl border border-border hover:bg-muted disabled:opacity-40 transition-all active:scale-95 text-foreground"
+                      title={t.luckyWheel.resetOptions}
+                      aria-label={t.luckyWheel.resetOptions}
+                    >
+                      <RotateCcw className="w-4 h-4 text-amber-500" />
+                    </button>
+                  </div>
+
+                  {/* Wheel Settings: Sound and Delete All */}
+                  <div className="flex items-center justify-between pt-2 border-t border-border/50 text-xs">
+                    {/* Sound Toggle */}
+                    <button
+                      onClick={handleToggleSound}
+                      disabled={isAnySpinning}
+                      className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground disabled:opacity-40 transition-colors"
+                    >
+                      {activeWheel.soundEnabled ? (
+                        <Volume2 className="w-4 h-4 text-primary" />
+                      ) : (
+                        <VolumeX className="w-4 h-4 text-muted-foreground/60" />
+                      )}
+                      <span>{t.luckyWheel.soundSetting}</span>
+                    </button>
+
+                    {/* Delete All Wheels Button */}
+                    <button
+                      onClick={handleDeleteAllWheels}
+                      disabled={isAnySpinning || wheels.length === 0}
+                      className="flex items-center gap-1 text-destructive hover:text-destructive/80 font-semibold disabled:opacity-30 transition-colors"
+                      title={t.luckyWheel.deleteAllWheels}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>{t.luckyWheel.deleteAllWheels}</span>
+                    </button>
+                  </div>
+                </div>
+              )
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* COMBINED / BATCH RESULTS MODAL (Quay bao nhiêu vòng thì hiện kết quả chung bấy nhiêu) */}
+      {combinedResultsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-card rounded-3xl border border-border/80 shadow-2xl p-6 flex flex-col items-center relative animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => setCombinedResultsModal(null)}
+              className="absolute top-4 right-4 p-1.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="w-14 h-14 rounded-2xl bg-amber-500/15 flex items-center justify-center text-amber-500 mb-2 shadow-inner">
+              <Trophy className="w-7 h-7" />
+            </div>
+
+            <h3 className="text-lg font-bold text-foreground mb-4 text-center">
+              {t.luckyWheel.batchResultsTitle}
+            </h3>
+
+            {/* Dòng kết quả theo lần cách nhau bởi dấu " - " (ghi dạng text như khi nhập) */}
+            <div className="w-full p-3.5 rounded-2xl bg-muted/60 border border-border/80 text-center mb-4 shadow-2xs">
+              <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
+                {t.luckyWheel.resultsTab}
+              </span>
+              <p className="text-base sm:text-lg font-black text-foreground tracking-wide font-mono select-all">
+                {combinedResultsModal.map((i) => i.result).join(' - ')}
+              </p>
+            </div>
+
+            {/* List of results for all wheels spun in this batch (Colored solid cards) */}
+            <div className="flex flex-col gap-3 w-full mb-6">
+              {combinedResultsModal.map((item, idx) => {
+                const theme = RESULT_CARD_THEMES[idx % RESULT_CARD_THEMES.length]!;
+                return (
+                  <div
+                    key={item.wheelId}
+                    className={`flex items-center justify-between p-4 rounded-2xl border-2 ${theme.bg} ${theme.border} shadow-sm`}
+                  >
+                    <div className="flex flex-col">
+                      <span
+                        className={`inline-block w-fit px-2 py-0.5 rounded-md text-[11px] font-bold ${theme.badge} mb-1`}
+                      >
+                        {item.wheelTitle}
+                      </span>
+                      <span className={`text-xl font-black ${theme.text}`}>
+                        {item.result}
+                      </span>
+                    </div>
+
+                    <button
+                      onClick={() => handleRemoveResult(item.wheelId, item.resultIndex)}
+                      className={`px-2.5 py-1 text-xs font-bold rounded-xl border transition-colors shadow-2xs ${theme.btn}`}
+                      title={t.luckyWheel.removeResult}
+                    >
+                      {t.luckyWheel.removeResult}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Action buttons: bỏ nút quay lại, thay bằng nút remove (loại bỏ kết quả) */}
+            <div className="flex flex-col gap-2 w-full">
+              <button
+                onClick={handleRemoveAllBatchResults}
+                className="w-full py-2.5 rounded-xl font-bold text-sm bg-rose-600 hover:bg-rose-700 text-white shadow-sm hover:shadow-md transition-all active:scale-95 flex items-center justify-center gap-2"
+                title={t.luckyWheel.removeResult}
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>{t.luckyWheel.removeResult || 'Loại bỏ kết quả'}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

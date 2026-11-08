@@ -33,7 +33,7 @@ export default function VerifyOtpScreen() {
   const [email, setEmail] = useState(emailParam || '');
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
-  const pinInputRef = useRef<TextInput>(null);
+  const pinInputRef = useRef<any>(null);
   const [resending, setResending] = useState(false);
   const [cooldown, setCooldown] = useState(60);
   const [apiError, setApiError] = useState<string | null>(null);
@@ -129,7 +129,7 @@ export default function VerifyOtpScreen() {
       {/* Top Header */}
       <View style={styles.topBar}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => (router.canGoBack() ? router.back() : router.replace('/(auth)/login'))}
           activeOpacity={0.7}
           style={[
             styles.backBtn,

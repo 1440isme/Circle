@@ -663,6 +663,9 @@ export interface DecisionWheelEntity {
   createdById?: string | null;
   lastResult?: string | null;
   lastSpunAt?: string | null;
+  soundEnabled?: boolean;
+  confettiEnabled?: boolean;
+  initialOptions?: string[];
   createdAt: string;
   options: WheelOptionEntity[];
   creator?: {
@@ -681,16 +684,78 @@ export interface DecisionWheelEntity {
 }
 
 export interface CreateWheelInput {
+  title?: string;
+  options: {
+    optionLabel: string;
+    color?: string;
+  }[];
+  soundEnabled?: boolean;
+  confettiEnabled?: boolean;
+  initialOptions?: string[];
+}
+
+export interface UpdateWheelInput {
+  title?: string;
+  options?: {
+    optionLabel: string;
+    color?: string;
+  }[];
+  soundEnabled?: boolean;
+  confettiEnabled?: boolean;
+  initialOptions?: string[];
+}
+
+export interface WheelFolderSnapshotItem {
+  id?: string;
   title: string;
   options: {
     optionLabel: string;
     color?: string;
   }[];
+  soundEnabled?: boolean;
+  confettiEnabled?: boolean;
+  initialOptions?: string[];
+  lastResult?: string | null;
+  lastSpunAt?: string | null;
+}
+
+export interface WheelFolderEntity {
+  id: string;
+  circleId: string;
+  name: string;
+  data: WheelFolderSnapshotItem[];
+  createdById?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  creator?: {
+    id: string;
+    userId: string;
+    nickname?: string | null;
+    user?: {
+      id: string;
+      email: string;
+      profile?: {
+        displayName: string;
+        avatarUrl?: string | null;
+      } | null;
+    };
+  } | null;
+}
+
+export interface CreateWheelFolderInput {
+  name: string;
+  data?: WheelFolderSnapshotItem[];
+}
+
+export interface UpdateWheelFolderInput {
+  name?: string;
+  data?: WheelFolderSnapshotItem[];
 }
 
 export interface SpinWheelResult {
   wheelId: string;
   selectedOption: WheelOptionEntity;
+  selectedOptionIndex?: number;
   spunAt: string;
 }
 

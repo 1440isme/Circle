@@ -13,6 +13,9 @@ import {
   UpdateSharedAlbumDto,
   AddPhotosDto,
   CreateWheelDto,
+  UpdateWheelDto,
+  CreateWheelFolderDto,
+  UpdateWheelFolderDto,
   CreateAnonymousPostDto,
   CreateCalendarEventDto,
   UpdateCalendarEventDto,
@@ -32,6 +35,21 @@ import {
   MessageEntity,
 } from '@circle/types';
 import { ChatGateway } from '../chat/chat.gateway';
+
+export const PASTEL_WHEEL_COLORS = [
+  '#FFD6A5', // Pastel Warm Apricot
+  '#CAFFBF', // Pastel Mint Green
+  '#9BF6FF', // Pastel Sky Cyan
+  '#FFADAD', // Pastel Coral Pink
+  '#BDB2FF', // Pastel Soft Lavender
+  '#FDFFB6', // Pastel Cream Butter
+  '#A0C4FF', // Pastel Powder Blue
+  '#FFC6FF', // Pastel Light Orchid
+  '#B8E0D2', // Pastel Celadon Sage
+  '#FED1BA', // Pastel Peach
+  '#D7E3FC', // Pastel Periwinkle
+  '#FDE2E4', // Pastel Rose Blossom
+];
 
 @Injectable()
 export class CircleToolsService {
@@ -316,19 +334,38 @@ export class CircleToolsService {
   async createWheel(circleId: string, userId: string, dto: CreateWheelDto) {
     const member = await this.getMemberOrThrow(circleId, userId);
 
+    const existingCount = await this.prisma.decisionWheel.count({
+      where: { circleId },
+    });
+    if (existingCount >= 4) {
+      throw new BadRequestException(
+        'Bạn đã đạt giới hạn 4 vòng quay. Vui lòng xóa một vòng quay đã lưu để tạo vòng quay mới.',
+      );
+    }
+
     if (!dto.options || dto.options.length < 2) {
       throw new BadRequestException('Vòng quay cần tối thiểu 2 phương án lựa chọn');
     }
 
+    const initialOptions =
+      dto.initialOptions && dto.initialOptions.length > 0
+        ? dto.initialOptions
+        : dto.options.map((opt) => opt.optionLabel.trim());
+
+    const title = dto.title?.trim() || `Vòng quay ${existingCount + 1}`;
+
     return this.prisma.decisionWheel.create({
       data: {
         circleId,
-        title: dto.title.trim(),
+        title,
         createdById: member.id,
+        soundEnabled: dto.soundEnabled ?? true,
+        confettiEnabled: dto.confettiEnabled ?? true,
+        initialOptions,
         options: {
-          create: dto.options.map((opt) => ({
+          create: dto.options.map((opt, idx) => ({
             optionLabel: opt.optionLabel.trim(),
-            color: opt.color || undefined,
+            color: opt.color || PASTEL_WHEEL_COLORS[idx % PASTEL_WHEEL_COLORS.length],
           })),
         },
       },
@@ -345,6 +382,113 @@ export class CircleToolsService {
         },
       },
     });
+  }
+
+  async updateWheel(
+    circleId: string,
+    wheelId: string,
+    userId: string,
+    dto: UpdateWheelDto,
+  ) {
+    await this.getMemberOrThrow(circleId, userId);
+
+    const wheel = await this.prisma.decisionWheel.findFirst({
+      where: { id: wheelId, circleId },
+      include: { options: true },
+    });
+
+    if (!wheel) {
+      throw new NotFoundException('Không tìm thấy vòng quay');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      if (dto.options && Array.isArray(dto.options) && dto.options.length >= 2) {
+        await tx.wheelOption.deleteMany({
+          where: { wheelId },
+        });
+        await tx.wheelOption.createMany({
+          data: dto.options.map((opt, idx) => ({
+            wheelId,
+            optionLabel: opt.optionLabel.trim(),
+            color: opt.color || PASTEL_WHEEL_COLORS[idx % PASTEL_WHEEL_COLORS.length],
+          })),
+        });
+      }
+
+      return tx.decisionWheel.update({
+        where: { id: wheelId },
+        data: {
+          title: dto.title !== undefined ? dto.title.trim() : undefined,
+          soundEnabled: dto.soundEnabled !== undefined ? dto.soundEnabled : undefined,
+          confettiEnabled: dto.confettiEnabled !== undefined ? dto.confettiEnabled : undefined,
+          initialOptions: dto.initialOptions !== undefined ? dto.initialOptions : undefined,
+        },
+        include: {
+          options: true,
+          creator: {
+            include: {
+              user: {
+                include: {
+                  profile: true,
+                },
+              },
+            },
+          },
+        },
+      });
+    });
+  }
+
+  async spinAllWheels(circleId: string, userId: string): Promise<SpinWheelResult[]> {
+    const member = await this.getMemberOrThrow(circleId, userId);
+
+    const wheels = await this.prisma.decisionWheel.findMany({
+      where: { circleId },
+      include: { options: true },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    if (!wheels || wheels.length === 0) {
+      throw new BadRequestException('Chưa có vòng quay nào');
+    }
+
+    const now = new Date();
+    const results: SpinWheelResult[] = [];
+
+    for (const wheel of wheels) {
+      if (wheel.options && wheel.options.length >= 2) {
+        const randomIndex = Math.floor(Math.random() * wheel.options.length);
+        const selected = wheel.options[randomIndex]!;
+        await this.prisma.decisionWheel.update({
+          where: { id: wheel.id },
+          data: {
+            lastResult: selected.optionLabel,
+            lastSpunAt: now,
+          },
+        });
+        results.push({
+          wheelId: wheel.id,
+          selectedOption: selected,
+          selectedOptionIndex: randomIndex,
+          spunAt: now.toISOString(),
+        });
+      }
+    }
+
+    if (this.chatGateway && results.length > 0) {
+      this.chatGateway.broadcastWheelSpun(circleId, {
+        circleId,
+        isSpinAll: true,
+        results,
+        spunAt: now.toISOString(),
+        spunBy: {
+          userId,
+          displayName: member.nickname || 'Thành viên',
+        },
+      });
+    }
+
+    return results;
   }
 
   async spinWheel(circleId: string, wheelId: string, userId: string): Promise<SpinWheelResult> {
@@ -379,6 +523,7 @@ export class CircleToolsService {
     const result: SpinWheelResult = {
       wheelId,
       selectedOption: selected,
+      selectedOptionIndex: randomIndex,
       spunAt: now.toISOString(),
     };
 
@@ -387,6 +532,7 @@ export class CircleToolsService {
         wheelId,
         circleId,
         selectedOption: selected,
+        selectedOptionIndex: randomIndex,
         spunAt: now.toISOString(),
         spunBy: {
           userId,
@@ -396,6 +542,49 @@ export class CircleToolsService {
     }
 
     return result;
+  }
+
+
+  async deleteAllWheels(circleId: string, userId: string, defaultTitle?: string) {
+    const member = await this.getMemberOrThrow(circleId, userId);
+
+    await this.prisma.decisionWheel.deleteMany({
+      where: { circleId },
+    });
+
+    const defaultInitialOptions = ['Phở bò', 'Bún chả', 'Cơm tấm', 'Bánh mì'];
+    const title = defaultTitle?.trim() || 'Vòng quay 1';
+
+    const defaultWheel = await this.prisma.decisionWheel.create({
+      data: {
+        circleId,
+        title,
+        createdById: member.id,
+        soundEnabled: true,
+        confettiEnabled: true,
+        initialOptions: defaultInitialOptions,
+        options: {
+          create: defaultInitialOptions.map((opt, idx) => ({
+            optionLabel: opt,
+            color: PASTEL_WHEEL_COLORS[idx % PASTEL_WHEEL_COLORS.length],
+          })),
+        },
+      },
+      include: {
+        options: true,
+        creator: {
+          include: {
+            user: {
+              include: {
+                profile: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return { success: true, defaultWheel };
   }
 
   async deleteWheel(circleId: string, wheelId: string, userId: string) {
@@ -419,6 +608,333 @@ export class CircleToolsService {
 
     return { success: true };
   }
+
+  async shareWheelResultsToChat(
+    circleId: string,
+    userId: string,
+    results: { wheelTitle: string; winner: string }[],
+  ) {
+    const member = await this.getMemberOrThrow(circleId, userId);
+
+    if (!results || results.length === 0) {
+      throw new BadRequestException('Danh sách kết quả không được để trống');
+    }
+
+    const channel = await this.prisma.channel.findFirst({
+      where: { circleId },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    if (!channel) {
+      throw new NotFoundException('Không tìm thấy kênh trò chuyện của vòng tròn');
+    }
+
+    const senderName =
+      member.user?.profile?.displayName ||
+      member.user?.email?.split('@')[0] ||
+      member.nickname ||
+      'Thành viên';
+
+    const resultsListText = results
+      .map((r, i) => `🏆 ${r.wheelTitle || `Vòng quay ${i + 1}`}: ${r.winner}`)
+      .join('\n');
+
+    const content = `🎯 [KẾT QUẢ VÒNG QUAY MAY MẮN]\n━━━━━━━━━━━━━━━━━━━━\n${resultsListText}\n━━━━━━━━━━━━━━━━━━━━\n(Được chia sẻ bởi ${senderName})`;
+
+    const rawMessage = await this.prisma.message.create({
+      data: {
+        channelId: channel.id,
+        memberId: member.id,
+        type: 'TEXT',
+        content,
+      },
+      include: {
+        sender: {
+          include: {
+            user: {
+              include: {
+                profile: true,
+              },
+            },
+          },
+        },
+        reactions: {
+          include: {
+            member: {
+              include: {
+                user: {
+                  include: {
+                    profile: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        pinnedRecord: true,
+      },
+    });
+
+    const formattedMessage: MessageEntity = {
+      id: rawMessage.id,
+      channelId: rawMessage.channelId,
+      memberId: rawMessage.memberId,
+      type: rawMessage.type as any,
+      content: rawMessage.content,
+      fileUrl: rawMessage.fileUrl,
+      fileName: rawMessage.fileName,
+      fileSize: rawMessage.fileSize,
+      audioDuration: rawMessage.audioDuration,
+      replyToId: rawMessage.replyToId,
+      sentAt: rawMessage.sentAt ? rawMessage.sentAt.toISOString() : new Date().toISOString(),
+      updatedAt: rawMessage.updatedAt ? rawMessage.updatedAt.toISOString() : new Date().toISOString(),
+      sender: rawMessage.sender
+        ? {
+            id: rawMessage.sender.id,
+            circleId: rawMessage.sender.circleId,
+            userId: rawMessage.sender.userId,
+            role: rawMessage.sender.role as any,
+            nickname: rawMessage.sender.nickname,
+            joinedAt: rawMessage.sender?.joinedAt ? rawMessage.sender.joinedAt.toISOString() : new Date().toISOString(),
+            updatedAt: rawMessage.sender?.updatedAt ? rawMessage.sender.updatedAt.toISOString() : new Date().toISOString(),
+            user: rawMessage.sender.user
+              ? {
+                  id: rawMessage.sender.user.id,
+                  email: rawMessage.sender.user.email,
+                  isActivated: rawMessage.sender.user.isActivated,
+                  globalRole: rawMessage.sender.user.globalRole as any,
+                  createdAt: rawMessage.sender.user.createdAt ? rawMessage.sender.user.createdAt.toISOString() : new Date().toISOString(),
+                  updatedAt: rawMessage.sender.user.updatedAt ? rawMessage.sender.user.updatedAt.toISOString() : new Date().toISOString(),
+                  profile: rawMessage.sender.user.profile
+                    ? {
+                        id: rawMessage.sender.user.profile.id,
+                        userId: rawMessage.sender.user.profile.userId,
+                        displayName: rawMessage.sender.user.profile.displayName,
+                        avatarUrl: rawMessage.sender.user.profile.avatarUrl,
+                        bio: rawMessage.sender.user.profile.bio,
+                        dateOfBirth: rawMessage.sender.user.profile.dateOfBirth?.toISOString() || null,
+                        updatedAt: rawMessage.sender.user.profile.updatedAt ? rawMessage.sender.user.profile.updatedAt.toISOString() : new Date().toISOString(),
+                      }
+                    : null,
+                }
+              : undefined,
+          }
+        : undefined,
+      replyTo: null,
+      reactions: [],
+      reactionCounts: {},
+      userReactions: [],
+      isPinned: false,
+    };
+
+    this.chatGateway?.broadcastNewMessage(channel.id, formattedMessage);
+
+    return { success: true, messageId: rawMessage.id };
+  }
+
+  // --- Wheel Folders / Presets ---
+  async getWheelFolders(circleId: string, userId: string) {
+    await this.getMemberOrThrow(circleId, userId);
+
+    return this.prisma.wheelFolder.findMany({
+      where: { circleId },
+      include: {
+        creator: {
+          include: {
+            user: {
+              include: {
+                profile: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async createWheelFolder(circleId: string, userId: string, dto: CreateWheelFolderDto) {
+    const member = await this.getMemberOrThrow(circleId, userId);
+
+    const name = dto.name?.trim();
+    if (!name) {
+      throw new BadRequestException('Tên thư mục không được để trống');
+    }
+
+    let snapshotData = dto.data;
+    if (!snapshotData || snapshotData.length === 0) {
+      const currentWheels = await this.prisma.decisionWheel.findMany({
+        where: { circleId },
+        include: { options: true },
+        orderBy: { createdAt: 'asc' },
+      });
+
+      snapshotData = currentWheels.map((w) => ({
+        id: w.id,
+        title: w.title,
+        options: w.options.map((o) => ({
+          optionLabel: o.optionLabel,
+          color: o.color ?? undefined,
+        })),
+        soundEnabled: w.soundEnabled,
+        confettiEnabled: w.confettiEnabled,
+        initialOptions: w.initialOptions,
+        lastResult: w.lastResult,
+        lastSpunAt: w.lastSpunAt ? w.lastSpunAt.toISOString() : null,
+      }));
+    }
+
+    return this.prisma.wheelFolder.create({
+      data: {
+        circleId,
+        createdById: member.id,
+        name,
+        data: snapshotData as any,
+      },
+      include: {
+        creator: {
+          include: {
+            user: {
+              include: {
+                profile: true,
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  async restoreWheelFolder(circleId: string, folderId: string, userId: string) {
+    const member = await this.getMemberOrThrow(circleId, userId);
+
+    const folder = await this.prisma.wheelFolder.findFirst({
+      where: { id: folderId, circleId },
+    });
+
+    if (!folder) {
+      throw new NotFoundException('Không tìm thấy thư mục');
+    }
+
+    const snapshot = (folder.data as any) || [];
+    if (!Array.isArray(snapshot) || snapshot.length === 0) {
+      throw new BadRequestException('Thư mục này không có vòng quay nào');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.decisionWheel.deleteMany({
+        where: { circleId },
+      });
+
+      for (const item of snapshot.slice(0, 4)) {
+        if (item.options && Array.isArray(item.options) && item.options.length >= 2) {
+          await tx.decisionWheel.create({
+            data: {
+              circleId,
+              createdById: member.id,
+              title: item.title || 'Vòng quay',
+              soundEnabled: item.soundEnabled ?? true,
+              confettiEnabled: item.confettiEnabled ?? true,
+              initialOptions: item.initialOptions ?? item.options.map((o: any) => o.optionLabel),
+              lastResult: item.lastResult ?? null,
+              lastSpunAt: item.lastSpunAt ? new Date(item.lastSpunAt) : null,
+              options: {
+                create: item.options.map((o: any) => ({
+                  optionLabel: typeof o === 'string' ? o : o.optionLabel,
+                  color: typeof o === 'object' ? o.color || undefined : undefined,
+                })),
+              },
+            },
+          });
+        }
+      }
+
+      return tx.decisionWheel.findMany({
+        where: { circleId },
+        include: {
+          options: true,
+          creator: {
+            include: {
+              user: {
+                include: {
+                  profile: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: 'asc' },
+      });
+    });
+  }
+
+  async updateWheelFolder(
+    circleId: string,
+    folderId: string,
+    userId: string,
+    dto: UpdateWheelFolderDto,
+  ) {
+    await this.getMemberOrThrow(circleId, userId);
+
+    const folder = await this.prisma.wheelFolder.findFirst({
+      where: { id: folderId, circleId },
+    });
+
+    if (!folder) {
+      throw new NotFoundException('Không tìm thấy thư mục');
+    }
+
+    const updateData: any = {};
+    if (dto.name !== undefined) {
+      const name = dto.name?.trim();
+      if (!name) {
+        throw new BadRequestException('Tên thư mục không được để trống');
+      }
+      updateData.name = name;
+    }
+    if (dto.data !== undefined) {
+      updateData.data = dto.data;
+    }
+
+    return this.prisma.wheelFolder.update({
+      where: { id: folderId },
+      data: updateData,
+      include: {
+        creator: {
+          include: {
+            user: {
+              include: {
+                profile: true,
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  async deleteWheelFolder(circleId: string, folderId: string, userId: string) {
+    const member = await this.getMemberOrThrow(circleId, userId);
+
+    const folder = await this.prisma.wheelFolder.findFirst({
+      where: { id: folderId, circleId },
+    });
+
+    if (!folder) {
+      throw new NotFoundException('Không tìm thấy thư mục');
+    }
+
+    if (folder.createdById && folder.createdById !== member.id && member.role !== 'OWNER') {
+      throw new ForbiddenException('Chỉ người tạo hoặc chủ vòng tròn mới có quyền xóa thư mục');
+    }
+
+    await this.prisma.wheelFolder.delete({
+      where: { id: folderId },
+    });
+
+    return { success: true };
+  }
+
 
   // ===========================================================================
   // 3. ANONYMOUS POST / WORDS UNSAID (UC21)

@@ -8,6 +8,10 @@ import {
   AddPhotosInput,
   DecisionWheelEntity,
   CreateWheelInput,
+  UpdateWheelInput,
+  WheelFolderEntity,
+  CreateWheelFolderInput,
+  UpdateWheelFolderInput,
   SpinWheelResult,
   AnonymousPostEntity,
   CreateAnonymousPostInput,
@@ -35,6 +39,8 @@ export const TOOLS_KEYS = {
   albumDetail: (circleId: string, albumId: string) =>
     [...TOOLS_KEYS.all, circleId, 'albums', albumId] as const,
   wheels: (circleId: string) => [...TOOLS_KEYS.all, circleId, 'wheels'] as const,
+  wheelFolders: (circleId: string) =>
+    [...TOOLS_KEYS.all, circleId, 'wheels', 'folders'] as const,
   anonymous: (circleId: string) => [...TOOLS_KEYS.all, circleId, 'anonymous-posts'] as const,
   calendar: (circleId: string, month?: number, year?: number) =>
     [...TOOLS_KEYS.all, circleId, 'calendar', month, year] as const,
@@ -250,6 +256,159 @@ export function useDeleteWheelMutation(circleId: string) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: TOOLS_KEYS.wheels(circleId) });
+    },
+  });
+}
+
+export function useUpdateWheelMutation(circleId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      wheelId,
+      input,
+    }: {
+      wheelId: string;
+      input: UpdateWheelInput;
+    }) => {
+      const res = await apiRequest<DecisionWheelEntity>(
+        `/circles/${circleId}/wheels/${wheelId}`,
+        {
+          method: 'PUT',
+          body: JSON.stringify(input),
+        },
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: TOOLS_KEYS.wheels(circleId) });
+    },
+  });
+}
+
+export function useSpinAllWheelsMutation(circleId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest<SpinWheelResult[]>(
+        `/circles/${circleId}/wheels/spin-all`,
+        {
+          method: 'POST',
+        },
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: TOOLS_KEYS.wheels(circleId) });
+    },
+  });
+}
+
+export function useDeleteAllWheelsMutation(circleId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (defaultTitle?: string) => {
+      const url = defaultTitle
+        ? `/circles/${circleId}/wheels?title=${encodeURIComponent(defaultTitle)}`
+        : `/circles/${circleId}/wheels`;
+      const res = await apiRequest<{ success: boolean; defaultWheel?: DecisionWheelEntity }>(
+        url,
+        {
+          method: 'DELETE',
+        },
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: TOOLS_KEYS.wheels(circleId) });
+    },
+  });
+}
+
+export function useWheelFoldersQuery(circleId: string | null) {
+  return useQuery({
+    queryKey: TOOLS_KEYS.wheelFolders(circleId || ''),
+    queryFn: async () => {
+      if (!circleId) return [];
+      const res = await apiRequest<WheelFolderEntity[]>(
+        `/circles/${circleId}/wheels/folders`,
+      );
+      return res.data;
+    },
+    enabled: !!circleId,
+  });
+}
+
+export function useCreateWheelFolderMutation(circleId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: CreateWheelFolderInput) => {
+      const res = await apiRequest<WheelFolderEntity>(
+        `/circles/${circleId}/wheels/folders`,
+        {
+          method: 'POST',
+          body: JSON.stringify(input),
+        },
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: TOOLS_KEYS.wheelFolders(circleId) });
+    },
+  });
+}
+
+export function useRestoreWheelFolderMutation(circleId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (folderId: string) => {
+      const res = await apiRequest<DecisionWheelEntity[]>(
+        `/circles/${circleId}/wheels/folders/${folderId}/restore`,
+        {
+          method: 'POST',
+        },
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: TOOLS_KEYS.wheels(circleId) });
+      queryClient.invalidateQueries({ queryKey: TOOLS_KEYS.wheelFolders(circleId) });
+    },
+  });
+}
+
+export function useDeleteWheelFolderMutation(circleId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (folderId: string) => {
+      const res = await apiRequest<{ success: boolean }>(
+        `/circles/${circleId}/wheels/folders/${folderId}`,
+        {
+          method: 'DELETE',
+        },
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: TOOLS_KEYS.wheelFolders(circleId) });
+    },
+  });
+}
+
+export function useUpdateWheelFolderMutation(circleId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ folderId, input }: { folderId: string; input: UpdateWheelFolderInput }) => {
+      const res = await apiRequest<WheelFolderEntity>(
+        `/circles/${circleId}/wheels/folders/${folderId}`,
+        {
+          method: 'PUT',
+          body: JSON.stringify(input),
+        },
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: TOOLS_KEYS.wheelFolders(circleId) });
     },
   });
 }
@@ -808,6 +967,21 @@ export function useDeletePollMutation(circleId: string) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: TOOLS_KEYS.polls(circleId) });
+    },
+  });
+}
+
+export function useShareWheelResultsToChatMutation(circleId: string) {
+  return useMutation({
+    mutationFn: async (results: { wheelTitle: string; winner: string }[]) => {
+      const res = await apiRequest<{ success: boolean; messageId: string }>(
+        `/circles/${circleId}/tools/wheels/share-results`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ results }),
+        },
+      );
+      return res.data;
     },
   });
 }

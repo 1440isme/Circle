@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -1257,6 +1257,14 @@ export default function CircleWorkspaceScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const circleId = id || '';
 
+  const handleGoBack = useCallback(() => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)');
+    }
+  }, [router]);
+
   const { colors, resolvedTheme, uiStyle } = useThemeStore();
   const { t, locale } = useLanguageStore();
   const user = useAuthStore((s) => s.user);
@@ -1270,7 +1278,7 @@ export default function CircleWorkspaceScreen() {
   const setJoinModalVisible = useCircleStore((s) => s.setJoinModalVisible);
 
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
-  const horizontalPagerRef = useRef<ScrollView>(null);
+  const horizontalPagerRef = useRef<any>(null);
   const TAB_ORDER: WorkspaceTab[] = useMemo(() => ['chat', 'moments', 'tools'], []);
 
   const [circleSwitcherVisible, setCircleSwitcherVisible] = useState(false);
@@ -1343,7 +1351,7 @@ export default function CircleWorkspaceScreen() {
   const [momentsHistoryViewMode, setMomentsHistoryViewMode] = useState<'month' | 'map'>('month');
   const [headerHeight, setHeaderHeight] = useState(Platform.OS === 'ios' ? 128 : 112);
 
-  const scrollViewRef = useRef<ScrollView>(null);
+  const scrollViewRef = useRef<any>(null);
 
   const initiateCallMutation = useInitiateCallMutation();
   const joinCallMutation = useJoinCallMutation();
@@ -1508,7 +1516,7 @@ export default function CircleWorkspaceScreen() {
   const reactMessageMutation = useReactMessageMutation(currentChannelId);
   const pinMessageMutation = usePinMessageMutation(currentChannelId);
   const { data: pinnedMessages = [] } = usePinnedMessagesQuery(currentChannelId);
-  const edgePan = useEdgeSwipeDismiss({ onDismiss: () => router.back() });
+  const edgePan = useEdgeSwipeDismiss({ onDismiss: handleGoBack });
   const { typingUsers, reportTyping } = useMobileChannelTyping(currentChannelId);
 
   // Mark message as read when channel is viewed or new messages arrive
@@ -1711,9 +1719,9 @@ export default function CircleWorkspaceScreen() {
   const prevLastMessageIdRef = useRef<string | null>(null);
   const isFirstLoadRef = useRef(true);
   const isNearBottomRef = useRef(true);
-  const messageRefs = useRef<Record<string, View | null>>({});
-  const chatContainerRef = useRef<View | null>(null);
-  const messagesContentRef = useRef<View | null>(null);
+  const messageRefs = useRef<Record<string, any>>({});
+  const chatContainerRef = useRef<any>(null);
+  const messagesContentRef = useRef<any>(null);
   const currentScrollYRef = useRef(0);
   const scrollViewPageYRef = useRef<number | undefined>(undefined);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
@@ -1992,7 +2000,7 @@ export default function CircleWorkspaceScreen() {
           {t.circle.notFound}
         </Text>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={handleGoBack}
           style={[styles.backBtnPill, { backgroundColor: colors.primary }]}
         >
           <Text style={[styles.backBtnText, { color: colors.onPrimary }]}>
@@ -2053,7 +2061,7 @@ export default function CircleWorkspaceScreen() {
           {/* Left Anchor: Round Back Button */}
           <TouchableOpacity
             activeOpacity={0.7}
-            onPress={() => router.back()}
+            onPress={handleGoBack}
             style={[
               styles.floatingNavBtn,
               {
@@ -2489,7 +2497,7 @@ export default function CircleWorkspaceScreen() {
             collapsable={false}
             style={styles.chatContainer}
             onLayout={() => {
-              chatContainerRef.current?.measureInWindow((_x, y) => {
+              chatContainerRef.current?.measureInWindow((_x: number, y: number) => {
                 if (typeof y === 'number' && !isNaN(y)) {
                   scrollViewPageYRef.current = y;
                 }

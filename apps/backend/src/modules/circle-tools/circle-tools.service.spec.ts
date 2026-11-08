@@ -52,6 +52,19 @@ describe('CircleToolsService', () => {
         create: jest.fn(),
         update: jest.fn(),
         delete: jest.fn(),
+        deleteMany: jest.fn(),
+        count: jest.fn(),
+      },
+      wheelOption: {
+        deleteMany: jest.fn(),
+        createMany: jest.fn(),
+      },
+      wheelFolder: {
+        findMany: jest.fn(),
+        findFirst: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
+        delete: jest.fn(),
       },
       anonymousPost: {
         findMany: jest.fn(),
@@ -227,6 +240,7 @@ describe('CircleToolsService', () => {
 
     it('should create wheel with options', async () => {
       mockPrisma.circleMember.findUnique.mockResolvedValue(member);
+      mockPrisma.decisionWheel.count.mockResolvedValue(0);
       mockPrisma.decisionWheel.create.mockResolvedValue({
         id: 'wheel-1',
         title: 'Hôm nay ăn gì?',
@@ -245,8 +259,21 @@ describe('CircleToolsService', () => {
       expect(mockPrisma.decisionWheel.create).toHaveBeenCalled();
     });
 
+    it('should reject wheel when max 4 limit is reached', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValue(member);
+      mockPrisma.decisionWheel.count.mockResolvedValue(4);
+
+      await expect(
+        service.createWheel('circle-1', 'user-1', {
+          title: 'Vòng quay 5',
+          options: [{ optionLabel: 'A' }, { optionLabel: 'B' }],
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
     it('should reject wheel with less than 2 options', async () => {
       mockPrisma.circleMember.findUnique.mockResolvedValue(member);
+      mockPrisma.decisionWheel.count.mockResolvedValue(1);
 
       await expect(
         service.createWheel('circle-1', 'user-1', {
@@ -254,6 +281,32 @@ describe('CircleToolsService', () => {
           options: [{ optionLabel: 'Phở' }],
         }),
       ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should update wheel title, options, and settings', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValue(member);
+      mockPrisma.decisionWheel.findFirst.mockResolvedValue({
+        id: 'wheel-1',
+        circleId: 'circle-1',
+        title: 'Cũ',
+        options: [{ id: 'opt-1', optionLabel: 'A' }, { id: 'opt-2', optionLabel: 'B' }],
+      });
+      mockPrisma.decisionWheel.update.mockResolvedValue({
+        id: 'wheel-1',
+        title: 'Mới',
+        soundEnabled: false,
+      });
+
+      const res = await service.updateWheel('circle-1', 'wheel-1', 'user-1', {
+        title: 'Mới',
+        soundEnabled: false,
+        options: [{ optionLabel: 'X' }, { optionLabel: 'Y' }],
+      });
+
+      expect(res.title).toBe('Mới');
+      expect(mockPrisma.wheelOption.deleteMany).toHaveBeenCalledWith({ where: { wheelId: 'wheel-1' } });
+      expect(mockPrisma.wheelOption.createMany).toHaveBeenCalled();
+      expect(mockPrisma.decisionWheel.update).toHaveBeenCalled();
     });
 
     it('should spin wheel and pick valid option randomly', async () => {
@@ -276,6 +329,176 @@ describe('CircleToolsService', () => {
       expect(mockPrisma.decisionWheel.update).toHaveBeenCalled();
       expect(mockChatGateway.broadcastWheelSpun).toHaveBeenCalledWith('circle-1', expect.objectContaining({ wheelId: 'wheel-1' }));
     });
+
+    it('should spin all wheels concurrently and broadcast results', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValue(member);
+      const wheels = [
+        {
+          id: 'wheel-1',
+          options: [{ id: 'opt-1', optionLabel: 'Phở' }, { id: 'opt-2', optionLabel: 'Bún bò' }],
+        },
+        {
+          id: 'wheel-2',
+          options: [{ id: 'opt-3', optionLabel: 'Trà đào' }, { id: 'opt-4', optionLabel: 'Cà phê' }],
+        },
+      ];
+      mockPrisma.decisionWheel.findMany.mockResolvedValue(wheels);
+      mockPrisma.decisionWheel.update.mockResolvedValue({});
+
+      const results = await service.spinAllWheels('circle-1', 'user-1');
+      expect(results).toHaveLength(2);
+      expect(mockChatGateway.broadcastWheelSpun).toHaveBeenCalledWith(
+        'circle-1',
+        expect.objectContaining({ isSpinAll: true, results: expect.any(Array) }),
+      );
+    });
+
+    it('should delete wheel', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValue(member);
+      mockPrisma.decisionWheel.findFirst.mockResolvedValue({
+        id: 'wheel-1',
+        circleId: 'circle-1',
+        createdById: member.id,
+      });
+      mockPrisma.decisionWheel.delete.mockResolvedValue({ id: 'wheel-1' });
+
+      const res = await service.deleteWheel('circle-1', 'wheel-1', 'user-1');
+      expect(res.success).toBe(true);
+      expect(mockPrisma.decisionWheel.delete).toHaveBeenCalledWith({ where: { id: 'wheel-1' } });
+    });
+    it('should delete all wheels in circle and recreate 1 default wheel', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValue(member);
+      mockPrisma.decisionWheel.deleteMany.mockResolvedValue({ count: 3 });
+      mockPrisma.decisionWheel.create.mockResolvedValue({
+        id: 'wheel-default',
+        title: 'Vòng quay 1',
+        options: [{ id: 'opt-1', optionLabel: 'Phở bò' }],
+      });
+
+      const res = await service.deleteAllWheels('circle-1', 'user-1');
+      expect(res.success).toBe(true);
+      expect(mockPrisma.decisionWheel.deleteMany).toHaveBeenCalledWith({ where: { circleId: 'circle-1' } });
+      expect(mockPrisma.decisionWheel.create).toHaveBeenCalled();
+    });
+
+    it('should generate default wheel title when title is not provided', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValue(member);
+      mockPrisma.decisionWheel.count.mockResolvedValue(1);
+      mockPrisma.decisionWheel.create.mockResolvedValue({
+        id: 'wheel-2',
+        title: 'Vòng quay 2',
+        options: [{ id: 'opt-1', optionLabel: 'A' }, { id: 'opt-2', optionLabel: 'B' }],
+      });
+
+      const res = await service.createWheel('circle-1', 'user-1', {
+        options: [{ optionLabel: 'A' }, { optionLabel: 'B' }],
+      });
+
+      expect(mockPrisma.decisionWheel.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ title: 'Vòng quay 2' }),
+        }),
+      );
+      expect(res.id).toBe('wheel-2');
+    });
+
+    it('should create wheel folder with current wheels snapshot', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValue(member);
+      mockPrisma.decisionWheel.findMany.mockResolvedValue([
+        {
+          id: 'w-1',
+          title: 'Ăn gì?',
+          options: [{ optionLabel: 'Phở' }, { optionLabel: 'Cơm' }],
+          soundEnabled: true,
+          confettiEnabled: true,
+          initialOptions: ['Phở', 'Cơm'],
+        },
+      ]);
+      mockPrisma.wheelFolder.create.mockResolvedValue({
+        id: 'folder-1',
+        name: 'Menu ăn trưa',
+        data: [{ title: 'Ăn gì?' }],
+      });
+
+      const folder = await service.createWheelFolder('circle-1', 'user-1', {
+        name: 'Menu ăn trưa',
+      });
+
+      expect(folder.id).toBe('folder-1');
+      expect(mockPrisma.wheelFolder.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ name: 'Menu ăn trưa' }),
+        }),
+      );
+    });
+
+    it('should restore wheels from wheel folder', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValue(member);
+      mockPrisma.wheelFolder.findFirst.mockResolvedValue({
+        id: 'folder-1',
+        circleId: 'circle-1',
+        name: 'Bộ lưu',
+        data: [
+          {
+            title: 'Vòng 1',
+            options: [{ optionLabel: 'A' }, { optionLabel: 'B' }],
+          },
+        ],
+      });
+      mockPrisma.decisionWheel.findMany.mockResolvedValue([]);
+
+      const wheels = await service.restoreWheelFolder('circle-1', 'folder-1', 'user-1');
+      expect(wheels).toBeDefined();
+      expect(mockPrisma.decisionWheel.deleteMany).toHaveBeenCalledWith({ where: { circleId: 'circle-1' } });
+      expect(mockPrisma.decisionWheel.create).toHaveBeenCalled();
+    });
+
+    it('should update wheel folder name', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValue(member);
+      mockPrisma.wheelFolder.findFirst.mockResolvedValue({ id: 'f-1', circleId: 'circle-1' });
+      mockPrisma.wheelFolder.update.mockResolvedValue({ id: 'f-1', name: 'Tên mới' });
+
+      const updated = await service.updateWheelFolder('circle-1', 'f-1', 'user-1', {
+        name: 'Tên mới',
+      });
+      expect(updated.name).toBe('Tên mới');
+    });
+
+    it('should delete wheel folder', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValue(member);
+      mockPrisma.wheelFolder.findFirst.mockResolvedValue({
+        id: 'f-1',
+        circleId: 'circle-1',
+        createdById: member.id,
+      });
+      mockPrisma.wheelFolder.delete.mockResolvedValue({ id: 'f-1' });
+
+      const res = await service.deleteWheelFolder('circle-1', 'f-1', 'user-1');
+      expect(res.success).toBe(true);
+      expect(mockPrisma.wheelFolder.delete).toHaveBeenCalledWith({ where: { id: 'f-1' } });
+    });
+
+    it('should share wheel results to chat channel', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValue(member);
+      mockPrisma.channel.findFirst.mockResolvedValue({ id: 'chan-1', circleId: 'circle-1' });
+      mockPrisma.message.create.mockResolvedValue({
+        id: 'msg-1',
+        channelId: 'chan-1',
+        memberId: member.id,
+        type: 'TEXT',
+        content: '🎯 [KẾT QUẢ VÒNG QUAY MAY MẮN]\n...',
+        sentAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      const res = await service.shareWheelResultsToChat('circle-1', 'user-1', [
+        { wheelTitle: 'Wheel 1', winner: 'Phở' },
+      ]);
+
+      expect(res.success).toBe(true);
+      expect(mockPrisma.message.create).toHaveBeenCalled();
+    });
+
   });
 
   // ===========================================================================

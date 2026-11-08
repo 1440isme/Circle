@@ -17,6 +17,10 @@ import {
   UpdateSharedAlbumDto,
   AddPhotosDto,
   CreateWheelDto,
+  UpdateWheelDto,
+  CreateWheelFolderDto,
+  UpdateWheelFolderDto,
+  ShareWheelResultsDto,
   CreateAnonymousPostDto,
   ReactAnonymousPostDto,
   CreateCalendarEventDto,
@@ -156,6 +160,83 @@ export class CircleToolsController {
   // 2. DECISION WHEEL (UC16)
   // ===========================================================================
 
+  @Get('wheels/folders')
+  async getWheelFolders(
+    @Param('circleId') circleId: string,
+    @CurrentUser('id') userId: string,
+  ): Promise<ApiResponse<any>> {
+    const data = await this.toolsService.getWheelFolders(circleId, userId);
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      data,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  @Post('wheels/folders')
+  @HttpCode(HttpStatus.CREATED)
+  async createWheelFolder(
+    @Param('circleId') circleId: string,
+    @CurrentUser('id') userId: string,
+    @Body() dto: CreateWheelFolderDto,
+  ): Promise<ApiResponse<any>> {
+    const data = await this.toolsService.createWheelFolder(circleId, userId, dto);
+    return {
+      success: true,
+      statusCode: HttpStatus.CREATED,
+      data,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  @Post('wheels/folders/:folderId/restore')
+  @HttpCode(HttpStatus.OK)
+  async restoreWheelFolder(
+    @Param('circleId') circleId: string,
+    @Param('folderId') folderId: string,
+    @CurrentUser('id') userId: string,
+  ): Promise<ApiResponse<any>> {
+    const data = await this.toolsService.restoreWheelFolder(circleId, folderId, userId);
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      data,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  @Put('wheels/folders/:folderId')
+  async updateWheelFolder(
+    @Param('circleId') circleId: string,
+    @Param('folderId') folderId: string,
+    @CurrentUser('id') userId: string,
+    @Body() dto: UpdateWheelFolderDto,
+  ): Promise<ApiResponse<any>> {
+    const data = await this.toolsService.updateWheelFolder(circleId, folderId, userId, dto);
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      data,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  @Delete('wheels/folders/:folderId')
+  async deleteWheelFolder(
+    @Param('circleId') circleId: string,
+    @Param('folderId') folderId: string,
+    @CurrentUser('id') userId: string,
+  ): Promise<ApiResponse<any>> {
+    const data = await this.toolsService.deleteWheelFolder(circleId, folderId, userId);
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      data,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
   @Get('wheels')
   async getWheels(
     @Param('circleId') circleId: string,
@@ -186,6 +267,21 @@ export class CircleToolsController {
     };
   }
 
+  @Post('wheels/spin-all')
+  @HttpCode(HttpStatus.OK)
+  async spinAllWheels(
+    @Param('circleId') circleId: string,
+    @CurrentUser('id') userId: string,
+  ): Promise<ApiResponse<any>> {
+    const data = await this.toolsService.spinAllWheels(circleId, userId);
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      data,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
   @Post('wheels/:wheelId/spin')
   @HttpCode(HttpStatus.OK)
   async spinWheel(
@@ -194,6 +290,38 @@ export class CircleToolsController {
     @CurrentUser('id') userId: string,
   ): Promise<ApiResponse<any>> {
     const data = await this.toolsService.spinWheel(circleId, wheelId, userId);
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      data,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  @Put('wheels/:wheelId')
+  async updateWheel(
+    @Param('circleId') circleId: string,
+    @Param('wheelId') wheelId: string,
+    @CurrentUser('id') userId: string,
+    @Body() dto: UpdateWheelDto,
+  ): Promise<ApiResponse<any>> {
+    const data = await this.toolsService.updateWheel(circleId, wheelId, userId, dto);
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      data,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+
+  @Delete('wheels')
+  async deleteAllWheels(
+    @Param('circleId') circleId: string,
+    @CurrentUser('id') userId: string,
+    @Query('title') defaultTitle?: string,
+  ): Promise<ApiResponse<any>> {
+    const data = await this.toolsService.deleteAllWheels(circleId, userId, defaultTitle);
     return {
       success: true,
       statusCode: HttpStatus.OK,
@@ -212,6 +340,21 @@ export class CircleToolsController {
     return {
       success: true,
       statusCode: HttpStatus.OK,
+      data,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  @Post('wheels/share-results')
+  async shareWheelResultsToChat(
+    @Param('circleId') circleId: string,
+    @CurrentUser('id') userId: string,
+    @Body() dto: ShareWheelResultsDto,
+  ): Promise<ApiResponse<any>> {
+    const data = await this.toolsService.shareWheelResultsToChat(circleId, userId, dto.results);
+    return {
+      success: true,
+      statusCode: HttpStatus.CREATED,
       data,
       timestamp: new Date().toISOString(),
     };

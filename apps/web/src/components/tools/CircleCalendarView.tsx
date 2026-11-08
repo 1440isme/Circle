@@ -4,7 +4,6 @@ import React, { useState, useMemo, useEffect } from 'react';
 import {
   Calendar as CalendarIcon,
   Plus,
-  Minus,
   Clock,
   MapPin,
   Trash2,
@@ -16,18 +15,19 @@ import {
   Bell,
   Loader2,
   CalendarDays,
-  Check,
-  HelpCircle,
-  AlertCircle,
   Repeat,
   Share2,
   Info,
+  RotateCcw,
 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { getSocket } from '../../lib/socket';
 import { EventLocationDisplay } from './EventLocationDisplay';
 import { LocationSearchInput } from './LocationSearchInput';
 import { CustomDateTimePicker } from './CustomDateTimePicker';
+import { CalendarDatePickerPopup } from './CalendarDatePickerPopup';
+import { CustomRecurrenceModal } from './CustomRecurrenceModal';
+import { CircleEventDetailModal } from './CircleEventDetailModal';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguageStore } from '../../stores/language.store';
 import { useCircleStore } from '../../stores/circle.store';
@@ -43,448 +43,51 @@ import {
   TOOLS_KEYS,
 } from '../../hooks/use-circle-tools';
 import { CalendarEventEntity, EventRsvpStatus } from '@circle/types';
+import {
+  RecurrenceFrequency,
+  NthWeekdayOrder,
+  MonthlyType,
+  YearlyType,
+  RecurrenceEndType,
+  RecurrenceConfig,
+  WEEKDAY_INFO,
+  NTH_ORDER_INFO,
+  formatDateKey,
+  getWeekdayNumber,
+  getDefaultWeeklyDays,
+  getNthOrderFromDate,
+  formatRecurrenceSummary,
+  createDefaultRecurrenceConfig,
+  formatDateOnly,
+  serializeRecurrence,
+  parseEventRecurrence,
+  isEventOccurringOnDate,
+  isEventCancelledOnDate,
+  formatEventTimeForDate,
+  getNextOrPrevOccurrence,
+} from './calendar-recurrence';
 
-// ==========================================
-// RECURRENCE TYPES & HELPERS (PARITY WITH MOBILE)
-// ==========================================
-export type RecurrenceFrequency = 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly';
-export type NthWeekdayOrder = 'first' | 'second' | 'third' | 'fourth' | 'last';
-export type MonthlyType = 'day_of_month' | 'nth_weekday';
-export type YearlyType = 'specific_date' | 'nth_weekday';
-export type RecurrenceEndType = 'never' | 'on_date';
-
-export interface RecurrenceConfig {
-  frequency: RecurrenceFrequency;
-  interval: number; // Mỗi N ngày/tuần/tháng/năm (>= 1)
-  weeklyDays: number[]; // 1 = T2, ..., 7 = CN
-  monthlyType: MonthlyType;
-  monthlyDay: number; // 1 - 31
-  monthlyNthOrder: NthWeekdayOrder;
-  monthlyNthWeekday: number; // 1 = T2 ... 7 = CN
-  yearlyType: YearlyType;
-  yearlyDay: number; // 1 - 31
-  yearlyMonth: number; // 1 - 12
-  yearlyNthOrder: NthWeekdayOrder;
-  yearlyNthWeekday: number; // 1 = T2 ... 7 = CN
-  yearlyNthMonth: number; // 1 - 12
-  endType: RecurrenceEndType;
-  endDate: Date | null;
-  isCustom?: boolean;
-  excludedDates?: string[]; // Danh sách 'YYYY-MM-DD' các lần diễn ra đã bị xóa riêng
-  cancelledDates?: string[]; // Danh sách 'YYYY-MM-DD' các lần diễn ra đã bị hủy riêng
-}
-
-export const WEEKDAY_INFO: Record<number, { full: string; short: string }> = {
-  1: { full: 'Thứ Hai', short: 'T2' },
-  2: { full: 'Thứ Ba', short: 'T3' },
-  3: { full: 'Thứ Tư', short: 'T4' },
-  4: { full: 'Thứ Năm', short: 'T5' },
-  5: { full: 'Thứ Sáu', short: 'T6' },
-  6: { full: 'Thứ Bảy', short: 'T7' },
-  7: { full: 'Chủ Nhật', short: 'CN' },
+export type {
+  RecurrenceFrequency,
+  NthWeekdayOrder,
+  MonthlyType,
+  YearlyType,
+  RecurrenceEndType,
+  RecurrenceConfig,
 };
-
-export const NTH_ORDER_INFO: Record<NthWeekdayOrder, string> = {
-  first: 'đầu tiên',
-  second: 'thứ hai',
-  third: 'thứ ba',
-  fourth: 'thứ tư',
-  last: 'cuối cùng',
-};
-
-const pad2 = (n: number) => String(n).padStart(2, '0');
-
-export const formatDateKey = (d: Date): string => {
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
-};
-
-const getWeekdayNumber = (d: Date): number => {
-  const day = d.getDay();
-  return day === 0 ? 7 : day;
-};
-
-const getDefaultWeeklyDays = (start: Date, end: Date): number[] => {
-  const startDay = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-  const endDay = new Date(end.getFullYear(), end.getMonth(), end.getDate());
-  const diffDays = Math.round((endDay.getTime() - startDay.getTime()) / (1000 * 60 * 60 * 24));
-
-  if (diffDays <= 0) {
-    return [getWeekdayNumber(start)];
-  }
-
-  if (diffDays >= 6) {
-    return [1, 2, 3, 4, 5, 6, 7];
-  }
-
-  const result: number[] = [];
-  const current = new Date(startDay);
-  for (let i = 0; i <= diffDays; i++) {
-    const wk = getWeekdayNumber(current);
-    if (!result.includes(wk)) {
-      result.push(wk);
-    }
-    current.setDate(current.getDate() + 1);
-  }
-  return result.sort((a, b) => a - b);
-};
-
-const getNthOrderFromDate = (d: Date): NthWeekdayOrder => {
-  const day = d.getDate();
-  if (day <= 7) return 'first';
-  if (day <= 14) return 'second';
-  if (day <= 21) return 'third';
-  if (day <= 28) return 'fourth';
-  return 'last';
-};
-
-export const formatRecurrenceSummary = (config: RecurrenceConfig): string => {
-  if (config.frequency === 'none') {
-    return 'Không lặp lại';
-  }
-
-  let text = '';
-  const { interval } = config;
-
-  if (config.frequency === 'daily') {
-    text = interval === 1 ? 'Hằng ngày' : `Mỗi ${interval} ngày`;
-  } else if (config.frequency === 'weekly') {
-    const days = Array.isArray(config.weeklyDays) ? [...config.weeklyDays] : [];
-    const daysStr = days
-      .sort((a, b) => a - b)
-      .map((d) => WEEKDAY_INFO[d]?.short || `T${d}`)
-      .join(', ');
-    if (interval === 1) {
-      text = daysStr ? `Hằng tuần vào ${daysStr}` : 'Hằng tuần';
-    } else {
-      text = daysStr ? `Mỗi ${interval} tuần vào ${daysStr}` : `Mỗi ${interval} tuần`;
-    }
-  } else if (config.frequency === 'monthly') {
-    if (config.monthlyType === 'day_of_month') {
-      text = interval === 1
-        ? `Hằng tháng vào ngày ${config.monthlyDay}`
-        : `Mỗi ${interval} tháng vào ngày ${config.monthlyDay}`;
-    } else {
-      const orderName = NTH_ORDER_INFO[config.monthlyNthOrder] || '';
-      const dayName = WEEKDAY_INFO[config.monthlyNthWeekday]?.full || '';
-      text = interval === 1
-        ? `Hằng tháng vào ${dayName} ${orderName}`
-        : `Mỗi ${interval} tháng vào ${dayName} ${orderName}`;
-    }
-  } else if (config.frequency === 'yearly') {
-    if (config.yearlyType === 'specific_date') {
-      text = interval === 1
-        ? `Hằng năm vào ngày ${config.yearlyDay}/${config.yearlyMonth}`
-        : `Mỗi ${interval} năm vào ngày ${config.yearlyDay}/${config.yearlyMonth}`;
-    } else {
-      const orderName = NTH_ORDER_INFO[config.yearlyNthOrder] || '';
-      const dayName = WEEKDAY_INFO[config.yearlyNthWeekday]?.full || '';
-      text = interval === 1
-        ? `Hằng năm vào ${dayName} ${orderName} của Tháng ${config.yearlyNthMonth}`
-        : `Mỗi ${interval} năm vào ${dayName} ${orderName} của Tháng ${config.yearlyNthMonth}`;
-    }
-  }
-
-  return text;
-};
-
-export const createDefaultRecurrenceConfig = (
-  baseDate: Date,
-  endDate?: Date,
-): RecurrenceConfig => {
-  const dayNum = baseDate.getDate();
-  const monthNum = baseDate.getMonth() + 1;
-  const weekday = getWeekdayNumber(baseDate);
-  const nthOrder = getNthOrderFromDate(baseDate);
-
-  const initialWeeklyDays = endDate
-    ? getDefaultWeeklyDays(baseDate, endDate)
-    : [weekday];
-
-  return {
-    frequency: 'none',
-    interval: 1,
-    weeklyDays: initialWeeklyDays,
-    monthlyType: 'day_of_month',
-    monthlyDay: dayNum,
-    monthlyNthOrder: nthOrder,
-    monthlyNthWeekday: weekday,
-    yearlyType: 'specific_date',
-    yearlyDay: dayNum,
-    yearlyMonth: monthNum,
-    yearlyNthOrder: nthOrder,
-    yearlyNthWeekday: weekday,
-    yearlyNthMonth: monthNum,
-    endType: 'never',
-    endDate: null,
-    excludedDates: [],
-    cancelledDates: [],
-  };
-};
-
-export const formatDateOnly = (d: Date) => {
-  const day = pad2(d.getDate());
-  const month = pad2(d.getMonth() + 1);
-  const year = d.getFullYear();
-  return `${day}/${month}/${year}`;
-};
-
-export const serializeRecurrence = (config: RecurrenceConfig, baseDesc?: string): string => {
-  const clean = (baseDesc || '')
-    .replace(/\[RECURRENCE:(\{[\s\S]*?\}|[^\]]*?)\]/g, '')
-    .replace(/\[Lặp lại:[^\]]*?\]/g, '')
-    .replace(/\[RECURRENCE:[\s\S]*?\]/g, '')
-    .replace(/,?\s*\"(?:monthlyType|frequency|interval|weeklyDays|endType|yearlyType|yearlyMonth|yearlyDay|monthlyDay|monthlyNthOrder|monthlyNthWeekday|yearlyNthOrder|yearlyNthWeekday|yearlyNthMonth|endDate|isCustom|excludedDates|cancelledDates)\":[\s\S]*?\}\]/g, '')
-    .replace(/,?\s*\"(?:monthlyType|frequency|interval|weeklyDays|endType|yearlyType|yearlyMonth|yearlyDay|monthlyDay|monthlyNthOrder|monthlyNthWeekday|yearlyNthOrder|yearlyNthWeekday|yearlyNthMonth|endDate|isCustom|excludedDates|cancelledDates)\":[\s\S]*?$/g, '')
-    .trim();
-  const normalizedClean = clean.toLowerCase() === 'body' || clean === 'null' ? '' : clean;
-
-  if (!config || config.frequency === 'none') {
-    return normalizedClean;
-  }
-
-  const repeatSummary = formatRecurrenceSummary(config);
-  const serialized = JSON.stringify({
-    frequency: config.frequency,
-    interval: config.interval,
-    weeklyDays: config.weeklyDays,
-    monthlyType: config.monthlyType,
-    monthlyDay: config.monthlyDay,
-    monthlyNthOrder: config.monthlyNthOrder,
-    monthlyNthWeekday: config.monthlyNthWeekday,
-    yearlyType: config.yearlyType,
-    yearlyMonth: config.yearlyMonth,
-    yearlyDay: config.yearlyDay,
-    yearlyNthOrder: config.yearlyNthOrder,
-    yearlyNthWeekday: config.yearlyNthWeekday,
-    endType: config.endType,
-    endDate: config.endDate ? (config.endDate instanceof Date ? config.endDate.toISOString() : config.endDate) : null,
-    isCustom: Boolean(config.isCustom),
-    excludedDates: config.excludedDates || [],
-    cancelledDates: config.cancelledDates || [],
-  });
-  const recurrenceTag = `[RECURRENCE:${serialized}]`;
-  const userRepeatText = `[Lặp lại: ${repeatSummary}]`;
-  return normalizedClean ? `${normalizedClean}\n${userRepeatText}\n${recurrenceTag}` : `${userRepeatText}\n${recurrenceTag}`;
-};
-
-export const parseEventRecurrence = (desc?: string | null): {
-  cleanDesc: string;
-  recurrenceConfig: RecurrenceConfig | null;
-} => {
-  if (!desc) {
-    return { cleanDesc: '', recurrenceConfig: null };
-  }
-
-  let cleanDesc = desc
-    .replace(/\[RECURRENCE:(\{[\s\S]*?\}|[^\]]*?)\]/g, '')
-    .replace(/\[Lặp lại:[^\]]*?\]/g, '')
-    .replace(/\[RECURRENCE:[\s\S]*?\]/g, '')
-    .replace(/,?\s*\"(?:monthlyType|frequency|interval|weeklyDays|endType|yearlyType|yearlyMonth|yearlyDay|monthlyDay|monthlyNthOrder|monthlyNthWeekday|yearlyNthOrder|yearlyNthWeekday|yearlyNthMonth|endDate|isCustom|excludedDates|cancelledDates)\":[\s\S]*?\}\]/g, '')
-    .replace(/,?\s*\"(?:monthlyType|frequency|interval|weeklyDays|endType|yearlyType|yearlyMonth|yearlyDay|monthlyDay|monthlyNthOrder|monthlyNthWeekday|yearlyNthOrder|yearlyNthWeekday|yearlyNthMonth|endDate|isCustom|excludedDates|cancelledDates)\":[\s\S]*?$/g, '')
-    .trim();
-
-  if (cleanDesc.toLowerCase() === 'body' || cleanDesc === 'null') {
-    cleanDesc = '';
-  }
-
-  let recurrenceConfig: RecurrenceConfig | null = null;
-  const recurrenceMatch = desc.match(/\[RECURRENCE:(\{[\s\S]*?\})\]/);
-  if (recurrenceMatch && recurrenceMatch[1]) {
-    try {
-      const raw = JSON.parse(recurrenceMatch[1]);
-      recurrenceConfig = {
-        frequency: raw.frequency || 'none',
-        interval: Number(raw.interval) || 1,
-        weeklyDays: Array.isArray(raw.weeklyDays) ? raw.weeklyDays : [],
-        monthlyType: raw.monthlyType || 'day_of_month',
-        monthlyDay: Number(raw.monthlyDay) || 1,
-        monthlyNthOrder: raw.monthlyNthOrder || 'first',
-        monthlyNthWeekday: Number(raw.monthlyNthWeekday) || 1,
-        yearlyType: raw.yearlyType || 'specific_date',
-        yearlyDay: Number(raw.yearlyDay) || 1,
-        yearlyMonth: Number(raw.yearlyMonth) || 1,
-        yearlyNthOrder: raw.yearlyNthOrder || 'first',
-        yearlyNthWeekday: Number(raw.yearlyNthWeekday) || 1,
-        yearlyNthMonth: Number(raw.yearlyNthMonth) || 1,
-        endType: raw.endType || 'never',
-        endDate: raw.endDate ? new Date(raw.endDate) : null,
-        isCustom: Boolean(raw.isCustom),
-        excludedDates: Array.isArray(raw.excludedDates) ? raw.excludedDates : [],
-        cancelledDates: Array.isArray(raw.cancelledDates) ? raw.cancelledDates : [],
-      };
-    } catch {
-      // Fallback
-    }
-  }
-
-  return { cleanDesc, recurrenceConfig };
-};
-
-export const isEventOccurringOnDate = (ev: CalendarEventEntity, targetDate: Date): boolean => {
-  const evStart = new Date(ev.startTime);
-  const evEnd = ev.endTime ? new Date(ev.endTime) : evStart;
-
-  const targetY = targetDate.getFullYear();
-  const targetM = targetDate.getMonth();
-  const targetD = targetDate.getDate();
-
-  const dayStartTime = new Date(targetY, targetM, targetD, 0, 0, 0, 0).getTime();
-  const dayEndTime = new Date(targetY, targetM, targetD, 23, 59, 59, 999).getTime();
-
-  const { recurrenceConfig } = parseEventRecurrence(ev.description);
-
-  if (!recurrenceConfig || recurrenceConfig.frequency === 'none') {
-    const startMs = evStart.getTime();
-    const endMs = evEnd.getTime();
-    return startMs <= dayEndTime && endMs >= dayStartTime;
-  }
-
-  const targetDateKey = `${targetY}-${pad2(targetM + 1)}-${pad2(targetD)}`;
-  if (recurrenceConfig.excludedDates && recurrenceConfig.excludedDates.includes(targetDateKey)) {
-    return false;
-  }
-
-  if (recurrenceConfig.endType === 'on_date' && recurrenceConfig.endDate) {
-    const repeatEndDate = new Date(recurrenceConfig.endDate);
-    const repeatEndDayTime = new Date(
-      repeatEndDate.getFullYear(),
-      repeatEndDate.getMonth(),
-      repeatEndDate.getDate(),
-      23,
-      59,
-      59,
-      999,
-    ).getTime();
-    if (dayStartTime > repeatEndDayTime) {
-      return false;
-    }
-  }
-
-  const baseStartDayTime = new Date(
-    evStart.getFullYear(),
-    evStart.getMonth(),
-    evStart.getDate(),
-    0,
-    0,
-    0,
-    0,
-  ).getTime();
-
-  if (dayEndTime < baseStartDayTime) {
-    return false;
-  }
-
-  const { frequency, interval } = recurrenceConfig;
-  const safeInterval = Math.max(1, interval || 1);
-
-  if (frequency === 'daily') {
-    const diffDays = Math.round((dayStartTime - baseStartDayTime) / (1000 * 60 * 60 * 24));
-    return diffDays >= 0 && diffDays % safeInterval === 0;
-  }
-
-  if (frequency === 'weekly') {
-    const targetWeekday = targetDate.getDay() === 0 ? 7 : targetDate.getDay();
-    const allowedDays =
-      recurrenceConfig.weeklyDays && recurrenceConfig.weeklyDays.length > 0
-        ? recurrenceConfig.weeklyDays
-        : [evStart.getDay() === 0 ? 7 : evStart.getDay()];
-
-    if (!allowedDays.includes(targetWeekday)) {
-      return false;
-    }
-
-    if (safeInterval === 1) {
-      return true;
-    }
-
-    const startWkMonday = new Date(evStart);
-    const startWkDay = startWkMonday.getDay() === 0 ? 7 : startWkMonday.getDay();
-    startWkMonday.setDate(startWkMonday.getDate() - (startWkDay - 1));
-    startWkMonday.setHours(0, 0, 0, 0);
-
-    const targetWkMonday = new Date(targetDate);
-    targetWkMonday.setDate(targetWkMonday.getDate() - (targetWeekday - 1));
-    targetWkMonday.setHours(0, 0, 0, 0);
-
-    const diffWeeks = Math.round(
-      (targetWkMonday.getTime() - startWkMonday.getTime()) / (1000 * 60 * 60 * 24 * 7),
-    );
-    return diffWeeks >= 0 && diffWeeks % safeInterval === 0;
-  }
-
-  if (frequency === 'monthly') {
-    const diffMonths = (targetY - evStart.getFullYear()) * 12 + (targetM - evStart.getMonth());
-    if (diffMonths < 0 || diffMonths % safeInterval !== 0) {
-      return false;
-    }
-
-    if (recurrenceConfig.monthlyType === 'day_of_month') {
-      const neededDay = recurrenceConfig.monthlyDay || evStart.getDate();
-      return targetD === neededDay;
-    }
-
-    const neededWk = recurrenceConfig.monthlyNthWeekday || (evStart.getDay() === 0 ? 7 : evStart.getDay());
-    const curWk = targetDate.getDay() === 0 ? 7 : targetDate.getDay();
-    if (curWk !== neededWk) return false;
-
-    const neededOrder = recurrenceConfig.monthlyNthOrder || getNthOrderFromDate(evStart);
-    return getNthOrderFromDate(targetDate) === neededOrder;
-  }
-
-  if (frequency === 'yearly') {
-    const diffYears = targetY - evStart.getFullYear();
-    if (diffYears < 0 || diffYears % safeInterval !== 0) {
-      return false;
-    }
-
-    if (recurrenceConfig.yearlyType === 'specific_date') {
-      const neededMonth = (recurrenceConfig.yearlyMonth || evStart.getMonth() + 1) - 1;
-      const neededDay = recurrenceConfig.yearlyDay || evStart.getDate();
-      return targetM === neededMonth && targetD === neededDay;
-    }
-
-    const neededMonth = (recurrenceConfig.yearlyNthMonth || evStart.getMonth() + 1) - 1;
-    if (targetM !== neededMonth) return false;
-
-    const neededWk = recurrenceConfig.yearlyNthWeekday || (evStart.getDay() === 0 ? 7 : evStart.getDay());
-    const curWk = targetDate.getDay() === 0 ? 7 : targetDate.getDay();
-    if (curWk !== neededWk) return false;
-
-    const neededOrder = recurrenceConfig.yearlyNthOrder || getNthOrderFromDate(evStart);
-    return getNthOrderFromDate(targetDate) === neededOrder;
-  }
-
-  return false;
-};
-
-export const isEventCancelledOnDate = (ev: CalendarEventEntity, targetDate: Date): boolean => {
-  if (ev.isCancelled) return true;
-  const { recurrenceConfig } = parseEventRecurrence(ev.description);
-  if (!recurrenceConfig) return false;
-  const targetDateKey = formatDateKey(targetDate);
-  return Boolean(recurrenceConfig.cancelledDates && recurrenceConfig.cancelledDates.includes(targetDateKey));
-};
-
-export const formatEventTimeForDate = (ev: CalendarEventEntity, targetDate: Date): string => {
-  const evStart = new Date(ev.startTime);
-  const evEnd = ev.endTime ? new Date(ev.endTime) : null;
-  const { recurrenceConfig } = parseEventRecurrence(ev.description);
-
-  if (!recurrenceConfig || recurrenceConfig.frequency === 'none') {
-    const sStr = `${pad2(evStart.getHours())}:${pad2(evStart.getMinutes())}`;
-    if (!evEnd) return sStr;
-    const isSameDay =
-      evStart.getFullYear() === evEnd.getFullYear() &&
-      evStart.getMonth() === evEnd.getMonth() &&
-      evStart.getDate() === evEnd.getDate();
-    const eStr = `${pad2(evEnd.getHours())}:${pad2(evEnd.getMinutes())}`;
-    return isSameDay ? `${sStr} - ${eStr}` : `${sStr} (${formatDateOnly(evStart)}) - ${eStr} (${formatDateOnly(evEnd)})`;
-  }
-
-  const sStr = `${pad2(evStart.getHours())}:${pad2(evStart.getMinutes())}`;
-  if (!evEnd) return sStr;
-  const eStr = `${pad2(evEnd.getHours())}:${pad2(evEnd.getMinutes())}`;
-  return `${sStr} - ${eStr}`;
+export {
+  WEEKDAY_INFO,
+  NTH_ORDER_INFO,
+  formatDateKey,
+  formatRecurrenceSummary,
+  createDefaultRecurrenceConfig,
+  formatDateOnly,
+  serializeRecurrence,
+  parseEventRecurrence,
+  isEventOccurringOnDate,
+  isEventCancelledOnDate,
+  formatEventTimeForDate,
+  getNextOrPrevOccurrence,
 };
 
 interface CircleCalendarViewProps {
@@ -528,11 +131,33 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
     createDefaultRecurrenceConfig(new Date())
   );
 
-  // Scope modal state for recurring event edit
+  // Dedicated Scope & Modal States
   const [editingEvent, setEditingEvent] = useState<CalendarEventEntity | null>(null);
   const [editingOccurrenceDate, setEditingOccurrenceDate] = useState<Date | null>(null);
   const [showScopeModal, setShowScopeModal] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  // Delete & Cancel Scope Modals
+  const [deleteModalState, setDeleteModalState] = useState<{
+    isOpen: boolean;
+    event: CalendarEventEntity | null;
+    occDate: Date | null;
+  }>({ isOpen: false, event: null, occDate: null });
+
+  const [cancelModalState, setCancelModalState] = useState<{
+    isOpen: boolean;
+    event: CalendarEventEntity | null;
+    occDate: Date | null;
+  }>({ isOpen: false, event: null, occDate: null });
+
+  // Event Detail Modal & Custom Recurrence Popup Modal
+  const [detailModalState, setDetailModalState] = useState<{
+    isOpen: boolean;
+    event: CalendarEventEntity | null;
+    occDate: Date | null;
+  }>({ isOpen: false, event: null, occDate: null });
+
+  const [isCustomRepeatOpen, setIsCustomRepeatOpen] = useState(false);
 
   const month = currentDate.getMonth() + 1;
   const year = currentDate.getFullYear();
@@ -620,9 +245,10 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
     setIsAddModalOpen(true);
   };
 
-  const handleOpenEditModal = (ev: CalendarEventEntity) => {
+  const handleOpenEditModal = (ev: CalendarEventEntity, occDate?: Date) => {
     setEditingEvent(ev);
-    setEditingOccurrenceDate(selectedDate ? new Date(selectedDate) : new Date(ev.startTime));
+    const targetOcc = occDate || (selectedDate ? new Date(selectedDate) : new Date(ev.startTime));
+    setEditingOccurrenceDate(targetOcc);
     setSubmitError(null);
     setTitle(ev.eventTitle);
     setLocation(ev.location || '');
@@ -633,8 +259,8 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
     const s = new Date(ev.startTime);
     const e = ev.endTime ? new Date(ev.endTime) : new Date(s.getTime() + 3600000);
 
-    if (parsedRec && parsedRec.frequency !== 'none' && selectedDate) {
-      const occStart = new Date(selectedDate);
+    if (parsedRec && parsedRec.frequency !== 'none' && targetOcc) {
+      const occStart = new Date(targetOcc);
       occStart.setHours(s.getHours(), s.getMinutes(), 0, 0);
       setStartTime(formatToLocalDateTimeInput(occStart, s.getHours(), s.getMinutes()));
 
@@ -643,7 +269,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
           new Date(s.getFullYear(), s.getMonth(), s.getDate()).getTime()) /
           (1000 * 60 * 60 * 24)
       );
-      const occEnd = new Date(selectedDate);
+      const occEnd = new Date(targetOcc);
       occEnd.setDate(occEnd.getDate() + Math.max(0, diffDays));
       setEndTime(formatToLocalDateTimeInput(occEnd, e.getHours(), e.getMinutes()));
     } else {
@@ -685,6 +311,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
         weeklyDays: prev.weeklyDays.length > 0 ? prev.weeklyDays : baseWk,
         isCustom: true,
       }));
+      setIsCustomRepeatOpen(true);
       return;
     }
 
@@ -722,7 +349,8 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
   }, [year, month]);
 
   const firstDayOfWeek = useMemo(() => {
-    return new Date(year, month - 1, 1).getDay();
+    const day = new Date(year, month - 1, 1).getDay();
+    return day === 0 ? 6 : day - 1; // 0 = Thứ Hai, 6 = Chủ Nhật
   }, [year, month]);
 
   const prevMonth = () => {
@@ -733,18 +361,16 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
     setCurrentDate(new Date(year, month, 1));
   };
 
-  const today = () => {
-    const nowTime = new Date();
-    setCurrentDate(nowTime);
-    setSelectedDate(nowTime);
+  const goToToday = () => {
+    const today = new Date();
+    setCurrentDate(today);
+    setSelectedDate(today);
   };
 
-  // Recurrence aware events by day
+  // Map events to days of the current month
   const eventsByDay = useMemo(() => {
     const map = new Map<number, CalendarEventEntity[]>();
-    const totalDays = new Date(year, month, 0).getDate();
-
-    for (let d = 1; d <= totalDays; d++) {
+    for (let d = 1; d <= daysInMonth; d++) {
       const targetDate = new Date(year, month - 1, d);
       for (const ev of events) {
         if (isEventOccurringOnDate(ev, targetDate)) {
@@ -779,6 +405,14 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
 
   useEffect(() => {
     if (targetCalendarEventId && selectedDayEvents.length > 0) {
+      const targetEv = selectedDayEvents.find((e) => e.id === targetCalendarEventId);
+      if (targetEv) {
+        setDetailModalState({
+          isOpen: true,
+          event: targetEv,
+          occDate: new Date(selectedDate),
+        });
+      }
       const timer = setTimeout(() => {
         const el = document.getElementById(`calendar-event-${targetCalendarEventId}`);
         if (el) {
@@ -787,7 +421,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
       }, 150);
       return () => clearTimeout(timer);
     }
-  }, [targetCalendarEventId, selectedDayEvents]);
+  }, [targetCalendarEventId, selectedDayEvents, selectedDate]);
 
   // Form Submit Handler supporting isolated occurrence scopes
   const handleCreateOrUpdateEvent = async (scope: 'this' | 'future' | 'all' = 'all') => {
@@ -865,7 +499,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
           };
           const standaloneDesc = serializeRecurrence(standaloneConfig, description);
 
-          await createMutation.mutateAsync({
+          const created = await createMutation.mutateAsync({
             eventTitle: title.trim(),
             description: standaloneDesc,
             location: location.trim() || undefined,
@@ -873,6 +507,14 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
             endTime: end.toISOString(),
             reminderTime: reminderIso,
           });
+
+          if (detailModalState.isOpen) {
+            setDetailModalState({
+              isOpen: true,
+              event: created,
+              occDate: new Date(created.startTime),
+            });
+          }
         } else if (isRecurring && scope === 'future' && editingOccurrenceDate) {
           const dayBefore = new Date(editingOccurrenceDate);
           dayBefore.setDate(dayBefore.getDate() - 1);
@@ -892,7 +534,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
             },
           });
 
-          await createMutation.mutateAsync({
+          const created = await createMutation.mutateAsync({
             eventTitle: title.trim(),
             description: finalDesc,
             location: location.trim() || undefined,
@@ -900,8 +542,16 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
             endTime: end.toISOString(),
             reminderTime: reminderIso,
           });
+
+          if (detailModalState.isOpen) {
+            setDetailModalState({
+              isOpen: true,
+              event: created,
+              occDate: new Date(created.startTime),
+            });
+          }
         } else {
-          await updateMutation.mutateAsync({
+          const updated = await updateMutation.mutateAsync({
             eventId: editingEvent.id,
             input: {
               eventTitle: title.trim(),
@@ -912,6 +562,10 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
               reminderTime: reminderIso,
             },
           });
+
+          if (detailModalState.isOpen) {
+            setDetailModalState((prev) => (prev.event ? { ...prev, event: updated } : prev));
+          }
         }
       } else {
         await createMutation.mutateAsync({
@@ -947,91 +601,182 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
     handleCreateOrUpdateEvent('all');
   };
 
-  const handleCancelEvent = async (ev: CalendarEventEntity) => {
-    const isRecurring = Boolean(
-      ev.description && (ev.description.includes('[RECURRENCE:') || ev.description.includes('[Lặp lại:'))
-    );
+  // Execution handler for Deleting events with 3 options
+  const executeDelete = async (scope: 'this' | 'future' | 'all') => {
+    const ev = deleteModalState.event;
+    const occD = deleteModalState.occDate || selectedDate || (ev ? new Date(ev.startTime) : new Date());
+    if (!ev) return;
 
-    if (isRecurring) {
-      const answer = confirm(
-        'Bạn có muốn CHỈ HỦY LẦN NÀY không?\n\n- Nhấn OK để CHỈ HỦY LẦN NÀY (các lần khác vẫn diễn ra bình thường).\n- Nhấn Cancel để chọn tiếp xem có muốn hủy toàn bộ chuỗi không.'
-      );
-      if (answer) {
-        const occKey = formatDateKey(selectedDate);
-        const { recurrenceConfig: parentConfig, cleanDesc: parentCleanDesc } = parseEventRecurrence(ev.description);
-        const currentCancelled = parentConfig?.cancelledDates || [];
-        const nextCancelled = currentCancelled.includes(occKey) ? currentCancelled : [...currentCancelled, occKey];
-        const updatedParentRecurrence: RecurrenceConfig = {
-          ...(parentConfig || createDefaultRecurrenceConfig(new Date(ev.startTime))),
-          cancelledDates: nextCancelled,
-        };
-        const updatedParentDesc = serializeRecurrence(updatedParentRecurrence, parentCleanDesc);
+    try {
+      const { recurrenceConfig: parentConfig, cleanDesc: parentCleanDesc } = parseEventRecurrence(ev.description);
+      const isRecurring = Boolean(parentConfig && parentConfig.frequency !== 'none');
 
-        await updateMutation.mutateAsync({
-          eventId: ev.id,
-          input: {
-            description: updatedParentDesc,
-          },
-        });
-        return;
+      if (isRecurring && parentConfig) {
+        const occKey = formatDateKey(occD);
+
+        if (scope === 'this') {
+          const currentExcluded = parentConfig.excludedDates || [];
+          const nextExcluded = Array.from(new Set([...currentExcluded, occKey]));
+          const updatedParentRecurrence: RecurrenceConfig = {
+            ...parentConfig,
+            excludedDates: nextExcluded,
+          };
+          const updatedParentDesc = serializeRecurrence(updatedParentRecurrence, parentCleanDesc);
+
+          await updateMutation.mutateAsync({
+            eventId: ev.id,
+            input: {
+              description: updatedParentDesc,
+            },
+          });
+        } else if (scope === 'future') {
+          const startOfOld = new Date(ev.startTime);
+          if (formatDateKey(occD) <= formatDateKey(startOfOld)) {
+            await deleteMutation.mutateAsync(ev.id);
+          } else {
+            const dayBefore = new Date(occD);
+            dayBefore.setDate(dayBefore.getDate() - 1);
+            const updatedConfig: RecurrenceConfig = {
+              ...parentConfig,
+              endType: 'on_date',
+              endDate: dayBefore,
+            };
+            const newDesc = serializeRecurrence(updatedConfig, parentCleanDesc);
+            await updateMutation.mutateAsync({
+              eventId: ev.id,
+              input: {
+                description: newDesc,
+              },
+            });
+          }
+        } else {
+          await deleteMutation.mutateAsync(ev.id);
+        }
+      } else {
+        await deleteMutation.mutateAsync(ev.id);
       }
 
-      if (confirm('Bạn có chắc chắn muốn HỦY TOÀN BỘ CHUỖI sự kiện lặp lại này?')) {
-        await cancelMutation.mutateAsync(ev.id);
+      setDeleteModalState({ isOpen: false, event: null, occDate: null });
+      if (detailModalState.event?.id === ev.id) {
+        setDetailModalState({ isOpen: false, event: null, occDate: null });
       }
-      return;
-    }
-
-    if (confirm('Bạn có chắc chắn muốn HỦY lịch hẹn này? Sự kiện sẽ được đánh dấu [ĐÃ HỦY] và giữ lại trên lịch để cả nhóm theo dõi.')) {
-      try {
-        await cancelMutation.mutateAsync(ev.id);
-      } catch (err: any) {
-        alert(err?.message || 'Có lỗi xảy ra khi hủy lịch hẹn');
-      }
+    } catch (err: any) {
+      alert(err?.message || 'Có lỗi xảy ra khi xóa sự kiện');
     }
   };
 
-  const handleDeleteEvent = async (ev: CalendarEventEntity) => {
-    const isRecurring = Boolean(
-      ev.description && (ev.description.includes('[RECURRENCE:') || ev.description.includes('[Lặp lại:'))
-    );
+  // Execution handler for Cancelling events with 3 options
+  const executeCancel = async (scope: 'this' | 'future' | 'all') => {
+    const ev = cancelModalState.event;
+    const occD = cancelModalState.occDate || selectedDate || (ev ? new Date(ev.startTime) : new Date());
+    if (!ev) return;
 
-    if (isRecurring) {
-      const answer = confirm(
-        'Bạn có muốn CHỈ XÓA LẦN NÀY khỏi lịch không?\n\n- Nhấn OK để CHỈ XÓA LẦN NÀY (các lần khác vẫn hiển thị đầy đủ).\n- Nhấn Cancel nếu muốn xóa toàn bộ chuỗi.'
-      );
-      if (answer) {
-        const occKey = formatDateKey(selectedDate);
-        const { recurrenceConfig: parentConfig, cleanDesc: parentCleanDesc } = parseEventRecurrence(ev.description);
-        const currentExcluded = parentConfig?.excludedDates || [];
-        const nextExcluded = currentExcluded.includes(occKey) ? currentExcluded : [...currentExcluded, occKey];
-        const updatedParentRecurrence: RecurrenceConfig = {
-          ...(parentConfig || createDefaultRecurrenceConfig(new Date(ev.startTime))),
-          excludedDates: nextExcluded,
+    try {
+      const { recurrenceConfig: parentConfig, cleanDesc: parentCleanDesc } = parseEventRecurrence(ev.description);
+      const isRecurring = Boolean(parentConfig && parentConfig.frequency !== 'none');
+
+      if (isRecurring && parentConfig) {
+        const occKey = formatDateKey(occD);
+
+        if (scope === 'this') {
+          const currentCancelled = parentConfig.cancelledDates || [];
+          const nextCancelled = Array.from(new Set([...currentCancelled, occKey]));
+          const updatedParentRecurrence: RecurrenceConfig = {
+            ...parentConfig,
+            cancelledDates: nextCancelled,
+          };
+          const updatedParentDesc = serializeRecurrence(updatedParentRecurrence, parentCleanDesc);
+
+          const updated = await updateMutation.mutateAsync({
+            eventId: ev.id,
+            input: {
+              description: updatedParentDesc,
+            },
+          });
+
+          if (detailModalState.event?.id === ev.id) {
+            setDetailModalState((prev) => (prev.event ? { ...prev, event: updated } : prev));
+          }
+        } else if (scope === 'future') {
+          const dayBefore = new Date(occD);
+          dayBefore.setDate(dayBefore.getDate() - 1);
+          const updatedConfig: RecurrenceConfig = {
+            ...parentConfig,
+            endType: 'on_date',
+            endDate: dayBefore,
+          };
+          const newDesc = serializeRecurrence(updatedConfig, parentCleanDesc);
+          const updated = await updateMutation.mutateAsync({
+            eventId: ev.id,
+            input: {
+              description: newDesc,
+            },
+          });
+
+          if (detailModalState.event?.id === ev.id) {
+            setDetailModalState((prev) => (prev.event ? { ...prev, event: updated } : prev));
+          }
+        } else {
+          await cancelMutation.mutateAsync(ev.id);
+          if (detailModalState.event?.id === ev.id) {
+            setDetailModalState((prev) =>
+              prev.event ? { ...prev, event: { ...prev.event, isCancelled: true } } : prev
+            );
+          }
+        }
+      } else {
+        await cancelMutation.mutateAsync(ev.id);
+        if (detailModalState.event?.id === ev.id) {
+          setDetailModalState((prev) =>
+            prev.event ? { ...prev, event: { ...prev.event, isCancelled: true } } : prev
+          );
+        }
+      }
+
+      setCancelModalState({ isOpen: false, event: null, occDate: null });
+    } catch (err: any) {
+      alert(err?.message || 'Có lỗi xảy ra khi hủy lịch hẹn');
+    }
+  };
+
+  // Execution handler for Restoring cancelled events / occurrences
+  const executeRestore = async (ev: CalendarEventEntity, occD: Date) => {
+    try {
+      const { recurrenceConfig: parentConfig, cleanDesc: parentCleanDesc } = parseEventRecurrence(ev.description);
+      const isRecurring = Boolean(parentConfig && parentConfig.frequency !== 'none');
+      const occKey = formatDateKey(occD);
+
+      if (isRecurring && parentConfig) {
+        const updatedConfig: RecurrenceConfig = {
+          ...parentConfig,
+          cancelledDates: (parentConfig.cancelledDates || []).filter((d) => d !== occKey),
         };
-        const updatedParentDesc = serializeRecurrence(updatedParentRecurrence, parentCleanDesc);
-
-        await updateMutation.mutateAsync({
+        const newDesc = serializeRecurrence(updatedConfig, parentCleanDesc);
+        const updated = await updateMutation.mutateAsync({
           eventId: ev.id,
           input: {
-            description: updatedParentDesc,
+            description: newDesc,
           },
         });
-        return;
+        if (detailModalState.event?.id === ev.id) {
+          setDetailModalState((prev) => (prev.event ? { ...prev, event: updated } : prev));
+        }
+      } else {
+        // If single event was marked isCancelled
+        const updated = await updateMutation.mutateAsync({
+          eventId: ev.id,
+          input: {
+            description: parentCleanDesc,
+          },
+        });
+        if (detailModalState.event?.id === ev.id) {
+          setDetailModalState((prev) =>
+            prev.event ? { ...prev, event: { ...prev.event, isCancelled: false } } : prev
+          );
+        }
       }
-
-      if (confirm('Bạn có chắc chắn muốn XÓA VĨNH VIỄN TOÀN BỘ CHUỖI sự kiện này?')) {
-        await deleteMutation.mutateAsync(ev.id);
-      }
-      return;
-    }
-
-    if (confirm('Bạn có chắc chắn muốn XÓA VĨNH VIỄN sự kiện này khỏi lịch? Sự kiện sẽ bị xóa hoàn toàn khỏi cơ sở dữ liệu.')) {
-      try {
-        await deleteMutation.mutateAsync(ev.id);
-      } catch (err: any) {
-        alert(err?.message || 'Có lỗi xảy ra khi xóa sự kiện');
-      }
+    } catch (err: any) {
+      alert(err?.message || 'Không thể khôi phục lịch hẹn');
     }
   };
 
@@ -1050,54 +795,184 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
           </p>
         </div>
 
+        {/* View mode toggle & Action buttons */}
         <div className="flex items-center gap-2">
-          {/* View mode toggle */}
-          <div className="flex items-center rounded-lg bg-circle-wash dark:bg-circle-dark-wash p-0.5 border border-circle-hairline dark:border-circle-dark-hairline mr-2">
+          <div className="flex items-center bg-circle-canvas dark:bg-circle-dark-canvas p-1 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline">
             <button
               type="button"
               onClick={() => setViewMode('month')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                 viewMode === 'month'
-                  ? 'bg-white dark:bg-circle-dark-surface text-circle-charcoal dark:text-circle-dark-text shadow-2xs'
-                  : 'text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white'
+                  ? 'bg-white dark:bg-circle-dark-surface text-circle-charcoal dark:text-circle-dark-text shadow-2xs font-bold'
+                  : 'text-circle-slate hover:text-circle-charcoal dark:hover:text-circle-dark-text'
               }`}
             >
-              <CalendarIcon className="h-3.5 w-3.5" />
-              <span>{t.collab?.monthView || 'Lưới tháng'}</span>
+              <CalendarDays className="h-3.5 w-3.5" />
+              <span>Theo tháng</span>
             </button>
             <button
               type="button"
               onClick={() => setViewMode('upcoming')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                 viewMode === 'upcoming'
-                  ? 'bg-white dark:bg-circle-dark-surface text-circle-charcoal dark:text-circle-dark-text shadow-2xs'
-                  : 'text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white'
+                  ? 'bg-white dark:bg-circle-dark-surface text-circle-charcoal dark:text-circle-dark-text shadow-2xs font-bold'
+                  : 'text-circle-slate hover:text-circle-charcoal dark:hover:text-circle-dark-text'
               }`}
             >
-              <CalendarDays className="h-3.5 w-3.5" />
-              <span>{t.collab?.upcomingView || 'Kèo sắp tới'}</span>
-              {upcomingEvents.length > 0 && (
-                <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-circle-primary/20 text-circle-charcoal dark:text-white font-bold">
-                  {upcomingEvents.length}
-                </span>
-              )}
+              <Clock className="h-3.5 w-3.5" />
+              <span>Sắp tới ({upcomingEvents.length})</span>
             </button>
           </div>
 
-          {viewMode === 'month' && (
-            <>
-              <button
-                type="button"
-                onClick={today}
-                className="rounded-lg border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-canvas px-3 py-1.5 text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash transition-colors shadow-2xs"
-              >
-                Hôm nay
-              </button>
-              <div className="flex items-center rounded-lg border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-canvas overflow-hidden shadow-2xs">
+          <button
+            type="button"
+            onClick={goToToday}
+            className="px-3 py-1.5 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash transition-colors"
+          >
+            Hôm nay
+          </button>
+          <button
+            type="button"
+            onClick={handleOpenCreateModal}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold shadow-2xs transition-all"
+          >
+            <Plus className="h-4 w-4" />
+            <span>Tạo sự kiện</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Main Content Area */}
+      {viewMode === 'upcoming' ? (
+        /* Upcoming feed */
+        <div className="space-y-6 max-w-4xl">
+          {isUpcomingLoading ? (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="h-6 w-6 animate-spin text-circle-slate" />
+            </div>
+          ) : upcomingEvents.length === 0 ? (
+            <div className="text-center py-20 rounded-2xl border border-dashed border-circle-hairline bg-white dark:bg-circle-dark-canvas p-8">
+              <CalendarIcon className="h-10 w-10 text-circle-slate/40 mx-auto mb-3" />
+              <p className="text-sm font-semibold text-circle-charcoal dark:text-circle-dark-text">
+                Không có sự kiện sắp tới
+              </p>
+              <p className="text-xs text-circle-slate dark:text-circle-dark-muted mt-1">
+                Tạo một sự kiện để lên lịch làm việc hoặc gặp gỡ cùng các thành viên.
+              </p>
+            </div>
+          ) : (
+            [
+              { groupTitle: 'Hôm nay', list: groupedUpcoming.today },
+              { groupTitle: 'Ngày mai', list: groupedUpcoming.tomorrow },
+              { groupTitle: 'Trong 7 ngày tới', list: groupedUpcoming.thisWeek },
+              { groupTitle: 'Sau đó', list: groupedUpcoming.later },
+            ]
+              .filter((g) => g.list.length > 0)
+              .map(({ groupTitle, list }) => (
+                <div key={groupTitle} className="space-y-3">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-circle-slate dark:text-circle-dark-muted">
+                    {groupTitle} ({list.length})
+                  </h3>
+                  <div className="space-y-3">
+                    {list.map((ev) => (
+                      <div
+                        key={ev.id}
+                        onClick={() =>
+                          setDetailModalState({
+                            isOpen: true,
+                            event: ev,
+                            occDate: new Date(ev.startTime),
+                          })
+                        }
+                        className="cursor-pointer hover:border-teal-500/60 hover:shadow-xs transition-all rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-canvas p-4 shadow-2xs space-y-3"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
+                                {ev.eventTitle}
+                              </span>
+                              {ev.isCancelled && (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-600 border border-rose-500/20">
+                                  Đã hủy
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 text-[11px] text-circle-slate dark:text-circle-dark-muted mt-1">
+                              <Clock className="h-3 w-3" />
+                              <span>{formatEventTimeForDate(ev, new Date(ev.startTime))}</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              onClick={() => handleShareToChat(ev.id)}
+                              className="p-1 text-circle-slate hover:text-circle-primary transition-colors"
+                              title="Chia sẻ vào chat"
+                            >
+                              <Share2 className="h-3.5 w-3.5" />
+                            </button>
+                            {!ev.isCancelled && (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEditModal(ev, new Date(ev.startTime))}
+                                className="p-1 text-circle-slate hover:text-circle-charcoal transition-colors"
+                                title="Chỉnh sửa lịch hẹn"
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setDeleteModalState({
+                                  isOpen: true,
+                                  event: ev,
+                                  occDate: new Date(ev.startTime),
+                                })
+                              }
+                              className="p-1 text-rose-600 hover:text-rose-700 transition-colors"
+                              title="Xóa lịch hẹn"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {ev.location && (
+                          <EventLocationDisplay location={ev.location} className="text-xs" />
+                        )}
+
+                        {(() => {
+                          const { cleanDesc } = parseEventRecurrence(ev.description);
+                          if (!cleanDesc) return null;
+                          return (
+                            <div className="flex items-start gap-1.5 text-xs text-circle-slate dark:text-circle-dark-muted mt-1 bg-circle-wash/40 dark:bg-circle-dark-surface/60 px-2.5 py-1.5 rounded-lg border border-circle-hairline/40">
+                              <Info className="h-3.5 w-3.5 text-circle-slate/70 dark:text-circle-dark-muted/70 shrink-0 mt-0.5" />
+                              <span className="whitespace-pre-wrap line-clamp-2">{cleanDesc}</span>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))
+          )}
+        </div>
+      ) : (
+        /* Month View Grid */
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+          {/* Calendar Grid (2 cols) */}
+          <div className="lg:col-span-2 rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-canvas p-4 shadow-2xs space-y-4">
+            {/* Month Navigator */}
+            <div className="flex items-center justify-between pb-3 border-b border-circle-hairline dark:border-circle-dark-hairline">
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={prevMonth}
-                  className="p-1.5 text-circle-slate hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors"
+                  className="p-1.5 rounded-lg text-circle-slate hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors"
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </button>
@@ -1107,169 +982,48 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                 <button
                   type="button"
                   onClick={nextMonth}
-                  className="p-1.5 text-circle-slate hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors"
+                  className="p-1.5 rounded-lg text-circle-slate hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors"
                 >
                   <ChevronRight className="h-4 w-4" />
                 </button>
               </div>
-            </>
-          )}
 
-          <button
-            type="button"
-            onClick={handleOpenCreateModal}
-            className="flex items-center gap-1.5 rounded-lg bg-circle-charcoal dark:bg-circle-primary px-3.5 py-1.5 text-xs font-semibold text-white dark:text-circle-charcoal hover:bg-circle-sage transition-all shadow-2xs"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Lên lịch hẹn</span>
-          </button>
-        </div>
-      </div>
-
-      {viewMode === 'upcoming' ? (
-        /* Upcoming View */
-        <div className="max-w-3xl mx-auto w-full space-y-6">
-          <div className="flex items-center justify-between pb-2 border-b border-circle-hairline dark:border-circle-dark-hairline">
-            <h2 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
-              Danh sách kèo sắp tới trong nhóm ({upcomingEvents.length})
-            </h2>
-            <button
-              type="button"
-              onClick={handleOpenCreateModal}
-              className="flex items-center gap-1 text-xs font-bold text-circle-primary hover:underline"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              <span>Thêm lịch hẹn mới</span>
-            </button>
-          </div>
-
-          {isUpcomingLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-6 w-6 animate-spin text-circle-slate" />
-            </div>
-          ) : upcomingEvents.length === 0 ? (
-            <div className="text-center py-12 rounded-2xl border border-dashed border-circle-hairline dark:border-circle-dark-hairline p-8">
-              <CalendarDays className="h-10 w-10 text-circle-slate/50 mx-auto mb-2" />
-              <p className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text">
-                Chưa có kèo nào sắp tới
-              </p>
-              <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted mt-1">
-                Tạo lịch hẹn để cùng tham gia nhé!
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              {[
-                { title: 'Hôm nay', list: groupedUpcoming.today },
-                { title: 'Ngày mai', list: groupedUpcoming.tomorrow },
-                { title: 'Trong tuần này', list: groupedUpcoming.thisWeek },
-                { title: 'Sắp tới', list: groupedUpcoming.later },
-              ].map(({ title: groupTitle, list }) => {
-                if (list.length === 0) return null;
-                return (
-                  <div key={groupTitle} className="space-y-3">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-circle-slate dark:text-circle-dark-muted">
-                      {groupTitle} ({list.length})
-                    </h3>
-                    <div className="space-y-3">
-                      {list.map((ev) => (
-                        <div
-                          key={ev.id}
-                          className="rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-canvas p-4 shadow-2xs space-y-3"
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
-                                  {ev.eventTitle}
-                                </span>
-                                {ev.isCancelled && (
-                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-600 border border-rose-500/20">
-                                    Đã hủy
-                                  </span>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-2 text-[11px] text-circle-slate dark:text-circle-dark-muted mt-1">
-                                <Clock className="h-3 w-3" />
-                                <span>{formatEventTimeForDate(ev, new Date(ev.startTime))}</span>
-                              </div>
-                            </div>
-
-                            <div className="flex items-center gap-1">
-                              <button
-                                type="button"
-                                onClick={() => handleShareToChat(ev.id)}
-                                className="p-1 text-circle-slate hover:text-circle-primary transition-colors"
-                                title="Chia sẻ vào chat"
-                              >
-                                <Share2 className="h-3.5 w-3.5" />
-                              </button>
-                              {!ev.isCancelled && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleOpenEditModal(ev)}
-                                  className="p-1 text-circle-slate hover:text-circle-charcoal transition-colors"
-                                >
-                                  <Pencil className="h-3.5 w-3.5" />
-                                </button>
-                              )}
-                            </div>
-                          </div>
-
-                          {ev.location && (
-                            <EventLocationDisplay location={ev.location} className="text-xs" />
-                          )}
-
-                          {(() => {
-                            const { cleanDesc } = parseEventRecurrence(ev.description);
-                            if (!cleanDesc) return null;
-                            return (
-                              <div className="flex items-start gap-1.5 text-xs text-circle-slate dark:text-circle-dark-muted mt-1 bg-circle-wash/40 dark:bg-circle-dark-surface/60 px-2.5 py-1.5 rounded-lg border border-circle-hairline/40">
-                                <Info className="h-3.5 w-3.5 text-circle-slate/70 dark:text-circle-dark-muted/70 shrink-0 mt-0.5" />
-                                <span className="whitespace-pre-wrap line-clamp-3">{cleanDesc}</span>
-                              </div>
-                            );
-                          })()}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      ) : (
-        /* Month Grid & Day Events View */
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Calendar Grid (2 cols on large screen) */}
-          <div className="lg:col-span-2 rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-canvas p-4 shadow-2xs">
-            {/* Weekdays */}
-            <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-bold text-circle-slate dark:text-circle-dark-muted pb-2 border-b border-circle-hairline dark:border-circle-dark-hairline">
-              <span className="text-rose-500">CN</span>
-              <span>T2</span>
-              <span>T3</span>
-              <span>T4</span>
-              <span>T5</span>
-              <span>T6</span>
-              <span>T7</span>
+              <span className="text-xs text-circle-slate dark:text-circle-dark-muted font-medium">
+                {events.length} sự kiện trong tháng
+              </span>
             </div>
 
-            {/* Days grid */}
-            <div className="grid grid-cols-7 gap-1.5 pt-2">
-              {Array.from({ length: firstDayOfWeek }).map((_, i) => (
-                <div key={`empty-${i}`} className="aspect-square opacity-0" />
+            {/* Weekday Labels (Thứ 2 đến CN) */}
+            <div className="grid grid-cols-7 gap-1 text-center text-xs font-bold text-circle-slate dark:text-circle-dark-muted mb-2">
+              {['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map((d) => (
+                <div key={d} className="py-1">
+                  {d}
+                </div>
               ))}
+            </div>
+
+            {/* Days Grid */}
+            <div className="grid grid-cols-7 gap-1">
+              {/* Empty leading slots */}
+              {Array.from({ length: firstDayOfWeek }).map((_, i) => (
+                <div
+                  key={`empty-${i}`}
+                  className="min-h-[80px] p-1 rounded-xl bg-circle-canvas/30 dark:bg-circle-dark-surface/20 border border-transparent"
+                />
+              ))}
+
+              {/* Day cells */}
               {Array.from({ length: daysInMonth }).map((_, i) => {
                 const dayNum = i + 1;
                 const isSelected =
                   selectedDate.getDate() === dayNum &&
                   selectedDate.getMonth() + 1 === month &&
                   selectedDate.getFullYear() === year;
-                const isCurrentToday =
-                  new Date().getDate() === dayNum &&
-                  new Date().getMonth() + 1 === month &&
-                  new Date().getFullYear() === year;
+
+                const isToday =
+                  now.getDate() === dayNum &&
+                  now.getMonth() + 1 === month &&
+                  now.getFullYear() === year;
 
                 const dayEvents = eventsByDay.get(dayNum) || [];
 
@@ -1278,34 +1032,50 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                     key={dayNum}
                     type="button"
                     onClick={() => setSelectedDate(new Date(year, month - 1, dayNum))}
-                    className={`group aspect-square rounded-xl p-1.5 flex flex-col justify-between transition-all relative border ${
+                    className={`min-h-[80px] p-1.5 rounded-xl border text-left flex flex-col justify-between transition-all ${
                       isSelected
-                        ? 'border-circle-primary bg-circle-primary/10 shadow-xs'
-                        : isCurrentToday
-                        ? 'border-circle-slate/30 bg-circle-wash/40 dark:bg-circle-dark-surface'
-                        : 'border-transparent hover:border-circle-hairline hover:bg-circle-wash dark:hover:bg-circle-dark-wash'
+                        ? 'border-teal-600 ring-2 ring-teal-500/20 bg-teal-50/20 dark:bg-teal-950/20'
+                        : isToday
+                        ? 'border-teal-500/40 bg-teal-50/10'
+                        : 'border-circle-hairline/60 dark:border-circle-dark-hairline/40 hover:bg-circle-wash/50 dark:hover:bg-circle-dark-surface/50'
                     }`}
                   >
-                    <span
-                      className={`text-xs font-semibold self-start h-5 w-5 flex items-center justify-center rounded-full ${
-                        isSelected
-                          ? 'bg-circle-primary text-white font-bold'
-                          : isCurrentToday
-                          ? 'bg-circle-charcoal text-white dark:bg-white dark:text-circle-charcoal font-bold'
-                          : 'text-circle-charcoal dark:text-circle-dark-text'
-                      }`}
-                    >
-                      {dayNum}
-                    </span>
+                    <div className="flex items-center justify-between w-full">
+                      <span
+                        className={`text-xs font-bold h-6 w-6 rounded-full flex items-center justify-center ${
+                          isToday
+                            ? 'bg-teal-600 text-white'
+                            : isSelected
+                            ? 'text-teal-700 dark:text-teal-300 font-extrabold'
+                            : 'text-circle-charcoal dark:text-circle-dark-text'
+                        }`}
+                      >
+                        {dayNum}
+                      </span>
+                      {dayEvents.length > 0 && (
+                        <span className="text-[9px] font-bold text-teal-600 bg-teal-500/10 px-1.5 py-0.2 rounded-full">
+                          {dayEvents.length}
+                        </span>
+                      )}
+                    </div>
 
-                    {/* Event indicators */}
+                    {/* Event indicators - Clicking directly opens Event Detail Modal */}
                     <div className="w-full space-y-0.5 overflow-hidden">
                       {dayEvents.slice(0, 2).map((ev) => {
                         const isCancelled = isEventCancelledOnDate(ev, new Date(year, month - 1, dayNum));
                         return (
                           <div
                             key={ev.id}
-                            className={`text-[9px] px-1 py-0.2 rounded-sm truncate text-left font-medium ${
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedDate(new Date(year, month - 1, dayNum));
+                              setDetailModalState({
+                                isOpen: true,
+                                event: ev,
+                                occDate: new Date(year, month - 1, dayNum),
+                              });
+                            }}
+                            className={`text-[9px] px-1 py-0.2 rounded-sm truncate text-left font-medium cursor-pointer hover:opacity-80 transition-opacity ${
                               isCancelled
                                 ? 'bg-rose-500/10 text-rose-600 line-through'
                                 : 'bg-teal-500/15 text-teal-800 dark:text-teal-300'
@@ -1374,7 +1144,14 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                     <div
                       key={ev.id}
                       id={`calendar-event-${ev.id}`}
-                      className={`rounded-xl border p-3 space-y-2.5 transition-all ${
+                      onClick={() => {
+                        setDetailModalState({
+                          isOpen: true,
+                          event: ev,
+                          occDate: new Date(selectedDate),
+                        });
+                      }}
+                      className={`rounded-xl border p-3 space-y-2.5 transition-all cursor-pointer hover:border-teal-500/60 hover:shadow-xs ${
                         isOccCancelled
                           ? 'border-rose-200 bg-rose-50/40 dark:bg-rose-950/20'
                           : 'border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-surface'
@@ -1410,7 +1187,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                           <button
                             type="button"
                             onClick={() => handleShareToChat(ev.id)}
@@ -1423,7 +1200,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                             <>
                               <button
                                 type="button"
-                                onClick={() => handleOpenEditModal(ev)}
+                                onClick={() => handleOpenEditModal(ev, selectedDate)}
                                 className="p-1 text-circle-slate hover:text-circle-charcoal transition-colors"
                                 title="Chỉnh sửa lịch hẹn"
                               >
@@ -1431,7 +1208,13 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                               </button>
                               <button
                                 type="button"
-                                onClick={() => handleCancelEvent(ev)}
+                                onClick={() =>
+                                  setCancelModalState({
+                                    isOpen: true,
+                                    event: ev,
+                                    occDate: new Date(selectedDate),
+                                  })
+                                }
                                 className="p-1 text-amber-600 hover:text-amber-700 transition-colors"
                                 title="Hủy lịch hẹn"
                               >
@@ -1439,9 +1222,25 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                               </button>
                             </>
                           )}
+                          {isOccCancelled && (
+                            <button
+                              type="button"
+                              onClick={() => executeRestore(ev, selectedDate)}
+                              className="p-1 text-emerald-600 hover:text-emerald-700 transition-colors"
+                              title="Khôi phục lịch hẹn"
+                            >
+                              <RotateCcw className="h-3.5 w-3.5" />
+                            </button>
+                          )}
                           <button
                             type="button"
-                            onClick={() => handleDeleteEvent(ev)}
+                            onClick={() =>
+                              setDeleteModalState({
+                                isOpen: true,
+                                event: ev,
+                                occDate: new Date(selectedDate),
+                              })
+                            }
                             className="p-1 text-rose-600 hover:text-rose-700 transition-colors"
                             title="Xóa vĩnh viễn"
                           >
@@ -1460,51 +1259,50 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                         return (
                           <div className="flex items-start gap-1.5 text-xs text-circle-slate dark:text-circle-dark-muted mt-1 bg-circle-wash/40 dark:bg-circle-dark-surface/60 px-2.5 py-1.5 rounded-lg border border-circle-hairline/40">
                             <Info className="h-3.5 w-3.5 text-circle-slate/70 dark:text-circle-dark-muted/70 shrink-0 mt-0.5" />
-                            <span className="whitespace-pre-wrap line-clamp-3">{cleanDesc}</span>
+                            <span className="whitespace-pre-wrap line-clamp-2">{cleanDesc}</span>
                           </div>
                         );
                       })()}
 
-                      {/* RSVP Poll Section */}
-                      <div className="pt-2 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60 space-y-1.5">
-                        <div className="flex items-center justify-between text-[11px] font-semibold text-circle-slate">
-                          <span>Bình chọn tham gia</span>
-                          <span className={`text-[10px] font-bold ${isOccCancelled ? 'text-rose-600' : 'text-teal-600'}`}>
-                            {isOccCancelled ? 'Đã đóng (Đã hủy)' : 'Đang diễn ra'}
-                          </span>
-                        </div>
+                      {/* RSVP Quick Actions */}
+                      {(() => {
+                        const rsvps = ev.rsvps || [];
+                        const myVote = rsvps.find((r) => r.userId === user?.id)?.status;
+                        const yesCount = rsvps.filter((r) => r.status === EventRsvpStatus.YES).length;
+                        const total = rsvps.length;
 
-                        <div className="grid grid-cols-3 gap-1.5">
-                          {[
-                            { status: EventRsvpStatus.YES, label: 'Tham gia', icon: Check, color: 'emerald' },
-                            { status: EventRsvpStatus.MAYBE, label: 'Có thể', icon: HelpCircle, color: 'amber' },
-                            { status: EventRsvpStatus.NO, label: 'Bận', icon: X, color: 'rose' },
-                          ].map(({ status, label, icon: Icon }) => {
-                            const isMyVote = ev.rsvps?.some(
-                              (r) => r.userId === user?.id && r.status === status
-                            );
-                            const count = ev.rsvps?.filter((r) => r.status === status).length || 0;
-
-                            return (
-                              <button
-                                key={status}
-                                type="button"
-                                disabled={isOccCancelled || rsvpMutation.isPending}
-                                onClick={() => rsvpMutation.mutate({ eventId: ev.id, status })}
-                                className={`py-1.5 px-2 rounded-lg text-center text-xs font-semibold flex items-center justify-center gap-1 transition-all border ${
-                                  isMyVote
-                                    ? 'bg-circle-charcoal text-white border-circle-charcoal shadow-2xs'
-                                    : 'border-circle-hairline bg-white dark:bg-circle-dark-surface hover:bg-circle-wash text-circle-charcoal dark:text-circle-dark-text'
-                                } disabled:opacity-50`}
-                              >
-                                <Icon className="h-3 w-3" />
-                                <span>{label}</span>
-                                {count > 0 && <span className="text-[10px] opacity-80">({count})</span>}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
+                        return (
+                          <div
+                            className="pt-2 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60 flex items-center justify-between text-[11px]"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <span className="text-circle-slate dark:text-circle-dark-muted font-medium">
+                              {total > 0 ? `${total} phản hồi (${yesCount} tham gia)` : 'Chưa có phản hồi'}
+                            </span>
+                            <div className="flex items-center gap-1">
+                              {[
+                                { status: EventRsvpStatus.YES, label: 'Tham gia', color: 'hover:border-emerald-500' },
+                                { status: EventRsvpStatus.MAYBE, label: 'Chưa chắc', color: 'hover:border-amber-500' },
+                                { status: EventRsvpStatus.NO, label: 'Bận', color: 'hover:border-rose-500' },
+                              ].map(({ status, label, color }) => (
+                                <button
+                                  key={status}
+                                  type="button"
+                                  disabled={isOccCancelled || rsvpMutation.isPending}
+                                  onClick={() => rsvpMutation.mutate({ eventId: ev.id, status })}
+                                  className={`px-2 py-0.5 rounded-md text-[10px] font-semibold border transition-all ${
+                                    myVote === status
+                                      ? 'bg-circle-charcoal text-white border-circle-charcoal'
+                                      : `border-circle-hairline bg-white dark:bg-circle-dark-surface ${color} text-circle-slate hover:text-circle-charcoal`
+                                  } disabled:opacity-50`}
+                                >
+                                  {label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
                   );
                 })
@@ -1515,45 +1313,80 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
       )}
 
       {/* ============================================================== */}
-      {/* ADD / EDIT EVENT MODAL - WEB STYLE VỚI 2 THẺ (THÔNG TIN & NHẮC NHỞ) */}
+      {/* MODAL CHI TIẾT LỊCH HẸN */}
+      {/* ============================================================== */}
+      {detailModalState.isOpen && detailModalState.event && (
+        <CircleEventDetailModal
+          isOpen={detailModalState.isOpen}
+          onClose={() => setDetailModalState({ isOpen: false, event: null, occDate: null })}
+          event={detailModalState.event}
+          occurrenceDate={detailModalState.occDate}
+          circleId={circleId}
+          onEdit={(ev, occDate) => {
+            handleOpenEditModal(ev, occDate);
+          }}
+          onDelete={(ev, occDate) => {
+            setDeleteModalState({
+              isOpen: true,
+              event: ev,
+              occDate,
+            });
+          }}
+          onCancel={(ev, occDate) => {
+            setCancelModalState({
+              isOpen: true,
+              event: ev,
+              occDate,
+            });
+          }}
+          onRestore={(ev, occDate) => {
+            executeRestore(ev, occDate);
+          }}
+          onShareToChat={handleShareToChat}
+        />
+      )}
+
+      {/* ============================================================== */}
+      {/* POPUP TÙY CHỈNH QUY TẮC LẶP */}
+      {/* ============================================================== */}
+      <CustomRecurrenceModal
+        isOpen={isCustomRepeatOpen}
+        onClose={() => setIsCustomRepeatOpen(false)}
+        config={recurrenceConfig}
+        startDate={startTime ? new Date(startTime) : new Date()}
+        onApply={(updated) => {
+          setRecurrenceConfig(updated);
+        }}
+      />
+
+      {/* ============================================================== */}
+      {/* MODAL TẠO & CHỈNH SỬA SỰ KIỆN */}
       {/* ============================================================== */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-3 md:p-4 animate-in fade-in duration-150">
-          <div className="w-full max-w-xl rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-5 md:p-6 shadow-2xl max-h-[92vh] overflow-y-auto space-y-4">
-            {/* Modal Header */}
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-lg rounded-3xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface shadow-2xl p-6 space-y-4 max-h-[92vh] overflow-y-auto">
+            {/* Header */}
             <div className="flex items-center justify-between pb-3 border-b border-circle-hairline dark:border-circle-dark-hairline">
-              <div>
-                <h3 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
-                  {editingEvent ? 'Chỉnh Sửa Lịch Hẹn' : 'Lên Lịch Hẹn & Sự Kiện Nhóm'}
-                </h3>
-                <p className="text-xs text-circle-slate dark:text-circle-dark-muted mt-0.5">
-                  Lịch hẹn, sự kiện và nhắc nhở dành riêng cho các thành viên trong nhóm
-                </p>
-              </div>
+              <h3 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
+                {editingEvent ? 'Chỉnh sửa sự kiện' : 'Tạo sự kiện mới'}
+              </h3>
               <button
                 type="button"
                 onClick={() => setIsAddModalOpen(false)}
-                className="p-1.5 rounded-lg text-circle-slate hover:text-circle-charcoal dark:hover:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors"
+                className="p-1 rounded-lg hover:bg-circle-wash text-circle-slate hover:text-circle-charcoal transition-colors"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                handleAttemptSubmit();
-              }}
-              className="space-y-4"
-            >
-              {/* ========================================== */}
-              {/* THẺ 1: THÔNG TIN SỰ KIỆN & LỊCH TRÌNH */}
-              {/* ========================================== */}
+            {/* Form Fields */}
+            <div className="space-y-4">
+              {/* Thẻ 1: Tiêu đề & Địa điểm */}
               <div className="rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/50 dark:bg-circle-dark-canvas/40 p-4 space-y-3.5 shadow-2xs">
-                {/* Tên sự kiện */}
+                {/* Tiêu đề sự kiện */}
                 <div>
-                  <label className="block text-xs font-semibold text-circle-slate dark:text-circle-dark-muted mb-1">
-                    Tên sự kiện / Lịch hẹn *
+                  <label className="block text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text mb-1">
+                    Tiêu đề sự kiện *
                   </label>
                   <input
                     type="text"
@@ -1567,56 +1400,68 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
 
                 {/* Vị trí / Địa điểm */}
                 <div>
-                  <label className="block text-xs font-semibold text-circle-slate dark:text-circle-dark-muted mb-1">
-                    Địa điểm (tùy chọn)
-                  </label>
                   <LocationSearchInput
                     value={location}
-                    onChange={setLocation}
-                    placeholder="Tìm kiếm địa điểm trên bản đồ hoặc dán link Google Meet / Google Maps..."
+                    onChange={(loc) => setLocation(loc)}
+                    placeholder="Chọn địa điểm trên bản đồ hoặc nhập link họp online (Google Meet, Zoom...)"
                   />
                 </div>
+              </div>
 
+              {/* Thẻ 2: Thời gian & Lặp lại */}
+              <div className="rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/50 dark:bg-circle-dark-canvas/40 p-4 space-y-3.5 shadow-2xs">
                 {/* Thời gian Bắt đầu & Kết thúc */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold text-circle-slate dark:text-circle-dark-muted mb-1">
+                    <label className="block text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text mb-1">
                       Bắt đầu lúc *
                     </label>
                     <CustomDateTimePicker
                       required
                       value={startTime}
-                      onChange={setStartTime}
-                      min={!editingEvent ? nowIsoLocal : undefined}
+                      onChange={(val) => {
+                        setStartTime(val);
+                        if (val && (!endTime || endTime <= val)) {
+                          const s = new Date(val);
+                          s.setHours(s.getHours() + 1);
+                          setEndTime(formatToLocalDateTimeInput(s, s.getHours(), s.getMinutes()));
+                        }
+                      }}
+                      min={editingEvent ? undefined : nowIsoLocal}
                       placeholder="dd/mm/yyyy --:--"
                       align="left"
                     />
                   </div>
+
                   <div>
-                    <label className="block text-xs font-semibold text-circle-slate dark:text-circle-dark-muted mb-1">
+                    <label className="block text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text mb-1">
                       Kết thúc lúc *
                     </label>
                     <CustomDateTimePicker
                       required
                       value={endTime}
-                      onChange={setEndTime}
-                      min={startTime || (!editingEvent ? nowIsoLocal : undefined)}
+                      onChange={(val) => setEndTime(val)}
+                      min={startTime || nowIsoLocal}
                       placeholder="dd/mm/yyyy --:--"
                       align="right"
                     />
                   </div>
                 </div>
 
-                {/* Cấu hình Lặp lại */}
-                <div className="space-y-2.5 pt-2 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60">
+                {/* Lặp lại */}
+                <div className="pt-2 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60 space-y-2">
                   <div className="flex items-center justify-between">
                     <label className="block text-xs font-semibold text-circle-slate dark:text-circle-dark-muted">
                       Lặp lại
                     </label>
                     {recurrenceConfig.frequency !== 'none' && (
-                      <span className="text-[11px] font-semibold text-teal-600 dark:text-teal-400">
-                        {formatRecurrenceSummary(recurrenceConfig)}
-                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setIsCustomRepeatOpen(true)}
+                        className="text-[11px] font-bold text-teal-600 hover:text-teal-700 hover:underline"
+                      >
+                        Tùy chỉnh quy tắc
+                      </button>
                     )}
                   </div>
 
@@ -1633,9 +1478,9 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                     <option value="custom">Tùy chỉnh...</option>
                   </select>
 
-                  {/* Kết thúc lặp lại (chỉ hiển thị khi có lặp lại) */}
+                  {/* Kết thúc lặp lại (dạng popup lịch) */}
                   {recurrenceConfig.frequency !== 'none' && (
-                    <div className="pt-2 space-y-2 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60">
+                    <div className="pt-2 space-y-2.5 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-semibold text-circle-slate dark:text-circle-dark-muted">
                           Kết thúc lặp
@@ -1652,7 +1497,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                             }
                             className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all ${
                               recurrenceConfig.endType === 'never'
-                                ? 'bg-teal-600 text-white border-teal-600 shadow-2xs'
+                                ? 'bg-teal-600 text-white border-teal-600 shadow-2xs font-bold'
                                 : 'bg-white dark:bg-circle-dark-surface border-circle-hairline text-circle-slate hover:text-circle-charcoal'
                             }`}
                           >
@@ -1669,173 +1514,53 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                             }
                             className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all ${
                               recurrenceConfig.endType === 'on_date'
-                                ? 'bg-teal-600 text-white border-teal-600 shadow-2xs'
+                                ? 'bg-teal-600 text-white border-teal-600 shadow-2xs font-bold'
                                 : 'bg-white dark:bg-circle-dark-surface border-circle-hairline text-circle-slate hover:text-circle-charcoal'
                             }`}
                           >
-                            Đến ngày
+                            Vào ngày
                           </button>
                         </div>
                       </div>
 
+                      {/* Popup lịch chọn ngày kết thúc */}
                       {recurrenceConfig.endType === 'on_date' && (
                         <div className="pt-1">
-                          <CustomDateTimePicker
-                            dateOnly
-                            required
-                            value={
-                              recurrenceConfig.endDate
-                                ? formatDateKey(recurrenceConfig.endDate)
-                                : formatDateKey(new Date())
+                          <CalendarDatePickerPopup
+                            value={recurrenceConfig.endDate}
+                            onChange={(d) =>
+                              setRecurrenceConfig((prev) => ({
+                                ...prev,
+                                endType: d ? 'on_date' : 'never',
+                                endDate: d,
+                              }))
                             }
-                            onChange={(val) => {
-                              if (val) {
-                                const parts = val.split('-').map(Number);
-                                setRecurrenceConfig((prev) => ({
-                                  ...prev,
-                                  endType: 'on_date',
-                                  endDate: new Date(parts[0], parts[1] - 1, parts[2]),
-                                }));
-                              }
-                            }}
-                            min={startTime ? startTime.split('T')[0] : undefined}
-                            placeholder="dd/mm/yyyy"
-                            align="left"
+                            minDate={startTime ? new Date(startTime) : new Date()}
+                            placeholder="Chọn ngày kết thúc chuỗi lặp"
                           />
                         </div>
                       )}
-                    </div>
-                  )}
 
-                  {/* Bảng tùy chỉnh nâng cao (khi chọn Tùy chỉnh...) */}
-                  {recurrenceConfig.isCustom && (
-                    <div className="p-3 rounded-xl border border-teal-500/30 bg-teal-50/40 dark:bg-teal-950/20 space-y-3 pt-2 mt-2">
-                      <div className="flex items-center justify-between pb-1.5 border-b border-teal-500/20">
-                        <span className="text-xs font-bold text-teal-800 dark:text-teal-300">
-                          Tùy chỉnh quy tắc lặp
-                        </span>
+                      {/* Summary pill */}
+                      <div className="p-2.5 rounded-xl border border-teal-500/20 bg-teal-50/50 dark:bg-teal-950/20 flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 text-xs text-teal-800 dark:text-teal-300 truncate">
+                          <Repeat className="h-3.5 w-3.5 shrink-0 text-teal-600" />
+                          <span className="truncate">{formatRecurrenceSummary(recurrenceConfig)}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setIsCustomRepeatOpen(true)}
+                          className="text-[11px] font-bold text-teal-700 hover:text-teal-800 dark:text-teal-300 underline shrink-0"
+                        >
+                          Tùy chỉnh
+                        </button>
                       </div>
-
-                      {/* Chu kỳ & Khoảng cách */}
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <label className="block text-[10px] font-bold text-circle-slate mb-1">
-                            Chu kỳ
-                          </label>
-                          <select
-                            value={recurrenceConfig.frequency}
-                            onChange={(e) =>
-                              setRecurrenceConfig((prev) => ({
-                                ...prev,
-                                frequency: e.target.value as RecurrenceFrequency,
-                              }))
-                            }
-                            className="w-full text-xs font-semibold rounded-xl border border-circle-hairline bg-white dark:bg-circle-dark-surface p-1.5 text-circle-charcoal dark:text-circle-dark-text"
-                          >
-                            <option value="daily">Ngày</option>
-                            <option value="weekly">Tuần</option>
-                            <option value="monthly">Tháng</option>
-                            <option value="yearly">Năm</option>
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="block text-[10px] font-bold text-circle-slate mb-1">
-                            Khoảng cách ({recurrenceConfig.frequency === 'daily' ? 'ngày' : recurrenceConfig.frequency === 'weekly' ? 'tuần' : recurrenceConfig.frequency === 'monthly' ? 'tháng' : 'năm'})
-                          </label>
-                          <div className="flex items-center gap-1">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setRecurrenceConfig((prev) => ({
-                                  ...prev,
-                                  interval: Math.max(1, prev.interval - 1),
-                                }))
-                              }
-                              className="h-7 w-7 rounded-lg border border-circle-hairline bg-white dark:bg-circle-dark-surface flex items-center justify-center text-teal-600 hover:bg-circle-wash"
-                            >
-                              <Minus className="h-3 w-3" />
-                            </button>
-                            <input
-                              type="number"
-                              min={1}
-                              max={99}
-                              value={recurrenceConfig.interval || 1}
-                              onChange={(e) => {
-                                const val = parseInt(e.target.value, 10);
-                                setRecurrenceConfig((prev) => ({
-                                  ...prev,
-                                  interval: isNaN(val) ? 1 : Math.max(1, Math.min(99, val)),
-                                }));
-                              }}
-                              className="w-10 text-center font-bold text-xs bg-white dark:bg-circle-dark-surface border border-circle-hairline rounded-lg py-1 text-circle-charcoal dark:text-circle-dark-text"
-                            />
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setRecurrenceConfig((prev) => ({
-                                  ...prev,
-                                  interval: Math.min(99, prev.interval + 1),
-                                }))
-                              }
-                              className="h-7 w-7 rounded-lg border border-circle-hairline bg-white dark:bg-circle-dark-surface flex items-center justify-center text-teal-600 hover:bg-circle-wash"
-                            >
-                              <Plus className="h-3 w-3" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Nếu là Tuần: 7 nút chọn thứ */}
-                      {recurrenceConfig.frequency === 'weekly' && (
-                        <div>
-                          <label className="block text-[10px] font-bold text-circle-slate mb-1.5">
-                            Vào các ngày trong tuần:
-                          </label>
-                          <div className="grid grid-cols-7 gap-1">
-                            {[
-                              { w: 1, label: 'T2' },
-                              { w: 2, label: 'T3' },
-                              { w: 3, label: 'T4' },
-                              { w: 4, label: 'T5' },
-                              { w: 5, label: 'T6' },
-                              { w: 6, label: 'T7' },
-                              { w: 7, label: 'CN' },
-                            ].map(({ w, label }) => {
-                              const isSel = recurrenceConfig.weeklyDays.includes(w);
-                              return (
-                                <button
-                                  key={w}
-                                  type="button"
-                                  onClick={() => {
-                                    const exists = recurrenceConfig.weeklyDays.includes(w);
-                                    if (exists && recurrenceConfig.weeklyDays.length === 1) return;
-                                    const next = exists
-                                      ? recurrenceConfig.weeklyDays.filter((d) => d !== w)
-                                      : [...recurrenceConfig.weeklyDays, w];
-                                    setRecurrenceConfig((prev) => ({ ...prev, weeklyDays: next }));
-                                  }}
-                                  className={`h-7 rounded-lg text-xs font-semibold transition-all border ${
-                                    isSel
-                                      ? 'bg-teal-600 text-white border-teal-600 font-bold shadow-2xs'
-                                      : 'bg-white dark:bg-circle-dark-surface border-circle-hairline text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash'
-                                  }`}
-                                >
-                                  {label}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* ========================================== */}
-              {/* THẺ 2: NHẮC NHỞ & GHI CHÚ */}
-              {/* ========================================== */}
+              {/* Thẻ 3: Nhắc nhở & Ghi chú */}
               <div className="rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/50 dark:bg-circle-dark-canvas/40 p-4 space-y-3.5 shadow-2xs">
                 {/* Nhắc nhở trước */}
                 <div>
@@ -1878,53 +1603,52 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
               </div>
 
               {submitError && (
-                <div className="flex items-center gap-1.5 p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-600 dark:text-rose-400 font-medium">
-                  <AlertCircle className="h-4 w-4 shrink-0" />
-                  <span>{submitError}</span>
+                <div className="p-3 rounded-xl bg-rose-50 text-rose-600 border border-rose-200 text-xs font-medium">
+                  {submitError}
                 </div>
               )}
+            </div>
 
-              {/* Modal Footer Actions */}
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline">
-                <button
-                  type="button"
-                  onClick={() => setIsAddModalOpen(false)}
-                  className="rounded-xl px-4 py-2 text-xs font-semibold text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors"
-                >
-                  Hủy
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="rounded-xl bg-circle-charcoal dark:bg-circle-primary px-5 py-2 text-xs font-semibold text-white dark:text-circle-charcoal hover:bg-circle-sage transition-all disabled:opacity-50 flex items-center gap-1.5 shadow-2xs"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      <span>Đang lưu...</span>
-                    </>
-                  ) : (
-                    <span>{editingEvent ? 'Lưu thay đổi' : 'Lên lịch ngay'}</span>
-                  )}
-                </button>
-              </div>
-            </form>
+            {/* Footer Buttons */}
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-circle-hairline dark:border-circle-dark-hairline">
+              <button
+                type="button"
+                onClick={() => setIsAddModalOpen(false)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-circle-slate hover:bg-circle-wash transition-colors"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={handleAttemptSubmit}
+                className="px-5 py-2 rounded-xl text-xs font-bold bg-teal-600 hover:bg-teal-700 text-white shadow-2xs transition-all disabled:opacity-50"
+              >
+                {isSubmitting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : editingEvent ? (
+                  'Lưu thay đổi'
+                ) : (
+                  'Tạo lịch hẹn'
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}
 
       {/* ============================================================== */}
-      {/* SCOPE CONFIRMATION MODAL (KHI CHỈNH SỬA SỰ KIỆN LẶP LẠI) */}
+      {/* SCOPE CONFIRMATION MODAL CHO LƯU / SỬA (3 OPTIONS) */}
       {/* ============================================================== */}
       {showScopeModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
           <div className="w-full max-w-sm rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-5 shadow-2xl space-y-4">
             <div>
               <h4 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
-                Chỉnh sửa sự kiện lặp lại
+                Cập nhật sự kiện lặp lại
               </h4>
               <p className="text-xs text-circle-slate dark:text-circle-dark-muted mt-1">
-                Đây là sự kiện thuộc chuỗi lặp lại. Bạn muốn lưu thay đổi này cho:
+                Bạn muốn áp dụng các thay đổi này cho lần diễn ra này, các lần tiếp theo hay tất cả các lần?
               </p>
             </div>
 
@@ -1990,6 +1714,204 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
           </div>
         </div>
       )}
+
+      {/* ============================================================== */}
+      {/* SCOPE CONFIRMATION MODAL CHO XÓA (3 OPTIONS HOẶC CONFIRM ĐƠN) */}
+      {/* ============================================================== */}
+      {deleteModalState.isOpen && deleteModalState.event && (() => {
+        const ev = deleteModalState.event;
+        const occD = deleteModalState.occDate || selectedDate || new Date(ev.startTime);
+        const { recurrenceConfig: parsedRec } = parseEventRecurrence(ev.description);
+        const isRecurring = Boolean(parsedRec && parsedRec.frequency !== 'none');
+
+        return (
+          <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+            <div className="w-full max-w-sm rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-5 shadow-2xl space-y-4">
+              <div>
+                <h4 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
+                  {isRecurring ? 'Xóa sự kiện lặp lại' : 'Xóa vĩnh viễn sự kiện'}
+                </h4>
+                <p className="text-xs text-circle-slate dark:text-circle-dark-muted mt-1">
+                  {isRecurring
+                    ? 'Bạn muốn xóa sự kiện này cho lần diễn ra này, các lần tiếp theo hay tất cả các lần?'
+                    : 'Bạn có chắc chắn muốn xóa vĩnh viễn sự kiện này khỏi lịch nhóm?'}
+                </p>
+              </div>
+
+              {isRecurring ? (
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    onClick={() => executeDelete('this')}
+                    className="w-full text-left p-3 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas hover:border-rose-500 hover:bg-rose-50/40 dark:hover:bg-rose-950/20 transition-all"
+                  >
+                    <p className="text-xs font-bold text-rose-600 dark:text-rose-400">
+                      Chỉ xóa lần này
+                    </p>
+                    <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted mt-0.5">
+                      Ẩn sự kiện vào ngày {formatDateOnly(occD)}. Các lần khác vẫn hiển thị bình thường.
+                    </p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => executeDelete('future')}
+                    className="w-full text-left p-3 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas hover:border-rose-500 hover:bg-rose-50/40 dark:hover:bg-rose-950/20 transition-all"
+                  >
+                    <p className="text-xs font-bold text-rose-600 dark:text-rose-400">
+                      Xóa lần này và các lần tiếp theo
+                    </p>
+                    <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted mt-0.5">
+                      Ngừng chuỗi lặp lại từ ngày {formatDateOnly(occD)} trở đi.
+                    </p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => executeDelete('all')}
+                    className="w-full text-left p-3 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas hover:border-rose-500 hover:bg-rose-50/40 dark:hover:bg-rose-950/20 transition-all"
+                  >
+                    <p className="text-xs font-bold text-rose-600 dark:text-rose-400">
+                      Xóa tất cả các lần
+                    </p>
+                    <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted mt-0.5">
+                      Xóa vĩnh viễn toàn bộ chuỗi sự kiện khỏi lịch nhóm.
+                    </p>
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-circle-hairline">
+                  <button
+                    type="button"
+                    onClick={() => setDeleteModalState({ isOpen: false, event: null, occDate: null })}
+                    className="px-4 py-1.5 rounded-xl text-xs font-semibold text-circle-slate hover:bg-circle-wash transition-colors"
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => executeDelete('all')}
+                    className="px-4 py-1.5 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white transition-colors"
+                  >
+                    Xác nhận xóa
+                  </button>
+                </div>
+              )}
+
+              {isRecurring && (
+                <div className="pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setDeleteModalState({ isOpen: false, event: null, occDate: null })}
+                    className="px-4 py-1.5 rounded-xl text-xs font-semibold text-circle-slate hover:bg-circle-wash transition-colors"
+                  >
+                    Hủy thao tác
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ============================================================== */}
+      {/* SCOPE CONFIRMATION MODAL CHO HỦY (3 OPTIONS HOẶC CONFIRM ĐƠN) */}
+      {/* ============================================================== */}
+      {cancelModalState.isOpen && cancelModalState.event && (() => {
+        const ev = cancelModalState.event;
+        const occD = cancelModalState.occDate || selectedDate || new Date(ev.startTime);
+        const { recurrenceConfig: parsedRec } = parseEventRecurrence(ev.description);
+        const isRecurring = Boolean(parsedRec && parsedRec.frequency !== 'none');
+
+        return (
+          <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+            <div className="w-full max-w-sm rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-5 shadow-2xl space-y-4">
+              <div>
+                <h4 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
+                  {isRecurring ? 'Hủy sự kiện lặp lại' : 'Hủy lịch hẹn'}
+                </h4>
+                <p className="text-xs text-circle-slate dark:text-circle-dark-muted mt-1">
+                  {isRecurring
+                    ? 'Bạn muốn hủy sự kiện này cho lần diễn ra này, các lần tiếp theo hay tất cả các lần?'
+                    : 'Bạn có chắc chắn muốn hủy lịch hẹn này? Sự kiện sẽ được đánh dấu [Đã hủy] và giữ lại trên lịch nhóm.'}
+                </p>
+              </div>
+
+              {isRecurring ? (
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    onClick={() => executeCancel('this')}
+                    className="w-full text-left p-3 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas hover:border-amber-500 hover:bg-amber-50/40 dark:hover:bg-amber-950/20 transition-all"
+                  >
+                    <p className="text-xs font-bold text-amber-700 dark:text-amber-400">
+                      Chỉ hủy lần này
+                    </p>
+                    <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted mt-0.5">
+                      Đánh dấu đã hủy cho ngày {formatDateOnly(occD)}. Lịch hẹn vẫn lưu lại để nhóm theo dõi.
+                    </p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => executeCancel('future')}
+                    className="w-full text-left p-3 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas hover:border-amber-500 hover:bg-amber-50/40 dark:hover:bg-amber-950/20 transition-all"
+                  >
+                    <p className="text-xs font-bold text-amber-700 dark:text-amber-400">
+                      Hủy lần này và các lần tiếp theo
+                    </p>
+                    <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted mt-0.5">
+                      Đánh dấu đã hủy từ ngày {formatDateOnly(occD)} trở đi.
+                    </p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => executeCancel('all')}
+                    className="w-full text-left p-3 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas hover:border-amber-500 hover:bg-amber-50/40 dark:hover:bg-amber-950/20 transition-all"
+                  >
+                    <p className="text-xs font-bold text-amber-700 dark:text-amber-400">
+                      Hủy tất cả các lần
+                    </p>
+                    <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted mt-0.5">
+                      Đánh dấu đã hủy cho toàn bộ chuỗi sự kiện.
+                    </p>
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-circle-hairline">
+                  <button
+                    type="button"
+                    onClick={() => setCancelModalState({ isOpen: false, event: null, occDate: null })}
+                    className="px-4 py-1.5 rounded-xl text-xs font-semibold text-circle-slate hover:bg-circle-wash transition-colors"
+                  >
+                    Quay lại
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => executeCancel('all')}
+                    className="px-4 py-1.5 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white transition-colors"
+                  >
+                    Xác nhận hủy
+                  </button>
+                </div>
+              )}
+
+              {isRecurring && (
+                <div className="pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setCancelModalState({ isOpen: false, event: null, occDate: null })}
+                    className="px-4 py-1.5 rounded-xl text-xs font-semibold text-circle-slate hover:bg-circle-wash transition-colors"
+                  >
+                    Đóng
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };

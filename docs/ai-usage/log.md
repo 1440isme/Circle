@@ -5841,3 +5841,222 @@
 - **AI Errors / Hallucinations Found:** Không.
 - **Commit:** Pending
 - **PR:** Pending
+
+
+---
+
+### AI-0161
+
+- **Date:** 2026-11-05
+- **Tool:** Antigravity IDE
+- **Author:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Prompt Summary:** Tinh chỉnh vị trí và cấu trúc hình học kim chỉ vòng quay may mắn: định vị cố định bên ngoài mạn phải (Right-side Exterior Pointer), thân kim và chốt gắn pin nằm hoàn toàn bên ngoài mép tròn, chỉ có đầu mũi kim nhọn cắm nhẹ vào viền nan quạt (~4-6px), tuyệt đối không để thân kim thụt hẳn vào bên trong vòng tròn trên cả Web và Mobile.
+- **Files Affected:**
+  - `apps/web/src/components/tools/CircleWheelView.tsx`
+  - `apps/mobile/src/components/tools/MobileWheelView.tsx`
+  - `agentic/memory/2026-11-05.md`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** Tái cấu trúc SVG kim chỉ và giá đỡ chốt pin (bracket/pin), tinh chỉnh CSS positioning (`right: -26px` trên Web, `right: -24px` / `-19px` trên Mobile), bổ sung khoảng đệm horizontal padding cho card vòng quay mobile.
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+  - `cd apps/web; npx tsc --noEmit`: 0 lỗi, compile thành công.
+  - `cd apps/mobile; npx tsc --noEmit`: 0 lỗi, compile thành công.
+- **Official Source Checked:** `PROJECT_GOD.md` §2.2 "Vòng quay quyết định (Decision wheel)", `agentic/RULES.md`, `agentic/playbooks/cross-cutting-gate.md`.
+- **Security & License Check:** An toàn, không chứa secret, tuân thủ RBAC membership check của Circle.
+- **AI Errors / Hallucinations Found:** Không.
+- **Commit:** Pending
+- **PR:** Pending
+
+
+---
+
+### AI-0162
+
+- **Date:** 2026-11-05
+- **Tool:** Antigravity IDE
+- **Author:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Prompt Summary:** Tinh chỉnh Lucky Wheel: Bỏ tên vòng bên bảng trái (sân khấu vòng quay); Thêm tab Kết quả (Results Tab) chung hàng với tên vòng ở bảng điều khiển; 4 nút thao tác dưới textarea chỉ hiển thị icon không cần text; Phần kết quả thiết kế thẻ màu đặc rực rỡ, độ tương phản cao thay vì làm trong suốt trên cả Web và Mobile.
+- **Files Affected:**
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `apps/web/src/components/tools/CircleWheelView.tsx`
+  - `apps/mobile/src/components/tools/MobileWheelView.tsx`
+  - `agentic/memory/2026-11-05.md`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** Loại bỏ wheel titles ở visual arena; tích hợp tab Results với lịch sử quay (`resultsHistory`), bộ theme thẻ màu đặc (`RESULT_CARD_THEMES`, `MOBILE_RESULT_THEMES`), chuyển 4 action buttons sang icon-only kèm tooltips, i18n keys song ngữ.
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+  - `npm run build --workspace=@circle/shared`: Build thành công.
+  - `npx tsc --noEmit -p apps/web/tsconfig.json`: 0 lỗi, compile thành công.
+  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: 0 lỗi, compile thành công.
+  - `npm test -- circle-tools.service.spec.ts`: Passed 44/44 tests.
+- **Official Source Checked:** `PROJECT_GOD.md` §2.2 "Vòng quay quyết định (Decision wheel)", `agentic/RULES.md`, `agentic/playbooks/cross-cutting-gate.md`.
+- **Security & License Check:** An toàn, không chứa secret, tuân thủ RBAC membership check của Circle.
+- **AI Errors / Hallucinations Found:** Không.
+- **Commit:** Pending
+- **PR:** Pending
+
+---
+
+### AI-0163
+
+- **Date:** 2026-11-06
+- **Tool:** Antigravity IDE
+- **Author:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Prompt Summary:** Hiển thị tên vòng xoay rõ ràng ở trên mỗi vòng xoay (1, 2, 3, 4 vòng); Ghi nhận kết quả vòng xoay theo từng lần quay, các vòng cách nhau bằng dấu " - " (ví dụ: Phở - Đà Lạt - Bình); Trình bày kết quả dạng text trong ô văn bản lớn như khi nhập danh sách lựa chọn; Tích hợp thanh tác vụ đáy (Sắp xếp A-Z, Gửi tin nhắn, Xóa kết quả) trên cả Web và Mobile.
+- **Files Affected:**
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.controller.ts`
+  - `apps/backend/src/modules/circle-tools/dto/circle-tools.dto.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.service.spec.ts`
+  - `apps/web/src/hooks/use-circle-tools.ts`
+  - `apps/web/src/components/tools/CircleWheelView.tsx`
+  - `apps/mobile/src/services/circle-tools.service.ts`
+  - `apps/mobile/src/components/tools/MobileWheelView.tsx`
+  - `agentic/memory/2026-11-06.md`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** Badge tiêu đề tên vòng xoay tại mỗi vòng quay; cấu trúc lưu trữ và hiển thị `resultsText` theo từng lượt quay phân tách bằng `" - "`; ô textarea kết quả dạng text đồng bộ với tab nhập lựa chọn; các handlers `handleSortResults`, `handleShareResultsToChat`, `handleClearResults`; backend endpoint `POST /circles/:circleId/tools/wheels/share-results` và unit tests.
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+  - `npm run build --workspace=@circle/shared`: Build thành công (Zero errors).
+  - `npx tsc --noEmit -p apps/web/tsconfig.json`: TypeScript compilation pass 100% (0 errors).
+  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: TypeScript compilation pass 100% (0 errors).
+  - `npm test -- circle-tools.service.spec.ts`: Passed 45/45 unit tests.
+- **Official Source Checked:** `PROJECT_GOD.md` §2.2 "Vòng quay quyết định (Decision wheel)", `agentic/RULES.md`, `agentic/playbooks/cross-cutting-gate.md`.
+- **Security & License Check:** An toàn, không chứa secret, tuân thủ RBAC membership check của Circle.
+- **AI Errors / Hallucinations Found:** Không.
+- **Commit:** Pending
+- **PR:** Pending
+
+---
+
+### AI-0164
+
+- **Date:** 2026-11-06
+- **Tool:** Antigravity IDE
+- **Author:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Prompt Summary:** Thiết kế header Vòng xoay may mắn đồng bộ với Bảng kế hoạch (tiêu đề trang Vòng xoay may mắn + nút Tạo vòng xoay nổi bật phong cách primary button); Khi xoay vòng chỉ kích hoạt quay và không tự động nhảy về bảng setup (chỉ khi click vào tên vòng mới mở bảng setup); Bổ sung hàng thiết lập đáy ở Tab Kết quả (Bật/Tắt âm thanh + Xóa tất cả vòng quay) đồng bộ với Tab Setup; Loại bỏ hoàn toàn hiệu ứng chúc mừng (Confetti) trên cả Web và Mobile.
+- **Files Affected:**
+  - `apps/web/src/components/tools/CircleWheelView.tsx`
+  - `apps/mobile/src/components/tools/MobileWheelView.tsx`
+  - `agentic/memory/2026-11-06.md`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** Đồng bộ tiêu đề H1 trang thành `t.luckyWheel.title` và nút `+ Tạo vòng xoay` kiểu `CirclePlanningView`; tách biệt sự kiện xoay vòng (chỉ quay) và sự kiện click tiêu đề vòng (mở tab setup); bổ sung hàng thiết lập âm thanh và xóa tất cả vòng quay ở đáy Tab Kết quả; dọn dẹp loại bỏ hoàn toàn Confetti và Sparkles toggle trên cả Web và Mobile.
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+  - `npx tsc --noEmit -p apps/web/tsconfig.json`: PASS (0 errors).
+  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: PASS (0 errors).
+  - `npm test -- circle-tools.service.spec.ts`: PASS 45/45 unit tests.
+- **Official Source Checked:** `PROJECT_GOD.md` §2.2 "Vòng quay quyết định (Decision wheel)", `agentic/RULES.md`, `agentic/playbooks/cross-cutting-gate.md`.
+- **Security & License Check:** An toàn, không chứa secret, tuân thủ RBAC membership check của Circle.
+- **AI Errors / Hallucinations Found:** Không.
+- **Commit:** Pending
+- **PR:** Pending
+
+---
+
+### AI-0165
+
+- **Date:** 2026-11-06
+- **Tool:** Antigravity IDE
+- **Author:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Prompt Summary:** Tái thiết kế quy trình điều hướng 2 cấp độ cho Vòng xoay may mắn đồng bộ với Bảng kế hoạch (CirclePlanningView): Ban đầu là màn hình danh sách (nếu chưa có vòng nào thì trắng hoàn toàn chỉ có nút "+ Tạo vòng xoay"), khi bấm Tạo vòng xoay hoặc bấm vào thẻ vòng xoay thì mới "vô" Sân khấu chi tiết (Detail Arena); Trong Sân khấu chi tiết, ở trên cùng có nút Quay lại "<-" và tên vòng xoay hiện tại.
+- **Files Affected:**
+  - `apps/web/src/components/tools/CircleWheelView.tsx`
+  - `apps/mobile/src/components/tools/MobileWheelView.tsx`
+  - `agentic/memory/2026-11-06.md`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** Triển khai cấu trúc 2 View (List Overview vs Detail Arena); View danh sách dạng thẻ cards và trạng thái trắng hoàn toàn (empty state với nút "+ Tạo vòng xoay" trung tâm); Modal tạo vòng xoay mới; Header Detail Arena tích hợp nút ChevronLeft quay lại và hiển thị tên vòng quay hiện tại; bảng setup mặc định thu gọn khi vào arena và chỉ mở khi bấm vào tên vòng.
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+  - `npx tsc --noEmit -p apps/web/tsconfig.json`: PASS (0 errors).
+  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: PASS (0 errors).
+  - `npm test -- circle-tools.service.spec.ts`: PASS 45/45 unit tests.
+- **Official Source Checked:** `PROJECT_GOD.md` §2.2 "Vòng quay quyết định (Decision wheel)", `agentic/RULES.md`, `agentic/playbooks/cross-cutting-gate.md`.
+- **Security & License Check:** An toàn, không chứa secret, tuân thủ RBAC membership check của Circle.
+- **AI Errors / Hallucinations Found:** Không.
+- **Commit:** Pending
+- **PR:** Pending
+
+---
+
+### AI-0166
+
+- **Date:** 2026-11-06
+- **Tool:** Antigravity IDE
+- **Author:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Prompt Summary:** Điều chỉnh màn hình bắt đầu (Level 1: List Overview) của Vòng xoay may mắn quản lý và hiển thị danh sách các BỘ VÒNG XOAY / FOLDER (chứa toàn bộ 1-4 vòng quay bên trong) thay vì hiển thị từng vòng quay đơn lẻ; Tạo mới hoặc mở một thẻ ở Level 1 là tạo/mở toàn bộ Bộ vòng xoay đó; Khi chưa có bộ vòng xoay nào thì màn hình ban đầu trắng hoàn toàn với duy nhất nút "+ Tạo vòng xoay"; Sau khi vào bên trong (Level 2: Detail Arena), tiêu đề trên cùng là tên của Bộ vòng xoay đó kèm nút quay lại "<-".
+- **Files Affected:**
+  - `packages/types/src/index.ts`
+  - `apps/backend/src/modules/circle-tools/dto/circle-tools.dto.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
+  - `apps/web/src/hooks/use-circle-tools.ts`
+  - `apps/web/src/components/tools/CircleWheelView.tsx`
+  - `apps/mobile/src/components/tools/MobileWheelView.tsx`
+  - `agentic/memory/2026-11-06.md`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** Cập nhật Level 1 Overview hiển thị danh sách thẻ Bộ vòng xoay (Folders) gồm tên bộ, số lượng vòng bên trong, người tạo, nút xóa; Màn hình trắng ban đầu khi folders.length === 0; Modal tạo Bộ vòng xoay mới với snapshot khởi tạo; Chuyển vào Sân khấu chi tiết (Level 2) hiển thị tên Bộ vòng xoay trên cùng; Tự động lưu snapshot các vòng quay vào folder khi quay lại danh sách; Đồng bộ 100% trên cả Web và Mobile.
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+  - `npm run build --workspace=@circle/types`: PASS.
+  - `npm run build --workspace=@circle/shared`: PASS.
+  - `npx tsc --noEmit -p apps/web/tsconfig.json`: PASS (0 errors).
+  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: PASS (0 errors).
+  - `npm test -- circle-tools.service.spec.ts`: PASS 45/45 unit tests.
+- **Official Source Checked:** `PROJECT_GOD.md` §2.2 "Vòng quay quyết định (Decision wheel)", `agentic/RULES.md`, `agentic/playbooks/cross-cutting-gate.md`.
+- **Security & License Check:** An toàn, không chứa secret, tuân thủ RBAC membership check của Circle.
+- **AI Errors / Hallucinations Found:** Không.
+- **Commit:** Pending
+- **PR:** Pending
+
+---
+
+### AI-0167
+
+- **Date:** 2026-11-06
+- **Tool:** Antigravity IDE
+- **Author:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Prompt Summary:** Tinh chỉnh thanh tác vụ Sân khấu chi tiết (Detail Arena): Bỏ nút Thư lưu trữ (Folders button); Nút "Quay tất cả" giữ nguyên văn bản (không đổi chữ thành "Đang quay tất cả...") và chỉ vô hiệu hóa nút trong lúc quay; Nút "+ Thêm vòng quay" luôn hiển thị trên thanh công cụ và khi đạt tối đa 4 vòng thì vô hiệu hóa chứ không làm mất nút.
+- **Files Affected:**
+  - `apps/web/src/components/tools/CircleWheelView.tsx`
+  - `apps/mobile/src/components/tools/MobileWheelView.tsx`
+  - `agentic/memory/2026-11-06.md`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** Loại bỏ nút Folders khỏi Header của Arena trên Web và Mobile; Giữ nguyên nhãn "Quay tất cả" và vô hiệu hóa nút (disabled) khi đang quay; Duy trì hiển thị nút "+ Thêm vòng quay" tại mọi thời điểm, chỉ vô hiệu hóa (disabled, opacity 0.4) và hiển thị tooltip/badge khi đạt 4/4 vòng quay.
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+  - `npx tsc --noEmit -p apps/web/tsconfig.json`: PASS (0 errors).
+  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: PASS (0 errors).
+  - `npm test -- circle-tools.service.spec.ts`: PASS 45/45 unit tests.
+- **Official Source Checked:** `PROJECT_GOD.md` §2.2 "Vòng quay quyết định (Decision wheel)", `agentic/RULES.md`, `agentic/playbooks/cross-cutting-gate.md`.
+- **Security & License Check:** An toàn, không chứa secret, tuân thủ RBAC membership check của Circle.
+- **AI Errors / Hallucinations Found:** Không.
+- **Commit:** Pending
+- **PR:** Pending
+
+---
+
+### AI-0168
+
+- **Date:** 2026-11-07
+- **Tool:** Antigravity IDE
+- **Author:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Prompt Summary:** Chuyển đổi Vòng xoay may mắn sang Hướng 2 (Single Instant Wheel — Mở ra là quay ngay): Loại bỏ hoàn toàn tầng Quản lý Thư mục / Bộ vòng xoay (Folders Level 1), vào thẳng Sân khấu trực quan (Visual Arena); Tự động khởi tạo 1 vòng mẫu mặc định ngay khi tải trang nếu Circle chưa có vòng nào; Tiêu đề cố định là "Vòng xoay may mắn" kèm số lượng vòng; Nút "+ Thêm vòng quay" luôn hiển thị và bị vô hiệu hóa khi đạt 4 vòng mà không có note text "(Tối đa 4/4)"; Nút "Quay tất cả" giữ nhãn cố định và bị vô hiệu hóa khi đang quay; Tương tác nhấp vào vòng tròn chỉ quay vòng đó, chỉ khi nhấp vào tên vòng mới mở bảng thiết lập; Bỏ nút "Quay lại" trong modal kết quả, thay bằng nút "Remove" để loại bỏ lựa chọn trúng thưởng; Đồng bộ hoàn chỉnh giữa Web và Mobile.
+- **Files Affected:**
+  - `apps/web/src/components/tools/CircleWheelView.tsx`
+  - `apps/mobile/src/components/tools/MobileWheelView.tsx`
+  - `agentic/memory/2026-11-07.md`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** Refactor toàn bộ CircleWheelView (Web) và MobileWheelView (Mobile) sang kiến trúc Single Instant Wheel: loại bỏ các state/modal folders và màn hình overview Level 1; bổ sung auto-seed ref khởi tạo vòng mặc định khi `wheels.length === 0`; tinh chỉnh Header không còn nút Back `<-`; kích hoạt mở panel/bảng thiết lập khi click vào tên vòng và thu gọn mặc định để xem vòng to rõ; loại bỏ hoàn toàn nút `spinAgain` trong modal kết quả thay thế bằng nút `Remove` trúng thưởng.
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+  - `npx tsc --noEmit -p apps/web/tsconfig.json`: PASS (0 errors).
+  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: PASS (0 errors).
+  - `npm test -- circle-tools.service.spec.ts`: PASS 45/45 unit tests.
+- **Official Source Checked:** `PROJECT_GOD.md` §2.2 "Vòng quay quyết định (Decision wheel)", `agentic/RULES.md`, `agentic/playbooks/cross-cutting-gate.md`.
+- **Security & License Check:** An toàn, không chứa secret, tuân thủ RBAC membership check của Circle.
+- **AI Errors / Hallucinations Found:** Không.
+- **Commit:** Pending
+- **PR:** Pending
