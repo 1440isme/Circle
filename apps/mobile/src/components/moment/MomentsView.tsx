@@ -909,7 +909,7 @@ export function MomentsView({
     cornerIndex: number;
     caption?: string | null;
   } | null>(null);
-  const compositeCaptureViewRef = useRef<View>(null);
+  const compositeCaptureViewRef = useRef<React.ElementRef<typeof View>>(null);
   const compositeMainLoadedRef = useRef(false);
   const compositePipLoadedRef = useRef(false);
   const compositeResolveRef = useRef<(() => void) | null>(null);
@@ -1986,14 +1986,14 @@ export function MomentsView({
       if (compositeCaptureViewRef.current) {
         let capturedUri: string;
         try {
-          capturedUri = await captureRef(compositeCaptureViewRef.current, {
+          capturedUri = await captureRef(compositeCaptureViewRef.current as any, {
             format: 'jpg',
             quality: 0.96,
             result: 'tmpfile',
             useRenderInContext: true,
           });
         } catch {
-          capturedUri = await captureRef(compositeCaptureViewRef.current, {
+          capturedUri = await captureRef(compositeCaptureViewRef.current as any, {
             format: 'jpg',
             quality: 0.96,
             result: 'tmpfile',
@@ -3151,13 +3151,11 @@ export function MomentsView({
                 onPress={handleSharePhoto}
                 style={[styles.actionItem, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
               >
-                <View style={[styles.actionIconBox, { backgroundColor: `${colors.primary}20` }]}>
-                  {isActionProcessing ? (
-                    <ActivityIndicator size="small" color={colors.primary} />
-                  ) : (
-                    <Share2 size={20} color={colors.primary} />
-                  )}
-                </View>
+                {isActionProcessing ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : (
+                  <Share2 size={22} color={colors.primary} />
+                )}
                 <View style={styles.actionItemInfo}>
                   <Text style={[styles.actionItemTitle, { color: colors.text, fontWeight: '600' }]}>{t.common.share}</Text>
                 </View>
@@ -3170,13 +3168,11 @@ export function MomentsView({
                 onPress={handleSaveImage}
                 style={[styles.actionItem, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
               >
-                <View style={[styles.actionIconBox, { backgroundColor: `${colors.success}20` }]}>
-                  {isActionProcessing ? (
-                    <ActivityIndicator size="small" color={colors.success} />
-                  ) : (
-                    <Download size={20} color={colors.success} />
-                  )}
-                </View>
+                {isActionProcessing ? (
+                  <ActivityIndicator size="small" color={colors.success} />
+                ) : (
+                  <Download size={22} color={colors.success} />
+                )}
                 <View style={styles.actionItemInfo}>
                   <Text style={[styles.actionItemTitle, { color: colors.text, fontWeight: '600' }]}>{t.common.save || 'Lưu'}</Text>
                 </View>
@@ -3195,9 +3191,7 @@ export function MomentsView({
                   },
                 ]}
               >
-                <View style={[styles.actionIconBox, { backgroundColor: 'rgba(239, 68, 68, 0.2)' }]}>
-                  <Trash2 size={20} color={colors.danger} />
-                </View>
+                <Trash2 size={22} color={colors.danger} />
                 <View style={styles.actionItemInfo}>
                   <Text style={[styles.actionItemTitle, { color: colors.danger, fontWeight: '700' }]}>
                     {t.common.delete}

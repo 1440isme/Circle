@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Vote,
   Plus,
@@ -15,6 +15,7 @@ import {
   ChevronRight,
   X,
 } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../context/AuthContext';
 import {
   usePollsQuery,
@@ -22,7 +23,9 @@ import {
   useVotePollMutation,
   useClosePollMutation,
   useDeletePollMutation,
+  TOOLS_KEYS,
 } from '../../hooks/use-circle-tools';
+import { getSocket } from '../../lib/socket';
 import { GroupPollEntity } from '@circle/types';
 
 interface CirclePollViewProps {
@@ -37,6 +40,26 @@ export const CirclePollView: React.FC<CirclePollViewProps> = ({ circleId }) => {
   const [deadline, setDeadline] = useState('');
 
   const { data: polls = [], isLoading: isLoadingPolls } = usePollsQuery(circleId);
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket || !circleId) return;
+
+    const onPollUpdated = () => {
+      queryClient.invalidateQueries({ queryKey: TOOLS_KEYS.polls(circleId) });
+    };
+
+    socket.on('circle:poll-created', onPollUpdated);
+    socket.on('circle:poll-voted', onPollUpdated);
+    socket.on('circle:poll-closed', onPollUpdated);
+
+    return () => {
+      socket.off('circle:poll-created', onPollUpdated);
+      socket.off('circle:poll-voted', onPollUpdated);
+      socket.off('circle:poll-closed', onPollUpdated);
+    };
+  }, [circleId, queryClient]);
 
   const createPollMutation = useCreatePollMutation(circleId);
   const votePollMutation = useVotePollMutation(circleId);
@@ -114,34 +137,29 @@ export const CirclePollView: React.FC<CirclePollViewProps> = ({ circleId }) => {
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-white dark:bg-circle-dark-bg overflow-hidden">
-      {/* Top Header */}
-      <div className="px-8 py-6 border-b border-gray-100 dark:border-circle-dark-border flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold">
-            <Vote className="w-5 h-5" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+    <div className="relative flex-1 flex flex-col h-full bg-white dark:bg-circle-dark-bg overflow-hidden">
+      {/* Floating Glass Toolbar (Floating glass controls with scroll-under content) */}
+      <div className="pointer-events-none absolute top-3 left-0 right-0 z-20 flex justify-center px-4">
+        <div className="pointer-events-auto flex items-center justify-between px-5 py-2.5 rounded-full backdrop-blur-xl bg-white/94 dark:bg-circle-dark-surface/92 border border-circle-hairline/80 dark:border-white/12 shadow-sm max-w-4xl w-full">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <Vote className="w-5 h-5 text-circle-primary shrink-0" />
+            <h1 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text truncate">
               Bình chọn nhóm
             </h1>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              Thăm dò ý kiến tập thể và thống nhất quyết định theo thời gian thực
-            </p>
           </div>
-        </div>
 
-        <button
-          onClick={() => setIsCreateModalOpen(true)}
-          className="px-4 py-2.5 rounded-xl bg-circle-primary hover:bg-circle-primary-hover text-white text-xs font-bold transition-all shadow-sm flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          Tạo bình chọn mới
-        </button>
+          <button
+            onClick={() => setIsCreateModalOpen(true)}
+            className="px-3.5 py-1.5 rounded-full bg-circle-primary hover:bg-circle-sage text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 active:scale-95"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Tạo bình chọn</span>
+          </button>
+        </div>
       </div>
 
-      {/* Poll Cards List */}
-      <div className="flex-1 overflow-y-auto p-8">
+      {/* Poll Cards List (Scroll-under content with safe top padding) */}
+      <div className="flex-1 overflow-y-auto px-6 pt-20 pb-12">
         {isLoadingPolls ? (
           <div className="h-64 flex items-center justify-center">
             <Loader2 className="w-8 h-8 animate-spin text-circle-primary" />

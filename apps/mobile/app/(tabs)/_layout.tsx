@@ -8,7 +8,7 @@ import {
   Modal,
   Alert,
 } from 'react-native';
-import { Tabs } from 'expo-router';
+import { Tabs, useRouter } from 'expo-router';
 import { BlurView } from 'expo-blur';
 import {
   Home,
@@ -47,6 +47,7 @@ function CustomLiquidTabBar({
   colors,
   t,
 }: CustomTabBarProps) {
+  const router = useRouter();
   const tabs = [
     {
       name: 'index',
@@ -108,19 +109,27 @@ function CustomLiquidTabBar({
               );
             }
 
-            const routeIndex = state.routes.findIndex((r: any) => r.name === tab.name);
-            const isFocused = state.index === routeIndex;
+            const routeIndex = state?.routes?.findIndex((r: any) => r.name === tab.name) ?? -1;
+            const isFocused = state?.index === routeIndex;
             const Icon = tab.Icon!;
 
             const onPress = () => {
-              const event = navigation.emit({
-                type: 'tabPress',
-                target: state.routes[routeIndex]?.key,
-                canPreventDefault: true,
-              });
+              if (navigation && typeof navigation.emit === 'function') {
+                const event = navigation.emit({
+                  type: 'tabPress',
+                  target: state?.routes?.[routeIndex]?.key,
+                  canPreventDefault: true,
+                });
 
-              if (!isFocused && !event.defaultPrevented) {
-                navigation.navigate(tab.name);
+                if (event?.defaultPrevented) return;
+              }
+
+              if (!isFocused) {
+                if (navigation && typeof navigation.navigate === 'function') {
+                  navigation.navigate(tab.name);
+                } else {
+                  router.push(tab.name === 'index' ? '/(tabs)' : `/(tabs)/${tab.name}` as any);
+                }
               }
             };
 
@@ -283,9 +292,7 @@ export default function TabsLayout() {
                   )
                 }
               >
-                <View style={[styles.optionIconBox, { backgroundColor: `${colors.primary}20` }]}>
-                  <Camera size={22} color={colors.primary} />
-                </View>
+                <Camera size={24} color={colors.primary} />
                 <View style={styles.optionContent}>
                   <Text style={[styles.optionTitle, { color: colors.text }]}>
                     {t.composer.momentTitle}
@@ -307,9 +314,7 @@ export default function TabsLayout() {
                   )
                 }
               >
-                <View style={[styles.optionIconBox, { backgroundColor: `${colors.coral}20` }]}>
-                  <HeartHandshake size={22} color={colors.coral} />
-                </View>
+                <HeartHandshake size={24} color={colors.coral} />
                 <View style={styles.optionContent}>
                   <Text style={[styles.optionTitle, { color: colors.text }]}>
                     {t.composer.reflectionTitle}
@@ -329,9 +334,7 @@ export default function TabsLayout() {
                   setCircleCreateModalVisible(true);
                 }}
               >
-                <View style={[styles.optionIconBox, { backgroundColor: `${colors.peach}40` }]}>
-                  <Sparkles size={22} color={colors.warning} />
-                </View>
+                <Sparkles size={24} color={colors.warning} />
                 <View style={styles.optionContent}>
                   <Text style={[styles.optionTitle, { color: colors.text }]}>
                     {t.composer.newCircleTitle}
@@ -353,9 +356,7 @@ export default function TabsLayout() {
                   )
                 }
               >
-                <View style={[styles.optionIconBox, { backgroundColor: `${colors.primary}20` }]}>
-                  <Calendar size={22} color={colors.primary} />
-                </View>
+                <Calendar size={24} color={colors.primary} />
                 <View style={styles.optionContent}>
                   <Text style={[styles.optionTitle, { color: colors.text }]}>
                     {t.composer.eventTitle}

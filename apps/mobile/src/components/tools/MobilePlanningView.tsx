@@ -10,6 +10,7 @@ import {
   Modal,
   Alert,
   Dimensions,
+  Platform,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import {
@@ -186,52 +187,61 @@ export const MobilePlanningView: React.FC<MobilePlanningViewProps> = ({ circleId
   if (selectedSheet) {
     return (
       <View style={[styles.container, { backgroundColor: colors.canvas }]}>
-        {/* Header Bar */}
-        <View style={[styles.topBar, { backgroundColor: colors.surface, borderBottomColor: colors.hairline }]}>
+        {/* Floating Glass Sub-toolbar */}
+        <View
+          pointerEvents="box-none"
+          style={{
+            position: 'absolute',
+            top: Platform.OS === 'ios' ? 68 : 58,
+            left: 14,
+            right: 14,
+            zIndex: 30,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
           <TouchableOpacity
+            style={[styles.glassPill, { backgroundColor: isDark ? 'rgba(22, 22, 26, 0.90)' : 'rgba(255, 255, 255, 0.92)' }]}
             onPress={() => setSelectedSheet(null)}
-            style={styles.backButton}
           >
-            <ArrowLeft size={18} color={colors.text} />
-            <Text style={[styles.backText, { color: colors.text }]}>Danh sách</Text>
+            <ArrowLeft size={16} color={colors.text} />
+            <Text style={[styles.backText, { color: colors.text }]} numberOfLines={1}>
+              {selectedSheet.title}
+            </Text>
           </TouchableOpacity>
 
-          <View style={styles.topActions}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <TouchableOpacity
               onPress={() => setIsAddColumnModalOpen(true)}
-              style={[styles.actionBtnSecondary, { backgroundColor: colors.wash, borderColor: colors.hairline }]}
+              style={[styles.glassActionBtn, { backgroundColor: isDark ? 'rgba(22, 22, 26, 0.90)' : 'rgba(255, 255, 255, 0.92)' }]}
             >
-              <Plus size={14} color={colors.text} />
-              <Text style={[styles.actionBtnTextSec, { color: colors.text }]}>+ Cột</Text>
+              <Plus size={13} color={colors.text} />
+              <Text style={[styles.glassActionBtnText, { color: colors.text }]}>Cột</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               onPress={handleAddRow}
-              style={[styles.actionBtnPrimary, { backgroundColor: colors.primary }]}
+              style={[styles.glassActionBtnPrimary, { backgroundColor: colors.primary }]}
             >
-              <Plus size={14} color="#FFF" />
-              <Text style={styles.actionBtnTextPri}>+ Dòng</Text>
+              <Plus size={13} color="#FFF" />
+              <Text style={styles.glassActionBtnTextPri}>Dòng</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               onPress={() => handleDeleteSheet(selectedSheet.id)}
-              style={styles.deleteBtn}
+              style={[styles.glassIconBtn, { backgroundColor: isDark ? 'rgba(22, 22, 26, 0.90)' : 'rgba(255, 255, 255, 0.92)' }]}
             >
-              <Trash2 size={16} color="#EF4444" />
+              <Trash2 size={15} color="#EF4444" />
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Sheet Title */}
-        <View style={[styles.sheetTitleHeader, { backgroundColor: colors.surface, borderBottomColor: colors.hairline }]}>
-          <FileSpreadsheet size={20} color={colors.primary} />
-          <Text style={[styles.sheetTitleText, { color: colors.text }]} numberOfLines={1}>
-            {selectedSheet.title}
-          </Text>
-        </View>
-
-        {/* Spreadsheet Horizontal & Vertical Scroll Grid */}
-        <ScrollView style={styles.gridContainer} showsVerticalScrollIndicator={false}>
+        {/* Spreadsheet Horizontal & Vertical Scroll Grid (scroll-under) */}
+        <ScrollView
+          style={[styles.gridContainer, { paddingTop: Platform.OS === 'ios' ? 120 : 110 }]}
+          showsVerticalScrollIndicator={false}
+        >
           <ScrollView horizontal showsHorizontalScrollIndicator={true}>
             <View style={[styles.table, { borderColor: colors.hairline }]}>
               {/* Header Row */}
@@ -382,31 +392,13 @@ export const MobilePlanningView: React.FC<MobilePlanningViewProps> = ({ circleId
   // =========================================================================
   return (
     <View style={[styles.container, { backgroundColor: colors.canvas }]}>
-      {/* Header Bar */}
-      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.hairline }]}>
-        <View style={styles.headerTextGroup}>
-          <Text style={[styles.title, { color: colors.text }]}>Bảng kế hoạch nhóm</Text>
-          <Text style={[styles.subtitle, { color: colors.subtle }]}>
-            Quản lý công việc và tiến độ theo bảng tính
-          </Text>
-        </View>
-
-        <TouchableOpacity
-          onPress={() => setIsCreateModalOpen(true)}
-          style={[styles.createButton, { backgroundColor: colors.primary }]}
-        >
-          <Plus size={16} color="#FFF" />
-          <Text style={styles.createButtonText}>Tạo bảng</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Sheets Content */}
+      {/* Sheets Content (scroll-under) */}
       {isLoading ? (
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : sheets.length === 0 ? (
-        <View style={styles.emptyContainer}>
+        <View style={[styles.emptyContainer, { paddingTop: Platform.OS === 'ios' ? 80 : 70 }]}>
           <Table size={48} color={colors.subtle} />
           <Text style={[styles.emptyTitle, { color: colors.text }]}>Chưa có bảng kế hoạch nào</Text>
           <Text style={[styles.emptySubtitle, { color: colors.subtle }]}>
@@ -429,9 +421,7 @@ export const MobilePlanningView: React.FC<MobilePlanningViewProps> = ({ circleId
               style={[styles.sheetCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
             >
               <View style={styles.sheetCardHeader}>
-                <View style={[styles.sheetIcon, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#ECFDF5' }]}>
-                  <FileSpreadsheet size={20} color={colors.primary} />
-                </View>
+                <FileSpreadsheet size={22} color={colors.primary} style={{ marginRight: 6 }} />
                 <View style={styles.sheetCardInfo}>
                   <Text style={[styles.sheetCardTitle, { color: colors.text }]} numberOfLines={1}>
                     {sheet.title}
@@ -454,6 +444,22 @@ export const MobilePlanningView: React.FC<MobilePlanningViewProps> = ({ circleId
           ))}
         </ScrollView>
       )}
+
+      {/* Floating Action Button (FAB) */}
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={() => setIsCreateModalOpen(true)}
+        style={[
+          styles.fab,
+          {
+            backgroundColor: colors.primary,
+            shadowColor: colors.primary,
+          },
+        ]}
+      >
+        <Plus size={18} color="#FFF" />
+        <Text style={styles.fabText}>Tạo bảng</Text>
+      </TouchableOpacity>
 
       {/* Modal: Create Sheet */}
       <Modal
@@ -576,8 +582,82 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   listContent: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'ios' ? 74 : 64,
+    paddingBottom: 100,
     gap: 12,
+  },
+  glassPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 3,
+    maxWidth: '50%',
+  },
+  glassActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#E2E8F0',
+  },
+  glassActionBtnText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  glassActionBtnPrimary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 999,
+  },
+  glassActionBtnTextPri: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFF',
+  },
+  glassIconBtn: {
+    padding: 7,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 24,
+    right: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: 999,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
+    zIndex: 20,
+  },
+  fabText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFF',
   },
   sheetCard: {
     backgroundColor: '#FFF',

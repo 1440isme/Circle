@@ -5505,3 +5505,422 @@
 - **Official Source Checked:** Apple Human Interface Guidelines (Modals & Navigation), Circle Design System Specifications.
 - **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
 - **Branch:** `feat/redesign-web-rail-and-mobile-apple-minimalism`
+
+
+---
+
+### Entry AI-0147
+
+- **Timestamp:** 2026-11-01T16:21:00+07:00
+- **Author:** Trương Công Bình (23110184)
+- **Tool:** Antigravity IDE (Gemini 2.5 Pro)
+- **Task / Scope:** Khắc phục lỗi không tương thích Expo Go iOS (Project SDK 57 vs Expo Go SDK 58.0.0), đồng bộ hóa toàn diện `node_modules` lên Expo SDK 58.0.x và React Native 0.88, giải quyết toàn bộ type breaking changes của React 19 trong Mobile codebase.
+- **Files Touched:**
+  - `apps/mobile/app/(auth)/verify-otp.tsx`
+  - `apps/mobile/app/(tabs)/circles.tsx`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `apps/mobile/src/components/auth/PasswordRecoveryWizard.tsx`
+  - `apps/mobile/src/components/call/MobileCallStageModal.tsx`
+  - `apps/mobile/src/components/moment/MomentsView.tsx`
+  - `apps/mobile/src/components/tools/MobileCalendarView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:**
+  1. **Đồng bộ hóa node_modules lên Expo SDK 58.0.x:**
+     - Thực thi `npm install` cập nhật triệt để thư viện `node_modules/expo` (57.0.25 -> 58.0.19) và `@expo/cli` (58.1.16) đồng bộ với `apps/mobile/package.json` và ứng dụng Expo Go trên thiết bị iOS (SDK 58.0.0).
+     - Xác nhận `expo config --type public` nhận diện chính xác `sdkVersion: '58.0.0'`.
+  2. **Khắc phục Type Breaking Changes của React 19 & React Native 0.88:**
+     - Chuyển đổi định kiểu `useRef<Component>` sang chuẩn React 19 `useRef<React.ElementRef<typeof Component>>` cho `TextInput`, `ScrollView`, `View` trong các màn hình `verify-otp.tsx`, `PasswordRecoveryWizard.tsx`, `MomentsView.tsx`, `MobileCalendarView.tsx`, và `circle/[id].tsx`.
+     - Điều chỉnh `onRefresh` trong `RefreshControl` thành `() => { refetch(); }` để thỏa mãn strict return type `void | Promise<void>`.
+     - Loại bỏ prop `backgroundColor` không hợp lệ khỏi thẻ `<StatusBar>` trong `MobileCallStageModal.tsx`.
+- **Human Modifications:** Trương Công Bình báo cáo lỗi Expo Go iOS không mở được dự án do lệch phiên bản SDK (57 vs 58), yêu cầu khắc phục triệt để.
+- **Verification Method:**
+  - Expo SDK Version Check: `cd apps/mobile && npx expo config --type public` (`sdkVersion: '58.0.0'`).
+  - Mobile TypeScript: `npx tsc --noEmit -p apps/mobile/tsconfig.json` (0 errors).
+  - Web TypeScript: `npx tsc --noEmit -p apps/web/tsconfig.json` (0 errors).
+  - Backend Unit Tests: `npm test -w @circle/backend` (11/11 test suites pass, 186/186 tests pass).
+  - Secret Check & Pre-commit Hook: `./scripts/check-secrets.sh` (486 files checked, 0 leaks detected) & `./.githooks/pre-commit` (Passed 100%).
+- **Official Source Checked:** Expo SDK 58 Release Notes & Upgrade Walkthrough, React Native 0.88 TypeScript Definitions, React 19 ElementRef Guidelines.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+- **Branch:** `fix/upgrade-mobile-expo-sdk-58`
+
+
+---
+
+### Entry AI-0148
+
+- **Timestamp:** 2026-11-01T16:32:00+07:00
+- **Author:** Trương Công Bình (23110184)
+- **Tool:** Antigravity IDE (Gemini 2.5 Pro)
+- **Task / Scope:** Khắc phục lỗi Metro Bundler SHA-1 calculation failure đối với `react-native/unstable-internals-do-not-use.js` bằng cách dọn dẹp hàm `resolveRequest` can thiệp sai lệch trong `apps/mobile/metro.config.js`.
+- **Files Touched:**
+  - `apps/mobile/metro.config.js`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:**
+  1. **Khắc phục lỗi SHA-1 Resolution Failure trên Metro:**
+     - Trong `apps/mobile/metro.config.js`, đoạn mã `resolveRequest` cũ (vốn dùng cho RN 0.74) đã can thiệp hardcode đường dẫn `monorepoRoot/node_modules/react-native/unstable-internals-do-not-use.js` (không tồn tại vì file thực tế nằm tại `react-native/src/unstable-internals-do-not-use.js`).
+     - Với Expo SDK 58 và React Native 0.88, `package.json` của React Native đã cấu hình `exports` subpath chính thức cho `asset-registry`, `setup-env`, và `unstable-internals-do-not-use`. Việc loại bỏ hook custom `resolveRequest` giúp Metro sử dụng cơ chế resolve native chuẩn của Expo SDK 58.
+  2. **Xác thực Bundle iOS Hoàn chỉnh:**
+     - Kiểm thử biên dịch thực tế: `cd apps/mobile && npx expo export --platform ios --no-bytecode` thành công 100% với 3065 modules được đóng gói hoàn chỉnh, không còn bất kỳ lỗi SHA-1 hay ENOENT nào.
+- **Human Modifications:** Trương Công Bình cung cấp log Metro bundler lỗi SHA-1 cho file `unstable-internals-do-not-use.js`, yêu cầu giải quyết triệt để.
+- **Verification Method:**
+  - Real Metro Bundle Export: `cd apps/mobile && npx expo export --platform ios --no-bytecode` (Bundled 3065 modules, exit code 0).
+  - TypeScript Check: `npx tsc --noEmit -p apps/mobile/tsconfig.json` (0 errors).
+  - Pre-commit Hook & Secret Check: `./.githooks/pre-commit` & `./scripts/check-secrets.sh` (Passed 100%, 0 leaks).
+- **Official Source Checked:** React Native 0.88 Package Exports Specification, Expo SDK 58 Metro Monorepo Configuration.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+- **Branch:** `fix/upgrade-mobile-expo-sdk-58`
+
+
+---
+
+### Entry AI-0149
+
+- **Timestamp:** 2026-11-01T16:36:00+07:00
+- **Author:** Trương Công Bình (23110184)
+- **Tool:** Antigravity IDE (Gemini 2.5 Pro)
+- **Task / Scope:** Chuẩn hóa Root Layout của Mobile từ `<Slot />` sang `<Stack />` và giải quyết xung đột điều hướng ban đầu trong `app/index.tsx` (loại bỏ hoàn toàn cảnh báo unhandled action `ROUTE_NAMES_CHANGED`).
+- **Files Touched:**
+  - `apps/mobile/app/_layout.tsx`
+  - `apps/mobile/app/index.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:**
+  1. **Chuẩn hóa Root Navigator Stack trong Expo Router:**
+     - Thay thế thẻ `<Slot />` phẳng ở root bằng thẻ `<Stack screenOptions={{ headerShown: false }}>` quản lý tập trung các route `index`, `(auth)`, `(tabs)`, và `circle/[id]`. Cung cấp navigator container chính quy để tiếp nhận và xử lý đầy đủ các action điều hướng nội bộ (`ROUTE_NAMES_CHANGED`).
+  2. **Giải quyết xung đột điều hướng (Navigation Race Condition):**
+     - Sửa `apps/mobile/app/index.tsx`: Kiểm tra trạng thái `isAuthenticated` từ `useAuthStore` trước khi điều hướng (`/(tabs)` nếu đã đăng nhập, `/(auth)/login` nếu chưa đăng nhập), thay vì chuyển hướng mù quáng vào `/(tabs)` gây xung đột vòng lặp với auth guard trong `_layout.tsx`.
+- **Human Modifications:** Trương Công Bình báo cáo log cảnh báo `The action 'ROUTE_NAMES_CHANGED' with payload ... was not handled by any navigator` khi nạp app, yêu cầu rà soát và cấu hình chuẩn mực.
+- **Verification Method:**
+  - Real Metro Bundle Export: `cd apps/mobile && npx expo export --platform ios --no-bytecode` (3065 modules bundled successfully, exit code 0).
+  - TypeScript Check: `npx tsc --noEmit -p apps/mobile/tsconfig.json` (0 errors).
+  - Pre-commit Hook & Secret Check: `./.githooks/pre-commit` & `./scripts/check-secrets.sh` (Passed 100%, 0 leaks).
+- **Official Source Checked:** Expo Router Root Navigation Stack Specification, React Navigation NavigationContainer Events.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+- **Branch:** `fix/upgrade-mobile-expo-sdk-58`
+
+
+---
+
+### Entry AI-0150
+
+- **Timestamp:** 2026-11-01T16:48:00+07:00
+- **Author:** Trương Công Bình (23110184)
+- **Tool:** Antigravity IDE (Gemini 2.5 Pro)
+- **Task / Scope:** Thanh trừng triệt để mã màu xanh dương ngoại lai (`#0284C7`, `#3B82F6`, `#2563EB`) trong toàn bộ tính năng vị trí (`MobileLocationView`, `MobileChatLocationCard`, `EventLocationDisplay`), chuyển đổi 100% sang CIRCLE Brand Primary tokens (`colors.primary` / `text-circle-primary`).
+- **Files Touched:**
+  - `apps/mobile/src/components/tools/MobileLocationView.tsx`
+  - `apps/mobile/src/components/chat/MobileChatLocationCard.tsx`
+  - `apps/mobile/src/components/tools/MobileCalendarView.tsx`
+  - `apps/web/src/components/tools/EventLocationDisplay.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:**
+  1. **Chuẩn hóa nút và biểu tượng tính năng Vị trí sang Brand Primary:**
+     - Trong `MobileLocationView.tsx`: Thay thế màu xanh dương `#0284C7` của nút Bắt đầu phát sóng (`startBtn`), nút Gửi vị trí vào chat (`floatingCheckinBtn`), nút định vị GPS (`LocateFixed`), biểu tượng `MapPin` trên thanh điều khiển, và avatar thành viên đang phát sóng sang `colors.primary` (`#10B981` / `#34D399`).
+     - Cập nhật hiệu ứng sóng xung quanh và marker của Mapbox nhúng sang `colors.primary`.
+  2. **Chuẩn hóa thẻ tin nhắn chia sẻ vị trí (`MobileChatLocationCard.tsx`):**
+     - Thay thế màu xanh dương của nút `Mở chỉ đường Google Maps`, biểu tượng `MapPin`, và marker ghim trên ảnh Mapbox static sang `colors.primary` và `pin-s-heart+10b981`.
+  3. **Đồng bộ thẻ link họp/vị trí trên Lịch (`MobileCalendarView.tsx` & `EventLocationDisplay.tsx`):**
+     - Chuyển toàn bộ các nút bấm và icon cuộc gọi video sang `colors.primary` (Mobile) và `text-circle-primary` (Web).
+- **Human Modifications:** Trương Công Bình phát hiện và yêu cầu chỉnh sửa khẩn cấp màu xanh dương lạc quẻ của các nút trong tính năng vị trí, bắt buộc tuân thủ 100% Brand Primary Design Token.
+- **Verification Method:**
+  - Mobile TypeScript: `npx tsc --noEmit -p apps/mobile/tsconfig.json` (0 errors).
+  - Web TypeScript: `npx tsc --noEmit -p apps/web/tsconfig.json` (0 errors).
+  - Pre-commit Hook & Secret Check: `./.githooks/pre-commit` & `./scripts/check-secrets.sh` (Passed 100%, 0 leaks).
+- **Official Source Checked:** Circle Brand Guidelines, Circle Design Token Catalog.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+- **Branch:** `fix/upgrade-mobile-expo-sdk-58`
+
+
+---
+
+### Entry AI-0151
+
+- **Timestamp:** 2026-11-01T17:08:00+07:00
+- **Author:** Trương Công Bình (23110184)
+- **Tool:** Antigravity IDE (Gemini 2.5 Pro)
+- **Task / Scope:** Module 7 (US-COLLAB-003, Issue #119 / #123) — Đồng bộ Realtime Socket.IO cho Bình chọn (Web & Mobile), Khôi phục hiển thị Cột 3 trên màn hình Laptop (`hidden lg:flex`), Chuẩn hóa toàn diện ngôn ngữ thiết kế thẻ Cột 3 và Xóa bỏ triệt để hardcoded text.
+- **Files Touched:**
+  - `agentic/memory/MEMORY.md`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `apps/web/src/components/chat/ChatLocationCard.tsx`
+  - `apps/web/src/components/chat/ChatPollCard.tsx`
+  - `apps/web/src/components/presence/PresenceRail.tsx`
+  - `apps/web/src/components/tools/CircleLocationView.tsx`
+  - `apps/web/src/components/tools/CirclePollView.tsx`
+  - `apps/mobile/app/index.tsx`
+  - `apps/mobile/src/components/chat/MobileChatPollCard.tsx`
+  - `apps/mobile/src/components/tools/MobilePollView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:**
+  1. **Đồng bộ Kết quả Bình chọn Thời gian thực (Realtime Poll Sync):**
+     - Bổ sung Socket.IO event listeners (`circle:poll-created`, `circle:poll-voted`, `circle:poll-closed`) trong cả Thẻ chat (`ChatPollCard.tsx` & `MobileChatPollCard.tsx`) và Màn hình công cụ bình chọn (`CirclePollView.tsx` & `MobilePollView.tsx`) trên cả Web và Mobile.
+     - Tự động invalidate query cache và cập nhật tức thì tỷ lệ % và số phiếu bình chọn giữa các thiết bị mà không cần tải lại trang hay chuyển tab.
+  2. **Hiển thị Cột 3 trên Màn hình Laptop & Desktop:**
+     - Điều chỉnh breakpoint hiển thị của `PresenceRail.tsx` từ `hidden xl:flex` (chỉ hiện trên màn hình rộng 1280px+) sang `hidden lg:flex w-72 2xl:w-76` (hiển thị đầy đủ từ màn hình 1024px trở lên).
+  3. **Chuẩn hóa Ngôn ngữ Thiết kế Thẻ Cột 3 & Xóa bỏ Triệt để Hardcoding:**
+     - Chuẩn hóa toàn bộ 4 khối mục trong Cột 3 (`Thành viên`, `Phòng thoại`, `Lịch hẹn sắp tới`, `Vị trí trực tiếp`) với icon box thống nhất `w-6 h-6 rounded-lg bg-circle-primary/10 text-circle-primary`, nhãn uppercase, badge số lượng và liên kết điều hướng màu thương hiệu.
+     - Chuẩn hóa cấu trúc thẻ sự kiện và thẻ thành viên chia sẻ vị trí với icon box `w-7 h-7 rounded-lg bg-circle-primary/10 text-circle-primary`, đồng bộ màu icon `Clock`, `MapPin` sang `text-circle-primary`.
+     - Chuyển 100% chuỗi tiếng Việt hardcoded sang từ điển `@circle/shared` (`railUpcomingEvents`, `railOpenCalendar`, `railNewEvent`, `railLiveLocations`, `railOpenMap`, `railStartSharing`, `railSharingActive`, `railNoOneSharing`, `railMembersGoing`, `meLabel`, `memberDefault`).
+  4. **Thanh trừng Màu Xanh dương Ngoại lai trên Web & Ngăn chặn Race Condition Mobile:**
+     - Làm sạch toàn bộ các class `bg-sky-500`, `text-sky-500`, và marker `pin-s-heart+2563eb` trong `CircleLocationView.tsx` và `ChatLocationCard.tsx` trên Web sang `bg-circle-primary`, `text-circle-primary`, và `pin-s-heart+10b981`.
+     - Thay thế lệnh `<Redirect>` chạy trùng lặp trong `apps/mobile/app/index.tsx` bằng component loading trung tính để trao quyền điều hướng duy nhất cho `_layout.tsx`, triệt tiêu hoàn toàn race condition gây văng màn hình hoặc unhandled actions.
+- **Human Modifications:** Trương Công Bình trực tiếp chỉ rõ các lỗi còn tồn đọng: kết quả poll chưa realtime, cột 3 không hiển thị trên laptop, màu xanh dương còn sót trên web, các thẻ cột 3 chưa đồng nhất quy chuẩn (lúc có màu icon lúc không), và hardcode chuỗi hiển thị.
+- **Verification Method:**
+  - Web TypeScript Check: `npx tsc --noEmit -p apps/web/tsconfig.json` (0 errors).
+  - Mobile TypeScript Check: `npx tsc --noEmit -p apps/mobile/tsconfig.json` (0 errors).
+  - Web Production Build: `npm run build -w @circle/web` (0 errors, 11/11 static pages generated).
+  - Mobile Bundle Export: `cd apps/mobile && npx expo export --platform ios --no-bytecode` (3065 modules bundled successfully, exit code 0).
+  - Pre-commit Hook & Secret Check: `./.githooks/pre-commit` & `./scripts/check-secrets.sh` (Passed 100%, 0 leaks).
+  - Agent Map Integrity: `./scripts/check-agent-map.sh` (121/121 files resolve).
+- **Official Source Checked:** Circle Design System, Socket.IO Realtime Events Specification, Tailwind CSS Breakpoint Standards.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+- **Branch:** `fix/upgrade-mobile-expo-sdk-58`
+
+
+---
+
+### Entry AI-0152
+
+- **Timestamp:** 2026-11-01T17:23:00+07:00
+- **Author:** Trương Công Bình (23110184)
+- **Tool:** Antigravity IDE (Gemini 2.5 Pro)
+- **Task / Scope:** Module 7 (US-COLLAB-003, Issue #119 / #124) — Đưa Bình Chọn Đang Mở (Active Polls) lên Cột 3 với Socket.IO Realtime, Canh giữa Thẻ Hoạt Động Chung (Poll & Sự Kiện) trong Chat (Web & Mobile), Khắc phục Triệt để Lỗi Navigation `emit of undefined` và Vòng lặp Load Expo.
+- **Files Touched:**
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `apps/web/src/components/presence/PresenceRail.tsx`
+  - `apps/web/src/components/chat/MessageBubble.tsx`
+  - `apps/mobile/app/index.tsx`
+  - `apps/mobile/app/_layout.tsx`
+  - `apps/mobile/app/(tabs)/_layout.tsx`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:**
+  1. **Hiển thị Bình Chọn Đang Mở (Active Polls) ở Cột 3 Web:**
+     - Tích hợp `usePollsQuery` và lọc các cuộc bình chọn còn hạn / chưa kết thúc (`!isClosed && (!deadline || deadline > now)`).
+     - Thiết kế theo chuẩn giao diện Cột 3 với icon box `w-6 h-6 rounded-lg bg-circle-primary/10 text-circle-primary`, nhãn `BÌNH CHỌN ĐANG MỞ`, badge số lượng, preview câu hỏi, số phiếu và trạng thái đã bình chọn.
+     - Lắng nghe Socket.IO `circle:poll-created`, `circle:poll-voted`, `circle:poll-closed` để cập nhật kết quả theo thời gian thực.
+  2. **Canh giữa Thẻ Hoạt Động Chung trong Luồng Chat (Web & Mobile):**
+     - Tách biệt rành mạch giữa tính năng cá nhân (tin nhắn text, ảnh, check-in vị trí, tệp tin - hiển thị dạng bubble lệch trái/phải theo người gửi) và tính năng sinh hoạt chung của nhóm (Bình chọn `[GROUP_POLL]:` và Sự kiện `[CALENDAR_EVENT]:`).
+     - Đưa toàn bộ thẻ bình chọn và sự kiện ra vị trí trung tâm luồng chat (`mx-auto` / `alignItems: 'center'`) với khung thẻ nhóm trung tính, tạo trải nghiệm hội tụ cộng đồng theo đúng triết lý Group-first.
+  3. **Khắc phục Lỗi `TypeError: Cannot read property 'emit' of undefined` trên TabBar Mobile:**
+     - Trong `apps/mobile/app/(tabs)/_layout.tsx`, hàm `onPress` của CustomLiquidTabBar bọc kiểm tra an toàn `navigation && typeof navigation.emit === 'function'` và fallback sang `router.push()`, ngăn chặn văng app khi Expo Router không cung cấp navigation context.
+  4. **Giải quyết Triệt để Trạng thái Treo Loading khi Mở Ứng Dụng Mobile:**
+     - Cập nhật cả `apps/mobile/app/index.tsx` và `apps/mobile/app/_layout.tsx` xử lý chuẩn xác trạng thái khởi động: tự động điều hướng sang `/(tabs)` nếu đã đăng nhập hoặc `/(auth)/login` nếu chưa đăng nhập, không để ứng dụng bị mắc kẹt vô hạn ở màn hình `ActivityIndicator`.
+- **Human Modifications:** Trương Công Bình yêu cầu đưa tất cả những gì realtime và trạng thái chưa kết thúc (poll) lên cột 3, canh giữa các thành phần chung như poll/sự kiện trong chat, và báo cáo lỗi TypeError crash khi bấm tab icon và lỗi treo loading expo khi vào app.
+- **Verification Method:**
+  - Web TypeScript Check: `npx tsc --noEmit -p apps/web/tsconfig.json` (0 errors).
+  - Mobile TypeScript Check: `npx tsc --noEmit -p apps/mobile/tsconfig.json` (0 errors).
+  - Web Production Build: `npm run build -w @circle/web` (0 errors, 11/11 pages).
+  - Mobile Bundle Export: `cd apps/mobile && npx expo export --platform ios --no-bytecode` (3065 modules bundled successfully, exit code 0).
+  - Pre-commit Hook & Secret Check: `./.githooks/pre-commit` & `./scripts/check-secrets.sh` (Passed 100%, 0 leaks).
+- **Official Source Checked:** React Navigation TabBar Specs, Expo Router v4 Layout and Navigation Lifecycle, Circle Design System.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+- **Branch:** `fix/upgrade-mobile-expo-sdk-58`
+
+
+---
+
+### Entry AI-0153
+
+- **Timestamp:** 2026-11-01T18:05:00+07:00
+- **Author:** Trương Công Bình (23110184)
+- **Tool:** Antigravity IDE (Gemini 2.5 Pro)
+- **Task / Scope:** Module 7 (US-COLLAB-003, Issue #119 / #124) — Chuẩn hóa Icon Mộc (Bare Icon Invariant), Tối giản Triệt để Thẻ Chat Poll/Location (Purge Header/Footer), Định vị Poll Độc nhất Luồng Chat & Tự động Cuộn Theo Dõi (Jump to Poll) (Web & Mobile).
+- **Files Touched:**
+  - `agentic/memory/MEMORY.md`
+  - `apps/web/src/components/presence/PresenceRail.tsx`
+  - `apps/web/src/components/chat/ChannelChatView.tsx`
+  - `apps/web/src/components/chat/MessageBubble.tsx`
+  - `apps/web/src/components/chat/ChatPollCard.tsx`
+  - `apps/web/src/components/chat/ChatLocationCard.tsx`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `apps/mobile/src/components/chat/MobileChatPollCard.tsx`
+  - `apps/mobile/src/components/chat/MobileChatLocationCard.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:**
+  1. **Quy chuẩn Icon Mộc (Bare Icon Invariant) tại Cột 3 và Toàn Nền tảng:**
+     - Loại bỏ hoàn toàn các viền hộp hình vuông bo góc nhân tạo (`w-6 h-6 rounded-lg bg-circle-primary/10`, `w-7 h-7`,...) bọc quanh icon tại tất cả các khối mục (Thành viên, Phòng thoại, Lịch hẹn, Vị trí trực tiếp, Bình chọn) trong `PresenceRail.tsx`.
+     - Giữ nguyên màu thương hiệu `text-circle-primary` hiển thị mộc trực tiếp trên nền của chính component cha, mang lại sự tinh gọn, sang trọng và thanh thoát.
+  2. **Tối giản Hóa Triệt để Thẻ Bình chọn và Vị trí trong Luồng Chat (Purge Header & Footer):**
+     - Thẻ Poll (`ChatPollCard.tsx` & `MobileChatPollCard.tsx`): Cắt bỏ 100% header ("Bình chọn nhóm", icon, badge trạng thái) và footer (tổng số lượt vote, badge "Đã bình chọn"). Chỉ hiển thị câu hỏi và các lựa chọn tương tác với phần trăm tiến trình và số phiếu tích hợp gọn gàng bên trong. Thay thế hoàn toàn mã màu xanh ngoại lai bằng màu chủ đạo.
+     - Thẻ Vị trí (`ChatLocationCard.tsx` & `MobileChatLocationCard.tsx`): Cắt bỏ 100% hộp header bên ngoài và nút "Mở bản đồ" ở footer. Thẻ map trực quan chiếm trọn không gian thẻ với dải thông tin overlay bán trong suốt ở chân bản đồ hiển thị tiêu đề, tọa độ và chỉ dẫn trực tiếp khi chạm.
+  3. **Định vị Poll Độc nhất (Single-Instance Invariant) & Tự động Cuộn theo dõi (Jump to Poll):**
+     - Sửa lỗi điều hướng nút mở trang bình chọn từ `setActiveCircleView('poll')` thành `'polls'`.
+     - Thêm cơ chế `handleJumpToPoll(pollId)` trên Cột 3: tự động chuyển về view chat và cuộn mượt (`scrollIntoView`) tới đúng vị trí tin nhắn poll trong đoạn chat, kèm hiệu ứng viền sáng (ring-2 ring-circle-primary) nổi bật tương tự như thao tác nhấp tin nhắn ghim.
+     - Cập nhật cả Web (`ChannelChatView.tsx`) và Mobile (`app/circle/[id].tsx`): Lắng nghe sự kiện Socket.IO `circle:poll-voted` để đưa poll lên vị trí tin nhắn mới nhất ở cuối luồng chat, đồng thời lọc bỏ mọi bản ghi cũ trong `visibleMessages` memo để mỗi poll chỉ xuất hiện duy nhất 1 lần tại vị trí được cập nhật mới nhất.
+- **Human Modifications:** Trương Công Bình yêu cầu sửa nút poll dẫn đúng trang poll, nhấp poll tự động cuộn tới tin nhắn tương tự pin message, poll cập nhật phải di chuyển lên mới nhất và không xuất hiện 2 lần, thẻ poll và thẻ vị trí chat bỏ hết header footer, và xóa bỏ triệt để viền vuông bo quanh icon ở cột 3 trên toàn nền tảng.
+- **Verification Method:**
+  - Web TypeScript Check: `npx tsc --noEmit -p apps/web/tsconfig.json` (0 errors).
+  - Mobile TypeScript Check: `npx tsc --noEmit -p apps/mobile/tsconfig.json` (0 errors).
+  - Web Production Build: `npm run build -w @circle/web` (0 errors, 11/11 static pages generated).
+  - Mobile Bundle Export: `cd apps/mobile && npx expo export --platform ios --no-bytecode` (3065 modules bundled successfully, exit code 0).
+  - Pre-commit Hook & Secret Check: `./.githooks/pre-commit` & `./scripts/check-secrets.sh` (Passed 100%, 0 leaks).
+  - Agent Map Integrity: `./scripts/check-agent-map.sh` (121/121 files resolve).
+- **Official Source Checked:** Circle Design System, Socket.IO Realtime Events Specification, Apple Human Interface Guidelines.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+- **Branch:** `fix/upgrade-mobile-expo-sdk-58`
+
+
+---
+
+### Entry AI-0154
+
+- **Timestamp:** 2026-11-01T18:20:00+07:00
+- **Author:** Trương Công Bình (23110184)
+- **Tool:** Antigravity IDE (Gemini 2.5 Pro)
+- **Task / Scope:** Module 7 (US-COLLAB-003, Issue #119 / #124) — Toàn diện Cải tổ UI/UX theo Chuẩn "Floating Glass Controls with Scroll-Under Content" trên cả Web và Mobile.
+- **Files Touched:**
+  - `apps/web/src/components/chat/ChannelChatView.tsx`
+  - `apps/web/src/components/chat/ChatComposer.tsx`
+  - `apps/web/src/components/chat/MessageList.tsx`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `apps/mobile/app/(tabs)/index.tsx`
+  - `apps/mobile/app/(tabs)/circles.tsx`
+  - `apps/mobile/app/(tabs)/messages.tsx`
+  - `apps/mobile/app/(tabs)/profile.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:**
+  1. **Cải tổ Web Channel Chat & Composer sang Floating Glass Controls:**
+     - `ChannelChatView.tsx`: Thay thế thanh header tĩnh chiếm trọn chiều ngang bằng một **Floating Glass Toolbar** dạng viên thuốc (`pointer-events-none absolute top-3 flex justify-center px-4`) chứa tên kênh và các glass button (cuộc gọi thoại/video, tìm kiếm, tin nhắn ghim, menu tùy chọn). Thanh tìm kiếm lơ lửng ngay phía dưới khi kích hoạt.
+     - `ChatComposer.tsx`: Chuyển đổi khung soạn thảo tin nhắn từ khối dính đáy cứng nhắc sang **Floating Glass Composer Container** lơ lửng phía trên luồng chat (`pointer-events-none absolute bottom-0` với dải gradient mờ quang học `from-white/95 via-white/50 to-transparent`).
+     - `MessageList.tsx`: Cung cấp khoảng đệm cuộn an toàn (`pt-16 pb-24`) cho danh sách tin nhắn để toàn bộ nội dung trượt ngầm hoàn hảo bên dưới lớp kính (**scroll-under**) mà không bị che khuất điểm đầu và điểm cuối.
+  2. **Cải tổ Mobile Circle Workspace & Tab Screens sang Floating Controls:**
+     - `apps/mobile/app/circle/[id].tsx`: Đưa `composerFloatingContainer` thành floating glass control đích thực (`position: 'absolute', bottom: 0, left: 0, right: 0`), kết hợp `paddingBottom: insets.bottom + 75` trên `messagesScrollContent`, tạo trải nghiệm tin nhắn trượt tự do dưới thanh nhập liệu.
+     - `apps/mobile/app/(tabs)/index.tsx`: Tách `headerBar` thành lớp điều khiển lơ lửng (`position: 'absolute', top: 0, zIndex: 30`) với Brand Capsule Pill bo tròn bên trái và Nút avatar Circle nổi bật bên phải; nội dung `ScrollView` kéo dài từ đỉnh màn hình và cuộn trượt ngầm phía dưới.
+     - `apps/mobile/app/(tabs)/circles.tsx`, `messages.tsx`, `profile.tsx`: Đồng bộ kiến trúc floating glass header, loại bỏ thanh ngang thô cứng, cho phép danh sách vòng tròn, kênh chat và hồ sơ cá nhân cuộn trượt mượt mà dưới lớp kính.
+- **Human Modifications:** Trương Công Bình trực tiếp chỉ thị và ban hành quy tắc mới trên toàn hệ thống: đi theo thiết kế floating controls (floating tab bar, floating toolbar, FAB, glass button) nổi trên lớp kính tách biệt, nội dung cuộn trượt ngầm bên dưới (scroll-under) với hiệu ứng làm mờ mép cuộn (scroll edge effect), triệt tiêu các header/footer dạng khối hộp đặc ở các component chính trên cả Web và Mobile.
+- **Verification Method:**
+  - Web TypeScript Check: `npx tsc --noEmit -p apps/web/tsconfig.json` (0 errors).
+  - Mobile TypeScript Check: `npx tsc --noEmit -p apps/mobile/tsconfig.json` (0 errors).
+  - Web Production Build: `npm run build -w @circle/web` (0 errors, 11/11 static pages generated).
+  - Mobile Bundle Export: `cd apps/mobile && npx expo export --platform ios --no-bytecode` (3065 modules bundled successfully, exit code 0).
+  - Pre-commit Hook & Secret Check: `./.githooks/pre-commit` & `./scripts/check-secrets.sh` (Passed 100%, 0 leaks).
+  - Agent Map Integrity: `./scripts/check-agent-map.sh` (122/122 files resolve).
+- **Official Source Checked:** Apple Human Interface Guidelines (Liquid Glass Architecture & Scroll Edge Effect), React Native Flexbox & Absolute Layout Specifications.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+- **Branch:** `fix/upgrade-mobile-expo-sdk-58`
+
+---
+
+### Entry AI-0155
+
+- **Timestamp:** 2026-11-02T22:30:00+07:00
+- **Author:** Trương Công Bình (23110184)
+- **Tool:** Antigravity IDE (Gemini 2.5 Pro)
+- **Task / Scope:** Module 7 (US-COLLAB-003, Issue #125) — Hoàn tất Kiến trúc "Floating Glass Controls with Scroll-Under Content" & Chuẩn "Balanced Legible Glass" trên toàn bộ Tiện ích Nhóm Circle Tools (Web & Mobile).
+- **Files Touched:**
+  - `apps/mobile/src/constants/glass-theme.ts`
+  - `apps/web/src/components/header/Header.tsx`
+  - `apps/web/src/components/chat/ChannelChatView.tsx`
+  - `apps/web/src/components/chat/ChatComposer.tsx`
+  - `apps/web/src/components/tools/CirclePollView.tsx`
+  - `apps/web/src/components/tools/CircleLocationView.tsx`
+  - `apps/web/src/components/tools/CircleCalendarView.tsx`
+  - `apps/web/src/components/tools/CirclePlanningView.tsx`
+  - `apps/web/src/components/tools/CircleAlbumsView.tsx`
+  - `apps/web/src/components/tools/CircleWheelView.tsx`
+  - `apps/web/src/components/tools/CircleAnonymousView.tsx`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `apps/mobile/src/components/tools/MobilePollView.tsx`
+  - `apps/mobile/src/components/tools/MobileAlbumsView.tsx`
+  - `apps/mobile/src/components/tools/MobileWheelView.tsx`
+  - `apps/mobile/src/components/tools/MobileAnonymousView.tsx`
+  - `apps/mobile/src/components/tools/MobileLocationView.tsx`
+  - `apps/mobile/src/components/tools/MobilePlanningView.tsx`
+  - `apps/mobile/src/components/tools/MobileCalendarView.tsx`
+  - `agentic/memory/MEMORY.md`
+  - `agentic/memory/topics/floating-glass-controls.md`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:**
+  1. **Thiết lập Chuẩn Độ mờ Kính Cân Bằng (Balanced Legible Glass Invariant):**
+     - Giải quyết triệt để vấn đề kính quá trong suốt gây chìm/khó đọc chữ và icon theo yêu cầu người dùng ("glass có độ mờ vừa phải chứ k xoá trong suốt để khó nhìn thấy").
+     - Cập nhật bộ token `glass-theme.ts` và toàn bộ CSS glass utility: Light mode cố định độ mờ 90% - 94% (`bg-white/94`), Dark mode 88% - 92% (`bg-circle-dark-surface/92`), kết hợp khuếch tán quang học cường độ cao (`backdrop-blur-xl`, Blur intensity 75–85) và đường viền siêu mỏng hairline (`border-circle-hairline/80`, `border-white/12`).
+  2. **Toàn diện Hóa Web Circle Tools sang Floating Glass Toolbars:**
+     - `CirclePollView.tsx`, `CircleCalendarView.tsx`, `CirclePlanningView.tsx`, `CircleAlbumsView.tsx`, `CircleWheelView.tsx`, `CircleAnonymousView.tsx`: Loại bỏ triệt để mọi thanh header đặc với đường kẻ chia cắt `border-b`. Thay thế bằng Floating Glass Toolbar Capsule lơ lửng ở đỉnh (`absolute top-3 z-20`) hiển thị icon thuần không đóng khung (`bare icon`) và tên tiện ích; nội dung cuộn trượt tự do ngầm phía dưới (`pt-20 pb-12`).
+     - `CircleLocationView.tsx`: Bản đồ Leaflet mở rộng toàn màn hình (`absolute inset-0`), thanh điều khiển chia sẻ vị trí chuyển thành floating glass toolbar lơ lửng trên nền bản đồ (`z-[1000]`).
+  3. **Đồng bộ Native Mobile Circle Tools sang Floating Glass & Floating Action Buttons (FAB):**
+     - `apps/mobile/app/circle/[id].tsx`: Tái cấu trúc thanh điều hướng modal tiện ích thành cụm 3 Floating Glass Capsules lơ lửng phía trên đỉnh màn hình (Nút Quay lại "Tiện ích", Nhãn tên công cụ đang mở, Nút đóng `X`), nội dung kéo dài vô cực từ đỉnh màn hình và cuộn trượt ngầm phía dưới.
+     - `MobilePollView.tsx`, `MobileAlbumsView.tsx`, `MobileWheelView.tsx`, `MobileAnonymousView.tsx`, `MobilePlanningView.tsx`: Xóa bỏ toàn bộ các khối header đặc với `borderBottomWidth`. Chuyển nút tạo mới thành Floating Action Button (FAB) dạng viên thuốc lơ lửng ở góc dưới bên phải (`position: 'absolute', bottom: 24, right: 16`), nội dung cuộn trượt mượt mà với khoảng đệm an toàn (`paddingTop: 74, paddingBottom: 100`).
+     - `MobileLocationView.tsx`: Xóa bỏ thanh topBar khối cứng và viền bo icon (`iconBox`). Thanh điều khiển thời gian và bật/tắt chia sẻ biến thành Floating Glass Toolbar lơ lửng trên bản đồ, dải danh sách thành viên biến thành Floating Glass Bottom Drawer lơ lửng đáy màn hình.
+     - `MobileCalendarView.tsx`: Điều chỉnh khoảng đệm `appleMonthCalendarHeader` (`paddingTop: 68`) và nền trong suốt, tránh xung đột với cụm điều khiển kính nổi phía trên.
+  4. **Cập nhật Memory Protocol & Tài liệu Kiến trúc:**
+     - Ghi nhận `Balanced Legible Glass Standard` vào Layer 1 `agentic/memory/MEMORY.md`.
+     - Bổ sung Mục 4 (Độ mờ cân bằng & Tiêu chuẩn hiển thị) vào tài liệu kiến trúc Layer 3 `agentic/memory/topics/floating-glass-controls.md`.
+- **Human Modifications:** Trương Công Bình yêu cầu mở Issue chính thức (#125), đặt ra quy chuẩn kính có độ mờ vừa phải không xóa trong suốt quá mức gây khó nhìn, và kiểm soát chặt chẽ quy chuẩn floating controls và bare icon trên cả Web lẫn Mobile.
+- **Verification Method:**
+  - Web TypeScript Check: `npx tsc --noEmit -p apps/web/tsconfig.json` (0 errors).
+  - Mobile TypeScript Check: `npx tsc --noEmit -p apps/mobile/tsconfig.json` (0 errors).
+  - Web Production Build: `npm run build -w @circle/web` (0 errors, 11/11 static pages generated).
+  - Mobile Bundle Export: `cd apps/mobile && npx expo export --platform ios --no-bytecode` (3065 modules bundled successfully, exit code 0).
+  - Pre-commit Hook & Secret Check: `./.githooks/pre-commit` & `./scripts/check-secrets.sh` (Passed 100%, 0 leaks).
+  - Agent Map Integrity: `./scripts/check-agent-map.sh` (122/122 files resolve).
+- **Official Source Checked:** Apple Human Interface Guidelines (Liquid Glass Controls & Frosted Legibility Standards), Issue #125 Specifications.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+- **Branch:** `fix/upgrade-mobile-expo-sdk-58`
+
+
+---
+
+### Entry AI-0156
+
+- **Timestamp:** 2026-11-08T00:52:00+07:00
+- **Author:** Trương Công Bình (23110184)
+- **Tool:** Antigravity IDE (Gemini 2.5 Pro)
+- **Task / Scope:** Module 7 (US-COLLAB-003, Issue #125) — Hoàn tất Đồng bộ Chuẩn Bare Icon Không Viền Hộp, Deduplication & Auto-Follow Cuộn Polls Cột 3, Loại bỏ Header/Footer Thẻ Chat, và Khởi chạy Persistent Brave Bridge Daemon phục vụ Kiểm thử Trực tiếp.
+- **Files Touched:**
+  - `scripts/brave-bridge.mjs`
+  - `scripts/brave-ctl.mjs`
+  - `apps/web/src/stores/circle.store.ts`
+  - `apps/web/src/components/presence/PresenceRail.tsx`
+  - `apps/web/src/components/chat/MessageList.tsx`
+  - `apps/web/src/components/chat/ChannelChatView.tsx`
+  - `apps/web/src/components/chat/ChatLocationCard.tsx`
+  - `apps/web/src/components/chat/CreatePollChatModal.tsx`
+  - `apps/web/src/components/tools/CircleAlbumsView.tsx`
+  - `apps/web/src/components/tools/CircleWheelView.tsx`
+  - `apps/web/src/components/tools/CircleAnonymousView.tsx`
+  - `apps/web/src/components/tools/CirclePlanningView.tsx`
+  - `apps/web/src/components/tools/CircleCalendarView.tsx`
+  - `apps/web/src/components/tools/CircleLocationView.tsx`
+  - `apps/web/src/hooks/use-circle-tools.ts`
+  - `apps/mobile/app/(tabs)/_layout.tsx`
+  - `apps/mobile/app/(tabs)/circles.tsx`
+  - `apps/mobile/app/(tabs)/messages.tsx`
+  - `apps/mobile/src/components/chat/MobileChatLocationCard.tsx`
+  - `apps/mobile/src/components/chat/MobileCreatePollModal.tsx`
+  - `apps/mobile/src/components/chat/PinnedMessagesModal.tsx`
+  - `apps/mobile/src/components/chat/SearchMessagesModal.tsx`
+  - `apps/mobile/src/components/circle/CreateCircleModal.tsx`
+  - `apps/mobile/src/components/moment/MomentsView.tsx`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:**
+  1. **Persistent Brave Debugging Bridge (`scripts/brave-bridge.mjs` & `scripts/brave-ctl.mjs`):**
+     - Xử lý dứt điểm tình trạng Brave liên tục hiện thông báo xin quyền "Allow remote debugging" do mỗi lần gọi script ngắt kết nối WebSocket. Triển khai daemon chạy ngầm giữ kết nối liên tục qua cổng 9333, cho phép thực thi `eval`, `click`, `screenshot`, `navigate` trực tiếp trên trình duyệt của người dùng với 0 popup phiền phức.
+  2. **Chuẩn hóa Cột 3 (PresenceRail) & Tính năng Poll Auto-Follow / Deduplication:**
+     - Chuẩn hóa Cột 3: Nút "Polls >" điều hướng tức thời vào view Group Poll (`activeCircleView = 'polls'`).
+     - Bấm vào từng cuộc bình chọn ở Cột 3 tự động chuyển về view chat (nếu đang ở view khác), tính toán vị trí offset chính xác `offset - (container.clientHeight / 2) + (el.clientHeight / 2)` để cuộn mượt và căn giữa chuẩn xác 1.3px kèm hiệu ứng viền sáng `ring-2 ring-circle-primary shadow-lg` trong 2.5s.
+     - Triển khai cơ chế khử trùng lặp (Deduplication) và đẩy vị trí mới nhất (Bump to latest) cho thẻ Poll trong chat khi có thành viên bỏ phiếu hoặc đóng bình chọn (`circle:poll-voted`, `circle:poll-closed` và cập nhật lạc quan `useVotePollMutation`/`useClosePollMutation`).
+  3. **Tối giản Hóa Thẻ Nhúng Trò Chuyện (Chat Embed Cleanups):**
+     - `ChatPollCard.tsx` & `MobileChatPollCard.tsx`: Bỏ toàn bộ header và footer dư thừa, hiển thị trực quan câu hỏi và danh sách lựa chọn kèm thanh tiến trình vote xanh lá.
+     - `ChatLocationCard.tsx` & `MobileChatLocationCard.tsx`: Bỏ lớp phủ gradient tối đen dưới chân ("Circle Meetup Point, Vị trí hiện tại, Mapbox"), giữ lại bản đồ tĩnh kèm pin tối giản và sắc nét.
+     - Thêm hiệu ứng mờ mép cuộn (scroll edge effect fade) ở đỉnh khung chat (`ChannelChatView.tsx`).
+  4. **Triệt tiêu Viền Hộp Bo Góc quanh Icon (Bare Icon Standard across Web & Mobile):**
+     - Loại bỏ toàn bộ các khối `iconBox`, `optionIconBox`, `approvalIconBox`, `actionIconBox` trên toàn bộ hệ thống (Web Column 3, Mobile Tab Layout Action Sheet, Messages Empty State, Circles Empty State, Pinned Messages Modal, Search Messages Modal, Create Circle Modal, Moments Action Sheet, Create Poll Modal). Tất cả icon hiển thị trực tiếp trên nền component cha.
+  5. **Hợp nhất Floating Glass Controls trên cả 8 Tiện ích Nhóm:**
+     - Đồng bộ kiểu dáng thanh công cụ viên thuốc kính nổi (Floating Glass Capsule Toolbar) lơ lửng ở đỉnh với nhãn tên tiện ích và các nút hành động chính trên toàn bộ 8 công cụ: `CirclePollView`, `CircleAlbumsView`, `CircleWheelView`, `CircleAnonymousView`, `CirclePlanningView` (cả danh sách và chi tiết bảng tính), `CircleLocationView` (dịch chuyển bộ zoom Leaflet tránh đè nút), `CircleCalendarView` (chuẩn hóa i18n VI/EN).
+- **Human Modifications:** Trương Công Bình yêu cầu không dùng Playwright, bật DevTools trực tiếp trên trình duyệt Brave của máy người dùng, giữ kết nối thông suốt không hỏi quyền liên tục, đồng bộ icon không có viền hộp bo góc trên toàn hệ thống, loại bỏ triệt để header/footer thẻ chat, và kiểm thử nghiêm ngặt trực tiếp trên trình duyệt.
+- **Verification Method:**
+  - Kết nối và kiểm thử trực tiếp trên trình duyệt Brave của người dùng (`127.0.0.1:9222`) thông qua daemon bridge.
+  - Kiểm tra độ chính xác căn giữa thẻ Poll khi nhấn từ Cột 3: `diffPx: 1.375px` (chuẩn xác sub-pixel).
+  - Kiểm tra thực tế bỏ phiếu bình chọn trên Brave: Poll `q` từ vị trí giữa danh sách nhảy ngay lập tức xuống vị trí mới nhất cuối khung chat, vị trí cũ biến mất hoàn toàn.
+  - Chụp ảnh màn hình kiểm thử toàn diện cả 8 tiện ích trên Brave ở cả Light mode và Dark mode: `live_moments_light.png`, `live_calendar_light.png`, `live_planning_light.png`, `live_planning_sheet_detail_light.png`, `live_location_light.png`, `live_wheel_light.png`, `live_mailbox_light.png`, `live_albums_light.png`, `live_poll_dark.png`, `live_chat_dark.png`, `live_scrolled_dark_bxbxb.png`, `live_poll_bumped_to_latest.png`.
+  - Typecheck Web: `npx tsc --noEmit -p apps/web/tsconfig.json` (0 errors).
+  - Typecheck Mobile: `npx tsc --noEmit -p apps/mobile/tsconfig.json` (0 errors).
+  - Build Shared: `npm run build --workspace=@circle/shared` (Success).
+  - Integrity check: `./scripts/check-agent-map.sh` (Passed 100%, 122/122 files).
+- **Official Source Checked:** Issue #125, Apple Human Interface Guidelines (Liquid Glass Controls), Figma specifications.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+- **Branch:** `fix/upgrade-mobile-expo-sdk-58`

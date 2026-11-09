@@ -54,7 +54,7 @@ export const Header: React.FC = () => {
             onClick={() => setActiveCircle(null)}
             className={`inline-flex h-9 sm:h-10 items-center gap-2 pl-1 sm:pl-1.5 pr-3.5 sm:pr-4 rounded-full border transition-all select-none group active:scale-95 ${
               isGlass
-                ? 'backdrop-blur-md bg-white/80 dark:bg-circle-dark-surface/80 border-white/60 dark:border-white/10 shadow-sm hover:shadow-md hover:bg-white/90 dark:hover:bg-circle-dark-surface/90 hover:scale-[1.02]'
+                ? 'backdrop-blur-xl bg-white/94 dark:bg-circle-dark-surface/92 border-circle-hairline/80 dark:border-white/12 shadow-sm hover:shadow-md hover:bg-white/98 dark:hover:bg-circle-dark-surface/98 hover:scale-[1.02]'
                 : 'bg-white dark:bg-circle-dark-surface border-circle-hairline dark:border-circle-dark-hairline shadow-xs hover:border-circle-slate dark:hover:border-circle-dark-muted'
             }`}
             title={t.common.appName}
@@ -75,7 +75,7 @@ export const Header: React.FC = () => {
             type="button"
             className={`flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full border transition-all text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text relative active:scale-95 ${
               isGlass
-                ? 'backdrop-blur-md bg-white/80 dark:bg-circle-dark-surface/80 border-white/60 dark:border-white/10 shadow-sm hover:shadow-md hover:scale-105'
+                ? 'backdrop-blur-xl bg-white/94 dark:bg-circle-dark-surface/92 border-circle-hairline/80 dark:border-white/12 shadow-sm hover:shadow-md hover:scale-105'
                 : 'bg-white dark:bg-circle-dark-surface border-circle-hairline dark:border-circle-dark-hairline shadow-xs hover:border-circle-slate dark:hover:border-circle-dark-muted'
             }`}
             title={t.nav.notifications}
@@ -94,7 +94,7 @@ export const Header: React.FC = () => {
                 onClick={() => setShowMenu(!showMenu)}
                 className={`flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full border transition-all overflow-hidden focus:outline-none active:scale-95 ${
                   isGlass
-                    ? 'backdrop-blur-md bg-white/80 dark:bg-circle-dark-surface/80 border-white/60 dark:border-white/10 shadow-sm hover:shadow-md hover:scale-105'
+                    ? 'backdrop-blur-xl bg-white/94 dark:bg-circle-dark-surface/92 border-circle-hairline/80 dark:border-white/12 shadow-sm hover:shadow-md hover:scale-105'
                     : 'bg-white dark:bg-circle-dark-surface border-circle-hairline dark:border-circle-dark-hairline shadow-xs hover:border-circle-slate dark:hover:border-circle-dark-muted'
                 }`}
                 title={displayName}

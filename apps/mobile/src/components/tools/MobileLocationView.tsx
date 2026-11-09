@@ -11,6 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
+import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
 import {
@@ -289,7 +290,7 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
       height: 38px;
       border-radius: 19px;
       border: 2.5px solid #FFFFFF;
-      background: #0284C7;
+      background: ${colors.primary};
       box-shadow: 0 4px 14px rgba(0,0,0,0.35);
       position: relative;
       overflow: hidden;
@@ -301,16 +302,16 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
       font-size: 13px;
     }
     .member-avatar-box.is-me {
-      background: #3B82F6;
-      border-color: #93C5FD;
-      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.4), 0 4px 14px rgba(0,0,0,0.35);
+      background: ${colors.primary};
+      border-color: #FFFFFF;
+      box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.4), 0 4px 14px rgba(0,0,0,0.35);
     }
     .member-name-tag {
       margin-top: 3px;
       padding: 2px 7px;
       border-radius: 10px;
       background: rgba(15, 23, 42, 0.85);
-      border: 1px solid rgba(56, 189, 248, 0.4);
+      border: 1px solid rgba(16, 185, 129, 0.4);
       color: #FFFFFF;
       font-size: 10px;
       font-weight: 700;
@@ -383,26 +384,63 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
 
   return (
     <View style={[styles.container, { backgroundColor: colors.canvas }]}>
-      {/* Top Controls Strip */}
-      <View style={[styles.topBar, { backgroundColor: colors.surface, borderBottomColor: colors.hairline }]}>
-        <View style={styles.topBarLeft}>
-          <View style={[styles.iconBox, { backgroundColor: colors.wash }]}>
-            <MapPin size={16} color="#0284C7" />
-          </View>
-          <View>
-            <Text style={[styles.topTitle, { color: colors.text }]}>
-              {t.collab?.locationTitle || 'Chia sẻ vị trí'}
-            </Text>
-            <Text style={[styles.topSub, { color: colors.subtle }]}>
-              {t.collab?.activeBroadcastingCount?.replace('{count}', String(locations.length)) ||
-                `${locations.length} người đang phát sóng`}
-            </Text>
-          </View>
-        </View>
+      {/* Floating Glass Top Toolbar */}
+      <View
+        pointerEvents="box-none"
+        style={{
+          position: 'absolute',
+          top: Platform.OS === 'ios' ? 68 : 58,
+          left: 14,
+          right: 14,
+          zIndex: 30,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}
+      >
+        <BlurView
+          intensity={isDark ? 85 : 75}
+          tint={isDark ? 'dark' : 'light'}
+          style={{
+            borderRadius: 999,
+            overflow: 'hidden',
+            backgroundColor: isDark ? 'rgba(22, 22, 26, 0.90)' : 'rgba(255, 255, 255, 0.92)',
+            borderWidth: StyleSheet.hairlineWidth,
+            borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : colors.hairline,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: isDark ? 0.3 : 0.08,
+            shadowRadius: 8,
+            elevation: 3,
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingVertical: 6,
+            paddingHorizontal: 12,
+            gap: 8,
+          }}
+        >
+          <MapPin size={16} color={colors.primary} />
+          <Text style={[styles.topTitle, { color: colors.text }]}>
+            {locations.length > 0 ? `${locations.length} trực tiếp` : 'Bản đồ'}
+          </Text>
+        </BlurView>
 
         {/* Duration Selector or Stop Button */}
         {!isSharing ? (
-          <View style={[styles.durationWrap, { backgroundColor: colors.wash, borderColor: colors.hairline }]}>
+          <BlurView
+            intensity={isDark ? 85 : 75}
+            tint={isDark ? 'dark' : 'light'}
+            style={{
+              borderRadius: 999,
+              overflow: 'hidden',
+              backgroundColor: isDark ? 'rgba(22, 22, 26, 0.90)' : 'rgba(255, 255, 255, 0.92)',
+              borderWidth: StyleSheet.hairlineWidth,
+              borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : colors.hairline,
+              flexDirection: 'row',
+              padding: 3,
+              gap: 2,
+            }}
+          >
             {[15, 30, 60].map((dur) => (
               <TouchableOpacity
                 key={dur}
@@ -423,7 +461,7 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
                 </Text>
               </TouchableOpacity>
             ))}
-          </View>
+          </BlurView>
         ) : null}
 
         <View style={styles.topActionsRow}>
@@ -442,7 +480,7 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
               activeOpacity={0.8}
               onPress={handleStartSharing}
               disabled={isLoading}
-              style={[styles.startBtn, { backgroundColor: '#0284C7' }]}
+              style={[styles.startBtn, { backgroundColor: colors.primary }]}
             >
               {isLoading ? (
                 <ActivityIndicator size="small" color="#FFFFFF" />
@@ -460,7 +498,13 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
           <TouchableOpacity
             activeOpacity={0.7}
             onPress={loadLocations}
-            style={[styles.iconActionBtn, { borderColor: colors.hairline }]}
+            style={[
+              styles.iconActionBtn,
+              {
+                backgroundColor: isDark ? 'rgba(22, 22, 26, 0.90)' : 'rgba(255, 255, 255, 0.92)',
+                borderColor: colors.hairline,
+              },
+            ]}
           >
             <RotateCw size={15} color={colors.subtle} />
           </TouchableOpacity>
@@ -488,14 +532,14 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
             onPress={handleRecenter}
             style={[styles.floatingCircleBtn, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
           >
-            <LocateFixed size={18} color="#0284C7" />
+            <LocateFixed size={18} color={colors.primary} />
           </TouchableOpacity>
 
           <TouchableOpacity
             activeOpacity={0.85}
             onPress={handleSendToChat}
             disabled={isSendingToChat || !myCoords}
-            style={[styles.floatingCheckinBtn, { backgroundColor: chatSentSuccess ? '#10B981' : '#0284C7' }]}
+            style={[styles.floatingCheckinBtn, { backgroundColor: colors.primary }]}
           >
             {isSendingToChat ? (
               <ActivityIndicator size="small" color="#FFFFFF" />
@@ -511,8 +555,18 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
         </View>
       </View>
 
-      {/* Active Members Horizontal Strip */}
-      <View style={[styles.bottomStrip, { backgroundColor: colors.surface, borderTopColor: colors.hairline }]}>
+      {/* Active Members Floating Glass Strip */}
+      <BlurView
+        intensity={isDark ? 85 : 75}
+        tint={isDark ? 'dark' : 'light'}
+        style={[
+          styles.bottomStrip,
+          {
+            backgroundColor: isDark ? 'rgba(22, 22, 26, 0.90)' : 'rgba(255, 255, 255, 0.92)',
+            borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : colors.hairline,
+          },
+        ]}
+      >
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -568,7 +622,7 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
                     },
                   ]}
                 >
-                  <View style={styles.memberAvatar}>
+                  <View style={[styles.memberAvatar, { backgroundColor: colors.primary }]}>
                     <Text style={styles.memberAvatarText}>{initials}</Text>
                   </View>
                   <View>
@@ -585,7 +639,7 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
             })
           )}
         </ScrollView>
-      </View>
+      </BlurView>
     </View>
   );
 };
@@ -684,7 +738,7 @@ const styles = StyleSheet.create({
   },
   floatingActionGroup: {
     position: 'absolute',
-    bottom: 16,
+    bottom: 84,
     right: 16,
     flexDirection: 'column',
     alignItems: 'flex-end',
@@ -718,8 +772,20 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   bottomStrip: {
+    position: 'absolute',
+    bottom: 14,
+    left: 14,
+    right: 14,
+    zIndex: 30,
+    borderRadius: 20,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: 'hidden',
     paddingVertical: 10,
-    borderTopWidth: StyleSheet.hairlineWidth,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 4,
   },
   bottomScroll: {
     paddingHorizontal: 16,
@@ -747,7 +813,6 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#0284C7',
     alignItems: 'center',
     justifyContent: 'center',
   },

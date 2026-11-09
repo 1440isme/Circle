@@ -33,7 +33,7 @@ export default function VerifyOtpScreen() {
   const [email, setEmail] = useState(emailParam || '');
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
-  const pinInputRef = useRef<TextInput>(null);
+  const pinInputRef = useRef<React.ElementRef<typeof TextInput>>(null);
   const [resending, setResending] = useState(false);
   const [cooldown, setCooldown] = useState(60);
   const [apiError, setApiError] = useState<string | null>(null);

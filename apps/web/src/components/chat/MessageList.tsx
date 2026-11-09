@@ -4,6 +4,7 @@ import React, { useRef, useEffect } from 'react';
 import { Hash, ArrowUpCircle } from 'lucide-react';
 import { MessageEntity, MemberRole } from '@circle/types';
 import { useLanguageStore } from '../../stores/language.store';
+import { useCircleStore } from '../../stores/circle.store';
 import { MessageBubble } from './MessageBubble';
 
 interface MessageListProps {
@@ -61,6 +62,45 @@ export const MessageList: React.FC<MessageListProps> = ({
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [highlightedMessageId, setHighlightedMessageId] = React.useState<string | null>(null);
+  const targetPollId = useCircleStore((s) => s.targetPollId);
+  const setTargetPollId = useCircleStore((s) => s.setTargetPollId);
+
+  // Auto-follow and smooth scroll to target poll from Column 3
+  useEffect(() => {
+    if (!targetPollId) return;
+
+    let attempts = 0;
+    const interval = setInterval(() => {
+      attempts++;
+      const el = document.getElementById(`message-poll-${targetPollId}`);
+      if (el) {
+        clearInterval(interval);
+        const container = containerRef.current || (el.closest('.overflow-y-auto') as HTMLElement);
+        if (container) {
+          let offset = 0;
+          let curr: HTMLElement | null = el;
+          while (curr && curr !== container) {
+            offset += curr.offsetTop;
+            curr = curr.offsetParent as HTMLElement;
+          }
+          const targetScrollTop = offset - (container.clientHeight / 2) + (el.clientHeight / 2);
+          container.scrollTo({ top: Math.max(0, targetScrollTop), behavior: 'smooth' });
+        } else {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        el.classList.add('ring-2', 'ring-circle-primary', 'shadow-lg', 'transition-all');
+        setTimeout(() => {
+          el.classList.remove('ring-2', 'ring-circle-primary', 'shadow-lg');
+          setTargetPollId(null);
+        }, 2500);
+      } else if (attempts >= 15) {
+        clearInterval(interval);
+        setTargetPollId(null);
+      }
+    }, 100);
+
+    return () => clearInterval(interval);
+  }, [targetPollId, messages, setTargetPollId]);
 
   const handleJumpToMessage = (targetId: string) => {
     if (!targetId) return;
@@ -239,7 +279,7 @@ export const MessageList: React.FC<MessageListProps> = ({
   return (
     <div
       ref={containerRef}
-      className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-4"
+      className="flex-1 min-h-0 overflow-y-auto px-4 pt-16 pb-24 space-y-4"
     >
       {/* Load earlier messages button */}
       {hasMore && (

@@ -44,6 +44,7 @@ interface CircleCalendarViewProps {
 export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId }) => {
   const { user } = useAuth();
   const t = useLanguageStore((s) => s.t);
+  const locale = useLanguageStore((s) => s.locale);
   const setActiveCircleView = useCircleStore((s) => s.setActiveCircleView);
   const targetCalendarDate = useCircleStore((s) => s.targetCalendarDate);
   const targetCalendarEventId = useCircleStore((s) => s.targetCalendarEventId);
@@ -326,55 +327,58 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
   }, [targetCalendarEventId, selectedDayEvents]);
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-circle-canvas dark:bg-circle-dark-surface overflow-y-auto p-4 md:p-6 transition-colors">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between pb-4 border-b border-circle-hairline dark:border-circle-dark-hairline mb-6 gap-3">
-        <div>
-          <h1 className="text-lg font-bold text-circle-charcoal dark:text-circle-dark-text">
-            {t.nav.calendarEvents}
-          </h1>
-          <p className="text-xs text-circle-slate dark:text-circle-dark-muted mt-0.5">
-            Lịch hẹn, sự kiện và nhắc nhở dành riêng cho các thành viên trong nhóm
-          </p>
-        </div>
+    <div className="relative flex-1 flex flex-col h-full bg-circle-canvas dark:bg-circle-dark-surface overflow-hidden transition-colors">
+      {/* Floating Glass Toolbar (Floating glass controls with scroll-under calendar content) */}
+      <div className="pointer-events-none absolute top-3 left-0 right-0 z-20 flex justify-center px-4">
+        <div className="pointer-events-auto flex flex-wrap items-center justify-between px-5 py-2 rounded-full backdrop-blur-xl bg-white/94 dark:bg-circle-dark-surface/92 border border-circle-hairline/80 dark:border-white/12 shadow-sm max-w-5xl w-full gap-3 transition-all">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <CalendarDays className="h-5 w-5 text-circle-primary shrink-0" />
+            <h1 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text truncate">
+              {t.collab.calendarTitle}
+            </h1>
+          </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={today}
-            className="rounded-lg border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-canvas px-3 py-1.5 text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash transition-colors shadow-2xs"
-          >
-            Hôm nay
-          </button>
-          <div className="flex items-center rounded-lg border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-canvas overflow-hidden shadow-2xs">
+          <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
-              onClick={prevMonth}
-              className="p-1.5 hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate"
+              onClick={today}
+              className="rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-circle-wash/80 dark:bg-circle-dark-canvas/80 px-3 py-1 text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash transition-colors shadow-2xs"
             >
-              <ChevronLeft className="h-4 w-4" />
+              {t.collab.today}
             </button>
-            <span className="px-3 text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text">
-              Tháng {month}, {year}
-            </span>
+            <div className="flex items-center rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-circle-wash/80 dark:bg-circle-dark-canvas/80 overflow-hidden shadow-2xs">
+              <button
+                type="button"
+                onClick={prevMonth}
+                className="p-1.5 hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+              </button>
+              <span className="px-2.5 text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text">
+                {locale === 'vi' ? `Tháng ${month}, ${year}` : `${new Date(year, month - 1).toLocaleString('en', { month: 'short' })} ${year}`}
+              </span>
+              <button
+                type="button"
+                onClick={nextMonth}
+                className="p-1.5 hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate"
+              >
+                <ChevronRight className="h-3.5 w-3.5" />
+              </button>
+            </div>
             <button
               type="button"
-              onClick={nextMonth}
-              className="p-1.5 hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate"
+              onClick={handleOpenCreateModal}
+              className="flex items-center gap-1.5 rounded-full bg-circle-primary hover:bg-circle-sage px-3.5 py-1 text-xs font-semibold text-white transition-all shadow-sm active:scale-98"
             >
-              <ChevronRight className="h-4 w-4" />
+              <Plus className="h-3.5 w-3.5" />
+              <span>{t.collab.createEvent}</span>
             </button>
           </div>
-          <button
-            type="button"
-            onClick={handleOpenCreateModal}
-            className="flex items-center gap-1.5 rounded-lg bg-circle-charcoal dark:bg-circle-primary px-3.5 py-1.5 text-xs font-semibold text-white dark:text-circle-charcoal hover:bg-circle-sage transition-all shadow-sm active:scale-98"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            <span>Tạo sự kiện</span>
-          </button>
         </div>
       </div>
+
+      {/* Calendar Scroll-Under Content */}
+      <div className="flex-1 overflow-y-auto px-4 md:px-6 pt-20 pb-12">
 
       {isLoading ? (
         <div className="flex-1 flex items-center justify-center">
@@ -386,13 +390,9 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
           <div className="lg:col-span-2 rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-canvas p-4 shadow-2xs">
             {/* Weekdays */}
             <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-bold text-circle-slate dark:text-circle-dark-muted pb-2 border-b border-circle-hairline dark:border-circle-dark-hairline">
-              <span>CN</span>
-              <span>T2</span>
-              <span>T3</span>
-              <span>T4</span>
-              <span>T5</span>
-              <span>T6</span>
-              <span>T7</span>
+              {(locale === 'vi' ? ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'] : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']).map((day) => (
+                <span key={day}>{day}</span>
+              ))}
             </div>
 
             {/* Days grid */}
@@ -448,10 +448,10 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
           <div className="rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-canvas p-4 shadow-2xs flex flex-col h-full">
             <div className="flex items-center justify-between pb-3 border-b border-circle-hairline dark:border-circle-dark-hairline mb-3">
               <h3 className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text uppercase tracking-wider">
-                Sự kiện ngày {selectedDate.toLocaleDateString('vi-VN')}
+                {locale === 'vi' ? `Sự kiện ngày ${selectedDate.toLocaleDateString('vi-VN')}` : `Events on ${selectedDate.toLocaleDateString('en-US')}`}
               </h3>
               <span className="text-[11px] text-circle-slate dark:text-circle-dark-muted font-medium">
-                {selectedDayEvents.length} sự kiện
+                {selectedDayEvents.length} {locale === 'vi' ? 'sự kiện' : 'events'}
               </span>
             </div>
 
@@ -739,20 +739,21 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
               <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
                 <CalendarDays className="h-10 w-10 text-circle-slate dark:text-circle-dark-muted opacity-40 mb-2" />
                 <p className="text-xs text-circle-slate dark:text-circle-dark-muted">
-                  Không có sự kiện nào trong ngày này
+                  {t.collab.noEventsOnDay}
                 </p>
                 <button
                   type="button"
                   onClick={handleOpenCreateModal}
                   className="mt-3 text-xs font-semibold text-circle-sage dark:text-circle-primary hover:underline"
                 >
-                  + Lên lịch hẹn mới
+                  + {t.collab.newEventSchedulePrompt || 'Lên lịch hẹn mới'}
                 </button>
               </div>
             )}
           </div>
         </div>
       )}
+      </div>
 
       {/* Add Event Modal */}
       {isAddModalOpen && (
