@@ -1174,6 +1174,7 @@ export const vi = {
     spinning: 'Đang quay...',
     spinAgain: 'Quay lại',
     removeResult: 'Loại bỏ kết quả',
+    removeAllResults: 'Loại bỏ tất cả',
     winnerTitle: 'Kết quả trúng thưởng',
     winnerSubtitle: 'Chúc mừng lựa chọn may mắn được gọi tên!',
     resultLabel: 'Kết quả: {result}',

@@ -31,6 +31,7 @@ import {
   BookmarkCheck,
   Check,
   Share2,
+  Sparkles,
 } from 'lucide-react-native';
 import {
   getWheelsApi,
@@ -64,49 +65,6 @@ const PASTEL_WHEEL_COLORS = [
   '#FED1BA', // Pastel Peach
   '#D7E3FC', // Pastel Periwinkle
   '#FDE2E4', // Pastel Rose Blossom
-];
-
-const MOBILE_RESULT_THEMES = [
-  {
-    bg: '#FEF3C7', // Amber-100
-    border: '#FCD34D', // Amber-300
-    badgeBg: '#FDE68A', // Amber-200
-    badgeText: '#92400E', // Amber-800
-    text: '#78350F', // Amber-900
-    btnBg: '#FFFFFF',
-    btnText: '#DC2626',
-    btnBorder: '#FCA5A5',
-  },
-  {
-    bg: '#D1FAE5', // Emerald-100
-    border: '#6EE7B7', // Emerald-300
-    badgeBg: '#A7F3D0', // Emerald-200
-    badgeText: '#065F46', // Emerald-800
-    text: '#064E3B', // Emerald-900
-    btnBg: '#FFFFFF',
-    btnText: '#DC2626',
-    btnBorder: '#FCA5A5',
-  },
-  {
-    bg: '#E0F2FE', // Sky-100
-    border: '#7DD3FC', // Sky-300
-    badgeBg: '#BAE6FD', // Sky-200
-    badgeText: '#0369A1', // Sky-800
-    text: '#0C4A6E', // Sky-900
-    btnBg: '#FFFFFF',
-    btnText: '#DC2626',
-    btnBorder: '#FCA5A5',
-  },
-  {
-    bg: '#EDE9FE', // Purple-100
-    border: '#C4B5FD', // Purple-300
-    badgeBg: '#DDD6FE', // Purple-200
-    badgeText: '#5B21B6', // Purple-800
-    text: '#4C1D95', // Purple-900
-    btnBg: '#FFFFFF',
-    btnText: '#DC2626',
-    btnBorder: '#FCA5A5',
-  },
 ];
 
 interface WheelMobileState {
@@ -448,11 +406,13 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
     saveWheelChanges(wheelId, updatedText);
 
     if (combinedWinnersModal) {
-      setCombinedWinnersModal((prev) =>
-        prev
-          ? prev.filter((r) => !(r.wheelId === wheelId && r.winningIndex === winningIdx))
-          : null,
-      );
+      setCombinedWinnersModal((prev) => {
+        if (!prev) return null;
+        const remaining = prev.filter(
+          (r) => !(r.wheelId === wheelId && r.winningIndex === winningIdx),
+        );
+        return remaining.length > 0 ? remaining : null;
+      });
     }
   };
 
@@ -1630,78 +1590,102 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
       )}
 
       {/* COMBINED / BATCH RESULTS MODAL */}
-      <Modal visible={!!combinedWinnersModal} transparent animationType="fade">
+      <Modal visible={!!combinedWinnersModal && combinedWinnersModal.length > 0} transparent animationType="fade">
         <View style={styles.modalBackdrop}>
-          <View style={[styles.modalBox, { maxHeight: '80%' }]}>
+          <View style={styles.modalBox}>
             <TouchableOpacity
               style={styles.modalCloseBtn}
               onPress={() => setCombinedWinnersModal(null)}
+              hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
             >
-              <X size={20} color="#6B7280" />
+              <X size={18} color="#94A3B8" />
             </TouchableOpacity>
-            <View style={styles.trophyIconWrap}>
-              <Trophy size={32} color="#F59E0B" />
-            </View>
-            <Text style={styles.modalHeaderTitle}>{t.luckyWheel.batchResultsTitle}</Text>
 
-            <ScrollView style={{ width: '100%', marginVertical: 12 }}>
-              {combinedWinnersModal?.map((r, idx) => {
-                const theme = MOBILE_RESULT_THEMES[idx % MOBILE_RESULT_THEMES.length]!;
-                return (
-                  <View
-                    key={r.wheelId}
-                    style={[
-                      styles.allWinnersItem,
-                      {
-                        backgroundColor: theme.bg,
-                        borderColor: theme.border,
-                        borderWidth: 1.5,
-                      },
-                    ]}
+            {/* Header Badge */}
+            <View style={styles.winnerHeaderBadge}>
+              <Sparkles size={14} color="#0D9488" />
+              <Text style={styles.winnerHeaderBadgeText}>{t.luckyWheel.winnerTitle}</Text>
+            </View>
+
+            {/* Single Winner Layout */}
+            {combinedWinnersModal?.length === 1 && (
+              <>
+                <View style={styles.singleWinnerCard}>
+                  <Text style={styles.singleWinnerWheelTitle} numberOfLines={1}>
+                    {combinedWinnersModal[0]!.wheelTitle}
+                  </Text>
+                  <Text style={styles.singleWinnerName} numberOfLines={2}>
+                    {combinedWinnersModal[0]!.winner}
+                  </Text>
+                </View>
+
+                <View style={styles.modalButtonsCol}>
+                  <TouchableOpacity
+                    style={styles.primaryModalBtn}
+                    onPress={() => setCombinedWinnersModal(null)}
                   >
-                    <View style={{ flex: 1, marginRight: 8 }}>
-                      <View
-                        style={[
-                          styles.mobileResultBadge,
-                          { backgroundColor: theme.badgeBg },
-                        ]}
-                      >
-                        <Text style={[styles.mobileResultBadgeText, { color: theme.badgeText }]}>
+                    <Text style={styles.primaryModalBtnText}>{t.luckyWheel.close}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.secondaryRemoveBtn}
+                    onPress={() =>
+                      handleRemoveWinningOption(
+                        combinedWinnersModal[0]!.wheelId,
+                        combinedWinnersModal[0]!.winningIndex,
+                      )
+                    }
+                  >
+                    <Trash2 size={15} color="#E11D48" />
+                    <Text style={styles.secondaryRemoveBtnText}>{t.luckyWheel.removeResult}</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+
+            {/* Multiple Winners Layout */}
+            {combinedWinnersModal && combinedWinnersModal.length > 1 && (
+              <>
+                <ScrollView style={styles.multiWinnersScroll} showsVerticalScrollIndicator={false}>
+                  {combinedWinnersModal.map((r) => (
+                    <View key={r.wheelId} style={styles.multiWinnerRow}>
+                      <View style={{ flex: 1, marginRight: 10 }}>
+                        <Text style={styles.multiWinnerWheelTitle} numberOfLines={1}>
                           {r.wheelTitle}
                         </Text>
+                        <Text style={styles.multiWinnerName} numberOfLines={1}>
+                          {r.winner}
+                        </Text>
                       </View>
-                      <Text style={[styles.mobileResultWinner, { color: theme.text }]}>
-                        {r.winner}
-                      </Text>
+                      <TouchableOpacity
+                        style={styles.multiWinnerRemoveIconBtn}
+                        onPress={() => handleRemoveWinningOption(r.wheelId, r.winningIndex)}
+                        hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+                      >
+                        <Trash2 size={16} color="#E11D48" />
+                      </TouchableOpacity>
                     </View>
-                    <TouchableOpacity
-                      style={[
-                        styles.allWinnerRemoveBtn,
-                        {
-                          backgroundColor: theme.btnBg,
-                          borderColor: theme.btnBorder,
-                          borderWidth: 1,
-                        },
-                      ]}
-                      onPress={() => handleRemoveWinningOption(r.wheelId, r.winningIndex)}
-                    >
-                      <Text style={[styles.allWinnerRemoveText, { color: theme.btnText }]}>
-                        {t.luckyWheel.removeResult}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                );
-              })}
-            </ScrollView>
+                  ))}
+                </ScrollView>
 
-            <TouchableOpacity
-              style={[styles.primaryModalBtn, { backgroundColor: '#EF4444' }]}
-              onPress={handleRemoveAllWinningOptions}
-            >
-              <Text style={styles.primaryModalBtnText}>
-                {t.luckyWheel.removeResult || 'Loại bỏ kết quả'}
-              </Text>
-            </TouchableOpacity>
+                <View style={styles.modalButtonsRow}>
+                  <TouchableOpacity
+                    style={[styles.primaryModalBtn, { flex: 1 }]}
+                    onPress={() => setCombinedWinnersModal(null)}
+                  >
+                    <Text style={styles.primaryModalBtnText}>{t.luckyWheel.close}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.secondaryRemoveBtn, { flex: 1 }]}
+                    onPress={handleRemoveAllWinningOptions}
+                  >
+                    <Trash2 size={14} color="#E11D48" />
+                    <Text style={styles.secondaryRemoveBtnText}>
+                      {t.luckyWheel.removeAllResults || 'Loại bỏ tất cả'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
           </View>
         </View>
       </Modal>
@@ -2306,83 +2290,153 @@ const styles = StyleSheet.create({
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.6)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 24,
   },
   modalBox: {
     width: '100%',
+    maxWidth: 380,
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 18,
+    borderRadius: 24,
+    padding: 20,
     alignItems: 'center',
     position: 'relative',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 16,
+    elevation: 6,
   },
   modalCloseBtn: {
     position: 'absolute',
-    top: 12,
-    right: 12,
-    padding: 4,
+    top: 14,
+    right: 14,
+    padding: 6,
+    borderRadius: 20,
+    zIndex: 1,
   },
-  trophyIconWrap: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#FEF3C7',
-    justifyContent: 'center',
+  winnerHeaderBadge: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(13, 148, 136, 0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 100,
     marginBottom: 8,
   },
-  modalHeaderTitle: {
+  winnerHeaderBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0D9488',
+  },
+  singleWinnerCard: {
+    width: '100%',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 18,
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 12,
+  },
+  singleWinnerWheelTitle: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748B',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 6,
+  },
+  singleWinnerName: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#0F172A',
+    textAlign: 'center',
+  },
+  multiWinnersScroll: {
+    width: '100%',
+    maxHeight: 280,
+    marginVertical: 12,
+  },
+  multiWinnerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 8,
+  },
+  multiWinnerWheelTitle: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748B',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginBottom: 2,
+  },
+  multiWinnerName: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#111827',
-    marginBottom: 8,
+    color: '#0F172A',
+  },
+  multiWinnerRemoveIconBtn: {
+    padding: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FFE4E6',
+    backgroundColor: '#FFF1F2',
+  },
+  modalButtonsCol: {
+    width: '100%',
+    gap: 8,
+    marginTop: 4,
+  },
+  modalButtonsRow: {
+    flexDirection: 'row',
+    width: '100%',
+    gap: 10,
+    marginTop: 6,
   },
   primaryModalBtn: {
     backgroundColor: '#0D9488',
     width: '100%',
-    paddingVertical: 10,
-    borderRadius: 10,
+    paddingVertical: 11,
+    borderRadius: 12,
     alignItems: 'center',
-    marginTop: 6,
+    justifyContent: 'center',
   },
   primaryModalBtnText: {
     fontSize: 13,
     fontWeight: '700',
     color: '#FFFFFF',
   },
-  allWinnersItem: {
+  secondaryRemoveBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 10,
-    backgroundColor: '#F9FAFB',
-    borderRadius: 10,
-    marginBottom: 8,
-  },
-  allWinnerItemTitle: {
-    fontSize: 11,
-    color: '#6B7280',
-  },
-  allWinnerItemName: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#0D9488',
-    marginTop: 2,
-  },
-  allWinnerRemoveBtn: {
+    justifyContent: 'center',
+    gap: 6,
     borderWidth: 1,
-    borderColor: '#FCA5A5',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+    borderColor: '#FECDD3',
+    backgroundColor: '#FFF1F2',
+    paddingVertical: 10,
+    borderRadius: 12,
+    width: '100%',
   },
-  allWinnerRemoveText: {
-    fontSize: 10,
+  secondaryRemoveBtnText: {
+    fontSize: 13,
     fontWeight: '600',
-    color: '#EF4444',
+    color: '#E11D48',
   },
   folderModalHeader: {
     flexDirection: 'row',

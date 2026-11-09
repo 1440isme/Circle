@@ -1176,6 +1176,7 @@ export const en: TranslationDictionary = {
     spinning: 'Spinning...',
     spinAgain: 'Spin Again',
     removeResult: 'Remove Result',
+    removeAllResults: 'Remove All',
     winnerTitle: 'Winning Result',
     winnerSubtitle: 'Congratulations to the chosen option!',
     resultLabel: 'Result: {result}',
