@@ -75,7 +75,7 @@ Orchestrate bug fixes for Create Poll modal layout & Dark theme display issues, 
 
 ## Active Timers
 - Heartbeat cron: 57bfc123-1132-43b5-92f4-d09fe4f1ccf6/task-32
-- Safety timer: 57bfc123-1132-43b5-92f4-d09fe4f1ccf6/task-450
+- Safety timer: 57bfc123-1132-43b5-92f4-d09fe4f1ccf6/task-464
 
 ## Artifact Index
 - /home/tcb/Documents/TLCN/Circle/.agents/teamwork/ORIGINAL_REQUEST.md — Original request
