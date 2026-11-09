@@ -1,7 +1,7 @@
-# BRIEFING — 2026-11-09T16:07:00Z
+# BRIEFING — 2026-11-09T17:26:00Z
 
 ## Mission
-Orchestrate bug fixes for Create Poll modal layout & Dark theme display issues, and execute a comprehensive UI/UX live test plan using Brave DevTools ctl.
+Orchestrate bug fixes for Create Poll modal layout & Dark theme display issues, and execute a comprehensive UI/UX live test plan using Brave DevTools ctl with strict 100% Web + Mobile parity and Messenger-style inline edit message interaction.
 
 ## 🔒 My Identity
 - Archetype: teamwork_orchestrator
@@ -13,27 +13,23 @@ Orchestrate bug fixes for Create Poll modal layout & Dark theme display issues, 
 ## 🔒 My Workflow
 - **Pattern**: Project Pattern (Dual Track: Implementation + Live Testing)
 - **Scope document**: /home/tcb/Documents/TLCN/Circle/.agents/teamwork/orchestrator/PROJECT.md
-1. **Decompose**: Decompose into Survey, Implementation Milestones (Poll Modal + Dark Theme fixes), Master Test Plan & Live Brave Testing, and Final Gate Audit.
+1. **Decompose**: Decomposed into Survey, Implementation Milestones (Poll Modal + Dark Theme fixes + Inline Edit Message), Master Test Plan & Live Brave Testing, and Gate Verification (Reviewers, Challengers, Auditor).
 2. **Dispatch & Execute**:
-   - Survey via 3 parallel Explorers.
-   - Milestone execution via Explorer -> Worker -> Reviewer -> Challenger -> Auditor gate.
-3. **On failure** (in this order):
-   - Retry: nudge stuck agent or re-send task
-   - Replace: spawn fresh agent with partial progress
-   - Skip: proceed without (only if non-critical)
-   - Redistribute: split stuck agent's remaining work
-   - Redesign: re-partition decomposition
-   - Escalate: report to parent (sub-orchestrators only, last resort)
-4. **Succession**: Threshold at 16 spawns.
+   - Survey via 3 parallel Explorers (Done)
+   - Worker Implementation (Done)
+   - Test Writer Master Plan & Runner (Done)
+   - Multi-agent Gate Verification (Reviewer 1, Reviewer 2, Challenger 1, Challenger 2, Auditor 1: ALL PASS)
+3. **On failure**: N/A (Gate passed on first iteration)
+4. **Succession**: Threshold 16 spawns (Total spawns: 10 / 16)
 - **Work items**:
-  1. Survey & Architecture Mapping [in-progress]
-  2. M1: Poll Modal Layout Fix [pending]
-  3. M2: Widespread Dark Theme Contrast & Glassmorphism Fixes [pending]
-  4. M3: Master Test Plan & Live Browser Test Suite [pending]
-  5. M4: Full E2E & Live Verification via brave-ctl [pending]
-  6. M5: Final Build, Audit & QA Synthesis [pending]
-- **Current phase**: 1
-- **Current focus**: Survey & Architecture Mapping
+  1. Survey & Architecture Mapping [done]
+  2. M1: Poll Modal Layout Fix (Web Portal + Mobile Safe Area) [done]
+  3. M2: Widespread Dark Theme Contrast & Token Fixes [done]
+  4. M3: Master Test Plan & Live Browser Test Suite [done]
+  5. M4: Full E2E & Live Verification via brave-ctl [done]
+  6. M5: Final Build, Audit & QA Synthesis [done]
+- **Current phase**: Completed
+- **Current focus**: Final Synthesis & Victory Reporting
 
 ## 🔒 Key Constraints
 - Never write, modify, or create source code files directly.
@@ -47,10 +43,14 @@ Orchestrate bug fixes for Create Poll modal layout & Dark theme display issues, 
 
 ## Current Parent
 - Conversation ID: 9b4e71cf-e1a7-45b5-8412-560cbc26fc20
-- Updated: not yet
+- Updated: 2026-11-09T17:26:00Z
 
 ## Key Decisions Made
-- Decompose into two parallel tracks: Implementation (Poll Modal & Dark Theme) and Testing (Master Test Plan & Live Inspection via brave-ctl).
+- Decomposed into Survey -> Unified Implementer & Test Writer -> 5 Independent Gate Subagents (2 Reviewers, 2 Challengers, 1 Forensic Auditor).
+- Implemented React Portal `createPortal(..., document.body)` with SSR mount guard and removed `backdrop-blur-[2px]` from `ChatComposer.tsx:419`.
+- Added missing token aliases in `tailwind.config.ts`, swept 18 `backdrop-blur-xs` -> `sm` and 12 `outline-hidden` -> `none`.
+- Added Messenger-style inline edit message interaction across Web and Mobile with faded opacity, line-through text, and zero popups.
+- Resolved AuthGuard hydration race condition with `isLoading: true` in `auth.store.ts`.
 
 ## Team Roster
 | Agent | Type | Work Item | Status | Conv ID |
@@ -60,22 +60,22 @@ Orchestrate bug fixes for Create Poll modal layout & Dark theme display issues, 
 | explorer_survey_3 | teamwork_explorer | Survey: Test Infra & SITEMAP | completed | 283aff73-c6a2-47e2-a1ef-177af587d832 |
 | worker_impl_1 | teamwork_worker | M1/M2: Fix Poll Modal & Dark Theme (Web+Mobile) | completed | df005c42-4db8-4fb6-83b0-59c445f4ae8a |
 | test_writer_1 | teamwork_test_writer | M3: Master Test Plan & Automation Runner | completed | 1866d243-b1db-43c1-9831-756abc1e4ed7 |
-| reviewer_1 | teamwork_reviewer | Review: Code & DoD Verification | in-progress | 41f2af0e-8fc9-4020-9616-92fca051988e |
-| reviewer_2 | teamwork_reviewer | Review: UI/UX & Theme Parity | in-progress | 725e9adc-82cc-4059-83ad-7094f9361824 |
-| challenger_1 | teamwork_challenger | Challenge: Live Browser Automation | in-progress | 0a8dd487-c02e-441d-8fa1-0e9f47b06ae0 |
-| challenger_2 | teamwork_challenger | Challenge: Stress & Edge Cases | in-progress | c1e77628-b316-4b27-85cc-3c3b70b11535 |
-| auditor_1 | teamwork_auditor | Forensic Integrity Audit | in-progress | b71f9a26-752d-495a-b7f1-db92c7c684ea |
+| reviewer_1 | teamwork_reviewer | Review: Code & DoD Verification | completed | 41f2af0e-8fc9-4020-9616-92fca051988e |
+| reviewer_2 | teamwork_reviewer | Review: UI/UX & Theme Parity | completed | 725e9adc-82cc-4059-83ad-7094f9361824 |
+| challenger_1 | teamwork_challenger | Challenge: Live Browser Automation | completed | 0a8dd487-c02e-441d-8fa1-0e9f47b06ae0 |
+| challenger_2 | teamwork_challenger | Challenge: Stress & Edge Cases | completed | c1e77628-b316-4b27-85cc-3c3b70b11535 |
+| auditor_1 | teamwork_auditor | Forensic Integrity Audit | completed | b71f9a26-752d-495a-b7f1-db92c7c684ea |
 
 ## Succession Status
 - Succession required: no
 - Spawn count: 10 / 16
-- Pending subagents: 41f2af0e-8fc9-4020-9616-92fca051988e, 725e9adc-82cc-4059-83ad-7094f9361824, 0a8dd487-c02e-441d-8fa1-0e9f47b06ae0, c1e77628-b316-4b27-85cc-3c3b70b11535, b71f9a26-752d-495a-b7f1-db92c7c684ea
+- Pending subagents: none
 - Predecessor: none
 - Successor: not yet spawned
 
 ## Active Timers
-- Heartbeat cron: 57bfc123-1132-43b5-92f4-d09fe4f1ccf6/task-32
-- Safety timer: 57bfc123-1132-43b5-92f4-d09fe4f1ccf6/task-464
+- Heartbeat cron: killed
+- Safety timer: none
 
 ## Artifact Index
 - /home/tcb/Documents/TLCN/Circle/.agents/teamwork/ORIGINAL_REQUEST.md — Original request
@@ -83,3 +83,7 @@ Orchestrate bug fixes for Create Poll modal layout & Dark theme display issues, 
 - /home/tcb/Documents/TLCN/Circle/.agents/teamwork/orchestrator/plan.md — Orchestrator plan
 - /home/tcb/Documents/TLCN/Circle/.agents/teamwork/orchestrator/progress.md — Progress heartbeat
 - /home/tcb/Documents/TLCN/Circle/.agents/teamwork/orchestrator/PROJECT.md — Scope and architecture
+- /home/tcb/Documents/TLCN/Circle/.agents/teamwork/orchestrator/GATE_STATUS.md — Gate status record
+- /home/tcb/Documents/TLCN/Circle/docs/test-plans/master-ui-ux-test-plan.md — Master UI/UX Test Plan (42 TCs)
+- /home/tcb/Documents/TLCN/Circle/scripts/run-ui-ux-tests.mjs — Automated UI/UX test runner (9/9 checks)
+- /home/tcb/Documents/TLCN/Circle/.agents/artifacts/screenshots/ — Visual inspection screenshots
