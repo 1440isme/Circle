@@ -20,7 +20,6 @@ import {
   Share2,
   Info,
   RotateCcw,
-  ArrowLeft,
   ArrowRight,
   AlignLeft,
   Check,
@@ -863,15 +862,14 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
         <div className="space-y-6 w-full pb-16 animate-in fade-in duration-200">
           {/* Header Action Bar */}
           <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-circle-hairline dark:border-circle-dark-hairline">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2.5">
               <button
                 type="button"
                 onClick={() => setIsAddModalOpen(false)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface hover:bg-circle-wash text-circle-charcoal dark:text-circle-dark-text text-xs font-bold transition-all shadow-2xs cursor-pointer"
-                title="Quay lại giao diện Lịch"
+                className="p-1.5 rounded-full hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white transition-colors cursor-pointer"
+                title="Quay lại Lịch"
               >
-                <ArrowLeft className="h-4 w-4" />
-                <span>Quay lại Lịch</span>
+                <ChevronLeft className="w-4 h-4" />
               </button>
               <div>
                 <h1 className="text-base sm:text-lg font-bold text-circle-charcoal dark:text-circle-dark-text">

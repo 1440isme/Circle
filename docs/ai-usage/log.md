@@ -6541,3 +6541,33 @@
   - **Resolution / Fix:** N/A.
 - **Commit:** Pending
 - **PR:** Pending
+
+---
+
+## [AI-0182] - 2026-11-09
+
+- **Developer:** Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 2.5 Pro
+- **Related Issue:** #120
+- **Purpose:** Tinh giản nút điều hướng quay lại Lịch hẹn ở Header Action Bar của màn hình Tạo/Chỉnh sửa lịch hẹn (CircleCalendarView) và Chi tiết lịch hẹn (CircleEventDetailModal): loại bỏ chữ nhãn text thừa, chỉ giữ icon mũi tên ChevronLeft dạng nút tròn minimalist đồng bộ chuẩn xác với phong cách thanh công cụ của Bảng kế hoạch (CirclePlanningView).
+- **Prompt Summary:** ở phần tạo lịch hẹn btn quay lại lịch hẹn chỉ để mũi tên như ở bảng kế hoạch là đc
+- **Files Affected:**
+  - pps/web/src/components/tools/CircleCalendarView.tsx
+  - pps/web/src/components/tools/CircleEventDetailModal.tsx
+  - docs/ai-usage/log.md
+- **AI-Generated Portion:** 100% cập nhật component giao diện nút mũi tên tinh gọn.
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+  - cd apps/web && npx tsc --noEmit: Passed 100%, 0 lỗi.
+  - cd apps/web && npx next build --no-lint: Passed 100%, build thành công tất cả 11 routes.
+  - ash ./scripts/check-agent-map.sh: 127/127 references resolve.
+  - ash ./scripts/check-secrets.sh: Passed, 0 secret leaks.
+- **Official Source Checked:** PROJECT_GOD.md, gentic/RULES.md & gentic/CONVENTIONS.md.
+- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A.
+  - **Resolution / Fix:** N/A.
+- **Commit:** Pending
+- **PR:** Pending
