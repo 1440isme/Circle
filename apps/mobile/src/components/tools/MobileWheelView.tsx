@@ -214,7 +214,7 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
 
       const text = updatedText !== undefined ? updatedText : state.optionsText;
       const opts = parseOptions(text);
-      if (opts.length < 2) return;
+      if (opts.length < 1) return;
 
       try {
         const formatted = opts.map((label, idx) => ({
@@ -249,7 +249,7 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
     }
 
     const opts = parseOptions(newText);
-    if (opts.length >= 2) {
+    if (opts.length >= 1) {
       autoSaveTimers.current[wheelId] = setTimeout(() => {
         saveWheelChanges(wheelId, newText);
       }, 900);
@@ -295,7 +295,7 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
 
       const opts = parseOptions(state.optionsText);
       const count = opts.length;
-      if (count < 2) return;
+      if (count < 1) return;
 
       setWheelStates((prev) => ({
         ...prev,
@@ -369,7 +369,7 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
     if (!wheel || !state || state.isSpinning) return;
 
     const opts = parseOptions(state.optionsText);
-    if (opts.length < 2) return;
+    if (opts.length < 1) return;
 
     // Register to active batch
     activeSpinningBatchRef.current.add(wheelId);
@@ -397,7 +397,7 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
 
     wheels.forEach((w) => {
       const state = wheelStates[w.id];
-      if (state && parseOptions(state.optionsText).length >= 2) {
+      if (state && parseOptions(state.optionsText).length >= 1) {
         activeSpinningBatchRef.current.add(w.id);
       }
     });
@@ -410,7 +410,7 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
         if (!wheel || !state) return;
 
         const opts = parseOptions(state.optionsText);
-        if (opts.length < 2) return;
+        if (opts.length < 1) return;
 
         let targetIdx = opts.indexOf(r.selectedOption.optionLabel);
         if (targetIdx === -1) {
@@ -564,7 +564,7 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
 
     const currentText = wheelStates[wheelId]?.optionsText || '';
     const parsed = parseOptions(currentText);
-    if (parsed.length < 2) {
+    if (parsed.length < 1) {
       Alert.alert(t.luckyWheel.emptyOptionsWarning, t.luckyWheel.minOptionsError);
       return;
     }
@@ -703,6 +703,30 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
     const radius = discSize / 2;
     const centerX = discSize / 2;
     const centerY = discSize / 2;
+
+    if (count === 1) {
+      const label = options[0]!;
+      const color = PASTEL_WHEEL_COLORS[0]!;
+      const maxLen = discSize > 200 ? 12 : 7;
+      const displayLabel = label.length > maxLen ? label.slice(0, maxLen - 1) + '…' : label;
+      return (
+        <G key="slice-single">
+          <Circle cx={centerX} cy={centerY} r={radius} fill={color} stroke="#FFFFFF" strokeWidth={2} />
+          <SvgText
+            x={centerX}
+            y={centerY}
+            fill="#1E293B"
+            fontSize={discSize > 200 ? 14 : 11}
+            fontWeight="bold"
+            textAnchor="middle"
+            alignmentBaseline="central"
+          >
+            {displayLabel}
+          </SvgText>
+        </G>
+      );
+    }
+
     const arcAngle = (2 * Math.PI) / count;
 
     return options.map((label, idx) => {

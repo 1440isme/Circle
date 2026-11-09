@@ -433,7 +433,7 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
           .split('\n')
           .map((l) => l.trim())
           .filter((l) => l.length > 0);
-        if (lines.length >= 2) {
+        if (lines.length >= 1) {
           updateWheelMutation.mutate({
             wheelId,
             input: {
@@ -531,7 +531,7 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
       .split('\n')
       .map((l) => l.trim())
       .filter((l) => l.length > 0);
-    if (lines.length < 2) return;
+    if (lines.length < 1) return;
 
     updateWheelMutation.mutate(
       {
@@ -726,7 +726,7 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
     if (localState?.isSpinning) return;
 
     const parsed = parseOptions(localState?.optionsText || '');
-    if (parsed.length < 2) return;
+    if (parsed.length < 1) return;
 
     // Register into active batch
     activeSpinningBatchRef.current.add(wheel.id);
@@ -760,7 +760,7 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
 
     wheels.forEach((w) => {
       const parsed = parseOptions(wheelsState[w.id]?.optionsText || '');
-      if (parsed.length >= 2) {
+      if (parsed.length >= 1) {
         activeSpinningBatchRef.current.add(w.id);
       }
     });
@@ -771,7 +771,7 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
           const w = wheels.find((item) => item.id === r.wheelId);
           if (!w) return;
           const parsed = parseOptions(wheelsState[w.id]?.optionsText || '');
-          if (parsed.length < 2) return;
+          if (parsed.length < 1) return;
 
           const targetIdx =
             r.selectedOptionIndex !== undefined
@@ -872,7 +872,7 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
           const w = wheels.find((item) => item.id === r.wheelId);
           if (!w) return;
           const parsed = parseOptions(wheelsState[w.id]?.optionsText || '');
-          if (parsed.length >= 2) {
+          if (parsed.length >= 1) {
             animateWheelRotation(
               w.id,
               r.selectedOptionIndex ?? 0,
@@ -887,7 +887,7 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
         const w = wheels.find((item) => item.id === data.wheelId);
         if (w) {
           const parsed = parseOptions(wheelsState[w.id]?.optionsText || '');
-          if (parsed.length >= 2) {
+          if (parsed.length >= 1) {
             animateWheelRotation(
               w.id,
               data.selectedOptionIndex ?? 0,
@@ -1449,7 +1449,7 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
                       <span className="font-medium">{t.luckyWheel.optionsListTitle}</span>
                       <span
                         className={`font-semibold ${
-                          activeParsedOptions.length < 2 ? 'text-amber-500' : 'text-primary'
+                          activeParsedOptions.length < 1 ? 'text-amber-500' : 'text-primary'
                         }`}
                       >
                         {t.luckyWheel.optionsCount.replace(

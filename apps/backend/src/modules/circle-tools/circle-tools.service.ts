@@ -402,7 +402,7 @@ export class CircleToolsService {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      if (dto.options && Array.isArray(dto.options) && dto.options.length >= 2) {
+      if (dto.options && Array.isArray(dto.options) && dto.options.length >= 1) {
         await tx.wheelOption.deleteMany({
           where: { wheelId },
         });
@@ -456,7 +456,7 @@ export class CircleToolsService {
     const results: SpinWheelResult[] = [];
 
     for (const wheel of wheels) {
-      if (wheel.options && wheel.options.length >= 2) {
+      if (wheel.options && wheel.options.length >= 1) {
         const randomIndex = Math.floor(Math.random() * wheel.options.length);
         const selected = wheel.options[randomIndex]!;
         await this.prisma.decisionWheel.update({
@@ -827,7 +827,7 @@ export class CircleToolsService {
       });
 
       for (const item of snapshot.slice(0, 4)) {
-        if (item.options && Array.isArray(item.options) && item.options.length >= 2) {
+        if (item.options && Array.isArray(item.options) && item.options.length >= 1) {
           await tx.decisionWheel.create({
             data: {
               circleId,
