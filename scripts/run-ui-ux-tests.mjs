@@ -155,7 +155,18 @@ async function runSuite() {
     })()`);
 
     await navigate('http://localhost:3000');
-    await sleep(2000);
+    // Wait for auth initialization & initial hydration
+    for (let i = 0; i < 25; i++) {
+      const isReady = await evalExpr(`(() => {
+        const text = document.body.innerText || '';
+        const isLoading = text.includes('Đang kết nối') || text.includes('Connecting to CIRCLE');
+        const hasHub = text.includes('VÒNG TRÒN') || text.includes('Your Circles') || !!document.querySelector('.group.cursor-pointer');
+        const hasChat = !!document.querySelector('textarea');
+        return !isLoading && (hasHub || hasChat);
+      })()`);
+      if (isReady) break;
+      await sleep(300);
+    }
 
     const shotHub = await takeScreenshot('01_hub_authenticated.png');
     recordResult('TC-001', 'Login & Dual-Token Authentication Session', 'PASS', {
@@ -167,14 +178,28 @@ async function runSuite() {
     // -------------------------------------------------------------
     console.log(`\n${c.bold}${c.blue}[Step 3/9] Entering Circle Workspace & Chat Timeline...${c.reset}`);
     await evalExpr(`(() => {
-      const card = document.querySelectorAll('.group.cursor-pointer')[0];
-      if (card) card.click();
+      const composer = document.querySelector('textarea, input[placeholder*="tin nhắn"], input[placeholder*="message"]');
+      if (!composer) {
+        const card = document.querySelectorAll('.group.cursor-pointer')[0];
+        if (card) card.click();
+      }
     })()`);
-    await sleep(1500);
+
+    // Poll until composer is rendered
+    for (let i = 0; i < 20; i++) {
+      const hasComposer = await evalExpr(`(() => {
+        return !!document.querySelector('textarea, input[placeholder*="tin nhắn"], input[placeholder*="message"]');
+      })()`);
+      if (hasComposer) break;
+      await sleep(300);
+    }
 
     const chatState = await evalExpr(`(() => {
       const composer = document.querySelector('textarea, input[placeholder*="tin nhắn"], input[placeholder*="message"]');
-      const attachBtn = document.querySelector('button[title*="Attach file"], button[title*="Đính kèm"]');
+      const attachBtn = Array.from(document.querySelectorAll('button')).find(b => {
+        const t = (b.getAttribute('title') || '').toLowerCase();
+        return t.includes('attach') || t.includes('đính kèm');
+      });
       return {
         hasComposer: !!composer,
         hasAttachBtn: !!attachBtn,
@@ -188,17 +213,30 @@ async function runSuite() {
     });
 
     // -------------------------------------------------------------
-    // STEP 4: Trigger Composer Plus Menu (Attach, Poll, Location)
+    // STEP 4: Trigger Composer Plus Action Menu
     // -------------------------------------------------------------
     console.log(`\n${c.bold}${c.blue}[Step 4/9] Triggering Composer Plus Action Menu...${c.reset}`);
     await evalExpr(`(() => {
-      const attachBtn = document.querySelector('button[title*="Attach file"], button[title*="Đính kèm"]');
-      if (attachBtn) attachBtn.click();
+      const attachBtn = Array.from(document.querySelectorAll('button')).find(b => {
+        const t = (b.getAttribute('title') || '').toLowerCase();
+        return t.includes('attach') || t.includes('đính kèm');
+      });
+      if (!attachBtn) return;
+      const plusContainer = attachBtn.parentElement;
+      const popover = plusContainer ? plusContainer.querySelector('.animate-in') : null;
+      if (!popover) {
+        attachBtn.click();
+      }
     })()`);
     await sleep(600);
 
     const popoverItems = await evalExpr(`(() => {
-      const items = Array.from(document.querySelectorAll('.animate-in button'));
+      const attachBtn = Array.from(document.querySelectorAll('button')).find(b => {
+        const t = (b.getAttribute('title') || '').toLowerCase();
+        return t.includes('attach') || t.includes('đính kèm');
+      });
+      const plusContainer = attachBtn?.parentElement;
+      const items = plusContainer ? Array.from(plusContainer.querySelectorAll('.animate-in button, [class*="animate-"] button')) : [];
       return items.map(b => b.innerText.trim()).filter(Boolean);
     })()`);
 
@@ -212,10 +250,38 @@ async function runSuite() {
     // -------------------------------------------------------------
     console.log(`\n${c.bold}${c.blue}[Step 5/9] Opening Create Poll Modal & Verifying React Portal (R1 Fix)...${c.reset}`);
     await evalExpr(`(() => {
-      const pollBtn = Array.from(document.querySelectorAll('.animate-in button')).find(b => b.innerText.includes('Create Poll') || b.innerText.includes('bình chọn'));
+      const attachBtn = Array.from(document.querySelectorAll('button')).find(b => {
+        const t = (b.getAttribute('title') || '').toLowerCase();
+        return t.includes('attach') || t.includes('đính kèm');
+      });
+      if (!attachBtn) return;
+      const plusContainer = attachBtn.parentElement;
+      const popover = plusContainer ? plusContainer.querySelector('.animate-in, [class*="animate-"]') : null;
+      if (!popover) {
+        attachBtn.click();
+      }
+    })()`);
+    await sleep(500);
+
+    await evalExpr(`(() => {
+      const attachBtn = Array.from(document.querySelectorAll('button')).find(b => {
+        const t = (b.getAttribute('title') || '').toLowerCase();
+        return t.includes('attach') || t.includes('đính kèm');
+      });
+      const plusContainer = attachBtn?.parentElement;
+      const pollBtn = Array.from(plusContainer ? plusContainer.querySelectorAll('button') : []).find(b => {
+        const t = b.innerText.toLowerCase();
+        return t.includes('poll') || t.includes('bình chọn');
+      });
       if (pollBtn) pollBtn.click();
     })()`);
-    await sleep(800);
+
+    // Poll until modal form is portaled and rendered
+    for (let i = 0; i < 20; i++) {
+      const hasForm = await evalExpr(`(() => !!document.querySelector('form'))()`);
+      if (hasForm) break;
+      await sleep(200);
+    }
 
     const modalMetrics = await evalExpr(`(() => {
       const form = document.querySelector('form');

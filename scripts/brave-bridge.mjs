@@ -92,7 +92,7 @@ const server = http.createServer(async (req, res) => {
 
         if (action === 'navigate') {
           const target = parsed.url || 'http://localhost:3000';
-          await page.goto(target, { waitUntil: 'networkidle2', timeout: 30000 });
+          await page.goto(target, { waitUntil: 'domcontentloaded', timeout: 15000 });
           return send(200, { ok: true, title: await page.title(), url: page.url() });
         }
 

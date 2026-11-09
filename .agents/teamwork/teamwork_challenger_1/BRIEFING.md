@@ -1,4 +1,4 @@
-# BRIEFING — 2026-11-09T17:03:00Z
+# BRIEFING — 2026-11-09T17:15:00Z
 
 ## Mission
 Empirical live browser verification using `scripts/run-ui-ux-tests.mjs` and `scripts/brave-ctl.mjs` to rigorously validate UI/UX, Create Poll modal bounding box, and Messenger-style inline edit interactions.
@@ -20,7 +20,7 @@ Empirical live browser verification using `scripts/run-ui-ux-tests.mjs` and `scr
 
 ## Current Parent
 - Conversation ID: 57bfc123-1132-43b5-92f4-d09fe4f1ccf6
-- Updated: 2026-11-09T17:03:00Z
+- Updated: 2026-11-09T17:15:00Z
 
 ## Review Scope
 - **Files to review & test**:
@@ -36,19 +36,27 @@ Empirical live browser verification using `scripts/run-ui-ux-tests.mjs` and `scr
 
 ## Attack Surface
 - **Hypotheses tested**:
-  - Modal bounding box: Did Portal fix actually attach modal to document.body and unbind it from ChatComposer's 76px containing block?
-  - Inline edit: Does clicking "(đã sửa)" open inline above the new text without opening any modal/popup?
-  - Dark mode: Are dark theme styles actually readable, high-contrast, and free of phantom tokens?
-- **Vulnerabilities found**: [TBD]
-- **Untested angles**: [TBD]
+  - [PASS] Modal bounding box: Overlay mounted to `document.body`, dimensions 1920x869px (100% viewport), modal dialog centered at delta 0.0px, zero clipping, buttons in viewport.
+  - [PASS] Inline edit: Clicking "(đã chỉnh sửa)" / "(edited)" renders original message inside the exact same bubble above new content with opacity 0.65, line-through decoration, zero dialogs/popups. Second click cleanly collapses.
+  - [PASS] Dark theme: Body BG `rgb(19, 19, 22)` (`circle-dark-canvas`), modal surface `rgb(29, 29, 33)` (`circle-dark-surface`), high text contrast `rgb(242, 242, 244)`.
+- **Vulnerabilities found**: None in implementation. Next.js dev server lock conflict when running production build concurrently with active dev server (standard Next.js behavior).
+- **Untested angles**: Mobile native gesture animations (covered statically via tsc and component parity).
 
 ## Loaded Skills
 - None specified in dispatch task.
 
 ## Key Decisions Made
-- Initial setup: will execute `scripts/run-ui-ux-tests.mjs` first, then run targeted `scripts/brave-ctl.mjs` commands to verify DOM rects and inline edit interactions.
+- Executed automated runner `scripts/run-ui-ux-tests.mjs` (9/9 passed).
+- Executed direct empirical DOM measurements via `scripts/brave-ctl.mjs`.
+- Verified live Messenger-style inline toggle in both Vietnamese and English locales.
+- Captured challenger visual artifacts into `.agents/artifacts/screenshots/`.
+- Verified Jest backend tests (186/186 passed) and TypeScript compilation on web and mobile.
 
 ## Artifact Index
 - `handoff.md` — Final 5-component challenger report
 - `progress.md` — Liveness heartbeat and progress log
 - `DISPATCH.md` — Received dispatch instructions
+- `.agents/artifacts/screenshots/challenger_create_poll_light.png` — Live light modal capture
+- `.agents/artifacts/screenshots/challenger_create_poll_dark.png` — Live dark modal capture
+- `.agents/artifacts/screenshots/challenger_inline_edit_expanded.png` — Live inline edit expanded capture (EN)
+- `.agents/artifacts/screenshots/challenger_inline_edit_vi.png` — Live inline edit expanded capture (VI)

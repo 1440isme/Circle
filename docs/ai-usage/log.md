@@ -6031,3 +6031,42 @@
   - **Resolution / Fix:** Khởi tạo `isLoading: true` mặc định trong `auth.store.ts` để `AuthGuard` hiển thị loading indicator nhẹ cho tới khi `initAuth()` hoàn tất việc đọc token từ cookie/localStorage.
 - **Commit:** Pending
 - **PR:** Pending
+
+
+---
+
+## AI-0159: Hoàn thiện Resilient Test Runner, Tối ưu Hóa Brave Bridge Daemon và Tổng hợp Báo cáo Teamwork Hoàn tất Issue #125
+
+- **Date:** 2026-11-10 00:19:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE (Teamwork Orchestrator Swarm)
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #125 (UI/UX Refactoring, Poll Modal, Dark Theme & Messenger Edit Parity)
+- **Purpose:** Nâng cấp tính linh hoạt (resilience) của test runner tự động hóa `scripts/run-ui-ux-tests.mjs` để tương thích đa ngôn ngữ (Tiếng Việt + Tiếng Anh), tối ưu hóa thời gian phản hồi điều hướng của Brave Bridge Daemon (`domcontentloaded`), bổ sung kịch bản stress-test biên của Challenger 2 (8 lựa chọn poll, tiêu đề 160 ký tự, phím Escape, click backdrop), và tổng hợp các bản nghiệm thu handoff từ 7 thành viên trong nhóm teamwork.
+- **Prompt Summary:** Tinh chỉnh kiểm thử, đảm bảo mọi click trên browser chạy trơn tru, không bị kẹt vì khác biệt ngôn ngữ giao diện, thu thập chứng chỉ thực nghiệm và đồng bộ mã nguồn lên git.
+- **Files Affected:**
+  - `scripts/brave-bridge.mjs` (chuyển `waitUntil` sang `domcontentloaded` loại bỏ độ trễ 30s của socket networkidle)
+  - `scripts/run-ui-ux-tests.mjs` (cải tiến selector tìm nút đính kèm và tạo poll bất khả tri ngôn ngữ / case-insensitive, bổ sung reactive polling)
+  - `scripts/test-challenger-2.mjs` (kịch bản stress test chuyên sâu kiểm chứng biên 8 options poll, long title, backdrop click)
+  - `.agents/artifacts/screenshots/challenger_create_poll_dark.png`
+  - `.agents/artifacts/screenshots/challenger_create_poll_light.png`
+  - `.agents/artifacts/screenshots/challenger_inline_edit_expanded.png`
+  - `.agents/artifacts/screenshots/challenger_inline_edit_vi.png`
+- **AI-Generated Portion:**
+  - Triển khai selector logic đa ngữ resilient: `(b.getAttribute('title') || '').toLowerCase().includes('attach') || ...includes('đính kèm')`.
+  - Thiết lập polling có điều kiện chờ React hydration hoàn tất thay thế `sleep` cứng.
+  - Tự động hóa kiểm thử biên của Challenger 2: thêm 8 lựa chọn, nhập tiêu đề dài, kiểm tra bounding box `fitsInsideViewport === true`, phím `Escape` và click backdrop đóng modal sạch sẽ.
+- **Human Modifications:** Trương Công Bình yêu cầu kiểm thử toàn diện mọi click người dùng, nhấn mạnh việc test kỹ trên trình duyệt Brave của user, không bỏ sót mobile và đảm bảo trải nghiệm người dùng hoàn thiện triệt để.
+- **Verification Method:**
+  - Chạy `node scripts/run-ui-ux-tests.mjs`: 9/9 PASS (100%), 0 WARNINGS, 0 FAILURES.
+  - Chạy `node scripts/test-challenger-2.mjs`: Task 1 (Portal, 8 Options, Long Title, Escape, Backdrop) PASS; Task 2 (Dark Theme Contrast) PASS; Task 3 (Mobile Parity) PASS. OVERALL CHALLENGER VERDICT: APPROVE.
+  - Toàn bộ 7 báo cáo Handoff từ các subagent (Worker, Test Writer, Reviewer 1, Reviewer 2, Challenger 1, Challenger 2, Forensic Auditor) đều đưa ra VERDICT: APPROVE.
+  - Typecheck Web: `npx tsc --noEmit -p apps/web/tsconfig.json` (0 errors).
+  - Typecheck Mobile: `npx tsc --noEmit -p apps/mobile/tsconfig.json` (0 errors).
+  - Typecheck Backend: `npx tsc --noEmit -p apps/backend/tsconfig.json` (0 errors).
+  - Kiểm tra Agent Map: `./scripts/check-agent-map.sh` (Passed 100%, 122/122 files).
+  - Kiểm tra Bí mật: `./scripts/check-secrets.sh` (Passed, 0 secret leaks).
+- **Official Source Checked:** Issue #125, PROJECT_GOD.md §7 & §11, Agentic RULES.md.
+- **Security & License Check:** An toàn tuyệt đối, zero credentials/secrets.
+- **Commit:** Pending
+- **PR:** Pending
