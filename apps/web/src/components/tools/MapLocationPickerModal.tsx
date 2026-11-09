@@ -322,7 +322,7 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-150">
       <div className="relative flex flex-col w-full max-w-2xl h-[560px] rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface shadow-2xl overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface z-10 shrink-0">
@@ -351,21 +351,21 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
         {/* Search Bar Overlay */}
         <div className="relative px-4 pt-3 pb-2 z-20 bg-circle-canvas/80 dark:bg-circle-dark-canvas/80 backdrop-blur-md border-b border-circle-hairline/60 dark:border-circle-dark-hairline/60 shrink-0">
           <div className="relative">
-            <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-circle-slate" />
+            <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-circle-slate dark:text-circle-dark-muted" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Tìm kiếm: Đại học Sư phạm Kỹ thuật, Landmark 81, Hồ Con Rùa..."
-              className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface pl-9 pr-9 py-2 text-xs text-circle-charcoal dark:text-circle-dark-text placeholder:text-circle-slate/70 focus:outline-hidden focus:ring-1 focus:ring-rose-500"
+              className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface pl-9 pr-9 py-2 text-xs text-circle-charcoal dark:text-circle-dark-text placeholder:text-circle-slate/70 focus:outline-none focus:ring-1 focus:ring-rose-500"
             />
             {isSearching ? (
-              <Loader2 className="absolute right-3 top-2.5 h-3.5 w-3.5 animate-spin text-circle-slate" />
+              <Loader2 className="absolute right-3 top-2.5 h-3.5 w-3.5 animate-spin text-circle-slate dark:text-circle-dark-muted" />
             ) : searchQuery ? (
               <button
                 type="button"
                 onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-2.5 text-circle-slate hover:text-circle-charcoal"
+                className="absolute right-3 top-2.5 text-circle-slate hover:text-circle-charcoal dark:hover:text-circle-dark-text"
               >
                 <X className="h-3.5 w-3.5" />
               </button>

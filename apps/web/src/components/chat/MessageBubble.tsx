@@ -21,6 +21,8 @@ import {
   EyeOff,
   MoreVertical,
   Copy,
+  History,
+  ChevronDown,
 } from 'lucide-react';
 import { MessageEntity, MessageType, CalendarEventMessagePayload } from '@circle/types';
 import { CalendarEventChatEmbed } from './CalendarEventChatEmbed';
@@ -88,6 +90,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   const [isFullEmojiOpen, setIsFullEmojiOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
+  const [showOriginal, setShowOriginal] = useState(false);
 
   const handleCopyMessage = () => {
     if (message.content) {
@@ -470,7 +473,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                     className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all active:scale-95 ${
                       isSenderMe
                         ? 'bg-black/15 hover:bg-black/25 dark:bg-white/15 dark:hover:bg-white/25 text-current'
-                        : 'bg-circle-primary hover:bg-circle-primary-dark text-white shadow-xs'
+                        : 'bg-circle-primary hover:bg-circle-sage text-white shadow-xs'
                     }`}
                   >
                     {callSummaryData.callType === 'VIDEO' ? (
@@ -489,11 +492,33 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 isMomentReply ? 'px-2 pt-1 pb-1 font-medium' : ''
               }`}
             >
+              {/* Messenger-style Inline Original Message: displayed directly inside the same bubble */}
+              {showOriginal && (
+                <div className="mb-2 pb-1.5 border-b border-current/15 text-[11px] sm:text-xs opacity-65 leading-relaxed animate-in fade-in duration-150 select-text">
+                  <div className="text-[9px] uppercase tracking-wider font-bold opacity-80 mb-0.5 flex items-center gap-1 select-none">
+                    <History className="w-2.5 h-2.5 shrink-0" />
+                    <span>{t.chat.originalMessageLabel || 'Tin nhắn gốc'}:</span>
+                  </div>
+                  <div className="italic line-through decoration-current/40">
+                    {renderContentWithMentions(message.previousContent || (message as any).originalContent || message.content)}
+                  </div>
+                </div>
+              )}
+
               {renderContentWithMentions(message.content)}
               {isEdited && (
-                <span className="text-[10px] opacity-60 ml-1.5 select-none font-medium">
-                  {t.chat.editedLabel}
-                </span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowOriginal((prev) => !prev);
+                  }}
+                  className="inline-flex items-center gap-0.5 text-[10px] opacity-65 hover:opacity-100 ml-1.5 select-none font-medium underline underline-offset-2 transition-opacity cursor-pointer align-baseline"
+                  title={showOriginal ? 'Ẩn tin nhắn gốc' : 'Xem tin nhắn trước khi sửa'}
+                >
+                  <span>{t.chat.editedLabel}</span>
+                  <ChevronDown className={`w-2.5 h-2.5 transition-transform duration-150 ${showOriginal ? 'rotate-180' : ''}`} />
+                </button>
               )}
             </div>
           ) : null}

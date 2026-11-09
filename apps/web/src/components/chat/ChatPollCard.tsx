@@ -111,7 +111,7 @@ export const ChatPollCard: React.FC<ChatPollCardProps> = ({
                     ? 'border-white/40 bg-white/20 text-current font-bold'
                     : 'border-circle-primary bg-circle-primary/10 text-circle-primary font-bold shadow-xs'
                   : isSenderMe
-                  ? 'border-white/15 bg-black/10 hover:bg-black/15 text-current'
+                  ? 'border-white/15 dark:border-white/20 bg-black/10 hover:bg-black/15 dark:bg-white/10 dark:hover:bg-white/15 text-current'
                   : 'border-circle-hairline dark:border-circle-dark-hairline bg-white/60 dark:bg-circle-dark-surface/60 hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text'
               }`}
             >
@@ -124,7 +124,7 @@ export const ChatPollCard: React.FC<ChatPollCardProps> = ({
                       ? 'bg-white/20'
                       : 'bg-circle-primary/20'
                     : isSenderMe
-                    ? 'bg-black/10'
+                    ? 'bg-black/10 dark:bg-white/10'
                     : 'bg-circle-slate/10 dark:bg-white/5'
                 }`}
               />
@@ -135,10 +135,10 @@ export const ChatPollCard: React.FC<ChatPollCardProps> = ({
                     isSelected
                       ? isSenderMe
                         ? 'border-current bg-current text-circle-charcoal'
-                        : 'border-circle-primary bg-circle-primary text-white'
+                        : 'border-circle-primary bg-circle-primary text-white dark:text-circle-dark-canvas'
                       : isSenderMe
                       ? 'border-current/40'
-                      : 'border-circle-slate/40'
+                      : 'border-circle-slate/40 dark:border-circle-dark-muted/40'
                   }`}
                 >
                   {isSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}

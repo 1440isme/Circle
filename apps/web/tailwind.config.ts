@@ -41,6 +41,9 @@ const config: Config = {
       colors: {
         circle: {
           primary: circleColors.light.primary,
+          primaryHover: '#059669',
+          primaryDark: '#059669',
+          success: '#10B981',
           sage: circleColors.light.sage,
           wash: circleColors.light.wash,
           peach: circleColors.light.peach,
@@ -61,6 +64,10 @@ const config: Config = {
             muted: circleColors.dark.muted,
             wash: circleColors.dark.wash,
             primary: circleColors.dark.primary,
+            bg: '#131316',
+            border: '#2E2E35',
+            hover: '#2A2A30',
+            card: '#1D1D21',
           },
         },
       },

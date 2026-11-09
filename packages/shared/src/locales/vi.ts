@@ -853,6 +853,7 @@ export const vi = {
     cancelBtn: 'Hủy',
     messageRecalled: 'Tin nhắn đã được thu hồi',
     editedLabel: '(đã chỉnh sửa)',
+    originalMessageLabel: 'Tin nhắn gốc',
     editingMessage: 'Đang chỉnh sửa tin nhắn',
     cancelEdit: 'Hủy sửa',
     saveEdit: 'Lưu thay đổi',

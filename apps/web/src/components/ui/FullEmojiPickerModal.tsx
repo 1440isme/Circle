@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Search } from 'lucide-react';
 import { EMOJI_CATEGORIES } from '@circle/shared';
 import { useLanguageStore } from '@/stores/language.store';
@@ -21,9 +22,14 @@ export const FullEmojiPickerModal: React.FC<FullEmojiPickerModalProps> = ({
 }) => {
   const t = useLanguageStore((s) => s.t);
   const resolvedTitle = title || t.emoji?.title || 'Chọn biểu cảm';
+  const [mounted, setMounted] = useState(false);
   const [activeCategoryId, setActiveCategoryId] = useState<string>(EMOJI_CATEGORIES[0]?.id || 'smileys');
   const [searchQuery, setSearchQuery] = useState('');
   const modalRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -33,15 +39,18 @@ export const FullEmojiPickerModal: React.FC<FullEmojiPickerModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted) return null;
 
   const currentCategory = EMOJI_CATEGORIES.find((c) => c.id === activeCategoryId) || EMOJI_CATEGORIES[0];
   const displayedEmojis = searchQuery.trim().length > 0
     ? EMOJI_CATEGORIES.flatMap((c) => c.emojis)
     : currentCategory.emojis;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in">
+  return createPortal(
+    <div
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in"
+    >
       <div
         ref={modalRef}
         className="w-full max-w-md rounded-3xl bg-white dark:bg-circle-dark-surface border border-circle-hairline dark:border-circle-dark-hairline shadow-2xl overflow-hidden flex flex-col max-h-[80vh] animate-scale-up"
@@ -105,6 +114,7 @@ export const FullEmojiPickerModal: React.FC<FullEmojiPickerModalProps> = ({
           ))}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

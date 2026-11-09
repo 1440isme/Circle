@@ -596,7 +596,13 @@ export function useChannelMessagesQuery(channelId: string | null) {
             pages: oldData.pages.map((page) => ({
               ...page,
               messages: page.messages.map((m) =>
-                m.id === updatedMsg.id ? { ...m, ...updatedMsg } : m,
+                m.id === updatedMsg.id
+                  ? {
+                      ...m,
+                      ...updatedMsg,
+                      previousContent: updatedMsg.previousContent || m.content || m.previousContent,
+                    }
+                  : m,
               ),
             })),
           };

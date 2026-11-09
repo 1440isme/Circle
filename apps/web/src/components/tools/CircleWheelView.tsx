@@ -388,7 +388,7 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
 
       {/* Create Wheel Modal */}
       {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-150">
           <div className="w-full max-w-md rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-5 shadow-2xl">
             <div className="flex items-center justify-between pb-3 border-b border-circle-hairline dark:border-circle-dark-hairline mb-4">
               <h3 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
@@ -414,7 +414,7 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
                   value={wheelTitle}
                   onChange={(e) => setWheelTitle(e.target.value)}
                   placeholder="Ví dụ: Trưa nay ăn gì? Đi chơi ở đâu?..."
-                  className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas px-3.5 py-2 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-hidden focus:ring-1 focus:ring-circle-sage"
+                  className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas px-3.5 py-2 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-none focus:ring-1 focus:ring-circle-sage"
                 />
               </div>
 
@@ -450,7 +450,7 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
                           updated[idx] = e.target.value;
                           setOptionsList(updated);
                         }}
-                        className="flex-1 rounded-lg border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas px-3 py-1.5 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-hidden focus:ring-1 focus:ring-circle-sage"
+                        className="flex-1 rounded-lg border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas px-3 py-1.5 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-none focus:ring-1 focus:ring-circle-sage"
                       />
                       {optionsList.length > 2 && (
                         <button

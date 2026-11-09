@@ -468,7 +468,7 @@ export const CircleLocationView: React.FC<CircleLocationViewProps> = ({ circleId
         <div ref={containerRef} className="flex-1 h-full w-full z-0 [&_.leaflet-top]:!top-16" />
 
         {MAPBOX_TOKEN && (
-          <div className="absolute bottom-4 right-4 z-10 bg-black/60 backdrop-blur-xs text-white text-[10px] px-2.5 py-1 rounded-md pointer-events-none opacity-80 select-none shadow-sm">
+          <div className="absolute bottom-4 right-4 z-10 bg-black/60 backdrop-blur-sm text-white text-[10px] px-2.5 py-1 rounded-md pointer-events-none opacity-80 select-none shadow-sm">
             Mapbox
           </div>
         )}

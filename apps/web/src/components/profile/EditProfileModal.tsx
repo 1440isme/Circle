@@ -201,7 +201,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-fadeIn">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadeIn">
       <div className="relative w-full max-w-md rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-6 shadow-2xl transition-all">
         {/* Modal Header */}
         <div className="flex items-center justify-between pb-4 border-b border-circle-hairline dark:border-circle-dark-hairline">
@@ -228,7 +228,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
           <button
             type="button"
             onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-circle-canvas dark:bg-circle-dark-canvas text-circle-slate hover:bg-circle-wash hover:text-circle-charcoal dark:hover:text-circle-dark-text transition-colors"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-circle-canvas dark:bg-circle-dark-canvas text-circle-slate hover:bg-circle-wash hover:text-circle-charcoal dark:hover:text-circle-dark-text dark:hover:bg-circle-dark-wash transition-colors"
           >
             <X className="h-4 w-4" />
           </button>
@@ -236,7 +236,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
 
         {/* Success / Error Notification */}
         {successMessage && (
-          <div className="mt-4 flex items-center gap-2 rounded-lg border border-circle-success/30 bg-circle-success/10 px-3.5 py-2 text-xs font-semibold text-circle-success animate-fadeIn">
+          <div className="mt-4 flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-2 text-xs font-semibold text-emerald-600 dark:text-emerald-400 animate-fadeIn">
             <Check className="h-4 w-4 shrink-0" />
             <span>{successMessage}</span>
           </div>

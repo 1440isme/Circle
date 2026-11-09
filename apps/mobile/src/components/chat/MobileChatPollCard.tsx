@@ -145,7 +145,9 @@ export const MobileChatPollCard: React.FC<MobileChatPollCardProps> = ({
                       ? 'rgba(255,255,255,0.18)'
                       : `${colors.primary}15`
                     : isSenderMe
-                    ? 'rgba(0,0,0,0.1)'
+                    ? isDark
+                      ? 'rgba(255,255,255,0.08)'
+                      : 'rgba(0,0,0,0.08)'
                     : colors.surface,
                 },
               ]}
@@ -161,7 +163,9 @@ export const MobileChatPollCard: React.FC<MobileChatPollCardProps> = ({
                         ? 'rgba(255,255,255,0.18)'
                         : `${colors.primary}25`
                       : isSenderMe
-                      ? 'rgba(0,0,0,0.08)'
+                      ? isDark
+                        ? 'rgba(255,255,255,0.08)'
+                        : 'rgba(0,0,0,0.08)'
                       : colors.wash,
                   },
                 ]}
@@ -191,7 +195,7 @@ export const MobileChatPollCard: React.FC<MobileChatPollCardProps> = ({
                     {isSelected && (
                       <Check
                         size={10}
-                        color={isSenderMe ? '#000000' : '#FFFFFF'}
+                        color={isSenderMe ? (isDark ? '#131316' : '#000000') : colors.onPrimary || '#FFFFFF'}
                         strokeWidth={3}
                       />
                     )}

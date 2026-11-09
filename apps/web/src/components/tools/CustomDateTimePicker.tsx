@@ -276,7 +276,7 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
       {/* Input box trigger hiển thị dd/mm/yyyy HH:mm */}
       <div
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-full flex items-center justify-between rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas px-2.5 py-2 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-hidden focus:ring-1 focus:ring-circle-sage cursor-pointer select-none transition-all ${
+        className={`w-full flex items-center justify-between rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas px-2.5 py-2 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-none focus:ring-1 focus:ring-circle-sage cursor-pointer select-none transition-all ${
           isOpen ? 'ring-1 ring-circle-sage border-circle-sage' : 'hover:border-circle-sage/60'
         } ${className}`}
       >
@@ -340,14 +340,14 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
                     <button
                       type="button"
                       onClick={() => setCurrentViewDate(new Date(year, month - 2, 1))}
-                      className="p-1 rounded-lg hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate hover:text-circle-charcoal transition-colors"
+                      className="p-1 rounded-lg hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate hover:text-circle-charcoal dark:hover:text-white transition-colors"
                     >
                       <ChevronLeft className="h-4 w-4" />
                     </button>
                     <button
                       type="button"
                       onClick={() => setCurrentViewDate(new Date(year, month, 1))}
-                      className="p-1 rounded-lg hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate hover:text-circle-charcoal transition-colors"
+                      className="p-1 rounded-lg hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate hover:text-circle-charcoal dark:hover:text-white transition-colors"
                     >
                       <ChevronRight className="h-4 w-4" />
                     </button>

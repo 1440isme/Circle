@@ -241,7 +241,7 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
       {/* 2-Column Desktop Settings Dialog */}
       <div className="relative w-full max-w-4xl h-[620px] max-h-[92vh] rounded-2xl md:rounded-[24px] bg-white dark:bg-circle-dark-canvas border border-circle-hairline dark:border-circle-dark-hairline shadow-2xl flex flex-col md:flex-row overflow-hidden text-circle-charcoal dark:text-white">
 
@@ -830,7 +830,7 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
 
         {/* Modal: Confirm Revoke All Sessions */}
         {showConfirmRevokeAll && (
-          <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
+          <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
             <div className="w-full max-w-sm rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-5 shadow-2xl animate-scaleUp">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-circle-coral/15 text-circle-coral mb-3 border border-circle-coral/30">
                 <AlertTriangle className="h-5 w-5" />
@@ -867,7 +867,7 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
 
         {/* Modal: Confirm Logout */}
         {showLogoutConfirm && (
-          <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
+          <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
             <div className="w-full max-w-sm rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-5 shadow-2xl animate-scaleUp">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-500/15 text-red-500 mb-3 border border-red-500/30">
                 <LogOut className="h-5 w-5" />

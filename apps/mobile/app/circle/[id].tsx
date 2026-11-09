@@ -82,6 +82,7 @@ import {
   Copy,
   Search,
   Hash,
+  History,
 } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { editMessageApi, recallMessageApi, clearChannelHistoryApi } from '../../src/services/chat.service';
@@ -442,6 +443,7 @@ const MobileSwipeMessageBubble = React.memo(function MobileSwipeMessageBubble({
   onJumpToMessage,
   onStartCall,
 }: MobileSwipeMessageBubbleProps) {
+  const [showOriginal, setShowOriginal] = useState(false);
   const translateX = useRef(new Animated.Value(0)).current;
   const hasVibratedOnSwipe = useRef(false);
 
@@ -1121,32 +1123,89 @@ const MobileSwipeMessageBubble = React.memo(function MobileSwipeMessageBubble({
                   )}
                 </View>
               ) : Boolean(msg.content && msg.content.trim()) ? (
-                <Text
-                  style={[
-                    styles.messageText,
-                    { color: isSenderMe ? senderTextColor : otherTextColor },
-                    hasImage && { paddingHorizontal: 6, paddingTop: 4 },
-                  ]}
-                >
-                  {renderMobileContentWithMentions(msg.content)}
-                  {Boolean(
+                <View>
+                  {/* Messenger-style Inline Original Message: displayed directly inside the same bubble */}
+                  {showOriginal && Boolean(
                     msg.updatedAt &&
                       msg.sentAt &&
                       new Date(msg.updatedAt).getTime() - new Date(msg.sentAt).getTime() > 1000 &&
                       !msg.deletedAt,
                   ) && (
-                    <Text
+                    <View
                       style={{
-                        fontSize: 10,
-                        fontStyle: 'italic',
-                        opacity: 0.65,
-                        color: isSenderMe ? senderTextColor : colors.subtle,
+                        marginBottom: 6,
+                        paddingBottom: 4,
+                        borderBottomWidth: StyleSheet.hairlineWidth,
+                        borderBottomColor: isSenderMe ? 'rgba(255,255,255,0.2)' : colors.hairline,
+                        opacity: 0.7,
                       }}
                     >
-                      {' '}({t.chat?.editedLabel || 'đã sửa'})
-                    </Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2 }}>
+                        <History size={10} color={isSenderMe ? senderTextColor : colors.subtle} />
+                        <Text
+                          style={{
+                            fontSize: 9.5,
+                            fontWeight: '700',
+                            color: isSenderMe ? senderTextColor : colors.subtle,
+                            textTransform: 'uppercase',
+                            letterSpacing: 0.4,
+                          }}
+                        >
+                          {t.chat?.originalMessageLabel || 'Tin nhắn gốc'}:
+                        </Text>
+                      </View>
+                      <Text
+                        style={[
+                          styles.messageText,
+                          {
+                            color: isSenderMe ? senderTextColor : otherTextColor,
+                            textDecorationLine: 'line-through',
+                            fontStyle: 'italic',
+                            fontSize: 12,
+                            opacity: 0.85,
+                          },
+                        ]}
+                      >
+                        {renderMobileContentWithMentions((msg as any).previousContent || (msg as any).originalContent || msg.content)}
+                      </Text>
+                    </View>
                   )}
-                </Text>
+
+                  <Text
+                    style={[
+                      styles.messageText,
+                      { color: isSenderMe ? senderTextColor : otherTextColor },
+                      hasImage && { paddingHorizontal: 6, paddingTop: 4 },
+                    ]}
+                  >
+                    {renderMobileContentWithMentions(msg.content)}
+                    {Boolean(
+                      msg.updatedAt &&
+                        msg.sentAt &&
+                        new Date(msg.updatedAt).getTime() - new Date(msg.sentAt).getTime() > 1000 &&
+                        !msg.deletedAt,
+                    ) && (
+                      <Text
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          try {
+                            Haptics.selectionAsync();
+                          } catch {}
+                          setShowOriginal((prev) => !prev);
+                        }}
+                        style={{
+                          fontSize: 10,
+                          textDecorationLine: 'underline',
+                          opacity: 0.75,
+                          color: isSenderMe ? senderTextColor : colors.subtle,
+                          fontWeight: '600',
+                        }}
+                      >
+                        {' '}({t.chat?.editedLabel || 'đã sửa'})
+                      </Text>
+                    )}
+                  </Text>
+                </View>
               ) : null}
 
 

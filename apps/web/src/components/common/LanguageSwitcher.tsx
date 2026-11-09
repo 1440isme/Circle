@@ -27,7 +27,7 @@ export const LanguageSwitcher: React.FC<{ compact?: boolean }> = ({ compact = fa
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-1.5 rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-white/80 dark:bg-circle-dark-surface/80 px-2.5 py-1 text-xs font-medium text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-canvas dark:hover:bg-circle-dark-card transition-colors shadow-sm focus:outline-none"
+        className="flex items-center gap-1.5 rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-white/80 dark:bg-circle-dark-surface/80 px-2.5 py-1 text-xs font-medium text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-canvas dark:hover:bg-circle-dark-elevated transition-colors shadow-sm focus:outline-none"
         title="Đổi ngôn ngữ / Change Language"
       >
         <span className="text-sm leading-none">{currentLocale.flag}</span>
@@ -36,7 +36,7 @@ export const LanguageSwitcher: React.FC<{ compact?: boolean }> = ({ compact = fa
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-1.5 w-36 rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white/95 dark:bg-circle-dark-card/95 p-1.5 shadow-xl shadow-circle-charcoal/10 dark:shadow-black/50 backdrop-blur-md z-50 animate-fadeIn">
+        <div className="absolute right-0 mt-1.5 w-36 rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white/95 dark:bg-circle-dark-surface/95 p-1.5 shadow-xl shadow-circle-charcoal/10 dark:shadow-black/50 backdrop-blur-md z-50 animate-fadeIn">
           {LOCALES.map((l) => {
             const isSelected = l.code === locale;
             return (

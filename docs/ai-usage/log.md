@@ -5924,3 +5924,68 @@
 - **Official Source Checked:** Issue #125, Apple Human Interface Guidelines (Liquid Glass Controls), Figma specifications.
 - **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
 - **Branch:** `fix/upgrade-mobile-expo-sdk-58`
+
+
+---
+
+### Entry AI-0157
+
+- **Timestamp:** 2026-11-09T23:55:00+07:00
+- **Author:** Trương Công Bình (23110184)
+- **Tool:** Antigravity IDE (Gemini 2.5 Pro)
+- **Task / Scope:** Module 7 (US-COLLAB-003, Issue #125) — Khắc phục Triệt để Lỗi Layout Modal Tạo Poll (CSS Containing-Block Portal Fix), Đồng bộ Toàn diện Dark Theme Contrast, Triển khai Tương tác Xem Lịch sử Sửa Tin nhắn Inline Kiểu Messenger (Web & Mobile Parity), và Thiết lập Master UI/UX Test Plan 4 Tầng.
+- **Files Touched:**
+  - `apps/web/src/components/chat/ChatComposer.tsx`
+  - `apps/web/src/components/chat/CreatePollChatModal.tsx`
+  - `apps/web/src/components/ui/FullEmojiPickerModal.tsx`
+  - `apps/web/src/components/chat/MessageBubble.tsx`
+  - `apps/backend/src/modules/chat/chat.service.ts`
+  - `packages/types/src/index.ts`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `apps/mobile/src/components/chat/MobileCreatePollModal.tsx`
+  - `apps/mobile/src/components/chat/MobileChatPollCard.tsx`
+  - `apps/mobile/src/components/tools/MobilePollView.tsx`
+  - `apps/web/tailwind.config.ts`
+  - `apps/web/src/components/circle/CircleManagementModal.tsx`
+  - `apps/web/src/components/settings/SystemSettingsModal.tsx`
+  - `apps/web/src/components/tools/CustomDateTimePicker.tsx`
+  - `apps/web/src/components/chat/ClearChatModal.tsx`
+  - `apps/web/src/components/profile/EditProfileModal.tsx`
+  - `apps/web/src/components/tools/MapLocationPickerModal.tsx`
+  - `apps/web/src/components/tools/CircleWheelView.tsx`
+  - `apps/web/src/components/tools/CircleAlbumsView.tsx`
+  - `apps/web/src/components/tools/CircleCalendarView.tsx`
+  - `apps/web/src/components/tools/CircleLocationView.tsx`
+  - `docs/test-plans/master-ui-ux-test-plan.md`
+  - `scripts/run-ui-ux-tests.mjs`
+  - `agentic/memory/MEMORY.md`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:**
+  1. **Khắc phục Triệt để Lỗi Layout Modal Tạo Poll (CSS Containing-Block Portal Fix):**
+     - Tìm ra nguyên nhân gốc: `backdrop-filter: blur(2px)` trên container `ChatComposer` biến container thành CSS containing block, giam giữ các modal `position: fixed` bên trong thanh nhập liệu chỉ cao 76px.
+     - Loại bỏ `backdrop-filter` thừa trên container gốc `ChatComposer`.
+     - Áp dụng React Portal (`createPortal(..., document.body)`) cho cả `CreatePollChatModal.tsx` và `FullEmojiPickerModal.tsx`, bổ sung phím tắt Escape và click outside backdrop để đóng modal. Bổ sung `max-h-[90vh]` kèm thanh cuộn mềm mượt cho form tạo poll khi có nhiều lựa chọn.
+  2. **Triển khai Tương tác Xem Lịch sử Sửa Tin nhắn Inline Kiểu Messenger (Web & Mobile Parity):**
+     - Theo chỉ đạo của người dùng: khi tin nhắn được sửa, hiển thị nhãn "đã chỉnh sửa" / "edited". Khi bấm vào nhãn này, nội dung tin nhắn trước khi sửa (`previousContent`) được toggle hiển thị ngay bên trong cùng bubble tin nhắn ở phía trên nội dung mới với độ mờ thấp hơn (`opacity-65`, gạch ngang line-through), hoàn toàn không mở popup hay modal rời rạc.
+     - Triển khai đồng bộ trên Web (`MessageBubble.tsx`), Backend (`chat.service.ts` lưu `previousContent`), Types (`MessageEntity`), và Mobile (`MobileSwipeMessageBubble` trong `apps/mobile/app/circle/[id].tsx`).
+  3. **Đồng bộ Toàn diện Dark Theme Contrast & Token Harmonization:**
+     - Mở rộng các alias màu tối trong `tailwind.config.ts`: `circle.primaryDark`, `circle.dark.card`, `circle.dark.hover`, `circle.dark.border`.
+     - Chuẩn hóa màu chữ, nền tối và viền hairline trên hàng loạt modal/dropdown: `CircleManagementModal`, `SystemSettingsModal`, `CustomDateTimePicker`, `ClearChatModal`, `EditProfileModal`, `MapLocationPickerModal`, `CircleWheelView`, `CircleAlbumsView`, `CircleCalendarView`, `CircleLocationView`.
+  4. **Thiết lập Master UI/UX Test Plan & Tự động hóa Kiểm thử:**
+     - Soạn thảo tài liệu `docs/test-plans/master-ui-ux-test-plan.md` (48KB) gồm 4 tầng kiểm thử, 41 test cases (TC-001 đến TC-041), ma trận kiểm tra Dark theme, và bảng đối soát Web vs Mobile Parity chi tiết.
+     - Triển khai script `scripts/run-ui-ux-tests.mjs` tự động hóa kiểm thử click flow qua cầu nối `scripts/brave-ctl.mjs` (port 9333 -> Brave DevTools 9222).
+- **Human Modifications:** Trương Công Bình yêu cầu kiểm thử toàn diện mọi click người dùng, chỉ rõ 2 lỗi cấp thiết (Dark theme và layout modal tạo poll trong chat), yêu cầu tính năng xem tin nhắn sửa inline kiểu Messenger không dùng popup, nhấn mạnh nguyên tắc tương tác ma sát thấp nhất không điều hướng màn hình cho thao tác nhỏ, và nhấn mạnh bất biến 100% Web + Mobile parity.
+- **Verification Method:**
+  - Chụp ảnh màn hình đối chứng trực tiếp trên Brave: `04_create_poll_modal_fixed.png` (modal tạo poll căn giữa hoàn hảo, không bị co cụm hay cắt nút) đối chiếu với `test_poll_modal_distortion.png`.
+  - Typecheck Web: `npx tsc --noEmit -p apps/web/tsconfig.json` (0 errors).
+  - Typecheck Mobile: `npx tsc --noEmit -p apps/mobile/tsconfig.json` (0 errors).
+  - Typecheck Backend: `npx tsc --noEmit -p apps/backend/tsconfig.json` (0 errors).
+  - Build Types: `npm run build --workspace=@circle/types` (Success).
+  - Build Shared: `npm run build --workspace=@circle/shared` (Success).
+  - Documentation Integrity: `./scripts/check-agent-map.sh` (Passed 100%, 122/122 files).
+  - Pre-commit Hook & Secret Check: `./.githooks/pre-commit` (Passed 100%, 0 leaks).
+- **Official Source Checked:** Issue #125, Apple Human Interface Guidelines, Facebook Messenger edit interaction pattern.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+- **Branch:** `fix/upgrade-mobile-expo-sdk-58`

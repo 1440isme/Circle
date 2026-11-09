@@ -733,7 +733,7 @@ export const CircleManagementModal: React.FC = () => {
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/40 backdrop-blur-xs animate-fadeIn">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/40 backdrop-blur-sm animate-fadeIn">
       {/* Khung cố định (Liquid Glass Sheet rounded-[28px]) */}
       <div className="relative w-full max-w-4xl h-[640px] max-h-[92vh] glass-sheet rounded-[28px] shadow-2xl flex flex-col md:flex-row overflow-hidden text-circle-charcoal dark:text-circle-dark-text">
         
@@ -1181,7 +1181,7 @@ export const CircleManagementModal: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setIsAddMemberOpen(false)}
-                        className="p-1 rounded-lg text-circle-slate hover:text-circle-charcoal hover:bg-white dark:hover:bg-circle-dark-surface"
+                        className="p-1 rounded-lg text-circle-slate hover:text-circle-charcoal dark:hover:text-circle-dark-text hover:bg-white dark:hover:bg-circle-dark-surface"
                       >
                         <X className="h-4 w-4" />
                       </button>
@@ -1343,7 +1343,7 @@ export const CircleManagementModal: React.FC = () => {
                                         type="button"
                                         onClick={() => setEditingMemberId(null)}
                                         title={t.common.cancel}
-                                        className="p-1 rounded-md border border-circle-hairline dark:border-circle-dark-hairline text-circle-slate hover:bg-circle-canvas transition-colors"
+                                        className="p-1 rounded-md border border-circle-hairline dark:border-circle-dark-hairline text-circle-slate hover:bg-circle-canvas dark:hover:bg-circle-dark-elevated transition-colors"
                                       >
                                         <X className="h-3.5 w-3.5" />
                                       </button>
@@ -1467,7 +1467,7 @@ export const CircleManagementModal: React.FC = () => {
                                   type="button"
                                   onClick={() => handleReviewRequest(req.id, 'REJECTED')}
                                   disabled={reviewRequestMutation.isPending}
-                                  className="px-2.5 py-1 rounded-xl border border-circle-hairline text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 text-xs font-semibold transition-all"
+                                  className="px-2.5 py-1 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 text-xs font-semibold transition-all"
                                 >
                                   Từ chối
                                 </button>
@@ -1858,7 +1858,7 @@ export const CircleManagementModal: React.FC = () => {
                           type="button"
                           onClick={() => handleThemeColorChange(key)}
                           title={item.name}
-                          className="relative p-1 rounded-full flex items-center justify-center transition-transform hover:scale-110 active:scale-95 focus:outline-hidden"
+                          className="relative p-1 rounded-full flex items-center justify-center transition-transform hover:scale-110 active:scale-95 focus:outline-none"
                         >
                           <span
                             className="h-8 w-8 rounded-full transition-all flex items-center justify-center shadow-xs"
@@ -2116,7 +2116,7 @@ export const CircleManagementModal: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setIsReportOpen(false)}
-                        className="px-3 py-1 rounded-xl border border-circle-hairline text-xs font-semibold text-circle-slate"
+                        className="px-3 py-1 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline text-xs font-semibold text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors"
                       >
                         {t.common.cancel}
                       </button>
@@ -2283,7 +2283,7 @@ export const CircleManagementModal: React.FC = () => {
 
       {/* Confirmation Modals */}
       {confirmKickMemberId && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
           <div className="w-full max-w-sm p-5 rounded-2xl bg-white dark:bg-circle-dark-surface border border-circle-hairline dark:border-circle-dark-hairline shadow-circle-card space-y-4">
             <h4 className="text-sm font-bold text-red-600 dark:text-red-400 flex items-center gap-2">
               <AlertTriangle className="h-4 w-4" />
@@ -2296,7 +2296,7 @@ export const CircleManagementModal: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setConfirmKickMemberId(null)}
-                className="px-3.5 py-1.5 rounded-xl border border-circle-hairline text-xs font-semibold text-circle-slate"
+                className="px-3.5 py-1.5 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline text-xs font-semibold text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors"
               >
                 {t.common.cancel}
               </button>
@@ -2314,7 +2314,7 @@ export const CircleManagementModal: React.FC = () => {
       )}
 
       {confirmTransferMemberId && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
           <div className="w-full max-w-sm p-5 rounded-2xl bg-white dark:bg-circle-dark-surface border border-circle-hairline dark:border-circle-dark-hairline shadow-circle-card space-y-4">
             <h4 className="text-sm font-bold text-amber-600 dark:text-amber-400 flex items-center gap-2">
               <Crown className="h-4 w-4" />
@@ -2327,7 +2327,7 @@ export const CircleManagementModal: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setConfirmTransferMemberId(null)}
-                className="px-3.5 py-1.5 rounded-xl border border-circle-hairline text-xs font-semibold text-circle-slate"
+                className="px-3.5 py-1.5 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline text-xs font-semibold text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors"
               >
                 {t.common.cancel}
               </button>
@@ -2345,7 +2345,7 @@ export const CircleManagementModal: React.FC = () => {
       )}
 
       {confirmLeave && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
           <div className="w-full max-w-sm p-5 rounded-2xl bg-white dark:bg-circle-dark-surface border border-circle-hairline dark:border-circle-dark-hairline shadow-circle-card space-y-4">
             <h4 className="text-sm font-bold text-red-600 dark:text-red-400 flex items-center gap-2">
               <LogOut className="h-4 w-4" />
@@ -2358,7 +2358,7 @@ export const CircleManagementModal: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setConfirmLeave(false)}
-                className="px-3.5 py-1.5 rounded-xl border border-circle-hairline text-xs font-semibold text-circle-slate"
+                className="px-3.5 py-1.5 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline text-xs font-semibold text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors"
               >
                 {t.common.cancel}
               </button>
@@ -2376,7 +2376,7 @@ export const CircleManagementModal: React.FC = () => {
       )}
 
       {confirmDeleteCircle && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
           <div className="w-full max-w-sm p-5 rounded-2xl bg-white dark:bg-circle-dark-surface border border-red-200 dark:border-red-900/50 shadow-circle-card space-y-4">
             <h4 className="text-sm font-bold text-red-600 dark:text-red-400 flex items-center gap-2">
               <AlertTriangle className="h-4 w-4" />
@@ -2389,7 +2389,7 @@ export const CircleManagementModal: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setConfirmDeleteCircle(false)}
-                className="px-3.5 py-1.5 rounded-xl border border-circle-hairline text-xs font-semibold text-circle-slate"
+                className="px-3.5 py-1.5 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline text-xs font-semibold text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors"
               >
                 {t.common.cancel}
               </button>

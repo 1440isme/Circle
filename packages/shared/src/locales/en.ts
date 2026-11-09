@@ -855,6 +855,7 @@ export const en: TranslationDictionary = {
     cancelBtn: 'Cancel',
     messageRecalled: 'This message was recalled',
     editedLabel: '(edited)',
+    originalMessageLabel: 'Original message',
     editingMessage: 'Editing message',
     cancelEdit: 'Cancel edit',
     saveEdit: 'Save changes',

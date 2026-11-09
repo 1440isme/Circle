@@ -194,7 +194,7 @@ export const MobilePollView: React.FC<MobilePollViewProps> = ({ circleId }) => {
             onPress={() => setIsCreateModalOpen(true)}
             style={[styles.emptyCreateBtn, { backgroundColor: colors.primary }]}
           >
-            <Text style={styles.emptyCreateBtnText}>Tạo bình chọn ngay</Text>
+            <Text style={[styles.emptyCreateBtnText, { color: colors.onPrimary || (isDark ? '#131316' : '#FFF') }]}>Tạo bình chọn ngay</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -399,7 +399,7 @@ export const MobilePollView: React.FC<MobilePollViewProps> = ({ circleId }) => {
                 onPress={handleCreatePoll}
                 style={[styles.modalSubmitBtn, { backgroundColor: colors.primary }]}
               >
-                <Text style={styles.modalSubmitText}>Tạo poll</Text>
+                <Text style={[styles.modalSubmitText, { color: colors.onPrimary || (isDark ? '#131316' : '#FFF') }]}>Tạo poll</Text>
               </TouchableOpacity>
             </View>
           </View>

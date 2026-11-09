@@ -908,7 +908,7 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
                               setLightboxSwapped(false);
                               setActivePhotoIndex((prev) => Math.max(prev - 1, 0));
                             }}
-                            className="absolute left-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 hover:bg-black/75 text-white backdrop-blur-xs transition-colors z-20"
+                            className="absolute left-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 hover:bg-black/75 text-white backdrop-blur-sm transition-colors z-20"
                           >
                             <ChevronLeft className="h-5 w-5" />
                           </button>
@@ -921,7 +921,7 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
                               setLightboxSwapped(false);
                               setActivePhotoIndex((prev) => Math.min(prev + 1, selectedDayMoments.length - 1));
                             }}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 hover:bg-black/75 text-white backdrop-blur-xs transition-colors z-20"
+                            className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 hover:bg-black/75 text-white backdrop-blur-sm transition-colors z-20"
                           >
                             <ChevronRight className="h-5 w-5" />
                           </button>

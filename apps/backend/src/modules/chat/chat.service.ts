@@ -682,6 +682,7 @@ export class ChatService {
     });
 
     const formatted = this.formatMessage(updated, member.id);
+    formatted.previousContent = message.content;
     this.chatGateway.broadcastMessageUpdated(message.channelId, formatted);
 
     return {

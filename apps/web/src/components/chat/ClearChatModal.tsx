@@ -31,7 +31,7 @@ export const ClearChatModal: React.FC<ClearChatModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
       <div
-        className="relative w-full max-w-md overflow-hidden rounded-3xl border border-circle-slate/15 dark:border-circle-dark-surface bg-white dark:bg-circle-charcoal text-circle-charcoal dark:text-white shadow-2xl animate-scaleUp"
+        className="relative w-full max-w-md overflow-hidden rounded-3xl border border-circle-slate/15 dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface text-circle-charcoal dark:text-white shadow-2xl animate-scaleUp"
         role="dialog"
         aria-modal="true"
         aria-labelledby="clear-chat-title"

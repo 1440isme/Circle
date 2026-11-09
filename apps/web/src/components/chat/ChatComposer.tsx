@@ -416,7 +416,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
   };
 
   return (
-    <div className="pointer-events-none absolute bottom-0 left-0 right-0 z-20 p-3 sm:pb-4 flex flex-col items-center bg-gradient-to-t from-white/98 dark:from-circle-dark-surface/98 via-white/80 dark:via-circle-dark-surface/80 to-transparent backdrop-blur-[2px] transition-colors">
+    <div className="pointer-events-none absolute bottom-0 left-0 right-0 z-20 p-3 sm:pb-4 flex flex-col items-center bg-gradient-to-t from-white/98 dark:from-circle-dark-surface/98 via-white/80 dark:via-circle-dark-surface/80 to-transparent transition-colors">
       <div className="pointer-events-auto w-full max-w-3xl flex flex-col gap-2">
         {/* Hidden file inputs */}
         <input

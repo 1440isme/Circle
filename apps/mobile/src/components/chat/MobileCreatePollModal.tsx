@@ -13,6 +13,7 @@ import {
   Alert,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, Vote, Plus, Trash2 } from 'lucide-react-native';
 import { useThemeStore } from '../../stores/theme.store';
 import { useLanguageStore } from '../../stores/language.store';
@@ -34,6 +35,7 @@ export const MobileCreatePollModal: React.FC<MobileCreatePollModalProps> = ({
 }) => {
   const { colors, resolvedTheme } = useThemeStore();
   const isDark = resolvedTheme === 'dark';
+  const insets = useSafeAreaInsets();
   const { t } = useLanguageStore();
 
   const [question, setQuestion] = useState('');
@@ -109,7 +111,7 @@ export const MobileCreatePollModal: React.FC<MobileCreatePollModalProps> = ({
           onPress={onClose}
         />
 
-        <View style={[styles.modalSheet, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+        <View style={[styles.modalSheet, { backgroundColor: colors.surface, borderColor: colors.hairline, paddingBottom: Math.max(insets.bottom, 20) }]}>
           {/* Header */}
           <View style={[styles.headerRow, { borderBottomColor: colors.hairline }]}>
             <View style={styles.headerLeft}>
@@ -137,7 +139,7 @@ export const MobileCreatePollModal: React.FC<MobileCreatePollModalProps> = ({
                 style={[
                   styles.input,
                   {
-                    backgroundColor: colors.wash,
+                    backgroundColor: isDark ? colors.canvas : colors.wash,
                     borderColor: colors.hairline,
                     color: colors.text,
                   },
@@ -161,7 +163,7 @@ export const MobileCreatePollModal: React.FC<MobileCreatePollModalProps> = ({
                       styles.input,
                       styles.optionInput,
                       {
-                        backgroundColor: colors.wash,
+                        backgroundColor: isDark ? colors.canvas : colors.wash,
                         borderColor: colors.hairline,
                         color: colors.text,
                       },
@@ -211,9 +213,9 @@ export const MobileCreatePollModal: React.FC<MobileCreatePollModalProps> = ({
               style={[styles.submitBtn, { backgroundColor: colors.primary }]}
             >
               {isSubmitting ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
+                <ActivityIndicator size="small" color={colors.onPrimary || (isDark ? '#131316' : '#FFFFFF')} />
               ) : (
-                <Text style={styles.submitBtnText}>
+                <Text style={[styles.submitBtnText, { color: colors.onPrimary || (isDark ? '#131316' : '#FFFFFF') }]}>
                   {t.collab?.createPoll || 'Tạo bình chọn'}
                 </Text>
               )}

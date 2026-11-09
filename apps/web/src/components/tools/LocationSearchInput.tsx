@@ -107,11 +107,11 @@ export const LocationSearchInput: React.FC<LocationSearchInputProps> = ({
               if (suggestions.length > 0) setShowSuggestions(true);
             }}
             placeholder={placeholder}
-            className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas pl-3.5 pr-8 py-2 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-hidden focus:ring-1 focus:ring-circle-sage"
+            className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas pl-3.5 pr-8 py-2 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-none focus:ring-1 focus:ring-circle-sage"
           />
           <div className="absolute right-2.5 top-2.5 flex items-center gap-1">
             {isSearching && (
-              <Loader2 className="h-3.5 w-3.5 animate-spin text-circle-slate" />
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-circle-slate dark:text-circle-dark-muted" />
             )}
             {value && !isSearching && (
               <button
@@ -144,7 +144,7 @@ export const LocationSearchInput: React.FC<LocationSearchInputProps> = ({
       {/* Autocomplete Dropdown */}
       {showSuggestions && suggestions.length > 0 && (
         <div className="absolute left-0 right-16 top-full mt-1 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface shadow-2xl overflow-hidden max-h-56 overflow-y-auto z-50 animate-in fade-in duration-100">
-          <div className="px-3 py-1.5 bg-circle-wash/50 dark:bg-circle-dark-wash/50 border-b border-circle-hairline/40 text-[10px] font-bold text-circle-slate dark:text-circle-dark-muted uppercase tracking-wider">
+          <div className="px-3 py-1.5 bg-circle-wash/50 dark:bg-circle-dark-wash/50 border-b border-circle-hairline/40 dark:border-circle-dark-hairline/40 text-[10px] font-bold text-circle-slate dark:text-circle-dark-muted uppercase tracking-wider">
             Gợi ý địa điểm từ bản đồ
           </div>
           {suggestions.map((item, idx) => (
