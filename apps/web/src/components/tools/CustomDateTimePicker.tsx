@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Calendar as CalendarIcon, Clock, ChevronLeft, ChevronRight, ChevronDown, X, Check } from 'lucide-react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, ChevronDown, X, Check } from 'lucide-react';
 
 interface CustomDateTimePickerProps {
   value: string; // "YYYY-MM-DDTHH:mm" hoặc "YYYY-MM-DD" hoặc ""
@@ -15,13 +15,17 @@ interface CustomDateTimePickerProps {
 }
 
 const ITEM_HEIGHT = 40; // 40px mỗi slot
-const STAGE_HEIGHT = 210; // 210px tổng chiều cao bánh xe khớp với cột lịch
 
 const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
 const MINUTES = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
 const MONTH_NAMES = Array.from({ length: 12 }, (_, i) => `Tháng ${String(i + 1).padStart(2, '0')}`);
-const DEFAULT_START_YEAR = 1900;
-const DEFAULT_END_YEAR = 2150;
+const START_YEAR = 1950;
+const END_YEAR = 2100;
+const YEARS = Array.from({ length: END_YEAR - START_YEAR + 1 }, (_, i) => START_YEAR + i);
+
+const pad = (n: number) => String(n).padStart(2, '0');
+const formatLocalDateKey = (d: Date) =>
+  `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
 export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
   value,
@@ -76,7 +80,7 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
     return `${d.padStart(2, '0')}/${m.padStart(2, '0')}/${y} ${timeDisplay}`;
   }, [datePart, timePart, value, dateOnly]);
 
-  // Calendar view state
+  // Calendar view date (chỉ dùng cho năm và tháng hiển thị trên lưới lịch)
   const initialCalendarDate = useMemo(() => {
     if (datePart) {
       const [y, m, d] = datePart.split('-').map(Number);
@@ -97,25 +101,14 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
   const monthsScrollRef = useRef<HTMLDivElement>(null);
   const yearsScrollRef = useRef<HTMLDivElement>(null);
 
-  // Dynamic infinite year range
-  const [yearRange, setYearRange] = useState(() => {
-    const currentY = new Date().getFullYear();
-    return {
-      min: Math.min(DEFAULT_START_YEAR, currentY - 100),
-      max: Math.max(DEFAULT_END_YEAR, currentY + 100),
-    };
-  });
+  // Khóa chống scroll ảo / scroll tự động kích hoạt onChange làm nhảy giờ/năm
+  const isProgrammaticScrollRef = useRef(false);
 
-  const years = useMemo(() => {
-    const list: number[] = [];
-    for (let y = yearRange.min; y <= yearRange.max; y++) {
-      list.push(y);
-    }
-    return list;
-  }, [yearRange.min, yearRange.max]);
-
-  const isExtendingYearsRef = useRef(false);
-  const prevIsMonthYearOpenRef = useRef(false);
+  // Debounce timers cho scroll thủ công
+  const hourScrollTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const minuteScrollTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const monthScrollTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const yearScrollTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Sync state khi value thay đổi từ ngoài
   useEffect(() => {
@@ -131,6 +124,16 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
     if (!isNaN(nh)) setActiveHour(nh);
     if (!isNaN(nm)) setActiveMinute(nm);
   }, [datePart, timePart]);
+
+  // Dọn dẹp timers khi unmount
+  useEffect(() => {
+    return () => {
+      if (hourScrollTimerRef.current) clearTimeout(hourScrollTimerRef.current);
+      if (minuteScrollTimerRef.current) clearTimeout(minuteScrollTimerRef.current);
+      if (monthScrollTimerRef.current) clearTimeout(monthScrollTimerRef.current);
+      if (yearScrollTimerRef.current) clearTimeout(yearScrollTimerRef.current);
+    };
+  }, []);
 
   // Đóng khi click ra ngoài popover
   useEffect(() => {
@@ -148,29 +151,6 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
     };
   }, [isOpen]);
 
-  // Scroll time wheel
-  const scrollTo = useCallback((element: HTMLElement | null, index: number, smooth = true) => {
-    if (!element) return;
-    const targetTop = index * ITEM_HEIGHT;
-    if (Math.abs(element.scrollTop - targetTop) > 1) {
-      element.scrollTo({
-        top: targetTop,
-        behavior: smooth ? 'smooth' : 'auto',
-      });
-    }
-  }, []);
-
-  // Tự động cuộn bánh xe giờ vào vị trí trung tâm khi mở popover
-  useEffect(() => {
-    if (isOpen) {
-      const timer = setTimeout(() => {
-        scrollTo(hoursScrollRef.current, activeHour, false);
-        scrollTo(minutesScrollRef.current, activeMinute, false);
-      }, 40);
-      return () => clearTimeout(timer);
-    }
-  }, [isOpen, activeHour, activeMinute, scrollTo]);
-
   // Calendar calculations
   const year = currentViewDate.getFullYear();
   const month = currentViewDate.getMonth() + 1; // 1-12
@@ -183,32 +163,47 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
     return new Date(year, month - 1, 1).getDay(); // 0 = Chủ nhật
   }, [year, month]);
 
-  // Tự động cuộn bánh xe Tháng & Năm vào vị trí trung tâm khi sổ xuống
+  // Định vị bánh xe Giờ & Phút NGAY LẬP TỨC khi mở popover (KHÔNG scroll animation từ 0)
   useEffect(() => {
-    if (isMonthYearOpen && !prevIsMonthYearOpenRef.current) {
-      prevIsMonthYearOpenRef.current = true;
-      if (year < yearRange.min || year > yearRange.max) {
-        setYearRange((prev) => ({
-          min: Math.min(year - 50, prev.min),
-          max: Math.max(year + 50, prev.max),
-        }));
-      }
+    if (isOpen && !dateOnly) {
+      isProgrammaticScrollRef.current = true;
       const timer = setTimeout(() => {
-        scrollTo(monthsScrollRef.current, month - 1, false);
-        const yIdx = years.indexOf(year);
-        if (yIdx !== -1) {
-          scrollTo(yearsScrollRef.current, yIdx, false);
+        if (hoursScrollRef.current) {
+          hoursScrollRef.current.scrollTop = activeHour * ITEM_HEIGHT;
         }
-      }, 30);
+        if (minutesScrollRef.current) {
+          minutesScrollRef.current.scrollTop = activeMinute * ITEM_HEIGHT;
+        }
+        setTimeout(() => {
+          isProgrammaticScrollRef.current = false;
+        }, 60);
+      }, 10);
       return () => clearTimeout(timer);
-    } else if (!isMonthYearOpen) {
-      prevIsMonthYearOpenRef.current = false;
     }
-  }, [isMonthYearOpen, month, year, years, scrollTo, yearRange.min, yearRange.max]);
+  }, [isOpen, dateOnly]);
+
+  // Định vị bánh xe Tháng & Năm NGAY LẬP TỨC khi mở chọn Tháng & Năm
+  useEffect(() => {
+    if (isMonthYearOpen) {
+      isProgrammaticScrollRef.current = true;
+      const timer = setTimeout(() => {
+        if (monthsScrollRef.current) {
+          monthsScrollRef.current.scrollTop = (month - 1) * ITEM_HEIGHT;
+        }
+        if (yearsScrollRef.current) {
+          const yIdx = Math.max(0, Math.min(YEARS.length - 1, year - START_YEAR));
+          yearsScrollRef.current.scrollTop = yIdx * ITEM_HEIGHT;
+        }
+        setTimeout(() => {
+          isProgrammaticScrollRef.current = false;
+        }, 60);
+      }, 10);
+      return () => clearTimeout(timer);
+    }
+  }, [isMonthYearOpen]);
 
   const handleSelectDay = (dayNum: number) => {
     if (isDayDisabled(dayNum)) return;
-    const pad = (n: number) => String(n).padStart(2, '0');
     const newDatePart = `${year}-${pad(month)}-${pad(dayNum)}`;
     if (dateOnly) {
       onChange(newDatePart);
@@ -219,146 +214,164 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
     onChange(`${newDatePart}T${curTime}`);
   };
 
-  // Cuộn & chọn Tháng
+  // Cuộn & chọn Tháng (thủ công bằng chuột / vuốt chạm)
   const handleMonthScroll = () => {
-    if (!monthsScrollRef.current) return;
-    const scrollTop = monthsScrollRef.current.scrollTop;
-    const idx = Math.min(11, Math.max(0, Math.round(scrollTop / ITEM_HEIGHT)));
-    if (idx !== month - 1) {
-      const daysInTargetMonth = new Date(year, idx + 1, 0).getDate();
-      const currentDay = datePart ? parseInt(datePart.split('-')[2], 10) : 1;
-      const targetDay = Math.min(currentDay, daysInTargetMonth);
-      const pad = (n: number) => String(n).padStart(2, '0');
-      const newDatePart = `${year}-${pad(idx + 1)}-${pad(targetDay)}`;
-      if (dateOnly) {
-        onChange(newDatePart);
-      } else {
-        onChange(`${newDatePart}T${pad(activeHour)}:${pad(activeMinute)}`);
+    if (isProgrammaticScrollRef.current || !monthsScrollRef.current) return;
+    if (monthScrollTimerRef.current) clearTimeout(monthScrollTimerRef.current);
+    monthScrollTimerRef.current = setTimeout(() => {
+      if (!monthsScrollRef.current || isProgrammaticScrollRef.current) return;
+      const scrollTop = monthsScrollRef.current.scrollTop;
+      const idx = Math.min(11, Math.max(0, Math.round(scrollTop / ITEM_HEIGHT)));
+      if (idx !== month - 1) {
+        const targetMonth = idx + 1;
+        const daysInTargetMonth = new Date(year, targetMonth, 0).getDate();
+        const currentDay = datePart ? parseInt(datePart.split('-')[2], 10) : 1;
+        const targetDay = Math.min(currentDay, daysInTargetMonth);
+        setCurrentViewDate(new Date(year, idx, targetDay));
+
+        const newDatePart = `${year}-${pad(targetMonth)}-${pad(targetDay)}`;
+        if (dateOnly) {
+          onChange(newDatePart);
+        } else {
+          onChange(`${newDatePart}T${pad(activeHour)}:${pad(activeMinute)}`);
+        }
       }
-    }
+    }, 90);
   };
 
-  // Cuộn & chọn Năm (hỗ trợ cuộn mở rộng vô hạn)
+  // Cuộn & chọn Năm (thủ công bằng chuột / vuốt chạm)
   const handleYearScroll = () => {
-    if (!yearsScrollRef.current) return;
-    const el = yearsScrollRef.current;
-    const scrollTop = el.scrollTop;
-    const idx = Math.min(years.length - 1, Math.max(0, Math.round(scrollTop / ITEM_HEIGHT)));
-    const targetYear = years[idx];
+    if (isProgrammaticScrollRef.current || !yearsScrollRef.current) return;
+    if (yearScrollTimerRef.current) clearTimeout(yearScrollTimerRef.current);
+    yearScrollTimerRef.current = setTimeout(() => {
+      if (!yearsScrollRef.current || isProgrammaticScrollRef.current) return;
+      const scrollTop = yearsScrollRef.current.scrollTop;
+      const idx = Math.min(YEARS.length - 1, Math.max(0, Math.round(scrollTop / ITEM_HEIGHT)));
+      const targetYear = YEARS[idx];
+      if (targetYear !== undefined && targetYear !== year) {
+        const daysInTargetMonth = new Date(targetYear, month, 0).getDate();
+        const currentDay = datePart ? parseInt(datePart.split('-')[2], 10) : 1;
+        const targetDay = Math.min(currentDay, daysInTargetMonth);
+        setCurrentViewDate(new Date(targetYear, month - 1, targetDay));
 
-    // Mở rộng vô hạn về quá khứ khi cuộn gần đỉnh (còn dưới 10 năm)
-    if (scrollTop < 10 * ITEM_HEIGHT && !isExtendingYearsRef.current) {
-      isExtendingYearsRef.current = true;
-      const extendCount = 50;
-      setYearRange((prev) => ({ ...prev, min: prev.min - extendCount }));
-      requestAnimationFrame(() => {
-        if (yearsScrollRef.current) {
-          yearsScrollRef.current.scrollTop += extendCount * ITEM_HEIGHT;
+        const newDatePart = `${targetYear}-${pad(month)}-${pad(targetDay)}`;
+        if (dateOnly) {
+          onChange(newDatePart);
+        } else {
+          onChange(`${newDatePart}T${pad(activeHour)}:${pad(activeMinute)}`);
         }
-        setTimeout(() => {
-          isExtendingYearsRef.current = false;
-        }, 120);
-      });
-    }
-    // Mở rộng vô hạn về tương lai khi cuộn gần đáy (còn dưới 10 năm)
-    else if (scrollTop > (years.length - 10) * ITEM_HEIGHT && !isExtendingYearsRef.current) {
-      isExtendingYearsRef.current = true;
-      const extendCount = 50;
-      setYearRange((prev) => ({ ...prev, max: prev.max + extendCount }));
-      setTimeout(() => {
-        isExtendingYearsRef.current = false;
-      }, 120);
-    }
-
-    if (targetYear !== undefined && targetYear !== year) {
-      const daysInTargetMonth = new Date(targetYear, month, 0).getDate();
-      const currentDay = datePart ? parseInt(datePart.split('-')[2], 10) : 1;
-      const targetDay = Math.min(currentDay, daysInTargetMonth);
-      const pad = (n: number) => String(n).padStart(2, '0');
-      const newDatePart = `${targetYear}-${pad(month)}-${pad(targetDay)}`;
-      if (dateOnly) {
-        onChange(newDatePart);
-      } else {
-        onChange(`${newDatePart}T${pad(activeHour)}:${pad(activeMinute)}`);
       }
-    }
+    }, 90);
   };
 
   const handleSelectMonth = (mIdx: number) => {
-    scrollTo(monthsScrollRef.current, mIdx, true);
-    const daysInTargetMonth = new Date(year, mIdx + 1, 0).getDate();
+    isProgrammaticScrollRef.current = true;
+    if (monthsScrollRef.current) {
+      monthsScrollRef.current.scrollTo({ top: mIdx * ITEM_HEIGHT, behavior: 'smooth' });
+    }
+    const targetMonth = mIdx + 1;
+    const daysInTargetMonth = new Date(year, targetMonth, 0).getDate();
     const currentDay = datePart ? parseInt(datePart.split('-')[2], 10) : 1;
     const targetDay = Math.min(currentDay, daysInTargetMonth);
-    const pad = (n: number) => String(n).padStart(2, '0');
-    const newDatePart = `${year}-${pad(mIdx + 1)}-${pad(targetDay)}`;
+    setCurrentViewDate(new Date(year, mIdx, targetDay));
+
+    const newDatePart = `${year}-${pad(targetMonth)}-${pad(targetDay)}`;
     if (dateOnly) {
       onChange(newDatePart);
     } else {
       onChange(`${newDatePart}T${pad(activeHour)}:${pad(activeMinute)}`);
     }
+    setTimeout(() => {
+      isProgrammaticScrollRef.current = false;
+    }, 250);
   };
 
-  const handleSelectYear = (yIdx: number) => {
-    scrollTo(yearsScrollRef.current, yIdx, true);
-    const targetYear = years[yIdx];
-    if (targetYear === undefined) return;
+  const handleSelectYear = (targetYear: number) => {
+    isProgrammaticScrollRef.current = true;
+    const yIdx = targetYear - START_YEAR;
+    if (yearsScrollRef.current) {
+      yearsScrollRef.current.scrollTo({ top: yIdx * ITEM_HEIGHT, behavior: 'smooth' });
+    }
     const daysInTargetMonth = new Date(targetYear, month, 0).getDate();
     const currentDay = datePart ? parseInt(datePart.split('-')[2], 10) : 1;
     const targetDay = Math.min(currentDay, daysInTargetMonth);
-    const pad = (n: number) => String(n).padStart(2, '0');
+    setCurrentViewDate(new Date(targetYear, month - 1, targetDay));
+
     const newDatePart = `${targetYear}-${pad(month)}-${pad(targetDay)}`;
     if (dateOnly) {
       onChange(newDatePart);
     } else {
       onChange(`${newDatePart}T${pad(activeHour)}:${pad(activeMinute)}`);
     }
+    setTimeout(() => {
+      isProgrammaticScrollRef.current = false;
+    }, 250);
   };
 
-  // Wheel scroll handlers cho Giờ & Phút
+  // Wheel scroll handlers cho Giờ & Phút (thủ công)
   const handleHoursScroll = () => {
-    if (!hoursScrollRef.current) return;
-    const scrollTop = hoursScrollRef.current.scrollTop;
-    const idx = Math.min(23, Math.max(0, Math.round(scrollTop / ITEM_HEIGHT)));
-    if (idx !== activeHour) {
-      setActiveHour(idx);
-      const newTime = `${String(idx).padStart(2, '0')}:${String(activeMinute).padStart(2, '0')}`;
-      const d = datePart || new Date().toISOString().split('T')[0];
-      onChange(`${d}T${newTime}`);
-    }
+    if (isProgrammaticScrollRef.current || !hoursScrollRef.current) return;
+    if (hourScrollTimerRef.current) clearTimeout(hourScrollTimerRef.current);
+    hourScrollTimerRef.current = setTimeout(() => {
+      if (!hoursScrollRef.current || isProgrammaticScrollRef.current) return;
+      const scrollTop = hoursScrollRef.current.scrollTop;
+      const idx = Math.min(23, Math.max(0, Math.round(scrollTop / ITEM_HEIGHT)));
+      if (idx !== activeHour) {
+        setActiveHour(idx);
+        const newTime = `${pad(idx)}:${pad(activeMinute)}`;
+        const d = datePart || formatLocalDateKey(new Date());
+        onChange(`${d}T${newTime}`);
+      }
+    }, 90);
   };
 
   const handleMinutesScroll = () => {
-    if (!minutesScrollRef.current) return;
-    const scrollTop = minutesScrollRef.current.scrollTop;
-    const idx = Math.min(59, Math.max(0, Math.round(scrollTop / ITEM_HEIGHT)));
-    if (idx !== activeMinute) {
-      setActiveMinute(idx);
-      const newTime = `${String(activeHour).padStart(2, '0')}:${String(idx).padStart(2, '0')}`;
-      const d = datePart || new Date().toISOString().split('T')[0];
-      onChange(`${d}T${newTime}`);
-    }
+    if (isProgrammaticScrollRef.current || !minutesScrollRef.current) return;
+    if (minuteScrollTimerRef.current) clearTimeout(minuteScrollTimerRef.current);
+    minuteScrollTimerRef.current = setTimeout(() => {
+      if (!minutesScrollRef.current || isProgrammaticScrollRef.current) return;
+      const scrollTop = minutesScrollRef.current.scrollTop;
+      const idx = Math.min(59, Math.max(0, Math.round(scrollTop / ITEM_HEIGHT)));
+      if (idx !== activeMinute) {
+        setActiveMinute(idx);
+        const newTime = `${pad(activeHour)}:${pad(idx)}`;
+        const d = datePart || formatLocalDateKey(new Date());
+        onChange(`${d}T${newTime}`);
+      }
+    }, 90);
   };
 
   const handleSelectHour = (h: number) => {
+    isProgrammaticScrollRef.current = true;
     setActiveHour(h);
-    scrollTo(hoursScrollRef.current, h, true);
-    const newTime = `${String(h).padStart(2, '0')}:${String(activeMinute).padStart(2, '0')}`;
-    const d = datePart || new Date().toISOString().split('T')[0];
+    if (hoursScrollRef.current) {
+      hoursScrollRef.current.scrollTo({ top: h * ITEM_HEIGHT, behavior: 'smooth' });
+    }
+    const newTime = `${pad(h)}:${pad(activeMinute)}`;
+    const d = datePart || formatLocalDateKey(new Date());
     onChange(`${d}T${newTime}`);
+    setTimeout(() => {
+      isProgrammaticScrollRef.current = false;
+    }, 250);
   };
 
   const handleSelectMinute = (m: number) => {
+    isProgrammaticScrollRef.current = true;
     setActiveMinute(m);
-    scrollTo(minutesScrollRef.current, m, true);
-    const newTime = `${String(activeHour).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-    const d = datePart || new Date().toISOString().split('T')[0];
+    if (minutesScrollRef.current) {
+      minutesScrollRef.current.scrollTo({ top: m * ITEM_HEIGHT, behavior: 'smooth' });
+    }
+    const newTime = `${pad(activeHour)}:${pad(m)}`;
+    const d = datePart || formatLocalDateKey(new Date());
     onChange(`${d}T${newTime}`);
+    setTimeout(() => {
+      isProgrammaticScrollRef.current = false;
+    }, 250);
   };
 
   // Check if a day is disabled
   const isDayDisabled = (dayNum: number): boolean => {
     if (!minDatePart) return false;
-    const pad = (n: number) => String(n).padStart(2, '0');
     const dayIso = `${year}-${pad(month)}-${pad(dayNum)}`;
     return dayIso < minDatePart;
   };
@@ -406,7 +419,7 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
           className={`absolute ${
             align === 'right' ? 'right-0' : 'left-0'
           } top-full mt-1.5 z-50 ${
-            dateOnly ? 'w-[250px]' : 'w-[380px]'
+            dateOnly ? 'w-[280px]' : 'w-[390px]'
           } max-w-[calc(100vw-32px)] rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface shadow-2xl p-3 animate-in fade-in zoom-in-95 duration-150`}
         >
           {/* Khu vực chính */}
@@ -475,7 +488,6 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
                     ref={monthsScrollRef}
                     onScroll={handleMonthScroll}
                     className="h-full w-24 overflow-y-auto snap-y snap-mandatory z-10 text-center py-0 scrollbar-none [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
-                    style={{ scrollBehavior: 'smooth' }}
                   >
                     <div className="h-[85px] shrink-0 pointer-events-none" />
                     {MONTH_NAMES.map((mName, idx) => {
@@ -502,20 +514,19 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
                     /
                   </div>
 
-                  {/* Cột Năm (Cuộn vô hạn) - ẨN 100% THANH CUỘN */}
+                  {/* Cột Năm (Cố định từ START_YEAR đến END_YEAR) - ẨN 100% THANH CUỘN */}
                   <div
                     ref={yearsScrollRef}
                     onScroll={handleYearScroll}
                     className="h-full w-20 overflow-y-auto snap-y snap-mandatory z-10 text-center py-0 scrollbar-none [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
-                    style={{ scrollBehavior: 'smooth' }}
                   >
                     <div className="h-[85px] shrink-0 pointer-events-none" />
-                    {years.map((y, idx) => {
+                    {YEARS.map((y) => {
                       const isSelected = y === year;
                       return (
                         <div
                           key={y}
-                          onClick={() => handleSelectYear(idx)}
+                          onClick={() => handleSelectYear(y)}
                           className={`h-10 flex items-center justify-center snap-center text-sm font-bold transition-all cursor-pointer ${
                             isSelected
                               ? 'text-white dark:text-circle-charcoal scale-105'
@@ -554,7 +565,6 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
                       ))}
 
                       {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((dayNum) => {
-                        const pad = (n: number) => String(n).padStart(2, '0');
                         const currentIso = `${year}-${pad(month)}-${pad(dayNum)}`;
                         const isSelected = datePart === currentIso;
                         const disabled = isDayDisabled(dayNum);
@@ -615,7 +625,6 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
                       ref={hoursScrollRef}
                       onScroll={handleHoursScroll}
                       className="h-full w-14 overflow-y-auto snap-y snap-mandatory z-10 text-center py-0 scrollbar-none [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
-                      style={{ scrollBehavior: 'smooth' }}
                     >
                       <div className="h-[85px] shrink-0 pointer-events-none" />
                       {HOURS.map((h, idx) => {
@@ -647,7 +656,6 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
                       ref={minutesScrollRef}
                       onScroll={handleMinutesScroll}
                       className="h-full w-14 overflow-y-auto snap-y snap-mandatory z-10 text-center py-0 scrollbar-none [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
-                      style={{ scrollBehavior: 'smooth' }}
                     >
                       <div className="h-[85px] shrink-0 pointer-events-none" />
                       {MINUTES.map((m, idx) => {

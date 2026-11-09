@@ -59,29 +59,9 @@ export const getWeekdayNumber = (d: Date): number => {
   return day === 0 ? 7 : day;
 };
 
-export const getDefaultWeeklyDays = (start: Date, end: Date): number[] => {
-  const startDay = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-  const endDay = new Date(end.getFullYear(), end.getMonth(), end.getDate());
-  const diffDays = Math.round((endDay.getTime() - startDay.getTime()) / (1000 * 60 * 60 * 24));
-
-  if (diffDays <= 0) {
-    return [getWeekdayNumber(start)];
-  }
-
-  if (diffDays >= 6) {
-    return [1, 2, 3, 4, 5, 6, 7];
-  }
-
-  const result: number[] = [];
-  const current = new Date(startDay);
-  for (let i = 0; i <= diffDays; i++) {
-    const wk = getWeekdayNumber(current);
-    if (!result.includes(wk)) {
-      result.push(wk);
-    }
-    current.setDate(current.getDate() + 1);
-  }
-  return result.sort((a, b) => a - b);
+export const getDefaultWeeklyDays = (start: Date, _end?: Date): number[] => {
+  // Mặc định lặp lại vào đúng thứ của ngày bắt đầu sự kiện, không tự cộng dồn
+  return [getWeekdayNumber(start)];
 };
 
 export const getNthOrderFromDate = (d: Date): NthWeekdayOrder => {
@@ -93,9 +73,27 @@ export const getNthOrderFromDate = (d: Date): NthWeekdayOrder => {
   return 'last';
 };
 
-export const formatRecurrenceSummary = (config: RecurrenceConfig): string => {
+export const formatRecurrenceSummary = (
+  config: RecurrenceConfig,
+  includeEndDate = false,
+): string => {
   if (config.frequency === 'none') {
     return 'Không lặp lại';
+  }
+
+  // Nếu không phải tùy chỉnh (preset cơ bản: Hằng ngày, Hằng tuần, Hằng tháng, Hằng năm):
+  if (!config.isCustom && (config.interval || 1) === 1) {
+    let base = '';
+    if (config.frequency === 'daily') base = 'Hằng ngày';
+    else if (config.frequency === 'weekly') base = 'Hằng tuần';
+    else if (config.frequency === 'monthly') base = 'Hằng tháng';
+    else if (config.frequency === 'yearly') base = 'Hằng năm';
+
+    if (includeEndDate && config.endType === 'on_date' && config.endDate) {
+      const end = new Date(config.endDate);
+      return `${base} đến ${formatDateOnly(end)}`;
+    }
+    return base;
   }
 
   let text = '';
@@ -138,6 +136,11 @@ export const formatRecurrenceSummary = (config: RecurrenceConfig): string => {
         ? `Hằng năm vào ${dayName} ${orderName} của Tháng ${config.yearlyNthMonth}`
         : `Mỗi ${interval} năm vào ${dayName} ${orderName} của Tháng ${config.yearlyNthMonth}`;
     }
+  }
+
+  if (includeEndDate && config.endType === 'on_date' && config.endDate) {
+    const end = new Date(config.endDate);
+    text += ` đến ${formatDateOnly(end)}`;
   }
 
   return text;
@@ -341,10 +344,11 @@ export const isEventOccurringOnDate = (ev: CalendarEventEntity, targetDate: Date
 
   if (frequency === 'weekly') {
     const targetWeekday = targetDate.getDay() === 0 ? 7 : targetDate.getDay();
-    const allowedDays =
-      recurrenceConfig.weeklyDays && recurrenceConfig.weeklyDays.length > 0
-        ? recurrenceConfig.weeklyDays
-        : [evStart.getDay() === 0 ? 7 : evStart.getDay()];
+    const allowedDays = !recurrenceConfig.isCustom
+      ? [evStart.getDay() === 0 ? 7 : evStart.getDay()]
+      : recurrenceConfig.weeklyDays && recurrenceConfig.weeklyDays.length > 0
+      ? recurrenceConfig.weeklyDays
+      : [evStart.getDay() === 0 ? 7 : evStart.getDay()];
 
     if (!allowedDays.includes(targetWeekday)) {
       return false;
@@ -425,23 +429,23 @@ export const isEventCancelledOnDate = (ev: CalendarEventEntity, targetDate: Date
 export const formatEventTimeForDate = (ev: CalendarEventEntity, targetDate: Date): string => {
   const evStart = new Date(ev.startTime);
   const evEnd = ev.endTime ? new Date(ev.endTime) : null;
-  const { recurrenceConfig } = parseEventRecurrence(ev.description);
-
-  if (!recurrenceConfig || recurrenceConfig.frequency === 'none') {
-    const sStr = `${pad2(evStart.getHours())}:${pad2(evStart.getMinutes())}`;
-    if (!evEnd) return sStr;
-    const isSameDay =
-      evStart.getFullYear() === evEnd.getFullYear() &&
-      evStart.getMonth() === evEnd.getMonth() &&
-      evStart.getDate() === evEnd.getDate();
-    const eStr = `${pad2(evEnd.getHours())}:${pad2(evEnd.getMinutes())}`;
-    return isSameDay ? `${sStr} - ${eStr}` : `${sStr} (${formatDateOnly(evStart)}) - ${eStr} (${formatDateOnly(evEnd)})`;
-  }
-
   const sStr = `${pad2(evStart.getHours())}:${pad2(evStart.getMinutes())}`;
   if (!evEnd) return sStr;
   const eStr = `${pad2(evEnd.getHours())}:${pad2(evEnd.getMinutes())}`;
-  return `${sStr} - ${eStr}`;
+
+  const diffMs = evEnd.getTime() - evStart.getTime();
+  const occStart = new Date(targetDate);
+  occStart.setHours(evStart.getHours(), evStart.getMinutes(), 0, 0);
+  const occEnd = new Date(occStart.getTime() + Math.max(0, diffMs));
+
+  const isSameDay =
+    occStart.getFullYear() === occEnd.getFullYear() &&
+    occStart.getMonth() === occEnd.getMonth() &&
+    occStart.getDate() === occEnd.getDate();
+
+  return isSameDay
+    ? `${sStr} - ${eStr}`
+    : `Từ ${sStr} ngày ${formatDateOnly(occStart)} - ${eStr} ngày ${formatDateOnly(occEnd)}`;
 };
 
 // ==========================================
@@ -467,6 +471,10 @@ export function getNextOrPrevOccurrenceStep(
       break;
 
     case 'weekly': {
+      if (!config.isCustom) {
+        result.setDate(result.getDate() + factor * 7 * interval);
+        break;
+      }
       const weeklyDays =
         config.weeklyDays && config.weeklyDays.length > 0
           ? [...config.weeklyDays].sort((a, b) => a - b)

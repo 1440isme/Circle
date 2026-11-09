@@ -11,7 +11,6 @@ import {
   formatRecurrenceSummary,
   getDefaultWeeklyDays,
 } from './calendar-recurrence';
-import { CalendarDatePickerPopup } from './CalendarDatePickerPopup';
 
 interface CustomRecurrenceModalProps {
   isOpen: boolean;
@@ -487,77 +486,12 @@ export const CustomRecurrenceModal: React.FC<CustomRecurrenceModalProps> = ({
           </div>
         )}
 
-        {/* 4. Kết thúc lặp (Dạng Popup Lịch) */}
-        <div className="pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline space-y-2">
-          <label className="block text-xs font-bold text-circle-slate dark:text-circle-dark-muted">
-            Kết thúc lặp
-          </label>
-          <div className="grid grid-cols-2 gap-1.5 bg-circle-canvas dark:bg-circle-dark-canvas p-1 rounded-xl border border-circle-hairline">
-            <button
-              type="button"
-              onClick={() =>
-                setTempConfig((prev) => ({
-                  ...prev,
-                  endType: 'never',
-                  endDate: null,
-                }))
-              }
-              className={`py-1.5 text-xs font-bold rounded-lg transition-all ${
-                tempConfig.endType === 'never'
-                  ? 'bg-teal-600 text-white shadow-2xs'
-                  : 'text-circle-slate hover:text-circle-charcoal'
-              }`}
-            >
-              Không giới hạn
-            </button>
-            <button
-              type="button"
-              onClick={() =>
-                setTempConfig((prev) => ({
-                  ...prev,
-                  endType: 'on_date',
-                  endDate: prev.endDate || new Date(startDate.getTime() + 30 * 86400000),
-                }))
-              }
-              className={`py-1.5 text-xs font-bold rounded-lg transition-all ${
-                tempConfig.endType === 'on_date'
-                  ? 'bg-teal-600 text-white shadow-2xs'
-                  : 'text-circle-slate hover:text-circle-charcoal'
-              }`}
-            >
-              Vào ngày
-            </button>
-          </div>
-
-          {tempConfig.endType === 'on_date' && (
-            <div className="pt-1">
-              <CalendarDatePickerPopup
-                value={tempConfig.endDate}
-                onChange={(d) =>
-                  setTempConfig((prev) => ({
-                    ...prev,
-                    endType: d ? 'on_date' : 'never',
-                    endDate: d,
-                  }))
-                }
-                minDate={startDate}
-                placeholder="Chọn ngày kết thúc chuỗi lặp"
-              />
-            </div>
-          )}
-        </div>
-
-        {/* 5. Tóm tắt quy tắc */}
+        {/* 4. Tóm tắt quy tắc */}
         <div className="p-3 rounded-xl border border-teal-500/20 bg-teal-50/50 dark:bg-teal-950/20 flex items-start gap-2">
           <Info className="h-4 w-4 text-teal-600 shrink-0 mt-0.5" />
           <div className="text-xs text-teal-800 dark:text-teal-300">
             <span className="font-bold">Quy tắc hiện tại: </span>
-            <span>{formatRecurrenceSummary(tempConfig)}</span>
-            {tempConfig.endType === 'on_date' && tempConfig.endDate && (
-              <span className="block mt-0.5 text-[11px] opacity-80">
-                (Kết thúc sau ngày {tempConfig.endDate.toLocaleDateString('vi-VN')})
-              </span>
-            )}
+            <span>{formatRecurrenceSummary(tempConfig, false)}</span>
           </div>
         </div>
 

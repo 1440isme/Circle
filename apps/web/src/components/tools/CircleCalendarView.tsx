@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Calendar as CalendarIcon,
   Plus,
@@ -12,6 +12,7 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Bell,
   Loader2,
   CalendarDays,
@@ -19,13 +20,16 @@ import {
   Share2,
   Info,
   RotateCcw,
+  ArrowLeft,
+  ArrowRight,
+  AlignLeft,
+  Check,
 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { getSocket } from '../../lib/socket';
 import { EventLocationDisplay } from './EventLocationDisplay';
 import { LocationSearchInput } from './LocationSearchInput';
 import { CustomDateTimePicker } from './CustomDateTimePicker';
-import { CalendarDatePickerPopup } from './CalendarDatePickerPopup';
 import { CustomRecurrenceModal } from './CustomRecurrenceModal';
 import { CircleEventDetailModal } from './CircleEventDetailModal';
 import { useAuth } from '../../context/AuthContext';
@@ -158,6 +162,25 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
   }>({ isOpen: false, event: null, occDate: null });
 
   const [isCustomRepeatOpen, setIsCustomRepeatOpen] = useState(false);
+  const [isRepeatDropdownOpen, setIsRepeatDropdownOpen] = useState(false);
+  const repeatDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        repeatDropdownRef.current &&
+        !repeatDropdownRef.current.contains(e.target as Node)
+      ) {
+        setIsRepeatDropdownOpen(false);
+      }
+    };
+    if (isRepeatDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isRepeatDropdownOpen]);
 
   const month = currentDate.getMonth() + 1;
   const year = currentDate.getFullYear();
@@ -296,6 +319,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
       setReminderMinutes('none');
     }
 
+    setDetailModalState({ isOpen: false, event: null, occDate: null });
     setIsAddModalOpen(true);
   };
 
@@ -515,40 +539,88 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
               occDate: new Date(created.startTime),
             });
           }
-        } else if (isRecurring && scope === 'future' && editingOccurrenceDate) {
-          const dayBefore = new Date(editingOccurrenceDate);
-          dayBefore.setDate(dayBefore.getDate() - 1);
+        } else if (isRecurring && scope === 'future' && (editingOccurrenceDate || startTime)) {
+          const splitDate = startTime ? new Date(startTime) : editingOccurrenceDate ? new Date(editingOccurrenceDate) : new Date();
+          const evOriginalStart = new Date(editingEvent.startTime);
+          const evOriginalStartDay = new Date(
+            evOriginalStart.getFullYear(),
+            evOriginalStart.getMonth(),
+            evOriginalStart.getDate(),
+          );
+          const splitDay = new Date(
+            splitDate.getFullYear(),
+            splitDate.getMonth(),
+            splitDate.getDate(),
+          );
 
-          const { recurrenceConfig: parentConfig, cleanDesc: parentCleanDesc } = parseEventRecurrence(editingEvent.description);
-          const updatedParentRecurrence: RecurrenceConfig = {
-            ...(parentConfig || recurrenceConfig),
-            endType: 'on_date',
-            endDate: dayBefore,
-          };
-          const updatedParentDesc = serializeRecurrence(updatedParentRecurrence, parentCleanDesc);
+          // Nếu ngày tách lớn hơn ngày bắt đầu đầu tiên của sự kiện: Tách làm 2 sự kiện có chu kỳ lặp khác nhau
+          if (splitDay.getTime() > evOriginalStartDay.getTime()) {
+            const dayBefore = new Date(splitDay);
+            dayBefore.setDate(dayBefore.getDate() - 1);
+            dayBefore.setHours(23, 59, 59, 999);
 
-          await updateMutation.mutateAsync({
-            eventId: editingEvent.id,
-            input: {
-              description: updatedParentDesc,
-            },
-          });
+            const { recurrenceConfig: parentConfig, cleanDesc: parentCleanDesc } =
+              parseEventRecurrence(editingEvent.description);
+            const updatedParentRecurrence: RecurrenceConfig = {
+              ...(parentConfig || recurrenceConfig),
+              endType: 'on_date',
+              endDate: dayBefore,
+            };
+            const updatedParentDesc = serializeRecurrence(
+              updatedParentRecurrence,
+              parentCleanDesc,
+            );
 
-          const created = await createMutation.mutateAsync({
-            eventTitle: title.trim(),
-            description: finalDesc,
-            location: location.trim() || undefined,
-            startTime: start.toISOString(),
-            endTime: end.toISOString(),
-            reminderTime: reminderIso,
-          });
-
-          if (detailModalState.isOpen) {
-            setDetailModalState({
-              isOpen: true,
-              event: created,
-              occDate: new Date(created.startTime),
+            // 1. Cập nhật sự kiện cũ: kết thúc lặp vào ngày trước splitDate
+            await updateMutation.mutateAsync({
+              eventId: editingEvent.id,
+              input: {
+                description: updatedParentDesc,
+              },
             });
+
+            // 2. Tạo sự kiện mới: độ lặp mới bắt đầu từ splitDate
+            // Reset excludedDates và cancelledDates để không bị ảnh hưởng bởi chuỗi cũ
+            const childConfig: RecurrenceConfig = {
+              ...recurrenceConfig,
+              excludedDates: [],
+              cancelledDates: [],
+            };
+            const childDesc = serializeRecurrence(childConfig, description);
+
+            const created = await createMutation.mutateAsync({
+              eventTitle: title.trim(),
+              description: childDesc,
+              location: location.trim() || undefined,
+              startTime: start.toISOString(),
+              endTime: end.toISOString(),
+              reminderTime: reminderIso,
+            });
+
+            if (detailModalState.isOpen) {
+              setDetailModalState({
+                isOpen: true,
+                event: created,
+                occDate: new Date(created.startTime),
+              });
+            }
+          } else {
+            // Nếu ngày tách trùng hoặc trước ngày bắt đầu ban đầu: cập nhật trực tiếp sự kiện hiện tại
+            const updated = await updateMutation.mutateAsync({
+              eventId: editingEvent.id,
+              input: {
+                eventTitle: title.trim(),
+                description: finalDesc,
+                location: location.trim() || undefined,
+                startTime: start.toISOString(),
+                endTime: end.toISOString(),
+                reminderTime: reminderIso,
+              },
+            });
+
+            if (detailModalState.isOpen) {
+              setDetailModalState((prev) => (prev.event ? { ...prev, event: updated } : prev));
+            }
           }
         } else {
           const updated = await updateMutation.mutateAsync({
@@ -784,7 +856,453 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
 
   return (
     <div className="flex-1 flex flex-col h-full bg-circle-canvas dark:bg-circle-dark-surface overflow-y-auto p-4 md:p-6 transition-colors">
-      {/* Header */}
+      {isAddModalOpen ? (
+        /* ============================================================== */
+        /* FULL-VIEW FORM TẠO & CHỈNH SỬA SỰ KIỆN (ICON-DRIVEN VERTICAL) */
+        /* ============================================================== */
+        <div className="space-y-6 w-full pb-16 animate-in fade-in duration-200">
+          {/* Header Action Bar */}
+          <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-circle-hairline dark:border-circle-dark-hairline">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setIsAddModalOpen(false)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface hover:bg-circle-wash text-circle-charcoal dark:text-circle-dark-text text-xs font-bold transition-all shadow-2xs cursor-pointer"
+                title="Quay lại giao diện Lịch"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                <span>Quay lại Lịch</span>
+              </button>
+              <div>
+                <h1 className="text-base sm:text-lg font-bold text-circle-charcoal dark:text-circle-dark-text">
+                  {editingEvent ? 'Chỉnh sửa lịch hẹn' : 'Tạo lịch hẹn mới'}
+                </h1>
+                <p className="text-xs text-circle-slate dark:text-circle-dark-muted mt-0.5">
+                  {editingEvent
+                    ? 'Cập nhật thông tin chi tiết hoặc điều chỉnh chu kỳ lặp của sự kiện'
+                    : 'Lên lịch cuộc hẹn, gặp mặt hoặc hoạt động nhóm cho các thành viên'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setIsAddModalOpen(false)}
+                className="px-4 py-2 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline text-xs font-semibold text-circle-slate hover:bg-circle-wash transition-colors cursor-pointer"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={handleAttemptSubmit}
+                className="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white text-xs font-bold shadow-2xs transition-all cursor-pointer"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Đang lưu...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check className="h-4 w-4" />
+                    <span>{editingEvent ? 'Lưu thay đổi' : 'Tạo sự kiện'}</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Form Card: Xếp hàng dọc theo thứ tự, tất cả dùng icon đại diện tinh tế */}
+          <div className="rounded-3xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-6 sm:p-8 space-y-6 shadow-xs">
+            {/* 1. Tiêu đề sự kiện */}
+            <div>
+              <input
+                type="text"
+                required
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Thêm tiêu đề sự kiện *"
+                className="w-full text-lg sm:text-xl font-bold text-circle-charcoal dark:text-circle-dark-text placeholder:text-circle-slate/40 border-b border-circle-hairline dark:border-circle-dark-hairline pb-3 focus:outline-hidden focus:border-teal-600 bg-transparent transition-colors"
+              />
+            </div>
+
+            {/* 2. Địa chỉ / Vị trí / Họp online (Icon MapPin) ngay dưới tiêu đề */}
+            <div className="flex items-center gap-4 pt-2">
+              <div className="h-9 w-9 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-600 shrink-0">
+                <MapPin className="h-5 w-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <LocationSearchInput
+                  value={location}
+                  onChange={(loc) => setLocation(loc)}
+                  placeholder="Thêm địa điểm trên bản đồ hoặc link họp online (Google Meet, Zoom...)"
+                />
+              </div>
+            </div>
+
+            {/* 3. Hàng Thời gian (Icon Clock): Bỏ label, giữa 2 picker có mũi tên ArrowRight */}
+            <div className="flex items-center gap-4 pt-4 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60">
+              <div className="h-9 w-9 rounded-xl bg-teal-500/10 flex items-center justify-center text-teal-600 shrink-0">
+                <Clock className="h-5 w-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
+                  <div className="flex-1 min-w-0">
+                    <CustomDateTimePicker
+                      required
+                      value={startTime}
+                      onChange={(val) => {
+                        setStartTime(val);
+                        if (val) {
+                          const s = new Date(val);
+                          setEditingOccurrenceDate(s);
+                          if (!endTime || endTime <= val) {
+                            s.setHours(s.getHours() + 1);
+                            setEndTime(formatToLocalDateTimeInput(s, s.getHours(), s.getMinutes()));
+                          }
+                        }
+                      }}
+                      min={editingEvent ? undefined : nowIsoLocal}
+                      placeholder="dd/mm/yyyy --:--"
+                      align="left"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-center px-1 text-circle-slate shrink-0">
+                    <ArrowRight className="h-4 w-4" />
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <CustomDateTimePicker
+                      required
+                      value={endTime}
+                      onChange={(val) => setEndTime(val)}
+                      min={startTime || nowIsoLocal}
+                      placeholder="dd/mm/yyyy --:--"
+                      align="right"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 3. Hàng Lặp lại (Icon Repeat) */}
+            <div className="flex items-start gap-4 pt-4 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60">
+              <div className="h-9 w-9 rounded-xl bg-teal-500/10 flex items-center justify-center text-teal-600 shrink-0 mt-0.5">
+                <Repeat className="h-5 w-5" />
+              </div>
+              <div className="flex-1 min-w-0 space-y-3">
+                <div ref={repeatDropdownRef} className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setIsRepeatDropdownOpen((prev) => !prev)}
+                    className="w-full flex items-center justify-between rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/40 dark:bg-circle-dark-canvas/40 px-3.5 py-2.5 text-xs text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-canvas/60 transition-colors text-left focus:outline-hidden focus:ring-1 focus:ring-circle-sage cursor-pointer"
+                  >
+                    <span className="truncate font-medium">
+                      {recurrenceConfig.frequency === 'none'
+                        ? 'Không lặp lại'
+                        : recurrenceConfig.isCustom
+                        ? formatRecurrenceSummary(recurrenceConfig, false)
+                        : recurrenceConfig.frequency === 'daily'
+                        ? 'Hằng ngày'
+                        : recurrenceConfig.frequency === 'weekly'
+                        ? 'Hằng tuần'
+                        : recurrenceConfig.frequency === 'monthly'
+                        ? 'Hằng tháng'
+                        : 'Hằng năm'}
+                    </span>
+                    <ChevronDown
+                      className={`h-4 w-4 text-circle-slate transition-transform duration-200 shrink-0 ml-2 ${
+                        isRepeatDropdownOpen ? 'rotate-180' : ''
+                      }`}
+                    />
+                  </button>
+
+                  {isRepeatDropdownOpen && (
+                    <div className="absolute left-0 top-full mt-1.5 w-full bg-white dark:bg-circle-dark-surface rounded-xl border border-circle-hairline dark:border-circle-dark-hairline shadow-lg z-50 py-1 overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleRepeatOptionChange('none');
+                          setIsRepeatDropdownOpen(false);
+                        }}
+                        className={`w-full flex items-center justify-between px-3.5 py-2.5 text-xs text-left hover:bg-circle-wash dark:hover:bg-circle-dark-wash cursor-pointer transition-colors ${
+                          recurrenceConfig.frequency === 'none'
+                            ? 'font-bold text-teal-600 dark:text-teal-400 bg-teal-50/50 dark:bg-teal-950/30'
+                            : 'text-circle-charcoal dark:text-circle-dark-text'
+                        }`}
+                      >
+                        <span>Không lặp lại</span>
+                        {recurrenceConfig.frequency === 'none' && (
+                          <Check className="h-3.5 w-3.5 text-teal-600 shrink-0 ml-2" />
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleRepeatOptionChange('daily');
+                          setIsRepeatDropdownOpen(false);
+                        }}
+                        className={`w-full flex items-center justify-between px-3.5 py-2.5 text-xs text-left hover:bg-circle-wash dark:hover:bg-circle-dark-wash cursor-pointer transition-colors ${
+                          !recurrenceConfig.isCustom && recurrenceConfig.frequency === 'daily'
+                            ? 'font-bold text-teal-600 dark:text-teal-400 bg-teal-50/50 dark:bg-teal-950/30'
+                            : 'text-circle-charcoal dark:text-circle-dark-text'
+                        }`}
+                      >
+                        <span>Hằng ngày</span>
+                        {!recurrenceConfig.isCustom && recurrenceConfig.frequency === 'daily' && (
+                          <Check className="h-3.5 w-3.5 text-teal-600 shrink-0 ml-2" />
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleRepeatOptionChange('weekly');
+                          setIsRepeatDropdownOpen(false);
+                        }}
+                        className={`w-full flex items-center justify-between px-3.5 py-2.5 text-xs text-left hover:bg-circle-wash dark:hover:bg-circle-dark-wash cursor-pointer transition-colors ${
+                          !recurrenceConfig.isCustom && recurrenceConfig.frequency === 'weekly'
+                            ? 'font-bold text-teal-600 dark:text-teal-400 bg-teal-50/50 dark:bg-teal-950/30'
+                            : 'text-circle-charcoal dark:text-circle-dark-text'
+                        }`}
+                      >
+                        <span>Hằng tuần</span>
+                        {!recurrenceConfig.isCustom && recurrenceConfig.frequency === 'weekly' && (
+                          <Check className="h-3.5 w-3.5 text-teal-600 shrink-0 ml-2" />
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleRepeatOptionChange('monthly');
+                          setIsRepeatDropdownOpen(false);
+                        }}
+                        className={`w-full flex items-center justify-between px-3.5 py-2.5 text-xs text-left hover:bg-circle-wash dark:hover:bg-circle-dark-wash cursor-pointer transition-colors ${
+                          !recurrenceConfig.isCustom && recurrenceConfig.frequency === 'monthly'
+                            ? 'font-bold text-teal-600 dark:text-teal-400 bg-teal-50/50 dark:bg-teal-950/30'
+                            : 'text-circle-charcoal dark:text-circle-dark-text'
+                        }`}
+                      >
+                        <span>Hằng tháng</span>
+                        {!recurrenceConfig.isCustom && recurrenceConfig.frequency === 'monthly' && (
+                          <Check className="h-3.5 w-3.5 text-teal-600 shrink-0 ml-2" />
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleRepeatOptionChange('yearly');
+                          setIsRepeatDropdownOpen(false);
+                        }}
+                        className={`w-full flex items-center justify-between px-3.5 py-2.5 text-xs text-left hover:bg-circle-wash dark:hover:bg-circle-dark-wash cursor-pointer transition-colors ${
+                          !recurrenceConfig.isCustom && recurrenceConfig.frequency === 'yearly'
+                            ? 'font-bold text-teal-600 dark:text-teal-400 bg-teal-50/50 dark:bg-teal-950/30'
+                            : 'text-circle-charcoal dark:text-circle-dark-text'
+                        }`}
+                      >
+                        <span>Hằng năm</span>
+                        {!recurrenceConfig.isCustom && recurrenceConfig.frequency === 'yearly' && (
+                          <Check className="h-3.5 w-3.5 text-teal-600 shrink-0 ml-2" />
+                        )}
+                      </button>
+
+                      <div className="my-1 border-t border-circle-hairline dark:border-circle-dark-hairline" />
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsRepeatDropdownOpen(false);
+                          handleRepeatOptionChange('custom');
+                        }}
+                        className={`w-full flex items-center justify-between px-3.5 py-2.5 text-xs text-left hover:bg-circle-wash dark:hover:bg-circle-dark-wash cursor-pointer transition-colors ${
+                          recurrenceConfig.isCustom
+                            ? 'font-bold text-teal-600 dark:text-teal-400 bg-teal-50/50 dark:bg-teal-950/30'
+                            : 'text-circle-charcoal dark:text-circle-dark-text'
+                        }`}
+                      >
+                        <span>Tùy chỉnh...</span>
+                        {recurrenceConfig.isCustom && (
+                          <Check className="h-3.5 w-3.5 text-teal-600 shrink-0 ml-2" />
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Kết thúc lặp lại nếu frequency !== 'none' */}
+                {recurrenceConfig.frequency !== 'none' && (
+                  <div className="flex flex-wrap items-center gap-3 pt-1">
+                    <span className="text-xs font-semibold text-circle-slate dark:text-circle-dark-muted">
+                      Kết thúc lặp:
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setRecurrenceConfig((prev) => ({
+                            ...prev,
+                            endType: 'never',
+                            endDate: null,
+                          }))
+                        }
+                        className={`px-3 py-1 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+                          recurrenceConfig.endType === 'never'
+                            ? 'bg-teal-600 text-white border-teal-600 shadow-2xs font-bold'
+                            : 'bg-white dark:bg-circle-dark-surface border-circle-hairline text-circle-slate hover:text-circle-charcoal'
+                        }`}
+                      >
+                        Không giới hạn
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setRecurrenceConfig((prev) => ({
+                            ...prev,
+                            endType: 'on_date',
+                            endDate: prev.endDate || (startTime ? new Date(startTime) : new Date()),
+                          }))
+                        }
+                        className={`px-3 py-1 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+                          recurrenceConfig.endType === 'on_date'
+                            ? 'bg-teal-600 text-white border-teal-600 shadow-2xs font-bold'
+                            : 'bg-white dark:bg-circle-dark-surface border-circle-hairline text-circle-slate hover:text-circle-charcoal'
+                        }`}
+                      >
+                        Vào ngày
+                      </button>
+                    </div>
+
+                    {recurrenceConfig.endType === 'on_date' && (
+                      <div className="w-48">
+                        <CustomDateTimePicker
+                          dateOnly
+                          value={
+                            recurrenceConfig.endDate
+                              ? formatDateKey(recurrenceConfig.endDate)
+                              : ''
+                          }
+                          onChange={(val) => {
+                            if (!val) {
+                              setRecurrenceConfig((prev) => ({
+                                ...prev,
+                                endType: 'never',
+                                endDate: null,
+                              }));
+                            } else {
+                              const [y, m, d] = val.split('-').map(Number);
+                              const targetDate = new Date(y, m - 1, d, 23, 59, 59);
+                              setRecurrenceConfig((prev) => ({
+                                ...prev,
+                                endType: 'on_date',
+                                endDate: targetDate,
+                              }));
+                            }
+                          }}
+                          min={
+                            startTime
+                              ? startTime.split('T')[0]
+                              : (nowIsoLocal ? nowIsoLocal.split('T')[0] : undefined)
+                          }
+                          placeholder="dd/mm/yyyy"
+                          align="left"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 5. Hàng Nhắc nhở (Icon Bell) */}
+            <div className="flex items-start gap-4 pt-4 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60">
+              <div className="h-9 w-9 rounded-xl bg-teal-500/10 flex items-center justify-center text-teal-600 shrink-0 mt-0.5">
+                <Bell className="h-5 w-5" />
+              </div>
+              <div className="flex-1 min-w-0 max-w-sm">
+                <select
+                  value={reminderMinutes}
+                  onChange={(e) => setReminderMinutes(e.target.value)}
+                  className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/40 dark:bg-circle-dark-canvas/40 px-3.5 py-2.5 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-hidden focus:ring-1 focus:ring-circle-sage"
+                >
+                  <option value="none">Không nhắc</option>
+                  <option value="0">Khi sự kiện diễn ra</option>
+                  <option value="5">Trước 5 phút</option>
+                  <option value="15">Trước 15 phút</option>
+                  <option value="30">Trước 30 phút</option>
+                  <option value="60">Trước 1 giờ</option>
+                  <option value="120">Trước 2 giờ</option>
+                  <option value="1440">Trước 1 ngày</option>
+                  <option value="2880">Trước 2 ngày</option>
+                </select>
+              </div>
+            </div>
+
+            {/* 6. Hàng Ghi chú / Mô tả (Icon AlignLeft) */}
+            <div className="flex items-start gap-4 pt-4 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60">
+              <div className="h-9 w-9 rounded-xl bg-teal-500/10 flex items-center justify-center text-teal-600 shrink-0 mt-0.5">
+                <AlignLeft className="h-5 w-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <textarea
+                  rows={4}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Thêm mô tả chi tiết, tài liệu hoặc nội dung cần chuẩn bị cho cuộc họp / sự kiện..."
+                  className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/40 dark:bg-circle-dark-canvas/40 px-3.5 py-2.5 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-hidden focus:ring-1 focus:ring-circle-sage resize-none"
+                />
+              </div>
+            </div>
+
+            {submitError && (
+              <div className="p-3.5 rounded-2xl bg-rose-50 text-rose-600 border border-rose-200 text-xs font-medium">
+                {submitError}
+              </div>
+            )}
+
+
+          </div>
+        </div>
+      ) : detailModalState.isOpen && detailModalState.event ? (
+        /* ============================================================== */
+        /* FULL-VIEW CHI TIẾT LỊCH HẸN (TƯƠNG TỰ FORM TẠO/SỬA) */
+        /* ============================================================== */
+        <CircleEventDetailModal
+          isOpen={detailModalState.isOpen}
+          onClose={() => setDetailModalState({ isOpen: false, event: null, occDate: null })}
+          event={detailModalState.event}
+          occurrenceDate={detailModalState.occDate}
+          circleId={circleId}
+          onEdit={(ev, occDate) => {
+            handleOpenEditModal(ev, occDate);
+          }}
+          onDelete={(ev, occDate) => {
+            setDeleteModalState({
+              isOpen: true,
+              event: ev,
+              occDate,
+            });
+          }}
+          onCancel={(ev, occDate) => {
+            setCancelModalState({
+              isOpen: true,
+              event: ev,
+              occDate,
+            });
+          }}
+          onRestore={(ev, occDate) => {
+            executeRestore(ev, occDate);
+          }}
+          onShareToChat={handleShareToChat}
+        />
+      ) : (
+        <>
+          {/* Header */}
       <div className="flex flex-wrap items-center justify-between pb-4 border-b border-circle-hairline dark:border-circle-dark-hairline mb-6 gap-3">
         <div>
           <h1 className="text-lg font-bold text-circle-charcoal dark:text-circle-dark-text">
@@ -1311,40 +1829,10 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
           </div>
         </div>
       )}
-
-      {/* ============================================================== */}
-      {/* MODAL CHI TIẾT LỊCH HẸN */}
-      {/* ============================================================== */}
-      {detailModalState.isOpen && detailModalState.event && (
-        <CircleEventDetailModal
-          isOpen={detailModalState.isOpen}
-          onClose={() => setDetailModalState({ isOpen: false, event: null, occDate: null })}
-          event={detailModalState.event}
-          occurrenceDate={detailModalState.occDate}
-          circleId={circleId}
-          onEdit={(ev, occDate) => {
-            handleOpenEditModal(ev, occDate);
-          }}
-          onDelete={(ev, occDate) => {
-            setDeleteModalState({
-              isOpen: true,
-              event: ev,
-              occDate,
-            });
-          }}
-          onCancel={(ev, occDate) => {
-            setCancelModalState({
-              isOpen: true,
-              event: ev,
-              occDate,
-            });
-          }}
-          onRestore={(ev, occDate) => {
-            executeRestore(ev, occDate);
-          }}
-          onShareToChat={handleShareToChat}
-        />
+        </>
       )}
+
+
 
       {/* ============================================================== */}
       {/* POPUP TÙY CHỈNH QUY TẮC LẶP */}
@@ -1359,283 +1847,9 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
         }}
       />
 
-      {/* ============================================================== */}
-      {/* MODAL TẠO & CHỈNH SỬA SỰ KIỆN */}
-      {/* ============================================================== */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
-          <div className="w-full max-w-lg rounded-3xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface shadow-2xl p-6 space-y-4 max-h-[92vh] overflow-y-auto">
-            {/* Header */}
-            <div className="flex items-center justify-between pb-3 border-b border-circle-hairline dark:border-circle-dark-hairline">
-              <h3 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
-                {editingEvent ? 'Chỉnh sửa sự kiện' : 'Tạo sự kiện mới'}
-              </h3>
-              <button
-                type="button"
-                onClick={() => setIsAddModalOpen(false)}
-                className="p-1 rounded-lg hover:bg-circle-wash text-circle-slate hover:text-circle-charcoal transition-colors"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
+      
 
-            {/* Form Fields */}
-            <div className="space-y-4">
-              {/* Thẻ 1: Tiêu đề & Địa điểm */}
-              <div className="rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/50 dark:bg-circle-dark-canvas/40 p-4 space-y-3.5 shadow-2xs">
-                {/* Tiêu đề sự kiện */}
-                <div>
-                  <label className="block text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text mb-1">
-                    Tiêu đề sự kiện *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    placeholder="Ví dụ: Họp đồ án tốt nghiệp, Đi ăn sinh nhật..."
-                    className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface px-3.5 py-2 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-hidden focus:ring-1 focus:ring-circle-sage"
-                  />
-                </div>
 
-                {/* Vị trí / Địa điểm */}
-                <div>
-                  <LocationSearchInput
-                    value={location}
-                    onChange={(loc) => setLocation(loc)}
-                    placeholder="Chọn địa điểm trên bản đồ hoặc nhập link họp online (Google Meet, Zoom...)"
-                  />
-                </div>
-              </div>
-
-              {/* Thẻ 2: Thời gian & Lặp lại */}
-              <div className="rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/50 dark:bg-circle-dark-canvas/40 p-4 space-y-3.5 shadow-2xs">
-                {/* Thời gian Bắt đầu & Kết thúc */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text mb-1">
-                      Bắt đầu lúc *
-                    </label>
-                    <CustomDateTimePicker
-                      required
-                      value={startTime}
-                      onChange={(val) => {
-                        setStartTime(val);
-                        if (val && (!endTime || endTime <= val)) {
-                          const s = new Date(val);
-                          s.setHours(s.getHours() + 1);
-                          setEndTime(formatToLocalDateTimeInput(s, s.getHours(), s.getMinutes()));
-                        }
-                      }}
-                      min={editingEvent ? undefined : nowIsoLocal}
-                      placeholder="dd/mm/yyyy --:--"
-                      align="left"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text mb-1">
-                      Kết thúc lúc *
-                    </label>
-                    <CustomDateTimePicker
-                      required
-                      value={endTime}
-                      onChange={(val) => setEndTime(val)}
-                      min={startTime || nowIsoLocal}
-                      placeholder="dd/mm/yyyy --:--"
-                      align="right"
-                    />
-                  </div>
-                </div>
-
-                {/* Lặp lại */}
-                <div className="pt-2 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="block text-xs font-semibold text-circle-slate dark:text-circle-dark-muted">
-                      Lặp lại
-                    </label>
-                    {recurrenceConfig.frequency !== 'none' && (
-                      <button
-                        type="button"
-                        onClick={() => setIsCustomRepeatOpen(true)}
-                        className="text-[11px] font-bold text-teal-600 hover:text-teal-700 hover:underline"
-                      >
-                        Tùy chỉnh quy tắc
-                      </button>
-                    )}
-                  </div>
-
-                  <select
-                    value={recurrenceConfig.isCustom ? 'custom' : recurrenceConfig.frequency}
-                    onChange={(e) => handleRepeatOptionChange(e.target.value)}
-                    className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface px-3.5 py-2 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-hidden focus:ring-1 focus:ring-circle-sage"
-                  >
-                    <option value="none">Không lặp lại</option>
-                    <option value="daily">Hằng ngày</option>
-                    <option value="weekly">Hằng tuần</option>
-                    <option value="monthly">Hằng tháng</option>
-                    <option value="yearly">Hằng năm</option>
-                    <option value="custom">Tùy chỉnh...</option>
-                  </select>
-
-                  {/* Kết thúc lặp lại (dạng popup lịch) */}
-                  {recurrenceConfig.frequency !== 'none' && (
-                    <div className="pt-2 space-y-2.5 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-circle-slate dark:text-circle-dark-muted">
-                          Kết thúc lặp
-                        </span>
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setRecurrenceConfig((prev) => ({
-                                ...prev,
-                                endType: 'never',
-                                endDate: null,
-                              }))
-                            }
-                            className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all ${
-                              recurrenceConfig.endType === 'never'
-                                ? 'bg-teal-600 text-white border-teal-600 shadow-2xs font-bold'
-                                : 'bg-white dark:bg-circle-dark-surface border-circle-hairline text-circle-slate hover:text-circle-charcoal'
-                            }`}
-                          >
-                            Không giới hạn
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setRecurrenceConfig((prev) => ({
-                                ...prev,
-                                endType: 'on_date',
-                                endDate: prev.endDate || (startTime ? new Date(startTime) : new Date()),
-                              }))
-                            }
-                            className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all ${
-                              recurrenceConfig.endType === 'on_date'
-                                ? 'bg-teal-600 text-white border-teal-600 shadow-2xs font-bold'
-                                : 'bg-white dark:bg-circle-dark-surface border-circle-hairline text-circle-slate hover:text-circle-charcoal'
-                            }`}
-                          >
-                            Vào ngày
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Popup lịch chọn ngày kết thúc */}
-                      {recurrenceConfig.endType === 'on_date' && (
-                        <div className="pt-1">
-                          <CalendarDatePickerPopup
-                            value={recurrenceConfig.endDate}
-                            onChange={(d) =>
-                              setRecurrenceConfig((prev) => ({
-                                ...prev,
-                                endType: d ? 'on_date' : 'never',
-                                endDate: d,
-                              }))
-                            }
-                            minDate={startTime ? new Date(startTime) : new Date()}
-                            placeholder="Chọn ngày kết thúc chuỗi lặp"
-                          />
-                        </div>
-                      )}
-
-                      {/* Summary pill */}
-                      <div className="p-2.5 rounded-xl border border-teal-500/20 bg-teal-50/50 dark:bg-teal-950/20 flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2 text-xs text-teal-800 dark:text-teal-300 truncate">
-                          <Repeat className="h-3.5 w-3.5 shrink-0 text-teal-600" />
-                          <span className="truncate">{formatRecurrenceSummary(recurrenceConfig)}</span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setIsCustomRepeatOpen(true)}
-                          className="text-[11px] font-bold text-teal-700 hover:text-teal-800 dark:text-teal-300 underline shrink-0"
-                        >
-                          Tùy chỉnh
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Thẻ 3: Nhắc nhở & Ghi chú */}
-              <div className="rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/50 dark:bg-circle-dark-canvas/40 p-4 space-y-3.5 shadow-2xs">
-                {/* Nhắc nhở trước */}
-                <div>
-                  <label className="block text-xs font-semibold text-circle-slate dark:text-circle-dark-muted mb-1">
-                    Nhắc nhở trước
-                  </label>
-                  <select
-                    value={reminderMinutes}
-                    onChange={(e) => setReminderMinutes(e.target.value)}
-                    className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface px-3.5 py-2 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-hidden focus:ring-1 focus:ring-circle-sage"
-                  >
-                    <option value="none">Không nhắc</option>
-                    <option value="0">Khi sự kiện diễn ra</option>
-                    <option value="5">Trước 5 phút</option>
-                    <option value="15">Trước 15 phút</option>
-                    <option value="30">Trước 30 phút</option>
-                    <option value="60">Trước 1 giờ</option>
-                    <option value="120">Trước 2 giờ</option>
-                    <option value="1440">Trước 1 ngày</option>
-                    <option value="2880">Trước 2 ngày</option>
-                  </select>
-                </div>
-
-                {/* Ghi chú */}
-                <div>
-                  <div className="flex items-center gap-1.5 mb-1.5">
-                    <Info className="h-3.5 w-3.5 text-circle-sage dark:text-circle-primary shrink-0" />
-                    <label className="block text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text">
-                      Ghi chú
-                    </label>
-                  </div>
-                  <textarea
-                    rows={3}
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Chi tiết công việc hoặc nội dung chuẩn bị cho cuộc họp / sự kiện..."
-                    className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface px-3.5 py-2 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-hidden focus:ring-1 focus:ring-circle-sage resize-none"
-                  />
-                </div>
-              </div>
-
-              {submitError && (
-                <div className="p-3 rounded-xl bg-rose-50 text-rose-600 border border-rose-200 text-xs font-medium">
-                  {submitError}
-                </div>
-              )}
-            </div>
-
-            {/* Footer Buttons */}
-            <div className="flex items-center justify-end gap-2 pt-3 border-t border-circle-hairline dark:border-circle-dark-hairline">
-              <button
-                type="button"
-                onClick={() => setIsAddModalOpen(false)}
-                className="px-4 py-2 rounded-xl text-xs font-semibold text-circle-slate hover:bg-circle-wash transition-colors"
-              >
-                Hủy
-              </button>
-              <button
-                type="button"
-                disabled={isSubmitting}
-                onClick={handleAttemptSubmit}
-                className="px-5 py-2 rounded-xl text-xs font-bold bg-teal-600 hover:bg-teal-700 text-white shadow-2xs transition-all disabled:opacity-50"
-              >
-                {isSubmitting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : editingEvent ? (
-                  'Lưu thay đổi'
-                ) : (
-                  'Tạo lịch hẹn'
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ============================================================== */}
       {/* SCOPE CONFIRMATION MODAL CHO LƯU / SỬA (3 OPTIONS) */}
@@ -1681,7 +1895,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                   Lần này và các lần tiếp theo
                 </p>
                 <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted mt-0.5">
-                  Áp dụng thay đổi từ ngày {editingOccurrenceDate ? formatDateOnly(editingOccurrenceDate) : ''} trở đi.
+                  Áp dụng thay đổi từ ngày {startTime ? formatDateOnly(new Date(startTime)) : editingOccurrenceDate ? formatDateOnly(editingOccurrenceDate) : ''} trở đi (sẽ tách làm 2 sự kiện có chu kỳ lặp khác nhau).
                 </p>
               </button>
 
