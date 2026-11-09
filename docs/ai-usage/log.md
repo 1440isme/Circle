@@ -5989,3 +5989,45 @@
 - **Official Source Checked:** Issue #125, Apple Human Interface Guidelines, Facebook Messenger edit interaction pattern.
 - **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
 - **Branch:** `fix/upgrade-mobile-expo-sdk-58`
+
+
+---
+
+## AI-0158: Tự động hóa Live Verification trên Brave Browser, sửa Hydration Race AuthStore và Kiểm chứng Tương tác Messenger Inline Edit
+
+- **Date:** 2026-11-10 00:03:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE (Teamwork Orchestrator Swarm)
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #125 (UI/UX Refactoring, Poll Modal, Dark Theme & Messenger Edit Parity)
+- **Purpose:** Vận hành toàn diện kịch bản kiểm thử tự động trên trình duyệt thật Brave thông qua cầu nối DevTools (`scripts/run-ui-ux-tests.mjs`), sửa lỗi bất đồng bộ `isLoading` trong `auth.store.ts` gây race condition điều hướng `/login`, và thực hiện live-test tương tác sửa tin nhắn inline kiểu Messenger (xem lịch sử tin gốc trực tiếp trong bubble không qua popup) trên cả Light & Dark mode.
+- **Prompt Summary:** Thực hiện kiểm thử toàn diện mọi tương tác người dùng trên trình duyệt Brave của user, điều phối nhóm làm việc `/teamwork`, đảm bảo tính năng sửa tin nhắn kiểu Messenger hoạt động trơn tru không có popup và đạt chuẩn parity giữa Web và Mobile.
+- **Files Affected:**
+  - `apps/web/src/stores/auth.store.ts` (khởi tạo `isLoading: true` tránh redirect race khi reload trang)
+  - `scripts/run-ui-ux-tests.mjs` (cập nhật test runner tự động hóa 9/9 bước kiểm thử kết nối DevTools)
+  - `docs/test-plans/master-ui-ux-test-plan.md` (bổ sung test case TC-020A và bảng ma trận Web/Mobile parity)
+  - `.agents/artifacts/screenshots/live_message_inline_edit_history.png`
+  - `.agents/artifacts/screenshots/live_message_inline_edit_history_dark.png`
+- **AI-Generated Portion:**
+  - Logic fix `isLoading: true` trong Zustand auth store để AuthGuard chờ kiểm tra session trước khi quyết định điều hướng.
+  - Tự động hóa gửi tin nhắn thật, mở menu 3 chấm, bấm "Edit", thay đổi nội dung, submit cập nhật qua socket, bấm nhãn "(edited)" và trích xuất cấu trúc DOM bên trong bubble.
+  - Bộ 9 test case tự động chạy trên Brave qua bridge CDP (WebSocket port 9333).
+- **Human Modifications:** Trương Công Bình chỉ đạo kiểm thử thực tế trên Brave của chính người dùng thay vì chạy headless runner, yêu cầu không dùng popup/modal để xem tin nhắn gốc trước khi sửa, và bảo toàn 100% Mobile parity.
+- **Verification Method:**
+  - Chạy `node scripts/run-ui-ux-tests.mjs` trên Brave: 9/9 test cases PASS (100%), 0 WARNINGS, 0 FAILURES.
+  - Chụp ảnh chứng chỉ thực nghiệm trực tiếp từ Brave:
+    - `live_message_inline_edit_history.png`: Tin nhắn gốc ("Hello Circle Teamwork 2026 - Test Message") hiển thị inline ngay trên nội dung mới với `opacity-65`, gạch ngang line-through, không có bất kỳ popup hay modal nào.
+    - `live_message_inline_edit_history_dark.png`: Hiển thị hoàn hảo trên Dark Theme.
+  - Typecheck Web: `npx tsc --noEmit -p apps/web/tsconfig.json` (0 errors).
+  - Typecheck Mobile: `npx tsc --noEmit -p apps/mobile/tsconfig.json` (0 errors).
+  - Typecheck Backend: `npx tsc --noEmit -p apps/backend/tsconfig.json` (0 errors).
+  - Kiểm tra tính toàn vẹn hệ thống: `./scripts/check-agent-map.sh` (Passed 100%, 122/122 files).
+  - Kiểm tra bảo mật bí mật: `./scripts/check-secrets.sh` (Passed, 0 secret leaks).
+- **Official Source Checked:** Issue #125, Facebook Messenger UX Guidelines, W3C CSS Containment Spec.
+- **Security & License Check:** An toàn tuyệt đối, zero credentials/tokens, không sử dụng API ngoài.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** AuthGuard ban đầu bị flash chuyển hướng về `/login` khi truy cập trực tiếp URL root (`/`) vì `isLoading` trong Zustand store khởi tạo là `false`.
+  - **Root Cause:** Khi component mount lần đầu trước khi `useEffect` gọi `initAuth()`, `AuthGuard` đọc thấy `isLoading === false` và `isAuthenticated === false` nên lập tức gọi `router.replace('/login')`.
+  - **Resolution / Fix:** Khởi tạo `isLoading: true` mặc định trong `auth.store.ts` để `AuthGuard` hiển thị loading indicator nhẹ cho tới khi `initAuth()` hoàn tất việc đọc token từ cookie/localStorage.
+- **Commit:** Pending
+- **PR:** Pending

@@ -60,6 +60,7 @@ In accordance with the mandatory invariant (*"nhớ là mobile nữa chứ k ph�
 | **Keyboard Handling** | Native browser layout reflow; fixed composer pinned to viewport bottom. | `KeyboardAvoidingView` (`behavior={Platform.OS === 'ios' ? 'padding' : undefined}`) with Safe Area insets. | Input field never obscured by virtual keyboard; Send button remains visible. |
 | **Design Tokens & Dark Mode** | Extended Tailwind classes (`dark:bg-circle-dark-surface`, `dark:border-circle-dark-hairline`). | Zustand store (`useThemeStore`) resolving `CircleColors[theme]` with glass tokens. | Background contrast ratio >= 4.5:1 for normal text, >= 3:1 for large text across both. |
 | **Internationalization (i18n)** | `useLanguage()` hook with synchronous dictionary key lookup (`locales/vi.json`, `en.json`). | `useLanguageStore()` with reactive `t` object updated on language switch. | 100% dictionary string parity: zero hardcoded UI strings in either codebase. |
+| **Messenger-Style Inline Edit (New)** | Tapping "(đã chỉnh sửa)" expands original message inline inside bubble with faded opacity; zero modals. | Tapping "(đã chỉnh sửa)" expands original message inline inside bubble with faded opacity & haptic feedback; zero modals. | 100% inline interaction parity; no popups or dialogs for edit history. |
 
 ---
 
@@ -367,6 +368,28 @@ In accordance with the mandatory invariant (*"nhớ là mobile nữa chứ k ph�
 - **Responsive Layout**: Edit banner wraps cleanly across viewports.
 - **i18n (VI/EN)**: "Chỉnh sửa tin nhắn" / "Editing message", "(đã chỉnh sửa)" / "(edited)".
 - **Screenshot Target**: `tc20_edit_message.png`.
+
+#### TC-020A: Messenger-Style Inline Edit History Toggle (MANDATORY INLINE UX)
+- **Target Platform**: Web & Mobile Parity
+- **Core Principle**: Friction-Free Inline Interaction — strictly NO modals, NO alerts, NO page navigation.
+- **Preconditions**: A message has been edited via TC-020 so that the "(đã chỉnh sửa)" / "(edited)" tag is visible next to the timestamp.
+- **User Actions**:
+  1. Locate the edited message bubble.
+  2. Click / Tap directly on the "(đã chỉnh sửa)" / "(edited)" text tag.
+  3. Observe inline expansion inside the message bubble directly above the new text.
+  4. Click / Tap the tag again to collapse.
+- **Expected UI/UX Behavior**:
+  - **Inline Expansion**: Toggles the previous/original message directly INSIDE the same bubble, positioned directly above the new edited content.
+  - **Visual Treatment**: Original content renders with muted opacity (`opacity-60`, `dark:text-circle-dark-muted`), subtle italic styling, and a clean hairline divider separating original from current version.
+  - **Zero Modals / Dialogs**: Strictly NO dialog, popup modal, toast, or page navigation. The action is 100% friction-free and contained within the bubble.
+  - **Toggle State**: Second click/tap smoothly collapses the original version back to compact state.
+- **Mobile Parity**:
+  - Touch hit target of "(đã chỉnh sửa)" pill padded to minimum 36x24pt for easy finger tap without accidental bubble click.
+  - Smooth layout animation (`LayoutAnimation.configureNext` on mobile / CSS transition `transition-all duration-200` on web).
+  - Light haptic tap on mobile (`Haptics.selectionAsync()`).
+- **Dark & Light Contrast Check**: Original message text maintains WCAG contrast ratio (faded yet legible, e.g. slate-400 / dark-muted against bubble canvas).
+- **i18n (VI/EN)**: Tag: "đã chỉnh sửa" / "edited"; Original label: "Tin nhắn gốc" / "Original message".
+- **Screenshot Target**: `tc20a_inline_edit_expanded.png`, `tc20a_inline_edit_collapsed.png`.
 
 #### TC-021: Recall Chat Message
 - **Target Platform**: Web & Mobile

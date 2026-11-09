@@ -58,19 +58,24 @@ Orchestrate bug fixes for Create Poll modal layout & Dark theme display issues, 
 | explorer_survey_1 | teamwork_explorer | Survey: Poll Modal Layout Bug | completed | de1cbdb9-e1d3-4fca-a233-f67d36eb8858 |
 | explorer_survey_2 | teamwork_explorer | Survey: Dark Theme Contrast | completed | 98177cb4-5bdc-4bff-a7f8-99cd11a126e5 |
 | explorer_survey_3 | teamwork_explorer | Survey: Test Infra & SITEMAP | completed | 283aff73-c6a2-47e2-a1ef-177af587d832 |
-| worker_impl_1 | teamwork_worker | M1/M2: Fix Poll Modal & Dark Theme (Web+Mobile) | in-progress | df005c42-4db8-4fb6-83b0-59c445f4ae8a |
-| test_writer_1 | teamwork_test_writer | M3: Master Test Plan & Automation Runner | in-progress | 1866d243-b1db-43c1-9831-756abc1e4ed7 |
+| worker_impl_1 | teamwork_worker | M1/M2: Fix Poll Modal & Dark Theme (Web+Mobile) | completed | df005c42-4db8-4fb6-83b0-59c445f4ae8a |
+| test_writer_1 | teamwork_test_writer | M3: Master Test Plan & Automation Runner | completed | 1866d243-b1db-43c1-9831-756abc1e4ed7 |
+| reviewer_1 | teamwork_reviewer | Review: Code & DoD Verification | in-progress | 41f2af0e-8fc9-4020-9616-92fca051988e |
+| reviewer_2 | teamwork_reviewer | Review: UI/UX & Theme Parity | in-progress | 725e9adc-82cc-4059-83ad-7094f9361824 |
+| challenger_1 | teamwork_challenger | Challenge: Live Browser Automation | in-progress | 0a8dd487-c02e-441d-8fa1-0e9f47b06ae0 |
+| challenger_2 | teamwork_challenger | Challenge: Stress & Edge Cases | in-progress | c1e77628-b316-4b27-85cc-3c3b70b11535 |
+| auditor_1 | teamwork_auditor | Forensic Integrity Audit | in-progress | b71f9a26-752d-495a-b7f1-db92c7c684ea |
 
 ## Succession Status
 - Succession required: no
-- Spawn count: 5 / 16
-- Pending subagents: df005c42-4db8-4fb6-83b0-59c445f4ae8a, 1866d243-b1db-43c1-9831-756abc1e4ed7
+- Spawn count: 10 / 16
+- Pending subagents: 41f2af0e-8fc9-4020-9616-92fca051988e, 725e9adc-82cc-4059-83ad-7094f9361824, 0a8dd487-c02e-441d-8fa1-0e9f47b06ae0, c1e77628-b316-4b27-85cc-3c3b70b11535, b71f9a26-752d-495a-b7f1-db92c7c684ea
 - Predecessor: none
 - Successor: not yet spawned
 
 ## Active Timers
 - Heartbeat cron: 57bfc123-1132-43b5-92f4-d09fe4f1ccf6/task-32
-- Safety timer: 57bfc123-1132-43b5-92f4-d09fe4f1ccf6/task-241
+- Safety timer: 57bfc123-1132-43b5-92f4-d09fe4f1ccf6/task-325
 
 ## Artifact Index
 - /home/tcb/Documents/TLCN/Circle/.agents/teamwork/ORIGINAL_REQUEST.md — Original request
