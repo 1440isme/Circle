@@ -30,7 +30,7 @@
 - **Kỷ luật Clean Repository:** Giữ sạch kho mã nguồn tuyệt đối; không để lại file rác, file nháp, script thử nghiệm tạm thời hay các câu lệnh kỹ thuật dư thừa trong repository. — chốt bởi Bình, 2026-11-01
 - **Thẩm quyền PR & Phê duyệt:** Tuyệt đối nghiêm ngặt KHÔNG tự ý tạo Pull Request (PR) hoặc merge code khi chưa có sự chỉ thị và cho phép rõ ràng từ kỹ sư. — chốt bởi Bình, 2026-11-01
 - **Ngưỡng ghi nhận AI Log (`docs/ai-usage/log.md`):** Chỉ ghi nhận entry `AI-XXXX` khi triển khai một tính năng hoàn chỉnh, thay đổi kiến trúc hoặc logic cốt lõi có quy mô đủ lớn. Tuyệt đối không ghi log cho các tinh chỉnh giao diện nhỏ lẻ (micro UI tweaks, chỉnh style/CSS vụn vặt). — chốt bởi Bình, 2026-11-01
-- **Phong cách điều hướng Floating Pill Button & Scroll Underlay (Mobile UI/UX):** Trên mobile (màn hình chi tiết / modal / view độc lập), hạn chế dùng thanh header/heading khối hộp tĩnh chia cắt màn hình. Thay bằng các nút điều khiển nổi dạng viên thuốc (**Floating Pill Buttons** / **Capsule Buttons**) với `position: 'absolute'`, nền trắng/mờ, viền hairline (`#E2E8F0`), đổ bóng mềm mại (`elevation: 3, shadowOpacity: 0.08`), và cho phép ScrollView cuộn toàn màn hình để nội dung trượt lướt qua bên dưới các nút (**Scroll Underlay**), kết hợp `pointerEvents="box-none"` để không cản trở thao tác vuốt chạm. — chốt bởi Bình, 2026-11-01
+- **Floating Glass Controls & Scroll-Under Content (Apple Liquid Glass Architecture):** Không tồn tại header/footer dạng khối hộp đặc thô cứng che khuất màn hình. Toàn bộ hệ thống (Web & Mobile) tuân thủ kiến trúc controls "nổi" trên lớp kính (glass layer) tách khỏi lớp nội dung (content layer): floating tab bar (lơ lửng cách mép đáy), floating toolbar (dạng viên thuốc dài), FAB (nút tròn đơn lẻ cho hành động chính), glass button (phủ chất liệu kính). Nội dung cuộn trượt tự do phía dưới lớp kính (scroll-under) với hiệu ứng làm mờ mép cuộn (scroll edge effect). Độ mờ kính (glass opacity & blur) phải vừa phải (Light: 90-94%, Dark: 88-92%, blur-xl / intensity 75-85), tuyệt đối không để quá trong suốt gây khó nhìn thấy icon/chữ. — chốt bởi Bình, 2026-11-01, 2026-11-02.
 
 ## Corrections & Lessons
 
@@ -40,6 +40,11 @@
 - [correction] Không đặt banner ghim hay modal hành động thô giữa màn hình chat (thay thế: ghim đưa lên Header icon; mobile long-press focus tin nhắn với emoji ở trên và action ở dưới) — theo Bình, 2026-10-28.
 - [correction] Cắt bỏ toàn bộ text thừa, lời khuyên rườm rà, subtitle lặp lại tiêu đề, badge giải thích hiển nhiên ở mọi nơi — theo Bình, 2026-10-28.
 - [correction] Tuyệt đối không fallback secret/token thật vào source code (`process.env.KEY || 'secret'`); bảo mật theo Hard Gate Zero Secret Leaks bằng pre-commit guard `check-secrets.sh`. Khi cập nhật git hook phải bảo toàn nguyên vẹn các pre-commit checks hiện có, cấm overwrite — theo Bình, 2026-10-29.
+- [correction] Nguyên tắc song hành tuyệt đối (Web + Mobile Parity Invariant): Mọi chức năng, trừ khi người dùng nói rõ đích danh chỉ làm riêng cho Web hoặc riêng cho Mobile, mặc định BẮT BUỘC triển khai/sửa lỗi/tinh chỉnh đồng bộ trên CẢ 2 NỀN TẢNG (Web + Mobile) trong cùng một lượt. Tuyệt đối cấm chỉ làm một bên mà bỏ quên bên kia. — chốt bởi Bình, 2026-11-01.
+- [correction] Nguyên tắc Icon Mộc & Bỏ Viền Hộp Nhân Tạo (Bare Icon Invariant): Tuyệt đối không bao bọc icon trong các hình vuông bo góc hoặc container nhân tạo (`w-6 h-6 rounded-lg bg-circle-primary/10`, `rounded-xl`,...). Trên toàn bộ nền tảng (Cột 3, Chat, Navigation,...), icon luôn hiển thị mộc trực tiếp trên nền của chính component cha. — chốt bởi Bình, 2026-11-01.
+- [correction] Thẻ Chat Hoạt Động Chung Tối Giản & Vị Trí Mới Nhất (Minimalist Shared Cards & Single-Instance Invariant): Thẻ Poll và Vị trí trong chat bỏ hoàn toàn header và footer thừa, chỉ hiển thị nội dung trực quan (poll chỉ hiện câu hỏi + options; vị trí chỉ hiện map preview với overlay). Poll trong chat là duy nhất cho mỗi pollId (không xuất hiện 2 lần), khi có update phải chuyển về vị trí mới nhất và vị trí cũ không còn. Cột 3 nhấp vào poll phải cuộn mượt đến poll trong chat giống như tin nhắn ghim. — chốt bởi Bình, 2026-11-01.
+- [correction] Nguyên tắc Floating Glass Controls & Scroll-Under Content: Không dùng header hay footer dạng thanh ngang cứng ngăn cách component; ưu tiên floating controls lơ lửng trên lớp kính ở mọi nơi (như logo app, profile user lơ lửng trên web). Nội dung trượt qua phía dưới lớp kính (scroll-under). Áp dụng đồng bộ cả Web và Mobile. — theo Bình, 2026-11-01.
+- [correction] Độ Mờ Kính Cân Bằng & Rõ Ràng (Legible Balanced Glass Invariant): Chất liệu kính (Liquid Glass) phải có độ mờ và độ đục vừa phải (Light: 90-94%, Dark: 88-92%, blur cao), tuyệt đối không để quá trong suốt (như 8% hay 50%) khiến chữ, icon bị chìm vào nội dung trượt bên dưới gây khó nhìn thấy và khó thao tác. — theo Bình, 2026-11-02.
 
 ## Decisions (chỉ mục — chi tiết ở ADR/topic)
 
@@ -51,3 +56,20 @@
 - D-006: Khắc cốt ghi tâm Radical Minimalism: Cắt giảm mọi text/chú thích thừa, ghim lên header icon, gom sound settings, emoji chuẩn hóa — 2026-10-28
 - D-007: Tự kiểm toán Usability theo 5 trụ cột trước khi chuyển tính năng mới — 2026-10-29
 - D-008: Hard Gate Zero Secret Leaks với pre-commit git guard và CI check; cấm lộ token/credentials trong source code — 2026-10-29
+- Mô hình quản trị: toàn hệ thống chỉ 2 vai trò User / Admin — Admin gộp toàn quyền (không tách Super Admin/Admin thường) vì CIRCLE là MXH nhóm, không phải e-commerce. — chốt bởi Bình, 2026-10-25
+
+## Open loops
+
+- Tái cấu trúc và nâng cấp trải nghiệm cụm tính năng Cộng tác nhóm (Collab Module 7) trước khi sang Module 8:
+  - Issue #119 (Bình): Tích hợp Unified Interactive Map Engine toàn hệ thống (Leaflet Web + MapView Mobile), đưa Group Poll vào luồng Chat và cải thiện Planning Sheet.
+  - Issue #120 (Hạnh): Hệ thống Event RSVP (3 trạng thái), Thẻ Lịch hẹn trong Chat, Lightbox Album và Realtime Wheel Sync.
+  - Issue #125 (Bình): US-UX-002 — Kiến trúc Floating Glass Controls with Scroll-Under Content toàn diện hệ thống (Web & Mobile).
+
+## Core Reference Topics (Lớp 3 — bối cảnh sâu)
+
+- [Architecture](architecture.md) — Durable architectural choices: Modular Monolith, module encapsulation, shared types contract.
+- [Gotchas](gotchas.md) — Known traps, pitfalls, and framework quirks (Prisma + Neon pooling, Expo WebRTC, Socket.IO auth, ViewShot).
+- [Verified facts](verified-facts.md) — Technical realities confirmed by inspecting code and dependencies.
+- [Decisions](decisions.md) — Summary of key Architectural Decision Records (ADRs).
+- [Floating Glass Controls](topics/floating-glass-controls.md) — Chuẩn thiết kế Floating Glass Controls & Scroll-Under Content (Apple Liquid Glass Architecture) cho Web và Mobile.
+- [Reporting Workflow](reporting-workflow.md) — Quy định báo cáo kép (GVHD 2 tuần/lần vs. Khoa 1 tuần/lần, lệch track 4 tuần, cấu trúc 5 mục).

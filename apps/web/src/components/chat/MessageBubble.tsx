@@ -272,6 +272,25 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     );
   }
 
+  if (isGroupPoll && groupPollData) {
+    return (
+      <div id={`message-${message.id}`} className="w-full flex justify-center my-3 px-2">
+        <div
+          id={`message-poll-${groupPollData.pollId}`}
+          className="w-full max-w-sm rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-3.5 shadow-sm transition-all"
+        >
+          <ChatPollCard
+            circleId={activeCircleId || ''}
+            pollId={groupPollData.pollId}
+            initialQuestion={groupPollData.question}
+            initialOptions={groupPollData.options}
+            isSenderMe={false}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       id={`message-${message.id}`}
@@ -378,20 +397,12 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             </div>
           )}
 
-          {/* Message Content: Recalled vs Group Poll vs Location Pin vs Call Summary vs Standard Text */}
+          {/* Message Content: Recalled vs Location Pin vs Call Summary vs Standard Text */}
           {isRecalled ? (
             <div className="flex items-center gap-1.5 py-1 px-1 text-xs italic opacity-60 select-none">
               <Ban className="w-3.5 h-3.5 shrink-0" />
               <span>{t.chat.messageRecalled}</span>
             </div>
-          ) : isGroupPoll && groupPollData ? (
-            <ChatPollCard
-              circleId={activeCircleId || ''}
-              pollId={groupPollData.pollId}
-              initialQuestion={groupPollData.question}
-              initialOptions={groupPollData.options}
-              isSenderMe={isSenderMe}
-            />
           ) : isLocationPin && locationPinData ? (
             <ChatLocationCard
               lat={locationPinData.lat}

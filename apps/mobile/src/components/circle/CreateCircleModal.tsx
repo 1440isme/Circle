@@ -247,13 +247,11 @@ export function CreateCircleModal() {
               ]}
             >
               <View style={styles.approvalLeft}>
-                <View style={[styles.approvalIconBox, { backgroundColor: `${colors.primary}18` }]}>
-                  {isPrivate ? (
-                    <Lock size={18} color={colors.primary} />
-                  ) : (
-                    <Globe size={18} color={colors.primary} />
-                  )}
-                </View>
+                {isPrivate ? (
+                  <Lock size={20} color={colors.primary} />
+                ) : (
+                  <Globe size={20} color={colors.primary} />
+                )}
                 <View style={styles.approvalTextGroup}>
                   <Text style={[styles.approvalTitle, { color: colors.text }]}>
                     {t.circle.requireApprovalTitle}

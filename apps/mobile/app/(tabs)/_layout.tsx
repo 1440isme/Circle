@@ -32,8 +32,6 @@ import { CircleManagementModal } from '../../src/components/circle/CircleManagem
 interface CustomTabBarProps {
   state?: any;
   navigation?: any;
-  emitter?: any;
-  navigateToTab?: (key: string) => void;
   descriptors?: any;
   onPressCreate: () => void;
   isDark: boolean;
@@ -44,8 +42,6 @@ interface CustomTabBarProps {
 function CustomLiquidTabBar({
   state,
   navigation,
-  emitter,
-  navigateToTab,
   onPressCreate,
   isDark,
   colors,
@@ -113,37 +109,26 @@ function CustomLiquidTabBar({
               );
             }
 
-            const routeIndex = state?.routes
-              ? state.routes.findIndex((r: any) => r.name === tab.name)
-              : -1;
-            const isFocused = state ? state.index === routeIndex : false;
+            const routeIndex = state?.routes?.findIndex((r: any) => r.name === tab.name) ?? -1;
+            const isFocused = state?.index === routeIndex;
             const Icon = tab.Icon!;
 
             const onPress = () => {
-              const route = state?.routes?.[routeIndex];
-              const routeKey = route?.key;
+              if (navigation && typeof navigation.emit === 'function') {
+                const event = navigation.emit({
+                  type: 'tabPress',
+                  target: state?.routes?.[routeIndex]?.key,
+                  canPreventDefault: true,
+                });
 
-              const event = emitter?.emit
-                ? emitter.emit({
-                    type: 'tabPress',
-                    target: routeKey,
-                    canPreventDefault: true,
-                  })
-                : navigation?.emit
-                ? navigation.emit({
-                    type: 'tabPress',
-                    target: routeKey,
-                    canPreventDefault: true,
-                  })
-                : { defaultPrevented: false };
+                if (event?.defaultPrevented) return;
+              }
 
-              if (!isFocused && !event?.defaultPrevented) {
-                if (navigateToTab && routeKey) {
-                  navigateToTab(routeKey);
-                } else if (navigation?.navigate) {
+              if (!isFocused) {
+                if (navigation && typeof navigation.navigate === 'function') {
                   navigation.navigate(tab.name);
                 } else {
-                  router.navigate((tab.name === 'index' ? '/' : `/${tab.name}`) as any);
+                  router.push(tab.name === 'index' ? '/(tabs)' : `/(tabs)/${tab.name}` as any);
                 }
               }
             };
@@ -307,9 +292,7 @@ export default function TabsLayout() {
                   )
                 }
               >
-                <View style={[styles.optionIconBox, { backgroundColor: `${colors.primary}20` }]}>
-                  <Camera size={22} color={colors.primary} />
-                </View>
+                <Camera size={24} color={colors.primary} />
                 <View style={styles.optionContent}>
                   <Text style={[styles.optionTitle, { color: colors.text }]}>
                     {t.composer.momentTitle}
@@ -331,9 +314,7 @@ export default function TabsLayout() {
                   )
                 }
               >
-                <View style={[styles.optionIconBox, { backgroundColor: `${colors.coral}20` }]}>
-                  <HeartHandshake size={22} color={colors.coral} />
-                </View>
+                <HeartHandshake size={24} color={colors.coral} />
                 <View style={styles.optionContent}>
                   <Text style={[styles.optionTitle, { color: colors.text }]}>
                     {t.composer.reflectionTitle}
@@ -353,9 +334,7 @@ export default function TabsLayout() {
                   setCircleCreateModalVisible(true);
                 }}
               >
-                <View style={[styles.optionIconBox, { backgroundColor: `${colors.peach}40` }]}>
-                  <Sparkles size={22} color={colors.warning} />
-                </View>
+                <Sparkles size={24} color={colors.warning} />
                 <View style={styles.optionContent}>
                   <Text style={[styles.optionTitle, { color: colors.text }]}>
                     {t.composer.newCircleTitle}
@@ -377,9 +356,7 @@ export default function TabsLayout() {
                   )
                 }
               >
-                <View style={[styles.optionIconBox, { backgroundColor: `${colors.primary}20` }]}>
-                  <Calendar size={22} color={colors.primary} />
-                </View>
+                <Calendar size={24} color={colors.primary} />
                 <View style={styles.optionContent}>
                   <Text style={[styles.optionTitle, { color: colors.text }]}>
                     {t.composer.eventTitle}

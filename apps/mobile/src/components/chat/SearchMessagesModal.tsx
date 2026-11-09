@@ -177,9 +177,7 @@ export const SearchMessagesModal: React.FC<SearchMessagesModalProps> = ({
               </View>
             ) : !query.trim() || query.trim().length < 2 ? (
               <View style={styles.stateContainer}>
-                <View style={[styles.iconBox, { backgroundColor: colors.wash }]}>
-                  <Search size={24} color={colors.subtle} />
-                </View>
+                <Search size={32} color={colors.subtle} />
                 <Text style={[styles.stateTitle, { color: colors.text }]}>
                   {t.chat?.searchInChannel || 'Tìm kiếm trong cuộc trò chuyện'}
                 </Text>
@@ -189,9 +187,7 @@ export const SearchMessagesModal: React.FC<SearchMessagesModalProps> = ({
               </View>
             ) : results.length === 0 ? (
               <View style={styles.stateContainer}>
-                <View style={[styles.iconBox, { backgroundColor: colors.wash }]}>
-                  <MessageSquare size={24} color={colors.subtle} />
-                </View>
+                <MessageSquare size={32} color={colors.subtle} />
                 <Text style={[styles.stateTitle, { color: colors.text }]}>
                   {t.chat?.noSearchResults || 'Không tìm thấy tin nhắn phù hợp'}
                 </Text>

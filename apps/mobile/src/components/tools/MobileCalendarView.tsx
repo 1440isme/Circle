@@ -1,4 +1,5 @@
 import { useAuthStore } from '../../stores/auth.store';
+import { useThemeStore } from '../../stores/theme.store';
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   View,
@@ -690,6 +691,7 @@ interface MobileCalendarViewProps {
 
 export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId }) => {
   const user = useAuthStore((s) => s.user);
+  const { colors } = useThemeStore();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [events, setEvents] = useState<CalendarEventEntity[]>([]);
@@ -743,9 +745,9 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
     return list;
   }, []);
 
-  const monthScrollRef = useRef<any>(null);
+  const monthScrollRef = useRef<React.ElementRef<typeof ScrollView>>(null);
   const yearLayoutsRef = useRef<Record<number, number>>({});
-  const yearScrollRef = useRef<any>(null);
+  const yearScrollRef = useRef<React.ElementRef<typeof ScrollView>>(null);
   const isInitialScrollDoneRef = useRef(false);
 
   const scrollToMonth = useCallback(
@@ -4326,8 +4328,8 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                   {/* 3. Cuộc gọi video */}
                   {ev.location && (isCall || ev.location.includes('meet.google.com') || ev.location.includes('zoom.us')) ? (
                     <View style={styles.eventInfoRow}>
-                      <Video size={12} color="#0284C7" />
-                      <Text style={[styles.eventInfoText, { color: '#0284C7', fontWeight: '500' }]} numberOfLines={1}>
+                      <Video size={12} color={colors.primary} />
+                      <Text style={[styles.eventInfoText, { color: colors.primary, fontWeight: '500' }]} numberOfLines={1}>
                         {locClean.includes('Meet') || locClean.includes('Zoom') || locClean.includes('Google')
                           ? locClean
                           : 'Cuộc gọi video (Google Meet)'}
@@ -6022,7 +6024,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#0284C7',
     borderRadius: 12,
     paddingVertical: 12,
   },
@@ -6243,9 +6244,9 @@ appleYearBtn: {
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 12,
+    paddingTop: Platform.OS === 'ios' ? 68 : 58,
     paddingBottom: 8,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'transparent',
   },
   appleMonthTitleContainer: {
     flexDirection: 'row',

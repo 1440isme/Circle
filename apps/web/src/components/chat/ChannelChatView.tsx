@@ -140,10 +140,43 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
         }
       };
 
+      const handlePollVoted = (poll: any) => {
+        if (!poll?.id || !channelId) return;
+        queryClient.setQueryData(CHAT_KEYS.messages(channelId), (oldData: any) => {
+          if (!oldData?.pages) return oldData;
+          let targetMsg: any = null;
+          const newPages = oldData.pages.map((page: any) => {
+            const filtered = page.messages.filter((m: any) => {
+              if (m.content?.startsWith('[GROUP_POLL]:')) {
+                try {
+                  const data = JSON.parse(m.content.replace('[GROUP_POLL]:', ''));
+                  if (data?.pollId === poll.id) {
+                    targetMsg = {
+                      ...m,
+                      sentAt: new Date().toISOString(),
+                      createdAt: new Date().toISOString(),
+                    };
+                    return false; // remove older location!
+                  }
+                } catch {}
+              }
+              return true;
+            });
+            return { ...page, messages: filtered };
+          });
+          if (targetMsg && newPages.length > 0) {
+            newPages[newPages.length - 1].messages.push(targetMsg);
+          }
+          return { ...oldData, pages: newPages };
+        });
+      };
+
       socket.on('call:incoming', handleIncomingCall);
       socket.on('call:ended', handleCallEnded);
       socket.on('circle:theme_updated', handleThemeUpdated);
       socket.on('chat:channel-cleared', handleChannelCleared);
+      socket.on('circle:poll-voted', handlePollVoted);
+      socket.on('circle:poll-closed', handlePollVoted);
 
       return () => {
         unsub();
@@ -151,11 +184,13 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
         socket.off('call:ended', handleCallEnded);
         socket.off('circle:theme_updated', handleThemeUpdated);
         socket.off('chat:channel-cleared', handleChannelCleared);
+        socket.off('circle:poll-voted', handlePollVoted);
+        socket.off('circle:poll-closed', handlePollVoted);
       };
     }
 
     return unsub;
-  }, [circleId, user?.id, activeCircle, setActiveCircle]);
+  }, [circleId, user?.id, activeCircle, setActiveCircle, channelId, queryClient]);
 
   // Queries & Mutations
   const {
@@ -333,24 +368,46 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
   };
 
   const visibleMessages = React.useMemo(() => {
-    return messages.filter((m) => !hiddenMessageIds.has(m.id));
+    const unhidden = messages.filter((m) => !hiddenMessageIds.has(m.id));
+    const seenPollIds = new Set<string>();
+    const result: typeof messages = [];
+
+    // Traverse newest to oldest to preserve only the most recent instance of any poll
+    for (let i = unhidden.length - 1; i >= 0; i--) {
+      const msg = unhidden[i];
+      if (msg.content?.startsWith('[GROUP_POLL]:')) {
+        try {
+          const data = JSON.parse(msg.content.replace('[GROUP_POLL]:', ''));
+          if (data?.pollId) {
+            if (seenPollIds.has(data.pollId)) {
+              continue; // Drop older occurrence so poll only appears once at latest position
+            }
+            seenPollIds.add(data.pollId);
+          }
+        } catch {}
+      }
+      result.unshift(msg);
+    }
+
+    return result;
   }, [messages, hiddenMessageIds]);
 
   return (
     <div
       data-circle-theme={circleTheme}
-      className="flex-1 flex flex-col h-full min-h-0 bg-white dark:bg-circle-dark-surface overflow-hidden transition-colors"
+      className="relative flex-1 flex flex-col h-full min-h-0 bg-white dark:bg-circle-dark-surface overflow-hidden transition-colors"
     >
-      {/* Channel Header Bar with Call Actions: seamless background without dividing line */}
-      <div className="w-full bg-white dark:bg-circle-dark-surface z-10 shrink-0">
-        <div className="w-full max-w-4xl mx-auto flex items-center justify-between px-4 sm:px-6 py-3">
+      {/* Top Scroll Edge Fade (Apple Liquid Glass scroll edge effect) */}
+      <div className="pointer-events-none absolute top-0 left-0 right-0 h-12 bg-gradient-to-b from-white/90 dark:from-circle-dark-surface/90 to-transparent z-10" />
+
+      {/* Floating Channel Header Toolbar (Floating glass capsule with scroll-under content) */}
+      <div className="pointer-events-none absolute top-3 left-0 right-0 z-20 flex flex-col items-center px-4 gap-2">
+        <div className="pointer-events-auto flex items-center justify-between px-4 py-2 rounded-full backdrop-blur-xl bg-white/94 dark:bg-circle-dark-surface/92 border border-circle-hairline/80 dark:border-white/12 shadow-sm max-w-2xl w-full transition-all">
           <div className="flex items-center gap-2 min-w-0">
-            <Hash className="h-4.5 w-4.5 shrink-0 text-circle-slate dark:text-circle-dark-muted" />
-            <div className="min-w-0">
-              <h3 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text truncate">
-                {channelName}
-              </h3>
-            </div>
+            <Hash className="h-4 w-4 shrink-0 text-circle-slate dark:text-circle-dark-muted" />
+            <h3 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text truncate">
+              {channelName}
+            </h3>
           </div>
 
           {/* Channel Action Controls: Mobile Call icons & Pinned */}
@@ -360,7 +417,7 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
                 type="button"
                 onClick={() => handleStartCall(CallType.AUDIO)}
                 disabled={initiateCallMutation.isPending}
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas transition-colors active:scale-95"
+                className="flex h-8 w-8 items-center justify-center rounded-full text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white hover:bg-circle-canvas/80 dark:hover:bg-circle-dark-canvas/80 transition-colors active:scale-95"
                 title={t.calls.startAudioCallTooltip}
               >
                 <Phone className="h-4 w-4" />
@@ -369,7 +426,7 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
                 type="button"
                 onClick={() => handleStartCall(CallType.VIDEO)}
                 disabled={initiateCallMutation.isPending}
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas transition-colors active:scale-95"
+                className="flex h-8 w-8 items-center justify-center rounded-full text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white hover:bg-circle-canvas/80 dark:hover:bg-circle-dark-canvas/80 transition-colors active:scale-95"
                 title={t.calls.startVideoCallTooltip}
               >
                 <Video className="h-4 w-4" />
@@ -382,10 +439,10 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
                 setIsSearchOpen(!isSearchOpen);
                 if (isSearchOpen) setSearchQuery('');
               }}
-              className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors active:scale-95 ${
+              className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors active:scale-95 ${
                 isSearchOpen
-                  ? 'bg-circle-primary/10 text-circle-primary'
-                  : 'text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas'
+                  ? 'bg-circle-primary/15 text-circle-primary'
+                  : 'text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white hover:bg-circle-canvas/80 dark:hover:bg-circle-dark-canvas/80'
               }`}
               title={t.chat.searchPlaceholder}
             >
@@ -395,10 +452,10 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
             <button
               type="button"
               onClick={() => setIsPinnedModalOpen(true)}
-              className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors active:scale-95 ${
+              className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors active:scale-95 ${
                 pinnedMessages.length > 0
-                  ? 'text-circle-primary bg-circle-primary/10 hover:bg-circle-primary/20'
-                  : 'text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas'
+                  ? 'text-circle-primary bg-circle-primary/15 hover:bg-circle-primary/25'
+                  : 'text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white hover:bg-circle-canvas/80 dark:hover:bg-circle-dark-canvas/80'
               }`}
               title={pinnedMessages.length > 0 ? `${pinnedMessages.length} ${t.chat.pinnedBadge}` : t.chat.pinnedBadge}
             >
@@ -410,10 +467,10 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
               <button
                 type="button"
                 onClick={() => setIsHeaderMenuOpen(!isHeaderMenuOpen)}
-                className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors active:scale-95 ${
+                className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors active:scale-95 ${
                   isHeaderMenuOpen
-                    ? 'bg-circle-primary/10 text-circle-primary'
-                    : 'text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas'
+                    ? 'bg-circle-primary/15 text-circle-primary'
+                    : 'text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white hover:bg-circle-canvas/80 dark:hover:bg-circle-dark-canvas/80'
                 }`}
                 title={t.chat.moreChatOptions}
               >
@@ -426,7 +483,7 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
                     className="fixed inset-0 z-20"
                     onClick={() => setIsHeaderMenuOpen(false)}
                   />
-                  <div className="absolute right-0 top-full mt-1.5 w-52 rounded-2xl border border-circle-slate/15 dark:border-circle-dark-surface bg-white dark:bg-circle-charcoal p-1.5 shadow-xl z-30 animate-scaleUp">
+                  <div className="absolute right-0 top-full mt-2 w-52 rounded-2xl border border-white/60 dark:border-white/10 bg-white/95 dark:bg-circle-dark-surface/95 backdrop-blur-md p-1.5 shadow-xl z-30 animate-scaleUp">
                     <button
                       type="button"
                       onClick={() => {
@@ -470,9 +527,9 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
           </div>
         </div>
 
-        {/* Channel Message Search Bar (CHT-17) */}
+        {/* Floating Channel Message Search Bar (CHT-17) */}
         {isSearchOpen && (
-          <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 pb-3 pt-1 border-b border-circle-hairline dark:border-circle-dark-hairline animate-in fade-in slide-in-from-top-2 duration-150">
+          <div className="pointer-events-auto w-full max-w-xl rounded-2xl border border-circle-hairline/80 dark:border-white/12 bg-white/96 dark:bg-circle-dark-surface/96 backdrop-blur-xl p-2 shadow-lg animate-in fade-in slide-in-from-top-2 duration-150">
             <div className="relative flex items-center">
               <Search className="absolute left-3 h-4 w-4 text-circle-slate dark:text-circle-dark-muted" />
               <input
@@ -504,34 +561,34 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
                   </div>
                 ) : searchResults && searchResults.messages.length > 0 ? (
                   <div className="flex flex-col gap-1">
-                    {searchResults.messages.map((m) => (
-                      <div
-                        key={m.id}
+                    {searchResults.messages.map((msg) => (
+                      <button
+                        key={msg.id}
+                        type="button"
                         onClick={() => {
-                          const el = document.getElementById(`message-${m.id}`);
-                          if (el) {
-                            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                          }
                           setIsSearchOpen(false);
+                          setSearchQuery('');
+                          const el = document.getElementById(`message-${msg.id}`);
+                          el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                         }}
-                        className="flex flex-col gap-0.5 rounded-lg p-2 hover:bg-circle-wash dark:hover:bg-circle-dark-wash cursor-pointer transition-colors"
+                        className="w-full flex flex-col items-start gap-1 p-2 rounded-lg hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors text-left"
                       >
-                        <div className="flex items-center justify-between text-[11px]">
-                          <span className="font-semibold text-circle-charcoal dark:text-circle-dark-text">
-                            {m.sender?.nickname || m.sender?.user?.profile?.displayName || t.chat.defaultMemberName}
+                        <div className="flex items-center justify-between w-full">
+                          <span className="text-[11px] font-bold text-circle-charcoal dark:text-white">
+                            {msg.sender?.nickname || msg.sender?.user?.profile?.displayName || (msg.sender as any)?.email || t.chat.defaultMemberName}
                           </span>
-                          <span className="text-circle-slate dark:text-circle-dark-muted text-[10px]">
-                            {new Date(m.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          <span className="text-[10px] text-circle-slate dark:text-circle-dark-muted">
+                            {new Date(msg.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </span>
                         </div>
-                        <p className="text-xs text-circle-slate dark:text-circle-dark-muted line-clamp-2">
-                          {m.content}
+                        <p className="text-xs text-circle-charcoal dark:text-circle-dark-text line-clamp-1">
+                          {msg.content}
                         </p>
-                      </div>
+                      </button>
                     ))}
                   </div>
                 ) : (
-                  <div className="py-3 text-center text-xs text-circle-slate dark:text-circle-dark-muted">
+                  <div className="py-4 text-center text-xs text-circle-slate dark:text-circle-dark-muted">
                     {t.chat.noSearchResults}
                   </div>
                 )}

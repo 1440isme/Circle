@@ -81,9 +81,7 @@ export const PinnedMessagesModal: React.FC<PinnedMessagesModalProps> = ({
           >
             {pinnedMessages.length === 0 ? (
               <View style={styles.emptyContainer}>
-                <View style={[styles.emptyIconBox, { backgroundColor: colors.wash }]}>
-                  <Pin size={24} color={colors.subtle} />
-                </View>
+                <Pin size={32} color={colors.subtle} />
                 <Text style={[styles.emptyText, { color: colors.subtle }]}>
                   {t.chat?.noPinnedMessages || 'Không có tin nhắn nào được ghim'}
                 </Text>

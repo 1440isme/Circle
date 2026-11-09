@@ -525,6 +525,24 @@ const MobileSwipeMessageBubble = React.memo(function MobileSwipeMessageBubble({
     }
   }
 
+  let groupPollData: any = null;
+  const isGroupPoll = Boolean(
+    msg.content &&
+      typeof msg.content === 'string' &&
+      msg.content.startsWith('[GROUP_POLL]:'),
+  );
+
+  if (isGroupPoll && msg.content) {
+    try {
+      const rawJson = typeof msg.content === 'string'
+        ? msg.content.replace('[GROUP_POLL]:', '').trim()
+        : msg.content;
+      groupPollData = typeof rawJson === 'string' ? JSON.parse(rawJson) : rawJson;
+    } catch {
+      groupPollData = null;
+    }
+  }
+
   let callSummaryData: { callType?: 'AUDIO' | 'VIDEO'; durationSeconds?: number } | null = null;
   const isCallSummary = Boolean(
     msg.content &&
@@ -682,6 +700,34 @@ const MobileSwipeMessageBubble = React.memo(function MobileSwipeMessageBubble({
               </View>
             )}
           </View>
+        </View>
+      </View>
+    );
+  }
+
+  if (isGroupPoll && groupPollData) {
+    return (
+      <View style={{ width: '100%', alignItems: 'center', marginVertical: 8, paddingHorizontal: 12 }}>
+        <View
+          style={{
+            width: '100%',
+            maxWidth: 340,
+            borderRadius: 16,
+            borderWidth: 1,
+            borderColor: colors.hairline,
+            backgroundColor: colors.surface,
+            padding: 12,
+            overflow: 'hidden',
+          }}
+        >
+          <MobileChatPollCard
+            circleId={circleId || ''}
+            pollId={groupPollData.pollId}
+            initialQuestion={groupPollData.question}
+            initialOptions={groupPollData.options}
+            isSenderMe={false}
+            senderTextColor={colors.text}
+          />
         </View>
       </View>
     );
@@ -914,7 +960,7 @@ const MobileSwipeMessageBubble = React.memo(function MobileSwipeMessageBubble({
                 );
               })()}
 
-              {/* Message Content: Recalled vs Calendar Event vs Call Summary vs Standard Text */}
+              {/* Message Content: Recalled vs Location Pin vs Call Summary vs Standard Text */}
               {Boolean(msg.deletedAt) ? (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 2, paddingHorizontal: 4 }}>
                   <Ban size={14} color={isSenderMe ? senderTextColor : colors.subtle} style={{ opacity: 0.7 }} />
@@ -929,23 +975,7 @@ const MobileSwipeMessageBubble = React.memo(function MobileSwipeMessageBubble({
                     {t.chat?.messageRecalled || 'Tin nhắn đã được thu hồi'}
                   </Text>
                 </View>
-              ) : Boolean(msg.content?.startsWith('[GROUP_POLL]:')) ? (() => {
-                let pollData: any = null;
-                try {
-                  pollData = JSON.parse(msg.content.replace('[GROUP_POLL]:', ''));
-                } catch {}
-                if (!pollData) return null;
-                return (
-                  <MobileChatPollCard
-                    circleId={circleId || ''}
-                    pollId={pollData.pollId}
-                    initialQuestion={pollData.question}
-                    initialOptions={pollData.options}
-                    isSenderMe={isSenderMe}
-                    senderTextColor={senderTextColor}
-                  />
-                );
-              })() : Boolean(msg.content?.startsWith('[LOCATION_PIN]:')) ? (() => {
+              ) : Boolean(msg.content?.startsWith('[LOCATION_PIN]:')) ? (() => {
                 let locData: any = null;
                 try {
                   locData = JSON.parse(msg.content.replace('[LOCATION_PIN]:', ''));
@@ -1318,7 +1348,7 @@ export default function CircleWorkspaceScreen() {
   const setJoinModalVisible = useCircleStore((s) => s.setJoinModalVisible);
 
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
-  const horizontalPagerRef = useRef<any>(null);
+  const horizontalPagerRef = useRef<React.ElementRef<typeof ScrollView>>(null);
   const TAB_ORDER: WorkspaceTab[] = useMemo(() => ['moments', 'chat', 'tools'], []);
 
   const [circleSwitcherVisible, setCircleSwitcherVisible] = useState(false);
@@ -1402,7 +1432,7 @@ export default function CircleWorkspaceScreen() {
   const [momentsHistoryViewMode, setMomentsHistoryViewMode] = useState<'month' | 'map'>('month');
   const [headerHeight, setHeaderHeight] = useState(Platform.OS === 'ios' ? 128 : 112);
 
-  const scrollViewRef = useRef<any>(null);
+  const scrollViewRef = useRef<React.ElementRef<typeof ScrollView>>(null);
 
   const initiateCallMutation = useInitiateCallMutation();
   const joinCallMutation = useJoinCallMutation();
@@ -1461,14 +1491,47 @@ export default function CircleWorkspaceScreen() {
         }
       };
 
+      const handlePollVoted = (poll: any) => {
+        if (!poll?.id || !currentChannelId) return;
+        queryClient.setQueryData(['messages', 'channel', currentChannelId], (oldData: any) => {
+          if (!oldData?.pages) return oldData;
+          let targetMsg: any = null;
+          const newPages = oldData.pages.map((page: any) => {
+            const filtered = page.messages.filter((m: any) => {
+              if (m.content?.startsWith('[GROUP_POLL]:')) {
+                try {
+                  const data = JSON.parse(m.content.replace('[GROUP_POLL]:', ''));
+                  if (data?.pollId === poll.id) {
+                    targetMsg = {
+                      ...m,
+                      sentAt: new Date().toISOString(),
+                      createdAt: new Date().toISOString(),
+                    };
+                    return false; // remove from older position
+                  }
+                } catch {}
+              }
+              return true;
+            });
+            return { ...page, messages: filtered };
+          });
+          if (targetMsg && newPages.length > 0) {
+            newPages[newPages.length - 1].messages.push(targetMsg);
+          }
+          return { ...oldData, pages: newPages };
+        });
+      };
+
       socket.on('call:incoming', handleIncomingCall);
       socket.on('call:ended', handleCallEnded);
       socket.on('chat:channel-cleared', handleChannelCleared);
+      socket.on('circle:poll-voted', handlePollVoted);
 
       cleanupSocket = () => {
         socket.off('call:incoming', handleIncomingCall);
         socket.off('call:ended', handleCallEnded);
         socket.off('chat:channel-cleared', handleChannelCleared);
+        socket.off('circle:poll-voted', handlePollVoted);
       };
     });
 
@@ -1682,9 +1745,32 @@ export default function CircleWorkspaceScreen() {
   }, [currentChannelId]);
 
   const visibleMessages = useMemo(() => {
-    if (hiddenMessageIds.length === 0) return messages;
-    const hiddenSet = new Set(hiddenMessageIds);
-    return messages.filter((m) => !hiddenSet.has(m.id));
+    const unhidden = hiddenMessageIds.length === 0
+      ? messages
+      : (() => {
+          const hiddenSet = new Set(hiddenMessageIds);
+          return messages.filter((m) => !hiddenSet.has(m.id));
+        })();
+
+    // Preserve only the latest occurrence for any pollId
+    const seenPollIds = new Set<string>();
+    const result: typeof messages = [];
+    for (let i = unhidden.length - 1; i >= 0; i--) {
+      const msg = unhidden[i];
+      if (msg.content?.startsWith('[GROUP_POLL]:')) {
+        try {
+          const data = JSON.parse(msg.content.replace('[GROUP_POLL]:', ''));
+          if (data?.pollId) {
+            if (seenPollIds.has(data.pollId)) {
+              continue; // Drop older duplicate
+            }
+            seenPollIds.add(data.pollId);
+          }
+        } catch {}
+      }
+      result.unshift(msg);
+    }
+    return result;
   }, [messages, hiddenMessageIds]);
 
   const handleDeleteForMe = async (msgId: string) => {
@@ -1770,9 +1856,9 @@ export default function CircleWorkspaceScreen() {
   const prevLastMessageIdRef = useRef<string | null>(null);
   const isFirstLoadRef = useRef(true);
   const isNearBottomRef = useRef(true);
-  const messageRefs = useRef<Record<string, any>>({});
-  const chatContainerRef = useRef<any>(null);
-  const messagesContentRef = useRef<any>(null);
+  const messageRefs = useRef<Record<string, React.ElementRef<typeof View> | null>>({});
+  const chatContainerRef = useRef<React.ElementRef<typeof View> | null>(null);
+  const messagesContentRef = useRef<React.ElementRef<typeof View> | null>(null);
   const currentScrollYRef = useRef(0);
   const scrollViewPageYRef = useRef<number | undefined>(undefined);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
@@ -2145,13 +2231,13 @@ export default function CircleWorkspaceScreen() {
         {/* Header Background Layer: Dynamic Frosted Glass in Glass Mode vs Clean Solid Surface in Flat Mode */}
         {isGlass ? (
           <BlurView
-            intensity={isDark ? 55 : 45}
+            intensity={isDark ? 85 : 75}
             tint={glassTheme.blur.tint}
             style={[
               StyleSheet.absoluteFill,
               styles.floatingHeaderBlur,
               {
-                backgroundColor: isDark ? 'rgba(15,15,20,0.72)' : 'rgba(255,255,255,0.78)',
+                backgroundColor: isDark ? 'rgba(18,18,22,0.92)' : 'rgba(255,255,255,0.94)',
               },
             ]}
             pointerEvents="none"
@@ -2602,7 +2688,10 @@ export default function CircleWorkspaceScreen() {
             style={styles.messagesList}
             contentContainerStyle={[
               styles.messagesScrollContent,
-              { paddingTop: headerHeight + 8 },
+              {
+                paddingTop: headerHeight + 8,
+                paddingBottom: isKeyboardVisible ? 70 : (insets.bottom > 0 ? insets.bottom + 75 : 85),
+              },
             ]}
             showsVerticalScrollIndicator={false}
             onScroll={handleScroll}
@@ -2884,12 +2973,13 @@ export default function CircleWorkspaceScreen() {
             </View>
           </ScrollView>
 
-          {/* Floating Rounded Composer Area */}
+          {/* Floating Rounded Composer Area (Floating glass control with scroll-under content) */}
           <View
             style={[
               styles.composerFloatingContainer,
               { paddingBottom: isKeyboardVisible ? 6 : (insets.bottom > 0 ? insets.bottom + 2 : 10) },
             ]}
+            pointerEvents="box-none"
           >
             {/* Realtime Typing Indicator Bar */}
             {typingUsers.length > 0 && (
@@ -3057,10 +3147,10 @@ export default function CircleWorkspaceScreen() {
                   styles.composerInputCapsule,
                   {
                     backgroundColor: isGlass
-                      ? (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.85)')
+                      ? (isDark ? 'rgba(24,24,28,0.92)' : 'rgba(255,255,255,0.94)')
                       : colors.surface,
                     borderColor: isGlass
-                      ? (isDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.08)')
+                      ? (isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.10)')
                       : colors.hairline,
                   },
                 ]}
@@ -3163,10 +3253,10 @@ export default function CircleWorkspaceScreen() {
                     ? { backgroundColor: activeCircleBubbleTheme.sendBtnBg }
                     : {
                         backgroundColor: isGlass
-                          ? (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.85)')
+                          ? (isDark ? 'rgba(24,24,28,0.92)' : 'rgba(255,255,255,0.94)')
                           : colors.surface,
                         borderColor: isGlass
-                          ? (isDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.08)')
+                          ? (isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.10)')
                           : colors.hairline,
                         borderWidth: 1.2,
                       },
@@ -4259,66 +4349,125 @@ export default function CircleWorkspaceScreen() {
         onRequestClose={() => setSelectedTool('menu')}
       >
         <View style={{ flex: 1, backgroundColor: colors.canvas }}>
+          {/* Floating Glass Navigation Bar (Floating glass controls with scroll-under content) */}
           <View
+            pointerEvents="box-none"
             style={{
-              paddingTop: Platform.OS === 'ios' ? 48 : 16,
-              paddingBottom: 12,
-              paddingHorizontal: 16,
+              position: 'absolute',
+              top: Platform.OS === 'ios' ? insets.top + 8 : 16,
+              left: 16,
+              right: 16,
+              zIndex: 50,
               flexDirection: 'row',
               alignItems: 'center',
               justifyContent: 'space-between',
-              backgroundColor: colors.surface,
-              borderBottomWidth: StyleSheet.hairlineWidth,
-              borderBottomColor: colors.hairline,
             }}
           >
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => setSelectedTool('menu')}
+            <BlurView
+              intensity={isDark ? 85 : 75}
+              tint={isDark ? 'dark' : 'light'}
               style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 4,
-                paddingVertical: 4,
-                paddingHorizontal: 8,
-                borderRadius: 8,
+                borderRadius: 999,
+                overflow: 'hidden',
+                backgroundColor: isDark ? 'rgba(22, 22, 26, 0.90)' : 'rgba(255, 255, 255, 0.92)',
+                borderWidth: StyleSheet.hairlineWidth,
+                borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : colors.hairline,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: isDark ? 0.3 : 0.08,
+                shadowRadius: 8,
+                elevation: 3,
               }}
             >
-              <ArrowLeft size={18} color={colors.primary} />
-              <Text style={{ fontSize: 14, fontWeight: '600', color: colors.primary }}>
-                {t.nav?.groupTools || 'Tiện ích'}
-              </Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => setSelectedTool('menu')}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 6,
+                  paddingVertical: 7,
+                  paddingHorizontal: 12,
+                }}
+              >
+                <ArrowLeft size={16} color={colors.text} />
+                <Text style={{ fontSize: 13, fontWeight: '600', color: colors.text }}>
+                  {t.nav?.groupTools || 'Tiện ích'}
+                </Text>
+              </TouchableOpacity>
+            </BlurView>
 
-            <Text style={{ fontSize: 15, fontWeight: '700', color: colors.text }}>
-              {selectedTool === 'album'
-                ? t.nav.photoAlbum
-                : selectedTool === 'calendar'
-                ? t.nav.calendarEvents
-                : selectedTool === 'planning'
-                ? t.nav.planningSheet
-                : selectedTool === 'location'
-                ? t.nav.liveLocation
-                : selectedTool === 'poll'
-                ? t.nav.groupPoll
-                : selectedTool === 'wheel'
-                ? t.nav.luckyWheel
-                : selectedTool === 'anonymous'
-                ? t.nav.reflectionMailbox
-                : ''}
-            </Text>
-
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => setSelectedTool('menu')}
+            <BlurView
+              intensity={isDark ? 85 : 75}
+              tint={isDark ? 'dark' : 'light'}
               style={{
-                padding: 6,
-                borderRadius: 16,
-                backgroundColor: colors.wash,
+                borderRadius: 999,
+                overflow: 'hidden',
+                backgroundColor: isDark ? 'rgba(22, 22, 26, 0.90)' : 'rgba(255, 255, 255, 0.92)',
+                borderWidth: StyleSheet.hairlineWidth,
+                borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : colors.hairline,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: isDark ? 0.3 : 0.08,
+                shadowRadius: 8,
+                elevation: 3,
               }}
             >
-              <X size={16} color={colors.text} />
-            </TouchableOpacity>
+              <View
+                style={{
+                  paddingVertical: 7,
+                  paddingHorizontal: 16,
+                  alignItems: 'center',
+                }}
+              >
+                <Text style={{ fontSize: 13, fontWeight: '700', color: colors.text }}>
+                  {selectedTool === 'album'
+                    ? t.nav.photoAlbum
+                    : selectedTool === 'calendar'
+                    ? t.nav.calendarEvents
+                    : selectedTool === 'planning'
+                    ? t.nav.planningSheet
+                    : selectedTool === 'location'
+                    ? t.nav.liveLocation
+                    : selectedTool === 'poll'
+                    ? t.nav.groupPoll
+                    : selectedTool === 'wheel'
+                    ? t.nav.luckyWheel
+                    : selectedTool === 'anonymous'
+                    ? t.nav.reflectionMailbox
+                    : ''}
+                </Text>
+              </View>
+            </BlurView>
+
+            <BlurView
+              intensity={isDark ? 85 : 75}
+              tint={isDark ? 'dark' : 'light'}
+              style={{
+                borderRadius: 999,
+                overflow: 'hidden',
+                backgroundColor: isDark ? 'rgba(22, 22, 26, 0.90)' : 'rgba(255, 255, 255, 0.92)',
+                borderWidth: StyleSheet.hairlineWidth,
+                borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : colors.hairline,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: isDark ? 0.3 : 0.08,
+                shadowRadius: 8,
+                elevation: 3,
+              }}
+            >
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => setSelectedTool('menu')}
+                style={{
+                  padding: 8,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <X size={16} color={colors.text} />
+              </TouchableOpacity>
+            </BlurView>
           </View>
 
           <View style={{ flex: 1 }}>
@@ -4973,8 +5122,13 @@ const styles = StyleSheet.create({
     lineHeight: 13,
   },
   composerFloatingContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 40,
     paddingHorizontal: 14,
-    paddingTop: 4,
+    paddingTop: 6,
     gap: 6,
   },
   replyPreviewBar: {

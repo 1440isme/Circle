@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Modal,
   Alert,
+  Platform,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import {
@@ -227,22 +228,7 @@ export const MobileAnonymousView: React.FC<MobileAnonymousViewProps> = ({ circle
 
   return (
     <View style={[styles.container, { backgroundColor: colors.canvas }]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.screenTitle}>Điều Muốn Nói</Text>
-          <Text style={styles.screenSub}>Hộp thư tâm sự ẩn danh ấm cúng</Text>
-        </View>
-
-        <TouchableOpacity
-          style={styles.createBtn}
-          onPress={() => setIsComposeModalOpen(true)}
-        >
-          <Plus size={14} color="#FFFFFF" />
-          <Text style={styles.createBtnText}>Gửi lời nhắn</Text>
-        </TouchableOpacity>
-      </View>
-
+      {/* Scroll-under Content Layer */}
       <ScrollView contentContainerStyle={styles.content}>
         {/* Security Banner */}
         <View style={styles.securityBanner}>
@@ -312,6 +298,22 @@ export const MobileAnonymousView: React.FC<MobileAnonymousViewProps> = ({ circle
           </View>
         )}
       </ScrollView>
+
+      {/* Floating Action Button (FAB) */}
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={() => setIsComposeModalOpen(true)}
+        style={[
+          styles.fab,
+          {
+            backgroundColor: colors.primary,
+            shadowColor: colors.primary,
+          },
+        ]}
+      >
+        <Plus size={18} color="#FFF" />
+        <Text style={styles.fabText}>Gửi lời nhắn</Text>
+      </TouchableOpacity>
 
       {/* Compose Modal */}
       <Modal visible={isComposeModalOpen} transparent animationType="slide">
@@ -420,7 +422,30 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
     fontWeight: '600',
   },
   content: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'ios' ? 74 : 64,
+    paddingBottom: 100,
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 24,
+    right: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: 999,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
+    zIndex: 20,
+  },
+  fabText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFF',
   },
   securityBanner: {
     flexDirection: 'row',

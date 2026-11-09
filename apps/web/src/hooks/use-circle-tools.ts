@@ -927,6 +927,34 @@ export function useVotePollMutation(circleId: string) {
       queryClient.invalidateQueries({
         queryKey: TOOLS_KEYS.pollDetail(circleId, variables.pollId),
       });
+      // Instantly bump active poll card to latest position in open chat streams
+      queryClient.setQueriesData({ queryKey: ['chat', 'messages'] }, (oldData: any) => {
+        if (!oldData?.pages) return oldData;
+        let targetMsg: any = null;
+        const newPages = oldData.pages.map((page: any) => {
+          const filtered = page.messages.filter((m: any) => {
+            if (m.content?.startsWith('[GROUP_POLL]:')) {
+              try {
+                const data = JSON.parse(m.content.replace('[GROUP_POLL]:', ''));
+                if (data?.pollId === variables.pollId) {
+                  targetMsg = {
+                    ...m,
+                    sentAt: new Date().toISOString(),
+                    createdAt: new Date().toISOString(),
+                  };
+                  return false;
+                }
+              } catch {}
+            }
+            return true;
+          });
+          return { ...page, messages: filtered };
+        });
+        if (targetMsg && newPages.length > 0) {
+          newPages[0].messages.push(targetMsg);
+        }
+        return { ...oldData, pages: newPages };
+      });
     },
   });
 }
@@ -947,6 +975,33 @@ export function useClosePollMutation(circleId: string) {
       queryClient.invalidateQueries({ queryKey: TOOLS_KEYS.polls(circleId) });
       queryClient.invalidateQueries({
         queryKey: TOOLS_KEYS.pollDetail(circleId, pollId),
+      });
+      queryClient.setQueriesData({ queryKey: ['chat', 'messages'] }, (oldData: any) => {
+        if (!oldData?.pages) return oldData;
+        let targetMsg: any = null;
+        const newPages = oldData.pages.map((page: any) => {
+          const filtered = page.messages.filter((m: any) => {
+            if (m.content?.startsWith('[GROUP_POLL]:')) {
+              try {
+                const data = JSON.parse(m.content.replace('[GROUP_POLL]:', ''));
+                if (data?.pollId === pollId) {
+                  targetMsg = {
+                    ...m,
+                    sentAt: new Date().toISOString(),
+                    createdAt: new Date().toISOString(),
+                  };
+                  return false;
+                }
+              } catch {}
+            }
+            return true;
+          });
+          return { ...page, messages: filtered };
+        });
+        if (targetMsg && newPages.length > 0) {
+          newPages[0].messages.push(targetMsg);
+        }
+        return { ...oldData, pages: newPages };
       });
     },
   });

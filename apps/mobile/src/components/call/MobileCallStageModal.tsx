@@ -111,7 +111,7 @@ export function MobileCallStageModal({
       transparent={false}
       onRequestClose={handleLeaveCall}
     >
-      <StatusBar barStyle="light-content" {...({ backgroundColor: '#0f1015' } as any)} />
+      <StatusBar barStyle="light-content" />
       <SafeAreaView style={[styles.container, { backgroundColor: '#0f1015' }]}>
         {/* Top Header Bar */}
         <View style={styles.headerBar}>

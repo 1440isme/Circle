@@ -128,27 +128,35 @@ export const CircleAnonymousView: React.FC<CircleAnonymousViewProps> = ({ circle
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-circle-canvas dark:bg-circle-dark-surface overflow-y-auto p-4 md:p-6 transition-colors">
-      {/* Header */}
-      <div className="flex items-center justify-between pb-4 border-b border-circle-hairline dark:border-circle-dark-hairline mb-6">
-        <div>
-          <h1 className="text-lg font-bold text-circle-charcoal dark:text-circle-dark-text">
-            {t.nav.reflectionMailbox}
-          </h1>
-          <p className="text-xs text-circle-slate dark:text-circle-dark-muted mt-0.5">
-            Không gian gửi gắm tâm sự, lời cảm ơn và những điều khó nói một cách chân thành
-          </p>
-        </div>
+    <div className="relative flex-1 flex flex-col h-full bg-circle-canvas dark:bg-circle-dark-surface overflow-hidden transition-colors">
+      {/* Floating Glass Toolbar (Floating glass controls with scroll-under content) */}
+      <div className="pointer-events-none absolute top-3 left-0 right-0 z-20 flex justify-center px-4">
+        <div className="pointer-events-auto flex items-center justify-between px-5 py-2.5 rounded-full backdrop-blur-xl bg-white/94 dark:bg-circle-dark-surface/92 border border-circle-hairline/80 dark:border-white/12 shadow-sm max-w-4xl w-full">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <Heart className="h-4 w-4 text-rose-500 shrink-0" />
+            <h1 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text truncate">
+              {t.nav.reflectionMailbox}
+            </h1>
+            {posts.length > 0 && (
+              <span className="text-xs text-circle-slate dark:text-circle-dark-muted hidden sm:inline">
+                • {posts.length} lời nhắn
+              </span>
+            )}
+          </div>
 
-        <button
-          type="button"
-          onClick={() => setIsComposeModalOpen(true)}
-          className="flex items-center gap-1.5 rounded-lg bg-circle-charcoal dark:bg-circle-primary px-3.5 py-2 text-xs font-semibold text-white dark:text-circle-charcoal hover:bg-circle-sage transition-all shadow-sm active:scale-98"
-        >
-          <Plus className="h-3.5 w-3.5" />
-          <span>Gửi tâm sự ẩn danh</span>
-        </button>
+          <button
+            type="button"
+            onClick={() => setIsComposeModalOpen(true)}
+            className="flex items-center gap-1.5 rounded-full bg-circle-primary hover:bg-circle-sage px-4 py-1.5 text-xs font-semibold text-white transition-all shadow-xs active:scale-98"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            <span>Gửi tâm sự ẩn danh</span>
+          </button>
+        </div>
       </div>
+
+      {/* Scroll-under Content Layer */}
+      <div className="flex-1 overflow-y-auto px-4 md:px-6 pt-20 pb-12">
 
       {/* Security / Anonymity Banner */}
       <div className="mb-6 flex items-start gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 dark:bg-emerald-500/10 p-3.5">
@@ -278,6 +286,7 @@ export const CircleAnonymousView: React.FC<CircleAnonymousViewProps> = ({ circle
           </button>
         </div>
       )}
+      </div>
 
       {/* Compose Modal */}
       {isComposeModalOpen && (

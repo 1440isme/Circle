@@ -68,47 +68,49 @@ export default function CirclesTab() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.canvas }]}>
-      {/* Top Header */}
-      <View style={[styles.headerBar, { backgroundColor: colors.canvas }]}>
-        <View>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>
-            {t.nav.yourCircles}
-          </Text>
-          <Text style={[styles.headerSubtitle, { color: colors.subtle }]}>
-            {circles.length > 0
-              ? `${circles.length} ${t.home.circleLabel}`
-              : t.home.emptyCirclesTitle}
-          </Text>
+      {/* Top Floating Glass Header & Floating Toolbar (Floating glass controls with scroll-under content) */}
+      <View style={styles.floatingHeaderArea} pointerEvents="box-none">
+        <View style={styles.headerBar} pointerEvents="box-none">
+          <View>
+            <Text style={[styles.headerTitle, { color: colors.text }]}>
+              {t.nav.yourCircles}
+            </Text>
+            <Text style={[styles.headerSubtitle, { color: colors.subtle }]}>
+              {circles.length > 0
+                ? `${circles.length} ${t.home.circleLabel}`
+                : t.home.emptyCirclesTitle}
+            </Text>
+          </View>
+          <HeaderControls />
         </View>
-        <HeaderControls />
-      </View>
 
-      {/* Quick Action Pills */}
-      <View style={styles.actionPillsRow}>
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={() => setCreateModalVisible(true)}
-          style={[styles.actionPill, { backgroundColor: colors.primary }]}
-        >
-          <Plus size={16} color={colors.onPrimary} strokeWidth={2.4} />
-          <Text style={[styles.actionPillText, { color: colors.onPrimary }]}>
-            {t.home.createCircleBtn}
-          </Text>
-        </TouchableOpacity>
+        {/* Quick Action Pills Floating Toolbar */}
+        <View style={styles.actionPillsRow} pointerEvents="auto">
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => setCreateModalVisible(true)}
+            style={[styles.actionPill, { backgroundColor: colors.primary }]}
+          >
+            <Plus size={16} color={colors.onPrimary} strokeWidth={2.4} />
+            <Text style={[styles.actionPillText, { color: colors.onPrimary }]}>
+              {t.home.createCircleBtn}
+            </Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={() => setJoinModalVisible(true)}
-          style={[
-            styles.actionPill,
-            { backgroundColor: colors.wash, borderColor: colors.hairline, borderWidth: 1 },
-          ]}
-        >
-          <KeyRound size={15} color={colors.text} />
-          <Text style={[styles.actionPillText, { color: colors.text }]}>
-            {t.home.joinWithCodeBtn}
-          </Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => setJoinModalVisible(true)}
+            style={[
+              styles.actionPill,
+              { backgroundColor: colors.wash, borderColor: colors.hairline, borderWidth: 1 },
+            ]}
+          >
+            <KeyRound size={15} color={colors.text} />
+            <Text style={[styles.actionPillText, { color: colors.text }]}>
+              {t.home.joinWithCodeBtn}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Content Area */}
@@ -138,9 +140,7 @@ export default function CirclesTab() {
               },
             ]}
           >
-            <View style={[styles.iconBox, { backgroundColor: colors.wash }]}>
-              <Users size={32} color={colors.primary} />
-            </View>
+            <Users size={36} color={colors.primary} />
             <Text style={[styles.title, { color: colors.text }]}>
               {t.home.emptyCirclesTitle}
             </Text>
@@ -282,9 +282,16 @@ export default function CirclesTab() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  floatingHeaderArea: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 30,
+    paddingTop: Platform.OS === 'ios' ? 52 : 36,
+  },
   headerBar: {
     paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'ios' ? 56 : 40,
     paddingBottom: 10,
     flexDirection: 'row',
     alignItems: 'center',
@@ -306,6 +313,10 @@ const styles = StyleSheet.create({
     gap: 6,
     height: 40,
     borderRadius: 20,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
   },
   actionPillText: {
     fontSize: 13,
@@ -319,6 +330,7 @@ const styles = StyleSheet.create({
   emptyContent: {
     flexGrow: 1,
     padding: 20,
+    paddingTop: Platform.OS === 'ios' ? 148 : 132,
     paddingBottom: 90,
     justifyContent: 'center',
   },
@@ -351,6 +363,7 @@ const styles = StyleSheet.create({
   btnText: { fontSize: 13, fontWeight: '700' },
   listContent: {
     paddingHorizontal: 20,
+    paddingTop: Platform.OS === 'ios' ? 148 : 132,
     paddingBottom: 100,
     gap: 12,
   },
