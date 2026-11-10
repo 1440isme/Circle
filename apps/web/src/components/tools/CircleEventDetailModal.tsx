@@ -79,6 +79,10 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
   const [showReminderConfirmModal, setShowReminderConfirmModal] = useState(false);
   const [pendingReminderValue, setPendingReminderValue] = useState<string | null>(null);
 
+  // Poll Vote Scope Modal cho sự kiện lặp lại
+  const [showPollScopeModal, setShowPollScopeModal] = useState(false);
+  const [pendingPollStatus, setPendingPollStatus] = useState<EventRsvpStatus | null>(null);
+
   const rsvpMutation = useRespondEventRsvpMutation(circleId);
   const updateMutation = useUpdateCalendarEventMutation(circleId);
   const createMutation = useCreateCalendarEventMutation(circleId);
@@ -163,7 +167,7 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
     setPendingReminderValue(null);
   };
 
-  const handleApplyReminder = async (scope: 'this' | 'all') => {
+  const handleApplyReminder = async (scope: 'this' | 'future' | 'all') => {
     const newVal = pendingReminderValue;
     if (!newVal) return;
 
@@ -220,6 +224,70 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
           endTime: occEndDate.toISOString(),
           reminderTime: standaloneReminderIso || undefined,
         });
+      } else if (isRecurring && scope === 'future') {
+        const splitDay = new Date(
+          occStartDate.getFullYear(),
+          occStartDate.getMonth(),
+          occStartDate.getDate(),
+        );
+        const evOriginalStartDay = new Date(
+          evStart.getFullYear(),
+          evStart.getMonth(),
+          evStart.getDate(),
+        );
+
+        let newReminderIso: string | null = null;
+        if (diffMins !== null) {
+          const s = new Date(occStartDate);
+          s.setMinutes(s.getMinutes() - diffMins);
+          newReminderIso = s.toISOString();
+        }
+
+        if (splitDay.getTime() > evOriginalStartDay.getTime()) {
+          const dayBefore = new Date(splitDay);
+          dayBefore.setDate(dayBefore.getDate() - 1);
+          dayBefore.setHours(23, 59, 59, 999);
+
+          const updatedParentRecurrence: RecurrenceConfig = {
+            ...(recurrenceConfig!),
+            endType: 'on_date',
+            endDate: dayBefore,
+          };
+          const updatedParentDesc = serializeRecurrence(updatedParentRecurrence, cleanDesc);
+
+          // 1. Cập nhật sự kiện cũ: kết thúc lặp vào ngày trước splitDate
+          await updateMutation.mutateAsync({
+            eventId: event.id,
+            input: {
+              description: updatedParentDesc,
+            },
+          });
+
+          // 2. Tạo sự kiện mới bắt đầu từ occStartDate với chu kỳ lặp mới và reminderTime mới
+          const childConfig: RecurrenceConfig = {
+            ...(recurrenceConfig!),
+            excludedDates: [],
+            cancelledDates: [],
+          };
+          const childDesc = serializeRecurrence(childConfig, cleanDesc);
+
+          await createMutation.mutateAsync({
+            eventTitle: event.eventTitle,
+            description: childDesc,
+            location: event.location || undefined,
+            startTime: occStartDate.toISOString(),
+            endTime: occEndDate.toISOString(),
+            reminderTime: newReminderIso || undefined,
+          });
+        } else {
+          // Trùng hoặc trước ngày bắt đầu ban đầu: cập nhật tất cả
+          await updateMutation.mutateAsync({
+            eventId: event.id,
+            input: {
+              reminderTime: newReminderIso,
+            },
+          });
+        }
       } else {
         // Apply to all (or standalone event)
         let newReminderIso: string | null = null;
@@ -259,6 +327,132 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
   const handleVote = (status: EventRsvpStatus) => {
     if (isThisOccurrenceCancelled || rsvpMutation.isPending) return;
     rsvpMutation.mutate({ eventId: event.id, status });
+  };
+
+  // Click chọn phương án bình chọn: Nếu là sự kiện lặp lại thì hỏi scope trước
+  const handleVoteOptionClick = (status: EventRsvpStatus) => {
+    if (isThisOccurrenceCancelled || rsvpMutation.isPending) return;
+    setShowPollModal(false);
+    if (isRecurring) {
+      setPendingPollStatus(status);
+      setShowPollScopeModal(true);
+    } else {
+      handleVote(status);
+    }
+  };
+
+  const handleApplyPollScope = async (scope: 'this' | 'future' | 'all') => {
+    const status = pendingPollStatus;
+    if (!status) return;
+
+    setShowPollScopeModal(false);
+
+    try {
+      if (isRecurring && scope === 'this') {
+        const occKey = formatDateKey(currentOccDate);
+        const currentExcluded = recurrenceConfig?.excludedDates || [];
+        const nextExcluded = currentExcluded.includes(occKey)
+          ? currentExcluded
+          : [...currentExcluded, occKey];
+        const updatedParentRecurrence: RecurrenceConfig = {
+          ...(recurrenceConfig!),
+          excludedDates: nextExcluded,
+        };
+        const updatedParentDesc = serializeRecurrence(updatedParentRecurrence, cleanDesc);
+
+        // 1. Exclude this occurrence from parent series
+        await updateMutation.mutateAsync({
+          eventId: event.id,
+          input: {
+            description: updatedParentDesc,
+          },
+        });
+
+        // 2. Create standalone event for this occurrence
+        const standaloneConfig: RecurrenceConfig = {
+          ...(recurrenceConfig!),
+          frequency: 'none',
+          endType: 'never',
+          endDate: null,
+          isCustom: false,
+        };
+        const standaloneDesc = serializeRecurrence(standaloneConfig, cleanDesc);
+
+        const created = await createMutation.mutateAsync({
+          eventTitle: event.eventTitle,
+          description: standaloneDesc,
+          location: event.location || undefined,
+          startTime: occStartDate.toISOString(),
+          endTime: occEndDate.toISOString(),
+          reminderTime: event.reminderTime || undefined,
+        });
+
+        // 3. Cast vote on newly created standalone event
+        await rsvpMutation.mutateAsync({ eventId: created.id, status });
+      } else if (isRecurring && scope === 'future') {
+        const splitDay = new Date(
+          occStartDate.getFullYear(),
+          occStartDate.getMonth(),
+          occStartDate.getDate(),
+        );
+        const evOriginalStartDay = new Date(
+          evStart.getFullYear(),
+          evStart.getMonth(),
+          evStart.getDate(),
+        );
+
+        if (splitDay.getTime() > evOriginalStartDay.getTime()) {
+          const dayBefore = new Date(splitDay);
+          dayBefore.setDate(dayBefore.getDate() - 1);
+          dayBefore.setHours(23, 59, 59, 999);
+
+          const updatedParentRecurrence: RecurrenceConfig = {
+            ...(recurrenceConfig!),
+            endType: 'on_date',
+            endDate: dayBefore,
+          };
+          const updatedParentDesc = serializeRecurrence(updatedParentRecurrence, cleanDesc);
+
+          // 1. Cập nhật sự kiện cũ kết thúc trước splitDate
+          await updateMutation.mutateAsync({
+            eventId: event.id,
+            input: {
+              description: updatedParentDesc,
+            },
+          });
+
+          // 2. Tạo chuỗi sự kiện mới bắt đầu từ splitDate
+          const childConfig: RecurrenceConfig = {
+            ...(recurrenceConfig!),
+            excludedDates: [],
+            cancelledDates: [],
+          };
+          const childDesc = serializeRecurrence(childConfig, cleanDesc);
+
+          const created = await createMutation.mutateAsync({
+            eventTitle: event.eventTitle,
+            description: childDesc,
+            location: event.location || undefined,
+            startTime: occStartDate.toISOString(),
+            endTime: occEndDate.toISOString(),
+            reminderTime: event.reminderTime || undefined,
+          });
+
+          // 3. Cast vote on child event
+          await rsvpMutation.mutateAsync({ eventId: created.id, status });
+        } else {
+          // Trùng hoặc trước ngày bắt đầu ban đầu: cập nhật tất cả
+          await rsvpMutation.mutateAsync({ eventId: event.id, status });
+        }
+      } else {
+        // Cập nhật tất cả các lần
+        await rsvpMutation.mutateAsync({ eventId: event.id, status });
+      }
+    } catch (err: any) {
+      console.warn('Failed to apply poll vote scope:', err);
+    } finally {
+      setPendingPollStatus(null);
+    }
   };
 
   // Boundary check for occurrences: cannot go prior to initial start date
@@ -754,10 +948,7 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
                     key={opt.status}
                     type="button"
                     disabled={isThisOccurrenceCancelled || rsvpMutation.isPending}
-                    onClick={() => {
-                      handleVote(opt.status);
-                      setShowPollModal(false);
-                    }}
+                    onClick={() => handleVoteOptionClick(opt.status)}
                     className={`relative overflow-hidden w-full p-3.5 rounded-2xl border text-left transition-all cursor-pointer active:scale-98 ${
                       isSelected ? opt.activeBg : opt.inactiveBg
                     } disabled:opacity-50`}
@@ -941,18 +1132,15 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
       )}
 
       {/* ============================================================== */}
-      {/* SCOPE MODAL KHI CẬP NHẬT NHẮC HẸN CHO SỰ KIỆN LẶP LẠI */}
+      {/* SCOPE MODAL KHI CẬP NHẬT NHẮC HẸN CHO SỰ KIỆN LẶP LẠI (3 OPTIONS) */}
       {/* ============================================================== */}
       {showReminderScopeModal && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
           <div className="w-full max-w-sm rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-5 shadow-2xl space-y-4">
             <div>
               <h4 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
-                Cập nhật sự kiện lặp lại
+                Bạn muốn áp dụng thay đổi như thế nào ?
               </h4>
-              <p className="text-xs text-circle-slate dark:text-circle-dark-muted mt-1">
-                Bạn muốn áp dụng thay đổi thời gian nhắc hẹn này cho lần diễn ra này hay tất cả các lần?
-              </p>
             </div>
 
             <div className="space-y-2">
@@ -966,6 +1154,19 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
                 </p>
                 <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted mt-0.5">
                   Chỉ thay đổi riêng ngày {formatDateOnly(occStartDate)}, các lần khác giữ nguyên.
+                </p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleApplyReminder('future')}
+                className="w-full text-left p-3 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas hover:border-teal-500 hover:bg-teal-50/40 dark:hover:bg-teal-950/20 transition-all cursor-pointer"
+              >
+                <p className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
+                  Lần này và các lần tiếp theo
+                </p>
+                <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted mt-0.5">
+                  Áp dụng thay đổi từ ngày {formatDateOnly(occStartDate)} trở đi (sẽ tách làm 2 sự kiện có chu kỳ lặp khác nhau).
                 </p>
               </button>
 
@@ -987,6 +1188,75 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
               <button
                 type="button"
                 onClick={handleCancelReminderModal}
+                className="px-4 py-1.5 rounded-xl text-xs font-semibold text-circle-slate hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors cursor-pointer"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* SCOPE MODAL KHI BÌNH CHỌN CHO SỰ KIỆN LẶP LẠI (3 OPTIONS) */}
+      {/* ============================================================== */}
+      {showPollScopeModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="w-full max-w-sm rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-5 shadow-2xl space-y-4">
+            <div>
+              <h4 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
+                Bạn muốn áp dụng thay đổi như thế nào ?
+              </h4>
+            </div>
+
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => handleApplyPollScope('this')}
+                className="w-full text-left p-3 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas hover:border-teal-500 hover:bg-teal-50/40 dark:hover:bg-teal-950/20 transition-all cursor-pointer"
+              >
+                <p className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
+                  Chỉ lần này
+                </p>
+                <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted mt-0.5">
+                  Chỉ áp dụng phản hồi cho riêng ngày {formatDateOnly(occStartDate)}, các lần khác giữ nguyên.
+                </p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleApplyPollScope('future')}
+                className="w-full text-left p-3 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas hover:border-teal-500 hover:bg-teal-50/40 dark:hover:bg-teal-950/20 transition-all cursor-pointer"
+              >
+                <p className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
+                  Lần này và các lần tiếp theo
+                </p>
+                <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted mt-0.5">
+                  Áp dụng phản hồi từ ngày {formatDateOnly(occStartDate)} trở đi (sẽ tách làm 2 sự kiện có chu kỳ lặp khác nhau).
+                </p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleApplyPollScope('all')}
+                className="w-full text-left p-3 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas hover:border-teal-500 hover:bg-teal-50/40 dark:hover:bg-teal-950/20 transition-all cursor-pointer"
+              >
+                <p className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
+                  Tất cả các lần
+                </p>
+                <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted mt-0.5">
+                  Cập nhật phản hồi cho toàn bộ các lần diễn ra trong chuỗi lặp lại.
+                </p>
+              </button>
+            </div>
+
+            <div className="pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline flex justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPollScopeModal(false);
+                  setPendingPollStatus(null);
+                }}
                 className="px-4 py-1.5 rounded-xl text-xs font-semibold text-circle-slate hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors cursor-pointer"
               >
                 Đóng

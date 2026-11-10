@@ -1857,11 +1857,8 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
           <div className="w-full max-w-sm rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-5 shadow-2xl space-y-4">
             <div>
               <h4 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
-                Cập nhật sự kiện lặp lại
+                Bạn muốn áp dụng thay đổi như thế nào ?
               </h4>
-              <p className="text-xs text-circle-slate dark:text-circle-dark-muted mt-1">
-                Bạn muốn áp dụng các thay đổi này cho lần diễn ra này, các lần tiếp theo hay tất cả các lần?
-              </p>
             </div>
 
             <div className="space-y-2">
