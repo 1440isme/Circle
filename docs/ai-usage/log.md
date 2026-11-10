@@ -6836,3 +6836,40 @@
   - **Resolution / Fix:** N/A.
 - **Commit:** b4405bf
 - **PR:** Pending
+
+
+---
+
+## [AI-0191] - 2026-11-11
+
+- **Developer:** Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 2.5 Pro
+- **Related Issue:** #120
+- **Purpose:** Tinh chỉnh toàn diện chế độ "Theo lịch trình" trên màn hình Lịch Web (`CircleCalendarView.tsx`):
+  1. Hiển thị tất cả sự kiện (cả quá khứ và tương lai) thay vì chỉ sự kiện sắp tới.
+  2. Phân cấp màu sắc trực quan theo dòng thời gian:
+     - Nhóm ngày đã qua: Tiêu đề màu đen nhạt (`text-zinc-500/80`), thẻ sự kiện giảm độ mờ (`opacity-85`) thanh lịch.
+     - Nhóm ngày hiện tại / sắp diễn ra gần nhất: Tiêu đề đỏ rực nổi bật (`text-red-600 dark:text-red-400 font-extrabold`) kèm badge "Hôm nay" hoặc "Sắp diễn ra".
+  3. Nút Floating Pill "Hôm nay" tự động cuộn mượt (smooth-scroll) chính xác đến nhóm ngày hiện tại hoặc sự kiện sắp diễn ra gần nhất (`schedule-current-target`).
+  4. Lược bỏ toàn bộ nút bấm trong thẻ sự kiện (`Share2`, `Pencil`, `Trash2`), cho phép ấn vào bất cứ đâu trên thẻ để mở Modal Chi tiết sự kiện chuẩn UX.
+  5. Thiết kế nội dung thẻ khớp 100% với Mobile App: Tiêu đề, tag ĐÃ HỦY, thời gian (Clock), địa điểm (MapPin), ghi chú (Info), nhóm badge RSVP (Tham gia / Chưa chắc / Bận) và hàng avatar người tham gia.
+  6. Lược bỏ hiển thị đếm số sự kiện tại nút tab toggle "Theo lịch trình".
+- **Prompt Summary:** theo lịch trình đó cũng là tất cả sự kiện những sự kiện qua rồi thì sẽ màu đen nhạt còn cái hiện tại thì đỏ Thứ Tư, ngày 18 tháng 11 năm 2026 . ấn hôm nay sẽ dẫn đến cái sắp diễn ra đó. bỏ các btn trong thẻ sự kiện luônn. nội dung thẻ hiển thị giống như app () bỏ đếm số sự kiện chỗ theo lịch trình.
+- **Files Affected:**
+  - `apps/web/src/components/tools/CircleCalendarView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% logic nạp toàn bộ sự kiện, phân định màu sắc tiêu đề ngày, cơ chế cuộn mượt đến mục tiêu hiện tại/sắp tới, thiết kế thẻ sự kiện đồng bộ với Mobile App.
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+  - npx tsc --noEmit --project apps/web/tsconfig.json: Passed 100%, 0 lỗi.
+  - bash ./scripts/check-agent-map.sh: 127/127 references resolve.
+  - bash ./scripts/check-secrets.sh: Passed, 0 secret leaks.
+- **Official Source Checked:** PROJECT_GOD.md, agentic/RULES.md & agentic/CONVENTIONS.md.
+- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A.
+  - **Resolution / Fix:** N/A.
+- **Commit:** bb7d42d
+- **PR:** Pending

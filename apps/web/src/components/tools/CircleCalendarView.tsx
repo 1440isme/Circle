@@ -213,7 +213,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
   const rsvpMutation = useRespondEventRsvpMutation(circleId);
   const queryClient = useQueryClient();
   const [viewMode, setViewMode] = useState<'month' | 'upcoming'>('month');
-  const { data: upcomingEvents = [], isLoading: isUpcomingLoading } = useUpcomingCalendarEventsQuery(circleId);
+  const { data: allCalendarEvents = [], isLoading: isAllEventsLoading } = useCalendarEventsQuery(circleId);
   const shareToChatMutation = useShareCalendarEventToChatMutation(circleId);
   const [shareSuccessId, setShareSuccessId] = useState<string | null>(null);
 
@@ -258,15 +258,24 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
 
   // Group schedule events chronologically by date: "Thứ, ngày tháng năm"
   const groupedScheduleByDate = useMemo(() => {
-    const sorted = [...upcomingEvents].sort(
+    const sorted = [...allCalendarEvents].sort(
       (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
     );
 
-    const map = new Map<string, { dateObj: Date; dateLabel: string; isToday: boolean; list: CalendarEventEntity[] }>();
     const now = new Date();
-    const todayY = now.getFullYear();
-    const todayM = now.getMonth();
-    const todayD = now.getDate();
+    const todayDateOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+
+    const map = new Map<
+      string,
+      {
+        dateObj: Date;
+        dateLabel: string;
+        isPast: boolean;
+        isToday: boolean;
+        isFuture: boolean;
+        list: CalendarEventEntity[];
+      }
+    >();
 
     for (const ev of sorted) {
       const d = new Date(ev.startTime);
@@ -282,15 +291,46 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
         const month = d.getMonth() + 1;
         const year = d.getFullYear();
         const dateLabel = `${weekday}, ngày ${day} tháng ${month} năm ${year}`;
-        const isToday = d.getFullYear() === todayY && d.getMonth() === todayM && d.getDate() === todayD;
-        map.set(dateKey, { dateObj: d, dateLabel, isToday, list: [] });
+
+        const gDateOnly = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+        const isToday = gDateOnly === todayDateOnly;
+        const isPast = gDateOnly < todayDateOnly;
+        const isFuture = gDateOnly > todayDateOnly;
+
+        map.set(dateKey, { dateObj: d, dateLabel, isPast, isToday, isFuture, list: [] });
       }
 
       map.get(dateKey)!.list.push(ev);
     }
 
     return Array.from(map.values());
-  }, [upcomingEvents]);
+  }, [allCalendarEvents]);
+
+  // Determine current active target for "Hôm nay" jump and red header highlighting
+  const currentTargetDateLabel = useMemo(() => {
+    const now = new Date();
+    const todayDateOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+
+    // 1. Try finding today
+    const todayGroup = groupedScheduleByDate.find((g) => {
+      const gTime = new Date(g.dateObj.getFullYear(), g.dateObj.getMonth(), g.dateObj.getDate()).getTime();
+      return gTime === todayDateOnly;
+    });
+    if (todayGroup) return todayGroup.dateLabel;
+
+    // 2. Try finding the first upcoming group (future)
+    const nextGroup = groupedScheduleByDate.find((g) => {
+      const gTime = new Date(g.dateObj.getFullYear(), g.dateObj.getMonth(), g.dateObj.getDate()).getTime();
+      return gTime > todayDateOnly;
+    });
+    if (nextGroup) return nextGroup.dateLabel;
+
+    // 3. Fallback to the last past group if everything is in the past
+    if (groupedScheduleByDate.length > 0) {
+      return groupedScheduleByDate[groupedScheduleByDate.length - 1].dateLabel;
+    }
+    return null;
+  }, [groupedScheduleByDate]);
 
   const handleOpenCreateModal = () => {
     setEditingEvent(null);
@@ -500,7 +540,29 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
     const today = new Date();
     setCurrentDate(today);
     setSelectedDate(today);
+
+    if (viewMode === 'upcoming') {
+      setTimeout(() => {
+        const el = document.getElementById('schedule-current-target');
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 50);
+    }
   };
+
+  // Auto-scroll to today or next upcoming event when switching to schedule view
+  useEffect(() => {
+    if (viewMode === 'upcoming' && !isAllEventsLoading && groupedScheduleByDate.length > 0) {
+      const timer = setTimeout(() => {
+        const el = document.getElementById('schedule-current-target');
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [viewMode, isAllEventsLoading, groupedScheduleByDate.length]);
 
   // Map events to days of the current month
   const eventsByDay = useMemo(() => {
@@ -1434,7 +1496,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                 }`}
               >
                 <Clock className="h-3.5 w-3.5" />
-                <span>Theo lịch trình ({upcomingEvents.length})</span>
+                <span>Theo lịch trình</span>
               </button>
             </div>
 
@@ -1460,124 +1522,186 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
 
       {/* Main Content Area */}
       {viewMode === 'upcoming' ? (
-        /* Upcoming feed */
+        /* Schedule feed */
         <div className="space-y-6 max-w-4xl">
-          {isUpcomingLoading ? (
+          {isAllEventsLoading ? (
             <div className="flex items-center justify-center py-16">
               <Loader2 className="h-6 w-6 animate-spin text-circle-slate" />
             </div>
-          ) : upcomingEvents.length === 0 ? (
+          ) : allCalendarEvents.length === 0 ? (
             <div className="text-center py-20 rounded-2xl border border-dashed border-circle-hairline bg-white dark:bg-circle-dark-canvas p-8">
               <CalendarIcon className="h-10 w-10 text-circle-slate/40 mx-auto mb-3" />
               <p className="text-sm font-semibold text-circle-charcoal dark:text-circle-dark-text">
-                Không có lịch trình sắp tới
+                Không có sự kiện nào theo lịch trình
               </p>
               <p className="text-xs text-circle-slate dark:text-circle-dark-muted mt-1">
                 Tạo một sự kiện để lên lịch làm việc hoặc gặp gỡ cùng các thành viên.
               </p>
             </div>
           ) : (
-            groupedScheduleByDate.map(({ dateLabel, isToday, list }) => (
-              <div key={dateLabel} className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-xs sm:text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
-                    {dateLabel}
-                  </h3>
-                  {isToday && (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-500/10 text-teal-600 border border-teal-500/20">
-                      Hôm nay
-                    </span>
-                  )}
-                  <span className="text-xs font-semibold text-circle-slate dark:text-circle-dark-muted">
-                    ({list.length})
-                  </span>
-                </div>
-                <div className="space-y-3">
-                    {list.map((ev) => (
-                      <div
-                        key={ev.id}
-                        onClick={() =>
-                          setDetailModalState({
-                            isOpen: true,
-                            event: ev,
-                            occDate: new Date(ev.startTime),
-                          })
-                        }
-                        className="cursor-pointer hover:border-teal-500/60 hover:shadow-xs transition-all rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-canvas p-4 shadow-2xs space-y-3"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
+            groupedScheduleByDate.map(({ dateLabel, isPast, isToday, isFuture, list }) => {
+              const isCurrentTarget = dateLabel === currentTargetDateLabel;
+
+              return (
+                <div
+                  key={dateLabel}
+                  id={isCurrentTarget ? 'schedule-current-target' : undefined}
+                  className={`space-y-3 scroll-mt-24 ${isPast ? 'opacity-85' : ''}`}
+                >
+                  <div className="flex items-center gap-2">
+                    <h3
+                      className={`text-xs sm:text-sm font-bold transition-colors ${
+                        isCurrentTarget
+                          ? 'text-red-600 dark:text-red-400 font-extrabold'
+                          : isPast
+                          ? 'text-zinc-500/80 dark:text-zinc-400/80 font-medium'
+                          : 'text-circle-charcoal dark:text-circle-dark-text font-bold'
+                      }`}
+                    >
+                      {dateLabel}
+                    </h3>
+                    {isToday ? (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20">
+                        Hôm nay
+                      </span>
+                    ) : isCurrentTarget ? (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20">
+                        Sắp diễn ra
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="space-y-3">
+                    {list.map((ev) => {
+                      const isCancelled = ev.isCancelled;
+                      const { cleanDesc } = parseEventRecurrence(ev.description);
+
+                      const rsvps = ev.rsvps || [];
+                      const yesList = rsvps.filter((r) => r.status === EventRsvpStatus.YES);
+                      const maybeList = rsvps.filter((r) => r.status === EventRsvpStatus.MAYBE);
+                      const noList = rsvps.filter((r) => r.status === EventRsvpStatus.NO);
+
+                      return (
+                        <div
+                          key={ev.id}
+                          onClick={() =>
+                            setDetailModalState({
+                              isOpen: true,
+                              event: ev,
+                              occDate: new Date(ev.startTime),
+                            })
+                          }
+                          className={`group cursor-pointer hover:border-teal-500/60 hover:shadow-xs transition-all rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-canvas p-4 shadow-2xs space-y-3 ${
+                            isPast ? 'bg-zinc-50/40 dark:bg-zinc-900/20' : ''
+                          }`}
+                        >
+                          {/* 1. Tiêu đề & Tag Đã Hủy (Bỏ toàn bộ nút thao tác trong thẻ) */}
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span
+                                className={`text-sm font-bold truncate ${
+                                  isPast
+                                    ? 'text-zinc-600 dark:text-zinc-300'
+                                    : 'text-circle-charcoal dark:text-circle-dark-text'
+                                }`}
+                              >
                                 {ev.eventTitle}
                               </span>
-                              {ev.isCancelled && (
-                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-600 border border-rose-500/20">
-                                  Đã hủy
+                              {isCancelled && (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-600 border border-rose-500/20 shrink-0">
+                                  ĐÃ HỦY
                                 </span>
                               )}
                             </div>
-                            <div className="flex items-center gap-2 text-[11px] text-circle-slate dark:text-circle-dark-muted mt-1">
-                              <Clock className="h-3 w-3" />
-                              <span>{formatEventTimeForDate(ev, new Date(ev.startTime))}</span>
+                          </div>
+
+                          {/* 2. Thời gian diễn ra */}
+                          <div className="flex items-center gap-2 text-xs text-teal-600 dark:text-teal-400 font-medium">
+                            <Clock className="h-3.5 w-3.5 shrink-0" />
+                            <span>{formatEventTimeForDate(ev, new Date(ev.startTime))}</span>
+                          </div>
+
+                          {/* 3. Địa điểm nếu có */}
+                          {ev.location && (
+                            <div className="flex items-center gap-2 text-xs text-circle-slate dark:text-circle-dark-muted">
+                              <MapPin className="h-3.5 w-3.5 shrink-0 text-circle-slate/70" />
+                              <EventLocationDisplay location={ev.location} className="text-xs" />
                             </div>
-                          </div>
+                          )}
 
-                          <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                            <button
-                              type="button"
-                              onClick={() => handleShareToChat(ev.id)}
-                              className="p-1 text-circle-slate hover:text-circle-primary transition-colors"
-                              title="Chia sẻ vào chat"
-                            >
-                              <Share2 className="h-3.5 w-3.5" />
-                            </button>
-                            {!ev.isCancelled && (
-                              <button
-                                type="button"
-                                onClick={() => handleOpenEditModal(ev, new Date(ev.startTime))}
-                                className="p-1 text-circle-slate hover:text-circle-charcoal transition-colors"
-                                title="Chỉnh sửa lịch hẹn"
-                              >
-                                <Pencil className="h-3.5 w-3.5" />
-                              </button>
-                            )}
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setDeleteModalState({
-                                  isOpen: true,
-                                  event: ev,
-                                  occDate: new Date(ev.startTime),
-                                })
-                              }
-                              className="p-1 text-rose-600 hover:text-rose-700 transition-colors"
-                              title="Xóa lịch hẹn"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
-                        </div>
-
-                        {ev.location && (
-                          <EventLocationDisplay location={ev.location} className="text-xs" />
-                        )}
-
-                        {(() => {
-                          const { cleanDesc } = parseEventRecurrence(ev.description);
-                          if (!cleanDesc) return null;
-                          return (
-                            <div className="flex items-start gap-1.5 text-xs text-circle-slate dark:text-circle-dark-muted mt-1 bg-circle-wash/40 dark:bg-circle-dark-surface/60 px-2.5 py-1.5 rounded-lg border border-circle-hairline/40">
-                              <Info className="h-3.5 w-3.5 text-circle-slate/70 dark:text-circle-dark-muted/70 shrink-0 mt-0.5" />
+                          {/* 4. Ghi chú mô tả nếu có */}
+                          {cleanDesc && (
+                            <div className="flex items-start gap-1.5 text-xs text-circle-slate dark:text-circle-dark-muted bg-circle-wash/50 dark:bg-circle-dark-surface/60 px-3 py-1.5 rounded-xl border border-circle-hairline/40">
+                              <Info className="h-3.5 w-3.5 text-circle-slate/70 shrink-0 mt-0.5" />
                               <span className="whitespace-pre-wrap line-clamp-2">{cleanDesc}</span>
                             </div>
-                          );
-                        })()}
-                      </div>
-                    ))}
+                          )}
+
+                          {/* 5. Tóm tắt RSVP & Danh sách Avatar (Giống hệt Mobile App) */}
+                          <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-circle-hairline/40 dark:border-circle-dark-hairline/40">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              {yesList.length > 0 ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                  {yesList.length} Tham gia
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-circle-wash dark:bg-circle-dark-surface text-circle-slate dark:text-circle-dark-muted border border-circle-hairline/60">
+                                  Chưa có người tham gia
+                                </span>
+                              )}
+
+                              {maybeList.length > 0 && (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                                  {maybeList.length} Chưa chắc
+                                </span>
+                              )}
+
+                              {noList.length > 0 && (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                                  {noList.length} Bận
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Avatars Stack */}
+                            {yesList.length > 0 && (
+                              <div className="flex items-center -space-x-2">
+                                {yesList.slice(0, 4).map((r, i) => (
+                                  <div
+                                    key={r.userId || i}
+                                    className="relative inline-block w-6 h-6 rounded-full ring-2 ring-white dark:ring-circle-dark-canvas overflow-hidden shrink-0 bg-circle-wash dark:bg-circle-dark-surface"
+                                    title={r.user?.profile?.displayName || 'Người tham gia'}
+                                  >
+                                    {r.user?.profile?.avatarUrl ? (
+                                      <img
+                                        src={r.user.profile.avatarUrl}
+                                        alt={r.user?.profile?.displayName || ''}
+                                        className="w-full h-full object-cover"
+                                      />
+                                    ) : (
+                                      <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-teal-800 dark:text-teal-300 bg-teal-500/20">
+                                        {(r.user?.profile?.displayName || 'U').charAt(0).toUpperCase()}
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                                {yesList.length > 4 && (
+                                  <div className="relative inline-flex items-center justify-center w-6 h-6 rounded-full ring-2 ring-white dark:ring-circle-dark-canvas bg-circle-wash dark:bg-circle-dark-surface text-[10px] font-bold text-circle-slate">
+                                    +{yesList.length - 4}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
-              ))
+              );
+            })
           )}
         </div>
       ) : (
