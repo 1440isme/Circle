@@ -156,6 +156,11 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
     recurrenceConfigStr: string;
   } | null>(null);
 
+  // Month & Year Picker State in Month Navigator
+  const [isMonthPickerOpen, setIsMonthPickerOpen] = useState(false);
+  const [pickerYear, setPickerYear] = useState(() => new Date().getFullYear());
+  const monthPickerRef = useRef<HTMLDivElement>(null);
+
   // Delete & Cancel Scope Modals
   const [deleteModalState, setDeleteModalState] = useState<{
     isOpen: boolean;
@@ -228,6 +233,19 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
     };
   }, [circleId, queryClient]);
 
+  // Close Month-Year picker on click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (monthPickerRef.current && !monthPickerRef.current.contains(e.target as Node)) {
+        setIsMonthPickerOpen(false);
+      }
+    };
+    if (isMonthPickerOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isMonthPickerOpen]);
+
   const handleShareToChat = async (eventId: string) => {
     try {
       await shareToChatMutation.mutateAsync(eventId);
@@ -238,32 +256,40 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
     }
   };
 
-  // Group upcoming events chronologically
-  const groupedUpcoming = useMemo(() => {
-    const nowTime = new Date();
-    const todayStart = new Date(nowTime.getFullYear(), nowTime.getMonth(), nowTime.getDate()).getTime();
-    const tomorrowStart = todayStart + 86400000;
-    const weekEnd = todayStart + 7 * 86400000;
+  // Group schedule events chronologically by date: "Thứ, ngày tháng năm"
+  const groupedScheduleByDate = useMemo(() => {
+    const sorted = [...upcomingEvents].sort(
+      (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
+    );
 
-    const todayList: CalendarEventEntity[] = [];
-    const tomorrowList: CalendarEventEntity[] = [];
-    const thisWeekList: CalendarEventEntity[] = [];
-    const laterList: CalendarEventEntity[] = [];
+    const map = new Map<string, { dateObj: Date; dateLabel: string; isToday: boolean; list: CalendarEventEntity[] }>();
+    const now = new Date();
+    const todayY = now.getFullYear();
+    const todayM = now.getMonth();
+    const todayD = now.getDate();
 
-    for (const ev of upcomingEvents) {
-      const start = new Date(ev.startTime).getTime();
-      if (start >= todayStart && start < tomorrowStart) {
-        todayList.push(ev);
-      } else if (start >= tomorrowStart && start < tomorrowStart + 86400000) {
-        tomorrowList.push(ev);
-      } else if (start >= tomorrowStart + 86400000 && start < weekEnd) {
-        thisWeekList.push(ev);
-      } else {
-        laterList.push(ev);
+    for (const ev of sorted) {
+      const d = new Date(ev.startTime);
+      const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+      if (!map.has(dateKey)) {
+        const rawWeekday = d.toLocaleDateString('vi-VN', { weekday: 'long' });
+        const weekday = rawWeekday
+          .split(' ')
+          .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+          .join(' ');
+        const day = d.getDate();
+        const month = d.getMonth() + 1;
+        const year = d.getFullYear();
+        const dateLabel = `${weekday}, ngày ${day} tháng ${month} năm ${year}`;
+        const isToday = d.getFullYear() === todayY && d.getMonth() === todayM && d.getDate() === todayD;
+        map.set(dateKey, { dateObj: d, dateLabel, isToday, list: [] });
       }
+
+      map.get(dateKey)!.list.push(ev);
     }
 
-    return { today: todayList, tomorrow: tomorrowList, thisWeek: thisWeekList, later: laterList };
+    return Array.from(map.values());
   }, [upcomingEvents]);
 
   const handleOpenCreateModal = () => {
@@ -1408,7 +1434,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                 }`}
               >
                 <Clock className="h-3.5 w-3.5" />
-                <span>Sắp tới ({upcomingEvents.length})</span>
+                <span>Theo lịch trình ({upcomingEvents.length})</span>
               </button>
             </div>
 
@@ -1444,26 +1470,29 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
             <div className="text-center py-20 rounded-2xl border border-dashed border-circle-hairline bg-white dark:bg-circle-dark-canvas p-8">
               <CalendarIcon className="h-10 w-10 text-circle-slate/40 mx-auto mb-3" />
               <p className="text-sm font-semibold text-circle-charcoal dark:text-circle-dark-text">
-                Không có sự kiện sắp tới
+                Không có lịch trình sắp tới
               </p>
               <p className="text-xs text-circle-slate dark:text-circle-dark-muted mt-1">
                 Tạo một sự kiện để lên lịch làm việc hoặc gặp gỡ cùng các thành viên.
               </p>
             </div>
           ) : (
-            [
-              { groupTitle: 'Hôm nay', list: groupedUpcoming.today },
-              { groupTitle: 'Ngày mai', list: groupedUpcoming.tomorrow },
-              { groupTitle: 'Trong 7 ngày tới', list: groupedUpcoming.thisWeek },
-              { groupTitle: 'Sau đó', list: groupedUpcoming.later },
-            ]
-              .filter((g) => g.list.length > 0)
-              .map(({ groupTitle, list }) => (
-                <div key={groupTitle} className="space-y-3">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-circle-slate dark:text-circle-dark-muted">
-                    {groupTitle} ({list.length})
+            groupedScheduleByDate.map(({ dateLabel, isToday, list }) => (
+              <div key={dateLabel} className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-xs sm:text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
+                    {dateLabel}
                   </h3>
-                  <div className="space-y-3">
+                  {isToday && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-500/10 text-teal-600 border border-teal-500/20">
+                      Hôm nay
+                    </span>
+                  )}
+                  <span className="text-xs font-semibold text-circle-slate dark:text-circle-dark-muted">
+                    ({list.length})
+                  </span>
+                </div>
+                <div className="space-y-3">
                     {list.map((ev) => (
                       <div
                         key={ev.id}
@@ -1562,17 +1591,85 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                 <button
                   type="button"
                   onClick={prevMonth}
-                  className="p-1.5 rounded-lg text-circle-slate hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors"
+                  className="p-1.5 rounded-lg text-circle-slate hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors cursor-pointer"
+                  title="Tháng trước"
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </button>
-                <span className="px-3 text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
-                  Tháng {month} / {year}
-                </span>
+
+                {/* Month & Year Picker Dropdown */}
+                <div ref={monthPickerRef} className="relative">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPickerYear(year);
+                      setIsMonthPickerOpen((prev) => !prev);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash border border-transparent hover:border-circle-hairline dark:hover:border-white/10 transition-all cursor-pointer"
+                    title="Chọn tháng và năm"
+                  >
+                    <span>Tháng {month} / {year}</span>
+                    <ChevronDown className={`h-3.5 w-3.5 text-circle-slate transition-transform duration-200 ${isMonthPickerOpen ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {isMonthPickerOpen && (
+                    <div className="absolute top-full left-0 mt-2 z-40 w-64 p-3.5 rounded-2xl bg-white dark:bg-circle-dark-surface border border-circle-hairline dark:border-white/10 shadow-xl space-y-3 animate-in fade-in zoom-in-95 duration-150">
+                      {/* Year Switcher */}
+                      <div className="flex items-center justify-between px-1">
+                        <button
+                          type="button"
+                          onClick={() => setPickerYear((y) => y - 1)}
+                          className="p-1.5 rounded-lg text-circle-slate hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors cursor-pointer"
+                          title="Năm trước"
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </button>
+                        <span className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
+                          Năm {pickerYear}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setPickerYear((y) => y + 1)}
+                          className="p-1.5 rounded-lg text-circle-slate hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors cursor-pointer"
+                          title="Năm sau"
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </button>
+                      </div>
+
+                      {/* 12 Months Grid */}
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {Array.from({ length: 12 }).map((_, idx) => {
+                          const mNum = idx + 1;
+                          const isCurrentSelected = month === mNum && year === pickerYear;
+                          return (
+                            <button
+                              key={mNum}
+                              type="button"
+                              onClick={() => {
+                                setCurrentDate(new Date(pickerYear, mNum - 1, 1));
+                                setIsMonthPickerOpen(false);
+                              }}
+                              className={`py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                                isCurrentSelected
+                                  ? 'bg-teal-600 text-white shadow-xs font-extrabold'
+                                  : 'text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash'
+                              }`}
+                            >
+                              Thg {mNum}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 <button
                   type="button"
                   onClick={nextMonth}
-                  className="p-1.5 rounded-lg text-circle-slate hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors"
+                  className="p-1.5 rounded-lg text-circle-slate hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors cursor-pointer"
+                  title="Tháng sau"
                 >
                   <ChevronRight className="h-4 w-4" />
                 </button>
@@ -1703,14 +1800,6 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                   })}
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={handleOpenCreateModal}
-                className="p-1 rounded-lg border border-circle-hairline text-circle-slate hover:text-circle-charcoal hover:bg-circle-wash transition-colors"
-                title="Thêm lịch hẹn"
-              >
-                <Plus className="h-4 w-4" />
-              </button>
             </div>
 
             <div className="flex-1 overflow-y-auto space-y-3">

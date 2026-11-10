@@ -6803,3 +6803,36 @@
   - **Resolution / Fix:** N/A.
 - **Commit:** 3847faf
 - **PR:** Pending
+
+
+---
+
+## [AI-0190] - 2026-11-11
+
+- **Developer:** Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 2.5 Pro
+- **Related Issue:** #120
+- **Purpose:** Hoàn thiện và nâng cấp các chi tiết trên màn hình Lịch chính (`CircleCalendarView.tsx`):
+  1. Thêm bộ chọn Tháng / Năm dạng Popover Dropdown khi nhấn vào "Tháng {month} / {year}" ở thanh điều hướng lịch, cho phép người dùng chuyển nhanh năm (`< Năm YYYY >`) và chọn trực tiếp 1 trong 12 tháng qua lưới 3x4 mượt mà.
+  2. Bỏ nút `+` thừa ở tiêu đề "Lịch trình ngày" do đã có nút Floating Pill "Tạo sự kiện" nổi bật trên thanh công cụ chính.
+  3. Đổi tên tab chuyển chế độ xem từ "Sắp tới" thành "Theo lịch trình".
+  4. Nâng cấp trình bày danh sách sự kiện theo lịch trình: gom nhóm theo ngày với tiêu đề định dạng chuẩn tiếng Việt "Thứ [tên thứ], ngày [ngày] tháng [tháng] năm [năm]" kèm huy hiệu "Hôm nay" và số lượng sự kiện tương ứng.
+- **Prompt Summary:** oke rồi phần lịch ở lịch chính ngoài thiếu khi ấn vào tháng năm thì cho chọn tháng năm. bỏ btn + chỗ Lịch trình ngày. thay sắp tới thành theo lLịch trình và sửa lại ở trong trình bày là thứ, ngày tháng năm xong....
+- **Files Affected:**
+  - `apps/web/src/components/tools/CircleCalendarView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% logic popover Month-Year picker, bộ gom nhóm theo ngày dạng `Thứ, ngày tháng năm`, cập nhật nhãn tab "Theo lịch trình" và lược bỏ nút `+` tại cột Lịch trình ngày.
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+  - npx tsc --noEmit --project apps/web/tsconfig.json: Passed 100%, 0 lỗi.
+  - bash ./scripts/check-agent-map.sh: 127/127 references resolve.
+  - bash ./scripts/check-secrets.sh: Passed, 0 secret leaks.
+- **Official Source Checked:** PROJECT_GOD.md, agentic/RULES.md & agentic/CONVENTIONS.md.
+- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A.
+  - **Resolution / Fix:** N/A.
+- **Commit:** b4405bf
+- **PR:** Pending
