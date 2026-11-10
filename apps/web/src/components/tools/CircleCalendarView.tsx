@@ -1853,7 +1853,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
       {/* SCOPE CONFIRMATION MODAL CHO LƯU / SỬA (3 OPTIONS) */}
       {/* ============================================================== */}
       {showScopeModal && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
           <div className="w-full max-w-sm rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-5 shadow-2xl space-y-4">
             <div>
               <h4 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
@@ -1937,7 +1937,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
         const isRecurring = Boolean(parsedRec && parsedRec.frequency !== 'none');
 
         return (
-          <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
             <div className="w-full max-w-sm rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-5 shadow-2xl space-y-4">
               <div>
                 <h4 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
@@ -2036,7 +2036,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
         const isRecurring = Boolean(parsedRec && parsedRec.frequency !== 'none');
 
         return (
-          <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
             <div className="w-full max-w-sm rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-5 shadow-2xl space-y-4">
               <div>
                 <h4 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">

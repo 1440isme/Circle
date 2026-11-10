@@ -6571,3 +6571,36 @@
   - **Resolution / Fix:** N/A.
 - **Commit:** Pending
 - **PR:** Pending
+
+---
+
+## [AI-0183] - 2026-11-10
+
+- **Developer:** Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 2.5 Pro
+- **Related Issue:** #120
+- **Purpose:** Khắc phục triệt để 3 lỗi ở modal bản đồ chọn vị trí sự kiện: (1) Đưa MapLocationPickerModal vào React Portal mount trực tiếp lên document.body với z-[9999] để ngăn các lớp Thời gian và Lặp lại đè lên modal; (2) Hoàn thiện chức năng tìm kiếm trên bản đồ với nút Tìm kiếm chuyên dụng, bắt sự kiện phím Enter, tự động flyTo kết quả hàng đầu, kết hợp dropdown gợi ý nổi trên Leaflet map và fallback dự phòng trực tiếp Photon OSM; (3) Loại bỏ triệt để chuỗi URL Google Maps đính kèm sau tên địa điểm khi người dùng bấm chọn trên bản đồ hoặc danh sách gợi ý.
+- **Prompt Summary:** khi mở bản đồ ở tạo sự kiện vẫn bị mấy lớp của lặp lại, thời gian bắt đầu, kết thúc hiển thị đè lên và phần tìm kiếm trong bản đồ cũng chưa thực hiện được và khi chọn địa điểm vẫn còn đường link ghi theo ở sau
+- **Files Affected:**
+  - pps/web/src/components/tools/MapLocationPickerModal.tsx
+  - pps/web/src/components/tools/LocationSearchInput.tsx
+  - pps/web/src/components/tools/CircleCalendarView.tsx
+  - pps/web/src/components/tools/CustomRecurrenceModal.tsx
+  - docs/ai-usage/log.md
+- **AI-Generated Portion:** 100% tái cấu trúc React Portal, logic tìm kiếm địa điểm và làm sạch URL vị trí.
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+  - cd apps/web && npx tsc --noEmit: Passed 100%, 0 lỗi.
+  - cd apps/web && npx next build --no-lint: Passed 100%, build thành công tất cả 11 routes.
+  - cd apps/mobile && npx tsc --noEmit: Passed 100%, 0 lỗi.
+  - ash ./scripts/check-agent-map.sh: 127/127 references resolve.
+  - ash ./scripts/check-secrets.sh: Passed, 0 secret leaks.
+- **Official Source Checked:** PROJECT_GOD.md, gentic/RULES.md & gentic/CONVENTIONS.md.
+- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A.
+  - **Resolution / Fix:** N/A.
+- **Commit:** Pending
+- **PR:** Pending

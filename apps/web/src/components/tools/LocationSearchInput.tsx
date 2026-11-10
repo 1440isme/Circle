@@ -86,13 +86,23 @@ export const LocationSearchInput: React.FC<LocationSearchInputProps> = ({
   }, [value]);
 
   const handleSelectSuggestion = (item: any) => {
-    const name = item.name || item.display_name?.split(',')?.[0] || 'Địa điểm';
-    onChange(name);
+    const rawName = item.name || item.display_name?.split(',')?.[0] || 'Địa điểm';
+    const cleanName = rawName
+      .replace(/https?:\/\/[^\s]+/g, '')
+      .trim()
+      .replace(/\s*[-–—:]+\s*$/g, '')
+      .trim();
+    onChange(cleanName);
     setShowSuggestions(false);
   };
 
   const handleSelectFromMap = (data: SelectedLocationData) => {
-    onChange(data.formattedLocation);
+    const cleanName = (data.formattedLocation || data.name || data.address || '')
+      .replace(/https?:\/\/[^\s]+/g, '')
+      .trim()
+      .replace(/\s*[-–—:]+\s*$/g, '')
+      .trim();
+    onChange(cleanName);
   };
 
   return (
@@ -132,7 +142,13 @@ export const LocationSearchInput: React.FC<LocationSearchInputProps> = ({
         {/* Button to open interactive Leaflet Map Picker */}
         <button
           type="button"
-          onClick={() => setIsMapModalOpen(true)}
+          onClick={() => {
+            if (typeof document !== 'undefined' && document.activeElement instanceof HTMLElement) {
+              document.activeElement.blur();
+            }
+            setShowSuggestions(false);
+            setIsMapModalOpen(true);
+          }}
           className="flex items-center gap-1 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 px-2.5 py-2 text-xs font-semibold text-rose-600 dark:text-rose-400 transition-all shrink-0 active:scale-95 shadow-2xs cursor-pointer"
           title="Mở bản đồ tìm kiếm và ghim vị trí"
         >
