@@ -67,7 +67,10 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
 }) => {
   const { user } = useAuth();
   const [currentOccDate, setCurrentOccDate] = useState<Date>(() => occurrenceDate || new Date());
+  
+  // Tách biệt hoàn toàn: Modal Danh sách phản hồi & Modal Bình chọn
   const [showAttendeesModal, setShowAttendeesModal] = useState(false);
+  const [showPollModal, setShowPollModal] = useState(false);
   const [attendeeTab, setAttendeeTab] = useState<'yes' | 'maybe' | 'no'>('yes');
   const [copiedShare, setCopiedShare] = useState(false);
 
@@ -315,7 +318,7 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
     <div className="space-y-6 w-full pb-16 animate-in fade-in duration-200">
       {/* Floating Pill Buttons Bar (No static heading, pure floating controls with scroll-under content) */}
       <div className="sticky top-0 z-30 pointer-events-none flex items-center justify-between gap-3 py-1 -mt-1 mb-2">
-        {/* Left: Nút 1 Quay lại dạng ngày tháng năm - Floating Pill Button */}
+        {/* Left: Nút Quay lại dạng ngày tháng năm - Floating Pill Button */}
         <button
           type="button"
           onClick={onClose}
@@ -539,15 +542,30 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
           </div>
         )}
 
-        {/* 4. Hàng Người tham gia (Ấn vào button mới bình chọn và xem danh sách xây như apps có 3 tab) */}
+        {/* 4. Hàng Người tham gia (Tách biệt: Nhấn vào xem danh sách phản hồi, nhấn nút bên phải để mở bình chọn) */}
         <div className="flex items-center justify-between gap-4 pt-4 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="h-9 w-9 rounded-xl bg-teal-500/10 flex items-center justify-center text-teal-600 shrink-0">
+          {/* Cụm thông tin & Avatar: Nhấn vào để mở Popup Danh sách người tham gia (3 Tabs) */}
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={() => setShowAttendeesModal(true)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                setShowAttendeesModal(true);
+              }
+            }}
+            className="flex items-center gap-3 min-w-0 cursor-pointer group flex-1"
+            title="Xem danh sách người tham gia"
+          >
+            <div className="h-9 w-9 rounded-xl bg-teal-500/10 flex items-center justify-center text-teal-600 shrink-0 group-hover:bg-teal-500/20 transition-colors">
               <Users className="h-5 w-5" />
             </div>
             <div className="min-w-0">
-              <div className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
-                Người tham gia ({totalRsvps})
+              <div className="flex items-center gap-1.5">
+                <span className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text group-hover:text-teal-600 transition-colors">
+                  Người tham gia ({totalRsvps})
+                </span>
+                <ChevronRight className="h-3.5 w-3.5 text-circle-slate group-hover:text-teal-600 transition-colors" />
               </div>
               <div className="text-xs text-circle-slate dark:text-circle-dark-muted font-medium mt-0.5">
                 {totalRsvps > 0 ? `${yesRsvps.length} người tham gia` : 'Chưa có phản hồi nào'}
@@ -585,11 +603,20 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
             </div>
           </div>
 
-          {/* Nút bấm để mở Popup Bình chọn & Xem danh sách */}
+          {/* Nút bấm mở Modal Bình chọn tham gia riêng biệt */}
           <button
             type="button"
-            onClick={() => setShowAttendeesModal(true)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas hover:bg-teal-50 dark:hover:bg-teal-950/20 text-xs font-bold text-teal-600 dark:text-teal-400 hover:border-teal-500/30 transition-all cursor-pointer shrink-0"
+            disabled={isThisOccurrenceCancelled}
+            onClick={() => setShowPollModal(true)}
+            className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border text-xs font-bold transition-all cursor-pointer shrink-0 active:scale-95 disabled:opacity-50 ${
+              myRsvp
+                ? myRsvp === EventRsvpStatus.YES
+                  ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border-emerald-500/40 hover:bg-emerald-100'
+                  : myRsvp === EventRsvpStatus.MAYBE
+                  ? 'bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 border-amber-500/40 hover:bg-amber-100'
+                  : 'bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 border-rose-500/40 hover:bg-rose-100'
+                : 'bg-teal-600 hover:bg-teal-700 text-white border-transparent shadow-xs'
+            }`}
           >
             <span>
               {myRsvp
@@ -600,7 +627,7 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
                   : 'Đã chọn: Bận'
                 : 'Tham gia bình chọn'}
             </span>
-            <ChevronRight className="h-3.5 w-3.5" />
+            <ChevronRight className="h-3.5 w-3.5 opacity-80" />
           </button>
         </div>
 
@@ -664,7 +691,131 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
       </div>
 
       {/* ============================================================== */}
-      {/* POPUP: BÌNH CHỌN & DANH SÁCH NGƯỜI THAM GIA XÂY NHƯ APP (3 TABS) */}
+      {/* POPUP 1: BÌNH CHỌN THAM GIA (TÁCH BIỆT HOÀN TOÀN) */}
+      {/* ============================================================== */}
+      {showPollModal && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+          <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-circle-dark-surface p-5 shadow-2xl space-y-4">
+            {/* Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-circle-hairline dark:border-circle-dark-hairline">
+              <div className="flex items-center gap-2">
+                <Users className="h-4 w-4 text-teal-600" />
+                <h3 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
+                  Bình chọn tham gia
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPollModal(false)}
+                className="p-1.5 rounded-lg hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Các tùy chọn bình chọn dạng Apple Bar giống như App */}
+            <div className="space-y-2.5">
+              {[
+                {
+                  status: EventRsvpStatus.YES,
+                  label: 'Tham gia',
+                  count: yesRsvps.length,
+                  percent: totalRsvps > 0 ? Math.round((yesRsvps.length / totalRsvps) * 100) : 0,
+                  activeBg: 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500 text-emerald-800 dark:text-emerald-300 ring-2 ring-emerald-500/20',
+                  inactiveBg: 'bg-circle-canvas/60 dark:bg-circle-dark-canvas border-circle-hairline dark:border-circle-dark-hairline hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text',
+                  progressBg: 'bg-emerald-500/15 dark:bg-emerald-500/25',
+                  checkBg: 'bg-emerald-600 text-white border-emerald-600',
+                },
+                {
+                  status: EventRsvpStatus.MAYBE,
+                  label: 'Chưa chắc',
+                  count: maybeRsvps.length,
+                  percent: totalRsvps > 0 ? Math.round((maybeRsvps.length / totalRsvps) * 100) : 0,
+                  activeBg: 'bg-amber-50 dark:bg-amber-950/40 border-amber-500 text-amber-800 dark:text-amber-300 ring-2 ring-amber-500/20',
+                  inactiveBg: 'bg-circle-canvas/60 dark:bg-circle-dark-canvas border-circle-hairline dark:border-circle-dark-hairline hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text',
+                  progressBg: 'bg-amber-500/15 dark:bg-amber-500/25',
+                  checkBg: 'bg-amber-600 text-white border-amber-600',
+                },
+                {
+                  status: EventRsvpStatus.NO,
+                  label: 'Bận',
+                  count: noRsvps.length,
+                  percent: totalRsvps > 0 ? Math.round((noRsvps.length / totalRsvps) * 100) : 0,
+                  activeBg: 'bg-rose-50 dark:bg-rose-950/40 border-rose-500 text-rose-800 dark:text-rose-300 ring-2 ring-rose-500/20',
+                  inactiveBg: 'bg-circle-canvas/60 dark:bg-circle-dark-canvas border-circle-hairline dark:border-circle-dark-hairline hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text',
+                  progressBg: 'bg-rose-500/15 dark:bg-rose-500/25',
+                  checkBg: 'bg-rose-600 text-white border-rose-600',
+                },
+              ].map((opt) => {
+                const isSelected = myRsvp === opt.status;
+
+                return (
+                  <button
+                    key={opt.status}
+                    type="button"
+                    disabled={isThisOccurrenceCancelled || rsvpMutation.isPending}
+                    onClick={() => {
+                      handleVote(opt.status);
+                      setShowPollModal(false);
+                    }}
+                    className={`relative overflow-hidden w-full p-3.5 rounded-2xl border text-left transition-all cursor-pointer active:scale-98 ${
+                      isSelected ? opt.activeBg : opt.inactiveBg
+                    } disabled:opacity-50`}
+                  >
+                    {/* Thanh phần trăm tiến trình mờ */}
+                    <div
+                      className={`absolute inset-y-0 left-0 transition-all ${opt.progressBg}`}
+                      style={{ width: `${opt.percent}%` }}
+                    />
+
+                    <div className="relative flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2.5">
+                        <div
+                          className={`h-4 w-4 rounded-full border flex items-center justify-center transition-all ${
+                            isSelected
+                              ? opt.checkBg
+                              : 'border-circle-hairline dark:border-white/20 bg-white dark:bg-circle-dark-surface'
+                          }`}
+                        >
+                          {isSelected && <Check className="h-2.5 w-2.5 stroke-[3]" />}
+                        </div>
+                        <span className="text-xs font-bold">{opt.label}</span>
+                      </div>
+                      <span className="text-xs font-semibold opacity-75">
+                        {opt.count} ({opt.percent}%)
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Footer */}
+            <div className="pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPollModal(false);
+                  setShowAttendeesModal(true);
+                }}
+                className="text-xs font-bold text-teal-600 hover:text-teal-700 hover:underline cursor-pointer"
+              >
+                Xem danh sách ({totalRsvps})
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowPollModal(false)}
+                className="px-4 py-1.5 rounded-xl text-xs font-semibold text-circle-slate hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors cursor-pointer"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* POPUP 2: HIỂN THỊ DANH SÁCH NGƯỜI THAM GIA (3 TABS NHƯ APP) */}
       {/* ============================================================== */}
       {showAttendeesModal && (
         <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
@@ -674,7 +825,7 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
               <div className="flex items-center gap-2">
                 <Users className="h-4 w-4 text-teal-600" />
                 <h3 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
-                  Bình chọn & Danh sách phản hồi
+                  Danh sách phản hồi ({totalRsvps})
                 </h3>
               </div>
               <button
@@ -686,59 +837,8 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
               </button>
             </div>
 
-            {/* Phần 1: Bình chọn của bạn */}
-            <div className="space-y-2">
-              <div className="text-xs font-bold text-circle-slate dark:text-circle-dark-muted">
-                Bình chọn của bạn:
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                {[
-                  {
-                    status: EventRsvpStatus.YES,
-                    label: 'Tham gia',
-                    count: yesRsvps.length,
-                    activeBg: 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 border-emerald-600',
-                  },
-                  {
-                    status: EventRsvpStatus.MAYBE,
-                    label: 'Chưa chắc',
-                    count: maybeRsvps.length,
-                    activeBg: 'bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 border-amber-600',
-                  },
-                  {
-                    status: EventRsvpStatus.NO,
-                    label: 'Bận',
-                    count: noRsvps.length,
-                    activeBg: 'bg-rose-50 dark:bg-rose-950/30 text-rose-800 dark:text-rose-300 border-rose-600',
-                  },
-                ].map((opt) => {
-                  const isSelected = myRsvp === opt.status;
-                  const percent = totalRsvps > 0 ? Math.round((opt.count / totalRsvps) * 100) : 0;
-
-                  return (
-                    <button
-                      key={opt.status}
-                      type="button"
-                      disabled={isThisOccurrenceCancelled || rsvpMutation.isPending}
-                      onClick={() => handleVote(opt.status)}
-                      className={`py-2 px-2 rounded-xl border text-center transition-all cursor-pointer ${
-                        isSelected
-                          ? `${opt.activeBg} ring-2 ring-teal-500/20 font-bold shadow-2xs`
-                          : 'border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/50 dark:bg-circle-dark-canvas hover:bg-circle-wash text-circle-charcoal dark:text-circle-dark-text font-medium'
-                      } disabled:opacity-50 active:scale-98`}
-                    >
-                      <div className="text-xs font-bold">{opt.label}</div>
-                      <div className="text-[11px] opacity-75 mt-0.5">
-                        {opt.count} ({percent}%)
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Phần 2: 3 Tabs (Tham gia | Chưa chắc | Bận) giống như Apps */}
-            <div className="space-y-3 pt-2">
+            {/* 3 Tabs (Tham gia | Chưa chắc | Bận) giống như Apps */}
+            <div className="space-y-3">
               <div className="flex items-center p-1 rounded-xl bg-circle-canvas/80 dark:bg-circle-dark-canvas border border-circle-hairline dark:border-circle-dark-hairline">
                 {[
                   { key: 'yes', label: 'Tham gia', count: yesRsvps.length },
@@ -764,7 +864,7 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
               </div>
 
               {/* Danh sách người dùng của Tab đang chọn */}
-              <div className="max-h-56 overflow-y-auto space-y-2 pr-1">
+              <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
                 {(() => {
                   const activeList =
                     attendeeTab === 'yes'
@@ -817,7 +917,17 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
             </div>
 
             {/* Footer */}
-            <div className="pt-3 border-t border-circle-hairline dark:border-circle-dark-hairline flex justify-end">
+            <div className="pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAttendeesModal(false);
+                  setShowPollModal(true);
+                }}
+                className="text-xs font-bold text-teal-600 hover:text-teal-700 hover:underline cursor-pointer"
+              >
+                Bình chọn tham gia
+              </button>
               <button
                 type="button"
                 onClick={() => setShowAttendeesModal(false)}
