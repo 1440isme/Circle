@@ -860,34 +860,32 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
         /* FULL-VIEW FORM TẠO & CHỈNH SỬA SỰ KIỆN (ICON-DRIVEN VERTICAL) */
         /* ============================================================== */
         <div className="space-y-6 w-full pb-16 animate-in fade-in duration-200">
-          {/* Header Action Bar */}
-          <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-circle-hairline dark:border-circle-dark-hairline">
-            <div className="flex items-center gap-2.5">
-              <button
-                type="button"
-                onClick={() => setIsAddModalOpen(false)}
-                className="p-1.5 rounded-full hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white transition-colors cursor-pointer"
-                title="Quay lại Lịch"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <div>
-                <h1 className="text-base sm:text-lg font-bold text-circle-charcoal dark:text-circle-dark-text">
-                  {editingEvent ? 'Chỉnh sửa lịch hẹn' : 'Tạo lịch hẹn mới'}
-                </h1>
-                <p className="text-xs text-circle-slate dark:text-circle-dark-muted mt-0.5">
-                  {editingEvent
-                    ? 'Cập nhật thông tin chi tiết hoặc điều chỉnh chu kỳ lặp của sự kiện'
-                    : 'Lên lịch cuộc hẹn, gặp mặt hoặc hoạt động nhóm cho các thành viên'}
-                </p>
-              </div>
-            </div>
+          {/* Floating Pill Buttons Bar (Bỏ heading, thay bằng Floating Pill Buttons) */}
+          <div className="sticky top-0 z-30 pointer-events-none flex items-center justify-between gap-3 py-1 -mt-1 mb-2">
+            {/* Left: Nút Quay lại dạng ngày tháng năm - Floating Pill Button */}
+            <button
+              type="button"
+              onClick={() => setIsAddModalOpen(false)}
+              className="pointer-events-auto inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full backdrop-blur-xl bg-white/92 dark:bg-circle-dark-surface/90 border border-circle-hairline/80 dark:border-white/12 shadow-sm hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text font-bold text-xs sm:text-sm transition-all active:scale-95 cursor-pointer"
+              title="Quay lại Lịch"
+            >
+              <ChevronLeft className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+              <span>
+                {(startTime ? new Date(startTime) : selectedDate || new Date()).toLocaleDateString('vi-VN', {
+                  weekday: 'short',
+                  day: '2-digit',
+                  month: '2-digit',
+                  year: 'numeric',
+                })}
+              </span>
+            </button>
 
-            <div className="flex items-center gap-2">
+            {/* Right: Floating Pill Buttons: Hủy và Lưu/Tạo */}
+            <div className="pointer-events-auto flex items-center gap-2 shrink-0">
               <button
                 type="button"
                 onClick={() => setIsAddModalOpen(false)}
-                className="px-4 py-2 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline text-xs font-semibold text-circle-slate hover:bg-circle-wash transition-colors cursor-pointer"
+                className="inline-flex items-center px-3.5 py-2 rounded-full backdrop-blur-xl bg-white/92 dark:bg-circle-dark-surface/90 border border-circle-hairline/80 dark:border-white/12 shadow-sm hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate dark:text-circle-dark-muted font-bold text-xs sm:text-sm transition-all active:scale-95 cursor-pointer"
               >
                 Hủy bỏ
               </button>
@@ -895,7 +893,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                 type="button"
                 disabled={isSubmitting}
                 onClick={handleAttemptSubmit}
-                className="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white text-xs font-bold shadow-2xs transition-all cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full backdrop-blur-xl bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white font-bold text-xs sm:text-sm shadow-sm transition-all active:scale-95 cursor-pointer"
               >
                 {isSubmitting ? (
                   <>
@@ -912,8 +910,8 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
             </div>
           </div>
 
-          {/* Form Card: Xếp hàng dọc theo thứ tự, tất cả dùng icon đại diện tinh tế */}
-          <div className="rounded-3xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-6 sm:p-8 space-y-6 shadow-xs">
+          {/* Form Fields: Xếp hàng dọc theo thứ tự, bỏ khung thẻ mượt mà trực tiếp */}
+          <div className="space-y-6 pt-1">
             {/* 1. Tiêu đề sự kiện */}
             <div>
               <input
@@ -922,13 +920,13 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Thêm tiêu đề sự kiện *"
-                className="w-full text-lg sm:text-xl font-bold text-circle-charcoal dark:text-circle-dark-text placeholder:text-circle-slate/40 border-b border-circle-hairline dark:border-circle-dark-hairline pb-3 focus:outline-hidden focus:border-teal-600 bg-transparent transition-colors"
+                className="w-full text-xl sm:text-2xl font-bold tracking-tight text-circle-charcoal dark:text-circle-dark-text placeholder:text-circle-slate/40 border-b border-circle-hairline dark:border-circle-dark-hairline pb-3 focus:outline-hidden focus:border-teal-600 bg-transparent transition-colors"
               />
             </div>
 
-            {/* 2. Địa chỉ / Vị trí / Họp online (Icon MapPin) ngay dưới tiêu đề */}
+            {/* 2. Địa chỉ / Vị trí / Họp online (Icon MapPin - đồng bộ màu xanh teal) ngay dưới tiêu đề */}
             <div className="flex items-center gap-4 pt-2">
-              <div className="h-9 w-9 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-600 shrink-0">
+              <div className="h-9 w-9 rounded-xl bg-teal-500/10 flex items-center justify-center text-teal-600 shrink-0">
                 <MapPin className="h-5 w-5" />
               </div>
               <div className="flex-1 min-w-0">
