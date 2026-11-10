@@ -20,6 +20,7 @@ import {
   Check,
   Video,
   AlignLeft,
+  Loader2,
 } from 'lucide-react';
 import { CalendarEventEntity, EventRsvpStatus } from '@circle/types';
 import {
@@ -30,7 +31,10 @@ import {
   getNextOrPrevOccurrence,
 } from './calendar-recurrence';
 import { useAuth } from '../../context/AuthContext';
-import { useRespondEventRsvpMutation } from '../../hooks/use-circle-tools';
+import {
+  useRespondEventRsvpMutation,
+  useUpdateCalendarEventMutation,
+} from '../../hooks/use-circle-tools';
 import { parseEventLocation } from './EventLocationDisplay';
 
 interface CircleEventDetailModalProps {
@@ -109,6 +113,51 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
     if (diffMins === 2880) return 'Trước 2 ngày';
     return `Trước ${diffMins} phút`;
   })();
+
+  const updateMutation = useUpdateCalendarEventMutation(circleId);
+
+  // Calculated diff minutes for quick select
+  const calculatedDiffMins = (() => {
+    if (!event.reminderTime) return 'none';
+    const mins = Math.round((evStart.getTime() - new Date(event.reminderTime).getTime()) / 60000);
+    if (mins <= 0) return '0';
+    const standardOptions = [0, 5, 15, 30, 60, 120, 1440, 2880];
+    const found = standardOptions.find((m) => Math.abs(m - mins) <= 1);
+    return found !== undefined ? String(found) : String(mins);
+  })();
+
+  const [currentReminderValue, setCurrentReminderValue] = useState<string>(calculatedDiffMins);
+  const [isUpdatingReminder, setIsUpdatingReminder] = useState(false);
+
+  React.useEffect(() => {
+    setCurrentReminderValue(calculatedDiffMins);
+  }, [calculatedDiffMins]);
+
+  const handleReminderChange = async (newVal: string) => {
+    if (isThisOccurrenceCancelled || isUpdatingReminder) return;
+    setCurrentReminderValue(newVal);
+    setIsUpdatingReminder(true);
+    try {
+      let newReminderIso: string | null = null;
+      if (newVal !== 'none') {
+        const mins = parseInt(newVal, 10);
+        const s = new Date(event.startTime);
+        s.setMinutes(s.getMinutes() - mins);
+        newReminderIso = s.toISOString();
+      }
+      await updateMutation.mutateAsync({
+        eventId: event.id,
+        input: {
+          reminderTime: newReminderIso,
+        },
+      });
+    } catch (err: any) {
+      console.warn('Failed to update reminder:', err);
+      setCurrentReminderValue(calculatedDiffMins);
+    } finally {
+      setIsUpdatingReminder(false);
+    }
+  };
 
   // Location parsing
   const parsedLocation = event.location ? parseEventLocation(event.location) : null;
@@ -230,20 +279,18 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
               type="button"
               onClick={() => onRestore(event, currentOccDate)}
               title="Khôi phục lịch hẹn"
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full backdrop-blur-xl bg-emerald-50/92 dark:bg-emerald-950/80 border border-emerald-500/30 shadow-sm hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 font-bold text-xs transition-all active:scale-95 cursor-pointer"
+              className="flex items-center justify-center h-9 w-9 rounded-full backdrop-blur-xl bg-white/92 dark:bg-circle-dark-surface/90 border border-circle-hairline/80 dark:border-white/12 shadow-sm hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate dark:text-circle-dark-muted hover:text-emerald-600 transition-all active:scale-95 cursor-pointer"
             >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Khôi phục</span>
+              <RotateCcw className="w-4 h-4" />
             </button>
           ) : (
             <button
               type="button"
               onClick={() => onCancel(event, currentOccDate)}
               title="Hủy lịch hẹn lần này"
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full backdrop-blur-xl bg-amber-50/92 dark:bg-amber-950/80 border border-amber-500/30 shadow-sm hover:bg-amber-100 text-amber-700 dark:text-amber-300 font-bold text-xs transition-all active:scale-95 cursor-pointer"
+              className="flex items-center justify-center h-9 w-9 rounded-full backdrop-blur-xl bg-white/92 dark:bg-circle-dark-surface/90 border border-circle-hairline/80 dark:border-white/12 shadow-sm hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate dark:text-circle-dark-muted hover:text-amber-600 transition-all active:scale-95 cursor-pointer"
             >
-              <Ban className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Hủy lần này</span>
+              <Ban className="w-4 h-4" />
             </button>
           )}
 
@@ -265,8 +312,8 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
         </div>
       )}
 
-      {/* Card 1: Thông tin chi tiết sự kiện (Icon-driven Vertical, Full Width) */}
-      <div className="rounded-3xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-6 sm:p-8 space-y-6 shadow-xs">
+      {/* Chi tiết sự kiện (Bỏ khung thẻ, giao diện trực tiếp mượt mà như app) */}
+      <div className="space-y-6 pt-1">
         {/* Tiêu đề & Trạng thái */}
         <div className="space-y-3">
           <div className="flex items-start justify-between gap-3">
@@ -301,7 +348,7 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
           )}
         </div>
 
-        {/* 1. Hàng Thời gian (Icon Clock) */}
+        {/* 1. Hàng Thời gian (Icon Clock - màu xanh teal) */}
         <div className="flex items-start gap-4 pt-4 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60">
           <div className="h-9 w-9 rounded-xl bg-teal-500/10 flex items-center justify-center text-teal-600 shrink-0 mt-0.5">
             <Clock className="h-5 w-5" />
@@ -325,10 +372,10 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
           </div>
         </div>
 
-        {/* 2. Hàng Địa điểm (Icon MapPin / Video) */}
+        {/* 2. Hàng Địa điểm (Icon MapPin / Video - đồng bộ màu xanh teal) */}
         {parsedLocation && parsedLocation.text && (
           <div className="flex items-start gap-4 pt-4 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60">
-            <div className="h-9 w-9 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-600 shrink-0 mt-0.5">
+            <div className="h-9 w-9 rounded-xl bg-teal-500/10 flex items-center justify-center text-teal-600 shrink-0 mt-0.5">
               {parsedLocation.category === 'meet' ? (
                 <Video className="h-5 w-5" />
               ) : (
@@ -358,7 +405,7 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
           </div>
         )}
 
-        {/* 3. Hàng Lặp lại (Icon Repeat) */}
+        {/* 3. Hàng Lặp lại (Icon Repeat - màu xanh teal) */}
         {isRecurring && recurrenceConfig && (
           <div className="flex items-start gap-4 pt-4 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60">
             <div className="h-9 w-9 rounded-xl bg-teal-500/10 flex items-center justify-center text-teal-600 shrink-0 mt-0.5">
@@ -409,24 +456,152 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
           </div>
         )}
 
-        {/* 4. Hàng Nhắc nhở (Icon Bell) */}
+        {/* 4. Hàng Người tham gia & Bình chọn (Gộp lên trên, hiển thị số người tham gia + avatar, sau đó mới cho bình chọn) */}
         <div className="flex items-start gap-4 pt-4 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60">
-          <div className="h-9 w-9 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 shrink-0 mt-0.5">
-            <Bell className="h-5 w-5" />
+          <div className="h-9 w-9 rounded-xl bg-teal-500/10 flex items-center justify-center text-teal-600 shrink-0 mt-0.5">
+            <Users className="h-5 w-5" />
           </div>
-          <div className="flex-1 min-w-0">
-            <div className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
-              Nhắc hẹn trước
+          <div className="flex-1 min-w-0 space-y-3">
+            {/* Attendees stats & avatars */}
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <span className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
+                  Người tham gia ({totalRsvps})
+                </span>
+                <span className="text-xs text-circle-slate dark:text-circle-dark-muted ml-2 font-medium">
+                  • {yesRsvps.length} tham gia
+                </span>
+              </div>
+              {totalRsvps > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowAttendeesModal(true)}
+                  className="text-xs font-bold text-teal-600 hover:text-teal-700 hover:underline cursor-pointer"
+                >
+                  Xem danh sách
+                </button>
+              )}
             </div>
-            <div className="text-xs text-circle-slate dark:text-circle-dark-muted mt-0.5">
-              {reminderLabel}
+
+            {/* Avatar stack preview */}
+            {totalRsvps > 0 && (
+              <div className="flex items-center gap-1.5 overflow-x-auto py-0.5">
+                {rsvps.slice(0, 10).map((r, i) => {
+                  const isMe = r.userId === user?.id;
+                  const dName = isMe ? 'Bạn' : r.user?.profile?.displayName || 'TV';
+                  const avUrl = r.user?.profile?.avatarUrl;
+
+                  return (
+                    <div
+                      key={r.id || r.userId || i}
+                      title={`${dName} (${r.status === EventRsvpStatus.YES ? 'Tham gia' : r.status === EventRsvpStatus.MAYBE ? 'Chưa chắc' : 'Bận'})`}
+                      className="h-7 w-7 rounded-full border-2 border-white dark:border-circle-dark-surface overflow-hidden bg-circle-wash flex items-center justify-center text-[11px] font-bold text-circle-charcoal shrink-0 shadow-2xs"
+                    >
+                      {avUrl ? (
+                        <img src={avUrl} alt={dName} className="h-full w-full object-cover" />
+                      ) : (
+                        <span>{dName.charAt(0).toUpperCase()}</span>
+                      )}
+                    </div>
+                  );
+                })}
+                {rsvps.length > 10 && (
+                  <span className="text-xs font-bold text-circle-slate ml-1">
+                    +{rsvps.length - 10}
+                  </span>
+                )}
+              </div>
+            )}
+
+            {/* Interactive Vote Buttons */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+              {[
+                {
+                  status: EventRsvpStatus.YES,
+                  label: 'Tham gia',
+                  count: yesRsvps.length,
+                  activeBg: 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 border-emerald-600',
+                },
+                {
+                  status: EventRsvpStatus.MAYBE,
+                  label: 'Chưa chắc',
+                  count: maybeRsvps.length,
+                  activeBg: 'bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 border-amber-600',
+                },
+                {
+                  status: EventRsvpStatus.NO,
+                  label: 'Bận',
+                  count: noRsvps.length,
+                  activeBg: 'bg-rose-50 dark:bg-rose-950/30 text-rose-800 dark:text-rose-300 border-rose-600',
+                },
+              ].map((opt) => {
+                const isSelected = myRsvp === opt.status;
+                const percent = totalRsvps > 0 ? Math.round((opt.count / totalRsvps) * 100) : 0;
+
+                return (
+                  <button
+                    key={opt.status}
+                    type="button"
+                    disabled={isThisOccurrenceCancelled || rsvpMutation.isPending}
+                    onClick={() => handleVote(opt.status)}
+                    className={`py-2 px-3 rounded-xl border text-center transition-all cursor-pointer ${
+                      isSelected
+                        ? `${opt.activeBg} ring-2 ring-teal-500/20 font-bold shadow-2xs`
+                        : 'border-circle-hairline bg-circle-canvas/50 dark:bg-circle-dark-canvas hover:bg-circle-wash text-circle-charcoal dark:text-circle-dark-text font-medium'
+                    } disabled:opacity-50 active:scale-98`}
+                  >
+                    <div className="text-xs font-bold">{opt.label}</div>
+                    <div className="text-[11px] opacity-75 mt-0.5">
+                      {opt.count} ({percent}%)
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
 
-        {/* 5. Hàng Ghi chú (Icon AlignLeft) */}
+        {/* 5. Hàng Nhắc nhở (Icon Bell - đồng bộ màu xanh teal, cho chỉnh nhanh luôn) */}
         <div className="flex items-start gap-4 pt-4 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60">
-          <div className="h-9 w-9 rounded-xl bg-slate-500/10 flex items-center justify-center text-slate-600 shrink-0 mt-0.5">
+          <div className="h-9 w-9 rounded-xl bg-teal-500/10 flex items-center justify-center text-teal-600 shrink-0 mt-0.5">
+            <Bell className="h-5 w-5" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
+                Nhắc hẹn trước
+              </div>
+              {isUpdatingReminder && (
+                <div className="flex items-center gap-1.5 text-xs text-teal-600 font-medium">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <span>Đang lưu...</span>
+                </div>
+              )}
+            </div>
+            <div className="mt-1.5 max-w-xs">
+              <select
+                value={currentReminderValue}
+                disabled={isThisOccurrenceCancelled || isUpdatingReminder}
+                onChange={(e) => handleReminderChange(e.target.value)}
+                className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-surface px-3 py-1.5 text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text focus:outline-hidden focus:ring-1 focus:ring-circle-sage cursor-pointer disabled:opacity-50"
+              >
+                <option value="none">Không nhắc</option>
+                <option value="0">Khi sự kiện diễn ra</option>
+                <option value="5">Trước 5 phút</option>
+                <option value="15">Trước 15 phút</option>
+                <option value="30">Trước 30 phút</option>
+                <option value="60">Trước 1 giờ</option>
+                <option value="120">Trước 2 giờ</option>
+                <option value="1440">Trước 1 ngày</option>
+                <option value="2880">Trước 2 ngày</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* 6. Hàng Ghi chú (Icon AlignLeft - đồng bộ màu xanh teal) */}
+        <div className="flex items-start gap-4 pt-4 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60">
+          <div className="h-9 w-9 rounded-xl bg-teal-500/10 flex items-center justify-center text-teal-600 shrink-0 mt-0.5">
             <AlignLeft className="h-5 w-5" />
           </div>
           <div className="flex-1 min-w-0">
@@ -444,109 +619,6 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
             )}
           </div>
         </div>
-      </div>
-
-      {/* Card 2: Bình chọn tham gia & Danh sách người tham gia (Full Width) */}
-      <div className="rounded-3xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-6 sm:p-8 space-y-4 shadow-xs">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Users className="h-5 w-5 text-teal-600" />
-            <h3 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
-              Bình chọn tham gia ({totalRsvps})
-            </h3>
-          </div>
-          {totalRsvps > 0 && (
-            <button
-              type="button"
-              onClick={() => setShowAttendeesModal(true)}
-              className="text-xs font-bold text-teal-600 hover:text-teal-700 hover:underline cursor-pointer"
-            >
-              Xem danh sách
-            </button>
-          )}
-        </div>
-
-        {/* Interactive Vote Buttons */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {[
-            {
-              status: EventRsvpStatus.YES,
-              label: 'Tham gia',
-              count: yesRsvps.length,
-              color: 'bg-emerald-600',
-              border: 'border-emerald-600',
-              activeBg: 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300',
-            },
-            {
-              status: EventRsvpStatus.MAYBE,
-              label: 'Chưa chắc',
-              count: maybeRsvps.length,
-              color: 'bg-amber-600',
-              border: 'border-amber-600',
-              activeBg: 'bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300',
-            },
-            {
-              status: EventRsvpStatus.NO,
-              label: 'Bận',
-              count: noRsvps.length,
-              color: 'bg-rose-600',
-              border: 'border-rose-600',
-              activeBg: 'bg-rose-50 dark:bg-rose-950/30 text-rose-800 dark:text-rose-300',
-            },
-          ].map((opt) => {
-            const isSelected = myRsvp === opt.status;
-            const percent = totalRsvps > 0 ? Math.round((opt.count / totalRsvps) * 100) : 0;
-
-            return (
-              <button
-                key={opt.status}
-                type="button"
-                disabled={isThisOccurrenceCancelled || rsvpMutation.isPending}
-                onClick={() => handleVote(opt.status)}
-                className={`p-3.5 rounded-2xl border text-center transition-all cursor-pointer ${
-                  isSelected
-                    ? `${opt.activeBg} ${opt.border} ring-2 ring-teal-500/20 font-bold shadow-2xs`
-                    : 'border-circle-hairline bg-circle-canvas/50 dark:bg-circle-dark-canvas hover:bg-circle-wash text-circle-charcoal dark:text-circle-dark-text font-medium'
-                } disabled:opacity-50`}
-              >
-                <div className="text-xs sm:text-sm font-bold">{opt.label}</div>
-                <div className="text-xs opacity-75 mt-1">
-                  {opt.count} ({percent}%)
-                </div>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Avatar stack preview */}
-        {totalRsvps > 0 && (
-          <div className="flex items-center gap-1.5 pt-2 overflow-x-auto">
-            {rsvps.slice(0, 10).map((r, i) => {
-              const isMe = r.userId === user?.id;
-              const dName = isMe ? 'Bạn' : r.user?.profile?.displayName || 'TV';
-              const avUrl = r.user?.profile?.avatarUrl;
-
-              return (
-                <div
-                  key={r.id || r.userId || i}
-                  title={`${dName} (${r.status === EventRsvpStatus.YES ? 'Tham gia' : r.status === EventRsvpStatus.MAYBE ? 'Chưa chắc' : 'Bận'})`}
-                  className="h-7 w-7 rounded-full border-2 border-white dark:border-circle-dark-surface overflow-hidden bg-circle-wash flex items-center justify-center text-[11px] font-bold text-circle-charcoal shrink-0 shadow-2xs"
-                >
-                  {avUrl ? (
-                    <img src={avUrl} alt={dName} className="h-full w-full object-cover" />
-                  ) : (
-                    <span>{dName.charAt(0).toUpperCase()}</span>
-                  )}
-                </div>
-              );
-            })}
-            {rsvps.length > 10 && (
-              <span className="text-xs font-bold text-circle-slate ml-1">
-                +{rsvps.length - 10}
-              </span>
-            )}
-          </div>
-        )}
       </div>
 
 

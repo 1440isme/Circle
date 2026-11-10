@@ -1998,7 +1998,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                     onClick={() => setDeleteModalState({ isOpen: false, event: null, occDate: null })}
                     className="px-4 py-1.5 rounded-xl text-xs font-semibold text-circle-slate hover:bg-circle-wash transition-colors"
                   >
-                    Hủy
+                    Đóng
                   </button>
                   <button
                     type="button"
@@ -2017,7 +2017,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                     onClick={() => setDeleteModalState({ isOpen: false, event: null, occDate: null })}
                     className="px-4 py-1.5 rounded-xl text-xs font-semibold text-circle-slate hover:bg-circle-wash transition-colors"
                   >
-                    Hủy thao tác
+                    Đóng
                   </button>
                 </div>
               )}
