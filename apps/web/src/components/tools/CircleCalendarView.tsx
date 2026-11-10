@@ -1249,8 +1249,8 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                   rows={4}
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Thêm mô tả chi tiết, tài liệu hoặc nội dung cần chuẩn bị cho cuộc họp / sự kiện..."
-                  className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/40 dark:bg-circle-dark-canvas/40 px-3.5 py-2.5 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-hidden focus:ring-1 focus:ring-circle-sage resize-none"
+                  placeholder="Thêm ghi chú, tài liệu hoặc nội dung cần chuẩn bị cho cuộc họp / sự kiện..."
+                  className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/40 dark:bg-circle-dark-canvas/40 px-3.5 py-2.5 text-xs text-circle-charcoal dark:text-circle-dark-text placeholder:text-circle-slate dark:placeholder:text-circle-dark-muted focus:outline-hidden focus:ring-1 focus:ring-teal-500 resize-y min-h-[96px]"
                 />
               </div>
             </div>
