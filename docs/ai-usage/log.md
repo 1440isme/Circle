@@ -6703,3 +6703,40 @@
   - **Resolution / Fix:** N/A.
 - **Commit:** 6f9ff1c
 - **PR:** Pending
+
+
+---
+
+## [AI-0187] - 2026-11-11
+
+- **Developer:** Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 2.5 Pro
+- **Related Issue:** #120
+- **Purpose:** 
+  1. Khi người dùng bấm chỉnh sửa lịch hẹn rồi ấn quay lại hoặc đóng, giao diện tự động quay về đúng modal Chi tiết lịch hẹn (`CircleEventDetailModal`) thay vì quay ra danh sách tổng. Khi lưu cập nhật thành công cũng mở lại modal Chi tiết với thông tin sự kiện mới.
+  2. Đồng bộ kích thước 2 nút góc trên ("Đóng" và "Lưu") bằng nhau (`w-20 sm:w-24 h-9`), đổi nhãn thành "Đóng" và "Lưu".
+  3. Bổ sung modal cảnh báo khi người dùng nhấn "Đóng" hoặc nút Ngày quay lại nếu có thay đổi chưa lưu: Tiêu đề "Thay đổi chưa lưu", nội dung "Bạn muốn bỏ nội dung chỉnh sửa hay tiếp tục chỉnh sửa?", gồm 2 nút "Bỏ nội dung chỉnh sửa" và "Tiếp tục chỉnh sửa".
+  4. Khắc phục lỗi tự động hiển thị gợi ý bản đồ khi mở form chỉnh sửa (`LocationSearchInput.tsx`): sử dụng `isUserTypingRef` để chỉ kích hoạt debounced search và dropdown gợi ý khi người dùng chủ động gõ phím vào input, ngăn chặn việc gợi ý tự bung ra khi mở form với địa điểm có sẵn.
+  5. Cho phép tạo và dời sự kiện vào quá khứ trên cả Web (`min={undefined}`) và Mobile (mở rộng `MONTHS_RANGE` & `YEARS_RANGE` từ 2018 đến 2035).
+- **Prompt Summary:** khi ấn chỉnh sửa lịch thì quay lại phải là modal chi tiết; 2 kích thước btn bằng nhau đổi tên là lưu và đóng; khi đóng có thông báo Thay đổi chưa lưu: Bạn muốn bỏ nội dung chỉnh sửa hay tiếp tục chỉnh sửa?; bỏ lỗi map tự load gợi ý khi mở chỉnh sửa; sự kiện có thể tạo trong quá khứ sửa cả web và mobile.
+- **Files Affected:**
+  - `apps/web/src/components/tools/CircleCalendarView.tsx`
+  - `apps/web/src/components/tools/LocationSearchInput.tsx`
+  - `apps/mobile/src/components/tools/MobileCalendarView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% logic quản lý luồng quay lại detail modal, snapshot kiểm tra thay đổi chưa lưu, cảnh báo thoát, cờ `isUserTypingRef` chặn auto-search và mở rộng dải ngày cho phép tạo sự kiện quá khứ.
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+  - cd apps/web && npx tsc --noEmit: Passed 100%, 0 lỗi.
+  - cd apps/mobile && npx tsc --noEmit: Passed 100%, 0 lỗi.
+  - bash ./scripts/check-agent-map.sh: 127/127 references resolve.
+  - bash ./scripts/check-secrets.sh: Passed, 0 secret leaks.
+- **Official Source Checked:** PROJECT_GOD.md, agentic/RULES.md & agentic/CONVENTIONS.md.
+- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A.
+  - **Resolution / Fix:** N/A.
+- **Commit:** dec38d0
+- **PR:** Pending
