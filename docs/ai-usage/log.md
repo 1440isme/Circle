@@ -6604,3 +6604,34 @@
   - **Resolution / Fix:** N/A.
 - **Commit:** Pending
 - **PR:** Pending
+
+---
+
+## [AI-0184] - 2026-11-10
+
+- **Developer:** Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 2.5 Pro
+- **Related Issue:** #120
+- **Purpose:** (1) Khắc phục lỗi định vị GPS ra tọa độ số: Bổ sung giải pháp Reverse Geocoding đa tầng thông qua BigDataCloud hỗ trợ ngôn ngữ tiếng Việt (cả ở endpoint route.ts và client fallback), đảm bảo mọi thao tác bấm nút Định vị vị trí hoặc chạm ghim bản đồ đều phân giải chuẩn xác ra tên địa danh/quận/huyện thực tế thay vì tọa độ thô; (2) Tái thiết kế giao diện tìm kiếm trong modal bản đồ (MapLocationPickerModal) đồng bộ 100% với ô tìm kiếm ngoài form (LocationSearchInput): loại bỏ nút Tìm rời, nhúng icon spinner/nút X vào bên trong input, gợi ý tức thì qua autocomplete dropdown nổi phía dưới và tự động chọn kết quả đầu tiên khi nhấn phím Enter.
+- **Prompt Summary:** bạn đã sửa vô tình làm hỏng cái định vị vị trí. nó đang bị ra toạ độ. Bạn có thể làm phần tìm kiếm giống như ở ngoài
+- **Files Affected:**
+  - pps/web/src/app/api/locations/reverse/route.ts
+  - pps/web/src/components/tools/MapLocationPickerModal.tsx
+  - docs/ai-usage/log.md
+- **AI-Generated Portion:** 100% logic phân giải địa chỉ tiếng Việt và chuẩn hóa UI tìm kiếm bản đồ.
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+  - cd apps/web && npx tsc --noEmit: Passed 100%, 0 lỗi.
+  - cd apps/web && npx next build --no-lint: Passed 100%, build thành công 11 routes.
+  - cd apps/mobile && npx tsc --noEmit: Passed 100%, 0 lỗi.
+  - ash ./scripts/check-agent-map.sh: 127/127 references resolve.
+  - ash ./scripts/check-secrets.sh: Passed, 0 secret leaks.
+- **Official Source Checked:** PROJECT_GOD.md, gentic/RULES.md & gentic/CONVENTIONS.md.
+- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A.
+  - **Resolution / Fix:** N/A.
+- **Commit:** Pending
+- **PR:** Pending

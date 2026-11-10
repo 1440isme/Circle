@@ -89,36 +89,71 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Helper to reverse geocode coordinates using local API route or fallback
+  // Highly robust reverse geocoding: tries internal API first, falls back directly to BigDataCloud
   const reverseGeocode = useCallback(async (lat: number, lng: number, fallbackName?: string) => {
     setIsReverseGeocoding(true);
+
+    // 1. Try local API route
     try {
       const res = await fetch(`/api/locations/reverse?lat=${lat}&lon=${lng}`);
       if (res.ok) {
         const data = await res.json();
         const displayName = data.address || data.name || '';
-        const name = fallbackName || data.name || displayName.split(',')[0] || 'Vị trí đã chọn';
-        const address = displayName;
-        setSelectedPlace({ name, address, lat, lng });
-      } else {
-        setSelectedPlace({
-          name: fallbackName || `Vị trí (${lat.toFixed(5)}, ${lng.toFixed(5)})`,
-          address: '',
-          lat,
-          lng,
-        });
+        const nameCandidate = fallbackName || (data.name && !data.name.startsWith('Vị trí (')) ? data.name : (displayName.split(',')[0] || '');
+        if (nameCandidate && !nameCandidate.startsWith('Vị trí (')) {
+          setSelectedPlace({ name: nameCandidate, address: displayName, lat, lng });
+          setIsReverseGeocoding(false);
+          return;
+        }
       }
     } catch (err) {
-      console.warn('Reverse geocode error:', err);
-      setSelectedPlace({
-        name: fallbackName || `Vị trí (${lat.toFixed(5)}, ${lng.toFixed(5)})`,
-        address: '',
-        lat,
-        lng,
-      });
-    } finally {
-      setIsReverseGeocoding(false);
+      console.warn('Local reverse geocode error:', err);
     }
+
+    // 2. High reliability client fallback: BigDataCloud (supports Vietnamese language, always succeeds)
+    try {
+      const bRes = await fetch(
+        `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=vi`
+      );
+      if (bRes.ok) {
+        const d = await bRes.json();
+        const info = d.localityInfo?.informative || [];
+        const districtObj = info.find(
+          (x: any) =>
+            x.name &&
+            (x.name.includes('Quận') ||
+              x.name.includes('Huyện') ||
+              x.name.includes('Thị xã') ||
+              x.name.includes('Thành phố') ||
+              x.name.includes('District'))
+        );
+        const district = districtObj ? districtObj.name : '';
+        const locality = d.locality || '';
+        const city = d.city || d.principalSubdivision || '';
+        const resolvedName = district
+          ? locality && locality !== district
+            ? `${locality}, ${district}`
+            : district
+          : locality || city || fallbackName || 'Vị trí hiện tại';
+        const addressParts = [locality, district, city, d.countryName || 'Việt Nam'].filter(Boolean);
+        const resolvedAddress = Array.from(new Set(addressParts)).join(', ');
+
+        setSelectedPlace({ name: resolvedName, address: resolvedAddress || resolvedName, lat, lng });
+        setIsReverseGeocoding(false);
+        return;
+      }
+    } catch (bErr) {
+      console.warn('BigDataCloud reverse geocode error:', bErr);
+    }
+
+    // 3. Fallback when network is completely offline
+    setSelectedPlace({
+      name: fallbackName || 'Vị trí hiện tại',
+      address: '',
+      lat,
+      lng,
+    });
+    setIsReverseGeocoding(false);
   }, []);
 
   // Update or create pin marker
@@ -170,7 +205,7 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
       console.warn('Place search API error, attempting direct fallback:', err);
     }
 
-    // Direct Photon OSM fallback to guarantee search works reliably
+    // Direct Photon OSM fallback
     try {
       const photonUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(
         trimmed
@@ -266,12 +301,10 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
       map.invalidateSize();
 
       if (existingCoords) {
-        // Has exact coordinates: center map, place marker and reverse geocode
         map.setView([existingCoords.lat, existingCoords.lng], 16);
         updateMarker(existingCoords.lat, existingCoords.lng);
         reverseGeocode(existingCoords.lat, existingCoords.lng, cleanName || undefined);
       } else if (cleanName && cleanName.length >= 2) {
-        // Has clean name text: search map right away on open
         setIsSearching(true);
         const results = await executeSearch(cleanName);
         setIsSearching(false);
@@ -301,14 +334,15 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
     };
   }, [isOpen, mounted, initialQuery, updateMarker, reverseGeocode, executeSearch]);
 
-  // 2. Search places on user input change (debounced)
+  // 2. Debounced search on user input change — matching "ở ngoài" behavior
   useEffect(() => {
     if (isSelectingResultRef.current) {
       isSelectingResultRef.current = false;
       return;
     }
 
-    if (!searchQuery || searchQuery.trim().length < 2) {
+    const trimmed = searchQuery.trim();
+    if (!trimmed || trimmed.length < 2) {
       setSearchResults([]);
       setShowResultsDropdown(false);
       return;
@@ -316,7 +350,7 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
 
     const timer = setTimeout(async () => {
       setIsSearching(true);
-      const results = await executeSearch(searchQuery);
+      const results = await executeSearch(trimmed);
       setIsSearching(false);
       setSearchResults(results);
       setShowResultsDropdown(results.length > 0);
@@ -328,8 +362,8 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
   const handleSelectSearchResult = (item: any) => {
     const lat = parseFloat(item.lat);
     const lng = parseFloat(item.lon);
-    const name = item.name || item.display_name.split(',')[0] || searchQuery;
-    const address = item.display_name;
+    const name = item.name || item.display_name?.split(',')?.[0] || searchQuery;
+    const address = item.display_name || name;
 
     setSelectedPlace({ name, address, lat, lng });
     setShowResultsDropdown(false);
@@ -342,58 +376,50 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
     }
   };
 
-  const handleTriggerSearch = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    const query = searchQuery.trim();
-    if (!query || query.length < 2) return;
-
-    setIsSearching(true);
-    const results = await executeSearch(query);
-    setIsSearching(false);
-    setSearchResults(results);
-
-    if (results.length > 0) {
-      handleSelectSearchResult(results[0]);
-    } else {
-      setShowResultsDropdown(false);
-    }
-  };
-
   const handleLocateMe = () => {
     if (!navigator.geolocation) {
       alert('Trình duyệt của bạn không hỗ trợ định vị.');
       return;
     }
+    setIsReverseGeocoding(true);
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
+      async (pos) => {
         const { latitude: lat, longitude: lng } = pos.coords;
         if (mapRef.current) {
           mapRef.current.flyTo([lat, lng], 16, { duration: 1 });
           updateMarker(lat, lng);
-          reverseGeocode(lat, lng);
+          await reverseGeocode(lat, lng);
         }
       },
-      () => {
-        alert('Không thể lấy vị trí hiện tại. Vui lòng cho phép quyền truy cập vị trí.');
-      }
+      (err) => {
+        setIsReverseGeocoding(false);
+        console.warn('Geolocation error:', err);
+        alert('Không thể lấy vị trí hiện tại. Vui lòng cho phép quyền truy cập vị trí trên trình duyệt.');
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
     );
   };
 
   const handleConfirm = () => {
     if (!selectedPlace) return;
 
-    // Use clean place name or address, NEVER append the google maps link URL
+    // Use clean place name or clean address, NEVER append the google maps link URL
     let cleanLocation = selectedPlace.name || selectedPlace.address;
     if (
       (!cleanLocation ||
         cleanLocation === 'Vị trí đã chọn' ||
         cleanLocation.startsWith('Vị trí (')) &&
-      selectedPlace.address
+      selectedPlace.address &&
+      !selectedPlace.address.startsWith('Vị trí (')
     ) {
       cleanLocation = selectedPlace.address;
     }
 
-    cleanLocation = (cleanLocation || `Vị trí (${selectedPlace.lat.toFixed(5)}, ${selectedPlace.lng.toFixed(5)})`)
+    if (!cleanLocation || cleanLocation.startsWith('Vị trí (')) {
+      cleanLocation = 'Vị trí hiện tại';
+    }
+
+    cleanLocation = cleanLocation
       .replace(/https?:\/\/[^\s]+/g, '')
       .trim()
       .replace(/\s*[-–—:]+\s*$/g, '')
@@ -438,31 +464,41 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
           </button>
         </div>
 
-        {/* Search Bar Overlay with dedicated Search action */}
+        {/* Search Bar Overlay — styled exactly like "ở ngoài" LocationSearchInput */}
         <div
           ref={searchContainerRef}
-          className="relative px-4 pt-3 pb-2 z-30 bg-circle-canvas/90 dark:bg-circle-dark-canvas/90 backdrop-blur-md border-b border-circle-hairline/60 dark:border-circle-dark-hairline/60 shrink-0"
+          className="relative px-4 pt-3 pb-2.5 z-30 bg-circle-canvas/90 dark:bg-circle-dark-canvas/90 backdrop-blur-md border-b border-circle-hairline/60 dark:border-circle-dark-hairline/60 shrink-0"
         >
-          <form onSubmit={handleTriggerSearch} className="flex items-center gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-circle-slate" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onFocus={() => {
-                  if (searchResults.length > 0) setShowResultsDropdown(true);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handleTriggerSearch();
+          <div className="relative w-full">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onFocus={() => {
+                if (searchResults.length > 0) setShowResultsDropdown(true);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  if (searchResults.length > 0) {
+                    handleSelectSearchResult(searchResults[0]);
+                  } else if (searchQuery.trim().length >= 2) {
+                    executeSearch(searchQuery.trim()).then((results) => {
+                      if (results.length > 0) {
+                        handleSelectSearchResult(results[0]);
+                      }
+                    });
                   }
-                }}
-                placeholder="Tìm kiếm: Đại học Sư phạm Kỹ thuật, Landmark 81, Hồ Con Rùa..."
-                className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface pl-9 pr-8 py-2 text-xs text-circle-charcoal dark:text-circle-dark-text placeholder:text-circle-slate/70 focus:outline-hidden focus:ring-1 focus:ring-rose-500"
-              />
-              {searchQuery ? (
+                }
+              }}
+              placeholder="Tìm địa điểm trên bản đồ: Landmark 81, Hồ Con Rùa, SPKT..."
+              className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface pl-3.5 pr-8 py-2 text-xs text-circle-charcoal dark:text-circle-dark-text placeholder:text-circle-slate/60 focus:outline-hidden focus:ring-1 focus:ring-circle-sage"
+            />
+            <div className="absolute right-2.5 top-2.5 flex items-center gap-1">
+              {isSearching && (
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-circle-slate" />
+              )}
+              {searchQuery && !isSearching && (
                 <button
                   type="button"
                   onClick={() => {
@@ -470,45 +506,31 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
                     setSearchResults([]);
                     setShowResultsDropdown(false);
                   }}
-                  className="absolute right-2.5 top-2.5 text-circle-slate hover:text-circle-charcoal dark:hover:text-circle-dark-text p-0.5"
+                  className="text-circle-slate hover:text-circle-charcoal dark:hover:text-circle-dark-text transition-colors p-0.5"
                 >
                   <X className="h-3.5 w-3.5" />
                 </button>
-              ) : null}
-            </div>
-
-            <button
-              type="button"
-              disabled={isSearching || !searchQuery.trim()}
-              onClick={() => handleTriggerSearch()}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white text-xs font-semibold shrink-0 transition-all shadow-2xs active:scale-95 cursor-pointer"
-            >
-              {isSearching ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Search className="h-3.5 w-3.5" />
               )}
-              <span>Tìm</span>
-            </button>
-          </form>
+            </div>
+          </div>
 
-          {/* Autocomplete Dropdown */}
+          {/* Autocomplete Dropdown — EXACT styling as "ở ngoài" */}
           {showResultsDropdown && searchResults.length > 0 && (
             <div className="absolute left-4 right-4 top-full mt-1.5 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface shadow-2xl overflow-hidden max-h-56 overflow-y-auto z-50 animate-in fade-in duration-100">
-              <div className="px-3.5 py-1.5 bg-circle-wash/60 dark:bg-circle-dark-wash/60 border-b border-circle-hairline/40 text-[10px] font-bold text-circle-slate dark:text-circle-dark-muted uppercase tracking-wider">
-                Kết quả tìm kiếm ({searchResults.length})
+              <div className="px-3 py-1.5 bg-circle-wash/50 dark:bg-circle-dark-wash/50 border-b border-circle-hairline/40 text-[10px] font-bold text-circle-slate dark:text-circle-dark-muted uppercase tracking-wider">
+                Gợi ý địa điểm từ bản đồ
               </div>
               {searchResults.map((item, idx) => (
                 <button
                   key={idx}
                   type="button"
                   onClick={() => handleSelectSearchResult(item)}
-                  className="w-full text-left px-3.5 py-2.5 hover:bg-circle-wash dark:hover:bg-circle-dark-wash border-b border-circle-hairline/40 dark:border-circle-dark-hairline/40 last:border-none flex items-start gap-2.5 transition-colors cursor-pointer"
+                  className="w-full text-left px-3 py-2 hover:bg-circle-wash dark:hover:bg-circle-dark-wash border-b border-circle-hairline/30 dark:border-circle-dark-hairline/30 last:border-none flex items-start gap-2 transition-colors cursor-pointer"
                 >
-                  <MapPin className="h-4 w-4 text-rose-500 shrink-0 mt-0.5" />
+                  <MapPin className="h-3.5 w-3.5 text-rose-500 shrink-0 mt-0.5" />
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text truncate">
-                      {item.name || item.display_name.split(',')[0]}
+                      {item.name || item.display_name?.split(',')?.[0]}
                     </p>
                     <p className="text-[10px] text-circle-slate dark:text-circle-dark-muted truncate">
                       {item.display_name}
@@ -558,7 +580,7 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
                   📍 {selectedPlace.name}
                 </p>
                 <p className="text-[10px] text-circle-slate dark:text-circle-dark-muted truncate">
-                  {selectedPlace.address || `Tọa độ: ${selectedPlace.lat.toFixed(4)}, ${selectedPlace.lng.toFixed(4)}`}
+                  {selectedPlace.address || selectedPlace.name}
                 </p>
               </div>
             ) : (
