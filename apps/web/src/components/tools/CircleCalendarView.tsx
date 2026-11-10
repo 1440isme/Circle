@@ -1382,63 +1382,55 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
         />
       ) : (
         <>
-          {/* Header */}
-      <div className="flex flex-wrap items-center justify-between pb-4 border-b border-circle-hairline dark:border-circle-dark-hairline mb-6 gap-3">
-        <div>
-          <h1 className="text-lg font-bold text-circle-charcoal dark:text-circle-dark-text">
-            {t.nav.calendarEvents}
-          </h1>
-          <p className="text-xs text-circle-slate dark:text-circle-dark-muted mt-0.5">
-            Lịch hẹn, sự kiện và nhắc nhở dành riêng cho các thành viên trong nhóm
-          </p>
-        </div>
+          {/* Floating Pill Buttons Bar (Bỏ heading, thay bằng Floating Pill Buttons đồng bộ) */}
+          <div className="sticky top-0 z-30 pointer-events-none flex items-center justify-between gap-3 py-1 -mt-1 mb-4">
+            {/* Left: View mode toggle pill (Theo tháng / Sắp tới) */}
+            <div className="pointer-events-auto inline-flex items-center p-1 rounded-full backdrop-blur-xl bg-white/92 dark:bg-circle-dark-surface/90 border border-circle-hairline/80 dark:border-white/12 shadow-sm">
+              <button
+                type="button"
+                onClick={() => setViewMode('month')}
+                className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                  viewMode === 'month'
+                    ? 'bg-teal-600 text-white shadow-xs'
+                    : 'text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text'
+                }`}
+              >
+                <CalendarDays className="h-3.5 w-3.5" />
+                <span>Theo tháng</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('upcoming')}
+                className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                  viewMode === 'upcoming'
+                    ? 'bg-teal-600 text-white shadow-xs'
+                    : 'text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text'
+                }`}
+              >
+                <Clock className="h-3.5 w-3.5" />
+                <span>Sắp tới ({upcomingEvents.length})</span>
+              </button>
+            </div>
 
-        {/* View mode toggle & Action buttons */}
-        <div className="flex items-center gap-2">
-          <div className="flex items-center bg-circle-canvas dark:bg-circle-dark-canvas p-1 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline">
-            <button
-              type="button"
-              onClick={() => setViewMode('month')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                viewMode === 'month'
-                  ? 'bg-white dark:bg-circle-dark-surface text-circle-charcoal dark:text-circle-dark-text shadow-2xs font-bold'
-                  : 'text-circle-slate hover:text-circle-charcoal dark:hover:text-circle-dark-text'
-              }`}
-            >
-              <CalendarDays className="h-3.5 w-3.5" />
-              <span>Theo tháng</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode('upcoming')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                viewMode === 'upcoming'
-                  ? 'bg-white dark:bg-circle-dark-surface text-circle-charcoal dark:text-circle-dark-text shadow-2xs font-bold'
-                  : 'text-circle-slate hover:text-circle-charcoal dark:hover:text-circle-dark-text'
-              }`}
-            >
-              <Clock className="h-3.5 w-3.5" />
-              <span>Sắp tới ({upcomingEvents.length})</span>
-            </button>
+            {/* Right: Floating Pill Buttons: "Hôm nay" và "Tạo sự kiện" */}
+            <div className="pointer-events-auto flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={goToToday}
+                className="inline-flex items-center justify-center px-4 h-9 rounded-full backdrop-blur-xl bg-white/92 dark:bg-circle-dark-surface/90 border border-circle-hairline/80 dark:border-white/12 shadow-sm hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text font-bold text-xs sm:text-sm transition-all active:scale-95 cursor-pointer"
+              >
+                Hôm nay
+              </button>
+              <button
+                type="button"
+                onClick={handleOpenCreateModal}
+                className="inline-flex items-center gap-1.5 px-4 h-9 rounded-full backdrop-blur-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs sm:text-sm shadow-sm transition-all active:scale-95 cursor-pointer"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Tạo sự kiện</span>
+              </button>
+            </div>
           </div>
-
-          <button
-            type="button"
-            onClick={goToToday}
-            className="px-3 py-1.5 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash transition-colors"
-          >
-            Hôm nay
-          </button>
-          <button
-            type="button"
-            onClick={handleOpenCreateModal}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold shadow-2xs transition-all"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Tạo sự kiện</span>
-          </button>
-        </div>
-      </div>
 
       {/* Main Content Area */}
       {viewMode === 'upcoming' ? (
