@@ -6740,3 +6740,35 @@
   - **Resolution / Fix:** N/A.
 - **Commit:** dec38d0
 - **PR:** Pending
+
+
+---
+
+## [AI-0188] - 2026-11-11
+
+- **Developer:** Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 2.5 Pro
+- **Related Issue:** #120
+- **Purpose:** Tinh chỉnh nhãn nút Floating Pill quay lại ở góc trái trên cùng của form:
+  - Khi Tạo mới sự kiện: hiển thị `< Lịch` (quay lại xem lịch).
+  - Khi Chỉnh sửa sự kiện: hiển thị `< Chi tiết` (quay lại xem chi tiết sự kiện).
+  Kết hợp cùng cụm 2 nút `[ Đóng ] [ Lưu ]` ở góc phải tạo nên cấu trúc điều hướng đối xứng, chuẩn mực và tinh tế.
+- **Prompt Summary:** oke chốt tổng kết nếu chốt cả 2: Khi Tạo mới: < Lịch [ Đóng ] [ Lưu ]; Khi Chỉnh sửa: < Chi tiết [ Đóng ] [ Lưu ].
+- **Files Affected:**
+  - `apps/web/src/components/tools/CircleCalendarView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% logic điều kiện nhãn nút Floating Pill quay lại trong CircleCalendarView.
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+  - cd apps/web && npx tsc --noEmit: Passed 100%, 0 lỗi.
+  - bash ./scripts/check-agent-map.sh: 127/127 references resolve.
+  - bash ./scripts/check-secrets.sh: Passed, 0 secret leaks.
+- **Official Source Checked:** PROJECT_GOD.md, agentic/RULES.md & agentic/CONVENTIONS.md.
+- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A.
+  - **Resolution / Fix:** N/A.
+- **Commit:** 60bc6fe
+- **PR:** Pending
