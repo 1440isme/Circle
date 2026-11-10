@@ -19,7 +19,6 @@ import {
   ExternalLink,
   Check,
   Video,
-  ArrowLeft,
   AlignLeft,
 } from 'lucide-react';
 import { CalendarEventEntity, EventRsvpStatus } from '@circle/types';
@@ -184,48 +183,41 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
     <div className="space-y-6 w-full pb-16 animate-in fade-in duration-200">
       {/* Header Action Bar */}
       <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-circle-hairline dark:border-circle-dark-hairline">
-        <div className="flex items-center gap-2.5">
+        {/* Left: Combined Back Button & Occurrence Date (Matching Radical Minimalism & Planning View) */}
+        <div className="flex items-center gap-1.5 min-w-0">
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-full hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white transition-colors cursor-pointer"
+            className="p-1.5 rounded-full hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white transition-colors cursor-pointer shrink-0"
             title="Quay lại Lịch"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
-          <div>
-            <h1 className="text-base sm:text-lg font-bold text-circle-charcoal dark:text-circle-dark-text">
-              Chi tiết lịch hẹn
-            </h1>
-            <p className="text-xs text-circle-slate dark:text-circle-dark-muted mt-0.5">
-              Thông tin chi tiết, thời gian, địa điểm và danh sách bình chọn tham gia
-            </p>
-          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-sm sm:text-base font-bold text-circle-charcoal dark:text-circle-dark-text hover:text-circle-slate dark:hover:text-circle-dark-muted transition-colors cursor-pointer truncate text-left"
+            title="Quay lại Lịch"
+          >
+            {currentOccDate.toLocaleDateString('vi-VN', {
+              weekday: 'long',
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+            })}
+          </button>
         </div>
 
-        {/* Header Actions: Date pill & Action Buttons */}
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Occurrence Date Pill */}
-          <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-teal-50 dark:bg-teal-950/30 border border-teal-500/20 text-teal-800 dark:text-teal-300 text-xs font-bold">
-            <Clock className="h-3.5 w-3.5 text-teal-600" />
-            <span>
-              {currentOccDate.toLocaleDateString('vi-VN', {
-                weekday: 'short',
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric',
-              })}
-            </span>
-          </div>
-
+        {/* Right Actions: Rule-conforming Pill & Bare Round Icon Buttons */}
+        <div className="flex items-center gap-2 shrink-0">
           {onShareToChat && (
             <button
               type="button"
               onClick={handleShareClick}
               title="Chia sẻ vào tin nhắn nhóm"
-              className="p-2 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline hover:bg-circle-wash text-circle-slate hover:text-teal-600 transition-colors cursor-pointer"
+              className="p-1.5 rounded-full hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate dark:text-circle-dark-muted hover:text-teal-600 transition-colors cursor-pointer"
             >
-              <Share2 className="h-4 w-4" />
+              <Share2 className="w-4 h-4" />
             </button>
           )}
 
@@ -234,9 +226,9 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
               type="button"
               onClick={() => onEdit(event, currentOccDate)}
               title="Chỉnh sửa lịch hẹn"
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface hover:bg-circle-wash text-circle-charcoal dark:text-circle-dark-text text-xs font-bold transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-white/60 dark:bg-circle-dark-surface/60 hover:bg-circle-wash text-circle-charcoal dark:text-circle-dark-text transition-colors cursor-pointer"
             >
-              <Pencil className="h-3.5 w-3.5" />
+              <Pencil className="w-3.5 h-3.5 text-circle-slate dark:text-circle-dark-muted" />
               <span>Chỉnh sửa</span>
             </button>
           )}
@@ -246,9 +238,9 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
               type="button"
               onClick={() => onRestore(event, currentOccDate)}
               title="Khôi phục lịch hẹn"
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-emerald-500/30 bg-emerald-50 dark:bg-emerald-950/30 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 text-xs font-bold transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-full border border-emerald-500/30 bg-emerald-50 dark:bg-emerald-950/30 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 transition-colors cursor-pointer"
             >
-              <RotateCcw className="h-3.5 w-3.5" />
+              <RotateCcw className="w-3.5 h-3.5" />
               <span>Khôi phục</span>
             </button>
           ) : (
@@ -256,9 +248,9 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
               type="button"
               onClick={() => onCancel(event, currentOccDate)}
               title="Hủy lịch hẹn lần này"
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-amber-500/30 bg-amber-50 dark:bg-amber-950/30 hover:bg-amber-100 text-amber-700 dark:text-amber-300 text-xs font-bold transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-full border border-amber-500/30 bg-amber-50 dark:bg-amber-950/30 hover:bg-amber-100 text-amber-700 dark:text-amber-300 transition-colors cursor-pointer"
             >
-              <Ban className="h-3.5 w-3.5" />
+              <Ban className="w-3.5 h-3.5" />
               <span>Hủy lần này</span>
             </button>
           )}
@@ -267,9 +259,9 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
             type="button"
             onClick={() => onDelete(event, currentOccDate)}
             title="Xóa lịch hẹn"
-            className="p-2 rounded-xl border border-rose-500/20 hover:bg-rose-50 text-rose-600 transition-colors cursor-pointer"
+            className="p-1.5 rounded-full hover:bg-red-500/10 text-circle-slate hover:text-red-500 transition-colors cursor-pointer"
           >
-            <Trash2 className="h-4 w-4" />
+            <Trash2 className="w-4 h-4" />
           </button>
         </div>
       </div>
@@ -399,26 +391,26 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
                   disabled={isPrevDisabled}
                   onClick={() => handleJumpOccurrence('prev')}
                   title={isPrevDisabled ? 'Đã là lần diễn ra đầu tiên' : 'Xem lần diễn ra trước'}
-                  className={`p-2 rounded-xl border transition-all ${
+                  className={`p-1.5 rounded-full border transition-all ${
                     isPrevDisabled
                       ? 'opacity-25 cursor-not-allowed border-circle-hairline text-circle-slate'
                       : 'border-circle-hairline bg-white dark:bg-circle-dark-surface hover:bg-circle-wash text-circle-slate hover:text-circle-charcoal cursor-pointer'
                   }`}
                 >
-                  <ChevronLeft className="h-4 w-4" />
+                  <ChevronLeft className="h-3.5 w-3.5" />
                 </button>
                 <button
                   type="button"
                   disabled={isNextDisabled}
                   onClick={() => handleJumpOccurrence('next')}
                   title={isNextDisabled ? 'Đã là lần diễn ra cuối cùng' : 'Xem lần diễn ra tiếp theo'}
-                  className={`p-2 rounded-xl border transition-all ${
+                  className={`p-1.5 rounded-full border transition-all ${
                     isNextDisabled
                       ? 'opacity-25 cursor-not-allowed border-circle-hairline text-circle-slate'
                       : 'border-circle-hairline bg-white dark:bg-circle-dark-surface hover:bg-circle-wash text-circle-slate hover:text-circle-charcoal cursor-pointer'
                   }`}
                 >
-                  <ChevronRight className="h-4 w-4" />
+                  <ChevronRight className="h-3.5 w-3.5" />
                 </button>
               </div>
             </div>
@@ -565,28 +557,6 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
         )}
       </div>
 
-      {/* Bottom Footer Back button */}
-      <div className="flex items-center justify-between pt-2">
-        <button
-          type="button"
-          onClick={onClose}
-          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface hover:bg-circle-wash text-circle-charcoal dark:text-circle-dark-text text-xs font-bold transition-all shadow-2xs cursor-pointer"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          <span>Quay lại Lịch</span>
-        </button>
-
-        {!isThisOccurrenceCancelled && (
-          <button
-            type="button"
-            onClick={() => onEdit(event, currentOccDate)}
-            className="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold shadow-2xs transition-all cursor-pointer"
-          >
-            <Pencil className="h-4 w-4" />
-            <span>Chỉnh sửa lịch hẹn</span>
-          </button>
-        )}
-      </div>
 
       {/* Attendees Full List Dialog */}
       {showAttendeesModal && (
