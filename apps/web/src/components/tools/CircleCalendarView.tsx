@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import {
   Calendar as CalendarIcon,
   Plus,
@@ -138,7 +138,23 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
   const [editingEvent, setEditingEvent] = useState<CalendarEventEntity | null>(null);
   const [editingOccurrenceDate, setEditingOccurrenceDate] = useState<Date | null>(null);
   const [showScopeModal, setShowScopeModal] = useState(false);
+  const [showUnsavedChangesModal, setShowUnsavedChangesModal] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const previousDetailModalRef = useRef<{
+    event: CalendarEventEntity;
+    occDate: Date | null;
+  } | null>(null);
+
+  const initialFormSnapshotRef = useRef<{
+    title: string;
+    location: string;
+    description: string;
+    startTime: string;
+    endTime: string;
+    reminderMinutes: string;
+    recurrenceConfigStr: string;
+  } | null>(null);
 
   // Delete & Cancel Scope Modals
   const [deleteModalState, setDeleteModalState] = useState<{
@@ -261,9 +277,25 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
 
     const baseDate = new Date(selectedDate);
     // Mặc định ngày đó từ 06:00 đến 23:59 (cả 2 đều bắt buộc)
-    setStartTime(formatToLocalDateTimeInput(baseDate, 6, 0));
-    setEndTime(formatToLocalDateTimeInput(baseDate, 23, 59));
-    setRecurrenceConfig(createDefaultRecurrenceConfig(baseDate));
+    const initialStart = formatToLocalDateTimeInput(baseDate, 6, 0);
+    const initialEnd = formatToLocalDateTimeInput(baseDate, 23, 59);
+    const initialRec = createDefaultRecurrenceConfig(baseDate);
+
+    setStartTime(initialStart);
+    setEndTime(initialEnd);
+    setRecurrenceConfig(initialRec);
+
+    previousDetailModalRef.current = null;
+    initialFormSnapshotRef.current = {
+      title: '',
+      location: '',
+      description: '',
+      startTime: initialStart,
+      endTime: initialEnd,
+      reminderMinutes: '15',
+      recurrenceConfigStr: JSON.stringify(initialRec),
+    };
+
     setIsAddModalOpen(true);
   };
 
@@ -281,10 +313,13 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
     const s = new Date(ev.startTime);
     const e = ev.endTime ? new Date(ev.endTime) : new Date(s.getTime() + 3600000);
 
+    let startVal = '';
+    let endVal = '';
+
     if (parsedRec && parsedRec.frequency !== 'none' && targetOcc) {
       const occStart = new Date(targetOcc);
       occStart.setHours(s.getHours(), s.getMinutes(), 0, 0);
-      setStartTime(formatToLocalDateTimeInput(occStart, s.getHours(), s.getMinutes()));
+      startVal = formatToLocalDateTimeInput(occStart, s.getHours(), s.getMinutes());
 
       const diffDays = Math.round(
         (new Date(e.getFullYear(), e.getMonth(), e.getDate()).getTime() -
@@ -293,34 +328,85 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
       );
       const occEnd = new Date(targetOcc);
       occEnd.setDate(occEnd.getDate() + Math.max(0, diffDays));
-      setEndTime(formatToLocalDateTimeInput(occEnd, e.getHours(), e.getMinutes()));
+      endVal = formatToLocalDateTimeInput(occEnd, e.getHours(), e.getMinutes());
     } else {
-      setStartTime(formatToLocalDateTimeInput(s, s.getHours(), s.getMinutes()));
-      setEndTime(formatToLocalDateTimeInput(e, e.getHours(), e.getMinutes()));
+      startVal = formatToLocalDateTimeInput(s, s.getHours(), s.getMinutes());
+      endVal = formatToLocalDateTimeInput(e, e.getHours(), e.getMinutes());
     }
 
-    if (parsedRec) {
-      setRecurrenceConfig(parsedRec);
-    } else {
-      setRecurrenceConfig(createDefaultRecurrenceConfig(s, e));
-    }
+    setStartTime(startVal);
+    setEndTime(endVal);
 
+    const recVal = parsedRec || createDefaultRecurrenceConfig(s, e);
+    setRecurrenceConfig(recVal);
+
+    let remVal = 'none';
     if (ev.reminderTime && ev.startTime) {
       const diffMins = Math.round(
         (new Date(ev.startTime).getTime() - new Date(ev.reminderTime).getTime()) / 60000
       );
       if ([0, 5, 15, 30, 60, 120, 1440, 2880].includes(diffMins)) {
-        setReminderMinutes(String(diffMins));
-      } else {
-        setReminderMinutes('none');
+        remVal = String(diffMins);
       }
-    } else {
-      setReminderMinutes('none');
     }
+    setReminderMinutes(remVal);
+
+    previousDetailModalRef.current = {
+      event: ev,
+      occDate: targetOcc,
+    };
+    initialFormSnapshotRef.current = {
+      title: ev.eventTitle,
+      location: ev.location || '',
+      description: cleanDesc,
+      startTime: startVal,
+      endTime: endVal,
+      reminderMinutes: remVal,
+      recurrenceConfigStr: JSON.stringify(recVal),
+    };
 
     setDetailModalState({ isOpen: false, event: null, occDate: null });
     setIsAddModalOpen(true);
   };
+
+  const hasFormChanges = useCallback(() => {
+    const initial = initialFormSnapshotRef.current;
+    if (!initial) return false;
+    if (title.trim() !== initial.title.trim()) return true;
+    if (location.trim() !== initial.location.trim()) return true;
+    if (description.trim() !== initial.description.trim()) return true;
+    if (startTime !== initial.startTime) return true;
+    if (endTime !== initial.endTime) return true;
+    if (reminderMinutes !== initial.reminderMinutes) return true;
+    if (JSON.stringify(recurrenceConfig) !== initial.recurrenceConfigStr) return true;
+    return false;
+  }, [title, location, description, startTime, endTime, reminderMinutes, recurrenceConfig]);
+
+  const handleForceCloseForm = useCallback(() => {
+    setShowUnsavedChangesModal(false);
+    setIsAddModalOpen(false);
+    const prev = previousDetailModalRef.current;
+    setEditingEvent(null);
+    setEditingOccurrenceDate(null);
+    previousDetailModalRef.current = null;
+    initialFormSnapshotRef.current = null;
+
+    if (prev && prev.event) {
+      setDetailModalState({
+        isOpen: true,
+        event: prev.event,
+        occDate: prev.occDate,
+      });
+    }
+  }, []);
+
+  const handleRequestCloseForm = useCallback(() => {
+    if (hasFormChanges()) {
+      setShowUnsavedChangesModal(true);
+    } else {
+      handleForceCloseForm();
+    }
+  }, [hasFormChanges, handleForceCloseForm]);
 
   const handleRepeatOptionChange = (value: string) => {
     if (value === 'custom') {
@@ -531,7 +617,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
             reminderTime: reminderIso,
           });
 
-          if (detailModalState.isOpen) {
+          if (previousDetailModalRef.current) {
             setDetailModalState({
               isOpen: true,
               event: created,
@@ -596,7 +682,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
               reminderTime: reminderIso,
             });
 
-            if (detailModalState.isOpen) {
+            if (previousDetailModalRef.current) {
               setDetailModalState({
                 isOpen: true,
                 event: created,
@@ -617,8 +703,12 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
               },
             });
 
-            if (detailModalState.isOpen) {
-              setDetailModalState((prev) => (prev.event ? { ...prev, event: updated } : prev));
+            if (previousDetailModalRef.current) {
+              setDetailModalState({
+                isOpen: true,
+                event: updated,
+                occDate: editingOccurrenceDate || new Date(updated.startTime),
+              });
             }
           }
         } else {
@@ -634,8 +724,12 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
             },
           });
 
-          if (detailModalState.isOpen) {
-            setDetailModalState((prev) => (prev.event ? { ...prev, event: updated } : prev));
+          if (previousDetailModalRef.current) {
+            setDetailModalState({
+              isOpen: true,
+              event: updated,
+              occDate: editingOccurrenceDate || new Date(updated.startTime),
+            });
           }
         }
       } else {
@@ -652,6 +746,9 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
 
       setIsAddModalOpen(false);
       setEditingEvent(null);
+      setEditingOccurrenceDate(null);
+      previousDetailModalRef.current = null;
+      initialFormSnapshotRef.current = null;
     } catch (err: any) {
       setSubmitError(err?.message || 'Có lỗi xảy ra khi lưu sự kiện');
     }
@@ -865,9 +962,9 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
             {/* Left: Nút Quay lại dạng ngày tháng năm - Floating Pill Button */}
             <button
               type="button"
-              onClick={() => setIsAddModalOpen(false)}
+              onClick={handleRequestCloseForm}
               className="pointer-events-auto inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full backdrop-blur-xl bg-white/92 dark:bg-circle-dark-surface/90 border border-circle-hairline/80 dark:border-white/12 shadow-sm hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text font-bold text-xs sm:text-sm transition-all active:scale-95 cursor-pointer"
-              title="Quay lại Lịch"
+              title="Quay lại"
             >
               <ChevronLeft className="w-4 h-4 text-teal-600 dark:text-teal-400" />
               <span>
@@ -880,31 +977,25 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
               </span>
             </button>
 
-            {/* Right: Floating Pill Buttons: Hủy và Lưu/Tạo */}
+            {/* Right: Floating Pill Buttons: Đóng và Lưu (Cân bằng kích thước chuẩn xác) */}
             <div className="pointer-events-auto flex items-center gap-2 shrink-0">
               <button
                 type="button"
-                onClick={() => setIsAddModalOpen(false)}
-                className="inline-flex items-center px-3.5 py-2 rounded-full backdrop-blur-xl bg-white/92 dark:bg-circle-dark-surface/90 border border-circle-hairline/80 dark:border-white/12 shadow-sm hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate dark:text-circle-dark-muted font-bold text-xs sm:text-sm transition-all active:scale-95 cursor-pointer"
+                onClick={handleRequestCloseForm}
+                className="inline-flex items-center justify-center w-20 sm:w-24 h-9 rounded-full backdrop-blur-xl bg-white/92 dark:bg-circle-dark-surface/90 border border-circle-hairline/80 dark:border-white/12 shadow-sm hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate dark:text-circle-dark-muted font-bold text-xs sm:text-sm transition-all active:scale-95 cursor-pointer"
               >
-                Hủy bỏ
+                Đóng
               </button>
               <button
                 type="button"
                 disabled={isSubmitting}
                 onClick={handleAttemptSubmit}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full backdrop-blur-xl bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white font-bold text-xs sm:text-sm shadow-sm transition-all active:scale-95 cursor-pointer"
+                className="inline-flex items-center justify-center w-20 sm:w-24 h-9 rounded-full backdrop-blur-xl bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white font-bold text-xs sm:text-sm shadow-sm transition-all active:scale-95 cursor-pointer"
               >
                 {isSubmitting ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>Đang lưu...</span>
-                  </>
+                  <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
-                  <>
-                    <Check className="h-4 w-4" />
-                    <span>{editingEvent ? 'Lưu thay đổi' : 'Tạo sự kiện'}</span>
-                  </>
+                  <span>Lưu</span>
                 )}
               </button>
             </div>
@@ -960,7 +1051,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                           }
                         }
                       }}
-                      min={editingEvent ? undefined : nowIsoLocal}
+                      min={undefined}
                       placeholder="dd/mm/yyyy --:--"
                       align="left"
                     />
@@ -975,7 +1066,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                       required
                       value={endTime}
                       onChange={(val) => setEndTime(val)}
-                      min={startTime || nowIsoLocal}
+                      min={startTime || undefined}
                       placeholder="dd/mm/yyyy --:--"
                       align="right"
                     />
@@ -1203,7 +1294,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                           min={
                             startTime
                               ? startTime.split('T')[0]
-                              : (nowIsoLocal ? nowIsoLocal.split('T')[0] : undefined)
+                              : undefined
                           }
                           placeholder="dd/mm/yyyy"
                           align="left"
@@ -1846,6 +1937,41 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
       
 
 
+
+      {/* ============================================================== */}
+      {/* MODAL CẢNH BÁO: THAY ĐỔI CHƯA LƯU */}
+      {/* ============================================================== */}
+      {showUnsavedChangesModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="w-full max-w-sm rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-5 shadow-2xl space-y-4">
+            <div className="space-y-1.5">
+              <h4 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
+                Thay đổi chưa lưu
+              </h4>
+              <p className="text-xs text-circle-slate dark:text-circle-dark-muted leading-relaxed">
+                Bạn muốn bỏ nội dung chỉnh sửa hay tiếp tục chỉnh sửa?
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline">
+              <button
+                type="button"
+                onClick={handleForceCloseForm}
+                className="px-3.5 py-1.5 rounded-xl text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 transition-colors cursor-pointer"
+              >
+                Bỏ nội dung chỉnh sửa
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowUnsavedChangesModal(false)}
+                className="px-3.5 py-1.5 rounded-xl text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 transition-colors shadow-xs cursor-pointer"
+              >
+                Tiếp tục chỉnh sửa
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ============================================================== */}
       {/* SCOPE CONFIRMATION MODAL CHO LƯU / SỬA (3 OPTIONS) */}

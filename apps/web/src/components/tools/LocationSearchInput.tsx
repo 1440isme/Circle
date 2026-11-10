@@ -25,7 +25,9 @@ export const LocationSearchInput: React.FC<LocationSearchInputProps> = ({
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const isUserTypingRef = useRef(false);
 
   // Close suggestions when clicking outside
   useEffect(() => {
@@ -38,8 +40,12 @@ export const LocationSearchInput: React.FC<LocationSearchInputProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Debounced search on input change
+  // Debounced search on input change - only runs when actively typed by user
   useEffect(() => {
+    if (!isUserTypingRef.current) {
+      return;
+    }
+
     const trimmed = value.trim();
 
     // Do not search if it's already a URL, empty, or too short
@@ -64,7 +70,9 @@ export const LocationSearchInput: React.FC<LocationSearchInputProps> = ({
           const data = await res.json();
           if (Array.isArray(data) && data.length > 0) {
             setSuggestions(data);
-            setShowSuggestions(true);
+            if (isUserTypingRef.current) {
+              setShowSuggestions(true);
+            }
           } else {
             setSuggestions([]);
             setShowSuggestions(false);
@@ -86,6 +94,7 @@ export const LocationSearchInput: React.FC<LocationSearchInputProps> = ({
   }, [value]);
 
   const handleSelectSuggestion = (item: any) => {
+    isUserTypingRef.current = false;
     const rawName = item.name || item.display_name?.split(',')?.[0] || 'Địa điểm';
     const cleanName = rawName
       .replace(/https?:\/\/[^\s]+/g, '')
@@ -97,6 +106,7 @@ export const LocationSearchInput: React.FC<LocationSearchInputProps> = ({
   };
 
   const handleSelectFromMap = (data: SelectedLocationData) => {
+    isUserTypingRef.current = false;
     const cleanName = (data.formattedLocation || data.name || data.address || '')
       .replace(/https?:\/\/[^\s]+/g, '')
       .trim()
@@ -112,9 +122,18 @@ export const LocationSearchInput: React.FC<LocationSearchInputProps> = ({
           <input
             type="text"
             value={value}
-            onChange={(e) => onChange(e.target.value)}
+            onChange={(e) => {
+              isUserTypingRef.current = true;
+              onChange(e.target.value);
+            }}
             onFocus={() => {
-              if (suggestions.length > 0) setShowSuggestions(true);
+              setIsFocused(true);
+              if (suggestions.length > 0 && isUserTypingRef.current) {
+                setShowSuggestions(true);
+              }
+            }}
+            onBlur={() => {
+              setIsFocused(false);
             }}
             placeholder={placeholder}
             className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas pl-3.5 pr-8 py-2 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-hidden focus:ring-1 focus:ring-teal-500"
