@@ -6666,3 +6666,40 @@
   - **Resolution / Fix:** N/A.
 - **Commit:** Pending
 - **PR:** Pending
+
+
+---
+
+## [AI-0186] - 2026-11-10
+
+- **Developer:** Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 2.5 Pro
+- **Related Issue:** #120
+- **Purpose:** 
+  1. Hiển thị rõ ràng placeholder ("text ẩn") và cho phép kéo mép phải/góc dưới để mở rộng chiều cao (`resize-y min-h-[96px]`) cho ô ghi chú/mô tả sự kiện trong Form Tạo & Chỉnh sửa sự kiện lịch (`CircleCalendarView.tsx`), loại bỏ `resize-none` gây khóa cứng kích thước.
+  2. Đồng bộ màu xanh Teal chủ đạo (`teal-600` / `#0D9488`) xuyên suốt toàn bộ tính năng bản đồ:
+     - Biểu tượng Leaflet DivIcon pin marker chuyển từ đỏ `#E11D48` sang xanh `#0D9488` kèm hiệu ứng bóng đổ teal glow.
+     - Header icon, nút "Chọn địa điểm này", nút định vị GPS, biểu tượng loading và danh sách kết quả tìm kiếm trong `MapLocationPickerModal.tsx` đồng bộ màu xanh Teal.
+     - Nút mở bản đồ và các icon gợi ý trong `LocationSearchInput.tsx` chuyển sang màu xanh Teal đồng nhất.
+- **Prompt Summary:** phần tạo sự kiện chỗ ghi chú chưa có text ẩn. và chỗ ghi chú đó chưa kéo được mép phải để mở rộng; bản đồ nên để màu xanh chủ đạo
+- **Files Affected:**
+  - `apps/web/src/components/tools/CircleCalendarView.tsx`
+  - `apps/web/src/components/tools/LocationSearchInput.tsx`
+  - `apps/web/src/components/tools/MapLocationPickerModal.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% tinh chỉnh CSS resize & placeholder cho textarea, và đổi theme màu Teal cho Leaflet pin marker cùng các thành phần bản đồ.
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+  - cd apps/web && npx tsc --noEmit: Passed 100%, 0 lỗi.
+  - cd apps/mobile && npx tsc --noEmit: Passed 100%, 0 lỗi.
+  - bash ./scripts/check-agent-map.sh: 127/127 references resolve.
+  - bash ./scripts/check-secrets.sh: Passed, 0 secret leaks.
+- **Official Source Checked:** PROJECT_GOD.md, agentic/RULES.md & agentic/CONVENTIONS.md.
+- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A.
+  - **Resolution / Fix:** N/A.
+- **Commit:** 6f9ff1c
+- **PR:** Pending
