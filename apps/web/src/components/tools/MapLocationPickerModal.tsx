@@ -101,9 +101,10 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
         const displayName = data.address || data.name || '';
         const nameCandidate = fallbackName || (data.name && !data.name.startsWith('Vị trí (')) ? data.name : (displayName.split(',')[0] || '');
         if (nameCandidate && !nameCandidate.startsWith('Vị trí (')) {
-          setSelectedPlace({ name: nameCandidate, address: displayName, lat, lng });
+          const place = { name: nameCandidate, address: displayName, lat, lng };
+          setSelectedPlace(place);
           setIsReverseGeocoding(false);
-          return;
+          return place;
         }
       }
     } catch (err) {
@@ -138,22 +139,25 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
         const addressParts = [locality, district, city, d.countryName || 'Việt Nam'].filter(Boolean);
         const resolvedAddress = Array.from(new Set(addressParts)).join(', ');
 
-        setSelectedPlace({ name: resolvedName, address: resolvedAddress || resolvedName, lat, lng });
+        const place = { name: resolvedName, address: resolvedAddress || resolvedName, lat, lng };
+        setSelectedPlace(place);
         setIsReverseGeocoding(false);
-        return;
+        return place;
       }
     } catch (bErr) {
       console.warn('BigDataCloud reverse geocode error:', bErr);
     }
 
     // 3. Fallback when network is completely offline
-    setSelectedPlace({
+    const fallbackPlace = {
       name: fallbackName || 'Vị trí hiện tại',
       address: '',
       lat,
       lng,
-    });
+    };
+    setSelectedPlace(fallbackPlace);
     setIsReverseGeocoding(false);
+    return fallbackPlace;
   }, []);
 
   // Update or create pin marker
@@ -181,66 +185,16 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
         draggable: true,
       }).addTo(mapRef.current);
 
-      markerRef.current.on('dragend', () => {
+      markerRef.current.on('dragend', async () => {
         const pos = markerRef.current!.getLatLng();
-        reverseGeocode(pos.lat, pos.lng);
+        const place = await reverseGeocode(pos.lat, pos.lng);
+        if (place && place.name && !place.name.startsWith('Vị trí (')) {
+          isSelectingResultRef.current = true;
+          setSearchQuery(place.name);
+        }
       });
     }
   }, [reverseGeocode]);
-
-  // Search function helper with direct client fallback to Photon
-  const executeSearch = useCallback(async (query: string): Promise<any[]> => {
-    const trimmed = query.trim();
-    if (!trimmed || trimmed.length < 2) return [];
-
-    try {
-      const res = await fetch(`/api/locations/search?q=${encodeURIComponent(trimmed)}`);
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data) && data.length > 0) {
-          return data;
-        }
-      }
-    } catch (err) {
-      console.warn('Place search API error, attempting direct fallback:', err);
-    }
-
-    // Direct Photon OSM fallback
-    try {
-      const photonUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(
-        trimmed
-      )}&lat=10.7769&lon=106.7009&limit=6`;
-      const pRes = await fetch(photonUrl);
-      if (pRes.ok) {
-        const pData = await pRes.json();
-        const features = pData.features || [];
-        if (features.length > 0) {
-          return features.map((f: any) => {
-            const p = f.properties || {};
-            const name = p.name || p.street || trimmed;
-            const parts = [
-              p.name,
-              p.housenumber ? `Số ${p.housenumber}` : '',
-              p.street,
-              p.locality || p.district,
-              p.city,
-              p.state || p.country,
-            ].filter(Boolean);
-            return {
-              name,
-              display_name: Array.from(new Set(parts)).join(', ') || name,
-              lat: f.geometry?.coordinates?.[1],
-              lon: f.geometry?.coordinates?.[0],
-            };
-          });
-        }
-      }
-    } catch (fErr) {
-      console.warn('Direct fallback error:', fErr);
-    }
-
-    return [];
-  }, []);
 
   // 1. Initialize Map with initialQuery coordinates or clean name search
   useEffect(() => {
@@ -257,7 +211,10 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
     const existingCoords = extractCoordsFromQuery(initialQuery);
     const cleanName = extractCleanQuery(initialQuery);
 
-    setSearchQuery(cleanName);
+    if (cleanName) {
+      isSelectingResultRef.current = true;
+      setSearchQuery(cleanName);
+    }
 
     // Initial center: if coordinates provided, use them; otherwise default to HCM center
     const defaultLat = existingCoords ? existingCoords.lat : 10.7769;
@@ -290,11 +247,15 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
     mapRef.current = map;
 
     // Handle map clicks to place/move pin
-    map.on('click', (e: L.LeafletMouseEvent) => {
+    map.on('click', async (e: L.LeafletMouseEvent) => {
       const { lat, lng } = e.latlng;
       updateMarker(lat, lng);
-      reverseGeocode(lat, lng);
       setShowResultsDropdown(false);
+      const place = await reverseGeocode(lat, lng);
+      if (place && place.name && !place.name.startsWith('Vị trí (')) {
+        isSelectingResultRef.current = true;
+        setSearchQuery(place.name);
+      }
     });
 
     const timer = setTimeout(async () => {
@@ -306,19 +267,35 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
         reverseGeocode(existingCoords.lat, existingCoords.lng, cleanName || undefined);
       } else if (cleanName && cleanName.length >= 2) {
         setIsSearching(true);
-        const results = await executeSearch(cleanName);
-        setIsSearching(false);
-        if (results.length > 0) {
-          const top = results[0];
-          const lat = parseFloat(top.lat);
-          const lng = parseFloat(top.lon);
-          const name = top.name || top.display_name.split(',')[0] || cleanName;
-          map.flyTo([lat, lng], 16);
-          updateMarker(lat, lng);
-          setSelectedPlace({ name, address: top.display_name, lat, lng });
-        } else {
+        try {
+          const res = await fetch(`/api/locations/search?q=${encodeURIComponent(cleanName)}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (Array.isArray(data) && data.length > 0) {
+              const top = data[0];
+              const lat = typeof top.lat === 'string' ? parseFloat(top.lat) : Number(top.lat);
+              const rawLon = top.lon ?? top.lng;
+              const lng = typeof rawLon === 'string' ? parseFloat(rawLon) : Number(rawLon);
+              const name = top.name || top.display_name?.split(',')?.[0] || cleanName;
+              if (!isNaN(lat) && !isNaN(lng)) {
+                map.flyTo([lat, lng], 16);
+                updateMarker(lat, lng);
+                setSelectedPlace({ name, address: top.display_name || name, lat, lng });
+              }
+            } else {
+              updateMarker(defaultLat, defaultLng);
+              reverseGeocode(defaultLat, defaultLng);
+            }
+          } else {
+            updateMarker(defaultLat, defaultLng);
+            reverseGeocode(defaultLat, defaultLng);
+          }
+        } catch {
           updateMarker(defaultLat, defaultLng);
           reverseGeocode(defaultLat, defaultLng);
+        } finally {
+          setIsSearching(false);
+          setShowResultsDropdown(false);
         }
       } else {
         updateMarker(defaultLat, defaultLng);
@@ -332,9 +309,9 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
       mapRef.current = null;
       markerRef.current = null;
     };
-  }, [isOpen, mounted, initialQuery, updateMarker, reverseGeocode, executeSearch]);
+  }, [isOpen, mounted, initialQuery, updateMarker, reverseGeocode]);
 
-  // 2. Debounced search on user input change — matching "ở ngoài" behavior
+  // 2. Debounced search on user input change — matching "ở ngoài" LocationSearchInput 1:1
   useEffect(() => {
     if (isSelectingResultRef.current) {
       isSelectingResultRef.current = false;
@@ -350,27 +327,53 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
 
     const timer = setTimeout(async () => {
       setIsSearching(true);
-      const results = await executeSearch(trimmed);
-      setIsSearching(false);
-      setSearchResults(results);
-      setShowResultsDropdown(results.length > 0);
+      try {
+        const res = await fetch(`/api/locations/search?q=${encodeURIComponent(trimmed)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data) && data.length > 0) {
+            setSearchResults(data);
+            setShowResultsDropdown(true);
+          } else {
+            setSearchResults([]);
+            setShowResultsDropdown(false);
+          }
+        } else {
+          setSearchResults([]);
+          setShowResultsDropdown(false);
+        }
+      } catch (err) {
+        console.warn('Place search API error:', err);
+        setSearchResults([]);
+        setShowResultsDropdown(false);
+      } finally {
+        setIsSearching(false);
+      }
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [searchQuery, executeSearch]);
+  }, [searchQuery]);
 
   const handleSelectSearchResult = (item: any) => {
-    const lat = parseFloat(item.lat);
-    const lng = parseFloat(item.lon);
-    const name = item.name || item.display_name?.split(',')?.[0] || searchQuery;
-    const address = item.display_name || name;
+    const rawLat = item.lat;
+    const rawLon = item.lon ?? item.lng;
+    const lat = typeof rawLat === 'string' ? parseFloat(rawLat) : Number(rawLat);
+    const lng = typeof rawLon === 'string' ? parseFloat(rawLon) : Number(rawLon);
 
-    setSelectedPlace({ name, address, lat, lng });
+    const rawName = item.name || item.display_name?.split(',')?.[0] || searchQuery;
+    const cleanName = rawName
+      .replace(/https?:\/\/[^\s]+/g, '')
+      .trim()
+      .replace(/\s*[-–—:]+\s*$/g, '')
+      .trim();
+    const address = item.display_name || cleanName;
+
+    setSelectedPlace({ name: cleanName, address, lat, lng });
     setShowResultsDropdown(false);
     isSelectingResultRef.current = true;
-    setSearchQuery(name);
+    setSearchQuery(cleanName);
 
-    if (mapRef.current) {
+    if (mapRef.current && !isNaN(lat) && !isNaN(lng)) {
       mapRef.current.flyTo([lat, lng], 16, { duration: 1 });
       updateMarker(lat, lng);
     }
@@ -388,7 +391,11 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
         if (mapRef.current) {
           mapRef.current.flyTo([lat, lng], 16, { duration: 1 });
           updateMarker(lat, lng);
-          await reverseGeocode(lat, lng);
+          const place = await reverseGeocode(lat, lng);
+          if (place && place.name && !place.name.startsWith('Vị trí (')) {
+            isSelectingResultRef.current = true;
+            setSearchQuery(place.name);
+          }
         }
       },
       (err) => {
@@ -467,7 +474,7 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
         {/* Search Bar Overlay — styled exactly like "ở ngoài" LocationSearchInput */}
         <div
           ref={searchContainerRef}
-          className="relative px-4 pt-3 pb-2.5 z-30 bg-circle-canvas/90 dark:bg-circle-dark-canvas/90 backdrop-blur-md border-b border-circle-hairline/60 dark:border-circle-dark-hairline/60 shrink-0"
+          className="relative px-4 pt-3 pb-2.5 z-[1100] bg-circle-canvas/95 dark:bg-circle-dark-canvas/95 backdrop-blur-md border-b border-circle-hairline/60 dark:border-circle-dark-hairline/60 shrink-0"
         >
           <div className="relative w-full">
             <input
@@ -482,12 +489,6 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
                   e.preventDefault();
                   if (searchResults.length > 0) {
                     handleSelectSearchResult(searchResults[0]);
-                  } else if (searchQuery.trim().length >= 2) {
-                    executeSearch(searchQuery.trim()).then((results) => {
-                      if (results.length > 0) {
-                        handleSelectSearchResult(results[0]);
-                      }
-                    });
                   }
                 }
               }}
@@ -506,7 +507,7 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
                     setSearchResults([]);
                     setShowResultsDropdown(false);
                   }}
-                  className="text-circle-slate hover:text-circle-charcoal dark:hover:text-circle-dark-text transition-colors p-0.5"
+                  className="text-circle-slate hover:text-circle-charcoal dark:hover:text-circle-dark-text transition-colors p-0.5 cursor-pointer"
                 >
                   <X className="h-3.5 w-3.5" />
                 </button>
@@ -516,7 +517,7 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
 
           {/* Autocomplete Dropdown — EXACT styling as "ở ngoài" */}
           {showResultsDropdown && searchResults.length > 0 && (
-            <div className="absolute left-4 right-4 top-full mt-1.5 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface shadow-2xl overflow-hidden max-h-56 overflow-y-auto z-50 animate-in fade-in duration-100">
+            <div className="absolute left-4 right-4 top-full mt-1.5 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface shadow-2xl overflow-hidden max-h-56 overflow-y-auto z-[1200] animate-in fade-in duration-100">
               <div className="px-3 py-1.5 bg-circle-wash/50 dark:bg-circle-dark-wash/50 border-b border-circle-hairline/40 text-[10px] font-bold text-circle-slate dark:text-circle-dark-muted uppercase tracking-wider">
                 Gợi ý địa điểm từ bản đồ
               </div>
@@ -524,7 +525,15 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
                 <button
                   key={idx}
                   type="button"
-                  onClick={() => handleSelectSearchResult(item)}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleSelectSearchResult(item);
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleSelectSearchResult(item);
+                  }}
                   className="w-full text-left px-3 py-2 hover:bg-circle-wash dark:hover:bg-circle-dark-wash border-b border-circle-hairline/30 dark:border-circle-dark-hairline/30 last:border-none flex items-start gap-2 transition-colors cursor-pointer"
                 >
                   <MapPin className="h-3.5 w-3.5 text-rose-500 shrink-0 mt-0.5" />
@@ -543,7 +552,7 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
         </div>
 
         {/* Map Container */}
-        <div className="relative flex-1 w-full bg-circle-canvas dark:bg-circle-dark-canvas overflow-hidden">
+        <div className="relative flex-1 w-full bg-circle-canvas dark:bg-circle-dark-canvas overflow-hidden isolate z-0">
           <div ref={mapContainerRef} className="h-full w-full" />
 
           {/* Mapbox badge */}

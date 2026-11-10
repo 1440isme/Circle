@@ -6635,3 +6635,34 @@
   - **Resolution / Fix:** N/A.
 - **Commit:** Pending
 - **PR:** Pending
+
+
+---
+
+## [AI-0185] - 2026-11-10
+
+- **Developer:** Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 2.5 Pro
+- **Related Issue:** #120
+- **Purpose:** Khắc phục triệt để lỗi tìm kiếm địa điểm trong bản đồ không hoạt động và không đồng bộ với bên ngoài: (1) Sửa lỗi xung đột stacking context & z-index (`z-[1100]` cho khung tìm kiếm và `z-[1200]` cho danh sách gợi ý, thêm `isolate z-0` cho container Leaflet) ngăn chặn toàn bộ các lớp Leaflet panes (`z-400` đến `z-1000`) nuốt hoặc chặn sự kiện click chuột lên dropdown gợi ý; (2) Chuẩn hóa 1:1 luồng debounced fetch trực tiếp đến `/api/locations/search` với độ trễ 300ms, loại bỏ logic client fallback gây lệch kết quả; (3) Bổ sung xử lý sự kiện `onMouseDown` kèm `preventDefault()` và `stopPropagation()` trên từng item gợi ý, đảm bảo khi người dùng click chọn địa điểm thì bản đồ ngay lập tức `flyTo` mượt mà, ghim marker chuẩn xác, đồng bộ tên địa điểm vào input tìm kiếm và kích hoạt nút xác nhận ở footer mà không bị bản đồ can thiệp.
+- **Prompt Summary:** phần tìm kiếm trong bản đồ chưa hoạt động như ở ngoài
+- **Files Affected:**
+  - `apps/web/src/components/tools/MapLocationPickerModal.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% tinh chỉnh CSS stacking context, đồng bộ logic debounced search và event handlers chọn địa điểm.
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+  - cd apps/web && npx tsc --noEmit: Passed 100%, 0 lỗi.
+  - cd apps/web && npx next build --no-lint: Passed 100%, build thành công tất cả 11 routes.
+  - cd apps/mobile && npx tsc --noEmit: Passed 100%, 0 lỗi.
+  - bash ./scripts/check-agent-map.sh: 127/127 references resolve.
+  - bash ./scripts/check-secrets.sh: Passed, 0 secret leaks.
+- **Official Source Checked:** PROJECT_GOD.md, agentic/RULES.md & agentic/CONVENTIONS.md.
+- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A.
+  - **Resolution / Fix:** N/A.
+- **Commit:** Pending
+- **PR:** Pending
