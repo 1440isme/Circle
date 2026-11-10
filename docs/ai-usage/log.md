@@ -6772,3 +6772,34 @@
   - **Resolution / Fix:** N/A.
 - **Commit:** 60bc6fe
 - **PR:** Pending
+
+
+---
+
+## [AI-0189] - 2026-11-11
+
+- **Developer:** Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 2.5 Pro
+- **Related Issue:** #120
+- **Purpose:** Tái thiết kế thanh tiêu đề của màn hình Lịch chính ngoài (`CircleCalendarView.tsx`): loại bỏ hoàn toàn khối heading chữ cồng kềnh ("Lịch hẹn & Sự kiện" và mô tả phụ) cùng đường viền kẻ ngang, chuyển đổi toàn bộ cụm điều khiển sang thanh Floating Pill Buttons sticky bo tròn mềm mại:
+  - Góc trái: Cụm nút chuyển chế độ bo tròn tròn đôi (Theo tháng / Sắp tới kèm số lượng).
+  - Góc phải: Hai nút Floating Pill "Hôm nay" và "Tạo sự kiện" (màu Teal) chuẩn Apple Design, đồng bộ 100% với màn Chi tiết và màn Tạo/Chỉnh sửa sự kiện.
+- **Prompt Summary:** đến modal lịch ngoài bỏ heading vàtext" Lịch hẹn & Sự kiện Lịch hẹn, sự kiện và nhắc nhở dành riêng cho các thành viên trong nhóm " các nút Floating Pill Button.
+- **Files Affected:**
+  - `apps/web/src/components/tools/CircleCalendarView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% mã tái cấu trúc thanh Floating Pill Buttons cho màn hình lịch chính ngoài.
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+  - cd apps/web && npx tsc --noEmit: Passed 100%, 0 lỗi.
+  - bash ./scripts/check-agent-map.sh: 127/127 references resolve.
+  - bash ./scripts/check-secrets.sh: Passed, 0 secret leaks.
+- **Official Source Checked:** PROJECT_GOD.md, agentic/RULES.md & agentic/CONVENTIONS.md.
+- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A.
+  - **Resolution / Fix:** N/A.
+- **Commit:** 3847faf
+- **PR:** Pending
