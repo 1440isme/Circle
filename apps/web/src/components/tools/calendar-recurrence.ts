@@ -85,7 +85,14 @@ export const formatRecurrenceSummary = (
   if (!config.isCustom && (config.interval || 1) === 1) {
     let base = '';
     if (config.frequency === 'daily') base = 'Hằng ngày';
-    else if (config.frequency === 'weekly') base = 'Hằng tuần';
+    else if (config.frequency === 'weekly') {
+      const days = Array.isArray(config.weeklyDays) ? [...config.weeklyDays] : [];
+      const daysStr = days
+        .sort((a, b) => a - b)
+        .map((d) => WEEKDAY_INFO[d]?.short || `T${d}`)
+        .join(', ');
+      base = daysStr ? `Hằng tuần vào ${daysStr}` : 'Hằng tuần';
+    }
     else if (config.frequency === 'monthly') base = 'Hằng tháng';
     else if (config.frequency === 'yearly') base = 'Hằng năm';
 

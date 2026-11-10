@@ -1,22 +1,20 @@
-'use client';
-
 import React, { useState } from 'react';
 import {
   X,
   Clock,
   MapPin,
-  Repeat,
+  Calendar as CalendarIcon,
   Bell,
-  Info,
-  Pencil,
-  Trash2,
-  Ban,
-  RotateCcw,
-  Share2,
   Users,
+  Repeat,
   ChevronLeft,
   ChevronRight,
   ExternalLink,
+  Pencil,
+  Trash2,
+  Share2,
+  Ban,
+  RotateCcw,
   Check,
   Video,
   AlignLeft,
@@ -27,6 +25,10 @@ import {
   parseEventRecurrence,
   formatRecurrenceSummary,
   formatDateOnly,
+  formatDateKey,
+  getWeekdayNumber,
+  serializeRecurrence,
+  RecurrenceConfig,
   isEventCancelledOnDate,
   getNextOrPrevOccurrence,
 } from './calendar-recurrence';
@@ -34,6 +36,7 @@ import { useAuth } from '../../context/AuthContext';
 import {
   useRespondEventRsvpMutation,
   useUpdateCalendarEventMutation,
+  useCreateCalendarEventMutation,
 } from '../../hooks/use-circle-tools';
 import { parseEventLocation } from './EventLocationDisplay';
 
@@ -65,9 +68,17 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
   const { user } = useAuth();
   const [currentOccDate, setCurrentOccDate] = useState<Date>(() => occurrenceDate || new Date());
   const [showAttendeesModal, setShowAttendeesModal] = useState(false);
+  const [attendeeTab, setAttendeeTab] = useState<'yes' | 'maybe' | 'no'>('yes');
   const [copiedShare, setCopiedShare] = useState(false);
 
+  // Reminder Scope & Confirmation Modals
+  const [showReminderScopeModal, setShowReminderScopeModal] = useState(false);
+  const [showReminderConfirmModal, setShowReminderConfirmModal] = useState(false);
+  const [pendingReminderValue, setPendingReminderValue] = useState<string | null>(null);
+
   const rsvpMutation = useRespondEventRsvpMutation(circleId);
+  const updateMutation = useUpdateCalendarEventMutation(circleId);
+  const createMutation = useCreateCalendarEventMutation(circleId);
 
   // Sync occurrence date when prop changes
   React.useEffect(() => {
@@ -99,22 +110,18 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
     occStartDate.getMonth() === occEndDate.getMonth() &&
     occStartDate.getDate() === occEndDate.getDate();
 
-  // Reminder label
-  const reminderLabel = (() => {
-    if (!event.reminderTime) return 'Không nhắc';
-    const diffMins = Math.round((evStart.getTime() - new Date(event.reminderTime).getTime()) / 60000);
-    if (diffMins <= 0) return 'Khi sự kiện diễn ra';
-    if (diffMins === 5) return 'Trước 5 phút';
-    if (diffMins === 15) return 'Trước 15 phút';
-    if (diffMins === 30) return 'Trước 30 phút';
-    if (diffMins === 60) return 'Trước 1 giờ';
-    if (diffMins === 120) return 'Trước 2 giờ';
-    if (diffMins === 1440) return 'Trước 1 ngày';
-    if (diffMins === 2880) return 'Trước 2 ngày';
-    return `Trước ${diffMins} phút`;
+  // Recurrence summary text: e.g. "Lặp lại hằng tuần vào T4"
+  const repeatSummaryText = (() => {
+    if (!recurrenceConfig) return '';
+    let cfg = recurrenceConfig;
+    if (cfg.frequency === 'weekly' && (!cfg.weeklyDays || cfg.weeklyDays.length === 0)) {
+      cfg = { ...cfg, weeklyDays: [getWeekdayNumber(evStart)] };
+    }
+    const raw = formatRecurrenceSummary(cfg, false);
+    return raw.toLowerCase().startsWith('lặp lại')
+      ? raw
+      : `Lặp lại ${raw.charAt(0).toLowerCase() + raw.slice(1)}`;
   })();
-
-  const updateMutation = useUpdateCalendarEventMutation(circleId);
 
   // Calculated diff minutes for quick select
   const calculatedDiffMins = (() => {
@@ -133,29 +140,105 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
     setCurrentReminderValue(calculatedDiffMins);
   }, [calculatedDiffMins]);
 
-  const handleReminderChange = async (newVal: string) => {
+  // When user picks an option in the Reminder dropdown: ask confirmation/scope first
+  const handleReminderSelectChange = (newVal: string) => {
     if (isThisOccurrenceCancelled || isUpdatingReminder) return;
+    if (newVal === currentReminderValue) return;
+
+    setPendingReminderValue(newVal);
+    if (isRecurring) {
+      setShowReminderScopeModal(true);
+    } else {
+      setShowReminderConfirmModal(true);
+    }
+  };
+
+  const handleCancelReminderModal = () => {
+    setShowReminderScopeModal(false);
+    setShowReminderConfirmModal(false);
+    setCurrentReminderValue(calculatedDiffMins);
+    setPendingReminderValue(null);
+  };
+
+  const handleApplyReminder = async (scope: 'this' | 'all') => {
+    const newVal = pendingReminderValue;
+    if (!newVal) return;
+
+    setShowReminderScopeModal(false);
+    setShowReminderConfirmModal(false);
     setCurrentReminderValue(newVal);
     setIsUpdatingReminder(true);
+
     try {
-      let newReminderIso: string | null = null;
-      if (newVal !== 'none') {
-        const mins = parseInt(newVal, 10);
-        const s = new Date(event.startTime);
-        s.setMinutes(s.getMinutes() - mins);
-        newReminderIso = s.toISOString();
+      const diffMins = newVal !== 'none' ? parseInt(newVal, 10) : null;
+
+      if (isRecurring && scope === 'this') {
+        const occKey = formatDateKey(currentOccDate);
+        const currentExcluded = recurrenceConfig?.excludedDates || [];
+        const nextExcluded = currentExcluded.includes(occKey)
+          ? currentExcluded
+          : [...currentExcluded, occKey];
+        const updatedParentRecurrence: RecurrenceConfig = {
+          ...(recurrenceConfig!),
+          excludedDates: nextExcluded,
+        };
+        const updatedParentDesc = serializeRecurrence(updatedParentRecurrence, cleanDesc);
+
+        // 1. Exclude this occurrence from parent series
+        await updateMutation.mutateAsync({
+          eventId: event.id,
+          input: {
+            description: updatedParentDesc,
+          },
+        });
+
+        // 2. Create standalone non-recurring event for this occurrence
+        let standaloneReminderIso: string | null = null;
+        if (diffMins !== null) {
+          const s = new Date(occStartDate);
+          s.setMinutes(s.getMinutes() - diffMins);
+          standaloneReminderIso = s.toISOString();
+        }
+
+        const standaloneConfig: RecurrenceConfig = {
+          ...(recurrenceConfig!),
+          frequency: 'none',
+          endType: 'never',
+          endDate: null,
+          isCustom: false,
+        };
+        const standaloneDesc = serializeRecurrence(standaloneConfig, cleanDesc);
+
+        await createMutation.mutateAsync({
+          eventTitle: event.eventTitle,
+          description: standaloneDesc,
+          location: event.location || undefined,
+          startTime: occStartDate.toISOString(),
+          endTime: occEndDate.toISOString(),
+          reminderTime: standaloneReminderIso || undefined,
+        });
+      } else {
+        // Apply to all (or standalone event)
+        let newReminderIso: string | null = null;
+        if (diffMins !== null) {
+          const s = new Date(event.startTime);
+          s.setMinutes(s.getMinutes() - diffMins);
+          newReminderIso = s.toISOString();
+        }
+
+        await updateMutation.mutateAsync({
+          eventId: event.id,
+          input: {
+            reminderTime: newReminderIso,
+          },
+        });
       }
-      await updateMutation.mutateAsync({
-        eventId: event.id,
-        input: {
-          reminderTime: newReminderIso,
-        },
-      });
     } catch (err: any) {
       console.warn('Failed to update reminder:', err);
       setCurrentReminderValue(calculatedDiffMins);
     } finally {
       setIsUpdatingReminder(false);
+      setPendingReminderValue(null);
     }
   };
 
@@ -259,11 +342,11 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
               title="Chia sẻ vào tin nhắn nhóm"
               className="flex items-center justify-center h-9 w-9 rounded-full backdrop-blur-xl bg-white/92 dark:bg-circle-dark-surface/90 border border-circle-hairline/80 dark:border-white/12 shadow-sm hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate dark:text-circle-dark-muted hover:text-teal-600 transition-all active:scale-95 cursor-pointer"
             >
-              <Share2 className="w-4 h-4" />
+              <Share2 className="w-4 h-4 text-circle-slate dark:text-circle-dark-muted" />
             </button>
           )}
 
-          {!isThisOccurrenceCancelled && (
+          {(event.createdById === user?.id || event.creator?.userId === user?.id) && (
             <button
               type="button"
               onClick={() => onEdit(event, currentOccDate)}
@@ -405,7 +488,7 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
           </div>
         )}
 
-        {/* 3. Hàng Lặp lại (Icon Repeat - màu xanh teal) */}
+        {/* 3. Hàng Lặp lại (Ghi rõ: Lặp lại hằng tuần vào T4) */}
         {isRecurring && recurrenceConfig && (
           <div className="flex items-start gap-4 pt-4 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60">
             <div className="h-9 w-9 rounded-xl bg-teal-500/10 flex items-center justify-center text-teal-600 shrink-0 mt-0.5">
@@ -414,7 +497,7 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
             <div className="flex-1 min-w-0 flex items-center justify-between gap-4">
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
-                  {formatRecurrenceSummary(recurrenceConfig, false)}
+                  {repeatSummaryText}
                 </div>
                 {recurrenceConfig.endType === 'on_date' && recurrenceConfig.endDate && (
                   <div className="text-xs text-circle-slate dark:text-circle-dark-muted mt-0.5">
@@ -456,146 +539,105 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
           </div>
         )}
 
-        {/* 4. Hàng Người tham gia & Bình chọn (Gộp lên trên, hiển thị số người tham gia + avatar, sau đó mới cho bình chọn) */}
-        <div className="flex items-start gap-4 pt-4 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60">
-          <div className="h-9 w-9 rounded-xl bg-teal-500/10 flex items-center justify-center text-teal-600 shrink-0 mt-0.5">
-            <Users className="h-5 w-5" />
-          </div>
-          <div className="flex-1 min-w-0 space-y-3">
-            {/* Attendees stats & avatars */}
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <span className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
-                  Người tham gia ({totalRsvps})
-                </span>
-                <span className="text-xs text-circle-slate dark:text-circle-dark-muted ml-2 font-medium">
-                  • {yesRsvps.length} tham gia
-                </span>
-              </div>
-              {totalRsvps > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setShowAttendeesModal(true)}
-                  className="text-xs font-bold text-teal-600 hover:text-teal-700 hover:underline cursor-pointer"
-                >
-                  Xem danh sách
-                </button>
-              )}
+        {/* 4. Hàng Người tham gia (Ấn vào button mới bình chọn và xem danh sách xây như apps có 3 tab) */}
+        <div className="flex items-center justify-between gap-4 pt-4 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="h-9 w-9 rounded-xl bg-teal-500/10 flex items-center justify-center text-teal-600 shrink-0">
+              <Users className="h-5 w-5" />
             </div>
-
-            {/* Avatar stack preview */}
-            {totalRsvps > 0 && (
-              <div className="flex items-center gap-1.5 overflow-x-auto py-0.5">
-                {rsvps.slice(0, 10).map((r, i) => {
-                  const isMe = r.userId === user?.id;
-                  const dName = isMe ? 'Bạn' : r.user?.profile?.displayName || 'TV';
-                  const avUrl = r.user?.profile?.avatarUrl;
-
-                  return (
-                    <div
-                      key={r.id || r.userId || i}
-                      title={`${dName} (${r.status === EventRsvpStatus.YES ? 'Tham gia' : r.status === EventRsvpStatus.MAYBE ? 'Chưa chắc' : 'Bận'})`}
-                      className="h-7 w-7 rounded-full border-2 border-white dark:border-circle-dark-surface overflow-hidden bg-circle-wash flex items-center justify-center text-[11px] font-bold text-circle-charcoal shrink-0 shadow-2xs"
-                    >
-                      {avUrl ? (
-                        <img src={avUrl} alt={dName} className="h-full w-full object-cover" />
-                      ) : (
-                        <span>{dName.charAt(0).toUpperCase()}</span>
-                      )}
-                    </div>
-                  );
-                })}
-                {rsvps.length > 10 && (
-                  <span className="text-xs font-bold text-circle-slate ml-1">
-                    +{rsvps.length - 10}
-                  </span>
-                )}
-              </div>
-            )}
-
-            {/* Interactive Vote Buttons */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
-              {[
-                {
-                  status: EventRsvpStatus.YES,
-                  label: 'Tham gia',
-                  count: yesRsvps.length,
-                  activeBg: 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 border-emerald-600',
-                },
-                {
-                  status: EventRsvpStatus.MAYBE,
-                  label: 'Chưa chắc',
-                  count: maybeRsvps.length,
-                  activeBg: 'bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 border-amber-600',
-                },
-                {
-                  status: EventRsvpStatus.NO,
-                  label: 'Bận',
-                  count: noRsvps.length,
-                  activeBg: 'bg-rose-50 dark:bg-rose-950/30 text-rose-800 dark:text-rose-300 border-rose-600',
-                },
-              ].map((opt) => {
-                const isSelected = myRsvp === opt.status;
-                const percent = totalRsvps > 0 ? Math.round((opt.count / totalRsvps) * 100) : 0;
-
-                return (
-                  <button
-                    key={opt.status}
-                    type="button"
-                    disabled={isThisOccurrenceCancelled || rsvpMutation.isPending}
-                    onClick={() => handleVote(opt.status)}
-                    className={`py-2 px-3 rounded-xl border text-center transition-all cursor-pointer ${
-                      isSelected
-                        ? `${opt.activeBg} ring-2 ring-teal-500/20 font-bold shadow-2xs`
-                        : 'border-circle-hairline bg-circle-canvas/50 dark:bg-circle-dark-canvas hover:bg-circle-wash text-circle-charcoal dark:text-circle-dark-text font-medium'
-                    } disabled:opacity-50 active:scale-98`}
-                  >
-                    <div className="text-xs font-bold">{opt.label}</div>
-                    <div className="text-[11px] opacity-75 mt-0.5">
-                      {opt.count} ({percent}%)
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
-        {/* 5. Hàng Nhắc nhở (Icon Bell - đồng bộ màu xanh teal, cho chỉnh nhanh luôn) */}
-        <div className="flex items-start gap-4 pt-4 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60">
-          <div className="h-9 w-9 rounded-xl bg-teal-500/10 flex items-center justify-center text-teal-600 shrink-0 mt-0.5">
-            <Bell className="h-5 w-5" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
               <div className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
-                Nhắc hẹn trước
+                Người tham gia ({totalRsvps})
               </div>
-              {isUpdatingReminder && (
-                <div className="flex items-center gap-1.5 text-xs text-teal-600 font-medium">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  <span>Đang lưu...</span>
+              <div className="text-xs text-circle-slate dark:text-circle-dark-muted font-medium mt-0.5">
+                {totalRsvps > 0 ? `${yesRsvps.length} người tham gia` : 'Chưa có phản hồi nào'}
+              </div>
+
+              {/* Avatar stack preview */}
+              {totalRsvps > 0 && (
+                <div className="flex items-center gap-1 overflow-x-auto pt-1.5">
+                  {rsvps.slice(0, 8).map((r, i) => {
+                    const isMe = r.userId === user?.id;
+                    const dName = isMe ? 'Bạn' : r.user?.profile?.displayName || 'TV';
+                    const avUrl = r.user?.profile?.avatarUrl;
+
+                    return (
+                      <div
+                        key={r.id || r.userId || i}
+                        title={`${dName} (${r.status === EventRsvpStatus.YES ? 'Tham gia' : r.status === EventRsvpStatus.MAYBE ? 'Chưa chắc' : 'Bận'})`}
+                        className="h-6 w-6 rounded-full border-2 border-white dark:border-circle-dark-surface overflow-hidden bg-circle-wash flex items-center justify-center text-[10px] font-bold text-circle-charcoal shrink-0 shadow-2xs"
+                      >
+                        {avUrl ? (
+                          <img src={avUrl} alt={dName} className="h-full w-full object-cover" />
+                        ) : (
+                          <span>{dName.charAt(0).toUpperCase()}</span>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {rsvps.length > 8 && (
+                    <span className="text-[11px] font-bold text-circle-slate ml-1">
+                      +{rsvps.length - 8}
+                    </span>
+                  )}
                 </div>
               )}
             </div>
-            <div className="mt-1.5 max-w-xs">
-              <select
-                value={currentReminderValue}
-                disabled={isThisOccurrenceCancelled || isUpdatingReminder}
-                onChange={(e) => handleReminderChange(e.target.value)}
-                className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-surface px-3 py-1.5 text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text focus:outline-hidden focus:ring-1 focus:ring-circle-sage cursor-pointer disabled:opacity-50"
-              >
-                <option value="none">Không nhắc</option>
-                <option value="0">Khi sự kiện diễn ra</option>
-                <option value="5">Trước 5 phút</option>
-                <option value="15">Trước 15 phút</option>
-                <option value="30">Trước 30 phút</option>
-                <option value="60">Trước 1 giờ</option>
-                <option value="120">Trước 2 giờ</option>
-                <option value="1440">Trước 1 ngày</option>
-                <option value="2880">Trước 2 ngày</option>
-              </select>
+          </div>
+
+          {/* Nút bấm để mở Popup Bình chọn & Xem danh sách */}
+          <button
+            type="button"
+            onClick={() => setShowAttendeesModal(true)}
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas hover:bg-teal-50 dark:hover:bg-teal-950/20 text-xs font-bold text-teal-600 dark:text-teal-400 hover:border-teal-500/30 transition-all cursor-pointer shrink-0"
+          >
+            <span>
+              {myRsvp
+                ? myRsvp === EventRsvpStatus.YES
+                  ? 'Đã chọn: Tham gia'
+                  : myRsvp === EventRsvpStatus.MAYBE
+                  ? 'Đã chọn: Chưa chắc'
+                  : 'Đã chọn: Bận'
+                : 'Tham gia bình chọn'}
+            </span>
+            <ChevronRight className="h-3.5 w-3.5" />
+          </button>
+        </div>
+
+        {/* 5. Hàng Nhắc nhở (Icon Bell - Select nằm bên phải luôn, hỏi xác nhận cập nhật như lưu chỉnh sửa) */}
+        <div className="flex items-center justify-between gap-4 pt-4 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="h-9 w-9 rounded-xl bg-teal-500/10 flex items-center justify-center text-teal-600 shrink-0">
+              <Bell className="h-5 w-5" />
             </div>
+            <span className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text shrink-0">
+              Nhắc hẹn trước
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            {isUpdatingReminder && (
+              <div className="flex items-center gap-1.5 text-xs text-teal-600 font-medium">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <span className="hidden sm:inline">Đang lưu...</span>
+              </div>
+            )}
+            <select
+              value={currentReminderValue}
+              disabled={isThisOccurrenceCancelled || isUpdatingReminder}
+              onChange={(e) => handleReminderSelectChange(e.target.value)}
+              className="rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-surface px-3 py-1.5 text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text focus:outline-hidden focus:ring-1 focus:ring-circle-sage cursor-pointer disabled:opacity-50"
+            >
+              <option value="none">Không nhắc</option>
+              <option value="0">Khi sự kiện diễn ra</option>
+              <option value="5">Trước 5 phút</option>
+              <option value="15">Trước 15 phút</option>
+              <option value="30">Trước 30 phút</option>
+              <option value="60">Trước 1 giờ</option>
+              <option value="120">Trước 2 giờ</option>
+              <option value="1440">Trước 1 ngày</option>
+              <option value="2880">Trước 2 ngày</option>
+            </select>
           </div>
         </div>
 
@@ -621,46 +663,259 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
         </div>
       </div>
 
-
-      {/* Attendees Full List Dialog */}
+      {/* ============================================================== */}
+      {/* POPUP: BÌNH CHỌN & DANH SÁCH NGƯỜI THAM GIA XÂY NHƯ APP (3 TABS) */}
+      {/* ============================================================== */}
       {showAttendeesModal && (
         <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-          <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-circle-dark-surface p-5 shadow-2xl space-y-4">
+          <div className="w-full max-w-md rounded-2xl bg-white dark:bg-circle-dark-surface p-5 shadow-2xl space-y-4">
+            {/* Header */}
             <div className="flex items-center justify-between pb-3 border-b border-circle-hairline dark:border-circle-dark-hairline">
-              <h3 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
-                Danh sách phản hồi ({totalRsvps})
-              </h3>
+              <div className="flex items-center gap-2">
+                <Users className="h-4 w-4 text-teal-600" />
+                <h3 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
+                  Bình chọn & Danh sách phản hồi
+                </h3>
+              </div>
               <button
                 type="button"
                 onClick={() => setShowAttendeesModal(false)}
-                className="p-1.5 rounded-lg hover:bg-circle-wash text-circle-slate cursor-pointer"
+                className="p-1.5 rounded-lg hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate cursor-pointer"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="max-h-64 overflow-y-auto space-y-2">
-              {rsvps.map((r) => {
-                const isMe = r.userId === user?.id;
-                const dName = isMe ? 'Bạn' : r.user?.profile?.displayName || 'Thành viên';
-                const statusBadge =
-                  r.status === EventRsvpStatus.YES
-                    ? { label: 'Tham gia', color: 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' }
-                    : r.status === EventRsvpStatus.MAYBE
-                    ? { label: 'Chưa chắc', color: 'bg-amber-500/10 text-amber-600 border border-amber-500/20' }
-                    : { label: 'Bận', color: 'bg-rose-500/10 text-rose-600 border border-rose-500/20' };
+            {/* Phần 1: Bình chọn của bạn */}
+            <div className="space-y-2">
+              <div className="text-xs font-bold text-circle-slate dark:text-circle-dark-muted">
+                Bình chọn của bạn:
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  {
+                    status: EventRsvpStatus.YES,
+                    label: 'Tham gia',
+                    count: yesRsvps.length,
+                    activeBg: 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 border-emerald-600',
+                  },
+                  {
+                    status: EventRsvpStatus.MAYBE,
+                    label: 'Chưa chắc',
+                    count: maybeRsvps.length,
+                    activeBg: 'bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 border-amber-600',
+                  },
+                  {
+                    status: EventRsvpStatus.NO,
+                    label: 'Bận',
+                    count: noRsvps.length,
+                    activeBg: 'bg-rose-50 dark:bg-rose-950/30 text-rose-800 dark:text-rose-300 border-rose-600',
+                  },
+                ].map((opt) => {
+                  const isSelected = myRsvp === opt.status;
+                  const percent = totalRsvps > 0 ? Math.round((opt.count / totalRsvps) * 100) : 0;
 
-                return (
-                  <div key={r.id || r.userId} className="flex items-center justify-between py-1.5 border-b border-circle-hairline/40 last:border-0">
-                    <span className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text truncate">
-                      {dName}
-                    </span>
-                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${statusBadge.color}`}>
-                      {statusBadge.label}
-                    </span>
-                  </div>
-                );
-              })}
+                  return (
+                    <button
+                      key={opt.status}
+                      type="button"
+                      disabled={isThisOccurrenceCancelled || rsvpMutation.isPending}
+                      onClick={() => handleVote(opt.status)}
+                      className={`py-2 px-2 rounded-xl border text-center transition-all cursor-pointer ${
+                        isSelected
+                          ? `${opt.activeBg} ring-2 ring-teal-500/20 font-bold shadow-2xs`
+                          : 'border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/50 dark:bg-circle-dark-canvas hover:bg-circle-wash text-circle-charcoal dark:text-circle-dark-text font-medium'
+                      } disabled:opacity-50 active:scale-98`}
+                    >
+                      <div className="text-xs font-bold">{opt.label}</div>
+                      <div className="text-[11px] opacity-75 mt-0.5">
+                        {opt.count} ({percent}%)
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Phần 2: 3 Tabs (Tham gia | Chưa chắc | Bận) giống như Apps */}
+            <div className="space-y-3 pt-2">
+              <div className="flex items-center p-1 rounded-xl bg-circle-canvas/80 dark:bg-circle-dark-canvas border border-circle-hairline dark:border-circle-dark-hairline">
+                {[
+                  { key: 'yes', label: 'Tham gia', count: yesRsvps.length },
+                  { key: 'maybe', label: 'Chưa chắc', count: maybeRsvps.length },
+                  { key: 'no', label: 'Bận', count: noRsvps.length },
+                ].map((tab) => {
+                  const isActive = attendeeTab === tab.key;
+                  return (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      onClick={() => setAttendeeTab(tab.key as 'yes' | 'maybe' | 'no')}
+                      className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer text-center ${
+                        isActive
+                          ? 'bg-white dark:bg-circle-dark-surface text-teal-600 dark:text-teal-400 shadow-2xs'
+                          : 'text-circle-slate hover:text-circle-charcoal dark:hover:text-white'
+                      }`}
+                    >
+                      {tab.label} ({tab.count})
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Danh sách người dùng của Tab đang chọn */}
+              <div className="max-h-56 overflow-y-auto space-y-2 pr-1">
+                {(() => {
+                  const activeList =
+                    attendeeTab === 'yes'
+                      ? yesRsvps
+                      : attendeeTab === 'maybe'
+                      ? maybeRsvps
+                      : noRsvps;
+
+                  if (activeList.length === 0) {
+                    return (
+                      <div className="py-8 text-center text-xs text-circle-slate dark:text-circle-dark-muted">
+                        Chưa có thành viên nào chọn mục này
+                      </div>
+                    );
+                  }
+
+                  return activeList.map((r, idx) => {
+                    const isMe = r.userId === user?.id;
+                    const dName = isMe ? 'Bạn' : r.user?.profile?.displayName || 'Thành viên';
+                    const realNameOrHandle =
+                      (r.user?.profile as any)?.fullName ||
+                      ((r.user?.profile as any)?.handle ? `@${(r.user?.profile as any).handle}` : (isMe ? '@toi' : '@thanhvien'));
+                    const avUrl = r.user?.profile?.avatarUrl;
+
+                    return (
+                      <div
+                        key={r.id || r.userId || idx}
+                        className="flex items-center gap-3 p-2 rounded-xl hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors"
+                      >
+                        <div className="h-8 w-8 rounded-full overflow-hidden bg-circle-wash dark:bg-circle-dark-wash border border-circle-hairline flex items-center justify-center text-xs font-bold text-circle-charcoal dark:text-circle-dark-text shrink-0">
+                          {avUrl ? (
+                            <img src={avUrl} alt={dName} className="h-full w-full object-cover" />
+                          ) : (
+                            <span>{dName.charAt(0).toUpperCase()}</span>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text truncate">
+                            {dName} {isMe && <span className="text-teal-600 font-semibold">(Tôi)</span>}
+                          </div>
+                          <div className="text-[11px] text-circle-slate dark:text-circle-dark-muted truncate">
+                            {realNameOrHandle}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="pt-3 border-t border-circle-hairline dark:border-circle-dark-hairline flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowAttendeesModal(false)}
+                className="px-4 py-1.5 rounded-xl text-xs font-semibold text-circle-slate hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors cursor-pointer"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* SCOPE MODAL KHI CẬP NHẬT NHẮC HẸN CHO SỰ KIỆN LẶP LẠI */}
+      {/* ============================================================== */}
+      {showReminderScopeModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="w-full max-w-sm rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-5 shadow-2xl space-y-4">
+            <div>
+              <h4 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
+                Cập nhật sự kiện lặp lại
+              </h4>
+              <p className="text-xs text-circle-slate dark:text-circle-dark-muted mt-1">
+                Bạn muốn áp dụng thay đổi thời gian nhắc hẹn này cho lần diễn ra này hay tất cả các lần?
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => handleApplyReminder('this')}
+                className="w-full text-left p-3 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas hover:border-teal-500 hover:bg-teal-50/40 dark:hover:bg-teal-950/20 transition-all cursor-pointer"
+              >
+                <p className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
+                  Chỉ lần này
+                </p>
+                <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted mt-0.5">
+                  Chỉ thay đổi riêng ngày {formatDateOnly(occStartDate)}, các lần khác giữ nguyên.
+                </p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleApplyReminder('all')}
+                className="w-full text-left p-3 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas hover:border-teal-500 hover:bg-teal-50/40 dark:hover:bg-teal-950/20 transition-all cursor-pointer"
+              >
+                <p className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
+                  Tất cả các lần
+                </p>
+                <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted mt-0.5">
+                  Cập nhật thời gian nhắc hẹn cho toàn bộ các lần diễn ra trong chuỗi lặp lại.
+                </p>
+              </button>
+            </div>
+
+            <div className="pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline flex justify-end">
+              <button
+                type="button"
+                onClick={handleCancelReminderModal}
+                className="px-4 py-1.5 rounded-xl text-xs font-semibold text-circle-slate hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors cursor-pointer"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* CONFIRMATION MODAL KHI CẬP NHẬT NHẮC HẸN CHO SỰ KIỆN ĐƠN */}
+      {/* ============================================================== */}
+      {showReminderConfirmModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="w-full max-w-sm rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-5 shadow-2xl space-y-4">
+            <div>
+              <h4 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
+                Cập nhật thời gian nhắc hẹn
+              </h4>
+              <p className="text-xs text-circle-slate dark:text-circle-dark-muted mt-1">
+                Bạn có chắc chắn muốn thay đổi thời gian nhắc hẹn cho sự kiện này?
+              </p>
+            </div>
+
+            <div className="pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={handleCancelReminderModal}
+                className="px-4 py-1.5 rounded-xl text-xs font-semibold text-circle-slate hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors cursor-pointer"
+              >
+                Đóng
+              </button>
+              <button
+                type="button"
+                onClick={() => handleApplyReminder('all')}
+                className="px-4 py-1.5 rounded-xl text-xs font-bold bg-teal-600 hover:bg-teal-700 text-white transition-colors cursor-pointer"
+              >
+                Cập nhật
+              </button>
             </div>
           </div>
         </div>
