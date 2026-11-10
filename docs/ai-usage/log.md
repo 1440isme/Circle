@@ -6873,3 +6873,41 @@
   - **Resolution / Fix:** N/A.
 - **Commit:** bb7d42d
 - **PR:** Pending
+
+
+---
+
+## [AI-0192] - 2026-11-11
+
+- **Developer:** Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 2.5 Pro
+- **Related Issue:** #120
+- **Purpose:** Tinh chỉnh chi tiết giao diện thẻ sự kiện trong chế độ "Theo lịch trình" (`CircleCalendarView.tsx` & `calendar-recurrence.ts`):
+  1. Cải tiến hiển thị thời gian cho sự kiện kéo dài nhiều ngày (`formatEventTimeForDate`):
+     - Ngày bắt đầu: từ giờ bắt đầu đến `23:59` (ví dụ `06:00 - 23:59`).
+     - Các ngày trung gian: từ `00:00` đến `23:59` (`00:00 - 23:59`).
+     - Ngày kết thúc: từ `00:00` đến giờ kết thúc (ví dụ `00:00 - 10:59`).
+     - Tự động mở rộng sự kiện nhiều ngày xuất hiện trên từng ngày tương ứng trong dòng thời gian.
+  2. Lược bỏ hoàn toàn phần trích dẫn ghi chú mô tả khỏi thẻ ngoài để giữ không gian thẻ tinh gọn.
+  3. Lược bỏ danh sách người tham gia và cụm avatar (không cần biết người khác), thay bằng 1 nút chọn nhanh trạng thái RSVP duy nhất cho bản thân ở góc phải (`[✓ Tham gia ▾]`, `[? Chưa chắc ▾]`, `[✕ Bận ▾]`, `[Tham gia? ▾]`) kèm menu lựa chọn 1-click.
+  4. Mở rộng kích thước thẻ sự kiện tràn toàn bộ chiều rộng khả dụng (`w-full`), loại bỏ giới hạn `max-w-4xl`.
+- **Prompt Summary:** thời gian ở ngoài thẻ hiển thị như sau ví dụ lịch Từ 06:00 ngày 18/11/2026 - 10:59 ngày 21/11/2026 thì ngày 18/11/2026 sẽ là 6:00 -23: 59, ngày 19,20 là 00->23:59 còn ngày 21 là 00:00->10:59. ko cần ghi ghi chú ở đây . Người tham gia để mỗi minhg ko cần bt ai tứcđể 1 btn bên phải để chọn nhanh. cái thẻ này nên dài hết khoảng chônga.
+- **Files Affected:**
+  - `apps/web/src/components/tools/CircleCalendarView.tsx`
+  - `apps/web/src/components/tools/calendar-recurrence.ts`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% logic thuật toán chia thời gian nhiều ngày theo từng ngày, mở rộng nhóm sự kiện nhiều ngày, nút chọn nhanh RSVP 1-click cho người dùng và kéo giãn toàn bộ bề ngang thẻ.
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+  - npx tsc --noEmit --project apps/web/tsconfig.json: Passed 100%, 0 lỗi.
+  - bash ./scripts/check-agent-map.sh: 127/127 references resolve.
+  - bash ./scripts/check-secrets.sh: Passed, 0 secret leaks.
+- **Official Source Checked:** PROJECT_GOD.md, agentic/RULES.md & agentic/CONVENTIONS.md.
+- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A.
+  - **Resolution / Fix:** N/A.
+- **Commit:** c3d8f49
+- **PR:** Pending

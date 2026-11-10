@@ -440,19 +440,29 @@ export const formatEventTimeForDate = (ev: CalendarEventEntity, targetDate: Date
   if (!evEnd) return sStr;
   const eStr = `${pad2(evEnd.getHours())}:${pad2(evEnd.getMinutes())}`;
 
-  const diffMs = evEnd.getTime() - evStart.getTime();
-  const occStart = new Date(targetDate);
-  occStart.setHours(evStart.getHours(), evStart.getMinutes(), 0, 0);
-  const occEnd = new Date(occStart.getTime() + Math.max(0, diffMs));
+  // Start date at midnight (00:00:00)
+  const startDayTime = new Date(evStart.getFullYear(), evStart.getMonth(), evStart.getDate()).getTime();
+  // End date at midnight (00:00:00)
+  const endDayTime = new Date(evEnd.getFullYear(), evEnd.getMonth(), evEnd.getDate()).getTime();
+  // Target date at midnight (00:00:00)
+  const targetDayTime = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate()).getTime();
 
-  const isSameDay =
-    occStart.getFullYear() === occEnd.getFullYear() &&
-    occStart.getMonth() === occEnd.getMonth() &&
-    occStart.getDate() === occEnd.getDate();
+  // If single-day event: start and end are on the same calendar day
+  if (startDayTime === endDayTime) {
+    return `${sStr} - ${eStr}`;
+  }
 
-  return isSameDay
-    ? `${sStr} - ${eStr}`
-    : `Từ ${sStr} ngày ${formatDateOnly(occStart)} - ${eStr} ngày ${formatDateOnly(occEnd)}`;
+  // Multi-day event:
+  // 1. First day: from start time to 23:59
+  if (targetDayTime <= startDayTime) {
+    return `${sStr} - 23:59`;
+  }
+  // 2. Last day: from 00:00 to end time
+  if (targetDayTime >= endDayTime) {
+    return `00:00 - ${eStr}`;
+  }
+  // 3. Middle days: 00:00 - 23:59
+  return '00:00 - 23:59';
 };
 
 // ==========================================

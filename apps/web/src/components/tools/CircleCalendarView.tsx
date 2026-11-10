@@ -23,6 +23,7 @@ import {
   ArrowRight,
   AlignLeft,
   Check,
+  HelpCircle,
 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { getSocket } from '../../lib/socket';
@@ -246,6 +247,16 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isMonthPickerOpen]);
 
+  // Quick RSVP dropdown state on card in schedule view
+  const [activeRsvpDropdownEventId, setActiveRsvpDropdownEventId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!activeRsvpDropdownEventId) return;
+    const handleClose = () => setActiveRsvpDropdownEventId(null);
+    document.addEventListener('click', handleClose);
+    return () => document.removeEventListener('click', handleClose);
+  }, [activeRsvpDropdownEventId]);
+
   const handleShareToChat = async (eventId: string) => {
     try {
       await shareToChatMutation.mutateAsync(eventId);
@@ -277,8 +288,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
       }
     >();
 
-    for (const ev of sorted) {
-      const d = new Date(ev.startTime);
+    const addEventEntry = (d: Date, ev: CalendarEventEntity) => {
       const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
       if (!map.has(dateKey)) {
@@ -300,10 +310,32 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
         map.set(dateKey, { dateObj: d, dateLabel, isPast, isToday, isFuture, list: [] });
       }
 
-      map.get(dateKey)!.list.push(ev);
+      if (!map.get(dateKey)!.list.some((e) => e.id === ev.id)) {
+        map.get(dateKey)!.list.push(ev);
+      }
+    };
+
+    for (const ev of sorted) {
+      const evStart = new Date(ev.startTime);
+      const evEnd = ev.endTime ? new Date(ev.endTime) : evStart;
+      const startDay = new Date(evStart.getFullYear(), evStart.getMonth(), evStart.getDate());
+      const endDay = new Date(evEnd.getFullYear(), evEnd.getMonth(), evEnd.getDate());
+
+      if (startDay.getTime() === endDay.getTime()) {
+        addEventEntry(startDay, ev);
+      } else {
+        // Multi-day event: span every calendar day between startDay and endDay
+        const cur = new Date(startDay);
+        let count = 0;
+        while (cur.getTime() <= endDay.getTime() && count < 60) {
+          addEventEntry(new Date(cur), ev);
+          cur.setDate(cur.getDate() + 1);
+          count++;
+        }
+      }
     }
 
-    return Array.from(map.values());
+    return Array.from(map.values()).sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime());
   }, [allCalendarEvents]);
 
   // Determine current active target for "Hôm nay" jump and red header highlighting
@@ -1523,7 +1555,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
       {/* Main Content Area */}
       {viewMode === 'upcoming' ? (
         /* Schedule feed */
-        <div className="space-y-6 max-w-4xl">
+        <div className="space-y-6 w-full">
           {isAllEventsLoading ? (
             <div className="flex items-center justify-center py-16">
               <Loader2 className="h-6 w-6 animate-spin text-circle-slate" />
@@ -1539,7 +1571,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
               </p>
             </div>
           ) : (
-            groupedScheduleByDate.map(({ dateLabel, isPast, isToday, isFuture, list }) => {
+            groupedScheduleByDate.map(({ dateLabel, dateObj, isPast, isToday, isFuture, list }) => {
               const isCurrentTarget = dateLabel === currentTargetDateLabel;
 
               return (
@@ -1573,32 +1605,28 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                   <div className="space-y-3">
                     {list.map((ev) => {
                       const isCancelled = ev.isCancelled;
-                      const { cleanDesc } = parseEventRecurrence(ev.description);
-
-                      const rsvps = ev.rsvps || [];
-                      const yesList = rsvps.filter((r) => r.status === EventRsvpStatus.YES);
-                      const maybeList = rsvps.filter((r) => r.status === EventRsvpStatus.MAYBE);
-                      const noList = rsvps.filter((r) => r.status === EventRsvpStatus.NO);
+                      const myRsvp = ev.rsvps?.find((r) => r.userId === user?.id)?.status;
+                      const dropdownKey = `${ev.id}-${dateLabel}`;
 
                       return (
                         <div
-                          key={ev.id}
+                          key={`${ev.id}-${dateLabel}`}
                           onClick={() =>
                             setDetailModalState({
                               isOpen: true,
                               event: ev,
-                              occDate: new Date(ev.startTime),
+                              occDate: dateObj,
                             })
                           }
-                          className={`group cursor-pointer hover:border-teal-500/60 hover:shadow-xs transition-all rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-canvas p-4 shadow-2xs space-y-3 ${
+                          className={`w-full group cursor-pointer hover:border-teal-500/60 hover:shadow-xs transition-all rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-canvas p-4 shadow-2xs space-y-2.5 ${
                             isPast ? 'bg-zinc-50/40 dark:bg-zinc-900/20' : ''
                           }`}
                         >
-                          {/* 1. Tiêu đề & Tag Đã Hủy (Bỏ toàn bộ nút thao tác trong thẻ) */}
-                          <div className="flex items-start justify-between gap-3">
+                          {/* Row 1: Tiêu đề & Tag Đã Hủy (bên trái), 1 Button chọn nhanh phản hồi của mình (bên phải) */}
+                          <div className="flex items-center justify-between gap-4">
                             <div className="flex items-center gap-2 min-w-0">
                               <span
-                                className={`text-sm font-bold truncate ${
+                                className={`text-sm sm:text-base font-bold truncate ${
                                   isPast
                                     ? 'text-zinc-600 dark:text-zinc-300'
                                     : 'text-circle-charcoal dark:text-circle-dark-text'
@@ -1612,86 +1640,117 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                                 </span>
                               )}
                             </div>
-                          </div>
 
-                          {/* 2. Thời gian diễn ra */}
-                          <div className="flex items-center gap-2 text-xs text-teal-600 dark:text-teal-400 font-medium">
-                            <Clock className="h-3.5 w-3.5 shrink-0" />
-                            <span>{formatEventTimeForDate(ev, new Date(ev.startTime))}</span>
-                          </div>
-
-                          {/* 3. Địa điểm nếu có */}
-                          {ev.location && (
-                            <div className="flex items-center gap-2 text-xs text-circle-slate dark:text-circle-dark-muted">
-                              <MapPin className="h-3.5 w-3.5 shrink-0 text-circle-slate/70" />
-                              <EventLocationDisplay location={ev.location} className="text-xs" />
-                            </div>
-                          )}
-
-                          {/* 4. Ghi chú mô tả nếu có */}
-                          {cleanDesc && (
-                            <div className="flex items-start gap-1.5 text-xs text-circle-slate dark:text-circle-dark-muted bg-circle-wash/50 dark:bg-circle-dark-surface/60 px-3 py-1.5 rounded-xl border border-circle-hairline/40">
-                              <Info className="h-3.5 w-3.5 text-circle-slate/70 shrink-0 mt-0.5" />
-                              <span className="whitespace-pre-wrap line-clamp-2">{cleanDesc}</span>
-                            </div>
-                          )}
-
-                          {/* 5. Tóm tắt RSVP & Danh sách Avatar (Giống hệt Mobile App) */}
-                          <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-circle-hairline/40 dark:border-circle-dark-hairline/40">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              {yesList.length > 0 ? (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                                  {yesList.length} Tham gia
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-circle-wash dark:bg-circle-dark-surface text-circle-slate dark:text-circle-dark-muted border border-circle-hairline/60">
-                                  Chưa có người tham gia
-                                </span>
-                              )}
-
-                              {maybeList.length > 0 && (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                                  {maybeList.length} Chưa chắc
-                                </span>
-                              )}
-
-                              {noList.length > 0 && (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-                                  {noList.length} Bận
-                                </span>
-                              )}
-                            </div>
-
-                            {/* Avatars Stack */}
-                            {yesList.length > 0 && (
-                              <div className="flex items-center -space-x-2">
-                                {yesList.slice(0, 4).map((r, i) => (
-                                  <div
-                                    key={r.userId || i}
-                                    className="relative inline-block w-6 h-6 rounded-full ring-2 ring-white dark:ring-circle-dark-canvas overflow-hidden shrink-0 bg-circle-wash dark:bg-circle-dark-surface"
-                                    title={r.user?.profile?.displayName || 'Người tham gia'}
-                                  >
-                                    {r.user?.profile?.avatarUrl ? (
-                                      <img
-                                        src={r.user.profile.avatarUrl}
-                                        alt={r.user?.profile?.displayName || ''}
-                                        className="w-full h-full object-cover"
-                                      />
-                                    ) : (
-                                      <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-teal-800 dark:text-teal-300 bg-teal-500/20">
-                                        {(r.user?.profile?.displayName || 'U').charAt(0).toUpperCase()}
-                                      </div>
-                                    )}
-                                  </div>
-                                ))}
-                                {yesList.length > 4 && (
-                                  <div className="relative inline-flex items-center justify-center w-6 h-6 rounded-full ring-2 ring-white dark:ring-circle-dark-canvas bg-circle-wash dark:bg-circle-dark-surface text-[10px] font-bold text-circle-slate">
-                                    +{yesList.length - 4}
-                                  </div>
+                            {/* 1 Button bên phải để chọn nhanh phản hồi của mình (ko cần hiển thị ai khác) */}
+                            <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                type="button"
+                                disabled={ev.isCancelled || rsvpMutation.isPending}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActiveRsvpDropdownEventId((prev) => (prev === dropdownKey ? null : dropdownKey));
+                                }}
+                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all cursor-pointer shadow-2xs ${
+                                  myRsvp === EventRsvpStatus.YES
+                                    ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20'
+                                    : myRsvp === EventRsvpStatus.MAYBE
+                                    ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/20'
+                                    : myRsvp === EventRsvpStatus.NO
+                                    ? 'bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/30 hover:bg-rose-500/20'
+                                    : 'bg-white dark:bg-circle-dark-surface text-circle-slate dark:text-circle-dark-muted border-circle-hairline hover:border-teal-500 hover:text-teal-600'
+                                } disabled:opacity-50`}
+                                title="Chọn nhanh phản hồi tham gia của bạn"
+                              >
+                                {myRsvp === EventRsvpStatus.YES ? (
+                                  <>
+                                    <Check className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                                    <span>Tham gia</span>
+                                  </>
+                                ) : myRsvp === EventRsvpStatus.MAYBE ? (
+                                  <>
+                                    <HelpCircle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                                    <span>Chưa chắc</span>
+                                  </>
+                                ) : myRsvp === EventRsvpStatus.NO ? (
+                                  <>
+                                    <X className="h-3.5 w-3.5 text-rose-600 dark:text-rose-400 shrink-0" />
+                                    <span>Bận</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <span>Tham gia?</span>
+                                  </>
                                 )}
+                                <ChevronDown className="h-3 w-3 opacity-60 ml-0.5" />
+                              </button>
+
+                              {/* Dropdown Menu lựa chọn nhanh */}
+                              {activeRsvpDropdownEventId === dropdownKey && (
+                                <div
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="absolute right-0 top-full mt-1.5 z-40 w-36 py-1.5 bg-white dark:bg-circle-dark-surface rounded-xl shadow-xl border border-circle-hairline dark:border-white/10 animate-in fade-in zoom-in-95 duration-150"
+                                >
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      rsvpMutation.mutate({ eventId: ev.id, status: EventRsvpStatus.YES });
+                                      setActiveRsvpDropdownEventId(null);
+                                    }}
+                                    className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs text-left transition-colors cursor-pointer ${
+                                      myRsvp === EventRsvpStatus.YES
+                                        ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 font-bold'
+                                        : 'text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash'
+                                    }`}
+                                  >
+                                    <Check className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                                    <span>Tham gia</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      rsvpMutation.mutate({ eventId: ev.id, status: EventRsvpStatus.MAYBE });
+                                      setActiveRsvpDropdownEventId(null);
+                                    }}
+                                    className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs text-left transition-colors cursor-pointer ${
+                                      myRsvp === EventRsvpStatus.MAYBE
+                                        ? 'bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 font-bold'
+                                        : 'text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash'
+                                    }`}
+                                  >
+                                    <HelpCircle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                                    <span>Chưa chắc</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      rsvpMutation.mutate({ eventId: ev.id, status: EventRsvpStatus.NO });
+                                      setActiveRsvpDropdownEventId(null);
+                                    }}
+                                    className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs text-left transition-colors cursor-pointer ${
+                                      myRsvp === EventRsvpStatus.NO
+                                        ? 'bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400 font-bold'
+                                        : 'text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash'
+                                    }`}
+                                  >
+                                    <X className="h-3.5 w-3.5 text-rose-600 shrink-0" />
+                                    <span>Bận</span>
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Row 2: Thời gian diễn ra & Địa điểm (gọn gàng, dài hết khoảng trống, không ghi chú thừa) */}
+                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs pt-0.5">
+                            <div className="flex items-center gap-1.5 text-teal-600 dark:text-teal-400 font-medium">
+                              <Clock className="h-3.5 w-3.5 shrink-0" />
+                              <span>{formatEventTimeForDate(ev, dateObj)}</span>
+                            </div>
+
+                            {ev.location && (
+                              <div className="flex items-center gap-1.5 text-circle-slate dark:text-circle-dark-muted">
+                                <MapPin className="h-3.5 w-3.5 shrink-0 text-circle-slate/70" />
+                                <EventLocationDisplay location={ev.location} className="text-xs" />
                               </div>
                             )}
                           </div>
