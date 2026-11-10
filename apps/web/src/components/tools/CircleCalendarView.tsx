@@ -959,22 +959,15 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
         <div className="space-y-6 w-full pb-16 animate-in fade-in duration-200">
           {/* Floating Pill Buttons Bar (Bỏ heading, thay bằng Floating Pill Buttons) */}
           <div className="sticky top-0 z-30 pointer-events-none flex items-center justify-between gap-3 py-1 -mt-1 mb-2">
-            {/* Left: Nút Quay lại dạng ngày tháng năm - Floating Pill Button */}
+            {/* Left: Nút Quay lại - Floating Pill Button: "< Lịch" khi Tạo mới, "< Chi tiết" khi Chỉnh sửa */}
             <button
               type="button"
               onClick={handleRequestCloseForm}
               className="pointer-events-auto inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full backdrop-blur-xl bg-white/92 dark:bg-circle-dark-surface/90 border border-circle-hairline/80 dark:border-white/12 shadow-sm hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text font-bold text-xs sm:text-sm transition-all active:scale-95 cursor-pointer"
-              title="Quay lại"
+              title={editingEvent ? 'Quay lại Chi tiết lịch hẹn' : 'Quay lại Lịch'}
             >
               <ChevronLeft className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-              <span>
-                {(startTime ? new Date(startTime) : selectedDate || new Date()).toLocaleDateString('vi-VN', {
-                  weekday: 'short',
-                  day: '2-digit',
-                  month: '2-digit',
-                  year: 'numeric',
-                })}
-              </span>
+              <span>{editingEvent ? 'Chi tiết' : 'Lịch'}</span>
             </button>
 
             {/* Right: Floating Pill Buttons: Đóng và Lưu (Cân bằng kích thước chuẩn xác) */}
