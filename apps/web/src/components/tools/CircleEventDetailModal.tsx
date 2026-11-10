@@ -181,41 +181,34 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
 
   return (
     <div className="space-y-6 w-full pb-16 animate-in fade-in duration-200">
-      {/* Header Action Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-circle-hairline dark:border-circle-dark-hairline">
-        {/* Left: Combined Back Button & Occurrence Date (Matching Radical Minimalism & Planning View) */}
-        <div className="flex items-center gap-1.5 min-w-0">
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1.5 rounded-full hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white transition-colors cursor-pointer shrink-0"
-            title="Quay lại Lịch"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-sm sm:text-base font-bold text-circle-charcoal dark:text-circle-dark-text hover:text-circle-slate dark:hover:text-circle-dark-muted transition-colors cursor-pointer truncate text-left"
-            title="Quay lại Lịch"
-          >
+      {/* Floating Pill Buttons Bar (No static heading, pure floating controls with scroll-under content) */}
+      <div className="sticky top-0 z-30 pointer-events-none flex items-center justify-between gap-3 py-1 -mt-1 mb-2">
+        {/* Left: Nút 1 Quay lại dạng ngày tháng năm - Floating Pill Button */}
+        <button
+          type="button"
+          onClick={onClose}
+          className="pointer-events-auto inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full backdrop-blur-xl bg-white/92 dark:bg-circle-dark-surface/90 border border-circle-hairline/80 dark:border-white/12 shadow-sm hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text font-bold text-xs sm:text-sm transition-all active:scale-95 cursor-pointer"
+          title="Quay lại Lịch"
+        >
+          <ChevronLeft className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+          <span>
             {currentOccDate.toLocaleDateString('vi-VN', {
-              weekday: 'long',
+              weekday: 'short',
               day: '2-digit',
               month: '2-digit',
               year: 'numeric',
             })}
-          </button>
-        </div>
+          </span>
+        </button>
 
-        {/* Right Actions: Rule-conforming Pill & Bare Round Icon Buttons */}
-        <div className="flex items-center gap-2 shrink-0">
+        {/* Right: Cụm Floating Pill Buttons (Share, Sửa, Hủy/Khôi phục, Xóa) */}
+        <div className="pointer-events-auto flex items-center gap-2 shrink-0">
           {onShareToChat && (
             <button
               type="button"
               onClick={handleShareClick}
               title="Chia sẻ vào tin nhắn nhóm"
-              className="p-1.5 rounded-full hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate dark:text-circle-dark-muted hover:text-teal-600 transition-colors cursor-pointer"
+              className="flex items-center justify-center h-9 w-9 rounded-full backdrop-blur-xl bg-white/92 dark:bg-circle-dark-surface/90 border border-circle-hairline/80 dark:border-white/12 shadow-sm hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate dark:text-circle-dark-muted hover:text-teal-600 transition-all active:scale-95 cursor-pointer"
             >
               <Share2 className="w-4 h-4" />
             </button>
@@ -226,10 +219,9 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
               type="button"
               onClick={() => onEdit(event, currentOccDate)}
               title="Chỉnh sửa lịch hẹn"
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-white/60 dark:bg-circle-dark-surface/60 hover:bg-circle-wash text-circle-charcoal dark:text-circle-dark-text transition-colors cursor-pointer"
+              className="flex items-center justify-center h-9 w-9 rounded-full backdrop-blur-xl bg-white/92 dark:bg-circle-dark-surface/90 border border-circle-hairline/80 dark:border-white/12 shadow-sm hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate dark:text-circle-dark-muted hover:text-teal-600 transition-all active:scale-95 cursor-pointer"
             >
-              <Pencil className="w-3.5 h-3.5 text-circle-slate dark:text-circle-dark-muted" />
-              <span>Chỉnh sửa</span>
+              <Pencil className="w-4 h-4 text-circle-slate dark:text-circle-dark-muted" />
             </button>
           )}
 
@@ -238,20 +230,20 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
               type="button"
               onClick={() => onRestore(event, currentOccDate)}
               title="Khôi phục lịch hẹn"
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-full border border-emerald-500/30 bg-emerald-50 dark:bg-emerald-950/30 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full backdrop-blur-xl bg-emerald-50/92 dark:bg-emerald-950/80 border border-emerald-500/30 shadow-sm hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 font-bold text-xs transition-all active:scale-95 cursor-pointer"
             >
               <RotateCcw className="w-3.5 h-3.5" />
-              <span>Khôi phục</span>
+              <span className="hidden sm:inline">Khôi phục</span>
             </button>
           ) : (
             <button
               type="button"
               onClick={() => onCancel(event, currentOccDate)}
               title="Hủy lịch hẹn lần này"
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-full border border-amber-500/30 bg-amber-50 dark:bg-amber-950/30 hover:bg-amber-100 text-amber-700 dark:text-amber-300 transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full backdrop-blur-xl bg-amber-50/92 dark:bg-amber-950/80 border border-amber-500/30 shadow-sm hover:bg-amber-100 text-amber-700 dark:text-amber-300 font-bold text-xs transition-all active:scale-95 cursor-pointer"
             >
               <Ban className="w-3.5 h-3.5" />
-              <span>Hủy lần này</span>
+              <span className="hidden sm:inline">Hủy lần này</span>
             </button>
           )}
 
@@ -259,7 +251,7 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
             type="button"
             onClick={() => onDelete(event, currentOccDate)}
             title="Xóa lịch hẹn"
-            className="p-1.5 rounded-full hover:bg-red-500/10 text-circle-slate hover:text-red-500 transition-colors cursor-pointer"
+            className="flex items-center justify-center h-9 w-9 rounded-full backdrop-blur-xl bg-white/92 dark:bg-circle-dark-surface/90 border border-circle-hairline/80 dark:border-white/12 shadow-sm hover:bg-rose-50 dark:hover:bg-rose-950/40 text-circle-slate hover:text-rose-600 transition-all active:scale-95 cursor-pointer"
           >
             <Trash2 className="w-4 h-4" />
           </button>
