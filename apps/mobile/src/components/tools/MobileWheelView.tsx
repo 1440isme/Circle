@@ -671,7 +671,7 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
       const displayLabel = label.length > maxLen ? label.slice(0, maxLen - 1) + '…' : label;
       return (
         <G key="slice-single">
-          <Circle cx={centerX} cy={centerY} r={radius} fill={color} stroke="#FFFFFF" strokeWidth={2} />
+          <Circle cx={centerX} cy={centerY} r={radius} fill={color} />
           <SvgText
             x={centerX}
             y={centerY}
@@ -714,7 +714,7 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
 
       return (
         <G key={`slice-${idx}`}>
-          <Path d={pathD} fill={color} stroke="#FFFFFF" strokeWidth={2} />
+          <Path d={pathD} fill={color} />
           <SvgText
             x={tx}
             y={ty}
@@ -772,19 +772,7 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
     <View style={styles.container}>
       {/* Floating Pill Toolbar: Floating over content with pointerEvents="box-none" */}
       <View style={styles.floatingHeaderArea} pointerEvents="box-none">
-        {/* Left: Mở bảng khi đang thu gọn */}
-        {isBoardCollapsed ? (
-          <TouchableOpacity
-            style={styles.floatingPillBtn}
-            onPress={() => setIsBoardCollapsed(false)}
-            activeOpacity={0.8}
-          >
-            <PanelRightOpen size={14} color="#0D9488" />
-            <Text style={styles.floatingPillText}>{t.luckyWheel.expandPanel}</Text>
-          </TouchableOpacity>
-        ) : (
-          <View />
-        )}
+        <View />
 
         {/* Right: Add Wheel & Spin All Pills */}
         <View style={styles.floatingRightActions}>
@@ -1314,21 +1302,21 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
       {/* "CÁI BẢNG" (TABBED OPTIONS BOARD BÊN DƯỚI) */}
       {!isBoardCollapsed && (
         <View style={styles.tabbedBoard}>
-          {/* Header hàng Tabs: Nút thu gọn bảng ở góc trên bên trái + Horizontal Tabs */}
-          <View style={styles.boardHeaderRow}>
-            <TouchableOpacity
-              style={styles.collapseBoardBtn}
-              onPress={() => setIsBoardCollapsed(true)}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <PanelRightClose size={15} color="#0D9488" />
-            </TouchableOpacity>
+          {/* Nút thu gọn bảng: Nửa trong nửa ngoài trên viền mép trên của bảng */}
+          <TouchableOpacity
+            style={styles.collapseHandleBtn}
+            onPress={() => setIsBoardCollapsed(true)}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <PanelRightClose size={14} color="#0D9488" />
+          </TouchableOpacity>
 
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.tabsScroll}
-            >
+          {/* Horizontal Tabs: Hiển thị thẳng tên của từng vòng + TAB KẾT QUẢ */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.tabsScroll}
+          >
               {wheels.map((wheel) => {
                 const isSelected = activeTab === wheel.id;
                 return (
@@ -1383,7 +1371,18 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
                 )}
               </TouchableOpacity>
             </ScrollView>
-          </View>
+
+      {/* Nút mở lại bảng: Ghim ở mép bên phải cùng màn hình khi thu gọn */}
+      {isBoardCollapsed && (
+        <TouchableOpacity
+          style={styles.floatingRightEdgeOpenBtn}
+          onPress={() => setIsBoardCollapsed(false)}
+          activeOpacity={0.8}
+        >
+          <PanelRightOpen size={16} color="#0D9488" />
+        </TouchableOpacity>
+      )}
+
 
           {/* TAB CONTENT: KẾT QUẢ (DẠNG TEXT NHƯ KHI NHẬP, GHI THEO LẦN) */}
           {activeTab === 'results' ? (
@@ -1596,10 +1595,11 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
       )}
       </ScrollView>
 
-      {/* COMBINED / BATCH RESULTS MODAL */}
+      {/* COMBINED / BATCH RESULTS MODAL - CELEBRATION WINNER SHOWCASE */}
       <Modal visible={!!combinedWinnersModal && combinedWinnersModal.length > 0} transparent animationType="fade">
         <View style={styles.modalBackdrop}>
           <View style={styles.modalBox}>
+            {/* Nút X đóng ở góc trên bên phải */}
             <TouchableOpacity
               style={styles.modalCloseBtn}
               onPress={() => setCombinedWinnersModal(null)}
@@ -1608,28 +1608,44 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
               <X size={18} color="#94A3B8" />
             </TouchableOpacity>
 
-            {/* Header Badge */}
-            <View style={styles.winnerHeaderBadge}>
-              <Sparkles size={14} color="#0D9488" />
-              <Text style={styles.winnerHeaderBadgeText}>{t.luckyWheel.winnerTitle}</Text>
+            {/* Glowing Golden Trophy Icon */}
+            <View style={styles.trophyWrapper}>
+              <View style={styles.trophyGlow} />
+              <View style={styles.trophyIconBox}>
+                <Trophy size={28} color="#FFFFFF" />
+              </View>
             </View>
+
+            {/* Title */}
+            <Text style={styles.celebrationTitle}>
+              🎉 {t.luckyWheel.winnerTitle || 'Xin chúc mừng!'}
+            </Text>
 
             {/* Single Winner Layout */}
             {combinedWinnersModal?.length === 1 && (
               <>
                 <View style={styles.singleWinnerCard}>
-                  <Text style={styles.singleWinnerWheelTitle} numberOfLines={1}>
-                    {combinedWinnersModal[0]!.wheelTitle}
-                  </Text>
+                  <View style={styles.winnerBadgePill}>
+                    <Compass size={11} color="#B45309" />
+                    <Text style={styles.singleWinnerWheelTitle} numberOfLines={1}>
+                      {combinedWinnersModal[0]!.wheelTitle}
+                    </Text>
+                  </View>
                   <Text style={styles.singleWinnerName} numberOfLines={2}>
                     {combinedWinnersModal[0]!.winner}
                   </Text>
+                  <View style={styles.sparkleRow}>
+                    <Sparkles size={12} color="#F59E0B" />
+                    <Text style={styles.sparkleSubtext}>Lựa chọn may mắn của bạn!</Text>
+                    <Sparkles size={12} color="#F59E0B" />
+                  </View>
                 </View>
 
                 <View style={styles.modalButtonsCol}>
                   <TouchableOpacity
                     style={styles.primaryModalBtn}
                     onPress={() => setCombinedWinnersModal(null)}
+                    activeOpacity={0.8}
                   >
                     <Text style={styles.primaryModalBtnText}>{t.luckyWheel.close}</Text>
                   </TouchableOpacity>
@@ -1641,8 +1657,9 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
                         combinedWinnersModal[0]!.winningIndex,
                       )
                     }
+                    activeOpacity={0.8}
                   >
-                    <Trash2 size={15} color="#E11D48" />
+                    <Trash2 size={14} color="#E11D48" />
                     <Text style={styles.secondaryRemoveBtnText}>{t.luckyWheel.removeResult}</Text>
                   </TouchableOpacity>
                 </View>
@@ -1674,16 +1691,18 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
                   ))}
                 </ScrollView>
 
-                <View style={styles.modalButtonsRow}>
+                <View style={styles.modalButtonsCol}>
                   <TouchableOpacity
-                    style={[styles.primaryModalBtn, { flex: 1 }]}
+                    style={styles.primaryModalBtn}
                     onPress={() => setCombinedWinnersModal(null)}
+                    activeOpacity={0.8}
                   >
                     <Text style={styles.primaryModalBtnText}>{t.luckyWheel.close}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.secondaryRemoveBtn, { flex: 1 }]}
+                    style={styles.secondaryRemoveBtn}
                     onPress={handleRemoveAllWinningOptions}
+                    activeOpacity={0.8}
                   >
                     <Trash2 size={14} color="#E11D48" />
                     <Text style={styles.secondaryRemoveBtnText}>
@@ -1701,6 +1720,103 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
 };
 
 const styles = StyleSheet.create({
+  floatingRightEdgeOpenBtn: {
+    position: 'absolute',
+    right: 0,
+    top: '46%',
+    zIndex: 35,
+    width: 32,
+    height: 48,
+    borderTopLeftRadius: 16,
+    borderBottomLeftRadius: 16,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderRightWidth: 0,
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: -2, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  collapseHandleBtn: {
+    position: 'absolute',
+    top: -14,
+    left: 16,
+    zIndex: 25,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  trophyWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+    position: 'relative',
+  },
+  trophyGlow: {
+    position: 'absolute',
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: 'rgba(245, 158, 11, 0.3)',
+  },
+  trophyIconBox: {
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    backgroundColor: '#F59E0B',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#F59E0B',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  celebrationTitle: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#0F172A',
+    textAlign: 'center',
+    marginBottom: 6,
+  },
+  winnerBadgePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 100,
+    marginBottom: 8,
+  },
+  sparkleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 8,
+  },
+  sparkleSubtext: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#B45309',
+  },
+
   container: {
     flex: 1,
     backgroundColor: '#F9FAFB',

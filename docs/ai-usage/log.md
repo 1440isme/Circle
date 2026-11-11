@@ -7220,3 +7220,43 @@
   - **Resolution / Fix:** N/A.
 - **Commit:** 1f4158b
 - **PR:** Pending
+
+
+---
+
+## AI-0177: Nâng cấp trải nghiệm vòng quay: Nút thu gọn nửa trong nửa ngoài, nút mở ghim mép phải cùng, bỏ viền trắng nan quạt và tái thiết kế modal kết quả trúng thưởng rực rỡ (#120)
+
+- **Date:** 2026-11-11 16:20:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120
+- **Purpose:**
+  1. Chuyển nút icon thu gọn bảng sang vị trí "nửa trong nửa ngoài" đè lên chính giữa đường viền mép bảng thiết lập (`absolute top-6 -left-3.5` trên Web, `top: -14, left: 16` trên Mobile) mang lại cảm giác handle điều khiển trực quan.
+  2. Khi bảng bị thu gọn, nút mở lại bảng không đặt ở toolbar phía trên mà di chuyển và ghim sát mép bên phải cùng màn hình (`fixed right-0 top-1/2 -translate-y-1/2` trên Web, `floatingRightEdgeOpenBtn` trên Mobile).
+  3. Bỏ toàn bộ đường viền trắng giữa các nan quạt của vòng quay (cả Web HTML5 canvas và Mobile SVG), giúp các màu tiếp xúc trực tiếp sát nhau ("màu sát màu luôn").
+  4. Nâng cấp toàn diện giao diện Modal kết quả trúng thưởng sang phong cách Celebration Winner Showcase rực rỡ và đẳng cấp:
+     - Biểu tượng Cúp vàng 🏆 phát sáng hào quang ăn mừng cùng tiêu đề "🎉 Xin chúc mừng!".
+     - Thẻ vinh danh người trúng thưởng (Hero Showcase Card) viền ánh kim ấm áp, dải huy hiệu tên vòng xoay, typography to bản đậm nét và lời chúc lấp lánh.
+     - Nút hành động chính "Đóng" to bản nổi bật với dải màu gradient teal, nút phụ "Loại bỏ lựa chọn" nhỏ gọn, tinh tế.
+- **Prompt Summary:** "cho nằm giữa cái viền luôn nửa trong nửa ngoài và khi thu thì nó cũng đi qua bên phải cùng luôn chứ ko để trên. bỏ các viền đường trắng ở các vòng tròn luôn (màu sát màu luôn ). phần kết quả trúng thưởng vẫn đang chưa được đẹp"
+- **Files Affected:**
+  - `apps/web/src/components/tools/CircleWheelView.tsx`
+  - `apps/mobile/src/components/tools/MobileWheelView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% logic positioning, SVG/canvas styling, và giao diện modal celebration.
+- **Human Modifications:** Trương Công Bình yêu cầu nút thu gọn nằm giữa viền nửa trong nửa ngoài, khi thu thì nút đi qua bên phải cùng, bỏ viền trắng giữa các nan quạt và làm đẹp modal kết quả trúng thưởng.
+- **Verification Method:**
+  - `npx tsc --noEmit -p apps/web/tsconfig.json`: Passed 0 errors.
+  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Passed 0 errors.
+  - `npm test --prefix apps/backend -- circle-tools.service.spec.ts`: Passed 45/45 tests (100%).
+  - `bash ./scripts/check-secrets.sh`: Passed 100%, 0 secret leaks.
+  - `bash ./scripts/check-agent-map.sh`: Passed 100%, 128 references resolve.
+- **Official Source Checked:** PROJECT_GOD.md, Circle Design System.
+- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A.
+  - **Resolution / Fix:** N/A.
+- **Commit:** b07d96b
+- **PR:** Pending
