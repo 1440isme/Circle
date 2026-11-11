@@ -273,15 +273,15 @@ export const CircleColors: { light: ColorTokens; dark: ColorTokens } = {
     border: '#E3E3E8',
     peach: '#E89D71',
     coral: '#E05A47',
-    onPrimary: '#FFFFFF',
+    onPrimary: '#131316',
     success: '#15803D',
     warning: '#F59E0B',
     info: '#3B82F6',
     accent: '#10B981', // Accent matches Circle primary green
     danger: '#DC2626',
-    glass: 'rgba(255, 255, 255, 0.65)',
-    glassBorder: 'rgba(255, 255, 255, 0.55)',
-    sheetBg: 'rgba(255, 255, 255, 0.90)',
+    glass: 'rgba(255, 255, 255, 0.92)',
+    glassBorder: 'rgba(227, 227, 232, 0.85)',
+    sheetBg: 'rgba(255, 255, 255, 0.96)',
   },
   dark: {
     primary: '#34D399', // Clean Mint Green (Canonical Dark Primary)
@@ -305,9 +305,9 @@ export const CircleColors: { light: ColorTokens; dark: ColorTokens } = {
     info: '#60A5FA',
     accent: '#34D399',
     danger: '#F87171',
-    glass: 'rgba(29, 29, 33, 0.70)',
-    glassBorder: 'rgba(255, 255, 255, 0.18)',
-    sheetBg: 'rgba(24, 24, 28, 0.92)',
+    glass: 'rgba(22, 22, 26, 0.90)',
+    glassBorder: 'rgba(255, 255, 255, 0.16)',
+    sheetBg: 'rgba(24, 24, 28, 0.95)',
   },
 };
 

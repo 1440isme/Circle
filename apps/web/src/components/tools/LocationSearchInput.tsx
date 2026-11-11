@@ -2,12 +2,13 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
-import { MapPin, Search, Map, X, Loader2 } from 'lucide-react';
+import { MapPin, Map, X, Loader2 } from 'lucide-react';
+import { useLanguageStore } from '../../stores/language.store';
 import type { SelectedLocationData } from './MapLocationPickerModal';
 
 const MapLocationPickerModal = dynamic(
   () => import('./MapLocationPickerModal').then((m) => m.MapLocationPickerModal),
-  { ssr: false }
+  { ssr: false },
 );
 
 interface LocationSearchInputProps {
@@ -19,30 +20,39 @@ interface LocationSearchInputProps {
 export const LocationSearchInput: React.FC<LocationSearchInputProps> = ({
   value,
   onChange,
-  placeholder = 'Tìm địa điểm trên bản đồ hoặc dán link Google Meet / Google Maps...',
+  placeholder,
 }) => {
+  const t = useLanguageStore((s) => s.t);
+  const resolvedPlaceholder = placeholder || t.collab.mapPickerSearchPlaceholder;
+
   const [isMapModalOpen, setIsMapModalOpen] = useState(false);
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
-  // Close suggestions when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
         setShowSuggestions(false);
       }
     };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowSuggestions(false);
+      }
+    };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
   }, []);
 
-  // Debounced search on input change
   useEffect(() => {
     const trimmed = value.trim();
 
-    // Do not search if it's already a URL, empty, or too short
     if (
       !trimmed ||
       trimmed.length < 2 ||
@@ -73,8 +83,7 @@ export const LocationSearchInput: React.FC<LocationSearchInputProps> = ({
           setSuggestions([]);
           setShowSuggestions(false);
         }
-      } catch (err) {
-        console.warn('Location query error:', err);
+      } catch {
         setSuggestions([]);
         setShowSuggestions(false);
       } finally {
@@ -86,7 +95,7 @@ export const LocationSearchInput: React.FC<LocationSearchInputProps> = ({
   }, [value]);
 
   const handleSelectSuggestion = (item: any) => {
-    const name = item.name || item.display_name?.split(',')?.[0] || 'Địa điểm';
+    const name = item.name || item.display_name?.split(',')?.[0] || t.collab.mapPickerSelectedFallback;
     onChange(name);
     setShowSuggestions(false);
   };
@@ -106,12 +115,12 @@ export const LocationSearchInput: React.FC<LocationSearchInputProps> = ({
             onFocus={() => {
               if (suggestions.length > 0) setShowSuggestions(true);
             }}
-            placeholder={placeholder}
-            className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas pl-3.5 pr-8 py-2 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-hidden focus:ring-1 focus:ring-circle-sage"
+            placeholder={resolvedPlaceholder}
+            className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas pl-3.5 pr-8 py-2 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-none focus:ring-1 focus:ring-circle-sage"
           />
           <div className="absolute right-2.5 top-2.5 flex items-center gap-1">
             {isSearching && (
-              <Loader2 className="h-3.5 w-3.5 animate-spin text-circle-slate" />
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-circle-slate dark:text-circle-dark-muted" />
             )}
             {value && !isSearching && (
               <button
@@ -121,7 +130,8 @@ export const LocationSearchInput: React.FC<LocationSearchInputProps> = ({
                   setSuggestions([]);
                   setShowSuggestions(false);
                 }}
-                className="text-circle-slate hover:text-circle-charcoal dark:hover:text-circle-dark-text transition-colors"
+                className="text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text transition-colors"
+                title={t.common.close}
               >
                 <X className="h-3.5 w-3.5" />
               </button>
@@ -133,19 +143,19 @@ export const LocationSearchInput: React.FC<LocationSearchInputProps> = ({
         <button
           type="button"
           onClick={() => setIsMapModalOpen(true)}
-          className="flex items-center gap-1 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 px-2.5 py-2 text-xs font-semibold text-rose-600 dark:text-rose-400 transition-all shrink-0 active:scale-95 shadow-2xs cursor-pointer"
-          title="Mở bản đồ tìm kiếm và ghim vị trí"
+          className="flex items-center gap-1 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 px-2.5 py-2 text-xs font-semibold text-rose-700 dark:text-rose-400 transition-all shrink-0 active:scale-95 shadow-2xs cursor-pointer"
+          title={t.collab.mapPickerOpenTitle}
         >
           <Map className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">Bản đồ</span>
+          <span className="hidden sm:inline">{t.collab.mapPickerButtonLabel}</span>
         </button>
       </div>
 
       {/* Autocomplete Dropdown */}
       {showSuggestions && suggestions.length > 0 && (
-        <div className="absolute left-0 right-16 top-full mt-1 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface shadow-2xl overflow-hidden max-h-56 overflow-y-auto z-50 animate-in fade-in duration-100">
-          <div className="px-3 py-1.5 bg-circle-wash/50 dark:bg-circle-dark-wash/50 border-b border-circle-hairline/40 text-[10px] font-bold text-circle-slate dark:text-circle-dark-muted uppercase tracking-wider">
-            Gợi ý địa điểm từ bản đồ
+        <div className="absolute left-0 right-0 sm:right-16 top-full mt-1 rounded-xl glass-sheet shadow-2xl overflow-hidden max-h-56 overflow-y-auto z-50 animate-in fade-in duration-100">
+          <div className="px-3 py-1.5 bg-circle-wash/50 dark:bg-circle-dark-wash/50 border-b border-circle-hairline/40 dark:border-circle-dark-hairline/40 text-[10px] font-bold text-circle-slate dark:text-circle-dark-muted uppercase tracking-wider">
+            {t.collab.mapPickerSuggestionsHeader}
           </div>
           {suggestions.map((item, idx) => (
             <button
@@ -168,7 +178,7 @@ export const LocationSearchInput: React.FC<LocationSearchInputProps> = ({
         </div>
       )}
 
-      {/* Leaflet Map Picker Modal (dynamically loaded on client) */}
+      {/* Leaflet Map Picker Modal */}
       {isMapModalOpen && (
         <MapLocationPickerModal
           isOpen={isMapModalOpen}

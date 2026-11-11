@@ -8,7 +8,8 @@ import {
   StyleSheet,
   Image as RNImage,
 } from 'react-native';
-import { X, Pin, FileText, Image as ImageIcon } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { X, Pin, Image as ImageIcon } from 'lucide-react-native';
 
 interface PinnedMessagesModalProps {
   visible: boolean;
@@ -29,6 +30,7 @@ export const PinnedMessagesModal: React.FC<PinnedMessagesModalProps> = ({
   colors,
   t,
 }) => {
+  const insets = useSafeAreaInsets();
   if (!visible) return null;
 
   return (
@@ -47,27 +49,34 @@ export const PinnedMessagesModal: React.FC<PinnedMessagesModalProps> = ({
         />
 
         {/* Bottom Sheet Card */}
-        <View style={[styles.sheetContainer, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+        <View
+          style={[
+            styles.sheetContainer,
+            {
+              backgroundColor: colors.surface,
+              borderColor: colors.hairline,
+              paddingBottom: Math.max(insets.bottom, 20),
+            },
+          ]}
+        >
           {/* Top grabber */}
           <View style={[styles.grabber, { backgroundColor: colors.hairline }]} />
 
           {/* Header */}
           <View style={[styles.headerRow, { borderBottomColor: colors.hairline }]}>
             <View style={styles.headerTitleWrap}>
-              <View style={[styles.pinIconBadge, { backgroundColor: colors.wash }]}>
-                <Pin size={14} color={colors.primary} />
-              </View>
+              <Pin size={16} color={colors.sage} />
               <Text style={[styles.headerTitle, { color: colors.text }]}>
-                {t.chat?.pinnedMessagesTitle?.replace('{count}', String(pinnedMessages.length)) ||
-                  `Tin nhắn đã ghim (${pinnedMessages.length})`}
+                {t.chat.pinnedMessagesTitle.replace('{count}', String(pinnedMessages.length))}
               </Text>
             </View>
 
             <TouchableOpacity
               activeOpacity={0.7}
               onPress={onClose}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               style={[styles.closeBtn, { backgroundColor: colors.wash }]}
-              accessibilityLabel={t.common?.close || 'Đóng'}
+              accessibilityLabel={t.common.close}
             >
               <X size={16} color={colors.subtle} />
             </TouchableOpacity>
@@ -83,7 +92,7 @@ export const PinnedMessagesModal: React.FC<PinnedMessagesModalProps> = ({
               <View style={styles.emptyContainer}>
                 <Pin size={32} color={colors.subtle} />
                 <Text style={[styles.emptyText, { color: colors.subtle }]}>
-                  {t.chat?.noPinnedMessages || 'Không có tin nhắn nào được ghim'}
+                  {t.chat.noPinnedMessages}
                 </Text>
               </View>
             ) : (
@@ -96,7 +105,7 @@ export const PinnedMessagesModal: React.FC<PinnedMessagesModalProps> = ({
                   msg.sender?.name ||
                   msg.sender?.user?.email?.split('@')[0] ||
                   msg.sender?.email?.split('@')[0] ||
-                  'User';
+                  t.chat.defaultMemberName;
 
                 const sentTime = msg.sentAt || msg.createdAt
                   ? new Date(msg.sentAt || msg.createdAt).toLocaleDateString([], {
@@ -130,7 +139,7 @@ export const PinnedMessagesModal: React.FC<PinnedMessagesModalProps> = ({
                           />
                         ) : (
                           <View style={[styles.avatarFallback, { backgroundColor: colors.surface }]}>
-                            <Text style={[styles.avatarInitial, { color: colors.primary }]}>
+                            <Text style={[styles.avatarInitial, { color: colors.sage }]}>
                               {senderName.charAt(0).toUpperCase()}
                             </Text>
                           </View>
@@ -153,9 +162,10 @@ export const PinnedMessagesModal: React.FC<PinnedMessagesModalProps> = ({
                           activeOpacity={0.7}
                           onPress={() => onTogglePin?.(msg.id, true)}
                           style={[styles.unpinBtn, { backgroundColor: colors.surface }]}
-                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                          accessibilityLabel={t.chat.unpinAction}
                         >
-                          <Pin size={12} color={colors.warning || '#F59E0B'} fill={colors.warning || '#F59E0B'} />
+                          <Pin size={12} color={colors.warning} fill={colors.warning} />
                         </TouchableOpacity>
                       )}
                     </View>
@@ -170,9 +180,9 @@ export const PinnedMessagesModal: React.FC<PinnedMessagesModalProps> = ({
                     {/* Media preview */}
                     {Boolean(msg.fileUrl) && (
                       <View style={styles.mediaPreviewWrap}>
-                        <ImageIcon size={13} color={colors.primary} />
-                        <Text numberOfLines={1} style={[styles.mediaText, { color: colors.primary }]}>
-                          {t.chat?.imageAttachment || 'Hình ảnh đính kèm'}
+                        <ImageIcon size={13} color={colors.sage} />
+                        <Text numberOfLines={1} style={[styles.mediaText, { color: colors.sage }]}>
+                          {t.chat.imageAttachment}
                         </Text>
                       </View>
                     )}
@@ -203,7 +213,6 @@ const styles = StyleSheet.create({
     maxHeight: '75%',
     minHeight: 260,
     overflow: 'hidden',
-    paddingBottom: 24,
   },
   grabber: {
     width: 36,
@@ -225,13 +234,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-  },
-  pinIconBadge: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   headerTitle: {
     fontSize: 15,
@@ -256,14 +258,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 48,
-  },
-  emptyIconBox: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 10,
+    gap: 10,
   },
   emptyText: {
     fontSize: 13,
@@ -314,9 +309,9 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   unpinBtn: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 6,

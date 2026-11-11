@@ -286,9 +286,10 @@ model Message {
   id            String      @id @default(cuid())
   channelId     String
   memberId      String
-  type          MessageType @default(TEXT)
-  content       String?
-  fileUrl       String?
+  type            MessageType @default(TEXT)
+  content         String?
+  previousContent String?
+  fileUrl         String?
   fileName      String?
   fileSize      Int?
   audioDuration Int?

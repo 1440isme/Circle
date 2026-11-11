@@ -5924,3 +5924,189 @@
 - **Official Source Checked:** Issue #125, Apple Human Interface Guidelines (Liquid Glass Controls), Figma specifications.
 - **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
 - **Branch:** `fix/upgrade-mobile-expo-sdk-58`
+
+
+---
+
+### Entry AI-0157
+
+- **Timestamp:** 2026-11-09T23:55:00+07:00
+- **Author:** Trương Công Bình (23110184)
+- **Tool:** Antigravity IDE (Gemini 2.5 Pro)
+- **Task / Scope:** Module 7 (US-COLLAB-003, Issue #125) — Khắc phục Triệt để Lỗi Layout Modal Tạo Poll (CSS Containing-Block Portal Fix), Đồng bộ Toàn diện Dark Theme Contrast, Triển khai Tương tác Xem Lịch sử Sửa Tin nhắn Inline Kiểu Messenger (Web & Mobile Parity), và Thiết lập Master UI/UX Test Plan 4 Tầng.
+- **Files Touched:**
+  - `apps/web/src/components/chat/ChatComposer.tsx`
+  - `apps/web/src/components/chat/CreatePollChatModal.tsx`
+  - `apps/web/src/components/ui/FullEmojiPickerModal.tsx`
+  - `apps/web/src/components/chat/MessageBubble.tsx`
+  - `apps/backend/src/modules/chat/chat.service.ts`
+  - `packages/types/src/index.ts`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `apps/mobile/src/components/chat/MobileCreatePollModal.tsx`
+  - `apps/mobile/src/components/chat/MobileChatPollCard.tsx`
+  - `apps/mobile/src/components/tools/MobilePollView.tsx`
+  - `apps/web/tailwind.config.ts`
+  - `apps/web/src/components/circle/CircleManagementModal.tsx`
+  - `apps/web/src/components/settings/SystemSettingsModal.tsx`
+  - `apps/web/src/components/tools/CustomDateTimePicker.tsx`
+  - `apps/web/src/components/chat/ClearChatModal.tsx`
+  - `apps/web/src/components/profile/EditProfileModal.tsx`
+  - `apps/web/src/components/tools/MapLocationPickerModal.tsx`
+  - `apps/web/src/components/tools/CircleWheelView.tsx`
+  - `apps/web/src/components/tools/CircleAlbumsView.tsx`
+  - `apps/web/src/components/tools/CircleCalendarView.tsx`
+  - `apps/web/src/components/tools/CircleLocationView.tsx`
+  - `docs/test-plans/master-ui-ux-test-plan.md`
+  - `scripts/run-ui-ux-tests.mjs`
+  - `agentic/memory/MEMORY.md`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:**
+  1. **Khắc phục Triệt để Lỗi Layout Modal Tạo Poll (CSS Containing-Block Portal Fix):**
+     - Tìm ra nguyên nhân gốc: `backdrop-filter: blur(2px)` trên container `ChatComposer` biến container thành CSS containing block, giam giữ các modal `position: fixed` bên trong thanh nhập liệu chỉ cao 76px.
+     - Loại bỏ `backdrop-filter` thừa trên container gốc `ChatComposer`.
+     - Áp dụng React Portal (`createPortal(..., document.body)`) cho cả `CreatePollChatModal.tsx` và `FullEmojiPickerModal.tsx`, bổ sung phím tắt Escape và click outside backdrop để đóng modal. Bổ sung `max-h-[90vh]` kèm thanh cuộn mềm mượt cho form tạo poll khi có nhiều lựa chọn.
+  2. **Triển khai Tương tác Xem Lịch sử Sửa Tin nhắn Inline Kiểu Messenger (Web & Mobile Parity):**
+     - Theo chỉ đạo của người dùng: khi tin nhắn được sửa, hiển thị nhãn "đã chỉnh sửa" / "edited". Khi bấm vào nhãn này, nội dung tin nhắn trước khi sửa (`previousContent`) được toggle hiển thị ngay bên trong cùng bubble tin nhắn ở phía trên nội dung mới với độ mờ thấp hơn (`opacity-65`, gạch ngang line-through), hoàn toàn không mở popup hay modal rời rạc.
+     - Triển khai đồng bộ trên Web (`MessageBubble.tsx`), Backend (`chat.service.ts` lưu `previousContent`), Types (`MessageEntity`), và Mobile (`MobileSwipeMessageBubble` trong `apps/mobile/app/circle/[id].tsx`).
+  3. **Đồng bộ Toàn diện Dark Theme Contrast & Token Harmonization:**
+     - Mở rộng các alias màu tối trong `tailwind.config.ts`: `circle.primaryDark`, `circle.dark.card`, `circle.dark.hover`, `circle.dark.border`.
+     - Chuẩn hóa màu chữ, nền tối và viền hairline trên hàng loạt modal/dropdown: `CircleManagementModal`, `SystemSettingsModal`, `CustomDateTimePicker`, `ClearChatModal`, `EditProfileModal`, `MapLocationPickerModal`, `CircleWheelView`, `CircleAlbumsView`, `CircleCalendarView`, `CircleLocationView`.
+  4. **Thiết lập Master UI/UX Test Plan & Tự động hóa Kiểm thử:**
+     - Soạn thảo tài liệu `docs/test-plans/master-ui-ux-test-plan.md` (48KB) gồm 4 tầng kiểm thử, 41 test cases (TC-001 đến TC-041), ma trận kiểm tra Dark theme, và bảng đối soát Web vs Mobile Parity chi tiết.
+     - Triển khai script `scripts/run-ui-ux-tests.mjs` tự động hóa kiểm thử click flow qua cầu nối `scripts/brave-ctl.mjs` (port 9333 -> Brave DevTools 9222).
+- **Human Modifications:** Trương Công Bình yêu cầu kiểm thử toàn diện mọi click người dùng, chỉ rõ 2 lỗi cấp thiết (Dark theme và layout modal tạo poll trong chat), yêu cầu tính năng xem tin nhắn sửa inline kiểu Messenger không dùng popup, nhấn mạnh nguyên tắc tương tác ma sát thấp nhất không điều hướng màn hình cho thao tác nhỏ, và nhấn mạnh bất biến 100% Web + Mobile parity.
+- **Verification Method:**
+  - Chụp ảnh màn hình đối chứng trực tiếp trên Brave: `04_create_poll_modal_fixed.png` (modal tạo poll căn giữa hoàn hảo, không bị co cụm hay cắt nút) đối chiếu với `test_poll_modal_distortion.png`.
+  - Typecheck Web: `npx tsc --noEmit -p apps/web/tsconfig.json` (0 errors).
+  - Typecheck Mobile: `npx tsc --noEmit -p apps/mobile/tsconfig.json` (0 errors).
+  - Typecheck Backend: `npx tsc --noEmit -p apps/backend/tsconfig.json` (0 errors).
+  - Build Types: `npm run build --workspace=@circle/types` (Success).
+  - Build Shared: `npm run build --workspace=@circle/shared` (Success).
+  - Documentation Integrity: `./scripts/check-agent-map.sh` (Passed 100%, 122/122 files).
+  - Pre-commit Hook & Secret Check: `./.githooks/pre-commit` (Passed 100%, 0 leaks).
+- **Official Source Checked:** Issue #125, Apple Human Interface Guidelines, Facebook Messenger edit interaction pattern.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+- **Branch:** `fix/upgrade-mobile-expo-sdk-58`
+
+
+---
+
+## AI-0158: Tự động hóa Live Verification trên Brave Browser, sửa Hydration Race AuthStore và Kiểm chứng Tương tác Messenger Inline Edit
+
+- **Date:** 2026-11-10 00:03:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE (Teamwork Orchestrator Swarm)
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #125 (UI/UX Refactoring, Poll Modal, Dark Theme & Messenger Edit Parity)
+- **Purpose:** Vận hành toàn diện kịch bản kiểm thử tự động trên trình duyệt thật Brave thông qua cầu nối DevTools (`scripts/run-ui-ux-tests.mjs`), sửa lỗi bất đồng bộ `isLoading` trong `auth.store.ts` gây race condition điều hướng `/login`, và thực hiện live-test tương tác sửa tin nhắn inline kiểu Messenger (xem lịch sử tin gốc trực tiếp trong bubble không qua popup) trên cả Light & Dark mode.
+- **Prompt Summary:** Thực hiện kiểm thử toàn diện mọi tương tác người dùng trên trình duyệt Brave của user, điều phối nhóm làm việc `/teamwork`, đảm bảo tính năng sửa tin nhắn kiểu Messenger hoạt động trơn tru không có popup và đạt chuẩn parity giữa Web và Mobile.
+- **Files Affected:**
+  - `apps/web/src/stores/auth.store.ts` (khởi tạo `isLoading: true` tránh redirect race khi reload trang)
+  - `scripts/run-ui-ux-tests.mjs` (cập nhật test runner tự động hóa 9/9 bước kiểm thử kết nối DevTools)
+  - `docs/test-plans/master-ui-ux-test-plan.md` (bổ sung test case TC-020A và bảng ma trận Web/Mobile parity)
+  - `.agents/artifacts/screenshots/live_message_inline_edit_history.png`
+  - `.agents/artifacts/screenshots/live_message_inline_edit_history_dark.png`
+- **AI-Generated Portion:**
+  - Logic fix `isLoading: true` trong Zustand auth store để AuthGuard chờ kiểm tra session trước khi quyết định điều hướng.
+  - Tự động hóa gửi tin nhắn thật, mở menu 3 chấm, bấm "Edit", thay đổi nội dung, submit cập nhật qua socket, bấm nhãn "(edited)" và trích xuất cấu trúc DOM bên trong bubble.
+  - Bộ 9 test case tự động chạy trên Brave qua bridge CDP (WebSocket port 9333).
+- **Human Modifications:** Trương Công Bình chỉ đạo kiểm thử thực tế trên Brave của chính người dùng thay vì chạy headless runner, yêu cầu không dùng popup/modal để xem tin nhắn gốc trước khi sửa, và bảo toàn 100% Mobile parity.
+- **Verification Method:**
+  - Chạy `node scripts/run-ui-ux-tests.mjs` trên Brave: 9/9 test cases PASS (100%), 0 WARNINGS, 0 FAILURES.
+  - Chụp ảnh chứng chỉ thực nghiệm trực tiếp từ Brave:
+    - `live_message_inline_edit_history.png`: Tin nhắn gốc ("Hello Circle Teamwork 2026 - Test Message") hiển thị inline ngay trên nội dung mới với `opacity-65`, gạch ngang line-through, không có bất kỳ popup hay modal nào.
+    - `live_message_inline_edit_history_dark.png`: Hiển thị hoàn hảo trên Dark Theme.
+  - Typecheck Web: `npx tsc --noEmit -p apps/web/tsconfig.json` (0 errors).
+  - Typecheck Mobile: `npx tsc --noEmit -p apps/mobile/tsconfig.json` (0 errors).
+  - Typecheck Backend: `npx tsc --noEmit -p apps/backend/tsconfig.json` (0 errors).
+  - Kiểm tra tính toàn vẹn hệ thống: `./scripts/check-agent-map.sh` (Passed 100%, 122/122 files).
+  - Kiểm tra bảo mật bí mật: `./scripts/check-secrets.sh` (Passed, 0 secret leaks).
+- **Official Source Checked:** Issue #125, Facebook Messenger UX Guidelines, W3C CSS Containment Spec.
+- **Security & License Check:** An toàn tuyệt đối, zero credentials/tokens, không sử dụng API ngoài.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** AuthGuard ban đầu bị flash chuyển hướng về `/login` khi truy cập trực tiếp URL root (`/`) vì `isLoading` trong Zustand store khởi tạo là `false`.
+  - **Root Cause:** Khi component mount lần đầu trước khi `useEffect` gọi `initAuth()`, `AuthGuard` đọc thấy `isLoading === false` và `isAuthenticated === false` nên lập tức gọi `router.replace('/login')`.
+  - **Resolution / Fix:** Khởi tạo `isLoading: true` mặc định trong `auth.store.ts` để `AuthGuard` hiển thị loading indicator nhẹ cho tới khi `initAuth()` hoàn tất việc đọc token từ cookie/localStorage.
+- **Commit:** Pending
+- **PR:** Pending
+
+
+---
+
+## AI-0159: Hoàn thiện Resilient Test Runner, Tối ưu Hóa Brave Bridge Daemon và Tổng hợp Báo cáo Teamwork Hoàn tất Issue #125
+
+- **Date:** 2026-11-10 00:19:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE (Teamwork Orchestrator Swarm)
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #125 (UI/UX Refactoring, Poll Modal, Dark Theme & Messenger Edit Parity)
+- **Purpose:** Nâng cấp tính linh hoạt (resilience) của test runner tự động hóa `scripts/run-ui-ux-tests.mjs` để tương thích đa ngôn ngữ (Tiếng Việt + Tiếng Anh), tối ưu hóa thời gian phản hồi điều hướng của Brave Bridge Daemon (`domcontentloaded`), bổ sung kịch bản stress-test biên của Challenger 2 (8 lựa chọn poll, tiêu đề 160 ký tự, phím Escape, click backdrop), và tổng hợp các bản nghiệm thu handoff từ 7 thành viên trong nhóm teamwork.
+- **Prompt Summary:** Tinh chỉnh kiểm thử, đảm bảo mọi click trên browser chạy trơn tru, không bị kẹt vì khác biệt ngôn ngữ giao diện, thu thập chứng chỉ thực nghiệm và đồng bộ mã nguồn lên git.
+- **Files Affected:**
+  - `scripts/brave-bridge.mjs` (chuyển `waitUntil` sang `domcontentloaded` loại bỏ độ trễ 30s của socket networkidle)
+  - `scripts/run-ui-ux-tests.mjs` (cải tiến selector tìm nút đính kèm và tạo poll bất khả tri ngôn ngữ / case-insensitive, bổ sung reactive polling)
+  - `scripts/test-challenger-2.mjs` (kịch bản stress test chuyên sâu kiểm chứng biên 8 options poll, long title, backdrop click)
+  - `.agents/artifacts/screenshots/challenger_create_poll_dark.png`
+  - `.agents/artifacts/screenshots/challenger_create_poll_light.png`
+  - `.agents/artifacts/screenshots/challenger_inline_edit_expanded.png`
+  - `.agents/artifacts/screenshots/challenger_inline_edit_vi.png`
+- **AI-Generated Portion:**
+  - Triển khai selector logic đa ngữ resilient: `(b.getAttribute('title') || '').toLowerCase().includes('attach') || ...includes('đính kèm')`.
+  - Thiết lập polling có điều kiện chờ React hydration hoàn tất thay thế `sleep` cứng.
+  - Tự động hóa kiểm thử biên của Challenger 2: thêm 8 lựa chọn, nhập tiêu đề dài, kiểm tra bounding box `fitsInsideViewport === true`, phím `Escape` và click backdrop đóng modal sạch sẽ.
+- **Human Modifications:** Trương Công Bình yêu cầu kiểm thử toàn diện mọi click người dùng, nhấn mạnh việc test kỹ trên trình duyệt Brave của user, không bỏ sót mobile và đảm bảo trải nghiệm người dùng hoàn thiện triệt để.
+- **Verification Method:**
+  - Chạy `node scripts/run-ui-ux-tests.mjs`: 9/9 PASS (100%), 0 WARNINGS, 0 FAILURES.
+  - Chạy `node scripts/test-challenger-2.mjs`: Task 1 (Portal, 8 Options, Long Title, Escape, Backdrop) PASS; Task 2 (Dark Theme Contrast) PASS; Task 3 (Mobile Parity) PASS. OVERALL CHALLENGER VERDICT: APPROVE.
+  - Toàn bộ 7 báo cáo Handoff từ các subagent (Worker, Test Writer, Reviewer 1, Reviewer 2, Challenger 1, Challenger 2, Forensic Auditor) đều đưa ra VERDICT: APPROVE.
+  - Typecheck Web: `npx tsc --noEmit -p apps/web/tsconfig.json` (0 errors).
+  - Typecheck Mobile: `npx tsc --noEmit -p apps/mobile/tsconfig.json` (0 errors).
+  - Typecheck Backend: `npx tsc --noEmit -p apps/backend/tsconfig.json` (0 errors).
+  - Kiểm tra Agent Map: `./scripts/check-agent-map.sh` (Passed 100%, 122/122 files).
+  - Kiểm tra Bí mật: `./scripts/check-secrets.sh` (Passed, 0 secret leaks).
+- **Official Source Checked:** Issue #125, PROJECT_GOD.md §7 & §11, Agentic RULES.md.
+- **Security & License Check:** An toàn tuyệt đối, zero credentials/secrets.
+- **Commit:** Pending
+- **PR:** Pending
+
+
+---
+
+## AI-0160: Live Brave UI/UX Audit, Leaflet Map Crash & Portal Containment Fixes, Dark-Mode Contrast Hardening, and Peer Review Remediation
+
+- **Date:** 2026-11-11 23:25:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE (Coordinator + Independent Peer Reviewer)
+- **Model:** Gemini / Antigravity
+- **Related Issue:** UI/UX Audit, Dark/Light & Liquid Glass Parity, Messenger Inline Edit History, Composer Poll & Mobile Parity
+- **Purpose:** Kiểm thử thực tế toàn bộ giao diện trên trình duyệt Brave thật (`127.0.0.1:9222`), vá các lỗi runtime Leaflet (`subdomains: undefined`), portal containment trap cho nested modals/lightboxes, tương phản Dark Mode hover/active, chồng lấn action bar khi mở rộng lịch sử sửa tin nhắn kiểu Messenger, và chuẩn hóa i18n trên Web & Mobile.
+- **Prompt Summary:** Rà soát và hoàn thiện triệt để UI/UX, Dark/Light/Liquid Glass, nút tạo Poll, Messenger-style inline edit history trên Web & Mobile, kiểm chứng trực tiếp qua DevTools của Brave và phối hợp đối chiếu độc lập bởi Peer Reviewer.
+- **Files Affected:**
+  - `apps/web/src/components/tools/CircleLocationView.tsx` (chỉ truyền `subdomains: 'abcd'` khi không dùng Mapbox token; thêm `dark:hover:text-white` khi hover `bg-circle-sage`)
+  - `apps/web/src/components/tools/MapLocationPickerModal.tsx` (vá crash `subdomains` Leaflet & wrap modal bằng `createPortal(..., document.body)`)
+  - `apps/mobile/src/components/tools/MobileLocationView.tsx` (đồng bộ fix `subdomains` Leaflet khi có `EXPO_PUBLIC_MAPBOX_TOKEN`)
+  - `apps/web/src/components/chat/MessageBubble.tsx` (wrap Image Lightbox bằng `createPortal(..., document.body)`, tách hover action bar ra trên cụm `[Edited + previousContent + bubble]`, thêm `dark:hover:text-white`)
+  - `apps/web/src/components/chat/MomentCardChatEmbed.tsx` (wrap Moment Lightbox bằng `createPortal(..., document.body)`)
+  - `apps/mobile/src/components/chat/MobileChatPollCard.tsx` (tính độ sáng tương đối bằng `isHexColorLight` để icon checkmark luôn tương phản trên nền màu theme `senderTextColor`)
+  - `apps/web/src/components/settings/SystemSettingsModal.tsx` (nâng tương phản pill active `dark:text-circle-dark-primary` và chuẩn hóa chuỗi `t.nav.flatDesignDefault`, `t.nav.liquidGlass`, `t.common.appName` / `t.auth.trustBadgeTitle` / `t.common.slogan`)
+  - `apps/web/src/app/globals.css` (nền `.dark .leaflet-container { background-color: #131316; }` và `prefers-reduced-motion: reduce`)
+  - 16 component Web bổ sung `dark:hover:text-white` trên các nút `hover:bg-circle-sage` dùng `dark:text-circle-dark-canvas` / `dark:text-circle-charcoal`
+  - `scripts/brave-bridge.mjs` (cập nhật import `chrome-devtools-mcp` và kết thúc Web Animation hữu hạn trước `page.screenshot`)
+- **AI-Generated Portion:** Các bản vá Leaflet options, React portals, Dark Mode hover contrast, layout bubble stack, độ sáng relative-luminance cho checkmark mobile và kịch bản kiểm chứng Brave Bridge.
+- **Human Modifications:** Trương Công Bình yêu cầu kiểm thử kỹ trên trình duyệt Brave thật (`127.0.0.1:9222`), bao phủ cả Web & Mobile, Glass có độ mờ cân bằng, sửa tin nhắn hiển thị nhãn `Đã chỉnh sửa`/`Edited` phía trên cùng hộp tin nhắn cũ mờ hơn xếp ngay trên tin nhắn hiện tại (không popup).
+- **Verification Method:**
+  - Brave DevTools live UI/screenshot audit (Web Desktop `1280x800`, Tablet `768x1024`, Mobile-Web `360x780`, 0 console/page/HTTP errors; xác nhận `toolbarOverlapsPrev: false`, `toolbarOverlapsToggle: false` trên edited message).
+  - Independent Peer Review across `apps/backend`, `packages/shared`, `apps/web`, `apps/mobile`.
+  - Build & Typecheck: `@circle/types`, `@circle/shared`, `apps/mobile` typecheck, `apps/web` `tsc --noEmit` & `next build` (12/12 routes), `apps/backend` `tsc --noEmit` -> PASSED.
+  - Unit tests: `npm test --prefix apps/backend` -> `11 suites, 186 tests passed`.
+  - Repo integrity: `./scripts/check-agent-map.sh` (122 framework files OK) & `./scripts/check-secrets.sh` (578 files, 0 leaks).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`, `agentic/playbooks/cross-cutting-gate.md`, `node_modules/leaflet/dist/leaflet-src.js`.
+- **Security & License Check:** Không rò rỉ secret/credential; giữ nguyên giấy phép mã nguồn dự án.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** Peer Review phát hiện sót `subdomains: undefined` trên `MobileLocationView.tsx`, 2 Web Lightboxes chưa `createPortal`, 36 nút Web thiếu `dark:hover:text-white`, `MobileChatPollCard.tsx` check icon trắng trên `senderTextColor` sáng, 3 chuỗi cứng trong `SystemSettingsModal.tsx`, và hover toolbar che hộp `previousContent` khi mở rộng.
+  - **Root Cause:** Kiểm thử UI trước đó tập trung ở modal chính và dark background tĩnh, chưa kiểm tra hover specificity trên dark utility classes và trạng thái mở rộng đồng thời của hover bar + `previousContent`.
+  - **Resolution / Fix:** Đã vá toàn bộ 4 nhóm vấn đề từ Peer Review và kiểm chứng lại trên Brave thật cùng chuỗi build/typecheck/unit test.
+- **Commit:** Pending
+- **PR:** Pending

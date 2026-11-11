@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ArrowLeft,
   ArrowRight,
@@ -41,6 +42,7 @@ export function PasswordRecoveryWizard({
   initialStep = 1,
 }: PasswordRecoveryWizardProps) {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { colors } = useThemeStore();
   const { t, locale } = useLanguageStore();
 
@@ -221,11 +223,13 @@ export function PasswordRecoveryWizard({
       style={[styles.container, { backgroundColor: colors.canvas }]}
     >
       {/* Top Header & 3-Segment Progress Bar */}
-      <View style={styles.topBar}>
+      <View style={[styles.topBar, { paddingTop: insets.top + 12 }]}>
         <TouchableOpacity
           onPress={handlePrevStep}
           activeOpacity={0.7}
+          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
           style={[styles.backBtn, { backgroundColor: colors.wash }]}
+          accessibilityLabel={t.common.back}
         >
           <ArrowLeft size={18} color={colors.text} />
         </TouchableOpacity>
@@ -266,8 +270,8 @@ export function PasswordRecoveryWizard({
       >
         {/* Step Badge */}
         <View style={[styles.stepBadge, { backgroundColor: colors.wash }]}>
-          <Sparkles size={12} color={colors.primary} />
-          <Text style={[styles.stepBadgeText, { color: colors.primary }]}>
+          <Sparkles size={12} color={colors.sage} />
+          <Text style={[styles.stepBadgeText, { color: colors.sage }]}>
             {step === 1
               ? t.auth.recoveryStep1Badge
               : step === 2
@@ -299,8 +303,8 @@ export function PasswordRecoveryWizard({
               { backgroundColor: `${colors.primary}15`, borderColor: `${colors.primary}30` },
             ]}
           >
-            <CheckCircle2 size={16} color={colors.primary} />
-            <Text style={[styles.bannerText, { color: colors.primary }]}>
+            <CheckCircle2 size={16} color={colors.sage} />
+            <Text style={[styles.bannerText, { color: colors.sage }]}>
               {successMsg}
             </Text>
           </View>
@@ -373,7 +377,7 @@ export function PasswordRecoveryWizard({
                 },
               ]}
             >
-              <Mail size={16} color={colors.primary} />
+              <Mail size={16} color={colors.sage} />
               <Text style={[styles.emailBadgeText, { color: colors.text }]}>
                 {email}
               </Text>
@@ -451,11 +455,11 @@ export function PasswordRecoveryWizard({
                   activeOpacity={0.7}
                 >
                   {resending ? (
-                    <ActivityIndicator size="small" color={colors.primary} />
+                    <ActivityIndicator size="small" color={colors.sage} />
                   ) : (
-                    <RefreshCw size={14} color={colors.primary} />
+                    <RefreshCw size={14} color={colors.sage} />
                   )}
-                  <Text style={[styles.resendText, { color: colors.primary }]}>
+                  <Text style={[styles.resendText, { color: colors.sage }]}>
                     {t.auth.resendCode}
                   </Text>
                 </TouchableOpacity>
@@ -569,7 +573,12 @@ export function PasswordRecoveryWizard({
       </ScrollView>
 
       {/* Floating Bottom Navigation CTA */}
-      <View style={[styles.bottomBar, { backgroundColor: colors.canvas }]}>
+      <View
+        style={[
+          styles.bottomBar,
+          { backgroundColor: colors.canvas, paddingBottom: Math.max(insets.bottom, 24) },
+        ]}
+      >
         {step === 1 ? (
           <TouchableOpacity
             onPress={handleRequestOtp}
@@ -578,18 +587,29 @@ export function PasswordRecoveryWizard({
             style={[
               styles.primaryBtn,
               {
-                backgroundColor: isEmailValid ? colors.primary : colors.wash,
+                backgroundColor: isEmailValid ? colors.primary : colors.border,
               },
             ]}
           >
             {loading ? (
-              <ActivityIndicator size="small" color={colors.onPrimary} />
+              <ActivityIndicator
+                size="small"
+                color={isEmailValid ? colors.onPrimary : colors.subtle}
+              />
             ) : (
               <>
-                <Text style={[styles.primaryBtnText, { color: colors.onPrimary }]}>
+                <Text
+                  style={[
+                    styles.primaryBtnText,
+                    { color: isEmailValid ? colors.onPrimary : colors.subtle },
+                  ]}
+                >
                   {t.auth.continueBtn}
                 </Text>
-                <ArrowRight size={18} color={colors.onPrimary} />
+                <ArrowRight
+                  size={18}
+                  color={isEmailValid ? colors.onPrimary : colors.subtle}
+                />
               </>
             )}
           </TouchableOpacity>
@@ -601,14 +621,22 @@ export function PasswordRecoveryWizard({
             style={[
               styles.primaryBtn,
               {
-                backgroundColor: isOtpValid ? colors.primary : colors.wash,
+                backgroundColor: isOtpValid ? colors.primary : colors.border,
               },
             ]}
           >
-            <Text style={[styles.primaryBtnText, { color: colors.onPrimary }]}>
+            <Text
+              style={[
+                styles.primaryBtnText,
+                { color: isOtpValid ? colors.onPrimary : colors.subtle },
+              ]}
+            >
               {t.auth.continueBtn}
             </Text>
-            <ArrowRight size={18} color={colors.onPrimary} />
+            <ArrowRight
+              size={18}
+              color={isOtpValid ? colors.onPrimary : colors.subtle}
+            />
           </TouchableOpacity>
         ) : (
           <Button
@@ -628,7 +656,7 @@ export function PasswordRecoveryWizard({
           <Text style={[styles.linkSubText, { color: colors.subtle }]}>
             {t.auth.hasAccount}{' '}
           </Text>
-          <Text style={[styles.linkHighlight, { color: colors.primary }]}>
+          <Text style={[styles.linkHighlight, { color: colors.sage }]}>
             {t.auth.signInHere}
           </Text>
         </TouchableOpacity>

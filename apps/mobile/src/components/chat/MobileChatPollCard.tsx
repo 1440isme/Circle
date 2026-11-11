@@ -4,10 +4,9 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  ActivityIndicator,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { Vote, Check, CheckCircle2 } from 'lucide-react-native';
+import { Check } from 'lucide-react-native';
 import { useThemeStore } from '../../stores/theme.store';
 import { useLanguageStore } from '../../stores/language.store';
 import { useAuthStore } from '../../stores/auth.store';
@@ -38,11 +37,15 @@ export const MobileChatPollCard: React.FC<MobileChatPollCardProps> = ({
   const user = useAuthStore((s) => s.user);
 
   const [poll, setPoll] = useState<GroupPollEntity | null>(null);
+  const [isDeleted, setIsDeleted] = useState(false);
   const [isVoting, setIsVoting] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
     let sockInstance: any = null;
+    let onVotedHandler: ((updatedPoll: GroupPollEntity) => void) | null = null;
+    let onClosedHandler: ((updatedPoll: GroupPollEntity) => void) | null = null;
+    let onDeletedHandler: ((payload: { pollId?: string }) => void) | null = null;
 
     const fetchPoll = async () => {
       try {
@@ -59,26 +62,50 @@ export const MobileChatPollCard: React.FC<MobileChatPollCardProps> = ({
       if (!isMounted || !sock) return;
       sockInstance = sock;
 
-      const onVoted = (updatedPoll: GroupPollEntity) => {
+      onVotedHandler = (updatedPoll: GroupPollEntity) => {
         if (updatedPoll?.id === pollId && isMounted) {
           setPoll(updatedPoll);
         }
       };
 
-      sock.on('circle:poll-voted', onVoted);
-      sock.on('circle:poll-closed', onVoted);
+      onClosedHandler = (updatedPoll: GroupPollEntity) => {
+        if (updatedPoll?.id === pollId && isMounted) {
+          setPoll(updatedPoll);
+        }
+      };
+
+      onDeletedHandler = (payload: { pollId?: string }) => {
+        if (payload?.pollId === pollId && isMounted) {
+          setIsDeleted(true);
+        }
+      };
+
+      sock.on('circle:poll-voted', onVotedHandler);
+      sock.on('circle:poll-closed', onClosedHandler);
+      sock.on('circle:poll-deleted', onDeletedHandler);
     });
 
     return () => {
       isMounted = false;
       if (sockInstance) {
-        sockInstance.off('circle:poll-voted');
-        sockInstance.off('circle:poll-closed');
+        if (onVotedHandler) sockInstance.off('circle:poll-voted', onVotedHandler);
+        if (onClosedHandler) sockInstance.off('circle:poll-closed', onClosedHandler);
+        if (onDeletedHandler) sockInstance.off('circle:poll-deleted', onDeletedHandler);
       }
     };
   }, [circleId, pollId]);
 
-  const question = poll?.question || initialQuestion || t.collab?.pollTitle || 'Thăm dò ý kiến';
+  if (isDeleted) {
+    return (
+      <View style={styles.deletedWrap}>
+        <Text style={[styles.deletedText, { color: colors.subtle }]}>
+          {t.chat.pollDeletedOrNotFound}
+        </Text>
+      </View>
+    );
+  }
+
+  const question = poll?.question || initialQuestion || t.collab.pollTitle;
   const isClosed = poll?.isClosed || false;
   const options = poll?.options || initialOptions.map((opt, idx) => ({
     id: `opt-${idx}`,
@@ -107,8 +134,23 @@ export const MobileChatPollCard: React.FC<MobileChatPollCardProps> = ({
     }
   };
 
-  const textColor = isSenderMe ? senderTextColor || '#FFFFFF' : colors.text;
-  const subtleColor = isSenderMe ? (senderTextColor || '#FFFFFF') : colors.subtle;
+  const isHexColorLight = (hex: string): boolean => {
+    const clean = hex.replace('#', '');
+    if (clean.length !== 6 && clean.length !== 3) return isDark;
+    const full = clean.length === 3 ? clean.split('').map((c) => c + c).join('') : clean;
+    const r = parseInt(full.slice(0, 2), 16);
+    const g = parseInt(full.slice(2, 4), 16);
+    const b = parseInt(full.slice(4, 6), 16);
+    if (Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b)) return isDark;
+    // Relative luminance threshold for dark-vs-light check icon on solid textColor fill
+    return (0.299 * r + 0.587 * g + 0.114 * b) > 150;
+  };
+
+  const textColor = isSenderMe ? senderTextColor || colors.text : colors.text;
+  const subtleColor = isSenderMe ? (senderTextColor || colors.text) : colors.subtle;
+  const senderCheckIconColor = isSenderMe
+    ? (isHexColorLight(textColor) ? colors.canvas : '#FFFFFF')
+    : colors.onPrimary;
 
   return (
     <View style={styles.container}>
@@ -135,17 +177,19 @@ export const MobileChatPollCard: React.FC<MobileChatPollCardProps> = ({
                 {
                   borderColor: isSelected
                     ? isSenderMe
-                      ? 'rgba(255,255,255,0.45)'
-                      : colors.primary
+                      ? `${textColor}55`
+                      : colors.sage
                     : isSenderMe
-                    ? 'rgba(255,255,255,0.15)'
+                    ? `${textColor}22`
                     : colors.hairline,
                   backgroundColor: isSelected
                     ? isSenderMe
-                      ? 'rgba(255,255,255,0.18)'
-                      : `${colors.primary}15`
+                      ? `${textColor}16`
+                      : `${colors.sage}14`
                     : isSenderMe
-                    ? 'rgba(0,0,0,0.1)'
+                    ? isDark
+                      ? 'rgba(255,255,255,0.06)'
+                      : 'rgba(0,0,0,0.04)'
                     : colors.surface,
                 },
               ]}
@@ -158,10 +202,12 @@ export const MobileChatPollCard: React.FC<MobileChatPollCardProps> = ({
                     width: `${percentage}%`,
                     backgroundColor: isSelected
                       ? isSenderMe
-                        ? 'rgba(255,255,255,0.18)'
-                        : `${colors.primary}25`
+                        ? `${textColor}1C`
+                        : `${colors.sage}22`
                       : isSenderMe
-                      ? 'rgba(0,0,0,0.08)'
+                      ? isDark
+                        ? 'rgba(255,255,255,0.08)'
+                        : 'rgba(0,0,0,0.06)'
                       : colors.wash,
                   },
                 ]}
@@ -176,9 +222,9 @@ export const MobileChatPollCard: React.FC<MobileChatPollCardProps> = ({
                         borderColor: isSelected
                           ? isSenderMe
                             ? textColor
-                            : colors.primary
+                            : colors.sage
                           : isSenderMe
-                          ? 'rgba(255,255,255,0.4)'
+                          ? `${textColor}55`
                           : colors.hairline,
                         backgroundColor: isSelected
                           ? isSenderMe
@@ -191,7 +237,7 @@ export const MobileChatPollCard: React.FC<MobileChatPollCardProps> = ({
                     {isSelected && (
                       <Check
                         size={10}
-                        color={isSenderMe ? '#000000' : '#FFFFFF'}
+                        color={isSenderMe ? senderCheckIconColor : colors.onPrimary}
                         strokeWidth={3}
                       />
                     )}
@@ -234,39 +280,13 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     gap: 8,
   },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingBottom: 6,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+  deletedWrap: {
+    paddingVertical: 6,
+    paddingHorizontal: 4,
   },
-  headerTitleWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  iconBox: {
-    width: 24,
-    height: 24,
-    borderRadius: 7,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  badgeBox: {
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 10,
-  },
-  badgeText: {
-    fontSize: 9,
-    fontWeight: '700',
+  deletedText: {
+    fontSize: 12,
+    fontStyle: 'italic',
   },
   questionText: {
     fontSize: 13,
@@ -326,25 +346,5 @@ const styles = StyleSheet.create({
   },
   voteCountText: {
     fontSize: 10,
-  },
-  footerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 2,
-  },
-  footerText: {
-    fontSize: 10,
-    fontWeight: '500',
-  },
-  votedBadgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  votedBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#10B981',
   },
 });

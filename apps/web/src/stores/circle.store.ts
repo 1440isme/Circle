@@ -9,6 +9,7 @@ interface CircleState {
   isCreateModalOpen: boolean;
   isJoinModalOpen: boolean;
   isManageModalOpen: boolean;
+  isMobileDrawerOpen: boolean;
   manageActiveTab: 'chatInfo' | 'members' | 'privacySupport' | 'circleSettings' | 'supportReports' | 'settings' | 'invites' | 'requests';
   activeCallStageSession: any | null;
   setActiveCallStageSession: (session: any | null) => void;
@@ -18,6 +19,7 @@ interface CircleState {
   setActiveChannelId: (id: string | null) => void;
   setCreateModalOpen: (open: boolean) => void;
   setJoinModalOpen: (open: boolean) => void;
+  setMobileDrawerOpen: (open: boolean) => void;
   setManageModalOpen: (
     open: boolean,
     tab?: 'chatInfo' | 'members' | 'privacySupport' | 'circleSettings' | 'supportReports' | 'settings' | 'invites' | 'requests',
@@ -41,6 +43,7 @@ export const useCircleStore = create<CircleState>((set) => ({
   isCreateModalOpen: false,
   isJoinModalOpen: false,
   isManageModalOpen: false,
+  isMobileDrawerOpen: false,
   manageActiveTab: 'settings',
   setActiveCircleId: (id) => set({ activeCircleId: id }),
   targetLocationCoords: null,
@@ -54,6 +57,7 @@ export const useCircleStore = create<CircleState>((set) => ({
           activeCircle: null,
           activeCircleId: null,
           activeChannelId: null,
+          isMobileDrawerOpen: false,
         };
       }
       const mergedCircle =
@@ -72,15 +76,17 @@ export const useCircleStore = create<CircleState>((set) => ({
         activeCircleId: mergedCircle.id,
         activeCircleView: state.activeCircleId === mergedCircle.id ? state.activeCircleView : 'general',
         activeChannelId: defaultChannelId,
+        isMobileDrawerOpen: false,
       };
     });
   },
-  setActiveCircleView: (view) => set({ activeCircleView: view }),
+  setActiveCircleView: (view) => set({ activeCircleView: view, isMobileDrawerOpen: false }),
   setActiveChannelId: (id) => set({ activeChannelId: id }),
   setCreateModalOpen: (open) => set({ isCreateModalOpen: open }),
   setJoinModalOpen: (open) => set({ isJoinModalOpen: open }),
+  setMobileDrawerOpen: (open) => set({ isMobileDrawerOpen: open }),
   setManageModalOpen: (open, tab = 'settings') =>
-    set({ isManageModalOpen: open, manageActiveTab: tab }),
+    set({ isManageModalOpen: open, manageActiveTab: tab, isMobileDrawerOpen: false }),
   targetCalendarDate: null,
   targetCalendarEventId: null,
   setTargetCalendarEvent: (dateStr, eventId = null) =>

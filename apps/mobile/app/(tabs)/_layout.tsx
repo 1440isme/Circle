@@ -6,14 +6,12 @@ import {
   Text,
   TouchableOpacity,
   Modal,
-  Alert,
 } from 'react-native';
 import { Tabs, useRouter } from 'expo-router';
 import { BlurView } from 'expo-blur';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Home,
-  Users,
-  MessageSquare,
   User,
   Plus,
   Camera,
@@ -21,10 +19,13 @@ import {
   Calendar,
   X,
   Sparkles,
+  AlertCircle,
 } from 'lucide-react-native';
 import { useThemeStore } from '../../src/stores/theme.store';
 import { useLanguageStore } from '../../src/stores/language.store';
 import { useCircleStore } from '../../src/stores/circle.store';
+import { useMyCirclesQuery } from '../../src/hooks/use-circle-queries';
+import { getGlassTheme } from '../../src/constants/glass-theme';
 import { CreateCircleModal } from '../../src/components/circle/CreateCircleModal';
 import { JoinCircleModal } from '../../src/components/circle/JoinCircleModal';
 import { CircleManagementModal } from '../../src/components/circle/CircleManagementModal';
@@ -35,6 +36,9 @@ interface CustomTabBarProps {
   descriptors?: any;
   onPressCreate: () => void;
   isDark: boolean;
+  isGlass: boolean;
+  glassTheme: ReturnType<typeof getGlassTheme>;
+  bottomInset: number;
   colors: any;
   t: any;
 }
@@ -43,7 +47,9 @@ function CustomLiquidTabBar({
   state,
   navigation,
   onPressCreate,
-  isDark,
+  isGlass,
+  glassTheme,
+  bottomInset,
   colors,
   t,
 }: CustomTabBarProps) {
@@ -65,43 +71,55 @@ function CustomLiquidTabBar({
   ];
 
   return (
-    <View style={styles.floatingContainer} pointerEvents="box-none">
+    <View
+      style={[
+        styles.floatingContainer,
+        { bottom: Math.max(bottomInset, Platform.OS === 'ios' ? 20 : 12) },
+      ]}
+      pointerEvents="box-none"
+    >
       <View
         style={[
           styles.floatingBar,
           {
-            borderColor: colors.glassBorder,
-            shadowColor: colors.primary,
+            backgroundColor: isGlass ? 'transparent' : glassTheme.colors.glassBg,
+            borderColor: isGlass ? glassTheme.colors.glassBorder : colors.hairline,
+            shadowColor: isGlass ? colors.primary : '#000',
+            shadowOpacity: isGlass ? 0.35 : 0.12,
           },
         ]}
       >
-        {/* BlurView Backdrop */}
-        <BlurView
-          intensity={Platform.OS === 'ios' ? 85 : 100}
-          tint={isDark ? 'dark' : 'light'}
-          style={StyleSheet.absoluteFill}
-        />
+        {/* BlurView Backdrop (Strict Glass Mode Only) */}
+        {isGlass ? (
+          <>
+            <BlurView
+              intensity={glassTheme.blur.intensity}
+              tint={glassTheme.blur.tint}
+              style={StyleSheet.absoluteFill}
+            />
+            <View
+              style={[
+                StyleSheet.absoluteFill,
+                { backgroundColor: glassTheme.colors.glassBg },
+              ]}
+            />
+          </>
+        ) : null}
 
-        {/* Liquid Glass Translucent Tint */}
-        <View
-          style={[
-            StyleSheet.absoluteFill,
-            {
-              backgroundColor: colors.glass,
-            },
-          ]}
-        />
-
-        {/* Row of 5 Equal Slots */}
+        {/* Row of Slots */}
         <View style={styles.tabsRow}>
-          {tabs.map((tab, idx) => {
+          {tabs.map((tab) => {
             if (tab.isCenter) {
               return (
                 <View key="center-plus" style={styles.tabSlot}>
                   <TouchableOpacity
                     onPress={onPressCreate}
                     activeOpacity={0.82}
-                    style={[styles.centerCircleButton, { backgroundColor: colors.primary, shadowColor: colors.primary }]}
+                    style={[
+                      styles.centerCircleButton,
+                      { backgroundColor: colors.primary, shadowColor: colors.primary },
+                    ]}
+                    accessibilityLabel={t.composer.sheetTitle}
                   >
                     <Plus size={24} color={colors.onPrimary} strokeWidth={2.8} />
                   </TouchableOpacity>
@@ -128,12 +146,12 @@ function CustomLiquidTabBar({
                 if (navigation && typeof navigation.navigate === 'function') {
                   navigation.navigate(tab.name);
                 } else {
-                  router.push(tab.name === 'index' ? '/(tabs)' : `/(tabs)/${tab.name}` as any);
+                  router.push(tab.name === 'index' ? '/(tabs)' : (`/(tabs)/${tab.name}` as any));
                 }
               }
             };
 
-            const iconColor = isFocused ? colors.primary : colors.subtle;
+            const iconColor = isFocused ? colors.sage : colors.subtle;
 
             return (
               <View key={tab.name} style={styles.tabSlot}>
@@ -177,18 +195,38 @@ function CustomLiquidTabBar({
 }
 
 export default function TabsLayout() {
-  const { colors, resolvedTheme } = useThemeStore();
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { colors, resolvedTheme, uiStyle } = useThemeStore();
   const t = useLanguageStore((s) => s.t);
   const [createModalVisible, setCreateModalVisible] = useState(false);
+  const [sheetNotice, setSheetNotice] = useState<string | null>(null);
+  const activeCircle = useCircleStore((s) => s.activeCircle);
+  const setActiveCircle = useCircleStore((s) => s.setActiveCircle);
   const setCircleCreateModalVisible = useCircleStore((s) => s.setCreateModalVisible);
+  const { data: myCircles = [] } = useMyCirclesQuery();
 
   const isDark = resolvedTheme === 'dark';
+  const isGlass = uiStyle === 'glass';
+  const glassTheme = getGlassTheme(isDark, uiStyle);
+  const targetCircle = activeCircle || myCircles[0] || null;
 
-  const handleCreateOption = (title: string, msg: string) => {
+  const handleOpenCircleAction = (
+    tab: 'moments' | 'tools',
+    tool?: 'anonymous' | 'calendar',
+    fallbackNotice?: string,
+  ) => {
+    if (!targetCircle) {
+      setSheetNotice(fallbackNotice || t.circle.noCircleJoinedYet);
+      return;
+    }
+    setSheetNotice(null);
     setCreateModalVisible(false);
-    setTimeout(() => {
-      Alert.alert(title, msg);
-    }, 250);
+    setActiveCircle(targetCircle);
+    router.push({
+      pathname: '/circle/[id]' as any,
+      params: tool ? { id: targetCircle.id, tab, tool } : { id: targetCircle.id, tab },
+    });
   };
 
   return (
@@ -197,8 +235,14 @@ export default function TabsLayout() {
         tabBar={(props) => (
           <CustomLiquidTabBar
             {...props}
-            onPressCreate={() => setCreateModalVisible(true)}
+            onPressCreate={() => {
+              setSheetNotice(null);
+              setCreateModalVisible(true);
+            }}
             isDark={isDark}
+            isGlass={isGlass}
+            glassTheme={glassTheme}
+            bottomInset={insets.bottom}
             colors={colors}
             t={t}
           />
@@ -229,31 +273,44 @@ export default function TabsLayout() {
         />
       </Tabs>
 
-      {/* iOS 26 Liquid Glass Creation ActionSheet Modal */}
+      {/* Creation ActionSheet Modal (Gated Glass vs Solid Flat) */}
       <Modal
         visible={createModalVisible}
         transparent
         animationType="fade"
-        onRequestClose={() => setCreateModalVisible(false)}
+        onRequestClose={() => {
+          setSheetNotice(null);
+          setCreateModalVisible(false);
+        }}
       >
         <TouchableOpacity
-          style={styles.modalBackdrop}
+          style={[
+            styles.modalBackdrop,
+            { paddingBottom: Math.max(insets.bottom + 12, 24) },
+          ]}
           activeOpacity={1}
-          onPress={() => setCreateModalVisible(false)}
+          onPress={() => {
+            setSheetNotice(null);
+            setCreateModalVisible(false);
+          }}
         >
-          <BlurView
-            intensity={Platform.OS === 'ios' ? 40 : 80}
-            tint={isDark ? 'dark' : 'light'}
-            style={StyleSheet.absoluteFill}
-          />
+          {isGlass ? (
+            <BlurView
+              intensity={glassTheme.blur.intensity}
+              tint={glassTheme.blur.tint}
+              style={StyleSheet.absoluteFill}
+            />
+          ) : null}
 
           <TouchableOpacity
             activeOpacity={1}
             style={[
               styles.sheetContainer,
               {
-                backgroundColor: colors.sheetBg,
-                borderColor: colors.glassBorder,
+                backgroundColor: isGlass
+                  ? glassTheme.colors.glassBgSheet
+                  : colors.surface,
+                borderColor: isGlass ? glassTheme.colors.glassBorder : colors.hairline,
               },
             ]}
             onPress={(e) => e.stopPropagation()}
@@ -263,7 +320,7 @@ export default function TabsLayout() {
 
             {/* Title & Close */}
             <View style={styles.sheetHeader}>
-              <View>
+              <View style={{ flex: 1, paddingRight: 12 }}>
                 <Text style={[styles.sheetTitle, { color: colors.text }]}>
                   {t.composer.sheetTitle}
                 </Text>
@@ -272,12 +329,32 @@ export default function TabsLayout() {
                 </Text>
               </View>
               <TouchableOpacity
-                onPress={() => setCreateModalVisible(false)}
+                onPress={() => {
+                  setSheetNotice(null);
+                  setCreateModalVisible(false);
+                }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 style={[styles.closeBtn, { backgroundColor: colors.wash }]}
+                accessibilityLabel={t.common.close}
               >
                 <X size={18} color={colors.subtle} />
               </TouchableOpacity>
             </View>
+
+            {/* Inline Info Notice when no Circle is joined */}
+            {sheetNotice ? (
+              <View
+                style={[
+                  styles.inlineNoticeBanner,
+                  { backgroundColor: `${colors.primary}15`, borderColor: `${colors.primary}35` },
+                ]}
+              >
+                <AlertCircle size={16} color={colors.sage} />
+                <Text style={[styles.inlineNoticeText, { color: colors.text }]}>
+                  {sheetNotice}
+                </Text>
+              </View>
+            ) : null}
 
             {/* Action Grid */}
             <View style={styles.optionsList}>
@@ -286,13 +363,10 @@ export default function TabsLayout() {
                 style={[styles.optionItem, { backgroundColor: colors.wash, borderColor: colors.hairline }]}
                 activeOpacity={0.8}
                 onPress={() =>
-                  handleCreateOption(
-                    t.composer.momentAlertTitle,
-                    t.composer.momentAlertDesc,
-                  )
+                  handleOpenCircleAction('moments', undefined, t.composer.momentAlertDesc)
                 }
               >
-                <Camera size={24} color={colors.primary} />
+                <Camera size={24} color={colors.sage} />
                 <View style={styles.optionContent}>
                   <Text style={[styles.optionTitle, { color: colors.text }]}>
                     {t.composer.momentTitle}
@@ -308,10 +382,7 @@ export default function TabsLayout() {
                 style={[styles.optionItem, { backgroundColor: colors.wash, borderColor: colors.hairline }]}
                 activeOpacity={0.8}
                 onPress={() =>
-                  handleCreateOption(
-                    t.composer.reflectionAlertTitle,
-                    t.composer.reflectionAlertDesc,
-                  )
+                  handleOpenCircleAction('tools', 'anonymous', t.composer.reflectionAlertDesc)
                 }
               >
                 <HeartHandshake size={24} color={colors.coral} />
@@ -330,6 +401,7 @@ export default function TabsLayout() {
                 style={[styles.optionItem, { backgroundColor: colors.wash, borderColor: colors.hairline }]}
                 activeOpacity={0.8}
                 onPress={() => {
+                  setSheetNotice(null);
                   setCreateModalVisible(false);
                   setCircleCreateModalVisible(true);
                 }}
@@ -350,13 +422,10 @@ export default function TabsLayout() {
                 style={[styles.optionItem, { backgroundColor: colors.wash, borderColor: colors.hairline }]}
                 activeOpacity={0.8}
                 onPress={() =>
-                  handleCreateOption(
-                    t.composer.eventAlertTitle,
-                    t.composer.eventAlertDesc,
-                  )
+                  handleOpenCircleAction('tools', 'calendar', t.composer.eventAlertDesc)
                 }
               >
-                <Calendar size={24} color={colors.primary} />
+                <Calendar size={24} color={colors.sage} />
                 <View style={styles.optionContent}>
                   <Text style={[styles.optionTitle, { color: colors.text }]}>
                     {t.composer.eventTitle}
@@ -483,6 +552,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  inlineNoticeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginBottom: 14,
+  },
+  inlineNoticeText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '600',
+    lineHeight: 17,
+  },
   optionsList: {
     gap: 12,
   },
@@ -493,13 +577,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
     gap: 14,
-  },
-  optionIconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   optionContent: {
     flex: 1,

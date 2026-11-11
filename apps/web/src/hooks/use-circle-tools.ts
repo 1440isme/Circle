@@ -686,6 +686,7 @@ export function usePollDetailQuery(circleId: string | null, pollId: string | nul
       return res.data;
     },
     enabled: !!circleId && !!pollId,
+    retry: false,
   });
 }
 

@@ -27,7 +27,7 @@ export const ChatPollCard: React.FC<ChatPollCardProps> = ({
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const t = useLanguageStore((s) => s.t);
-  const { data: poll, isLoading } = usePollDetailQuery(circleId, pollId);
+  const { data: poll, isError } = usePollDetailQuery(circleId, pollId);
   const voteMutation = useVotePollMutation(circleId);
 
   // Realtime Socket Listener for Poll Votes & Status Changes
@@ -92,6 +92,12 @@ export const ChatPollCard: React.FC<ChatPollCardProps> = ({
         {question}
       </h4>
 
+      {isError && (
+        <p className="text-[11px] italic text-circle-slate dark:text-circle-dark-muted">
+          {t.chat.pollDeletedOrNotFound}
+        </p>
+      )}
+
       {/* Options List */}
       <div className="flex flex-col gap-2 pt-0.5">
         {options.map((option: any) => {
@@ -103,15 +109,15 @@ export const ChatPollCard: React.FC<ChatPollCardProps> = ({
             <button
               key={option.id}
               type="button"
-              disabled={isClosed || voteMutation.isPending}
+              disabled={isClosed || isError || voteMutation.isPending}
               onClick={() => handleVote(option.id)}
-              className={`relative overflow-hidden w-full text-left rounded-xl border p-2.5 transition-all text-xs flex items-center justify-between gap-3 active:scale-[0.99] ${
+              className={`relative overflow-hidden w-full text-left rounded-xl border p-2.5 transition-all text-xs flex items-center justify-between gap-3 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-75 ${
                 isSelected
                   ? isSenderMe
                     ? 'border-white/40 bg-white/20 text-current font-bold'
-                    : 'border-circle-primary bg-circle-primary/10 text-circle-primary font-bold shadow-xs'
+                    : 'border-circle-primary bg-circle-primary/10 text-circle-sage dark:text-circle-primary font-bold shadow-xs'
                   : isSenderMe
-                  ? 'border-white/15 bg-black/10 hover:bg-black/15 text-current'
+                  ? 'border-white/15 dark:border-white/20 bg-black/10 hover:bg-black/15 dark:bg-white/10 dark:hover:bg-white/15 text-current'
                   : 'border-circle-hairline dark:border-circle-dark-hairline bg-white/60 dark:bg-circle-dark-surface/60 hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text'
               }`}
             >
@@ -124,7 +130,7 @@ export const ChatPollCard: React.FC<ChatPollCardProps> = ({
                       ? 'bg-white/20'
                       : 'bg-circle-primary/20'
                     : isSenderMe
-                    ? 'bg-black/10'
+                    ? 'bg-black/10 dark:bg-white/10'
                     : 'bg-circle-slate/10 dark:bg-white/5'
                 }`}
               />
@@ -135,10 +141,10 @@ export const ChatPollCard: React.FC<ChatPollCardProps> = ({
                     isSelected
                       ? isSenderMe
                         ? 'border-current bg-current text-circle-charcoal'
-                        : 'border-circle-primary bg-circle-primary text-white'
+                        : 'border-circle-primary bg-circle-primary text-circle-charcoal dark:text-circle-dark-canvas'
                       : isSenderMe
                       ? 'border-current/40'
-                      : 'border-circle-slate/40'
+                      : 'border-circle-slate/40 dark:border-circle-dark-muted/40'
                   }`}
                 >
                   {isSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}

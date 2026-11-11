@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,11 +9,13 @@ import {
   TextInput,
   ActivityIndicator,
   Modal,
-  Alert,
   FlatList,
-  Dimensions,
+  useWindowDimensions,
+  KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { BlurView } from 'expo-blur';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
 import {
@@ -25,6 +27,7 @@ import {
   UploadCloud,
   Calendar,
   Image as ImageIcon,
+  Check,
 } from 'lucide-react-native';
 import {
   getAlbumsApi,
@@ -37,6 +40,7 @@ import {
 import { uploadMobileMedia } from '../../services/storage-upload.service';
 import { SharedAlbumEntity, PhotoEntity } from '@circle/types';
 import { useThemeStore } from '../../stores/theme.store';
+import { getGlassTheme } from '../../constants/glass-theme';
 import { useLanguageStore } from '../../stores/language.store';
 
 
@@ -44,14 +48,18 @@ interface MobileAlbumsViewProps {
   circleId: string;
 }
 
-const { width } = Dimensions.get('window');
-const PHOTO_SIZE = (width - 48) / 3;
-
 export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId }) => {
-  const { colors, resolvedTheme } = useThemeStore();
+  const { colors, resolvedTheme, uiStyle } = useThemeStore();
   const isDark = resolvedTheme === 'dark';
-  const { t } = useLanguageStore();
-  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+  const isGlass = uiStyle === 'glass';
+  const glassTheme = useMemo(() => getGlassTheme(isDark, uiStyle), [isDark, uiStyle]);
+  const { t, locale } = useLanguageStore();
+  const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const photoSize = (width - 48) / 3;
+  const dateLocale = locale === 'vi' ? 'vi-VN' : 'en-US';
+  const topClearance = Math.max(insets.top + 52, Platform.OS === 'ios' ? 74 : 64);
+  const styles = useMemo(() => createStyles(colors, isDark, photoSize), [colors, isDark, photoSize]);
 
   const [albums, setAlbums] = useState<SharedAlbumEntity[]>([]);
   const [selectedAlbum, setSelectedAlbum] = useState<SharedAlbumEntity | null>(null);
@@ -59,10 +67,34 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId }) 
   const [isUploading, setIsUploading] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState<PhotoEntity | null>(null);
 
+  // Inline feedback & 2-step delete confirmations (zero Alert.alert)
+  const [statusNotice, setStatusNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const statusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [isConfirmingDeleteAlbum, setIsConfirmingDeleteAlbum] = useState(false);
+  const [isDeletingAlbum, setIsDeletingAlbum] = useState(false);
+  const [isConfirmingDeletePhoto, setIsConfirmingDeletePhoto] = useState(false);
+  const [isDeletingPhoto, setIsDeletingPhoto] = useState(false);
+
   // Create album modal
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [albumTitle, setAlbumTitle] = useState('');
   const [albumDescription, setAlbumDescription] = useState('');
+  const [formError, setFormError] = useState<string | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
+
+  const showNotice = (message: string, type: 'success' | 'error' = 'error') => {
+    if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
+    setStatusNotice({ type, message });
+    statusTimerRef.current = setTimeout(() => {
+      setStatusNotice(null);
+    }, 3200);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
+    };
+  }, []);
 
   const loadAlbums = async () => {
     try {
@@ -70,7 +102,7 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId }) 
       const data = await getAlbumsApi(circleId);
       setAlbums(data);
     } catch (err: any) {
-      Alert.alert('Lỗi', err.message || 'Không thể tải danh sách album');
+      showNotice(err?.message || t.collab.loadAlbumsError, 'error');
     } finally {
       setIsLoading(false);
     }
@@ -79,10 +111,11 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId }) 
   const loadAlbumDetail = async (albumId: string) => {
     try {
       setIsLoading(true);
+      setIsConfirmingDeleteAlbum(false);
       const data = await getAlbumDetailApi(circleId, albumId);
       setSelectedAlbum(data);
     } catch (err: any) {
-      Alert.alert('Lỗi', err.message || 'Không thể tải chi tiết album');
+      showNotice(err?.message || t.collab.loadAlbumDetailError, 'error');
     } finally {
       setIsLoading(false);
     }
@@ -94,11 +127,13 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId }) 
 
   const handleCreateAlbum = async () => {
     if (!albumTitle.trim()) {
-      Alert.alert('Thông báo', 'Vui lòng nhập tên album');
+      setFormError(t.collab.enterAlbumNameError);
       return;
     }
 
     try {
+      setIsCreating(true);
+      setFormError(null);
       await createAlbumApi(circleId, {
         albumTitle: albumTitle.trim(),
         description: albumDescription.trim() || undefined,
@@ -107,9 +142,12 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId }) 
       setAlbumDescription('');
       setIsCreateModalOpen(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      showNotice(t.collab.albumCreatedSuccess, 'success');
       loadAlbums();
     } catch (err: any) {
-      Alert.alert('Lỗi', err.message || 'Không thể tạo album');
+      setFormError(err?.message || t.collab.createAlbumError);
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -152,67 +190,130 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId }) 
       if (uploaded.length > 0) {
         await addPhotosApi(circleId, selectedAlbum.id, { photos: uploaded });
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        showNotice(t.collab.albumUploadSuccess, 'success');
         loadAlbumDetail(selectedAlbum.id);
       }
     } catch (err: any) {
-      Alert.alert('Lỗi tải ảnh', err.message || 'Không thể tải ảnh lên album');
+      showNotice(err?.message || t.collab.uploadPhotoAlbumError, 'error');
     } finally {
       setIsUploading(false);
     }
   };
 
-  const handleDeleteAlbum = (albumId: string) => {
-    Alert.alert('Xóa Album', 'Bạn có chắc chắn muốn xóa album này và toàn bộ ảnh bên trong?', [
-      { text: 'Hủy', style: 'cancel' },
-      {
-        text: 'Xóa vĩnh viễn',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await deleteAlbumApi(circleId, albumId);
-            setSelectedAlbum(null);
-            loadAlbums();
-          } catch (err: any) {
-            Alert.alert('Lỗi', err.message || 'Không thể xóa album');
-          }
-        },
-      },
-    ]);
+  const handleConfirmDeleteAlbum = async () => {
+    if (!selectedAlbum || isDeletingAlbum) return;
+    try {
+      setIsDeletingAlbum(true);
+      await deleteAlbumApi(circleId, selectedAlbum.id);
+      setIsConfirmingDeleteAlbum(false);
+      setSelectedAlbum(null);
+      loadAlbums();
+    } catch (err: any) {
+      showNotice(err?.message || t.collab.deleteAlbumError, 'error');
+    } finally {
+      setIsDeletingAlbum(false);
+    }
   };
 
-  const handleDeletePhoto = (photoId: string) => {
-    Alert.alert('Xóa ảnh', 'Bạn có chắc chắn muốn xóa bức ảnh này khỏi album?', [
-      { text: 'Hủy', style: 'cancel' },
-      {
-        text: 'Xóa',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await deletePhotoApi(circleId, photoId);
-            setSelectedPhoto(null);
-            if (selectedAlbum) {
-              loadAlbumDetail(selectedAlbum.id);
-            }
-          } catch (err: any) {
-            Alert.alert('Lỗi', err.message || 'Không thể xóa ảnh');
-          }
-        },
-      },
-    ]);
+  const handleConfirmDeletePhoto = async () => {
+    if (!selectedPhoto || isDeletingPhoto) return;
+    try {
+      setIsDeletingPhoto(true);
+      await deletePhotoApi(circleId, selectedPhoto.id);
+      setIsConfirmingDeletePhoto(false);
+      setSelectedPhoto(null);
+      if (selectedAlbum) {
+        loadAlbumDetail(selectedAlbum.id);
+      }
+    } catch (err: any) {
+      showNotice(err?.message || t.collab.deletePhotoError, 'error');
+    } finally {
+      setIsDeletingPhoto(false);
+    }
   };
+
+  const renderNoticeBanner = () =>
+    statusNotice ? (
+      <View pointerEvents="box-none" style={[styles.noticeWrapper, { top: topClearance + 4 }]}>
+        <View
+          style={[
+            styles.noticeBanner,
+            {
+              backgroundColor: colors.surface,
+              borderColor: statusNotice.type === 'success' ? colors.sage : '#DC2626',
+            },
+          ]}
+        >
+          {statusNotice.type === 'success' ? (
+            <Check size={14} color={colors.sage} />
+          ) : (
+            <X size={14} color="#DC2626" />
+          )}
+          <Text style={[styles.noticeText, { color: colors.text }]} numberOfLines={2}>
+            {statusNotice.message}
+          </Text>
+          <TouchableOpacity
+            onPress={() => setStatusNotice(null)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <X size={14} color={colors.subtle} />
+          </TouchableOpacity>
+        </View>
+      </View>
+    ) : null;
 
   // =========================================================================
   // VIEW: ALBUM DETAIL
   // =========================================================================
   if (selectedAlbum) {
+    const creatorName =
+      selectedAlbum.creator?.user?.profile?.displayName || t.collab.memberDefault;
+    const countText = t.collab.albumPhotoUnit.replace(
+      '{count}',
+      String(selectedAlbum.photos?.length || 0),
+    );
+    const creatorText = t.collab.calendarCreatorLabel.replace('{name}', creatorName);
+
+    const pillBorderColor = isGlass ? glassTheme.colors.glassBorder : colors.hairline;
+    const pillBgColor = isGlass ? glassTheme.colors.glassBg : colors.surface;
+
+    const backButtonContent = (
+      <TouchableOpacity
+        style={styles.glassPillInner}
+        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+        onPress={() => {
+          setIsConfirmingDeleteAlbum(false);
+          setSelectedAlbum(null);
+          loadAlbums();
+        }}
+        accessibilityLabel={t.common.back}
+      >
+        <ArrowLeft size={16} color={colors.text} />
+        <Text style={styles.backText}>{t.common.back}</Text>
+      </TouchableOpacity>
+    );
+
+    const deleteIconContent = (
+      <TouchableOpacity
+        style={styles.glassIconInner}
+        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+        onPress={() => setIsConfirmingDeleteAlbum((v) => !v)}
+        accessibilityLabel={t.collab.deleteAlbumTitle}
+      >
+        <Trash2 size={16} color={colors.danger} />
+      </TouchableOpacity>
+    );
+
     return (
       <View style={[styles.container, { backgroundColor: colors.canvas }]}>
-        {/* Floating Glass Sub-toolbar */}
+        {renderNoticeBanner()}
+
+        {/* Floating Sub-toolbar (strictly gated Glass vs Flat) */}
         <View
           pointerEvents="box-none"
           style={{
             position: 'absolute',
-            top: Platform.OS === 'ios' ? 68 : 58,
+            top: topClearance,
             left: 16,
             right: 16,
             zIndex: 30,
@@ -221,16 +322,19 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId }) 
             justifyContent: 'space-between',
           }}
         >
-          <TouchableOpacity
-            style={[styles.glassPill, { backgroundColor: isDark ? 'rgba(22, 22, 26, 0.90)' : 'rgba(255, 255, 255, 0.92)' }]}
-            onPress={() => {
-              setSelectedAlbum(null);
-              loadAlbums();
-            }}
-          >
-            <ArrowLeft size={16} color={colors.text} />
-            <Text style={styles.backText}>Quay lại</Text>
-          </TouchableOpacity>
+          {isGlass ? (
+            <BlurView
+              intensity={glassTheme.blur.intensity}
+              tint={glassTheme.blur.tint}
+              style={[styles.glassPillShell, { backgroundColor: pillBgColor, borderColor: pillBorderColor }]}
+            >
+              {backButtonContent}
+            </BlurView>
+          ) : (
+            <View style={[styles.glassPillShell, { backgroundColor: pillBgColor, borderColor: pillBorderColor }]}>
+              {backButtonContent}
+            </View>
+          )}
 
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <TouchableOpacity
@@ -239,33 +343,83 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId }) 
               onPress={handlePickAndUploadPhotos}
             >
               {isUploading ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
+                <ActivityIndicator size="small" color={colors.onPrimary} />
               ) : (
                 <>
-                  <UploadCloud size={14} color="#FFFFFF" />
-                  <Text style={styles.uploadBtnText}>Thêm ảnh</Text>
+                  <UploadCloud size={14} color={colors.onPrimary} />
+                  <Text style={[styles.uploadBtnText, { color: colors.onPrimary }]}>
+                    {t.collab.addPhotosBtn}
+                  </Text>
                 </>
               )}
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[styles.glassIconBtn, { backgroundColor: isDark ? 'rgba(22, 22, 26, 0.90)' : 'rgba(255, 255, 255, 0.92)' }]}
-              onPress={() => handleDeleteAlbum(selectedAlbum.id)}
-            >
-              <Trash2 size={16} color="#EF4444" />
-            </TouchableOpacity>
+            {isGlass ? (
+              <BlurView
+                intensity={glassTheme.blur.intensity}
+                tint={glassTheme.blur.tint}
+                style={[styles.glassIconShell, { backgroundColor: pillBgColor, borderColor: pillBorderColor }]}
+              >
+                {deleteIconContent}
+              </BlurView>
+            ) : (
+              <View style={[styles.glassIconShell, { backgroundColor: pillBgColor, borderColor: pillBorderColor }]}>
+                {deleteIconContent}
+              </View>
+            )}
           </View>
         </View>
 
+        {/* Inline 2-step Confirm Bar for Deleting Album */}
+        {isConfirmingDeleteAlbum && (
+          <View
+            style={[
+              styles.inlineConfirmCard,
+              {
+                top: topClearance + 48,
+                backgroundColor: colors.surface,
+                borderColor: '#DC2626',
+              },
+            ]}
+          >
+            <Text style={[styles.inlineConfirmText, { color: colors.text }]}>
+              {t.collab.deleteAlbumConfirm}
+            </Text>
+            <View style={styles.inlineConfirmActions}>
+              <TouchableOpacity
+                disabled={isDeletingAlbum}
+                onPress={() => setIsConfirmingDeleteAlbum(false)}
+                style={[styles.inlineCancelBtn, { backgroundColor: colors.wash, borderColor: colors.hairline }]}
+              >
+                <Text style={[styles.inlineCancelText, { color: colors.text }]}>{t.common.cancel}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                disabled={isDeletingAlbum}
+                onPress={handleConfirmDeleteAlbum}
+                style={styles.inlineDangerBtn}
+              >
+                {isDeletingAlbum ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.inlineDangerText}>{t.common.delete}</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
         {/* Photos Grid with scroll-under header */}
         {isLoading ? (
-          <ActivityIndicator size="large" color="#475569" style={{ marginTop: 120 }} />
+          <ActivityIndicator size="large" color={colors.sage} style={{ marginTop: topClearance + 56 }} />
         ) : (
           <FlatList
             data={selectedAlbum.photos || []}
             keyExtractor={(item) => item.id}
             numColumns={3}
-            contentContainerStyle={[styles.photosGrid, { paddingTop: Platform.OS === 'ios' ? 124 : 114, paddingBottom: 60 }]}
+            contentContainerStyle={[
+              styles.photosGrid,
+              { paddingTop: topClearance + (isConfirmingDeleteAlbum ? 148 : 54), paddingBottom: Math.max(insets.bottom + 40, 60) },
+            ]}
             ListHeaderComponent={
               <View style={[styles.albumMetaPill, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
                 <Text style={[styles.albumTitle, { color: colors.text }]}>{selectedAlbum.albumTitle}</Text>
@@ -273,21 +427,25 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId }) 
                   <Text style={styles.albumDesc}>{selectedAlbum.description}</Text>
                 ) : null}
                 <Text style={styles.photoCountText}>
-                  {selectedAlbum.photos?.length || 0} ảnh • Tạo bởi{' '}
-                  {selectedAlbum.creator?.user?.profile?.displayName || 'Thành viên'}
+                  {`${countText} · ${creatorText}`}
                 </Text>
               </View>
             }
             ListEmptyComponent={
               <View style={[styles.emptyContainer, { backgroundColor: colors.canvas, paddingTop: 40 }]}>
-                <ImageIcon size={40} color="#94A3B8" />
-                <Text style={[styles.emptyTitle, { color: colors.text }]}>Chưa có ảnh nào trong album</Text>
+                <ImageIcon size={40} color={colors.subtle} />
+                <Text style={[styles.emptyTitle, { color: colors.text }]}>
+                  {t.collab.albumEmptyPhotosTitle}
+                </Text>
               </View>
             }
             renderItem={({ item }) => (
               <TouchableOpacity
                 style={styles.photoThumbWrapper}
-                onPress={() => setSelectedPhoto(item)}
+                onPress={() => {
+                  setIsConfirmingDeletePhoto(false);
+                  setSelectedPhoto(item);
+                }}
               >
                 <Image source={{ uri: item.fileUrl }} style={styles.photoThumb} />
               </TouchableOpacity>
@@ -297,11 +455,24 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId }) 
 
         {/* Lightbox Modal */}
         {selectedPhoto && (
-          <Modal visible={!!selectedPhoto} transparent animationType="fade">
+          <Modal
+            visible={!!selectedPhoto}
+            transparent
+            animationType="fade"
+            onRequestClose={() => {
+              setIsConfirmingDeletePhoto(false);
+              setSelectedPhoto(null);
+            }}
+          >
             <View style={styles.lightboxBackdrop}>
               <TouchableOpacity
-                style={styles.closeBtn}
-                onPress={() => setSelectedPhoto(null)}
+                style={[styles.closeBtn, { top: Math.max(insets.top + 12, 44) }]}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                onPress={() => {
+                  setIsConfirmingDeletePhoto(false);
+                  setSelectedPhoto(null);
+                }}
+                accessibilityLabel={t.common.close}
               >
                 <X size={20} color="#FFFFFF" />
               </TouchableOpacity>
@@ -312,17 +483,47 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId }) 
                 resizeMode="contain"
               />
 
-              <View style={styles.lightboxFooter}>
-                <Text style={styles.lightboxCaption}>
-                  {selectedPhoto.caption || 'Khoảnh khắc'}
-                </Text>
-                <TouchableOpacity
-                  style={styles.deletePhotoBtn}
-                  onPress={() => handleDeletePhoto(selectedPhoto.id)}
-                >
-                  <Trash2 size={16} color="#FFFFFF" />
-                  <Text style={styles.deletePhotoText}>Xóa ảnh</Text>
-                </TouchableOpacity>
+              <View style={[styles.lightboxFooter, { bottom: Math.max(insets.bottom + 20, 36) }]}>
+                {isConfirmingDeletePhoto ? (
+                  <View style={styles.lightboxConfirmRow}>
+                    <Text style={styles.lightboxConfirmText} numberOfLines={2}>
+                      {t.collab.deletePhotoConfirm}
+                    </Text>
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      <TouchableOpacity
+                        disabled={isDeletingPhoto}
+                        onPress={() => setIsConfirmingDeletePhoto(false)}
+                        style={styles.lightboxCancelBtn}
+                      >
+                        <Text style={styles.lightboxCancelText}>{t.common.cancel}</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        disabled={isDeletingPhoto}
+                        onPress={handleConfirmDeletePhoto}
+                        style={styles.deletePhotoBtn}
+                      >
+                        {isDeletingPhoto ? (
+                          <ActivityIndicator size="small" color="#FFFFFF" />
+                        ) : (
+                          <Text style={styles.deletePhotoText}>{t.common.delete}</Text>
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ) : (
+                  <>
+                    <Text style={styles.lightboxCaption} numberOfLines={2}>
+                      {selectedPhoto.caption || t.collab.albumPhotoFallback}
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.deletePhotoBtn}
+                      onPress={() => setIsConfirmingDeletePhoto(true)}
+                    >
+                      <Trash2 size={16} color="#FFFFFF" />
+                      <Text style={styles.deletePhotoText}>{t.collab.albumDeletePhoto}</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
               </View>
             </View>
           </Modal>
@@ -336,13 +537,21 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId }) 
   // =========================================================================
   return (
     <View style={[styles.container, { backgroundColor: colors.canvas }]}>
+      {renderNoticeBanner()}
+
       {/* Scroll-under Content Layer */}
       {isLoading ? (
-        <ActivityIndicator size="large" color="#475569" style={{ marginTop: 120 }} />
+        <ActivityIndicator size="large" color={colors.sage} style={{ marginTop: topClearance + 56 }} />
       ) : albums.length > 0 ? (
-        <ScrollView contentContainerStyle={styles.albumsList}>
+        <ScrollView
+          contentContainerStyle={[
+            styles.albumsList,
+            { paddingTop: topClearance, paddingBottom: Math.max(insets.bottom + 80, 100) },
+          ]}
+        >
           {albums.map((album) => {
             const coverUrl = album.photos?.[0]?.fileUrl;
+            const photoCount = album._count?.photos || album.photos?.length || 0;
             return (
               <TouchableOpacity
                 key={album.id}
@@ -354,12 +563,12 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId }) 
                     <Image source={{ uri: coverUrl }} style={styles.coverImage} />
                   ) : (
                     <View style={styles.placeholderCover}>
-                      <FolderOpen size={32} color="#94A3B8" />
+                      <FolderOpen size={32} color={colors.subtle} />
                     </View>
                   )}
                   <View style={styles.badge}>
                     <Text style={styles.badgeText}>
-                      {album._count?.photos || album.photos?.length || 0} ảnh
+                      {t.collab.albumPhotoUnit.replace('{count}', String(photoCount))}
                     </Text>
                   </View>
                 </View>
@@ -372,9 +581,9 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId }) 
                     </Text>
                   ) : null}
                   <View style={styles.cardFooter}>
-                    <Calendar size={12} color="#94A3B8" />
+                    <Calendar size={12} color={colors.subtle} />
                     <Text style={styles.cardDate}>
-                      {new Date(album.updatedAt).toLocaleDateString('vi-VN')}
+                      {new Date(album.updatedAt).toLocaleDateString(dateLocale)}
                     </Text>
                   </View>
                 </View>
@@ -383,18 +592,19 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId }) 
           })}
         </ScrollView>
       ) : (
-        <View style={[styles.emptyContainer, { backgroundColor: colors.canvas, paddingTop: Platform.OS === 'ios' ? 80 : 70 }]}>
-          <FolderOpen size={48} color="#94A3B8" />
-          <Text style={[styles.emptyTitle, { color: colors.text }]}>Chưa có Album kỷ niệm nào</Text>
-          <Text style={styles.emptySub}>
-            Tạo album đầu tiên để gom ảnh chụp chung cùng các thành viên trong vòng tròn!
-          </Text>
+        <View style={[styles.emptyContainer, { backgroundColor: colors.canvas, paddingTop: topClearance + 16 }]}>
+          <FolderOpen size={48} color={colors.subtle} />
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>{t.collab.emptyAlbumsTitle}</Text>
+          <Text style={styles.emptySub}>{t.collab.emptyAlbumsDesc}</Text>
           <TouchableOpacity
-            style={styles.createEmptyBtn}
-            onPress={() => setIsCreateModalOpen(true)}
+            style={[styles.createEmptyBtn, { backgroundColor: colors.primary }]}
+            onPress={() => {
+              setFormError(null);
+              setIsCreateModalOpen(true);
+            }}
           >
-            <Plus size={16} color="#FFFFFF" />
-            <Text style={styles.createEmptyText}>Tạo Album Ngay</Text>
+            <Plus size={16} color={colors.onPrimary} />
+            <Text style={[styles.createEmptyText, { color: colors.onPrimary }]}>{t.collab.createAlbum}</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -402,47 +612,80 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId }) 
       {/* Floating Action Button (FAB) */}
       <TouchableOpacity
         activeOpacity={0.85}
-        onPress={() => setIsCreateModalOpen(true)}
+        onPress={() => {
+          setFormError(null);
+          setIsCreateModalOpen(true);
+        }}
         style={[
           styles.fab,
           {
+            bottom: Math.max(insets.bottom + 16, 24),
             backgroundColor: colors.primary,
-            shadowColor: colors.primary,
           },
         ]}
       >
-        <Plus size={18} color="#FFF" />
-        <Text style={styles.fabText}>Tạo Album</Text>
+        <Plus size={18} color={colors.onPrimary} />
+        <Text style={[styles.fabText, { color: colors.onPrimary }]}>{t.collab.createAlbum}</Text>
       </TouchableOpacity>
 
       {/* Create Album Modal */}
-      <Modal visible={isCreateModalOpen} transparent animationType="slide">
-        <View style={styles.modalBackdrop}>
-          <View style={[styles.modalContent, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+      <Modal
+        visible={isCreateModalOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setIsCreateModalOpen(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalBackdrop}
+        >
+          <View
+            style={[
+              styles.modalContent,
+              {
+                backgroundColor: colors.surface,
+                borderColor: colors.hairline,
+                paddingBottom: Math.max(insets.bottom + 16, 20),
+              },
+            ]}
+          >
             <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: colors.text }]}>Tạo Album Kỷ Niệm Mới</Text>
-              <TouchableOpacity onPress={() => setIsCreateModalOpen(false)}>
-                <X size={20} color="#64748B" />
+              <Text style={[styles.modalTitle, { color: colors.text }]}>{t.collab.albumCreateModalTitle}</Text>
+              <TouchableOpacity
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                onPress={() => setIsCreateModalOpen(false)}
+                accessibilityLabel={t.common.close}
+              >
+                <X size={20} color={colors.subtle} />
               </TouchableOpacity>
             </View>
 
+            {formError && (
+              <View style={styles.formErrorBox}>
+                <Text style={styles.formErrorText}>{formError}</Text>
+              </View>
+            )}
+
             <View style={styles.formGroup}>
-              <Text style={styles.label}>Tên Album *</Text>
+              <Text style={styles.label}>{t.collab.albumNameRequiredLabel}</Text>
               <TextInput
                 style={[styles.input, { backgroundColor: colors.canvas, borderColor: colors.hairline, color: colors.text }]}
-                placeholder="Ví dụ: Chuyến đi Vũng Tàu, Kỷ niệm 2026..."
-                placeholderTextColor="#94A3B8"
+                placeholder={t.collab.albumNameExample}
+                placeholderTextColor={colors.subtle}
                 value={albumTitle}
-                onChangeText={setAlbumTitle}
+                onChangeText={(txt) => {
+                  setAlbumTitle(txt);
+                  if (formError) setFormError(null);
+                }}
               />
             </View>
 
             <View style={styles.formGroup}>
-              <Text style={styles.label}>Mô tả (tùy chọn)</Text>
+              <Text style={styles.label}>{t.collab.albumDescLabel}</Text>
               <TextInput
-                style={[styles.input, styles.textArea]}
-                placeholder="Ghi chú về kỷ niệm hoặc chủ đề album..."
-                placeholderTextColor="#94A3B8"
+                style={[styles.input, styles.textArea, { backgroundColor: colors.canvas, borderColor: colors.hairline, color: colors.text }]}
+                placeholder={t.collab.albumDescPlaceholder}
+                placeholderTextColor={colors.subtle}
                 multiline
                 numberOfLines={3}
                 value={albumDescription}
@@ -453,91 +696,68 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId }) 
             <View style={styles.modalButtons}>
               <TouchableOpacity
                 style={styles.cancelBtn}
+                disabled={isCreating}
                 onPress={() => setIsCreateModalOpen(false)}
               >
-                <Text style={styles.cancelText}>Hủy</Text>
+                <Text style={styles.cancelText}>{t.common.cancel}</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.submitBtn} onPress={handleCreateAlbum}>
-                <Text style={styles.submitText}>Tạo Album</Text>
+              <TouchableOpacity
+                style={[styles.submitBtn, { backgroundColor: colors.primary }]}
+                disabled={isCreating}
+                onPress={handleCreateAlbum}
+              >
+                {isCreating ? (
+                  <ActivityIndicator size="small" color={colors.onPrimary} />
+                ) : (
+                  <Text style={[styles.submitText, { color: colors.onPrimary }]}>{t.collab.albumCreateSubmit}</Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
 };
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+const createStyles = (colors: any, isDark: boolean, photoSize: number) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.canvas,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-    backgroundColor: colors.surface,
-  },
-  screenTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  screenSub: {
-    fontSize: 11,
-    color: colors.subtle,
-    marginTop: 2,
-  },
-  createBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: colors.surface,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 8,
-  },
-  createBtnText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
-  },
   albumsList: {
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'ios' ? 74 : 64,
-    paddingBottom: 100,
     gap: 12,
   },
-  glassPill: {
+  glassPillShell: {
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: isDark ? 0.3 : 0.08,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  glassPillInner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     paddingVertical: 7,
     paddingHorizontal: 14,
+  },
+  glassIconShell: {
     borderRadius: 999,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : '#E2E8F0',
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: isDark ? 0.3 : 0.08,
     shadowRadius: 6,
     elevation: 3,
   },
-  glassIconBtn: {
+  glassIconInner: {
     padding: 8,
-    borderRadius: 999,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : '#E2E8F0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: isDark ? 0.3 : 0.08,
-    shadowRadius: 6,
-    elevation: 3,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -549,7 +769,6 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   },
   fab: {
     position: 'absolute',
-    bottom: 24,
     right: 16,
     flexDirection: 'row',
     alignItems: 'center',
@@ -557,8 +776,9 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 18,
     borderRadius: 999,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.22,
     shadowRadius: 8,
     elevation: 4,
     zIndex: 20,
@@ -566,7 +786,6 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   fabText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#FFF',
   },
   albumCard: {
     backgroundColor: colors.surface,
@@ -626,50 +845,28 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
     marginTop: 8,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
+    borderTopColor: colors.hairline,
   },
   cardDate: {
     fontSize: 10,
     color: colors.subtle,
-  },
-  backBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
   },
   backText: {
     fontSize: 13,
     fontWeight: '600',
     color: colors.text,
   },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
   uploadBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: colors.surface,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 999,
   },
   uploadBtnText: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  deleteAlbumBtn: {
-    padding: 6,
-  },
-  albumMeta: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    fontSize: 12,
+    fontWeight: '700',
   },
   albumTitle: {
     fontSize: 16,
@@ -691,12 +888,12 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
     gap: 6,
   },
   photoThumbWrapper: {
-    width: PHOTO_SIZE,
-    height: PHOTO_SIZE,
+    width: photoSize,
+    height: photoSize,
     margin: 3,
     borderRadius: 10,
     overflow: 'hidden',
-    backgroundColor: '#E2E8F0',
+    backgroundColor: colors.wash,
   },
   photoThumb: {
     width: '100%',
@@ -708,13 +905,13 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 32,
-    marginTop: 40,
   },
   emptyTitle: {
     fontSize: 15,
     fontWeight: '700',
     color: colors.text,
     marginTop: 12,
+    textAlign: 'center',
   },
   emptySub: {
     fontSize: 12,
@@ -727,16 +924,14 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: colors.surface,
     paddingHorizontal: 16,
     paddingVertical: 10,
-    borderRadius: 10,
+    borderRadius: 12,
     marginTop: 16,
   },
   createEmptyText: {
-    color: '#FFFFFF',
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   modalBackdrop: {
     flex: 1,
@@ -747,6 +942,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
     backgroundColor: colors.surface,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
+    borderTopWidth: 1,
     padding: 20,
   },
   modalHeader: {
@@ -759,6 +955,20 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: colors.text,
+  },
+  formErrorBox: {
+    backgroundColor: isDark ? 'rgba(220, 38, 38, 0.14)' : 'rgba(220, 38, 38, 0.08)',
+    borderWidth: 1,
+    borderColor: '#DC2626',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 12,
+  },
+  formErrorText: {
+    color: colors.danger,
+    fontSize: 12,
+    fontWeight: '600',
   },
   formGroup: {
     marginBottom: 14,
@@ -799,15 +1009,16 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
     fontWeight: '600',
   },
   submitBtn: {
-    backgroundColor: colors.surface,
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingVertical: 9,
+    borderRadius: 10,
+    minWidth: 100,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   submitText: {
-    color: '#FFFFFF',
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   lightboxBackdrop: {
     flex: 1,
@@ -817,7 +1028,6 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   },
   closeBtn: {
     position: 'absolute',
-    top: 50,
     right: 20,
     zIndex: 10,
     backgroundColor: 'rgba(255,255,255,0.2)',
@@ -826,27 +1036,58 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   },
   lightboxImage: {
     width: '100%',
-    height: '75%',
+    height: '72%',
   },
   lightboxFooter: {
     position: 'absolute',
-    bottom: 40,
     left: 20,
     right: 20,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 12,
   },
   lightboxCaption: {
+    flex: 1,
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '500',
+  },
+  lightboxConfirmRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(24,24,27,0.9)',
+    borderColor: '#DC2626',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 10,
+  },
+  lightboxConfirmText: {
+    flex: 1,
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  lightboxCancelBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    backgroundColor: 'rgba(255,255,255,0.16)',
+  },
+  lightboxCancelText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '600',
   },
   deletePhotoBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#EF4444',
+    backgroundColor: '#DC2626',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 6,
@@ -854,6 +1095,81 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   deletePhotoText: {
     color: '#FFFFFF',
     fontSize: 11,
+    fontWeight: '700',
+  },
+  noticeWrapper: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    zIndex: 45,
+    alignItems: 'center',
+  },
+  noticeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 14,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.16,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  noticeText: {
+    flex: 1,
+    fontSize: 12,
     fontWeight: '600',
+  },
+  inlineConfirmCard: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    zIndex: 28,
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 12,
+    gap: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  inlineConfirmText: {
+    fontSize: 12,
+    fontWeight: '600',
+    lineHeight: 17,
+  },
+  inlineConfirmActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 8,
+  },
+  inlineCancelBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  inlineCancelText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  inlineDangerBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: '#DC2626',
+    minWidth: 72,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  inlineDangerText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
   },
 });

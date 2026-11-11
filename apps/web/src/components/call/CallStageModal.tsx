@@ -121,6 +121,17 @@ export const CallStageModal: React.FC<CallStageModalProps> = ({
     };
   }, []);
 
+  useEffect(() => {
+    if (!isOpen || !isFullscreen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsFullscreen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, isFullscreen]);
+
   if (!isOpen) return null;
 
   const handleLeave = () => {

@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { RefreshCw } from 'lucide-react';
+import { useLanguageStore } from '@/stores/language.store';
 
 export interface MomentPipViewProps {
   pipUrl: string;
@@ -29,6 +30,7 @@ export const MomentPipView: React.FC<MomentPipViewProps> = ({
   sizeClasses = 'w-[28%] h-[28%] min-w-[92px] aspect-square rounded-[18px] sm:rounded-[24px]',
   className = '',
 }) => {
+  const t = useLanguageStore((s) => s.t);
   const [currentCorner, setCurrentCorner] = useState<number>(initialCornerIndex % 4);
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -145,7 +147,7 @@ export const MomentPipView: React.FC<MomentPipViewProps> = ({
       className={`absolute ${cornerPosClass} ${sizeClasses} border-[2.5px] sm:border-[3px] border-circle-primary shadow-xl overflow-hidden bg-stone-900 z-20 cursor-grab active:cursor-grabbing select-none group/pip transition-all ${
         isDragging ? 'shadow-2xl z-40 transition-none' : 'duration-300 ease-out hover:scale-105 active:scale-95'
       } ${className}`}
-      title="Bấm để đổi góc trước / sau, hoặc kéo để đổi vị trí góc"
+      title={t.moments.pipTitleHint}
     >
       {/* PiP Media */}
       {isVideo ? (
@@ -160,7 +162,7 @@ export const MomentPipView: React.FC<MomentPipViewProps> = ({
       ) : (
         <img
           src={pipUrl}
-          alt="Dual PiP"
+          alt={t.moments.swapPhotoTitle}
           className="w-full h-full object-cover pointer-events-none"
           loading="lazy"
         />

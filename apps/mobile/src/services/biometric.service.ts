@@ -1,6 +1,7 @@
 import * as LocalAuthentication from 'expo-local-authentication';
 import { Platform } from 'react-native';
 import { getItem, setItem } from './storage';
+import { useLanguageStore } from '../stores/language.store';
 
 const BIOMETRIC_ENABLED_KEY = 'circle_biometric_enabled';
 
@@ -68,7 +69,7 @@ export async function setBiometricUnlockEnabled(enabled: boolean): Promise<void>
  * Trigger biometric authentication prompt (Face ID / Touch ID / Biometric Prompt).
  */
 export async function authenticateWithBiometrics(
-  promptMessage: string = 'CIRCLE — Xác thực sinh trắc học',
+  promptMessage?: string,
 ): Promise<boolean> {
   if (Platform.OS === 'web') {
     return true;
@@ -80,11 +81,12 @@ export async function authenticateWithBiometrics(
       return false;
     }
 
+    const t = useLanguageStore.getState().t;
     const result = await LocalAuthentication.authenticateAsync({
-      promptMessage,
-      cancelLabel: 'Hủy',
+      promptMessage: promptMessage || t.auth.biometricPrompt,
+      cancelLabel: t.common.cancel,
       disableDeviceFallback: false,
-      fallbackLabel: 'Nhập mật khẩu',
+      fallbackLabel: t.auth.password,
     });
 
     return result.success;

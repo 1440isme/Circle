@@ -19,12 +19,14 @@ interface CircleState {
   joinModalVisible: boolean;
   manageModalVisible: boolean;
   manageActiveTab: CircleManageTab;
+  clearChatRequested: boolean;
   setActiveCircleId: (id: string | null) => void;
   setActiveCircle: (circle: CircleEntity | null) => void;
   setCreateModalVisible: (open: boolean) => void;
   setJoinModalVisible: (open: boolean) => void;
   setManageModalVisible: (open: boolean, tab?: CircleManageTab) => void;
   setManageActiveTab: (tab: CircleManageTab) => void;
+  setClearChatRequested: (requested: boolean) => void;
 }
 
 export const useCircleStore = create<CircleState>((set) => ({
@@ -34,6 +36,7 @@ export const useCircleStore = create<CircleState>((set) => ({
   joinModalVisible: false,
   manageModalVisible: false,
   manageActiveTab: 'menu',
+  clearChatRequested: false,
   setActiveCircleId: (id) => set({ activeCircleId: id }),
   setActiveCircle: (circle) =>
     set({
@@ -45,4 +48,5 @@ export const useCircleStore = create<CircleState>((set) => ({
   setManageModalVisible: (open, tab = 'menu') =>
     set({ manageModalVisible: open, manageActiveTab: tab }),
   setManageActiveTab: (tab) => set({ manageActiveTab: tab }),
+  setClearChatRequested: (requested) => set({ clearChatRequested: requested }),
 }));

@@ -8,8 +8,11 @@ import {
   ScrollView,
   StyleSheet,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
   Image as RNImage,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, Search, MessageSquare, Clock } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { searchMessagesApi } from '../../services/chat.service';
@@ -32,6 +35,7 @@ export const SearchMessagesModal: React.FC<SearchMessagesModalProps> = ({
   colors,
   t,
 }) => {
+  const insets = useSafeAreaInsets();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<MessageEntity[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -86,7 +90,7 @@ export const SearchMessagesModal: React.FC<SearchMessagesModalProps> = ({
     return (
       <Text style={{ color: colors.text }}>
         {parts.map((part, index) =>
-          regex.test(part) ? (
+          part.toLowerCase() === highlight.trim().toLowerCase() ? (
             <Text
               key={index}
               style={{
@@ -112,31 +116,43 @@ export const SearchMessagesModal: React.FC<SearchMessagesModalProps> = ({
       animationType="slide"
       onRequestClose={onClose}
     >
-      <View style={styles.overlay}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.overlay}
+      >
         <TouchableOpacity
           style={styles.scrim}
           activeOpacity={1}
           onPress={onClose}
         />
 
-        <View style={[styles.sheetContainer, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+        <View
+          style={[
+            styles.sheetContainer,
+            {
+              backgroundColor: colors.surface,
+              borderColor: colors.hairline,
+              paddingBottom: Math.max(insets.bottom, 20),
+            },
+          ]}
+        >
           <View style={[styles.grabber, { backgroundColor: colors.hairline }]} />
 
           {/* Header */}
           <View style={[styles.headerRow, { borderBottomColor: colors.hairline }]}>
             <View style={styles.headerTitleWrap}>
-              <View style={[styles.searchIconBadge, { backgroundColor: colors.wash }]}>
-                <Search size={14} color={colors.primary} />
-              </View>
+              <Search size={16} color={colors.sage} />
               <Text style={[styles.headerTitle, { color: colors.text }]}>
-                {t.chat?.searchInChannel || 'Tìm kiếm tin nhắn'}
+                {t.chat.searchInChannel}
               </Text>
             </View>
 
             <TouchableOpacity
               activeOpacity={0.7}
               onPress={onClose}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               style={[styles.closeBtn, { backgroundColor: colors.wash }]}
+              accessibilityLabel={t.common.close}
             >
               <X size={16} color={colors.subtle} />
             </TouchableOpacity>
@@ -149,7 +165,7 @@ export const SearchMessagesModal: React.FC<SearchMessagesModalProps> = ({
               style={[styles.searchInput, { color: colors.text }]}
               value={query}
               onChangeText={setQuery}
-              placeholder={t.chat?.searchPlaceholder || 'Tìm kiếm trong cuộc trò chuyện...'}
+              placeholder={t.chat.searchPlaceholder}
               placeholderTextColor={colors.subtle}
               autoFocus
               returnKeyType="search"
@@ -157,7 +173,7 @@ export const SearchMessagesModal: React.FC<SearchMessagesModalProps> = ({
             {query.length > 0 && (
               <TouchableOpacity
                 onPress={() => setQuery('')}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
                 <X size={14} color={colors.subtle} />
               </TouchableOpacity>
@@ -173,23 +189,23 @@ export const SearchMessagesModal: React.FC<SearchMessagesModalProps> = ({
           >
             {isLoading ? (
               <View style={styles.stateContainer}>
-                <ActivityIndicator size="small" color={colors.primary} />
+                <ActivityIndicator size="small" color={colors.sage} />
               </View>
             ) : !query.trim() || query.trim().length < 2 ? (
               <View style={styles.stateContainer}>
                 <Search size={32} color={colors.subtle} />
                 <Text style={[styles.stateTitle, { color: colors.text }]}>
-                  {t.chat?.searchInChannel || 'Tìm kiếm trong cuộc trò chuyện'}
+                  {t.chat.searchInChannel}
                 </Text>
                 <Text style={[styles.stateDesc, { color: colors.subtle }]}>
-                  {t.chat?.searchHint || 'Nhập từ khóa để tìm lại nội dung tin nhắn'}
+                  {t.chat.searchHint}
                 </Text>
               </View>
             ) : results.length === 0 ? (
               <View style={styles.stateContainer}>
                 <MessageSquare size={32} color={colors.subtle} />
                 <Text style={[styles.stateTitle, { color: colors.text }]}>
-                  {t.chat?.noSearchResults || 'Không tìm thấy tin nhắn phù hợp'}
+                  {t.chat.noSearchResults}
                 </Text>
               </View>
             ) : (
@@ -199,7 +215,7 @@ export const SearchMessagesModal: React.FC<SearchMessagesModalProps> = ({
                   (msg.sender as any)?.nickname ||
                   senderProfile?.displayName ||
                   (msg.sender as any)?.displayName ||
-                  'Member';
+                  t.chat.defaultMemberName;
 
                 const sentTime = msg.sentAt
                   ? new Date(msg.sentAt).toLocaleDateString([], {
@@ -233,7 +249,7 @@ export const SearchMessagesModal: React.FC<SearchMessagesModalProps> = ({
                           />
                         ) : (
                           <View style={[styles.avatarFallback, { backgroundColor: colors.surface }]}>
-                            <Text style={[styles.avatarText, { color: colors.primary }]}>
+                            <Text style={[styles.avatarText, { color: colors.sage }]}>
                               {senderName.charAt(0).toUpperCase()}
                             </Text>
                           </View>
@@ -261,7 +277,7 @@ export const SearchMessagesModal: React.FC<SearchMessagesModalProps> = ({
             )}
           </ScrollView>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };
@@ -281,7 +297,6 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     maxHeight: '82%',
     minHeight: '50%',
-    paddingBottom: 28,
   },
   grabber: {
     width: 38,
@@ -303,13 +318,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-  },
-  searchIconBadge: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   headerTitle: {
     fontSize: 15,
@@ -351,19 +359,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 44,
-  },
-  iconBox: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 10,
+    gap: 8,
   },
   stateTitle: {
     fontSize: 14,
     fontWeight: '600',
-    marginBottom: 4,
   },
   stateDesc: {
     fontSize: 12,

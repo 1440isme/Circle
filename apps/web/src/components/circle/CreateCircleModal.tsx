@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   X,
   Users,
@@ -38,11 +38,7 @@ export const CreateCircleModal: React.FC = () => {
   const { data: selectableFriends = [], isLoading: isLoadingFriends } =
     useSelectableFriendsQuery();
 
-  if (!isCreateModalOpen) {
-    return null;
-  }
-
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     setFieldErrors({});
     setServerError(null);
     setName('');
@@ -50,7 +46,20 @@ export const CreateCircleModal: React.FC = () => {
     setFriendSearch('');
     setIsPrivate(false);
     setCreateModalOpen(false);
-  };
+  }, [setCreateModalOpen]);
+
+  useEffect(() => {
+    if (!isCreateModalOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') handleClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isCreateModalOpen, handleClose]);
+
+  if (!isCreateModalOpen) {
+    return null;
+  }
 
   const handleToggleFriend = (friendId: string) => {
     setSelectedFriendIds((prev) =>
@@ -112,9 +121,12 @@ export const CreateCircleModal: React.FC = () => {
   const canSubmit = name.trim().length >= 2 || selectedFriendIds.length > 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+    <div
+      onClick={(e) => e.target === e.currentTarget && handleClose()}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in"
+    >
       <div
-        className="w-full max-w-lg rounded-3xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-6 sm:p-7 shadow-2xl transition-all"
+        className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-3xl glass-sheet p-6 sm:p-7 shadow-2xl transition-all"
         role="dialog"
         aria-modal="true"
         aria-labelledby="create-circle-title"
@@ -122,9 +134,7 @@ export const CreateCircleModal: React.FC = () => {
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-circle-hairline dark:border-circle-dark-hairline">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-circle-primary/10 text-circle-sage dark:text-circle-primary">
-              <Users className="h-5 w-5" />
-            </div>
+            <Users className="h-5 w-5 text-circle-sage dark:text-circle-dark-primary shrink-0" />
             <div>
               <h3
                 id="create-circle-title"
@@ -140,8 +150,9 @@ export const CreateCircleModal: React.FC = () => {
           <button
             type="button"
             onClick={handleClose}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-circle-canvas dark:bg-circle-dark-canvas text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors"
-            title={t.common.cancel}
+            aria-label={t.common.close}
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-circle-canvas dark:bg-circle-dark-canvas text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash hover:text-circle-charcoal dark:hover:text-white transition-colors"
+            title={t.common.close}
           >
             <X className="h-4 w-4" />
           </button>

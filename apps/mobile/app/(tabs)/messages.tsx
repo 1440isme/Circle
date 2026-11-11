@@ -7,8 +7,9 @@ import {
   ScrollView,
   Platform,
 } from 'react-native';
-import { MessageSquare, ShieldCheck, ChevronRight, Hash, Users, Sparkles } from 'lucide-react-native';
+import { MessageSquare, ShieldCheck, ChevronRight, Hash } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeStore } from '../../src/stores/theme.store';
 import { useLanguageStore } from '../../src/stores/language.store';
 import { useCircleStore } from '../../src/stores/circle.store';
@@ -23,11 +24,11 @@ function getInitials(name: string): string {
 
 export default function MessagesTab() {
   const router = useRouter();
-  const { colors, resolvedTheme } = useThemeStore();
+  const insets = useSafeAreaInsets();
+  const { colors } = useThemeStore();
   const t = useLanguageStore((s) => s.t);
-  const isDark = resolvedTheme === 'dark';
 
-  const { data: circles = [], isLoading } = useMyCirclesQuery();
+  const { data: circles = [] } = useMyCirclesQuery();
   const setActiveCircle = useCircleStore((s) => s.setActiveCircle);
 
   const handleOpenCircle = (circle: any) => {
@@ -41,7 +42,10 @@ export default function MessagesTab() {
   return (
     <View style={[styles.container, { backgroundColor: colors.canvas }]}>
       {/* Top Floating Glass Header (Floating glass controls with scroll-under content) */}
-      <View style={styles.headerBar} pointerEvents="box-none">
+      <View
+        style={[styles.headerBar, { paddingTop: insets.top + 8 }]}
+        pointerEvents="box-none"
+      >
         <View>
           <Text style={[styles.headerTitle, { color: colors.text }]}>
             {t.nav.chatChannels}
@@ -53,7 +57,13 @@ export default function MessagesTab() {
         <HeaderControls />
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: insets.top + 68 },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
         {circles.length === 0 ? (
           <View
             style={[
@@ -64,7 +74,7 @@ export default function MessagesTab() {
               },
             ]}
           >
-            <MessageSquare size={36} color={colors.primary} />
+            <MessageSquare size={36} color={colors.sage} />
             <Text style={[styles.title, { color: colors.text }]}>
               {t.home.feedEmptyTitle}
             </Text>
@@ -77,8 +87,8 @@ export default function MessagesTab() {
                 { backgroundColor: colors.wash, borderColor: colors.hairline },
               ]}
             >
-              <ShieldCheck size={14} color={colors.primary} />
-              <Text style={[styles.badgeText, { color: colors.primary }]}>
+              <ShieldCheck size={14} color={colors.sage} />
+              <Text style={[styles.badgeText, { color: colors.sage }]}>
                 {t.common.dualTokenSecurity}
               </Text>
             </View>
@@ -87,7 +97,7 @@ export default function MessagesTab() {
           <View style={styles.circlesList}>
             {circles.map((circle) => {
               const channels = circle.channels || [
-                { id: '1', name: 'general', topic: t.circle.generalChannelTopic },
+                { id: '1', name: t.circle.generalChannelName, topic: t.circle.generalChannelTopic },
               ];
 
               return (
@@ -111,7 +121,11 @@ export default function MessagesTab() {
                         {circle.name}
                       </Text>
                       <Text style={[styles.circleHandle, { color: colors.subtle }]}>
-                        @{circle.handle} · {circle.memberCount || 1} {t.home.circleMembersCount.replace('{count}', '')}
+                        @{circle.handle} ·{' '}
+                        {t.home.circleMembersCount.replace(
+                          '{count}',
+                          String(circle.memberCount || 1),
+                        )}
                       </Text>
                     </View>
                     <ChevronRight size={18} color={colors.subtle} />
@@ -121,7 +135,7 @@ export default function MessagesTab() {
                   <View style={[styles.channelsList, { borderTopColor: colors.hairline }]}>
                     {channels.map((chan) => (
                       <View key={chan.id} style={styles.channelRow}>
-                        <Hash size={14} color={colors.primary} />
+                        <Hash size={14} color={colors.sage} />
                         <Text style={[styles.channelName, { color: colors.text }]}>
                           {chan.name}
                         </Text>
@@ -170,14 +184,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderStyle: 'dashed',
     marginTop: 40,
-  },
-  iconBox: {
-    width: 64,
-    height: 64,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
   },
   title: { fontSize: 16, fontWeight: '700', marginBottom: 6, textAlign: 'center' },
   desc: { fontSize: 13, textAlign: 'center', lineHeight: 18, marginBottom: 16 },

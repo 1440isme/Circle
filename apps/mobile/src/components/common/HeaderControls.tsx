@@ -25,7 +25,7 @@ export const HeaderControls: React.FC = () => {
       return <Laptop size={16} color={colors.subtle} />;
     }
     return isDark ? (
-      <Moon size={16} color={colors.primary} />
+      <Moon size={16} color={colors.sage} />
     ) : (
       <Sun size={16} color={colors.peach} />
     );

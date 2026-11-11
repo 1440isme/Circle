@@ -57,7 +57,7 @@ export const Button: React.FC<ButtonProps> = ({
       case 'secondary':
       case 'outline':
       case 'ghost':
-        return colors.primary;
+        return colors.sage;
     }
   };
 
