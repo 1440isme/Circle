@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Heart,
   Plus,
@@ -93,6 +93,41 @@ const formatPostDate = (isoString: string) => {
   return `${hours}:${minutes} ${day}/${month}/${year}`;
 };
 
+// Estimate card height for dynamic shortest-column waterfall balancing
+const estimateCardHeight = (content: string, reactionCount: number) => {
+  // Base chrome: card padding + sender tag + reaction bar + footer ~ 130px
+  const baseHeight = 130;
+  // Estimated ~42 chars per line in a 3-column layout ~ 20px per line
+  const lines = Math.max(1, Math.ceil(content.length / 42));
+  const textHeight = lines * 20;
+  // Extra reaction wrap
+  const extraReactions = reactionCount > 3 ? 28 : 0;
+  return baseHeight + textHeight + extraReactions;
+};
+
+function useColumnCount(): number {
+  const [columns, setColumns] = useState(3);
+
+  useEffect(() => {
+    const updateColumns = () => {
+      const width = window.innerWidth;
+      if (width < 640) {
+        setColumns(1);
+      } else if (width < 1024) {
+        setColumns(2);
+      } else {
+        setColumns(3);
+      }
+    };
+
+    updateColumns();
+    window.addEventListener('resize', updateColumns);
+    return () => window.removeEventListener('resize', updateColumns);
+  }, []);
+
+  return columns;
+}
+
 export const CircleAnonymousView: React.FC<CircleAnonymousViewProps> = ({ circleId }) => {
   const { user } = useAuth();
   const t = useLanguageStore((s) => s.t);
@@ -107,6 +142,41 @@ export const CircleAnonymousView: React.FC<CircleAnonymousViewProps> = ({ circle
   const deleteMutation = useDeleteAnonymousPostMutation(circleId);
   const reactMutation = useReactAnonymousPostMutation(circleId);
   const queryClient = useQueryClient();
+
+  const columnCount = useColumnCount();
+
+  // Shortest-Column Waterfall: Distribute posts newest-first into the column with lowest accumulated height
+  const columnsData = useMemo(() => {
+    if (!posts || posts.length === 0) return [];
+
+    const cols: { posts: typeof posts; height: number }[] = Array.from(
+      { length: columnCount },
+      () => ({ posts: [], height: 0 })
+    );
+
+    posts.forEach((post) => {
+      const estHeight = estimateCardHeight(
+        post.content,
+        post.reactions?.length || 0
+      );
+
+      // Find the currently shortest column
+      let shortestIdx = 0;
+      let minHeight = cols[0]!.height;
+
+      for (let i = 1; i < columnCount; i++) {
+        if (cols[i]!.height < minHeight) {
+          minHeight = cols[i]!.height;
+          shortestIdx = i;
+        }
+      }
+
+      cols[shortestIdx]!.posts.push(post);
+      cols[shortestIdx]!.height += estHeight;
+    });
+
+    return cols.map((c) => c.posts);
+  }, [posts, columnCount]);
 
   // Realtime Socket.IO sync for reactions
   useEffect(() => {
@@ -183,103 +253,107 @@ export const CircleAnonymousView: React.FC<CircleAnonymousViewProps> = ({ circle
           <Loader2 className="h-6 w-6 animate-spin text-circle-slate dark:text-circle-dark-muted" />
         </div>
       ) : posts.length > 0 ? (
-        <div className="columns-1 sm:columns-2 md:columns-3 gap-4 [column-fill:_balance]">
-          {posts.map((post) => {
-            const theme =
-              THEMES.find((th) => th.id === post.cardTheme) || THEMES[0]!;
-            return (
-              <div
-                key={post.id}
-                className={`break-inside-avoid mb-4 w-full relative rounded-2xl border p-4 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between ${theme.bgGradient}`}
-              >
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <span
-                      className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${theme.tagColor}`}
-                    >
-                      {t.nav.anonymousSender}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => handleDeletePost(post.id)}
-                      className="p-1 text-circle-slate hover:text-red-500 transition-colors opacity-60 hover:opacity-100"
-                      title="Gỡ lời nhắn (Chủ vòng tròn)"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
+        <div className="flex gap-4 items-start w-full">
+          {columnsData.map((colPosts, colIndex) => (
+            <div key={colIndex} className="flex-1 flex flex-col gap-4 min-w-0">
+              {colPosts.map((post) => {
+                const theme =
+                  THEMES.find((th) => th.id === post.cardTheme) || THEMES[0]!;
+                return (
+                  <div
+                    key={post.id}
+                    className={`w-full relative rounded-2xl border p-4 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between ${theme.bgGradient}`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <span
+                          className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${theme.tagColor}`}
+                        >
+                          {t.nav.anonymousSender}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleDeletePost(post.id)}
+                          className="p-1 text-circle-slate hover:text-red-500 transition-colors opacity-60 hover:opacity-100"
+                          title="Gỡ lời nhắn (Chủ vòng tròn)"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
 
-                  <div className="flex gap-2">
-                    <Quote className="h-4 w-4 opacity-30 shrink-0 mt-0.5" />
-                    <p
-                      className={`text-xs font-medium leading-relaxed whitespace-pre-wrap ${theme.textColor}`}
-                    >
-                      {post.content}
-                    </p>
-                  </div>
-                </div>
+                      <div className="flex gap-2">
+                        <Quote className="h-4 w-4 opacity-30 shrink-0 mt-0.5" />
+                        <p
+                          className={`text-xs font-medium leading-relaxed whitespace-pre-wrap ${theme.textColor}`}
+                        >
+                          {post.content}
+                        </p>
+                      </div>
+                    </div>
 
-                {/* Reactions Bar (Chat-style Floating Pill Reactions & Apple Color Emojis) */}
-                <div className="mt-3 pt-2.5 border-t border-black/5 dark:border-white/5 flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    {(post.reactions || []).map((rx) => (
-                      <button
-                        key={rx.emoji}
-                        type="button"
-                        onClick={() => reactMutation.mutate({ postId: post.id, emoji: rx.emoji })}
-                        className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-all cursor-pointer ${
-                          rx.userReacted
-                            ? 'bg-circle-primary/15 dark:bg-circle-primary/25 border-circle-primary/40 text-circle-primary dark:text-circle-primary shadow-2xs scale-105'
-                            : 'bg-white/80 dark:bg-circle-dark-surface/80 border-black/10 dark:border-white/10 text-circle-slate dark:text-circle-dark-muted hover:border-black/25 dark:hover:border-white/25'
-                        }`}
-                      >
-                        <Emoji emoji={rx.emoji} size={14} />
-                        <span className="text-[10px] font-bold">{rx.count}</span>
-                      </button>
-                    ))}
-
-                    {/* Quick emoji reaction pickers (Chat-like Floating Pill Toolbar) */}
-                    <div className="flex items-center gap-0.5 p-0.5 rounded-full border border-black/10 dark:border-white/10 bg-white/70 dark:bg-circle-dark-surface/70 backdrop-blur-xs">
-                      {PROMINENT_QUICK_EMOJIS.map((em) => {
-                        const isAlreadyReacted = post.reactions?.some((r) => r.emoji === em && r.userReacted);
-                        return (
+                    {/* Reactions Bar (Chat-style Floating Pill Reactions & Apple Color Emojis) */}
+                    <div className="mt-3 pt-2.5 border-t border-black/5 dark:border-white/5 flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {(post.reactions || []).map((rx) => (
                           <button
-                            key={em}
+                            key={rx.emoji}
                             type="button"
-                            onClick={() => reactMutation.mutate({ postId: post.id, emoji: em })}
-                            className={`flex h-6 w-6 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-transform hover:scale-125 active:scale-95 cursor-pointer ${
-                              isAlreadyReacted ? 'opacity-40' : 'opacity-85 hover:opacity-100'
+                            onClick={() => reactMutation.mutate({ postId: post.id, emoji: rx.emoji })}
+                            className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-all cursor-pointer ${
+                              rx.userReacted
+                                ? 'bg-circle-primary/15 dark:bg-circle-primary/25 border-circle-primary/40 text-circle-primary dark:text-circle-primary shadow-2xs scale-105'
+                                : 'bg-white/80 dark:bg-circle-dark-surface/80 border-black/10 dark:border-white/10 text-circle-slate dark:text-circle-dark-muted hover:border-black/25 dark:hover:border-white/25'
                             }`}
-                            title={`Thả ${em}`}
                           >
-                            <Emoji emoji={em} size={15} />
+                            <Emoji emoji={rx.emoji} size={14} />
+                            <span className="text-[10px] font-bold">{rx.count}</span>
                           </button>
-                        );
-                      })}
-                      <button
-                        type="button"
-                        onClick={() => setFullEmojiTargetPostId(post.id)}
-                        className="flex h-6 w-6 items-center justify-center rounded-full text-circle-slate dark:text-circle-dark-muted hover:bg-black/5 dark:hover:bg-white/10 hover:text-circle-charcoal dark:hover:text-white transition-colors cursor-pointer"
-                        title="Thêm biểu cảm khác"
-                      >
-                        <Smile className="h-3.5 w-3.5" />
-                      </button>
+                        ))}
+
+                        {/* Quick emoji reaction pickers (Chat-like Floating Pill Toolbar) */}
+                        <div className="flex items-center gap-0.5 p-0.5 rounded-full border border-black/10 dark:border-white/10 bg-white/70 dark:bg-circle-dark-surface/70 backdrop-blur-xs">
+                          {PROMINENT_QUICK_EMOJIS.map((em) => {
+                            const isAlreadyReacted = post.reactions?.some((r) => r.emoji === em && r.userReacted);
+                            return (
+                              <button
+                                key={em}
+                                type="button"
+                                onClick={() => reactMutation.mutate({ postId: post.id, emoji: em })}
+                                className={`flex h-6 w-6 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-transform hover:scale-125 active:scale-95 cursor-pointer ${
+                                  isAlreadyReacted ? 'opacity-40' : 'opacity-85 hover:opacity-100'
+                                }`}
+                                title={`Thả ${em}`}
+                              >
+                                <Emoji emoji={em} size={15} />
+                              </button>
+                            );
+                          })}
+                          <button
+                            type="button"
+                            onClick={() => setFullEmojiTargetPostId(post.id)}
+                            className="flex h-6 w-6 items-center justify-center rounded-full text-circle-slate dark:text-circle-dark-muted hover:bg-black/5 dark:hover:bg-white/10 hover:text-circle-charcoal dark:hover:text-white transition-colors cursor-pointer"
+                            title="Thêm biểu cảm khác"
+                          >
+                            <Smile className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-2 pt-2 border-t border-black/5 dark:border-white/5 flex items-center justify-between text-[10px] opacity-70">
+                      <div className="flex items-center gap-1">
+                        <Sparkles className="h-3 w-3" />
+                        <span>Điều muốn nói</span>
+                      </div>
+                      <span className="font-medium tracking-tight">
+                        {formatPostDate(post.postedAt)}
+                      </span>
                     </div>
                   </div>
-                </div>
-
-                <div className="mt-2 pt-2 border-t border-black/5 dark:border-white/5 flex items-center justify-between text-[10px] opacity-70">
-                  <div className="flex items-center gap-1">
-                    <Sparkles className="h-3 w-3" />
-                    <span>Điều muốn nói</span>
-                  </div>
-                  <span className="font-medium tracking-tight">
-                    {formatPostDate(post.postedAt)}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
+                );
+              })}
+            </div>
+          ))}
         </div>
       ) : (
         <div className="flex-1 flex flex-col items-center justify-center p-12 text-center rounded-2xl border border-dashed border-circle-hairline dark:border-circle-dark-hairline bg-white/40 dark:bg-circle-dark-surface/40">
