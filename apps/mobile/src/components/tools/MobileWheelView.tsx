@@ -769,66 +769,64 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 60 }}>
-      {/* Header Bar: Tiêu đề + Nút thêm vòng xoay */}
-      <View style={styles.header}>
-        <View style={{ flex: 1 }}>
-          <View style={styles.titleRow}>
-            <Compass size={18} color="#0D9488" />
-            <Text style={styles.screenTitle} numberOfLines={1}>
-              {t.luckyWheel.title}
-            </Text>
-            <View style={styles.countBadge}>
-              <Text style={styles.countBadgeText}>{wheels.length}/4</Text>
-            </View>
-          </View>
-          <Text style={styles.screenSub}>{t.luckyWheel.subtitle}</Text>
-        </View>
+    <View style={styles.container}>
+      {/* Floating Pill Toolbar: Floating over content with pointerEvents="box-none" */}
+      <View style={styles.floatingHeaderArea} pointerEvents="box-none">
+        {/* Left: Toggle Panel Pill */}
+        <TouchableOpacity
+          style={styles.floatingPillBtn}
+          onPress={() => setIsBoardCollapsed((prev) => !prev)}
+          activeOpacity={0.8}
+        >
+          {isBoardCollapsed ? (
+            <PanelRightOpen size={14} color="#0D9488" />
+          ) : (
+            <PanelRightClose size={14} color="#6B7280" />
+          )}
+          <Text style={styles.floatingPillText}>
+            {isBoardCollapsed ? t.luckyWheel.expandPanel : t.luckyWheel.collapsePanel}
+          </Text>
+        </TouchableOpacity>
 
-        <View style={styles.headerActions}>
-          {/* Toggle Panel Button (Thu gọn/mở rộng bảng) */}
-          <TouchableOpacity
-            style={styles.headerPillBtn}
-            onPress={() => setIsBoardCollapsed((prev) => !prev)}
-          >
-            {isBoardCollapsed ? (
-              <PanelRightOpen size={14} color="#0D9488" />
-            ) : (
-              <PanelRightClose size={14} color="#6B7280" />
-            )}
-          </TouchableOpacity>
-
-          {/* Add Wheel Button: luôn hiển thị, khi đạt tối đa 4 vòng thì vô hiệu hóa chứ không làm mất */}
+        {/* Right: Add Wheel & Spin All Pills */}
+        <View style={styles.floatingRightActions}>
           <TouchableOpacity
             style={[
-              styles.headerPillBtn,
+              styles.floatingPillBtn,
               (wheels.length >= 4 || isAnySpinning) && { opacity: 0.4 },
             ]}
             disabled={wheels.length >= 4 || isAnySpinning}
             onPress={handleAddDefaultWheel}
+            activeOpacity={0.8}
           >
             <Plus size={14} color="#0D9488" />
-            <Text style={styles.headerPillText}>{t.luckyWheel.addWheel}</Text>
+            <Text style={styles.floatingPillText}>{t.luckyWheel.addWheel}</Text>
           </TouchableOpacity>
+
+          {wheels.length > 0 && (
+            <TouchableOpacity
+              style={[
+                styles.floatingPillPrimaryBtn,
+                isAnySpinning && { opacity: 0.5 },
+              ]}
+              disabled={isAnySpinning}
+              onPress={handleSpinAll}
+              activeOpacity={0.8}
+            >
+              <RotateCw size={13} color="#FFFFFF" />
+              <Text style={styles.floatingPillPrimaryText}>{t.luckyWheel.spinAll}</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
-      {/* SPIN ALL BUTTON: khi quay tất cả không đổi chữ, chỉ vô hiệu hóa nút */}
-      {wheels.length > 0 && (
-        <View style={styles.spinAllBanner}>
-          <TouchableOpacity
-            style={[styles.spinAllBtn, isAnySpinning && { opacity: 0.4 }]}
-            disabled={isAnySpinning}
-            onPress={handleSpinAll}
-          >
-            <RotateCw size={16} color="#FFFFFF" />
-            <Text style={styles.spinAllBtnText}>{t.luckyWheel.spinAll}</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {/* SÂN KHẤU VÒNG QUAY (VISUAL ARENA) */}
-      <View style={styles.arenaContainer}>
+      <ScrollView
+        style={styles.scrollContainer}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* SÂN KHẤU VÒNG QUAY (VISUAL ARENA) */}
+        <View style={styles.arenaContainer}>
         {wheels.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Compass size={40} color="#9CA3AF" />
@@ -1588,6 +1586,7 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
           )}
         </View>
       )}
+      </ScrollView>
 
       {/* COMBINED / BATCH RESULTS MODAL */}
       <Modal visible={!!combinedWinnersModal && combinedWinnersModal.length > 0} transparent animationType="fade">
@@ -1689,7 +1688,7 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
           </View>
         </View>
       </Modal>
-    </ScrollView>
+    </View>
   );
 };
 
@@ -1697,7 +1696,70 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F9FAFB',
-    padding: 14,
+    position: 'relative',
+  },
+  floatingHeaderArea: {
+    position: 'absolute',
+    top: 10,
+    left: 14,
+    right: 14,
+    zIndex: 25,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  floatingRightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  floatingPillBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(255, 255, 255, 0.94)',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 100,
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 5,
+    elevation: 3,
+  },
+  floatingPillText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  floatingPillPrimaryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#0D9488',
+    paddingHorizontal: 13,
+    paddingVertical: 7,
+    borderRadius: 100,
+    shadowColor: '#0D9488',
+    shadowOpacity: 0.25,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 5,
+    elevation: 3,
+  },
+  floatingPillPrimaryText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  scrollContainer: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingTop: 54,
+    paddingHorizontal: 14,
+    paddingBottom: 60,
   },
   mobileBackBtn: {
     padding: 6,
@@ -1878,80 +1940,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     minHeight: 300,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  screenTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  countBadge: {
-    backgroundColor: '#CCFBF1',
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 8,
-  },
-  countBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#0D9488',
-  },
-  screenSub: {
-    fontSize: 11,
-    color: '#6B7280',
-    marginTop: 2,
-  },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  headerPillBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    borderRadius: 10,
-  },
-  headerPillText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#374151',
-  },
-  spinAllBanner: {
-    marginBottom: 12,
-  },
-  spinAllBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#0D9488',
-    paddingVertical: 10,
-    borderRadius: 12,
-    shadowColor: '#0D9488',
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    elevation: 3,
-  },
-  spinAllBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#FFFFFF',
   },
   arenaContainer: {
     backgroundColor: '#FFFFFF',

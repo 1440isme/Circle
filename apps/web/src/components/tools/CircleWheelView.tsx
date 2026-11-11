@@ -921,61 +921,46 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
 
   return (
     <div className="flex-1 flex flex-col h-full bg-circle-canvas dark:bg-circle-dark-surface overflow-y-auto p-4 md:p-6 transition-colors">
-      {/* Arena Header: Tiêu đề + Nút thêm vòng xoay + Nút quay tất cả */}
-      <div className="flex flex-wrap items-center justify-between pb-4 border-b border-circle-hairline dark:border-circle-dark-hairline mb-6 gap-3">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-teal-50 dark:bg-teal-950/40 text-teal-600 dark:text-teal-400 flex items-center justify-center font-bold shadow-2xs">
-            <Compass className="w-5 h-5" />
-          </div>
-          <div>
-            <h1 className="text-lg md:text-xl font-bold text-circle-charcoal dark:text-circle-dark-text leading-tight">
-              {t.luckyWheel.title}
-            </h1>
-            <div className="flex items-center gap-2 text-xs text-teal-600 dark:text-teal-400 font-medium mt-0.5">
-              <span className="inline-block w-2 h-2 rounded-full bg-teal-500 animate-pulse" />
-              <span>
-                {wheels.length}/4 {t.luckyWheel.title.toLowerCase()}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {/* Toggle Panel Button (Thu gọn/mở rộng bảng) */}
+      {/* Floating Pill Toolbar: Các nút điều khiển dạng Floating Pill Button */}
+      <div className="sticky top-0 z-20 flex items-center justify-between pointer-events-none mb-3 py-1">
+        <div className="pointer-events-auto">
+          {/* Toggle Panel Pill Button */}
           <button
             onClick={() => setIsPanelCollapsed((prev) => !prev)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border border-border/80 bg-background/80 hover:bg-muted text-foreground transition-all shadow-sm active:scale-95"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-full border border-border/80 bg-background/90 dark:bg-circle-dark-surface/90 backdrop-blur-md shadow-xs hover:bg-muted text-foreground transition-all active:scale-95"
             title={isPanelCollapsed ? t.luckyWheel.expandPanel : t.luckyWheel.collapsePanel}
           >
             {isPanelCollapsed ? (
-              <PanelRightOpen className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+              <PanelRightOpen className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
             ) : (
-              <PanelRightClose className="w-4 h-4 text-muted-foreground" />
+              <PanelRightClose className="w-3.5 h-3.5 text-muted-foreground" />
             )}
             <span className="hidden sm:inline">
               {isPanelCollapsed ? t.luckyWheel.expandPanel : t.luckyWheel.collapsePanel}
             </span>
           </button>
+        </div>
 
-          {/* Thêm vòng xoay: luôn hiển thị, khi đạt tối đa 4 vòng thì vô hiệu hóa chứ không làm mất */}
+        <div className="flex items-center gap-2 pointer-events-auto">
+          {/* Add Wheel Pill Button */}
           <button
             onClick={handleAddDefaultWheel}
             disabled={wheels.length >= 4 || isAnySpinning || createWheelMutation.isPending}
-            className="px-3.5 py-2 text-xs font-semibold rounded-xl bg-gray-100 hover:bg-gray-200 dark:bg-circle-dark-border dark:hover:bg-circle-dark-hover text-gray-800 dark:text-white transition-colors flex items-center gap-1.5 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-full border border-border/80 bg-background/90 dark:bg-circle-dark-surface/90 backdrop-blur-md shadow-xs hover:bg-muted text-foreground transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
             title={wheels.length >= 4 ? t.luckyWheel.maxWheelsBadge : undefined}
           >
-            <Plus className="w-3.5 h-3.5" />
+            <Plus className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
             <span>{t.luckyWheel.addWheel}</span>
           </button>
 
-          {/* SPIN ALL Button: khi quay tất cả không đổi chữ, chỉ vô hiệu hóa nút */}
+          {/* Spin All Pill Button */}
           {wheels.length > 0 && (
             <button
               onClick={handleSpinAll}
               disabled={isAnySpinning || spinAllMutation.isPending}
-              className="flex items-center gap-2 px-4 py-2 text-xs sm:text-sm font-bold rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95"
+              className="flex items-center gap-1.5 px-4 py-1.5 text-xs sm:text-sm font-bold rounded-full bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white shadow-xs hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95"
             >
-              <RotateCw className={`w-4 h-4 ${isAnySpinning ? 'animate-spin' : ''}`} />
+              <RotateCw className={`w-3.5 h-3.5 ${isAnySpinning ? 'animate-spin' : ''}`} />
               <span>{t.luckyWheel.spinAll}</span>
             </button>
           )}

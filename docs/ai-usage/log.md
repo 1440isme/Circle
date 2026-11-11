@@ -7075,3 +7075,39 @@
   - **Resolution / Fix:** N/A.
 - **Commit:** a154b22
 - **PR:** Pending
+
+
+---
+
+## AI-0161: Chuyển Đổi Thanh Điều Khiển Vòng Xoay Sang Dạng Floating Pill Button & Loại Bỏ Heading Tĩnh (#120)
+
+- **Date:** 2026-11-11 15:40:00 +07:00
+- **Developer:** Trương Công Bình (MSSV: 23110184) & Ninh Thị Mỹ Hạnh (MSSV: 23110210)
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash
+- **Related Issue:** #120
+- **Purpose:** Triển khai triệt để triết lý Radical Minimalism và phong cách Floating Pill Button & Scroll Underlay cho công cụ Vòng xoay may mắn trên cả Web và Mobile:
+  1. **Loại bỏ khối Heading & Badge số lượng tĩnh:**
+     - Xóa bỏ hoàn toàn cụm header tĩnh gồm icon la bàn, tiêu đề `h1` "Vòng quay may mắn", subtitle và dòng text đếm số lượng "4/4 vòng quay may mắn", mở rộng tối đa không gian hiển thị cho sân khấu vòng quay.
+     - Trên Mobile, loại bỏ thanh `spinAllBanner` cồng kềnh chiếm diện tích dọc.
+  2. **Chuyển đổi các nút chức năng thành Floating Pill Buttons:**
+     - **Web (`apps/web/src/components/tools/CircleWheelView.tsx`):** Thiết kế thanh toolbar nổi `sticky top-0 z-20 pointer-events-none` với các nút điều khiển capsule `rounded-full`, nền mờ `backdrop-blur-md`, viền hairline tinh xảo và đổ bóng nhẹ: Nút Thu gọn/mở rộng bảng bên trái, cụm nút Thêm vòng xoay và Quay tất cả bên phải.
+     - **Mobile (`apps/mobile/src/components/tools/MobileWheelView.tsx`):** Thiết kế thanh điều khiển nổi tuyệt đối `position: 'absolute'` với `pointerEvents="box-none"`, nền `rgba(255, 255, 255, 0.94)`, viền `#E2E8F0`, đổ bóng mềm mại `elevation: 3`, kết hợp ScrollView cuộn toàn màn hình với nội dung trượt bên dưới các nút nổi (Scroll Underlay). Nút "Quay tất cả" được tích hợp trực tiếp vào cụm pill nổi thay vì đặt riêng biệt.
+- **Prompt Summary:** vòng xoay nay mắn bỏ heading và text "Vòng quay may mắn 4/4 vòng quay may mắn" thay các btn trên thành dạng Floating Pill Button
+- **Files Affected:**
+  - `apps/web/src/components/tools/CircleWheelView.tsx`
+  - `apps/mobile/src/components/tools/MobileWheelView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** Tái cấu trúc layout header, thiết kế floating pill buttons và styling trên Web và Mobile.
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+  - `npx tsc --noEmit -p apps/web/tsconfig.json`: Passed 100%, 0 lỗi.
+  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Passed 100%, 0 lỗi.
+  - `npm test --prefix apps/backend -- circle-tools.service.spec.ts`: Passed 45/45 tests (100%).
+  - `bash ./scripts/check-secrets.sh`: Passed 100%, 0 secret leaks.
+  - `bash ./scripts/check-agent-map.sh`: Passed 100%, 127 references resolve.
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md` & `agentic/CONVENTIONS.md`.
+- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
+- **AI Errors / Hallucinations Found:** Không.
+- **Commit:** Pending
+- **PR:** Pending
