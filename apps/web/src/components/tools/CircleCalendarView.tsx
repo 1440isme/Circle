@@ -1414,13 +1414,42 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                       required
                       value={startTime}
                       onChange={(val) => {
+                        const prevStartDate = startTime ? startTime.split('T')[0] : '';
                         setStartTime(val);
                         if (val) {
                           const s = new Date(val);
                           setEditingOccurrenceDate(s);
-                          if (!endTime || endTime <= val) {
-                            s.setHours(s.getHours() + 1);
-                            setEndTime(formatToLocalDateTimeInput(s, s.getHours(), s.getMinutes()));
+                          const newStartDate = val.split('T')[0];
+                          const newStartTimePart = val.includes('T') ? val.split('T')[1] : '06:00';
+
+                          if (!endTime) {
+                            setEndTime(`${newStartDate}T23:59`);
+                          } else {
+                            const [endD, endT] = endTime.includes('T') ? endTime.split('T') : [endTime, '23:59'];
+                            const timePart = endT || '23:59';
+
+                            // Khi người dùng chọn/đổi ngày bắt đầu (hoặc ngày kết thúc nhỏ hơn ngày bắt đầu):
+                            // Ngày kết thúc tự động nhảy theo ngày bắt đầu, giữ nguyên phần giờ:phút hiện có của endTime (ngày chứ ko nhảy giờ)
+                            if (newStartDate !== prevStartDate || endD < newStartDate) {
+                              if (timePart > newStartTimePart) {
+                                setEndTime(`${newStartDate}T${timePart}`);
+                              } else if (newStartTimePart === '23:59') {
+                                const nextDay = new Date(s);
+                                nextDay.setDate(nextDay.getDate() + 1);
+                                setEndTime(`${formatDateKey(nextDay)}T23:59`);
+                              } else {
+                                setEndTime(`${newStartDate}T23:59`);
+                              }
+                            } else if (endD === newStartDate && timePart <= newStartTimePart) {
+                              // Cùng ngày nhưng giờ kết thúc <= giờ bắt đầu
+                              if (newStartTimePart === '23:59') {
+                                const nextDay = new Date(s);
+                                nextDay.setDate(nextDay.getDate() + 1);
+                                setEndTime(`${formatDateKey(nextDay)}T23:59`);
+                              } else {
+                                setEndTime(`${newStartDate}T23:59`);
+                              }
+                            }
                           }
                         }
                       }}

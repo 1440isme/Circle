@@ -7146,3 +7146,37 @@
   - **Resolution / Fix:** N/A.
 - **Commit:** 116f048
 - **PR:** Pending
+
+
+---
+
+## AI-0175: Tự động nhảy ngày kết thúc theo ngày bắt đầu nhưng giữ nguyên giờ khi tạo/sửa sự kiện (#120)
+
+- **Date:** 2026-11-11 15:56:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120
+- **Purpose:** 
+  1. Trong form tạo/chỉnh sửa sự kiện lịch (`CircleCalendarView.tsx`):
+     - Khi người dùng chọn lại ngày bắt đầu (`startTime`), ngày kết thúc (`endTime`) sẽ tự động nhảy theo ngày bắt đầu mới để người dùng dễ điều chỉnh, không bắt buộc phải mở picker ngày kết thúc để chỉnh lại ngày trùng khớp thủ công.
+     - Giữ nguyên phần giờ và phút hiện có của `endTime` ("ngày chứ ko nhảy giờ"), ví dụ mặc định là `23:59` thì giữ nguyên `23:59` mà không bị nhảy tăng thêm 1 giờ như hành vi trước đó.
+     - Xử lý mượt mà trường hợp ngày bắt đầu và ngày kết thúc cùng ngày hoặc trường hợp mép `23:59`.
+- **Prompt Summary:** 1 cái cuối là khi cài tạo sự kiện chọn ngày bắt đầu ngày nào thì ngày kết thúc nó cũng nhảy theo để dễ điều chỉnh(ngày chứ ko nhảy giờ)
+- **Files Affected:**
+  - `apps/web/src/components/tools/CircleCalendarView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% logic đồng bộ ngày giữa startTime và endTime trong CustomDateTimePicker onChange.
+- **Human Modifications:** Người dùng yêu cầu khi chọn ngày bắt đầu thì ngày kết thúc tự động nhảy theo ngày đó, giữ nguyên giờ chứ không bị nhảy giờ.
+- **Verification Method:**
+  - `npx tsc --noEmit --project apps/web/tsconfig.json`: Passed 0 errors.
+  - `bash ./scripts/check-agent-map.sh`: Passed (128 files).
+  - `bash ./scripts/check-secrets.sh`: Passed, 0 secret leaks.
+- **Official Source Checked:** PROJECT_GOD.md, agentic/RULES.md & agentic/CONVENTIONS.md.
+- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A.
+  - **Resolution / Fix:** N/A.
+- **Commit:** 986479c
+- **PR:** Pending
