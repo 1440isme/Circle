@@ -287,24 +287,18 @@ export const parseEventRecurrence = (desc?: string | null): {
   return { cleanDesc, recurrenceConfig };
 };
 
-export const isEventOccurringOnDate = (ev: CalendarEventEntity, targetDate: Date): boolean => {
+export const doesRecurrenceStartOnDate = (
+  ev: CalendarEventEntity,
+  targetDate: Date,
+  recurrenceConfig: RecurrenceConfig,
+): boolean => {
   const evStart = new Date(ev.startTime);
-  const evEnd = ev.endTime ? new Date(ev.endTime) : evStart;
-
   const targetY = targetDate.getFullYear();
   const targetM = targetDate.getMonth();
   const targetD = targetDate.getDate();
 
   const dayStartTime = new Date(targetY, targetM, targetD, 0, 0, 0, 0).getTime();
   const dayEndTime = new Date(targetY, targetM, targetD, 23, 59, 59, 999).getTime();
-
-  const { recurrenceConfig } = parseEventRecurrence(ev.description);
-
-  if (!recurrenceConfig || recurrenceConfig.frequency === 'none') {
-    const startMs = evStart.getTime();
-    const endMs = evEnd.getTime();
-    return startMs <= dayEndTime && endMs >= dayStartTime;
-  }
 
   const targetDateKey = `${targetY}-${pad2(targetM + 1)}-${pad2(targetD)}`;
   if (recurrenceConfig.excludedDates && recurrenceConfig.excludedDates.includes(targetDateKey)) {
@@ -425,12 +419,68 @@ export const isEventOccurringOnDate = (ev: CalendarEventEntity, targetDate: Date
   return false;
 };
 
+export const isEventOccurringOnDate = (ev: CalendarEventEntity, targetDate: Date): boolean => {
+  const evStart = new Date(ev.startTime);
+  const evEnd = ev.endTime ? new Date(ev.endTime) : evStart;
+
+  const targetY = targetDate.getFullYear();
+  const targetM = targetDate.getMonth();
+  const targetD = targetDate.getDate();
+
+  const dayStartTime = new Date(targetY, targetM, targetD, 0, 0, 0, 0).getTime();
+  const dayEndTime = new Date(targetY, targetM, targetD, 23, 59, 59, 999).getTime();
+
+  const { recurrenceConfig } = parseEventRecurrence(ev.description);
+
+  // 1. Sự kiện đơn hoặc kéo dài nhiều ngày KHÔNG lặp lại
+  if (!recurrenceConfig || recurrenceConfig.frequency === 'none') {
+    const startMs = evStart.getTime();
+    const endMs = evEnd.getTime();
+    return startMs <= dayEndTime && endMs >= dayStartTime;
+  }
+
+  // 2. Sự kiện CÓ lặp lại (Hỗ trợ đầy đủ sự kiện kéo dài nhiều ngày trong từng lần lặp)
+  const startCal = new Date(evStart.getFullYear(), evStart.getMonth(), evStart.getDate()).getTime();
+  const endCal = new Date(evEnd.getFullYear(), evEnd.getMonth(), evEnd.getDate()).getTime();
+  const durationCalendarDays = Math.max(0, Math.round((endCal - startCal) / (1000 * 60 * 60 * 24)));
+
+  // Một lần lặp bao phủ targetDate nếu nó bắt đầu vào targetDate hoặc lùi lại tối đa durationCalendarDays ngày
+  for (let offset = 0; offset <= durationCalendarDays; offset++) {
+    const candidateStartDate = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate() - offset);
+    if (doesRecurrenceStartOnDate(ev, candidateStartDate, recurrenceConfig)) {
+      return true;
+    }
+  }
+
+  return false;
+};
+
 export const isEventCancelledOnDate = (ev: CalendarEventEntity, targetDate: Date): boolean => {
   if (ev.isCancelled) return true;
   const { recurrenceConfig } = parseEventRecurrence(ev.description);
   if (!recurrenceConfig) return false;
+
+  const cancelledDates = recurrenceConfig.cancelledDates || [];
+  if (cancelledDates.length === 0) return false;
+
   const targetDateKey = formatDateKey(targetDate);
-  return Boolean(recurrenceConfig.cancelledDates && recurrenceConfig.cancelledDates.includes(targetDateKey));
+  if (cancelledDates.includes(targetDateKey)) return true;
+
+  const evStart = new Date(ev.startTime);
+  const evEnd = ev.endTime ? new Date(ev.endTime) : evStart;
+  const startCal = new Date(evStart.getFullYear(), evStart.getMonth(), evStart.getDate()).getTime();
+  const endCal = new Date(evEnd.getFullYear(), evEnd.getMonth(), evEnd.getDate()).getTime();
+  const durationCalendarDays = Math.max(0, Math.round((endCal - startCal) / (1000 * 60 * 60 * 24)));
+
+  for (let offset = 1; offset <= durationCalendarDays; offset++) {
+    const candidateStartDate = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate() - offset);
+    const candidateKey = formatDateKey(candidateStartDate);
+    if (cancelledDates.includes(candidateKey) && doesRecurrenceStartOnDate(ev, candidateStartDate, recurrenceConfig)) {
+      return true;
+    }
+  }
+
+  return false;
 };
 
 export const formatEventTimeForDate = (ev: CalendarEventEntity, targetDate: Date): string => {

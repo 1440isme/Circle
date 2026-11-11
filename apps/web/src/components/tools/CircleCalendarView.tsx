@@ -560,42 +560,15 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
     };
 
     for (const ev of allCalendarEvents) {
-      const { recurrenceConfig } = parseEventRecurrence(ev.description);
-      const isRecurring = Boolean(recurrenceConfig && recurrenceConfig.frequency !== 'none');
-      const evStart = new Date(ev.startTime);
-      const evEnd = ev.endTime ? new Date(ev.endTime) : evStart;
-
-      if (isRecurring) {
-        // Bung các lần lặp lại rơi vào từng ngày trong cửa sổ thời gian
-        const cur = new Date(windowStartDate);
-        while (cur.getTime() <= windowEndDate.getTime()) {
-          if (isEventOccurringOnDate(ev, cur)) {
-            const isCancelledThisOcc = isEventCancelledOnDate(ev, cur);
-            const occEvent = isCancelledThisOcc ? { ...ev, isCancelled: true } : ev;
-            addEventEntry(new Date(cur), occEvent);
-          }
-          cur.setDate(cur.getDate() + 1);
+      // isEventOccurringOnDate đã hỗ trợ toàn diện cả sự kiện đơn, kéo dài nhiều ngày và chu kỳ lặp
+      const cur = new Date(windowStartDate);
+      while (cur.getTime() <= windowEndDate.getTime()) {
+        if (isEventOccurringOnDate(ev, cur)) {
+          const isCancelledThisOcc = isEventCancelledOnDate(ev, cur);
+          const occEvent = isCancelledThisOcc ? { ...ev, isCancelled: true } : ev;
+          addEventEntry(new Date(cur), occEvent);
         }
-      } else {
-        // Sự kiện đơn hoặc kéo dài nhiều ngày
-        const startDay = new Date(evStart.getFullYear(), evStart.getMonth(), evStart.getDate());
-        const endDay = new Date(evEnd.getFullYear(), evEnd.getMonth(), evEnd.getDate());
-
-        if (startDay.getTime() === endDay.getTime()) {
-          if (startDay.getTime() >= windowStartDate.getTime() && startDay.getTime() <= windowEndDate.getTime()) {
-            addEventEntry(startDay, ev);
-          }
-        } else {
-          // Nhiều ngày: duyệt các ngày giao thoa với cửa sổ
-          const cur = new Date(Math.max(startDay.getTime(), windowStartDate.getTime()));
-          const spanEnd = new Date(Math.min(endDay.getTime(), windowEndDate.getTime()));
-          let count = 0;
-          while (cur.getTime() <= spanEnd.getTime() && count < 60) {
-            addEventEntry(new Date(cur), ev);
-            cur.setDate(cur.getDate() + 1);
-            count++;
-          }
-        }
+        cur.setDate(cur.getDate() + 1);
       }
     }
 

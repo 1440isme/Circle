@@ -7111,3 +7111,38 @@
 - **AI Errors / Hallucinations Found:** Không.
 - **Commit:** Pending
 - **PR:** Pending
+
+---
+
+## AI-0174: Hỗ trợ trọn vẹn sự kiện kéo dài nhiều ngày trong chu kỳ lặp lại và danh sách lịch trình (#120)
+
+- **Date:** 2026-11-11 15:46:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120
+- **Purpose:** 
+  1. Khắc phục triệt để lỗi sự kiện diễn ra nhiều ngày (ví dụ: 3 ngày từ 18/11 đến 21/11) chỉ hiển thị duy nhất ngày đầu:
+     - Tách hàm `doesRecurrenceStartOnDate` kiểm tra ngày khởi phát chu kỳ lặp.
+     - Nâng cấp `isEventOccurringOnDate` để tính toán `durationCalendarDays`. Nếu sự kiện kéo dài $N$ ngày, hàm sẽ quét lùi tối đa $N$ ngày để kiểm tra xem ngày hiện tại có nằm trong khoảng thời gian diễn ra của bất kỳ lần lặp nào hay không.
+     - Nâng cấp `isEventCancelledOnDate` để đảm bảo khi một lần lặp kéo dài nhiều ngày bị hủy thì toàn bộ các ngày thuộc lần lặp đó đều được đánh dấu ĐÃ HỦY chính xác.
+  2. Đồng bộ hiển thị trên cả chế độ "Theo tháng" (Month grid & cột Lịch trình ngày) lẫn "Theo lịch trình" (Schedule feed). Mỗi ngày đều xuất hiện thẻ sự kiện với khung giờ định dạng riêng chuẩn xác (`formatEventTimeForDate`).
+- **Prompt Summary:** rồi sự kiện diễn ra 3 ngày thì cũng phải ghi ra 3 ngày chứ nó đang chỉ đang ghi ngày đâu
+- **Files Affected:**
+  - `apps/web/src/components/tools/calendar-recurrence.ts`
+  - `apps/web/src/components/tools/CircleCalendarView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% thuật toán bao phủ khoảng thời gian nhiều ngày cho chu kỳ lặp và kiểm tra cờ hủy liên tục.
+- **Human Modifications:** Người dùng phát hiện sự kiện diễn ra 3 ngày chỉ xuất hiện ngày đầu và yêu cầu hiển thị đầy đủ cả 3 ngày.
+- **Verification Method:**
+  - `npx tsc --noEmit --project apps/web/tsconfig.json`: Passed 0 errors.
+  - `bash ./scripts/check-agent-map.sh`: Passed (127 files).
+  - `bash ./scripts/check-secrets.sh`: Passed, 0 secret leaks.
+- **Official Source Checked:** PROJECT_GOD.md, agentic/RULES.md & agentic/CONVENTIONS.md.
+- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A.
+  - **Resolution / Fix:** N/A.
+- **Commit:** 116f048
+- **PR:** Pending
