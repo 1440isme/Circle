@@ -170,27 +170,25 @@ export const CircleAlbumsView: React.FC<CircleAlbumsViewProps> = ({ circleId }) 
   if (selectedAlbumId) {
     return (
       <div className="relative flex-1 flex flex-col h-full bg-circle-canvas dark:bg-circle-dark-surface overflow-hidden transition-colors">
-        {/* Floating Glass Toolbar */}
+        {/* Floating Pill Controls (Chi tiết Album: Nút Quay lại & Nút Tải ảnh lên dạng Floating Pill Buttons) */}
         <div className="pointer-events-none absolute top-14 lg:top-3 left-0 right-0 z-20 flex flex-col items-center gap-2 px-4">
-          <div className="pointer-events-auto flex items-center justify-between gap-2 px-4 py-2 rounded-full glass shadow-sm max-w-4xl w-full">
-            <div className="flex items-center gap-2 min-w-0">
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedAlbumId(null);
-                  setConfirmDeleteAlbumId(null);
-                  setAlbumError(null);
-                }}
-                className="flex items-center gap-1.5 text-xs font-semibold text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text transition-colors"
-              >
-                <ChevronLeft className="h-4 w-4 shrink-0" />
-                <span className="truncate max-w-[150px] sm:max-w-[220px] font-bold text-circle-charcoal dark:text-circle-dark-text">
-                  {albumDetail?.albumTitle || t.nav.photoAlbum}
-                </span>
-              </button>
-            </div>
+          <div className="max-w-4xl w-full flex items-center justify-between gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedAlbumId(null);
+                setConfirmDeleteAlbumId(null);
+                setAlbumError(null);
+              }}
+              className="pointer-events-auto inline-flex items-center gap-1.5 px-3.5 h-9 rounded-full backdrop-blur-xl bg-white/92 dark:bg-circle-dark-surface/90 border border-circle-hairline/80 dark:border-white/12 shadow-sm hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text font-bold text-xs sm:text-sm transition-all active:scale-95 cursor-pointer"
+            >
+              <ChevronLeft className="h-4 w-4 shrink-0 text-circle-primary" />
+              <span className="truncate max-w-[150px] sm:max-w-[220px]">
+                {albumDetail?.albumTitle || t.common.back}
+              </span>
+            </button>
 
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="pointer-events-auto flex items-center gap-2 shrink-0">
               <input
                 type="file"
                 ref={fileInputRef}
@@ -203,7 +201,7 @@ export const CircleAlbumsView: React.FC<CircleAlbumsViewProps> = ({ circleId }) 
                 type="button"
                 disabled={isUploading || addPhotosMutation.isPending}
                 onClick={() => fileInputRef.current?.click()}
-                className="flex items-center gap-1.5 rounded-full bg-circle-primary hover:bg-circle-sage px-3.5 py-1.5 text-xs font-semibold text-circle-charcoal dark:text-circle-dark-canvas hover:text-white dark:hover:text-white transition-all disabled:opacity-50 shadow-xs active:scale-95"
+                className="inline-flex items-center gap-1.5 px-4 h-9 rounded-full backdrop-blur-xl bg-circle-primary hover:bg-circle-sage text-white font-semibold text-xs sm:text-sm shadow-sm border border-white/20 transition-all disabled:opacity-50 active:scale-95 cursor-pointer"
               >
                 {isUploading || addPhotosMutation.isPending ? (
                   <>
@@ -225,7 +223,7 @@ export const CircleAlbumsView: React.FC<CircleAlbumsViewProps> = ({ circleId }) 
                       prev === albumDetail.id ? null : albumDetail.id,
                     )
                   }
-                  className="p-1.5 rounded-full hover:bg-rose-500/10 text-circle-slate dark:text-circle-dark-muted hover:text-rose-500 transition-colors"
+                  className="flex items-center justify-center h-9 w-9 rounded-full backdrop-blur-xl bg-white/92 dark:bg-circle-dark-surface/90 border border-circle-hairline/80 dark:border-white/12 shadow-sm hover:bg-rose-500/10 text-circle-slate dark:text-circle-dark-muted hover:text-rose-500 transition-all active:scale-95 cursor-pointer"
                   title={t.collab.albumDeleteTitle}
                 >
                   <Trash2 className="h-4 w-4" />
@@ -457,28 +455,18 @@ export const CircleAlbumsView: React.FC<CircleAlbumsViewProps> = ({ circleId }) 
   // =========================================================================
   return (
     <div className="relative flex-1 flex flex-col h-full bg-circle-canvas dark:bg-circle-dark-surface overflow-hidden transition-colors">
-      {/* Floating Glass Toolbar */}
+      {/* Floating Pill Controls (Bỏ heading & text 'Album kỷ niệm', thay bằng Floating Pill Button tạo album) */}
       <div className="pointer-events-none absolute top-14 lg:top-3 left-0 right-0 z-20 flex flex-col items-center gap-2 px-4">
-        <div className="pointer-events-auto flex items-center justify-between gap-2 px-5 py-2.5 rounded-full glass shadow-sm max-w-4xl w-full">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <ImageIcon className="h-4 w-4 text-circle-sage dark:text-circle-dark-primary shrink-0" />
-            <h1 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text truncate">
-              {t.nav.photoAlbum}
-            </h1>
-            <span className="text-xs text-circle-slate dark:text-circle-dark-muted hidden sm:inline shrink-0">
-              • {t.collab.albumCountLabel.replace('{count}', String(albums.length))}
-            </span>
-          </div>
-
+        <div className="max-w-4xl w-full flex justify-end">
           <button
             type="button"
             onClick={() => {
               setCreateError(null);
               setIsCreateModalOpen(true);
             }}
-            className="flex items-center gap-1.5 rounded-full bg-circle-primary hover:bg-circle-sage px-4 py-1.5 text-xs font-semibold text-circle-charcoal dark:text-circle-dark-canvas hover:text-white dark:hover:text-white transition-all shadow-xs active:scale-98 shrink-0"
+            className="pointer-events-auto inline-flex items-center gap-1.5 px-4 h-9 rounded-full backdrop-blur-xl bg-circle-primary hover:bg-circle-sage text-white font-semibold text-xs sm:text-sm shadow-sm border border-white/20 transition-all active:scale-95 cursor-pointer shrink-0"
           >
-            <Plus className="h-3.5 w-3.5" />
+            <Plus className="h-4 w-4" />
             <span>{t.collab.createAlbum}</span>
           </button>
         </div>
@@ -584,7 +572,7 @@ export const CircleAlbumsView: React.FC<CircleAlbumsViewProps> = ({ circleId }) 
                 setCreateError(null);
                 setIsCreateModalOpen(true);
               }}
-              className="flex items-center gap-1.5 rounded-lg bg-circle-charcoal dark:bg-circle-primary px-4 py-2 text-xs font-semibold text-white dark:text-circle-dark-canvas hover:bg-circle-sage hover:text-white dark:hover:text-white transition-all shadow-sm"
+              className="inline-flex items-center gap-1.5 rounded-full bg-circle-primary hover:bg-circle-sage px-4 py-2 text-xs font-semibold text-white shadow-sm transition-all active:scale-95 cursor-pointer"
             >
               <Plus className="h-3.5 w-3.5" />
               <span>{t.collab.createAlbum}</span>

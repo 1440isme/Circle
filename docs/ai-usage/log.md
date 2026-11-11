@@ -7295,3 +7295,37 @@
   - **Resolution / Fix:** Bổ sung relative vào container Main Responsive Layout và đổi nút mở sang absolute right-0 top-6. Trên mobile chuyển nút ra ngoài ScrollView để neo trực tiếp vào container.
 - **Commit:** f203c5c
 - **PR:** Pending
+
+
+---
+
+## AI-0179: Thiết lập bảng vòng quay may mắn mặc định mở trên Web và đồng bộ nút thu gọn to bản, thẳng hàng với nút mở (#120)
+
+- **Date:** 2026-11-12 00:54:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120
+- **Purpose:**
+  1. Chuyển trạng thái mặc định của bảng thiết lập vòng quay trên Web (`CircleWheelView.tsx`) sang đang mở (`isPanelCollapsed = false`) thay vì đóng, giúp người dùng vừa vào là thấy ngay cả sân khấu vòng quay và bảng thiết lập.
+  2. Nâng cấp nút thu gọn bảng (`PanelRightClose`) to bản (`w-8 h-12`, icon `w-4.5 h-4.5`), định vị nửa trong nửa ngoài (`-left-4`), thẳng hàng chuẩn xác tuyệt đối với nút mở lại bảng (`PanelRightOpen` ở `top-6 right-0`, `w-8 h-12`).
+- **Prompt Summary:** "ở vòng xoay may mắn thu gọn bảng phải to và thẳng hàng với nút mở bảng thiết lập. và chế độ mặc định là đang mở chứ ko phải đang đóng trên web"
+- **Files Affected:**
+  - `apps/web/src/components/tools/CircleWheelView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% css layout positioning và state initialization.
+- **Human Modifications:** Trương Công Bình yêu cầu bảng thiết lập vòng quay trên web mặc định mở và nút thu gọn phải to, thẳng hàng với nút mở bảng.
+- **Verification Method:**
+  - `npx tsc --noEmit -p apps/web/tsconfig.json`: Passed 0 errors.
+  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Passed 0 errors.
+  - `npm test --prefix apps/backend -- circle-tools.service.spec.ts`: Passed 45/45 tests (100%).
+  - `bash ./scripts/check-secrets.sh`: Passed 100%, 0 secret leaks.
+  - `bash ./scripts/check-agent-map.sh`: Passed 100%, 130 references resolve.
+- **Official Source Checked:** PROJECT_GOD.md.
+- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A.
+  - **Resolution / Fix:** N/A.
+- **Commit:** 67768a1
+- **PR:** Pending

@@ -168,22 +168,15 @@ export const CirclePollView: React.FC<CirclePollViewProps> = ({ circleId }) => {
 
   return (
     <div className="relative flex-1 flex flex-col h-full bg-white dark:bg-circle-dark-bg overflow-hidden">
-      {/* Floating Glass Toolbar */}
-      <div className="pointer-events-none absolute top-14 lg:top-3 left-0 right-0 z-20 flex justify-center px-4">
-        <div className="pointer-events-auto flex items-center justify-between px-5 py-2.5 rounded-full glass shadow-sm max-w-4xl w-full transition-all">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <Vote className="w-5 h-5 text-circle-sage dark:text-circle-dark-primary shrink-0" />
-            <h1 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text truncate">
-              {t.collab.pollCardHeader}
-            </h1>
-          </div>
-
+      {/* Floating Pill Controls (Bỏ heading & text 'Bình chọn nhóm', thay bằng Floating Pill Button tạo bình chọn) */}
+      <div className="pointer-events-none absolute top-14 lg:top-3 left-0 right-0 z-20 flex flex-col items-center gap-2 px-4">
+        <div className="max-w-4xl w-full flex justify-end">
           <button
             type="button"
             onClick={handleOpenCreateModal}
-            className="px-3.5 py-1.5 rounded-full bg-circle-primary hover:bg-circle-sage text-circle-charcoal dark:text-circle-dark-canvas hover:text-white dark:hover:text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 active:scale-95"
+            className="pointer-events-auto inline-flex items-center gap-1.5 px-4 h-9 rounded-full backdrop-blur-xl bg-circle-primary hover:bg-circle-sage text-circle-charcoal dark:text-circle-dark-canvas hover:text-white dark:hover:text-white font-semibold text-xs sm:text-sm shadow-sm border border-circle-hairline/60 dark:border-white/12 transition-all active:scale-95 cursor-pointer shrink-0"
           >
-            <Plus className="w-3.5 h-3.5" />
+            <Plus className="h-4 w-4" />
             <span>{t.collab.createPoll}</span>
           </button>
         </div>

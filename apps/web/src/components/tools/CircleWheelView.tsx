@@ -270,8 +270,8 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
   }, [resultsText]);
   const resultLinesCount = resultLines.length;
 
-  // Panel Collapsed State (cho phép ẩn bảng để vòng tròn to hơn, mặc định thu gọn khi mới vào)
-  const [isPanelCollapsed, setIsPanelCollapsed] = useState(true);
+  // Panel Collapsed State (mặc định mở bảng khi mới vào, cho phép thu gọn để xem vòng to hơn)
+  const [isPanelCollapsed, setIsPanelCollapsed] = useState(false);
 
   // Auto-seed: Khởi tạo 1 vòng mặc định ngay khi tải trang nếu Circle chưa có vòng nào (mở ra là quay ngay)
   const autoSeedRef = useRef(false);
@@ -1179,15 +1179,15 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
         {/* RIGHT COLUMN: "CÁI BẢNG" (TABBED OPTIONS BOARD & RESULTS) */}
         {!isPanelCollapsed && (
           <div className="relative w-full lg:w-[380px] xl:w-[420px] flex flex-col bg-card rounded-2xl border border-border/70 shadow-sm p-4 sm:p-5 transition-all">
-            {/* Nút thu gọn bảng: Nằm giữa cái viền luôn nửa trong nửa ngoài */}
+            {/* Nút thu gọn bảng: Nằm giữa cái viền luôn nửa trong nửa ngoài, to và thẳng hàng với nút mở bảng */}
             <button
               type="button"
               onClick={() => setIsPanelCollapsed(true)}
-              className="absolute top-6 -left-3.5 z-30 w-7 h-7 flex items-center justify-center rounded-full bg-white dark:bg-circle-charcoal border border-border/80 shadow-md hover:bg-slate-50 dark:hover:bg-circle-dark-surface text-slate-500 hover:text-teal-600 transition-all active:scale-90"
+              className="absolute top-6 -left-4 z-30 w-8 h-12 flex items-center justify-center rounded-xl bg-white dark:bg-circle-charcoal border border-border/80 shadow-md hover:bg-slate-50 dark:hover:bg-circle-dark-surface text-slate-500 hover:text-teal-600 dark:hover:text-teal-400 transition-all active:scale-90 group cursor-pointer"
               title={t.luckyWheel.collapsePanel || 'Thu gọn bảng'}
               aria-label={t.luckyWheel.collapsePanel || 'Thu gọn bảng'}
             >
-              <PanelRightClose className="w-3.5 h-3.5" />
+              <PanelRightClose className="w-4.5 h-4.5 group-hover:scale-110 transition-transform" />
             </button>
 
             {/* Tabs Header: Tên của từng vòng + TAB KẾT QUẢ */}
@@ -1509,16 +1509,16 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
           </div>
         )}
 
-        {/* Nút mở lại bảng: Ghim ở mép bên phải của phần hiển thị nội dung khi thu gọn */}
+        {/* Nút mở lại bảng: Ghim ở mép bên phải của phần hiển thị nội dung khi thu gọn, to và thẳng hàng với nút thu gọn */}
         {isPanelCollapsed && (
           <button
             type="button"
             onClick={() => setIsPanelCollapsed(false)}
-            className="absolute right-0 top-6 z-30 flex items-center justify-center w-7 h-9 rounded-l-xl bg-white dark:bg-circle-charcoal border-y border-l border-border/80 shadow-md text-slate-500 hover:text-teal-600 dark:hover:text-teal-400 transition-all active:scale-90 group"
+            className="absolute right-0 top-6 z-30 flex items-center justify-center w-8 h-12 rounded-l-2xl bg-white dark:bg-circle-charcoal border-y border-l border-border/80 shadow-md text-slate-500 hover:text-teal-600 dark:hover:text-teal-400 transition-all active:scale-90 group cursor-pointer"
             title={t.luckyWheel.expandPanel || 'Mở bảng'}
             aria-label={t.luckyWheel.expandPanel || 'Mở bảng'}
           >
-            <PanelRightOpen className="w-4 h-4 group-hover:scale-110 transition-transform" />
+            <PanelRightOpen className="w-4.5 h-4.5 group-hover:scale-110 transition-transform" />
           </button>
         )}
       </div>
