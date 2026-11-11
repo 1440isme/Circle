@@ -31,7 +31,7 @@ export default function HomePage() {
             </div>
           ) : (
             /* Home Hub: Clean Focused Single-Column Layout */
-            <div className="flex-1 flex justify-center px-4 pt-6 pb-8 max-w-5xl mx-auto w-full h-full min-h-0 overflow-y-auto">
+            <div className="flex-1 flex justify-center px-4 pt-16 xl:pt-6 pb-8 max-w-5xl mx-auto w-full h-full min-h-0 overflow-y-auto">
               <FeedStream />
             </div>
           )}

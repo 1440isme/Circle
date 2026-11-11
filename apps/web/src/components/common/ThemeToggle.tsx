@@ -23,13 +23,22 @@ export const ThemeToggle: React.FC<{ compact?: boolean }> = ({ compact = true })
         setIsOpen(false);
       }
     }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setIsOpen(false);
+      }
+    }
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
   }, []);
 
   if (!mounted) {
     return (
-      <div className="h-8 w-8 rounded-full border border-circle-hairline bg-white/80 dark:bg-circle-dark-surface dark:border-circle-dark-hairline animate-pulse" />
+      <div className="h-8 w-8 rounded-full border border-circle-hairline bg-white/90 dark:bg-circle-dark-surface/90 dark:border-circle-dark-hairline animate-pulse" />
     );
   }
 
@@ -43,7 +52,7 @@ export const ThemeToggle: React.FC<{ compact?: boolean }> = ({ compact = true })
     theme === 'system' ? (
       <Laptop className="h-3.5 w-3.5 text-circle-slate dark:text-circle-dark-muted" />
     ) : resolvedTheme === 'dark' ? (
-      <Moon className="h-3.5 w-3.5 text-circle-sage" />
+      <Moon className="h-3.5 w-3.5 text-circle-sage dark:text-circle-primary" />
     ) : (
       <Sun className="h-3.5 w-3.5 text-amber-500" />
     );
@@ -60,7 +69,7 @@ export const ThemeToggle: React.FC<{ compact?: boolean }> = ({ compact = true })
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-1.5 rounded-full border border-circle-hairline bg-white/80 dark:bg-circle-dark-surface dark:border-circle-dark-hairline px-2.5 py-1 text-xs font-medium text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-canvas dark:hover:bg-circle-dark-elevated transition-colors shadow-sm focus:outline-none"
+        className="flex items-center gap-1.5 rounded-full border border-circle-hairline bg-white/92 dark:bg-circle-dark-surface/90 dark:border-circle-dark-hairline px-2.5 py-1 text-xs font-medium text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-canvas dark:hover:bg-circle-dark-elevated transition-colors shadow-sm focus:outline-none backdrop-blur-xl"
         title={t.common.changeTheme}
         aria-label={t.common.changeTheme}
       >
@@ -74,7 +83,7 @@ export const ThemeToggle: React.FC<{ compact?: boolean }> = ({ compact = true })
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-1.5 w-36 rounded-2xl border border-circle-hairline bg-white/95 dark:bg-circle-dark-elevated dark:border-circle-dark-hairline p-1.5 shadow-xl shadow-circle-charcoal/10 backdrop-blur-md z-50 animate-fadeIn">
+        <div className="absolute right-0 mt-1.5 w-36 rounded-2xl border border-circle-hairline bg-white/94 dark:bg-circle-dark-elevated/92 dark:border-circle-dark-hairline p-1.5 shadow-xl shadow-circle-charcoal/10 dark:shadow-black/50 backdrop-blur-xl z-50 animate-fadeIn">
           {options.map((opt) => {
             const isSelected = opt.value === theme;
             return (
@@ -93,8 +102,8 @@ export const ThemeToggle: React.FC<{ compact?: boolean }> = ({ compact = true })
                 }}
                 className={`flex w-full items-center justify-between gap-2 rounded-xl px-2.5 py-1.5 text-xs font-medium transition-colors ${
                   isSelected
-                    ? 'bg-circle-wash text-circle-sage dark:bg-circle-dark-wash dark:text-circle-primary'
-                    : 'text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-canvas dark:hover:bg-circle-dark-surface'
+                    ? 'bg-circle-wash text-circle-sage dark:bg-circle-dark-wash dark:text-circle-primary font-semibold'
+                    : 'text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-canvas dark:hover:bg-circle-dark-wash/50'
                 }`}
               >
                 <div className="flex items-center gap-2">

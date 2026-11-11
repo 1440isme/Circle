@@ -11,7 +11,8 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, RefreshCw, CheckCircle2, AlertCircle, Mail, KeyRound } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ArrowLeft, RefreshCw, CheckCircle2, AlertCircle, Mail } from 'lucide-react-native';
 import { createAuthSchemas, getFirstZodError } from '@circle/shared';
 import { useThemeStore } from '../../src/stores/theme.store';
 import { useLanguageStore } from '../../src/stores/language.store';
@@ -23,12 +24,11 @@ import { HeaderControls } from '../../src/components/common/HeaderControls';
 
 export default function VerifyOtpScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { email: emailParam } = useLocalSearchParams<{ email?: string; from?: string }>();
-  const { colors, resolvedTheme } = useThemeStore();
+  const { colors } = useThemeStore();
   const { t, locale } = useLanguageStore();
   const setAuth = useAuthStore((s) => s.setAuth);
-
-  const isDark = resolvedTheme === 'dark';
 
   const [email, setEmail] = useState(emailParam || '');
   const [otp, setOtp] = useState('');
@@ -127,14 +127,16 @@ export default function VerifyOtpScreen() {
       style={[styles.container, { backgroundColor: colors.canvas }]}
     >
       {/* Top Header */}
-      <View style={styles.topBar}>
+      <View style={[styles.topBar, { paddingTop: insets.top + 12 }]}>
         <TouchableOpacity
           onPress={() => router.back()}
           activeOpacity={0.7}
+          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
           style={[
             styles.backBtn,
             { backgroundColor: colors.wash },
           ]}
+          accessibilityLabel={t.common.back}
         >
           <ArrowLeft size={18} color={colors.text} />
         </TouchableOpacity>
@@ -163,7 +165,7 @@ export default function VerifyOtpScreen() {
               },
             ]}
           >
-            <Mail size={16} color={colors.primary} />
+            <Mail size={16} color={colors.sage} />
             <Text style={[styles.emailBadgeText, { color: colors.text }]}>
               {email}
             </Text>
@@ -192,8 +194,8 @@ export default function VerifyOtpScreen() {
               { backgroundColor: `${colors.primary}15`, borderColor: `${colors.primary}30` },
             ]}
           >
-            <CheckCircle2 size={16} color={colors.primary} />
-            <Text style={[styles.alertText, { color: colors.primary }]}>
+            <CheckCircle2 size={16} color={colors.sage} />
+            <Text style={[styles.alertText, { color: colors.sage }]}>
               {successMsg}
             </Text>
           </View>
@@ -268,11 +270,11 @@ export default function VerifyOtpScreen() {
               activeOpacity={0.7}
             >
               {resending ? (
-                <ActivityIndicator size="small" color={colors.primary} />
+                <ActivityIndicator size="small" color={colors.sage} />
               ) : (
-                <RefreshCw size={14} color={colors.primary} />
+                <RefreshCw size={14} color={colors.sage} />
               )}
-              <Text style={[styles.resendText, { color: colors.primary }]}>
+              <Text style={[styles.resendText, { color: colors.sage }]}>
                 {t.auth.resendCode}
               </Text>
             </TouchableOpacity>
@@ -286,6 +288,7 @@ export default function VerifyOtpScreen() {
           styles.bottomBar,
           {
             backgroundColor: colors.canvas,
+            paddingBottom: Math.max(insets.bottom + 10, 20),
           },
         ]}
       >

@@ -26,6 +26,7 @@ import {
   ClearChatInput,
 } from '@circle/shared';
 import { playMessageReceivedSound } from '../utils/sound-effects';
+import { useLanguageStore } from '../stores/language.store';
 
 export const CHAT_KEYS = {
   all: ['chat'] as const,
@@ -245,7 +246,8 @@ export function useChannelMessagesQuery(channelId: string | null) {
                   ? {
                       ...m,
                       ...updatedMessage,
-                      previousContent: updatedMessage.previousContent || m.content || m.previousContent,
+                      previousContent:
+                        updatedMessage.previousContent ?? m.content ?? m.previousContent ?? null,
                     }
                   : m,
               ),
@@ -615,7 +617,7 @@ export function useChannelTyping(channelId: string | null) {
 
       const { userId, isTyping, userName } = data;
       const timeouts = typingTimeoutsRef.current;
-      const resolvedName = userName || 'Thành viên';
+      const resolvedName = userName || useLanguageStore.getState().t.circle.memberFallback;
 
       if (isTyping) {
         if (timeouts.has(userId)) {
@@ -701,7 +703,16 @@ export function useEditMessageMutation(channelId: string) {
             pages: oldData.pages.map((page) => ({
               ...page,
               messages: page.messages.map((m) =>
-                m.id === updatedMessage.id ? { ...m, ...updatedMessage } : m,
+                m.id === updatedMessage.id
+                  ? {
+                      ...m,
+                      ...updatedMessage,
+                      previousContent:
+                        updatedMessage.previousContent ??
+                        (m.content !== updatedMessage.content ? m.content : m.previousContent) ??
+                        null,
+                    }
+                  : m,
               ),
             })),
           };

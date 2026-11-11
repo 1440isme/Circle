@@ -8,10 +8,12 @@ import {
   ScrollView,
   StyleSheet,
   Platform,
+  KeyboardAvoidingView,
   ActivityIndicator,
   Switch,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Users,
   X,
@@ -25,6 +27,7 @@ import {
 import { useThemeStore } from '../../stores/theme.store';
 import { useLanguageStore } from '../../stores/language.store';
 import { useCircleStore } from '../../stores/circle.store';
+import { getGlassTheme } from '../../constants/glass-theme';
 import {
   useCreateCircleMutation,
   useSelectableFriendsQuery,
@@ -39,10 +42,12 @@ function getInitials(name: string): string {
 }
 
 export function CreateCircleModal() {
-  const { colors, resolvedTheme } = useThemeStore();
+  const { colors, resolvedTheme, uiStyle } = useThemeStore();
   const t = useLanguageStore((s) => s.t);
   const locale = useLanguageStore((s) => s.locale);
   const isDark = resolvedTheme === 'dark';
+  const glassTheme = getGlassTheme(isDark, uiStyle);
+  const insets = useSafeAreaInsets();
 
   const visible = useCircleStore((s) => s.createModalVisible);
   const setVisible = useCircleStore((s) => s.setCreateModalVisible);
@@ -133,32 +138,37 @@ export function CreateCircleModal() {
       animationType="slide"
       onRequestClose={handleClose}
     >
-      <View style={styles.modalOverlay}>
-        <BlurView
-          intensity={Platform.OS === 'ios' ? 45 : 85}
-          tint={isDark ? 'dark' : 'light'}
-          style={StyleSheet.absoluteFill}
-        />
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.modalOverlay}
+      >
+        {uiStyle === 'glass' && (
+          <BlurView
+            intensity={glassTheme.blur.intensity}
+            tint={glassTheme.blur.tint}
+            style={StyleSheet.absoluteFill}
+          />
+        )}
 
         <View
           {...edgePan.panHandlers}
           style={[
             styles.sheetContainer,
             {
-              backgroundColor: colors.sheetBg,
-              borderColor: colors.glassBorder,
+              backgroundColor: glassTheme.colors.glassBgSheet,
+              borderColor:
+                uiStyle === 'glass' ? glassTheme.colors.glassBorder : colors.hairline,
+              paddingBottom: Math.max(insets.bottom, 24),
             },
           ]}
         >
           {/* Sheet Handle */}
           <View style={[styles.sheetHandle, { backgroundColor: colors.hairline }]} />
 
-          {/* Header */}
+          {/* Header (Bare Icon Invariant) */}
           <View style={styles.header}>
             <View style={styles.headerLeft}>
-              <View style={[styles.iconCircle, { backgroundColor: `${colors.primary}20` }]}>
-                <Users size={22} color={colors.primary} />
-              </View>
+              <Users size={22} color={colors.sage} />
               <View style={styles.headerTextGroup}>
                 <Text style={[styles.title, { color: colors.text }]}>
                   {t.circle.createTitle}
@@ -170,7 +180,9 @@ export function CreateCircleModal() {
             </View>
             <TouchableOpacity
               onPress={handleClose}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               style={[styles.closeBtn, { backgroundColor: colors.wash }]}
+              accessibilityLabel={t.common.close}
             >
               <X size={18} color={colors.subtle} />
             </TouchableOpacity>
@@ -242,15 +254,15 @@ export function CreateCircleModal() {
                 styles.approvalCard,
                 {
                   backgroundColor: colors.surface,
-                  borderColor: isPrivate ? colors.primary : colors.hairline,
+                  borderColor: isPrivate ? colors.sage : colors.hairline,
                 },
               ]}
             >
               <View style={styles.approvalLeft}>
                 {isPrivate ? (
-                  <Lock size={20} color={colors.primary} />
+                  <Lock size={20} color={colors.sage} />
                 ) : (
-                  <Globe size={20} color={colors.primary} />
+                  <Globe size={20} color={colors.sage} />
                 )}
                 <View style={styles.approvalTextGroup}>
                   <Text style={[styles.approvalTitle, { color: colors.text }]}>
@@ -269,7 +281,7 @@ export function CreateCircleModal() {
             <View style={styles.formGroup}>
               <View style={styles.labelRow}>
                 <View style={styles.friendSectionHeader}>
-                  <UserPlus size={16} color={colors.primary} />
+                  <UserPlus size={16} color={colors.sage} />
                   <Text style={[styles.label, { color: colors.text }]}>
                     {t.circle.selectFriendsLabel}
                   </Text>
@@ -307,7 +319,7 @@ export function CreateCircleModal() {
               {isLoadingFriends ? (
                 <ActivityIndicator
                   style={{ marginVertical: 16 }}
-                  color={colors.primary}
+                  color={colors.sage}
                 />
               ) : filteredFriends.length === 0 ? (
                 <View style={[styles.emptyFriendsBox, { backgroundColor: colors.wash }]}>
@@ -330,10 +342,10 @@ export function CreateCircleModal() {
                           styles.friendItem,
                           {
                             backgroundColor: isSelected
-                              ? `${colors.primary}12`
+                              ? `${colors.sage}12`
                               : colors.surface,
                             borderColor: isSelected
-                              ? colors.primary
+                              ? colors.sage
                               : colors.hairline,
                           },
                         ]}
@@ -348,7 +360,7 @@ export function CreateCircleModal() {
                             <Text
                               style={[
                                 styles.avatarText,
-                                { color: colors.primary },
+                                { color: colors.sage },
                               ]}
                             >
                               {getInitials(f.displayName || f.email)}
@@ -363,7 +375,7 @@ export function CreateCircleModal() {
                             </Text>
                             <Text
                               numberOfLines={1}
-                              style={[styles.friendHandle, { color: colors.primary }]}
+                              style={[styles.friendHandle, { color: colors.sage }]}
                             >
                               @{f.handle || f.email.split('@')[0]}
                             </Text>
@@ -418,21 +430,26 @@ export function CreateCircleModal() {
                   backgroundColor:
                     canSubmit && !createCircleMutation.isPending
                       ? colors.primary
-                      : `${colors.primary}50`,
+                      : colors.border,
                 },
               ]}
             >
               {createCircleMutation.isPending ? (
                 <ActivityIndicator color={colors.onPrimary} size="small" />
               ) : (
-                <Text style={[styles.submitBtnText, { color: colors.onPrimary }]}>
+                <Text
+                  style={[
+                    styles.submitBtnText,
+                    { color: canSubmit ? colors.onPrimary : colors.subtle },
+                  ]}
+                >
                   {t.circle.createCircleSubmitBtn}
                 </Text>
               )}
             </TouchableOpacity>
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

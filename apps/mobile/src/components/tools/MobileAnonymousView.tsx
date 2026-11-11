@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,9 +8,10 @@ import {
   TextInput,
   ActivityIndicator,
   Modal,
-  Alert,
+  KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import {
   Heart,
@@ -20,6 +21,7 @@ import {
   ShieldCheck,
   Send,
   Sparkles,
+  Check,
 } from 'lucide-react-native';
 import {
   getAnonymousPostsApi,
@@ -41,71 +43,102 @@ interface MobileTheme {
   bg: string;
   border: string;
   text: string;
+  mutedText: string;
   tagBg: string;
   tagText: string;
 }
 
-const THEMES: MobileTheme[] = [
-  {
-    id: 'sunset',
-    name: 'Hoàng hôn',
-    bg: '#FEF3C7',
-    border: '#FDE68A',
-    text: '#78350F',
-    tagBg: '#FDE68A',
-    tagText: '#92400E',
-  },
-  {
-    id: 'ocean',
-    name: 'Đại dương',
-    bg: '#E0F2FE',
-    border: '#BAE6FD',
-    text: '#0C4A6E',
-    tagBg: '#BAE6FD',
-    tagText: '#0369A1',
-  },
-  {
-    id: 'lavender',
-    name: 'Oải hương',
-    bg: '#F3E8FF',
-    border: '#E9D5FF',
-    text: '#581C87',
-    tagBg: '#E9D5FF',
-    tagText: '#7E22CE',
-  },
-  {
-    id: 'rose',
-    name: 'Hoa hồng',
-    bg: '#FFE4E6',
-    border: '#FECDD3',
-    text: '#881337',
-    tagBg: '#FECDD3',
-    tagText: '#BE123C',
-  },
-  {
-    id: 'mint',
-    name: 'Bạc hà',
-    bg: '#D1FAE5',
-    border: '#A7F3D0',
-    text: '#064E3B',
-    tagBg: '#A7F3D0',
-    tagText: '#047857',
-  },
-];
-
 export const MobileAnonymousView: React.FC<MobileAnonymousViewProps> = ({ circleId }) => {
   const { colors, resolvedTheme } = useThemeStore();
   const isDark = resolvedTheme === 'dark';
-  const { t } = useLanguageStore();
+  const { t, locale } = useLanguageStore();
+  const insets = useSafeAreaInsets();
+  const dateLocale = locale === 'vi' ? 'vi-VN' : 'en-US';
+  const topClearance = Math.max(insets.top + 52, Platform.OS === 'ios' ? 74 : 64);
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
+  const cardThemes: MobileTheme[] = useMemo(() => [
+    {
+      id: 'sunset',
+      name: t.collab.anonymousThemeSunset,
+      bg: '#FEF3C7',
+      border: '#FDE68A',
+      text: '#78350F',
+      mutedText: '#92400E',
+      tagBg: '#FDE68A',
+      tagText: '#92400E',
+    },
+    {
+      id: 'ocean',
+      name: t.collab.anonymousThemeOcean,
+      bg: '#E0F2FE',
+      border: '#BAE6FD',
+      text: '#0C4A6E',
+      mutedText: '#0369A1',
+      tagBg: '#BAE6FD',
+      tagText: '#0369A1',
+    },
+    {
+      id: 'lavender',
+      name: t.collab.anonymousThemeLavender,
+      bg: '#F3E8FF',
+      border: '#E9D5FF',
+      text: '#581C87',
+      mutedText: '#6B21A8',
+      tagBg: '#E9D5FF',
+      tagText: '#7E22CE',
+    },
+    {
+      id: 'rose',
+      name: t.collab.anonymousThemeRose,
+      bg: '#FFE4E6',
+      border: '#FECDD3',
+      text: '#881337',
+      mutedText: '#9F1239',
+      tagBg: '#FECDD3',
+      tagText: '#BE123C',
+    },
+    {
+      id: 'mint',
+      name: t.collab.anonymousThemeMint,
+      bg: '#D1FAE5',
+      border: '#A7F3D0',
+      text: '#064E3B',
+      mutedText: '#047857',
+      tagBg: '#A7F3D0',
+      tagText: '#047857',
+    },
+  ], [t]);
 
   const [posts, setPosts] = useState<AnonymousPostEntity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Inline feedback & 2-step delete confirmation (zero Alert.alert)
+  const [statusNotice, setStatusNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const statusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // Compose modal
   const [isComposeModalOpen, setIsComposeModalOpen] = useState(false);
   const [content, setContent] = useState('');
   const [selectedTheme, setSelectedTheme] = useState('sunset');
+  const [formError, setFormError] = useState<string | null>(null);
+  const [isSending, setIsSending] = useState(false);
+
+  const showNotice = (message: string, type: 'success' | 'error' = 'error') => {
+    if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
+    setStatusNotice({ type, message });
+    statusTimerRef.current = setTimeout(() => {
+      setStatusNotice(null);
+    }, 3200);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
+    };
+  }, []);
 
   const loadPosts = async () => {
     try {
@@ -113,7 +146,7 @@ export const MobileAnonymousView: React.FC<MobileAnonymousViewProps> = ({ circle
       const data = await getAnonymousPostsApi(circleId);
       setPosts(data);
     } catch (err: any) {
-      Alert.alert('Lỗi', err.message || 'Không thể tải lời nhắn ẩn danh');
+      showNotice(err?.message || t.collab.loadNotesError, 'error');
     } finally {
       setIsLoading(false);
     }
@@ -125,11 +158,13 @@ export const MobileAnonymousView: React.FC<MobileAnonymousViewProps> = ({ circle
 
   const handleCreatePost = async () => {
     if (!content.trim()) {
-      Alert.alert('Thông báo', 'Vui lòng nhập nội dung tâm sự');
+      setFormError(t.collab.enterNoteContentError);
       return;
     }
 
     try {
+      setIsSending(true);
+      setFormError(null);
       await createAnonymousPostApi(circleId, {
         content: content.trim(),
         cardTheme: selectedTheme,
@@ -138,49 +173,85 @@ export const MobileAnonymousView: React.FC<MobileAnonymousViewProps> = ({ circle
       setContent('');
       setIsComposeModalOpen(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      showNotice(t.collab.anonymousSentSuccess, 'success');
       loadPosts();
     } catch (err: any) {
-      Alert.alert('Lỗi', err.message || 'Không thể gửi tâm sự');
+      setFormError(err?.message || t.collab.sendNoteError);
+    } finally {
+      setIsSending(false);
     }
   };
 
-  const handleDeletePost = (postId: string) => {
-    Alert.alert('Gỡ lời nhắn', 'Bạn có chắc chắn muốn gỡ bỏ lời nhắn này khỏi nhóm?', [
-      { text: 'Hủy', style: 'cancel' },
-      {
-        text: 'Gỡ bỏ',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await deleteAnonymousPostApi(circleId, postId);
-            loadPosts();
-          } catch (err: any) {
-            Alert.alert('Lỗi', err.message || 'Không thể gỡ bài viết');
-          }
-        },
-      },
-    ]);
+  const handleConfirmDeletePost = async (postId: string) => {
+    if (deletingId) return;
+    try {
+      setDeletingId(postId);
+      await deleteAnonymousPostApi(circleId, postId);
+      setConfirmDeleteId(null);
+      loadPosts();
+    } catch (err: any) {
+      showNotice(err?.message || t.collab.deleteNoteError, 'error');
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.canvas }]}>
+      {statusNotice && (
+        <View pointerEvents="box-none" style={[styles.noticeWrapper, { top: topClearance + 4 }]}>
+          <View
+            style={[
+              styles.noticeBanner,
+              {
+                backgroundColor: colors.surface,
+                borderColor: statusNotice.type === 'success' ? colors.sage : '#DC2626',
+              },
+            ]}
+          >
+            {statusNotice.type === 'success' ? (
+              <Check size={14} color={colors.sage} />
+            ) : (
+              <X size={14} color="#DC2626" />
+            )}
+            <Text style={[styles.noticeText, { color: colors.text }]} numberOfLines={2}>
+              {statusNotice.message}
+            </Text>
+            <TouchableOpacity
+              onPress={() => setStatusNotice(null)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <X size={14} color={colors.subtle} />
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
       {/* Scroll-under Content Layer */}
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: topClearance, paddingBottom: Math.max(insets.bottom + 80, 100) },
+        ]}
+      >
         {/* Security Banner */}
         <View style={styles.securityBanner}>
-          <ShieldCheck size={18} color="#059669" />
+          <ShieldCheck size={18} color={colors.sage} />
           <Text style={styles.securityText}>
-            <Text style={{ fontWeight: '700' }}>Bảo Mật Tuyệt Đối: </Text>
-            Lời nhắn được bóc tách 100% danh tính và không lưu vết người gửi trên hệ thống.
+            <Text style={{ fontWeight: '700' }}>{`${t.collab.anonymousSecurityTitle} `}</Text>
+            {t.collab.anonymousPrivacyNotice}
           </Text>
         </View>
 
         {isLoading ? (
-          <ActivityIndicator size="large" color="#475569" style={{ marginTop: 40 }} />
+          <ActivityIndicator size="large" color={colors.sage} style={{ marginTop: 40 }} />
         ) : posts.length > 0 ? (
           <View style={{ gap: 12 }}>
             {posts.map((post) => {
-              const th = THEMES.find((t) => t.id === post.cardTheme) || THEMES[0]!;
+              const th = cardThemes.find((item) => item.id === post.cardTheme) || cardThemes[0]!;
+              const isConfirming = confirmDeleteId === post.id;
+              const isDeletingThis = deletingId === post.id;
+
               return (
                 <View
                   key={post.id}
@@ -192,11 +263,15 @@ export const MobileAnonymousView: React.FC<MobileAnonymousViewProps> = ({ circle
                   <View style={styles.cardHeader}>
                     <View style={[styles.tag, { backgroundColor: th.tagBg }]}>
                       <Text style={[styles.tagText, { color: th.tagText }]}>
-                        Người gửi ẩn danh
+                        {t.nav.anonymousSender}
                       </Text>
                     </View>
-                    <TouchableOpacity onPress={() => handleDeletePost(post.id)}>
-                      <Trash2 size={14} color="#94A3B8" />
+                    <TouchableOpacity
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      onPress={() => setConfirmDeleteId(isConfirming ? null : post.id)}
+                      accessibilityLabel={t.collab.anonymousRemoveTooltip}
+                    >
+                      <Trash2 size={14} color={th.mutedText} />
                     </TouchableOpacity>
                   </View>
 
@@ -204,32 +279,69 @@ export const MobileAnonymousView: React.FC<MobileAnonymousViewProps> = ({ circle
                     {post.content}
                   </Text>
 
-                  <View style={styles.cardFooter}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                      <Sparkles size={11} color="#64748B" />
-                      <Text style={styles.footerText}>Điều muốn nói</Text>
+                  {isConfirming ? (
+                    <View style={[styles.cardConfirmRow, { borderTopColor: th.border }]}>
+                      <Text style={[styles.cardConfirmText, { color: th.text }]} numberOfLines={2}>
+                        {t.collab.anonymousRemoveConfirm}
+                      </Text>
+                      <View style={{ flexDirection: 'row', gap: 6 }}>
+                        <TouchableOpacity
+                          disabled={isDeletingThis}
+                          onPress={() => setConfirmDeleteId(null)}
+                          style={[styles.cardCancelBtn, { backgroundColor: 'rgba(255,255,255,0.65)', borderColor: th.border }]}
+                        >
+                          <Text style={[styles.cardCancelText, { color: th.text }]}>
+                            {t.common.cancel}
+                          </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          disabled={isDeletingThis}
+                          onPress={() => handleConfirmDeletePost(post.id)}
+                          style={styles.cardDangerBtn}
+                        >
+                          {isDeletingThis ? (
+                            <ActivityIndicator size="small" color="#FFFFFF" />
+                          ) : (
+                            <Text style={styles.cardDangerText}>
+                              {t.collab.anonymousRemoveAction}
+                            </Text>
+                          )}
+                        </TouchableOpacity>
+                      </View>
                     </View>
-                    <Text style={styles.footerText}>
-                      {new Date(post.postedAt).toLocaleDateString('vi-VN')}
-                    </Text>
-                  </View>
+                  ) : (
+                    <View style={styles.cardFooter}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                        <Sparkles size={11} color={th.mutedText} />
+                        <Text style={[styles.footerText, { color: th.mutedText }]}>
+                          {t.collab.anonymousCardTag}
+                        </Text>
+                      </View>
+                      <Text style={[styles.footerText, { color: th.mutedText }]}>
+                        {new Date(post.postedAt).toLocaleDateString(dateLocale)}
+                      </Text>
+                    </View>
+                  )}
                 </View>
               );
             })}
           </View>
         ) : (
           <View style={[styles.emptyContainer, { backgroundColor: colors.canvas }]}>
-            <Heart size={48} color="#94A3B8" />
-            <Text style={[styles.emptyTitle, { color: colors.text }]}>Hộp thư đang trống</Text>
-            <Text style={styles.emptySub}>
-              Hãy là người đầu tiên gửi lời cảm ơn hoặc tâm sự ẩn danh đến vòng tròn!
-            </Text>
+            <Heart size={48} color={colors.subtle} />
+            <Text style={[styles.emptyTitle, { color: colors.text }]}>{t.collab.notesEmptyTitle}</Text>
+            <Text style={styles.emptySub}>{t.collab.notesEmptyDesc}</Text>
             <TouchableOpacity
-              style={styles.createEmptyBtn}
-              onPress={() => setIsComposeModalOpen(true)}
+              style={[styles.createEmptyBtn, { backgroundColor: colors.primary }]}
+              onPress={() => {
+                setFormError(null);
+                setIsComposeModalOpen(true);
+              }}
             >
-              <Plus size={16} color="#FFFFFF" />
-              <Text style={styles.createEmptyText}>Gửi Tâm Sự Ngay</Text>
+              <Plus size={16} color={colors.onPrimary} />
+              <Text style={[styles.createEmptyText, { color: colors.onPrimary }]}>
+                {t.collab.createAnonymousNote}
+              </Text>
             </TouchableOpacity>
           </View>
         )}
@@ -238,35 +350,67 @@ export const MobileAnonymousView: React.FC<MobileAnonymousViewProps> = ({ circle
       {/* Floating Action Button (FAB) */}
       <TouchableOpacity
         activeOpacity={0.85}
-        onPress={() => setIsComposeModalOpen(true)}
+        onPress={() => {
+          setFormError(null);
+          setIsComposeModalOpen(true);
+        }}
         style={[
           styles.fab,
           {
+            bottom: Math.max(insets.bottom + 16, 24),
             backgroundColor: colors.primary,
-            shadowColor: colors.primary,
           },
         ]}
       >
-        <Plus size={18} color="#FFF" />
-        <Text style={styles.fabText}>Gửi lời nhắn</Text>
+        <Plus size={18} color={colors.onPrimary} />
+        <Text style={[styles.fabText, { color: colors.onPrimary }]}>{t.collab.createAnonymousNote}</Text>
       </TouchableOpacity>
 
       {/* Compose Modal */}
-      <Modal visible={isComposeModalOpen} transparent animationType="slide">
-        <View style={styles.modalBackdrop}>
-          <View style={[styles.modalContent, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+      <Modal
+        visible={isComposeModalOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setIsComposeModalOpen(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalBackdrop}
+        >
+          <View
+            style={[
+              styles.modalContent,
+              {
+                backgroundColor: colors.surface,
+                borderColor: colors.hairline,
+                paddingBottom: Math.max(insets.bottom + 16, 20),
+              },
+            ]}
+          >
             <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: colors.text }]}>Gửi Lời Nhắn Ẩn Danh</Text>
-              <TouchableOpacity onPress={() => setIsComposeModalOpen(false)}>
-                <X size={20} color="#64748B" />
+              <Text style={[styles.modalTitle, { color: colors.text }]}>
+                {t.collab.anonymousComposeTitle}
+              </Text>
+              <TouchableOpacity
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                onPress={() => setIsComposeModalOpen(false)}
+                accessibilityLabel={t.common.close}
+              >
+                <X size={20} color={colors.subtle} />
               </TouchableOpacity>
             </View>
 
+            {formError && (
+              <View style={styles.formErrorBox}>
+                <Text style={styles.formErrorText}>{formError}</Text>
+              </View>
+            )}
+
             {/* Theme Picker */}
             <View style={styles.formGroup}>
-              <Text style={styles.label}>Màu thiệp trang trí</Text>
+              <Text style={styles.label}>{t.collab.anonymousThemeLabel}</Text>
               <View style={styles.themesRow}>
-                {THEMES.map((th) => (
+                {cardThemes.map((th) => (
                   <TouchableOpacity
                     key={th.id}
                     style={[
@@ -285,34 +429,52 @@ export const MobileAnonymousView: React.FC<MobileAnonymousViewProps> = ({ circle
             </View>
 
             <View style={styles.formGroup}>
-              <Text style={styles.label}>Nội dung tâm sự *</Text>
+              <Text style={styles.label}>{t.collab.anonymousContentLabel}</Text>
               <TextInput
                 style={styles.textArea}
-                placeholder="Viết điều bạn muốn nhắn nhủ một cách chân thành..."
-                placeholderTextColor="#94A3B8"
+                placeholder={t.collab.anonymousContentExample}
+                placeholderTextColor={colors.subtle}
                 multiline
                 numberOfLines={4}
                 maxLength={1000}
                 value={content}
-                onChangeText={setContent}
+                onChangeText={(txt) => {
+                  setContent(txt);
+                  if (formError) setFormError(null);
+                }}
               />
-              <Text style={styles.charCount}>{content.length}/1000 ký tự</Text>
+              <Text style={styles.charCount}>
+                {t.collab.anonymousCharCount.replace('{count}', String(content.length))}
+              </Text>
             </View>
 
             <View style={styles.modalButtons}>
               <TouchableOpacity
                 style={styles.cancelBtn}
+                disabled={isSending}
                 onPress={() => setIsComposeModalOpen(false)}
               >
-                <Text style={styles.cancelText}>Hủy</Text>
+                <Text style={styles.cancelText}>{t.common.cancel}</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.submitBtn} onPress={handleCreatePost}>
-                <Send size={14} color="#FFFFFF" />
-                <Text style={styles.submitText}>Gửi lời nhắn</Text>
+              <TouchableOpacity
+                style={[styles.submitBtn, { backgroundColor: colors.primary }]}
+                disabled={isSending}
+                onPress={handleCreatePost}
+              >
+                {isSending ? (
+                  <ActivityIndicator size="small" color={colors.onPrimary} />
+                ) : (
+                  <>
+                    <Send size={14} color={colors.onPrimary} />
+                    <Text style={[styles.submitText, { color: colors.onPrimary }]}>
+                      {t.collab.anonymousComposeSubmit}
+                    </Text>
+                  </>
+                )}
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
@@ -323,48 +485,11 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
     flex: 1,
     backgroundColor: colors.canvas,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-    backgroundColor: colors.surface,
-  },
-  screenTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  screenSub: {
-    fontSize: 11,
-    color: colors.subtle,
-    marginTop: 2,
-  },
-  createBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: colors.primary,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  createBtnText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
-  },
   content: {
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'ios' ? 74 : 64,
-    paddingBottom: 100,
   },
   fab: {
     position: 'absolute',
-    bottom: 24,
     right: 16,
     flexDirection: 'row',
     alignItems: 'center',
@@ -372,8 +497,9 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 18,
     borderRadius: 999,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.22,
     shadowRadius: 8,
     elevation: 4,
     zIndex: 20,
@@ -381,15 +507,14 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   fabText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#FFF',
   },
   securityBanner: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 8,
-    backgroundColor: '#ECFDF5',
+    backgroundColor: isDark ? 'rgba(52, 211, 153, 0.12)' : '#ECFDF5',
     borderWidth: 1,
-    borderColor: '#A7F3D0',
+    borderColor: isDark ? 'rgba(52, 211, 153, 0.30)' : '#A7F3D0',
     padding: 12,
     borderRadius: 12,
     marginBottom: 16,
@@ -397,7 +522,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   securityText: {
     flex: 1,
     fontSize: 11,
-    color: '#065F46',
+    color: isDark ? '#D1FAE5' : '#065F46',
     lineHeight: 16,
   },
   postCard: {
@@ -432,11 +557,49 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
     marginTop: 12,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.05)',
+    borderTopColor: 'rgba(0,0,0,0.08)',
   },
   footerText: {
     fontSize: 10,
-    color: colors.subtle,
+    fontWeight: '600',
+  },
+  cardConfirmRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+  },
+  cardConfirmText: {
+    flex: 1,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  cardCancelBtn: {
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  cardCancelText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  cardDangerBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
+    backgroundColor: '#DC2626',
+    minWidth: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardDangerText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
   },
   emptyContainer: {
     flex: 1,
@@ -462,16 +625,14 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: colors.primary,
     paddingHorizontal: 16,
     paddingVertical: 10,
-    borderRadius: 10,
+    borderRadius: 12,
     marginTop: 16,
   },
   createEmptyText: {
-    color: '#FFFFFF',
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   modalBackdrop: {
     flex: 1,
@@ -482,6 +643,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
     backgroundColor: colors.surface,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
+    borderTopWidth: 1,
     padding: 20,
   },
   modalHeader: {
@@ -494,6 +656,20 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: colors.text,
+  },
+  formErrorBox: {
+    backgroundColor: isDark ? 'rgba(220, 38, 38, 0.14)' : 'rgba(220, 38, 38, 0.08)',
+    borderWidth: 1,
+    borderColor: '#DC2626',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 12,
+  },
+  formErrorText: {
+    color: colors.danger,
+    fontSize: 12,
+    fontWeight: '600',
   },
   formGroup: {
     marginBottom: 12,
@@ -518,7 +694,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   },
   themeBtnSelected: {
     borderWidth: 2,
-    borderColor: '#0F172A',
+    borderColor: colors.text,
   },
   themeBtnText: {
     fontSize: 10,
@@ -560,15 +736,41 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   submitBtn: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 6,
-    backgroundColor: colors.primary,
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingVertical: 9,
+    borderRadius: 10,
+    minWidth: 112,
   },
   submitText: {
-    color: '#FFFFFF',
     fontSize: 13,
+    fontWeight: '700',
+  },
+  noticeWrapper: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    zIndex: 45,
+    alignItems: 'center',
+  },
+  noticeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 14,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.16,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  noticeText: {
+    flex: 1,
+    fontSize: 12,
     fontWeight: '600',
   },
 });

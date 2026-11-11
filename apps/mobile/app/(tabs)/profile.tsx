@@ -5,12 +5,12 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  Alert,
   Platform,
   Switch,
   Image as RNImage,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Shield,
   LogOut,
@@ -18,12 +18,12 @@ import {
   Camera,
   Laptop,
   Globe,
-  Sliders,
   ChevronRight,
   Palette,
   HelpCircle,
   ArrowLeft,
   Key,
+  AlertCircle,
 } from 'lucide-react-native';
 import { useThemeStore } from '../../src/stores/theme.store';
 import { useLanguageStore } from '../../src/stores/language.store';
@@ -46,12 +46,12 @@ function getInitials(name: string): string {
 
 export default function ProfileTab() {
   const router = useRouter();
-  const { colors, theme, resolvedTheme, setTheme, uiStyle } = useThemeStore();
-  const { locale, setLocale, t } = useLanguageStore();
+  const insets = useSafeAreaInsets();
+  const { colors, theme, uiStyle } = useThemeStore();
+  const { locale, t } = useLanguageStore();
   const { user, logout } = useAuthStore();
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
 
-  const isDark = resolvedTheme === 'dark';
   const displayName = user?.profile?.displayName || user?.email?.split('@')[0] || t.auth.guest;
   const handle = user?.profile?.handle || user?.email?.split('@')[0];
   const avatarUrl = user?.profile?.avatarUrl;
@@ -61,6 +61,8 @@ export default function ProfileTab() {
   const [modalMode, setModalMode] = useState<'edit' | 'avatar'>('edit');
   const [hasBiometrics, setHasBiometrics] = useState(false);
   const [biometricEnabled, setBiometricEnabled] = useState(false);
+  const [biometricError, setBiometricError] = useState<string | null>(null);
+  const [confirmingLogout, setConfirmingLogout] = useState(false);
   const [activeSettingsSubView, setActiveSettingsSubView] = useState<
     'appearance' | 'security' | 'sessions' | 'language' | 'help' | null
   >(null);
@@ -79,13 +81,14 @@ export default function ProfileTab() {
   }, []);
 
   const handleToggleBiometric = async (value: boolean) => {
+    setBiometricError(null);
     if (value) {
       const success = await authenticateWithBiometrics(t.auth.biometricPrompt);
       if (success) {
         await setBiometricUnlockEnabled(true);
         setBiometricEnabled(true);
       } else {
-        Alert.alert(t.auth.biometricTitle, t.auth.biometricFailed);
+        setBiometricError(t.auth.biometricFailed);
       }
     } else {
       await setBiometricUnlockEnabled(false);
@@ -103,22 +106,10 @@ export default function ProfileTab() {
     setIsEditModalVisible(true);
   };
 
-  const handleLogout = () => {
-    Alert.alert(
-      t.auth.logout,
-      t.auth.logoutConfirm,
-      [
-        { text: t.common.cancel, style: 'cancel' },
-        {
-          text: t.auth.logout,
-          style: 'destructive',
-          onPress: async () => {
-            await logout();
-            router.replace('/(auth)/login');
-          },
-        },
-      ],
-    );
+  const handleConfirmLogout = async () => {
+    setConfirmingLogout(false);
+    await logout();
+    router.replace('/(auth)/login');
   };
 
   const getSubHeaderTitle = (view: 'appearance' | 'security' | 'sessions' | 'language' | 'help') => {
@@ -140,11 +131,18 @@ export default function ProfileTab() {
   if (activeSettingsSubView !== null) {
     return (
       <View style={[styles.container, { backgroundColor: colors.canvas }]}>
-        <View style={[styles.headerBar, { backgroundColor: colors.canvas }]}>
+        <View
+          style={[
+            styles.headerBar,
+            { backgroundColor: colors.canvas, paddingTop: insets.top + 8 },
+          ]}
+        >
           <TouchableOpacity
             activeOpacity={0.7}
             onPress={() => setActiveSettingsSubView(null)}
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
             style={[styles.headerBackBtn, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
+            accessibilityLabel={t.common.back}
           >
             <ArrowLeft size={18} color={colors.text} />
           </TouchableOpacity>
@@ -161,13 +159,22 @@ export default function ProfileTab() {
   return (
     <View style={[styles.container, { backgroundColor: colors.canvas }]}>
       {/* Top Floating Glass Header (Floating glass controls with scroll-under content) */}
-      <View style={styles.headerBar} pointerEvents="box-none">
+      <View
+        style={[styles.headerBar, { paddingTop: insets.top + 8 }]}
+        pointerEvents="box-none"
+      >
         <Text style={[styles.headerTitle, { color: colors.text }]}>
           {t.auth.profile}
         </Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingTop: insets.top + 68 },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Profile Card */}
         <View
           style={[
@@ -191,7 +198,12 @@ export default function ProfileTab() {
                 <Text style={[styles.avatarText, { color: colors.onPrimary }]}>{initials}</Text>
               )}
             </View>
-            <View style={[styles.avatarEditBadge, { backgroundColor: colors.primary }]}>
+            <View
+              style={[
+                styles.avatarEditBadge,
+                { backgroundColor: colors.primary, borderColor: colors.surface },
+              ]}
+            >
               <Camera size={12} color={colors.onPrimary} />
             </View>
           </TouchableOpacity>
@@ -201,7 +213,7 @@ export default function ProfileTab() {
           </Text>
 
           <View style={[styles.handleBadge, { backgroundColor: `${colors.primary}15` }]}>
-            <Text style={[styles.handleText, { color: colors.primary }]}>
+            <Text style={[styles.handleText, { color: colors.sage }]}>
               @{handle}
             </Text>
           </View>
@@ -214,8 +226,9 @@ export default function ProfileTab() {
           {/* Date of Birth Badge */}
           {dateOfBirth ? (
             <View style={[styles.dobBadge, { backgroundColor: `${colors.primary}15` }]}>
-              <Text style={[styles.dobText, { color: colors.primary }]}>
-                {t.auth.dateOfBirth}: {new Date(dateOfBirth).toLocaleDateString('vi-VN')}
+              <Text style={[styles.dobText, { color: colors.sage }]}>
+                {t.auth.dateOfBirth}:{' '}
+                {new Date(dateOfBirth).toLocaleDateString(locale === 'en' ? 'en-US' : 'vi-VN')}
               </Text>
             </View>
           ) : null}
@@ -224,7 +237,7 @@ export default function ProfileTab() {
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={handleOpenEdit}
-            style={[styles.editProfileBtn, { backgroundColor: colors.primary }]}
+            style={[styles.editProfileBtn, { backgroundColor: colors.primary, borderColor: colors.primary }]}
           >
             <Edit3 size={14} color={colors.onPrimary} />
             <Text style={[styles.editProfileBtnText, { color: colors.onPrimary }]}>
@@ -236,7 +249,7 @@ export default function ProfileTab() {
         {/* System Settings Section (Embedded directly on Profile page, single unified source) */}
         <View style={styles.settingsSectionWrapper}>
           <Text style={[styles.sectionGroupTitle, { color: colors.subtle }]}>
-            {t.common.systemSettings || 'CÀI ĐẶT HỆ THỐNG'}
+            {t.common.systemSettings}
           </Text>
           <View style={[styles.settingsCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
             {/* 1. Giao diện */}
@@ -251,7 +264,8 @@ export default function ProfileTab() {
                   {t.common.theme}
                 </Text>
                 <Text style={[styles.menuRowSubtitle, { color: colors.subtle }]}>
-                  {uiStyle === 'flat' ? 'Flat' : 'Glass'} • {theme === 'dark' ? t.common.themeDark : theme === 'light' ? t.common.themeLight : t.common.themeSystem}
+                  {uiStyle === 'flat' ? t.nav.flatDesignDefault : t.nav.liquidGlass} •{' '}
+                  {theme === 'dark' ? t.common.themeDark : theme === 'light' ? t.common.themeLight : t.common.themeSystem}
                 </Text>
               </View>
               <ChevronRight size={18} color={colors.subtle} />
@@ -291,6 +305,24 @@ export default function ProfileTab() {
                 thumbColor={colors.surface}
               />
             </View>
+
+            {biometricError ? (
+              <View
+                style={[
+                  styles.inlineErrorRow,
+                  {
+                    backgroundColor: `${colors.coral}14`,
+                    borderBottomColor: colors.hairline,
+                    borderBottomWidth: StyleSheet.hairlineWidth,
+                  },
+                ]}
+              >
+                <AlertCircle size={14} color={colors.coral} />
+                <Text style={[styles.inlineErrorText, { color: colors.coral }]}>
+                  {biometricError}
+                </Text>
+              </View>
+            ) : null}
 
             {/* 3. Mật khẩu & Bảo mật */}
             <TouchableOpacity
@@ -369,23 +401,56 @@ export default function ProfileTab() {
           </View>
         </View>
 
-        {/* Logout Button */}
-        <TouchableOpacity
-          onPress={handleLogout}
-          style={[
-            styles.logoutBtn,
-            {
-              backgroundColor: colors.surface,
-              borderColor: `${colors.coral}40`,
-            },
-          ]}
-          activeOpacity={0.8}
-        >
-          <LogOut size={16} color={colors.coral} />
-          <Text style={[styles.logoutText, { color: colors.coral }]}>
-            {t.auth.logout}
-          </Text>
-        </TouchableOpacity>
+        {/* Logout Inline Confirm / Button */}
+        {confirmingLogout ? (
+          <View
+            style={[
+              styles.logoutConfirmCard,
+              { backgroundColor: colors.surface, borderColor: `${colors.coral}50` },
+            ]}
+          >
+            <Text style={[styles.logoutConfirmText, { color: colors.text }]}>
+              {t.auth.logoutConfirm}
+            </Text>
+            <View style={styles.logoutConfirmRow}>
+              <TouchableOpacity
+                onPress={() => setConfirmingLogout(false)}
+                style={[styles.logoutConfirmBtn, { backgroundColor: colors.wash }]}
+                activeOpacity={0.75}
+              >
+                <Text style={[styles.logoutConfirmBtnText, { color: colors.text }]}>
+                  {t.common.cancel}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleConfirmLogout}
+                style={[styles.logoutConfirmBtn, { backgroundColor: colors.coral }]}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.logoutConfirmBtnText, { color: '#FFFFFF' }]}>
+                  {t.auth.logout}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : (
+          <TouchableOpacity
+            onPress={() => setConfirmingLogout(true)}
+            style={[
+              styles.logoutBtn,
+              {
+                backgroundColor: colors.surface,
+                borderColor: `${colors.coral}40`,
+              },
+            ]}
+            activeOpacity={0.8}
+          >
+            <LogOut size={16} color={colors.coral} />
+            <Text style={[styles.logoutText, { color: colors.coral }]}>
+              {t.auth.logout}
+            </Text>
+          </TouchableOpacity>
+        )}
       </ScrollView>
 
       {/* Edit Profile Modal */}
@@ -458,7 +523,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: '#FFFFFF',
   },
   avatarText: { fontSize: 28, fontWeight: '800' },
   nameText: { fontSize: 20, fontWeight: '800', marginBottom: 2 },
@@ -583,4 +647,43 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   logoutText: { fontSize: 14, fontWeight: '700' },
+  inlineErrorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  inlineErrorText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  logoutConfirmCard: {
+    borderRadius: 22,
+    borderWidth: 1,
+    padding: 16,
+    gap: 12,
+    marginTop: 8,
+  },
+  logoutConfirmText: {
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  logoutConfirmRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  logoutConfirmBtn: {
+    flex: 1,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoutConfirmBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
 });

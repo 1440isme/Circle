@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Trash2, X, User, Users, AlertTriangle, Loader2 } from 'lucide-react';
 import { ClearChatMode } from '@circle/types';
 import { useLanguageStore } from '../../stores/language.store';
@@ -21,6 +21,15 @@ export const ClearChatModal: React.FC<ClearChatModalProps> = ({
   const t = useLanguageStore((s) => s.t);
   const [selectedMode, setSelectedMode] = useState<ClearChatMode>('FOR_ME');
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !isLoading) onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose, isLoading]);
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -29,19 +38,20 @@ export const ClearChatModal: React.FC<ClearChatModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
+    <div
+      onClick={(e) => e.target === e.currentTarget && !isLoading && onClose()}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fadeIn"
+    >
       <div
-        className="relative w-full max-w-md overflow-hidden rounded-3xl border border-circle-slate/15 dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface text-circle-charcoal dark:text-white shadow-2xl animate-scaleUp"
+        className="relative w-full max-w-md max-h-[90vh] overflow-y-auto rounded-3xl glass-sheet text-circle-charcoal dark:text-white shadow-2xl animate-scaleUp"
         role="dialog"
         aria-modal="true"
         aria-labelledby="clear-chat-title"
       >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-circle-slate/10 dark:border-white/10 px-6 py-5">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-rose-500/10 text-rose-500">
-              <Trash2 className="h-5 w-5" />
-            </div>
+          <div className="flex items-center gap-2.5">
+            <Trash2 className="h-5 w-5 text-rose-500 shrink-0" />
             <div>
               <h3 id="clear-chat-title" className="text-base font-bold text-circle-charcoal dark:text-white">
                 {t.chat.clearChatModalTitle}
@@ -52,6 +62,7 @@ export const ClearChatModal: React.FC<ClearChatModalProps> = ({
             type="button"
             onClick={onClose}
             disabled={isLoading}
+            aria-label={t.common.close}
             className="flex h-8 w-8 items-center justify-center rounded-full text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors"
           >
             <X className="h-4 w-4" />
@@ -79,11 +90,11 @@ export const ClearChatModal: React.FC<ClearChatModalProps> = ({
             />
             <div className="flex-1">
               <div className="flex items-center gap-2">
-                <User className="h-4 w-4 text-circle-primary" />
+                <User className="h-4 w-4 text-circle-sage dark:text-circle-primary" />
                 <span className="text-sm font-semibold text-circle-charcoal dark:text-white">
                   {t.chat.clearChatForMeTitle}
                 </span>
-                <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-circle-primary/10 text-circle-primary">
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-circle-primary/15 text-circle-sage dark:text-circle-primary">
                   {t.common.default}
                 </span>
               </div>
@@ -144,7 +155,7 @@ export const ClearChatModal: React.FC<ClearChatModalProps> = ({
             <button
               type="submit"
               disabled={isLoading}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-rose-500 hover:bg-rose-600 text-white text-sm font-semibold transition-all shadow-md shadow-rose-500/20 disabled:opacity-50"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-sm font-semibold transition-all shadow-md shadow-rose-500/20 disabled:opacity-50"
             >
               {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
               <span>{t.chat.clearChatAction}</span>

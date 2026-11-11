@@ -16,6 +16,7 @@ import {
   Vote,
   MapPin,
   Navigation,
+  AlertTriangle,
 } from 'lucide-react';
 import { MessageEntity, MessageType } from '@circle/types';
 import { useLanguageStore } from '../../stores/language.store';
@@ -31,6 +32,13 @@ interface ChatComposerProps {
   channelId: string;
   channelName: string;
   members?: any[];
+  typingUsers?: { userId: string; userName: string }[];
+  externalError?: string | null;
+  onDismissExternalError?: () => void;
+  pendingRecallId?: string | null;
+  isRecalling?: boolean;
+  onConfirmRecall?: () => Promise<void> | void;
+  onCancelRecall?: () => void;
   replyingMessage: MessageEntity | null;
   onCancelReply: () => void;
   editingMessage?: MessageEntity | null;
@@ -55,6 +63,13 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
   channelId,
   channelName,
   members = [],
+  typingUsers = [],
+  externalError,
+  onDismissExternalError,
+  pendingRecallId,
+  isRecalling = false,
+  onConfirmRecall,
+  onCancelRecall,
   replyingMessage,
   onCancelReply,
   editingMessage,
@@ -72,6 +87,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
   const [isPlusMenuOpen, setIsPlusMenuOpen] = useState(false);
   const [isCreatePollOpen, setIsCreatePollOpen] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
+  const [composerNotice, setComposerNotice] = useState<string | null>(null);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [mentionStartIndex, setMentionStartIndex] = useState<number | null>(null);
   const [mentionSelectedIndex, setMentionSelectedIndex] = useState(0);
@@ -84,33 +100,48 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
   const plusMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (!composerNotice) return;
+    const timer = setTimeout(() => setComposerNotice(null), 4500);
+    return () => clearTimeout(timer);
+  }, [composerNotice]);
+
+  useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (plusMenuRef.current && !plusMenuRef.current.contains(e.target as Node)) {
         setIsPlusMenuOpen(false);
       }
     };
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsPlusMenuOpen(false);
+      }
+    };
     if (isPlusMenuOpen) {
       document.addEventListener('mousedown', handleClickOutside);
+      window.addEventListener('keydown', handleEscape);
     }
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('keydown', handleEscape);
     };
   }, [isPlusMenuOpen]);
 
   const handleSendLocation = () => {
     setIsPlusMenuOpen(false);
-    setIsLocating(true);
+    setComposerNotice(null);
     if (!navigator.geolocation) {
-      sendLocationPayload(10.7828, 106.6958, 'Hồ Con Rùa, Quận 3, TP. Hồ Chí Minh');
+      setComposerNotice(t.common.locationUnsupported);
       return;
     }
 
+    setIsLocating(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        sendLocationPayload(pos.coords.latitude, pos.coords.longitude, 'Vị trí hiện tại');
+        sendLocationPayload(pos.coords.latitude, pos.coords.longitude, t.collab.locationCardTitle);
       },
       () => {
-        sendLocationPayload(10.7828, 106.6958, 'Hồ Con Rùa, Quận 3, TP. Hồ Chí Minh');
+        setIsLocating(false);
+        setComposerNotice(t.common.locationFetchError);
       },
       { timeout: 8000, enableHighAccuracy: true },
     );
@@ -128,8 +159,8 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
         content: `[LOCATION_PIN]:${JSON.stringify(payload)}`,
         type: MessageType.TEXT,
       });
-    } catch (err) {
-      console.error('Failed to send location pin:', err);
+    } catch (err: any) {
+      setComposerNotice(err?.message || t.chat.locationShareError);
     } finally {
       setIsLocating(false);
     }
@@ -211,7 +242,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
     if (!file) return;
 
     if (file.size > MAX_FILE_SIZE_BYTES) {
-      alert(t.chat.fileSizeLimit);
+      setComposerNotice(t.chat.fileSizeLimit);
       e.target.value = '';
       return;
     }
@@ -318,10 +349,17 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
     setIsSubmitting(true);
     try {
       if (editingMessage) {
+        if (trimmed === (editingMessage.content || '').trim()) {
+          onCancelEdit?.();
+          reportTyping(false);
+          setShowEmojiPicker(false);
+          setMentionQuery(null);
+          setMentionStartIndex(null);
+          return;
+        }
         if (onSaveEdit) {
           await onSaveEdit(editingMessage.id, trimmed);
         }
-        setContent('');
         onCancelEdit?.();
         reportTyping(false);
         setShowEmojiPicker(false);
@@ -371,7 +409,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
       setMentionQuery(null);
       setMentionStartIndex(null);
     } catch (err: any) {
-      alert(err.message || 'Failed to send message');
+      setComposerNotice(err?.message || t.chat.sendFailedAlert);
     } finally {
       setIsSubmitting(false);
     }
@@ -400,6 +438,12 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
         setMentionStartIndex(null);
         return;
       }
+    }
+
+    if (e.key === 'Escape' && editingMessage) {
+      e.preventDefault();
+      onCancelEdit?.();
+      return;
     }
 
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -432,6 +476,71 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
           className="hidden"
           onChange={(e) => handleFileChange(e, true)}
         />
+
+      {/* Typing Indicator Bar (Stacked smoothly above composer) */}
+      {typingUsers.length > 0 && (
+        <div className="mb-1 px-3 py-1 rounded-full glass self-start text-[11px] text-circle-slate dark:text-circle-dark-muted flex items-center gap-1.5 animate-pulse shadow-2xs">
+          <span className="flex h-1.5 w-1.5 rounded-full bg-circle-primary animate-ping" />
+          <span>
+            {t.chat.typingIndicator.replace(
+              '{names}',
+              typingUsers.map((u) => u.userName).join(', '),
+            )}
+          </span>
+        </div>
+      )}
+
+      {/* Inline Error / Notice Banner */}
+      {(externalError || composerNotice) && (
+        <div
+          role="alert"
+          className="mb-1 flex items-center justify-between gap-2 rounded-xl border border-rose-500/25 bg-rose-500/10 backdrop-blur-md px-3 py-2 text-xs text-rose-600 dark:text-rose-400 animate-in fade-in duration-150 shadow-sm"
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+            <span className="font-medium truncate">{externalError || composerNotice}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              if (externalError) onDismissExternalError?.();
+              setComposerNotice(null);
+            }}
+            aria-label={t.common.dismiss}
+            className="flex h-5 w-5 items-center justify-center rounded-full hover:bg-rose-500/15 transition-colors shrink-0"
+          >
+            <X className="h-3 w-3" />
+          </button>
+        </div>
+      )}
+
+      {/* Inline Recall Confirmation Bar */}
+      {pendingRecallId && (
+        <div className="mb-1 flex items-center justify-between gap-3 rounded-xl glass border-rose-500/30 px-3 py-2 text-xs shadow-md animate-in fade-in duration-150">
+          <span className="font-medium text-circle-charcoal dark:text-circle-dark-text">
+            {t.chat.recallConfirmInline}
+          </span>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              type="button"
+              disabled={isRecalling}
+              onClick={() => onCancelRecall?.()}
+              className="px-2.5 py-1 rounded-lg border border-circle-hairline dark:border-circle-dark-hairline text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash font-semibold transition-colors"
+            >
+              {t.chat.cancelBtn}
+            </button>
+            <button
+              type="button"
+              disabled={isRecalling}
+              onClick={() => onConfirmRecall?.()}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold transition-colors disabled:opacity-50"
+            >
+              {isRecalling && <Loader2 className="h-3 w-3 animate-spin" />}
+              <span>{t.chat.confirmBtn}</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Reply Quote Banner */}
       {replyingMessage && (
@@ -524,7 +633,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
 
       {/* Mention Autocomplete Popup (Minimalism: Name only) */}
       {mentionCandidates.length > 0 && (
-        <div className="absolute bottom-full mb-2 left-4 z-30 w-52 max-h-48 overflow-y-auto rounded-xl border border-circle-hairline bg-white/95 dark:bg-circle-dark-surface/95 dark:border-circle-dark-hairline backdrop-blur-md shadow-lg py-1 animate-in fade-in duration-100">
+        <div className="absolute bottom-full mb-2 left-4 z-30 w-52 max-h-48 overflow-y-auto rounded-xl glass shadow-lg py-1 animate-in fade-in duration-100">
           {mentionCandidates.map((name, idx) => (
             <button
               key={name}
@@ -535,7 +644,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
               }}
               className={`w-full text-left px-3 py-1.5 text-xs truncate transition-colors ${
                 idx === mentionSelectedIndex
-                  ? 'bg-circle-wash dark:bg-circle-dark-wash text-circle-primary font-semibold'
+                  ? 'bg-circle-wash dark:bg-circle-dark-wash text-circle-sage dark:text-circle-primary font-semibold'
                   : 'text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas'
               }`}
             >
@@ -562,7 +671,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
               onClick={() => setIsPlusMenuOpen(!isPlusMenuOpen)}
               className={`flex h-7 w-7 items-center justify-center rounded-full border-[1.5px] transition-all shrink-0 active:scale-95 ${
                 isPlusMenuOpen
-                  ? 'border-circle-primary bg-circle-primary text-white'
+                  ? 'border-circle-primary bg-circle-primary text-circle-charcoal dark:text-circle-dark-canvas'
                   : 'border-circle-slate/35 dark:border-circle-dark-hairline text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text hover:border-circle-charcoal/50 hover:bg-circle-wash dark:hover:bg-circle-dark-wash'
               }`}
               title={t.chat.attachFile}
@@ -572,7 +681,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
 
             {/* Attachment / Action Popover Menu */}
             {isPlusMenuOpen && (
-              <div className="absolute bottom-full left-0 mb-3 w-56 rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white/95 dark:bg-circle-dark-surface/95 backdrop-blur-md p-1.5 shadow-xl animate-in zoom-in-95 duration-150 z-30 flex flex-col gap-1">
+              <div className="absolute bottom-full left-0 mb-3 w-56 rounded-2xl glass p-1.5 shadow-xl animate-in zoom-in-95 duration-150 z-30 flex flex-col gap-1">
                 <button
                   type="button"
                   onClick={() => {
@@ -581,7 +690,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
                   }}
                   className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors text-left"
                 >
-                  <FileText className="w-4 h-4 text-circle-slate shrink-0" />
+                  <FileText className="w-4 h-4 text-circle-slate dark:text-circle-dark-muted shrink-0" />
                   <span>{t.chat.attachFile}</span>
                 </button>
 
@@ -594,7 +703,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
                     }}
                     className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors text-left"
                   >
-                    <Vote className="w-4 h-4 text-circle-primary shrink-0" />
+                    <Vote className="w-4 h-4 text-circle-sage dark:text-circle-primary shrink-0" />
                     <span>{t.collab.createPoll}</span>
                   </button>
                 )}
@@ -643,7 +752,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
             onClick={() => setShowEmojiPicker(!showEmojiPicker)}
             className={`flex h-7 w-7 items-center justify-center transition-colors shrink-0 active:scale-95 ${
               showEmojiPicker
-                ? 'text-circle-primary font-bold'
+                ? 'text-circle-sage dark:text-circle-primary font-bold'
                 : 'text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text'
             }`}
             title={t.chat.reactAction}
@@ -658,12 +767,12 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
           onClick={
             content.trim() || attachedFile
               ? handleSend
-              : () => alert(t.chat.voiceMessageComingSoon)
+              : () => setComposerNotice(t.chat.voiceMessageComingSoon)
           }
           disabled={(content.trim() || attachedFile) ? (isSubmitting || isUploading) : false}
           className={`flex h-12 w-12 items-center justify-center rounded-full shrink-0 transition-all active:scale-95 ${
             editingMessage
-              ? 'bg-amber-500 text-white shadow-sm hover:bg-amber-600'
+              ? 'bg-amber-600 text-white shadow-sm hover:bg-amber-700'
               : content.trim() || attachedFile
               ? 'chat-composer-send-btn-active shadow-sm'
               : isGlass
@@ -680,7 +789,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
             )
           ) : content.trim() || attachedFile ? (
             isSubmitting || isUploading ? (
-              <Loader2 className="h-5 w-5 animate-spin text-circle-charcoal" />
+              <Loader2 className="h-5 w-5 animate-spin text-current" />
             ) : (
               <Send className="h-5 w-5" />
             )

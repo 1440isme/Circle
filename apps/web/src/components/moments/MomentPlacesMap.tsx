@@ -1,11 +1,35 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { LocateFixed, MapPin, X } from 'lucide-react';
+import { useLanguageStore } from '@/stores/language.store';
+import { useThemeStore } from '@/stores/theme.store';
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
+
+function resolveTileConfig(isDark: boolean) {
+  if (MAPBOX_TOKEN) {
+    const mapboxStyle = isDark ? 'dark-v11' : 'streets-v12';
+    return {
+      url: `https://api.mapbox.com/styles/v1/mapbox/${mapboxStyle}/tiles/512/{z}/{x}/{y}@2x?access_token=${MAPBOX_TOKEN}`,
+      tileSize: 512,
+      zoomOffset: -1,
+      maxZoom: 22,
+      subdomains: undefined as string | undefined,
+      attribution: '© Mapbox © OpenStreetMap',
+    };
+  }
+  return {
+    url: `https://{s}.basemaps.cartocdn.com/${isDark ? 'dark_all' : 'light_all'}/{z}/{x}/{y}@2x.png`,
+    tileSize: 256,
+    zoomOffset: 0,
+    maxZoom: 20,
+    subdomains: 'abcd',
+    attribution: '© OpenStreetMap © CARTO',
+  };
+}
 
 export interface MapClusterPin {
   id: string;
@@ -31,14 +55,23 @@ export const MomentPlacesMap: React.FC<MomentPlacesMapProps> = ({
   selectedCluster,
   onSelectCluster,
   onViewClusterMoments,
-  locale = 'vi',
+  locale: propLocale,
 }) => {
-  const isVi = locale === 'vi';
+  const t = useLanguageStore((s) => s.t);
+  const storeLocale = useLanguageStore((s) => s.locale);
+  const activeLocale = propLocale || storeLocale;
+  const isVi = activeLocale === 'vi';
+  const resolvedTheme = useThemeStore((s) => s.resolvedTheme);
+  const isDark = resolvedTheme === 'dark';
+
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
+  const tileLayerRef = useRef<L.TileLayer | null>(null);
   const markersGroupRef = useRef<L.FeatureGroup | null>(null);
   const markersMapRef = useRef<Record<string, L.Marker>>({});
   const onSelectClusterRef = useRef(onSelectCluster);
+  const isDarkRef = useRef(isDark);
+  isDarkRef.current = isDark;
 
   useEffect(() => {
     onSelectClusterRef.current = onSelectCluster;
@@ -49,7 +82,6 @@ export const MomentPlacesMap: React.FC<MomentPlacesMapProps> = ({
     const container = containerRef.current;
     if (!container) return;
 
-    // Safeguard against React 18 StrictMode double mount & lingering Leaflet ID
     if ((container as any)._leaflet_id) {
       delete (container as any)._leaflet_id;
     }
@@ -68,28 +100,21 @@ export const MomentPlacesMap: React.FC<MomentPlacesMapProps> = ({
       return;
     }
 
-    // High-resolution Mapbox Vector/Raster Tiles (Streets-v12 / Dark-v11) with ESRI/OSM fallback
-    const isDark =
-      typeof document !== 'undefined' &&
-      document.documentElement.classList.contains('dark');
-    const mapboxStyle = isDark ? 'dark-v11' : 'streets-v12';
-    const tileUrl = MAPBOX_TOKEN
-      ? `https://api.mapbox.com/styles/v1/mapbox/${mapboxStyle}/tiles/512/{z}/{x}/{y}@2x?access_token=${MAPBOX_TOKEN}`
-      : 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}';
-
-    L.tileLayer(tileUrl, {
-      tileSize: MAPBOX_TOKEN ? 512 : 256,
-      zoomOffset: MAPBOX_TOKEN ? -1 : 0,
-      maxZoom: 22,
-      attribution: MAPBOX_TOKEN ? '© Mapbox © OpenStreetMap' : 'Esri',
+    const cfg = resolveTileConfig(isDarkRef.current);
+    const tileLayer = L.tileLayer(cfg.url, {
+      tileSize: cfg.tileSize,
+      zoomOffset: cfg.zoomOffset,
+      maxZoom: cfg.maxZoom,
+      ...(cfg.subdomains ? { subdomains: cfg.subdomains } : {}),
+      attribution: cfg.attribution,
     }).addTo(map);
+    tileLayerRef.current = tileLayer;
 
     const markersGroup = L.featureGroup().addTo(map);
 
     mapRef.current = map;
     markersGroupRef.current = markersGroup;
 
-    // Multi-stage invalidateSize to guarantee tiles load when container finishes painting
     const timer1 = setTimeout(() => {
       if (mapRef.current) mapRef.current.invalidateSize();
     }, 60);
@@ -119,9 +144,16 @@ export const MomentPlacesMap: React.FC<MomentPlacesMapProps> = ({
         delete (container as any)._leaflet_id;
       }
       mapRef.current = null;
+      tileLayerRef.current = null;
       markersGroupRef.current = null;
     };
   }, []);
+
+  // Update tiles seamlessly on Dark/Light theme change
+  useEffect(() => {
+    if (!tileLayerRef.current) return;
+    tileLayerRef.current.setUrl(resolveTileConfig(isDark).url);
+  }, [isDark]);
 
   // 2. Render Markers on Clusters Change (Only when clusters dataset changes)
   useEffect(() => {
@@ -225,19 +257,28 @@ export const MomentPlacesMap: React.FC<MomentPlacesMapProps> = ({
   };
 
   return (
-    <div className="relative w-full h-full min-h-[400px] overflow-hidden bg-slate-900 select-none">
+    <div
+      className={`relative w-full h-full min-h-[400px] overflow-hidden select-none ${
+        isDark ? 'places-map-dark bg-circle-dark-canvas' : 'places-map-light bg-circle-canvas'
+      }`}
+    >
       {/* Embedded CSS for custom Leaflet photo pins */}
       <style jsx global>{`
         .leaflet-container {
           width: 100% !important;
           height: 100% !important;
-          background: #0f172a !important;
           font-family: inherit !important;
           position: absolute !important;
           top: 0 !important;
           left: 0 !important;
           right: 0 !important;
           bottom: 0 !important;
+        }
+        .places-map-dark .leaflet-container {
+          background: #0f1115 !important;
+        }
+        .places-map-light .leaflet-container {
+          background: #faf9f7 !important;
         }
         .custom-pin-container {
           background: none !important;
@@ -262,7 +303,7 @@ export const MomentPlacesMap: React.FC<MomentPlacesMapProps> = ({
           width: 48px;
           height: 48px;
           border-radius: 24px;
-          background: #0f172a;
+          background: #181a20;
           border: 3px solid #ffffff;
           box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
           position: relative;
@@ -287,7 +328,7 @@ export const MomentPlacesMap: React.FC<MomentPlacesMapProps> = ({
           top: -3px;
           right: -3px;
           background: #10b981;
-          color: #ffffff;
+          color: #131316;
           font-size: 10px;
           font-weight: 800;
           padding: 1px 5px;
@@ -311,16 +352,27 @@ export const MomentPlacesMap: React.FC<MomentPlacesMapProps> = ({
           margin-right: 16px !important;
           margin-bottom: 24px !important;
         }
-        .leaflet-control-zoom a {
-          background: #1e293b !important;
-          color: #f8fafc !important;
+        .places-map-dark .leaflet-control-zoom a {
+          background: #181a20 !important;
+          color: #f3f4f6 !important;
           border: 1px solid rgba(255, 255, 255, 0.1) !important;
           width: 36px !important;
           height: 36px !important;
           line-height: 36px !important;
         }
-        .leaflet-control-zoom a:hover {
-          background: #334155 !important;
+        .places-map-dark .leaflet-control-zoom a:hover {
+          background: #27272a !important;
+        }
+        .places-map-light .leaflet-control-zoom a {
+          background: #ffffff !important;
+          color: #131316 !important;
+          border: 1px solid rgba(0, 0, 0, 0.08) !important;
+          width: 36px !important;
+          height: 36px !important;
+          line-height: 36px !important;
+        }
+        .places-map-light .leaflet-control-zoom a:hover {
+          background: #f3f4f6 !important;
         }
       `}</style>
 
@@ -334,7 +386,7 @@ export const MomentPlacesMap: React.FC<MomentPlacesMapProps> = ({
       {/* Mapbox attribution pill */}
       {MAPBOX_TOKEN && (
         <div className="absolute bottom-2 right-2 z-20 pointer-events-none">
-          <div className="px-2 py-0.5 rounded-md bg-slate-900/70 backdrop-blur-sm border border-white/10 text-[10px] font-semibold text-slate-300">
+          <div className="glass px-2 py-0.5 rounded-md border border-circle-hairline dark:border-circle-dark-hairline text-[10px] font-semibold text-circle-slate dark:text-circle-dark-muted">
             Mapbox
           </div>
         </div>
@@ -345,16 +397,17 @@ export const MomentPlacesMap: React.FC<MomentPlacesMapProps> = ({
         <button
           type="button"
           onClick={handleRecenter}
-          className="flex items-center justify-center h-10 w-10 rounded-2xl bg-white/95 dark:bg-circle-dark-surface/95 backdrop-blur-md border border-circle-hairline dark:border-circle-dark-hairline text-circle-charcoal dark:text-circle-dark-text shadow-lg hover:scale-105 active:scale-95 transition-transform"
-          title={isVi ? 'Căn giữa bản đồ' : 'Recenter map'}
+          className="glass flex items-center justify-center h-10 w-10 rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline text-circle-charcoal dark:text-circle-dark-text shadow-lg hover:scale-105 active:scale-95 transition-transform"
+          title={t.moments.recenterMap}
+          aria-label={t.moments.recenterMap}
         >
-          <LocateFixed className="h-5 w-5 text-emerald-500" />
+          <LocateFixed className="h-5 w-5 text-circle-sage dark:text-circle-dark-primary" />
         </button>
       </div>
 
       {/* Floating Preview Card when Pin is Selected */}
       {selectedCluster && (
-        <div className="absolute bottom-6 inset-x-4 sm:inset-x-auto sm:left-6 sm:w-96 rounded-3xl bg-white/95 dark:bg-circle-dark-surface/95 backdrop-blur-md border border-circle-hairline dark:border-circle-dark-hairline p-4 shadow-2xl z-20 animate-fade-in flex flex-col gap-3">
+        <div className="glass-sheet absolute bottom-6 inset-x-4 sm:inset-x-auto sm:left-6 sm:w-96 rounded-3xl border border-circle-hairline dark:border-circle-dark-hairline p-4 shadow-2xl z-20 animate-fade-in flex flex-col gap-3">
           <div className="flex items-start gap-3">
             <img
               src={selectedCluster.thumbUrl}
@@ -363,15 +416,15 @@ export const MomentPlacesMap: React.FC<MomentPlacesMapProps> = ({
             />
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5 text-circle-charcoal dark:text-circle-dark-text font-bold text-sm truncate">
-                <MapPin className="h-4 w-4 text-emerald-500 shrink-0" />
+                <MapPin className="h-4 w-4 text-circle-sage dark:text-circle-dark-primary shrink-0" />
                 <span className="truncate">{selectedCluster.name}</span>
               </div>
               <p className="text-xs text-circle-slate dark:text-circle-dark-muted truncate mt-0.5">
                 {selectedCluster.address}
               </p>
-              <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 mt-1">
+              <p className="text-xs font-bold text-circle-sage dark:text-circle-dark-primary mt-1">
                 {selectedCluster.count > 1
-                  ? `${selectedCluster.count} ${isVi ? 'khoảnh khắc tại địa điểm này' : 'moments at this location'}`
+                  ? `${selectedCluster.count} ${t.moments.momentsAtLocation}`
                   : new Date(selectedCluster.moments[0]?.createdAt).toLocaleDateString(
                       isVi ? 'vi-VN' : 'en-US',
                       {
@@ -386,7 +439,9 @@ export const MomentPlacesMap: React.FC<MomentPlacesMapProps> = ({
             <button
               type="button"
               onClick={() => onSelectCluster(null)}
-              className="p-1 text-circle-slate hover:text-circle-charcoal dark:hover:text-white"
+              aria-label={t.common.close}
+              title={t.common.close}
+              className="p-1 text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white"
             >
               <X className="h-4 w-4" />
             </button>
@@ -395,11 +450,9 @@ export const MomentPlacesMap: React.FC<MomentPlacesMapProps> = ({
           <button
             type="button"
             onClick={() => onViewClusterMoments(selectedCluster.moments)}
-            className="w-full py-2.5 rounded-2xl bg-circle-charcoal dark:bg-circle-primary text-white dark:text-circle-charcoal text-xs font-bold hover:bg-circle-sage dark:hover:bg-circle-primary-hover transition-colors text-center"
+            className="w-full py-2.5 rounded-2xl bg-circle-charcoal dark:bg-circle-primary text-white dark:text-circle-dark-canvas text-xs font-bold hover:bg-circle-sage dark:hover:bg-circle-primary-hover transition-colors text-center"
           >
-            {isVi
-              ? `Xem ${selectedCluster.count} ảnh tại đây`
-              : `View ${selectedCluster.count} photos here`}
+            {t.moments.viewPhotosHere.replace('{count}', String(selectedCluster.count))}
           </button>
         </div>
       )}

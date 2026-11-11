@@ -36,23 +36,23 @@ export const PasswordStrengthIndicator: React.FC<PasswordStrengthIndicatorProps>
 
   let strengthLabel = t.auth.passwordWeak;
   let strengthColor = 'bg-circle-coral';
-  let strengthTextColor = 'text-circle-coral';
+  let strengthTextColor = 'text-circle-coral dark:text-rose-400';
   let barsActive = 1;
 
   if (passedCount >= 5) {
     strengthLabel = t.auth.passwordStrong;
-    strengthColor = 'bg-circle-sage';
-    strengthTextColor = 'text-circle-sage';
+    strengthColor = 'bg-circle-sage dark:bg-circle-dark-primary';
+    strengthTextColor = 'text-circle-sage dark:text-circle-dark-primary';
     barsActive = 4;
   } else if (passedCount >= 4) {
     strengthLabel = t.auth.passwordMedium;
     strengthColor = 'bg-amber-500';
-    strengthTextColor = 'text-amber-500';
+    strengthTextColor = 'text-amber-600 dark:text-amber-400';
     barsActive = 3;
   } else if (passedCount >= 2) {
     strengthLabel = t.auth.passwordWeak;
     strengthColor = 'bg-amber-400';
-    strengthTextColor = 'text-amber-400';
+    strengthTextColor = 'text-amber-600 dark:text-amber-400';
     barsActive = 2;
   }
 
@@ -91,8 +91,8 @@ export const PasswordStrengthIndicator: React.FC<PasswordStrengthIndicatorProps>
             <div
               className={`flex h-3.5 w-3.5 items-center justify-center rounded-full transition-colors ${
                 item.valid
-                  ? 'bg-circle-sage/20 text-circle-sage'
-                  : 'bg-circle-slate/10 text-circle-slate/50 dark:text-circle-dark-muted/50'
+                  ? 'bg-circle-sage/20 dark:bg-circle-primary/20 text-circle-sage dark:text-circle-dark-primary'
+                  : 'bg-circle-slate/10 text-circle-slate/60 dark:text-circle-dark-muted/60'
               }`}
             >
               {item.valid ? (
@@ -120,8 +120,8 @@ export const PasswordStrengthIndicator: React.FC<PasswordStrengthIndicatorProps>
           <div
             className={`flex h-3.5 w-3.5 items-center justify-center rounded-full ${
               isMatch
-                ? 'bg-circle-sage/20 text-circle-sage'
-                : 'bg-circle-coral/20 text-circle-coral'
+                ? 'bg-circle-sage/20 dark:bg-circle-primary/20 text-circle-sage dark:text-circle-dark-primary'
+                : 'bg-circle-coral/20 dark:bg-rose-500/20 text-circle-coral dark:text-rose-400'
             }`}
           >
             {isMatch ? (
@@ -132,7 +132,7 @@ export const PasswordStrengthIndicator: React.FC<PasswordStrengthIndicatorProps>
           </div>
           <span
             className={`text-[11px] font-medium ${
-              isMatch ? 'text-circle-sage' : 'text-circle-coral'
+              isMatch ? 'text-circle-sage dark:text-circle-dark-primary' : 'text-circle-coral dark:text-rose-400'
             }`}
           >
             {isMatch ? t.auth.passwordMatch : t.auth.passwordMismatch}

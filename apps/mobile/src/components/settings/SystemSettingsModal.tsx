@@ -7,9 +7,12 @@ import {
   ScrollView,
   StyleSheet,
   ActivityIndicator,
-  Alert,
   TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
+import { BlurView } from 'expo-blur';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   X,
   ArrowLeft,
@@ -29,7 +32,6 @@ import {
   AlertTriangle,
   RefreshCw,
   Sparkles,
-  Info,
   Key,
   Lock,
   Eye,
@@ -40,6 +42,7 @@ import { checkPasswordRequirements } from '@circle/shared';
 import { useThemeStore } from '../../stores/theme.store';
 import { useLanguageStore } from '../../stores/language.store';
 import { useAuthStore } from '../../stores/auth.store';
+import { getGlassTheme } from '../../constants/glass-theme';
 import {
   useSessionsQuery,
   useRevokeSessionMutation,
@@ -61,9 +64,12 @@ export function SystemSettingsModal({
   onClose,
   defaultTab = 'appearance',
 }: SystemSettingsModalProps) {
-  const { colors, theme, resolvedTheme, setTheme, uiStyle, setUiStyle } = useThemeStore();
-  const { locale, setLocale, t } = useLanguageStore();
-  const { user, logout } = useAuthStore();
+  const { colors, theme, resolvedTheme, uiStyle } = useThemeStore();
+  const isDark = resolvedTheme === 'dark';
+  const glassTheme = getGlassTheme(isDark, uiStyle);
+  const insets = useSafeAreaInsets();
+  const { locale, t } = useLanguageStore();
+  const { logout } = useAuthStore();
 
   const initialView: SystemSettingsSubView =
     defaultTab === 'security'
@@ -77,6 +83,8 @@ export function SystemSettingsModal({
       : 'root';
 
   const [currentView, setCurrentView] = useState<SystemSettingsSubView>(initialView);
+  const [confirmingLogout, setConfirmingLogout] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   const edgePan = useEdgeSwipeDismiss({
     onDismiss: () => {
@@ -88,127 +96,235 @@ export function SystemSettingsModal({
     },
   });
 
-  const { data: sessions = [], isLoading, isRefetching, refetch } = useSessionsQuery();
-  const revokeSessionMutation = useRevokeSessionMutation();
-  const revokeOtherSessionsMutation = useRevokeOtherSessionsMutation();
+  const { data: sessions = [] } = useSessionsQuery();
 
-  const [revokingId, setRevokingId] = useState<string | null>(null);
-  const [successNotice, setSuccessNotice] = useState<string | null>(null);
-  const [errorNotice, setErrorNotice] = useState<string | null>(null);
-
-  const otherSessions = sessions.filter((s) => !s.isCurrent);
-
-  const getDeviceIcon = (deviceType: SessionEntity['deviceType']) => {
-    switch (deviceType) {
-      case 'DESKTOP':
-        return <Laptop size={18} color={colors.text} />;
-      case 'MOBILE':
-        return <Smartphone size={18} color={colors.text} />;
-      case 'TABLET':
-        return <Tablet size={18} color={colors.text} />;
-      default:
-        return <Shield size={18} color={colors.text} />;
-    }
-  };
-
-  const formatSessionTime = (isoString: string) => {
+  const handleConfirmLogout = async () => {
     try {
-      const d = new Date(isoString);
-      return d.toLocaleString(locale === 'vi' ? 'vi-VN' : 'en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-      });
-    } catch {
-      return isoString;
+      setLoggingOut(true);
+      setConfirmingLogout(false);
+      onClose();
+      await logout();
+    } finally {
+      setLoggingOut(false);
     }
-  };
-
-  const handleRevokeSingle = (sessionId: string) => {
-    Alert.alert(
-      t.auth.revokeSession,
-      t.auth.revokeSessionConfirm || 'Bạn có chắc chắn muốn đăng xuất thiết bị này không?',
-      [
-        { text: t.common.cancel, style: 'cancel' },
-        {
-          text: t.auth.revokeSession,
-          style: 'destructive',
-          onPress: async () => {
-            setRevokingId(sessionId);
-            setErrorNotice(null);
-            try {
-              await revokeSessionMutation.mutateAsync(sessionId);
-              setSuccessNotice(t.auth.revokeSessionSuccess);
-              setTimeout(() => setSuccessNotice(null), 3000);
-            } catch (err: any) {
-              setErrorNotice(err?.message || t.auth.sessionNotFound);
-            } finally {
-              setRevokingId(null);
-            }
-          },
-        },
-      ],
-    );
-  };
-
-  const handleRevokeAllOther = () => {
-    Alert.alert(
-      t.auth.revokeAllOtherSessions,
-      t.auth.revokeAllOtherSessionsConfirm,
-      [
-        { text: t.common.cancel, style: 'cancel' },
-        {
-          text: t.auth.revokeAllOtherSessions,
-          style: 'destructive',
-          onPress: async () => {
-            setErrorNotice(null);
-            try {
-              await revokeOtherSessionsMutation.mutateAsync();
-              setSuccessNotice(t.auth.revokeAllOtherSuccess);
-              setTimeout(() => setSuccessNotice(null), 3000);
-            } catch (err: any) {
-              setErrorNotice(err?.message || t.common.unknownError);
-            }
-          },
-        },
-      ],
-    );
-  };
-
-  const handleLogout = () => {
-    Alert.alert(
-      t.auth.logout,
-      t.auth.logoutConfirm || 'Bạn có chắc chắn muốn đăng xuất khỏi tài khoản?',
-      [
-        { text: t.common.cancel, style: 'cancel' },
-        {
-          text: t.auth.logout,
-          style: 'destructive',
-          onPress: async () => {
-            onClose();
-            await logout();
-          },
-        },
-      ],
-    );
   };
 
   const getSubHeaderTitle = () => {
     switch (currentView) {
       case 'appearance':
-        return locale === 'vi' ? 'Giao diện' : 'Appearance';
+        return t.nav.appearance;
+      case 'security':
+        return t.nav.security;
       case 'sessions':
-        return locale === 'vi' ? 'Phiên đăng nhập' : 'Sessions';
+        return t.nav.sessions;
       case 'language':
-        return locale === 'vi' ? 'Ngôn ngữ' : 'Language';
+        return t.common.language;
       case 'help':
-        return locale === 'vi' ? 'Trợ giúp' : 'Help';
+        return t.common.help;
       default:
-        return t.common.systemSettings || 'Cài đặt';
+        return t.common.systemSettings;
     }
   };
+
+  const modalSheetContent = (
+    <>
+      {/* Header Bar */}
+      <View style={[styles.headerRow, { borderBottomColor: colors.hairline }]}>
+        {currentView !== 'root' ? (
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => setCurrentView('root')}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            style={[styles.headerIconBtn, { backgroundColor: colors.wash }]}
+            accessibilityLabel={t.common.back}
+          >
+            <ArrowLeft size={18} color={colors.text} />
+          </TouchableOpacity>
+        ) : (
+          <View style={{ width: 32 }} />
+        )}
+
+        <Text style={[styles.headerTitle, { color: colors.text }]}>
+          {getSubHeaderTitle()}
+        </Text>
+
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={onClose}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          style={[styles.headerIconBtn, { backgroundColor: colors.wash }]}
+          accessibilityLabel={t.common.close}
+        >
+          <X size={18} color={colors.text} />
+        </TouchableOpacity>
+      </View>
+
+      {/* LEVEL 1: ROOT SETTINGS MENU */}
+      {currentView === 'root' && (
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={[
+            styles.rootMenuContent,
+            { paddingBottom: Math.max(insets.bottom, 20) },
+          ]}
+        >
+          <View style={[styles.menuCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+            {/* 1. Appearance */}
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => setCurrentView('appearance')}
+              style={[styles.menuRowItem, { borderBottomColor: colors.hairline, borderBottomWidth: StyleSheet.hairlineWidth }]}
+            >
+              <Palette size={20} color={colors.text} />
+              <View style={styles.menuRowInfo}>
+                <Text style={[styles.menuRowTitle, { color: colors.text }]}>
+                  {t.nav.appearance}
+                </Text>
+                <Text style={[styles.menuRowSubtitle, { color: colors.subtle }]}>
+                  {uiStyle === 'flat' ? t.nav.flatDesignDefault : t.nav.liquidGlass} •{' '}
+                  {theme === 'dark' ? t.common.themeDark : theme === 'light' ? t.common.themeLight : t.common.themeSystem}
+                </Text>
+              </View>
+              <ChevronRight size={18} color={colors.subtle} />
+            </TouchableOpacity>
+
+            {/* 2. Password & Security */}
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => setCurrentView('security')}
+              style={[styles.menuRowItem, { borderBottomColor: colors.hairline, borderBottomWidth: StyleSheet.hairlineWidth }]}
+            >
+              <Key size={20} color={colors.text} />
+              <View style={styles.menuRowInfo}>
+                <Text style={[styles.menuRowTitle, { color: colors.text }]}>
+                  {t.nav.security}
+                </Text>
+                <Text style={[styles.menuRowSubtitle, { color: colors.subtle }]}>
+                  {t.auth.changePassword}
+                </Text>
+              </View>
+              <ChevronRight size={18} color={colors.subtle} />
+            </TouchableOpacity>
+
+            {/* 3. Sessions */}
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => setCurrentView('sessions')}
+              style={[styles.menuRowItem, { borderBottomColor: colors.hairline, borderBottomWidth: StyleSheet.hairlineWidth }]}
+            >
+              <Laptop size={20} color={colors.text} />
+              <View style={styles.menuRowInfo}>
+                <Text style={[styles.menuRowTitle, { color: colors.text }]}>
+                  {t.nav.sessions}
+                </Text>
+                <Text style={[styles.menuRowSubtitle, { color: colors.subtle }]}>
+                  {sessions.length > 0
+                    ? t.auth.activeDevicesCount.replace('{count}', String(sessions.length))
+                    : t.auth.deviceManagement}
+                </Text>
+              </View>
+              {sessions.length > 0 && (
+                <View style={[styles.badgePill, { backgroundColor: colors.wash, marginRight: 6 }]}>
+                  <Text style={[styles.badgePillText, { color: colors.text }]}>
+                    {sessions.length}
+                  </Text>
+                </View>
+              )}
+              <ChevronRight size={18} color={colors.subtle} />
+            </TouchableOpacity>
+
+            {/* 4. Language */}
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => setCurrentView('language')}
+              style={[styles.menuRowItem, { borderBottomColor: colors.hairline, borderBottomWidth: StyleSheet.hairlineWidth }]}
+            >
+              <Globe size={20} color={colors.text} />
+              <View style={styles.menuRowInfo}>
+                <Text style={[styles.menuRowTitle, { color: colors.text }]}>
+                  {t.common.language}
+                </Text>
+                <Text style={[styles.menuRowSubtitle, { color: colors.subtle }]}>
+                  {locale === 'vi' ? t.common.vietnamese : t.common.english}
+                </Text>
+              </View>
+              <ChevronRight size={18} color={colors.subtle} />
+            </TouchableOpacity>
+
+            {/* 5. Help */}
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => setCurrentView('help')}
+              style={styles.menuRowItem}
+            >
+              <HelpCircle size={20} color={colors.text} />
+              <View style={styles.menuRowInfo}>
+                <Text style={[styles.menuRowTitle, { color: colors.text }]}>
+                  {t.nav.helpSupport}
+                </Text>
+                <Text style={[styles.menuRowSubtitle, { color: colors.subtle }]}>
+                  {t.nav.aboutAndSupport}
+                </Text>
+              </View>
+              <ChevronRight size={18} color={colors.subtle} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Log Out Inline Confirm Card (Bare Icon Invariant + Zero Alert) */}
+          <View style={[styles.menuCard, { backgroundColor: colors.surface, borderColor: `${colors.danger}40`, marginTop: 14 }]}>
+            {!confirmingLogout ? (
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => setConfirmingLogout(true)}
+                style={styles.menuRowItem}
+              >
+                <LogOut size={18} color={colors.danger} />
+                <View style={styles.menuRowInfo}>
+                  <Text style={[styles.menuRowTitle, { color: colors.danger, fontWeight: '700' }]}>
+                    {t.auth.logout}
+                  </Text>
+                </View>
+                <ChevronRight size={18} color={colors.danger} />
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.inlineConfirmCard}>
+                <Text style={[styles.inlineConfirmMsg, { color: colors.text }]}>
+                  {t.auth.logoutConfirm}
+                </Text>
+                <View style={styles.inlineConfirmBtns}>
+                  <TouchableOpacity
+                    onPress={() => setConfirmingLogout(false)}
+                    disabled={loggingOut}
+                    style={[styles.inlineCancelBtn, { backgroundColor: colors.wash, borderColor: colors.hairline }]}
+                  >
+                    <Text style={[styles.inlineCancelText, { color: colors.text }]}>
+                      {t.common.cancel}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={handleConfirmLogout}
+                    disabled={loggingOut}
+                    style={[styles.inlineDangerBtn, { backgroundColor: '#DC2626' }]}
+                  >
+                    {loggingOut ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <Text style={styles.inlineDangerText}>{t.auth.logout}</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+          </View>
+        </ScrollView>
+      )}
+
+      {/* LEVEL 2: SUBVIEWS */}
+      {currentView !== 'root' && (
+        <SystemSettingsSubViewContent subView={currentView} />
+      )}
+    </>
+  );
 
   return (
     <Modal
@@ -223,199 +339,40 @@ export function SystemSettingsModal({
         }
       }}
     >
-      <View style={styles.modalOverlay}>
-        <View
-          {...edgePan.panHandlers}
-          style={[
-            styles.sheetContainer,
-            {
-              backgroundColor: colors.surface,
-              borderColor: colors.hairline,
-            },
-          ]}
-        >
-          {/* Header Bar */}
-          <View style={[styles.headerRow, { borderBottomColor: colors.hairline }]}>
-            {currentView !== 'root' ? (
-              <TouchableOpacity
-                activeOpacity={0.7}
-                onPress={() => setCurrentView('root')}
-                style={[styles.headerIconBtn, { backgroundColor: colors.wash }]}
-              >
-                <ArrowLeft size={18} color={colors.text} />
-              </TouchableOpacity>
-            ) : (
-              <View style={{ width: 32 }} />
-            )}
-
-            <Text style={[styles.headerTitle, { color: colors.text }]}>
-              {getSubHeaderTitle()}
-            </Text>
-
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={onClose}
-              style={[styles.headerIconBtn, { backgroundColor: colors.wash }]}
-            >
-              <X size={18} color={colors.text} />
-            </TouchableOpacity>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.modalOverlay}
+      >
+        {uiStyle === 'glass' ? (
+          <BlurView
+            intensity={glassTheme.blur.intensity}
+            tint={glassTheme.blur.tint}
+            {...edgePan.panHandlers}
+            style={[
+              styles.sheetContainer,
+              {
+                backgroundColor: glassTheme.colors.glassBgSheet,
+                borderColor: glassTheme.colors.glassBorder,
+              },
+            ]}
+          >
+            {modalSheetContent}
+          </BlurView>
+        ) : (
+          <View
+            {...edgePan.panHandlers}
+            style={[
+              styles.sheetContainer,
+              {
+                backgroundColor: glassTheme.colors.glassBgSheet,
+                borderColor: colors.hairline,
+              },
+            ]}
+          >
+            {modalSheetContent}
           </View>
-
-          {/* Notices */}
-          {successNotice && (
-            <View style={[styles.noticeBox, { backgroundColor: `${colors.success}15`, borderColor: `${colors.success}40` }]}>
-              <CheckCircle2 size={16} color={colors.success} />
-              <Text style={[styles.noticeText, { color: colors.success }]}>
-                {successNotice}
-              </Text>
-            </View>
-          )}
-          {errorNotice && (
-            <View style={[styles.noticeBox, { backgroundColor: `${colors.danger}15`, borderColor: `${colors.danger}40` }]}>
-              <AlertTriangle size={16} color={colors.danger} />
-              <Text style={[styles.noticeText, { color: colors.danger }]}>
-                {errorNotice}
-              </Text>
-            </View>
-          )}
-
-          {/* ========================================================= */}
-          {/* LEVEL 1: ROOT SETTINGS MENU (Matching Web Left Column)   */}
-          {/* ========================================================= */}
-          {currentView === 'root' && (
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.rootMenuContent}
-            >
-              {/* Settings Menu Cards */}
-              <View style={[styles.menuCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
-                {/* 1. Giao diện */}
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() => setCurrentView('appearance')}
-                  style={[styles.menuRowItem, { borderBottomColor: colors.hairline, borderBottomWidth: StyleSheet.hairlineWidth }]}
-                >
-                  <Palette size={20} color={colors.text} />
-                  <View style={styles.menuRowInfo}>
-                    <Text style={[styles.menuRowTitle, { color: colors.text }]}>
-                      {locale === 'vi' ? 'Giao diện' : 'Appearance'}
-                    </Text>
-                    <Text style={[styles.menuRowSubtitle, { color: colors.subtle }]}>
-                      {uiStyle === 'flat' ? 'Flat Design' : 'Liquid Glass'} • {theme === 'dark' ? 'Tối' : theme === 'light' ? 'Sáng' : 'Hệ thống'}
-                    </Text>
-                  </View>
-                  <ChevronRight size={18} color={colors.subtle} />
-                </TouchableOpacity>
-
-                {/* 2. Mật khẩu & Bảo mật */}
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() => setCurrentView('security')}
-                  style={[styles.menuRowItem, { borderBottomColor: colors.hairline, borderBottomWidth: StyleSheet.hairlineWidth }]}
-                >
-                  <Key size={20} color={colors.text} />
-                  <View style={styles.menuRowInfo}>
-                    <Text style={[styles.menuRowTitle, { color: colors.text }]}>
-                      {locale === 'vi' ? 'Mật khẩu & Bảo mật' : 'Password & Security'}
-                    </Text>
-                    <Text style={[styles.menuRowSubtitle, { color: colors.subtle }]}>
-                      {t.auth.changePassword}
-                    </Text>
-                  </View>
-                  <ChevronRight size={18} color={colors.subtle} />
-                </TouchableOpacity>
-
-                {/* 3. Phiên đăng nhập */}
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() => setCurrentView('sessions')}
-                  style={[styles.menuRowItem, { borderBottomColor: colors.hairline, borderBottomWidth: StyleSheet.hairlineWidth }]}
-                >
-                  <Laptop size={20} color={colors.text} />
-                  <View style={styles.menuRowInfo}>
-                    <Text style={[styles.menuRowTitle, { color: colors.text }]}>
-                      {locale === 'vi' ? 'Phiên đăng nhập' : 'Sessions'}
-                    </Text>
-                    <Text style={[styles.menuRowSubtitle, { color: colors.subtle }]}>
-                      {sessions.length > 0 ? `${sessions.length} thiết bị hoạt động` : 'Quản lý thiết bị'}
-                    </Text>
-                  </View>
-                  {sessions.length > 0 && (
-                    <View style={[styles.badgePill, { backgroundColor: colors.wash, marginRight: 6 }]}>
-                      <Text style={[styles.badgePillText, { color: colors.text }]}>
-                        {sessions.length}
-                      </Text>
-                    </View>
-                  )}
-                  <ChevronRight size={18} color={colors.subtle} />
-                </TouchableOpacity>
-
-                {/* 3. Ngôn ngữ */}
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() => setCurrentView('language')}
-                  style={[styles.menuRowItem, { borderBottomColor: colors.hairline, borderBottomWidth: StyleSheet.hairlineWidth }]}
-                >
-                  <Globe size={20} color={colors.text} />
-                  <View style={styles.menuRowInfo}>
-                    <Text style={[styles.menuRowTitle, { color: colors.text }]}>
-                      {locale === 'vi' ? 'Ngôn ngữ' : 'Language'}
-                    </Text>
-                    <Text style={[styles.menuRowSubtitle, { color: colors.subtle }]}>
-                      {locale === 'vi' ? 'Tiếng Việt' : 'English'}
-                    </Text>
-                  </View>
-                  <ChevronRight size={18} color={colors.subtle} />
-                </TouchableOpacity>
-
-                {/* 4. Trợ giúp */}
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() => setCurrentView('help')}
-                  style={styles.menuRowItem}
-                >
-                  <HelpCircle size={20} color={colors.text} />
-                  <View style={styles.menuRowInfo}>
-                    <Text style={[styles.menuRowTitle, { color: colors.text }]}>
-                      {locale === 'vi' ? 'Trợ giúp' : 'Help & Support'}
-                    </Text>
-                    <Text style={[styles.menuRowSubtitle, { color: colors.subtle }]}>
-                      {locale === 'vi' ? 'Thông tin ứng dụng & Hỗ trợ' : 'About CIRCLE & Support'}
-                    </Text>
-                  </View>
-                  <ChevronRight size={18} color={colors.subtle} />
-                </TouchableOpacity>
-              </View>
-
-              {/* Log Out Button */}
-              <View style={[styles.menuCard, { backgroundColor: colors.surface, borderColor: `${colors.danger}40`, marginTop: 14 }]}>
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={handleLogout}
-                  style={styles.menuRowItem}
-                >
-                  <View style={[styles.rowIconContainer, { backgroundColor: `${colors.danger}15` }]}>
-                    <LogOut size={18} color={colors.danger} />
-                  </View>
-                  <View style={styles.menuRowInfo}>
-                    <Text style={[styles.menuRowTitle, { color: colors.danger, fontWeight: '700' }]}>
-                      {t.auth.logout || 'Đăng xuất'}
-                    </Text>
-                  </View>
-                  <ChevronRight size={18} color={colors.danger} />
-                </TouchableOpacity>
-              </View>
-            </ScrollView>
-          )}
-
-          {/* ========================================================= */}
-          {/* LEVEL 2: SUBVIEWS (GIAO DIỆN, SESSIONS, NGÔN NGỮ, HELP)   */}
-          {/* ========================================================= */}
-          {currentView !== 'root' && (
-            <SystemSettingsSubViewContent subView={currentView} />
-          )}
-        </View>
-      </View>
+        )}
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -427,6 +384,7 @@ export function SystemSettingsSubViewContent({
 }) {
   const { colors, theme, setTheme, uiStyle, setUiStyle } = useThemeStore();
   const { locale, setLocale, t } = useLanguageStore();
+  const insets = useSafeAreaInsets();
 
   const { data: sessions = [], isLoading, isRefetching, refetch } = useSessionsQuery();
   const revokeSessionMutation = useRevokeSessionMutation();
@@ -442,6 +400,12 @@ export function SystemSettingsSubViewContent({
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [passwordSuccessNotice, setPasswordSuccessNotice] = useState<string | null>(null);
   const [passwordErrorNotice, setPasswordErrorNotice] = useState<string | null>(null);
+
+  const [revokingId, setRevokingId] = useState<string | null>(null);
+  const [confirmRevokeId, setConfirmRevokeId] = useState<string | null>(null);
+  const [confirmRevokeAll, setConfirmRevokeAll] = useState(false);
+  const [successNotice, setSuccessNotice] = useState<string | null>(null);
+  const [errorNotice, setErrorNotice] = useState<string | null>(null);
 
   const passwordReqs = checkPasswordRequirements(newPassword);
   const isPasswordFormValid =
@@ -487,10 +451,6 @@ export function SystemSettingsSubViewContent({
     }
   };
 
-  const [revokingId, setRevokingId] = useState<string | null>(null);
-  const [successNotice, setSuccessNotice] = useState<string | null>(null);
-  const [errorNotice, setErrorNotice] = useState<string | null>(null);
-
   const otherSessions = sessions.filter((s) => !s.isCurrent);
 
   const getDeviceIcon = (deviceType: SessionEntity['deviceType']) => {
@@ -521,64 +481,40 @@ export function SystemSettingsSubViewContent({
     }
   };
 
-  const handleRevokeSingle = (sessionId: string) => {
-    Alert.alert(
-      t.auth.revokeSession,
-      t.auth.revokeSessionConfirm || 'Bạn có chắc chắn muốn đăng xuất thiết bị này không?',
-      [
-        { text: t.common.cancel, style: 'cancel' },
-        {
-          text: t.auth.revokeSession,
-          style: 'destructive',
-          onPress: async () => {
-            setRevokingId(sessionId);
-            setErrorNotice(null);
-            try {
-              await revokeSessionMutation.mutateAsync(sessionId);
-              setSuccessNotice(t.auth.revokeSessionSuccess);
-              setTimeout(() => setSuccessNotice(null), 3000);
-            } catch (err: any) {
-              setErrorNotice(err?.message || t.auth.sessionNotFound);
-            } finally {
-              setRevokingId(null);
-            }
-          },
-        },
-      ],
-    );
+  const executeRevokeSingle = async (sessionId: string) => {
+    setRevokingId(sessionId);
+    setConfirmRevokeId(null);
+    setErrorNotice(null);
+    try {
+      await revokeSessionMutation.mutateAsync(sessionId);
+      setSuccessNotice(t.auth.revokeSessionSuccess);
+      setTimeout(() => setSuccessNotice(null), 3000);
+    } catch (err: any) {
+      setErrorNotice(err?.message || t.auth.sessionNotFound);
+    } finally {
+      setRevokingId(null);
+    }
   };
 
-  const handleRevokeAllOther = () => {
-    Alert.alert(
-      t.auth.revokeAllOtherSessions,
-      t.auth.revokeAllOtherSessionsConfirm,
-      [
-        { text: t.common.cancel, style: 'cancel' },
-        {
-          text: t.auth.revokeAllOtherSessions,
-          style: 'destructive',
-          onPress: async () => {
-            setErrorNotice(null);
-            try {
-              await revokeOtherSessionsMutation.mutateAsync();
-              setSuccessNotice(t.auth.revokeAllOtherSuccess);
-              setTimeout(() => setSuccessNotice(null), 3000);
-            } catch (err: any) {
-              setErrorNotice(err?.message || t.common.unknownError);
-            }
-          },
-        },
-      ],
-    );
+  const executeRevokeAllOther = async () => {
+    setConfirmRevokeAll(false);
+    setErrorNotice(null);
+    try {
+      await revokeOtherSessionsMutation.mutateAsync();
+      setSuccessNotice(t.auth.revokeAllOtherSuccess);
+      setTimeout(() => setSuccessNotice(null), 3000);
+    } catch (err: any) {
+      setErrorNotice(err?.message || t.common.unknownError);
+    }
   };
 
   return (
     <View style={{ flex: 1 }}>
       {/* Notices */}
       {successNotice && (
-        <View style={[styles.noticeBox, { backgroundColor: `${colors.success}15`, borderColor: `${colors.success}40` }]}>
-          <CheckCircle2 size={16} color={colors.success} />
-          <Text style={[styles.noticeText, { color: colors.success }]}>
+        <View style={[styles.noticeBox, { backgroundColor: `${colors.sage}18`, borderColor: `${colors.sage}40` }]}>
+          <CheckCircle2 size={16} color={colors.sage} />
+          <Text style={[styles.noticeText, { color: colors.sage }]}>
             {successNotice}
           </Text>
         </View>
@@ -592,21 +528,20 @@ export function SystemSettingsSubViewContent({
         </View>
       )}
 
-      {/* ========================================================= */}
-      {/* LEVEL 2: SUBVIEW - GIAO DIỆN (APPEARANCE)                */}
-      {/* ========================================================= */}
+      {/* SUBVIEW - APPEARANCE */}
       {subView === 'appearance' && (
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.subViewContent}
+          contentContainerStyle={[
+            styles.subViewContent,
+            { paddingBottom: Math.max(insets.bottom, 24) },
+          ]}
         >
-          {/* Phong cách thiết kế */}
           <View style={styles.sectionBlock}>
             <Text style={[styles.sectionTitle, { color: colors.subtle }]}>
-              PHONG CÁCH THIẾT KẾ
+              {t.nav.designStyle}
             </Text>
             <View style={[styles.cardGroup, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
-              {/* Flat Design */}
               <TouchableOpacity
                 activeOpacity={0.7}
                 onPress={() => setUiStyle('flat')}
@@ -617,13 +552,12 @@ export function SystemSettingsSubViewContent({
               >
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.optionTitle, { color: colors.text }]}>
-                    Flat Design
+                    {t.nav.flatDesignDefault}
                   </Text>
                 </View>
-                {uiStyle === 'flat' && <Check size={18} color={colors.primary} />}
+                {uiStyle === 'flat' && <Check size={18} color={colors.sage} />}
               </TouchableOpacity>
 
-              {/* Liquid Glass */}
               <TouchableOpacity
                 activeOpacity={0.7}
                 onPress={() => setUiStyle('glass')}
@@ -631,21 +565,19 @@ export function SystemSettingsSubViewContent({
               >
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.optionTitle, { color: colors.text }]}>
-                    Liquid Glass
+                    {t.nav.liquidGlass}
                   </Text>
                 </View>
-                {uiStyle === 'glass' && <Check size={18} color={colors.primary} />}
+                {uiStyle === 'glass' && <Check size={18} color={colors.sage} />}
               </TouchableOpacity>
             </View>
           </View>
 
-          {/* Chế độ hiển thị */}
           <View style={styles.sectionBlock}>
             <Text style={[styles.sectionTitle, { color: colors.subtle }]}>
-              CHẾ ĐỘ HIỂN THỊ
+              {t.nav.displayMode}
             </Text>
             <View style={[styles.cardGroup, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
-              {/* Sáng */}
               <TouchableOpacity
                 activeOpacity={0.7}
                 onPress={() => setTheme('light')}
@@ -654,16 +586,15 @@ export function SystemSettingsSubViewContent({
                   { borderBottomColor: colors.hairline, borderBottomWidth: StyleSheet.hairlineWidth },
                 ]}
               >
-                <Sun size={18} color={colors.text} style={{ marginRight: 12 }} />
+                <Sun size={18} color={colors.text} />
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.optionTitle, { color: colors.text }]}>
-                    {t.common.themeLight || 'Giao diện sáng'}
+                    {t.common.themeLight}
                   </Text>
                 </View>
-                {theme === 'light' && <Check size={18} color={colors.primary} />}
+                {theme === 'light' && <Check size={18} color={colors.sage} />}
               </TouchableOpacity>
 
-              {/* Tối */}
               <TouchableOpacity
                 activeOpacity={0.7}
                 onPress={() => setTheme('dark')}
@@ -672,61 +603,62 @@ export function SystemSettingsSubViewContent({
                   { borderBottomColor: colors.hairline, borderBottomWidth: StyleSheet.hairlineWidth },
                 ]}
               >
-                <Moon size={18} color={colors.text} style={{ marginRight: 12 }} />
+                <Moon size={18} color={colors.text} />
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.optionTitle, { color: colors.text }]}>
-                    {t.common.themeDark || 'Giao diện tối'}
+                    {t.common.themeDark}
                   </Text>
                 </View>
-                {theme === 'dark' && <Check size={18} color={colors.primary} />}
+                {theme === 'dark' && <Check size={18} color={colors.sage} />}
               </TouchableOpacity>
 
-              {/* Theo hệ thống */}
               <TouchableOpacity
                 activeOpacity={0.7}
                 onPress={() => setTheme('system')}
                 style={styles.optionRow}
               >
-                <Laptop size={18} color={colors.text} style={{ marginRight: 12 }} />
+                <Laptop size={18} color={colors.text} />
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.optionTitle, { color: colors.text }]}>
-                    {t.common.themeSystem || 'Theo hệ thống'}
+                    {t.common.themeSystem}
                   </Text>
                 </View>
-                {theme === 'system' && <Check size={18} color={colors.primary} />}
+                {theme === 'system' && <Check size={18} color={colors.sage} />}
               </TouchableOpacity>
             </View>
           </View>
         </ScrollView>
       )}
 
-      {/* ========================================================= */}
-      {/* LEVEL 2: SUBVIEW - MẬT KHẨU & BẢO MẬT (SECURITY)        */}
-      {/* ========================================================= */}
+      {/* SUBVIEW - SECURITY */}
       {subView === 'security' && (
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.subViewContent}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={[
+            styles.subViewContent,
+            { paddingBottom: Math.max(insets.bottom, 24) },
+          ]}
         >
           {passwordSuccessNotice && (
-            <View style={[styles.noticeBanner, { backgroundColor: 'rgba(16, 185, 129, 0.12)', borderColor: 'rgba(16, 185, 129, 0.25)' }]}>
-              <CheckCircle2 size={16} color="#10b981" />
-              <Text style={{ fontSize: 13, color: '#059669', flex: 1, fontWeight: '500' }}>
+            <View style={[styles.noticeBanner, { backgroundColor: `${colors.sage}18`, borderColor: `${colors.sage}40` }]}>
+              <CheckCircle2 size={16} color={colors.sage} />
+              <Text style={{ fontSize: 13, color: colors.sage, flex: 1, fontWeight: '600' }}>
                 {passwordSuccessNotice}
               </Text>
             </View>
           )}
 
           {passwordErrorNotice && (
-            <View style={[styles.noticeBanner, { backgroundColor: 'rgba(239, 68, 68, 0.12)', borderColor: 'rgba(239, 68, 68, 0.25)' }]}>
-              <AlertTriangle size={16} color="#ef4444" />
-              <Text style={{ fontSize: 13, color: '#dc2626', flex: 1, fontWeight: '500' }}>
+            <View style={[styles.noticeBanner, { backgroundColor: `${colors.danger}15`, borderColor: `${colors.danger}40` }]}>
+              <AlertTriangle size={16} color={colors.danger} />
+              <Text style={{ fontSize: 13, color: colors.danger, flex: 1, fontWeight: '600' }}>
                 {passwordErrorNotice}
               </Text>
             </View>
           )}
 
-          <View style={[styles.sectionBlock, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+          <View style={[styles.cardGroup, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
             {/* Current Password Field */}
             <View style={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: 12 }}>
               <Text style={[styles.inputLabel, { color: colors.text }]}>
@@ -745,7 +677,7 @@ export function SystemSettingsSubViewContent({
                 />
                 <TouchableOpacity
                   onPress={() => setShowCurrentPassword(!showCurrentPassword)}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
                   {showCurrentPassword ? (
                     <EyeOff size={18} color={colors.subtle} />
@@ -776,7 +708,7 @@ export function SystemSettingsSubViewContent({
                 />
                 <TouchableOpacity
                   onPress={() => setShowNewPassword(!showNewPassword)}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
                   {showNewPassword ? (
                     <EyeOff size={18} color={colors.subtle} />
@@ -786,39 +718,28 @@ export function SystemSettingsSubViewContent({
                 </TouchableOpacity>
               </View>
 
-              {/* ACC-05 Real-time requirement chips */}
               {newPassword.length > 0 && (
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
-                  <View style={[styles.reqChip, { backgroundColor: passwordReqs.minLength ? 'rgba(16,185,129,0.12)' : colors.wash }]}>
-                    <Check size={12} color={passwordReqs.minLength ? '#10b981' : colors.subtle} />
-                    <Text style={{ fontSize: 11, color: passwordReqs.minLength ? '#059669' : colors.subtle }}>
-                      {t.auth.min8Chars}
-                    </Text>
-                  </View>
-                  <View style={[styles.reqChip, { backgroundColor: passwordReqs.hasUpper ? 'rgba(16,185,129,0.12)' : colors.wash }]}>
-                    <Check size={12} color={passwordReqs.hasUpper ? '#10b981' : colors.subtle} />
-                    <Text style={{ fontSize: 11, color: passwordReqs.hasUpper ? '#059669' : colors.subtle }}>
-                      {t.validation.passwordUppercase}
-                    </Text>
-                  </View>
-                  <View style={[styles.reqChip, { backgroundColor: passwordReqs.hasLower ? 'rgba(16,185,129,0.12)' : colors.wash }]}>
-                    <Check size={12} color={passwordReqs.hasLower ? '#10b981' : colors.subtle} />
-                    <Text style={{ fontSize: 11, color: passwordReqs.hasLower ? '#059669' : colors.subtle }}>
-                      {t.validation.passwordLowercase}
-                    </Text>
-                  </View>
-                  <View style={[styles.reqChip, { backgroundColor: passwordReqs.hasNumber ? 'rgba(16,185,129,0.12)' : colors.wash }]}>
-                    <Check size={12} color={passwordReqs.hasNumber ? '#10b981' : colors.subtle} />
-                    <Text style={{ fontSize: 11, color: passwordReqs.hasNumber ? '#059669' : colors.subtle }}>
-                      {t.validation.passwordNumber}
-                    </Text>
-                  </View>
-                  <View style={[styles.reqChip, { backgroundColor: passwordReqs.hasSpecial ? 'rgba(16,185,129,0.12)' : colors.wash }]}>
-                    <Check size={12} color={passwordReqs.hasSpecial ? '#10b981' : colors.subtle} />
-                    <Text style={{ fontSize: 11, color: passwordReqs.hasSpecial ? '#059669' : colors.subtle }}>
-                      {t.validation.passwordSpecialChar}
-                    </Text>
-                  </View>
+                  {[
+                    { ok: passwordReqs.minLength, label: t.auth.min8Chars },
+                    { ok: passwordReqs.hasUpper, label: t.validation.passwordUppercase },
+                    { ok: passwordReqs.hasLower, label: t.validation.passwordLowercase },
+                    { ok: passwordReqs.hasNumber, label: t.validation.passwordNumber },
+                    { ok: passwordReqs.hasSpecial, label: t.validation.passwordSpecialChar },
+                  ].map((req, idx) => (
+                    <View
+                      key={idx}
+                      style={[
+                        styles.reqChip,
+                        { backgroundColor: req.ok ? `${colors.sage}18` : colors.wash },
+                      ]}
+                    >
+                      <Check size={12} color={req.ok ? colors.sage : colors.subtle} />
+                      <Text style={{ fontSize: 11, color: req.ok ? colors.sage : colors.subtle }}>
+                        {req.label}
+                      </Text>
+                    </View>
+                  ))}
                 </View>
               )}
             </View>
@@ -843,7 +764,7 @@ export function SystemSettingsSubViewContent({
                 />
                 <TouchableOpacity
                   onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
                   {showConfirmPassword ? (
                     <EyeOff size={18} color={colors.subtle} />
@@ -853,7 +774,13 @@ export function SystemSettingsSubViewContent({
                 </TouchableOpacity>
               </View>
               {confirmPassword.length > 0 && (
-                <Text style={{ fontSize: 11, marginTop: 6, color: newPassword === confirmPassword ? '#10b981' : '#ef4444' }}>
+                <Text
+                  style={{
+                    fontSize: 11,
+                    marginTop: 6,
+                    color: newPassword === confirmPassword ? colors.sage : colors.danger,
+                  }}
+                >
                   {newPassword === confirmPassword ? t.auth.passwordMatch : t.auth.passwordMismatch}
                 </Text>
               )}
@@ -868,39 +795,45 @@ export function SystemSettingsSubViewContent({
             style={[
               styles.actionSubmitBtn,
               {
-                backgroundColor: colors.primary,
-                opacity: !isPasswordFormValid || changePasswordMutation.isPending ? 0.5 : 1,
+                backgroundColor: isPasswordFormValid ? colors.primary : colors.border,
               },
             ]}
           >
             {changePasswordMutation.isPending ? (
-              <ActivityIndicator size="small" color={colors.onPrimary} />
+              <ActivityIndicator size="small" color={isPasswordFormValid ? colors.onPrimary : colors.subtle} />
             ) : (
-              <Lock size={18} color={colors.onPrimary} />
+              <Lock size={18} color={isPasswordFormValid ? colors.onPrimary : colors.subtle} />
             )}
-            <Text style={[styles.actionSubmitBtnText, { color: colors.onPrimary }]}>
+            <Text
+              style={[
+                styles.actionSubmitBtnText,
+                { color: isPasswordFormValid ? colors.onPrimary : colors.subtle },
+              ]}
+            >
               {changePasswordMutation.isPending ? t.auth.updatingPassword : t.auth.updatePasswordButton}
             </Text>
           </TouchableOpacity>
         </ScrollView>
       )}
 
-      {/* ========================================================= */}
-      {/* LEVEL 2: SUBVIEW - PHIÊN ĐĂNG NHẬP (SESSIONS)           */}
-      {/* ========================================================= */}
+      {/* SUBVIEW - SESSIONS */}
       {subView === 'sessions' && (
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.subViewContent}
+          contentContainerStyle={[
+            styles.subViewContent,
+            { paddingBottom: Math.max(insets.bottom, 24) },
+          ]}
         >
           <View style={styles.sessionsHeaderRow}>
             <Text style={[styles.sessionsSubtitle, { color: colors.subtle }]}>
-              {t.auth.sessionsSubtitle || 'Quản lý các thiết bị đang đăng nhập tài khoản của bạn'}
+              {t.auth.sessionsSubtitle}
             </Text>
             <TouchableOpacity
               activeOpacity={0.7}
               onPress={() => refetch()}
               disabled={isRefetching}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               style={styles.refreshRow}
             >
               <RefreshCw size={13} color={colors.subtle} />
@@ -912,7 +845,7 @@ export function SystemSettingsSubViewContent({
 
           {isLoading ? (
             <View style={styles.loadingBox}>
-              <ActivityIndicator size="small" color={colors.primary} />
+              <ActivityIndicator size="small" color={colors.sage} />
               <Text style={[styles.loadingText, { color: colors.subtle }]}>
                 {t.common.loading}
               </Text>
@@ -929,63 +862,92 @@ export function SystemSettingsSubViewContent({
               {sessions.map((session, index) => {
                 const isCurrent = Boolean(session.isCurrent);
                 const isRevokingThis = revokingId === session.id;
+                const isConfirmingThis = confirmRevokeId === session.id;
 
                 return (
                   <View
                     key={session.id}
                     style={[
-                      styles.sessionRow,
+                      styles.sessionRowWrap,
                       index > 0 && {
                         borderTopWidth: StyleSheet.hairlineWidth,
                         borderTopColor: colors.hairline,
                       },
                     ]}
                   >
-                    <View style={styles.sessionLeft}>
-                      {getDeviceIcon(session.deviceType)}
-                      <View style={styles.sessionInfo}>
-                        <View style={styles.sessionTitleRow}>
-                          <Text
-                            numberOfLines={1}
-                            style={[styles.deviceName, { color: colors.text }]}
-                          >
-                            {session.browser || session.deviceType || 'Device'} • {session.os || ''}
+                    <View style={styles.sessionRow}>
+                      <View style={styles.sessionLeft}>
+                        {getDeviceIcon(session.deviceType)}
+                        <View style={styles.sessionInfo}>
+                          <View style={styles.sessionTitleRow}>
+                            <Text
+                              numberOfLines={1}
+                              style={[styles.deviceName, { color: colors.text }]}
+                            >
+                              {session.browser || session.deviceType || t.auth.unknownDevice}
+                              {session.os ? ` • ${session.os}` : ''}
+                            </Text>
+                            {isCurrent && (
+                              <View style={[styles.currentBadge, { backgroundColor: `${colors.sage}20` }]}>
+                                <Text style={[styles.currentBadgeText, { color: colors.sage }]}>
+                                  {t.auth.currentSession}
+                                </Text>
+                              </View>
+                            )}
+                          </View>
+                          <Text style={[styles.sessionMeta, { color: colors.subtle }]}>
+                            {formatSessionTime((session as any).lastActiveAt || session.createdAt)}
+                            {session.ipAddress ? ` • ${session.ipAddress}` : ''}
                           </Text>
-                          {isCurrent && (
-                            <View style={[styles.currentBadge, { backgroundColor: `${colors.primary}20` }]}>
-                              <Text style={[styles.currentBadgeText, { color: colors.primary }]}>
-                                {t.auth.currentSession}
-                              </Text>
-                            </View>
-                          )}
                         </View>
-                        <Text style={[styles.sessionMeta, { color: colors.subtle }]}>
-                          {formatSessionTime((session as any).lastActiveAt || session.createdAt)} • {session.ipAddress || 'Unknown IP'}
-                        </Text>
                       </View>
+
+                      {!isCurrent && !isConfirmingThis && (
+                        <TouchableOpacity
+                          activeOpacity={0.7}
+                          onPress={() => setConfirmRevokeId(session.id)}
+                          disabled={isRevokingThis}
+                          style={[
+                            styles.revokeBtn,
+                            {
+                              borderColor: `${colors.danger}40`,
+                              backgroundColor: `${colors.danger}10`,
+                            },
+                          ]}
+                        >
+                          {isRevokingThis ? (
+                            <ActivityIndicator size="small" color={colors.danger} />
+                          ) : (
+                            <Text style={[styles.revokeBtnText, { color: colors.danger }]}>
+                              {t.auth.revokeSession}
+                            </Text>
+                          )}
+                        </TouchableOpacity>
+                      )}
                     </View>
 
-                    {!isCurrent && (
-                      <TouchableOpacity
-                        activeOpacity={0.7}
-                        onPress={() => handleRevokeSingle(session.id)}
-                        disabled={isRevokingThis}
-                        style={[
-                          styles.revokeBtn,
-                          {
-                            borderColor: `${colors.danger}40`,
-                            backgroundColor: `${colors.danger}10`,
-                          },
-                        ]}
-                      >
-                        {isRevokingThis ? (
-                          <ActivityIndicator size="small" color={colors.danger} />
-                        ) : (
-                          <Text style={[styles.revokeBtnText, { color: colors.danger }]}>
-                            {t.auth.revokeSession}
-                          </Text>
-                        )}
-                      </TouchableOpacity>
+                    {isConfirmingThis && (
+                      <View style={[styles.inlineSessionConfirm, { backgroundColor: colors.wash, borderColor: colors.hairline }]}>
+                        <Text style={[styles.inlineSessionConfirmText, { color: colors.text }]}>
+                          {t.auth.revokeSessionConfirm}
+                        </Text>
+                        <View style={styles.inlineConfirmBtns}>
+                          <TouchableOpacity
+                            onPress={() => setConfirmRevokeId(null)}
+                            style={[styles.inlineCancelBtn, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
+                          >
+                            <Text style={[styles.inlineCancelText, { color: colors.text }]}>
+                              {t.common.cancel}
+                            </Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            onPress={() => executeRevokeSingle(session.id)}
+                            style={[styles.inlineDangerBtn, { backgroundColor: '#DC2626' }]}
+                          >
+                            <Text style={styles.inlineDangerText}>{t.auth.revokeSession}</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
                     )}
                   </View>
                 );
@@ -996,42 +958,71 @@ export function SystemSettingsSubViewContent({
           {/* Revoke All Other Sessions */}
           {otherSessions.length > 0 && (
             <View style={styles.revokeAllBox}>
-              <TouchableOpacity
-                activeOpacity={0.7}
-                onPress={handleRevokeAllOther}
-                disabled={revokeOtherSessionsMutation.isPending}
-                style={[
-                  styles.revokeAllBtn,
-                  {
-                    backgroundColor: `${colors.danger}15`,
-                    borderColor: `${colors.danger}30`,
-                  },
-                ]}
-              >
-                <LogOut size={16} color={colors.danger} />
-                <Text style={[styles.revokeAllBtnText, { color: colors.danger }]}>
-                  {t.auth.revokeAllOtherSessions} ({otherSessions.length})
-                </Text>
-              </TouchableOpacity>
+              {!confirmRevokeAll ? (
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => setConfirmRevokeAll(true)}
+                  disabled={revokeOtherSessionsMutation.isPending}
+                  style={[
+                    styles.revokeAllBtn,
+                    {
+                      backgroundColor: `${colors.danger}15`,
+                      borderColor: `${colors.danger}30`,
+                    },
+                  ]}
+                >
+                  <LogOut size={16} color={colors.danger} />
+                  <Text style={[styles.revokeAllBtnText, { color: colors.danger }]}>
+                    {t.auth.revokeAllOtherSessions} ({otherSessions.length})
+                  </Text>
+                </TouchableOpacity>
+              ) : (
+                <View style={[styles.inlineConfirmCard, { backgroundColor: colors.surface, borderColor: `${colors.danger}40`, borderWidth: 1, borderRadius: 14 }]}>
+                  <Text style={[styles.inlineConfirmMsg, { color: colors.text }]}>
+                    {t.auth.revokeAllOtherSessionsConfirm}
+                  </Text>
+                  <View style={styles.inlineConfirmBtns}>
+                    <TouchableOpacity
+                      onPress={() => setConfirmRevokeAll(false)}
+                      style={[styles.inlineCancelBtn, { backgroundColor: colors.wash, borderColor: colors.hairline }]}
+                    >
+                      <Text style={[styles.inlineCancelText, { color: colors.text }]}>
+                        {t.common.cancel}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={executeRevokeAllOther}
+                      disabled={revokeOtherSessionsMutation.isPending}
+                      style={[styles.inlineDangerBtn, { backgroundColor: '#DC2626' }]}
+                    >
+                      {revokeOtherSessionsMutation.isPending ? (
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                      ) : (
+                        <Text style={styles.inlineDangerText}>{t.common.confirm}</Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
             </View>
           )}
         </ScrollView>
       )}
 
-      {/* ========================================================= */}
-      {/* LEVEL 2: SUBVIEW - NGÔN NGỮ (LANGUAGE)                   */}
-      {/* ========================================================= */}
+      {/* SUBVIEW - LANGUAGE */}
       {subView === 'language' && (
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.subViewContent}
+          contentContainerStyle={[
+            styles.subViewContent,
+            { paddingBottom: Math.max(insets.bottom, 24) },
+          ]}
         >
           <View style={styles.sectionBlock}>
             <Text style={[styles.sectionTitle, { color: colors.subtle }]}>
-              NGÔN NGỮ HỆ THỐNG
+              {t.common.languageSection}
             </Text>
             <View style={[styles.cardGroup, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
-              {/* Tiếng Việt */}
               <TouchableOpacity
                 activeOpacity={0.7}
                 onPress={() => setLocale('vi')}
@@ -1043,13 +1034,12 @@ export function SystemSettingsSubViewContent({
                 <Text style={styles.flagEmoji}>🇻🇳</Text>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.optionTitle, { color: colors.text }]}>
-                    Tiếng Việt
+                    {t.common.vietnamese}
                   </Text>
                 </View>
-                {locale === 'vi' && <Check size={18} color={colors.primary} />}
+                {locale === 'vi' && <Check size={18} color={colors.sage} />}
               </TouchableOpacity>
 
-              {/* English */}
               <TouchableOpacity
                 activeOpacity={0.7}
                 onPress={() => setLocale('en')}
@@ -1058,72 +1048,73 @@ export function SystemSettingsSubViewContent({
                 <Text style={styles.flagEmoji}>🇬🇧</Text>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.optionTitle, { color: colors.text }]}>
-                    English
+                    {t.common.english}
                   </Text>
                 </View>
-                {locale === 'en' && <Check size={18} color={colors.primary} />}
+                {locale === 'en' && <Check size={18} color={colors.sage} />}
               </TouchableOpacity>
             </View>
           </View>
         </ScrollView>
       )}
 
-      {/* ========================================================= */}
-      {/* LEVEL 2: SUBVIEW - TRỢ GIÚP (HELP & ABOUT)               */}
-      {/* ========================================================= */}
+      {/* SUBVIEW - HELP & ABOUT */}
       {subView === 'help' && (
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.subViewContent}
+          contentContainerStyle={[
+            styles.subViewContent,
+            { paddingBottom: Math.max(insets.bottom, 24) },
+          ]}
         >
           <View style={styles.sectionBlock}>
             <Text style={[styles.sectionTitle, { color: colors.subtle }]}>
-              VỀ ỨNG DỤNG CIRCLE
+              {t.nav.aboutAndSupport}
             </Text>
             <View style={[styles.cardGroup, { backgroundColor: colors.surface, borderColor: colors.hairline, padding: 16, gap: 12 }]}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                 <View style={[styles.aboutLogoBox, { backgroundColor: colors.primary }]}>
                   <Text style={[styles.aboutLogoText, { color: colors.onPrimary }]}>C</Text>
                 </View>
-                <View>
+                <View style={{ flex: 1 }}>
                   <Text style={[styles.optionTitle, { color: colors.text, fontSize: 16, fontWeight: '700' }]}>
-                    CIRCLE Platform
+                    {t.common.appName}
                   </Text>
                   <Text style={[styles.optionDesc, { color: colors.subtle }]}>
-                    Phiên bản 1.0.0 • Flat & Glass
+                    {t.auth.trustBadgeTitle}
                   </Text>
                 </View>
               </View>
               <Text style={[styles.aboutBodyText, { color: colors.subtle }]}>
-                Nền tảng kết nối nhóm và tương tác thời gian thực với công nghệ WebRTC, Socket.IO, NestJS và kiến trúc bảo mật kép Dual-Token.
+                {t.common.slogan}
               </Text>
             </View>
           </View>
 
           <View style={styles.sectionBlock}>
             <Text style={[styles.sectionTitle, { color: colors.subtle }]}>
-              BẢO MẬT & ĐIỀU KHOẢN
+              {t.auth.privacyPolicyTitle}
             </Text>
             <View style={[styles.cardGroup, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
               <View style={[styles.optionRow, { borderBottomColor: colors.hairline, borderBottomWidth: StyleSheet.hairlineWidth }]}>
-                <Shield size={16} color={colors.primary} />
-                <View style={{ flex: 1, marginLeft: 8 }}>
+                <Shield size={16} color={colors.sage} />
+                <View style={{ flex: 1 }}>
                   <Text style={[styles.optionTitle, { color: colors.text }]}>
-                    Bảo mật Dual-Token JWT
+                    {t.common.dualTokenSecurity}
                   </Text>
                   <Text style={[styles.optionDesc, { color: colors.subtle }]}>
-                    Quản lý phiên với Redis Whitelist
+                    {t.auth.privacyPolicyBullet1}
                   </Text>
                 </View>
               </View>
               <View style={styles.optionRow}>
-                <Sparkles size={16} color={colors.primary} />
-                <View style={{ flex: 1, marginLeft: 8 }}>
+                <Sparkles size={16} color={colors.sage} />
+                <View style={{ flex: 1 }}>
                   <Text style={[styles.optionTitle, { color: colors.text }]}>
-                    Tối ưu hóa đa nền tảng
+                    {t.auth.trustBadgeDesc}
                   </Text>
                   <Text style={[styles.optionDesc, { color: colors.subtle }]}>
-                    Đồng bộ dữ liệu thời gian thực
+                    {t.auth.privacyPolicyBullet3}
                   </Text>
                 </View>
               </View>
@@ -1450,6 +1441,61 @@ const styles = StyleSheet.create({
   },
   actionSubmitBtnText: {
     fontSize: 14,
+    fontWeight: '700',
+  },
+  sessionRowWrap: {
+    flexDirection: 'column',
+  },
+  inlineConfirmCard: {
+    padding: 14,
+    gap: 10,
+  },
+  inlineConfirmMsg: {
+    fontSize: 13,
+    fontWeight: '500',
+    lineHeight: 18,
+  },
+  inlineSessionConfirm: {
+    marginHorizontal: 14,
+    marginBottom: 12,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 8,
+  },
+  inlineSessionConfirmText: {
+    fontSize: 12,
+    fontWeight: '500',
+    lineHeight: 17,
+  },
+  inlineConfirmBtns: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  inlineCancelBtn: {
+    flex: 1,
+    minHeight: 38,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+  },
+  inlineCancelText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  inlineDangerBtn: {
+    flex: 1,
+    minHeight: 38,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+  },
+  inlineDangerText: {
+    color: '#FFFFFF',
+    fontSize: 12,
     fontWeight: '700',
   },
 });

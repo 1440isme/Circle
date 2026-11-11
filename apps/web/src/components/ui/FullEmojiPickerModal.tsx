@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Search } from 'lucide-react';
+import { X } from 'lucide-react';
 import { EMOJI_CATEGORIES } from '@circle/shared';
 import { useLanguageStore } from '@/stores/language.store';
 import { Emoji } from './Emoji';
@@ -21,7 +21,7 @@ export const FullEmojiPickerModal: React.FC<FullEmojiPickerModalProps> = ({
   title,
 }) => {
   const t = useLanguageStore((s) => s.t);
-  const resolvedTitle = title || t.emoji?.title || 'Chọn biểu cảm';
+  const resolvedTitle = title || t.emoji.title;
   const [mounted, setMounted] = useState(false);
   const [activeCategoryId, setActiveCategoryId] = useState<string>(EMOJI_CATEGORIES[0]?.id || 'smileys');
   const [searchQuery, setSearchQuery] = useState('');
@@ -53,7 +53,7 @@ export const FullEmojiPickerModal: React.FC<FullEmojiPickerModalProps> = ({
     >
       <div
         ref={modalRef}
-        className="w-full max-w-md rounded-3xl bg-white dark:bg-circle-dark-surface border border-circle-hairline dark:border-circle-dark-hairline shadow-2xl overflow-hidden flex flex-col max-h-[80vh] animate-scale-up"
+        className="w-full max-w-md rounded-3xl glass-sheet shadow-2xl overflow-hidden flex flex-col max-h-[80vh] animate-scale-up"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-circle-hairline dark:border-circle-dark-hairline">

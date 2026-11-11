@@ -8,8 +8,7 @@ import {
   ActivityIndicator,
   Platform,
   Image as RNImage,
-  Alert,
-  Dimensions,
+  useWindowDimensions,
   FlatList,
   Modal,
   ScrollView,
@@ -26,6 +25,7 @@ import {
 } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { BlurView } from 'expo-blur';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 import * as Haptics from 'expo-haptics';
 import { CameraView, CameraType, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
@@ -74,6 +74,7 @@ import {
   Smile,
 } from 'lucide-react-native';
 import { useThemeStore } from '../../stores/theme.store';
+import { getGlassTheme } from '../../constants/glass-theme';
 import { useLanguageStore } from '../../stores/language.store';
 import { useAuthStore } from '../../stores/auth.store';
 import {
@@ -92,8 +93,6 @@ import { FullEmojiPickerModal } from '../ui/FullEmojiPickerModal';
 import { MomentHistoryView, resolveMomentLocation } from './MomentHistoryView';
 import { PROMINENT_QUICK_EMOJIS } from '@circle/shared';
 
-
-const { width: SCREEN_WIDTH, height: WINDOW_HEIGHT } = Dimensions.get('window');
 
 const isExpoGo =
   Constants.executionEnvironment === ExecutionEnvironment.StoreClient ||
@@ -135,7 +134,7 @@ export function resolveAuthorDisplayName(authorId?: string | null, authorObj?: a
     authorObj?.user?.profile?.displayName ||
     authorObj?.email?.split('@')[0] ||
     authorObj?.user?.email?.split('@')[0] ||
-    (useLanguageStore.getState().t?.chat?.defaultMemberName || 'Thành viên')
+    (useLanguageStore.getState().t?.moments?.defaultAuthorName || '')
   );
 }
 
@@ -210,39 +209,33 @@ export function formatMomentRelativeTime(dateInput?: string | Date | null, local
   const diffMs = now.getTime() - date.getTime();
   const diffSec = Math.floor(diffMs / 1000);
 
+  const tMoments = useLanguageStore.getState().t?.moments;
+
   // Vừa xong / just now
   if (diffSec < 60 && diffSec >= -10) {
-    return useLanguageStore.getState().t?.moments?.justNow || 'vừa xong';
+    return tMoments?.justNow || '';
   }
 
   const diffMin = Math.floor(diffSec / 60);
   const diffHour = Math.floor(diffMin / 60);
 
-  // Cùng ngày hôm nay: ví dụ "29 p trước" hoặc "2 giờ trước"
+  // Cùng ngày hôm nay
   const isSameDay = date.toDateString() === now.toDateString();
 
   if (isSameDay) {
     if (diffMin < 60) {
-      return (useLanguageStore.getState().t?.moments?.minutesAgoShort || '{m} p trước').replace('{m}', String(Math.max(1, diffMin)));
+      return (tMoments?.minutesAgoShort || '{m}m').replace('{m}', String(Math.max(1, diffMin)));
     }
-    return (useLanguageStore.getState().t?.moments?.hoursAgoShort || '{h} giờ trước').replace('{h}', String(diffHour));
+    return (tMoments?.hoursAgoShort || '{h}h').replace('{h}', String(diffHour));
   }
 
-  // Khác ngày hôm nay (1, 2 ngày sau hoặc trước đó): hiển thị ngày cụ thể "15 tháng 10"
-  const isSameYear = date.getFullYear() === now.getFullYear();
-  if (locale === 'vi') {
-    const day = date.getDate();
-    const month = date.getMonth() + 1;
-    if (isSameYear) {
-      return `${day} tháng ${month}`;
-    }
-    return `${day} thg ${month}, ${date.getFullYear()}`;
-  }
-
+  // Khác ngày hôm nay: format theo locale hệ thống
+  const dateLocale = locale === 'vi' ? 'vi-VN' : 'en-US';
+  const isSameYear = date.toDateString() === now.toDateString() ? true : date.getFullYear() === now.getFullYear();
   if (isSameYear) {
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return date.toLocaleDateString(dateLocale, { month: 'short', day: 'numeric' });
   }
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return date.toLocaleDateString(dateLocale, { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 function getInitials(name: string): string {
@@ -489,7 +482,7 @@ export const MomentFeedPipView: React.FC<MomentFeedPipViewProps> = React.memo(({
         <RNImage source={{ uri: pipUrl }} style={styles.pipFloatingImage} resizeMode="cover" />
         <View style={[styles.pipSwapOverlay, { backgroundColor: 'rgba(0,0,0,0.65)' }]} pointerEvents="none">
           <RefreshCw size={9} color="#FFFFFF" />
-          <Text style={styles.pipBadgeText}>{useLanguageStore.getState().t?.moments?.tapToSwitchPip || 'Chạm đổi'}</Text>
+          <Text style={styles.pipBadgeText}>{useLanguageStore.getState().t?.moments?.tapToSwitchPip || ''}</Text>
         </View>
       </Animated.View>
     </View>
@@ -499,6 +492,7 @@ MomentFeedPipView.displayName = 'MomentFeedPipView';
 
 interface MomentFeedCardItemProps {
   moment: any;
+  windowWidth: number;
   listHeight: number;
   momentCardWidth: number;
   colors: any;
@@ -527,6 +521,7 @@ interface MomentFeedCardItemProps {
 
 const MomentFeedCardItem: React.FC<MomentFeedCardItemProps> = React.memo(({
   moment: m,
+  windowWidth,
   listHeight,
   momentCardWidth,
   colors,
@@ -565,15 +560,18 @@ const MomentFeedCardItem: React.FC<MomentFeedCardItemProps> = React.memo(({
   const formattedDate = formatMomentRelativeTime(m.createdAt, locale);
   const isAuthor = m.authorId === currentUserId || (m as any).userId === currentUserId;
 
+  const tMoments = useLanguageStore.getState().t?.moments;
+  const tEmoji = useLanguageStore.getState().t?.emoji;
+
   return (
-    <View style={[styles.pageContainer, { height: listHeight }]}>
+    <View style={[styles.pageContainer, { width: windowWidth, height: listHeight }]}>
       <Animated.View
         style={[
           styles.momentFeedCard,
           {
             width: momentCardWidth,
             backgroundColor: colors.surface,
-            borderColor: isReplyingThisMoment ? colors.primary : colors.hairline,
+            borderColor: isReplyingThisMoment ? colors.sage : colors.hairline,
             transform: [{ translateY: isReplyingThisMoment ? keyboardShiftAnim : 0 }],
           },
         ]}
@@ -581,11 +579,11 @@ const MomentFeedCardItem: React.FC<MomentFeedCardItemProps> = React.memo(({
         {/* Card Top: Author Info */}
         <View style={styles.momentFeedHeader}>
           <View style={styles.momentFeedAuthor}>
-            <View style={[styles.authorAvatar, { backgroundColor: `${colors.primary}20` }]}>
+            <View style={[styles.authorAvatar, { backgroundColor: `${colors.sage}18` }]}>
               {authorAvatar ? (
                 <RNImage source={{ uri: resolveMobileMediaUrl(authorAvatar) }} style={styles.authorAvatarImg} />
               ) : (
-                <Text style={[styles.authorAvatarText, { color: colors.primary }]}>
+                <Text style={[styles.authorAvatarText, { color: colors.sage }]}>
                   {getInitials(authorName)}
                 </Text>
               )}
@@ -653,7 +651,7 @@ const MomentFeedCardItem: React.FC<MomentFeedCardItemProps> = React.memo(({
                 <TextInput
                   value={chatReplyText}
                   onChangeText={onChangeChatReplyText}
-                  placeholder={(useLanguageStore.getState().t?.moments?.replyPlaceholder || 'Phản hồi {name}...').replace('{name}', authorName)}
+                  placeholder={(tMoments?.replyToAuthorPlaceholder || '{author}').replace('{author}', authorName)}
                   placeholderTextColor="rgba(255,255,255,0.7)"
                   maxLength={500}
                   autoFocus={true}
@@ -696,23 +694,25 @@ const MomentFeedCardItem: React.FC<MomentFeedCardItemProps> = React.memo(({
           <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
             <TouchableOpacity
               activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               onPress={() => onOpenChatReply(m.id, authorName)}
               style={[
                 styles.replyIconOnlyBtn,
-                isReplyingThisMoment ? { backgroundColor: `${colors.primary}25`, borderRadius: 16 } : null,
+                isReplyingThisMoment ? { backgroundColor: `${colors.sage}18`, borderRadius: 16 } : null,
               ]}
-              accessibilityLabel={useLanguageStore.getState().t?.moments?.replyMomentTitle || 'Phản hồi'}
+              accessibilityLabel={tMoments?.replyMomentTitle || ''}
             >
-              <MessageCircle size={19} color={isReplyingThisMoment ? colors.primary : colors.text} />
+              <MessageCircle size={19} color={isReplyingThisMoment ? colors.sage : colors.text} />
             </TouchableOpacity>
 
             <TouchableOpacity
               activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               onPress={() => onReplyWithPhoto(authorName)}
               style={styles.replyIconOnlyBtn}
-              accessibilityLabel={useLanguageStore.getState().t?.moments?.replyPhoto || 'Đáp lại bằng ảnh'}
+              accessibilityLabel={tMoments?.replyPhoto || ''}
             >
-              <Camera size={19} color={colors.primary} />
+              <Camera size={19} color={colors.sage} />
             </TouchableOpacity>
           </View>
 
@@ -726,7 +726,7 @@ const MomentFeedCardItem: React.FC<MomentFeedCardItemProps> = React.memo(({
                 <View style={styles.authorAvatarStack}>
                   {m.reactions.slice(0, 5).map((r: any, idx: number) => {
                     const reactorAvatar = r.user?.avatarUrl;
-                    const reactorName = r.user?.displayName || 'User';
+                    const reactorName = r.user?.displayName || tMoments?.defaultAuthorName || '';
 
                     return (
                       <View
@@ -736,14 +736,14 @@ const MomentFeedCardItem: React.FC<MomentFeedCardItemProps> = React.memo(({
                           { marginLeft: idx === 0 ? 0 : -8, zIndex: 10 - idx },
                         ]}
                       >
-                        <View style={[styles.authorStackAvatar, { backgroundColor: colors.primary }]}>
+                        <View style={[styles.authorStackAvatar, { backgroundColor: colors.primary, borderColor: colors.surface }]}>
                           {reactorAvatar ? (
                             <RNImage
                               source={{ uri: resolveMobileMediaUrl(reactorAvatar) }}
                               style={styles.authorStackAvatarImg}
                             />
                           ) : (
-                            <Text style={styles.authorStackAvatarText}>
+                            <Text style={[styles.authorStackAvatarText, { color: colors.onPrimary }]}>
                               {getInitials(reactorName)}
                             </Text>
                           )}
@@ -801,8 +801,9 @@ const MomentFeedCardItem: React.FC<MomentFeedCardItemProps> = React.memo(({
               <TouchableOpacity
                 onPress={() => onOpenFullEmoji?.(m.id)}
                 activeOpacity={0.7}
+                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                 style={{ padding: 4 }}
-                accessibilityLabel={useLanguageStore.getState().t?.emoji?.addOtherEmoji || 'Thêm biểu cảm khác'}
+                accessibilityLabel={tEmoji?.addOtherEmoji || ''}
               >
                 <Smile size={19} color={colors.subtle} />
               </TouchableOpacity>
@@ -848,11 +849,30 @@ export function MomentsView({
   const user = useAuthStore((s) => s.user);
   const isDark = resolvedTheme === 'dark';
   const isGlass = uiStyle === 'glass';
+  const glassTheme = useMemo(() => getGlassTheme(isDark, uiStyle), [isDark, uiStyle]);
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+
+  const [statusNotice, setStatusNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const statusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showStatusNotice = useCallback((message: string, type: 'success' | 'error' = 'error') => {
+    if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
+    setStatusNotice({ type, message });
+    statusTimerRef.current = setTimeout(() => {
+      setStatusNotice(null);
+    }, 3200);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
+    };
+  }, []);
 
   const flatListRef = useRef<FlatList<FeedItem>>(null);
   const cameraRef = useRef<CameraView>(null);
-  const stableContainerHeightRef = useRef<number>(WINDOW_HEIGHT - 170);
-  const [containerHeight, setContainerHeight] = useState<number>(WINDOW_HEIGHT - 170);
+  const stableContainerHeightRef = useRef<number>(windowHeight - 170);
+  const [containerHeight, setContainerHeight] = useState<number>(windowHeight - 170);
   const isKeyboardOpenRef = useRef<boolean>(false);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState<boolean>(false);
   const keyboardShiftAnim = useRef(new Animated.Value(0)).current;
@@ -1111,7 +1131,7 @@ export function MomentsView({
   const listHeight = Math.max(containerHeight, 300);
 
   // Bố cục khung ảnh to tràn viền sát lề (chỉ chừa 6px mỗi mép)
-  const momentCardWidth = SCREEN_WIDTH - 12;
+  const momentCardWidth = windowWidth - 12;
   const momentFrameSize = Math.min(
     momentCardWidth,
     listHeight > 0 ? listHeight - 195 : 380
@@ -1161,7 +1181,7 @@ export function MomentsView({
         const lat = loc.coords.latitude;
         const lng = loc.coords.longitude;
 
-        let locationName = t.moments.capturedLocation || 'Vị trí đã chụp';
+        let locationName = t.moments.capturedLocation;
         let address = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
 
         try {
@@ -1173,7 +1193,7 @@ export function MomentsView({
             const city = r?.city || r?.region || '';
             const namePart = r?.name || street || sub || city;
 
-            locationName = namePart || t.moments.capturedLocation || 'Vị trí đã chụp';
+            locationName = namePart || t.moments.capturedLocation;
             address = [street, sub, city].filter(Boolean).join(', ') || `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
           }
         } catch {
@@ -1425,6 +1445,7 @@ export function MomentsView({
   // Page Tracking & Action Menu State
   const [currentPageIndex, setCurrentPageIndex] = useState<number>(0);
   const [isActionMenuOpen, setIsActionMenuOpen] = useState<boolean>(false);
+  const [actionConfirmMode, setActionConfirmMode] = useState<'delete' | 'hide' | null>(null);
   const [isActionProcessing, setIsActionProcessing] = useState<boolean>(false);
 
 
@@ -1452,12 +1473,12 @@ export function MomentsView({
   );
   const selectedFilterName =
     selectedMemberId === 'all'
-      ? (t.chat.mentionAll || 'Mọi người')
+      ? t.chat.mentionAll
       : selectedMember?.nickname ||
         selectedMember?.user?.profile?.displayName ||
         selectedMember?.profile?.displayName ||
         selectedMember?.user?.email?.split('@')[0] ||
-        (t.chat.defaultMemberName || 'Thành viên');
+        t.moments.defaultAuthorName;
 
   // Ảnh gần nhất cho nút cuộn xuống Lịch sử
   const latestMomentPhoto = moments[0]?.photoUrl || moments[0]?.imageUrl || null;
@@ -1468,7 +1489,7 @@ export function MomentsView({
     if (!permission?.granted) {
       const res = await requestPermission();
       if (!res.granted) {
-        Alert.alert(t.common.appName, 'Cần cấp quyền Camera để chụp khoảnh khắc realtime.');
+        showStatusNotice(t.moments.cameraCapturePermissionMsg || t.moments.cameraPermissionDenied, 'error');
         return;
       }
     }
@@ -1517,7 +1538,7 @@ export function MomentsView({
         const shot1Url = shot1?.uri || (shot1?.base64 ? `data:image/jpeg;base64,${shot1.base64}` : null);
 
         if (!shot1Url) {
-          throw new Error('Không thể chụp ảnh từ camera 1');
+          throw new Error(t.moments.cameraCaptureError);
         }
 
         // 2. Lật sang camera đối diện để chụp bức ảnh 2
@@ -1582,7 +1603,7 @@ export function MomentsView({
     } catch (err: any) {
       setIsScreenFlashing(false);
       console.warn('Real camera capture error:', err);
-      Alert.alert(t.common.appName, 'Không thể chụp ảnh, vui lòng thử lại.');
+      showStatusNotice(t.moments.cameraCaptureError, 'error');
     } finally {
       setIsTakingPhoto(false);
       setIsScreenFlashing(false);
@@ -1612,7 +1633,7 @@ export function MomentsView({
     if (!permission?.granted) {
       const res = await requestPermission();
       if (!res.granted) {
-        Alert.alert(t.common.appName, 'Cần cấp quyền Camera để ghi lại khoảnh khắc.');
+        showStatusNotice(t.moments.cameraVideoPermissionMsg || t.moments.cameraPermissionDenied, 'error');
         return;
       }
     }
@@ -1648,7 +1669,7 @@ export function MomentsView({
       }
     } catch (err: any) {
       console.warn('GIF recording error:', err);
-      Alert.alert(t.common.appName, 'Không thể tạo GIF, vui lòng thử lại.');
+      showStatusNotice(t.moments.gifCreateError, 'error');
     } finally {
       setIsRecordingVideo(false);
       isRecordingRef.current = false;
@@ -1753,7 +1774,9 @@ export function MomentsView({
         photoUrl: finalPhotoUrl,
         mediaType: capturedMediaType,
         caption: replyingToAuthor
-          ? `Trả lời @${replyingToAuthor}: ${captionText.trim()}`
+          ? t.moments.photoReplyPrefix
+              .replace('{author}', replyingToAuthor)
+              .replace('{caption}', captionText.trim())
           : captionText.trim() || undefined,
         locationName: locData?.locationName || null,
         address: locData?.address || null,
@@ -1774,7 +1797,7 @@ export function MomentsView({
         setCurrentPageIndex(1);
       }, 350);
     } catch (err: any) {
-      Alert.alert(t.common.appName, err?.message || t.common.unknownError);
+      showStatusNotice(err?.message || t.common.unknownError, 'error');
     } finally {
       setIsTakingPhoto(false);
     }
@@ -1840,11 +1863,11 @@ export function MomentsView({
       setActiveReplyMomentId(null);
       setChatReplyText('');
       Keyboard.dismiss();
-      Alert.alert(t.common.appName, 'Đã gửi phản hồi vào nhóm chat!');
+      showStatusNotice(t.moments.replySuccess, 'success');
     } catch (err: any) {
-      Alert.alert(t.common.appName, err?.message || t.common.unknownError);
+      showStatusNotice(err?.message || t.common.unknownError, 'error');
     }
-  }, [chatReplyText, replyMomentMutation, circleId, t.common.appName, t.common.unknownError]);
+  }, [chatReplyText, replyMomentMutation, circleId, showStatusNotice, t.moments.replySuccess, t.common.unknownError]);
 
   const handleReactMoment = useCallback((momentId: string, emoji: string) => {
     const target = moments.find((it: any) => it.id === momentId);
@@ -1895,7 +1918,7 @@ export function MomentsView({
     ? resolveAuthorDisplayName(targetActionMoment.authorId || targetActionMoment.author?.id || targetActionMoment.user?.id, targetActionMoment.author || targetActionMoment.user, members)
     : (currentFeedItem.type === 'moment'
       ? resolveAuthorDisplayName(currentFeedItem.data?.authorId || currentFeedItem.data?.author?.id || currentFeedItem.data?.user?.id, currentFeedItem.data?.author || currentFeedItem.data?.user, members)
-      : user?.profile?.displayName || 'Bạn');
+      : user?.profile?.displayName || t.common.you);
 
   const prepareExportImageUri = async (): Promise<string | null> => {
     let rawMainUrl: string | null = null;
@@ -2023,16 +2046,17 @@ export function MomentsView({
       if (isSharingAvailable) {
         await Sharing.shareAsync(exportUri, {
           mimeType: isVideo ? 'video/mp4' : 'image/jpeg',
-          dialogTitle: 'Chia sẻ khoảnh khắc',
+          dialogTitle: t.moments.shareMomentTitle,
         });
       } else {
         await RNShare.share({
-          message: `Khoảnh khắc từ nhóm ${circleName} trên Circle!`,
+          message: t.moments.momentFromCircleDesc.replace('{name}', circleName),
           url: exportUri,
         });
       }
     } catch (err: any) {
       console.warn('handleSharePhoto error:', err);
+      showStatusNotice(t.moments.unableToShareMoment, 'error');
     } finally {
       setIsActionProcessing(false);
     }
@@ -2040,6 +2064,7 @@ export function MomentsView({
 
   const handleSaveImage = async () => {
     setIsActionMenuOpen(false);
+    setActionConfirmMode(null);
     try {
       setIsActionProcessing(true);
       const exportUri = await prepareExportImageUri();
@@ -2048,11 +2073,11 @@ export function MomentsView({
       // 1. Xin quyền truy cập Thư viện ảnh nếu cần
       const { status } = await MediaLibrary.requestPermissionsAsync(true);
       if (status !== 'granted') {
-        Alert.alert(t.common.appName, 'Cần cấp quyền truy cập thư viện để lưu vào thiết bị.');
+        showStatusNotice(t.moments.libraryPermissionMsg, 'error');
         return;
       }
 
-      // 2. Lưu chính thức vào Thư viện ảnh / Gallery của thiết bị (sử dụng API chuẩn Asset.create mới của Expo SDK 57)
+      // 2. Lưu chính thức vào Thư viện ảnh / Gallery của thiết bị
       if (MediaLibrary.Asset && typeof MediaLibrary.Asset.create === 'function') {
         await MediaLibrary.Asset.create(exportUri);
       } else if (typeof (MediaLibrary as any).createAssetAsync === 'function') {
@@ -2060,66 +2085,53 @@ export function MomentsView({
       } else {
         await (MediaLibrary as any).saveToLibraryAsync(exportUri);
       }
-      Alert.alert(t.common.appName, 'Đã lưu khoảnh khắc vào thư viện thiết bị thành công!');
+      showStatusNotice(t.moments.saveToDeviceSuccess, 'success');
     } catch (err: any) {
-      Alert.alert(t.common.appName, err?.message || 'Không thể lưu vào thư viện thiết bị.');
+      showStatusNotice(err?.message || t.moments.saveToDeviceError, 'error');
     } finally {
       setIsActionProcessing(false);
     }
   };
 
-  const handleDeleteMoment = () => {
-    if (!selectedMomentForAction) return;
-    const targetMoment = selectedMomentForAction;
+  const handleRequestDeleteMoment = () => {
+    if (!targetActionMoment) return;
     const isOwn =
-      targetMoment.authorId === user?.id ||
-      targetMoment.author?.id === user?.id ||
-      targetMoment.userId === user?.id;
+      targetActionMoment.authorId === user?.id ||
+      targetActionMoment.author?.id === user?.id ||
+      targetActionMoment.userId === user?.id;
+    setActionConfirmMode(isOwn ? 'delete' : 'hide');
+  };
 
-    setIsActionMenuOpen(false);
-
-    if (isOwn) {
-      Alert.alert(
-        t.moments.deleteMomentForeverTitle,
-        t.moments.deleteMomentForeverDesc,
-        [
-          { text: t.common.cancel || 'Hủy', style: 'cancel' },
-          {
-            text: t.moments.deleteMomentForeverAction,
-            style: 'destructive',
-            onPress: async () => {
-              try {
-                await deleteMomentMutation.mutateAsync(targetMoment.id);
-                setTimeout(() => {
-                  flatListRef.current?.scrollToIndex({ index: 0, animated: true });
-                  setCurrentPageIndex(0);
-                }, 200);
-              } catch (err: any) {
-                Alert.alert(t.common.appName, err?.message || 'Không thể xoá khoảnh khắc');
-              }
-            },
-          },
-        ],
-      );
-    } else {
-      Alert.alert(
-        t.moments.deleteForMeTitle,
-        t.moments.deleteForMeDesc,
-        [
-          { text: t.common.cancel || 'Hủy', style: 'cancel' },
-          {
-            text: t.moments.deleteForMeAction,
-            style: 'destructive',
-            onPress: async () => {
-              await hideMomentLocally(targetMoment.id);
-              setTimeout(() => {
-                flatListRef.current?.scrollToIndex({ index: 0, animated: true });
-                setCurrentPageIndex(0);
-              }, 200);
-            },
-          },
-        ],
-      );
+  const handleConfirmDeleteMoment = async () => {
+    if (!targetActionMoment || isActionProcessing) return;
+    const momentId = targetActionMoment.id;
+    if (actionConfirmMode === 'delete') {
+      try {
+        setIsActionProcessing(true);
+        await deleteMomentMutation.mutateAsync(momentId);
+        setIsActionMenuOpen(false);
+        setSelectedMomentForAction(null);
+        setActionConfirmMode(null);
+        showStatusNotice(t.moments.deleteSuccess, 'success');
+        setTimeout(() => {
+          flatListRef.current?.scrollToIndex({ index: 0, animated: true });
+          setCurrentPageIndex(0);
+        }, 200);
+      } catch (err: any) {
+        showStatusNotice(err?.message || t.moments.deleteMomentError, 'error');
+      } finally {
+        setIsActionProcessing(false);
+      }
+    } else if (actionConfirmMode === 'hide') {
+      await hideMomentLocally(momentId);
+      setIsActionMenuOpen(false);
+      setSelectedMomentForAction(null);
+      setActionConfirmMode(null);
+      showStatusNotice(t.moments.momentDeletedForMe, 'success');
+      setTimeout(() => {
+        flatListRef.current?.scrollToIndex({ index: 0, animated: true });
+        setCurrentPageIndex(0);
+      }, 200);
     }
   };
 
@@ -2130,6 +2142,7 @@ export function MomentsView({
     if (momentItem) {
       setSelectedMomentForAction(momentItem);
     }
+    setActionConfirmMode(null);
     setIsActionMenuOpen(true);
   }, []);
 
@@ -2162,10 +2175,10 @@ export function MomentsView({
   };
 
   const renderFeedItem = useCallback(
-    ({ item, index }: { item: FeedItem; index: number }) => {
+    ({ item }: { item: FeedItem; index: number }) => {
     if (item.type === 'camera') {
       return (
-        <View style={[styles.pageContainer, { height: listHeight }]}>
+        <View style={[styles.pageContainer, { width: windowWidth, height: listHeight }]}>
           <Animated.View
             style={[
               styles.cameraContent,
@@ -2174,13 +2187,23 @@ export function MomentsView({
           >
             {/* Replying Badge when user is replying to a moment */}
             {replyingToAuthor && (
-              <View style={[styles.replyingBadge, { backgroundColor: `${colors.warning}20`, marginBottom: 8 }]}>
-                <MessageCircle size={13} color={colors.warning} />
-                <Text style={[styles.replyingBadgeText, { color: colors.warning }]}>
+              <View
+                style={[
+                  styles.replyingBadge,
+                  {
+                    backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : colors.wash,
+                    borderWidth: 1,
+                    borderColor: colors.hairline,
+                    marginBottom: 8,
+                  },
+                ]}
+              >
+                <MessageCircle size={13} color={colors.sage} />
+                <Text style={[styles.replyingBadgeText, { color: colors.text }]}>
                   {t.moments.replyToAuthorPrefix.replace('{author}', replyingToAuthor)}
                 </Text>
-                <TouchableOpacity onPress={() => setReplyingToAuthor(null)}>
-                  <X size={13} color={colors.warning} />
+                <TouchableOpacity onPress={() => setReplyingToAuthor(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <X size={13} color={colors.subtle} />
                 </TouchableOpacity>
               </View>
             )}
@@ -2242,14 +2265,14 @@ export function MomentsView({
                   <Camera size={36} color="rgba(255, 255, 255, 0.4)" />
                   <Text
                     style={{
-                      color: 'rgba(255, 255, 255, 0.65)',
+                      color: 'rgba(255, 255, 255, 0.72)',
                       fontSize: 13,
                       fontWeight: '600',
                       textAlign: 'center',
                       paddingHorizontal: 24,
                     }}
                   >
-                    Chuyển sang tab Khoảnh khắc để mở máy ảnh
+                    {t.moments.switchToMomentsTabHint}
                   </Text>
                 </View>
               ) : permission?.granted ? (
@@ -2527,13 +2550,13 @@ export function MomentsView({
                     style={[
                       styles.sideControlBtn,
                       {
-                        backgroundColor: isDualMode ? `${colors.primary}25` : colors.surface,
-                        borderColor: isDualMode ? colors.primary : colors.hairline,
+                        backgroundColor: isDualMode ? `${colors.sage}18` : colors.surface,
+                        borderColor: isDualMode ? colors.sage : colors.hairline,
                         opacity: isRecordingVideo ? 0.3 : 1,
                       },
                     ]}
                   >
-                    <Layers size={26} color={isDualMode ? colors.primary : colors.text} />
+                    <Layers size={26} color={isDualMode ? colors.sage : colors.text} />
                   </TouchableOpacity>
 
                   {/* Center Button: Single Round Shutter Button with Circular Progress Ring Countdown */}
@@ -2649,8 +2672,8 @@ export function MomentsView({
               {latestMomentPhoto ? (
                 <RNImage source={{ uri: resolveMobileMediaUrl(latestMomentPhoto) }} style={styles.historyCueThumb} resizeMode="cover" />
               ) : (
-                <View style={[styles.historyCueThumb, { backgroundColor: `${colors.primary}25`, alignItems: 'center', justifyContent: 'center' }]}>
-                  <History size={14} color={colors.primary} />
+                <View style={[styles.historyCueThumb, { backgroundColor: `${colors.sage}18`, alignItems: 'center', justifyContent: 'center' }]}>
+                  <History size={14} color={colors.sage} />
                 </View>
               )}
               <Text style={[styles.historyCueText, { color: colors.text }]}>{t.moments.historyTitle}</Text>
@@ -2663,13 +2686,13 @@ export function MomentsView({
 
     if (item.type === 'empty') {
       return (
-        <View style={[styles.pageContainer, { height: listHeight }]}>
+        <View style={[styles.pageContainer, { width: windowWidth, height: listHeight }]}>
           <View style={[styles.emptyHistoryBox, { width: momentCardWidth, backgroundColor: colors.surface, borderColor: colors.hairline }]}>
             <ImageIcon size={44} color={colors.subtle} />
             <Text style={[styles.emptyHistoryTitle, { color: colors.text }]}>
               {selectedMemberId === 'all'
                 ? t.moments.emptyCircleTitle
-                : (t.moments.noMomentsFromFilter || 'Chưa có khoảnh khắc từ {name}').replace('{name}', selectedFilterName)}
+                : t.moments.noMomentsFromFilter.replace('{name}', selectedFilterName)}
             </Text>
             {selectedMemberId !== 'all' ? (
               <TouchableOpacity
@@ -2703,6 +2726,7 @@ export function MomentsView({
       <MomentFeedCardItem
         key={m.id}
         moment={m}
+        windowWidth={windowWidth}
         listHeight={listHeight}
         momentCardWidth={momentCardWidth}
         colors={colors}
@@ -2730,10 +2754,12 @@ export function MomentsView({
       />
     );
   }, [
+    windowWidth,
     listHeight,
     keyboardShiftAnim,
     replyingToAuthor,
     colors,
+    isDark,
     momentFrameSize,
     capturedPhotoUrl,
     capturedMediaType,
@@ -2762,6 +2788,8 @@ export function MomentsView({
     selectedFilterName,
     circleName,
     t.moments.emptyCircleTitle,
+    t.moments.noMomentsFromFilter,
+    t.moments.switchToMomentsTabHint,
     locale,
     swappedMoments,
     viewerPipCorners,
@@ -2793,6 +2821,36 @@ export function MomentsView({
         }
       }}
     >
+      {/* Inline Status Notice Pill Banner (zero Alert.alert) */}
+      {statusNotice && (
+        <View pointerEvents="box-none" style={styles.statusNoticeWrapper}>
+          <View
+            style={[
+              styles.statusNoticeBanner,
+              {
+                backgroundColor: colors.surface,
+                borderColor: statusNotice.type === 'success' ? colors.sage : '#DC2626',
+              },
+            ]}
+          >
+            {statusNotice.type === 'success' ? (
+              <Check size={15} color={colors.sage} />
+            ) : (
+              <X size={15} color="#DC2626" />
+            )}
+            <Text style={[styles.statusNoticeText, { color: colors.text }]} numberOfLines={2}>
+              {statusNotice.message}
+            </Text>
+            <TouchableOpacity
+              onPress={() => setStatusNotice(null)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityLabel={t.common.close}
+            >
+              <X size={14} color={colors.subtle} />
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
       {/* Khung ghép ảnh Dual chạy ngầm hoàn toàn phía sau UI (100% silent, không hiển thị bất kỳ động tác giả hay popup nào lên màn hình) */}
       {exportingCompositeData && (
         <View
@@ -2871,13 +2929,11 @@ export function MomentsView({
           windowSize={5}
           ListEmptyComponent={
             <View style={styles.gridEmptyBox}>
-              <View style={[styles.gridEmptyIconCircle, { backgroundColor: `${colors.primary}15` }]}>
-                <ImageIcon size={32} color={colors.primary} />
-              </View>
+              <ImageIcon size={36} color={colors.sage} />
               <Text style={[styles.gridEmptyTitle, { color: colors.text }]}>
                 {selectedMemberId === 'all'
                   ? t.moments.emptyCircleTitle
-                  : (t.moments.noMomentsFromFilter || 'Chưa có khoảnh khắc từ {name}').replace('{name}', selectedFilterName)}
+                  : t.moments.noMomentsFromFilter.replace('{name}', selectedFilterName)}
               </Text>
               <TouchableOpacity
                 activeOpacity={0.85}
@@ -2995,84 +3051,127 @@ export function MomentsView({
           - Tự động ẩn khi mở bàn phím để không bị đẩy lên trên
          ========================================================================= */}
       {!isKeyboardVisible && (
-        <View pointerEvents="box-none" style={styles.floatingDockContainer}>
-          <View
-            style={[
-              styles.floatingDockBar,
-              {
-                backgroundColor: isDark ? 'rgba(25, 25, 25, 0.92)' : 'rgba(255, 255, 255, 0.95)',
-                borderColor: colors.hairline,
-              },
-            ]}
-          >
-          {/* Nút bên trái: Lịch sử (Icon Calendar, không text) */}
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => {
-              try {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              } catch {}
-              if (isGridViewActive) setIsGridViewActive(false);
-              setIsHistoryViewActive(!isHistoryViewActive);
-            }}
-            style={styles.dockIconBtn}
-            accessibilityLabel={t.moments.historyTitle}
-          >
-            <Calendar
-              size={24}
-              color={isHistoryViewActive ? colors.primary : (currentPageIndex > 0 ? colors.primary : colors.text)}
-            />
-          </TouchableOpacity>
-
-          {/* Nút chính giữa: Cố định kích thước. Nếu đang xem Lịch sử hoặc Xem Lưới -> bấm để quay lại Camera */}
-          <TouchableOpacity
-            activeOpacity={0.85}
-            onPress={
-              isHistoryViewActive || isGridViewActive
-                ? () => {
+        <View
+          pointerEvents="box-none"
+          style={[
+            styles.floatingDockContainer,
+            { bottom: Math.max(insets.bottom + 4, 12) },
+          ]}
+        >
+          {(() => {
+            const dockContent = (
+              <>
+                {/* Nút bên trái: Lịch sử (Icon Calendar, không text) */}
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  onPress={() => {
                     try {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                     } catch {}
-                    setIsHistoryViewActive(false);
-                    setIsGridViewActive(false);
-                    scrollToCamera();
-                  }
-                : (currentPageIndex === 0 ? () => {} : scrollToCamera)
-            }
-            style={[styles.dockCenterBtnOuter, { borderColor: colors.primary }]}
-            accessibilityLabel="Camera hoặc Về đầu"
-          >
-            <View style={[styles.dockCenterBtnInner, { backgroundColor: colors.primary }]}>
-              {isHistoryViewActive || isGridViewActive ? (
-                <Camera size={22} color={colors.onPrimary} />
-              ) : currentPageIndex === 0 ? (
-                <Home size={22} color={colors.onPrimary} />
-              ) : (
-                <Camera size={22} color={colors.onPrimary} />
-              )}
-            </View>
-          </TouchableOpacity>
+                    if (isGridViewActive) setIsGridViewActive(false);
+                    setIsHistoryViewActive(!isHistoryViewActive);
+                  }}
+                  style={styles.dockIconBtn}
+                  accessibilityLabel={t.moments.historyTitle}
+                >
+                  <Calendar
+                    size={24}
+                    color={isHistoryViewActive || currentPageIndex > 0 ? colors.sage : colors.text}
+                  />
+                </TouchableOpacity>
 
-          {/* Nút bên phải: Chế độ xem lưới (LayoutGrid, không text) */}
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => {
-              try {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              } catch {}
-              if (isHistoryViewActive) setIsHistoryViewActive(false);
-              setIsGridViewActive(!isGridViewActive);
-            }}
-            style={styles.dockIconBtn}
-            accessibilityLabel="Chế độ xem lưới"
-          >
-            <LayoutGrid
-              size={24}
-              color={isGridViewActive ? colors.primary : colors.text}
-            />
-          </TouchableOpacity>
+                {/* Nút chính giữa: Cố định kích thước. Nếu đang xem Lịch sử hoặc Xem Lưới -> bấm để quay lại Camera */}
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={
+                    isHistoryViewActive || isGridViewActive
+                      ? () => {
+                          try {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                          } catch {}
+                          setIsHistoryViewActive(false);
+                          setIsGridViewActive(false);
+                          scrollToCamera();
+                        }
+                      : (currentPageIndex === 0 ? () => {} : scrollToCamera)
+                  }
+                  style={[styles.dockCenterBtnOuter, { borderColor: colors.primary }]}
+                  accessibilityLabel={t.moments.cameraOrTopA11y}
+                >
+                  <View style={[styles.dockCenterBtnInner, { backgroundColor: colors.primary }]}>
+                    {isHistoryViewActive || isGridViewActive ? (
+                      <Camera size={22} color={colors.onPrimary} />
+                    ) : currentPageIndex === 0 ? (
+                      <Home size={22} color={colors.onPrimary} />
+                    ) : (
+                      <Camera size={22} color={colors.onPrimary} />
+                    )}
+                  </View>
+                </TouchableOpacity>
+
+                {/* Nút bên phải: Chế độ xem lưới (LayoutGrid, không text) */}
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  onPress={() => {
+                    try {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    } catch {}
+                    if (isHistoryViewActive) setIsHistoryViewActive(false);
+                    setIsGridViewActive(!isGridViewActive);
+                  }}
+                  style={styles.dockIconBtn}
+                  accessibilityLabel={t.moments.gridModeA11y}
+                >
+                  <LayoutGrid
+                    size={24}
+                    color={isGridViewActive ? colors.sage : colors.text}
+                  />
+                </TouchableOpacity>
+              </>
+            );
+
+            if (isGlass) {
+              return (
+                <View
+                  style={[
+                    styles.floatingDockShell,
+                    { borderColor: glassTheme.colors.glassBorder },
+                  ]}
+                >
+                  <BlurView
+                    intensity={glassTheme.blur.intensity}
+                    tint={glassTheme.blur.tint}
+                    style={[
+                      styles.floatingDockBar,
+                      {
+                        backgroundColor: glassTheme.colors.glassBg,
+                        borderWidth: 0,
+                      },
+                    ]}
+                  >
+                    {dockContent}
+                  </BlurView>
+                </View>
+              );
+            }
+
+            return (
+              <View
+                style={[
+                  styles.floatingDockBar,
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.hairline,
+                  },
+                ]}
+              >
+                {dockContent}
+              </View>
+            );
+          })()}
         </View>
-      </View>
       )}
 
       {/* =========================================================================
@@ -3085,6 +3184,7 @@ export function MomentsView({
         onRequestClose={() => {
           setIsActionMenuOpen(false);
           setSelectedMomentForAction(null);
+          setActionConfirmMode(null);
         }}
       >
         <TouchableOpacity
@@ -3092,22 +3192,33 @@ export function MomentsView({
           onPress={() => {
             setIsActionMenuOpen(false);
             setSelectedMomentForAction(null);
+            setActionConfirmMode(null);
           }}
           style={styles.actionModalOverlay}
         >
-          <BlurView
-            intensity={Platform.OS === 'ios' ? 45 : 85}
-            tint={isDark ? 'dark' : 'light'}
-            style={StyleSheet.absoluteFill}
-          />
+          {isGlass ? (
+            <BlurView
+              intensity={glassTheme.blur.intensity}
+              tint={glassTheme.blur.tint}
+              style={StyleSheet.absoluteFill}
+            />
+          ) : (
+            <View
+              style={[
+                StyleSheet.absoluteFill,
+                { backgroundColor: isDark ? 'rgba(0, 0, 0, 0.72)' : 'rgba(0, 0, 0, 0.45)' },
+              ]}
+            />
+          )}
 
           <TouchableOpacity
             activeOpacity={1}
             style={[
               styles.actionModalSheet,
               {
-                backgroundColor: colors.sheetBg,
-                borderColor: colors.glassBorder,
+                backgroundColor: isGlass ? glassTheme.colors.glassBgSheet : colors.surface,
+                borderColor: isGlass ? glassTheme.colors.glassBorder : colors.hairline,
+                paddingBottom: Math.max(insets.bottom + 16, Platform.OS === 'ios' ? 36 : 24),
               },
             ]}
           >
@@ -3115,7 +3226,7 @@ export function MomentsView({
             <View style={[styles.actionSheetHandle, { backgroundColor: colors.hairline }]} />
 
             {/* Header with Photo Preview Thumbnail */}
-            <View style={styles.actionSheetHeader}>
+            <View style={[styles.actionSheetHeader, { borderBottomColor: colors.hairline }]}>
               <View style={styles.actionHeaderLeft}>
                 {currentActivePhotoUrl ? (
                   <RNImage source={{ uri: resolveMobileMediaUrl(currentActivePhotoUrl) }} style={styles.actionHeaderThumb} resizeMode="cover" />
@@ -3126,7 +3237,7 @@ export function MomentsView({
                 )}
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.actionSheetTitle, { color: colors.text }]}>
-                    {(t.chat.momentOf || 'Khoảnh khắc của {author}').replace('{author}', currentAuthorName)}
+                    {t.chat.momentOf.replace('{author}', currentAuthorName)}
                   </Text>
                   <Text style={[styles.actionSheetSub, { color: colors.subtle }]}>
                     {circleName}
@@ -3135,70 +3246,131 @@ export function MomentsView({
               </View>
 
               <TouchableOpacity
-                onPress={() => setIsActionMenuOpen(false)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                onPress={() => {
+                  setIsActionMenuOpen(false);
+                  setSelectedMomentForAction(null);
+                  setActionConfirmMode(null);
+                }}
                 style={[styles.actionCloseBtn, { backgroundColor: colors.wash }]}
+                accessibilityLabel={t.common.close}
               >
                 <X size={16} color={colors.subtle} />
               </TouchableOpacity>
             </View>
 
-            {/* Action Items List: Chia sẻ, Lưu, Xoá */}
-            <View style={styles.actionList}>
-              {/* Option 1: Chia sẻ */}
-              <TouchableOpacity
-                activeOpacity={0.75}
-                disabled={isActionProcessing}
-                onPress={handleSharePhoto}
-                style={[styles.actionItem, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
-              >
-                {isActionProcessing ? (
-                  <ActivityIndicator size="small" color={colors.primary} />
-                ) : (
-                  <Share2 size={22} color={colors.primary} />
-                )}
-                <View style={styles.actionItemInfo}>
-                  <Text style={[styles.actionItemTitle, { color: colors.text, fontWeight: '600' }]}>{t.common.share}</Text>
-                </View>
-              </TouchableOpacity>
-
-              {/* Option 2: Lưu */}
-              <TouchableOpacity
-                activeOpacity={0.75}
-                disabled={isActionProcessing}
-                onPress={handleSaveImage}
-                style={[styles.actionItem, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
-              >
-                {isActionProcessing ? (
-                  <ActivityIndicator size="small" color={colors.success} />
-                ) : (
-                  <Download size={22} color={colors.success} />
-                )}
-                <View style={styles.actionItemInfo}>
-                  <Text style={[styles.actionItemTitle, { color: colors.text, fontWeight: '600' }]}>{t.common.save || 'Lưu'}</Text>
-                </View>
-              </TouchableOpacity>
-
-              {/* Option 3: Xoá */}
-              <TouchableOpacity
-                activeOpacity={0.75}
-                disabled={isActionProcessing}
-                onPress={handleDeleteMoment}
+            {actionConfirmMode ? (
+              <View
                 style={[
-                  styles.actionItem,
+                  styles.actionConfirmCard,
                   {
-                    backgroundColor: isDark ? 'rgba(239, 68, 68, 0.12)' : 'rgba(239, 68, 68, 0.08)',
-                    borderColor: isDark ? 'rgba(239, 68, 68, 0.35)' : 'rgba(239, 68, 68, 0.25)',
+                    backgroundColor: isDark ? 'rgba(220, 38, 38, 0.14)' : 'rgba(220, 38, 38, 0.08)',
+                    borderColor: isDark ? 'rgba(248, 113, 113, 0.4)' : 'rgba(220, 38, 38, 0.28)',
                   },
                 ]}
               >
-                <Trash2 size={22} color={colors.danger} />
-                <View style={styles.actionItemInfo}>
-                  <Text style={[styles.actionItemTitle, { color: colors.danger, fontWeight: '700' }]}>
-                    {t.common.delete}
-                  </Text>
+                <Text style={[styles.actionConfirmTitle, { color: colors.text }]}>
+                  {actionConfirmMode === 'delete'
+                    ? t.moments.deleteMomentForeverTitle
+                    : t.moments.deleteForMeTitle}
+                </Text>
+                <Text style={[styles.actionConfirmDesc, { color: colors.subtle }]}>
+                  {actionConfirmMode === 'delete'
+                    ? t.moments.deleteMomentForeverDesc
+                    : t.moments.hideMomentConfirm}
+                </Text>
+                <View style={styles.actionConfirmBtnsRow}>
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    disabled={isActionProcessing}
+                    onPress={() => setActionConfirmMode(null)}
+                    style={[
+                      styles.actionConfirmCancelBtn,
+                      { backgroundColor: colors.wash, borderColor: colors.hairline },
+                    ]}
+                  >
+                    <Text style={[styles.actionConfirmCancelText, { color: colors.text }]}>
+                      {t.common.cancel}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    disabled={isActionProcessing}
+                    onPress={handleConfirmDeleteMoment}
+                    style={[styles.actionConfirmDangerBtn, { backgroundColor: '#DC2626' }]}
+                  >
+                    {isActionProcessing ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <Text style={styles.actionConfirmDangerText}>
+                        {actionConfirmMode === 'delete'
+                          ? t.moments.deleteMomentForeverAction
+                          : t.moments.deleteForMeAction}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
                 </View>
-              </TouchableOpacity>
-            </View>
+              </View>
+            ) : (
+              /* Action Items List: Chia sẻ, Lưu, Xoá */
+              <View style={styles.actionList}>
+                {/* Option 1: Chia sẻ */}
+                <TouchableOpacity
+                  activeOpacity={0.75}
+                  disabled={isActionProcessing}
+                  onPress={handleSharePhoto}
+                  style={[styles.actionItem, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
+                >
+                  {isActionProcessing ? (
+                    <ActivityIndicator size="small" color={colors.sage} />
+                  ) : (
+                    <Share2 size={22} color={colors.sage} />
+                  )}
+                  <View style={styles.actionItemInfo}>
+                    <Text style={[styles.actionItemTitle, { color: colors.text, fontWeight: '600' }]}>{t.common.share}</Text>
+                  </View>
+                </TouchableOpacity>
+
+                {/* Option 2: Lưu */}
+                <TouchableOpacity
+                  activeOpacity={0.75}
+                  disabled={isActionProcessing}
+                  onPress={handleSaveImage}
+                  style={[styles.actionItem, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
+                >
+                  {isActionProcessing ? (
+                    <ActivityIndicator size="small" color={colors.sage} />
+                  ) : (
+                    <Download size={22} color={colors.sage} />
+                  )}
+                  <View style={styles.actionItemInfo}>
+                    <Text style={[styles.actionItemTitle, { color: colors.text, fontWeight: '600' }]}>{t.common.save}</Text>
+                  </View>
+                </TouchableOpacity>
+
+                {/* Option 3: Xoá */}
+                <TouchableOpacity
+                  activeOpacity={0.75}
+                  disabled={isActionProcessing}
+                  onPress={handleRequestDeleteMoment}
+                  style={[
+                    styles.actionItem,
+                    {
+                      backgroundColor: isDark ? 'rgba(220, 38, 38, 0.12)' : 'rgba(220, 38, 38, 0.08)',
+                      borderColor: isDark ? 'rgba(248, 113, 113, 0.35)' : 'rgba(220, 38, 38, 0.25)',
+                    },
+                  ]}
+                >
+                  <Trash2 size={22} color={colors.danger} />
+                  <View style={styles.actionItemInfo}>
+                    <Text style={[styles.actionItemTitle, { color: colors.danger, fontWeight: '700' }]}>
+                      {t.common.delete}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+            )}
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
@@ -3231,7 +3403,13 @@ export function MomentsView({
           <TouchableOpacity
             activeOpacity={1}
             onPress={(e) => e.stopPropagation()}
-            style={[styles.reactorsSheet, { backgroundColor: colors.surface }]}
+            style={[
+              styles.reactorsSheet,
+              {
+                backgroundColor: colors.surface,
+                paddingBottom: Math.max(insets.bottom + 16, 24),
+              },
+            ]}
           >
             {/* Header */}
             <View style={[styles.reactorsHeader, { borderBottomColor: colors.hairline }]}>
@@ -3239,8 +3417,8 @@ export function MomentsView({
                 <Text style={[styles.reactorsTitle, { color: colors.text }]}>
                   {t.moments.reactionsTitle}
                 </Text>
-                <View style={[styles.reactorsCountBadge, { backgroundColor: `${colors.primary}25` }]}>
-                  <Text style={[styles.reactorsCountBadgeText, { color: colors.primary }]}>
+                <View style={[styles.reactorsCountBadge, { backgroundColor: `${colors.sage}20` }]}>
+                  <Text style={[styles.reactorsCountBadgeText, { color: colors.sage }]}>
                     {selectedMomentForReactors?.reactions?.length || 0}
                   </Text>
                 </View>
@@ -3248,8 +3426,10 @@ export function MomentsView({
 
               <TouchableOpacity
                 activeOpacity={0.7}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 onPress={() => setSelectedMomentForReactors(null)}
                 style={[styles.reactorsCloseBtn, { backgroundColor: colors.wash }]}
+                accessibilityLabel={t.common.close}
               >
                 <X size={16} color={colors.text} />
               </TouchableOpacity>
@@ -3281,7 +3461,7 @@ export function MomentsView({
                       <Text
                         style={[
                           styles.reactorsFilterChipText,
-                          { color: reactorEmojiFilter === 'ALL' ? '#FFFFFF' : colors.text },
+                          { color: reactorEmojiFilter === 'ALL' ? colors.onPrimary : colors.text },
                         ]}
                       >
                         {t.common.all} ({reactions.length})
@@ -3295,8 +3475,8 @@ export function MomentsView({
                         style={[
                           styles.reactorsFilterChip,
                           {
-                            backgroundColor: reactorEmojiFilter === emoji ? `${colors.primary}25` : colors.wash,
-                            borderColor: reactorEmojiFilter === emoji ? colors.primary : 'transparent',
+                            backgroundColor: reactorEmojiFilter === emoji ? `${colors.sage}18` : colors.wash,
+                            borderColor: reactorEmojiFilter === emoji ? colors.sage : 'transparent',
                             borderWidth: 1,
                           },
                         ]}
@@ -3305,7 +3485,7 @@ export function MomentsView({
                         <Text
                           style={[
                             styles.reactorsFilterChipText,
-                            { color: reactorEmojiFilter === emoji ? colors.primary : colors.text },
+                            { color: reactorEmojiFilter === emoji ? colors.sage : colors.text },
                           ]}
                         >
                           {emojiCounts[emoji]}
@@ -3329,16 +3509,16 @@ export function MomentsView({
                 if (filtered.length === 0) {
                   return (
                     <View style={{ paddingVertical: 40, alignItems: 'center', gap: 8 }}>
-                      <Text style={{ fontSize: 32 }}>❤️</Text>
+                      <Heart size={28} color={colors.subtle} />
                       <Text style={{ fontSize: 13, color: colors.subtle }}>
-                        {t.moments.emptyFeedTitle}
+                        {t.moments.noReactorsForEmoji}
                       </Text>
                     </View>
                   );
                 }
 
                 return filtered.map((r: any) => {
-                  const displayName = r.user?.displayName || t.chat.defaultMemberName;
+                  const displayName = r.user?.displayName || t.moments.defaultAuthorName;
                   const avatarUrl = r.user?.avatarUrl;
                   const relativeTime = formatMomentRelativeTime(r.createdAt, locale);
 
@@ -3353,7 +3533,7 @@ export function MomentsView({
                                 style={styles.reactorItemAvatarImg}
                               />
                             ) : (
-                              <Text style={styles.reactorItemAvatarText}>
+                              <Text style={[styles.reactorItemAvatarText, { color: colors.onPrimary }]}>
                                 {getInitials(displayName)}
                               </Text>
                             )}
@@ -3503,7 +3683,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   pageContainer: {
-    width: SCREEN_WIDTH,
     alignItems: 'center',
     justifyContent: 'flex-start',
     paddingTop: 14,
@@ -4107,7 +4286,6 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
@@ -4119,7 +4297,6 @@ const styles = StyleSheet.create({
   authorStackAvatarText: {
     fontSize: 9,
     fontWeight: '700',
-    color: '#000000',
   },
   authorStackEmojiBadge: {
     position: 'absolute',
@@ -4222,7 +4399,6 @@ const styles = StyleSheet.create({
   reactorItemAvatarText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#000000',
   },
   reactorItemAvatarEmoji: {
     position: 'absolute',
@@ -4288,6 +4464,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  floatingDockShell: {
+    borderRadius: 30,
+    borderWidth: 1.2,
+    overflow: 'hidden',
+    width: 270,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 10,
+  },
   floatingDockBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -4302,6 +4489,78 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 12,
     elevation: 10,
+  },
+  statusNoticeWrapper: {
+    position: 'absolute',
+    top: 10,
+    left: 14,
+    right: 14,
+    zIndex: 60,
+    alignItems: 'center',
+  },
+  statusNoticeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 16,
+    borderWidth: 1,
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.16,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  statusNoticeText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    lineHeight: 18,
+  },
+  actionConfirmCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 14,
+    gap: 8,
+  },
+  actionConfirmTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  actionConfirmDesc: {
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  actionConfirmBtnsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 4,
+  },
+  actionConfirmCancelBtn: {
+    flex: 1,
+    paddingVertical: 11,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionConfirmCancelText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  actionConfirmDangerBtn: {
+    flex: 1,
+    paddingVertical: 11,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionConfirmDangerText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
   },
   dockIconBtn: {
     alignItems: 'center',
@@ -4367,14 +4626,6 @@ const styles = StyleSheet.create({
     paddingVertical: 60,
     paddingHorizontal: 24,
     gap: 10,
-  },
-  gridEmptyIconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 6,
   },
   gridEmptyTitle: {
     fontSize: 16,

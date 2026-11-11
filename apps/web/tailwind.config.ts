@@ -41,6 +41,7 @@ const config: Config = {
       colors: {
         circle: {
           primary: circleColors.light.primary,
+          'primary-hover': '#059669',
           primaryHover: '#059669',
           primaryDark: '#059669',
           success: '#10B981',
@@ -71,6 +72,27 @@ const config: Config = {
           },
         },
       },
+      spacing: {
+        '0.2': '0.05rem',
+        '7.5': '1.875rem',
+        '13': '3.25rem',
+        '18': '4.5rem',
+        '76': '19rem',
+      },
+      opacity: {
+        '12': '0.12',
+        '88': '0.88',
+        '92': '0.92',
+        '94': '0.94',
+        '96': '0.96',
+        '98': '0.98',
+      },
+      zIndex: {
+        '60': '60',
+      },
+      scale: {
+        '98': '0.98',
+      },
       fontFamily: {
         sans: ['var(--font-inter)', 'Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
       },
@@ -79,6 +101,8 @@ const config: Config = {
         '3xl': '2.0rem',
       },
       boxShadow: {
+        '2xs': '0 1px 2px 0 rgba(0, 0, 0, 0.04)',
+        xs: '0 1px 3px 0 rgba(0, 0, 0, 0.06), 0 1px 2px -1px rgba(0, 0, 0, 0.04)',
         'circle-card': '0 2px 8px -2px rgba(36, 51, 44, 0.04)',
         'circle-hover': '0 10px 25px -4px rgba(36, 51, 44, 0.08), 0 4px 10px -2px rgba(36, 51, 44, 0.03)',
         'circle-modal': '0 20px 48px -8px rgba(36, 51, 44, 0.14)',
@@ -88,9 +112,21 @@ const config: Config = {
           '0%, 100%': { boxShadow: '0 0 0 0 rgba(120, 198, 163, 0.4)' },
           '50%': { boxShadow: '0 0 0 6px rgba(120, 198, 163, 0)' },
         },
+        fadeIn: {
+          '0%': { opacity: '0' },
+          '100%': { opacity: '1' },
+        },
+        scaleUp: {
+          '0%': { opacity: '0', transform: 'scale(0.95)' },
+          '100%': { opacity: '1', transform: 'scale(1)' },
+        },
       },
       animation: {
         'presence-breathe': 'presence-breathe 3.2s infinite ease-in-out',
+        fadeIn: 'fadeIn 0.16s ease-out',
+        'fade-in': 'fadeIn 0.16s ease-out',
+        scaleUp: 'scaleUp 0.18s cubic-bezier(0.16, 1, 0.3, 1)',
+        'scale-up': 'scaleUp 0.18s cubic-bezier(0.16, 1, 0.3, 1)',
       },
     },
   },

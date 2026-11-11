@@ -1,7 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Image as ImageIcon, RefreshCw, X } from 'lucide-react';
+import { useLanguageStore } from '../../stores/language.store';
 
 export interface MomentReplyMetadata {
   type: 'MOMENT_REPLY';
@@ -34,7 +36,7 @@ export function parseMomentReplyMetadata(fileName?: string | null): MomentReplyM
     }
     return {
       type: 'MOMENT_REPLY',
-      authorName: authorName || 'Thành viên',
+      authorName: authorName || undefined,
       caption,
       fallbackTitle: fileName,
     };
@@ -68,7 +70,12 @@ export function parseMomentPhotos(rawUrl?: string | null): {
   return { mainUrl: rawUrl, pipUrl: null, cornerIndex: 0 };
 }
 
-export function formatMomentRelativeTime(dateInput?: string | Date | null, locale: string = 'vi'): string {
+export function formatMomentRelativeTime(
+  dateInput?: string | Date | null,
+  locale: string = 'vi',
+  justNowLabel?: string,
+  labels?: { minutesAgoShort?: string; hoursAgoShort?: string },
+): string {
   if (!dateInput) return '';
   const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
   if (isNaN(date.getTime())) return '';
@@ -78,36 +85,32 @@ export function formatMomentRelativeTime(dateInput?: string | Date | null, local
   const diffSec = Math.floor(diffMs / 1000);
 
   if (diffSec < 60 && diffSec >= -10) {
-    return locale === 'vi' ? 'vừa xong' : 'just now';
+    return justNowLabel || '';
   }
 
   const diffMin = Math.floor(diffSec / 60);
   const diffHour = Math.floor(diffMin / 60);
 
-  // Cùng ngày hôm nay: ví dụ "29 p trước" hoặc "2 giờ trước"
   const isSameDay = date.toDateString() === now.toDateString();
   if (isSameDay) {
     if (diffMin < 60) {
-      return locale === 'vi' ? `${Math.max(1, diffMin)} p trước` : `${Math.max(1, diffMin)}m ago`;
+      const m = String(Math.max(1, diffMin));
+      return labels?.minutesAgoShort
+        ? labels.minutesAgoShort.replace('{m}', m)
+        : new Intl.RelativeTimeFormat(locale === 'vi' ? 'vi-VN' : 'en-US', { numeric: 'always' }).format(-Math.max(1, diffMin), 'minute');
     }
-    return locale === 'vi' ? `${diffHour} giờ trước` : `${diffHour}h ago`;
+    const h = String(diffHour);
+    return labels?.hoursAgoShort
+      ? labels.hoursAgoShort.replace('{h}', h)
+      : new Intl.RelativeTimeFormat(locale === 'vi' ? 'vi-VN' : 'en-US', { numeric: 'always' }).format(-diffHour, 'hour');
   }
 
-  // Khác ngày: "15 tháng 10"
   const isSameYear = date.getFullYear() === now.getFullYear();
-  if (locale === 'vi') {
-    const day = date.getDate();
-    const month = date.getMonth() + 1;
-    if (isSameYear) {
-      return `${day} tháng ${month}`;
-    }
-    return `${day} thg ${month}, ${date.getFullYear()}`;
-  }
-
-  if (isSameYear) {
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  }
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return date.toLocaleDateString(locale === 'vi' ? 'vi-VN' : 'en-US', {
+    month: 'short',
+    day: 'numeric',
+    ...(isSameYear ? {} : { year: 'numeric' }),
+  });
 }
 
 function getInitials(name: string): string {
@@ -129,20 +132,37 @@ export const MomentCardChatEmbed: React.FC<MomentCardChatEmbedProps> = ({
   metadata,
   fallbackCreatedAt,
   onPreview,
-  locale = 'vi',
+  locale,
 }) => {
+  const t = useLanguageStore((s) => s.t);
+  const storeLocale = useLanguageStore((s) => s.locale);
+  const activeLocale = locale || storeLocale;
   const { mainUrl, pipUrl, cornerIndex } = parseMomentPhotos(fileUrl);
   const [isSwapped, setIsSwapped] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  useEffect(() => {
+    if (!isModalOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsModalOpen(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isModalOpen]);
+
   const displayMain = isSwapped ? (pipUrl || mainUrl) : mainUrl;
   const displayPip = isSwapped ? mainUrl : pipUrl;
 
-  const authorName = metadata?.authorName || 'Thành viên';
+  const authorName = metadata?.authorName || t.chat.defaultMemberName;
   const authorAvatar = metadata?.authorAvatar;
   const caption = metadata?.caption;
   const targetDate = metadata?.createdAt || fallbackCreatedAt;
-  const timeFormatted = targetDate ? formatMomentRelativeTime(targetDate, locale) : null;
+  const timeFormatted = targetDate
+    ? formatMomentRelativeTime(targetDate, activeLocale, t.moments.justNowLower, {
+        minutesAgoShort: t.moments.minutesAgoShort,
+        hoursAgoShort: t.moments.hoursAgoShort,
+      })
+    : null;
 
   // PIP corner positions for 220px card:
   const pipCornerClasses = (() => {
@@ -190,7 +210,7 @@ export const MomentCardChatEmbed: React.FC<MomentCardChatEmbedProps> = ({
           onPreview?.(displayMain);
         }}
         className="group/moment relative w-[220px] h-[220px] aspect-square rounded-[18px] overflow-hidden cursor-pointer select-none border border-white/20 dark:border-black/30 shadow-md bg-stone-900 transition-transform active:scale-[0.99]"
-        title="Bấm để xem ảnh vuông phóng to"
+        title={t.moments.photoBadge}
       >
         {/* Main Square Photo/Video */}
         {displayMain ? (
@@ -251,7 +271,7 @@ export const MomentCardChatEmbed: React.FC<MomentCardChatEmbedProps> = ({
               setIsSwapped((prev) => !prev);
             }}
             className={`absolute ${pipCornerClasses} z-20 w-[60px] h-[60px] rounded-[14px] border-2 border-circle-primary shadow-lg overflow-hidden bg-stone-900 transition-transform hover:scale-105 active:scale-95 group/pip`}
-            title="Bấm để đổi góc trước / sau"
+            title={t.moments.swapPhotoTitle}
           >
             <img
               src={displayPip}
@@ -277,82 +297,86 @@ export const MomentCardChatEmbed: React.FC<MomentCardChatEmbedProps> = ({
       </div>
 
       {/* Full-screen Square 1:1 Moment Lightbox (Giống mobile: chỉ còn ảnh vuông và PiP, không có tag/chữ) */}
-      {isModalOpen && (
-        <div
-          onClick={(e) => {
-            e.stopPropagation();
-            setIsModalOpen(false);
-          }}
-          className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/95 backdrop-blur-md p-4 animate-in fade-in duration-150 select-none cursor-default"
-        >
-          {/* Top Control Bar: Chỉ giữ nút xoay đổi góc và nút đóng X */}
+      {isModalOpen &&
+        typeof document !== 'undefined' &&
+        createPortal(
           <div
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-[480px] flex items-center justify-end gap-2 mb-3 px-1"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsModalOpen(false);
+            }}
+            className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/95 backdrop-blur-md p-4 animate-in fade-in duration-150 select-none cursor-default"
           >
-            {displayPip && (
-              <button
-                type="button"
-                onClick={() => setIsSwapped((prev) => !prev)}
-                className="flex items-center justify-center w-9 h-9 rounded-full bg-white/15 hover:bg-white/25 text-white transition-colors border border-white/20"
-                title="Đổi camera trước / sau"
-              >
-                <RefreshCw className="w-4 h-4" />
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => setIsModalOpen(false)}
-              className="flex items-center justify-center w-9 h-9 rounded-full bg-white/15 hover:bg-white/25 text-white transition-colors border border-white/20"
-              title="Đóng"
+            {/* Top Control Bar: Chỉ giữ nút xoay đổi góc và nút đóng X */}
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-[480px] flex items-center justify-end gap-2 mb-3 px-1"
             >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-
-          {/* Square 1:1 Large Frame (Ảnh vuông chuẩn 1:1, chỉ còn ảnh, KHÔNG có tag hay chữ) */}
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="relative w-[90vw] max-w-[480px] aspect-square rounded-[28px] overflow-hidden bg-stone-900 border border-white/20 shadow-2xl flex items-center justify-center"
-          >
-            {isVideo ? (
-              <video
-                src={displayMain}
-                autoPlay
-                loop
-                muted
-                playsInline
-                className="w-full h-full object-cover rounded-[28px]"
-              />
-            ) : (
-              <img
-                src={displayMain}
-                alt="Moment Preview"
-                className="w-full h-full object-cover rounded-[28px]"
-              />
-            )}
-
-            {/* PIP Floating Mini Thumbnail (Dual Photo: vuông 96x96, bo góc 18px, viền primary) */}
-            {displayPip && (
+              {displayPip && (
+                <button
+                  type="button"
+                  onClick={() => setIsSwapped((prev) => !prev)}
+                  className="flex items-center justify-center w-9 h-9 rounded-full bg-white/15 hover:bg-white/25 text-white transition-colors border border-white/20"
+                  title={t.moments.switchCamera}
+                >
+                  <RefreshCw className="w-4 h-4" />
+                </button>
+              )}
               <button
                 type="button"
-                onClick={() => setIsSwapped((prev) => !prev)}
-                className={`absolute ${pipModalCornerClasses} z-20 w-[96px] h-[96px] rounded-[18px] border-2 border-circle-primary shadow-xl overflow-hidden bg-stone-900 transition-transform hover:scale-105 active:scale-95 group/pip`}
-                title="Bấm để đổi góc trước / sau"
+                onClick={() => setIsModalOpen(false)}
+                className="flex items-center justify-center w-9 h-9 rounded-full bg-white/15 hover:bg-white/25 text-white transition-colors border border-white/20"
+                title={t.common.close}
+                aria-label={t.common.close}
               >
-                <img
-                  src={displayPip}
-                  alt="PiP"
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute inset-0 bg-black/25 opacity-0 group-hover/pip:opacity-100 transition-opacity flex items-center justify-center">
-                  <RefreshCw className="w-5 h-5 text-white drop-shadow" />
-                </div>
+                <X className="w-5 h-5" />
               </button>
-            )}
-          </div>
-        </div>
-      )}
+            </div>
+
+            {/* Square 1:1 Large Frame (Ảnh vuông chuẩn 1:1, chỉ còn ảnh, KHÔNG có tag hay chữ) */}
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="relative w-[90vw] max-w-[480px] aspect-square rounded-[28px] overflow-hidden bg-stone-900 border border-white/20 shadow-2xl flex items-center justify-center"
+            >
+              {isVideo ? (
+                <video
+                  src={displayMain}
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  className="w-full h-full object-cover rounded-[28px]"
+                />
+              ) : (
+                <img
+                  src={displayMain}
+                  alt="Moment Preview"
+                  className="w-full h-full object-cover rounded-[28px]"
+                />
+              )}
+
+              {/* PIP Floating Mini Thumbnail (Dual Photo: vuông 96x96, bo góc 18px, viền primary) */}
+              {displayPip && (
+                <button
+                  type="button"
+                  onClick={() => setIsSwapped((prev) => !prev)}
+                  className={`absolute ${pipModalCornerClasses} z-20 w-[96px] h-[96px] rounded-[18px] border-2 border-circle-primary shadow-xl overflow-hidden bg-stone-900 transition-transform hover:scale-105 active:scale-95 group/pip`}
+                  title={t.moments.swapPhotoTitle}
+                >
+                  <img
+                    src={displayPip}
+                    alt="PiP"
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-black/25 opacity-0 group-hover/pip:opacity-100 transition-opacity flex items-center justify-center">
+                    <RefreshCw className="w-5 h-5 text-white drop-shadow" />
+                  </div>
+                </button>
+              )}
+            </div>
+          </div>,
+          document.body,
+        )}
     </>
   );
 };

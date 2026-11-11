@@ -9,13 +9,9 @@ import {
   FlipHorizontal,
   Send,
   AlertTriangle,
-  Check,
   CheckSquare,
   Square,
-  Sparkles,
   RefreshCw,
-  Play,
-  Pause,
   MessageCircle,
 } from 'lucide-react';
 import { useLanguageStore } from '@/stores/language.store';
@@ -175,6 +171,19 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
       if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
     };
   }, [isOpen, capturedMedia, startCamera, stopCameraStream]);
+
+  // Escape key closes modal safely
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        stopCameraStream();
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, stopCameraStream, onClose]);
 
   // Handle Switch Camera (Front / Back)
   const handleToggleFacingMode = () => {
@@ -434,9 +443,14 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
       });
 
       // 2. Submit moment with clean public URL
+      const trimmedCaption = caption.trim();
       const finalCaption = replyingToAuthor
-        ? `Trả lời @${replyingToAuthor}: ${caption.trim()}`
-        : caption.trim() || undefined;
+        ? trimmedCaption
+          ? t.moments.photoReplyPrefix
+              .replace('{author}', replyingToAuthor)
+              .replace('{caption}', trimmedCaption)
+          : t.moments.replyToAuthorPrefix.replace('{author}', replyingToAuthor)
+        : trimmedCaption || undefined;
 
       await createMomentMutation.mutateAsync({
         photoUrl: uploadRes.publicUrl,
@@ -451,7 +465,7 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
       stopCameraStream();
       onClose();
     } catch (err: any) {
-      setErrorMessage(err.message || t.moments.momentNotFound || 'Không thể chia sẻ khoảnh khắc.');
+      setErrorMessage(err?.message || t.common.unknownError);
     } finally {
       setIsSubmitting(false);
     }
@@ -460,14 +474,27 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in select-none">
-      <div className="relative w-full max-w-lg bg-circle-charcoal text-white rounded-3xl overflow-hidden shadow-2xl border border-white/10 flex flex-col max-h-[92vh]">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in select-none"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          stopCameraStream();
+          onClose();
+        }
+      }}
+    >
+      <div
+        className="relative w-full max-w-lg bg-circle-dark-surface text-white rounded-3xl overflow-hidden shadow-2xl border border-white/10 flex flex-col max-h-[92vh]"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Top Header */}
         <div className="flex items-center justify-between p-4 border-b border-white/10 shrink-0">
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-full bg-circle-primary text-circle-charcoal flex items-center justify-center">
-              {mode === 'PHOTO' ? <Camera className="h-4 w-4" /> : <Video className="h-4 w-4" />}
-            </div>
+          <div className="flex items-center gap-2.5">
+            {mode === 'PHOTO' ? (
+              <Camera className="h-5 w-5 text-circle-dark-primary shrink-0" />
+            ) : (
+              <Video className="h-5 w-5 text-circle-dark-primary shrink-0" />
+            )}
             <div>
               <h3 className="text-sm font-bold text-white">
                 {capturedMedia ? t.moments.createTitle : t.moments.captureTitle}
@@ -479,10 +506,13 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
           </div>
 
           <button
+            type="button"
             onClick={() => {
               stopCameraStream();
               onClose();
             }}
+            aria-label={t.common.close}
+            title={t.common.close}
             className="p-1.5 rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-colors"
           >
             <X className="h-5 w-5" />
@@ -502,7 +532,7 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
                   disabled={isRecording}
                   className={`flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-semibold transition-all ${
                     mode === 'PHOTO'
-                      ? 'bg-circle-primary text-circle-charcoal shadow-sm'
+                      ? 'bg-circle-primary text-circle-charcoal dark:text-circle-dark-canvas shadow-sm'
                       : 'text-white/70 hover:text-white'
                   }`}
                 >
@@ -515,7 +545,7 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
                   disabled={isRecording}
                   className={`flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-semibold transition-all ${
                     mode === 'VIDEO'
-                      ? 'bg-circle-primary text-circle-charcoal shadow-sm'
+                      ? 'bg-circle-primary text-circle-charcoal dark:text-circle-dark-canvas shadow-sm'
                       : 'text-white/70 hover:text-white'
                   }`}
                 >
@@ -549,6 +579,7 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
                           onClick={onClearReplyingToAuthor}
                           className="p-0.5 hover:bg-white/20 rounded-full ml-1 transition-colors"
                           title={t.moments.cancelReply}
+                          aria-label={t.moments.cancelReply}
                         >
                           <X className="h-3 w-3" />
                         </button>
@@ -557,12 +588,10 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
                   </div>
                 )}
 
-                {/* Camera Permission / Error Fallback */}
+                {/* Camera Permission / Error Fallback - Bare Icon Invariant */}
                 {cameraError && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center bg-black/90 z-20">
-                    <div className="h-12 w-12 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center">
-                      <AlertTriangle className="h-6 w-6" />
-                    </div>
+                    <AlertTriangle className="h-9 w-9 text-amber-400" />
                     <p className="text-xs text-white/90 max-w-xs leading-relaxed">{cameraError}</p>
                     <button
                       type="button"
@@ -585,10 +614,11 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
                         onClick={handleToggleMirror}
                         className={`h-10 w-10 rounded-full flex items-center justify-center backdrop-blur-md border border-white/20 transition-all active:scale-95 ${
                           isMirrored
-                            ? 'bg-circle-primary text-circle-charcoal shadow-sm'
+                            ? 'bg-circle-primary text-circle-charcoal dark:text-circle-dark-canvas shadow-sm'
                             : 'bg-black/50 text-white hover:bg-black/70'
                         }`}
-                        title={t.moments.flipHorizontal || 'Lật gương'}
+                        title={t.moments.flipHorizontal}
+                        aria-label={t.moments.flipHorizontal}
                       >
                         <FlipHorizontal className="h-4 w-4" />
                       </button>
@@ -599,6 +629,7 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
                         onClick={handleToggleFacingMode}
                         className="h-10 w-10 rounded-full bg-black/50 text-white flex items-center justify-center backdrop-blur-md border border-white/20 hover:bg-black/70 transition-all active:scale-95"
                         title={t.moments.switchCamera}
+                        aria-label={t.moments.switchCamera}
                       >
                         <RotateCcw className="h-4 w-4" />
                       </button>
@@ -620,19 +651,21 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
                     {/* Bottom Shutter Controls */}
                     <div className="absolute bottom-6 inset-x-0 flex items-center justify-center z-10">
                       {mode === 'PHOTO' ? (
-                        /* Photo Shutter Button */
                         <button
                           type="button"
                           onClick={handleTakePhoto}
+                          aria-label={t.moments.takePhoto}
+                          title={t.moments.takePhoto}
                           className="h-18 w-18 rounded-full border-4 border-white bg-white/20 flex items-center justify-center p-1.5 shadow-2xl hover:scale-105 active:scale-95 transition-all group"
                         >
                           <div className="h-full w-full rounded-full bg-white group-hover:bg-circle-primary transition-colors" />
                         </button>
                       ) : (
-                        /* Video Record Button */
                         <button
                           type="button"
                           onClick={isRecording ? handleStopRecording : handleStartRecording}
+                          aria-label={isRecording ? t.moments.stopRecording : t.moments.startRecording}
+                          title={isRecording ? t.moments.stopRecording : t.moments.startRecording}
                           className={`h-18 w-18 rounded-full border-4 flex items-center justify-center p-1.5 shadow-2xl transition-all ${
                             isRecording
                               ? 'border-rose-500 bg-rose-500/20 scale-105'
@@ -663,7 +696,7 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
                 {capturedMedia.type === 'IMAGE' ? (
                   <img
                     src={capturedMedia.previewUrl}
-                    alt="Captured Moment"
+                    alt={t.moments.title}
                     className="w-full h-full object-cover"
                   />
                 ) : (
@@ -686,7 +719,7 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
                     </>
                   ) : (
                     <>
-                      <Camera className="h-3 w-3 text-circle-primary" />
+                      <Camera className="h-3 w-3 text-circle-dark-primary" />
                       <span>{t.moments.photoBadge}</span>
                     </>
                   )}
@@ -708,10 +741,10 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
                     type="button"
                     onClick={handleFlipPhoto}
                     className="absolute bottom-3 right-3 flex items-center gap-1.5 rounded-full bg-black/70 hover:bg-black text-white px-3.5 py-1.5 text-xs font-semibold backdrop-blur-md border border-white/20 shadow-md transition-all active:scale-95"
-                    title={t.moments.flipHorizontal || 'Lật ảnh'}
+                    title={t.moments.flipHorizontal}
                   >
                     <FlipHorizontal className="h-3.5 w-3.5" />
-                    <span>{t.moments.flipHorizontal || 'Lật ảnh'}</span>
+                    <span>{t.moments.flipHorizontal}</span>
                   </button>
                 )}
               </div>
@@ -839,7 +872,7 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
                 <button
                   type="submit"
                   disabled={isSubmitting || isUploading || createMomentMutation.isPending || selectedCircleIds.length === 0}
-                  className="flex items-center gap-2 rounded-full bg-circle-primary text-circle-charcoal px-6 py-2.5 text-xs sm:text-sm font-bold shadow-lg hover:bg-circle-sage hover:text-white transition-all active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center gap-2 rounded-full bg-circle-primary text-circle-charcoal dark:text-circle-dark-canvas px-6 py-2.5 text-xs sm:text-sm font-bold shadow-lg hover:bg-circle-sage hover:text-white dark:hover:text-white transition-all active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Send className="h-4 w-4" />
                   <span>{isSubmitting || isUploading || createMomentMutation.isPending ? t.moments.submitting : t.moments.submitShare}</span>

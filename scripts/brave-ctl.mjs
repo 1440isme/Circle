@@ -4,9 +4,14 @@ const BRIDGE_PORT = 9333;
 const action = process.argv[2] || 'status';
 const arg = process.argv[3] || '';
 
+const arg2 = process.argv[4] || '';
+
 let payload = {};
 if (action === 'eval') payload = { expr: arg };
 else if (action === 'click') payload = { selector: arg };
+else if (action === 'hover') payload = { selector: arg };
+else if (action === 'pressKey') payload = { key: arg || 'Escape' };
+else if (action === 'setViewport') payload = { width: Number(arg) || 1280, height: Number(arg2) || 800 };
 else if (action === 'navigate') payload = { url: arg };
 else if (action === 'screenshot') payload = { filename: arg };
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,10 +8,11 @@ import {
   TextInput,
   ActivityIndicator,
   Modal,
-  Alert,
-  Dimensions,
+  KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { BlurView } from 'expo-blur';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import {
   FileSpreadsheet,
@@ -20,7 +21,6 @@ import {
   Trash2,
   X,
   Check,
-  Edit2,
   Table,
 } from 'lucide-react-native';
 import {
@@ -32,7 +32,9 @@ import {
   updateSheetCellApi,
   deletePlanningSheetApi,
 } from '../../services/circle-tools.service';
-import { PlanningSheetEntity, SheetCellEntity } from '@circle/types';
+import { PlanningSheetEntity } from '@circle/types';
+import { ColorTheme } from '../../constants/theme';
+import { getGlassTheme } from '../../constants/glass-theme';
 import { useThemeStore } from '../../stores/theme.store';
 import { useLanguageStore } from '../../stores/language.store';
 
@@ -40,23 +42,40 @@ interface MobilePlanningViewProps {
   circleId: string;
 }
 
-const { width } = Dimensions.get('window');
-
 export const MobilePlanningView: React.FC<MobilePlanningViewProps> = ({ circleId }) => {
-  const { colors, resolvedTheme } = useThemeStore();
+  const { colors, resolvedTheme, uiStyle } = useThemeStore();
   const isDark = resolvedTheme === 'dark';
-  const { t } = useLanguageStore();
+  const isGlass = uiStyle === 'glass';
+  const glassTheme = useMemo(() => getGlassTheme(isDark, uiStyle), [isDark, uiStyle]);
+  const { t, locale } = useLanguageStore();
+  const insets = useSafeAreaInsets();
+  const dateLocale = locale === 'vi' ? 'vi-VN' : 'en-US';
+  const topClearance = Math.max(insets.top + 52, Platform.OS === 'ios' ? 74 : 64);
+  const bottomClearance = Math.max(insets.bottom + 16, 24);
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
   const [sheets, setSheets] = useState<PlanningSheetEntity[]>([]);
   const [selectedSheet, setSelectedSheet] = useState<PlanningSheetEntity | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAddingRow, setIsAddingRow] = useState(false);
+
+  // Inline feedback & 2-step confirmation (zero Alert.alert)
+  const [statusNotice, setStatusNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const statusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [confirmDeleteSheet, setConfirmDeleteSheet] = useState(false);
+  const [isDeletingSheet, setIsDeletingSheet] = useState(false);
 
   // Modal: Create Sheet
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newTitle, setNewTitle] = useState('');
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
 
   // Modal: Add Column
   const [isAddColumnModalOpen, setIsAddColumnModalOpen] = useState(false);
   const [newColumnTitle, setNewColumnTitle] = useState('');
+  const [addColError, setAddColError] = useState<string | null>(null);
+  const [isAddingCol, setIsAddingCol] = useState(false);
 
   // Modal: Edit Cell
   const [editingCell, setEditingCell] = useState<{
@@ -64,6 +83,22 @@ export const MobilePlanningView: React.FC<MobilePlanningViewProps> = ({ circleId
     columnTitle: string;
     value: string;
   } | null>(null);
+  const [editCellError, setEditCellError] = useState<string | null>(null);
+  const [isSavingCell, setIsSavingCell] = useState(false);
+
+  const showNotice = (message: string, type: 'success' | 'error' = 'error') => {
+    if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
+    setStatusNotice({ type, message });
+    statusTimerRef.current = setTimeout(() => {
+      setStatusNotice(null);
+    }, 3200);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
+    };
+  }, []);
 
   const loadSheets = async () => {
     try {
@@ -71,185 +106,362 @@ export const MobilePlanningView: React.FC<MobilePlanningViewProps> = ({ circleId
       const data = await getPlanningSheetsApi(circleId);
       setSheets(data);
     } catch (err: any) {
-      Alert.alert(t.common?.error || 'Lỗi', err.message || t.collab?.loadSheetsError || 'Không thể tải bảng');
+      showNotice(err?.message || t.collab.loadSheetsError, 'error');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const loadSheetDetail = async (sheetId: string) => {
+  const loadSheetDetail = async (sheetId: string, silent = false) => {
     try {
-      setIsLoading(true);
+      if (!silent) setIsLoading(true);
       const data = await getPlanningSheetDetailApi(circleId, sheetId);
       setSelectedSheet(data);
     } catch (err: any) {
-      Alert.alert(t.common?.error || 'Lỗi', err.message || t.collab?.loadSheetDetailError || 'Không thể tải chi tiết');
+      showNotice(err?.message || t.collab.loadSheetDetailError, 'error');
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   };
 
   useEffect(() => {
+    setSelectedSheet(null);
+    setConfirmDeleteSheet(false);
     loadSheets();
   }, [circleId]);
 
+  const handleOpenCreateModal = () => {
+    setCreateError(null);
+    setNewTitle('');
+    setIsCreateModalOpen(true);
+  };
+
   const handleCreateSheet = async () => {
     if (!newTitle.trim()) {
-      Alert.alert(t.common?.notice || 'Thông báo', t.collab?.enterSheetTitleError || 'Vui lòng nhập tên bảng');
+      setCreateError(t.collab.enterSheetTitleError);
       return;
     }
 
     try {
+      setIsCreating(true);
+      setCreateError(null);
       const created = await createPlanningSheetApi(circleId, {
         title: newTitle.trim(),
       });
       setNewTitle('');
       setIsCreateModalOpen(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      showNotice(t.collab.planningSheetCreated, 'success');
       loadSheets();
       setSelectedSheet(created);
+      setConfirmDeleteSheet(false);
     } catch (err: any) {
-      Alert.alert(t.common?.error || 'Lỗi', err.message || t.collab?.createSheetError || 'Lỗi');
+      setCreateError(err?.message || t.collab.createSheetError);
+    } finally {
+      setIsCreating(false);
     }
   };
 
+  const handleOpenAddColModal = () => {
+    setAddColError(null);
+    setNewColumnTitle('');
+    setIsAddColumnModalOpen(true);
+  };
+
   const handleAddColumn = async () => {
-    if (!newColumnTitle.trim() || !selectedSheet) return;
+    if (!selectedSheet) return;
+    if (!newColumnTitle.trim()) {
+      setAddColError(t.collab.newColumnTitlePrompt);
+      return;
+    }
 
     try {
+      setIsAddingCol(true);
+      setAddColError(null);
       const updated = await addSheetColumnApi(circleId, selectedSheet.id, {
         columnTitle: newColumnTitle.trim(),
       });
       setNewColumnTitle('');
       setIsAddColumnModalOpen(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      showNotice(t.collab.planningColumnAdded, 'success');
       setSelectedSheet(updated);
+      loadSheets();
     } catch (err: any) {
-      Alert.alert(t.common?.error || 'Lỗi', err.message || t.collab?.addColumnError || 'Lỗi');
+      setAddColError(err?.message || t.collab.addColumnError);
+    } finally {
+      setIsAddingCol(false);
     }
   };
 
   const handleAddRow = async () => {
-    if (!selectedSheet) return;
+    if (!selectedSheet || isAddingRow) return;
 
     try {
+      setIsAddingRow(true);
       const updated = await addSheetRowApi(circleId, selectedSheet.id, {});
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      showNotice(t.collab.planningRowAdded, 'success');
       setSelectedSheet(updated);
+      loadSheets();
     } catch (err: any) {
-      Alert.alert(t.common?.error || 'Lỗi', err.message || t.collab?.addRowError || 'Lỗi');
+      showNotice(err?.message || t.collab.addRowError, 'error');
+    } finally {
+      setIsAddingRow(false);
     }
   };
 
   const handleSaveCell = async () => {
-    if (!editingCell || !selectedSheet) return;
+    if (!editingCell || !selectedSheet || isSavingCell) return;
 
     try {
+      setIsSavingCell(true);
+      setEditCellError(null);
       await updateSheetCellApi(circleId, selectedSheet.id, editingCell.cellId, {
         cellValue: editingCell.value,
       });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      // Reload sheet detail
-      loadSheetDetail(selectedSheet.id);
       setEditingCell(null);
+      loadSheetDetail(selectedSheet.id, true);
     } catch (err: any) {
-      Alert.alert(t.common?.error || 'Lỗi', err.message || t.collab?.updateCellError || 'Lỗi');
+      setEditCellError(err?.message || t.collab.updateCellError);
+    } finally {
+      setIsSavingCell(false);
     }
   };
 
-  const handleDeleteSheet = async (sheetId: string) => {
-    Alert.alert(
-      t.collab?.deleteSheet || 'Xác nhận xóa',
-      t.collab?.deleteSheetConfirm || 'Bạn có chắc chắn muốn xóa bảng kế hoạch này?',
-      [
-        { text: t.common?.cancel || 'Hủy', style: 'cancel' },
-        {
-          text: t.common?.delete || 'Xóa',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deletePlanningSheetApi(circleId, sheetId);
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-              setSelectedSheet(null);
-              loadSheets();
-            } catch (err: any) {
-              Alert.alert(t.common?.error || 'Lỗi', err.message || t.collab?.deleteSheetError || 'Lỗi');
-            }
-          },
-        },
-      ],
-    );
+  const handleConfirmDeleteSheet = async () => {
+    if (!selectedSheet || isDeletingSheet) return;
+    try {
+      setIsDeletingSheet(true);
+      await deletePlanningSheetApi(circleId, selectedSheet.id);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setConfirmDeleteSheet(false);
+      setSelectedSheet(null);
+      showNotice(t.collab.planningSheetDeleted, 'success');
+      loadSheets();
+    } catch (err: any) {
+      showNotice(err?.message || t.collab.deleteSheetError, 'error');
+    } finally {
+      setIsDeletingSheet(false);
+    }
+  };
+
+  const renderNoticeBanner = () =>
+    statusNotice ? (
+      <View pointerEvents="box-none" style={[styles.noticeWrapper, { top: selectedSheet ? topClearance + 46 : topClearance + 4 }]}>
+        <View
+          style={[
+            styles.noticeBanner,
+            {
+              backgroundColor: colors.surface,
+              borderColor: statusNotice.type === 'success' ? colors.sage : '#DC2626',
+            },
+          ]}
+        >
+          {statusNotice.type === 'success' ? (
+            <Check size={14} color={colors.sage} />
+          ) : (
+            <X size={14} color="#DC2626" />
+          )}
+          <Text style={[styles.noticeText, { color: colors.text }]} numberOfLines={2}>
+            {statusNotice.message}
+          </Text>
+          <TouchableOpacity
+            onPress={() => setStatusNotice(null)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityLabel={t.common.close}
+          >
+            <X size={14} color={colors.subtle} />
+          </TouchableOpacity>
+        </View>
+      </View>
+    ) : null;
+
+  const renderSurfacePill = (
+    children: any,
+    containerStyle?: any,
+  ) => {
+    const surfaceStyle = {
+      borderRadius: 999,
+      overflow: 'hidden' as const,
+      backgroundColor: isGlass ? glassTheme.colors.glassBg : colors.surface,
+      borderWidth: isGlass ? StyleSheet.hairlineWidth : 1,
+      borderColor: isGlass ? glassTheme.colors.glassBorder : colors.hairline,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: isGlass ? (isDark ? 0.28 : 0.08) : 0,
+      shadowRadius: 8,
+      elevation: isGlass ? 3 : 0,
+    };
+
+    if (isGlass) {
+      return (
+        <BlurView
+          intensity={glassTheme.blur.intensity}
+          tint={glassTheme.blur.tint}
+          style={[surfaceStyle, containerStyle]}
+        >
+          {children}
+        </BlurView>
+      );
+    }
+    return <View style={[surfaceStyle, containerStyle]}>{children}</View>;
   };
 
   // =========================================================================
   // VIEW: SHEET DETAIL (INTERACTIVE SPREADSHEET MATRIX)
   // =========================================================================
   if (selectedSheet) {
+    const columns = selectedSheet.columns || [];
+    const rows = selectedSheet.rows || [];
+
     return (
       <View style={[styles.container, { backgroundColor: colors.canvas }]}>
-        {/* Floating Glass Sub-toolbar */}
+        {renderNoticeBanner()}
+
+        {/* Floating Sub-toolbar (strictly gated Glass vs Flat) */}
         <View
           pointerEvents="box-none"
-          style={{
-            position: 'absolute',
-            top: Platform.OS === 'ios' ? 68 : 58,
-            left: 14,
-            right: 14,
-            zIndex: 30,
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
+          style={[styles.subToolbarContainer, { top: topClearance }]}
         >
-          <TouchableOpacity
-            style={[styles.glassPill, { backgroundColor: isDark ? 'rgba(22, 22, 26, 0.90)' : 'rgba(255, 255, 255, 0.92)' }]}
-            onPress={() => setSelectedSheet(null)}
-          >
-            <ArrowLeft size={16} color={colors.text} />
-            <Text style={[styles.backText, { color: colors.text }]} numberOfLines={1}>
-              {selectedSheet.title}
-            </Text>
-          </TouchableOpacity>
-
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          {renderSurfacePill(
             <TouchableOpacity
-              onPress={() => setIsAddColumnModalOpen(true)}
-              style={[styles.glassActionBtn, { backgroundColor: isDark ? 'rgba(22, 22, 26, 0.90)' : 'rgba(255, 255, 255, 0.92)' }]}
+              activeOpacity={0.7}
+              style={styles.glassPillTouch}
+              onPress={() => {
+                setConfirmDeleteSheet(false);
+                setSelectedSheet(null);
+              }}
+              accessibilityLabel={t.collab.backToList}
             >
-              <Plus size={13} color={colors.text} />
-              <Text style={[styles.glassActionBtnText, { color: colors.text }]}>Cột</Text>
-            </TouchableOpacity>
+              <ArrowLeft size={15} color={colors.text} />
+              <Text style={[styles.backText, { color: colors.text }]} numberOfLines={1}>
+                {selectedSheet.title}
+              </Text>
+            </TouchableOpacity>,
+            { flexShrink: 1, maxWidth: '42%' },
+          )}
+
+          <View style={styles.subToolbarActions}>
+            {renderSurfacePill(
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={handleOpenAddColModal}
+                style={styles.glassActionTouch}
+                accessibilityLabel={t.collab.addColumn}
+              >
+                <Plus size={13} color={colors.text} />
+                <Text style={[styles.glassActionBtnText, { color: colors.text }]} numberOfLines={1}>
+                  {t.collab.addColumn}
+                </Text>
+              </TouchableOpacity>,
+            )}
 
             <TouchableOpacity
+              activeOpacity={0.85}
               onPress={handleAddRow}
+              disabled={isAddingRow}
               style={[styles.glassActionBtnPrimary, { backgroundColor: colors.primary }]}
+              accessibilityLabel={t.collab.addRow}
             >
-              <Plus size={13} color="#FFF" />
-              <Text style={styles.glassActionBtnTextPri}>Dòng</Text>
+              {isAddingRow ? (
+                <ActivityIndicator size="small" color={colors.onPrimary} />
+              ) : (
+                <Plus size={13} color={colors.onPrimary} />
+              )}
+              <Text style={[styles.glassActionBtnTextPri, { color: colors.onPrimary }]} numberOfLines={1}>
+                {t.collab.addRow}
+              </Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              onPress={() => handleDeleteSheet(selectedSheet.id)}
-              style={[styles.glassIconBtn, { backgroundColor: isDark ? 'rgba(22, 22, 26, 0.90)' : 'rgba(255, 255, 255, 0.92)' }]}
-            >
-              <Trash2 size={15} color="#EF4444" />
-            </TouchableOpacity>
+            {renderSurfacePill(
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => setConfirmDeleteSheet((prev) => !prev)}
+                style={styles.glassIconTouch}
+                accessibilityLabel={t.collab.deleteSheet}
+              >
+                <Trash2 size={15} color={colors.danger} />
+              </TouchableOpacity>,
+            )}
           </View>
         </View>
 
         {/* Spreadsheet Horizontal & Vertical Scroll Grid (scroll-under) */}
         <ScrollView
-          style={[styles.gridContainer, { paddingTop: Platform.OS === 'ios' ? 120 : 110 }]}
+          style={styles.gridContainer}
+          contentContainerStyle={{
+            paddingTop: topClearance + 50,
+            paddingHorizontal: 14,
+            paddingBottom: bottomClearance,
+          }}
           showsVerticalScrollIndicator={false}
         >
+          {/* Inline 2-step delete confirmation */}
+          {confirmDeleteSheet && (
+            <View
+              style={[
+                styles.confirmDeleteCard,
+                { backgroundColor: colors.surface, borderColor: '#DC2626' },
+              ]}
+            >
+              <Text style={[styles.confirmDeleteTitle, { color: colors.text }]}>
+                {t.collab.planningDeleteConfirmTitle}
+              </Text>
+              <Text style={[styles.confirmDeleteDesc, { color: colors.subtle }]}>
+                {t.collab.deleteSheetConfirm}
+              </Text>
+              <View style={styles.confirmDeleteActions}>
+                <TouchableOpacity
+                  onPress={() => setConfirmDeleteSheet(false)}
+                  disabled={isDeletingSheet}
+                  style={[styles.confirmCancelBtn, { borderColor: colors.hairline }]}
+                >
+                  <Text style={[styles.confirmCancelText, { color: colors.text }]}>
+                    {t.common.cancel}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={handleConfirmDeleteSheet}
+                  disabled={isDeletingSheet}
+                  style={styles.confirmDestroyBtn}
+                >
+                  {isDeletingSheet ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.confirmDestroyText}>{t.common.delete}</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
           <ScrollView horizontal showsHorizontalScrollIndicator={true}>
-            <View style={[styles.table, { borderColor: colors.hairline }]}>
+            <View style={[styles.table, { borderColor: colors.hairline, backgroundColor: colors.canvas }]}>
               {/* Header Row */}
-              <View style={[styles.tableHeaderRow, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : '#F1F5F9', borderBottomColor: colors.hairline }]}>
-                <View style={[styles.headerCell, styles.indexCell, { borderRightColor: colors.hairline }]}>
+              <View
+                style={[
+                  styles.tableHeaderRow,
+                  {
+                    backgroundColor: isDark ? colors.elevated : colors.surface,
+                    borderBottomColor: colors.hairline,
+                  },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.headerCell,
+                    styles.indexCell,
+                    {
+                      borderRightColor: colors.hairline,
+                      backgroundColor: isDark ? colors.elevated : colors.surface,
+                    },
+                  ]}
+                >
                   <Text style={[styles.headerCellText, { color: colors.subtle }]}>#</Text>
                 </View>
-                {selectedSheet.columns.map((col) => (
+                {columns.map((col) => (
                   <View key={col.id} style={[styles.headerCell, { borderRightColor: colors.hairline }]}>
                     <Text style={[styles.headerCellText, { color: colors.text }]} numberOfLines={1}>
                       {col.columnTitle}
@@ -259,39 +471,52 @@ export const MobilePlanningView: React.FC<MobilePlanningViewProps> = ({ circleId
               </View>
 
               {/* Data Rows */}
-              {selectedSheet.rows.length === 0 ? (
+              {rows.length === 0 ? (
                 <View style={styles.emptyTableNotice}>
                   <Text style={[styles.emptyTableText, { color: colors.subtle }]}>
-                    Chưa có dòng nào. Bấm "+ Dòng" để thêm dữ liệu.
+                    {t.collab.sheetEmptyRows}
                   </Text>
                 </View>
               ) : (
-                selectedSheet.rows.map((row, rIdx) => (
+                rows.map((row, rIdx) => (
                   <View key={row.id} style={[styles.tableDataRow, { borderBottomColor: colors.hairline }]}>
-                    <View style={[styles.dataCell, styles.indexCell, { borderRightColor: colors.hairline, backgroundColor: isDark ? 'rgba(255,255,255,0.02)' : '#F8FAFC' }]}>
+                    <View
+                      style={[
+                        styles.dataCell,
+                        styles.indexCell,
+                        {
+                          borderRightColor: colors.hairline,
+                          backgroundColor: isDark ? colors.elevated : colors.surface,
+                        },
+                      ]}
+                    >
                       <Text style={[styles.indexCellText, { color: colors.subtle }]}>{rIdx + 1}</Text>
                     </View>
-                    {selectedSheet.columns.map((col) => {
+                    {columns.map((col) => {
                       const cell = row.cells.find((c) => c.columnId === col.id);
                       return (
                         <TouchableOpacity
                           key={col.id}
                           activeOpacity={0.7}
-                          onPress={() =>
-                            cell &&
+                          onPress={() => {
+                            if (!cell) return;
+                            setEditCellError(null);
                             setEditingCell({
                               cellId: cell.id,
                               columnTitle: col.columnTitle,
                               value: cell.cellValue || '',
-                            })
-                          }
-                          style={[styles.dataCell, { borderRightColor: colors.hairline, backgroundColor: colors.surface }]}
+                            });
+                          }}
+                          style={[
+                            styles.dataCell,
+                            { borderRightColor: colors.hairline, backgroundColor: colors.canvas },
+                          ]}
                         >
                           <Text
                             style={[
                               styles.dataCellText,
                               { color: colors.text },
-                              !cell?.cellValue && { color: colors.subtle, fontStyle: 'italic' },
+                              !cell?.cellValue && { color: colors.subtle },
                             ]}
                             numberOfLines={2}
                           >
@@ -314,33 +539,83 @@ export const MobilePlanningView: React.FC<MobilePlanningViewProps> = ({ circleId
           animationType="fade"
           onRequestClose={() => setIsAddColumnModalOpen(false)}
         >
-          <View style={styles.modalBackdrop}>
-            <View style={[styles.modalCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
-              <Text style={[styles.modalTitle, { color: colors.text }]}>Thêm cột mới</Text>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.modalBackdrop}
+          >
+            <View
+              style={[
+                styles.modalCard,
+                { backgroundColor: colors.surface, borderColor: colors.hairline },
+              ]}
+            >
+              <View style={styles.modalHeaderRow}>
+                <Text style={[styles.modalTitle, { color: colors.text }]}>
+                  {t.collab.planningModalAddColumnTitle}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setIsAddColumnModalOpen(false)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  accessibilityLabel={t.common.close}
+                >
+                  <X size={18} color={colors.subtle} />
+                </TouchableOpacity>
+              </View>
+
+              <Text style={[styles.inputLabel, { color: colors.subtle }]}>
+                {t.collab.planningColumnNameLabel}
+              </Text>
               <TextInput
-                style={[styles.input, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#FFF', borderColor: colors.hairline, color: colors.text }]}
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: colors.canvas,
+                    borderColor: colors.hairline,
+                    color: colors.text,
+                  },
+                ]}
                 value={newColumnTitle}
-                onChangeText={setNewColumnTitle}
-                placeholder="Tên cột (Tiến độ, Hạn chót...)"
+                onChangeText={(val) => {
+                  setNewColumnTitle(val);
+                  if (addColError) setAddColError(null);
+                }}
+                placeholder={t.collab.newColumnTitlePrompt}
                 placeholderTextColor={colors.subtle}
                 autoFocus
               />
+
+              {addColError ? (
+                <Text style={[styles.inlineErrorText, { color: isDark ? '#F87171' : '#DC2626' }]}>
+                  {addColError}
+                </Text>
+              ) : null}
+
               <View style={styles.modalActions}>
                 <TouchableOpacity
                   onPress={() => setIsAddColumnModalOpen(false)}
+                  disabled={isAddingCol}
                   style={styles.modalCancelBtn}
                 >
-                  <Text style={[styles.modalCancelText, { color: colors.subtle }]}>Hủy</Text>
+                  <Text style={[styles.modalCancelText, { color: colors.subtle }]}>
+                    {t.common.cancel}
+                  </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={handleAddColumn}
+                  disabled={isAddingCol}
                   style={[styles.modalSubmitBtn, { backgroundColor: colors.primary }]}
                 >
-                  <Text style={styles.modalSubmitText}>Thêm</Text>
+                  {isAddingCol ? (
+                    <ActivityIndicator size="small" color={colors.onPrimary} />
+                  ) : (
+                    <Text style={[styles.modalSubmitText, { color: colors.onPrimary }]}>
+                      {t.collab.addColumn}
+                    </Text>
+                  )}
                 </TouchableOpacity>
               </View>
             </View>
-          </View>
+          </KeyboardAvoidingView>
         </Modal>
 
         {/* Modal: Edit Cell */}
@@ -350,38 +625,86 @@ export const MobilePlanningView: React.FC<MobilePlanningViewProps> = ({ circleId
           animationType="fade"
           onRequestClose={() => setEditingCell(null)}
         >
-          <View style={styles.modalBackdrop}>
-            <View style={[styles.modalCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
-              <Text style={[styles.modalTitle, { color: colors.text }]}>
-                Chỉnh sửa: {editingCell?.columnTitle}
-              </Text>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.modalBackdrop}
+          >
+            <View
+              style={[
+                styles.modalCard,
+                { backgroundColor: colors.surface, borderColor: colors.hairline },
+              ]}
+            >
+              <View style={styles.modalHeaderRow}>
+                <Text style={[styles.modalTitle, { color: colors.text }]} numberOfLines={1}>
+                  {t.collab.planningModalEditCellTitle.replace(
+                    '{col}',
+                    editingCell?.columnTitle || '',
+                  )}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setEditingCell(null)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  accessibilityLabel={t.common.close}
+                >
+                  <X size={18} color={colors.subtle} />
+                </TouchableOpacity>
+              </View>
+
               <TextInput
-                style={[styles.input, { minHeight: 80, textAlignVertical: 'top', backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#FFF', borderColor: colors.hairline, color: colors.text }]}
+                style={[
+                  styles.input,
+                  {
+                    minHeight: 88,
+                    textAlignVertical: 'top',
+                    backgroundColor: colors.canvas,
+                    borderColor: colors.hairline,
+                    color: colors.text,
+                  },
+                ]}
                 value={editingCell?.value || ''}
-                onChangeText={(text) =>
-                  setEditingCell((prev) => (prev ? { ...prev, value: text } : null))
-                }
-                placeholder="Nhập nội dung ô..."
+                onChangeText={(text) => {
+                  setEditingCell((prev) => (prev ? { ...prev, value: text } : null));
+                  if (editCellError) setEditCellError(null);
+                }}
+                placeholder={t.collab.planningCellValuePlaceholder}
                 placeholderTextColor={colors.subtle}
                 multiline
                 autoFocus
               />
+
+              {editCellError ? (
+                <Text style={[styles.inlineErrorText, { color: isDark ? '#F87171' : '#DC2626' }]}>
+                  {editCellError}
+                </Text>
+              ) : null}
+
               <View style={styles.modalActions}>
                 <TouchableOpacity
                   onPress={() => setEditingCell(null)}
+                  disabled={isSavingCell}
                   style={styles.modalCancelBtn}
                 >
-                  <Text style={[styles.modalCancelText, { color: colors.subtle }]}>Hủy</Text>
+                  <Text style={[styles.modalCancelText, { color: colors.subtle }]}>
+                    {t.common.cancel}
+                  </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={handleSaveCell}
+                  disabled={isSavingCell}
                   style={[styles.modalSubmitBtn, { backgroundColor: colors.primary }]}
                 >
-                  <Text style={styles.modalSubmitText}>Lưu</Text>
+                  {isSavingCell ? (
+                    <ActivityIndicator size="small" color={colors.onPrimary} />
+                  ) : (
+                    <Text style={[styles.modalSubmitText, { color: colors.onPrimary }]}>
+                      {t.common.save}
+                    </Text>
+                  )}
                 </TouchableOpacity>
               </View>
             </View>
-          </View>
+          </KeyboardAvoidingView>
         </Modal>
       </View>
     );
@@ -392,52 +715,77 @@ export const MobilePlanningView: React.FC<MobilePlanningViewProps> = ({ circleId
   // =========================================================================
   return (
     <View style={[styles.container, { backgroundColor: colors.canvas }]}>
-      {/* Sheets Content (scroll-under) */}
+      {renderNoticeBanner()}
+
       {isLoading ? (
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <ActivityIndicator size="large" color={colors.sage} />
         </View>
       ) : sheets.length === 0 ? (
-        <View style={[styles.emptyContainer, { paddingTop: Platform.OS === 'ios' ? 80 : 70 }]}>
+        <View style={[styles.emptyContainer, { paddingTop: topClearance }]}>
           <Table size={48} color={colors.subtle} />
-          <Text style={[styles.emptyTitle, { color: colors.text }]}>Chưa có bảng kế hoạch nào</Text>
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>
+            {t.collab.sheetEmptyTitle}
+          </Text>
           <Text style={[styles.emptySubtitle, { color: colors.subtle }]}>
-            Tạo bảng tính đầu tiên để cùng nhóm quản lý công việc và thời hạn.
+            {t.collab.sheetEmptyDesc}
           </Text>
           <TouchableOpacity
-            onPress={() => setIsCreateModalOpen(true)}
+            onPress={handleOpenCreateModal}
             style={[styles.emptyCreateBtn, { backgroundColor: colors.primary }]}
           >
-            <Text style={styles.emptyCreateBtnText}>Tạo bảng ngay</Text>
+            <Text style={[styles.emptyCreateBtnText, { color: colors.onPrimary }]}>
+              {t.collab.createFirstSheet}
+            </Text>
           </TouchableOpacity>
         </View>
       ) : (
-        <ScrollView style={styles.scrollList} contentContainerStyle={styles.listContent}>
+        <ScrollView
+          style={styles.scrollList}
+          contentContainerStyle={[
+            styles.listContent,
+            { paddingTop: topClearance + 8, paddingBottom: bottomClearance + 76 },
+          ]}
+        >
           {sheets.map((sheet) => (
             <TouchableOpacity
               key={sheet.id}
-              activeOpacity={0.7}
-              onPress={() => setSelectedSheet(sheet)}
-              style={[styles.sheetCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
+              activeOpacity={0.75}
+              onPress={() => {
+                setConfirmDeleteSheet(false);
+                setSelectedSheet(sheet);
+                loadSheetDetail(sheet.id, true);
+              }}
+              style={[
+                styles.sheetCard,
+                { backgroundColor: colors.surface, borderColor: colors.hairline },
+              ]}
             >
               <View style={styles.sheetCardHeader}>
-                <FileSpreadsheet size={22} color={colors.primary} style={{ marginRight: 6 }} />
+                <FileSpreadsheet size={22} color={colors.sage} />
                 <View style={styles.sheetCardInfo}>
                   <Text style={[styles.sheetCardTitle, { color: colors.text }]} numberOfLines={1}>
                     {sheet.title}
                   </Text>
                   <Text style={[styles.sheetCardStats, { color: colors.subtle }]}>
-                    {sheet.columns.length} cột · {sheet.rows.length} dòng
+                    {t.collab.planningColRowStats
+                      .replace('{cols}', String(sheet.columns?.length ?? 0))
+                      .replace('{rows}', String(sheet.rows?.length ?? 0))}
                   </Text>
                 </View>
               </View>
 
               <View style={[styles.sheetCardFooter, { borderTopColor: colors.hairline }]}>
                 <Text style={[styles.sheetCreator, { color: colors.subtle }]}>
-                  Tạo bởi {sheet.creator?.user?.profile?.displayName || 'Thành viên'}
+                  {t.collab.pollCreatedBy.replace(
+                    '{name}',
+                    sheet.creator?.user?.profile?.displayName ||
+                      sheet.creator?.nickname ||
+                      t.collab.memberDefault,
+                  )}
                 </Text>
                 <Text style={[styles.sheetDate, { color: colors.subtle }]}>
-                  {new Date(sheet.createdAt).toLocaleDateString('vi-VN')}
+                  {new Date(sheet.createdAt).toLocaleDateString(dateLocale)}
                 </Text>
               </View>
             </TouchableOpacity>
@@ -448,17 +796,19 @@ export const MobilePlanningView: React.FC<MobilePlanningViewProps> = ({ circleId
       {/* Floating Action Button (FAB) */}
       <TouchableOpacity
         activeOpacity={0.85}
-        onPress={() => setIsCreateModalOpen(true)}
+        onPress={handleOpenCreateModal}
         style={[
           styles.fab,
           {
+            bottom: bottomClearance,
             backgroundColor: colors.primary,
             shadowColor: colors.primary,
           },
         ]}
+        accessibilityLabel={t.collab.createSheet}
       >
-        <Plus size={18} color="#FFF" />
-        <Text style={styles.fabText}>Tạo bảng</Text>
+        <Plus size={18} color={colors.onPrimary} />
+        <Text style={[styles.fabText, { color: colors.onPrimary }]}>{t.collab.createSheet}</Text>
       </TouchableOpacity>
 
       {/* Modal: Create Sheet */}
@@ -468,437 +818,450 @@ export const MobilePlanningView: React.FC<MobilePlanningViewProps> = ({ circleId
         animationType="fade"
         onRequestClose={() => setIsCreateModalOpen(false)}
       >
-        <View style={styles.modalBackdrop}>
-          <View style={[styles.modalCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
-            <Text style={[styles.modalTitle, { color: colors.text }]}>Tạo Bảng Kế Hoạch Mới</Text>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalBackdrop}
+        >
+          <View
+            style={[
+              styles.modalCard,
+              { backgroundColor: colors.surface, borderColor: colors.hairline },
+            ]}
+          >
+            <View style={styles.modalHeaderRow}>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>
+                {t.collab.planningModalCreateTitle}
+              </Text>
+              <TouchableOpacity
+                onPress={() => setIsCreateModalOpen(false)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityLabel={t.common.close}
+              >
+                <X size={18} color={colors.subtle} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={[styles.inputLabel, { color: colors.subtle }]}>
+              {t.collab.planningSheetNameLabel}
+            </Text>
             <TextInput
-              style={[styles.input, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#FFF', borderColor: colors.hairline, color: colors.text }]}
+              style={[
+                styles.input,
+                {
+                  backgroundColor: colors.canvas,
+                  borderColor: colors.hairline,
+                  color: colors.text,
+                },
+              ]}
               value={newTitle}
-              onChangeText={setNewTitle}
-              placeholder="Nhập tên bảng kế hoạch..."
+              onChangeText={(val) => {
+                setNewTitle(val);
+                if (createError) setCreateError(null);
+              }}
+              placeholder={t.collab.sheetTitlePlaceholder}
               placeholderTextColor={colors.subtle}
               autoFocus
             />
+
+            <Text style={[styles.defaultColsHint, { color: colors.subtle }]}>
+              {t.collab.planningDefaultColumnsHint} {t.collab.planningDefaultColsPreview}
+            </Text>
+
+            {createError ? (
+              <Text style={[styles.inlineErrorText, { color: isDark ? '#F87171' : '#DC2626' }]}>
+                {createError}
+              </Text>
+            ) : null}
+
             <View style={styles.modalActions}>
               <TouchableOpacity
                 onPress={() => setIsCreateModalOpen(false)}
+                disabled={isCreating}
                 style={styles.modalCancelBtn}
               >
-                <Text style={[styles.modalCancelText, { color: colors.subtle }]}>Hủy</Text>
+                <Text style={[styles.modalCancelText, { color: colors.subtle }]}>
+                  {t.common.cancel}
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleCreateSheet}
+                disabled={isCreating}
                 style={[styles.modalSubmitBtn, { backgroundColor: colors.primary }]}
               >
-                <Text style={styles.modalSubmitText}>Tạo bảng</Text>
+                {isCreating ? (
+                  <ActivityIndicator size="small" color={colors.onPrimary} />
+                ) : (
+                  <Text style={[styles.modalSubmitText, { color: colors.onPrimary }]}>
+                    {t.collab.createSheet}
+                  </Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F8FAFC',
-  },
-  header: {
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    backgroundColor: '#FFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  headerTextGroup: {
-    flex: 1,
-  },
-  title: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#0F172A',
-  },
-  subtitle: {
-    fontSize: 11,
-    color: '#64748B',
-    marginTop: 2,
-  },
-  createButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#10B981',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
-  },
-  createButtonText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#FFF',
-  },
-  centerContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 32,
-  },
-  emptyTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#334155',
-    marginTop: 12,
-  },
-  emptySubtitle: {
-    fontSize: 12,
-    color: '#64748B',
-    textAlign: 'center',
-    marginTop: 4,
-    lineHeight: 18,
-    marginBottom: 16,
-  },
-  emptyCreateBtn: {
-    backgroundColor: '#10B981',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
-  },
-  emptyCreateBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#FFF',
-  },
-  scrollList: {
-    flex: 1,
-  },
-  listContent: {
-    paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'ios' ? 74 : 64,
-    paddingBottom: 100,
-    gap: 12,
-  },
-  glassPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 7,
-    paddingHorizontal: 12,
-    borderRadius: 999,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#E2E8F0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 3,
-    maxWidth: '50%',
-  },
-  glassActionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderRadius: 999,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#E2E8F0',
-  },
-  glassActionBtnText: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  glassActionBtnPrimary: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderRadius: 999,
-  },
-  glassActionBtnTextPri: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#FFF',
-  },
-  glassIconBtn: {
-    padding: 7,
-    borderRadius: 999,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#E2E8F0',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  fab: {
-    position: 'absolute',
-    bottom: 24,
-    right: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 12,
-    paddingHorizontal: 18,
-    borderRadius: 999,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 4,
-    zIndex: 20,
-  },
-  fabText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#FFF',
-  },
-  sheetCard: {
-    backgroundColor: '#FFF',
-    borderRadius: 16,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  sheetCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  sheetIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: '#ECFDF5',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sheetCardInfo: {
-    flex: 1,
-  },
-  sheetCardTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#0F172A',
-  },
-  sheetCardStats: {
-    fontSize: 11,
-    color: '#64748B',
-    marginTop: 2,
-  },
-  sheetCardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
-    marginTop: 10,
-    paddingTop: 8,
-  },
-  sheetCreator: {
-    fontSize: 10,
-    color: '#94A3B8',
-  },
-  sheetDate: {
-    fontSize: 10,
-    color: '#94A3B8',
-  },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    backgroundColor: '#FFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-  },
-  backButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  backText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#0F172A',
-  },
-  topActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  actionBtnSecondary: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    backgroundColor: '#F1F5F9',
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  actionBtnTextSec: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#0F172A',
-  },
-  actionBtnPrimary: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    backgroundColor: '#10B981',
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  actionBtnTextPri: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#FFF',
-  },
-  deleteBtn: {
-    padding: 6,
-    borderRadius: 8,
-  },
-  sheetTitleHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: '#F8FAFC',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-  },
-  sheetTitleText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#0F172A',
-  },
-  gridContainer: {
-    flex: 1,
-  },
-  table: {
-    backgroundColor: '#FFF',
-  },
-  tableHeaderRow: {
-    flexDirection: 'row',
-    backgroundColor: '#F1F5F9',
-    borderBottomWidth: 1,
-    borderBottomColor: '#CBD5E1',
-  },
-  tableDataRow: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-  },
-  indexCell: {
-    width: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F8FAFC',
-  },
-  headerCell: {
-    width: 140,
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-    borderRightWidth: 1,
-    borderRightColor: '#CBD5E1',
-    justifyContent: 'center',
-  },
-  headerCellText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#334155',
-  },
-  dataCell: {
-    width: 140,
-    minHeight: 44,
-    paddingVertical: 8,
-    paddingHorizontal: 8,
-    borderRightWidth: 1,
-    borderRightColor: '#E2E8F0',
-    justifyContent: 'center',
-  },
-  dataCellText: {
-    fontSize: 12,
-    color: '#0F172A',
-  },
-  dataCellEmpty: {
-    color: '#CBD5E1',
-  },
-  indexCellText: {
-    fontSize: 10,
-    color: '#94A3B8',
-    fontWeight: '600',
-  },
-  emptyTableNotice: {
-    padding: 32,
-    alignItems: 'center',
-  },
-  emptyTableText: {
-    fontSize: 12,
-    color: '#94A3B8',
-  },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
-  },
-  modalCard: {
-    backgroundColor: '#FFF',
-    borderRadius: 16,
-    padding: 20,
-    width: '100%',
-    maxWidth: 340,
-  },
-  modalTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#0F172A',
-    marginBottom: 12,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    fontSize: 13,
-    color: '#0F172A',
-  },
-  modalActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 8,
-    marginTop: 16,
-  },
-  modalCancelBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  modalCancelText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#64748B',
-  },
-  modalSubmitBtn: {
-    backgroundColor: '#10B981',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  modalSubmitText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#FFF',
-  },
-});
+const createStyles = (colors: ColorTheme, isDark: boolean) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.canvas,
+    },
+    centerContainer: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    noticeWrapper: {
+      position: 'absolute',
+      left: 16,
+      right: 16,
+      zIndex: 60,
+    },
+    noticeBanner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      borderRadius: 12,
+      borderWidth: 1,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: isDark ? 0.35 : 0.1,
+      shadowRadius: 6,
+      elevation: 4,
+    },
+    noticeText: {
+      flex: 1,
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    subToolbarContainer: {
+      position: 'absolute',
+      left: 14,
+      right: 14,
+      zIndex: 30,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 8,
+    },
+    subToolbarActions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      flexShrink: 0,
+    },
+    glassPillTouch: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      minHeight: 36,
+    },
+    backText: {
+      fontSize: 12,
+      fontWeight: '600',
+      flexShrink: 1,
+    },
+    glassActionTouch: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingHorizontal: 10,
+      paddingVertical: 8,
+      minHeight: 36,
+    },
+    glassActionBtnText: {
+      fontSize: 11,
+      fontWeight: '600',
+    },
+    glassActionBtnPrimary: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      minHeight: 36,
+      borderRadius: 999,
+    },
+    glassActionBtnTextPri: {
+      fontSize: 11,
+      fontWeight: '700',
+    },
+    glassIconTouch: {
+      minWidth: 36,
+      minHeight: 36,
+      padding: 8,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    confirmDeleteCard: {
+      borderRadius: 14,
+      borderWidth: 1,
+      padding: 14,
+      marginBottom: 12,
+      gap: 6,
+    },
+    confirmDeleteTitle: {
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    confirmDeleteDesc: {
+      fontSize: 12,
+      lineHeight: 17,
+    },
+    confirmDeleteActions: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      gap: 8,
+      marginTop: 6,
+    },
+    confirmCancelBtn: {
+      paddingHorizontal: 12,
+      paddingVertical: 7,
+      borderRadius: 8,
+      borderWidth: 1,
+    },
+    confirmCancelText: {
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    confirmDestroyBtn: {
+      backgroundColor: '#DC2626',
+      paddingHorizontal: 14,
+      paddingVertical: 7,
+      borderRadius: 8,
+      minWidth: 68,
+      alignItems: 'center',
+    },
+    confirmDestroyText: {
+      color: '#FFFFFF',
+      fontSize: 12,
+      fontWeight: '700',
+    },
+    emptyContainer: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 32,
+    },
+    emptyTitle: {
+      fontSize: 15,
+      fontWeight: '700',
+      marginTop: 12,
+      textAlign: 'center',
+    },
+    emptySubtitle: {
+      fontSize: 12,
+      textAlign: 'center',
+      marginTop: 4,
+      lineHeight: 18,
+      marginBottom: 16,
+    },
+    emptyCreateBtn: {
+      paddingHorizontal: 18,
+      paddingVertical: 11,
+      borderRadius: 999,
+    },
+    emptyCreateBtnText: {
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    scrollList: {
+      flex: 1,
+    },
+    listContent: {
+      paddingHorizontal: 16,
+      gap: 12,
+    },
+    fab: {
+      position: 'absolute',
+      right: 16,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingVertical: 12,
+      paddingHorizontal: 18,
+      borderRadius: 999,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: isDark ? 0.35 : 0.22,
+      shadowRadius: 8,
+      elevation: 4,
+      zIndex: 20,
+    },
+    fabText: {
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    sheetCard: {
+      borderRadius: 16,
+      padding: 14,
+      borderWidth: 1,
+    },
+    sheetCardHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
+    sheetCardInfo: {
+      flex: 1,
+    },
+    sheetCardTitle: {
+      fontSize: 14,
+      fontWeight: '700',
+    },
+    sheetCardStats: {
+      fontSize: 11,
+      marginTop: 2,
+    },
+    sheetCardFooter: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      borderTopWidth: StyleSheet.hairlineWidth,
+      marginTop: 10,
+      paddingTop: 8,
+    },
+    sheetCreator: {
+      fontSize: 11,
+    },
+    sheetDate: {
+      fontSize: 11,
+    },
+    gridContainer: {
+      flex: 1,
+    },
+    table: {
+      borderWidth: 1,
+      borderRadius: 12,
+      overflow: 'hidden',
+    },
+    tableHeaderRow: {
+      flexDirection: 'row',
+      borderBottomWidth: 1,
+    },
+    tableDataRow: {
+      flexDirection: 'row',
+      borderBottomWidth: StyleSheet.hairlineWidth,
+    },
+    indexCell: {
+      width: 40,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    headerCell: {
+      width: 140,
+      paddingVertical: 10,
+      paddingHorizontal: 10,
+      borderRightWidth: StyleSheet.hairlineWidth,
+      justifyContent: 'center',
+    },
+    headerCellText: {
+      fontSize: 11,
+      fontWeight: '700',
+    },
+    dataCell: {
+      width: 140,
+      minHeight: 44,
+      paddingVertical: 8,
+      paddingHorizontal: 10,
+      borderRightWidth: StyleSheet.hairlineWidth,
+      justifyContent: 'center',
+    },
+    dataCellText: {
+      fontSize: 12,
+    },
+    indexCellText: {
+      fontSize: 11,
+      fontWeight: '600',
+    },
+    emptyTableNotice: {
+      padding: 28,
+      alignItems: 'center',
+      minWidth: 320,
+    },
+    emptyTableText: {
+      fontSize: 12,
+      textAlign: 'center',
+    },
+    modalBackdrop: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.5)',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 20,
+    },
+    modalCard: {
+      borderRadius: 16,
+      borderWidth: 1,
+      padding: 20,
+      width: '100%',
+      maxWidth: 360,
+    },
+    modalHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 14,
+      gap: 8,
+    },
+    modalTitle: {
+      fontSize: 15,
+      fontWeight: '700',
+      flex: 1,
+    },
+    inputLabel: {
+      fontSize: 12,
+      fontWeight: '600',
+      marginBottom: 6,
+    },
+    input: {
+      borderWidth: 1,
+      borderRadius: 10,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      fontSize: 13,
+    },
+    defaultColsHint: {
+      fontSize: 11,
+      marginTop: 8,
+      lineHeight: 16,
+    },
+    inlineErrorText: {
+      fontSize: 12,
+      fontWeight: '600',
+      marginTop: 8,
+    },
+    modalActions: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      alignItems: 'center',
+      gap: 8,
+      marginTop: 16,
+    },
+    modalCancelBtn: {
+      paddingHorizontal: 14,
+      paddingVertical: 9,
+      borderRadius: 8,
+    },
+    modalCancelText: {
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    modalSubmitBtn: {
+      paddingHorizontal: 18,
+      paddingVertical: 9,
+      borderRadius: 999,
+      minWidth: 80,
+      alignItems: 'center',
+    },
+    modalSubmitText: {
+      fontSize: 12,
+      fontWeight: '700',
+    },
+  });

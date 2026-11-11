@@ -46,7 +46,7 @@ export const PasswordComplexityChecklist: React.FC<PasswordComplexityChecklistPr
           <View key={item.key} style={styles.item}>
             <CheckCircle2
               size={14}
-              color={item.valid ? colors.primary : colors.subtle}
+              color={item.valid ? colors.sage : colors.subtle}
             />
             <Text
               style={[
@@ -62,14 +62,14 @@ export const PasswordComplexityChecklist: React.FC<PasswordComplexityChecklistPr
         {showMatch && confirmPassword !== undefined && confirmPassword.length > 0 && (
           <View style={[styles.item, styles.matchItem, { borderTopColor: colors.hairline }]}>
             {isMatch ? (
-              <CheckCircle2 size={14} color={colors.primary} />
+              <CheckCircle2 size={14} color={colors.sage} />
             ) : (
               <XCircle size={14} color={colors.coral} />
             )}
             <Text
               style={[
                 styles.itemText,
-                { color: isMatch ? colors.primary : colors.coral, fontWeight: '600' },
+                { color: isMatch ? colors.sage : colors.coral, fontWeight: '600' },
               ]}
             >
               {isMatch ? t.auth.passwordMatch : t.auth.passwordMismatch}

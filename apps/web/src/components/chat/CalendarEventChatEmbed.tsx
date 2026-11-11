@@ -35,6 +35,7 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
   const activeCircleId = useCircleStore((s) => s.activeCircleId);
   const setActiveCircleView = useCircleStore((s) => s.setActiveCircleView);
   const setTargetCalendarEvent = useCircleStore((s) => s.setTargetCalendarEvent);
+  const t = useLanguageStore((s) => s.t);
   const locale = useLanguageStore((s) => s.locale);
 
   // "Phản hồi tham gia sẽ được tạo lúc đầu" (COL-09)
@@ -90,24 +91,37 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
   }, [eventData.eventId]);
 
   const startDate = new Date(eventData.startTime);
-  const isVi = locale === 'vi';
 
-  const monthNamesVi = [
-    'THG 1', 'THG 2', 'THG 3', 'THG 4', 'THG 5', 'THG 6',
-    'THG 7', 'THG 8', 'THG 9', 'THG 10', 'THG 11', 'THG 12',
+  const monthShorts = [
+    t.collab.monthShort1,
+    t.collab.monthShort2,
+    t.collab.monthShort3,
+    t.collab.monthShort4,
+    t.collab.monthShort5,
+    t.collab.monthShort6,
+    t.collab.monthShort7,
+    t.collab.monthShort8,
+    t.collab.monthShort9,
+    t.collab.monthShort10,
+    t.collab.monthShort11,
+    t.collab.monthShort12,
   ];
-  const weekdayNamesVi = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
+  const weekdayShorts = [
+    t.collab.weekdaySun,
+    t.collab.weekdayMon,
+    t.collab.weekdayTue,
+    t.collab.weekdayWed,
+    t.collab.weekdayThu,
+    t.collab.weekdayFri,
+    t.collab.weekdaySat,
+  ];
 
-  const monthStr = isVi
-    ? monthNamesVi[startDate.getMonth()]
-    : startDate.toLocaleDateString('en-US', { month: 'short' }).toUpperCase();
+  const monthStr = monthShorts[startDate.getMonth()].toUpperCase();
   const dayNum = startDate.getDate();
-  const weekdayStr = isVi
-    ? weekdayNamesVi[startDate.getDay()]
-    : startDate.toLocaleDateString('en-US', { weekday: 'short' });
+  const weekdayStr = weekdayShorts[startDate.getDay()];
 
   // Time format
-  const startTimeStr = startDate.toLocaleTimeString([], {
+  const startTimeStr = startDate.toLocaleTimeString(locale === 'vi' ? 'vi-VN' : 'en-US', {
     hour: '2-digit',
     minute: '2-digit',
     hour12: false,
@@ -116,7 +130,7 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
   let timeRangeStr = startTimeStr;
   if (eventData.endTime) {
     const endDate = new Date(eventData.endTime);
-    const endTimeStr = endDate.toLocaleTimeString([], {
+    const endTimeStr = endDate.toLocaleTimeString(locale === 'vi' ? 'vi-VN' : 'en-US', {
       hour: '2-digit',
       minute: '2-digit',
       hour12: false,
@@ -132,12 +146,12 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
     if (diffMinutes > 0) {
       if (diffMinutes >= 1440) {
         const days = Math.round(diffMinutes / 1440);
-        reminderStr = isVi ? `Nhắc trước ${days} ngày` : `Remind ${days}d before`;
+        reminderStr = t.collab.remindDaysBefore.replace('{count}', String(days));
       } else if (diffMinutes >= 60) {
         const hours = Math.round(diffMinutes / 60);
-        reminderStr = isVi ? `Nhắc trước ${hours} giờ` : `Remind ${hours}h before`;
+        reminderStr = t.collab.remindHoursBefore.replace('{count}', String(hours));
       } else {
-        reminderStr = isVi ? `Nhắc trước ${diffMinutes} phút` : `Remind ${diffMinutes}m before`;
+        reminderStr = t.collab.remindMinutesBefore.replace('{count}', String(diffMinutes));
       }
     }
   }
@@ -164,7 +178,7 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
         {
           userId: currentUserId || '',
           status,
-          displayName: isVi ? 'Bạn' : 'You',
+          displayName: t.calls.youLabel,
         },
       ];
       const yesCount = updatedUserRsvps.filter((u) => u.status === EventRsvpStatus.YES).length;
@@ -210,7 +224,7 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
   const pollOptions = [
     {
       status: EventRsvpStatus.YES,
-      label: isVi ? 'Tham gia' : 'Going',
+      label: t.collab.rsvpGoing,
       icon: Check,
       count: rsvps?.yesCount || 0,
       percent: yesPercent,
@@ -222,7 +236,7 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
     },
     {
       status: EventRsvpStatus.MAYBE,
-      label: isVi ? 'Chưa chắc' : 'Maybe',
+      label: t.collab.rsvpMaybe,
       icon: HelpCircle,
       count: rsvps?.maybeCount || 0,
       percent: maybePercent,
@@ -234,7 +248,7 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
     },
     {
       status: EventRsvpStatus.NO,
-      label: isVi ? 'Bận' : "Can't go",
+      label: t.collab.rsvpDecline,
       icon: X,
       count: rsvps?.noCount || 0,
       percent: noPercent,
@@ -248,7 +262,7 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
 
   return (
     <div className="w-full max-w-lg mx-auto transition-all select-text">
-      {/* Container with modern card styling and soft shadow */}
+      {/* Container with balanced legible card styling */}
       <div className="rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white/95 dark:bg-circle-dark-surface/95 backdrop-blur-md shadow-md overflow-hidden transition-all hover:border-circle-primary/40">
         {/* Header Ribbon */}
         <div className={`flex items-center justify-between px-4 py-2.5 border-b ${
@@ -266,17 +280,17 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
               isCancelled ? 'text-rose-600 dark:text-rose-400' : 'text-circle-sage dark:text-circle-primary'
             }`}>
               {isCancelled
-                ? (isVi ? 'Đã hủy lịch hẹn' : 'Event Cancelled')
+                ? t.collab.eventCancelledToast
                 : isUpdated
-                  ? (isVi ? 'Cập nhật lịch hẹn' : 'Event Updated')
-                  : (isVi ? 'Lịch hẹn mới • Mời tham gia' : 'New Event • RSVP')}
+                  ? t.collab.eventUpdatedBadge
+                  : t.collab.eventNewRsvpBadge}
             </span>
           </div>
           <button
             type="button"
             onClick={handleOpenCalendar}
-            title={isVi ? 'Xem trên Lịch nhóm' : 'View in Calendar'}
-            className="flex items-center justify-center h-6 w-6 rounded-md text-circle-slate hover:text-circle-charcoal dark:hover:text-circle-dark-text hover:bg-circle-wash/80 dark:hover:bg-circle-dark-wash/80 transition-all active:scale-90"
+            title={t.collab.viewOnCalendar}
+            className="flex items-center justify-center h-6 w-6 rounded-md text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text hover:bg-circle-wash/80 dark:hover:bg-circle-dark-wash/80 transition-all active:scale-90"
           >
             <CalendarDays className="h-3.5 w-3.5" />
           </button>
@@ -304,12 +318,12 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
             <h3 className={`text-base font-bold text-circle-charcoal dark:text-circle-dark-text leading-snug break-words ${
               isCancelled ? 'line-through opacity-60' : ''
             }`}>
-              {eventData.eventTitle} {isCancelled && <span className="text-xs text-rose-500 font-semibold no-underline">({isVi ? 'Đã hủy' : 'Cancelled'})</span>}
+              {eventData.eventTitle} {isCancelled && <span className="text-xs text-rose-500 font-semibold no-underline">({t.collab.eventCancelledTag})</span>}
             </h3>
 
             {/* Time row */}
             <div className="flex items-center gap-2 text-xs text-circle-charcoal dark:text-circle-dark-text font-medium">
-              <Clock className="h-3.5 w-3.5 text-circle-primary shrink-0" />
+              <Clock className="h-3.5 w-3.5 text-circle-sage dark:text-circle-primary shrink-0" />
               <span>{timeRangeStr}</span>
               <span className="text-circle-slate dark:text-circle-dark-muted">• {weekdayStr}, {dayNum} {monthStr}</span>
             </div>
@@ -347,22 +361,22 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
               {isCancelled ? (
                 <>
                   <Lock className="h-3.5 w-3.5 text-rose-500" />
-                  <span className="text-rose-600 dark:text-rose-400">{isVi ? 'Lịch hẹn đã bị hủy' : 'Event cancelled'}</span>
+                  <span className="text-rose-600 dark:text-rose-400">{t.collab.eventCancelledBanner}</span>
                 </>
               ) : isStarted ? (
                 <>
                   <Lock className="h-3.5 w-3.5 text-circle-slate dark:text-circle-dark-muted" />
-                  <span className="text-circle-slate dark:text-circle-dark-muted">{isVi ? 'Bình chọn đã đóng' : 'RSVP closed'}</span>
+                  <span className="text-circle-slate dark:text-circle-dark-muted">{t.collab.rsvpClosed}</span>
                 </>
               ) : (
                 <>
                   <Users className="h-3.5 w-3.5 text-circle-sage dark:text-circle-primary" />
-                  <span>{isVi ? 'Khảo sát tham gia' : 'Attendance Poll'}</span>
+                  <span>{t.collab.attendancePoll}</span>
                 </>
               )}
             </span>
             <span className="text-[11px] text-circle-slate dark:text-circle-dark-muted font-medium">
-              {totalVotes} {isVi ? 'phản hồi' : 'votes'}
+              {t.collab.responsesCount.replace('{count}', String(totalVotes))}
             </span>
           </div>
 
@@ -414,7 +428,7 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
                       <div className="flex items-center -space-x-1.5 shrink-0 pl-2">
                         {opt.users.slice(0, 5).map((u, idx) => {
                           const isMe = u.userId === currentUserId;
-                          const name = isMe ? (isVi ? 'Bạn' : 'You') : u.displayName;
+                          const name = isMe ? t.calls.youLabel : u.displayName;
                           return (
                             <div
                               key={u.userId || idx}

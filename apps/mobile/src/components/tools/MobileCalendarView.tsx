@@ -8,21 +8,18 @@ import {
   TextInput,
   ActivityIndicator,
   Modal,
-  Alert,
   Linking,
   KeyboardAvoidingView,
   Platform,
   Keyboard,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import {
-  Calendar as CalendarIcon,
   Plus,
   Minus,
   Clock,
   MapPin,
-  Trash2,
-  Pencil,
   Ban,
   Video,
   X,
@@ -33,9 +30,13 @@ import {
   CalendarDays,
   AlertCircle,
   Check,
+  HelpCircle,
   Search,
   Info,
   Repeat,
+  Trash2,
+  Pencil,
+  Users,
 } from 'lucide-react-native';
 import {
   getCalendarEventsApi,
@@ -43,37 +44,43 @@ import {
   updateCalendarEventApi,
   cancelCalendarEventApi,
   deleteCalendarEventApi,
+  respondEventRsvpApi,
 } from '../../services/circle-tools.service';
-import { CalendarEventEntity } from '@circle/types';
+import { getMobileSocket } from '../../services/socket';
+import { CalendarEventEntity, EventRsvpStatus } from '@circle/types';
+import { TranslationDictionary } from '@circle/shared';
+import { ColorTheme } from '../../constants/theme';
 import { useThemeStore } from '../../stores/theme.store';
 import { useLanguageStore } from '../../stores/language.store';
-
-
-const isLocationUrl = (loc?: string | null): boolean => {
-  if (!loc) return false;
-  return /(https?:\/\/[^\s]+|(?:meet\.google\.com|maps\.google\.com|maps\.app\.goo\.gl|goo\.gl\/maps)\/[^\s]+)/i.test(loc);
-};
-
-const extractLocationUrl = (loc?: string | null): string | null => {
-  if (!loc) return null;
-  const match = loc.match(/(https?:\/\/[^\s]+|(?:meet\.google\.com|maps\.google\.com|maps\.app\.goo\.gl|goo\.gl\/maps)\/[^\s]+)/i);
-  if (!match) return null;
-  return match[0].startsWith('http') ? match[0] : `https://${match[0]}`;
-};
+import { useAuthStore } from '../../stores/auth.store';
 
 const isCallUrl = (loc?: string | null): boolean => {
   if (!loc) return false;
   return /(meet\.google\.com|zoom\.us|teams\.microsoft\.com|call|video|facetime|webex)/i.test(loc);
 };
 
-const cleanLocationText = (loc?: string | null): string => {
+const extractLocationUrl = (loc?: string | null): string | null => {
+  if (!loc) return null;
+  const match = loc.match(
+    /(https?:\/\/[^\s]+|(?:meet\.google\.com|maps\.google\.com|maps\.app\.goo\.gl|goo\.gl\/maps)\/[^\s]+)/i,
+  );
+  if (!match) return null;
+  return match[0].startsWith('http') ? match[0] : `https://${match[0]}`;
+};
+
+const cleanLocationText = (loc: string | null | undefined, t: TranslationDictionary): string => {
   if (!loc) return '';
-  const cleaned = loc.replace(/https?:\/\/[^\s]+/g, '').trim().replace(/\s*[-–—:]+\s*$/g, '').trim();
+  const cleaned = loc
+    .replace(/https?:\/\/[^\s]+/g, '')
+    .trim()
+    .replace(/\s*[-–—:]+\s*$/g, '')
+    .trim();
   if (!cleaned) {
     if (/meet\.google\.com/i.test(loc)) return 'Google Meet';
-    if (/zoom\.us/i.test(loc)) return 'Zoom Meeting';
-    if (/maps/i.test(loc)) return 'Vị trí trên bản đồ';
-    return 'Xem liên kết';
+    if (/zoom\.us/i.test(loc)) return 'Zoom';
+    if (/teams\.microsoft\.com/i.test(loc)) return 'Microsoft Teams';
+    if (/maps/i.test(loc)) return t.collab.locationOnMapFallback;
+    return t.collab.locationViewLinkFallback;
   }
   return cleaned;
 };
@@ -88,40 +95,57 @@ export type RecurrenceEndType = 'never' | 'on_date';
 
 export interface RecurrenceConfig {
   frequency: RecurrenceFrequency;
-  interval: number; // Mỗi N ngày/tuần/tháng/năm (>= 1)
-  weeklyDays: number[]; // 1 = T2, ..., 7 = CN
+  interval: number;
+  weeklyDays: number[]; // 1 = Mon ... 7 = Sun
   monthlyType: MonthlyType;
-  monthlyDay: number; // 1 - 31
+  monthlyDay: number;
   monthlyNthOrder: NthWeekdayOrder;
-  monthlyNthWeekday: number; // 1 = T2 ... 7 = CN
+  monthlyNthWeekday: number;
   yearlyType: YearlyType;
-  yearlyDay: number; // 1 - 31
-  yearlyMonth: number; // 1 - 12
+  yearlyDay: number;
+  yearlyMonth: number;
   yearlyNthOrder: NthWeekdayOrder;
-  yearlyNthWeekday: number; // 1 = T2 ... 7 = CN
-  yearlyNthMonth: number; // 1 - 12
+  yearlyNthWeekday: number;
+  yearlyNthMonth: number;
   endType: RecurrenceEndType;
   endDate: Date | null;
   isCustom?: boolean;
 }
 
-export const WEEKDAY_INFO: Record<number, { full: string; short: string }> = {
-  1: { full: 'Thứ Hai', short: 'T2' },
-  2: { full: 'Thứ Ba', short: 'T3' },
-  3: { full: 'Thứ Tư', short: 'T4' },
-  4: { full: 'Thứ Năm', short: 'T5' },
-  5: { full: 'Thứ Sáu', short: 'T6' },
-  6: { full: 'Thứ Bảy', short: 'T7' },
-  7: { full: 'Chủ Nhật', short: 'CN' },
-};
+const getWeekdayInfo = (
+  t: TranslationDictionary,
+): Record<number, { full: string; short: string }> => ({
+  1: { full: t.collab.calendarWeekdayMonFull, short: t.collab.weekdayMon },
+  2: { full: t.collab.calendarWeekdayTueFull, short: t.collab.weekdayTue },
+  3: { full: t.collab.calendarWeekdayWedFull, short: t.collab.weekdayWed },
+  4: { full: t.collab.calendarWeekdayThuFull, short: t.collab.weekdayThu },
+  5: { full: t.collab.calendarWeekdayFriFull, short: t.collab.weekdayFri },
+  6: { full: t.collab.calendarWeekdaySatFull, short: t.collab.weekdaySat },
+  7: { full: t.collab.calendarWeekdaySunFull, short: t.collab.weekdaySun },
+});
 
-export const NTH_ORDER_INFO: Record<NthWeekdayOrder, string> = {
-  first: 'đầu tiên',
-  second: 'thứ hai',
-  third: 'thứ ba',
-  fourth: 'thứ tư',
-  last: 'cuối cùng',
-};
+const getNthOrderLowerInfo = (t: TranslationDictionary): Record<NthWeekdayOrder, string> => ({
+  first: t.collab.calendarOrderFirstLower,
+  second: t.collab.calendarOrderSecondLower,
+  third: t.collab.calendarOrderThirdLower,
+  fourth: t.collab.calendarOrderFourthLower,
+  last: t.collab.calendarOrderLastLower,
+});
+
+const getMonthShortLabels = (t: TranslationDictionary): string[] => [
+  t.collab.monthShort1,
+  t.collab.monthShort2,
+  t.collab.monthShort3,
+  t.collab.monthShort4,
+  t.collab.monthShort5,
+  t.collab.monthShort6,
+  t.collab.monthShort7,
+  t.collab.monthShort8,
+  t.collab.monthShort9,
+  t.collab.monthShort10,
+  t.collab.monthShort11,
+  t.collab.monthShort12,
+];
 
 const getWeekdayNumber = (d: Date): number => {
   const day = d.getDay();
@@ -136,7 +160,6 @@ const getDefaultWeeklyDays = (start: Date, end: Date): number[] => {
   if (diffDays <= 0) {
     return [getWeekdayNumber(start)];
   }
-
   if (diffDays >= 6) {
     return [1, 2, 3, 4, 5, 6, 7];
   }
@@ -145,9 +168,7 @@ const getDefaultWeeklyDays = (start: Date, end: Date): number[] => {
   const current = new Date(startDay);
   for (let i = 0; i <= diffDays; i++) {
     const wk = getWeekdayNumber(current);
-    if (!result.includes(wk)) {
-      result.push(wk);
-    }
+    if (!result.includes(wk)) result.push(wk);
     current.setDate(current.getDate() + 1);
   }
   return result.sort((a, b) => a - b);
@@ -162,53 +183,89 @@ const getNthOrderFromDate = (d: Date): NthWeekdayOrder => {
   return 'last';
 };
 
-export const formatRecurrenceSummary = (config: RecurrenceConfig): string => {
+export const formatRecurrenceSummary = (
+  config: RecurrenceConfig,
+  t: TranslationDictionary,
+): string => {
   if (config.frequency === 'none') {
-    return 'Không lặp lại';
+    return t.collab.recurrenceNever;
   }
 
-  let text = '';
-  const { interval } = config;
+  const weekdayInfo = getWeekdayInfo(t);
+  const nthOrderInfo = getNthOrderLowerInfo(t);
+  const monthLabels = getMonthShortLabels(t);
+  const interval = Math.max(1, config.interval || 1);
 
   if (config.frequency === 'daily') {
-    text = interval === 1 ? 'Hằng ngày' : `Mỗi ${interval} ngày`;
-  } else if (config.frequency === 'weekly') {
-    const daysStr = config.weeklyDays
-      .sort((a, b) => a - b)
-      .map((d) => WEEKDAY_INFO[d]?.short || `T${d}`)
-      .join(', ');
-    if (interval === 1) {
-      text = daysStr ? `Hằng tuần vào ${daysStr}` : 'Hằng tuần';
-    } else {
-      text = daysStr ? `Mỗi ${interval} tuần vào ${daysStr}` : `Mỗi ${interval} tuần`;
-    }
-  } else if (config.frequency === 'monthly') {
-    if (config.monthlyType === 'day_of_month') {
-      text = interval === 1
-        ? `Hằng tháng vào ngày ${config.monthlyDay}`
-        : `Mỗi ${interval} tháng vào ngày ${config.monthlyDay}`;
-    } else {
-      const orderName = NTH_ORDER_INFO[config.monthlyNthOrder] || '';
-      const dayName = WEEKDAY_INFO[config.monthlyNthWeekday]?.full || '';
-      text = interval === 1
-        ? `Hằng tháng vào ${dayName} ${orderName}`
-        : `Mỗi ${interval} tháng vào ${dayName} ${orderName}`;
-    }
-  } else if (config.frequency === 'yearly') {
-    if (config.yearlyType === 'specific_date') {
-      text = interval === 1
-        ? `Hằng năm vào ngày ${config.yearlyDay}/${config.yearlyMonth}`
-        : `Mỗi ${interval} năm vào ngày ${config.yearlyDay}/${config.yearlyMonth}`;
-    } else {
-      const orderName = NTH_ORDER_INFO[config.yearlyNthOrder] || '';
-      const dayName = WEEKDAY_INFO[config.yearlyNthWeekday]?.full || '';
-      text = interval === 1
-        ? `Hằng năm vào ${dayName} ${orderName} của Tháng ${config.yearlyNthMonth}`
-        : `Mỗi ${interval} năm vào ${dayName} ${orderName} của Tháng ${config.yearlyNthMonth}`;
-    }
+    return interval === 1
+      ? t.collab.recurrenceDaily
+      : t.collab.calendarEveryNDays.replace('{n}', String(interval));
   }
 
-  return text;
+  if (config.frequency === 'weekly') {
+    const daysStr = [...config.weeklyDays]
+      .sort((a, b) => a - b)
+      .map((d) => weekdayInfo[d]?.short || String(d))
+      .join(', ');
+    if (interval === 1) {
+      return daysStr
+        ? t.collab.calendarWeeklyOn.replace('{days}', daysStr)
+        : t.collab.recurrenceWeekly;
+    }
+    return daysStr
+      ? t.collab.calendarEveryNWeeksOn
+          .replace('{n}', String(interval))
+          .replace('{days}', daysStr)
+      : t.collab.calendarEveryNWeeks.replace('{n}', String(interval));
+  }
+
+  if (config.frequency === 'monthly') {
+    if (config.monthlyType === 'day_of_month') {
+      return interval === 1
+        ? t.collab.calendarMonthlyOnDay.replace('{day}', String(config.monthlyDay))
+        : t.collab.calendarEveryNMonthsOnDay
+            .replace('{n}', String(interval))
+            .replace('{day}', String(config.monthlyDay));
+    }
+    const orderName = nthOrderInfo[config.monthlyNthOrder] || '';
+    const dayName = weekdayInfo[config.monthlyNthWeekday]?.full || '';
+    return interval === 1
+      ? t.collab.calendarMonthlyOnNth.replace('{day}', dayName).replace('{order}', orderName)
+      : t.collab.calendarEveryNMonthsOnNth
+          .replace('{n}', String(interval))
+          .replace('{day}', dayName)
+          .replace('{order}', orderName);
+  }
+
+  if (config.frequency === 'yearly') {
+    if (config.yearlyType === 'specific_date') {
+      return interval === 1
+        ? t.collab.calendarYearlyOnDate
+            .replace('{day}', String(config.yearlyDay))
+            .replace('{month}', String(config.yearlyMonth))
+        : t.collab.calendarEveryNYearsOnDate
+            .replace('{n}', String(interval))
+            .replace('{day}', String(config.yearlyDay))
+            .replace('{month}', String(config.yearlyMonth));
+    }
+    const orderName = nthOrderInfo[config.yearlyNthOrder] || '';
+    const dayName = weekdayInfo[config.yearlyNthWeekday]?.full || '';
+    const monthName =
+      monthLabels[(config.yearlyNthMonth || 1) - 1] ||
+      `${t.collab.monthShortPrefix} ${config.yearlyNthMonth}`;
+    return interval === 1
+      ? t.collab.calendarYearlyOnNth
+          .replace('{day}', dayName)
+          .replace('{order}', orderName)
+          .replace('{monthName}', monthName)
+      : t.collab.calendarEveryNYearsOnNth
+          .replace('{n}', String(interval))
+          .replace('{day}', dayName)
+          .replace('{order}', orderName)
+          .replace('{monthName}', monthName);
+  }
+
+  return t.collab.recurrenceNever;
 };
 
 export const createDefaultRecurrenceConfig = (
@@ -219,10 +276,7 @@ export const createDefaultRecurrenceConfig = (
   const monthNum = baseDate.getMonth() + 1;
   const weekday = getWeekdayNumber(baseDate);
   const nthOrder = getNthOrderFromDate(baseDate);
-
-  const initialWeeklyDays = endDate
-    ? getDefaultWeeklyDays(baseDate, endDate)
-    : [weekday];
+  const initialWeeklyDays = endDate ? getDefaultWeeklyDays(baseDate, endDate) : [weekday];
 
   return {
     frequency: 'none',
@@ -243,64 +297,21 @@ export const createDefaultRecurrenceConfig = (
   };
 };
 
-const formatDateOnly = (d: Date) => {
-  const day = pad2(d.getDate());
-  const month = pad2(d.getMonth() + 1);
-  const year = d.getFullYear();
-  return `${day}/${month}/${year}`;
-};
+const formatDateOnly = (d: Date, dateLocale: string) =>
+  d.toLocaleDateString(dateLocale, { day: '2-digit', month: '2-digit', year: 'numeric' });
 
-const formatAppleDate = (d: Date) => {
-  return `${d.getDate()} thg ${d.getMonth() + 1}, ${d.getFullYear()}`;
-};
+const formatTimeOnly = (h: number, m: number) => `${pad2(h)}:${pad2(m)}`;
 
-const formatTimeOnly = (h: number, m: number) => {
-  return `${pad2(h)}:${pad2(m)}`;
-};
-
-const formatDateTimeDisplay = (d: Date, h: number, m: number) => {
-  const day = pad2(d.getDate());
-  const month = pad2(d.getMonth() + 1);
-  const year = d.getFullYear();
-  const hour = pad2(h);
-  const min = pad2(m);
-  return `${day}/${month}/${year} ${hour}:${min}`;
-};
-
-const createDateFromParts = (d: Date, h: number, m: number): Date => {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), h, m, 0, 0);
-};
+const createDateFromParts = (d: Date, h: number, m: number): Date =>
+  new Date(d.getFullYear(), d.getMonth(), d.getDate(), h, m, 0, 0);
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
-const MINUTES = Array.from({ length: 60 }, (_, i) => i); // 00 - 59
-const MONTH_NAMES = Array.from({ length: 12 }, (_, i) => `Tháng ${String(i + 1).padStart(2, '0')}`);
-const YEARS = Array.from({ length: 35 }, (_, i) => 2015 + i); // 2015 - 2049
+const MINUTES = Array.from({ length: 60 }, (_, i) => i);
+const YEARS = Array.from({ length: 35 }, (_, i) => 2015 + i);
 
 const WHEEL_ITEM_HEIGHT = 38;
 const WHEEL_VISIBLE_HEIGHT = 228;
-const WHEEL_PADDING = (WHEEL_VISIBLE_HEIGHT - WHEEL_ITEM_HEIGHT) / 2; // 95px
-
-const REPEAT_OPTIONS = [
-  { label: 'Không lặp lại', value: 'none' },
-  { label: 'Hằng ngày', value: 'daily' },
-  { label: 'Hằng tuần', value: 'weekly' },
-  { label: 'Hằng tháng', value: 'monthly' },
-  { label: 'Hằng năm', value: 'yearly' },
-  { label: 'Tùy chỉnh...', value: 'custom' },
-];
-
-const REMINDER_OPTIONS = [
-  { label: 'Không nhắc', value: 'none' },
-  { label: 'Khi sự kiện diễn ra', value: '0' },
-  { label: 'Trước 5 phút', value: '5' },
-  { label: 'Trước 15 phút', value: '15' },
-  { label: 'Trước 30 phút', value: '30' },
-  { label: 'Trước 1 giờ', value: '60' },
-  { label: 'Trước 2 giờ', value: '120' },
-  { label: 'Trước 1 ngày', value: '1440' },
-  { label: 'Trước 2 ngày', value: '2880' },
-];
-
+const WHEEL_PADDING = (WHEEL_VISIBLE_HEIGHT - WHEEL_ITEM_HEIGHT) / 2;
 
 export function parseEventRecurrence(desc?: string | null): {
   cleanDesc: string;
@@ -321,23 +332,24 @@ export function parseEventRecurrence(desc?: string | null): {
         monthlyNthWeekday: raw.monthlyNthWeekday || 1,
         yearlyType: raw.yearlyType || 'specific_date',
         yearlyMonth: raw.yearlyMonth || 1,
-        yearlyNthMonth: raw.yearlyNthMonth || 1,
+        yearlyNthMonth: raw.yearlyNthMonth || raw.yearlyMonth || 1,
         yearlyDay: raw.yearlyDay || 1,
         yearlyNthOrder: raw.yearlyNthOrder || 'first',
         yearlyNthWeekday: raw.yearlyNthWeekday || 1,
         endType: raw.endType || 'never',
         endDate: raw.endDate ? new Date(raw.endDate) : null,
+        isCustom: true,
       };
       const cleanDesc = desc
         .replace(/\[RECURRENCE:.*?\]/g, '')
-        .replace(/\[Lặp lại:.*?\]/g, '')
+        .replace(/\[(Lặp lại|Repeat):.*?\]/g, '')
         .trim();
       return { cleanDesc, recurrenceConfig: config };
     } catch {
       // ignore parse error
     }
   }
-  const cleanDesc = desc.replace(/\[Lặp lại:.*?\]/g, '').trim();
+  const cleanDesc = desc.replace(/\[(Lặp lại|Repeat):.*?\]/g, '').trim();
   return { cleanDesc, recurrenceConfig: null };
 }
 
@@ -354,12 +366,10 @@ export function isEventOccurringOnDate(ev: CalendarEventEntity, targetDate: Date
     startDate.getDate(),
   ).getTime();
 
-  // Trước ngày bắt đầu -> không hiển thị
   if (targetTime < startDayTime) return false;
 
   const { recurrenceConfig } = parseEventRecurrence(ev.description);
 
-  // Trường hợp không lặp: kiểm tra khoảng [startTime, endTime] (hỗ trợ nhiều ngày)
   if (!recurrenceConfig || recurrenceConfig.frequency === 'none') {
     const endDate = ev.endTime ? new Date(ev.endTime) : startDate;
     const endDayTime = new Date(
@@ -370,7 +380,6 @@ export function isEventOccurringOnDate(ev: CalendarEventEntity, targetDate: Date
     return targetTime >= startDayTime && targetTime <= endDayTime;
   }
 
-  // Trường hợp lặp lại (Recurrence)
   if (recurrenceConfig.endType === 'on_date' && recurrenceConfig.endDate) {
     const repeatEndDate = new Date(recurrenceConfig.endDate);
     const repeatEndDayTime = new Date(
@@ -425,7 +434,11 @@ export function isEventOccurringOnDate(ev: CalendarEventEntity, targetDate: Date
   }
 }
 
-export function formatEventTimeForDate(ev: CalendarEventEntity, targetDate: Date): string {
+export function formatEventTimeForDate(
+  ev: CalendarEventEntity,
+  targetDate: Date,
+  dateLocale: string,
+): string {
   const evStart = new Date(ev.startTime);
   const evEnd = ev.endTime ? new Date(ev.endTime) : evStart;
 
@@ -445,41 +458,32 @@ export function formatEventTimeForDate(ev: CalendarEventEntity, targetDate: Date
     evEnd.getDate(),
   ).getTime();
 
-  const startHourStr = evStart.toLocaleTimeString('vi-VN', {
+  const startHourStr = evStart.toLocaleTimeString(dateLocale, {
     hour: '2-digit',
     minute: '2-digit',
+    hour12: false,
   });
-  const endHourStr = evEnd.toLocaleTimeString('vi-VN', {
+  const endHourStr = evEnd.toLocaleTimeString(dateLocale, {
     hour: '2-digit',
     minute: '2-digit',
+    hour12: false,
   });
 
-  // Sự kiện diễn ra trong cùng một ngày
   if (startDayTime === endDayTime) {
     return ev.endTime ? `${startHourStr} – ${endHourStr}` : startHourStr;
   }
-
-  // Sự kiện kéo dài qua nhiều ngày (Multi-day):
-  // 1. Ngày đầu tiên: Từ giờ bắt đầu đến hết ngày (23:59)
   if (targetDayTime === startDayTime) {
     return `${startHourStr} – 23:59`;
   }
-  // 2. Ngày cuối cùng: Từ đầu ngày (00:00) đến giờ kết thúc
   if (targetDayTime === endDayTime) {
     return `00:00 – ${endHourStr}`;
   }
-  // 3. Các ngày ở giữa: Trọn vẹn cả ngày (00:00 – 23:59)
   if (targetDayTime > startDayTime && targetDayTime < endDayTime) {
     return '00:00 – 23:59';
   }
 
   return ev.endTime ? `${startHourStr} – ${endHourStr}` : startHourStr;
 }
-
-
-const BRAND_PRIMARY = '#10B981';
-const BRAND_PRIMARY_DARK = '#059669';
-const BRAND_WASH = 'rgba(16, 185, 129, 0.08)';
 
 interface MobileCalendarViewProps {
   circleId: string;
@@ -488,41 +492,112 @@ interface MobileCalendarViewProps {
 export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId }) => {
   const { colors, resolvedTheme } = useThemeStore();
   const isDark = resolvedTheme === 'dark';
-  const { t } = useLanguageStore();
+  const { t, locale } = useLanguageStore();
+  const currentUser = useAuthStore((s) => s.user);
+  const insets = useSafeAreaInsets();
+  const dateLocale = locale === 'vi' ? 'vi-VN' : 'en-US';
+  const topClearance = Math.max(insets.top + 52, Platform.OS === 'ios' ? 74 : 64);
+  const bottomClearance = Math.max(insets.bottom + 16, 24);
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
+  const monthShortLabels = useMemo(() => getMonthShortLabels(t), [t]);
+  const weekdayShortSunFirst = useMemo(
+    () => [
+      t.collab.weekdaySun,
+      t.collab.weekdayMon,
+      t.collab.weekdayTue,
+      t.collab.weekdayWed,
+      t.collab.weekdayThu,
+      t.collab.weekdayFri,
+      t.collab.weekdaySat,
+    ],
+    [t],
+  );
+  const weekdayMinSunFirst = useMemo(
+    () => [
+      t.collab.calendarWeekdayMinSun,
+      t.collab.calendarWeekdayMinMon,
+      t.collab.calendarWeekdayMinTue,
+      t.collab.calendarWeekdayMinWed,
+      t.collab.calendarWeekdayMinThu,
+      t.collab.calendarWeekdayMinFri,
+      t.collab.calendarWeekdayMinSat,
+    ],
+    [t],
+  );
+  const repeatOptions = useMemo(
+    () => [
+      { label: t.collab.recurrenceNever, value: 'none' },
+      { label: t.collab.recurrenceDaily, value: 'daily' },
+      { label: t.collab.recurrenceWeekly, value: 'weekly' },
+      { label: t.collab.recurrenceMonthly, value: 'monthly' },
+      { label: t.collab.recurrenceYearly, value: 'yearly' },
+      { label: t.collab.calendarRepeatCustom, value: 'custom' },
+    ],
+    [t],
+  );
+  const reminderOptions = useMemo(
+    () => [
+      { label: t.collab.calendarReminderNone, value: 'none' },
+      { label: t.collab.calendarReminderAtEvent, value: '0' },
+      { label: t.collab.calendarReminder5m, value: '5' },
+      { label: t.collab.calendarReminder15m, value: '15' },
+      { label: t.collab.calendarReminder30m, value: '30' },
+      { label: t.collab.calendarReminder1h, value: '60' },
+      { label: t.collab.calendarReminder2h, value: '120' },
+      { label: t.collab.calendarReminder1d, value: '1440' },
+      { label: t.collab.calendarReminder2d, value: '2880' },
+    ],
+    [t],
+  );
 
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [events, setEvents] = useState<CalendarEventEntity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Add event modal states
+  // Search state
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Inline feedback & confirmations (zero Alert.alert)
+  const [statusNotice, setStatusNotice] = useState<{
+    type: 'success' | 'error';
+    message: string;
+  } | null>(null);
+  const statusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [confirmDetailAction, setConfirmDetailAction] = useState<'cancel' | 'delete' | null>(null);
+  const [isMutatingDetail, setIsMutatingDetail] = useState(false);
+  const [rsvpSubmitting, setRsvpSubmitting] = useState<EventRsvpStatus | null>(null);
+  const [rsvpError, setRsvpError] = useState<string | null>(null);
+
+  // Add/Edit modal states
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CalendarEventEntity | null>(null);
   const [detailEvent, setDetailEvent] = useState<CalendarEventEntity | null>(null);
   const [isYearView, setIsYearView] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const MONTH_PAGE_HEIGHT = 276;
+  const nowYear = new Date().getFullYear();
 
-  // Dải tháng hiển thị cuộn lướt theo từng tháng (từ 2024 đến 2028: 60 tháng)
   const MONTHS_RANGE = useMemo(() => {
     const list: { year: number; month: number; key: string }[] = [];
-    for (let y = 2024; y <= 2028; y++) {
+    for (let y = nowYear - 2; y <= nowYear + 3; y++) {
       for (let m = 1; m <= 12; m++) {
         list.push({ year: y, month: m, key: `${y}-${m}` });
       }
     }
     return list;
-  }, []);
+  }, [nowYear]);
 
-  // Dải năm hiển thị cuộn dọc trong chế độ Year View (2023 đến 2028)
   const YEARS_RANGE = useMemo(() => {
     const list: number[] = [];
-    for (let y = 2023; y <= 2028; y++) {
+    for (let y = nowYear - 2; y <= nowYear + 3; y++) {
       list.push(y);
     }
     return list;
-  }, []);
+  }, [nowYear]);
 
   const monthScrollRef = useRef<React.ElementRef<typeof ScrollView>>(null);
   const yearLayoutsRef = useRef<Record<number, number>>({});
@@ -557,8 +632,7 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
       const item = MONTHS_RANGE[pageIndex];
       if (
         item &&
-        (item.year !== currentDate.getFullYear() ||
-          item.month !== currentDate.getMonth() + 1)
+        (item.year !== currentDate.getFullYear() || item.month !== currentDate.getMonth() + 1)
       ) {
         setCurrentDate(new Date(item.year, item.month - 1, 1));
         Haptics.selectionAsync();
@@ -566,6 +640,7 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
     },
     [MONTHS_RANGE, currentDate],
   );
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [title, setTitle] = useState('');
   const [location, setLocation] = useState('');
@@ -581,7 +656,7 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
   );
   const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
 
-  // End repeat date picker states (độc lập với ngày kết thúc sự kiện)
+  // End repeat date picker states
   const [isEndRepeatPickerOpen, setIsEndRepeatPickerOpen] = useState(false);
   const [isEndRepeatMonthYearOpen, setIsEndRepeatMonthYearOpen] = useState(false);
   const [endRepeatPickerMonthDate, setEndRepeatPickerMonthDate] = useState<Date>(new Date());
@@ -593,8 +668,7 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
   const [startHour, setStartHour] = useState(6);
   const [startMinute, setStartMinute] = useState(0);
 
-  // End Date & Time (Mặc định là ngày đó và lúc 23:59)
-  const [hasEndTime, setHasEndTime] = useState(true);
+  // End Date & Time
   const [endDate, setEndDate] = useState<Date>(new Date());
   const [endHour, setEndHour] = useState(23);
   const [endMinute, setEndMinute] = useState(59);
@@ -604,14 +678,13 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
   const [isSearchingLocation, setIsSearchingLocation] = useState(false);
   const [showLocationSuggestions, setShowLocationSuggestions] = useState(false);
 
-  // Date & Time Picker (Hiển thị ngay dưới, tách riêng ngày và giờ)
+  // Date & Time Picker states
   const [activePickerTarget, setActivePickerTarget] = useState<
     'start_date' | 'start_time' | 'end_date' | 'end_time' | null
   >(null);
   const [isPickerMonthYearOpen, setIsPickerMonthYearOpen] = useState(false);
   const [pickerMonthDate, setPickerMonthDate] = useState<Date>(new Date());
 
-  // Picker Month calculations
   const pickerYear = pickerMonthDate.getFullYear();
   const pickerMonth = pickerMonthDate.getMonth() + 1;
   const pickerDaysInMonth = new Date(pickerYear, pickerMonth, 0).getDate();
@@ -625,23 +698,70 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
   const month = currentDate.getMonth() + 1;
   const year = currentDate.getFullYear();
 
-  const loadEvents = async () => {
-    try {
-      setIsLoading(true);
-      const data = await getCalendarEventsApi(circleId, month, year);
-      setEvents(data);
-    } catch (err: any) {
-      Alert.alert('Lỗi', err.message || 'Không thể tải lịch hẹn');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const showNotice = useCallback((message: string, type: 'success' | 'error' = 'error') => {
+    if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
+    setStatusNotice({ type, message });
+    statusTimerRef.current = setTimeout(() => {
+      setStatusNotice(null);
+    }, 3200);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
+    };
+  }, []);
+
+  const loadEvents = useCallback(
+    async (silent = false) => {
+      try {
+        if (!silent) setIsLoading(true);
+        const data = await getCalendarEventsApi(circleId, month, year);
+        setEvents(data);
+        setDetailEvent((prev) => {
+          if (!prev) return null;
+          const fresh = data.find((ev) => ev.id === prev.id);
+          return fresh || prev;
+        });
+      } catch (err: any) {
+        showNotice(err?.message || t.collab.loadEventsError, 'error');
+      } finally {
+        if (!silent) setIsLoading(false);
+      }
+    },
+    [circleId, month, year, showNotice, t.collab.loadEventsError],
+  );
 
   useEffect(() => {
     loadEvents();
-  }, [circleId, month, year]);
+  }, [loadEvents]);
 
-  // Tự động cuộn đến tháng hiện tại sau khi layout khởi tạo
+  // Realtime Calendar & RSVP socket updates
+  useEffect(() => {
+    let isMounted = true;
+    let sockRef: any = null;
+    const handleCalendarChanged = (payload?: { circleId?: string }) => {
+      if (!isMounted) return;
+      if (payload?.circleId && payload.circleId !== circleId) return;
+      loadEvents(true);
+    };
+
+    getMobileSocket().then((sock) => {
+      if (!isMounted || !sock) return;
+      sockRef = sock;
+      sock.on('circle:calendar-event-updated', handleCalendarChanged);
+      sock.on('circle:calendar-event-rsvp-updated', handleCalendarChanged);
+    });
+
+    return () => {
+      isMounted = false;
+      if (sockRef) {
+        sockRef.off('circle:calendar-event-updated', handleCalendarChanged);
+        sockRef.off('circle:calendar-event-rsvp-updated', handleCalendarChanged);
+      }
+    };
+  }, [circleId, loadEvents]);
+
   useEffect(() => {
     const timer = setTimeout(() => {
       scrollToMonth(year, month, false);
@@ -649,7 +769,6 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
     return () => clearTimeout(timer);
   }, []);
 
-  // Tự động cuộn đến năm hiện tại khi mở Year View
   useEffect(() => {
     if (isYearView) {
       const timer = setTimeout(() => {
@@ -657,40 +776,36 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
       }, 100);
       return () => clearTimeout(timer);
     }
-  }, [isYearView, year]);
-
-  const daysInMonth = useMemo(() => new Date(year, month, 0).getDate(), [year, month]);
-  const firstDayOfWeek = useMemo(
-    () => new Date(year, month - 1, 1).getDay(),
-    [year, month],
-  );
+  }, [isYearView, year, scrollToYear]);
 
   const currentRepeatLabel = useMemo(() => {
     if (recurrenceConfig.frequency === 'none') {
-      return 'Không lặp lại';
+      return t.collab.recurrenceNever;
     }
     if (recurrenceConfig.isCustom) {
-      return formatRecurrenceSummary(recurrenceConfig);
+      return formatRecurrenceSummary(recurrenceConfig, t);
     }
     switch (recurrenceConfig.frequency) {
       case 'daily':
-        return 'Hằng ngày';
+        return t.collab.recurrenceDaily;
       case 'weekly':
-        return 'Hằng tuần';
+        return t.collab.recurrenceWeekly;
       case 'monthly':
-        return 'Hằng tháng';
+        return t.collab.recurrenceMonthly;
       case 'yearly':
-        return 'Hằng năm';
+        return t.collab.recurrenceYearly;
       default:
-        return 'Không lặp lại';
+        return t.collab.recurrenceNever;
     }
-  }, [recurrenceConfig]);
+  }, [recurrenceConfig, t]);
 
   const currentReminderLabel = useMemo(() => {
-    return REMINDER_OPTIONS.find((r) => r.value === reminderMinutes)?.label || 'Trước 15 phút';
-  }, [reminderMinutes]);
+    return (
+      reminderOptions.find((r) => r.value === reminderMinutes)?.label ||
+      t.collab.calendarReminder15m
+    );
+  }, [reminderMinutes, reminderOptions, t.collab.calendarReminder15m]);
 
-  // Đóng các bộ chọn ngày/giờ mà không tắt bàn phím (dùng khi người dùng focus ô nhập text)
   const closeAllPickers = useCallback(() => {
     setActivePickerTarget(null);
     setIsPickerMonthYearOpen(false);
@@ -698,18 +813,14 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
     setIsEndRepeatMonthYearOpen(false);
   }, []);
 
-  // Tắt cả bàn phím lẫn đóng bộ chọn ngày/giờ (dùng khi cuộn hoặc chạm nền ngoài)
   const dismissKeyboardAndPickers = useCallback(() => {
     Keyboard.dismiss();
-    setActivePickerTarget(null);
-    setIsPickerMonthYearOpen(false);
-    setIsEndRepeatPickerOpen(false);
-    setIsEndRepeatMonthYearOpen(false);
-  }, []);
+    closeAllPickers();
+  }, [closeAllPickers]);
 
-  // Open Create Modal with smart defaults matching Web
   const handleOpenCreateModal = () => {
     setEditingEvent(null);
+    setFormError(null);
     setTitle('');
     setLocation('');
     setDescription('');
@@ -725,13 +836,10 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
     setLocationSuggestions([]);
     setShowLocationSuggestions(false);
 
-    // Mặc định giờ bắt đầu là 06:00 ngày đó (per user request)
     setStartDate(targetDate);
     setStartHour(6);
     setStartMinute(0);
 
-    // Mặc định kết thúc là ngày đó và lúc 23:59 (bắt buộc có)
-    setHasEndTime(true);
     setEndDate(targetDate);
     setEndHour(23);
     setEndMinute(59);
@@ -741,7 +849,7 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
     setIsAddModalOpen(true);
   };
 
-  // Location search autocomplete with Photon API
+  // Location search autocomplete via Photon API
   useEffect(() => {
     const trimmed = location.trim();
     if (
@@ -757,22 +865,23 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
       return;
     }
 
+    const controller = new AbortController();
     const timer = setTimeout(async () => {
       setIsSearchingLocation(true);
       try {
         const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(
           trimmed,
         )}&lat=10.7769&lon=106.7009&limit=5`;
-        const res = await fetch(url);
+        const res = await fetch(url, { signal: controller.signal });
         if (res.ok) {
           const data = await res.json();
           const mapped = (data.features || []).map((f: any) => {
             const p = f.properties || {};
             const name = p.name || p.street || trimmed;
+            const streetLine = [p.housenumber, p.street].filter(Boolean).join(' ');
             const parts = [
               p.name,
-              p.housenumber ? `Số ${p.housenumber}` : '',
-              p.street,
+              streetLine,
               p.locality || p.district,
               p.city,
               p.country,
@@ -788,18 +897,20 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
           setLocationSuggestions(mapped);
           setShowLocationSuggestions(mapped.length > 0);
         }
-      } catch (err) {
-        console.warn('Mobile location search error:', err);
+      } catch {
+        // Ignore aborted or offline location search errors
       } finally {
         setIsSearchingLocation(false);
       }
     }, 350);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
   }, [location]);
 
   const handleSelectLocation = (item: any) => {
-    // Để tên địa điểm (ví dụ: Gigamall thay vì Gigamall, số 240-242...)
     const displayName = item.name || item.address;
     setLocation(displayName);
     setShowLocationSuggestions(false);
@@ -807,34 +918,42 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
     Haptics.selectionAsync();
   };
 
-  // Hàm kiểm tra tính hợp lệ khi người dùng nhấn "Thêm"
   const validateForm = (): string | null => {
-    if (!title.trim()) return 'Vui lòng nhập tên sự kiện';
+    if (!title.trim()) return t.collab.calendarEventRequired;
 
     const start = createDateFromParts(startDate, startHour, startMinute);
     const end = createDateFromParts(endDate, endHour, endMinute);
 
     if (end.getTime() <= start.getTime()) {
-      return 'Thời gian kết thúc phải lớn hơn thời gian bắt đầu';
+      return t.collab.calendarEndAfterStartMsg;
     }
 
-    if (recurrenceConfig.frequency !== 'none' && recurrenceConfig.endType === 'on_date' && recurrenceConfig.endDate) {
-      const startDay = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+    if (
+      recurrenceConfig.frequency !== 'none' &&
+      recurrenceConfig.endType === 'on_date' &&
+      recurrenceConfig.endDate
+    ) {
+      const startDay = new Date(
+        startDate.getFullYear(),
+        startDate.getMonth(),
+        startDate.getDate(),
+      );
       const endRepeatDay = new Date(
         recurrenceConfig.endDate.getFullYear(),
         recurrenceConfig.endDate.getMonth(),
         recurrenceConfig.endDate.getDate(),
       );
       if (endRepeatDay.getTime() < startDay.getTime()) {
-        return 'Ngày kết thúc lặp lại phải sau hoặc cùng ngày bắt đầu sự kiện';
+        return t.collab.calendarEndRepeatAfterStartMsg;
       }
     }
 
     return null;
   };
 
-const handleOpenEditModal = (ev: CalendarEventEntity) => {
+  const handleOpenEditModal = (ev: CalendarEventEntity) => {
     setEditingEvent(ev);
+    setFormError(null);
     setTitle(ev.eventTitle);
     setLocation(ev.location || '');
 
@@ -849,12 +968,10 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
 
     if (ev.endTime) {
       const evEnd = new Date(ev.endTime);
-      setHasEndTime(true);
       setEndDate(evEnd);
       setEndHour(evEnd.getHours());
       setEndMinute(evEnd.getMinutes());
     } else {
-      setHasEndTime(false);
       setEndDate(evStart);
       setEndHour(23);
       setEndMinute(59);
@@ -863,7 +980,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
     if (ev.reminderTime) {
       const remDate = new Date(ev.reminderTime);
       const diffMins = Math.round((evStart.getTime() - remDate.getTime()) / (60 * 1000));
-      setReminderMinutes(diffMins > 0 ? String(diffMins) : '15');
+      setReminderMinutes(diffMins >= 0 ? String(diffMins) : '15');
     } else {
       setReminderMinutes('none');
     }
@@ -872,10 +989,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
       setRecurrenceConfig(savedConfig);
     } else {
       setRecurrenceConfig(
-        createDefaultRecurrenceConfig(
-          evStart,
-          ev.endTime ? new Date(ev.endTime) : evStart,
-        ),
+        createDefaultRecurrenceConfig(evStart, ev.endTime ? new Date(ev.endTime) : evStart),
       );
     }
 
@@ -896,12 +1010,13 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
     const validationError = validateForm();
     if (validationError) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      Alert.alert('Chưa hợp lệ', validationError);
+      setFormError(validationError);
       return;
     }
 
     try {
       setIsSubmitting(true);
+      setFormError(null);
       const evStart = createDateFromParts(startDate, startHour, startMinute);
       const evEnd = endDate ? createDateFromParts(endDate, endHour, endMinute) : undefined;
 
@@ -913,7 +1028,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
 
       let fullDesc = description.trim() || undefined;
       if (recurrenceConfig.frequency !== 'none') {
-        const repeatSummary = formatRecurrenceSummary(recurrenceConfig);
+        const repeatSummary = formatRecurrenceSummary(recurrenceConfig, t);
         const serialized = JSON.stringify({
           frequency: recurrenceConfig.frequency,
           interval: recurrenceConfig.interval,
@@ -924,6 +1039,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
           monthlyNthWeekday: recurrenceConfig.monthlyNthWeekday,
           yearlyType: recurrenceConfig.yearlyType,
           yearlyMonth: recurrenceConfig.yearlyMonth,
+          yearlyNthMonth: recurrenceConfig.yearlyNthMonth,
           yearlyDay: recurrenceConfig.yearlyDay,
           yearlyNthOrder: recurrenceConfig.yearlyNthOrder,
           yearlyNthWeekday: recurrenceConfig.yearlyNthWeekday,
@@ -931,7 +1047,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
           endDate: recurrenceConfig.endDate ? recurrenceConfig.endDate.toISOString() : null,
         });
         const recurrenceTag = `[RECURRENCE:${serialized}]`;
-        const userRepeatText = `[Lặp lại: ${repeatSummary}]`;
+        const userRepeatText = `[${t.collab.calendarRepeatPrefixTag}: ${repeatSummary}]`;
         fullDesc = description.trim()
           ? `${description.trim()}\n${userRepeatText}\n${recurrenceTag}`
           : `${userRepeatText}\n${recurrenceTag}`;
@@ -947,6 +1063,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
           reminderTime,
         });
         setDetailEvent((prev) => (prev && prev.id === editingEvent.id ? updatedEv : prev));
+        showNotice(t.collab.calendarEventUpdatedMsg, 'success');
       } else {
         await createCalendarEventApi(circleId, {
           eventTitle: title.trim(),
@@ -956,111 +1073,70 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
           endTime: evEnd ? evEnd.toISOString() : undefined,
           reminderTime,
         });
+        showNotice(t.collab.calendarEventCreatedMsg, 'success');
       }
 
       setIsAddModalOpen(false);
       setEditingEvent(null);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      loadEvents();
+      loadEvents(true);
     } catch (err: any) {
-      Alert.alert('Lỗi', err.message || (editingEvent ? 'Không thể cập nhật sự kiện' : 'Không thể tạo sự kiện'));
+      setFormError(
+        err?.message || (editingEvent ? t.collab.updateEventError : t.collab.createEventError),
+      );
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleCancelEvent = (eventId: string) => {
-    Alert.alert(
-      'Hủy lịch hẹn',
-      'Bạn có chắc chắn muốn hủy lịch hẹn này? Sự kiện sẽ được đánh dấu là Đã hủy và hiển thị trên lịch nhóm.',
-      [
-        { text: 'Quay lại', style: 'cancel' },
-        {
-          text: 'Xác nhận hủy',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await cancelCalendarEventApi(circleId, eventId);
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-              loadEvents();
-            } catch (err: any) {
-              Alert.alert('Lỗi', err.message || 'Không thể hủy lịch hẹn');
-            }
-          },
-        },
-      ],
-    );
+  const handleConfirmDetailAction = async () => {
+    if (!detailEvent || !confirmDetailAction || isMutatingDetail) return;
+    const eventId = detailEvent.id;
+
+    try {
+      setIsMutatingDetail(true);
+      if (confirmDetailAction === 'cancel') {
+        await cancelCalendarEventApi(circleId, eventId);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        setDetailEvent((prev) =>
+          prev && prev.id === eventId ? { ...prev, isCancelled: true } : prev,
+        );
+        setConfirmDetailAction(null);
+        showNotice(t.collab.eventCancelledToast, 'success');
+      } else {
+        await deleteCalendarEventApi(circleId, eventId);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        setConfirmDetailAction(null);
+        setDetailEvent(null);
+      }
+      loadEvents(true);
+    } catch (err: any) {
+      showNotice(
+        err?.message ||
+          (confirmDetailAction === 'cancel'
+            ? t.collab.cancelEventError
+            : t.collab.deleteEventError),
+        'error',
+      );
+    } finally {
+      setIsMutatingDetail(false);
+    }
   };
 
-  const handleDeleteEvent = (eventId: string) => {
-    Alert.alert(
-      'Xóa vĩnh viễn',
-      'Bạn có chắc chắn muốn xóa vĩnh viễn sự kiện này khỏi lịch nhóm?',
-      [
-        { text: 'Hủy', style: 'cancel' },
-        {
-          text: 'Xóa vĩnh viễn',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteCalendarEventApi(circleId, eventId);
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-              loadEvents();
-            } catch (err: any) {
-              Alert.alert('Lỗi', err.message || 'Không thể xóa sự kiện');
-            }
-          },
-        },
-      ],
-    );
-  };
+  const handleRsvp = async (eventId: string, nextStatus: EventRsvpStatus) => {
+    if (rsvpSubmitting) return;
+    setRsvpError(null);
+    Haptics.selectionAsync();
 
-  const handleCancelEventInDetail = (eventId: string) => {
-    Alert.alert(
-      'Hủy lịch hẹn',
-      'Bạn có chắc chắn muốn hủy lịch hẹn này? Sự kiện sẽ được đánh dấu là Đã hủy và hiển thị trên lịch nhóm.',
-      [
-        { text: 'Quay lại', style: 'cancel' },
-        {
-          text: 'Xác nhận hủy',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await cancelCalendarEventApi(circleId, eventId);
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-              setDetailEvent((prev) => (prev && prev.id === eventId ? { ...prev, isCancelled: true } : prev));
-              loadEvents();
-            } catch (err: any) {
-              Alert.alert('Lỗi', err.message || 'Không thể hủy lịch hẹn');
-            }
-          },
-        },
-      ],
-    );
-  };
-
-  const handleDeleteEventInDetail = (eventId: string) => {
-    Alert.alert(
-      'Xóa vĩnh viễn',
-      'Bạn có chắc chắn muốn xóa vĩnh viễn sự kiện này khỏi lịch nhóm?',
-      [
-        { text: 'Hủy', style: 'cancel' },
-        {
-          text: 'Xóa vĩnh viễn',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteCalendarEventApi(circleId, eventId);
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-              setDetailEvent(null);
-              loadEvents();
-            } catch (err: any) {
-              Alert.alert('Lỗi', err.message || 'Không thể xóa sự kiện');
-            }
-          },
-        },
-      ],
-    );
+    try {
+      setRsvpSubmitting(nextStatus);
+      await respondEventRsvpApi(circleId, eventId, { status: nextStatus });
+      await loadEvents(true);
+    } catch (err: any) {
+      setRsvpError(err?.message || t.collab.rsvpUpdateError);
+    } finally {
+      setRsvpSubmitting(null);
+    }
   };
 
   const togglePickerTarget = (
@@ -1092,27 +1168,34 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
     setPickerMonthDate(new Date(pickerYear, pickerMonth, 1));
   };
 
-  // Cuộn bánh xe giờ & phút vào vị trí trung tâm khi hiển thị bộ chọn giờ
   useEffect(() => {
     if (activePickerTarget === 'start_time' || activePickerTarget === 'end_time') {
       const activeH = activePickerTarget === 'start_time' ? startHour : endHour;
       const activeM = activePickerTarget === 'start_time' ? startMinute : endMinute;
       const timer = setTimeout(() => {
-        pickerHoursScrollRef.current?.scrollTo({ y: activeH * WHEEL_ITEM_HEIGHT, animated: false });
-        pickerMinutesScrollRef.current?.scrollTo({ y: activeM * WHEEL_ITEM_HEIGHT, animated: false });
+        pickerHoursScrollRef.current?.scrollTo({
+          y: activeH * WHEEL_ITEM_HEIGHT,
+          animated: false,
+        });
+        pickerMinutesScrollRef.current?.scrollTo({
+          y: activeM * WHEEL_ITEM_HEIGHT,
+          animated: false,
+        });
       }, 70);
       return () => clearTimeout(timer);
     }
   }, [activePickerTarget, startHour, startMinute, endHour, endMinute]);
 
-  // Cuộn bánh xe tháng & năm vào vị trí trung tâm khi sổ xuống
   useEffect(() => {
     if (
       isPickerMonthYearOpen &&
       (activePickerTarget === 'start_date' || activePickerTarget === 'end_date')
     ) {
       const timer = setTimeout(() => {
-        pickerMonthScrollRef.current?.scrollTo({ y: (pickerMonth - 1) * WHEEL_ITEM_HEIGHT, animated: false });
+        pickerMonthScrollRef.current?.scrollTo({
+          y: (pickerMonth - 1) * WHEEL_ITEM_HEIGHT,
+          animated: false,
+        });
         const yIdx = YEARS.indexOf(pickerYear);
         if (yIdx !== -1) {
           pickerYearScrollRef.current?.scrollTo({ y: yIdx * WHEEL_ITEM_HEIGHT, animated: false });
@@ -1122,22 +1205,39 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
     }
   }, [isPickerMonthYearOpen, pickerMonth, pickerYear, activePickerTarget]);
 
-  const selectedDayEvents = useMemo(() => {
-    return events.filter((ev) => isEventOccurringOnDate(ev, selectedDate));
-  }, [events, selectedDate]);
+  const selectedDayEvents = useMemo(
+    () => events.filter((ev) => isEventOccurringOnDate(ev, selectedDate)),
+    [events, selectedDate],
+  );
+
+  const searchResults = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return [];
+    return events
+      .filter((ev) => {
+        const { cleanDesc } = parseEventRecurrence(ev.description);
+        const creatorName =
+          ev.creator?.nickname || ev.creator?.user?.profile?.displayName || '';
+        return (
+          ev.eventTitle.toLowerCase().includes(q) ||
+          (ev.location || '').toLowerCase().includes(q) ||
+          cleanDesc.toLowerCase().includes(q) ||
+          creatorName.toLowerCase().includes(q)
+        );
+      })
+      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+  }, [events, searchQuery]);
 
   const renderDatePicker = (target: 'start' | 'end') => {
     const isStart = target === 'start';
     const targetDate = isStart ? startDate : endDate;
     const setTargetDate = isStart ? setStartDate : setEndDate;
-
     const todayObj = new Date();
     const isTodayYearMonth =
       todayObj.getFullYear() === pickerYear && todayObj.getMonth() + 1 === pickerMonth;
 
     return (
       <View style={styles.appleInlinePickerContainer}>
-        {/* Month Navigation Row: Left has "Tháng MM YYYY", Right has < and > arrows */}
         <View style={styles.applePickerMonthNav}>
           <TouchableOpacity
             onPress={() => {
@@ -1148,12 +1248,12 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
             activeOpacity={0.7}
           >
             <Text style={styles.applePickerMonthText}>
-              Tháng {pickerMonth} {pickerYear}
+              {monthShortLabels[pickerMonth - 1]} {pickerYear}
             </Text>
             {isPickerMonthYearOpen ? (
-              <ChevronDown size={16} color={colors.primary} />
+              <ChevronDown size={16} color={colors.sage} />
             ) : (
-              <ChevronRight size={16} color={colors.primary} />
+              <ChevronRight size={16} color={colors.sage} />
             )}
           </TouchableOpacity>
 
@@ -1164,27 +1264,24 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                 style={styles.applePickerArrowBtn}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <ChevronLeft size={20} color={colors.primary} />
+                <ChevronLeft size={20} color={colors.sage} />
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handlePickerNext}
                 style={styles.applePickerArrowBtn}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <ChevronRight size={20} color={colors.primary} />
+                <ChevronRight size={20} color={colors.sage} />
               </TouchableOpacity>
             </View>
           )}
         </View>
 
-        {/* Cố định chiều cao vùng nội dung lịch / bánh xe tháng năm để không bị co dãn */}
         <View style={styles.applePickerBodyFixedContainer}>
           {isPickerMonthYearOpen ? (
-            /* Bánh xe cuộn Tháng & Năm có cục xám cố định */
             <View style={styles.wheelStage}>
               <View style={styles.wheelCenterPill} pointerEvents="none" />
 
-              {/* Cột Tháng */}
               <ScrollView
                 ref={pickerMonthScrollRef}
                 showsVerticalScrollIndicator={false}
@@ -1199,14 +1296,17 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                   Haptics.selectionAsync();
                 }}
               >
-                {MONTH_NAMES.map((mName, idx) => {
+                {monthShortLabels.map((mName, idx) => {
                   const isSelected = idx === pickerMonth - 1;
                   return (
                     <TouchableOpacity
-                      key={mName}
+                      key={idx}
                       style={styles.wheelItem}
                       onPress={() => {
-                        pickerMonthScrollRef.current?.scrollTo({ y: idx * WHEEL_ITEM_HEIGHT, animated: true });
+                        pickerMonthScrollRef.current?.scrollTo({
+                          y: idx * WHEEL_ITEM_HEIGHT,
+                          animated: true,
+                        });
                         setPickerMonthDate(new Date(pickerYear, idx, 1));
                         Haptics.selectionAsync();
                       }}
@@ -1223,7 +1323,6 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                 <Text style={styles.wheelDividerText}>/</Text>
               </View>
 
-              {/* Cột Năm */}
               <ScrollView
                 ref={pickerYearScrollRef}
                 showsVerticalScrollIndicator={false}
@@ -1233,7 +1332,10 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                 style={styles.wheelColumn}
                 onMomentumScrollEnd={(e) => {
                   const y = e.nativeEvent.contentOffset.y;
-                  const idx = Math.min(YEARS.length - 1, Math.max(0, Math.round(y / WHEEL_ITEM_HEIGHT)));
+                  const idx = Math.min(
+                    YEARS.length - 1,
+                    Math.max(0, Math.round(y / WHEEL_ITEM_HEIGHT)),
+                  );
                   setPickerMonthDate(new Date(YEARS[idx], pickerMonth - 1, 1));
                   Haptics.selectionAsync();
                 }}
@@ -1245,7 +1347,10 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                       key={y}
                       style={styles.wheelItem}
                       onPress={() => {
-                        pickerYearScrollRef.current?.scrollTo({ y: idx * WHEEL_ITEM_HEIGHT, animated: true });
+                        pickerYearScrollRef.current?.scrollTo({
+                          y: idx * WHEEL_ITEM_HEIGHT,
+                          animated: true,
+                        });
                         setPickerMonthDate(new Date(y, pickerMonth - 1, 1));
                         Haptics.selectionAsync();
                       }}
@@ -1259,11 +1364,10 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
               </ScrollView>
             </View>
           ) : (
-            /* Chế độ xem Lưới ngày chuẩn Apple: số tròn, hôm nay màu nhấn */
             <View>
               <View style={styles.appleWeekdaysRow}>
-                {['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'].map((d) => (
-                  <Text key={d} style={styles.appleWeekdayText}>
+                {weekdayShortSunFirst.map((d, di) => (
+                  <Text key={di} style={styles.appleWeekdayText}>
                     {d}
                   </Text>
                 ))}
@@ -1329,12 +1433,9 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
 
     return (
       <View style={styles.appleInlinePickerContainer}>
-        {/* Bánh xe cuộn Giờ 24h & Phút thuần túy chuẩn Apple Drum-roll có cục xám cố định */}
         <View style={styles.wheelStage}>
-          {/* Cục xám cố định ở chính giữa */}
           <View style={styles.wheelCenterPill} pointerEvents="none" />
 
-          {/* Cột Giờ 24h (00 - 23) */}
           <ScrollView
             ref={pickerHoursScrollRef}
             showsVerticalScrollIndicator={false}
@@ -1356,7 +1457,10 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                   key={`wh-${h}`}
                   style={styles.wheelItem}
                   onPress={() => {
-                    pickerHoursScrollRef.current?.scrollTo({ y: h * WHEEL_ITEM_HEIGHT, animated: true });
+                    pickerHoursScrollRef.current?.scrollTo({
+                      y: h * WHEEL_ITEM_HEIGHT,
+                      animated: true,
+                    });
                     setHour(h);
                     Haptics.selectionAsync();
                   }}
@@ -1369,12 +1473,10 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
             })}
           </ScrollView>
 
-          {/* Dấu hai chấm cố định */}
           <View style={styles.wheelDivider} pointerEvents="none">
             <Text style={styles.wheelDividerText}>:</Text>
           </View>
 
-          {/* Cột Phút (00 - 59) */}
           <ScrollView
             ref={pickerMinutesScrollRef}
             showsVerticalScrollIndicator={false}
@@ -1396,7 +1498,10 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                   key={`wm-${m}`}
                   style={styles.wheelItem}
                   onPress={() => {
-                    pickerMinutesScrollRef.current?.scrollTo({ y: m * WHEEL_ITEM_HEIGHT, animated: true });
+                    pickerMinutesScrollRef.current?.scrollTo({
+                      y: m * WHEEL_ITEM_HEIGHT,
+                      animated: true,
+                    });
                     setMinute(m);
                     Haptics.selectionAsync();
                   }}
@@ -1413,7 +1518,6 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
     );
   };
 
-  // Picker Month calculations cho Ngày kết thúc lặp lại
   const endRepeatPickerYear = endRepeatPickerMonthDate.getFullYear();
   const endRepeatPickerMonth = endRepeatPickerMonthDate.getMonth() + 1;
   const endRepeatPickerDaysInMonth = new Date(
@@ -1429,16 +1533,12 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
 
   const handleEndRepeatPickerPrev = () => {
     Haptics.selectionAsync();
-    setEndRepeatPickerMonthDate(
-      new Date(endRepeatPickerYear, endRepeatPickerMonth - 2, 1),
-    );
+    setEndRepeatPickerMonthDate(new Date(endRepeatPickerYear, endRepeatPickerMonth - 2, 1));
   };
 
   const handleEndRepeatPickerNext = () => {
     Haptics.selectionAsync();
-    setEndRepeatPickerMonthDate(
-      new Date(endRepeatPickerYear, endRepeatPickerMonth, 1),
-    );
+    setEndRepeatPickerMonthDate(new Date(endRepeatPickerYear, endRepeatPickerMonth, 1));
   };
 
   useEffect(() => {
@@ -1478,12 +1578,12 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
             activeOpacity={0.7}
           >
             <Text style={styles.applePickerMonthText}>
-              Tháng {endRepeatPickerMonth} {endRepeatPickerYear}
+              {monthShortLabels[endRepeatPickerMonth - 1]} {endRepeatPickerYear}
             </Text>
             {isEndRepeatMonthYearOpen ? (
-              <ChevronDown size={16} color={colors.primary} />
+              <ChevronDown size={16} color={colors.sage} />
             ) : (
-              <ChevronRight size={16} color={colors.primary} />
+              <ChevronRight size={16} color={colors.sage} />
             )}
           </TouchableOpacity>
 
@@ -1494,14 +1594,14 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                 style={styles.applePickerArrowBtn}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <ChevronLeft size={20} color={colors.primary} />
+                <ChevronLeft size={20} color={colors.sage} />
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleEndRepeatPickerNext}
                 style={styles.applePickerArrowBtn}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <ChevronRight size={20} color={colors.primary} />
+                <ChevronRight size={20} color={colors.sage} />
               </TouchableOpacity>
             </View>
           )}
@@ -1525,11 +1625,11 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                   Haptics.selectionAsync();
                 }}
               >
-                {MONTH_NAMES.map((mName, idx) => {
+                {monthShortLabels.map((mName, idx) => {
                   const isSelected = idx === endRepeatPickerMonth - 1;
                   return (
                     <TouchableOpacity
-                      key={mName}
+                      key={idx}
                       style={styles.wheelItem}
                       onPress={() => {
                         endRepeatPickerMonthScrollRef.current?.scrollTo({
@@ -1541,10 +1641,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                       }}
                     >
                       <Text
-                        style={[
-                          styles.wheelItemText,
-                          isSelected && styles.wheelItemTextSelected,
-                        ]}
+                        style={[styles.wheelItemText, isSelected && styles.wheelItemTextSelected]}
                       >
                         {mName}
                       </Text>
@@ -1570,9 +1667,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                     YEARS.length - 1,
                     Math.max(0, Math.round(y / WHEEL_ITEM_HEIGHT)),
                   );
-                  setEndRepeatPickerMonthDate(
-                    new Date(YEARS[idx], endRepeatPickerMonth - 1, 1),
-                  );
+                  setEndRepeatPickerMonthDate(new Date(YEARS[idx], endRepeatPickerMonth - 1, 1));
                   Haptics.selectionAsync();
                 }}
               >
@@ -1587,17 +1682,12 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                           y: idx * WHEEL_ITEM_HEIGHT,
                           animated: true,
                         });
-                        setEndRepeatPickerMonthDate(
-                          new Date(y, endRepeatPickerMonth - 1, 1),
-                        );
+                        setEndRepeatPickerMonthDate(new Date(y, endRepeatPickerMonth - 1, 1));
                         Haptics.selectionAsync();
                       }}
                     >
                       <Text
-                        style={[
-                          styles.wheelItemText,
-                          isSelected && styles.wheelItemTextSelected,
-                        ]}
+                        style={[styles.wheelItemText, isSelected && styles.wheelItemTextSelected]}
                       >
                         {y}
                       </Text>
@@ -1609,8 +1699,8 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
           ) : (
             <View>
               <View style={styles.appleWeekdaysRow}>
-                {['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'].map((d) => (
-                  <Text key={d} style={styles.appleWeekdayText}>
+                {weekdayShortSunFirst.map((d, di) => (
+                  <Text key={di} style={styles.appleWeekdayText}>
                     {d}
                   </Text>
                 ))}
@@ -1625,9 +1715,9 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                   const dayNum = i + 1;
                   const isSelected = Boolean(
                     recurrenceConfig.endDate &&
-                    recurrenceConfig.endDate.getDate() === dayNum &&
-                    recurrenceConfig.endDate.getMonth() + 1 === endRepeatPickerMonth &&
-                    recurrenceConfig.endDate.getFullYear() === endRepeatPickerYear
+                      recurrenceConfig.endDate.getDate() === dayNum &&
+                      recurrenceConfig.endDate.getMonth() + 1 === endRepeatPickerMonth &&
+                      recurrenceConfig.endDate.getFullYear() === endRepeatPickerYear,
                   );
                   const isToday = isTodayYearMonth && todayObj.getDate() === dayNum;
 
@@ -1674,7 +1764,6 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
           )}
         </View>
 
-        {/* Nút Hủy ở trong lịch để đưa về dạng dd/mm/yyyy khi không muốn kết thúc lặp */}
         <View
           style={{
             flexDirection: 'row',
@@ -1683,11 +1772,13 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
             paddingHorizontal: 16,
             paddingVertical: 10,
             borderTopWidth: StyleSheet.hairlineWidth,
-            borderTopColor: '#E5E5EA',
+            borderTopColor: colors.hairline,
           }}
         >
           <Text style={{ fontSize: 13, color: colors.subtle }}>
-            {recurrenceConfig.endDate ? 'Đang chọn ngày kết thúc' : 'Chưa đặt ngày kết thúc'}
+            {recurrenceConfig.endDate
+              ? t.collab.calendarEndRepeatSelected
+              : t.collab.calendarEndRepeatUnset}
           </Text>
           <TouchableOpacity
             onPress={() => {
@@ -1702,8 +1793,8 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
             hitSlop={{ top: 8, bottom: 8, left: 12, right: 12 }}
             activeOpacity={0.7}
           >
-            <Text style={{ fontSize: 14, fontWeight: '500', color: '#EF4444' }}>
-              Hủy
+            <Text style={{ fontSize: 14, fontWeight: '600', color: colors.danger }}>
+              {t.common.cancel}
             </Text>
           </TouchableOpacity>
         </View>
@@ -1714,18 +1805,46 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
   const renderCustomRepeatModal = () => {
     if (!isCustomRepeatOpen) return null;
 
+    const orderItems = [
+      { key: 'first' as const, label: t.collab.calendarOrderFirst },
+      { key: 'second' as const, label: t.collab.calendarOrderSecond },
+      { key: 'third' as const, label: t.collab.calendarOrderThird },
+      { key: 'fourth' as const, label: t.collab.calendarOrderFourth },
+      { key: 'last' as const, label: t.collab.calendarOrderLast },
+    ];
+
+    const weekdayFullItems = [
+      { w: 2, label: t.collab.calendarWeekdayTueFull, short: t.collab.weekdayTue },
+      { w: 3, label: t.collab.calendarWeekdayWedFull, short: t.collab.weekdayWed },
+      { w: 4, label: t.collab.calendarWeekdayThuFull, short: t.collab.weekdayThu },
+      { w: 5, label: t.collab.calendarWeekdayFriFull, short: t.collab.weekdayFri },
+      { w: 6, label: t.collab.calendarWeekdaySatFull, short: t.collab.weekdaySat },
+      { w: 7, label: t.collab.calendarWeekdaySunFull, short: t.collab.weekdaySun },
+      { w: 1, label: t.collab.calendarWeekdayMonFull, short: t.collab.weekdayMon },
+    ];
+    // Mon -> Sun visual order (1..7) matching WEEKDAY_INFO:
+    const weekdaysMonFirst = [
+      { w: 1, label: t.collab.calendarWeekdayMonFull, short: t.collab.weekdayMon },
+      { w: 2, label: t.collab.calendarWeekdayTueFull, short: t.collab.weekdayTue },
+      { w: 3, label: t.collab.calendarWeekdayWedFull, short: t.collab.weekdayWed },
+      { w: 4, label: t.collab.calendarWeekdayThuFull, short: t.collab.weekdayThu },
+      { w: 5, label: t.collab.calendarWeekdayFriFull, short: t.collab.weekdayFri },
+      { w: 6, label: t.collab.calendarWeekdaySatFull, short: t.collab.weekdaySat },
+      { w: 7, label: t.collab.calendarWeekdaySunFull, short: t.collab.weekdaySun },
+    ];
+    void weekdayFullItems;
+
     return (
       <View style={styles.customRepeatModalContainer}>
-        {/* Navigation Header */}
         <View style={styles.customRepeatHeader}>
           <TouchableOpacity
             onPress={() => setIsCustomRepeatOpen(false)}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Text style={styles.customRepeatCancelText}>Hủy</Text>
+            <Text style={styles.customRepeatCancelText}>{t.common.cancel}</Text>
           </TouchableOpacity>
 
-          <Text style={styles.customRepeatTitle}>Tùy chỉnh</Text>
+          <Text style={styles.customRepeatTitle}>{t.collab.calendarCustomTitle}</Text>
 
           <TouchableOpacity
             onPress={() => {
@@ -1738,22 +1857,21 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
             }}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Text style={styles.customRepeatDoneText}>Xong</Text>
+            <Text style={styles.customRepeatDoneText}>{t.common.done}</Text>
           </TouchableOpacity>
         </View>
 
         <ScrollView contentContainerStyle={styles.customRepeatScrollContent}>
-          {/* Card 1: Chu kỳ & Khoảng cách lặp */}
+          {/* Card 1: Frequency & Interval */}
           <View style={styles.appleGroupCard}>
-            {/* Hàng Chu kỳ */}
             <View style={styles.appleRow}>
-              <Text style={styles.appleRowLabel}>Chu kỳ</Text>
+              <Text style={styles.appleRowLabel}>{t.collab.calendarFrequencyLabel}</Text>
               <View style={styles.appleSegmentWrapper}>
                 {[
-                  { key: 'daily', label: 'Ngày' },
-                  { key: 'weekly', label: 'Tuần' },
-                  { key: 'monthly', label: 'Tháng' },
-                  { key: 'yearly', label: 'Năm' },
+                  { key: 'daily', label: t.collab.calendarFreqDay },
+                  { key: 'weekly', label: t.collab.calendarFreqWeek },
+                  { key: 'monthly', label: t.collab.calendarFreqMonth },
+                  { key: 'yearly', label: t.collab.calendarFreqYear },
                 ].map((seg) => {
                   const isSel = customRecConfig.frequency === seg.key;
                   return (
@@ -1788,9 +1906,8 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
 
             <View style={styles.hairlineDivider} />
 
-            {/* Hàng Khoảng cách lặp (Tần suất) */}
             <View style={styles.appleRow}>
-              <Text style={styles.appleRowLabel}>Khoảng cách lặp</Text>
+              <Text style={styles.appleRowLabel}>{t.collab.calendarIntervalLabel}</Text>
               <View style={styles.appleStepperGroup}>
                 <TouchableOpacity
                   style={styles.appleStepperMinusBtn}
@@ -1803,7 +1920,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                   }}
                   activeOpacity={0.6}
                 >
-                  <Minus size={14} color={colors.primary} strokeWidth={2.5} />
+                  <Minus size={14} color={colors.sage} strokeWidth={2.5} />
                 </TouchableOpacity>
 
                 <TextInput
@@ -1832,36 +1949,27 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                   }}
                   activeOpacity={0.6}
                 >
-                  <Plus size={14} color={colors.primary} strokeWidth={2.5} />
+                  <Plus size={14} color={colors.sage} strokeWidth={2.5} />
                 </TouchableOpacity>
 
                 <Text style={styles.appleStepperUnit}>
-                  {customRecConfig.frequency === 'daily' && 'ngày'}
-                  {customRecConfig.frequency === 'weekly' && 'tuần'}
-                  {customRecConfig.frequency === 'monthly' && 'tháng'}
-                  {customRecConfig.frequency === 'yearly' && 'năm'}
+                  {customRecConfig.frequency === 'daily' && t.collab.calendarUnitDay}
+                  {customRecConfig.frequency === 'weekly' && t.collab.calendarUnitWeek}
+                  {customRecConfig.frequency === 'monthly' && t.collab.calendarUnitMonth}
+                  {customRecConfig.frequency === 'yearly' && t.collab.calendarUnitYear}
                 </Text>
               </View>
             </View>
           </View>
 
-          {/* Card 2: Cấu hình chi tiết theo chu kỳ */}
-          {/* Hằng tuần: Dải 7 nút tròn T2..CN */}
+          {/* Card 2: Weekly */}
           {customRecConfig.frequency === 'weekly' && (
             <View style={styles.appleGroupCard}>
               <View style={styles.appleSubRow}>
-                <Text style={styles.appleSubRowLabel}>Vào các ngày trong tuần</Text>
+                <Text style={styles.appleSubRowLabel}>{t.collab.calendarOnWeekdaysLabel}</Text>
               </View>
               <View style={styles.appleWeekdaysRowWrapper}>
-                {[
-                  { w: 2, label: 'T2' },
-                  { w: 3, label: 'T3' },
-                  { w: 4, label: 'T4' },
-                  { w: 5, label: 'T5' },
-                  { w: 6, label: 'T6' },
-                  { w: 7, label: 'T7' },
-                  { w: 1, label: 'CN' },
-                ].map(({ w, label }) => {
+                {weekdaysMonFirst.map(({ w, short }) => {
                   const isSelected = customRecConfig.weeklyDays.includes(w);
                   return (
                     <TouchableOpacity
@@ -1889,7 +1997,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                           isSelected && styles.appleWeekdayPillTextActive,
                         ]}
                       >
-                        {label}
+                        {short}
                       </Text>
                     </TouchableOpacity>
                   );
@@ -1898,11 +2006,11 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
             </View>
           )}
 
-          {/* Hằng tháng: Segmented Control Theo ngày / Theo thứ */}
+          {/* Monthly */}
           {customRecConfig.frequency === 'monthly' && (
             <View style={styles.appleGroupCard}>
               <View style={styles.appleRow}>
-                <Text style={styles.appleRowLabel}>Quy tắc lặp</Text>
+                <Text style={styles.appleRowLabel}>{t.collab.calendarRepeatRuleLabel}</Text>
                 <View style={styles.appleSegmentWrapper}>
                   <TouchableOpacity
                     style={[
@@ -1926,7 +2034,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                           styles.appleSegmentBtnTextActive,
                       ]}
                     >
-                      Theo ngày
+                      {t.collab.calendarByDayOfMonth}
                     </Text>
                   </TouchableOpacity>
 
@@ -1952,7 +2060,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                           styles.appleSegmentBtnTextActive,
                       ]}
                     >
-                      Theo thứ
+                      {t.collab.calendarByNthWeekday}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -1968,10 +2076,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                         style={styles.appleDayCellContainer}
                         onPress={() => {
                           Haptics.selectionAsync();
-                          setCustomRecConfig((prev) => ({
-                            ...prev,
-                            monthlyDay: d,
-                          }));
+                          setCustomRecConfig((prev) => ({ ...prev, monthlyDay: d }));
                         }}
                         activeOpacity={0.6}
                       >
@@ -1998,29 +2103,20 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                 <View>
                   <View style={styles.hairlineDivider} />
                   <View style={styles.appleSubRow}>
-                    <Text style={styles.appleSubRowLabel}>Thứ tự xuất hiện</Text>
+                    <Text style={styles.appleSubRowLabel}>
+                      {t.collab.calendarOccurrenceOrderLabel}
+                    </Text>
                     <ScrollView
                       horizontal
                       showsHorizontalScrollIndicator={false}
                       contentContainerStyle={styles.applePillsScroll}
                     >
-                      {(
-                        [
-                          { key: 'first', label: 'Đầu tiên' },
-                          { key: 'second', label: 'Thứ 2' },
-                          { key: 'third', label: 'Thứ 3' },
-                          { key: 'fourth', label: 'Thứ 4' },
-                          { key: 'last', label: 'Cuối cùng' },
-                        ] as const
-                      ).map((item) => {
+                      {orderItems.map((item) => {
                         const isSel = customRecConfig.monthlyNthOrder === item.key;
                         return (
                           <TouchableOpacity
                             key={item.key}
-                            style={[
-                              styles.applePill,
-                              isSel && styles.applePillActive,
-                            ]}
+                            style={[styles.applePill, isSel && styles.applePillActive]}
                             onPress={() => {
                               Haptics.selectionAsync();
                               setCustomRecConfig((prev) => ({
@@ -2031,10 +2127,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                             activeOpacity={0.7}
                           >
                             <Text
-                              style={[
-                                styles.applePillText,
-                                isSel && styles.applePillTextActive,
-                              ]}
+                              style={[styles.applePillText, isSel && styles.applePillTextActive]}
                             >
                               {item.label}
                             </Text>
@@ -2046,29 +2139,20 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
 
                   <View style={styles.hairlineDivider} />
                   <View style={styles.appleSubRow}>
-                    <Text style={styles.appleSubRowLabel}>Thứ trong tuần</Text>
+                    <Text style={styles.appleSubRowLabel}>
+                      {t.collab.calendarWeekdayOfWeekLabel}
+                    </Text>
                     <ScrollView
                       horizontal
                       showsHorizontalScrollIndicator={false}
                       contentContainerStyle={styles.applePillsScroll}
                     >
-                      {[
-                        { w: 2, label: 'Thứ Hai' },
-                        { w: 3, label: 'Thứ Ba' },
-                        { w: 4, label: 'Thứ Tư' },
-                        { w: 5, label: 'Thứ Năm' },
-                        { w: 6, label: 'Thứ Sáu' },
-                        { w: 7, label: 'Thứ Bảy' },
-                        { w: 1, label: 'Chủ Nhật' },
-                      ].map(({ w, label }) => {
+                      {weekdaysMonFirst.map(({ w, label }) => {
                         const isSel = customRecConfig.monthlyNthWeekday === w;
                         return (
                           <TouchableOpacity
                             key={`c-mnth-w-${w}`}
-                            style={[
-                              styles.applePill,
-                              isSel && styles.applePillActive,
-                            ]}
+                            style={[styles.applePill, isSel && styles.applePillActive]}
                             onPress={() => {
                               Haptics.selectionAsync();
                               setCustomRecConfig((prev) => ({
@@ -2079,10 +2163,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                             activeOpacity={0.7}
                           >
                             <Text
-                              style={[
-                                styles.applePillText,
-                                isSel && styles.applePillTextActive,
-                              ]}
+                              style={[styles.applePillText, isSel && styles.applePillTextActive]}
                             >
                               {label}
                             </Text>
@@ -2096,11 +2177,11 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
             </View>
           )}
 
-          {/* Hằng năm: Segmented Control Theo ngày / Theo thứ */}
+          {/* Yearly */}
           {customRecConfig.frequency === 'yearly' && (
             <View style={styles.appleGroupCard}>
               <View style={styles.appleRow}>
-                <Text style={styles.appleRowLabel}>Quy tắc lặp</Text>
+                <Text style={styles.appleRowLabel}>{t.collab.calendarRepeatRuleLabel}</Text>
                 <View style={styles.appleSegmentWrapper}>
                   <TouchableOpacity
                     style={[
@@ -2124,7 +2205,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                           styles.appleSegmentBtnTextActive,
                       ]}
                     >
-                      Theo ngày
+                      {t.collab.calendarByDayOfMonth}
                     </Text>
                   </TouchableOpacity>
 
@@ -2150,7 +2231,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                           styles.appleSegmentBtnTextActive,
                       ]}
                     >
-                      Theo thứ
+                      {t.collab.calendarByNthWeekday}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -2160,37 +2241,31 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                 <View>
                   <View style={styles.hairlineDivider} />
                   <View style={styles.appleSubRow}>
-                    <Text style={styles.appleSubRowLabel}>Chọn Tháng</Text>
+                    <Text style={styles.appleSubRowLabel}>
+                      {t.collab.calendarSelectMonthLabel}
+                    </Text>
                     <ScrollView
                       horizontal
                       showsHorizontalScrollIndicator={false}
                       contentContainerStyle={styles.applePillsScroll}
                     >
-                      {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => {
+                      {monthShortLabels.map((mLabel, idx) => {
+                        const m = idx + 1;
                         const isSel = customRecConfig.yearlyMonth === m;
                         return (
                           <TouchableOpacity
                             key={`c-yr-m-${m}`}
-                            style={[
-                              styles.applePill,
-                              isSel && styles.applePillActive,
-                            ]}
+                            style={[styles.applePill, isSel && styles.applePillActive]}
                             onPress={() => {
                               Haptics.selectionAsync();
-                              setCustomRecConfig((prev) => ({
-                                ...prev,
-                                yearlyMonth: m,
-                              }));
+                              setCustomRecConfig((prev) => ({ ...prev, yearlyMonth: m }));
                             }}
                             activeOpacity={0.7}
                           >
                             <Text
-                              style={[
-                                styles.applePillText,
-                                isSel && styles.applePillTextActive,
-                              ]}
+                              style={[styles.applePillText, isSel && styles.applePillTextActive]}
                             >
-                              Tháng {m}
+                              {mLabel}
                             </Text>
                           </TouchableOpacity>
                         );
@@ -2207,10 +2282,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                           style={styles.appleDayCellContainer}
                           onPress={() => {
                             Haptics.selectionAsync();
-                            setCustomRecConfig((prev) => ({
-                              ...prev,
-                              yearlyDay: d,
-                            }));
+                            setCustomRecConfig((prev) => ({ ...prev, yearlyDay: d }));
                           }}
                           activeOpacity={0.6}
                         >
@@ -2238,29 +2310,20 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                 <View>
                   <View style={styles.hairlineDivider} />
                   <View style={styles.appleSubRow}>
-                    <Text style={styles.appleSubRowLabel}>Thứ tự xuất hiện</Text>
+                    <Text style={styles.appleSubRowLabel}>
+                      {t.collab.calendarOccurrenceOrderLabel}
+                    </Text>
                     <ScrollView
                       horizontal
                       showsHorizontalScrollIndicator={false}
                       contentContainerStyle={styles.applePillsScroll}
                     >
-                      {(
-                        [
-                          { key: 'first', label: 'Đầu tiên' },
-                          { key: 'second', label: 'Thứ 2' },
-                          { key: 'third', label: 'Thứ 3' },
-                          { key: 'fourth', label: 'Thứ 4' },
-                          { key: 'last', label: 'Cuối cùng' },
-                        ] as const
-                      ).map((item) => {
+                      {orderItems.map((item) => {
                         const isSel = customRecConfig.yearlyNthOrder === item.key;
                         return (
                           <TouchableOpacity
                             key={`c-yr-nth-${item.key}`}
-                            style={[
-                              styles.applePill,
-                              isSel && styles.applePillActive,
-                            ]}
+                            style={[styles.applePill, isSel && styles.applePillActive]}
                             onPress={() => {
                               Haptics.selectionAsync();
                               setCustomRecConfig((prev) => ({
@@ -2271,10 +2334,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                             activeOpacity={0.7}
                           >
                             <Text
-                              style={[
-                                styles.applePillText,
-                                isSel && styles.applePillTextActive,
-                              ]}
+                              style={[styles.applePillText, isSel && styles.applePillTextActive]}
                             >
                               {item.label}
                             </Text>
@@ -2286,29 +2346,20 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
 
                   <View style={styles.hairlineDivider} />
                   <View style={styles.appleSubRow}>
-                    <Text style={styles.appleSubRowLabel}>Thứ trong tuần</Text>
+                    <Text style={styles.appleSubRowLabel}>
+                      {t.collab.calendarWeekdayOfWeekLabel}
+                    </Text>
                     <ScrollView
                       horizontal
                       showsHorizontalScrollIndicator={false}
                       contentContainerStyle={styles.applePillsScroll}
                     >
-                      {[
-                        { w: 2, label: 'Thứ Hai' },
-                        { w: 3, label: 'Thứ Ba' },
-                        { w: 4, label: 'Thứ Tư' },
-                        { w: 5, label: 'Thứ Năm' },
-                        { w: 6, label: 'Thứ Sáu' },
-                        { w: 7, label: 'Thứ Bảy' },
-                        { w: 1, label: 'Chủ Nhật' },
-                      ].map(({ w, label }) => {
+                      {weekdaysMonFirst.map(({ w, label }) => {
                         const isSel = customRecConfig.yearlyNthWeekday === w;
                         return (
                           <TouchableOpacity
                             key={`c-yr-wk-${w}`}
-                            style={[
-                              styles.applePill,
-                              isSel && styles.applePillActive,
-                            ]}
+                            style={[styles.applePill, isSel && styles.applePillActive]}
                             onPress={() => {
                               Haptics.selectionAsync();
                               setCustomRecConfig((prev) => ({
@@ -2319,10 +2370,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                             activeOpacity={0.7}
                           >
                             <Text
-                              style={[
-                                styles.applePillText,
-                                isSel && styles.applePillTextActive,
-                              ]}
+                              style={[styles.applePillText, isSel && styles.applePillTextActive]}
                             >
                               {label}
                             </Text>
@@ -2334,21 +2382,19 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
 
                   <View style={styles.hairlineDivider} />
                   <View style={styles.appleSubRow}>
-                    <Text style={styles.appleSubRowLabel}>Trong tháng</Text>
+                    <Text style={styles.appleSubRowLabel}>{t.collab.calendarInMonthLabel}</Text>
                     <ScrollView
                       horizontal
                       showsHorizontalScrollIndicator={false}
                       contentContainerStyle={styles.applePillsScroll}
                     >
-                      {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => {
+                      {monthShortLabels.map((mLabel, idx) => {
+                        const m = idx + 1;
                         const isSel = customRecConfig.yearlyNthMonth === m;
                         return (
                           <TouchableOpacity
                             key={`c-yr-nth-m-${m}`}
-                            style={[
-                              styles.applePill,
-                              isSel && styles.applePillActive,
-                            ]}
+                            style={[styles.applePill, isSel && styles.applePillActive]}
                             onPress={() => {
                               Haptics.selectionAsync();
                               setCustomRecConfig((prev) => ({
@@ -2359,12 +2405,9 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                             activeOpacity={0.7}
                           >
                             <Text
-                              style={[
-                                styles.applePillText,
-                                isSel && styles.applePillTextActive,
-                              ]}
+                              style={[styles.applePillText, isSel && styles.applePillTextActive]}
                             >
-                              Tháng {m}
+                              {mLabel}
                             </Text>
                           </TouchableOpacity>
                         );
@@ -2376,12 +2419,12 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
             </View>
           )}
 
-          {/* Card 3: Tóm tắt */}
+          {/* Summary Card */}
           <View style={[styles.appleGroupCard, { padding: 0 }]}>
             <View style={styles.appleSectionFooter}>
-              <Info size={14} color={colors.primary} style={{ marginTop: 2 }} />
+              <Info size={14} color={colors.sage} style={{ marginTop: 2 }} />
               <Text style={styles.appleSectionFooterText}>
-                {formatRecurrenceSummary(customRecConfig)}
+                {formatRecurrenceSummary(customRecConfig, t)}
               </Text>
             </View>
           </View>
@@ -2390,10 +2433,12 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
     );
   };
 
-  {/* Màn hình Chi tiết lịch hẹn (Full-Screen View, không phải popup) */}
+  // Full-Screen Event Detail View (with topClearance & 3-state RSVP)
   const renderDetailScreen = () => {
     if (!detailEvent) return null;
-    const { cleanDesc, recurrenceConfig } = parseEventRecurrence(detailEvent.description);
+    const { cleanDesc, recurrenceConfig: savedRec } = parseEventRecurrence(
+      detailEvent.description,
+    );
     const isBodyPlaceholder = cleanDesc.trim().toLowerCase() === 'body';
     const hasValidDesc = Boolean(cleanDesc && !isBodyPlaceholder);
     const cleanDescriptionText = hasValidDesc ? cleanDesc.trim() : '';
@@ -2410,51 +2455,94 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
     const endDateObj = detailEvent.endTime ? new Date(detailEvent.endTime) : null;
 
     const repeatSummary =
-      recurrenceConfig && recurrenceConfig.frequency !== 'none'
-        ? formatRecurrenceSummary(recurrenceConfig)
+      savedRec && savedRec.frequency !== 'none'
+        ? formatRecurrenceSummary(savedRec, t)
         : null;
+
+    // 3-state RSVP breakdown
+    const allRsvps = detailEvent.rsvps || [];
+    const yesRsvps = allRsvps.filter((r) => r.status === EventRsvpStatus.YES);
+    const maybeRsvps = allRsvps.filter((r) => r.status === EventRsvpStatus.MAYBE);
+    const noRsvps = allRsvps.filter((r) => r.status === EventRsvpStatus.NO);
+    const totalRsvps = allRsvps.length;
+    const myRsvp = allRsvps.find((r) => r.userId === currentUser?.id)?.status || null;
+    const isStarted = Date.now() > startDateObj.getTime();
+    const isRsvpLocked = isStarted || Boolean(detailEvent.isCancelled);
+
+    const rsvpOptions = [
+      {
+        status: EventRsvpStatus.YES,
+        label: t.collab.rsvpGoing,
+        icon: Check,
+        rsvps: yesRsvps,
+        accent: colors.sage,
+        washBg: colors.wash,
+      },
+      {
+        status: EventRsvpStatus.MAYBE,
+        label: t.collab.rsvpMaybe,
+        icon: HelpCircle,
+        rsvps: maybeRsvps,
+        accent: isDark ? '#FBBF24' : '#D97706',
+        washBg: isDark ? 'rgba(251, 191, 36, 0.14)' : 'rgba(245, 158, 11, 0.12)',
+      },
+      {
+        status: EventRsvpStatus.NO,
+        label: t.collab.rsvpDecline,
+        icon: X,
+        rsvps: noRsvps,
+        accent: colors.danger,
+        washBg: isDark ? 'rgba(248, 113, 113, 0.14)' : 'rgba(220, 38, 38, 0.10)',
+      },
+    ];
 
     return (
       <View style={[styles.detailFullScreenContainer, { backgroundColor: colors.canvas }]}>
-        {/* Navigation Header */}
-        <View style={styles.detailNavHeader}>
+        {/* Navigation Header below parent tool modal pill bar */}
+        <View style={[styles.detailNavHeader, { paddingTop: topClearance }]}>
           <TouchableOpacity
             style={styles.detailBackBtn}
             activeOpacity={0.7}
             onPress={() => {
+              setConfirmDetailAction(null);
+              setRsvpError(null);
               setDetailEvent(null);
               Haptics.selectionAsync();
             }}
           >
-            <ChevronLeft size={22} color={colors.primary} />
-            <Text style={styles.detailBackBtnText}>Lịch</Text>
+            <ChevronLeft size={20} color={colors.sage} />
+            <Text style={styles.detailBackBtnText}>{t.collab.calendarTitleShort}</Text>
           </TouchableOpacity>
 
-          <Text style={styles.detailNavTitle}>Chi tiết lịch hẹn</Text>
+          <Text style={styles.detailNavTitle} numberOfLines={1}>
+            {t.collab.calendarDetailsTitle}
+          </Text>
 
           {!detailEvent.isCancelled ? (
             <TouchableOpacity
               style={styles.detailNavEditBtn}
               activeOpacity={0.7}
               onPress={() => {
-                const evToEdit = detailEvent;
-                handleOpenEditModal(evToEdit);
+                setConfirmDetailAction(null);
+                handleOpenEditModal(detailEvent);
               }}
             >
-              <Pencil size={16} color={colors.primary} />
-              <Text style={styles.detailNavEditText}>Sửa</Text>
+              <Pencil size={15} color={colors.sage} />
+              <Text style={styles.detailNavEditText}>{t.collab.calendarEditShort}</Text>
             </TouchableOpacity>
           ) : (
-            <View style={{ width: 50 }} />
+            <View style={{ width: 56 }} />
           )}
         </View>
 
-        {/* Scrollable Content */}
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.detailFullScreenContent}
+          contentContainerStyle={[
+            styles.detailFullScreenContent,
+            { paddingBottom: bottomClearance + 24 },
+          ]}
         >
-          {/* Main Card: Tên & Trạng thái */}
+          {/* Main Card */}
           <View style={styles.detailMainCard}>
             <Text
               style={[
@@ -2467,34 +2555,127 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
 
             {detailEvent.isCancelled ? (
               <View style={styles.detailStatusCancelledBadge}>
-                <Ban size={13} color="#EF4444" />
-                <Text style={styles.detailStatusCancelledText}>Đã hủy lịch hẹn</Text>
+                <Ban size={13} color={colors.danger} />
+                <Text style={styles.detailStatusCancelledText}>
+                  {t.collab.calendarStatusCancelledBadge}
+                </Text>
               </View>
             ) : (
               <View style={styles.detailStatusActiveBadge}>
                 <View style={styles.detailStatusActiveDot} />
-                <Text style={styles.detailStatusActiveText}>Đang hoạt động / Theo kế hoạch</Text>
+                <Text style={styles.detailStatusActiveText}>
+                  {t.collab.calendarStatusActiveBadge}
+                </Text>
               </View>
             )}
           </View>
 
-          {/* Card Thời gian */}
+          {/* 3-State Attendance Poll (RSVP) */}
+          <View style={styles.detailCard}>
+            <View style={styles.detailCardHeaderRow}>
+              <View style={styles.detailCardHeader}>
+                <Users size={18} color={colors.sage} />
+                <Text style={styles.detailCardTitle}>{t.collab.attendancePoll}</Text>
+              </View>
+              <Text style={[styles.detailRsvpTotalText, { color: colors.subtle }]}>
+                {isRsvpLocked
+                  ? t.collab.rsvpClosed
+                  : t.collab.responsesCount.replace('{count}', String(totalRsvps))}
+              </Text>
+            </View>
+
+            <View style={{ gap: 8 }}>
+              {rsvpOptions.map((opt) => {
+                const IconComp = opt.icon;
+                const isSelected = myRsvp === opt.status;
+                const count = opt.rsvps.length;
+                const percent = totalRsvps > 0 ? Math.round((count / totalRsvps) * 100) : 0;
+
+                return (
+                  <View key={opt.status} style={{ gap: 4 }}>
+                    <TouchableOpacity
+                      disabled={isRsvpLocked || rsvpSubmitting !== null}
+                      activeOpacity={0.75}
+                      onPress={() => handleRsvp(detailEvent.id, opt.status)}
+                      style={[
+                        styles.rsvpOptionCard,
+                        {
+                          backgroundColor: isSelected ? opt.washBg : colors.canvas,
+                          borderColor: isSelected ? opt.accent : colors.hairline,
+                        },
+                        isRsvpLocked && { opacity: 0.7 },
+                      ]}
+                    >
+                      <View
+                        style={[
+                          styles.rsvpProgressFill,
+                          {
+                            width: `${percent}%`,
+                            backgroundColor: opt.accent,
+                            opacity: isSelected ? 0.18 : 0.1,
+                          },
+                        ]}
+                      />
+                      <View style={styles.rsvpOptionInner}>
+                        <View style={styles.rsvpOptionLeft}>
+                          <IconComp size={15} color={opt.accent} />
+                          <Text
+                            style={[
+                              styles.rsvpOptionLabel,
+                              { color: colors.text },
+                              isSelected && { fontWeight: '700' },
+                            ]}
+                          >
+                            {opt.label}
+                          </Text>
+                        </View>
+                        <Text
+                          style={[
+                            styles.rsvpOptionCount,
+                            { color: isSelected ? opt.accent : colors.subtle },
+                          ]}
+                        >
+                          {rsvpSubmitting === opt.status ? '...' : `${count} (${percent}%)`}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+
+                    {opt.rsvps.length > 0 && (
+                      <Text style={[styles.rsvpAttendeesLine, { color: colors.subtle }]} numberOfLines={1}>
+                        {opt.rsvps
+                          .map((r) => r.user?.profile?.displayName || t.collab.memberDefault)
+                          .join(', ')}
+                      </Text>
+                    )}
+                  </View>
+                );
+              })}
+            </View>
+
+            {rsvpError ? (
+              <Text style={[styles.inlineErrorSmall, { color: colors.danger }]}>{rsvpError}</Text>
+            ) : null}
+          </View>
+
+          {/* Time Card (Bare icon invariant) */}
           <View style={styles.detailCard}>
             <View style={styles.detailCardHeader}>
-              <View style={[styles.detailCardIconWrap, { backgroundColor: colors.wash }]}>
-                <Clock size={18} color={colors.primary} />
-              </View>
-              <Text style={styles.detailCardTitle}>Thời gian diễn ra</Text>
+              <Clock size={18} color={colors.sage} />
+              <Text style={styles.detailCardTitle}>{t.collab.calendarTimeSectionTitle}</Text>
             </View>
 
             <View style={styles.detailTimeRow}>
               <View style={styles.detailTimeCol}>
-                <Text style={styles.detailTimeLabel}>Bắt đầu</Text>
+                <Text style={styles.detailTimeLabel}>{t.collab.startsAt}</Text>
                 <Text style={styles.detailTimeValueHour}>
-                  {startDateObj.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                  {startDateObj.toLocaleTimeString(dateLocale, {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: false,
+                  })}
                 </Text>
                 <Text style={styles.detailTimeValueDate}>
-                  {startDateObj.toLocaleDateString('vi-VN', {
+                  {startDateObj.toLocaleDateString(dateLocale, {
                     weekday: 'short',
                     day: '2-digit',
                     month: '2-digit',
@@ -2506,14 +2687,18 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
               <View style={styles.detailTimeDivider} />
 
               <View style={styles.detailTimeCol}>
-                <Text style={styles.detailTimeLabel}>Kết thúc</Text>
+                <Text style={styles.detailTimeLabel}>{t.collab.endsAt}</Text>
                 {endDateObj ? (
                   <>
                     <Text style={styles.detailTimeValueHour}>
-                      {endDateObj.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                      {endDateObj.toLocaleTimeString(dateLocale, {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: false,
+                      })}
                     </Text>
                     <Text style={styles.detailTimeValueDate}>
-                      {endDateObj.toLocaleDateString('vi-VN', {
+                      {endDateObj.toLocaleDateString(dateLocale, {
                         weekday: 'short',
                         day: '2-digit',
                         month: '2-digit',
@@ -2522,24 +2707,24 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                     </Text>
                   </>
                 ) : (
-                  <Text style={[styles.detailTimeValueHour, { color: colors.subtle }]}>-- : --</Text>
+                  <Text style={[styles.detailTimeValueHour, { color: colors.subtle }]}>
+                    -- : --
+                  </Text>
                 )}
               </View>
             </View>
           </View>
 
-          {/* Card Cuộc gọi trực tuyến nếu có */}
+          {/* Online Call Card */}
           {isCall ? (
             <View style={[styles.detailCard, styles.detailCallCard]}>
               <View style={styles.detailCardHeader}>
-                <View style={[styles.detailCardIconWrap, { backgroundColor: `${colors.primary}20` }]}>
-                  <Video size={18} color={colors.primary} />
-                </View>
-                <Text style={styles.detailCardTitle}>Cuộc gọi trực tuyến</Text>
+                <Video size={18} color={colors.sage} />
+                <Text style={styles.detailCardTitle}>{t.collab.calendarOnlineCallTitle}</Text>
               </View>
 
               <Text style={styles.detailCallDesc}>
-                {cleanLocationText(detailEvent.location) || 'Cuộc gọi video (Google Meet / Zoom)'}
+                {cleanLocationText(detailEvent.location, t) || t.collab.calendarOnlineCallDefault}
               </Text>
 
               {callUrl && (
@@ -2548,25 +2733,25 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                   activeOpacity={0.8}
                   onPress={() => Linking.openURL(callUrl).catch(() => {})}
                 >
-                  <Video size={16} color="#FFFFFF" />
-                  <Text style={styles.detailJoinCallBtnText}>Tham gia ngay</Text>
+                  <Video size={16} color={colors.onPrimary} />
+                  <Text style={[styles.detailJoinCallBtnText, { color: colors.onPrimary }]}>
+                    {t.collab.calendarJoinCallNow}
+                  </Text>
                 </TouchableOpacity>
               )}
             </View>
           ) : null}
 
-          {/* Card Địa điểm nếu có */}
+          {/* Physical Location Card */}
           {isPhysicalLoc ? (
             <View style={styles.detailCard}>
               <View style={styles.detailCardHeader}>
-                <View style={[styles.detailCardIconWrap, { backgroundColor: '#FEF3C7' }]}>
-                  <MapPin size={18} color="#D97706" />
-                </View>
-                <Text style={styles.detailCardTitle}>Địa điểm</Text>
+                <MapPin size={18} color={isDark ? '#FBBF24' : '#D97706'} />
+                <Text style={styles.detailCardTitle}>{t.collab.calendarLocationSectionTitle}</Text>
               </View>
 
               <Text style={styles.detailCardBodyText}>
-                {cleanLocationText(detailEvent.location)}
+                {cleanLocationText(detailEvent.location, t)}
               </Text>
 
               <TouchableOpacity
@@ -2584,97 +2769,143 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                   }
                 }}
               >
-                <MapPin size={14} color={colors.primary} />
-                <Text style={styles.detailMapLinkBtnText}>Xem chỉ đường trên bản đồ</Text>
+                <MapPin size={14} color={colors.sage} />
+                <Text style={styles.detailMapLinkBtnText}>{t.collab.calendarDirectionsBtn}</Text>
               </TouchableOpacity>
             </View>
           ) : null}
 
-          {/* Card Chu kỳ lặp lại nếu có */}
+          {/* Recurrence Card */}
           {repeatSummary ? (
             <View style={styles.detailCard}>
               <View style={styles.detailCardHeader}>
-                <View style={[styles.detailCardIconWrap, { backgroundColor: colors.wash }]}>
-                  <Repeat size={18} color="#475569" />
-                </View>
-                <Text style={styles.detailCardTitle}>Chu kỳ lặp lại</Text>
+                <Repeat size={18} color={colors.subtle} />
+                <Text style={styles.detailCardTitle}>{t.collab.calendarRepeatSectionTitle}</Text>
               </View>
               <Text style={styles.detailCardBodyText}>{repeatSummary}</Text>
             </View>
           ) : null}
 
-          {/* Card Nhắc nhở nếu có */}
+          {/* Reminder Card */}
           {detailEvent.reminderTime ? (
             <View style={styles.detailCard}>
               <View style={styles.detailCardHeader}>
-                <View style={[styles.detailCardIconWrap, { backgroundColor: '#FEF3C7' }]}>
-                  <Bell size={18} color="#D97706" />
-                </View>
-                <Text style={styles.detailCardTitle}>Thông báo nhắc nhở</Text>
+                <Bell size={18} color={isDark ? '#FBBF24' : '#D97706'} />
+                <Text style={styles.detailCardTitle}>{t.collab.calendarReminderSectionTitle}</Text>
               </View>
-              <Text style={styles.detailCardBodyText}>Có bật thông báo nhắc nhở trước giờ hẹn</Text>
+              <Text style={styles.detailCardBodyText}>{t.collab.calendarReminderActiveDesc}</Text>
             </View>
           ) : null}
 
-          {/* Card Ghi chú - Chỉ hiển thị khi có nội dung thực tế (không phải 'body') */}
+          {/* Notes Card */}
           {hasValidDesc ? (
             <View style={styles.detailCard}>
               <View style={styles.detailCardHeader}>
-                <View
-                  style={[
-                    styles.detailCardIconWrap,
-                    { backgroundColor: colors.canvas, borderWidth: 1, borderColor: colors.hairline },
-                  ]}
-                >
-                  <Info size={18} color="#64748B" />
-                </View>
-                <Text style={styles.detailCardTitle}>Ghi chú</Text>
+                <Info size={18} color={colors.subtle} />
+                <Text style={styles.detailCardTitle}>{t.collab.calendarNotesSectionTitle}</Text>
               </View>
               <Text style={styles.detailNotesText}>{cleanDescriptionText}</Text>
             </View>
           ) : null}
 
-          {/* Card Người tạo */}
+          {/* Organizer Card */}
           {detailEvent.creator ? (
             <View style={styles.detailCard}>
               <View style={styles.detailCardHeader}>
-                <View style={[styles.detailCardIconWrap, { backgroundColor: colors.wash }]}>
-                  <CalendarDays size={18} color="#64748B" />
-                </View>
-                <Text style={styles.detailCardTitle}>Người tạo</Text>
+                <CalendarDays size={18} color={colors.subtle} />
+                <Text style={styles.detailCardTitle}>{t.collab.calendarCreatorSectionTitle}</Text>
               </View>
               <Text style={styles.detailCardBodyText}>
                 {detailEvent.creator?.nickname ||
                   detailEvent.creator?.user?.profile?.displayName ||
-                  'Thành viên Circle'}
+                  t.collab.memberDefault}
               </Text>
             </View>
           ) : null}
 
-          {/* Nhóm nút hành động: Hủy lịch hẹn & Xóa sự kiện */}
+          {/* Actions + Inline 2-Step Confirmations */}
           <View style={styles.detailActionButtonsGroup}>
-            {!detailEvent.isCancelled && (
-              <TouchableOpacity
-                style={styles.detailActionCancelBtn}
-                activeOpacity={0.8}
-                onPress={() => handleCancelEventInDetail(detailEvent.id)}
+            {confirmDetailAction ? (
+              <View
+                style={[
+                  styles.inlineDetailConfirmCard,
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: confirmDetailAction === 'delete' ? '#DC2626' : colors.hairline,
+                  },
+                ]}
               >
-                <Ban size={18} color="#D97706" />
-                <Text style={styles.detailActionCancelBtnText}>Hủy lịch hẹn này</Text>
-              </TouchableOpacity>
+                <Text style={[styles.inlineDetailConfirmTitle, { color: colors.text }]}>
+                  {confirmDetailAction === 'cancel'
+                    ? t.collab.calendarCancelTitle
+                    : t.collab.calendarDeleteTitle}
+                </Text>
+                <Text style={[styles.inlineDetailConfirmDesc, { color: colors.subtle }]}>
+                  {confirmDetailAction === 'cancel'
+                    ? t.collab.cancelEventWarning
+                    : t.collab.deleteEventWarning}
+                </Text>
+                <View style={styles.inlineDetailConfirmBtns}>
+                  <TouchableOpacity
+                    onPress={() => setConfirmDetailAction(null)}
+                    disabled={isMutatingDetail}
+                    style={[styles.inlineDetailCancelBtn, { borderColor: colors.hairline }]}
+                  >
+                    <Text style={[styles.inlineDetailCancelText, { color: colors.text }]}>
+                      {t.common.cancel}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={handleConfirmDetailAction}
+                    disabled={isMutatingDetail}
+                    style={[
+                      styles.inlineDetailDestroyBtn,
+                      {
+                        backgroundColor:
+                          confirmDetailAction === 'cancel' ? '#D97706' : '#DC2626',
+                      },
+                    ]}
+                  >
+                    {isMutatingDetail ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <Text style={styles.inlineDetailDestroyText}>
+                        {confirmDetailAction === 'cancel'
+                          ? t.collab.calendarCancelConfirmBtn
+                          : t.collab.calendarDeleteConfirmBtn}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              <>
+                {!detailEvent.isCancelled && (
+                  <TouchableOpacity
+                    style={styles.detailActionCancelBtn}
+                    activeOpacity={0.8}
+                    onPress={() => setConfirmDetailAction('cancel')}
+                  >
+                    <Ban size={18} color={isDark ? '#FBBF24' : '#B45309'} />
+                    <Text style={styles.detailActionCancelBtnText}>
+                      {t.collab.calendarCancelDetailBtn}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
+                <TouchableOpacity
+                  style={styles.detailActionDeleteBtn}
+                  activeOpacity={0.8}
+                  onPress={() => setConfirmDetailAction('delete')}
+                >
+                  <Trash2 size={18} color={colors.danger} />
+                  <Text style={styles.detailActionDeleteBtnText}>
+                    {t.collab.calendarDeleteDetailBtn}
+                  </Text>
+                </TouchableOpacity>
+              </>
             )}
-
-            <TouchableOpacity
-              style={styles.detailActionDeleteBtn}
-              activeOpacity={0.8}
-              onPress={() => handleDeleteEventInDetail(detailEvent.id)}
-            >
-              <Trash2 size={18} color="#EF4444" />
-              <Text style={styles.detailActionDeleteBtnText}>Xóa vĩnh viễn khỏi lịch nhóm</Text>
-            </TouchableOpacity>
           </View>
-
-          <View style={{ height: 40 }} />
         </ScrollView>
       </View>
     );
@@ -2685,12 +2916,10 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
 
     return (
       <View style={[styles.container, { backgroundColor: colors.canvas }]}>
-        {/* Year View Header */}
-        <View style={styles.appleYearHeader}>
+        <View style={[styles.appleYearHeader, { paddingTop: topClearance }]}>
           <View style={{ flex: 1 }} />
 
           <View style={styles.appleHeaderActions}>
-            {/* Nút Hôm nay - lướt tới năm hiện tại */}
             <TouchableOpacity
               style={styles.appleMonthTodayBtn}
               onPress={() => {
@@ -2701,47 +2930,48 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                 Haptics.selectionAsync();
               }}
             >
-              <Text style={styles.appleMonthTodayBtnText}>Hôm nay</Text>
+              <Text style={styles.appleMonthTodayBtnText}>{t.collab.today}</Text>
             </TouchableOpacity>
 
-            {/* Nút Tìm kiếm */}
             <TouchableOpacity
               style={styles.appleSearchBtn}
               activeOpacity={0.7}
               onPress={() => {
+                setIsYearView(false);
+                setIsSearchOpen(true);
                 Haptics.selectionAsync();
               }}
+              accessibilityLabel={t.common.search}
             >
-              <Search size={18} color={colors.primary} />
+              <Search size={18} color={colors.sage} />
             </TouchableOpacity>
 
-            {/* Nút Tạo sự kiện */}
             <TouchableOpacity
               style={styles.appleMonthAddBtn}
               activeOpacity={0.7}
               onPress={handleOpenCreateModal}
+              accessibilityLabel={t.collab.addEvent}
             >
-              <Plus size={16} color="#FFFFFF" />
+              <Plus size={16} color={colors.onPrimary} />
             </TouchableOpacity>
 
-            {/* Nút Đóng Year View */}
             <TouchableOpacity
               style={styles.yearCloseBtn}
               onPress={() => {
                 setIsYearView(false);
                 Haptics.selectionAsync();
               }}
+              accessibilityLabel={t.common.close}
             >
-              <X size={18} color="#64748B" />
+              <X size={18} color={colors.subtle} />
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Danh sách các năm cuộn dọc liên tục */}
         <ScrollView
           ref={yearScrollRef}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.yearScrollContent}
+          contentContainerStyle={[styles.yearScrollContent, { paddingBottom: bottomClearance }]}
         >
           {YEARS_RANGE.map((y) => (
             <View
@@ -2751,10 +2981,8 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
               }}
               style={styles.yearSectionContainer}
             >
-              {/* Tiêu đề Năm to đậm */}
               <Text style={styles.yearSectionTitle}>{y}</Text>
 
-              {/* Lưới 12 tháng thu nhỏ (3 cột x 4 hàng) */}
               <View style={styles.yearGridContainer}>
                 {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => {
                   const daysInM = new Date(y, m, 0).getDate();
@@ -2783,17 +3011,16 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                           isCurrentMonthOfToday && styles.miniMonthNameActive,
                         ]}
                       >
-                        Tháng {m}
+                        {monthShortLabels[m - 1]}
                       </Text>
 
-                      {/* Mini Weekday */}
                       <View style={styles.miniWeekdaysHeader}>
-                        {['C', '2', '3', '4', '5', '6', '7'].map((d, di) => (
+                        {weekdayMinSunFirst.map((d, di) => (
                           <Text
                             key={di}
                             style={[
                               styles.miniWeekdayChar,
-                              di === 0 && { color: '#EF4444' },
+                              di === 0 && { color: colors.danger },
                             ]}
                           >
                             {d}
@@ -2801,7 +3028,6 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                         ))}
                       </View>
 
-                      {/* Mini Days Grid */}
                       <View style={styles.miniDaysGrid}>
                         {Array.from({ length: firstDayM }).map((_, ei) => (
                           <View key={`empty-${y}-${m}-${ei}`} style={styles.miniDayCell} />
@@ -2816,10 +3042,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                           return (
                             <View key={`d-${y}-${m}-${dNum}`} style={styles.miniDayCell}>
                               <Text
-                                style={[
-                                  styles.miniDayNumText,
-                                  isDToday && styles.miniDayNumToday,
-                                ]}
+                                style={[styles.miniDayNumText, isDToday && styles.miniDayNumToday]}
                               >
                                 {dNum}
                               </Text>
@@ -2839,15 +3062,129 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
   };
 
   if (isYearView) {
-    return renderYearView();
+    return (
+      <>
+        {renderYearView()}
+        {detailEvent && renderDetailScreen()}
+      </>
+    );
   }
+
+  const renderEventRowCard = (ev: CalendarEventEntity, targetDate?: Date) => {
+    const timeDisplayStr = formatEventTimeForDate(ev, targetDate || new Date(ev.startTime), dateLocale);
+    const isCall = isCallUrl(ev.location);
+    const locClean = cleanLocationText(ev.location, t);
+    const goingCount = (ev.rsvps || []).filter((r) => r.status === EventRsvpStatus.YES).length;
+
+    return (
+      <TouchableOpacity
+        key={ev.id}
+        style={[styles.eventCard, ev.isCancelled && styles.eventCardCancelled]}
+        activeOpacity={0.75}
+        onPress={() => {
+          Haptics.selectionAsync();
+          setConfirmDetailAction(null);
+          setRsvpError(null);
+          setDetailEvent(ev);
+        }}
+      >
+        <View style={styles.eventCardHeader}>
+          <View
+            style={{
+              flex: 1,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 6,
+              flexWrap: 'wrap',
+            }}
+          >
+            <Text style={[styles.eventCardTitle, ev.isCancelled && styles.eventCardTitleCancelled]}>
+              {ev.eventTitle}
+            </Text>
+            {ev.isCancelled && (
+              <View style={styles.cancelledBadge}>
+                <Text style={styles.cancelledBadgeText}>{t.collab.eventCancelledTag}</Text>
+              </View>
+            )}
+          </View>
+          <ChevronRight size={16} color={colors.subtle} />
+        </View>
+
+        <View style={styles.eventInfoRow}>
+          <Clock size={12} color={colors.sage} />
+          <Text style={styles.eventInfoText}>
+            {targetDate
+              ? timeDisplayStr
+              : `${formatDateOnly(new Date(ev.startTime), dateLocale)} · ${timeDisplayStr}`}
+          </Text>
+          {goingCount > 0 && (
+            <Text style={[styles.eventGoingCountTag, { color: colors.sage }]}>
+              · {t.collab.railMembersGoing.replace('{count}', String(goingCount))}
+            </Text>
+          )}
+        </View>
+
+        {ev.location && !isCall ? (
+          <View style={styles.eventInfoRow}>
+            <MapPin size={12} color={colors.subtle} />
+            <Text style={styles.eventInfoText} numberOfLines={1}>
+              {locClean || ev.location}
+            </Text>
+          </View>
+        ) : null}
+
+        {ev.location && isCall ? (
+          <View style={styles.eventInfoRow}>
+            <Video size={12} color={colors.sage} />
+            <Text
+              style={[styles.eventInfoText, { color: colors.sage, fontWeight: '500' }]}
+              numberOfLines={1}
+            >
+              {locClean}
+            </Text>
+          </View>
+        ) : null}
+      </TouchableOpacity>
+    );
+  };
+
+  const isSearchingActive = isSearchOpen && searchQuery.trim().length > 0;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.canvas }]}>
+      {statusNotice ? (
+        <View pointerEvents="box-none" style={[styles.noticeWrapper, { top: topClearance + 4 }]}>
+          <View
+            style={[
+              styles.noticeBanner,
+              {
+                backgroundColor: colors.surface,
+                borderColor: statusNotice.type === 'success' ? colors.sage : '#DC2626',
+              },
+            ]}
+          >
+            {statusNotice.type === 'success' ? (
+              <Check size={14} color={colors.sage} />
+            ) : (
+              <X size={14} color="#DC2626" />
+            )}
+            <Text style={[styles.noticeText, { color: colors.text }]} numberOfLines={2}>
+              {statusNotice.message}
+            </Text>
+            <TouchableOpacity
+              onPress={() => setStatusNotice(null)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityLabel={t.common.close}
+            >
+              <X size={14} color={colors.subtle} />
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : null}
+
       {/* Month Calendar Header */}
-      <View style={styles.appleMonthCalendarHeader}>
+      <View style={[styles.appleMonthCalendarHeader, { paddingTop: topClearance }]}>
         <View style={styles.appleMonthTitleContainer}>
-          {/* Năm nằm trước Tháng - Chạm vào Năm để mở danh sách Năm cuộn dọc */}
           <TouchableOpacity
             style={styles.appleYearBtn}
             activeOpacity={0.7}
@@ -2858,251 +3195,271 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
           >
             <Text style={styles.appleYearBtnText}>{year}</Text>
           </TouchableOpacity>
-          <Text style={styles.appleMonthTitleText}>Tháng {month}</Text>
+          <Text style={styles.appleMonthTitleText}>{monthShortLabels[month - 1]}</Text>
         </View>
 
         <View style={styles.appleHeaderActions}>
-          {/* Nút Hôm nay */}
           <TouchableOpacity
             style={styles.appleMonthTodayBtn}
             onPress={() => {
               const now = new Date();
               setCurrentDate(new Date(now.getFullYear(), now.getMonth(), 1));
               setSelectedDate(now);
+              setIsSearchOpen(false);
+              setSearchQuery('');
               scrollToMonth(now.getFullYear(), now.getMonth() + 1, true);
               Haptics.selectionAsync();
             }}
           >
-            <Text style={styles.appleMonthTodayBtnText}>Hôm nay</Text>
+            <Text style={styles.appleMonthTodayBtnText}>{t.collab.today}</Text>
           </TouchableOpacity>
 
-          {/* Nút Tìm kiếm */}
           <TouchableOpacity
-            style={styles.appleSearchBtn}
+            style={[
+              styles.appleSearchBtn,
+              isSearchOpen && { backgroundColor: colors.wash, borderColor: colors.sage, borderWidth: 1 },
+            ]}
             activeOpacity={0.7}
             onPress={() => {
               Haptics.selectionAsync();
+              setIsSearchOpen((prev) => {
+                if (prev) setSearchQuery('');
+                return !prev;
+              });
             }}
+            accessibilityLabel={t.collab.calendarSearchTitle}
           >
-            <Search size={18} color={colors.primary} />
+            <Search size={18} color={colors.sage} />
           </TouchableOpacity>
 
-          {/* Nút Tạo sự kiện */}
-          <TouchableOpacity style={styles.appleMonthAddBtn} onPress={handleOpenCreateModal}>
-            <Plus size={16} color="#FFFFFF" />
+          <TouchableOpacity
+            style={styles.appleMonthAddBtn}
+            onPress={handleOpenCreateModal}
+            accessibilityLabel={t.collab.addEvent}
+          >
+            <Plus size={16} color={colors.onPrimary} />
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* PHẦN 1: LỊCH Ở TRÊN (Lướt theo từng tháng, snap chuẩn xác từng tháng) */}
-      <View style={styles.calendarTopContainer}>
-        {/* Days of Week - Cố định trên đầu */}
-        <View style={styles.appleMonthWeekdaysRowFixed}>
-          {['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'].map((d, i) => (
-            <Text key={i} style={[styles.appleMonthWeekdayText, i === 0 && { color: '#EF4444' }]}>
-              {d}
-            </Text>
-          ))}
+      {/* Inline Search Bar */}
+      {isSearchOpen && (
+        <View style={styles.searchBarContainer}>
+          <View
+            style={[
+              styles.searchBarBox,
+              { backgroundColor: colors.surface, borderColor: colors.hairline },
+            ]}
+          >
+            <Search size={15} color={colors.subtle} />
+            <TextInput
+              style={[styles.searchBarInput, { color: colors.text }]}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder={t.collab.calendarSearchPlaceholderShort}
+              placeholderTextColor={colors.subtle}
+              autoFocus
+            />
+            <TouchableOpacity
+              onPress={() => {
+                if (searchQuery) {
+                  setSearchQuery('');
+                } else {
+                  setIsSearchOpen(false);
+                }
+              }}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityLabel={t.common.close}
+            >
+              <X size={15} color={colors.subtle} />
+            </TouchableOpacity>
+          </View>
         </View>
+      )}
 
-        {/* Lướt theo từng tháng (paging / snap chuẩn từng tháng) */}
+      {/* Search Results Mode OR Standard Month Grid + Day Events */}
+      {isSearchingActive ? (
         <ScrollView
-          ref={monthScrollRef}
-          showsVerticalScrollIndicator={false}
-          snapToInterval={MONTH_PAGE_HEIGHT}
-          decelerationRate="fast"
-          snapToAlignment="start"
-          style={styles.monthScrollViewport}
-          contentContainerStyle={styles.monthScrollContent}
-          onMomentumScrollEnd={handleMonthScrollEnd}
+          style={styles.eventsScrollView}
+          contentContainerStyle={[
+            styles.eventsScrollContent,
+            { paddingBottom: bottomClearance },
+          ]}
+          keyboardShouldPersistTaps="handled"
         >
-          {MONTHS_RANGE.map((item) => {
-            const itemYear = item.year;
-            const itemMonth = item.month;
-            const itemDaysInMonth = new Date(itemYear, itemMonth, 0).getDate();
-            const itemFirstDay = new Date(itemYear, itemMonth - 1, 1).getDay();
-            const totalSlots = 42;
-            const trailingEmpty = totalSlots - (itemFirstDay + itemDaysInMonth);
-
-            return (
-              <View
-                key={item.key}
-                style={styles.monthPageBlock}
-              >
-                {/* Lưới ngày 7 cột x 6 hàng cố định không hiển thị chữ tháng năm ở góc */}
-                <View style={styles.appleMainMonthGrid}>
-                  {Array.from({ length: itemFirstDay }).map((_, i) => (
-                    <View key={`empty-lead-${item.key}-${i}`} style={styles.appleMonthEmptyDayCell} />
-                  ))}
-
-                  {Array.from({ length: itemDaysInMonth }).map((_, i) => {
-                    const dayNum = i + 1;
-                    const now = new Date();
-                    const isSelected =
-                      selectedDate.getDate() === dayNum &&
-                      selectedDate.getMonth() + 1 === itemMonth &&
-                      selectedDate.getFullYear() === itemYear;
-
-                    const isToday =
-                      now.getDate() === dayNum &&
-                      now.getMonth() + 1 === itemMonth &&
-                      now.getFullYear() === itemYear;
-
-                    const dayEventsCount = events.filter((ev) =>
-                      isEventOccurringOnDate(ev, new Date(itemYear, itemMonth - 1, dayNum)),
-                    ).length;
-                    const dotsCount = Math.min(dayEventsCount, 5);
-
-                    return (
-                      <TouchableOpacity
-                        key={`day-${item.key}-${dayNum}`}
-                        style={styles.appleMonthDayCell}
-                        activeOpacity={0.7}
-                        onPress={() => {
-                          const newSel = new Date(itemYear, itemMonth - 1, dayNum);
-                          setSelectedDate(newSel);
-                          if (itemMonth !== month || itemYear !== year) {
-                            setCurrentDate(new Date(itemYear, itemMonth - 1, 1));
-                          }
-                          Haptics.selectionAsync();
-                        }}
-                      >
-                        <View
-                          style={[
-                            styles.appleMonthDayCircle,
-                            isSelected &&
-                              (isToday
-                                ? styles.appleMonthDayCircleTodaySelected
-                                : styles.appleMonthDayCircleSelected),
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.appleMonthDayText,
-                              isToday && !isSelected && styles.appleMonthDayTextToday,
-                              isSelected && styles.appleMonthDayTextSelected,
-                            ]}
-                          >
-                            {dayNum}
-                          </Text>
-                        </View>
-
-                        {/* Chấm sự kiện (1 sự kiện = 1 chấm) */}
-                        <View style={styles.appleMonthEventDotsContainer}>
-                          {Array.from({ length: dotsCount }).map((_, dotIdx) => (
-                            <View
-                              key={`dot-${dotIdx}`}
-                              style={[
-                                styles.appleMonthEventDot,
-                                isSelected && !isToday && styles.appleMonthEventDotSelected,
-                              ]}
-                            />
-                          ))}
-                        </View>
-                      </TouchableOpacity>
-                    );
-                  })}
-
-                  {/* Bù các ô trống cuối tháng để mọi tháng đều đúng 6 hàng */}
-                  {Array.from({ length: Math.max(0, trailingEmpty) }).map((_, i) => (
-                    <View key={`empty-trail-${item.key}-${i}`} style={styles.appleMonthEmptyDayCell} />
-                  ))}
-                </View>
-              </View>
-            );
-          })}
+          {searchResults.length > 0 ? (
+            <View style={{ gap: 10 }}>
+              {searchResults.map((ev) => renderEventRowCard(ev))}
+            </View>
+          ) : (
+            <View style={styles.noEventsCard}>
+              <CalendarDays size={32} color={colors.subtle} />
+              <Text style={styles.noEventsText}>{t.collab.calendarNoMatchingEvents}</Text>
+            </View>
+          )}
         </ScrollView>
-      </View>
-
-      {/* PHẦN 2: SỰ KIỆN Ở DƯỚI (Lướt cuộn độc lập, đã bỏ thứ ngày tháng) */}
-      <ScrollView
-        style={styles.eventsScrollView}
-        contentContainerStyle={styles.eventsScrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {isLoading ? (
-          <ActivityIndicator size="small" color="#64748B" style={{ marginTop: 20 }} />
-        ) : selectedDayEvents.length > 0 ? (
-          <View style={{ gap: 10, marginTop: 4 }}>
-            {selectedDayEvents.map((ev) => {
-              const timeDisplayStr = formatEventTimeForDate(ev, selectedDate);
-              const isCall = isCallUrl(ev.location);
-              const locClean = cleanLocationText(ev.location);
-
-              return (
-                <TouchableOpacity
-                  key={ev.id}
-                  style={[styles.eventCard, ev.isCancelled && styles.eventCardCancelled]}
-                  activeOpacity={0.7}
-                  onPress={() => {
-                    Haptics.selectionAsync();
-                    setDetailEvent(ev);
-                  }}
+      ) : (
+        <>
+          <View style={styles.calendarTopContainer}>
+            <View style={styles.appleMonthWeekdaysRowFixed}>
+              {weekdayShortSunFirst.map((d, i) => (
+                <Text
+                  key={i}
+                  style={[styles.appleMonthWeekdayText, i === 0 && { color: colors.danger }]}
                 >
-                  <View style={styles.eventCardHeader}>
-                    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                      <Text style={[styles.eventCardTitle, ev.isCancelled && styles.eventCardTitleCancelled]}>
-                        {ev.eventTitle}
-                      </Text>
-                      {ev.isCancelled && (
-                        <View style={styles.cancelledBadge}>
-                          <Text style={styles.cancelledBadgeText}>Đã hủy</Text>
-                        </View>
-                      )}
+                  {d}
+                </Text>
+              ))}
+            </View>
+
+            <ScrollView
+              ref={monthScrollRef}
+              showsVerticalScrollIndicator={false}
+              snapToInterval={MONTH_PAGE_HEIGHT}
+              decelerationRate="fast"
+              snapToAlignment="start"
+              style={styles.monthScrollViewport}
+              contentContainerStyle={styles.monthScrollContent}
+              onMomentumScrollEnd={handleMonthScrollEnd}
+            >
+              {MONTHS_RANGE.map((item) => {
+                const itemYear = item.year;
+                const itemMonth = item.month;
+                const itemDaysInMonth = new Date(itemYear, itemMonth, 0).getDate();
+                const itemFirstDay = new Date(itemYear, itemMonth - 1, 1).getDay();
+                const totalSlots = 42;
+                const trailingEmpty = totalSlots - (itemFirstDay + itemDaysInMonth);
+
+                return (
+                  <View key={item.key} style={styles.monthPageBlock}>
+                    <View style={styles.appleMainMonthGrid}>
+                      {Array.from({ length: itemFirstDay }).map((_, i) => (
+                        <View
+                          key={`empty-lead-${item.key}-${i}`}
+                          style={styles.appleMonthEmptyDayCell}
+                        />
+                      ))}
+
+                      {Array.from({ length: itemDaysInMonth }).map((_, i) => {
+                        const dayNum = i + 1;
+                        const now = new Date();
+                        const isSelected =
+                          selectedDate.getDate() === dayNum &&
+                          selectedDate.getMonth() + 1 === itemMonth &&
+                          selectedDate.getFullYear() === itemYear;
+
+                        const isToday =
+                          now.getDate() === dayNum &&
+                          now.getMonth() + 1 === itemMonth &&
+                          now.getFullYear() === itemYear;
+
+                        const dayEventsCount = events.filter((ev) =>
+                          isEventOccurringOnDate(ev, new Date(itemYear, itemMonth - 1, dayNum)),
+                        ).length;
+                        const dotsCount = Math.min(dayEventsCount, 5);
+
+                        return (
+                          <TouchableOpacity
+                            key={`day-${item.key}-${dayNum}`}
+                            style={styles.appleMonthDayCell}
+                            activeOpacity={0.7}
+                            onPress={() => {
+                              const newSel = new Date(itemYear, itemMonth - 1, dayNum);
+                              setSelectedDate(newSel);
+                              if (itemMonth !== month || itemYear !== year) {
+                                setCurrentDate(new Date(itemYear, itemMonth - 1, 1));
+                              }
+                              Haptics.selectionAsync();
+                            }}
+                          >
+                            <View
+                              style={[
+                                styles.appleMonthDayCircle,
+                                isSelected &&
+                                  (isToday
+                                    ? styles.appleMonthDayCircleTodaySelected
+                                    : styles.appleMonthDayCircleSelected),
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.appleMonthDayText,
+                                  isToday && !isSelected && styles.appleMonthDayTextToday,
+                                  isSelected &&
+                                    (isToday
+                                      ? styles.appleMonthDayTextTodaySelected
+                                      : styles.appleMonthDayTextSelected),
+                                ]}
+                              >
+                                {dayNum}
+                              </Text>
+                            </View>
+
+                            <View style={styles.appleMonthEventDotsContainer}>
+                              {Array.from({ length: dotsCount }).map((_, dotIdx) => (
+                                <View
+                                  key={`dot-${dotIdx}`}
+                                  style={[
+                                    styles.appleMonthEventDot,
+                                    isSelected && !isToday && styles.appleMonthEventDotSelected,
+                                  ]}
+                                />
+                              ))}
+                            </View>
+                          </TouchableOpacity>
+                        );
+                      })}
+
+                      {Array.from({ length: Math.max(0, trailingEmpty) }).map((_, i) => (
+                        <View
+                          key={`empty-trail-${item.key}-${i}`}
+                          style={styles.appleMonthEmptyDayCell}
+                        />
+                      ))}
                     </View>
-                    <ChevronRight size={16} color="#94A3B8" />
                   </View>
-
-                  {/* 1. Thời gian */}
-                  <View style={styles.eventInfoRow}>
-                    <Clock size={12} color={colors.primary} />
-                    <Text style={styles.eventInfoText}>
-                      {timeDisplayStr}
-                    </Text>
-                  </View>
-
-                  {/* 2. Địa chỉ thực tế */}
-                  {ev.location && !isCall ? (
-                    <View style={styles.eventInfoRow}>
-                      <MapPin size={12} color="#64748B" />
-                      <Text style={styles.eventInfoText} numberOfLines={1}>
-                        {locClean || ev.location}
-                      </Text>
-                    </View>
-                  ) : null}
-
-                  {/* 3. Cuộc gọi video */}
-                  {ev.location && (isCall || ev.location.includes('meet.google.com') || ev.location.includes('zoom.us')) ? (
-                    <View style={styles.eventInfoRow}>
-                      <Video size={12} color={colors.primary} />
-                      <Text style={[styles.eventInfoText, { color: colors.primary, fontWeight: '500' }]} numberOfLines={1}>
-                        {locClean.includes('Meet') || locClean.includes('Zoom') || locClean.includes('Google')
-                          ? locClean
-                          : 'Cuộc gọi video (Google Meet)'}
-                      </Text>
-                    </View>
-                  ) : null}
-                </TouchableOpacity>
-              );
-            })}
+                );
+              })}
+            </ScrollView>
           </View>
-        ) : (
-          <View style={styles.noEventsCard}>
-            <CalendarDays size={32} color="#94A3B8" />
-            <Text style={styles.noEventsText}>Không có lịch hẹn trong ngày này</Text>
-          </View>
-        )}
-      </ScrollView>
 
-      {/* Add Event Modal
-      {/* Add Event Modal - Mở to sẵn lên trên, chuẩn Apple HIG */}
-      <Modal visible={isAddModalOpen} transparent animationType="slide">
+          <ScrollView
+            style={styles.eventsScrollView}
+            contentContainerStyle={[
+              styles.eventsScrollContent,
+              { paddingBottom: bottomClearance },
+            ]}
+            showsVerticalScrollIndicator={false}
+          >
+            {isLoading ? (
+              <ActivityIndicator size="small" color={colors.subtle} style={{ marginTop: 20 }} />
+            ) : selectedDayEvents.length > 0 ? (
+              <View style={{ gap: 10, marginTop: 4 }}>
+                {selectedDayEvents.map((ev) => renderEventRowCard(ev, selectedDate))}
+              </View>
+            ) : (
+              <View style={styles.noEventsCard}>
+                <CalendarDays size={32} color={colors.subtle} />
+                <Text style={styles.noEventsText}>{t.collab.noEventsOnDay}</Text>
+              </View>
+            )}
+          </ScrollView>
+        </>
+      )}
+
+      {/* Add / Edit Event Modal */}
+      <Modal
+        visible={isAddModalOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setIsAddModalOpen(false)}
+      >
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.modalBackdrop}
         >
           <View style={styles.appleModalContent}>
-            {/* Apple Navigation Bar */}
+            {/* Modal Nav Bar */}
             <View style={styles.appleNavBar}>
               <TouchableOpacity
                 onPress={() => {
@@ -3112,10 +3469,12 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                 disabled={isSubmitting}
                 style={styles.appleNavBtn}
               >
-                <Text style={styles.appleCancelText}>Hủy</Text>
+                <Text style={styles.appleCancelText}>{t.common.cancel}</Text>
               </TouchableOpacity>
 
-              <Text style={styles.appleNavTitle}>{editingEvent ? 'Chỉnh sửa lịch hẹn' : 'Sự kiện mới'}</Text>
+              <Text style={styles.appleNavTitle}>
+                {editingEvent ? t.collab.calendarEditEventShort : t.collab.calendarNewEventShort}
+              </Text>
 
               <TouchableOpacity
                 onPress={() => {
@@ -3126,43 +3485,63 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                 style={styles.appleNavBtn}
               >
                 {isSubmitting ? (
-                  <ActivityIndicator size="small" color={colors.primary} />
+                  <ActivityIndicator size="small" color={colors.sage} />
                 ) : (
-                  <Text style={styles.appleAddText}>{editingEvent ? 'Lưu' : 'Thêm'}</Text>
+                  <Text style={styles.appleAddText}>
+                    {editingEvent ? t.common.save : t.collab.calendarAddShort}
+                  </Text>
                 )}
               </TouchableOpacity>
             </View>
+
+            {formError ? (
+              <View style={styles.modalFormErrorWrap}>
+                <View style={styles.errorBanner}>
+                  <AlertCircle size={15} color={isDark ? '#F87171' : '#DC2626'} />
+                  <Text style={styles.errorBannerText}>{formError}</Text>
+                  <TouchableOpacity onPress={() => setFormError(null)}>
+                    <X size={14} color={isDark ? '#F87171' : '#DC2626'} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : null}
 
             <ScrollView
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
               keyboardDismissMode="on-drag"
               onScrollBeginDrag={dismissKeyboardAndPickers}
-              contentContainerStyle={styles.appleScrollView}
+              contentContainerStyle={[
+                styles.appleScrollView,
+                { paddingBottom: bottomClearance + 20 },
+              ]}
             >
-              {/* Group 1: Tiêu đề & Vị trí */}
+              {/* Group 1: Title & Location */}
               <View style={styles.appleGroupCard}>
                 <TextInput
                   style={styles.appleTitleInput}
-                  placeholder="Tiêu đề"
-                  placeholderTextColor="#8E8E93"
+                  placeholder={t.collab.calendarTitleShortPlaceholder}
+                  placeholderTextColor={colors.subtle}
                   value={title}
-                  onChangeText={setTitle}
+                  onChangeText={(val) => {
+                    setTitle(val);
+                    if (formError) setFormError(null);
+                  }}
                   onFocus={closeAllPickers}
                 />
                 <View style={styles.hairlineDivider} />
                 <View style={styles.appleLocationRow}>
-                  <MapPin size={16} color="#8E8E93" style={{ marginRight: 8 }} />
+                  <MapPin size={16} color={colors.subtle} style={{ marginRight: 8 }} />
                   <TextInput
                     style={styles.appleLocationInput}
-                    placeholder="Vị trí hoặc Cuộc gọi video"
-                    placeholderTextColor="#8E8E93"
+                    placeholder={t.collab.calendarLocationOrCallPlaceholder}
+                    placeholderTextColor={colors.subtle}
                     value={location}
                     onChangeText={setLocation}
                     onFocus={closeAllPickers}
                   />
                   {isSearchingLocation && (
-                    <ActivityIndicator size="small" color="#8E8E93" style={{ marginRight: 8 }} />
+                    <ActivityIndicator size="small" color={colors.subtle} style={{ marginRight: 8 }} />
                   )}
                   {location.length > 0 && !isSearchingLocation && (
                     <TouchableOpacity
@@ -3173,22 +3552,21 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                       }}
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     >
-                      <X size={14} color="#8E8E93" />
+                      <X size={14} color={colors.subtle} />
                     </TouchableOpacity>
                   )}
                 </View>
 
-                {/* Dropdown gợi ý vị trí */}
                 {showLocationSuggestions && locationSuggestions.length > 0 && (
                   <View style={styles.suggestionsDropdown}>
-                    <Text style={styles.suggestionsHeader}>GỢI Ý TỪ BẢN ĐỒ</Text>
+                    <Text style={styles.suggestionsHeader}>{t.collab.calendarMapSuggestionsCaps}</Text>
                     {locationSuggestions.map((item, idx) => (
                       <TouchableOpacity
                         key={idx}
                         style={styles.suggestionItem}
                         onPress={() => handleSelectLocation(item)}
                       >
-                        <MapPin size={13} color="#E11D48" style={{ marginTop: 2 }} />
+                        <MapPin size={13} color={colors.danger} style={{ marginTop: 2 }} />
                         <View style={{ flex: 1 }}>
                           <Text style={styles.suggestionName} numberOfLines={1}>
                             {item.name}
@@ -3203,11 +3581,10 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                 )}
               </View>
 
-              {/* Group 2: Thời gian & Lặp lại (Apple Calendar Style - Đã bỏ Cả ngày) */}
+              {/* Group 2: Start & End Time */}
               <View style={styles.appleGroupCard}>
-                {/* Hàng Bắt đầu */}
                 <View style={styles.appleRow}>
-                  <Text style={styles.appleRowLabel}>Bắt đầu</Text>
+                  <Text style={styles.appleRowLabel}>{t.collab.startsAt}</Text>
                   <View style={styles.applePillsContainer}>
                     <TouchableOpacity
                       style={[
@@ -3223,7 +3600,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                           activePickerTarget === 'start_date' && styles.applePillTextActive,
                         ]}
                       >
-                        {formatDateOnly(startDate)}
+                        {formatDateOnly(startDate, dateLocale)}
                       </Text>
                     </TouchableOpacity>
 
@@ -3247,17 +3624,13 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                   </View>
                 </View>
 
-                {/* Bộ chọn Ngày bắt đầu trượt xuống ngay dưới hàng Bắt đầu */}
                 {activePickerTarget === 'start_date' && renderDatePicker('start')}
-
-                {/* Bộ chọn Giờ bắt đầu trượt xuống ngay dưới hàng Bắt đầu */}
                 {activePickerTarget === 'start_time' && renderTimePicker('start')}
 
                 <View style={styles.hairlineDivider} />
 
-                {/* Hàng Kết thúc (Bắt buộc có, không có nút x) */}
                 <View style={styles.appleRow}>
-                  <Text style={styles.appleRowLabel}>Kết thúc</Text>
+                  <Text style={styles.appleRowLabel}>{t.collab.endsAt}</Text>
                   <View style={styles.applePillsContainer}>
                     <TouchableOpacity
                       style={[
@@ -3273,7 +3646,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                           activePickerTarget === 'end_date' && styles.applePillTextActive,
                         ]}
                       >
-                        {formatDateOnly(endDate)}
+                        {formatDateOnly(endDate, dateLocale)}
                       </Text>
                     </TouchableOpacity>
 
@@ -3297,21 +3670,14 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                   </View>
                 </View>
 
-                {/* Bộ chọn Ngày kết thúc trượt xuống ngay dưới hàng Kết thúc */}
                 {activePickerTarget === 'end_date' && renderDatePicker('end')}
-
-                {/* Bộ chọn Giờ kết thúc trượt xuống ngay dưới hàng Kết thúc */}
                 {activePickerTarget === 'end_time' && renderTimePicker('end')}
               </View>
 
-              {/* Group 3: Cấu hình Lặp lại (Tách riêng độc lập khỏi Thời gian bắt đầu và kết thúc) */}
+              {/* Group 3: Recurrence */}
               <View style={styles.appleGroupCard}>
-                {/* Hàng Lặp lại (Hiển thị như Nhắc trước, nếu text dài thì tự động bẻ thành 2 dòng căn phải) */}
                 <TouchableOpacity
-                  style={[
-                    styles.appleRow,
-                    { minHeight: 44, paddingVertical: 11, alignItems: 'center' },
-                  ]}
+                  style={[styles.appleRow, { minHeight: 44, paddingVertical: 11, alignItems: 'center' }]}
                   onPress={() => {
                     closeAllPickers();
                     setIsRepeatModalOpen(true);
@@ -3319,7 +3685,9 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                   }}
                   activeOpacity={0.7}
                 >
-                  <Text style={[styles.appleRowLabel, { minWidth: 70 }]}>Lặp lại</Text>
+                  <Text style={[styles.appleRowLabel, { minWidth: 70 }]}>
+                    {t.collab.calendarRepeatLabel}
+                  </Text>
                   <View
                     style={{
                       flexDirection: 'row',
@@ -3327,32 +3695,27 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                       gap: 6,
                       flex: 1,
                       justifyContent: 'flex-end',
-                      marginLeft: 36,
+                      marginLeft: 24,
                     }}
                   >
                     <Text
                       style={[
                         styles.appleRowValue,
-                        {
-                          textAlign: 'right',
-                          flexShrink: 1,
-                          lineHeight: 20,
-                        },
+                        { textAlign: 'right', flexShrink: 1, lineHeight: 20 },
                       ]}
                       numberOfLines={2}
                     >
                       {currentRepeatLabel}
                     </Text>
-                    <ChevronRight size={14} color="#C7C7CC" style={{ flexShrink: 0 }} />
+                    <ChevronRight size={14} color={colors.subtle} style={{ flexShrink: 0 }} />
                   </View>
                 </TouchableOpacity>
 
-                {/* Hàng Kết thúc lặp lại tách riêng ra (chỉ hiện khi có lặp lại) */}
                 {recurrenceConfig.frequency !== 'none' && (
                   <>
                     <View style={styles.hairlineDivider} />
                     <View style={styles.appleRow}>
-                      <Text style={styles.appleRowLabel}>Kết thúc lặp</Text>
+                      <Text style={styles.appleRowLabel}>{t.collab.calendarEndRepeatLabel}</Text>
                       <View style={styles.applePillsContainer}>
                         <TouchableOpacity
                           style={[
@@ -3363,11 +3726,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                             Haptics.selectionAsync();
                             const baseD = recurrenceConfig.endDate || startDate;
                             setEndRepeatPickerMonthDate(
-                              new Date(
-                                baseD.getFullYear(),
-                                baseD.getMonth(),
-                                1,
-                              ),
+                              new Date(baseD.getFullYear(), baseD.getMonth(), 1),
                             );
                             setIsEndRepeatPickerOpen((prev) => !prev);
                           }}
@@ -3377,26 +3736,27 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                             style={[
                               styles.applePillText,
                               isEndRepeatPickerOpen && styles.applePillTextActive,
-                              !recurrenceConfig.endDate && { color: colors.subtle, fontWeight: '400' },
+                              !recurrenceConfig.endDate && {
+                                color: colors.subtle,
+                                fontWeight: '400',
+                              },
                             ]}
                           >
                             {recurrenceConfig.endDate
-                              ? formatDateOnly(recurrenceConfig.endDate)
-                              : 'dd/mm/yyyy'}
+                              ? formatDateOnly(recurrenceConfig.endDate, dateLocale)
+                              : t.collab.calendarEndRepeatUnset}
                           </Text>
                         </TouchableOpacity>
                       </View>
                     </View>
 
-                    {/* Bộ chọn ngày kết thúc chuỗi lặp hiển thị trượt ngay dưới */}
                     {isEndRepeatPickerOpen && renderEndRepeatDatePicker()}
                   </>
                 )}
               </View>
 
-              {/* Group 3: Nhắc trước (Popup In-Modal) & Ghi chú */}
+              {/* Group 4: Reminder & Notes */}
               <View style={styles.appleGroupCard}>
-                {/* Hàng Nhắc trước */}
                 <TouchableOpacity
                   style={styles.appleRow}
                   onPress={() => {
@@ -3406,10 +3766,10 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                   }}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.appleRowLabel}>Nhắc trước</Text>
+                  <Text style={styles.appleRowLabel}>{t.collab.calendarRemindBeforeLabel}</Text>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                     <Text style={styles.appleRowValue}>{currentReminderLabel}</Text>
-                    <ChevronRight size={14} color="#C7C7CC" />
+                    <ChevronRight size={14} color={colors.subtle} />
                   </View>
                 </TouchableOpacity>
 
@@ -3418,8 +3778,8 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                 <View style={styles.appleNotesRow}>
                   <TextInput
                     style={styles.appleNotesInput}
-                    placeholder="Ghi chú"
-                    placeholderTextColor="#8E8E93"
+                    placeholder={t.collab.calendarNotesShortPlaceholder}
+                    placeholderTextColor={colors.subtle}
                     multiline
                     numberOfLines={3}
                     value={description}
@@ -3429,15 +3789,14 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                 </View>
               </View>
 
-              {/* Vùng đệm cuối trang: chạm vào đóng bàn phím và pickers */}
               <TouchableOpacity
-                style={{ height: 100 }}
+                style={{ height: 80 }}
                 activeOpacity={1}
                 onPress={dismissKeyboardAndPickers}
               />
             </ScrollView>
 
-            {/* Popup Overlay Chọn Lặp lại (In-Modal Overlay như Nhắc trước) */}
+            {/* In-Modal Repeat Popup */}
             {isRepeatModalOpen && (
               <View style={styles.inModalPopupBackdrop}>
                 <TouchableOpacity
@@ -3447,16 +3806,16 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                 />
                 <View style={styles.popupCard}>
                   <View style={styles.popupHeader}>
-                    <Text style={styles.popupTitle}>Lặp lại</Text>
+                    <Text style={styles.popupTitle}>{t.collab.calendarRepeatLabel}</Text>
                     <TouchableOpacity
                       onPress={() => setIsRepeatModalOpen(false)}
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     >
-                      <Text style={styles.popupCloseText}>Đóng</Text>
+                      <Text style={styles.popupCloseText}>{t.common.close}</Text>
                     </TouchableOpacity>
                   </View>
                   <ScrollView style={styles.popupList}>
-                    {REPEAT_OPTIONS.map((item, idx) => {
+                    {repeatOptions.map((item, idx) => {
                       const isSelected =
                         item.value === 'custom'
                           ? Boolean(recurrenceConfig.isCustom)
@@ -3468,7 +3827,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                           key={item.value}
                           style={[
                             styles.popupItem,
-                            idx < REPEAT_OPTIONS.length - 1 && styles.popupItemBorder,
+                            idx < repeatOptions.length - 1 && styles.popupItemBorder,
                           ]}
                           onPress={() => {
                             Haptics.selectionAsync();
@@ -3521,7 +3880,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                               setRecurrenceConfig((prev) => ({
                                 ...prev,
                                 frequency: nextFreq,
-                                interval: 1, // Lặp cơ bản thì khoảng cách = 1
+                                interval: 1,
                                 weeklyDays: baseWk,
                                 monthlyType: 'day_of_month',
                                 monthlyDay: baseDay,
@@ -3547,7 +3906,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                           >
                             {item.label}
                           </Text>
-                          {isSelected && <Check size={18} color={colors.primary} />}
+                          {isSelected && <Check size={18} color={colors.sage} />}
                         </TouchableOpacity>
                       );
                     })}
@@ -3556,7 +3915,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
               </View>
             )}
 
-            {/* Popup Overlay Chọn Nhắc trước (In-Modal Overlay) */}
+            {/* In-Modal Reminder Popup */}
             {isReminderModalOpen && (
               <View style={styles.inModalPopupBackdrop}>
                 <TouchableOpacity
@@ -3566,23 +3925,23 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                 />
                 <View style={styles.popupCard}>
                   <View style={styles.popupHeader}>
-                    <Text style={styles.popupTitle}>Nhắc trước</Text>
+                    <Text style={styles.popupTitle}>{t.collab.calendarRemindBeforeLabel}</Text>
                     <TouchableOpacity
                       onPress={() => setIsReminderModalOpen(false)}
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     >
-                      <Text style={styles.popupCloseText}>Đóng</Text>
+                      <Text style={styles.popupCloseText}>{t.common.close}</Text>
                     </TouchableOpacity>
                   </View>
                   <ScrollView style={styles.popupList}>
-                    {REMINDER_OPTIONS.map((item, idx) => {
+                    {reminderOptions.map((item, idx) => {
                       const isSelected = reminderMinutes === item.value;
                       return (
                         <TouchableOpacity
                           key={item.value}
                           style={[
                             styles.popupItem,
-                            idx < REMINDER_OPTIONS.length - 1 && styles.popupItemBorder,
+                            idx < reminderOptions.length - 1 && styles.popupItemBorder,
                           ]}
                           onPress={() => {
                             setReminderMinutes(item.value);
@@ -3599,7 +3958,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                           >
                             {item.label}
                           </Text>
-                          {isSelected && <Check size={18} color={colors.primary} />}
+                          {isSelected && <Check size={18} color={colors.sage} />}
                         </TouchableOpacity>
                       );
                     })}
@@ -3608,1959 +3967,1328 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
               </View>
             )}
 
-            {/* Modal / Sheet Tùy chỉnh Lặp lại (Custom Recurrence View) */}
             {renderCustomRepeatModal()}
           </View>
         </KeyboardAvoidingView>
       </Modal>
-    
-      {/* Màn hình Chi tiết lịch hẹn (Full-Screen View, không phải popup) */}
+
       {detailEvent && renderDetailScreen()}
     </View>
   );
 };
 
-const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.canvas,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-    backgroundColor: colors.surface,
-  },
-  monthNav: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  navArrow: {
-    padding: 4,
-  },
-  monthTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  addBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: colors.primary,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  addBtnText: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  weekdaysRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 6,
-  },
-  weekdayText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.subtle,
-    width: 36,
-    textAlign: 'center',
-  },
-  daysGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    backgroundColor: colors.surface,
-    borderRadius: 14,
-    padding: 8,
-    borderWidth: 1,
-    borderColor: colors.hairline,
-  },
-  emptyDayCell: {
-    width: `${100 / 7}%`,
-    aspectRatio: 1,
-  },
-  dayCell: {
-    width: `${100 / 7}%`,
-    aspectRatio: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 8,
-    marginVertical: 2,
-    position: 'relative',
-  },
-  dayCellSelected: {
-    backgroundColor: colors.primary,
-  },
-  dayText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  dayTextSelected: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-  },
-  eventDotsContainer: {
-    position: 'absolute',
-    bottom: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 2.5,
-  },
-  eventDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: BRAND_PRIMARY,
-  },
-  eventDotSelected: {
-    backgroundColor: colors.surface,
-  },
-  eventsSection: {
-    marginTop: 18,
-  },
-  sectionTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  eventCardCancelled: {
-    opacity: 0.75,
-    borderColor: colors.hairline,
-    backgroundColor: colors.canvas,
-  },
-  eventCardTitleCancelled: {
-    textDecorationLine: 'line-through',
-    color: colors.subtle,
-  },
-  cancelledBadge: {
-    backgroundColor: '#FEE2E2',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  cancelledBadgeText: {
-    color: '#EF4444',
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  eventActionsGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  eventActionBtn: {
-    padding: 2,
-  },
-  // Full-Screen Event Detail View Styles
-  detailFullScreenContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: colors.canvas,
-    zIndex: 999,
-  },
-  detailNavHeader: {
-    backgroundColor: colors.surface,
-    height: 52,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E2E8F0',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 12,
-  },
-  detailBackBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 6,
-    paddingHorizontal: 4,
-    gap: 2,
-  },
-  detailBackBtnText: {
-    fontSize: 16,
-    color: BRAND_PRIMARY,
-    fontWeight: '600',
-  },
-  detailNavTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  detailNavEditBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    backgroundColor: BRAND_WASH,
-  },
-  detailNavEditText: {
-    fontSize: 14,
-    color: BRAND_PRIMARY,
-    fontWeight: '600',
-  },
-  detailFullScreenContent: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 40,
-  },
-  detailMainCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: 18,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: colors.hairline,
-    gap: 10,
-  },
-  detailEventTitleLarge: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: colors.text,
-    lineHeight: 30,
-  },
-  detailStatusCancelledBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#FEF2F2',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-    alignSelf: 'flex-start',
-    borderWidth: 1,
-    borderColor: '#FECACA',
-  },
-  detailStatusCancelledText: {
-    color: '#EF4444',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  detailStatusActiveBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#F0FDF4',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-    alignSelf: 'flex-start',
-    borderWidth: 1,
-    borderColor: '#BBF7D0',
-  },
-  detailStatusActiveDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#16A34A',
-  },
-  detailStatusActiveText: {
-    color: '#16A34A',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  detailCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: colors.hairline,
-  },
-  detailCallCard: {
-    backgroundColor: '#F0F9FF',
-    borderColor: '#BAE6FD',
-  },
-  detailCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 12,
-  },
-  detailCardIconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  detailCardTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  detailTimeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: colors.canvas,
-    borderRadius: 12,
-    padding: 12,
-  },
-  detailTimeCol: {
-    flex: 1,
-  },
-  detailTimeDivider: {
-    width: 1,
-    height: 40,
-    backgroundColor: '#E2E8F0',
-    marginHorizontal: 12,
-  },
-  detailTimeLabel: {
-    fontSize: 12,
-    color: colors.subtle,
-    marginBottom: 2,
-    fontWeight: '500',
-  },
-  detailTimeValueHour: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  detailTimeValueDate: {
-    fontSize: 12,
-    color: colors.subtle,
-    marginTop: 2,
-  },
-  detailCardBodyText: {
-    fontSize: 14,
-    color: colors.text,
-    lineHeight: 20,
-    fontWeight: '500',
-  },
-  detailNotesText: {
-    fontSize: 14,
-    color: colors.text,
-    lineHeight: 22,
-    backgroundColor: colors.canvas,
-    padding: 12,
-    borderRadius: 10,
-  },
-  detailCallDesc: {
-    fontSize: 14,
-    color: '#0369A1',
-    fontWeight: '500',
-    marginBottom: 12,
-  },
-  detailJoinCallBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    borderRadius: 12,
-    paddingVertical: 12,
-  },
-  detailJoinCallBtnText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  detailMapLinkBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 10,
-    paddingVertical: 4,
-  },
-  detailMapLinkBtnText: {
-    fontSize: 13,
-    color: BRAND_PRIMARY,
-    fontWeight: '600',
-    textDecorationLine: 'underline',
-  },
-  detailActionButtonsGroup: {
-    marginTop: 12,
-    gap: 12,
-  },
-  detailActionCancelBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#FFFBEB',
-    borderWidth: 1,
-    borderColor: '#FDE68A',
-    borderRadius: 14,
-    paddingVertical: 14,
-  },
-  detailActionCancelBtnText: {
-    color: '#B45309',
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  detailActionDeleteBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#FEF2F2',
-    borderWidth: 1,
-    borderColor: '#FECACA',
-    borderRadius: 14,
-    paddingVertical: 14,
-  },
-  detailActionDeleteBtnText: {
-    color: '#EF4444',
-    fontSize: 15,
-    fontWeight: '600',
-  },
-appleYearBtn: {
-    paddingVertical: 2,
-    paddingHorizontal: 4,
-    borderRadius: 8,
-  },
-  appleYearBtnText: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: BRAND_PRIMARY,
-    letterSpacing: -0.4,
-  },
-  appleSearchBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  calendarTopContainer: {
-    backgroundColor: colors.surface,
-    height: 312,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E5E5EA',
-  },
-  appleMonthWeekdaysRowFixed: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 6,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#F2F2F7',
-    backgroundColor: colors.surface,
-  },
-  monthScrollViewport: {
-    height: 276,
-  },
-  monthScrollContent: {
-    flexGrow: 0,
-  },
-  monthPageBlock: {
-    height: 276,
-    paddingHorizontal: 16,
-    justifyContent: 'flex-start',
-  },
-  yearSectionContainer: {
-    marginBottom: 28,
-  },
-  yearSectionTitle: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: colors.text,
-    letterSpacing: -0.5,
-    marginBottom: 12,
-    paddingHorizontal: 4,
-  },
-  eventsScrollView: {
-    flex: 1,
-    backgroundColor: colors.canvas,
-  },
-  eventsScrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 32,
-  },
-  yearViewContainer: {
-    flex: 1,
-    backgroundColor: colors.surface,
-  },
-  appleYearHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E5E5EA',
-  },
-  appleYearHeaderTitle: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: colors.text,
-    letterSpacing: -0.5,
-  },
-  yearCloseBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  yearScrollContent: {
-    paddingHorizontal: 14,
-    paddingTop: 12,
-    paddingBottom: 36,
-  },
-  yearGridContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  miniMonthBox: {
-    width: '30.5%',
-    backgroundColor: '#FAFAFA',
-    borderRadius: 12,
-    padding: 8,
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
-  },
-  miniMonthBoxActive: {
-    borderColor: BRAND_PRIMARY,
-    backgroundColor: BRAND_WASH,
-  },
-  miniMonthName: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 4,
-    textAlign: 'center',
-  },
-  miniMonthNameActive: {
-    color: BRAND_PRIMARY,
-  },
-  miniWeekdaysHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 3,
-  },
-  miniWeekdayChar: {
-    fontSize: 7.5,
-    fontWeight: '600',
-    color: colors.subtle,
-    width: `${100 / 7}%`,
-    textAlign: 'center',
-  },
-  miniDaysGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  miniDayCell: {
-    width: `${100 / 7}%`,
-    height: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  miniDayNumText: {
-    fontSize: 7.5,
-    color: colors.text,
-    fontWeight: '400',
-  },
-  miniDayNumToday: {
-    color: '#FF3B30',
-    fontWeight: '800',
-  },
-  appleMonthCalendarHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'ios' ? 68 : 58,
-    paddingBottom: 8,
-    backgroundColor: 'transparent',
-  },
-  appleMonthTitleContainer: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 6,
-  },
-  appleMonthTitleText: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: colors.text,
-    letterSpacing: -0.4,
-  },
-  appleYearSubtitleText: {
-    fontSize: 17,
-    fontWeight: '400',
-    color: colors.subtle,
-  },
-  appleHeaderActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  appleMonthTodayBtn: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 14,
-    backgroundColor: colors.surface,
-  },
-  appleMonthTodayBtnText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: BRAND_PRIMARY,
-  },
-  appleMonthNavGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: 14,
-    paddingHorizontal: 2,
-  },
-  appleNavArrowBtn: {
-    padding: 6,
-  },
-  appleMonthAddBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: BRAND_PRIMARY,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  appleMonthWeekdaysRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: 8,
-    backgroundColor: colors.surface,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E5E5EA',
-  },
-  appleMonthWeekdayText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.subtle,
-    width: `${100 / 7}%`,
-    textAlign: 'center',
-  },
-  appleMainMonthGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    backgroundColor: colors.surface,
-    paddingVertical: 4,
-  },
-  appleMonthEmptyDayCell: {
-    width: `${100 / 7}%`,
-    height: 46,
-  },
-  appleMonthDayCell: {
-    width: `${100 / 7}%`,
-    height: 46,
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-    paddingTop: 2,
-  },
-  appleMonthDayCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  appleMonthDayCircleSelected: {
-    backgroundColor: '#1C1C1E',
-  },
-  appleMonthDayCircleTodaySelected: {
-    backgroundColor: '#FF3B30',
-  },
-  appleMonthDayText: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: colors.text,
-  },
-  appleMonthDayTextToday: {
-    color: '#FF3B30',
-    fontWeight: '700',
-  },
-  appleMonthDayTextSelected: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-  },
-  appleMonthEventDotsContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 2,
-    height: 5,
-    marginTop: 2,
-  },
-  appleMonthEventDot: {
-    width: 3.5,
-    height: 3.5,
-    borderRadius: 2,
-    backgroundColor: '#8E8E93',
-  },
-  appleMonthEventDotSelected: {
-    backgroundColor: '#1C1C1E',
-  },
-  appleMonthHairline: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.hairline,
-    marginTop: 10,
-    marginBottom: 4,
-  },
-  appleMonthSelectedDayHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-    marginTop: 8,
-  },
-  appleMonthSelectedDayDate: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.text,
-    textTransform: 'capitalize',
-  },
-  appleMonthSelectedDayCount: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: colors.subtle,
-  },
-  eventCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: colors.hairline,
-    gap: 6,
-  },
-  eventCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  eventCardTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.text,
-    flex: 1,
-  },
-  eventInfoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  eventInfoText: {
-    fontSize: 11,
-    color: colors.subtle,
-    fontWeight: '500',
-  },
-  eventCardDesc: {
-    fontSize: 11,
-    color: colors.subtle,
-    marginTop: 2,
-    lineHeight: 16,
-  },
-  noEventsCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: colors.hairline,
-    gap: 8,
-    marginTop: 8,
-  },
-  noEventsText: {
-    fontSize: 12,
-    color: colors.subtle,
-    fontWeight: '500',
-  },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    justifyContent: 'flex-end',
-  },
-  appleModalContent: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
-    height: '92%',
-    overflow: 'hidden',
-  },
-  inModalPopupBackdrop: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 999,
-    padding: 24,
-  },
-  applePickerBodyFixedContainer: {
-    minHeight: 250,
-    justifyContent: 'center',
-  },
-  appleNavBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#C6C6C8',
-  },
-  appleNavBtn: {
-    paddingVertical: 4,
-    paddingHorizontal: 6,
-    minWidth: 44,
-  },
-  appleNavTitle: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: colors.text,
-    textAlign: 'center',
-  },
-  appleCancelText: {
-    fontSize: 16,
-    color: BRAND_PRIMARY,
-    fontWeight: '400',
-  },
-  appleAddText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: BRAND_PRIMARY,
-    textAlign: 'right',
-  },
-  appleScrollView: {
-    padding: 16,
-    paddingBottom: 36,
-  },
-  appleGroupCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    marginBottom: 16,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
-  },
-  appleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    minHeight: 48,
-  },
-  appleRowLabel: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: colors.text,
-  },
-  appleRowValue: {
-    fontSize: 15,
-    color: colors.subtle,
-    fontWeight: '400',
-  },
-  popupBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  popupCard: {
-    width: '100%',
-    maxWidth: 340,
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  popupHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E5E5EA',
-    backgroundColor: colors.canvas,
-  },
-  popupTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  popupCloseText: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: BRAND_PRIMARY,
-  },
-  popupList: {
-    maxHeight: 380,
-  },
-  popupItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 13,
-  },
-  popupItemBorder: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#F2F2F7',
-  },
-  popupItemText: {
-    fontSize: 15,
-    color: colors.text,
-    fontWeight: '400',
-  },
-  popupItemTextSelected: {
-    color: BRAND_PRIMARY,
-    fontWeight: '600',
-  },
-  hairlineDivider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.hairline,
-    marginLeft: 16,
-  },
-  appleTitleInput: {
-    fontSize: 16,
-    color: colors.text,
-    paddingHorizontal: 16,
-    paddingVertical: 13,
-  },
-  appleLocationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 11,
-  },
-  appleLocationInput: {
-    flex: 1,
-    fontSize: 15,
-    color: colors.text,
-    padding: 0,
-  },
-  applePillsContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  applePill: {
-    backgroundColor: 'rgba(118, 118, 128, 0.12)',
-    borderRadius: 8,
-    paddingHorizontal: 11,
-    paddingVertical: 6,
-  },
-  applePillActive: {
-    backgroundColor: 'rgba(13, 148, 136, 0.15)',
-  },
-  applePillText: {
-    fontSize: 15,
-    fontWeight: '400',
-    color: colors.text,
-  },
-  applePillTextActive: {
-    color: BRAND_PRIMARY,
-    fontWeight: '600',
-  },
-  appleAddEndPill: {
-    backgroundColor: 'rgba(118, 118, 128, 0.12)',
-    borderRadius: 8,
-    paddingHorizontal: 11,
-    paddingVertical: 6,
-  },
-  appleAddEndPillText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: BRAND_PRIMARY,
-  },
-  appleInlinePickerContainer: {
-    backgroundColor: colors.surface,
-    paddingHorizontal: 8,
-    paddingTop: 8,
-    paddingBottom: 14,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#E5E5EA',
-  },
-  applePickerMonthNav: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    marginBottom: 4,
-  },
-  applePickerMonthBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  applePickerMonthText: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  applePickerArrows: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-  },
-  applePickerArrowBtn: {
-    padding: 4,
-  },
-  appleWeekdaysRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: 6,
-    marginBottom: 2,
-  },
-  appleWeekdayText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.subtle,
-    width: `${100 / 7}%`,
-    textAlign: 'center',
-  },
-  appleDaysGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  appleDayCell: {
-    width: `${100 / 7}%`,
-    aspectRatio: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginVertical: 1,
-  },
-  appleDayCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  appleDayCircleSelected: {
-    backgroundColor: BRAND_PRIMARY,
-  },
-  appleDayNumber: {
-    fontSize: 17,
-    color: colors.text,
-    fontWeight: '400',
-  },
-  appleDayNumberToday: {
-    color: BRAND_PRIMARY,
-    fontWeight: '700',
-  },
-  appleDayNumberSelected: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-  },
-  appleRemoveEndBtn: {
-    padding: 4,
-    borderRadius: 12,
-    backgroundColor: colors.hairline,
-    marginLeft: 2,
-  },
-  appleReminderChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: colors.surface,
-  },
-  appleReminderChipSelected: {
-    backgroundColor: BRAND_PRIMARY,
-  },
-  appleReminderChipText: {
-    fontSize: 13,
-    color: '#636366',
-    fontWeight: '500',
-  },
-  appleReminderChipTextSelected: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-  },
-  appleNotesRow: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  appleNotesInput: {
-    fontSize: 15,
-    color: colors.text,
-    minHeight: 60,
-    textAlignVertical: 'top',
-    padding: 0,
-  },
-  appleSubmitBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 4,
-  },
-  appleSubmitBtnText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  modalContent: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 18,
-    maxHeight: '90%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-    marginBottom: 12,
-  },
-  modalTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  formGroup: {
-    marginBottom: 12,
-  },
-  label: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.subtle,
-    marginBottom: 6,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: colors.hairline,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    fontSize: 12,
-    color: colors.text,
-    backgroundColor: colors.canvas,
-  },
-  locationInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.hairline,
-    borderRadius: 10,
-    backgroundColor: colors.canvas,
-  },
-  suggestionsDropdown: {
-    marginTop: 6,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.hairline,
-    borderRadius: 10,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-    elevation: 3,
-  },
-  suggestionsHeader: {
-    fontSize: 9,
-    fontWeight: '700',
-    color: colors.subtle,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    backgroundColor: colors.wash,
-  },
-  suggestionItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-  },
-  suggestionName: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  suggestionAddress: {
-    fontSize: 10,
-    color: colors.subtle,
-    marginTop: 1,
-  },
-  splitRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  splitBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    borderWidth: 1,
-    borderColor: colors.hairline,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: colors.canvas,
-  },
-  splitBtnActive: {
-    borderColor: BRAND_PRIMARY,
-    backgroundColor: BRAND_WASH,
-  },
-  splitBtnText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  endTimeHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 6,
-  },
-  removeEndTimeText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#EF4444',
-  },
-  addEndTimeBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 11,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-    borderStyle: 'dashed',
-    backgroundColor: colors.canvas,
-  },
-  addEndTimeBtnText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.subtle,
-  },
-  dateTimeGrid: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 12,
-  },
-  dateTimeCol: {
-    flex: 1,
-  },
-  endTimeLabelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 6,
-  },
-  pickerTriggerBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    borderWidth: 1,
-    borderColor: colors.hairline,
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 9,
-    backgroundColor: colors.canvas,
-  },
-  pickerTriggerBtnEmpty: {
-    borderStyle: 'dashed',
-    backgroundColor: colors.wash,
-  },
-  pickerTriggerText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  pickerTriggerEmptyText: {
-    fontSize: 11,
-    fontWeight: '500',
-    color: colors.subtle,
-  },
-  errorBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#FFE4E6',
-    borderWidth: 1,
-    borderColor: '#FECDD3',
-    borderRadius: 8,
-    padding: 8,
-    marginBottom: 12,
-  },
-  errorBannerText: {
-    fontSize: 11,
-    color: '#E11D48',
-    fontWeight: '600',
-    flex: 1,
-  },
-  chip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: colors.wash,
-    borderWidth: 1,
-    borderColor: colors.hairline,
-    marginRight: 6,
-  },
-  chipSelected: {
-    backgroundColor: colors.primary,
-    borderColor: '#0F172A',
-  },
-  chipText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.subtle,
-  },
-  chipTextSelected: {
-    color: '#FFFFFF',
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    gap: 10,
-    marginTop: 14,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
-  },
-  cancelBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  cancelText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.subtle,
-  },
-  submitBtn: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 16,
-    paddingVertical: 9,
-    borderRadius: 8,
-  },
-  submitBtnDisabled: {
-    opacity: 0.5,
-  },
-  submitText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-
-  pickerTriggerBtnActive: {
-    borderColor: BRAND_PRIMARY,
-    backgroundColor: BRAND_WASH,
-  },
-  inlinePickerContainer: {
-    backgroundColor: colors.canvas,
-    padding: 12,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#E5E5EA',
-  },
-  inlinePickerHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingBottom: 8,
-    marginBottom: 6,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-  },
-  inlinePickerTargetBadge: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  inlinePickerCloseBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: colors.primary,
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  inlinePickerCloseBtnText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  pickerMonthNav: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 4,
-    marginBottom: 4,
-  },
-  pickerMonthYearHeaderBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-    backgroundColor: colors.wash,
-  },
-  pickerMonthYearHeaderText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  // BỎ BO KHUNG: không có border, không có backgroundColor thẻ hộp
-  wheelStage: {
-    height: WHEEL_VISIBLE_HEIGHT,
-    position: 'relative',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-    marginVertical: 4,
-  },
-  wheelCenterPill: {
-    position: 'absolute',
-    left: 8,
-    right: 8,
-    top: WHEEL_PADDING,
-    height: WHEEL_ITEM_HEIGHT,
-    backgroundColor: colors.hairline, // Màu xám nhạt Apple thay vì màu đen
-    borderRadius: 10,
-    zIndex: 1,
-  },
-  wheelColumn: {
-    flex: 1,
-    height: '100%',
-    zIndex: 2,
-  },
-  wheelItem: {
-    height: WHEEL_ITEM_HEIGHT,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  wheelItemText: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: colors.subtle,
-    opacity: 0.65,
-  },
-  wheelItemTextSelected: {
-    color: colors.text, // Chữ tối đậm, nổi bật trên nền xám nhạt
-    fontWeight: '700',
-    opacity: 1,
-    transform: [{ scale: 1.08 }],
-  },
-  wheelDivider: {
-    zIndex: 2,
-    paddingHorizontal: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  wheelDividerText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: colors.subtle, // Màu xám trung tính thay vì màu trắng
-  },
-  pickerDaysGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    paddingVertical: 4,
-  },
-  pickerDayCell: {
-    width: `${100 / 7}%`,
-    aspectRatio: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 6,
-    marginVertical: 1,
-  },
-  pickerDayCellSelected: {
-    backgroundColor: colors.primary,
-  },
-  pickerDayText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  pickerDayTextSelected: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-  },
-  timeWheelSection: {
-    marginTop: 8,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
-  },
-  timeSectionHeader: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.subtle,
-    marginBottom: 4,
-    textAlign: 'center',
-  },
-  stepperContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  stepperLabel: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: colors.text,
-  },
-  stepperControls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  stepperBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.wash,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: colors.hairline,
-  },
-  stepperBtnText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: BRAND_PRIMARY,
-    lineHeight: 20,
-  },
-  stepperValueText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.text,
-    minWidth: 26,
-    textAlign: 'center',
-  },
-  stepperUnitText: {
-    fontSize: 15,
-    color: colors.subtle,
-    fontWeight: '500',
-  },
-  weekdaysSelectionRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    padding: 12,
-  },
-  weekdayBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.wash,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: colors.hairline,
-  },
-  weekdayBtnActive: {
-    backgroundColor: BRAND_PRIMARY,
-    borderColor: BRAND_PRIMARY,
-  },
-  weekdayBtnText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  weekdayBtnTextActive: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-  },
-  radioRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 13,
-  },
-  radioCircle: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: '#C7C7CC',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-  },
-  radioCircleSelected: {
-    borderColor: BRAND_PRIMARY,
-  },
-  radioInner: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: BRAND_PRIMARY,
-  },
-  radioLabel: {
-    fontSize: 15,
-    color: colors.text,
-    fontWeight: '500',
-    flex: 1,
-  },
-  monthDaysGridContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    padding: 10,
-    paddingTop: 4,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#F2F2F7',
-  },
-  monthDayCell: {
-    width: `${100 / 7}%`,
-    aspectRatio: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 2,
-  },
-  monthDayCircle: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: colors.canvas,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: colors.hairline,
-  },
-  monthDayCircleSelected: {
-    backgroundColor: BRAND_PRIMARY,
-    borderColor: BRAND_PRIMARY,
-  },
-  monthDayNumber: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: colors.text,
-  },
-  monthDayNumberSelected: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-  },
-  pillPickerRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingBottom: 10,
-  },
-  optionPill: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: colors.wash,
-    borderWidth: 1,
-    borderColor: colors.hairline,
-  },
-  optionPillSelected: {
-    backgroundColor: BRAND_PRIMARY,
-    borderColor: BRAND_PRIMARY,
-  },
-  optionPillText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: colors.text,
-  },
-  optionPillTextSelected: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-  },
-  monthsGridContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    paddingHorizontal: 14,
-    paddingBottom: 10,
-    gap: 8,
-  },
-  monthBtnPill: {
-    width: '22.8%',
-    paddingVertical: 9,
-    borderRadius: 8,
-    backgroundColor: colors.canvas,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: colors.hairline,
-  },
-  monthBtnPillSelected: {
-    backgroundColor: BRAND_PRIMARY,
-    borderColor: BRAND_PRIMARY,
-  },
-  monthBtnPillText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: colors.text,
-  },
-  monthBtnPillTextSelected: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-  },
-  summaryPreviewBox: {
-    backgroundColor: BRAND_WASH,
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: BRAND_WASH,
-    marginTop: 6,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  summaryPreviewText: {
-    fontSize: 14,
-    color: BRAND_PRIMARY_DARK,
-    fontWeight: '600',
-    flex: 1,
-    lineHeight: 20,
-  },
-  // Apple Style Stepper
-  appleStepperGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  appleStepperMinusBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: 'rgba(118, 118, 128, 0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  appleStepperPlusBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: 'rgba(118, 118, 128, 0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  appleStepperInput: {
-    minWidth: 40,
-    height: 32,
-    backgroundColor: 'rgba(118, 118, 128, 0.08)',
-    borderRadius: 8,
-    textAlign: 'center',
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.text,
-    paddingVertical: 0,
-    paddingHorizontal: 6,
-  },
-  appleStepperUnit: {
-    fontSize: 15,
-    color: colors.subtle,
-    fontWeight: '400',
-    marginLeft: 4,
-  },
-
-  // Apple Weekdays Pill Selector (7 circle buttons in 1 row)
-  appleWeekdaysRowWrapper: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  appleWeekdayPill: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(118, 118, 128, 0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  appleWeekdayPillActive: {
-    backgroundColor: BRAND_PRIMARY,
-  },
-  appleWeekdayPillText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.text,
-  },
-  appleWeekdayPillTextActive: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-  },
-
-  // Apple Segmented Control (Theo ngày / Theo thứ)
-  appleSegmentWrapper: {
-    flexDirection: 'row',
-    backgroundColor: 'rgba(118, 118, 128, 0.12)',
-    borderRadius: 8,
-    padding: 2,
-  },
-  appleSegmentBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  appleSegmentBtnActive: {
-    backgroundColor: colors.surface,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.12,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  appleSegmentBtnText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: colors.subtle,
-  },
-  appleSegmentBtnTextActive: {
-    color: BRAND_PRIMARY,
-    fontWeight: '600',
-  },
-
-  // Apple Month Days Grid (7 columns for 1..31 days)
-  appleMonthDaysGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: colors.surface,
-  },
-  appleDayCellContainer: {
-    width: `${100 / 7}%`,
-    aspectRatio: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 2,
-  },
-  appleDayNumberCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'transparent',
-  },
-  appleDayNumberCircleActive: {
-    backgroundColor: BRAND_PRIMARY,
-  },
-  appleDayNumberText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: colors.text,
-  },
-  appleDayNumberTextActive: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-  },
-
-  // Apple Sub-row with horizontal scroll pills
-  appleSubRow: {
-    paddingVertical: 10,
-    paddingLeft: 16,
-  },
-  appleSubRowLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.subtle,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 8,
-  },
-  applePillsScroll: {
-    flexDirection: 'row',
-    gap: 8,
-    paddingRight: 16,
-  },
-
-  // Apple Section Footer (Note/Summary)
-  appleSectionFooter: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 11,
-    backgroundColor: 'rgba(13, 148, 136, 0.05)',
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#E5E5EA',
-  },
-  appleSectionFooterText: {
-    fontSize: 13,
-    color: BRAND_PRIMARY_DARK,
-    lineHeight: 18,
-    flex: 1,
-    fontWeight: '500',
-  },
-
-  // Custom Repeat Modal Styles
-  customRepeatModalContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: colors.canvas,
-    zIndex: 1100,
-  },
-  customRepeatHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E5E5EA',
-    backgroundColor: colors.surface,
-  },
-  customRepeatTitle: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  customRepeatCancelText: {
-    fontSize: 16,
-    color: colors.text,
-    fontWeight: '400',
-  },
-  customRepeatDoneText: {
-    fontSize: 16,
-    color: BRAND_PRIMARY,
-    fontWeight: '600',
-  },
-  customRepeatScrollContent: {
-    padding: 16,
-    paddingBottom: 40,
-  },
-});
+const createStyles = (colors: ColorTheme, isDark: boolean) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.canvas,
+    },
+    noticeWrapper: {
+      position: 'absolute',
+      left: 16,
+      right: 16,
+      zIndex: 60,
+    },
+    noticeBanner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      borderRadius: 12,
+      borderWidth: 1,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: isDark ? 0.35 : 0.1,
+      shadowRadius: 6,
+      elevation: 4,
+    },
+    noticeText: {
+      flex: 1,
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    searchBarContainer: {
+      paddingHorizontal: 16,
+      paddingBottom: 8,
+    },
+    searchBarBox: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 12,
+      borderWidth: 1,
+    },
+    searchBarInput: {
+      flex: 1,
+      fontSize: 13,
+      padding: 0,
+    },
+    eventCardCancelled: {
+      opacity: 0.78,
+      borderColor: colors.hairline,
+      backgroundColor: colors.canvas,
+    },
+    eventCardTitleCancelled: {
+      textDecorationLine: 'line-through',
+      color: colors.subtle,
+    },
+    cancelledBadge: {
+      backgroundColor: isDark ? 'rgba(248, 113, 113, 0.15)' : '#FEE2E2',
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 6,
+    },
+    cancelledBadgeText: {
+      color: colors.danger,
+      fontSize: 11,
+      fontWeight: '600',
+    },
+    // Detail Full-Screen Overlay
+    detailFullScreenContainer: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: colors.canvas,
+      zIndex: 999,
+    },
+    detailNavHeader: {
+      backgroundColor: colors.surface,
+      paddingBottom: 10,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.hairline,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 12,
+      gap: 8,
+    },
+    detailBackBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 6,
+      paddingHorizontal: 4,
+      gap: 2,
+      minWidth: 56,
+    },
+    detailBackBtnText: {
+      fontSize: 15,
+      color: colors.sage,
+      fontWeight: '600',
+    },
+    detailNavTitle: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: colors.text,
+      flex: 1,
+      textAlign: 'center',
+    },
+    detailNavEditBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingVertical: 6,
+      paddingHorizontal: 10,
+      borderRadius: 8,
+      backgroundColor: colors.wash,
+      minWidth: 56,
+      justifyContent: 'center',
+    },
+    detailNavEditText: {
+      fontSize: 13,
+      color: colors.sage,
+      fontWeight: '600',
+    },
+    detailFullScreenContent: {
+      paddingHorizontal: 16,
+      paddingTop: 16,
+    },
+    detailMainCard: {
+      backgroundColor: colors.surface,
+      borderRadius: 16,
+      padding: 18,
+      marginBottom: 14,
+      borderWidth: 1,
+      borderColor: colors.hairline,
+      gap: 10,
+    },
+    detailEventTitleLarge: {
+      fontSize: 22,
+      fontWeight: '700',
+      color: colors.text,
+      lineHeight: 30,
+    },
+    detailStatusCancelledBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      backgroundColor: isDark ? 'rgba(248, 113, 113, 0.14)' : '#FEF2F2',
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      borderRadius: 8,
+      alignSelf: 'flex-start',
+      borderWidth: 1,
+      borderColor: isDark ? 'rgba(248, 113, 113, 0.35)' : '#FECACA',
+    },
+    detailStatusCancelledText: {
+      color: colors.danger,
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    detailStatusActiveBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      backgroundColor: isDark ? 'rgba(52, 211, 153, 0.14)' : '#F0FDF4',
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      borderRadius: 8,
+      alignSelf: 'flex-start',
+      borderWidth: 1,
+      borderColor: isDark ? 'rgba(52, 211, 153, 0.35)' : '#BBF7D0',
+    },
+    detailStatusActiveDot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: colors.sage,
+    },
+    detailStatusActiveText: {
+      color: colors.sage,
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    detailCard: {
+      backgroundColor: colors.surface,
+      borderRadius: 16,
+      padding: 16,
+      marginBottom: 14,
+      borderWidth: 1,
+      borderColor: colors.hairline,
+    },
+    detailCallCard: {
+      backgroundColor: isDark ? 'rgba(56, 189, 248, 0.10)' : '#F0F9FF',
+      borderColor: isDark ? 'rgba(56, 189, 248, 0.28)' : '#BAE6FD',
+    },
+    detailCardHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 12,
+    },
+    detailCardHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginBottom: 10,
+    },
+    detailCardTitle: {
+      fontSize: 15,
+      fontWeight: '700',
+      color: colors.text,
+    },
+    detailRsvpTotalText: {
+      fontSize: 11,
+      fontWeight: '600',
+      marginBottom: 10,
+    },
+    rsvpOptionCard: {
+      position: 'relative',
+      borderWidth: 1,
+      borderRadius: 12,
+      overflow: 'hidden',
+    },
+    rsvpProgressFill: {
+      position: 'absolute',
+      top: 0,
+      bottom: 0,
+      left: 0,
+    },
+    rsvpOptionInner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      zIndex: 1,
+    },
+    rsvpOptionLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    rsvpOptionLabel: {
+      fontSize: 13,
+      fontWeight: '500',
+    },
+    rsvpOptionCount: {
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    rsvpAttendeesLine: {
+      fontSize: 11,
+      paddingHorizontal: 4,
+    },
+    inlineErrorSmall: {
+      fontSize: 12,
+      fontWeight: '600',
+      marginTop: 8,
+    },
+    detailTimeRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: colors.canvas,
+      borderRadius: 12,
+      padding: 12,
+    },
+    detailTimeCol: {
+      flex: 1,
+    },
+    detailTimeDivider: {
+      width: 1,
+      height: 40,
+      backgroundColor: colors.hairline,
+      marginHorizontal: 12,
+    },
+    detailTimeLabel: {
+      fontSize: 12,
+      color: colors.subtle,
+      marginBottom: 2,
+      fontWeight: '500',
+    },
+    detailTimeValueHour: {
+      fontSize: 17,
+      fontWeight: '700',
+      color: colors.text,
+    },
+    detailTimeValueDate: {
+      fontSize: 12,
+      color: colors.subtle,
+      marginTop: 2,
+    },
+    detailCardBodyText: {
+      fontSize: 14,
+      color: colors.text,
+      lineHeight: 20,
+      fontWeight: '500',
+    },
+    detailNotesText: {
+      fontSize: 14,
+      color: colors.text,
+      lineHeight: 22,
+      backgroundColor: colors.canvas,
+      padding: 12,
+      borderRadius: 10,
+    },
+    detailCallDesc: {
+      fontSize: 14,
+      color: isDark ? '#7DD3FC' : '#0369A1',
+      fontWeight: '500',
+      marginBottom: 12,
+    },
+    detailJoinCallBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      borderRadius: 999,
+      paddingVertical: 12,
+    },
+    detailJoinCallBtnText: {
+      fontSize: 15,
+      fontWeight: '700',
+    },
+    detailMapLinkBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      marginTop: 10,
+      paddingVertical: 4,
+    },
+    detailMapLinkBtnText: {
+      fontSize: 13,
+      color: colors.sage,
+      fontWeight: '600',
+      textDecorationLine: 'underline',
+    },
+    detailActionButtonsGroup: {
+      marginTop: 12,
+      gap: 12,
+    },
+    inlineDetailConfirmCard: {
+      borderRadius: 14,
+      borderWidth: 1,
+      padding: 14,
+      gap: 6,
+    },
+    inlineDetailConfirmTitle: {
+      fontSize: 14,
+      fontWeight: '700',
+    },
+    inlineDetailConfirmDesc: {
+      fontSize: 12,
+      lineHeight: 18,
+    },
+    inlineDetailConfirmBtns: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      gap: 8,
+      marginTop: 8,
+    },
+    inlineDetailCancelBtn: {
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: 8,
+      borderWidth: 1,
+    },
+    inlineDetailCancelText: {
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    inlineDetailDestroyBtn: {
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: 8,
+      minWidth: 90,
+      alignItems: 'center',
+    },
+    inlineDetailDestroyText: {
+      color: '#FFFFFF',
+      fontSize: 12,
+      fontWeight: '700',
+    },
+    detailActionCancelBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      backgroundColor: isDark ? 'rgba(251, 191, 36, 0.12)' : '#FFFBEB',
+      borderWidth: 1,
+      borderColor: isDark ? 'rgba(251, 191, 36, 0.35)' : '#FDE68A',
+      borderRadius: 14,
+      paddingVertical: 14,
+    },
+    detailActionCancelBtnText: {
+      color: isDark ? '#FBBF24' : '#B45309',
+      fontSize: 15,
+      fontWeight: '600',
+    },
+    detailActionDeleteBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      backgroundColor: isDark ? 'rgba(248, 113, 113, 0.12)' : '#FEF2F2',
+      borderWidth: 1,
+      borderColor: isDark ? 'rgba(248, 113, 113, 0.35)' : '#FECACA',
+      borderRadius: 14,
+      paddingVertical: 14,
+    },
+    detailActionDeleteBtnText: {
+      color: colors.danger,
+      fontSize: 15,
+      fontWeight: '600',
+    },
+    appleYearBtn: {
+      paddingVertical: 2,
+      paddingHorizontal: 4,
+      borderRadius: 8,
+    },
+    appleYearBtnText: {
+      fontSize: 22,
+      fontWeight: '800',
+      color: colors.sage,
+      letterSpacing: -0.4,
+    },
+    appleSearchBtn: {
+      width: 34,
+      height: 34,
+      borderRadius: 17,
+      backgroundColor: colors.surface,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    calendarTopContainer: {
+      backgroundColor: colors.surface,
+      height: 312,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.hairline,
+    },
+    appleMonthWeekdaysRowFixed: {
+      flexDirection: 'row',
+      justifyContent: 'space-around',
+      paddingHorizontal: 16,
+      paddingTop: 8,
+      paddingBottom: 6,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.hairline,
+      backgroundColor: colors.surface,
+    },
+    monthScrollViewport: {
+      height: 276,
+    },
+    monthScrollContent: {
+      flexGrow: 0,
+    },
+    monthPageBlock: {
+      height: 276,
+      paddingHorizontal: 16,
+      justifyContent: 'flex-start',
+    },
+    yearSectionContainer: {
+      marginBottom: 28,
+    },
+    yearSectionTitle: {
+      fontSize: 28,
+      fontWeight: '800',
+      color: colors.text,
+      letterSpacing: -0.5,
+      marginBottom: 12,
+      paddingHorizontal: 4,
+    },
+    eventsScrollView: {
+      flex: 1,
+      backgroundColor: colors.canvas,
+    },
+    eventsScrollContent: {
+      paddingHorizontal: 16,
+      paddingTop: 10,
+    },
+    appleYearHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+      paddingBottom: 12,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.hairline,
+    },
+    yearCloseBtn: {
+      width: 34,
+      height: 34,
+      borderRadius: 17,
+      backgroundColor: colors.surface,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    yearScrollContent: {
+      paddingHorizontal: 14,
+      paddingTop: 12,
+    },
+    yearGridContainer: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      justifyContent: 'space-between',
+      gap: 12,
+    },
+    miniMonthBox: {
+      width: '30.5%',
+      backgroundColor: isDark ? colors.elevated : colors.surface,
+      borderRadius: 12,
+      padding: 8,
+      borderWidth: 1,
+      borderColor: colors.hairline,
+    },
+    miniMonthBoxActive: {
+      borderColor: colors.sage,
+      backgroundColor: colors.wash,
+    },
+    miniMonthName: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: colors.text,
+      marginBottom: 4,
+      textAlign: 'center',
+    },
+    miniMonthNameActive: {
+      color: colors.sage,
+    },
+    miniWeekdaysHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginBottom: 3,
+    },
+    miniWeekdayChar: {
+      fontSize: 7.5,
+      fontWeight: '600',
+      color: colors.subtle,
+      width: `${100 / 7}%`,
+      textAlign: 'center',
+    },
+    miniDaysGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+    },
+    miniDayCell: {
+      width: `${100 / 7}%`,
+      height: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    miniDayNumText: {
+      fontSize: 7.5,
+      color: colors.text,
+      fontWeight: '400',
+    },
+    miniDayNumToday: {
+      color: colors.danger,
+      fontWeight: '800',
+    },
+    appleMonthCalendarHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+      paddingBottom: 8,
+      backgroundColor: 'transparent',
+    },
+    appleMonthTitleContainer: {
+      flexDirection: 'row',
+      alignItems: 'baseline',
+      gap: 6,
+    },
+    appleMonthTitleText: {
+      fontSize: 22,
+      fontWeight: '700',
+      color: colors.text,
+      letterSpacing: -0.4,
+    },
+    appleHeaderActions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    appleMonthTodayBtn: {
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 16,
+      backgroundColor: colors.surface,
+    },
+    appleMonthTodayBtnText: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: colors.sage,
+    },
+    appleMonthAddBtn: {
+      width: 34,
+      height: 34,
+      borderRadius: 17,
+      backgroundColor: colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    appleMonthWeekdayText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: colors.subtle,
+      width: `${100 / 7}%`,
+      textAlign: 'center',
+    },
+    appleMonthEmptyDayCell: {
+      width: `${100 / 7}%`,
+      height: 46,
+    },
+    appleMonthDayCell: {
+      width: `${100 / 7}%`,
+      height: 46,
+      alignItems: 'center',
+      justifyContent: 'flex-start',
+      paddingTop: 2,
+    },
+    appleMonthDayCircle: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    appleMonthDayCircleSelected: {
+      backgroundColor: colors.text,
+    },
+    appleMonthDayCircleTodaySelected: {
+      backgroundColor: '#DC2626',
+    },
+    appleMonthDayText: {
+      fontSize: 15,
+      fontWeight: '500',
+      color: colors.text,
+    },
+    appleMonthDayTextToday: {
+      color: colors.danger,
+      fontWeight: '700',
+    },
+    appleMonthDayTextSelected: {
+      color: colors.canvas,
+      fontWeight: '700',
+    },
+    appleMonthDayTextTodaySelected: {
+      color: '#FFFFFF',
+      fontWeight: '700',
+    },
+    appleMonthEventDotsContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 2,
+      height: 5,
+      marginTop: 2,
+    },
+    appleMonthEventDot: {
+      width: 3.5,
+      height: 3.5,
+      borderRadius: 2,
+      backgroundColor: colors.subtle,
+    },
+    appleMonthEventDotSelected: {
+      backgroundColor: colors.canvas,
+    },
+    eventCard: {
+      backgroundColor: colors.surface,
+      borderRadius: 12,
+      padding: 12,
+      borderWidth: 1,
+      borderColor: colors.hairline,
+      gap: 6,
+    },
+    eventCardHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    eventCardTitle: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: colors.text,
+      flex: 1,
+    },
+    eventInfoRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    eventInfoText: {
+      fontSize: 11,
+      color: colors.subtle,
+      fontWeight: '500',
+    },
+    eventGoingCountTag: {
+      fontSize: 11,
+      fontWeight: '600',
+    },
+    noEventsCard: {
+      backgroundColor: colors.surface,
+      borderRadius: 12,
+      padding: 24,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: colors.hairline,
+      gap: 8,
+      marginTop: 8,
+    },
+    noEventsText: {
+      fontSize: 12,
+      color: colors.subtle,
+      fontWeight: '500',
+    },
+    modalBackdrop: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.45)',
+      justifyContent: 'flex-end',
+    },
+    appleModalContent: {
+      backgroundColor: isDark ? colors.canvas : colors.surface,
+      borderTopLeftRadius: 18,
+      borderTopRightRadius: 18,
+      height: '92%',
+      overflow: 'hidden',
+    },
+    inModalPopupBackdrop: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.45)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      zIndex: 999,
+      padding: 24,
+    },
+    applePickerBodyFixedContainer: {
+      minHeight: 250,
+      justifyContent: 'center',
+    },
+    appleNavBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      backgroundColor: colors.surface,
+      borderTopLeftRadius: 18,
+      borderTopRightRadius: 18,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.hairline,
+    },
+    appleNavBtn: {
+      paddingVertical: 4,
+      paddingHorizontal: 6,
+      minWidth: 48,
+    },
+    appleNavTitle: {
+      fontSize: 17,
+      fontWeight: '600',
+      color: colors.text,
+      textAlign: 'center',
+    },
+    appleCancelText: {
+      fontSize: 16,
+      color: colors.sage,
+      fontWeight: '500',
+    },
+    appleAddText: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: colors.sage,
+      textAlign: 'right',
+    },
+    modalFormErrorWrap: {
+      paddingHorizontal: 16,
+      paddingTop: 12,
+    },
+    errorBanner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      backgroundColor: isDark ? 'rgba(248, 113, 113, 0.14)' : '#FFE4E6',
+      borderWidth: 1,
+      borderColor: isDark ? 'rgba(248, 113, 113, 0.35)' : '#FECDD3',
+      borderRadius: 10,
+      padding: 10,
+    },
+    errorBannerText: {
+      fontSize: 12,
+      color: isDark ? '#FCA5A5' : '#DC2626',
+      fontWeight: '600',
+      flex: 1,
+    },
+    appleScrollView: {
+      padding: 16,
+    },
+    appleGroupCard: {
+      backgroundColor: isDark ? colors.surface : colors.canvas,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.hairline,
+      marginBottom: 16,
+      overflow: 'hidden',
+    },
+    appleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      minHeight: 48,
+    },
+    appleRowLabel: {
+      fontSize: 15,
+      fontWeight: '500',
+      color: colors.text,
+    },
+    appleRowValue: {
+      fontSize: 15,
+      color: colors.subtle,
+      fontWeight: '400',
+    },
+    popupCard: {
+      width: '100%',
+      maxWidth: 340,
+      backgroundColor: colors.surface,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: colors.hairline,
+      overflow: 'hidden',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: isDark ? 0.4 : 0.15,
+      shadowRadius: 12,
+      elevation: 8,
+    },
+    popupHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.hairline,
+      backgroundColor: colors.canvas,
+    },
+    popupTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text,
+    },
+    popupCloseText: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: colors.sage,
+    },
+    popupList: {
+      maxHeight: 380,
+    },
+    popupItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 16,
+      paddingVertical: 13,
+    },
+    popupItemBorder: {
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.hairline,
+    },
+    popupItemText: {
+      fontSize: 15,
+      color: colors.text,
+      fontWeight: '400',
+    },
+    popupItemTextSelected: {
+      color: colors.sage,
+      fontWeight: '600',
+    },
+    hairlineDivider: {
+      height: StyleSheet.hairlineWidth,
+      backgroundColor: colors.hairline,
+      marginLeft: 16,
+    },
+    appleTitleInput: {
+      fontSize: 16,
+      color: colors.text,
+      paddingHorizontal: 16,
+      paddingVertical: 13,
+    },
+    appleLocationRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+      paddingVertical: 11,
+    },
+    appleLocationInput: {
+      flex: 1,
+      fontSize: 15,
+      color: colors.text,
+      padding: 0,
+    },
+    suggestionsDropdown: {
+      margin: 10,
+      backgroundColor: isDark ? colors.elevated : colors.canvas,
+      borderWidth: 1,
+      borderColor: colors.hairline,
+      borderRadius: 10,
+      overflow: 'hidden',
+    },
+    suggestionsHeader: {
+      fontSize: 10,
+      fontWeight: '700',
+      color: colors.subtle,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      backgroundColor: colors.wash,
+    },
+    suggestionItem: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 8,
+      paddingHorizontal: 10,
+      paddingVertical: 8,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.hairline,
+    },
+    suggestionName: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: colors.text,
+    },
+    suggestionAddress: {
+      fontSize: 10,
+      color: colors.subtle,
+      marginTop: 1,
+    },
+    applePillsContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    applePill: {
+      backgroundColor: isDark ? colors.elevated : 'rgba(118, 118, 128, 0.12)',
+      borderRadius: 8,
+      paddingHorizontal: 11,
+      paddingVertical: 6,
+    },
+    applePillActive: {
+      backgroundColor: colors.wash,
+    },
+    applePillText: {
+      fontSize: 14,
+      fontWeight: '500',
+      color: colors.text,
+    },
+    applePillTextActive: {
+      color: colors.sage,
+      fontWeight: '600',
+    },
+    appleInlinePickerContainer: {
+      backgroundColor: isDark ? colors.surface : colors.canvas,
+      paddingHorizontal: 8,
+      paddingTop: 8,
+      paddingBottom: 14,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.hairline,
+    },
+    applePickerMonthNav: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      marginBottom: 4,
+    },
+    applePickerMonthBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+    },
+    applePickerMonthText: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text,
+    },
+    applePickerArrows: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 16,
+    },
+    applePickerArrowBtn: {
+      padding: 4,
+    },
+    appleWeekdaysRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-around',
+      paddingVertical: 6,
+      marginBottom: 2,
+    },
+    appleWeekdayText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: colors.subtle,
+      width: `${100 / 7}%`,
+      textAlign: 'center',
+    },
+    appleDaysGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+    },
+    appleDayCell: {
+      width: `${100 / 7}%`,
+      aspectRatio: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginVertical: 1,
+    },
+    appleDayCircle: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    appleDayCircleSelected: {
+      backgroundColor: colors.primary,
+    },
+    appleDayNumber: {
+      fontSize: 16,
+      color: colors.text,
+      fontWeight: '400',
+    },
+    appleDayNumberToday: {
+      color: colors.danger,
+      fontWeight: '700',
+    },
+    appleDayNumberSelected: {
+      color: colors.onPrimary,
+      fontWeight: '700',
+    },
+    appleNotesRow: {
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+    },
+    appleNotesInput: {
+      fontSize: 15,
+      color: colors.text,
+      minHeight: 64,
+      textAlignVertical: 'top',
+      padding: 0,
+    },
+    wheelStage: {
+      height: WHEEL_VISIBLE_HEIGHT,
+      position: 'relative',
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden',
+      marginVertical: 4,
+    },
+    wheelCenterPill: {
+      position: 'absolute',
+      left: 8,
+      right: 8,
+      top: WHEEL_PADDING,
+      height: WHEEL_ITEM_HEIGHT,
+      backgroundColor: colors.hairline,
+      borderRadius: 10,
+      zIndex: 1,
+    },
+    wheelColumn: {
+      flex: 1,
+      height: '100%',
+      zIndex: 2,
+    },
+    wheelItem: {
+      height: WHEEL_ITEM_HEIGHT,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    wheelItemText: {
+      fontSize: 15,
+      fontWeight: '500',
+      color: colors.subtle,
+      opacity: 0.65,
+    },
+    wheelItemTextSelected: {
+      color: colors.text,
+      fontWeight: '700',
+      opacity: 1,
+      transform: [{ scale: 1.08 }],
+    },
+    wheelDivider: {
+      zIndex: 2,
+      paddingHorizontal: 6,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    wheelDividerText: {
+      fontSize: 15,
+      fontWeight: '700',
+      color: colors.subtle,
+    },
+    appleStepperGroup: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    appleStepperMinusBtn: {
+      width: 32,
+      height: 32,
+      borderRadius: 8,
+      backgroundColor: isDark ? colors.elevated : 'rgba(118, 118, 128, 0.12)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    appleStepperPlusBtn: {
+      width: 32,
+      height: 32,
+      borderRadius: 8,
+      backgroundColor: isDark ? colors.elevated : 'rgba(118, 118, 128, 0.12)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    appleStepperInput: {
+      minWidth: 40,
+      height: 32,
+      backgroundColor: isDark ? colors.elevated : 'rgba(118, 118, 128, 0.08)',
+      borderRadius: 8,
+      textAlign: 'center',
+      fontSize: 15,
+      fontWeight: '600',
+      color: colors.text,
+      paddingVertical: 0,
+      paddingHorizontal: 6,
+    },
+    appleStepperUnit: {
+      fontSize: 15,
+      color: colors.subtle,
+      fontWeight: '400',
+      marginLeft: 4,
+    },
+    appleWeekdaysRowWrapper: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+    },
+    appleWeekdayPill: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: isDark ? colors.elevated : 'rgba(118, 118, 128, 0.12)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    appleWeekdayPillActive: {
+      backgroundColor: colors.primary,
+    },
+    appleWeekdayPillText: {
+      fontSize: 13,
+      fontWeight: '500',
+      color: colors.text,
+    },
+    appleWeekdayPillTextActive: {
+      color: colors.onPrimary,
+      fontWeight: '700',
+    },
+    appleSegmentWrapper: {
+      flexDirection: 'row',
+      backgroundColor: isDark ? colors.elevated : 'rgba(118, 118, 128, 0.12)',
+      borderRadius: 8,
+      padding: 2,
+    },
+    appleSegmentBtn: {
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 6,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    appleSegmentBtnActive: {
+      backgroundColor: isDark ? colors.canvas : colors.surface,
+    },
+    appleSegmentBtnText: {
+      fontSize: 13,
+      fontWeight: '500',
+      color: colors.subtle,
+    },
+    appleSegmentBtnTextActive: {
+      color: colors.sage,
+      fontWeight: '600',
+    },
+    appleMainMonthGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      backgroundColor: isDark ? colors.surface : colors.canvas,
+      paddingVertical: 4,
+    },
+    appleMonthDaysGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      backgroundColor: isDark ? colors.surface : colors.canvas,
+    },
+    appleDayCellContainer: {
+      width: `${100 / 7}%`,
+      aspectRatio: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 2,
+    },
+    appleDayNumberCircle: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: 'transparent',
+    },
+    appleDayNumberCircleActive: {
+      backgroundColor: colors.primary,
+    },
+    appleDayNumberText: {
+      fontSize: 13,
+      fontWeight: '500',
+      color: colors.text,
+    },
+    appleDayNumberTextActive: {
+      color: colors.onPrimary,
+      fontWeight: '700',
+    },
+    appleSubRow: {
+      paddingVertical: 10,
+      paddingLeft: 16,
+    },
+    appleSubRowLabel: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: colors.subtle,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+      marginBottom: 8,
+    },
+    applePillsScroll: {
+      flexDirection: 'row',
+      gap: 8,
+      paddingRight: 16,
+    },
+    appleSectionFooter: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 8,
+      paddingHorizontal: 16,
+      paddingVertical: 11,
+      backgroundColor: colors.wash,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.hairline,
+    },
+    appleSectionFooterText: {
+      fontSize: 13,
+      color: colors.sage,
+      lineHeight: 18,
+      flex: 1,
+      fontWeight: '600',
+    },
+    customRepeatModalContainer: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: isDark ? colors.canvas : colors.surface,
+      zIndex: 1100,
+    },
+    customRepeatHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.hairline,
+      backgroundColor: colors.surface,
+    },
+    customRepeatTitle: {
+      fontSize: 17,
+      fontWeight: '600',
+      color: colors.text,
+    },
+    customRepeatCancelText: {
+      fontSize: 16,
+      color: colors.text,
+      fontWeight: '400',
+    },
+    customRepeatDoneText: {
+      fontSize: 16,
+      color: colors.sage,
+      fontWeight: '600',
+    },
+    customRepeatScrollContent: {
+      padding: 16,
+      paddingBottom: 40,
+    },
+  });

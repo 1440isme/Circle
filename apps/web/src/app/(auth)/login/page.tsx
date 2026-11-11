@@ -68,7 +68,7 @@ function LoginForm() {
   };
 
   return (
-    <div className="rounded-3xl border border-white/80 dark:border-white/10 bg-white/70 dark:bg-circle-dark-surface/80 p-8 sm:p-10 shadow-xl shadow-circle-charcoal/5 dark:shadow-black/25 backdrop-blur-xl transition-all">
+    <div className="rounded-3xl border border-circle-hairline/90 dark:border-white/15 bg-white/92 dark:bg-circle-dark-surface/90 p-8 sm:p-10 shadow-xl shadow-circle-charcoal/5 dark:shadow-black/35 backdrop-blur-xl transition-all">
       {/* Card Header */}
       <div className="mb-8 text-center sm:text-left">
         <h1 className="text-2xl font-bold tracking-tight text-circle-charcoal dark:text-circle-dark-text sm:text-3xl">
@@ -173,7 +173,7 @@ function LoginForm() {
           <button
             type="submit"
             disabled={loginMutation.isPending}
-            className="w-full flex items-center justify-center gap-2 rounded-2xl bg-circle-charcoal dark:bg-circle-primary py-3.5 text-sm font-semibold text-white dark:text-circle-charcoal shadow-sm hover:bg-circle-charcoal/90 dark:hover:bg-circle-sage active:scale-[0.99] disabled:opacity-70 disabled:cursor-not-allowed transition-all"
+            className="w-full flex items-center justify-center gap-2 rounded-2xl bg-circle-charcoal dark:bg-circle-primary py-3.5 text-sm font-semibold text-white dark:text-circle-charcoal shadow-sm hover:bg-circle-charcoal/90 dark:hover:bg-circle-sage dark:hover:text-white active:scale-[0.99] disabled:opacity-70 disabled:cursor-not-allowed transition-all"
           >
             {loginMutation.isPending ? (
               <>
@@ -213,7 +213,7 @@ export default function LoginPage() {
     <AuthGuard mode="guest-only">
       <Suspense
         fallback={
-          <div className="flex min-h-[400px] w-full items-center justify-center rounded-3xl border border-white/80 dark:border-white/10 bg-white/70 dark:bg-circle-dark-surface/80 p-8 shadow-xl backdrop-blur-xl">
+          <div className="flex min-h-[400px] w-full items-center justify-center rounded-3xl border border-circle-hairline/90 dark:border-white/15 bg-white/92 dark:bg-circle-dark-surface/90 p-8 shadow-xl backdrop-blur-xl">
             <div className="flex items-center gap-2 text-sm text-circle-slate dark:text-circle-dark-muted">
               <Loader2 className="h-5 w-5 animate-spin text-circle-primary" />
               <span>{t.common.loading}</span>

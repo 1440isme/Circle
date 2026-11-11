@@ -12,6 +12,8 @@ import {
   CalendarEventEntity,
   CreateCalendarEventInput,
   UpdateCalendarEventInput,
+  RespondEventRsvpInput,
+  CalendarEventRsvpEntity,
   PlanningSheetEntity,
   CreatePlanningSheetInput,
   AddSheetColumnInput,
@@ -226,6 +228,21 @@ export async function deleteCalendarEventApi(
   await mobileApiRequest(`/circles/${circleId}/calendar-events/${eventId}`, {
     method: 'DELETE',
   });
+}
+
+export async function respondEventRsvpApi(
+  circleId: string,
+  eventId: string,
+  input: RespondEventRsvpInput,
+): Promise<CalendarEventRsvpEntity> {
+  const res = await mobileApiRequest<CalendarEventRsvpEntity>(
+    `/circles/${circleId}/calendar-events/${eventId}/rsvp`,
+    {
+      method: 'PUT',
+      body: JSON.stringify(input),
+    },
+  );
+  return res.data;
 }
 
 // =============================================================================

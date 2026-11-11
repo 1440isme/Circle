@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   X,
   Sliders,
@@ -76,6 +76,32 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
   const logoutMutation = useLogoutMutation();
 
   const [activeTab, setActiveTab] = useState<SettingsTabId>(defaultTab);
+  const [showConfirmRevokeAll, setShowConfirmRevokeAll] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
+  // Sync active tab when opened and handle Escape key
+  useEffect(() => {
+    if (!isOpen) return;
+    setActiveTab(defaultTab);
+  }, [isOpen, defaultTab]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (showLogoutConfirm) {
+        setShowLogoutConfirm(false);
+        return;
+      }
+      if (showConfirmRevokeAll) {
+        setShowConfirmRevokeAll(false);
+        return;
+      }
+      onClose();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isOpen, showLogoutConfirm, showConfirmRevokeAll, onClose]);
 
   // Sessions state & queries
   const { data: sessions = [], isLoading, isRefetching, refetch } = useSessionsQuery();
@@ -83,8 +109,6 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
   const revokeOtherSessionsMutation = useRevokeOtherSessionsMutation();
 
   const [revokingId, setRevokingId] = useState<string | null>(null);
-  const [showConfirmRevokeAll, setShowConfirmRevokeAll] = useState(false);
-  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
   const [errorNotice, setErrorNotice] = useState<string | null>(null);
 
@@ -214,34 +238,39 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
   const navItems: { id: SettingsTabId; label: string; icon: React.FC<{ className?: string }>; badge?: number }[] = [
     {
       id: 'appearance',
-      label: locale === 'vi' ? 'Giao diện' : 'Appearance',
+      label: t.nav.appearance,
       icon: Palette,
     },
     {
       id: 'security',
-      label: locale === 'vi' ? 'Mật khẩu & Bảo mật' : 'Password & Security',
+      label: t.nav.security,
       icon: Key,
     },
     {
       id: 'sessions',
-      label: locale === 'vi' ? 'Phiên đăng nhập' : 'Devices & Sessions',
+      label: t.nav.sessions,
       icon: Laptop,
       badge: sessions.length > 0 ? sessions.length : undefined,
     },
     {
       id: 'language',
-      label: locale === 'vi' ? 'Ngôn ngữ' : 'Language',
+      label: t.common.language,
       icon: Globe,
     },
     {
       id: 'help',
-      label: locale === 'vi' ? 'Trợ giúp' : 'Help & Support',
+      label: t.nav.helpSupport,
       icon: HelpCircle,
     },
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-fadeIn"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       {/* 2-Column Desktop Settings Dialog */}
       <div className="relative w-full max-w-4xl h-[620px] max-h-[92vh] rounded-2xl md:rounded-[24px] bg-white dark:bg-circle-dark-canvas border border-circle-hairline dark:border-circle-dark-hairline shadow-2xl flex flex-col md:flex-row overflow-hidden text-circle-charcoal dark:text-white">
 
@@ -251,7 +280,7 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
         <aside className="w-full md:w-64 shrink-0 flex flex-col border-b md:border-b-0 md:border-r border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas p-3 sm:p-4">
           <div className="px-2 py-1 mb-3">
             <h2 className="text-lg sm:text-xl font-bold tracking-tight text-circle-charcoal dark:text-white">
-              {t.common.systemSettings || 'Settings'}
+              {t.common.systemSettings}
             </h2>
           </div>
 
@@ -275,7 +304,7 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
                     <span className="truncate">{item.label}</span>
                   </div>
                   {item.badge !== undefined && (
-                    <span className="ml-2 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-circle-primary text-white dark:text-circle-charcoal">
+                    <span className="ml-2 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-circle-primary text-circle-charcoal">
                       {item.badge}
                     </span>
                   )}
@@ -330,23 +359,23 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
                   <div className="rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/30 dark:bg-circle-dark-surface p-4 flex items-center justify-between flex-wrap gap-3">
                     <div>
                       <p className="text-xs font-bold text-circle-charcoal dark:text-white">
-                        {locale === 'vi' ? 'Chế độ hiển thị' : 'Display Mode'}
+                        {t.nav.displayMode}
                       </p>
                     </div>
 
                     {/* Segmented control */}
-                    <div className="flex items-center bg-circle-canvas dark:bg-circle-dark-surface p-1 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline">
+                    <div className="flex items-center bg-circle-canvas dark:bg-circle-dark-canvas p-1 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline">
                       <button
                         type="button"
                         onClick={() => setTheme('light')}
                         title={t.common.themeLight}
                         aria-label={t.common.themeLight}
                         className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${theme === 'light'
-                            ? 'bg-white dark:bg-circle-dark-surface text-circle-sage dark:text-circle-primary shadow-xs font-bold'
-                            : 'text-circle-slate dark:text-white/60 hover:text-circle-charcoal dark:hover:text-white'
+                            ? 'bg-white dark:bg-circle-dark-elevated text-circle-sage dark:text-circle-dark-primary ring-1 ring-black/5 dark:ring-white/15 shadow-xs font-bold'
+                            : 'text-circle-slate dark:text-white/65 hover:text-circle-charcoal dark:hover:text-white'
                           }`}
                       >
-                        <Sun className="h-3.5 w-3.5 text-circle-slate dark:text-circle-dark-muted" />
+                        <Sun className="h-3.5 w-3.5" />
                         <span>{t.common.themeLight}</span>
                       </button>
                       <button
@@ -355,11 +384,11 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
                         title={t.common.themeDark}
                         aria-label={t.common.themeDark}
                         className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${theme === 'dark'
-                            ? 'bg-white dark:bg-circle-dark-surface text-circle-sage dark:text-circle-primary shadow-xs font-bold'
-                            : 'text-circle-slate dark:text-white/60 hover:text-circle-charcoal dark:hover:text-white'
+                            ? 'bg-white dark:bg-circle-dark-elevated text-circle-sage dark:text-circle-dark-primary ring-1 ring-black/5 dark:ring-white/15 shadow-xs font-bold'
+                            : 'text-circle-slate dark:text-white/65 hover:text-circle-charcoal dark:hover:text-white'
                           }`}
                       >
-                        <Moon className="h-3.5 w-3.5 text-circle-sage dark:text-circle-primary" />
+                        <Moon className="h-3.5 w-3.5" />
                         <span>{t.common.themeDark}</span>
                       </button>
                       <button
@@ -368,11 +397,11 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
                         title={t.common.themeSystem}
                         aria-label={t.common.themeSystem}
                         className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${theme === 'system'
-                            ? 'bg-white dark:bg-circle-dark-surface text-circle-sage dark:text-circle-primary shadow-xs font-bold'
-                            : 'text-circle-slate dark:text-white/60 hover:text-circle-charcoal dark:hover:text-white'
+                            ? 'bg-white dark:bg-circle-dark-elevated text-circle-sage dark:text-circle-dark-primary ring-1 ring-black/5 dark:ring-white/15 shadow-xs font-bold'
+                            : 'text-circle-slate dark:text-white/65 hover:text-circle-charcoal dark:hover:text-white'
                           }`}
                       >
-                        <Monitor className="h-3.5 w-3.5 text-circle-slate dark:text-white/60" />
+                        <Monitor className="h-3.5 w-3.5" />
                         <span>{t.common.themeSystem}</span>
                       </button>
                     </div>
@@ -383,10 +412,10 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
                 <div className="space-y-2">
                   <div className="flex items-center justify-between px-1">
                     <span className="text-xs font-bold uppercase tracking-wider text-circle-slate dark:text-white/60">
-                      {locale === 'vi' ? 'Phong cách thiết kế' : 'Design Style'}
+                      {t.nav.designStyle}
                     </span>
                     <span className="text-xs font-semibold text-circle-sage dark:text-circle-primary">
-                      {uiStyle === 'flat' ? (locale === 'vi' ? 'Flat Design (Mặc định)' : 'Flat (Default)') : 'Liquid Glass'}
+                      {uiStyle === 'flat' ? t.nav.flatDesignDefault : t.nav.liquidGlass}
                     </span>
                   </div>
 
@@ -403,7 +432,7 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <Layout className="h-4 w-4 text-circle-sage dark:text-circle-primary" />
-                          <span className="text-xs font-bold text-circle-charcoal dark:text-white">Flat Design</span>
+                          <span className="text-xs font-bold text-circle-charcoal dark:text-white">{t.nav.flatDesignDefault}</span>
                         </div>
                         {uiStyle === 'flat' && (
                           <div className="h-5 w-5 rounded-full bg-circle-sage dark:bg-circle-primary flex items-center justify-center text-white dark:text-circle-charcoal">
@@ -425,7 +454,7 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <Sparkles className="h-4 w-4 text-circle-sage dark:text-circle-primary" />
-                          <span className="text-xs font-bold text-circle-charcoal dark:text-white">Liquid Glass</span>
+                          <span className="text-xs font-bold text-circle-charcoal dark:text-white">{t.nav.liquidGlass}</span>
                         </div>
                         {uiStyle === 'glass' && (
                           <div className="h-5 w-5 rounded-full bg-circle-sage dark:bg-circle-primary flex items-center justify-center text-white dark:text-circle-charcoal">
@@ -565,7 +594,7 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
                     <button
                       type="submit"
                       disabled={!isPasswordFormValid || changePasswordMutation.isPending}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-circle-sage hover:bg-circle-sage/90 dark:bg-circle-primary dark:hover:bg-circle-primary/90 text-white font-medium text-xs sm:text-sm shadow-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-circle-sage hover:bg-circle-sage/90 dark:bg-circle-primary dark:hover:bg-circle-primary/90 text-white dark:text-circle-charcoal font-medium text-xs sm:text-sm shadow-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       {changePasswordMutation.isPending ? (
                         <>
@@ -604,7 +633,7 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
                 <div className="flex items-center justify-between px-1">
                   <div>
                     <p className="text-xs font-bold text-circle-charcoal dark:text-white">
-                      {t.auth.sessionsSubtitle || 'Các thiết bị đang đăng nhập tài khoản của bạn'}
+                      {t.auth.sessionsSubtitle}
                     </p>
                   </div>
                   <button
@@ -653,8 +682,8 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
                                 {session.browser} • {session.os}
                               </p>
                               {session.isCurrent && (
-                                <span className="inline-flex items-center gap-1 rounded-full bg-circle-primary text-white dark:text-circle-charcoal px-2 py-0.5 text-[10px] font-bold">
-                                  <span className="h-1.5 w-1.5 rounded-full bg-white dark:bg-circle-charcoal animate-presence-breathe" />
+                                <span className="inline-flex items-center gap-1 rounded-full bg-circle-primary text-circle-charcoal px-2 py-0.5 text-[10px] font-bold">
+                                  <span className="h-1.5 w-1.5 rounded-full bg-circle-charcoal animate-presence-breathe" />
                                   {t.auth.currentSession}
                                 </span>
                               )}
@@ -816,11 +845,13 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
                   </div>
 
                   {/* Version Info Card */}
-                  <div className="rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/30 dark:bg-circle-dark-surface p-4 text-center">
+                  <div className="rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/30 dark:bg-circle-dark-surface p-4 text-center space-y-1">
                     <p className="text-xs font-bold text-circle-charcoal dark:text-white">
-                      CIRCLE Web Platform v1.0.0
+                      {t.common.appName} — {t.auth.trustBadgeTitle}
                     </p>
-
+                    <p className="text-[11px] text-circle-slate dark:text-white/60">
+                      {t.common.slogan}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -830,11 +861,14 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
 
         {/* Modal: Confirm Revoke All Sessions */}
         {showConfirmRevokeAll && (
-          <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
+          <div
+            className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setShowConfirmRevokeAll(false);
+            }}
+          >
             <div className="w-full max-w-sm rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-5 shadow-2xl animate-scaleUp">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-circle-coral/15 text-circle-coral mb-3 border border-circle-coral/30">
-                <AlertTriangle className="h-5 w-5" />
-              </div>
+              <AlertTriangle className="h-6 w-6 text-circle-coral mb-3" />
               <h4 className="text-sm font-bold text-circle-charcoal dark:text-white">
                 {t.auth.revokeAllOtherSessions}
               </h4>
@@ -867,16 +901,19 @@ export const SystemSettingsModal: React.FC<SystemSettingsModalProps> = ({
 
         {/* Modal: Confirm Logout */}
         {showLogoutConfirm && (
-          <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
+          <div
+            className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setShowLogoutConfirm(false);
+            }}
+          >
             <div className="w-full max-w-sm rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-5 shadow-2xl animate-scaleUp">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-500/15 text-red-500 mb-3 border border-red-500/30">
-                <LogOut className="h-5 w-5" />
-              </div>
+              <LogOut className="h-6 w-6 text-red-500 mb-3" />
               <h4 className="text-sm font-bold text-circle-charcoal dark:text-white">
                 {t.auth.logout}
               </h4>
               <p className="mt-1.5 text-xs text-circle-slate dark:text-white/60 leading-relaxed">
-                {t.auth.logoutConfirm || 'Bạn có chắc chắn muốn đăng xuất khỏi tài khoản CIRCLE trên thiết bị này?'}
+                {t.auth.logoutConfirm}
               </p>
               <div className="mt-4 flex items-center justify-end gap-2">
                 <button

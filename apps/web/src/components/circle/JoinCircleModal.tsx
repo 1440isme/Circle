@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { KeyRound, X, Loader2, AlertCircle } from 'lucide-react';
 import { createCircleSchemas } from '@circle/shared';
 import { useJoinCircleMutation } from '../../hooks/use-circle-queries';
@@ -20,17 +20,26 @@ export const JoinCircleModal: React.FC = () => {
 
   const joinCircleMutation = useJoinCircleMutation();
 
-  if (!isJoinModalOpen) {
-    return null;
-  }
-
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     setInviteCode('');
     setFieldError(null);
     setServerError(null);
     setPendingNotice(null);
     setJoinModalOpen(false);
-  };
+  }, [setJoinModalOpen]);
+
+  useEffect(() => {
+    if (!isJoinModalOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') handleClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isJoinModalOpen, handleClose]);
+
+  if (!isJoinModalOpen) {
+    return null;
+  }
 
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawVal = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -71,9 +80,12 @@ export const JoinCircleModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in">
+    <div
+      onClick={(e) => e.target === e.currentTarget && handleClose()}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in"
+    >
       <div
-        className="w-full max-w-md rounded-3xl border border-circle-hairline dark:border-circle-dark-hairline bg-white/95 dark:bg-circle-dark-surface/95 p-6 sm:p-7 shadow-2xl backdrop-blur-xl transition-all"
+        className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-3xl glass-sheet p-6 sm:p-7 shadow-2xl transition-all"
         role="dialog"
         aria-modal="true"
         aria-labelledby="join-modal-title"
@@ -81,9 +93,7 @@ export const JoinCircleModal: React.FC = () => {
         {/* Header */}
         <div className="flex items-start justify-between gap-4 mb-5">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-circle-primary/15 text-circle-sage dark:text-circle-primary">
-              <KeyRound className="h-5 w-5" />
-            </div>
+            <KeyRound className="h-5 w-5 text-circle-sage dark:text-circle-dark-primary shrink-0" />
             <div>
               <h2
                 id="join-modal-title"
@@ -96,8 +106,9 @@ export const JoinCircleModal: React.FC = () => {
           <button
             type="button"
             onClick={handleClose}
+            aria-label={t.common.close}
             className="flex h-8 w-8 items-center justify-center rounded-full text-circle-slate dark:text-circle-dark-muted hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas hover:text-circle-charcoal dark:hover:text-circle-dark-text transition-colors"
-            title={t.common.cancel}
+            title={t.common.close}
           >
             <X className="h-4 w-4" />
           </button>
@@ -114,9 +125,7 @@ export const JoinCircleModal: React.FC = () => {
         {/* Pending Join Request Sent Alert */}
         {pendingNotice ? (
           <div className="space-y-4 py-2 text-center animate-fade-in">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
-              <KeyRound className="h-7 w-7" />
-            </div>
+            <KeyRound className="mx-auto h-7 w-7 text-amber-600 dark:text-amber-400" />
             <div>
               <h3 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
                 {t.circle.privacyPrivate}
@@ -129,7 +138,7 @@ export const JoinCircleModal: React.FC = () => {
               <button
                 type="button"
                 onClick={handleClose}
-                className="w-full rounded-2xl bg-circle-primary hover:bg-circle-primary/90 text-circle-charcoal py-2.5 text-xs font-bold transition-all shadow-sm"
+                className="w-full rounded-2xl bg-circle-primary hover:bg-circle-sage text-circle-charcoal dark:text-circle-dark-canvas hover:text-white dark:hover:text-white py-2.5 text-xs font-bold transition-all shadow-sm"
               >
                 {t.common.confirm}
               </button>

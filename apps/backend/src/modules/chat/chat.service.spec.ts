@@ -422,6 +422,7 @@ describe('ChatService — Module 4 Realtime Group Messaging', () => {
       mockPrisma.message.update.mockResolvedValue({
         ...mockMsg,
         content: 'Updated content',
+        previousContent: 'Original content',
         updatedAt: new Date(),
         sender: mockMember,
       });
@@ -430,7 +431,19 @@ describe('ChatService — Module 4 Realtime Group Messaging', () => {
 
       expect(res.success).toBe(true);
       expect(res.data.content).toBe('Updated content');
-      expect(mockGateway.broadcastMessageUpdated).toHaveBeenCalledWith('channel-1', expect.anything());
+      expect(res.data.previousContent).toBe('Original content');
+      expect(mockPrisma.message.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            content: 'Updated content',
+            previousContent: 'Original content',
+          }),
+        }),
+      );
+      expect(mockGateway.broadcastMessageUpdated).toHaveBeenCalledWith(
+        'channel-1',
+        expect.objectContaining({ previousContent: 'Original content' }),
+      );
     });
 
     it('TC-CHAT-016: should forbid non-author from editing message', async () => {

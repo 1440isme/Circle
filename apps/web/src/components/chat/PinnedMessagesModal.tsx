@@ -1,5 +1,6 @@
 'use client';
 
+import React, { useEffect } from 'react';
 import { X, Pin, FileText, Download, Camera } from 'lucide-react';
 import { MessageEntity, MessageType } from '@circle/types';
 import { useLanguageStore } from '../../stores/language.store';
@@ -25,17 +26,31 @@ export const PinnedMessagesModal: React.FC<PinnedMessagesModalProps> = ({
   const t = useLanguageStore((s) => s.t);
   const locale = useLanguageStore((s) => s.locale);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-150">
-      <div className="w-full max-w-lg rounded-[28px] glass-sheet shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
+    <div
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 backdrop-blur-sm p-4 animate-in fade-in duration-150"
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        className="w-full max-w-lg rounded-[28px] glass-sheet shadow-2xl overflow-hidden flex flex-col max-h-[82vh]"
+      >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-circle-hairline dark:border-circle-dark-hairline px-6 py-4">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-circle-canvas dark:bg-circle-dark-canvas text-circle-slate dark:text-circle-dark-muted">
-              <Pin className="h-4 w-4" />
-            </div>
+          <div className="flex items-center gap-2.5">
+            <Pin className="h-4 w-4 text-circle-sage dark:text-circle-primary shrink-0" />
             <h3 className="text-base font-bold text-circle-charcoal dark:text-circle-dark-text">
               {t.chat.pinnedMessagesTitle.replace('{count}', String(pinnedMessages.length))}
             </h3>
@@ -43,6 +58,7 @@ export const PinnedMessagesModal: React.FC<PinnedMessagesModalProps> = ({
           <button
             type="button"
             onClick={onClose}
+            aria-label={t.common.close}
             className="flex h-8 w-8 items-center justify-center rounded-full text-circle-slate dark:text-circle-dark-muted hover:bg-circle-canvas dark:hover:bg-circle-dark-elevated transition-colors"
           >
             <X className="h-4 w-4" />
@@ -50,7 +66,7 @@ export const PinnedMessagesModal: React.FC<PinnedMessagesModalProps> = ({
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
           {isLoading ? (
             <div className="space-y-3 py-6">
               {[1, 2, 3].map((i) => (
@@ -121,20 +137,20 @@ export const PinnedMessagesModal: React.FC<PinnedMessagesModalProps> = ({
                         const momentMeta = parseMomentReplyMetadata(msg.fileName);
                         if (momentMeta) {
                           return (
-                            <div className="mt-1 flex items-center gap-1.5 text-xs text-circle-primary font-medium">
-                              <Camera className="h-3.5 w-3.5 text-circle-primary" />
+                            <div className="mt-1 flex items-center gap-1.5 text-xs text-circle-sage dark:text-circle-primary font-medium">
+                              <Camera className="h-3.5 w-3.5 text-circle-sage dark:text-circle-primary" />
                               <span className="truncate">
                                 {momentMeta.caption
                                   ? `📸 "${momentMeta.caption}"`
-                                  : `📸 Khoảnh khắc của ${momentMeta.authorName}`}
+                                  : t.chat.momentOf.replace('{author}', momentMeta.authorName || t.chat.defaultMemberName)}
                               </span>
                             </div>
                           );
                         }
                         return (
-                          <div className="mt-1 flex items-center gap-1.5 text-xs text-circle-slate">
-                            <FileText className="h-3.5 w-3.5 text-circle-sage" />
-                            <span className="truncate">{msg.fileName || 'Attachment'}</span>
+                          <div className="mt-1 flex items-center gap-1.5 text-xs text-circle-slate dark:text-circle-dark-muted">
+                            <FileText className="h-3.5 w-3.5 text-circle-sage dark:text-circle-primary" />
+                            <span className="truncate">{msg.fileName || t.chat.fileDownload}</span>
                           </div>
                         );
                       })()}
@@ -143,7 +159,10 @@ export const PinnedMessagesModal: React.FC<PinnedMessagesModalProps> = ({
 
                   <button
                     type="button"
-                    onClick={() => onUnpin(msg.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onUnpin(msg.id);
+                    }}
                     className="shrink-0 rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface px-2.5 py-1 text-[11px] font-semibold text-circle-slate dark:text-circle-dark-muted hover:text-circle-coral hover:border-circle-coral/50 transition-colors shadow-sm"
                     title={t.chat.unpinAction}
                   >
@@ -165,7 +184,7 @@ export const PinnedMessagesModal: React.FC<PinnedMessagesModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full bg-circle-charcoal dark:bg-circle-primary px-4 py-1.5 text-xs font-semibold text-white dark:text-circle-charcoal hover:bg-circle-sage transition-all"
+            className="rounded-full bg-circle-charcoal dark:bg-circle-primary px-4 py-1.5 text-xs font-semibold text-white dark:text-circle-dark-canvas hover:bg-circle-sage dark:hover:bg-circle-sage dark:hover:text-white transition-all"
           >
             {t.chat.closePinned}
           </button>

@@ -5,11 +5,11 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
-  Dimensions,
+  useWindowDimensions,
   ScrollView,
   StatusBar,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Mic,
   MicOff,
@@ -19,8 +19,6 @@ import {
   Users,
   Volume2,
   VolumeX,
-  Radio,
-  Sparkles,
 } from 'lucide-react-native';
 import { CallType, CallSessionDetailEntity, CallParticipantEntity } from '@circle/types';
 import { useThemeStore } from '../../stores/theme.store';
@@ -40,9 +38,11 @@ export function MobileCallStageModal({
   visible,
   onClose,
 }: MobileCallStageModalProps) {
-  const { colors, theme } = useThemeStore();
-  const { t, locale } = useLanguageStore();
+  const { colors } = useThemeStore();
+  const { t } = useLanguageStore();
   const { user } = useAuthStore();
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const leaveCallMutation = useLeaveCallMutation();
 
   const circleId = callSession?.circleId || null;
@@ -54,6 +54,11 @@ export function MobileCallStageModal({
   );
   const [isSpeakerOn, setIsSpeakerOn] = useState(true);
   const [durationSeconds, setDurationSeconds] = useState(0);
+
+  // Sync video mute default when callType changes
+  useEffect(() => {
+    setIsVideoMuted(callSession?.callType === CallType.AUDIO);
+  }, [callSession?.id, callSession?.callType]);
 
   // Call timer
   useEffect(() => {
@@ -104,6 +109,8 @@ export function MobileCallStageModal({
     return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   };
 
+  const tileWidth = width > 400 ? '47%' : '46%';
+
   return (
     <Modal
       visible={visible}
@@ -112,7 +119,15 @@ export function MobileCallStageModal({
       onRequestClose={handleLeaveCall}
     >
       <StatusBar barStyle="light-content" />
-      <SafeAreaView style={[styles.container, { backgroundColor: '#0f1015' }]}>
+      <View
+        style={[
+          styles.container,
+          {
+            backgroundColor: '#0F1015',
+            paddingTop: insets.top,
+          },
+        ]}
+      >
         {/* Top Header Bar */}
         <View style={styles.headerBar}>
           <View style={styles.headerInfo}>
@@ -121,14 +136,14 @@ export function MobileCallStageModal({
                 <View style={styles.livePulseDot} />
                 <Text style={styles.liveBadgeText}>
                   {callSession.callType === CallType.VIDEO
-                    ? locale === 'vi' ? 'VIDEO STAGE' : 'VIDEO STAGE'
-                    : locale === 'vi' ? 'VOICE STAGE' : 'VOICE STAGE'}
+                    ? t.calls.videoStageLabel
+                    : t.calls.voiceStageLabel}
                 </Text>
               </View>
               <Text style={styles.durationText}>{formatDuration(durationSeconds)}</Text>
             </View>
             <Text style={styles.circleName} numberOfLines={1}>
-              {callSession.circle?.name || (locale === 'vi' ? 'Vòng tròn CIRCLE' : 'CIRCLE Circle')}
+              {callSession.circle?.name || t.calls.defaultCircleName}
             </Text>
           </View>
 
@@ -146,23 +161,30 @@ export function MobileCallStageModal({
           showsVerticalScrollIndicator={false}
         >
           {/* Local User Tile */}
-          <View style={[styles.participantTile, { borderColor: 'rgba(255,255,255,0.1)' }]}>
+          <View style={[styles.participantTile, { width: tileWidth, borderColor: 'rgba(255,255,255,0.1)' }]}>
             <View style={styles.avatarGlowWrapper}>
               <View style={[styles.avatarCircle, { backgroundColor: colors.primary }]}>
-                <Text style={styles.avatarInitials}>{getInitials(userDisplayName)}</Text>
+                <Text style={[styles.avatarInitials, { color: colors.onPrimary }]}>
+                  {getInitials(userDisplayName)}
+                </Text>
               </View>
               {!isAudioMuted && <View style={styles.speakingWaveRing} />}
             </View>
 
             <View style={styles.tileFooter}>
               <Text style={styles.participantName} numberOfLines={1}>
-                {userDisplayName} ({locale === 'vi' ? 'Bạn' : 'You'})
+                {userDisplayName} ({t.calls.youLabel})
               </Text>
-              <View style={[styles.micStatusBadge, { backgroundColor: isAudioMuted ? 'rgba(239, 68, 68, 0.25)' : 'rgba(16, 185, 129, 0.25)' }]}>
+              <View
+                style={[
+                  styles.micStatusBadge,
+                  { backgroundColor: isAudioMuted ? 'rgba(239, 68, 68, 0.25)' : 'rgba(52, 211, 153, 0.22)' },
+                ]}
+              >
                 {isAudioMuted ? (
                   <MicOff size={12} color="#ef4444" />
                 ) : (
-                  <Mic size={12} color="#10b981" />
+                  <Mic size={12} color="#34D399" />
                 )}
               </View>
             </View>
@@ -186,11 +208,13 @@ export function MobileCallStageModal({
             return (
               <View
                 key={p.id || idx}
-                style={[styles.participantTile, { borderColor: 'rgba(255,255,255,0.1)' }]}
+                style={[styles.participantTile, { width: tileWidth, borderColor: 'rgba(255,255,255,0.1)' }]}
               >
                 <View style={styles.avatarGlowWrapper}>
                   <View style={[styles.avatarCircle, { backgroundColor: '#374151' }]}>
-                    <Text style={styles.avatarInitials}>{getInitials(pName)}</Text>
+                    <Text style={[styles.avatarInitials, { color: '#FFFFFF' }]}>
+                      {getInitials(pName)}
+                    </Text>
                   </View>
                   {isSpeaking && <View style={styles.speakingWaveRing} />}
                 </View>
@@ -199,11 +223,16 @@ export function MobileCallStageModal({
                   <Text style={styles.participantName} numberOfLines={1}>
                     {pName}
                   </Text>
-                  <View style={[styles.micStatusBadge, { backgroundColor: isMuted ? 'rgba(239, 68, 68, 0.25)' : 'rgba(16, 185, 129, 0.25)' }]}>
+                  <View
+                    style={[
+                      styles.micStatusBadge,
+                      { backgroundColor: isMuted ? 'rgba(239, 68, 68, 0.25)' : 'rgba(52, 211, 153, 0.22)' },
+                    ]}
+                  >
                     {isMuted ? (
                       <MicOff size={12} color="#ef4444" />
                     ) : (
-                      <Mic size={12} color="#10b981" />
+                      <Mic size={12} color="#34D399" />
                     )}
                   </View>
                 </View>
@@ -213,11 +242,12 @@ export function MobileCallStageModal({
         </ScrollView>
 
         {/* Floating Call Stage Controls Bar */}
-        <View style={styles.controlsBar}>
+        <View style={[styles.controlsBar, { paddingBottom: Math.max(insets.bottom, 18) }]}>
           {/* Mic Toggle */}
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={() => setIsAudioMuted(!isAudioMuted)}
+            accessibilityLabel={isAudioMuted ? t.calls.unmuteShort : t.calls.muteShort}
             style={[
               styles.controlBtn,
               { backgroundColor: isAudioMuted ? 'rgba(239, 68, 68, 0.25)' : 'rgba(255, 255, 255, 0.12)' },
@@ -228,8 +258,8 @@ export function MobileCallStageModal({
             ) : (
               <Mic size={22} color="#ffffff" />
             )}
-            <Text style={styles.controlBtnLabel}>
-              {isAudioMuted ? (locale === 'vi' ? 'Bật mic' : 'Unmute') : (locale === 'vi' ? 'Tắt mic' : 'Mute')}
+            <Text style={styles.controlBtnLabel} numberOfLines={1}>
+              {isAudioMuted ? t.calls.unmuteShort : t.calls.muteShort}
             </Text>
           </TouchableOpacity>
 
@@ -238,6 +268,7 @@ export function MobileCallStageModal({
             <TouchableOpacity
               activeOpacity={0.8}
               onPress={() => setIsVideoMuted(!isVideoMuted)}
+              accessibilityLabel={isVideoMuted ? t.calls.camOnShort : t.calls.camOffShort}
               style={[
                 styles.controlBtn,
                 { backgroundColor: isVideoMuted ? 'rgba(239, 68, 68, 0.25)' : 'rgba(255, 255, 255, 0.12)' },
@@ -248,8 +279,8 @@ export function MobileCallStageModal({
               ) : (
                 <Video size={22} color="#ffffff" />
               )}
-              <Text style={styles.controlBtnLabel}>
-                {isVideoMuted ? (locale === 'vi' ? 'Bật cam' : 'Cam on') : (locale === 'vi' ? 'Tắt cam' : 'Cam off')}
+              <Text style={styles.controlBtnLabel} numberOfLines={1}>
+                {isVideoMuted ? t.calls.camOnShort : t.calls.camOffShort}
               </Text>
             </TouchableOpacity>
           )}
@@ -258,6 +289,7 @@ export function MobileCallStageModal({
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={() => setIsSpeakerOn(!isSpeakerOn)}
+            accessibilityLabel={isSpeakerOn ? t.calls.speakerOnShort : t.calls.speakerOffShort}
             style={[
               styles.controlBtn,
               { backgroundColor: isSpeakerOn ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.12)' },
@@ -268,8 +300,8 @@ export function MobileCallStageModal({
             ) : (
               <VolumeX size={22} color="rgba(255,255,255,0.5)" />
             )}
-            <Text style={styles.controlBtnLabel}>
-              {isSpeakerOn ? (locale === 'vi' ? 'Loa ngoài' : 'Speaker') : (locale === 'vi' ? 'Loa trong' : 'Earpiece')}
+            <Text style={styles.controlBtnLabel} numberOfLines={1}>
+              {isSpeakerOn ? t.calls.speakerOnShort : t.calls.speakerOffShort}
             </Text>
           </TouchableOpacity>
 
@@ -277,15 +309,16 @@ export function MobileCallStageModal({
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={handleLeaveCall}
+            accessibilityLabel={t.calls.leaveShort}
             style={[styles.controlBtn, styles.endCallBtn]}
           >
             <PhoneOff size={24} color="#ffffff" />
-            <Text style={[styles.controlBtnLabel, { color: '#ffffff', fontWeight: '700' }]}>
-              {locale === 'vi' ? 'Rời gọi' : 'Leave'}
+            <Text style={[styles.controlBtnLabel, { color: '#ffffff', fontWeight: '700' }]} numberOfLines={1}>
+              {t.calls.leaveShort}
             </Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </View>
     </Modal>
   );
 }
@@ -305,6 +338,8 @@ const styles = StyleSheet.create({
   },
   headerInfo: {
     gap: 3,
+    flex: 1,
+    paddingRight: 10,
   },
   badgeRow: {
     flexDirection: 'row',
@@ -315,7 +350,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+    backgroundColor: 'rgba(52, 211, 153, 0.2)',
     paddingHorizontal: 8,
     paddingVertical: 2.5,
     borderRadius: 8,
@@ -324,12 +359,12 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#10b981',
+    backgroundColor: '#34D399',
   },
   liveBadgeText: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#10b981',
+    color: '#34D399',
     letterSpacing: 0.5,
   },
   durationText: {
@@ -364,7 +399,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   participantTile: {
-    width: Dimensions.get('window').width > 400 ? '47%' : '46%',
     aspectRatio: 1,
     backgroundColor: 'rgba(255,255,255,0.04)',
     borderRadius: 20,
@@ -389,7 +423,6 @@ const styles = StyleSheet.create({
   avatarInitials: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#ffffff',
   },
   speakingWaveRing: {
     position: 'absolute',
@@ -397,7 +430,7 @@ const styles = StyleSheet.create({
     height: 76,
     borderRadius: 38,
     borderWidth: 2,
-    borderColor: '#10b981',
+    borderColor: '#34D399',
     opacity: 0.75,
   },
   tileFooter: {
@@ -425,7 +458,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 16,
-    paddingVertical: 18,
+    paddingTop: 18,
     paddingHorizontal: 20,
     backgroundColor: '#16181f',
     borderTopLeftRadius: 28,

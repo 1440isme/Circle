@@ -22,6 +22,7 @@ import {
   CursorPaginatedMessages,
 } from '@circle/types';
 import { useCircleStore } from '../stores/circle.store';
+import { useLanguageStore } from '../stores/language.store';
 import {
   getMobileSocket,
   joinMobileChannelRoom,
@@ -600,7 +601,11 @@ export function useChannelMessagesQuery(channelId: string | null) {
                   ? {
                       ...m,
                       ...updatedMsg,
-                      previousContent: updatedMsg.previousContent || m.content || m.previousContent,
+                      previousContent:
+                        updatedMsg.previousContent ??
+                        (m.content !== updatedMsg.content ? m.content : m.previousContent) ??
+                        m.previousContent ??
+                        null,
                     }
                   : m,
               ),
@@ -1015,6 +1020,8 @@ export function useMobileChannelTyping(channelId: string | null) {
   useEffect(() => {
     if (!channelId) return;
     let unsubscribed = false;
+    let attachedSocket: Awaited<ReturnType<typeof getMobileSocket>> = null;
+    let attachedHandler: ((data: any) => void) | null = null;
 
     getMobileSocket().then((socket) => {
       if (!socket || unsubscribed) return;
@@ -1028,7 +1035,8 @@ export function useMobileChannelTyping(channelId: string | null) {
         if (data.channelId !== channelId) return;
 
         const { userId, isTyping, userName } = data;
-        const resolvedName = userName || 'Thành viên';
+        const resolvedName =
+          userName || useLanguageStore.getState().t.chat.defaultMemberName;
         const timeouts = typingTimeoutsRef.current;
 
         if (isTyping) {
@@ -1056,15 +1064,16 @@ export function useMobileChannelTyping(channelId: string | null) {
         }
       };
 
+      attachedSocket = socket;
+      attachedHandler = handleUserTyping;
       socket.on('chat:user-typing', handleUserTyping);
-
-      return () => {
-        socket.off('chat:user-typing', handleUserTyping);
-      };
     });
 
     return () => {
       unsubscribed = true;
+      if (attachedSocket && attachedHandler) {
+        attachedSocket.off('chat:user-typing', attachedHandler);
+      }
       typingTimeoutsRef.current.forEach((t) => clearTimeout(t));
       typingTimeoutsRef.current.clear();
     };

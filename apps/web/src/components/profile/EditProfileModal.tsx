@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   X,
   User,
@@ -40,12 +40,12 @@ function getInitials(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-function formatDate(dateString?: string | null): string {
+function formatDate(dateString?: string | null, locale: 'vi' | 'en' = 'vi'): string {
   if (!dateString) return '';
   try {
     const d = new Date(dateString);
     if (isNaN(d.getTime())) return '';
-    return d.toLocaleDateString('vi-VN', {
+    return d.toLocaleDateString(locale === 'vi' ? 'vi-VN' : 'en-US', {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
@@ -58,6 +58,7 @@ function formatDate(dateString?: string | null): string {
 export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose }) => {
   const { user } = useAuth();
   const t = useLanguageStore((s) => s.t);
+  const locale = useLanguageStore((s) => s.locale);
   const updateProfileMutation = useUpdateProfileMutation();
 
   const [mode, setMode] = useState<ModalMode>('view');
@@ -89,6 +90,26 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
     setAvatarUrl(preview);
     e.target.value = '';
   };
+
+  const handleClose = useCallback(() => {
+    if (localAvatarPreview) {
+      revokePreviewUrl(localAvatarPreview);
+      setLocalAvatarPreview(null);
+    }
+    setSelectedAvatarFile(null);
+    onClose();
+  }, [localAvatarPreview, onClose]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        handleClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, handleClose]);
 
   useEffect(() => {
     if (user && isOpen) {
@@ -201,8 +222,15 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadeIn">
-      <div className="relative w-full max-w-md rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-6 shadow-2xl transition-all">
+    <div
+      onClick={(e) => e.target === e.currentTarget && handleClose()}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadeIn"
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        className="relative w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl glass-sheet p-6 shadow-2xl transition-all"
+      >
         {/* Modal Header */}
         <div className="flex items-center justify-between pb-4 border-b border-circle-hairline dark:border-circle-dark-hairline">
           <div className="flex items-center gap-2.5">
@@ -213,7 +241,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
                   setMode('view');
                   setErrorMessage(null);
                 }}
-                className="flex h-8 w-8 items-center justify-center rounded-lg bg-circle-canvas dark:bg-circle-dark-elevated text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-hairline/60 transition-colors"
+                className="flex h-8 w-8 items-center justify-center rounded-lg bg-circle-canvas dark:bg-circle-dark-elevated text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-hairline/60 dark:hover:bg-circle-dark-wash transition-colors"
                 title={t.common.cancel}
               >
                 <ArrowLeft className="h-4 w-4" />
@@ -227,8 +255,10 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
           </div>
           <button
             type="button"
-            onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-circle-canvas dark:bg-circle-dark-canvas text-circle-slate hover:bg-circle-wash hover:text-circle-charcoal dark:hover:text-circle-dark-text dark:hover:bg-circle-dark-wash transition-colors"
+            onClick={handleClose}
+            aria-label={t.common.close}
+            title={t.common.close}
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-circle-canvas dark:bg-circle-dark-canvas text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash hover:text-circle-charcoal dark:hover:text-circle-dark-text dark:hover:bg-circle-dark-wash transition-colors"
           >
             <X className="h-4 w-4" />
           </button>
@@ -242,7 +272,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
           </div>
         )}
         {errorMessage && (
-          <div className="mt-4 flex items-center gap-2 rounded-lg border border-circle-coral/30 bg-circle-coral/10 px-3.5 py-2 text-xs font-semibold text-circle-coral animate-fadeIn">
+          <div className="mt-4 flex items-center gap-2 rounded-lg border border-circle-coral/30 bg-circle-coral/10 px-3.5 py-2 text-xs font-semibold text-circle-coral dark:text-rose-400 animate-fadeIn">
             <X className="h-4 w-4 shrink-0" />
             <span>{errorMessage}</span>
           </div>
@@ -303,9 +333,9 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
             {/* Ngày sinh */}
             {currentDateOfBirth && (
               <div className="mt-2 flex items-center gap-1.5 text-xs font-medium text-circle-slate dark:text-circle-dark-muted bg-circle-canvas dark:bg-circle-dark-canvas px-3 py-1 rounded-lg border border-circle-hairline dark:border-circle-dark-hairline">
-                <Calendar className="h-3.5 w-3.5 text-circle-sage" />
+                <Calendar className="h-3.5 w-3.5 text-circle-sage dark:text-circle-dark-primary" />
                 <span>
-                  {t.auth.dateOfBirth}: {formatDate(currentDateOfBirth)}
+                  {t.auth.dateOfBirth}: {formatDate(currentDateOfBirth, locale)}
                 </span>
               </div>
             )}
@@ -360,7 +390,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
                         ? 'border-circle-primary ring-2 ring-circle-primary/30 bg-circle-primary text-circle-charcoal'
                         : 'border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-elevated text-circle-slate dark:text-circle-dark-muted'
                     }`}
-                    title="Mặc định viết tắt"
+                    title={t.circle.defaultInitialsPreset}
                   >
                     {currentInitials}
                   </button>
@@ -385,11 +415,11 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
                     type="button"
                     onClick={() => avatarFileInputRef.current?.click()}
                     disabled={isUploading}
-                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-elevated text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal hover:bg-circle-wash transition-all"
-                    title="Tải ảnh từ thiết bị lên R2 Storage"
+                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-elevated text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-all"
+                    title={t.circle.uploadFromDevice}
                   >
                     {isUploading ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin text-circle-primary" />
+                      <Loader2 className="h-3.5 w-3.5 animate-spin text-circle-sage dark:text-circle-dark-primary" />
                     ) : (
                       <Upload className="h-3.5 w-3.5" />
                     )}
@@ -400,10 +430,10 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
                     onClick={() => setShowCustomUrlInput(!showCustomUrlInput)}
                     className={`flex h-9 w-9 items-center justify-center rounded-lg border transition-all ${
                       showCustomUrlInput
-                        ? 'border-circle-primary bg-circle-primary/20 text-circle-sage dark:text-circle-primary'
-                        : 'border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-elevated text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal'
+                        ? 'border-circle-primary bg-circle-primary/20 text-circle-sage dark:text-circle-dark-primary'
+                        : 'border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-elevated text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white'
                     }`}
-                    title="Nhập URL ảnh tự chọn"
+                    title={t.circle.customUrlPreset}
                   >
                     <ImageIcon className="h-3.5 w-3.5" />
                   </button>
@@ -492,7 +522,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
             {/* Tên hiển thị */}
             <div>
               <label className="block text-xs font-bold text-circle-charcoal dark:text-circle-dark-text mb-1">
-                {t.auth.displayName} <span className="text-circle-coral">*</span>
+                {t.auth.displayName} <span className="text-circle-coral dark:text-rose-400">*</span>
               </label>
               <input
                 type="text"
@@ -534,7 +564,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
                 value={dateOfBirth}
                 onChange={(e) => setDateOfBirth(e.target.value)}
                 max={new Date().toISOString().split('T')[0]}
-                className="w-full rounded-lg border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas px-3.5 py-2 text-sm text-circle-charcoal dark:text-circle-dark-text focus:border-circle-sage focus:outline-none transition-all font-medium"
+                className="w-full rounded-lg border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas px-3.5 py-2 text-sm text-circle-charcoal dark:text-circle-dark-text focus:border-circle-sage focus:outline-none transition-all font-medium [color-scheme:light] dark:[color-scheme:dark]"
               />
             </div>
 

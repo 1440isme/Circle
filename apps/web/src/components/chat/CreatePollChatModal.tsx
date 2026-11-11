@@ -33,15 +33,24 @@ export const CreatePollChatModal: React.FC<CreatePollChatModalProps> = ({
   }, []);
 
   useEffect(() => {
+    if (isOpen) {
+      setQuestion('');
+      setOptions(['', '']);
+      setDeadline('');
+      setErrorMsg(null);
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      if (e.key === 'Escape' && !isSubmitting) {
         onClose();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, isSubmitting]);
 
   const createPollMutation = useCreatePollMutation(circleId);
 
@@ -93,7 +102,7 @@ export const CreatePollChatModal: React.FC<CreatePollChatModalProps> = ({
       await onPollCreated(createdPoll);
       onClose();
     } catch (err: any) {
-      setErrorMsg(err.message || 'Lỗi khi tạo bình chọn');
+      setErrorMsg(err.message || t.collab.createPollError);
     } finally {
       setIsSubmitting(false);
     }
@@ -101,14 +110,18 @@ export const CreatePollChatModal: React.FC<CreatePollChatModalProps> = ({
 
   return createPortal(
     <div
-      onClick={(e) => e.target === e.currentTarget && onClose()}
+      onClick={(e) => e.target === e.currentTarget && !isSubmitting && onClose()}
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150"
     >
-      <div className="relative w-full max-w-md max-h-[90vh] flex flex-col rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-6 shadow-xl animate-in zoom-in-95 duration-150">
+      <div
+        role="dialog"
+        aria-modal="true"
+        className="relative w-full max-w-md max-h-[90vh] flex flex-col rounded-2xl glass-sheet p-6 shadow-xl animate-in zoom-in-95 duration-150"
+      >
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-circle-hairline dark:border-circle-dark-hairline mb-4 shrink-0">
           <div className="flex items-center gap-2.5">
-            <Vote className="w-5 h-5 text-circle-primary shrink-0" />
+            <Vote className="w-5 h-5 text-circle-sage dark:text-circle-primary shrink-0" />
             <div>
               <h3 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
                 {t.collab.createPoll}
@@ -121,7 +134,9 @@ export const CreatePollChatModal: React.FC<CreatePollChatModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1 rounded-lg text-circle-slate hover:text-circle-charcoal dark:hover:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors"
+            disabled={isSubmitting}
+            aria-label={t.common.close}
+            className="p-1 rounded-lg text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -133,7 +148,11 @@ export const CreatePollChatModal: React.FC<CreatePollChatModalProps> = ({
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 overflow-y-auto custom-scrollbar space-y-4 pr-1">
+        <form
+          id="create-poll-chat-form"
+          onSubmit={handleSubmit}
+          className="flex flex-col flex-1 min-h-0 overflow-y-auto custom-scrollbar space-y-4 pr-1 pb-2"
+        >
           {/* Question */}
           <div>
             <label className="block text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text mb-1.5">
@@ -182,7 +201,7 @@ export const CreatePollChatModal: React.FC<CreatePollChatModalProps> = ({
               <button
                 type="button"
                 onClick={handleAddOption}
-                className="mt-2.5 inline-flex items-center gap-1.5 text-xs font-semibold text-circle-primary hover:text-circle-sage transition-colors"
+                className="mt-2.5 inline-flex items-center gap-1.5 text-xs font-semibold text-circle-sage dark:text-circle-primary hover:opacity-80 transition-colors"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>{t.collab.addOption}</span>
@@ -204,33 +223,34 @@ export const CreatePollChatModal: React.FC<CreatePollChatModalProps> = ({
               />
             </div>
           </div>
-
-          {/* Submit Buttons */}
-          <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-circle-hairline dark:border-circle-dark-hairline shrink-0">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isSubmitting}
-              className="px-3.5 py-2 rounded-xl text-xs font-semibold text-circle-slate hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors"
-            >
-              {t.common.cancel}
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-circle-primary hover:bg-circle-sage text-white transition-all shadow-xs disabled:opacity-50"
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>{t.common.loading}</span>
-                </>
-              ) : (
-                <span>{t.collab.createPoll}</span>
-              )}
-            </button>
-          </div>
         </form>
+
+        {/* Pinned Footer Submit Buttons (Never scrolled out of view) */}
+        <div className="flex items-center justify-end gap-2.5 pt-3 mt-2 border-t border-circle-hairline dark:border-circle-dark-hairline shrink-0">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isSubmitting}
+            className="px-3.5 py-2 rounded-xl text-xs font-semibold text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors"
+          >
+            {t.common.cancel}
+          </button>
+          <button
+            type="submit"
+            form="create-poll-chat-form"
+            disabled={isSubmitting}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-circle-charcoal dark:bg-circle-primary text-white dark:text-circle-dark-canvas hover:bg-circle-sage dark:hover:bg-circle-sage dark:hover:text-white transition-all shadow-xs disabled:opacity-50"
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span>{t.common.loading}</span>
+              </>
+            ) : (
+              <span>{t.collab.createPoll}</span>
+            )}
+          </button>
+        </div>
       </div>
     </div>,
     document.body

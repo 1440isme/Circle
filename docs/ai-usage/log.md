@@ -6070,3 +6070,43 @@
 - **Security & License Check:** An toàn tuyệt đối, zero credentials/secrets.
 - **Commit:** Pending
 - **PR:** Pending
+
+
+---
+
+## AI-0160: Live Brave UI/UX Audit, Leaflet Map Crash & Portal Containment Fixes, Dark-Mode Contrast Hardening, and Peer Review Remediation
+
+- **Date:** 2026-11-11 23:25:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE (Coordinator + Independent Peer Reviewer)
+- **Model:** Gemini / Antigravity
+- **Related Issue:** UI/UX Audit, Dark/Light & Liquid Glass Parity, Messenger Inline Edit History, Composer Poll & Mobile Parity
+- **Purpose:** Kiểm thử thực tế toàn bộ giao diện trên trình duyệt Brave thật (`127.0.0.1:9222`), vá các lỗi runtime Leaflet (`subdomains: undefined`), portal containment trap cho nested modals/lightboxes, tương phản Dark Mode hover/active, chồng lấn action bar khi mở rộng lịch sử sửa tin nhắn kiểu Messenger, và chuẩn hóa i18n trên Web & Mobile.
+- **Prompt Summary:** Rà soát và hoàn thiện triệt để UI/UX, Dark/Light/Liquid Glass, nút tạo Poll, Messenger-style inline edit history trên Web & Mobile, kiểm chứng trực tiếp qua DevTools của Brave và phối hợp đối chiếu độc lập bởi Peer Reviewer.
+- **Files Affected:**
+  - `apps/web/src/components/tools/CircleLocationView.tsx` (chỉ truyền `subdomains: 'abcd'` khi không dùng Mapbox token; thêm `dark:hover:text-white` khi hover `bg-circle-sage`)
+  - `apps/web/src/components/tools/MapLocationPickerModal.tsx` (vá crash `subdomains` Leaflet & wrap modal bằng `createPortal(..., document.body)`)
+  - `apps/mobile/src/components/tools/MobileLocationView.tsx` (đồng bộ fix `subdomains` Leaflet khi có `EXPO_PUBLIC_MAPBOX_TOKEN`)
+  - `apps/web/src/components/chat/MessageBubble.tsx` (wrap Image Lightbox bằng `createPortal(..., document.body)`, tách hover action bar ra trên cụm `[Edited + previousContent + bubble]`, thêm `dark:hover:text-white`)
+  - `apps/web/src/components/chat/MomentCardChatEmbed.tsx` (wrap Moment Lightbox bằng `createPortal(..., document.body)`)
+  - `apps/mobile/src/components/chat/MobileChatPollCard.tsx` (tính độ sáng tương đối bằng `isHexColorLight` để icon checkmark luôn tương phản trên nền màu theme `senderTextColor`)
+  - `apps/web/src/components/settings/SystemSettingsModal.tsx` (nâng tương phản pill active `dark:text-circle-dark-primary` và chuẩn hóa chuỗi `t.nav.flatDesignDefault`, `t.nav.liquidGlass`, `t.common.appName` / `t.auth.trustBadgeTitle` / `t.common.slogan`)
+  - `apps/web/src/app/globals.css` (nền `.dark .leaflet-container { background-color: #131316; }` và `prefers-reduced-motion: reduce`)
+  - 16 component Web bổ sung `dark:hover:text-white` trên các nút `hover:bg-circle-sage` dùng `dark:text-circle-dark-canvas` / `dark:text-circle-charcoal`
+  - `scripts/brave-bridge.mjs` (cập nhật import `chrome-devtools-mcp` và kết thúc Web Animation hữu hạn trước `page.screenshot`)
+- **AI-Generated Portion:** Các bản vá Leaflet options, React portals, Dark Mode hover contrast, layout bubble stack, độ sáng relative-luminance cho checkmark mobile và kịch bản kiểm chứng Brave Bridge.
+- **Human Modifications:** Trương Công Bình yêu cầu kiểm thử kỹ trên trình duyệt Brave thật (`127.0.0.1:9222`), bao phủ cả Web & Mobile, Glass có độ mờ cân bằng, sửa tin nhắn hiển thị nhãn `Đã chỉnh sửa`/`Edited` phía trên cùng hộp tin nhắn cũ mờ hơn xếp ngay trên tin nhắn hiện tại (không popup).
+- **Verification Method:**
+  - Brave DevTools live UI/screenshot audit (Web Desktop `1280x800`, Tablet `768x1024`, Mobile-Web `360x780`, 0 console/page/HTTP errors; xác nhận `toolbarOverlapsPrev: false`, `toolbarOverlapsToggle: false` trên edited message).
+  - Independent Peer Review across `apps/backend`, `packages/shared`, `apps/web`, `apps/mobile`.
+  - Build & Typecheck: `@circle/types`, `@circle/shared`, `apps/mobile` typecheck, `apps/web` `tsc --noEmit` & `next build` (12/12 routes), `apps/backend` `tsc --noEmit` -> PASSED.
+  - Unit tests: `npm test --prefix apps/backend` -> `11 suites, 186 tests passed`.
+  - Repo integrity: `./scripts/check-agent-map.sh` (122 framework files OK) & `./scripts/check-secrets.sh` (578 files, 0 leaks).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`, `agentic/playbooks/cross-cutting-gate.md`, `node_modules/leaflet/dist/leaflet-src.js`.
+- **Security & License Check:** Không rò rỉ secret/credential; giữ nguyên giấy phép mã nguồn dự án.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** Peer Review phát hiện sót `subdomains: undefined` trên `MobileLocationView.tsx`, 2 Web Lightboxes chưa `createPortal`, 36 nút Web thiếu `dark:hover:text-white`, `MobileChatPollCard.tsx` check icon trắng trên `senderTextColor` sáng, 3 chuỗi cứng trong `SystemSettingsModal.tsx`, và hover toolbar che hộp `previousContent` khi mở rộng.
+  - **Root Cause:** Kiểm thử UI trước đó tập trung ở modal chính và dark background tĩnh, chưa kiểm tra hover specificity trên dark utility classes và trạng thái mở rộng đồng thời của hover bar + `previousContent`.
+  - **Resolution / Fix:** Đã vá toàn bộ 4 nhóm vấn đề từ Peer Review và kiểm chứng lại trên Brave thật cùng chuỗi build/typecheck/unit test.
+- **Commit:** Pending
+- **PR:** Pending

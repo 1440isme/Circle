@@ -10,7 +10,8 @@ import {
   TextInput,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Mail, Lock, Eye, EyeOff, AlertCircle, ArrowRight } from 'lucide-react-native';
+import { Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { createAuthSchemas, getFirstZodError } from '@circle/shared';
 import { useThemeStore } from '../../src/stores/theme.store';
 import { useLanguageStore } from '../../src/stores/language.store';
@@ -22,11 +23,10 @@ import { HeaderControls } from '../../src/components/common/HeaderControls';
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { colors, resolvedTheme } = useThemeStore();
+  const insets = useSafeAreaInsets();
+  const { colors } = useThemeStore();
   const { t, locale } = useLanguageStore();
   const setAuth = useAuthStore((s) => s.setAuth);
-
-  const isDark = resolvedTheme === 'dark';
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -83,7 +83,7 @@ export default function LoginScreen() {
       style={[styles.container, { backgroundColor: colors.canvas }]}
     >
       {/* Top Header */}
-      <View style={styles.topBar}>
+      <View style={[styles.topBar, { paddingTop: insets.top + 12 }]}>
         <View style={styles.brandRow}>
           <View style={[styles.brandBadge, { backgroundColor: colors.primary }]}>
             <Text style={[styles.brandBadgeText, { color: colors.onPrimary }]}>C</Text>
@@ -206,7 +206,7 @@ export default function LoginScreen() {
               onPress={() => router.push('/(auth)/forgot-password')}
               activeOpacity={0.7}
             >
-              <Text style={[styles.forgotText, { color: colors.primary }]}>
+              <Text style={[styles.forgotText, { color: colors.sage }]}>
                 {t.auth.forgotPassword}
               </Text>
             </TouchableOpacity>
@@ -228,6 +228,7 @@ export default function LoginScreen() {
           styles.bottomBar,
           {
             backgroundColor: colors.canvas,
+            paddingBottom: Math.max(insets.bottom + 10, 20),
           },
         ]}
       >
@@ -239,7 +240,7 @@ export default function LoginScreen() {
           <Text style={[styles.linkSubText, { color: colors.subtle }]}>
             {t.auth.noAccount}{' '}
           </Text>
-          <Text style={[styles.linkHighlight, { color: colors.primary }]}>
+          <Text style={[styles.linkHighlight, { color: colors.sage }]}>
             {t.auth.signUpNow}
           </Text>
         </TouchableOpacity>
