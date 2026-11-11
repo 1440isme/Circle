@@ -47,9 +47,13 @@
 
 ---
 
-## 4. Cổng kiểm tra cuối trước khi Commit / Push (Sau lần sửa cuối cùng)
+## 4. Quy trình Push & PR Bắt buộc 5 Bước (Push Intent Contract, RULES.md §3)
 
-Chạy toàn bộ các lệnh dưới đây **sau lần chỉnh sửa code cuối cùng**:
+Khi kỹ sư ra lệnh *"push" / "push code lên"*, tuyệt đối **KHÔNG** chỉ chạy raw `git push` lên nhánh cũ/đã merge:
+
+1. **Check Issue & Epic Hierarchy:** Đảm bảo có GitHub Issue riêng (`1 Issue = 1 PR`) gắn Sub-issue dưới Epic Goal (`#22` hoặc Epic tuần tương ứng). Nếu chưa có -> tạo Issue & link `sub_issues` API trước khi push.
+2. **Check Branch (`<type>/<issue-id>-<slug>`):** Tạo/chuyển sang nhánh riêng theo đúng `<type>/<issue-id>-<slug>` (cấm tái sử dụng nhánh của PR đã merge).
+3. **Pre-commit Verify & ECA-signed Commit (`git commit -s`):** Chạy đủ cổng kiểm tra sau lần sửa cuối, cập nhật `docs/ai-usage/log.md` (`AI-XXXX`), rồi commit kèm `-s` (`Signed-off-by`) và mã issue `(#<issue-id>)`:
 
 ```bash
 npm run build --workspace=@circle/types
@@ -61,6 +65,9 @@ npm test --prefix apps/backend
 npm run build --prefix apps/web
 ./scripts/check-agent-map.sh
 ./scripts/check-secrets.sh
+./scripts/verify-ai-log.sh --working
+git commit -s -m "<type>(<scope>): <summary> (#<issue-id>)"
 ```
 
-- Cập nhật `docs/ai-usage/log.md` (`AI-XXXX` phản ánh đúng kết quả thật), chạy `./scripts/verify-ai-log.sh --working` (hoặc hook `pre-commit`), commit theo Conventional Commits trên nhánh `<type>/<issue-id>-<slug>`, mở PR vào `develop` với peer review chéo giữa Bình và Hạnh.
+4. **Push Remote Branch:** `git push -u origin <type>/<issue-id>-<slug>`.
+5. **Open Pull Request vào `develop` & Peer Review:** Tạo PR `--base develop` (cấm merge vào `main`), tiêu đề chứa `(#<issue-id>)`, body trả lời 8 câu hỏi PR template + `Closes #<issue-id>` + `> **Tracing:** Sub-task of Issue #<issue-id> | Parent Epic: #<epic-id>` + mã `AI-XXXX`, và gán reviewer chéo (`BH-bonnie` ↔ `1440isme`, cấm self-merge).
