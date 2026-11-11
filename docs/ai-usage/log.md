@@ -7040,3 +7040,38 @@
   - **Resolution / Fix:** N/A.
 - **Commit:** 5e48fa5
 - **PR:** Pending
+
+---
+
+## AI-0173: Bung các lần lặp lại và thiết lập cơ chế cuộn vô tận phân trang 2 chiều theo cửa sổ thời gian (giống tin nhắn) cho Lịch trình (#120)
+
+- **Date:** 2026-11-11 15:33:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120
+- **Purpose:** 
+  1. Khắc phục vấn đề "Theo lịch trình" chỉ hiển thị 1 ngày gốc của sự kiện: Thuật toán gom nhóm lịch trình `groupedScheduleByDate` giờ đây đã bung toàn bộ các lần lặp lại (`isEventOccurringOnDate`) và kiểm tra cờ hủy theo từng ngày lặp (`isEventCancelledOnDate`).
+  2. Thiết lập cơ chế tải cửa sổ thời gian và cuộn vô tận 2 chiều (Infinite Scroll) giống luồng tin nhắn:
+     - Mặc định tải cửa sổ 60 ngày quanh Hôm nay (15 ngày quá khứ + 45 ngày tương lai).
+     - Nút "Tải sự kiện trước đó (+30 ngày)" ở đỉnh danh sách để cuộn ngược về quá khứ.
+     - Nút "Tải sự kiện tiếp theo (+30 ngày)" ở cuối danh sách để mở rộng tiếp về tương lai.
+     - Tự động cuộn mượt và định vị vào "Hôm nay" hoặc sự kiện sắp diễn ra gần nhất khi chuyển sang chế độ lịch trình.
+- **Prompt Summary:** rồi đến xem theo lịch trình sao nó chỉ đang có 1 ngày được tạo. nó sẽ theo cơ chế giống tin nhắn ấy mặc định chỉ tải
+- **Files Affected:**
+  - `apps/web/src/components/tools/CircleCalendarView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% thuật toán bung chu kỳ lặp theo cửa sổ ngày và cơ chế cuộn phân trang 2 chiều.
+- **Human Modifications:** Người dùng phát hiện sự kiện lặp lại chỉ xuất hiện 1 ngày và lựa chọn phương án cửa sổ 60 ngày quanh Hôm nay có tải tiếp 2 chiều.
+- **Verification Method:**
+  - `npx tsc --noEmit --project apps/web/tsconfig.json`: Passed 0 errors.
+  - `bash ./scripts/check-agent-map.sh`: Passed (127 files).
+  - `bash ./scripts/check-secrets.sh`: Passed, 0 secret leaks.
+- **Official Source Checked:** PROJECT_GOD.md, agentic/RULES.md & agentic/CONVENTIONS.md.
+- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A.
+  - **Resolution / Fix:** N/A.
+- **Commit:** a154b22
+- **PR:** Pending

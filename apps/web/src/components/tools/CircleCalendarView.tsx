@@ -175,6 +175,13 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
   } | null>(null);
   const [isApplyingPollScope, setIsApplyingPollScope] = useState(false);
 
+  // Cửa sổ tải theo lịch trình (Infinite Scroll giống tin nhắn: mặc định 15 ngày quá khứ + 45 ngày tương lai)
+  const [schedulePastDays, setSchedulePastDays] = useState(15);
+  const [scheduleFutureDays, setScheduleFutureDays] = useState(45);
+  const [isLoadingMorePast, setIsLoadingMorePast] = useState(false);
+  const [isLoadingMoreFuture, setIsLoadingMoreFuture] = useState(false);
+  const hasInitialScrolledRef = useRef(false);
+
   // Delete & Cancel Scope Modals
   const [deleteModalState, setDeleteModalState] = useState<{
     isOpen: boolean;
@@ -504,13 +511,14 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
   };
 
   // Group schedule events chronologically by date: "Thứ, ngày tháng năm"
+  // Bung các lần lặp lại (recurrence) theo cửa sổ ngày quanh Hôm nay (Infinite Scroll giống tin nhắn)
   const groupedScheduleByDate = useMemo(() => {
-    const sorted = [...allCalendarEvents].sort(
-      (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
-    );
-
     const now = new Date();
     const todayDateOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+
+    // Cửa sổ thời gian: từ (Hôm nay - schedulePastDays) đến (Hôm nay + scheduleFutureDays)
+    const windowStartDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - schedulePastDays, 0, 0, 0, 0);
+    const windowEndDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + scheduleFutureDays, 23, 59, 59, 999);
 
     const map = new Map<
       string,
@@ -551,28 +559,48 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
       }
     };
 
-    for (const ev of sorted) {
+    for (const ev of allCalendarEvents) {
+      const { recurrenceConfig } = parseEventRecurrence(ev.description);
+      const isRecurring = Boolean(recurrenceConfig && recurrenceConfig.frequency !== 'none');
       const evStart = new Date(ev.startTime);
       const evEnd = ev.endTime ? new Date(ev.endTime) : evStart;
-      const startDay = new Date(evStart.getFullYear(), evStart.getMonth(), evStart.getDate());
-      const endDay = new Date(evEnd.getFullYear(), evEnd.getMonth(), evEnd.getDate());
 
-      if (startDay.getTime() === endDay.getTime()) {
-        addEventEntry(startDay, ev);
-      } else {
-        // Multi-day event: span every calendar day between startDay and endDay
-        const cur = new Date(startDay);
-        let count = 0;
-        while (cur.getTime() <= endDay.getTime() && count < 60) {
-          addEventEntry(new Date(cur), ev);
+      if (isRecurring) {
+        // Bung các lần lặp lại rơi vào từng ngày trong cửa sổ thời gian
+        const cur = new Date(windowStartDate);
+        while (cur.getTime() <= windowEndDate.getTime()) {
+          if (isEventOccurringOnDate(ev, cur)) {
+            const isCancelledThisOcc = isEventCancelledOnDate(ev, cur);
+            const occEvent = isCancelledThisOcc ? { ...ev, isCancelled: true } : ev;
+            addEventEntry(new Date(cur), occEvent);
+          }
           cur.setDate(cur.getDate() + 1);
-          count++;
+        }
+      } else {
+        // Sự kiện đơn hoặc kéo dài nhiều ngày
+        const startDay = new Date(evStart.getFullYear(), evStart.getMonth(), evStart.getDate());
+        const endDay = new Date(evEnd.getFullYear(), evEnd.getMonth(), evEnd.getDate());
+
+        if (startDay.getTime() === endDay.getTime()) {
+          if (startDay.getTime() >= windowStartDate.getTime() && startDay.getTime() <= windowEndDate.getTime()) {
+            addEventEntry(startDay, ev);
+          }
+        } else {
+          // Nhiều ngày: duyệt các ngày giao thoa với cửa sổ
+          const cur = new Date(Math.max(startDay.getTime(), windowStartDate.getTime()));
+          const spanEnd = new Date(Math.min(endDay.getTime(), windowEndDate.getTime()));
+          let count = 0;
+          while (cur.getTime() <= spanEnd.getTime() && count < 60) {
+            addEventEntry(new Date(cur), ev);
+            cur.setDate(cur.getDate() + 1);
+            count++;
+          }
         }
       }
     }
 
     return Array.from(map.values()).sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime());
-  }, [allCalendarEvents]);
+  }, [allCalendarEvents, schedulePastDays, scheduleFutureDays]);
 
   // Determine current active target for "Hôm nay" jump and red header highlighting
   const currentTargetDateLabel = useMemo(() => {
@@ -819,15 +847,38 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
     }
   };
 
+  // Tải thêm các ngày trong quá khứ (+30 ngày)
+  const handleLoadMorePast = () => {
+    if (isLoadingMorePast) return;
+    setIsLoadingMorePast(true);
+    setTimeout(() => {
+      setSchedulePastDays((prev) => prev + 30);
+      setIsLoadingMorePast(false);
+    }, 200);
+  };
+
+  // Tải thêm các ngày trong tương lai (+30 ngày)
+  const handleLoadMoreFuture = () => {
+    if (isLoadingMoreFuture) return;
+    setIsLoadingMoreFuture(true);
+    setTimeout(() => {
+      setScheduleFutureDays((prev) => prev + 30);
+      setIsLoadingMoreFuture(false);
+    }, 200);
+  };
+
   // Auto-scroll to today or next upcoming event when switching to schedule view
   useEffect(() => {
-    if (viewMode === 'upcoming' && !isAllEventsLoading && groupedScheduleByDate.length > 0) {
+    if (viewMode !== 'upcoming') {
+      hasInitialScrolledRef.current = false;
+    } else if (!hasInitialScrolledRef.current && !isAllEventsLoading && groupedScheduleByDate.length > 0) {
+      hasInitialScrolledRef.current = true;
       const timer = setTimeout(() => {
         const el = document.getElementById('schedule-current-target');
         if (el) {
           el.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
-      }, 100);
+      }, 120);
       return () => clearTimeout(timer);
     }
   }, [viewMode, isAllEventsLoading, groupedScheduleByDate.length]);
@@ -1790,24 +1841,61 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
 
       {/* Main Content Area */}
       {viewMode === 'upcoming' ? (
-        /* Schedule feed */
+        /* Schedule feed (Cơ chế cuộn vô tận giống tin nhắn) */
         <div className="space-y-6 w-full">
           {isAllEventsLoading ? (
             <div className="flex items-center justify-center py-16">
               <Loader2 className="h-6 w-6 animate-spin text-circle-slate" />
             </div>
-          ) : allCalendarEvents.length === 0 ? (
-            <div className="text-center py-20 rounded-2xl border border-dashed border-circle-hairline bg-white dark:bg-circle-dark-canvas p-8">
+          ) : groupedScheduleByDate.length === 0 ? (
+            <div className="text-center py-16 rounded-2xl border border-dashed border-circle-hairline bg-white dark:bg-circle-dark-canvas p-8">
               <CalendarIcon className="h-10 w-10 text-circle-slate/40 mx-auto mb-3" />
               <p className="text-sm font-semibold text-circle-charcoal dark:text-circle-dark-text">
-                Không có sự kiện nào theo lịch trình
+                Không có sự kiện nào trong khoảng thời gian này
               </p>
-              <p className="text-xs text-circle-slate dark:text-circle-dark-muted mt-1">
-                Tạo một sự kiện để lên lịch làm việc hoặc gặp gỡ cùng các thành viên.
+              <p className="text-xs text-circle-slate dark:text-circle-dark-muted mt-1 mb-4">
+                Đang hiển thị {schedulePastDays} ngày trước và {scheduleFutureDays} ngày tới quanh Hôm nay.
               </p>
+              <div className="flex items-center justify-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleLoadMorePast}
+                  className="px-3.5 py-1.5 rounded-full text-xs font-semibold border border-circle-hairline hover:border-teal-500 text-circle-slate hover:text-circle-charcoal cursor-pointer transition-colors"
+                >
+                  Tải thêm sự kiện quá khứ
+                </button>
+                <button
+                  type="button"
+                  onClick={handleLoadMoreFuture}
+                  className="px-3.5 py-1.5 rounded-full text-xs font-semibold border border-circle-hairline hover:border-teal-500 text-circle-slate hover:text-circle-charcoal cursor-pointer transition-colors"
+                >
+                  Tải thêm sự kiện tương lai
+                </button>
+              </div>
             </div>
           ) : (
-            groupedScheduleByDate.map(({ dateLabel, dateObj, isPast, isToday, isFuture, list }) => {
+            <>
+              {/* Nút tải sự kiện cũ hơn ở trên đỉnh (giống cuộn lên xem tin nhắn cũ) */}
+              <div className="flex justify-center pt-1 pb-2">
+                <button
+                  type="button"
+                  disabled={isLoadingMorePast}
+                  onClick={handleLoadMorePast}
+                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-semibold text-circle-slate dark:text-circle-dark-muted hover:text-teal-600 dark:hover:text-teal-400 bg-circle-wash/60 dark:bg-circle-dark-surface/60 hover:bg-circle-wash dark:hover:bg-circle-dark-surface border border-circle-hairline dark:border-white/10 transition-all cursor-pointer shadow-2xs active:scale-95 disabled:opacity-50"
+                  title="Tải thêm các ngày trước đó"
+                >
+                  {isLoadingMorePast ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin text-teal-600" />
+                      <span>Đang tải sự kiện trước đó...</span>
+                    </>
+                  ) : (
+                    <span>Tải sự kiện trước đó (+30 ngày)</span>
+                  )}
+                </button>
+              </div>
+
+              {groupedScheduleByDate.map(({ dateLabel, dateObj, isPast, isToday, isFuture, list }) => {
               const isCurrentTarget = dateLabel === currentTargetDateLabel;
 
               return (
@@ -1923,7 +2011,28 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                   </div>
                 </div>
               );
-            })
+            })}
+
+              {/* Nút tải thêm sự kiện tương lai ở cuối (giống cuộn xuống tin nhắn mới) */}
+              <div className="flex justify-center pt-3 pb-8">
+                <button
+                  type="button"
+                  disabled={isLoadingMoreFuture}
+                  onClick={handleLoadMoreFuture}
+                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-semibold text-circle-slate dark:text-circle-dark-muted hover:text-teal-600 dark:hover:text-teal-400 bg-circle-wash/60 dark:bg-circle-dark-surface/60 hover:bg-circle-wash dark:hover:bg-circle-dark-surface border border-circle-hairline dark:border-white/10 transition-all cursor-pointer shadow-2xs active:scale-95 disabled:opacity-50"
+                  title="Tải thêm các ngày tiếp theo"
+                >
+                  {isLoadingMoreFuture ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin text-teal-600" />
+                      <span>Đang tải sự kiện tiếp theo...</span>
+                    </>
+                  ) : (
+                    <span>Tải sự kiện tiếp theo (+30 ngày)</span>
+                  )}
+                </button>
+              </div>
+            </>
           )}
         </div>
       ) : (
