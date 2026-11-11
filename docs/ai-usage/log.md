@@ -6977,3 +6977,35 @@
   - **Resolution / Fix:** N/A.
 - **Commit:** 624fd33
 - **PR:** Pending
+
+---
+
+## AI-0171: Tinh gọn thẻ sự kiện ngoài lịch trình với 3 nút RSVP trực tiếp, lược bỏ nút hành động, ghi chú và lặp lại (#120)
+
+- **Date:** 2026-11-11 15:03:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120
+- **Purpose:** Tinh giản tối đa thẻ sự kiện ở ngoài giao diện lịch (cả chế độ "Theo lịch trình" lẫn cột "Lịch trình ngày" của chế độ xem tháng) theo đúng tinh thần ứng dụng:
+  1. Loại bỏ các nút hành động nhỏ (Chia sẻ, Sửa, Hủy, Xóa) trên thẻ sự kiện ở danh sách ngoài (người dùng chạm vào thẻ để mở modal chi tiết thực hiện các thao tác này).
+  2. Lược bỏ khối hiển thị ghi chú tóm tắt và badge lặp lại trên thẻ ngoài để tránh rườm rà.
+  3. Thay thế dropdown chọn phản hồi bằng 3 nút chọn trực tiếp (Tham gia, Chưa chắc, Bận) với phản hồi thị giác trực quan theo trạng thái đã chọn của người dùng, bấm 1 chạm mà không cần qua menu popover.
+- **Prompt Summary:** Phần thẻ sự kiện ở ngoài cũng bỏ các btn và ghi chú, lặp đi. Chỗ phản hồi để 3 nút để ấn được rồi.
+- **Files Affected:**
+  - `apps/web/src/components/tools/CircleCalendarView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% logic tinh gọn thẻ sự kiện, bố cục 3 nút phản hồi nhanh và dọn dẹp state thừa.
+- **Human Modifications:** Người dùng định hướng trải nghiệm và yêu cầu tinh giản thẻ lịch trình ngoài theo chuẩn ứng dụng di động.
+- **Verification Method:**
+  - `npx tsc --noEmit --project apps/web/tsconfig.json`: Passed 0 errors.
+  - `bash ./scripts/check-agent-map.sh`: Passed (127 files).
+  - `bash ./scripts/check-secrets.sh`: Passed, 0 secret leaks.
+- **Official Source Checked:** PROJECT_GOD.md, agentic/RULES.md & agentic/CONVENTIONS.md.
+- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A.
+  - **Resolution / Fix:** N/A.
+- **Commit:** 1771911
+- **PR:** Pending
