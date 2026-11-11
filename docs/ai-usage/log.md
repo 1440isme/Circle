@@ -6911,3 +6911,36 @@
   - **Resolution / Fix:** N/A.
 - **Commit:** c3d8f49
 - **PR:** Pending
+
+
+---
+
+## [AI-0193] - 2026-11-11
+
+- **Developer:** Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 2.5 Pro
+- **Related Issue:** #120
+- **Purpose:** Tinh chỉnh bố cục thẻ sự kiện trong chế độ "Theo lịch trình" (`CircleCalendarView.tsx`):
+  1. Tách thời gian diễn ra và địa điểm thành 2 dòng riêng biệt:
+     - Dòng 2: Thời gian với biểu tượng Clock (`formatEventTimeForDate`).
+     - Dòng 3: Địa điểm nằm riêng ở dòng bên dưới.
+  2. Khắc phục lỗi lặp 2 biểu tượng vị trí MapPin bằng cách loại bỏ icon thừa, chỉ để `EventLocationDisplay` tự render duy nhất 1 icon tương ứng (MapPin hoặc Video call).
+- **Prompt Summary:** thẻ sự kiện giờ với địa chỉ 2 dòng khác nhau và đang có 2 icon địa chỉ.
+- **Files Affected:**
+  - `apps/web/src/components/tools/CircleCalendarView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% tái cấu trúc 2 dòng riêng cho thời gian và địa điểm, loại bỏ icon thừa trước EventLocationDisplay.
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+  - npx tsc --noEmit --project apps/web/tsconfig.json: Passed 100%, 0 lỗi.
+  - bash ./scripts/check-agent-map.sh: 127/127 references resolve.
+  - bash ./scripts/check-secrets.sh: Passed, 0 secret leaks.
+- **Official Source Checked:** PROJECT_GOD.md, agentic/RULES.md & agentic/CONVENTIONS.md.
+- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A.
+  - **Resolution / Fix:** N/A.
+- **Commit:** 08a52a7
+- **PR:** Pending

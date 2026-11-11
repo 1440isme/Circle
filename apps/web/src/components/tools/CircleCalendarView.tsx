@@ -1740,20 +1740,18 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                             </div>
                           </div>
 
-                          {/* Row 2: Thời gian diễn ra & Địa điểm (gọn gàng, dài hết khoảng trống, không ghi chú thừa) */}
-                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs pt-0.5">
-                            <div className="flex items-center gap-1.5 text-teal-600 dark:text-teal-400 font-medium">
-                              <Clock className="h-3.5 w-3.5 shrink-0" />
-                              <span>{formatEventTimeForDate(ev, dateObj)}</span>
-                            </div>
-
-                            {ev.location && (
-                              <div className="flex items-center gap-1.5 text-circle-slate dark:text-circle-dark-muted">
-                                <MapPin className="h-3.5 w-3.5 shrink-0 text-circle-slate/70" />
-                                <EventLocationDisplay location={ev.location} className="text-xs" />
-                              </div>
-                            )}
+                          {/* Row 2: Thời gian diễn ra (dòng riêng) */}
+                          <div className="flex items-center gap-1.5 text-xs text-teal-600 dark:text-teal-400 font-medium">
+                            <Clock className="h-3.5 w-3.5 shrink-0" />
+                            <span>{formatEventTimeForDate(ev, dateObj)}</span>
                           </div>
+
+                          {/* Row 3: Địa điểm (dòng riêng bên dưới, duy nhất 1 icon từ EventLocationDisplay) */}
+                          {ev.location && (
+                            <div className="text-xs text-circle-slate dark:text-circle-dark-muted min-w-0">
+                              <EventLocationDisplay location={ev.location} className="text-xs" />
+                            </div>
+                          )}
                         </div>
                       );
                     })}
