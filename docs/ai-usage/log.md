@@ -7009,3 +7009,34 @@
   - **Resolution / Fix:** N/A.
 - **Commit:** 1771911
 - **PR:** Pending
+
+---
+
+## AI-0172: Thêm bộ chọn Bánh xe cuộn (Wheel Picker) Tháng & Năm và Modal hỏi phạm vi áp dụng khi bình chọn RSVP trên thẻ lịch (#120)
+
+- **Date:** 2026-11-11 15:15:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120
+- **Purpose:** 
+  1. Xử lý logic bình chọn tham gia (RSVP) trên thẻ sự kiện ở giao diện lịch ngoài (Theo lịch trình & Lịch trình ngày): Nếu sự kiện thuộc chuỗi lặp lại (`isRecurring`), hệ thống sẽ mở modal hỏi phạm vi áp dụng thay đổi (*"Chỉ lần này"*, *"Lần này và các lần tiếp theo"*, *"Tất cả các lần"*) tương tự như trong modal chi tiết, đảm bảo sự nhất quán và không làm biến đổi chuỗi lặp ngoài ý muốn.
+  2. Nâng cấp bộ chọn Tháng & Năm ở thanh điều hướng lịch chính ngoài thành dạng **Bánh xe cuộn (Wheel Picker / dạng xe lăn)** đồng bộ với `CustomDateTimePicker`, gồm thanh định vị trung tâm nổi bật, 2 cột Tháng & Năm cuộn mượt mà có snap-y, nút "Hôm nay" và nút "Xong".
+- **Prompt Summary:** khi bình chọn tham gia thiếu hỏi áp dụng. và chỗ lịch ngoài này chỗ ngày tháng khi ấn vào cho dạng xe lăn để chọn đi
+- **Files Affected:**
+  - `apps/web/src/components/tools/CircleCalendarView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% logic Wheel Picker, hiệu ứng snap-y cuộn bánh xe và modal phạm vi áp dụng RSVP.
+- **Human Modifications:** Người dùng phát hiện thiếu bước xác nhận phạm vi áp dụng khi RSVP trên sự kiện lặp lại và định hướng chuyển sang bộ chọn cuộn bánh xe.
+- **Verification Method:**
+  - `npx tsc --noEmit --project apps/web/tsconfig.json`: Passed 0 errors.
+  - `bash ./scripts/check-agent-map.sh`: Passed (127 files).
+  - `bash ./scripts/check-secrets.sh`: Passed, 0 secret leaks.
+- **Official Source Checked:** PROJECT_GOD.md, agentic/RULES.md & agentic/CONVENTIONS.md.
+- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A.
+  - **Resolution / Fix:** N/A.
+- **Commit:** 5e48fa5
+- **PR:** Pending

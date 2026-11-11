@@ -157,10 +157,23 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
     recurrenceConfigStr: string;
   } | null>(null);
 
-  // Month & Year Picker State in Month Navigator
+  // Month & Year Picker State in Month Navigator (Dạng Bánh xe / Xe lăn)
   const [isMonthPickerOpen, setIsMonthPickerOpen] = useState(false);
-  const [pickerYear, setPickerYear] = useState(() => new Date().getFullYear());
   const monthPickerRef = useRef<HTMLDivElement>(null);
+  const wheelMonthsScrollRef = useRef<HTMLDivElement>(null);
+  const wheelYearsScrollRef = useRef<HTMLDivElement>(null);
+  const isWheelProgrammaticScrollRef = useRef(false);
+  const wheelMonthTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const wheelYearTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Poll Scope State khi bình chọn tham gia trên thẻ ngoài cho sự kiện lặp lại
+  const [pollScopeState, setPollScopeState] = useState<{
+    isOpen: boolean;
+    event: CalendarEventEntity | null;
+    status: EventRsvpStatus | null;
+    occDate: Date;
+  } | null>(null);
+  const [isApplyingPollScope, setIsApplyingPollScope] = useState(false);
 
   // Delete & Cancel Scope Modals
   const [deleteModalState, setDeleteModalState] = useState<{
@@ -246,6 +259,237 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
     }
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isMonthPickerOpen]);
+
+  // Hằng số cho Bánh xe cuộn Tháng & Năm (Wheel Picker)
+  const ITEM_HEIGHT = 40;
+  const WHEEL_START_YEAR = 2015;
+  const WHEEL_END_YEAR = 2035;
+  const WHEEL_YEARS = useMemo(
+    () => Array.from({ length: WHEEL_END_YEAR - WHEEL_START_YEAR + 1 }, (_, i) => WHEEL_START_YEAR + i),
+    [],
+  );
+  const WHEEL_MONTH_NAMES = useMemo(
+    () => [
+      'Tháng 01',
+      'Tháng 02',
+      'Tháng 03',
+      'Tháng 04',
+      'Tháng 05',
+      'Tháng 06',
+      'Tháng 07',
+      'Tháng 08',
+      'Tháng 09',
+      'Tháng 10',
+      'Tháng 11',
+      'Tháng 12',
+    ],
+    [],
+  );
+
+  // Định vị bánh xe Tháng & Năm ngay khi mở popover
+  useEffect(() => {
+    if (isMonthPickerOpen) {
+      isWheelProgrammaticScrollRef.current = true;
+      const timer = setTimeout(() => {
+        if (wheelMonthsScrollRef.current) {
+          wheelMonthsScrollRef.current.scrollTop = (month - 1) * ITEM_HEIGHT;
+        }
+        if (wheelYearsScrollRef.current) {
+          const yIdx = Math.max(0, Math.min(WHEEL_YEARS.length - 1, year - WHEEL_START_YEAR));
+          wheelYearsScrollRef.current.scrollTop = yIdx * ITEM_HEIGHT;
+        }
+        setTimeout(() => {
+          isWheelProgrammaticScrollRef.current = false;
+        }, 60);
+      }, 10);
+      return () => clearTimeout(timer);
+    }
+  }, [isMonthPickerOpen, month, year, WHEEL_YEARS.length]);
+
+  useEffect(() => {
+    return () => {
+      if (wheelMonthTimerRef.current) clearTimeout(wheelMonthTimerRef.current);
+      if (wheelYearTimerRef.current) clearTimeout(wheelYearTimerRef.current);
+    };
+  }, []);
+
+  const handleWheelSelectMonth = (mIdx: number) => {
+    isWheelProgrammaticScrollRef.current = true;
+    if (wheelMonthsScrollRef.current) {
+      wheelMonthsScrollRef.current.scrollTo({ top: mIdx * ITEM_HEIGHT, behavior: 'smooth' });
+    }
+    setCurrentDate(new Date(year, mIdx, 1));
+    setTimeout(() => {
+      isWheelProgrammaticScrollRef.current = false;
+    }, 250);
+  };
+
+  const handleWheelSelectYear = (targetYear: number) => {
+    isWheelProgrammaticScrollRef.current = true;
+    const yIdx = Math.max(0, targetYear - WHEEL_START_YEAR);
+    if (wheelYearsScrollRef.current) {
+      wheelYearsScrollRef.current.scrollTo({ top: yIdx * ITEM_HEIGHT, behavior: 'smooth' });
+    }
+    setCurrentDate(new Date(targetYear, month - 1, 1));
+    setTimeout(() => {
+      isWheelProgrammaticScrollRef.current = false;
+    }, 250);
+  };
+
+  const handleWheelMonthScroll = () => {
+    if (isWheelProgrammaticScrollRef.current || !wheelMonthsScrollRef.current) return;
+    if (wheelMonthTimerRef.current) clearTimeout(wheelMonthTimerRef.current);
+    wheelMonthTimerRef.current = setTimeout(() => {
+      if (!wheelMonthsScrollRef.current || isWheelProgrammaticScrollRef.current) return;
+      const scrollTop = wheelMonthsScrollRef.current.scrollTop;
+      const idx = Math.min(11, Math.max(0, Math.round(scrollTop / ITEM_HEIGHT)));
+      if (idx !== month - 1) {
+        setCurrentDate(new Date(year, idx, 1));
+      }
+    }, 90);
+  };
+
+  const handleWheelYearScroll = () => {
+    if (isWheelProgrammaticScrollRef.current || !wheelYearsScrollRef.current) return;
+    if (wheelYearTimerRef.current) clearTimeout(wheelYearTimerRef.current);
+    wheelYearTimerRef.current = setTimeout(() => {
+      if (!wheelYearsScrollRef.current || isWheelProgrammaticScrollRef.current) return;
+      const scrollTop = wheelYearsScrollRef.current.scrollTop;
+      const idx = Math.min(WHEEL_YEARS.length - 1, Math.max(0, Math.round(scrollTop / ITEM_HEIGHT)));
+      const targetYear = WHEEL_YEARS[idx];
+      if (targetYear !== undefined && targetYear !== year) {
+        setCurrentDate(new Date(targetYear, month - 1, 1));
+      }
+    }, 90);
+  };
+
+  const handleWheelJumpToday = () => {
+    const now = new Date();
+    setCurrentDate(new Date(now.getFullYear(), now.getMonth(), 1));
+    handleWheelSelectMonth(now.getMonth());
+    handleWheelSelectYear(now.getFullYear());
+  };
+
+  // Xử lý RSVP từ thẻ ngoài (Nếu là sự kiện lặp lại thì hỏi phạm vi áp dụng)
+  const handleCardRsvpClick = (ev: CalendarEventEntity, status: EventRsvpStatus, occDate: Date) => {
+    if (ev.isCancelled || rsvpMutation.isPending || isApplyingPollScope) return;
+    const { recurrenceConfig } = parseEventRecurrence(ev.description);
+    const isRecurring = Boolean(recurrenceConfig && recurrenceConfig.frequency !== 'none');
+    if (isRecurring) {
+      setPollScopeState({
+        isOpen: true,
+        event: ev,
+        status,
+        occDate,
+      });
+    } else {
+      rsvpMutation.mutate({ eventId: ev.id, status });
+    }
+  };
+
+  const handleApplyPollScope = async (scope: 'this' | 'future' | 'all') => {
+    if (!pollScopeState || !pollScopeState.event || !pollScopeState.status) return;
+    const { event, status, occDate } = pollScopeState;
+    setIsApplyingPollScope(true);
+
+    const { recurrenceConfig, cleanDesc } = parseEventRecurrence(event.description);
+    const isRecurring = Boolean(recurrenceConfig && recurrenceConfig.frequency !== 'none');
+    const evStart = new Date(event.startTime);
+    const evEnd = event.endTime ? new Date(event.endTime) : evStart;
+    const durationMs = Math.max(0, evEnd.getTime() - evStart.getTime());
+
+    const occStartDate = new Date(occDate);
+    occStartDate.setHours(evStart.getHours(), evStart.getMinutes(), evStart.getSeconds(), 0);
+    const occEndDate = new Date(occStartDate.getTime() + durationMs);
+
+    try {
+      if (isRecurring && scope === 'this') {
+        const occKey = formatDateKey(occDate);
+        const currentExcluded = recurrenceConfig?.excludedDates || [];
+        const nextExcluded = currentExcluded.includes(occKey)
+          ? currentExcluded
+          : [...currentExcluded, occKey];
+        const updatedParentRecurrence: RecurrenceConfig = {
+          ...(recurrenceConfig!),
+          excludedDates: nextExcluded,
+        };
+        const updatedParentDesc = serializeRecurrence(updatedParentRecurrence, cleanDesc);
+
+        await updateMutation.mutateAsync({
+          eventId: event.id,
+          input: { description: updatedParentDesc },
+        });
+
+        const standaloneConfig: RecurrenceConfig = {
+          ...(recurrenceConfig!),
+          frequency: 'none',
+          endType: 'never',
+          endDate: null,
+          isCustom: false,
+        };
+        const standaloneDesc = serializeRecurrence(standaloneConfig, cleanDesc);
+
+        const created = await createMutation.mutateAsync({
+          eventTitle: event.eventTitle,
+          description: standaloneDesc,
+          location: event.location || undefined,
+          startTime: occStartDate.toISOString(),
+          endTime: occEndDate.toISOString(),
+          reminderTime: event.reminderTime || undefined,
+        });
+
+        await rsvpMutation.mutateAsync({ eventId: created.id, status });
+      } else if (isRecurring && scope === 'future') {
+        const splitDay = new Date(occStartDate.getFullYear(), occStartDate.getMonth(), occStartDate.getDate());
+        const evOriginalStartDay = new Date(evStart.getFullYear(), evStart.getMonth(), evStart.getDate());
+
+        if (splitDay.getTime() > evOriginalStartDay.getTime()) {
+          const dayBefore = new Date(splitDay);
+          dayBefore.setDate(dayBefore.getDate() - 1);
+          dayBefore.setHours(23, 59, 59, 999);
+
+          const updatedParentRecurrence: RecurrenceConfig = {
+            ...(recurrenceConfig!),
+            endType: 'on_date',
+            endDate: dayBefore,
+          };
+          const updatedParentDesc = serializeRecurrence(updatedParentRecurrence, cleanDesc);
+
+          await updateMutation.mutateAsync({
+            eventId: event.id,
+            input: { description: updatedParentDesc },
+          });
+
+          const childConfig: RecurrenceConfig = {
+            ...(recurrenceConfig!),
+            excludedDates: [],
+            cancelledDates: [],
+          };
+          const childDesc = serializeRecurrence(childConfig, cleanDesc);
+
+          const created = await createMutation.mutateAsync({
+            eventTitle: event.eventTitle,
+            description: childDesc,
+            location: event.location || undefined,
+            startTime: occStartDate.toISOString(),
+            endTime: occEndDate.toISOString(),
+            reminderTime: event.reminderTime || undefined,
+          });
+
+          await rsvpMutation.mutateAsync({ eventId: created.id, status });
+        } else {
+          await rsvpMutation.mutateAsync({ eventId: event.id, status });
+        }
+      } else {
+        await rsvpMutation.mutateAsync({ eventId: event.id, status });
+      }
+    } catch (err: any) {
+      console.warn('Failed to apply poll vote scope from card:', err);
+    } finally {
+      setIsApplyingPollScope(false);
+      setPollScopeState(null);
+    }
+  };
 
 
 
@@ -1645,8 +1889,8 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                                   <button
                                     key={btn.status}
                                     type="button"
-                                    disabled={ev.isCancelled || rsvpMutation.isPending}
-                                    onClick={() => rsvpMutation.mutate({ eventId: ev.id, status: btn.status })}
+                                    disabled={ev.isCancelled || rsvpMutation.isPending || isApplyingPollScope}
+                                    onClick={() => handleCardRsvpClick(ev, btn.status, dateObj)}
                                     className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs border transition-all cursor-pointer shadow-2xs ${
                                       isSelected
                                         ? btn.active
@@ -1699,14 +1943,11 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                   <ChevronLeft className="h-4 w-4" />
                 </button>
 
-                {/* Month & Year Picker Dropdown */}
+                {/* Month & Year Picker Dropdown (Dạng Bánh xe / Xe lăn) */}
                 <div ref={monthPickerRef} className="relative">
                   <button
                     type="button"
-                    onClick={() => {
-                      setPickerYear(year);
-                      setIsMonthPickerOpen((prev) => !prev);
-                    }}
+                    onClick={() => setIsMonthPickerOpen((prev) => !prev)}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash border border-transparent hover:border-circle-hairline dark:hover:border-white/10 transition-all cursor-pointer"
                     title="Chọn tháng và năm"
                   >
@@ -1715,53 +1956,92 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                   </button>
 
                   {isMonthPickerOpen && (
-                    <div className="absolute top-full left-0 mt-2 z-40 w-64 p-3.5 rounded-2xl bg-white dark:bg-circle-dark-surface border border-circle-hairline dark:border-white/10 shadow-xl space-y-3 animate-in fade-in zoom-in-95 duration-150">
-                      {/* Year Switcher */}
+                    <div className="absolute top-full left-0 mt-2 z-40 w-72 p-3.5 rounded-2xl bg-white dark:bg-circle-dark-surface border border-circle-hairline dark:border-white/10 shadow-2xl space-y-3 animate-in fade-in zoom-in-95 duration-150">
                       <div className="flex items-center justify-between px-1">
-                        <button
-                          type="button"
-                          onClick={() => setPickerYear((y) => y - 1)}
-                          className="p-1.5 rounded-lg text-circle-slate hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors cursor-pointer"
-                          title="Năm trước"
-                        >
-                          <ChevronLeft className="h-4 w-4" />
-                        </button>
-                        <span className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
-                          Năm {pickerYear}
+                        <span className="text-xs font-bold uppercase tracking-wider text-circle-slate dark:text-circle-dark-muted">
+                          Chọn Tháng & Năm
                         </span>
                         <button
                           type="button"
-                          onClick={() => setPickerYear((y) => y + 1)}
-                          className="p-1.5 rounded-lg text-circle-slate hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors cursor-pointer"
-                          title="Năm sau"
+                          onClick={handleWheelJumpToday}
+                          className="text-xs font-bold text-teal-600 dark:text-teal-400 hover:underline cursor-pointer"
                         >
-                          <ChevronRight className="h-4 w-4" />
+                          Hôm nay
                         </button>
                       </div>
 
-                      {/* 12 Months Grid */}
-                      <div className="grid grid-cols-3 gap-1.5">
-                        {Array.from({ length: 12 }).map((_, idx) => {
-                          const mNum = idx + 1;
-                          const isCurrentSelected = month === mNum && year === pickerYear;
-                          return (
-                            <button
-                              key={mNum}
-                              type="button"
-                              onClick={() => {
-                                setCurrentDate(new Date(pickerYear, mNum - 1, 1));
-                                setIsMonthPickerOpen(false);
-                              }}
-                              className={`py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                                isCurrentSelected
-                                  ? 'bg-teal-600 text-white shadow-xs font-extrabold'
-                                  : 'text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash'
-                              }`}
-                            >
-                              Thg {mNum}
-                            </button>
-                          );
-                        })}
+                      {/* BÁNH XE THÁNG VÀ NĂM CÓ CỤC ĐEN CỐ ĐỊNH (Dạng xe lăn) */}
+                      <div className="relative h-[200px] w-full overflow-hidden flex justify-center items-center select-none bg-circle-wash/30 dark:bg-circle-dark-canvas/50 rounded-xl border border-circle-hairline/60">
+                        {/* CỤC ĐEN CỐ ĐỊNH Ở CHÍNH GIỮA */}
+                        <div className="absolute inset-x-2 top-[80px] h-10 rounded-xl bg-circle-charcoal dark:bg-teal-600 shadow-md pointer-events-none z-0 border border-white/10" />
+
+                        {/* Cột Tháng (Tháng 01 - Tháng 12) - ẨN 100% THANH CUỘN */}
+                        <div
+                          ref={wheelMonthsScrollRef}
+                          onScroll={handleWheelMonthScroll}
+                          className="h-full w-28 overflow-y-auto snap-y snap-mandatory z-10 text-center py-0 scrollbar-none [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+                        >
+                          <div className="h-[80px] shrink-0 pointer-events-none" />
+                          {WHEEL_MONTH_NAMES.map((mName, idx) => {
+                            const isSelected = idx === month - 1;
+                            return (
+                              <div
+                                key={mName}
+                                onClick={() => handleWheelSelectMonth(idx)}
+                                className={`h-10 flex items-center justify-center snap-center text-xs font-bold transition-all cursor-pointer ${
+                                  isSelected
+                                    ? 'text-white dark:text-white scale-105 font-extrabold'
+                                    : 'text-circle-slate dark:text-circle-dark-muted opacity-35 hover:opacity-80 scale-90'
+                                }`}
+                              >
+                                {mName}
+                              </div>
+                            );
+                          })}
+                          <div className="h-[80px] shrink-0 pointer-events-none" />
+                        </div>
+
+                        {/* Dấu gạch chéo phân cách */}
+                        <div className="z-10 font-bold text-sm text-white/70 dark:text-white/70 pointer-events-none px-1">
+                          /
+                        </div>
+
+                        {/* Cột Năm - ẨN 100% THANH CUỘN */}
+                        <div
+                          ref={wheelYearsScrollRef}
+                          onScroll={handleWheelYearScroll}
+                          className="h-full w-20 overflow-y-auto snap-y snap-mandatory z-10 text-center py-0 scrollbar-none [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+                        >
+                          <div className="h-[80px] shrink-0 pointer-events-none" />
+                          {WHEEL_YEARS.map((y) => {
+                            const isSelected = y === year;
+                            return (
+                              <div
+                                key={y}
+                                onClick={() => handleWheelSelectYear(y)}
+                                className={`h-10 flex items-center justify-center snap-center text-xs font-bold transition-all cursor-pointer ${
+                                  isSelected
+                                    ? 'text-white dark:text-white scale-105 font-extrabold'
+                                    : 'text-circle-slate dark:text-circle-dark-muted opacity-35 hover:opacity-80 scale-90'
+                                }`}
+                              >
+                                {y}
+                              </div>
+                            );
+                          })}
+                          <div className="h-[80px] shrink-0 pointer-events-none" />
+                        </div>
+                      </div>
+
+                      {/* Nút Xong */}
+                      <div className="flex justify-end pt-1">
+                        <button
+                          type="button"
+                          onClick={() => setIsMonthPickerOpen(false)}
+                          className="px-4 py-1.5 rounded-xl text-xs font-bold bg-teal-600 text-white hover:bg-teal-700 transition-colors shadow-2xs cursor-pointer"
+                        >
+                          Xong
+                        </button>
                       </div>
                     </div>
                   )}
@@ -1990,8 +2270,8 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                                 <button
                                   key={btn.status}
                                   type="button"
-                                  disabled={isOccCancelled || rsvpMutation.isPending}
-                                  onClick={() => rsvpMutation.mutate({ eventId: ev.id, status: btn.status })}
+                                  disabled={isOccCancelled || rsvpMutation.isPending || isApplyingPollScope}
+                                  onClick={() => handleCardRsvpClick(ev, btn.status, new Date(selectedDate))}
                                   className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] border transition-all cursor-pointer ${
                                     isSelected
                                       ? btn.active
@@ -2018,6 +2298,76 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
       )}
 
 
+
+      {/* ============================================================== */}
+      {/* MODAL PHẠM VI ÁP DỤNG KHI BÌNH CHỌN TRÊN THẺ CHO SỰ KIỆN LẶP LẠI */}
+      {/* ============================================================== */}
+      {pollScopeState && pollScopeState.isOpen && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="w-full max-w-sm rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-5 shadow-2xl space-y-4">
+            <div>
+              <h4 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
+                Bạn muốn áp dụng thay đổi như thế nào ?
+              </h4>
+            </div>
+
+            <div className="space-y-2">
+              <button
+                type="button"
+                disabled={isApplyingPollScope}
+                onClick={() => handleApplyPollScope('this')}
+                className="w-full text-left p-3 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas hover:border-teal-500 hover:bg-teal-50/40 dark:hover:bg-teal-950/20 transition-all cursor-pointer disabled:opacity-50"
+              >
+                <p className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
+                  Chỉ lần này
+                </p>
+                <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted mt-0.5">
+                  Chỉ áp dụng phản hồi cho riêng ngày {formatDateOnly(pollScopeState.occDate)}, các lần khác giữ nguyên.
+                </p>
+              </button>
+
+              <button
+                type="button"
+                disabled={isApplyingPollScope}
+                onClick={() => handleApplyPollScope('future')}
+                className="w-full text-left p-3 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas hover:border-teal-500 hover:bg-teal-50/40 dark:hover:bg-teal-950/20 transition-all cursor-pointer disabled:opacity-50"
+              >
+                <p className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
+                  Lần này và các lần tiếp theo
+                </p>
+                <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted mt-0.5">
+                  Áp dụng phản hồi từ ngày {formatDateOnly(pollScopeState.occDate)} trở đi (sẽ tách làm 2 sự kiện có chu kỳ lặp khác nhau).
+                </p>
+              </button>
+
+              <button
+                type="button"
+                disabled={isApplyingPollScope}
+                onClick={() => handleApplyPollScope('all')}
+                className="w-full text-left p-3 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas hover:border-teal-500 hover:bg-teal-50/40 dark:hover:bg-teal-950/20 transition-all cursor-pointer disabled:opacity-50"
+              >
+                <p className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
+                  Tất cả các lần
+                </p>
+                <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted mt-0.5">
+                  Cập nhật phản hồi cho toàn bộ các lần diễn ra trong chuỗi lặp lại.
+                </p>
+              </button>
+            </div>
+
+            <div className="pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline flex justify-end">
+              <button
+                type="button"
+                disabled={isApplyingPollScope}
+                onClick={() => setPollScopeState(null)}
+                className="px-4 py-1.5 rounded-xl text-xs font-semibold text-circle-slate hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors cursor-pointer"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ============================================================== */}
       {/* POPUP TÙY CHỈNH QUY TẮC LẶP */}
