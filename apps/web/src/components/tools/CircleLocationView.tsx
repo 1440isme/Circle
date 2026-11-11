@@ -5,17 +5,15 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import {
   MapPin,
-  Navigation,
   Radio,
-  Clock,
   LocateFixed,
   RotateCw,
-  Users,
   ShieldCheck,
   Loader2,
-  ExternalLink,
   Send,
   CheckCircle2,
+  AlertCircle,
+  X,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguageStore } from '../../stores/language.store';
@@ -32,22 +30,16 @@ import { MessageType } from '@circle/types';
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
 
-interface CircleLocationViewProps {
-  circleId: string;
+function getLiveLocationTileUrl(isDark: boolean): string {
+  if (MAPBOX_TOKEN) {
+    const mapboxStyle = isDark ? 'dark-v11' : 'streets-v12';
+    return `https://api.mapbox.com/styles/v1/mapbox/${mapboxStyle}/tiles/512/{z}/{x}/{y}@2x?access_token=${MAPBOX_TOKEN}`;
+  }
+  return `https://{s}.basemaps.cartocdn.com/${isDark ? 'dark_all' : 'light_all'}/{z}/{x}/{y}{r}.png`;
 }
 
-function calculateDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371; // Earth radius in km
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
+interface CircleLocationViewProps {
+  circleId: string;
 }
 
 export const CircleLocationView: React.FC<CircleLocationViewProps> = ({ circleId }) => {
@@ -56,11 +48,12 @@ export const CircleLocationView: React.FC<CircleLocationViewProps> = ({ circleId
   const resolvedTheme = useThemeStore((s) => s.resolvedTheme);
   const isDark = resolvedTheme === 'dark';
 
-  const [selectedDuration, setSelectedDuration] = useState<number>(30); // 15, 30, 60 mins
+  const [selectedDuration, setSelectedDuration] = useState<number>(30);
   const [isLocating, setIsLocating] = useState(false);
   const [currentCoords, setCurrentCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [isSendingToChat, setIsSendingToChat] = useState(false);
   const [chatSentSuccess, setChatSentSuccess] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
 
   const targetLocationCoords = useCircleStore((s) => s.targetLocationCoords);
   const setTargetLocationCoords = useCircleStore((s) => s.setTargetLocationCoords);
@@ -70,11 +63,7 @@ export const CircleLocationView: React.FC<CircleLocationViewProps> = ({ circleId
   const markersGroupRef = useRef<L.FeatureGroup | null>(null);
   const tileLayerRef = useRef<L.TileLayer | null>(null);
 
-  const {
-    data: activeLocations = [],
-    isLoading: isLoadingLocations,
-    refetch,
-  } = useLiveLocationsQuery(circleId);
+  const { data: activeLocations = [], refetch } = useLiveLocationsQuery(circleId);
 
   const { data: circle } = useCircleDetailQuery(circleId);
   const channels = circle?.channels || [];
@@ -84,12 +73,10 @@ export const CircleLocationView: React.FC<CircleLocationViewProps> = ({ circleId
   const startMutation = useStartLiveLocationMutation(circleId);
   const stopMutation = useStopLiveLocationMutation(circleId);
 
-  // Check if current user is actively sharing
   const myActiveShare = activeLocations.find(
     (loc) => loc.member?.userId === user?.id || (loc as any).memberId === user?.id,
   );
 
-  // Fly to target coords when clicked from PresenceRail
   useEffect(() => {
     if (targetLocationCoords && mapRef.current) {
       mapRef.current.setView([targetLocationCoords.lat, targetLocationCoords.lng], 16, {
@@ -98,6 +85,7 @@ export const CircleLocationView: React.FC<CircleLocationViewProps> = ({ circleId
       setTargetLocationCoords(null);
     }
   }, [targetLocationCoords, setTargetLocationCoords]);
+
   useEffect(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -108,7 +96,6 @@ export const CircleLocationView: React.FC<CircleLocationViewProps> = ({ circleId
           });
         },
         () => {
-          // Saigon default
           setCurrentCoords({ lat: 10.7828, lng: 106.6958 });
         },
         { enableHighAccuracy: true, timeout: 6000 },
@@ -118,7 +105,6 @@ export const CircleLocationView: React.FC<CircleLocationViewProps> = ({ circleId
     }
   }, []);
 
-  // Format remaining time in MM:SS
   const getRemainingTime = (expiresAtStr: string) => {
     const diff = new Date(expiresAtStr).getTime() - Date.now();
     if (diff <= 0) return t.collab.sharingExpired;
@@ -148,23 +134,21 @@ export const CircleLocationView: React.FC<CircleLocationViewProps> = ({ circleId
         zoomControl: true,
         attributionControl: false,
       });
-    } catch (err) {
-      console.error('Failed to init map:', err);
+    } catch {
       return;
     }
 
-    // Mapbox Tiles (with fallback to ArcGIS if token is missing)
-    const mapboxStyle = isDark ? 'dark-v11' : 'streets-v12';
-    const tileUrl = MAPBOX_TOKEN
-      ? `https://api.mapbox.com/styles/v1/mapbox/${mapboxStyle}/tiles/512/{z}/{x}/{y}@2x?access_token=${MAPBOX_TOKEN}`
-      : 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}';
-
-    const tileLayer = L.tileLayer(tileUrl, {
-      maxZoom: MAPBOX_TOKEN ? 22 : 19,
+    const tileLayerOptions: L.TileLayerOptions = {
+      maxZoom: MAPBOX_TOKEN ? 22 : 20,
       tileSize: MAPBOX_TOKEN ? 512 : 256,
       zoomOffset: MAPBOX_TOKEN ? -1 : 0,
-      attribution: MAPBOX_TOKEN ? '© Mapbox © OpenStreetMap' : 'Esri',
-    }).addTo(map);
+      attribution: MAPBOX_TOKEN ? '© Mapbox © OpenStreetMap' : '© OpenStreetMap © CARTO',
+    };
+    if (!MAPBOX_TOKEN) {
+      tileLayerOptions.subdomains = 'abcd';
+    }
+
+    const tileLayer = L.tileLayer(getLiveLocationTileUrl(isDark), tileLayerOptions).addTo(map);
 
     tileLayerRef.current = tileLayer;
 
@@ -189,15 +173,13 @@ export const CircleLocationView: React.FC<CircleLocationViewProps> = ({ circleId
     };
   }, []);
 
-  // Update tile layer style when theme (dark/light) changes
+  // Update tile layer style when theme changes (for BOTH Mapbox and CartoDB)
   useEffect(() => {
-    if (!tileLayerRef.current || !MAPBOX_TOKEN) return;
-    const mapboxStyle = isDark ? 'dark-v11' : 'streets-v12';
-    const tileUrl = `https://api.mapbox.com/styles/v1/mapbox/${mapboxStyle}/tiles/512/{z}/{x}/{y}@2x?access_token=${MAPBOX_TOKEN}`;
-    tileLayerRef.current.setUrl(tileUrl);
+    if (!tileLayerRef.current) return;
+    tileLayerRef.current.setUrl(getLiveLocationTileUrl(isDark));
   }, [isDark]);
 
-  // 2. Render Markers onto Map whenever activeLocations or currentCoords change
+  // 2. Render Markers
   useEffect(() => {
     const map = mapRef.current;
     const markersGroup = markersGroupRef.current;
@@ -205,11 +187,10 @@ export const CircleLocationView: React.FC<CircleLocationViewProps> = ({ circleId
 
     markersGroup.clearLayers();
 
-    // Current User Marker (if available)
     if (currentCoords) {
       const userHtml = `
         <div class="relative flex items-center justify-center">
-          <div class="w-8 h-8 rounded-full bg-circle-primary text-white border-2 border-white dark:border-circle-dark-surface shadow-[0_0_15px_rgba(16,185,129,0.6)] flex items-center justify-center font-bold text-xs select-none">
+          <div class="w-8 h-8 rounded-full bg-circle-primary text-circle-charcoal border-2 border-white dark:border-circle-dark-surface shadow-[0_0_15px_rgba(16,185,129,0.6)] flex items-center justify-center font-bold text-xs select-none">
             ${user?.profile?.displayName?.substring(0, 2).toUpperCase() || 'ME'}
           </div>
           <span class="absolute -bottom-1 -right-1 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white"></span>
@@ -224,22 +205,24 @@ export const CircleLocationView: React.FC<CircleLocationViewProps> = ({ circleId
       });
 
       L.marker([currentCoords.lat, currentCoords.lng], { icon: userIcon })
-        .bindTooltip(user?.profile?.displayName || 'Tôi', { permanent: false, direction: 'top' })
+        .bindTooltip(user?.profile?.displayName || t.calls.youLabel, {
+          permanent: false,
+          direction: 'top',
+        })
         .addTo(markersGroup);
     }
 
-    // Active Members Markers
     activeLocations.forEach((loc) => {
       const isMe = loc.member?.userId === user?.id;
-      if (isMe && currentCoords) return; // avoid duplicate pin for current user
+      if (isMe && currentCoords) return;
 
-      const name = loc.member?.user?.profile?.displayName || 'Thành viên';
+      const name = loc.member?.user?.profile?.displayName || t.collab.memberDefault;
       const initials = name.substring(0, 2).toUpperCase();
       const avatarUrl = loc.member?.user?.profile?.avatarUrl;
 
       const memberHtml = `
         <div class="relative flex flex-col items-center group cursor-pointer">
-          <div class="w-9 h-9 rounded-full bg-circle-primary text-white border-2 border-white dark:border-circle-dark-surface shadow-[0_0_15px_rgba(16,185,129,0.7)] flex items-center justify-center overflow-hidden font-bold text-xs">
+          <div class="w-9 h-9 rounded-full bg-circle-primary text-circle-charcoal border-2 border-white dark:border-circle-dark-surface shadow-[0_0_15px_rgba(16,185,129,0.7)] flex items-center justify-center overflow-hidden font-bold text-xs">
             ${
               avatarUrl
                 ? `<img src="${avatarUrl}" class="w-full h-full object-cover" />`
@@ -259,18 +242,22 @@ export const CircleLocationView: React.FC<CircleLocationViewProps> = ({ circleId
         iconAnchor: [18, 24],
       });
 
+      const remainingText = t.collab.locationRemainingPrefix.replace(
+        '{time}',
+        getRemainingTime(loc.expiresAt),
+      );
+
       L.marker([loc.latitude, loc.longitude], { icon: memberIcon })
         .bindPopup(`
           <div class="p-1 text-xs">
             <p class="font-bold text-circle-charcoal">${name}</p>
             <p class="text-[10px] text-circle-slate mt-0.5">${loc.latitude.toFixed(4)}, ${loc.longitude.toFixed(4)}</p>
-            <p class="text-[10px] text-amber-600 font-semibold mt-1">Còn ${getRemainingTime(loc.expiresAt)}</p>
+            <p class="text-[10px] text-amber-600 font-semibold mt-1">${remainingText}</p>
           </div>
         `)
         .addTo(markersGroup);
     });
 
-    // Auto fit bounds if multiple pins exist
     if (markersGroup.getLayers().length > 0) {
       try {
         const bounds = markersGroup.getBounds();
@@ -279,7 +266,7 @@ export const CircleLocationView: React.FC<CircleLocationViewProps> = ({ circleId
         }
       } catch {}
     }
-  }, [activeLocations, currentCoords]);
+  }, [activeLocations, currentCoords, t, user]);
 
   const handleRecenter = () => {
     if (!mapRef.current || !currentCoords) return;
@@ -287,6 +274,7 @@ export const CircleLocationView: React.FC<CircleLocationViewProps> = ({ circleId
   };
 
   const handleStartSharing = () => {
+    setLocationError(null);
     setIsLocating(true);
     if (!navigator.geolocation) {
       startSharingWithCoords(10.7828, 106.6958);
@@ -316,29 +304,31 @@ export const CircleLocationView: React.FC<CircleLocationViewProps> = ({ circleId
         mapRef.current.setView([latitude, longitude], 15, { animate: true });
       }
     } catch (err: any) {
-      console.error('Failed to start live location:', err);
+      setLocationError(err?.message || t.collab.startLocationError);
     } finally {
       setIsLocating(false);
     }
   };
 
   const handleStopSharing = async () => {
+    setLocationError(null);
     try {
       await stopMutation.mutateAsync();
     } catch (err: any) {
-      console.error('Failed to stop live location:', err);
+      setLocationError(err?.message || t.collab.stopLocationError);
     }
   };
 
   const handleSendLocationToChat = async () => {
     if (!defaultChannel?.id || !currentCoords) return;
+    setLocationError(null);
     try {
       setIsSendingToChat(true);
       const payload = {
         lat: currentCoords.lat,
         lng: currentCoords.lng,
         title: t.collab.locationCardTitle,
-        address: 'Vị trí hiện tại',
+        address: t.collab.locationCurrentLabel,
       };
       await sendMessageMutation.mutateAsync({
         content: `[LOCATION_PIN]:${JSON.stringify(payload)}`,
@@ -346,8 +336,8 @@ export const CircleLocationView: React.FC<CircleLocationViewProps> = ({ circleId
       });
       setChatSentSuccess(true);
       setTimeout(() => setChatSentSuccess(false), 3000);
-    } catch (err) {
-      console.error('Failed to send location pin:', err);
+    } catch (err: any) {
+      setLocationError(err?.message || t.collab.locationSendToChatError);
     } finally {
       setIsSendingToChat(false);
     }
@@ -355,27 +345,29 @@ export const CircleLocationView: React.FC<CircleLocationViewProps> = ({ circleId
 
   return (
     <div className="relative flex-1 flex flex-col h-full bg-white dark:bg-circle-dark-bg overflow-hidden">
-      {/* Floating Glass Toolbar (Floating glass controls over interactive map) */}
-      <div className="pointer-events-none absolute top-4 left-0 right-0 z-[1000] flex justify-center px-4">
-        <div className="pointer-events-auto flex items-center justify-between px-5 py-2.5 rounded-full backdrop-blur-xl bg-white/94 dark:bg-circle-dark-surface/92 border border-circle-hairline/80 dark:border-white/12 shadow-md max-w-4xl w-full transition-all">
+      {/* Floating Glass Toolbar */}
+      <div className="pointer-events-none absolute top-14 lg:top-3 left-0 right-0 z-[1000] flex flex-col items-center gap-2 px-4">
+        <div className="pointer-events-auto flex flex-wrap items-center justify-between gap-2 px-4 sm:px-5 py-2.5 rounded-full glass shadow-md max-w-4xl w-full transition-all">
           <div className="flex items-center gap-2.5 min-w-0">
-            <MapPin className="w-5 h-5 text-circle-primary shrink-0" />
+            <MapPin className="w-5 h-5 text-circle-sage dark:text-circle-dark-primary shrink-0" />
             <div className="flex items-center gap-2 min-w-0">
               <h2 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text truncate">
                 {t.collab.locationTitle}
               </h2>
               {activeLocations.length > 0 && (
-                <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-circle-primary/15 text-circle-primary">
-                  {t.collab.activeBroadcastingCount.replace('{count}', String(activeLocations.length))}
+                <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-circle-primary/15 text-circle-sage dark:text-circle-dark-primary shrink-0">
+                  {t.collab.activeBroadcastingCount.replace(
+                    '{count}',
+                    String(activeLocations.length),
+                  )}
                 </span>
               )}
             </div>
           </div>
 
-          {/* Controls: Duration Selector + Actions */}
-          <div className="flex items-center gap-2 shrink-0">
-            {!myActiveShare ? (
-              <div className="flex items-center rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-circle-wash/80 dark:bg-circle-dark-canvas/80 p-0.5 text-xs">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {!myActiveShare && (
+              <div className="hidden sm:flex items-center rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-circle-wash/80 dark:bg-circle-dark-canvas/80 p-0.5 text-xs">
                 {[15, 30, 60].map((dur) => (
                   <button
                     key={dur}
@@ -384,14 +376,14 @@ export const CircleLocationView: React.FC<CircleLocationViewProps> = ({ circleId
                     className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-all ${
                       selectedDuration === dur
                         ? 'bg-white dark:bg-circle-dark-surface text-circle-charcoal dark:text-circle-dark-text shadow-2xs'
-                        : 'text-circle-slate hover:text-circle-charcoal dark:hover:text-circle-dark-text'
+                        : 'text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text'
                     }`}
                   >
                     {dur}m
                   </button>
                 ))}
               </div>
-            ) : null}
+            )}
 
             {myActiveShare ? (
               <button
@@ -407,7 +399,7 @@ export const CircleLocationView: React.FC<CircleLocationViewProps> = ({ circleId
                 type="button"
                 onClick={handleStartSharing}
                 disabled={isLocating || startMutation.isPending}
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold bg-circle-primary hover:bg-circle-sage text-white transition-all shadow-xs disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold bg-circle-primary hover:bg-circle-sage text-circle-charcoal dark:text-circle-dark-canvas hover:text-white dark:hover:text-white transition-all shadow-xs disabled:opacity-50"
               >
                 {isLocating ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -418,28 +410,26 @@ export const CircleLocationView: React.FC<CircleLocationViewProps> = ({ circleId
               </button>
             )}
 
-            {/* Send static checkin to chat */}
             <button
               type="button"
               onClick={handleSendLocationToChat}
               disabled={isSendingToChat || !currentCoords}
               className={`p-1.5 rounded-full border transition-all shadow-xs ${
                 chatSentSuccess
-                  ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                  : 'border-circle-hairline dark:border-circle-dark-hairline bg-white/90 dark:bg-circle-dark-surface/90 text-circle-slate hover:text-circle-charcoal dark:hover:text-white'
+                  ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+                  : 'border-circle-hairline dark:border-circle-dark-hairline bg-white/90 dark:bg-circle-dark-surface/90 text-circle-sage dark:text-circle-dark-primary hover:text-circle-charcoal dark:hover:text-white'
               }`}
               title={t.collab.sendStaticLocationHint}
             >
               {isSendingToChat ? (
-                <Loader2 className="w-4 h-4 animate-spin text-circle-primary" />
+                <Loader2 className="w-4 h-4 animate-spin" />
               ) : chatSentSuccess ? (
-                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
               ) : (
-                <Send className="w-4 h-4 text-circle-primary" />
+                <Send className="w-4 h-4" />
               )}
             </button>
 
-            {/* Recenter */}
             <button
               type="button"
               onClick={handleRecenter}
@@ -449,7 +439,6 @@ export const CircleLocationView: React.FC<CircleLocationViewProps> = ({ circleId
               <LocateFixed className="w-4 h-4" />
             </button>
 
-            {/* Refresh */}
             <button
               type="button"
               onClick={() => refetch()}
@@ -460,23 +449,41 @@ export const CircleLocationView: React.FC<CircleLocationViewProps> = ({ circleId
             </button>
           </div>
         </div>
+
+        {locationError && (
+          <div className="pointer-events-auto flex items-center justify-between gap-2 px-4 py-2 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-xs font-medium text-rose-700 dark:text-rose-400 max-w-4xl w-full backdrop-blur-md">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+              <span>{locationError}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setLocationError(null)}
+              className="p-0.5 rounded-full hover:bg-rose-500/20"
+              title={t.common.dismiss}
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Main Content Area: Pure Full-Width Leaflet Map Canvas */}
+      {/* Main Map Canvas */}
       <div className="flex-1 flex overflow-hidden relative w-full h-full">
-        {/* Leaflet Map Canvas */}
-        <div ref={containerRef} className="flex-1 h-full w-full z-0 [&_.leaflet-top]:!top-16" />
+        <div
+          ref={containerRef}
+          className="flex-1 h-full w-full z-0 [&_.leaflet-top]:!top-28 lg:[&_.leaflet-top]:!top-16"
+        />
 
         {MAPBOX_TOKEN && (
-          <div className="absolute bottom-4 right-4 z-10 bg-black/60 backdrop-blur-xs text-white text-[10px] px-2.5 py-1 rounded-md pointer-events-none opacity-80 select-none shadow-sm">
+          <div className="absolute bottom-4 right-4 z-10 bg-black/60 backdrop-blur-sm text-white text-[10px] px-2.5 py-1 rounded-md pointer-events-none opacity-80 select-none shadow-sm">
             Mapbox
           </div>
         )}
 
-        {/* Floating Privacy Notice */}
-        <div className="absolute bottom-4 left-4 z-10 bg-white/94 dark:bg-circle-dark-surface/92 backdrop-blur-xl border border-circle-hairline/80 dark:border-white/12 px-3.5 py-1.5 rounded-full flex items-center gap-2 text-[11px] text-circle-slate dark:text-circle-dark-muted shadow-md">
-          <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-          <span>{t.collab.locationPrivacyNotice}</span>
+        <div className="absolute bottom-4 left-4 z-10 glass px-3.5 py-1.5 rounded-full flex items-center gap-2 text-[11px] text-circle-slate dark:text-circle-dark-muted shadow-md max-w-[calc(100%-2rem)]">
+          <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+          <span className="truncate">{t.collab.locationPrivacyNotice}</span>
         </div>
       </div>
     </div>

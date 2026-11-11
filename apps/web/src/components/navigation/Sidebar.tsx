@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   MessageSquare,
   Image as ImageIcon,
@@ -11,13 +11,13 @@ import {
   Settings,
   Plus,
   HeartHandshake,
-  Users,
   Check,
   ChevronDown,
   Link2,
   Camera,
   MapPin,
   Vote,
+  X,
 } from 'lucide-react';
 import { useLanguageStore } from '../../stores/language.store';
 import { useCircleStore } from '../../stores/circle.store';
@@ -48,7 +48,7 @@ const NavItem: React.FC<NavItemProps> = ({ icon, label, count, active, onClick }
     {count !== undefined && (
       <span
         className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold shrink-0 ${
-          active ? 'bg-circle-sage text-white' : 'bg-circle-canvas dark:bg-circle-dark-elevated text-circle-slate dark:text-circle-dark-muted'
+          active ? 'bg-circle-primary text-circle-charcoal' : 'bg-circle-canvas dark:bg-circle-dark-elevated text-circle-slate dark:text-circle-dark-muted'
         }`}
       >
         {count}
@@ -66,21 +66,38 @@ export const Sidebar: React.FC = () => {
   const activeCircleView = useCircleStore((s) => s.activeCircleView);
   const setActiveCircleView = useCircleStore((s) => s.setActiveCircleView);
   const setActiveChannelId = useCircleStore((s) => s.setActiveChannelId);
+  const isMobileDrawerOpen = useCircleStore((s) => s.isMobileDrawerOpen);
+  const setMobileDrawerOpen = useCircleStore((s) => s.setMobileDrawerOpen);
 
   const { data: circles = [], isLoading } = useMyCirclesQuery();
-  const [isDropdownOpen, setIsDropdownOpen] = React.useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
 
-  const handleCopyLink = () => {
+  useEffect(() => {
+    if (!isMobileDrawerOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMobileDrawerOpen(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isMobileDrawerOpen, setMobileDrawerOpen]);
+
+  const handleCopyLink = async () => {
     if (activeCircle) {
       const url = `${window.location.origin}/@${activeCircle.handle}`;
-      navigator.clipboard.writeText(url);
-      alert(t.home.linkCopiedNotice);
+      try {
+        await navigator.clipboard.writeText(url);
+        setCopiedLink(true);
+        setTimeout(() => setCopiedLink(false), 2000);
+      } catch {
+        // Ignore clipboard errors in non-secure contexts
+      }
     }
   };
 
-  return (
-    <aside className="hidden md:flex w-64 shrink-0 flex-col gap-4 bg-white dark:bg-circle-dark-surface p-3 pt-3 h-full overflow-y-auto transition-colors border-r border-circle-hairline/60 dark:border-circle-dark-hairline/60">
-      {/* Circle Switcher Section (Flat, borderless container) */}
+  const renderSidebarBody = () => (
+    <>
+      {/* Circle Switcher Section */}
       <div className="p-1 transition-colors">
         <div className="flex items-center justify-between mb-2">
           <span className="text-[11px] font-bold tracking-wider text-circle-slate dark:text-circle-dark-muted uppercase px-1">
@@ -92,16 +109,25 @@ export const Sidebar: React.FC = () => {
                 type="button"
                 onClick={handleCopyLink}
                 className="flex h-7 w-7 items-center justify-center rounded-lg bg-circle-canvas dark:bg-circle-dark-canvas text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash hover:text-circle-sage dark:hover:text-circle-primary transition-colors"
-                title={t.home.copyLinkBtn}
+                title={copiedLink ? t.home.linkCopiedNotice : t.home.copyLinkBtn}
+                aria-label={t.home.copyLinkBtn}
               >
-                <Link2 className="h-3.5 w-3.5" />
+                {copiedLink ? (
+                  <Check className="h-3.5 w-3.5 text-circle-sage dark:text-circle-primary" />
+                ) : (
+                  <Link2 className="h-3.5 w-3.5" />
+                )}
               </button>
             )}
             <button
               type="button"
-              onClick={() => setCreateModalOpen(true)}
+              onClick={() => {
+                setMobileDrawerOpen(false);
+                setCreateModalOpen(true);
+              }}
               className="flex h-7 w-7 items-center justify-center rounded-lg bg-circle-canvas dark:bg-circle-dark-canvas text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash hover:text-circle-sage dark:hover:text-circle-primary transition-colors"
               title={t.nav.createCircle}
+              aria-label={t.nav.createCircle}
             >
               <Plus className="h-3.5 w-3.5" />
             </button>
@@ -139,161 +165,204 @@ export const Sidebar: React.FC = () => {
             {/* Circle Selector Dropdown */}
             {isDropdownOpen && (
               <div className="absolute left-0 right-0 top-full mt-1.5 z-30 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-1.5 shadow-xl animate-in fade-in duration-150">
-                  <div className="max-h-48 overflow-y-auto space-y-0.5">
-                    {circles.map((c) => (
-                      <button
-                        key={c.id}
-                        type="button"
-                        onClick={() => {
-                          setActiveCircle(c);
-                          setIsDropdownOpen(false);
-                        }}
-                        className={`flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left transition-colors ${
-                          activeCircle?.id === c.id
-                            ? 'bg-circle-wash dark:bg-circle-dark-wash text-circle-sage dark:text-circle-primary font-semibold'
-                            : 'hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas text-circle-charcoal dark:text-circle-dark-text'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2 truncate">
-                          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-circle-primary/10 text-[9px] font-bold">
-                            {c.name.slice(0, 2)}
-                          </span>
-                          <span className="text-xs font-medium truncate">{c.name}</span>
-                        </div>
-                        {activeCircle?.id === c.id && (
-                          <Check className="h-3.5 w-3.5 shrink-0 text-circle-sage dark:text-circle-primary" />
-                        )}
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="pt-1.5 mt-1 border-t border-circle-hairline dark:border-circle-dark-hairline">
+                <div className="max-h-48 overflow-y-auto space-y-0.5">
+                  {circles.map((c) => (
                     <button
+                      key={c.id}
                       type="button"
                       onClick={() => {
+                        setActiveCircle(c);
                         setIsDropdownOpen(false);
-                        setCreateModalOpen(true);
                       }}
-                      className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-circle-slate dark:text-circle-dark-muted hover:text-circle-sage dark:hover:text-circle-primary transition-colors"
+                      className={`flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left transition-colors ${
+                        activeCircle?.id === c.id
+                          ? 'bg-circle-wash dark:bg-circle-dark-wash text-circle-sage dark:text-circle-primary font-semibold'
+                          : 'hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas text-circle-charcoal dark:text-circle-dark-text'
+                      }`}
                     >
-                      <Plus className="h-3.5 w-3.5" />
-                      <span>+ {t.home.createCircleBtn}</span>
+                      <div className="flex items-center gap-2 truncate">
+                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-circle-primary/10 text-[9px] font-bold">
+                          {c.name.slice(0, 2)}
+                        </span>
+                        <span className="text-xs font-medium truncate">{c.name}</span>
+                      </div>
+                      {activeCircle?.id === c.id && (
+                        <Check className="h-3.5 w-3.5 shrink-0 text-circle-sage dark:text-circle-primary" />
+                      )}
                     </button>
-                  </div>
+                  ))}
                 </div>
-              )}
-            </div>
-          ) : (
-            /* Clean Empty Circle State */
-            <div className="flex flex-col gap-2 rounded-xl border border-dashed border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas/60 p-3 text-center">
-              <div className="mx-auto flex h-8 w-8 items-center justify-center rounded-full bg-circle-primary/10 text-circle-sage dark:text-circle-primary">
-                <HeartHandshake className="h-4 w-4" />
+
+                <div className="pt-1.5 mt-1 border-t border-circle-hairline dark:border-circle-dark-hairline">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsDropdownOpen(false);
+                      setMobileDrawerOpen(false);
+                      setCreateModalOpen(true);
+                    }}
+                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-circle-slate dark:text-circle-dark-muted hover:text-circle-sage dark:hover:text-circle-primary transition-colors"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    <span>{t.home.createCircleBtn}</span>
+                  </button>
+                </div>
               </div>
-              <div>
-                <h4 className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text">
-                  {t.nav.noActiveCircle}
-                </h4>
-                <p className="text-[10px] text-circle-slate dark:text-circle-dark-muted mt-0.5 leading-snug">
-                  {t.home.emptyCirclesTitle}
-                </p>
+            )}
+          </div>
+        ) : (
+          /* Clean Empty Circle State */
+          <div className="flex flex-col gap-2 rounded-xl border border-dashed border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas/60 p-3 text-center">
+            <div className="mx-auto flex h-8 w-8 items-center justify-center rounded-full bg-circle-primary/10 text-circle-sage dark:text-circle-primary">
+              <HeartHandshake className="h-4 w-4" />
+            </div>
+            <div>
+              <h4 className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text">
+                {t.nav.noActiveCircle}
+              </h4>
+              <p className="text-[10px] text-circle-slate dark:text-circle-dark-muted mt-0.5 leading-snug">
+                {t.home.emptyCirclesTitle}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setMobileDrawerOpen(false);
+                setCreateModalOpen(true);
+              }}
+              className="w-full rounded-lg bg-circle-charcoal dark:bg-circle-primary py-1.5 text-xs font-medium text-white dark:text-circle-charcoal shadow-sm hover:bg-circle-sage hover:text-white dark:hover:text-white transition-all active:scale-98"
+            >
+              {t.home.createCircleBtn}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Intimate Circle Navigation: Single Chat & Moments */}
+      <div className="flex flex-col gap-1">
+        <NavItem
+          icon={<MessageSquare className="h-4 w-4" />}
+          label={t.chat.title}
+          active={!activeCircleView || activeCircleView === 'chat' || activeCircleView === 'general'}
+          onClick={() => {
+            setActiveCircleView('chat');
+            const defaultChannel = (activeCircle as any)?.channels?.[0];
+            if (defaultChannel) {
+              setActiveChannelId(defaultChannel.id);
+            }
+          }}
+        />
+        <NavItem
+          icon={<Camera className="h-4 w-4" />}
+          label={t.moments.momentWidgetTitle}
+          active={activeCircleView === 'moments'}
+          onClick={() => setActiveCircleView('moments')}
+        />
+      </div>
+
+      {/* Divider line between navigation and group utilities */}
+      <div className="border-t border-circle-hairline/80 dark:border-circle-dark-hairline/80 my-1 mx-1" />
+
+      {/* Group Tools & Utilities */}
+      <div className="flex flex-col gap-1 pt-1">
+        <span className="px-3 text-xs font-semibold tracking-wider text-circle-slate dark:text-circle-dark-muted uppercase mb-1">
+          {t.nav.groupTools}
+        </span>
+        <NavItem
+          icon={<ImageIcon className="h-4 w-4" />}
+          label={t.nav.photoAlbum}
+          active={activeCircleView === 'albums'}
+          onClick={() => setActiveCircleView('albums')}
+        />
+        <NavItem
+          icon={<Calendar className="h-4 w-4" />}
+          label={t.nav.calendarEvents}
+          active={activeCircleView === 'calendar'}
+          onClick={() => setActiveCircleView('calendar')}
+        />
+        <NavItem
+          icon={<FileSpreadsheet className="h-4 w-4" />}
+          label={t.nav.planningSheet}
+          active={activeCircleView === 'planning'}
+          onClick={() => setActiveCircleView('planning')}
+        />
+        <NavItem
+          icon={<MapPin className="h-4 w-4" />}
+          label={t.nav.liveLocation}
+          active={activeCircleView === 'location'}
+          onClick={() => setActiveCircleView('location')}
+        />
+        <NavItem
+          icon={<Vote className="h-4 w-4" />}
+          label={t.nav.groupPoll}
+          active={activeCircleView === 'polls'}
+          onClick={() => setActiveCircleView('polls')}
+        />
+        <NavItem
+          icon={<Compass className="h-4 w-4" />}
+          label={t.nav.luckyWheel}
+          active={activeCircleView === 'wheel'}
+          onClick={() => setActiveCircleView('wheel')}
+        />
+        <NavItem
+          icon={<HelpCircle className="h-4 w-4" />}
+          label={t.nav.reflectionMailbox}
+          active={activeCircleView === 'anonymous'}
+          onClick={() => setActiveCircleView('anonymous')}
+        />
+      </div>
+
+      {/* Circle Settings */}
+      <div className="mt-auto pt-3">
+        <NavItem
+          icon={<Settings className="h-4 w-4" />}
+          label={t.nav.circleSettings}
+          onClick={() => {
+            if (activeCircle) {
+              setManageModalOpen(true, 'settings');
+            }
+          }}
+        />
+      </div>
+    </>
+  );
+
+  return (
+    <>
+      <aside className="hidden md:flex w-64 shrink-0 flex-col gap-4 bg-white dark:bg-circle-dark-surface p-3 pt-16 min-[1680px]:pt-3 h-full overflow-y-auto transition-colors border-r border-circle-hairline/60 dark:border-circle-dark-hairline/60">
+        {renderSidebarBody()}
+      </aside>
+
+      {/* Responsive Mobile Navigation Drawer (< 768px) */}
+      {isMobileDrawerOpen && (
+        <div className="fixed inset-0 z-50 md:hidden flex animate-fadeIn">
+          <div
+            className="fixed inset-0 bg-black/50 backdrop-blur-xs"
+            onClick={() => setMobileDrawerOpen(false)}
+          />
+          <aside className="relative z-10 w-72 max-w-[84vw] h-full flex flex-col gap-4 bg-white dark:bg-circle-dark-surface p-4 shadow-2xl border-r border-circle-hairline dark:border-circle-dark-hairline overflow-y-auto">
+            <div className="flex items-center justify-between pb-2 border-b border-circle-hairline dark:border-circle-dark-hairline">
+              <div className="flex items-center gap-2">
+                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-circle-primary text-circle-charcoal font-black text-xs">
+                  C
+                </div>
+                <span className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
+                  {t.common.appName}
+                </span>
               </div>
               <button
                 type="button"
-                onClick={() => setCreateModalOpen(true)}
-                className="w-full rounded-lg bg-circle-charcoal dark:bg-circle-primary py-1.5 text-xs font-medium text-white dark:text-circle-charcoal shadow-sm hover:bg-circle-sage hover:text-white transition-all active:scale-98"
+                onClick={() => setMobileDrawerOpen(false)}
+                aria-label={t.common.closeMenu}
+                className="flex h-8 w-8 items-center justify-center text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white transition-colors"
               >
-                + {t.home.createCircleBtn}
+                <X className="h-4 w-4" />
               </button>
             </div>
-          )}
+            {renderSidebarBody()}
+          </aside>
         </div>
-
-        {/* Intimate Circle Navigation: Single Chat & Moments */}
-        <div className="flex flex-col gap-1">
-          <NavItem
-            icon={<MessageSquare className="h-4 w-4" />}
-            label={t.chat.title}
-            active={!activeCircleView || activeCircleView === 'chat' || activeCircleView === 'general'}
-            onClick={() => {
-              setActiveCircleView('chat');
-              const defaultChannel = (activeCircle as any)?.channels?.[0];
-              if (defaultChannel) {
-                setActiveChannelId(defaultChannel.id);
-              }
-            }}
-          />
-          <NavItem
-            icon={<Camera className="h-4 w-4" />}
-            label={t.moments.momentWidgetTitle}
-            active={activeCircleView === 'moments'}
-            onClick={() => setActiveCircleView('moments')}
-          />
-        </div>
-
-        {/* Divider line between navigation and group utilities */}
-        <div className="border-t border-circle-hairline/80 dark:border-circle-dark-hairline/80 my-1 mx-1" />
-
-        {/* Group Tools & Utilities (Borderless section with natural spacing) */}
-        <div className="flex flex-col gap-1 pt-1">
-          <span className="px-3 text-xs font-semibold tracking-wider text-circle-slate dark:text-circle-dark-muted uppercase mb-1">
-            {t.nav.groupTools}
-          </span>
-          <NavItem
-            icon={<ImageIcon className="h-4 w-4" />}
-            label={t.nav.photoAlbum}
-            active={activeCircleView === 'albums'}
-            onClick={() => setActiveCircleView('albums')}
-          />
-          <NavItem
-            icon={<Calendar className="h-4 w-4" />}
-            label={t.nav.calendarEvents}
-            active={activeCircleView === 'calendar'}
-            onClick={() => setActiveCircleView('calendar')}
-          />
-          <NavItem
-            icon={<FileSpreadsheet className="h-4 w-4" />}
-            label={t.nav.planningSheet}
-            active={activeCircleView === 'planning'}
-            onClick={() => setActiveCircleView('planning')}
-          />
-          <NavItem
-            icon={<MapPin className="h-4 w-4" />}
-            label={t.nav.liveLocation}
-            active={activeCircleView === 'location'}
-            onClick={() => setActiveCircleView('location')}
-          />
-          <NavItem
-            icon={<Vote className="h-4 w-4" />}
-            label={t.nav.groupPoll}
-            active={activeCircleView === 'polls'}
-            onClick={() => setActiveCircleView('polls')}
-          />
-          <NavItem
-            icon={<Compass className="h-4 w-4" />}
-            label={t.nav.luckyWheel}
-            active={activeCircleView === 'wheel'}
-            onClick={() => setActiveCircleView('wheel')}
-          />
-          <NavItem
-            icon={<HelpCircle className="h-4 w-4" />}
-            label={t.nav.reflectionMailbox}
-            active={activeCircleView === 'anonymous'}
-            onClick={() => setActiveCircleView('anonymous')}
-          />
-        </div>
-
-        {/* Circle Settings (Natural bottom spacing) */}
-        <div className="mt-auto pt-3">
-          <NavItem
-            icon={<Settings className="h-4 w-4" />}
-            label={t.nav.circleSettings}
-            onClick={() => {
-              if (activeCircle) {
-                setManageModalOpen(true, 'settings');
-              }
-            }}
-          />
-        </div>
-      </aside>
+      )}
+    </>
   );
 };

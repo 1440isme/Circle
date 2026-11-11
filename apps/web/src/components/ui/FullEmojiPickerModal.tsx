@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Search } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { X } from 'lucide-react';
 import { EMOJI_CATEGORIES } from '@circle/shared';
 import { useLanguageStore } from '@/stores/language.store';
 import { Emoji } from './Emoji';
@@ -20,10 +21,15 @@ export const FullEmojiPickerModal: React.FC<FullEmojiPickerModalProps> = ({
   title,
 }) => {
   const t = useLanguageStore((s) => s.t);
-  const resolvedTitle = title || t.emoji?.title || 'Chọn biểu cảm';
+  const resolvedTitle = title || t.emoji.title;
+  const [mounted, setMounted] = useState(false);
   const [activeCategoryId, setActiveCategoryId] = useState<string>(EMOJI_CATEGORIES[0]?.id || 'smileys');
   const [searchQuery, setSearchQuery] = useState('');
   const modalRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -33,18 +39,21 @@ export const FullEmojiPickerModal: React.FC<FullEmojiPickerModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted) return null;
 
   const currentCategory = EMOJI_CATEGORIES.find((c) => c.id === activeCategoryId) || EMOJI_CATEGORIES[0];
   const displayedEmojis = searchQuery.trim().length > 0
     ? EMOJI_CATEGORIES.flatMap((c) => c.emojis)
     : currentCategory.emojis;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in">
+  return createPortal(
+    <div
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in"
+    >
       <div
         ref={modalRef}
-        className="w-full max-w-md rounded-3xl bg-white dark:bg-circle-dark-surface border border-circle-hairline dark:border-circle-dark-hairline shadow-2xl overflow-hidden flex flex-col max-h-[80vh] animate-scale-up"
+        className="w-full max-w-md rounded-3xl glass-sheet shadow-2xl overflow-hidden flex flex-col max-h-[80vh] animate-scale-up"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-circle-hairline dark:border-circle-dark-hairline">
@@ -105,6 +114,7 @@ export const FullEmojiPickerModal: React.FC<FullEmojiPickerModalProps> = ({
           ))}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

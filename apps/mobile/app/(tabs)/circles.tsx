@@ -18,8 +18,8 @@ import {
   Lock,
   Crown,
   ShieldCheck,
-  ChevronRight,
 } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeStore } from '../../src/stores/theme.store';
 import { useLanguageStore } from '../../src/stores/language.store';
 import { useCircleStore } from '../../src/stores/circle.store';
@@ -35,9 +35,9 @@ function getInitials(name: string): string {
 
 export default function CirclesTab() {
   const router = useRouter();
-  const { colors, resolvedTheme } = useThemeStore();
+  const insets = useSafeAreaInsets();
+  const { colors } = useThemeStore();
   const t = useLanguageStore((s) => s.t);
-  const isDark = resolvedTheme === 'dark';
 
   const setCreateModalVisible = useCircleStore((s) => s.setCreateModalVisible);
   const setJoinModalVisible = useCircleStore((s) => s.setJoinModalVisible);
@@ -69,7 +69,10 @@ export default function CirclesTab() {
   return (
     <View style={[styles.container, { backgroundColor: colors.canvas }]}>
       {/* Top Floating Glass Header & Floating Toolbar (Floating glass controls with scroll-under content) */}
-      <View style={styles.floatingHeaderArea} pointerEvents="box-none">
+      <View
+        style={[styles.floatingHeaderArea, { paddingTop: insets.top + 8 }]}
+        pointerEvents="box-none"
+      >
         <View style={styles.headerBar} pointerEvents="box-none">
           <View>
             <Text style={[styles.headerTitle, { color: colors.text }]}>
@@ -116,18 +119,21 @@ export default function CirclesTab() {
       {/* Content Area */}
       {isLoading ? (
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <ActivityIndicator size="large" color={colors.sage} />
         </View>
       ) : circles.length === 0 ? (
         <ScrollView
-          contentContainerStyle={styles.emptyContent}
+          contentContainerStyle={[
+            styles.emptyContent,
+            { paddingTop: insets.top + 124 },
+          ]}
           refreshControl={
             <RefreshControl
               refreshing={isRefetching}
               onRefresh={() => {
                 refetch();
               }}
-              tintColor={colors.primary}
+              tintColor={colors.sage}
             />
           }
         >
@@ -140,7 +146,7 @@ export default function CirclesTab() {
               },
             ]}
           >
-            <Users size={36} color={colors.primary} />
+            <Users size={36} color={colors.sage} />
             <Text style={[styles.title, { color: colors.text }]}>
               {t.home.emptyCirclesTitle}
             </Text>
@@ -176,7 +182,10 @@ export default function CirclesTab() {
         </ScrollView>
       ) : (
         <ScrollView
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[
+            styles.listContent,
+            { paddingTop: insets.top + 124 },
+          ]}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
@@ -184,7 +193,7 @@ export default function CirclesTab() {
               onRefresh={() => {
                 refetch();
               }}
-              tintColor={colors.primary}
+              tintColor={colors.sage}
             />
           }
         >
@@ -224,14 +233,14 @@ export default function CirclesTab() {
                       <View style={[styles.badge, { backgroundColor: `${colors.warning}20` }]}>
                         <Crown size={11} color={colors.warning} />
                         <Text style={[styles.badgeText, { color: colors.warning }]}>
-                          {t.circle.memberRoleOwner || 'Trưởng nhóm'}
+                          {t.circle.memberRoleOwner}
                         </Text>
                       </View>
                     ) : isAdmin ? (
                       <View style={[styles.badge, { backgroundColor: `${colors.primary}20` }]}>
-                        <ShieldCheck size={11} color={colors.primary} />
-                        <Text style={[styles.badgeText, { color: colors.primary }]}>
-                          {t.circle.memberRoleAdmin || 'Quản trị viên'}
+                        <ShieldCheck size={11} color={colors.sage} />
+                        <Text style={[styles.badgeText, { color: colors.sage }]}>
+                          {t.circle.memberRoleAdmin}
                         </Text>
                       </View>
                     ) : null}
@@ -267,7 +276,9 @@ export default function CirclesTab() {
                 <TouchableOpacity
                   activeOpacity={0.7}
                   onPress={(e) => handleOpenManage(item, e)}
+                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                   style={[styles.manageBtn, { backgroundColor: colors.wash }]}
+                  accessibilityLabel={t.nav.circleSettings}
                 >
                   <Settings size={18} color={colors.subtle} />
                 </TouchableOpacity>
@@ -340,14 +351,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderStyle: 'dashed',
-  },
-  iconBox: {
-    width: 64,
-    height: 64,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
   },
   title: { fontSize: 16, fontWeight: '700', marginBottom: 6, textAlign: 'center' },
   desc: { fontSize: 13, textAlign: 'center', lineHeight: 18, marginBottom: 20 },

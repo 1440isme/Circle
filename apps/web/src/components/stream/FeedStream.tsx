@@ -70,7 +70,6 @@ export const FeedStream: React.FC = () => {
     if (activeCircle) {
       const url = `${window.location.origin}/@${activeCircle.handle}`;
       navigator.clipboard.writeText(url);
-      alert(t.home.linkCopiedNotice);
     }
   };
 
@@ -79,17 +78,17 @@ export const FeedStream: React.FC = () => {
   // =========================================================================
   if (!activeCircle) {
     return (
-      <main className="flex-1 w-full max-w-4xl flex flex-col gap-6 py-2">
+      <main className="flex-1 w-full max-w-4xl flex flex-col gap-6 pt-4 md:pt-2 pb-6">
         {/* Welcome Hero Banner: ONLY displayed when user has 0 circles */}
         {circles.length === 0 && !isLoadingCircles && (
           <div className="relative overflow-hidden rounded-3xl border border-circle-hairline dark:border-circle-dark-hairline bg-gradient-to-br from-circle-wash/80 via-white/90 to-circle-canvas dark:from-circle-dark-wash dark:via-circle-dark-surface dark:to-circle-dark-canvas p-6 sm:p-8 shadow-circle-card transition-colors animate-fadeIn">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
               <div className="flex items-start gap-4">
-                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-circle-primary text-circle-charcoal shadow-sm text-2xl font-bold">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-circle-primary text-circle-charcoal dark:text-circle-dark-canvas shadow-sm text-2xl font-bold">
                   C
                 </div>
                 <div className="space-y-1">
-                  <div className="inline-flex items-center gap-1.5 rounded-full bg-circle-primary/20 dark:bg-circle-primary/10 px-2.5 py-0.5 text-xs font-semibold text-circle-sage dark:text-circle-primary">
+                  <div className="inline-flex items-center gap-1.5 rounded-full bg-circle-primary/20 dark:bg-circle-primary/10 px-2.5 py-0.5 text-xs font-semibold text-circle-sage dark:text-circle-dark-primary">
                     <Sparkles className="h-3 w-3" />
                     <span>{t.home.createFirstCirclePrompt}</span>
                   </div>
@@ -108,7 +107,7 @@ export const FeedStream: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setCreateModalOpen(true)}
-                className="flex items-center gap-2 rounded-full bg-circle-charcoal dark:bg-circle-primary px-5 py-2 text-xs sm:text-sm font-semibold text-white dark:text-circle-charcoal shadow-sm hover:bg-circle-sage dark:hover:bg-circle-sage dark:hover:text-white transition-all active:scale-98"
+                className="flex items-center gap-2 rounded-full bg-circle-charcoal dark:bg-circle-primary px-5 py-2 text-xs sm:text-sm font-semibold text-white dark:text-circle-dark-canvas shadow-sm hover:bg-circle-sage dark:hover:bg-circle-sage dark:hover:text-white transition-all active:scale-98"
               >
                 <Plus className="h-4 w-4" />
                 <span>{t.home.createCircleBtn}</span>
@@ -143,7 +142,7 @@ export const FeedStream: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setCreateModalOpen(true)}
-                className="flex items-center gap-1 rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface px-3 py-1 text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash hover:text-circle-sage dark:hover:text-circle-primary transition-all shadow-sm"
+                className="flex items-center gap-1 rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface px-3 py-1 text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash hover:text-circle-sage dark:hover:text-circle-dark-primary transition-all shadow-sm"
               >
                 <Plus className="h-3.5 w-3.5" />
                 <span>{t.home.createCircleBtn}</span>
@@ -170,11 +169,15 @@ export const FeedStream: React.FC = () => {
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-circle-primary/10 text-circle-sage dark:text-circle-primary font-bold text-sm uppercase">
-                        {circle.name ? circle.name.slice(0, 2) : 'C'}
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-circle-primary/15 text-circle-sage dark:text-circle-dark-primary font-bold text-sm uppercase overflow-hidden">
+                        {circle.avatarUrl ? (
+                          <img src={circle.avatarUrl} alt={circle.name} className="h-full w-full object-cover" />
+                        ) : (
+                          circle.name ? circle.name.slice(0, 2) : 'C'
+                        )}
                       </div>
                       <div className="truncate">
-                        <h4 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text group-hover:text-circle-sage dark:group-hover:text-circle-primary transition-colors truncate">
+                        <h4 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text group-hover:text-circle-sage dark:group-hover:text-circle-dark-primary transition-colors truncate">
                           {circle.name}
                         </h4>
                         <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted font-mono truncate">
@@ -185,7 +188,7 @@ export const FeedStream: React.FC = () => {
                     <span
                       className={`shrink-0 rounded-md px-2 py-0.5 text-[10px] font-semibold ${
                         circle.role === 'OWNER'
-                          ? 'bg-circle-primary/20 text-circle-sage dark:text-circle-primary'
+                          ? 'bg-circle-primary/20 text-circle-sage dark:text-circle-dark-primary'
                           : 'bg-circle-canvas dark:bg-circle-dark-canvas text-circle-slate dark:text-circle-dark-muted'
                       }`}
                     >
@@ -198,7 +201,7 @@ export const FeedStream: React.FC = () => {
                       <Users className="h-3.5 w-3.5" />
                       <span>{t.circle.membersCount.replace('{count}', String(circle.memberCount))}</span>
                     </span>
-                    <span className="font-semibold text-circle-sage dark:text-circle-primary flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                    <span className="font-semibold text-circle-sage dark:text-circle-dark-primary flex items-center gap-1 group-hover:translate-x-1 transition-transform">
                       {t.home.enterCircleBtn} →
                     </span>
                   </div>
@@ -207,9 +210,7 @@ export const FeedStream: React.FC = () => {
             </div>
           ) : (
             <div className="rounded-xl border border-dashed border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-8 text-center shadow-xs flex flex-col items-center justify-center gap-3 transition-colors">
-              <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-circle-canvas dark:bg-circle-dark-canvas text-circle-sage dark:text-circle-primary border border-circle-hairline dark:border-circle-dark-hairline">
-                <Compass className="h-7 w-7 stroke-[1.5]" />
-              </div>
+              <Compass className="h-9 w-9 text-circle-sage dark:text-circle-dark-primary stroke-[1.5]" />
               <div className="max-w-md space-y-1">
                 <h3 className="text-sm font-semibold text-circle-charcoal dark:text-circle-dark-text">
                   {t.home.feedEmptyTitle}
@@ -219,14 +220,14 @@ export const FeedStream: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setCreateModalOpen(true)}
-                  className="rounded-lg bg-circle-charcoal dark:bg-circle-primary px-4 py-2 text-xs font-semibold text-white dark:text-circle-charcoal hover:bg-circle-sage transition-all"
+                  className="rounded-lg bg-circle-charcoal dark:bg-circle-primary px-4 py-2 text-xs font-semibold text-white dark:text-circle-dark-canvas hover:bg-circle-sage hover:text-white dark:hover:text-white transition-all"
                 >
                   + {t.home.createCircleBtn}
                 </button>
                 <button
                   type="button"
                   onClick={() => setJoinModalOpen(true)}
-                  className="flex items-center gap-1.5 rounded-lg border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface px-3.5 py-2 text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash hover:text-circle-sage dark:hover:text-circle-primary transition-all"
+                  className="flex items-center gap-1.5 rounded-lg border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface px-3.5 py-2 text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash hover:text-circle-sage dark:hover:text-circle-dark-primary transition-all"
                 >
                   <KeyRound className="h-3.5 w-3.5" />
                   <span>{t.home.joinWithCodeBtn}</span>

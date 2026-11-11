@@ -48,7 +48,7 @@ export default function ForgotPasswordPage() {
 
   return (
     <AuthGuard mode="guest-only">
-      <div className="rounded-3xl border border-white/80 dark:border-white/10 bg-white/70 dark:bg-circle-dark-surface/80 p-8 sm:p-10 shadow-xl shadow-circle-charcoal/5 dark:shadow-black/25 backdrop-blur-xl transition-all">
+      <div className="rounded-3xl border border-circle-hairline/90 dark:border-white/15 bg-white/92 dark:bg-circle-dark-surface/90 p-8 sm:p-10 shadow-xl shadow-circle-charcoal/5 dark:shadow-black/35 backdrop-blur-xl transition-all">
         {/* Header */}
         <div className="mb-6 text-center">
           <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-circle-peach/30 text-amber-800 dark:text-amber-300 mb-4 shadow-sm">

@@ -223,6 +223,7 @@ export interface MessageEntity {
   sentAt: string;
   updatedAt: string;
   deletedAt?: string | null;
+  previousContent?: string | null;
   sender?: CircleMemberEntity;
   replyTo?: {
     id: string;

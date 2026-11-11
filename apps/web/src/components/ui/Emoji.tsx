@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 /**
  * Convert any emoji character to Twitter/Apple standard hex code points
@@ -29,8 +29,8 @@ interface EmojiProps {
 }
 
 /**
- * Premium Apple-style high-resolution Emoji component
- * Renders authentic, glossy Apple Color Emoji 160x160 with native text fallback.
+ * Reliable Emoji component with always-visible native fallback underneath
+ * and Apple Color Emoji CDN overlay that cross-fades cleanly upon load.
  */
 export const Emoji: React.FC<EmojiProps> = ({
   emoji,
@@ -38,33 +38,43 @@ export const Emoji: React.FC<EmojiProps> = ({
   className = '',
   style,
 }) => {
+  const [imgState, setImgState] = useState<'loading' | 'loaded' | 'error'>('loading');
   const src = `https://emojicdn.elk.sh/${encodeURIComponent(emoji)}?style=apple`;
+  const numericSize = typeof size === 'number' ? size : parseFloat(String(size)) || 18;
   const pixelSize = typeof size === 'number' ? `${size}px` : size;
 
   return (
     <span
-      className={`inline-flex items-center justify-center align-middle select-none shrink-0 ${className}`}
+      className={`relative inline-flex items-center justify-center align-middle select-none shrink-0 ${className}`}
       style={{
         width: pixelSize,
         height: pixelSize,
+        lineHeight: pixelSize,
+        fontSize: `${Math.max(11, Math.round(numericSize * 0.84))}px`,
         ...style,
       }}
+      aria-label={emoji}
     >
-      <img
-        src={src}
-        alt={emoji}
-        draggable={false}
-        className="w-full h-full object-contain pointer-events-none drop-shadow-[0_1px_1px_rgba(0,0,0,0.1)]"
-        loading="lazy"
-        onError={(e) => {
-          // If network image fails, fallback to rendering the text character directly
-          const target = e.currentTarget;
-          target.style.display = 'none';
-          if (target.parentElement) {
-            target.parentElement.textContent = emoji;
-          }
-        }}
-      />
+      <span
+        className={`leading-none select-none transition-opacity duration-150 ${
+          imgState === 'loaded' ? 'opacity-0' : 'opacity-100'
+        }`}
+      >
+        {emoji}
+      </span>
+      {imgState !== 'error' && (
+        <img
+          src={src}
+          alt={emoji}
+          draggable={false}
+          loading="lazy"
+          onLoad={() => setImgState('loaded')}
+          onError={() => setImgState('error')}
+          className={`absolute inset-0 w-full h-full object-contain pointer-events-none drop-shadow-[0_1px_1px_rgba(0,0,0,0.1)] transition-opacity duration-150 ${
+            imgState === 'loaded' ? 'opacity-100' : 'opacity-0'
+          }`}
+        />
+      )}
     </span>
   );
 };

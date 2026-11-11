@@ -18,6 +18,7 @@ import {
   UpdateCalendarEventInput,
   CalendarEventRsvpEntity,
   EventRsvpStatus,
+  RespondEventRsvpInput,
   PlanningSheetEntity,
   CreatePlanningSheetInput,
   AddSheetColumnInput,
@@ -347,7 +348,7 @@ export async function deleteCalendarEventApi(
 export async function respondCalendarEventRsvpApi(
   circleId: string,
   eventId: string,
-  input: { status: EventRsvpStatus },
+  input: { status: EventRsvpStatus } | RespondEventRsvpInput,
 ): Promise<CalendarEventRsvpEntity> {
   const res = await mobileApiRequest<CalendarEventRsvpEntity>(
     `/circles/${circleId}/calendar-events/${eventId}/rsvp`,
@@ -358,6 +359,8 @@ export async function respondCalendarEventRsvpApi(
   );
   return res.data;
 }
+
+export const respondEventRsvpApi = respondCalendarEventRsvpApi;
 
 // =============================================================================
 export async function getUpcomingCalendarEventsApi(

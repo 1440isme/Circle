@@ -21,6 +21,10 @@ body {
   background-color: #131316;
 }
 
+.dark .leaflet-container {
+  background-color: #131316;
+}
+
 /* ============================================================
  * Design Tokens: Flat Design (Mặc định) & Liquid Glass
  * Tích hợp 100% quy định thiết kế trong 2 file mẫu:
@@ -43,14 +47,14 @@ body {
   --mk-shadow: 0 1px 2px rgb(0 0 0 / 0.06), 0 4px 16px rgb(0 0 0 / 0.06);
   --mk-chat-max-width: 680px;
 
-  /* Liquid Glass Tokens (Neutral base with Circle green accent) */
-  --glass-blur: 22px;
-  --glass-saturate: 180%;
-  --glass-bg: rgba(255, 255, 255, 0.65);
-  --glass-bg-sheet: rgba(255, 255, 255, 0.90);
-  --glass-bg-strong: rgba(255, 255, 255, 0.95);
-  --glass-border: rgba(227, 227, 232, 0.75);
-  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  /* Liquid Glass Tokens (Balanced opaque legibility, neutral base with Circle green accent) */
+  --glass-blur: 20px;
+  --glass-saturate: 175%;
+  --glass-bg: rgba(255, 255, 255, 0.92);
+  --glass-bg-sheet: rgba(255, 255, 255, 0.96);
+  --glass-bg-strong: rgba(255, 255, 255, 0.98);
+  --glass-border: rgba(227, 227, 232, 0.85);
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.75);
   --glass-shadow: 0 14px 34px rgba(0, 0, 0, 0.08);
   --glass-ink: #17171A;
   --glass-ink-muted: rgba(23, 23, 26, 0.62);
@@ -73,14 +77,14 @@ body {
   --mk-good: #4ADE80;
   --mk-shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 4px 16px rgb(0 0 0 / 0.3);
 
-  /* Liquid Glass Tokens (Neutral base with Circle mint accent) */
-  --glass-blur: 22px;
-  --glass-saturate: 180%;
-  --glass-bg: rgba(29, 29, 33, 0.70);
-  --glass-bg-sheet: rgba(24, 24, 28, 0.92);
-  --glass-bg-strong: rgba(32, 32, 38, 0.96);
-  --glass-border: rgba(255, 255, 255, 0.15);
-  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  /* Liquid Glass Tokens (Balanced opaque legibility, neutral base with Circle mint accent) */
+  --glass-blur: 20px;
+  --glass-saturate: 175%;
+  --glass-bg: rgba(22, 22, 26, 0.90);
+  --glass-bg-sheet: rgba(24, 24, 28, 0.95);
+  --glass-bg-strong: rgba(32, 32, 38, 0.98);
+  --glass-border: rgba(255, 255, 255, 0.16);
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.16);
   --glass-shadow: 0 14px 34px rgba(0, 0, 0, 0.35);
   --glass-ink: #F2F2F4;
   --glass-ink-muted: rgba(242, 242, 244, 0.62);
@@ -542,4 +546,83 @@ html[data-theme="dark"][data-msg-theme="minimal"] {
 .chat-composer-send-btn-active {
   background-color: var(--circle-theme-btn-bg) !important;
   color: var(--circle-theme-btn-text) !important;
+}
+
+/* Scrollbar utilities */
+.no-scrollbar::-webkit-scrollbar,
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar,
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(113, 128, 120, 0.25);
+  border-radius: 9999px;
+}
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(161, 161, 170, 0.25);
+}
+
+/* Lightweight animation utilities (replaces missing tailwindcss-animate classes) */
+@keyframes circleFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes circleZoomIn95 {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes circleSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: circleFadeIn 0.16s ease-out both;
+}
+.animate-scaleUp {
+  animation: circleZoomIn95 0.18s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.animate-in.fade-in {
+  animation: circleFadeIn 0.16s ease-out both;
+}
+.animate-in.zoom-in-95 {
+  animation: circleZoomIn95 0.16s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.animate-in.slide-in-from-top-2 {
+  animation: circleSlideDown 0.18s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fadeIn,
+  .animate-scaleUp,
+  .animate-in.fade-in,
+  .animate-in.zoom-in-95,
+  .animate-in.slide-in-from-top-2 {
+    animation: none !important;
+  }
 }

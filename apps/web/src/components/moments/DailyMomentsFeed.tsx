@@ -3,16 +3,14 @@
 import React, { useState } from 'react';
 import {
   Camera,
-  Heart,
   Trash2,
-  Plus,
-  Sparkles,
   MessageCircle,
   Send,
   CheckCircle2,
   Smile,
   X,
   Calendar,
+  AlertCircle,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useLanguageStore } from '@/stores/language.store';
@@ -43,7 +41,6 @@ const EMOJI_OPTIONS = PROMINENT_QUICK_EMOJIS;
 export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) => {
   const { user } = useAuth();
   const t = useLanguageStore((s) => s.t);
-  const locale = useLanguageStore((s) => s.locale);
   const activeCircleStore = useCircleStore((s) => s.activeCircle);
   const targetCircleId = circleId || activeCircleStore?.id;
 
@@ -54,6 +51,8 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
   const [reactorsModalMoment, setReactorsModalMoment] = useState<MomentEntity | null>(null);
   const [swappedMoments, setSwappedMoments] = useState<Record<string, boolean>>({});
   const [viewerPipCorners, setViewerPipCorners] = useState<Record<string, number>>({});
+  const [confirmDeleteMomentId, setConfirmDeleteMomentId] = useState<string | null>(null);
+  const [feedError, setFeedError] = useState<string | null>(null);
 
   const handleReplyWithPhoto = (authorName: string, momentCircleId?: string) => {
     setPhotoReplyAuthor(authorName);
@@ -112,13 +111,13 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
     }
   };
 
-  const handleDelete = async (momentId: string) => {
-    if (window.confirm(t.moments.deleteConfirm)) {
-      try {
-        await deleteMutation.mutateAsync(momentId);
-      } catch {
-        // Ignore
-      }
+  const handleConfirmDelete = async (momentId: string) => {
+    setFeedError(null);
+    try {
+      await deleteMutation.mutateAsync(momentId);
+      setConfirmDeleteMomentId(null);
+    } catch (err: any) {
+      setFeedError(err?.message || t.moments.deleteMomentError);
     }
   };
 
@@ -128,9 +127,9 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
       const diffMs = Date.now() - d.getTime();
       const diffMins = Math.floor(diffMs / (1000 * 60));
       if (diffMins < 1) return t.moments.justNow;
-      if (diffMins < 60) return `${diffMins}p trước`;
+      if (diffMins < 60) return t.moments.minutesAgoShort.replace('{m}', String(diffMins));
       const diffHours = Math.floor(diffMins / 60);
-      if (diffHours < 24) return `${diffHours}h trước`;
+      if (diffHours < 24) return t.moments.hoursAgoShort.replace('{h}', String(diffHours));
       return d.toLocaleDateString([], { month: 'numeric', day: 'numeric' });
     } catch {
       return '';
@@ -147,13 +146,14 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
 
         {/* Floating Dock Bar in History Mode */}
         <div className="absolute bottom-6 inset-x-0 flex justify-center z-30 pointer-events-none">
-          <div className="pointer-events-auto flex items-center gap-2 p-1.5 rounded-full bg-white/90 dark:bg-circle-dark-surface/90 backdrop-blur-md border border-circle-hairline dark:border-circle-dark-hairline shadow-2xl">
+          <div className="glass pointer-events-auto flex items-center gap-2 p-1.5 rounded-full border border-circle-hairline dark:border-circle-dark-hairline shadow-2xl">
             {/* Active History indicator button: click to return to feed */}
             <button
               type="button"
               onClick={() => setIsHistoryViewActive(false)}
-              className="flex h-11 w-11 items-center justify-center rounded-full bg-circle-primary/15 text-circle-primary transition-all active:scale-95"
-              title={locale === 'vi' ? 'Quay lại Bảng tin' : 'Back to Feed'}
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-circle-primary/15 text-circle-sage dark:text-circle-dark-primary transition-all active:scale-95"
+              title={t.moments.backToFeed}
+              aria-label={t.moments.backToFeed}
             >
               <Calendar className="h-5 w-5" />
             </button>
@@ -166,8 +166,9 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
                 setPhotoReplyCircleId(undefined);
                 setIsCreateOpen(true);
               }}
-              className="flex h-12 w-12 items-center justify-center rounded-full bg-circle-charcoal dark:bg-circle-primary text-white dark:text-circle-charcoal shadow-md hover:scale-110 active:scale-95 transition-transform"
+              className="flex h-12 w-12 items-center justify-center rounded-full bg-circle-charcoal dark:bg-circle-primary text-white dark:text-circle-dark-canvas shadow-md hover:scale-110 active:scale-95 transition-transform"
               title={t.moments.sendMomentBtn}
+              aria-label={t.moments.sendMomentBtn}
             >
               <Camera className="h-6 w-6 stroke-[2]" />
             </button>
@@ -194,7 +195,27 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
   }
 
   return (
-    <div className="flex-1 w-full h-full overflow-y-auto snap-y snap-mandatory custom-scrollbar scroll-smooth flex flex-col relative bg-white dark:bg-circle-dark-surface">
+    <div className="flex-1 w-full h-full overflow-y-auto snap-y snap-mandatory custom-scrollbar scroll-smooth flex flex-col relative bg-white dark:bg-circle-dark-surface pt-14 lg:pt-2">
+      {/* Inline error banner */}
+      {feedError && (
+        <div className="w-full max-w-md mx-auto px-4 pt-2 z-30">
+          <div className="flex items-center justify-between gap-2 rounded-2xl bg-rose-500/10 border border-rose-500/30 px-3.5 py-2 text-xs text-rose-600 dark:text-rose-400">
+            <div className="flex items-center gap-2 min-w-0">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <span className="truncate">{feedError}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setFeedError(null)}
+              aria-label={t.common.dismiss}
+              className="p-0.5 hover:opacity-75"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Loading Skeleton */}
       {isLoading && moments.length === 0 && (
         <div
@@ -223,10 +244,11 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
       {moments.length > 0 ? (
         <div className="flex flex-col w-full pb-20">
           {moments.map((moment) => {
-            const authorName = moment.author?.profile?.displayName || 'Bạn bè';
+            const authorName = moment.author?.profile?.displayName || t.moments.defaultFriendName;
             const authorAvatar = moment.author?.profile?.avatarUrl;
             const authorInitial = authorName.slice(0, 2).toUpperCase();
             const isAuthor = moment.authorId === user?.id;
+            const isConfirmingDelete = confirmDeleteMomentId === moment.id;
 
             const { mainUrl, pipUrl, cornerIndex } = parseMomentPhotos(moment.photoUrl);
             const isSwapped = Boolean(swappedMoments[moment.id]);
@@ -250,9 +272,9 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
                   className="w-full flex flex-col gap-3 justify-center mx-auto"
                 >
                   {/* Author Info Bar (Padded) */}
-                  <div className="flex items-center justify-between px-2">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-full bg-circle-primary text-circle-charcoal font-bold text-xs flex items-center justify-center overflow-hidden shadow-sm">
+                  <div className="flex items-center justify-between gap-2 px-2">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="h-10 w-10 rounded-full bg-circle-primary text-circle-charcoal dark:text-circle-dark-canvas font-bold text-xs flex items-center justify-center overflow-hidden shadow-sm shrink-0">
                         {authorAvatar ? (
                           <img
                             src={authorAvatar}
@@ -263,8 +285,8 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
                           authorInitial
                         )}
                       </div>
-                      <div>
-                        <h4 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
+                      <div className="min-w-0">
+                        <h4 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text truncate">
                           {authorName}
                         </h4>
                         <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted font-medium">
@@ -273,22 +295,42 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1.5">
-                      {/* Delete button (Author only) */}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {/* Inline Delete confirmation (Author only) */}
                       {isAuthor && (
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(moment.id)}
-                          className="p-2 rounded-full hover:bg-rose-500/10 text-circle-slate dark:text-circle-dark-muted hover:text-rose-500 transition-colors"
-                          title={t.moments.deleteTitle}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                        isConfirmingDelete ? (
+                          <div className="flex items-center gap-1 rounded-full bg-rose-500/10 border border-rose-500/30 px-2.5 py-1">
+                            <button
+                              type="button"
+                              onClick={() => handleConfirmDelete(moment.id)}
+                              disabled={deleteMutation.isPending}
+                              className="text-xs font-bold text-rose-600 dark:text-rose-400 hover:underline px-1"
+                            >
+                              {t.common.delete}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setConfirmDeleteMomentId(null)}
+                              className="text-xs font-medium text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white px-1"
+                            >
+                              {t.common.cancel}
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setConfirmDeleteMomentId(moment.id)}
+                            className="p-2 rounded-full hover:bg-rose-500/10 text-circle-slate dark:text-circle-dark-muted hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
+                            title={t.moments.deleteTitle}
+                            aria-label={t.moments.deleteTitle}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )
                       )}
                     </div>
                   </div>
 
-                  {/* Media Container: Guaranteed 1:1 square aspect ratio matching card width */}
                   {/* Media Container: 1:1 Square Aspect Ratio with Dual Camera PiP */}
                   <div className="w-full">
                     <div className="relative aspect-square w-full overflow-hidden rounded-3xl bg-stone-900 border border-stone-800 dark:border-stone-700/60 shadow-md group select-none">
@@ -307,7 +349,7 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
                           <img
                             key={displayMain}
                             src={displayMain}
-                            alt={moment.caption || 'Khoảnh khắc thường ngày'}
+                            alt={moment.caption || t.moments.momentWidgetTitle}
                             className="w-full h-full object-cover"
                           />
                         )
@@ -351,7 +393,7 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
                   {/* Bottom Reactions & Reply Dock (Padded) */}
                   <div className="space-y-2 pt-1 px-2 sm:px-3">
                     <div className="flex items-center justify-between gap-2">
-                      {/* LEFT: Reply Into Chat + Reply With Photo (Icon-only, no background pill) */}
+                      {/* LEFT: Reply Into Chat + Reply With Photo */}
                       <div className="flex items-center gap-1 shrink-0">
                         <button
                           type="button"
@@ -360,10 +402,11 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
                           }
                           className={`p-2 transition-all ${
                             expandedReplyId === moment.id
-                              ? 'text-circle-primary scale-110'
+                              ? 'text-circle-sage dark:text-circle-dark-primary scale-110'
                               : 'text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white'
                           }`}
-                          title={t.moments.replyButton || 'Phản hồi'}
+                          title={t.moments.replyButton}
+                          aria-label={t.moments.replyButton}
                         >
                           <MessageCircle className="h-5 w-5" />
                         </button>
@@ -376,21 +419,23 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
                               moment.visibilities?.[0]?.circleId || targetCircleId,
                             )
                           }
-                          className="p-2 text-circle-slate dark:text-circle-dark-muted hover:text-circle-primary transition-colors"
-                          title="Đáp lại bằng ảnh"
+                          className="p-2 text-circle-slate dark:text-circle-dark-muted hover:text-circle-sage dark:hover:text-circle-dark-primary transition-colors"
+                          title={t.moments.replyPhoto}
+                          aria-label={t.moments.replyPhoto}
                         >
                           <Camera className="h-5 w-5" />
                         </button>
                       </div>
 
-                      {/* RIGHT: Author Reactors List OR Quick Reactions (no background pill) */}
+                      {/* RIGHT: Author Reactors List OR Quick Reactions */}
                       {isAuthor ? (
                         moment.reactions && moment.reactions.length > 0 ? (
                           <button
                             type="button"
                             onClick={() => setReactorsModalMoment(moment)}
                             className="flex items-center transition-transform hover:scale-105 active:scale-95 group shrink-0"
-                            title={locale === 'vi' ? 'Xem danh sách người thả cảm xúc' : 'View reactions'}
+                            title={t.moments.viewReactions}
+                            aria-label={t.moments.viewReactions}
                           >
                             <div className="flex items-center -space-x-2 overflow-hidden py-0.5">
                               {moment.reactions.slice(0, 5).map((r, idx) => (
@@ -399,7 +444,7 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
                                   className="relative inline-block"
                                   style={{ zIndex: 10 - idx }}
                                 >
-                                  <div className="h-6 w-6 rounded-full border-2 border-white dark:border-circle-dark-surface bg-circle-primary text-circle-charcoal text-[9px] font-bold flex items-center justify-center overflow-hidden shrink-0 shadow-sm">
+                                  <div className="h-6 w-6 rounded-full border-2 border-white dark:border-circle-dark-surface bg-circle-primary text-circle-charcoal dark:text-circle-dark-canvas text-[9px] font-bold flex items-center justify-center overflow-hidden shrink-0 shadow-sm">
                                     {r.user?.avatarUrl ? (
                                       <img
                                         src={r.user.avatarUrl}
@@ -407,7 +452,7 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
                                         className="h-full w-full object-cover"
                                       />
                                     ) : (
-                                      <span>{r.user?.displayName?.slice(0, 2).toUpperCase() || 'U'}</span>
+                                      <span>{r.user?.displayName?.slice(0, 2).toUpperCase() || t.moments.defaultFriendName.slice(0, 1).toUpperCase()}</span>
                                     )}
                                   </div>
                                   <div className="absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full bg-white dark:bg-circle-dark-surface border border-circle-hairline dark:border-circle-dark-hairline flex items-center justify-center shadow-xs overflow-hidden">
@@ -416,7 +461,6 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
                                 </div>
                               ))}
 
-                              {/* Vòng tròn +N nếu có trên 5 người thả cảm xúc */}
                               {moment.reactions.length > 5 && (
                                 <div
                                   className="relative inline-block"
@@ -458,7 +502,8 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
                             type="button"
                             onClick={() => setFullEmojiTargetMomentId(moment.id)}
                             className="p-1 text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white transition-colors"
-                            title="Thêm biểu cảm khác"
+                            title={t.emoji.addOtherEmoji}
+                            aria-label={t.emoji.addOtherEmoji}
                           >
                             <Smile className="h-4 w-4" />
                           </button>
@@ -470,9 +515,9 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
                     {expandedReplyId === moment.id && (
                       <div className="pt-2 animate-fade-in">
                         {replySuccessMap[moment.id] ? (
-                          <div className="flex items-center justify-center gap-2 py-2 px-3 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl text-emerald-600 dark:text-emerald-400 text-xs font-medium">
-                            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
-                            <span>{t.moments.replySuccess || 'Đã gửi phản hồi vào khung chat của Vòng tròn!'}</span>
+                          <div className="flex items-center justify-center gap-2 py-2 px-3 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl text-circle-sage dark:text-circle-dark-primary text-xs font-medium">
+                            <CheckCircle2 className="h-4 w-4 shrink-0" />
+                            <span>{t.moments.replySuccess}</span>
                           </div>
                         ) : (
                           <form
@@ -490,7 +535,7 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
                               onChange={(e) =>
                                 setReplyTexts((prev) => ({ ...prev, [moment.id]: e.target.value }))
                               }
-                              placeholder={`Phản hồi ${authorName}...`}
+                              placeholder={t.moments.replyToAuthorPlaceholder.replace('{author}', authorName)}
                               maxLength={2000}
                               autoFocus
                               className="flex-1 bg-transparent px-3 py-1 text-xs text-circle-charcoal dark:text-circle-dark-text placeholder:text-circle-slate dark:placeholder:text-circle-dark-muted focus:outline-none min-w-0"
@@ -498,8 +543,9 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
                             <button
                               type="submit"
                               disabled={!replyTexts[moment.id]?.trim() || replyMutation.isPending}
-                              className="p-2 rounded-xl bg-circle-primary text-circle-charcoal disabled:opacity-40 hover:scale-105 active:scale-95 transition-all shrink-0 shadow-sm"
-                              title={t.moments.replyButton || 'Gửi'}
+                              className="p-2 rounded-xl bg-circle-primary text-circle-charcoal dark:text-circle-dark-canvas disabled:opacity-40 hover:scale-105 active:scale-95 transition-all shrink-0 shadow-sm"
+                              title={t.moments.replyButton}
+                              aria-label={t.moments.replyButton}
                             >
                               <Send className="h-3.5 w-3.5 stroke-[2.5]" />
                             </button>
@@ -507,7 +553,8 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
                               type="button"
                               onClick={() => setExpandedReplyId(null)}
                               className="p-1.5 text-circle-slate hover:text-circle-charcoal dark:text-circle-dark-muted dark:hover:text-white rounded-lg transition-colors"
-                              title="Đóng"
+                              title={t.common.close}
+                              aria-label={t.common.close}
                             >
                               <X className="h-4 w-4" />
                             </button>
@@ -522,18 +569,16 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
           })}
         </div>
       ) : !isLoading ? (
-        /* Empty Feed State - Clean Minimal Title without redundant explanation */
+        /* Empty Feed State - Bare Icon Invariant */
         <div className="flex-1 flex flex-col items-center justify-center p-8 text-center gap-3">
-          <div className="h-14 w-14 rounded-full bg-circle-primary/10 text-circle-sage dark:text-circle-primary flex items-center justify-center shadow-xs">
-            <Camera className="h-7 w-7 stroke-[1.5]" />
-          </div>
+          <Camera className="h-10 w-10 stroke-[1.5] text-circle-sage dark:text-circle-dark-primary" />
           <h4 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
             {t.moments.emptyMomentTitle}
           </h4>
           <button
             type="button"
             onClick={() => setIsCreateOpen(true)}
-            className="flex items-center gap-2 rounded-full bg-circle-charcoal dark:bg-circle-primary text-white dark:text-circle-charcoal hover:bg-circle-sage px-5 py-2 text-xs font-bold shadow-md transition-all active:scale-95"
+            className="flex items-center gap-2 rounded-full bg-circle-charcoal dark:bg-circle-primary text-white dark:text-circle-dark-canvas hover:bg-circle-sage dark:hover:bg-circle-primary-hover px-5 py-2 text-xs font-bold shadow-md transition-all active:scale-95"
           >
             <Camera className="h-4 w-4" />
             <span>{t.moments.sendMomentBtn}</span>
@@ -543,13 +588,14 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
 
       {/* Sticky Floating Dock in Horizontal Center of Column 2 */}
       <div className="sticky bottom-6 inset-x-0 flex justify-center z-30 pointer-events-none pb-2 mt-auto">
-        <div className="pointer-events-auto flex items-center gap-2 p-1.5 rounded-full bg-white/90 dark:bg-circle-dark-surface/90 backdrop-blur-md border border-circle-hairline dark:border-circle-dark-hairline shadow-2xl">
+        <div className="glass pointer-events-auto flex items-center gap-2 p-1.5 rounded-full border border-circle-hairline dark:border-circle-dark-hairline shadow-2xl">
           {/* Lịch sử khoảnh khắc (History) */}
           <button
             type="button"
             onClick={() => setIsHistoryViewActive(true)}
             className="flex h-11 w-11 items-center justify-center rounded-full text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white hover:bg-circle-wash dark:hover:bg-circle-dark-canvas transition-all active:scale-95"
-            title={locale === 'vi' ? 'Lịch sử khoảnh khắc' : 'Moment History'}
+            title={t.moments.viewHistory}
+            aria-label={t.moments.viewHistory}
           >
             <Calendar className="h-5 w-5" />
           </button>
@@ -562,8 +608,9 @@ export const DailyMomentsFeed: React.FC<DailyMomentsFeedProps> = ({ circleId }) 
               setPhotoReplyCircleId(undefined);
               setIsCreateOpen(true);
             }}
-            className="flex h-12 w-12 items-center justify-center rounded-full bg-circle-charcoal dark:bg-circle-primary text-white dark:text-circle-charcoal shadow-md hover:scale-110 active:scale-95 transition-transform"
+            className="flex h-12 w-12 items-center justify-center rounded-full bg-circle-charcoal dark:bg-circle-primary text-white dark:text-circle-dark-canvas shadow-md hover:scale-110 active:scale-95 transition-transform"
             title={t.moments.sendMomentBtn}
+            aria-label={t.moments.sendMomentBtn}
           >
             <Camera className="h-6 w-6 stroke-[2]" />
           </button>

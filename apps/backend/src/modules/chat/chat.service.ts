@@ -87,6 +87,7 @@ export class ChatService {
       memberId: msg.memberId,
       type: msg.type,
       content: isDeleted ? null : msg.content,
+      previousContent: isDeleted ? null : (msg.previousContent ?? null),
       fileUrl: isDeleted ? null : msg.fileUrl,
       fileName: isDeleted ? null : msg.fileName,
       fileSize: isDeleted ? null : msg.fileSize,
@@ -666,10 +667,14 @@ export class ChatService {
       throw new ForbiddenException(t.chat.cannotEditOthersMessage);
     }
 
+    const nextContent = dto.content.trim();
+    const hasContentChanged = nextContent !== (message.content ?? '');
+
     const updated = await this.prisma.message.update({
       where: { id: messageId },
       data: {
-        content: dto.content.trim(),
+        content: nextContent,
+        ...(hasContentChanged ? { previousContent: message.content } : {}),
         updatedAt: new Date(),
       },
       include: {
@@ -682,6 +687,9 @@ export class ChatService {
     });
 
     const formatted = this.formatMessage(updated, member.id);
+    formatted.previousContent =
+      updated.previousContent ??
+      (hasContentChanged ? message.content : message.previousContent ?? null);
     this.chatGateway.broadcastMessageUpdated(message.channelId, formatted);
 
     return {
@@ -740,6 +748,7 @@ export class ChatService {
       data: {
         deletedAt: new Date(),
         content: null,
+        previousContent: null,
         fileUrl: null,
         fileName: null,
         fileSize: null,
@@ -859,6 +868,7 @@ export class ChatService {
         data: {
           deletedAt: now,
           content: null,
+          previousContent: null,
           fileUrl: null,
           fileName: null,
           fileSize: null,

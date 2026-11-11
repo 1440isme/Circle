@@ -62,12 +62,33 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
 
   const [replyingMessage, setReplyingMessage] = useState<MessageEntity | null>(null);
   const [editingMessage, setEditingMessage] = useState<MessageEntity | null>(null);
+  const [pendingRecallId, setPendingRecallId] = useState<string | null>(null);
+  const [chatError, setChatError] = useState<string | null>(null);
   const [isPinnedModalOpen, setIsPinnedModalOpen] = useState(false);
   const [isClearChatModalOpen, setIsClearChatModalOpen] = useState(false);
   const [isHeaderMenuOpen, setIsHeaderMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSocketConnected, setIsSocketConnected] = useState(true);
+
+  useEffect(() => {
+    if (!isHeaderMenuOpen && !isSearchOpen && !pendingRecallId) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsHeaderMenuOpen(false);
+        setIsSearchOpen(false);
+        setPendingRecallId(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isHeaderMenuOpen, isSearchOpen, pendingRecallId]);
+
+  useEffect(() => {
+    if (!chatError) return;
+    const timer = setTimeout(() => setChatError(null), 5000);
+    return () => clearTimeout(timer);
+  }, [chatError]);
   const [incomingCallAlert, setIncomingCallAlert] = useState<{
     callSessionId: string;
     circleId: string;
@@ -276,13 +297,17 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
     setReplyingMessage(null);
   };
 
-  const handleRecall = async (messageId: string) => {
-    if (window.confirm(t.chat.recallConfirmMsg)) {
-      try {
-        await recallMessageMutation.mutateAsync(messageId);
-      } catch (err: any) {
-        alert(err.message || t.chat.recallError);
-      }
+  const handleRecall = (messageId: string) => {
+    setPendingRecallId(messageId);
+  };
+
+  const handleConfirmRecall = async () => {
+    if (!pendingRecallId) return;
+    try {
+      await recallMessageMutation.mutateAsync(pendingRecallId);
+      setPendingRecallId(null);
+    } catch (err: any) {
+      setChatError(err.message || t.chat.recallError);
     }
   };
 
@@ -291,7 +316,7 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
       await clearChatMutation.mutateAsync({ mode });
       setIsClearChatModalOpen(false);
     } catch (err: any) {
-      alert(err.message || t.chat.clearChatError);
+      setChatError(err.message || t.chat.clearChatError);
     }
   };
 
@@ -398,11 +423,11 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
       className="relative flex-1 flex flex-col h-full min-h-0 bg-white dark:bg-circle-dark-surface overflow-hidden transition-colors"
     >
       {/* Top Scroll Edge Fade (Apple Liquid Glass scroll edge effect) */}
-      <div className="pointer-events-none absolute top-0 left-0 right-0 h-12 bg-gradient-to-b from-white/90 dark:from-circle-dark-surface/90 to-transparent z-10" />
+      <div className="pointer-events-none absolute top-0 left-0 right-0 h-24 lg:h-12 bg-gradient-to-b from-white/90 dark:from-circle-dark-surface/90 to-transparent z-10" />
 
       {/* Floating Channel Header Toolbar (Floating glass capsule with scroll-under content) */}
-      <div className="pointer-events-none absolute top-3 left-0 right-0 z-20 flex flex-col items-center px-4 gap-2">
-        <div className="pointer-events-auto flex items-center justify-between px-4 py-2 rounded-full backdrop-blur-xl bg-white/94 dark:bg-circle-dark-surface/92 border border-circle-hairline/80 dark:border-white/12 shadow-sm max-w-2xl w-full transition-all">
+      <div className="pointer-events-none absolute top-14 lg:top-3 left-0 right-0 z-20 flex flex-col items-center px-4 gap-2">
+        <div className="pointer-events-auto flex items-center justify-between px-4 py-2 rounded-full glass shadow-sm max-w-2xl w-full transition-all">
           <div className="flex items-center gap-2 min-w-0">
             <Hash className="h-4 w-4 shrink-0 text-circle-slate dark:text-circle-dark-muted" />
             <h3 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text truncate">
@@ -441,7 +466,7 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
               }}
               className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors active:scale-95 ${
                 isSearchOpen
-                  ? 'bg-circle-primary/15 text-circle-primary'
+                  ? 'bg-circle-primary/15 text-circle-sage dark:text-circle-dark-primary'
                   : 'text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white hover:bg-circle-canvas/80 dark:hover:bg-circle-dark-canvas/80'
               }`}
               title={t.chat.searchPlaceholder}
@@ -454,7 +479,7 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
               onClick={() => setIsPinnedModalOpen(true)}
               className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors active:scale-95 ${
                 pinnedMessages.length > 0
-                  ? 'text-circle-primary bg-circle-primary/15 hover:bg-circle-primary/25'
+                  ? 'text-circle-sage dark:text-circle-dark-primary bg-circle-primary/15 hover:bg-circle-primary/25'
                   : 'text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white hover:bg-circle-canvas/80 dark:hover:bg-circle-dark-canvas/80'
               }`}
               title={pinnedMessages.length > 0 ? `${pinnedMessages.length} ${t.chat.pinnedBadge}` : t.chat.pinnedBadge}
@@ -469,7 +494,7 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
                 onClick={() => setIsHeaderMenuOpen(!isHeaderMenuOpen)}
                 className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors active:scale-95 ${
                   isHeaderMenuOpen
-                    ? 'bg-circle-primary/15 text-circle-primary'
+                    ? 'bg-circle-primary/15 text-circle-sage dark:text-circle-dark-primary'
                     : 'text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white hover:bg-circle-canvas/80 dark:hover:bg-circle-dark-canvas/80'
                 }`}
                 title={t.chat.moreChatOptions}
@@ -483,7 +508,7 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
                     className="fixed inset-0 z-20"
                     onClick={() => setIsHeaderMenuOpen(false)}
                   />
-                  <div className="absolute right-0 top-full mt-2 w-52 rounded-2xl border border-white/60 dark:border-white/10 bg-white/95 dark:bg-circle-dark-surface/95 backdrop-blur-md p-1.5 shadow-xl z-30 animate-scaleUp">
+                  <div className="absolute right-0 top-full mt-2 w-52 rounded-2xl glass p-1.5 shadow-xl z-30 animate-scaleUp">
                     <button
                       type="button"
                       onClick={() => {
@@ -492,7 +517,7 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
                       }}
                       className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium rounded-xl text-circle-charcoal dark:text-white hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors text-left"
                     >
-                      <Search className="h-3.5 w-3.5 text-circle-slate" />
+                      <Search className="h-3.5 w-3.5 text-circle-slate dark:text-circle-dark-muted" />
                       <span>{t.chat.searchPlaceholder}</span>
                     </button>
                     <button
@@ -503,7 +528,7 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
                       }}
                       className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium rounded-xl text-circle-charcoal dark:text-white hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors text-left"
                     >
-                      <Pin className="h-3.5 w-3.5 text-circle-slate" />
+                      <Pin className="h-3.5 w-3.5 text-circle-slate dark:text-circle-dark-muted" />
                       <span>{t.chat.pinnedBadge}</span>
                     </button>
 
@@ -529,7 +554,7 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
 
         {/* Floating Channel Message Search Bar (CHT-17) */}
         {isSearchOpen && (
-          <div className="pointer-events-auto w-full max-w-xl rounded-2xl border border-circle-hairline/80 dark:border-white/12 bg-white/96 dark:bg-circle-dark-surface/96 backdrop-blur-xl p-2 shadow-lg animate-in fade-in slide-in-from-top-2 duration-150">
+          <div className="pointer-events-auto w-full max-w-xl rounded-2xl glass p-2 shadow-lg animate-in fade-in slide-in-from-top-2 duration-150">
             <div className="relative flex items-center">
               <Search className="absolute left-3 h-4 w-4 text-circle-slate dark:text-circle-dark-muted" />
               <input
@@ -629,25 +654,19 @@ export const ChannelChatView: React.FC<ChannelChatViewProps> = ({
           onSendIcebreaker={handleSendIcebreaker}
         />
 
-        {/* Typing Indicator Bar */}
-        {typingUsers.length > 0 && (
-          <div className="px-5 py-1 text-[11px] text-circle-slate dark:text-circle-dark-muted flex items-center gap-1.5 animate-pulse bg-circle-canvas/30 dark:bg-circle-dark-canvas/30">
-            <span className="flex h-1.5 w-1.5 rounded-full bg-circle-primary animate-ping" />
-            <span>
-              {t.chat.typingIndicator.replace(
-                '{names}',
-                typingUsers.map((u) => u.userName).join(', '),
-              )}
-            </span>
-          </div>
-        )}
-
-        {/* Chat Composer */}
+        {/* Chat Composer (with stacked inline typing, error & confirm bars) */}
         <ChatComposer
           circleId={circleId}
           channelId={channelId}
           channelName={channelName}
           members={circleMembers}
+          typingUsers={typingUsers}
+          externalError={chatError}
+          onDismissExternalError={() => setChatError(null)}
+          pendingRecallId={pendingRecallId}
+          isRecalling={recallMessageMutation.isPending}
+          onConfirmRecall={handleConfirmRecall}
+          onCancelRecall={() => setPendingRecallId(null)}
           replyingMessage={replyingMessage}
           onCancelReply={() => setReplyingMessage(null)}
           editingMessage={editingMessage}

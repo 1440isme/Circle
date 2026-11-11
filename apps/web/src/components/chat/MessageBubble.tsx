@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Pin,
   Reply,
@@ -21,6 +22,7 @@ import {
   EyeOff,
   MoreVertical,
   Copy,
+  X,
 } from 'lucide-react';
 import { MessageEntity, MessageType, CalendarEventMessagePayload } from '@circle/types';
 import { CalendarEventChatEmbed } from './CalendarEventChatEmbed';
@@ -88,6 +90,23 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   const [isFullEmojiOpen, setIsFullEmojiOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
+  const [showOriginal, setShowOriginal] = useState(false);
+
+  useEffect(() => {
+    if (!isImageModalOpen && !isMenuOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (isImageModalOpen) {
+          setIsImageModalOpen(false);
+          setPreviewImageUrl(null);
+        } else if (isMenuOpen) {
+          setIsMenuOpen(false);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isImageModalOpen, isMenuOpen]);
 
   const handleCopyMessage = () => {
     if (message.content) {
@@ -215,15 +234,17 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
 
   const isRecalled = Boolean(message.deletedAt);
+  const hasPreviousContent = Boolean(message.previousContent);
   const isEdited = Boolean(
     !isRecalled &&
     !isCallSummary &&
     !isCalendarEvent &&
     !isGroupPoll &&
     !isLocationPin &&
-    message.updatedAt &&
-    message.sentAt &&
-    new Date(message.updatedAt).getTime() - new Date(message.sentAt).getTime() > 1000,
+    (hasPreviousContent ||
+      (message.updatedAt &&
+        message.sentAt &&
+        new Date(message.updatedAt).getTime() - new Date(message.sentAt).getTime() > 1000)),
   );
 
   const formatDuration = (sec: number) => {
@@ -308,9 +329,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
       {/* Mentioned indicator badge (CHT-22) */}
       {!isSenderMe && message.content && (message.content.includes('@all') || message.content.includes('@mọi người')) && (
-        <div className="flex items-center gap-1 text-[10px] font-semibold text-circle-primary mb-1 px-1">
-          <span className="h-1.5 w-1.5 rounded-full bg-circle-primary animate-pulse" />
-          <span>{t.chat?.mentionedYou || 'Đã nhắc đến bạn'}</span>
+        <div className="flex items-center gap-1 text-[10px] font-semibold text-circle-sage dark:text-circle-dark-primary mb-1 px-1">
+          <span className="h-1.5 w-1.5 rounded-full bg-circle-sage dark:bg-circle-dark-primary animate-pulse" />
+          <span>{t.chat.mentionedYou}</span>
         </div>
       )}
 
@@ -325,8 +346,61 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         </div>
       )}
 
-      {/* Message Bubble Container - w-fit ensures it hugs only the content width and NEVER stretches */}
-      <div className="relative inline-block w-fit max-w-full">
+      {/* Grouped Edited Header + Previous Bubble + Current Bubble + Hover Action Bar */}
+      <div
+        className={`relative inline-flex flex-col ${
+          isSenderMe ? 'items-end' : 'items-start'
+        } w-fit max-w-full`}
+      >
+        {/* Messenger-style Edited label ABOVE message bubble */}
+        {isEdited && (
+          hasPreviousContent ? (
+            <button
+              type="button"
+              data-testid={`message-edited-toggle-${message.id}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowOriginal((prev) => !prev);
+              }}
+              aria-expanded={showOriginal}
+              title={showOriginal ? t.chat.hidePreviousMessage : t.chat.viewPreviousMessage}
+              className={`text-[11px] font-medium mb-1 px-1 select-none transition-colors cursor-pointer hover:underline ${
+                showOriginal
+                  ? 'text-circle-sage dark:text-circle-dark-primary'
+                  : 'text-circle-slate/75 dark:text-circle-dark-muted/80 hover:text-circle-charcoal dark:hover:text-circle-dark-text'
+              } ${isSenderMe ? 'text-right' : 'text-left'}`}
+            >
+              {t.chat.editedLabel}
+            </button>
+          ) : (
+            <span
+              className={`text-[11px] font-medium mb-1 px-1 select-none text-circle-slate/65 dark:text-circle-dark-muted/70 ${
+                isSenderMe ? 'text-right' : 'text-left'
+              }`}
+            >
+              {t.chat.editedLabel}
+            </span>
+          )
+        )}
+
+        {/* Messenger-style faded previous message box stacked ABOVE current bubble */}
+        {isEdited && showOriginal && message.previousContent && (
+          <div
+            data-testid={`message-previous-bubble-${message.id}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowOriginal(false);
+            }}
+            className={`w-fit max-w-full px-4 py-2.5 mb-1 text-xs sm:text-sm whitespace-pre-wrap break-words leading-relaxed font-normal select-text transition-all cursor-pointer opacity-50 hover:opacity-65 shadow-xs ${getBubbleRadius()} ${
+              isSenderMe ? 'msg-bubble-me' : 'msg-bubble-other'
+            }`}
+          >
+            {renderContentWithMentions(message.previousContent)}
+          </div>
+        )}
+
+        {/* Message Bubble Container - w-fit ensures it hugs only the content width and NEVER stretches */}
+        <div className="relative inline-block w-fit max-w-full">
         <div
           onClick={() => setShowTimestamp((prev) => !prev)}
           className={`relative cursor-pointer select-text transition-all shadow-sm w-fit max-w-full ${getBubbleRadius()} ${
@@ -375,7 +449,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                     if (meta) {
                       return meta.caption
                         ? `📸 "${meta.caption}"`
-                        : `📸 Khoảnh khắc của ${meta.authorName}`;
+                        : t.chat.momentOf.replace('{author}', meta.authorName || t.chat.defaultMemberName);
                     }
                     return null;
                   })() ||
@@ -470,7 +544,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                     className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all active:scale-95 ${
                       isSenderMe
                         ? 'bg-black/15 hover:bg-black/25 dark:bg-white/15 dark:hover:bg-white/25 text-current'
-                        : 'bg-circle-primary hover:bg-circle-primary-dark text-white shadow-xs'
+                        : 'bg-circle-primary hover:bg-circle-sage text-circle-charcoal dark:text-circle-dark-canvas hover:text-white dark:hover:text-white shadow-xs'
                     }`}
                   >
                     {callSummaryData.callType === 'VIDEO' ? (
@@ -490,11 +564,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               }`}
             >
               {renderContentWithMentions(message.content)}
-              {isEdited && (
-                <span className="text-[10px] opacity-60 ml-1.5 select-none font-medium">
-                  {t.chat.editedLabel}
-                </span>
-              )}
             </div>
           ) : null}
 
@@ -518,22 +587,38 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             </div>
           )}
 
-          {/* Lightbox Modal */}
-          {isImageModalOpen && (
-            <div
-              className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm p-4 animate-in fade-in duration-150"
-              onClick={() => {
-                setIsImageModalOpen(false);
-                setPreviewImageUrl(null);
-              }}
-            >
-              <img
-                src={previewImageUrl || message.fileUrl!}
-                alt={message.fileName || 'Attachment'}
-                className="max-h-[90vh] max-w-[90vw] object-contain rounded-2xl shadow-2xl select-none"
-              />
-            </div>
-          )}
+          {/* Lightbox Modal (Portaled to document.body to avoid transform/scale containment traps) */}
+          {isImageModalOpen &&
+            typeof document !== 'undefined' &&
+            createPortal(
+              <div
+                className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm p-4 animate-in fade-in duration-150"
+                onClick={() => {
+                  setIsImageModalOpen(false);
+                  setPreviewImageUrl(null);
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsImageModalOpen(false);
+                    setPreviewImageUrl(null);
+                  }}
+                  aria-label={t.common.close}
+                  className="absolute top-4 right-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/15 hover:bg-white/25 text-white backdrop-blur-md transition-colors"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+                <img
+                  src={previewImageUrl || message.fileUrl!}
+                  alt={message.fileName || 'Attachment'}
+                  onClick={(e) => e.stopPropagation()}
+                  className="max-h-[90vh] max-w-[90vw] object-contain rounded-2xl shadow-2xl select-none"
+                />
+              </div>,
+              document.body,
+            )}
 
           {/* Attachment: Document / Generic File */}
           {message.type === MessageType.FILE && !isImageAttachment && message.fileUrl && (
@@ -584,11 +669,14 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             </div>
           )}
         </div>
+        </div>
 
-        {/* Hover Action Bar (Clean Quick Emojis + 3-Dots More Menu) */}
+        {/* Hover / Touch Action Bar (Clean Quick Emojis + 3-Dots More Menu) */}
         {!isRecalled && (
           <div
-            className={`absolute bottom-[calc(100%+4px)] hidden group-hover:flex items-center gap-0.5 rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-white/95 dark:bg-circle-dark-surface/95 backdrop-blur-sm p-1 shadow-circle-hover transition-all z-20 before:absolute before:-bottom-2 before:left-0 before:right-0 before:h-3 ${
+            className={`absolute bottom-[calc(100%+4px)] ${
+              isMenuOpen || isFullEmojiOpen || showTimestamp ? 'flex' : 'hidden group-hover:flex'
+            } items-center gap-0.5 rounded-full glass p-1 shadow-circle-hover transition-all z-20 before:absolute before:-bottom-2 before:left-0 before:right-0 before:h-3 ${
               isSenderMe ? 'right-0' : 'left-0'
             }`}
           >
@@ -609,7 +697,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 type="button"
                 onClick={() => setIsFullEmojiOpen(true)}
                 className="flex h-6 w-6 items-center justify-center rounded-full text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash hover:text-circle-charcoal dark:hover:text-white transition-colors"
-                title={t.emoji?.addOtherEmoji || 'Thêm biểu cảm khác'}
+                title={t.emoji.addOtherEmoji}
               >
                 <Smile className="h-3.5 w-3.5" />
               </button>
@@ -622,10 +710,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
                 className={`flex h-6 w-6 items-center justify-center rounded-full transition-colors ${
                   isMenuOpen
-                    ? 'bg-circle-primary/15 text-circle-primary'
+                    ? 'bg-circle-primary/15 text-circle-sage dark:text-circle-dark-primary'
                     : 'text-circle-slate dark:text-circle-dark-muted hover:bg-circle-canvas dark:hover:bg-circle-dark-canvas hover:text-circle-charcoal dark:hover:text-white'
                 }`}
-                title={t.chat?.moreActions || 'Tùy chọn khác'}
+                title={t.chat.moreActions}
               >
                 <MoreVertical className="h-3.5 w-3.5" />
               </button>
@@ -637,7 +725,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                     onClick={() => setIsMenuOpen(false)}
                   />
                   <div
-                    className={`absolute bottom-full mb-1.5 w-48 rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white/95 dark:bg-circle-dark-surface/95 backdrop-blur-md p-1.5 shadow-2xl z-40 animate-scale-up text-xs ${
+                    className={`absolute bottom-full mb-1.5 w-48 rounded-2xl glass p-1.5 shadow-2xl z-40 animate-scale-up text-xs ${
                       isSenderMe ? 'right-0' : 'left-0'
                     }`}
                   >
@@ -653,7 +741,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                         ) : (
                           <Copy className="h-3.5 w-3.5 text-circle-slate dark:text-circle-dark-muted shrink-0" />
                         )}
-                        <span>{isCopied ? (t.chat?.copiedNotice || 'Đã sao chép') : (t.chat?.copyAction || 'Sao chép')}</span>
+                        <span>{isCopied ? t.chat.copiedNotice : t.chat.copyAction}</span>
                       </button>
                     )}
 
@@ -680,7 +768,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                         }}
                         className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors text-left font-medium"
                       >
-                        <Pin className={`h-3.5 w-3.5 ${message.isPinned ? 'fill-circle-primary text-circle-primary' : 'text-circle-slate dark:text-circle-dark-muted'} shrink-0`} />
+                        <Pin className={`h-3.5 w-3.5 ${message.isPinned ? 'fill-circle-sage text-circle-sage dark:fill-circle-dark-primary dark:text-circle-dark-primary' : 'text-circle-slate dark:text-circle-dark-muted'} shrink-0`} />
                         <span>{message.isPinned ? t.chat.unpinAction : t.chat.pinAction}</span>
                       </button>
                     )}
@@ -713,7 +801,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                         className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 transition-colors text-left font-medium"
                       >
                         <EyeOff className="h-3.5 w-3.5 shrink-0" />
-                        <span>{t.chat?.deleteForMeAction || 'Xóa phía tôi'}</span>
+                        <span>{t.chat.deleteForMeAction}</span>
                       </button>
                     )}
 
@@ -797,7 +885,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               /* Sent check mark when sent by me and no one has read yet */
               message.status !== 'SENDING' && message.status !== 'FAILED' && (
                 <span
-                  className="inline-flex items-center text-circle-primary dark:text-circle-dark-primary"
+                  className="inline-flex items-center text-circle-sage dark:text-circle-dark-primary"
                   title={t.chat.sentStatus}
                 >
                   <Check className="w-3 h-3" />
@@ -816,16 +904,16 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           >
             {(() => {
               const names = message.readers
-                .map((r) => r.displayName || (r as any).nickname || (r as any).name || 'Member')
+                .map((r) => r.displayName || (r as any).nickname || (r as any).name || t.circle.memberFallback)
                 .join(', ');
               if (message.readers.length <= 2) {
-                const tmpl = t.chat.seenBy || 'Đã xem bởi {names}';
+                const tmpl = t.chat.seenBy;
                 return tmpl.includes('{names}') ? tmpl.replace('{names}', names) : `${tmpl} ${names}`;
               }
-              const countTmpl = t.chat.seenByCount || 'Đã xem bởi {count} người';
+              const countTmpl = t.chat.seenByCount;
               return countTmpl.includes('{count}')
                 ? countTmpl.replace('{count}', String(message.readers.length))
-                : `${countTmpl}: ${message.readers.length} người`;
+                : `${countTmpl} ${message.readers.length}`;
             })()}
           </div>
         ) : isSenderMe && (message.status === 'SENDING' || message.status === 'FAILED') ? (

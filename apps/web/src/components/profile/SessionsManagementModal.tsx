@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Laptop,
   Smartphone,
@@ -33,6 +33,7 @@ export const SessionsManagementModal: React.FC<SessionsManagementModalProps> = (
   onClose,
 }) => {
   const t = useLanguageStore((s) => s.t);
+  const locale = useLanguageStore((s) => s.locale);
   const { data: sessions = [], isLoading, isRefetching, refetch } = useSessionsQuery();
   const revokeSessionMutation = useRevokeSessionMutation();
   const revokeOtherSessionsMutation = useRevokeOtherSessionsMutation();
@@ -41,6 +42,21 @@ export const SessionsManagementModal: React.FC<SessionsManagementModalProps> = (
   const [showConfirmRevokeAll, setShowConfirmRevokeAll] = useState(false);
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
   const [errorNotice, setErrorNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (showConfirmRevokeAll) {
+          setShowConfirmRevokeAll(false);
+        } else {
+          onClose();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, showConfirmRevokeAll, onClose]);
 
   if (!isOpen) return null;
 
@@ -62,7 +78,7 @@ export const SessionsManagementModal: React.FC<SessionsManagementModalProps> = (
   const formatSessionTime = (isoString: string) => {
     try {
       const d = new Date(isoString);
-      return d.toLocaleString('vi-VN', {
+      return d.toLocaleString(locale === 'vi' ? 'vi-VN' : 'en-US', {
         hour: '2-digit',
         minute: '2-digit',
         day: '2-digit',
@@ -101,8 +117,15 @@ export const SessionsManagementModal: React.FC<SessionsManagementModalProps> = (
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-circle-charcoal/40 dark:bg-black/60 backdrop-blur-sm animate-fadeIn">
-      <div className="relative w-full max-w-lg rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white/98 dark:bg-circle-dark-surface/98 p-6 shadow-xl backdrop-blur-md animate-scaleUp max-h-[90vh] flex flex-col">
+    <div
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-circle-charcoal/40 dark:bg-black/60 backdrop-blur-sm animate-fadeIn"
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        className="relative w-full max-w-lg rounded-2xl glass-sheet p-6 shadow-xl animate-scaleUp max-h-[90vh] flex flex-col"
+      >
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-circle-hairline dark:border-circle-dark-hairline shrink-0">
           <h3 className="text-base font-bold text-circle-charcoal dark:text-circle-dark-text">
@@ -113,15 +136,18 @@ export const SessionsManagementModal: React.FC<SessionsManagementModalProps> = (
               type="button"
               onClick={() => refetch()}
               disabled={isRefetching}
-              className="flex h-8 w-8 items-center justify-center rounded-full text-circle-slate hover:bg-circle-canvas dark:hover:bg-circle-dark-elevated transition-colors"
-              title="Refresh"
+              aria-label={t.common.refresh}
+              className="flex h-8 w-8 items-center justify-center rounded-full text-circle-slate dark:text-circle-dark-muted hover:bg-circle-canvas dark:hover:bg-circle-dark-elevated hover:text-circle-charcoal dark:hover:text-white transition-colors"
+              title={t.common.refresh}
             >
               <RefreshCw className={`h-4 w-4 ${isRefetching ? 'animate-spin' : ''}`} />
             </button>
             <button
               type="button"
               onClick={onClose}
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-circle-canvas dark:bg-circle-dark-canvas text-circle-slate hover:bg-circle-wash hover:text-circle-charcoal dark:hover:text-circle-dark-text transition-colors"
+              aria-label={t.common.close}
+              title={t.common.close}
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-circle-canvas dark:bg-circle-dark-canvas text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash hover:text-circle-charcoal dark:hover:text-circle-dark-text transition-colors"
             >
               <X className="h-4 w-4" />
             </button>
@@ -130,13 +156,13 @@ export const SessionsManagementModal: React.FC<SessionsManagementModalProps> = (
 
         {/* Notices */}
         {successNotice && (
-          <div className="mt-3 flex items-center gap-2 rounded-lg bg-circle-wash/70 dark:bg-circle-dark-wash/30 p-2.5 text-xs text-circle-sage dark:text-circle-primary border border-circle-sage/30 animate-fadeIn shrink-0">
+          <div className="mt-3 flex items-center gap-2 rounded-lg bg-circle-wash/70 dark:bg-circle-dark-wash/30 p-2.5 text-xs text-circle-sage dark:text-circle-dark-primary border border-circle-sage/30 animate-fadeIn shrink-0">
             <CheckCircle2 className="h-4 w-4 shrink-0" />
             <span>{successNotice}</span>
           </div>
         )}
         {errorNotice && (
-          <div className="mt-3 flex items-center gap-2 rounded-lg bg-circle-coral/10 p-2.5 text-xs text-circle-coral border border-circle-coral/30 animate-fadeIn shrink-0">
+          <div className="mt-3 flex items-center gap-2 rounded-lg bg-circle-coral/10 p-2.5 text-xs text-circle-coral dark:text-rose-400 border border-circle-coral/30 animate-fadeIn shrink-0">
             <AlertTriangle className="h-4 w-4 shrink-0" />
             <span>{errorNotice}</span>
           </div>
@@ -206,7 +232,7 @@ export const SessionsManagementModal: React.FC<SessionsManagementModalProps> = (
                     type="button"
                     onClick={() => handleRevokeSingle(session.id)}
                     disabled={revokingId === session.id}
-                    className="ml-2 shrink-0 rounded-md border border-circle-coral/30 bg-circle-coral/10 hover:bg-circle-coral/20 px-2.5 py-1 text-xs font-semibold text-circle-coral transition-colors flex items-center gap-1 disabled:opacity-50"
+                    className="ml-2 shrink-0 rounded-md border border-circle-coral/30 bg-circle-coral/10 hover:bg-circle-coral/20 px-2.5 py-1 text-xs font-semibold text-circle-coral dark:text-rose-400 transition-colors flex items-center gap-1 disabled:opacity-50"
                   >
                     {revokingId === session.id ? (
                       <Loader2 className="h-3 w-3 animate-spin" />
@@ -227,7 +253,7 @@ export const SessionsManagementModal: React.FC<SessionsManagementModalProps> = (
             <button
               type="button"
               onClick={() => setShowConfirmRevokeAll(true)}
-              className="rounded-lg border border-circle-coral/40 bg-circle-coral/10 hover:bg-circle-coral/20 px-3 py-1.5 text-xs font-semibold text-circle-coral transition-colors flex items-center gap-1.5"
+              className="rounded-lg border border-circle-coral/40 bg-circle-coral/10 hover:bg-circle-coral/20 px-3 py-1.5 text-xs font-semibold text-circle-coral dark:text-rose-400 transition-colors flex items-center gap-1.5"
             >
               <LogOut className="h-3.5 w-3.5" />
               <span>{t.auth.revokeAllOtherSessions} ({otherSessions.length})</span>
@@ -242,11 +268,12 @@ export const SessionsManagementModal: React.FC<SessionsManagementModalProps> = (
 
         {/* Confirm Revoke All Other Modal */}
         {showConfirmRevokeAll && (
-          <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fadeIn">
-            <div className="w-full max-w-sm rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-5 shadow-2xl animate-scaleUp">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-circle-coral/15 text-circle-coral mb-3">
-                <AlertTriangle className="h-5 w-5" />
-              </div>
+          <div
+            onClick={(e) => e.target === e.currentTarget && setShowConfirmRevokeAll(false)}
+            className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fadeIn"
+          >
+            <div className="w-full max-w-sm rounded-2xl glass-sheet p-5 shadow-2xl animate-scaleUp">
+              <AlertTriangle className="h-5 w-5 text-circle-coral dark:text-rose-400 mb-3" />
               <h4 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
                 {t.auth.revokeAllOtherSessions}
               </h4>

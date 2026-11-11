@@ -4,10 +4,11 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Dimensions,
+  useWindowDimensions,
   Image as RNImage,
   ScrollView,
   Modal,
+  ActivityIndicator,
   Alert,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
@@ -20,7 +21,6 @@ import {
   ImageIcon,
   ChevronLeft,
   ChevronRight,
-  Layers,
   Flame,
   Trash2,
 } from 'lucide-react-native';
@@ -32,8 +32,6 @@ import { getItem, setItem } from '../../services/storage';
 import { MomentEntity, SharedAlbumEntity } from '@circle/types';
 import { getAlbumsApi, addPhotosApi } from '../../services/circle-tools.service';
 import { resolveMobileMediaUrl } from '../../services/api';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface MomentHistoryViewProps {
   circleId?: string;
@@ -68,7 +66,7 @@ interface MapClusterPin {
   moments: any[];
 }
 
-const VIETNAM_LOCATIONS = [
+const PRESET_LOCATIONS_VI = [
   { name: 'ĐH Sư Phạm Kỹ Thuật (HCMUTE)', address: 'Thủ Đức, TP. Hồ Chí Minh', lat: 10.8505, lng: 106.7719, x: 0.62, y: 0.36 },
   { name: 'Phố đi bộ Nguyễn Huệ & Chợ Bến Thành', address: 'Quận 1, TP. Hồ Chí Minh', lat: 10.7745, lng: 106.7035, x: 0.44, y: 0.52 },
   { name: 'Landmark 81 & Central Park', address: 'Bình Thạnh, TP. Hồ Chí Minh', lat: 10.7950, lng: 106.7219, x: 0.54, y: 0.44 },
@@ -79,8 +77,16 @@ const VIETNAM_LOCATIONS = [
   { name: 'Phố Cổ Hội An & Sông Hoài', address: 'Hội An, Quảng Nam', lat: 15.8801, lng: 108.3380, x: 0.66, y: 0.20 },
 ];
 
-const WEEKDAYS_VI = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
-const WEEKDAYS_EN = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const PRESET_LOCATIONS_EN = [
+  { name: 'HCMUTE Campus', address: 'Thu Duc, Ho Chi Minh City', lat: 10.8505, lng: 106.7719, x: 0.62, y: 0.36 },
+  { name: 'Nguyen Hue Walking Street', address: 'District 1, Ho Chi Minh City', lat: 10.7745, lng: 106.7035, x: 0.44, y: 0.52 },
+  { name: 'Landmark 81 & Central Park', address: 'Binh Thanh, Ho Chi Minh City', lat: 10.7950, lng: 106.7219, x: 0.54, y: 0.44 },
+  { name: 'Crescent Lake & Starlight Bridge', address: 'District 7, Ho Chi Minh City', lat: 10.7292, lng: 106.7196, x: 0.50, y: 0.68 },
+  { name: 'Xuan Huong Lake & Square', address: 'Da Lat, Lam Dong', lat: 11.9404, lng: 108.4583, x: 0.78, y: 0.26 },
+  { name: 'Front Beach & Lighthouse', address: 'Vung Tau, Ba Ria - Vung Tau', lat: 10.3460, lng: 107.0843, x: 0.72, y: 0.78 },
+  { name: 'Hoan Kiem Lake & Old Quarter', address: 'Hoan Kiem, Hanoi', lat: 21.0285, lng: 105.8542, x: 0.30, y: 0.18 },
+  { name: 'Hoi An Ancient Town', address: 'Hoi An, Quang Nam', lat: 15.8801, lng: 108.3380, x: 0.66, y: 0.20 },
+];
 
 function parseDualPhotos(rawUrl?: string | null): { mainUrl: string; pipUrl: string | null; cornerIndex: number } {
   if (!rawUrl) return { mainUrl: '', pipUrl: null, cornerIndex: 0 };
@@ -140,27 +146,48 @@ function normalizeMoment(raw: any) {
 
 const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN || '';
 
-export function getOsmTileUrl(lat: number, lng: number, zoom: number = 15): string {
+export function getOsmTileUrl(
+  lat: number,
+  lng: number,
+  zoom: number = 15,
+  isDark: boolean = false,
+): string {
   if (MAPBOX_TOKEN) {
-    return `https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/pin-s-camera+3b82f6(${lng},${lat})/${lng},${lat},${zoom},0/400x200@2x?access_token=${MAPBOX_TOKEN}`;
+    const style = isDark ? 'dark-v11' : 'streets-v12';
+    return `https://api.mapbox.com/styles/v1/mapbox/${style}/static/pin-s-camera+10b981(${lng},${lat})/${lng},${lat},${zoom},0/400x200@2x?access_token=${MAPBOX_TOKEN}`;
   }
   const n = Math.pow(2, zoom);
   const x = Math.floor(((lng + 180) / 360) * n);
   const latRad = (lat * Math.PI) / 180;
   const y = Math.floor(((1 - Math.asinh(Math.tan(latRad)) / Math.PI) / 2) * n);
-  return `https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/${zoom}/${y}/${x}`;
+  const cartoTheme = isDark ? 'dark_all' : 'light_all';
+  return `https://a.basemaps.cartocdn.com/${cartoTheme}/${zoom}/${x}/${y}@2x.png`;
 }
 
-export function resolveMomentLocation(m: any, fallbackIndex: number = 0) {
+export function resolveMomentLocation(
+  m: any,
+  fallbackIndex: number = 0,
+  opts?: {
+    fallbackName?: string;
+    fallbackAddress?: string;
+    isDark?: boolean;
+    locale?: string;
+  },
+) {
+  const presets = opts?.locale === 'en' ? PRESET_LOCATIONS_EN : PRESET_LOCATIONS_VI;
+  const fallbackName = opts?.fallbackName || 'Moment Location';
+  const fallbackAddress = opts?.fallbackAddress || 'Nearby area';
+  const isDark = Boolean(opts?.isDark);
+
   if (!m) {
-    const p = VIETNAM_LOCATIONS[0]!;
+    const p = presets[0]!;
     return {
       id: 'default',
       name: p.name,
       address: p.address,
       lat: p.lat,
       lng: p.lng,
-      staticMapUrl: getOsmTileUrl(p.lat, p.lng, 15),
+      staticMapUrl: getOsmTileUrl(p.lat, p.lng, 15, isDark),
     };
   }
 
@@ -173,15 +200,15 @@ export function resolveMomentLocation(m: any, fallbackIndex: number = 0) {
   ) {
     const lat = Number(m.latitude);
     const lng = Number(m.longitude);
-    const name = m.locationName?.trim() || m.address?.trim() || 'Vị trí đã chụp';
-    const address = m.address?.trim() || m.locationName?.trim() || 'Việt Nam';
+    const name = m.locationName?.trim() || m.address?.trim() || fallbackName;
+    const address = m.address?.trim() || m.locationName?.trim() || fallbackAddress;
     return {
       id: m.id || 'loc',
       name,
       address,
       lat,
       lng,
-      staticMapUrl: getOsmTileUrl(lat, lng, 15),
+      staticMapUrl: getOsmTileUrl(lat, lng, 15, isDark),
     };
   }
 
@@ -195,26 +222,26 @@ export function resolveMomentLocation(m: any, fallbackIndex: number = 0) {
   if (latMatch && lngMatch) {
     const lat = parseFloat(latMatch[1]!);
     const lng = parseFloat(lngMatch[1]!);
-    const name = locMatch ? decodeURIComponent(locMatch[1]!) : 'Vị trí đã chụp';
-    const address = addrMatch ? decodeURIComponent(addrMatch[1]!) : 'Việt Nam';
+    const name = locMatch ? decodeURIComponent(locMatch[1]!) : fallbackName;
+    const address = addrMatch ? decodeURIComponent(addrMatch[1]!) : fallbackAddress;
     return {
       id: m.id || 'loc',
       name,
       address,
       lat,
       lng,
-      staticMapUrl: getOsmTileUrl(lat, lng, 15),
+      staticMapUrl: getOsmTileUrl(lat, lng, 15, isDark),
     };
   }
 
-  const p = VIETNAM_LOCATIONS[fallbackIndex % VIETNAM_LOCATIONS.length]!;
+  const p = presets[fallbackIndex % presets.length]!;
   return {
     id: m.id || `loc-${fallbackIndex}`,
     name: m.locationName || p.name,
     address: m.address || p.address,
     lat: p.lat,
     lng: p.lng,
-    staticMapUrl: getOsmTileUrl(p.lat, p.lng, 15),
+    staticMapUrl: getOsmTileUrl(p.lat, p.lng, 15, isDark),
   };
 }
 
@@ -229,8 +256,10 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
   hideInternalHeader = false,
 }) => {
   const { colors, resolvedTheme } = useThemeStore();
-  const { locale } = useLanguageStore();
+  const { locale, t } = useLanguageStore();
   const isDark = resolvedTheme === 'dark';
+  const dateLocale = locale === 'vi' ? 'vi-VN' : 'en-US';
+  const { width: screenWidth } = useWindowDimensions();
   const user = useAuthStore((s) => s.user);
 
   const [internalViewMode, setInternalViewMode] = useState<'month' | 'map'>('month');
@@ -279,65 +308,70 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
       setIsSavingPhoto(false);
     }
   };
+
+  const [lightboxConfirmMode, setLightboxConfirmMode] = useState<'delete' | 'hide' | null>(null);
+  const [lightboxActionError, setLightboxActionError] = useState<string | null>(null);
+  const [isLightboxProcessing, setIsLightboxProcessing] = useState<boolean>(false);
   const webViewRef = useRef<WebView>(null);
 
   // Queries
   const { data: myServerMoments = [] } = useMyMomentsQuery();
   const deleteMomentMutation = useDeleteMomentMutation(null);
 
-  const handleDeleteCurrentLightboxMoment = () => {
-    if (!selectedDayMoments || selectedDayMoments.length === 0) return;
-    const currentMoment = selectedDayMoments[activePhotoIndex];
-    if (!currentMoment || currentMoment.id === 'captured-today') return;
+  const currentLightboxMoment =
+    selectedDayMoments && selectedDayMoments.length > 0
+      ? selectedDayMoments[activePhotoIndex]
+      : null;
 
-    const isOwn =
-      currentMoment.authorId === user?.id ||
-      currentMoment.author?.id === user?.id ||
-      currentMoment.userId === user?.id;
+  const isOwnLightboxMoment = Boolean(
+    currentLightboxMoment &&
+      (currentLightboxMoment.authorId === user?.id ||
+        currentLightboxMoment.author?.id === user?.id ||
+        currentLightboxMoment.userId === user?.id),
+  );
 
-    if (isOwn) {
-      Alert.alert(
-        'Xoá vĩnh viễn khoảnh khắc?',
-        'Khoảnh khắc này sẽ bị xoá vĩnh viễn khỏi Circle và bạn bè sẽ không thể xem lại nữa.',
-        [
-          { text: 'Hủy', style: 'cancel' },
-          {
-            text: 'Xoá vĩnh viễn',
-            style: 'destructive',
-            onPress: async () => {
-              try {
-                await deleteMomentMutation.mutateAsync(currentMoment.id);
-                setSelectedDayMoments(null);
-              } catch (err: any) {
-                Alert.alert('Circle', err?.message || 'Không thể xoá khoảnh khắc');
-              }
-            },
-          },
-        ],
-      );
-    } else {
-      Alert.alert(
-        'Xoá khỏi bên mình?',
-        'Khoảnh khắc này sẽ được xoá khỏi trang của bạn. Bạn bè khác trong Vòng tròn vẫn có thể xem được bình thường.',
-        [
-          { text: 'Hủy', style: 'cancel' },
-          {
-            text: 'Xoá khỏi bên mình',
-            style: 'destructive',
-            onPress: async () => {
-              try {
-                const stored = await getItem('circle_hidden_moments');
-                const list = stored ? JSON.parse(stored) : [];
-                if (!list.includes(currentMoment.id)) {
-                  list.push(currentMoment.id);
-                  await setItem('circle_hidden_moments', JSON.stringify(list));
-                }
-              } catch {}
-              setSelectedDayMoments(null);
-            },
-          },
-        ],
-      );
+  const closeLightbox = () => {
+    setSelectedDayMoments(null);
+    setLightboxConfirmMode(null);
+    setLightboxActionError(null);
+    setIsLightboxProcessing(false);
+  };
+
+  const handleRequestDeleteCurrentLightboxMoment = () => {
+    if (!currentLightboxMoment || currentLightboxMoment.id === 'captured-today') return;
+    setLightboxActionError(null);
+    setLightboxConfirmMode(isOwnLightboxMoment ? 'delete' : 'hide');
+  };
+
+  const handleConfirmLightboxAction = async () => {
+    if (!currentLightboxMoment || currentLightboxMoment.id === 'captured-today') return;
+    if (lightboxConfirmMode === 'delete') {
+      try {
+        setIsLightboxProcessing(true);
+        setLightboxActionError(null);
+        await deleteMomentMutation.mutateAsync(currentLightboxMoment.id);
+        closeLightbox();
+      } catch (err: any) {
+        setLightboxActionError(err?.message || t.moments.deleteMomentError);
+      } finally {
+        setIsLightboxProcessing(false);
+      }
+    } else if (lightboxConfirmMode === 'hide') {
+      try {
+        setIsLightboxProcessing(true);
+        setLightboxActionError(null);
+        const stored = await getItem('circle_hidden_moments');
+        const list = stored ? JSON.parse(stored) : [];
+        if (!list.includes(currentLightboxMoment.id)) {
+          list.push(currentLightboxMoment.id);
+          await setItem('circle_hidden_moments', JSON.stringify(list));
+        }
+        closeLightbox();
+      } catch (err: any) {
+        setLightboxActionError(err?.message || t.moments.deleteMomentError);
+      } finally {
+        setIsLightboxProcessing(false);
+      }
     }
   };
 
@@ -438,7 +472,9 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
       const [yStr, mStr] = key.split('-');
       const year = parseInt(yStr, 10);
       const month = parseInt(mStr, 10);
-      const label = locale === 'vi' ? ('Tháng ' + month + ', ' + year) : ('Month ' + month + ', ' + year);
+      const label = t.moments.monthYearFormat
+        .replace('{month}', String(month))
+        .replace('{year}', String(year));
 
       const totalDays = new Date(year, month, 0).getDate();
       // Monday = index 0
@@ -494,10 +530,11 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
         moments: monthMoments,
       };
     });
-  }, [myMoments, latestStreakKeysSet, locale]);
+  }, [myMoments, latestStreakKeysSet, t]);
 
   // Assign location coordinates to moments
   const momentsWithLocations: MomentLocation[] = useMemo(() => {
+    const presets = locale === 'en' ? PRESET_LOCATIONS_EN : PRESET_LOCATIONS_VI;
     return myMoments.map((m, index) => {
       // 1. Direct persistent DB fields
       if (
@@ -508,8 +545,8 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
       ) {
         const lat = Number(m.latitude);
         const lng = Number(m.longitude);
-        const locName = m.locationName?.trim() || m.address?.trim() || 'Vị trí đã chụp';
-        const address = m.address?.trim() || m.locationName?.trim() || 'Việt Nam';
+        const locName = m.locationName?.trim() || m.address?.trim() || t.moments.capturedLocation;
+        const address = m.address?.trim() || m.locationName?.trim() || t.moments.capturedAreaFallback;
         const x = Math.min(Math.max((lng - 105.0) / 4.0, 0.15), 0.85);
         const y = Math.min(Math.max((22.0 - lat) / 12.0, 0.15), 0.85);
         return {
@@ -533,8 +570,8 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
       if (latMatch && lngMatch) {
         const lat = parseFloat(latMatch[1]!);
         const lng = parseFloat(lngMatch[1]!);
-        const locName = locMatch ? decodeURIComponent(locMatch[1]!) : 'Vị trí đã chụp';
-        const address = addrMatch ? decodeURIComponent(addrMatch[1]!) : 'Việt Nam';
+        const locName = locMatch ? decodeURIComponent(locMatch[1]!) : t.moments.capturedLocation;
+        const address = addrMatch ? decodeURIComponent(addrMatch[1]!) : t.moments.capturedAreaFallback;
         const x = Math.min(Math.max((lng - 105.0) / 4.0, 0.15), 0.85);
         const y = Math.min(Math.max((22.0 - lat) / 12.0, 0.15), 0.85);
         return {
@@ -549,7 +586,7 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
         };
       }
 
-      const locPreset = VIETNAM_LOCATIONS[index % VIETNAM_LOCATIONS.length]!;
+      const locPreset = presets[index % presets.length]!;
       const jitterX = ((index * 17) % 7 - 3) * 0.02;
       const jitterY = ((index * 23) % 7 - 3) * 0.02;
 
@@ -564,7 +601,7 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
         yRatio: Math.min(Math.max(locPreset.y + jitterY, 0.12), 0.88),
       };
     });
-  }, [myMoments]);
+  }, [myMoments, locale, t]);
 
   // Filtered moments on map by month
   const mapFilteredLocations = useMemo(() => {
@@ -610,11 +647,12 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
   // Demo fallback clusters if account has not captured moments with geo-tagging yet
   const effectiveClusters = useMemo<MapClusterPin[]>(() => {
     if (clusters.length > 0) return clusters;
+    const isVi = locale === 'vi';
     return [
       {
         id: 'cluster-hcmute',
-        name: 'ĐH Sư Phạm Kỹ Thuật (HCMUTE)',
-        address: '1 Võ Văn Ngân, Linh Chiểu, Thủ Đức, TP. Hồ Chí Minh',
+        name: isVi ? 'ĐH Sư Phạm Kỹ Thuật (HCMUTE)' : 'HCMUTE Campus',
+        address: isVi ? '1 Võ Văn Ngân, Thủ Đức, TP. Hồ Chí Minh' : '1 Vo Van Ngan, Thu Duc, Ho Chi Minh City',
         lat: 10.8505,
         lng: 106.7719,
         thumbUrl: 'https://images.unsplash.com/photo-1541339907198-e08756dedf3f?w=300',
@@ -623,15 +661,15 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
           {
             id: 'demo-moment-1',
             photoUrl: 'https://images.unsplash.com/photo-1541339907198-e08756dedf3f?w=800',
-            caption: 'Khuôn viên trường ĐH Sư Phạm Kỹ Thuật TP.HCM ✨',
+            caption: isVi ? 'Khuôn viên trường ĐH Sư Phạm Kỹ Thuật TP.HCM ✨' : 'HCMUTE University Campus ✨',
             createdAt: new Date().toISOString(),
           },
         ],
       },
       {
         id: 'cluster-q1',
-        name: 'Phố đi bộ Nguyễn Huệ & Chợ Bến Thành',
-        address: 'Bến Nghé, Quận 1, TP. Hồ Chí Minh',
+        name: isVi ? 'Phố đi bộ Nguyễn Huệ & Chợ Bến Thành' : 'Nguyen Hue Walking Street',
+        address: isVi ? 'Bến Nghé, Quận 1, TP. Hồ Chí Minh' : 'Ben Nghe, District 1, Ho Chi Minh City',
         lat: 10.7745,
         lng: 106.7035,
         thumbUrl: 'https://images.unsplash.com/photo-1583417319070-4a69db38a482?w=300',
@@ -640,15 +678,15 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
           {
             id: 'demo-moment-2',
             photoUrl: 'https://images.unsplash.com/photo-1583417319070-4a69db38a482?w=800',
-            caption: 'Dạo phố đi bộ Sài Gòn cuối tuần 🌆',
+            caption: isVi ? 'Dạo phố đi bộ Sài Gòn cuối tuần 🌆' : 'Weekend walk downtown Saigon 🌆',
             createdAt: new Date(Date.now() - 86400000).toISOString(),
           },
         ],
       },
       {
         id: 'cluster-dalat',
-        name: 'Hồ Xuân Hương & Lâm Viên',
-        address: 'Phường 10, TP. Đà Lạt, Lâm Đồng',
+        name: isVi ? 'Hồ Xuân Hương & Lâm Viên' : 'Xuan Huong Lake & Square',
+        address: isVi ? 'Phường 10, TP. Đà Lạt, Lâm Đồng' : 'Ward 10, Da Lat, Lam Dong',
         lat: 11.9404,
         lng: 108.4583,
         thumbUrl: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=300',
@@ -657,7 +695,7 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
           {
             id: 'demo-moment-3',
             photoUrl: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=800',
-            caption: 'Không khí se lạnh và hoa Đà Lạt nở rộ 🌸',
+            caption: isVi ? 'Không khí se lạnh và hoa Đà Lạt nở rộ 🌸' : 'Cool breeze & blooming flowers in Da Lat 🌸',
             createdAt: new Date(Date.now() - 172800000).toISOString(),
           },
         ],
@@ -665,7 +703,7 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
       {
         id: 'cluster-landmark',
         name: 'Landmark 81 & Central Park',
-        address: '208 Nguyễn Hữu Cảnh, Bình Thạnh, TP. Hồ Chí Minh',
+        address: isVi ? '208 Nguyễn Hữu Cảnh, Bình Thạnh, TP. Hồ Chí Minh' : '208 Nguyen Huu Canh, Binh Thanh, Ho Chi Minh City',
         lat: 10.795,
         lng: 106.7219,
         thumbUrl: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=300',
@@ -674,13 +712,13 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
           {
             id: 'demo-moment-4',
             photoUrl: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800',
-            caption: 'Hoàng hôn bên sông Sài Gòn 🌅',
+            caption: isVi ? 'Hoàng hôn bên sông Sài Gòn 🌅' : 'Sunset by the Saigon River 🌅',
             createdAt: new Date(Date.now() - 259200000).toISOString(),
           },
         ],
       },
     ];
-  }, [clusters]);
+  }, [clusters, locale]);
 
   // Leaflet HTML template for OpenStreetMap tiles map
   const mapHtml = useMemo(() => {
@@ -714,7 +752,7 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
       right: 0;
       bottom: 0;
       overflow: hidden;
-      background: ${isDark ? '#0f172a' : '#f8fafc'};
+      background: ${isDark ? '#131316' : '#F8FAFC'};
     }
     #map {
       width: 100%;
@@ -754,8 +792,8 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
       justify-content: center;
     }
     .photo-pin-bubble.selected {
-      border-color: ${colors.primary};
-      box-shadow: 0 0 0 3px ${colors.primary}50, 0 6px 18px rgba(0,0,0,0.5);
+      border-color: ${colors.sage};
+      box-shadow: 0 0 0 3px ${colors.sage}50, 0 6px 18px rgba(0,0,0,0.5);
       transform: scale(1.12);
     }
     .photo-pin-img {
@@ -768,7 +806,7 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
       position: absolute;
       top: -3px;
       right: -3px;
-      background: rgba(15, 23, 42, 0.9);
+      background: rgba(19, 19, 22, 0.92);
       color: #FFFFFF;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       font-size: 10px;
@@ -787,7 +825,7 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
       margin-top: -1px;
     }
     .photo-pin-bubble.selected + .photo-pin-tail {
-      border-top-color: ${colors.primary};
+      border-top-color: ${colors.sage};
     }
   </style>
 </head>
@@ -807,14 +845,15 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
 
       var mapboxToken = '${MAPBOX_TOKEN}';
       var mapboxStyle = '${isDark ? 'dark-v11' : 'streets-v12'}';
+      var cartoTheme = '${isDark ? 'dark_all' : 'light_all'}';
       var tileUrl = mapboxToken
         ? 'https://api.mapbox.com/styles/v1/mapbox/' + mapboxStyle + '/tiles/512/{z}/{x}/{y}@2x?access_token=' + mapboxToken
-        : 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}';
+        : 'https://{s}.basemaps.cartocdn.com/' + cartoTheme + '/{z}/{x}/{y}@2x.png';
 
       L.tileLayer(tileUrl, {
         tileSize: mapboxToken ? 512 : 256,
         zoomOffset: mapboxToken ? -1 : 0,
-        maxZoom: 22,
+        maxZoom: 20,
         attribution: ''
       }).addTo(map);
 
@@ -915,7 +954,7 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
   </script>
 </body>
 </html>`;
-  }, [effectiveClusters, isDark, colors.primary]);
+  }, [effectiveClusters, isDark, colors.sage]);
 
   const handleWebViewMessage = (event: any) => {
     try {
@@ -930,26 +969,36 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
     } catch {}
   };
 
-  // Calculate 7-column calendar day cell size
+  // Calculate 7-column calendar day cell size dynamically from screenWidth
   const calendarGap = 6;
   const calendarPadding = 14;
-  const cellWidth = Math.floor((SCREEN_WIDTH - calendarPadding * 2 - calendarGap * 6) / 7);
+  const cellWidth = Math.floor((screenWidth - calendarPadding * 2 - calendarGap * 6) / 7);
 
-  const weekdays = locale === 'vi' ? WEEKDAYS_VI : WEEKDAYS_EN;
+  const weekdays = [
+    t.moments.weekdayMon,
+    t.moments.weekdayTue,
+    t.moments.weekdayWed,
+    t.moments.weekdayThu,
+    t.moments.weekdayFri,
+    t.moments.weekdaySat,
+    t.moments.weekdaySun,
+  ];
 
   return (
     <View style={[styles.container, { backgroundColor: colors.canvas }]}>
-      {/* Sub-Header Toolbar with Switcher Tabs (Ẩn khi thanh switcher được đẩy lên header tầng 2) */}
+      {/* Sub-Header Toolbar with Switcher Tabs */}
       {!hideInternalHeader && (
         <View style={[styles.subHeader, { borderBottomColor: colors.hairline }]}>
           <View style={styles.titleColumn}>
-            <Text style={[styles.titleText, { color: colors.text }]}>Khoảnh khắc của tôi</Text>
+            <Text style={[styles.titleText, { color: colors.text }]}>
+              {t.moments.myMomentsTitle}
+            </Text>
             <Text style={[styles.subtitleText, { color: colors.subtle }]}>
-              {myMoments.length} khoảnh khắc đã chụp
+              {myMoments.length} {t.moments.momentsUnit}
             </Text>
           </View>
 
-          {/* Switcher Tabs: Tháng vs Bản đồ */}
+          {/* Switcher Tabs: Month vs Map */}
           <View style={[styles.segmentedBar, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
             <TouchableOpacity
               activeOpacity={0.85}
@@ -969,7 +1018,7 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
                   { color: viewMode === 'month' ? colors.onPrimary : colors.subtle },
                 ]}
               >
-                Lịch tháng
+                {t.moments.calendarMode}
               </Text>
             </TouchableOpacity>
 
@@ -991,7 +1040,7 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
                   { color: viewMode === 'map' ? colors.onPrimary : colors.subtle },
                 ]}
               >
-                Bản đồ
+                {t.moments.placesMode}
               </Text>
             </TouchableOpacity>
           </View>
@@ -999,7 +1048,7 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
       )}
 
       {/* =========================================================================
-          MODE 1: THEO THÁNG (CALENDAR GRID VỚI CHẤM SỐ NGÀY & ẢNH STACK DÀY)
+          MODE 1: CALENDAR GRID WITH STREAK CONNECTORS & STACK THUMBNAILS
          ========================================================================= */}
       {viewMode === 'month' && (
         <ScrollView
@@ -1016,16 +1065,18 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
                     {cal.label}
                   </Text>
                   <Text style={[styles.calendarSubStats, { color: colors.subtle }]}>
-                    {cal.daysWithPhotosCount} ngày chụp • {cal.totalPhotos} ảnh
+                    {cal.daysWithPhotosCount} {t.moments.activeDaysUnit} • {cal.totalPhotos}{' '}
+                    {t.moments.photosUnit}
                   </Text>
                 </View>
 
                 <View style={styles.headerBadgesRow}>
                   <View style={[styles.monthBadge, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' }]}>
                     <Text style={[styles.monthBadgeText, { color: colors.text }]}>
-                      {cal.totalPhotos} ảnh
+                      {cal.totalPhotos} {t.moments.photosUnit}
                     </Text>
-                  </View></View>
+                  </View>
+                </View>
               </View>
 
               {/* 7-Column Weekday Header Row */}
@@ -1035,7 +1086,7 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
                     <Text
                       style={[
                         styles.weekdayText,
-                        { color: wIdx === 6 ? colors.primary : colors.subtle },
+                        { color: wIdx === 6 ? colors.sage : colors.subtle },
                       ]}
                     >
                       {wd}
@@ -1091,6 +1142,8 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
                       activeOpacity={0.85}
                       onPress={() => {
                         setLightboxSwapped(false);
+                        setLightboxConfirmMode(null);
+                        setLightboxActionError(null);
                         setActivePhotoIndex(0);
                         setSelectedDayMoments(dayItem.moments);
                       }}
@@ -1165,20 +1218,20 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
             </View>
           ))}
 
-          {/* Thống kê basic tinh giản ở cuối danh sách: Icon ảnh số lượng & Icon lửa số lượng */}
+          {/* Summary footer pills */}
           <View style={styles.basicSummaryRow}>
-            {/* Pill 1: Icon ảnh + Tổng số lượng */}
+            {/* Pill 1: Photo icon + Total */}
             <View style={[styles.basicStatPill, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
-              <ImageIcon size={16} color={colors.primary} />
+              <ImageIcon size={16} color={colors.sage} />
               <Text style={[styles.basicStatNumber, { color: colors.text }]}>
                 {myMoments.length}
               </Text>
             </View>
 
-            {/* Pill 2: Icon lửa + Số lượng streak */}
-            <View style={[styles.basicStatPill, { backgroundColor: colors.surface, borderColor: latestStreakKeysSet.size >= 2 ? colors.primary : colors.hairline }]}>
-              <Flame size={16} color={latestStreakKeysSet.size >= 2 ? '#EF4444' : colors.subtle} />
-              <Text style={[styles.basicStatNumber, { color: latestStreakKeysSet.size >= 2 ? '#EF4444' : colors.text }]}>
+            {/* Pill 2: Streak flame + Count */}
+            <View style={[styles.basicStatPill, { backgroundColor: colors.surface, borderColor: latestStreakKeysSet.size >= 2 ? colors.sage : colors.hairline }]}>
+              <Flame size={16} color={latestStreakKeysSet.size >= 2 ? colors.danger : colors.subtle} />
+              <Text style={[styles.basicStatNumber, { color: latestStreakKeysSet.size >= 2 ? colors.danger : colors.text }]}>
                 {latestStreakKeysSet.size}
               </Text>
             </View>
@@ -1187,7 +1240,7 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
       )}
 
       {/* =========================================================================
-          MODE 2: BẢN ĐỒ KIỂU GOOGLE MAPS (INTERACTIVE MAP CANVAS)
+          MODE 2: INTERACTIVE MAP CANVAS
          ========================================================================= */}
       {viewMode === 'map' && (
         <View style={styles.mapRoot}>
@@ -1211,7 +1264,7 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
                     { color: selectedMonthFilter === 'all' ? colors.onPrimary : colors.text },
                   ]}
                 >
-                  Tất cả ({momentsWithLocations.length})
+                  {t.common.all} ({momentsWithLocations.length})
                 </Text>
               </TouchableOpacity>
 
@@ -1241,7 +1294,7 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
             </ScrollView>
           </View>
 
-          {/* Real Interactive Leaflet / OpenStreetMap via WebView */}
+          {/* Real Interactive Leaflet / CartoDB Map via WebView */}
           <View style={styles.mapWebViewContainer}>
             <WebView
               ref={webViewRef}
@@ -1260,6 +1313,8 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
             <View style={styles.mapFloatingControls}>
               <TouchableOpacity
                 activeOpacity={0.85}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityLabel={t.moments.recenterMap}
                 onPress={() => {
                   webViewRef.current?.injectJavaScript('window.recenter(); true;');
                   setActiveCluster(null);
@@ -1269,7 +1324,7 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
                   { backgroundColor: colors.surface, borderColor: colors.hairline },
                 ]}
               >
-                <LocateFixed size={17} color={colors.primary} />
+                <LocateFixed size={17} color={colors.sage} />
               </TouchableOpacity>
             </View>
 
@@ -1288,7 +1343,7 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
                   />
                   <View style={styles.pinCardDetails}>
                     <View style={styles.pinCardTitleRow}>
-                      <MapPin size={13} color={colors.primary} />
+                      <MapPin size={13} color={colors.sage} />
                       <Text
                         style={[styles.pinCardTitle, { color: colors.text }]}
                         numberOfLines={1}
@@ -1296,13 +1351,13 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
                         {activeCluster.name}
                       </Text>
                     </View>
-                    <Text style={[styles.pinCardDate, { color: colors.subtle }]}>
-                      {activeCluster.address || 'Việt Nam'}
+                    <Text style={[styles.pinCardDate, { color: colors.subtle }]} numberOfLines={1}>
+                      {activeCluster.address || t.moments.capturedAreaFallback}
                     </Text>
-                    <Text style={[styles.pinCardCaption, { color: colors.primary }]}>
+                    <Text style={[styles.pinCardCaption, { color: colors.sage }]}>
                       {activeCluster.count > 1
-                        ? `${activeCluster.count} ảnh tại địa điểm này`
-                        : `${new Date(activeCluster.moments[0]?.createdAt).toLocaleDateString('vi-VN', {
+                        ? `${activeCluster.count} ${t.moments.momentsAtLocation}`
+                        : `${new Date(activeCluster.moments[0]?.createdAt).toLocaleDateString(dateLocale, {
                             day: 'numeric',
                             month: 'long',
                             year: 'numeric',
@@ -1314,18 +1369,24 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
                     activeOpacity={0.8}
                     onPress={() => {
                       setLightboxSwapped(false);
+                      setLightboxConfirmMode(null);
+                      setLightboxActionError(null);
                       setActivePhotoIndex(0);
                       setSelectedDayMoments(activeCluster.moments);
                     }}
                     style={[styles.pinViewPhotoBtn, { backgroundColor: colors.primary }]}
                   >
                     <Text style={[styles.pinViewPhotoBtnText, { color: colors.onPrimary }]}>
-                      Xem {activeCluster.count > 1 ? `${activeCluster.count} ảnh` : 'ảnh'}
+                      {activeCluster.count > 1
+                        ? `${activeCluster.count} ${t.moments.photosUnit}`
+                        : t.moments.photoBadge}
                     </Text>
                   </TouchableOpacity>
                 </View>
 
                 <TouchableOpacity
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  accessibilityLabel={t.common.close}
                   onPress={() => {
                     setActiveCluster(null);
                     webViewRef.current?.injectJavaScript('window.selectPin(null); true;');
@@ -1348,15 +1409,15 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
           visible={Boolean(selectedDayMoments)}
           animationType="fade"
           transparent
-          onRequestClose={() => setSelectedDayMoments(null)}
+          onRequestClose={closeLightbox}
         >
           <View style={styles.detailBackdrop}>
             <View style={styles.detailCardWrapper}>
               {/* Header Bar */}
-              <View style={styles.detailHeaderBar}>
+              <View style={[styles.detailHeaderBar, { width: screenWidth - 36 }]}>
                 <View>
                   <Text style={styles.detailDateText}>
-                    {new Date(selectedDayMoments[activePhotoIndex]!.createdAt).toLocaleDateString('vi-VN', {
+                    {new Date(selectedDayMoments[activePhotoIndex]!.createdAt).toLocaleDateString(dateLocale, {
                       day: 'numeric',
                       month: 'long',
                       year: 'numeric',
@@ -1366,28 +1427,96 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
                   </Text>
                   {selectedDayMoments.length > 1 && (
                     <Text style={styles.detailMultiCountText}>
-                      Ảnh {activePhotoIndex + 1} / {selectedDayMoments.length}
+                      {t.moments.photoCounterOfTotal
+                        .replace('{current}', String(activePhotoIndex + 1))
+                        .replace('{total}', String(selectedDayMoments.length))}
                     </Text>
                   )}
                 </View>
 
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    onPress={handleDeleteCurrentLightboxMoment}
-                    style={styles.detailDeleteBtn}
-                  >
-                    <Trash2 size={16} color="#FF6B6B" />
-                  </TouchableOpacity>
+                  {currentLightboxMoment?.id !== 'captured-today' && (
+                    <TouchableOpacity
+                      activeOpacity={0.8}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      accessibilityLabel={isOwnLightboxMoment ? t.moments.deleteMomentForeverAction : t.moments.deleteForMeAction}
+                      onPress={handleRequestDeleteCurrentLightboxMoment}
+                      style={styles.detailDeleteBtn}
+                    >
+                      <Trash2 size={16} color="#FCA5A5" />
+                    </TouchableOpacity>
+                  )}
 
                   <TouchableOpacity
-                    onPress={() => setSelectedDayMoments(null)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    accessibilityLabel={t.common.close}
+                    onPress={closeLightbox}
                     style={styles.detailCloseBtn}
                   >
                     <X size={20} color="#FFFFFF" />
                   </TouchableOpacity>
                 </View>
               </View>
+
+              {/* Inline 2-step confirmation & error pill inside lightbox */}
+              {(lightboxConfirmMode || lightboxActionError) && (
+                <View
+                  style={[
+                    styles.lightboxInlineBar,
+                    {
+                      width: screenWidth - 36,
+                      backgroundColor: colors.surface,
+                      borderColor: lightboxActionError ? colors.danger : colors.hairline,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.lightboxInlineText, { color: lightboxActionError ? colors.danger : colors.text }]}>
+                    {lightboxActionError
+                      ? lightboxActionError
+                      : lightboxConfirmMode === 'delete'
+                      ? t.moments.deleteForeverConfirm
+                      : t.moments.hideMomentConfirm}
+                  </Text>
+
+                  {lightboxActionError ? (
+                    <TouchableOpacity
+                      onPress={() => setLightboxActionError(null)}
+                      style={[styles.lightboxInlineBtn, { borderColor: colors.hairline, borderWidth: 1 }]}
+                    >
+                      <Text style={[styles.lightboxInlineBtnText, { color: colors.text }]}>
+                        {t.common.dismiss}
+                      </Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <View style={styles.lightboxInlineActions}>
+                      <TouchableOpacity
+                        disabled={isLightboxProcessing}
+                        onPress={() => setLightboxConfirmMode(null)}
+                        style={[styles.lightboxInlineBtn, { borderColor: colors.hairline, borderWidth: 1 }]}
+                      >
+                        <Text style={[styles.lightboxInlineBtnText, { color: colors.subtle }]}>
+                          {t.common.cancel}
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        disabled={isLightboxProcessing}
+                        onPress={handleConfirmLightboxAction}
+                        style={[styles.lightboxInlineBtn, { backgroundColor: '#DC2626' }]}
+                      >
+                        {isLightboxProcessing ? (
+                          <ActivityIndicator size="small" color="#FFFFFF" />
+                        ) : (
+                          <Text style={[styles.lightboxInlineBtnText, { color: '#FFFFFF' }]}>
+                            {lightboxConfirmMode === 'delete'
+                              ? t.moments.deleteMomentForeverAction
+                              : t.moments.deleteForMeAction}
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
+              )}
 
               {/* Media Container 1:1 Square Card */}
               {(() => {
@@ -1396,7 +1525,7 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
                 const { mainUrl, pipUrl } = parseDualPhotos(rawMomentSrc);
                 const displayMain = lightboxSwapped ? pipUrl || mainUrl : mainUrl;
                 const displayPip = lightboxSwapped ? mainUrl : pipUrl;
-                const cardDim = SCREEN_WIDTH - 36;
+                const cardDim = screenWidth - 36;
 
                 return (
                   <View style={[styles.detailPhotoContainer, { width: cardDim, height: cardDim }]}>
@@ -1433,8 +1562,12 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
                       <>
                         {activePhotoIndex > 0 && (
                           <TouchableOpacity
+                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                            accessibilityLabel={t.moments.prevStory}
                             onPress={() => {
                               setLightboxSwapped(false);
+                              setLightboxConfirmMode(null);
+                              setLightboxActionError(null);
                               setActivePhotoIndex((prev) => Math.max(prev - 1, 0));
                             }}
                             style={[styles.navArrowBtn, { left: 10 }]}
@@ -1444,8 +1577,12 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
                         )}
                         {activePhotoIndex < selectedDayMoments.length - 1 && (
                           <TouchableOpacity
+                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                            accessibilityLabel={t.moments.nextStory}
                             onPress={() => {
                               setLightboxSwapped(false);
+                              setLightboxConfirmMode(null);
+                              setLightboxActionError(null);
                               setActivePhotoIndex((prev) => Math.min(prev + 1, selectedDayMoments.length - 1));
                             }}
                             style={[styles.navArrowBtn, { right: 10 }]}
@@ -1459,32 +1596,37 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
                 );
               })()}
 
-              {/* Mini Map Location Card below Photo (Apple Photos Places / Locket style) */}
+              {/* Mini Map Location Card below Photo */}
               {(() => {
                 const currentMoment = selectedDayMoments[activePhotoIndex]!;
-                const locInfo = resolveMomentLocation(currentMoment, activePhotoIndex);
+                const locInfo = resolveMomentLocation(currentMoment, activePhotoIndex, {
+                  fallbackName: t.moments.capturedLocation,
+                  fallbackAddress: t.moments.capturedAreaFallback,
+                  isDark,
+                  locale,
+                });
 
                 return (
                   <View
                     style={[
                       styles.detailLocationCard,
                       {
-                        width: SCREEN_WIDTH - 36,
-                        backgroundColor: isDark ? 'rgba(30,41,59,0.92)' : 'rgba(255,255,255,0.95)',
-                        borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)',
+                        width: screenWidth - 36,
+                        backgroundColor: colors.surface,
+                        borderColor: colors.hairline,
                       },
                     ]}
                   >
                     {/* Left: Mini Map Image Tile snippet with Pin */}
-                    <View style={styles.detailMiniMapWrap}>
+                    <View style={[styles.detailMiniMapWrap, { backgroundColor: colors.elevated }]}>
                       <RNImage
                         source={{ uri: locInfo.staticMapUrl }}
                         style={styles.detailMiniMapImg}
                         resizeMode="cover"
                       />
                       <View style={styles.detailMiniMapCenterPin}>
-                        <View style={[styles.detailMiniMapPinCircle, { backgroundColor: colors.primary }]}>
-                          <MapPin size={11} color="#FFFFFF" />
+                        <View style={[styles.detailMiniMapPinCircle, { backgroundColor: colors.primary, borderColor: colors.onPrimary }]}>
+                          <MapPin size={11} color={colors.onPrimary} />
                         </View>
                       </View>
                     </View>
@@ -1492,16 +1634,16 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
                     {/* Right: Location & Address text column */}
                     <View style={styles.detailLocationInfoCol}>
                       <View style={styles.detailLocationTitleRow}>
-                        <MapPin size={13} color={colors.primary} />
+                        <MapPin size={13} color={colors.sage} />
                         <Text
-                          style={[styles.detailLocationTitle, { color: isDark ? '#FFFFFF' : '#0F172A' }]}
+                          style={[styles.detailLocationTitle, { color: colors.text }]}
                           numberOfLines={1}
                         >
                           {locInfo.name}
                         </Text>
                       </View>
                       <Text
-                        style={[styles.detailLocationAddress, { color: isDark ? '#94A3B8' : '#64748B' }]}
+                        style={[styles.detailLocationAddress, { color: colors.subtle }]}
                         numberOfLines={1}
                       >
                         {locInfo.address}
@@ -1509,8 +1651,9 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
 
                       <TouchableOpacity
                         activeOpacity={0.8}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                         onPress={() => {
-                          setSelectedDayMoments(null);
+                          closeLightbox();
                           setViewMode('map');
                           setTimeout(() => {
                             webViewRef.current?.injectJavaScript(`window.selectPin && window.selectPin('${locInfo.id}'); true;`);
@@ -1518,8 +1661,8 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
                         }}
                         style={styles.detailViewMapLink}
                       >
-                        <Text style={[styles.detailViewMapLinkText, { color: colors.primary }]}>
-                          Xem trên bản đồ lớn ➔
+                        <Text style={[styles.detailViewMapLinkText, { color: colors.sage }]}>
+                          {t.moments.viewOnLargeMap}
                         </Text>
                       </TouchableOpacity>
                     </View>
@@ -1532,7 +1675,10 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
                 selectedDayMoments[activePhotoIndex]!.reactions!.length > 0 && (
                   <View style={styles.detailReactionsRow}>
                     <Text style={styles.detailReactionsText}>
-                      ❤️ {selectedDayMoments[activePhotoIndex]!.reactions!.length} cảm xúc từ bạn bè
+                      {t.moments.reactionSummaryFromFriends.replace(
+                        '{count}',
+                        String(selectedDayMoments[activePhotoIndex]!.reactions!.length),
+                      )}
                     </Text>
                   </View>
                 )}
@@ -1937,11 +2083,40 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   detailHeaderBar: {
-    width: SCREEN_WIDTH - 36,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 12,
+  },
+  lightboxInlineBar: {
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 10,
+    gap: 8,
+  },
+  lightboxInlineText: {
+    fontSize: 12,
+    fontWeight: '600',
+    lineHeight: 17,
+  },
+  lightboxInlineActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 8,
+  },
+  lightboxInlineBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+    minWidth: 68,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  lightboxInlineBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   detailDateText: {
     color: '#FFFFFF',

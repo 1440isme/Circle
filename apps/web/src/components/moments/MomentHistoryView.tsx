@@ -1,12 +1,11 @@
 'use client';
 
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   X,
   Calendar,
   Map as MapIcon,
   MapPin,
-  LocateFixed,
   ImageIcon,
   ChevronLeft,
   ChevronRight,
@@ -14,26 +13,33 @@ import {
   Trash2,
   FolderPlus,
   Check,
+  AlertCircle,
 } from 'lucide-react';
 import { useCircleStore } from '@/stores/circle.store';
 import { useAlbumsQuery, useAddPhotosMutation } from '@/hooks/use-circle-tools';
 import { useAuth } from '@/context/AuthContext';
 import { useLanguageStore } from '@/stores/language.store';
+import { useThemeStore } from '@/stores/theme.store';
 import { useMyMomentsQuery, useDeleteMomentMutation } from '@/hooks/use-moment-queries';
 import { MomentEntity } from '@circle/types';
 import { parseMomentPhotos } from '@/lib/moment-photos';
 import dynamic from 'next/dynamic';
 
+function DynamicMapLoading() {
+  const t = useLanguageStore((s) => s.t);
+  return (
+    <div className="w-full h-full min-h-[400px] flex flex-col items-center justify-center bg-circle-canvas dark:bg-circle-dark-canvas text-circle-charcoal dark:text-circle-dark-text gap-3 select-none">
+      <div className="w-8 h-8 rounded-full border-2 border-circle-primary border-t-transparent animate-spin" />
+      <p className="text-xs text-circle-slate dark:text-circle-dark-muted">{t.moments.mapLoading}</p>
+    </div>
+  );
+}
+
 const MomentPlacesMap = dynamic(
   () => import('./MomentPlacesMap').then((m) => m.MomentPlacesMap),
   {
     ssr: false,
-    loading: () => (
-      <div className="w-full h-full min-h-[400px] flex flex-col items-center justify-center bg-slate-900 text-white gap-3 select-none">
-        <div className="w-8 h-8 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin" />
-        <p className="text-xs text-white/70">Đang tải bản đồ...</p>
-      </div>
-    ),
+    loading: () => <DynamicMapLoading />,
   },
 );
 
@@ -75,16 +81,21 @@ const VIETNAM_LOCATIONS = [
   { name: 'Phố Cổ Hội An & Sông Hoài', address: 'Hội An, Quảng Nam', lat: 15.8801, lng: 108.338 },
 ];
 
-const WEEKDAYS_VI = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
-const WEEKDAYS_EN = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
 
-export function getOsmTileUrl(lat: number, lng: number, zoom: number = 15): string {
+export function getOsmTileUrl(
+  lat: number,
+  lng: number,
+  zoom: number = 15,
+  forceDark?: boolean,
+): string {
+  const isDark =
+    forceDark !== undefined
+      ? forceDark
+      : typeof document !== 'undefined' &&
+        document.documentElement.classList.contains('dark');
+
   if (MAPBOX_TOKEN) {
-    const isDark =
-      typeof document !== 'undefined' &&
-      document.documentElement.classList.contains('dark');
     const style = isDark ? 'dark-v11' : 'streets-v12';
     return `https://api.mapbox.com/styles/v1/mapbox/${style}/static/pin-s-camera+3b82f6(${lng},${lat})/${lng},${lat},${zoom},0/400x200@2x?access_token=${MAPBOX_TOKEN}`;
   }
@@ -92,10 +103,16 @@ export function getOsmTileUrl(lat: number, lng: number, zoom: number = 15): stri
   const x = Math.floor(((lng + 180) / 360) * n);
   const latRad = (lat * Math.PI) / 180;
   const y = Math.floor(((1 - Math.asinh(Math.tan(latRad)) / Math.PI) / 2) * n);
-  return `https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/${zoom}/${y}/${x}`;
+  const cartoStyle = isDark ? 'dark_all' : 'light_all';
+  return `https://a.basemaps.cartocdn.com/${cartoStyle}/${zoom}/${x}/${y}@2x.png`;
 }
 
-export function resolveMomentLocation(m: any, fallbackIndex: number = 0) {
+export function resolveMomentLocation(
+  m: any,
+  fallbackIndex: number = 0,
+  forceDark?: boolean,
+  fallbackCapturedLabel: string = '',
+) {
   if (!m) {
     const p = VIETNAM_LOCATIONS[0]!;
     return {
@@ -104,7 +121,7 @@ export function resolveMomentLocation(m: any, fallbackIndex: number = 0) {
       address: p.address,
       lat: p.lat,
       lng: p.lng,
-      staticMapUrl: getOsmTileUrl(p.lat, p.lng, 15),
+      staticMapUrl: getOsmTileUrl(p.lat, p.lng, 15, forceDark),
     };
   }
 
@@ -117,15 +134,15 @@ export function resolveMomentLocation(m: any, fallbackIndex: number = 0) {
   ) {
     const lat = Number(m.latitude);
     const lng = Number(m.longitude);
-    const name = m.locationName?.trim() || m.address?.trim() || 'Vị trí đã chụp';
-    const address = m.address?.trim() || m.locationName?.trim() || 'Việt Nam';
+    const name = m.locationName?.trim() || m.address?.trim() || fallbackCapturedLabel;
+    const address = m.address?.trim() || m.locationName?.trim() || 'Vietnam';
     return {
       id: m.id || 'loc',
       name,
       address,
       lat,
       lng,
-      staticMapUrl: getOsmTileUrl(lat, lng, 15),
+      staticMapUrl: getOsmTileUrl(lat, lng, 15, forceDark),
     };
   }
 
@@ -139,15 +156,15 @@ export function resolveMomentLocation(m: any, fallbackIndex: number = 0) {
   if (latMatch && lngMatch) {
     const lat = parseFloat(latMatch[1]!);
     const lng = parseFloat(lngMatch[1]!);
-    const name = locMatch ? decodeURIComponent(locMatch[1]!) : 'Vị trí đã chụp';
-    const address = addrMatch ? decodeURIComponent(addrMatch[1]!) : 'Việt Nam';
+    const name = locMatch ? decodeURIComponent(locMatch[1]!) : fallbackCapturedLabel;
+    const address = addrMatch ? decodeURIComponent(addrMatch[1]!) : 'Vietnam';
     return {
       id: m.id || 'loc',
       name,
       address,
       lat,
       lng,
-      staticMapUrl: getOsmTileUrl(lat, lng, 15),
+      staticMapUrl: getOsmTileUrl(lat, lng, 15, forceDark),
     };
   }
 
@@ -158,7 +175,7 @@ export function resolveMomentLocation(m: any, fallbackIndex: number = 0) {
     address: m.address || p.address,
     lat: p.lat,
     lng: p.lng,
-    staticMapUrl: getOsmTileUrl(p.lat, p.lng, 15),
+    staticMapUrl: getOsmTileUrl(p.lat, p.lng, 15, forceDark),
   };
 }
 
@@ -196,8 +213,11 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
   onViewModeChange,
 }) => {
   const { user } = useAuth();
+  const t = useLanguageStore((s) => s.t);
   const locale = useLanguageStore((s) => s.locale);
   const isVi = locale === 'vi';
+  const resolvedTheme = useThemeStore((s) => s.resolvedTheme);
+  const isDark = resolvedTheme === 'dark';
 
   const [internalViewMode, setInternalViewMode] = useState<'month' | 'map'>('month');
   const viewMode = controlledViewMode !== undefined ? controlledViewMode : internalViewMode;
@@ -208,6 +228,8 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
   const [activeCluster, setActiveCluster] = useState<MapClusterPin | null>(null);
   const [selectedMonthFilter, setSelectedMonthFilter] = useState<string>('all');
   const [lightboxSwapped, setLightboxSwapped] = useState<boolean>(false);
+  const [confirmDeleteLightbox, setConfirmDeleteLightbox] = useState<boolean>(false);
+  const [lightboxError, setLightboxError] = useState<string | null>(null);
 
   // Queries & Mutations
   const { data: myServerMoments = [] } = useMyMomentsQuery();
@@ -304,7 +326,9 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
       const [yStr, mStr] = key.split('-');
       const year = parseInt(yStr!, 10);
       const month = parseInt(mStr!, 10);
-      const label = isVi ? `Tháng ${month}, ${year}` : `Month ${month}, ${year}`;
+      const label = t.moments.monthYearFormat
+        .replace('{month}', String(month))
+        .replace('{year}', String(year));
 
       const totalDays = new Date(year, month, 0).getDate();
       // Monday = index 0
@@ -355,12 +379,12 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
         moments: monthMoments,
       };
     });
-  }, [myMoments, latestStreakKeysSet, isVi]);
+  }, [myMoments, latestStreakKeysSet, t.moments.monthYearFormat]);
 
   // Assign location coordinates to moments
   const momentsWithLocations: MomentLocation[] = useMemo(() => {
     return myMoments.map((m, index) => {
-      const loc = resolveMomentLocation(m, index);
+      const loc = resolveMomentLocation(m, index, isDark, t.moments.capturedLocation);
       return {
         id: m.id,
         moment: m,
@@ -370,7 +394,7 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
         lng: loc.lng,
       };
     });
-  }, [myMoments]);
+  }, [myMoments, isDark, t.moments.capturedLocation]);
 
   // Filtered moments on map by month
   const mapFilteredLocations = useMemo(() => {
@@ -497,21 +521,30 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        setSelectedDayMoments(null);
+        if (confirmDeleteLightbox) {
+          setConfirmDeleteLightbox(false);
+        } else {
+          setLightboxError(null);
+          setSelectedDayMoments(null);
+        }
       } else if (e.key === 'ArrowLeft') {
         setLightboxSwapped(false);
+        setConfirmDeleteLightbox(false);
+        setLightboxError(null);
         setActivePhotoIndex((prev) => Math.max(prev - 1, 0));
       } else if (e.key === 'ArrowRight') {
         setLightboxSwapped(false);
+        setConfirmDeleteLightbox(false);
+        setLightboxError(null);
         setActivePhotoIndex((prev) => Math.min(prev + 1, selectedDayMoments.length - 1));
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedDayMoments]);
+  }, [selectedDayMoments, confirmDeleteLightbox]);
 
-  const handleDeleteCurrentLightboxMoment = async () => {
+  const handleConfirmDeleteCurrentLightboxMoment = async () => {
     if (!selectedDayMoments || selectedDayMoments.length === 0) return;
     const currentMoment = selectedDayMoments[activePhotoIndex];
     if (!currentMoment || currentMoment.id === 'captured-today') return;
@@ -521,28 +554,16 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
       currentMoment.author?.id === user?.id ||
       currentMoment.userId === user?.id;
 
+    setLightboxError(null);
     if (isOwn) {
-      const confirmDelete = window.confirm(
-        isVi
-          ? 'Xoá vĩnh viễn khoảnh khắc này khỏi Circle? Bạn bè sẽ không thể xem lại nữa.'
-          : 'Delete this moment permanently from Circle?',
-      );
-      if (!confirmDelete) return;
-
       try {
         await deleteMomentMutation.mutateAsync(currentMoment.id);
+        setConfirmDeleteLightbox(false);
         setSelectedDayMoments(null);
       } catch (err: any) {
-        alert(err?.message || 'Không thể xoá khoảnh khắc');
+        setLightboxError(err?.message || t.moments.deleteMomentError);
       }
     } else {
-      const confirmHide = window.confirm(
-        isVi
-          ? 'Ẩn khoảnh khắc này khỏi trang của bạn? Bạn bè trong Vòng tròn vẫn xem được bình thường.'
-          : 'Hide this moment from your view?',
-      );
-      if (!confirmHide) return;
-
       try {
         const stored = localStorage.getItem('circle_hidden_moments');
         const list = stored ? JSON.parse(stored) : [];
@@ -551,42 +572,51 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
           localStorage.setItem('circle_hidden_moments', JSON.stringify(list));
         }
       } catch {}
+      setConfirmDeleteLightbox(false);
       setSelectedDayMoments(null);
     }
   };
 
-  const weekdays = isVi ? WEEKDAYS_VI : WEEKDAYS_EN;
+  const weekdays = [
+    t.moments.weekdayMon,
+    t.moments.weekdayTue,
+    t.moments.weekdayWed,
+    t.moments.weekdayThu,
+    t.moments.weekdayFri,
+    t.moments.weekdaySat,
+    t.moments.weekdaySun,
+  ];
 
   return (
     <div className="flex-1 w-full h-full flex flex-col bg-circle-canvas dark:bg-circle-dark-canvas relative overflow-hidden select-none">
-      {/* Top Header Toolbar */}
-      <header className="w-full shrink-0 flex items-center justify-between px-4 sm:px-6 py-3 border-b border-circle-hairline dark:border-circle-dark-hairline bg-white/80 dark:bg-circle-dark-surface/80 backdrop-blur-md z-20">
-        <div>
-          <h2 className="text-sm sm:text-base font-bold text-circle-charcoal dark:text-circle-dark-text flex items-center gap-2">
-            <span>{isVi ? 'Khoảnh khắc của tôi' : 'My Moments'}</span>
-            <span className="text-xs px-2 py-0.5 rounded-full bg-circle-primary/10 text-circle-primary font-bold">
+      {/* Top Header Toolbar (clears fixed Header on mobile/tablet) */}
+      <header className="w-full shrink-0 flex items-center justify-between gap-2 px-4 sm:px-6 pt-14 pb-3 lg:py-3 border-b border-circle-hairline dark:border-circle-dark-hairline frosted-glass z-20">
+        <div className="min-w-0">
+          <h2 className="text-sm sm:text-base font-bold text-circle-charcoal dark:text-circle-dark-text flex items-center gap-2 truncate">
+            <span className="truncate">{t.moments.myMomentsTitle}</span>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-circle-primary/15 text-circle-sage dark:text-circle-dark-primary font-bold shrink-0">
               {myMoments.length}
             </span>
           </h2>
-          <p className="text-xs text-circle-slate dark:text-circle-dark-muted hidden sm:block">
-            {isVi ? 'Lưu trữ kỉ niệm & địa điểm đã ghi lại' : 'Archive of moments and places captured'}
+          <p className="text-xs text-circle-slate dark:text-circle-dark-muted hidden sm:block truncate">
+            {t.moments.archiveSubtitle}
           </p>
         </div>
 
         {/* Switcher Tabs: Lịch tháng vs Bản đồ */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <div className="flex items-center p-1 rounded-xl bg-circle-wash dark:bg-circle-dark-canvas border border-circle-hairline dark:border-circle-dark-hairline">
             <button
               type="button"
               onClick={() => setViewMode('month')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
                 viewMode === 'month'
-                  ? 'bg-circle-charcoal dark:bg-circle-primary text-white dark:text-circle-charcoal shadow-sm'
+                  ? 'bg-circle-charcoal dark:bg-circle-primary text-white dark:text-circle-dark-canvas shadow-sm'
                   : 'text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white'
               }`}
             >
               <Calendar className="h-3.5 w-3.5" />
-              <span>{isVi ? 'Lịch tháng' : 'Calendar'}</span>
+              <span>{t.moments.calendarMode}</span>
             </button>
 
             <button
@@ -594,12 +624,12 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
               onClick={() => setViewMode('map')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
                 viewMode === 'map'
-                  ? 'bg-circle-charcoal dark:bg-circle-primary text-white dark:text-circle-charcoal shadow-sm'
+                  ? 'bg-circle-charcoal dark:bg-circle-primary text-white dark:text-circle-dark-canvas shadow-sm'
                   : 'text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white'
               }`}
             >
               <MapIcon className="h-3.5 w-3.5" />
-              <span>{isVi ? 'Bản đồ' : 'Places'}</span>
+              <span>{t.moments.placesMode}</span>
             </button>
           </div>
 
@@ -608,7 +638,8 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
               type="button"
               onClick={onClose}
               className="p-2 rounded-xl text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-canvas hover:text-circle-charcoal dark:hover:text-white transition-colors"
-              title={isVi ? 'Quay lại Bảng tin' : 'Back to Feed'}
+              title={t.moments.backToFeed}
+              aria-label={t.moments.backToFeed}
             >
               <X className="h-5 w-5" />
             </button>
@@ -634,11 +665,11 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
                       {cal.label}
                     </h3>
                     <p className="text-xs text-circle-slate dark:text-circle-dark-muted">
-                      {cal.daysWithPhotosCount} {isVi ? 'ngày chụp' : 'active days'} • {cal.totalPhotos} {isVi ? 'khoảnh khắc' : 'moments'}
+                      {cal.daysWithPhotosCount} {t.moments.activeDaysUnit} • {cal.totalPhotos} {t.moments.momentsUnit}
                     </p>
                   </div>
                   <div className="text-xs px-2.5 py-1 rounded-full font-bold bg-circle-canvas dark:bg-circle-dark-canvas text-circle-charcoal dark:text-circle-dark-text border border-circle-hairline dark:border-circle-dark-hairline">
-                    {cal.totalPhotos} {isVi ? 'ảnh' : 'photos'}
+                    {cal.totalPhotos} {t.moments.photosUnit}
                   </div>
                 </div>
 
@@ -649,7 +680,7 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
                       key={wIdx}
                       className={`text-center text-[11px] font-bold ${
                         wIdx === 6
-                          ? 'text-circle-primary'
+                          ? 'text-circle-sage dark:text-circle-dark-primary'
                           : 'text-circle-slate/70 dark:text-circle-dark-muted/70'
                       }`}
                     >
@@ -685,7 +716,6 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
                       );
                     }
 
-                    // Day WITH photo(s) - nằm vừa khung giống ảnh đơn, không ghi ngày ở góc
                     return (
                       <div
                         key={`day-${dayItem.day}`}
@@ -704,6 +734,8 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
                           type="button"
                           onClick={() => {
                             setLightboxSwapped(false);
+                            setConfirmDeleteLightbox(false);
+                            setLightboxError(null);
                             setActivePhotoIndex(0);
                             setSelectedDayMoments(dayItem.moments);
                           }}
@@ -721,15 +753,15 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
                               loading="lazy"
                             />
                           ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-circle-wash dark:bg-circle-dark-canvas text-circle-slate">
+                            <div className="w-full h-full flex items-center justify-center bg-circle-wash dark:bg-circle-dark-canvas text-circle-slate dark:text-circle-dark-muted">
                               <ImageIcon className="h-4 w-4" />
                             </div>
                           )}
 
                           {/* Streak Flame Indicator at Top Left */}
                           {isPartOfStreak && (
-                            <div className="absolute top-1 left-1 p-0.5 rounded-full bg-emerald-500 text-white shadow-xs">
-                              <Flame className="h-2.5 w-2.5 fill-white" />
+                            <div className="absolute top-1 left-1 p-0.5 rounded-full bg-circle-primary text-circle-charcoal shadow-xs">
+                              <Flame className="h-2.5 w-2.5 fill-circle-charcoal" />
                             </div>
                           )}
 
@@ -750,13 +782,13 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
             {/* Basic Summary Row at bottom */}
             <div className="flex items-center justify-center gap-3 pt-2">
               <div className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-white dark:bg-circle-dark-surface border border-circle-hairline dark:border-circle-dark-hairline text-circle-charcoal dark:text-circle-dark-text text-xs font-bold shadow-xs">
-                <ImageIcon className="h-4 w-4 text-circle-primary" />
-                <span>{myMoments.length} {isVi ? 'khoảnh khắc' : 'moments'}</span>
+                <ImageIcon className="h-4 w-4 text-circle-sage dark:text-circle-dark-primary" />
+                <span>{myMoments.length} {t.moments.momentsUnit}</span>
               </div>
 
               <div className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-white dark:bg-circle-dark-surface border border-circle-hairline dark:border-circle-dark-hairline text-circle-charcoal dark:text-circle-dark-text text-xs font-bold shadow-xs">
-                <Flame className={`h-4 w-4 ${latestStreakKeysSet.size >= 2 ? 'text-red-500 fill-red-500' : 'text-circle-slate'}`} />
-                <span>{latestStreakKeysSet.size} {isVi ? 'ngày liên tiếp' : 'days streak'}</span>
+                <Flame className={`h-4 w-4 ${latestStreakKeysSet.size >= 2 ? 'text-rose-500 fill-rose-500' : 'text-circle-slate dark:text-circle-dark-muted'}`} />
+                <span>{latestStreakKeysSet.size} {t.moments.daysStreakUnit}</span>
               </div>
             </div>
           </div>
@@ -769,17 +801,17 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
       {viewMode === 'map' && (
         <div className="flex-1 w-full h-full flex flex-col relative overflow-hidden">
           {/* Top Month Filter Strip */}
-          <div className="w-full shrink-0 flex items-center gap-2 px-4 py-2.5 border-b border-circle-hairline dark:border-circle-dark-hairline bg-white/90 dark:bg-circle-dark-surface/90 backdrop-blur-md overflow-x-auto custom-scrollbar z-10">
+          <div className="w-full shrink-0 flex items-center gap-2 px-4 py-2.5 border-b border-circle-hairline dark:border-circle-dark-hairline frosted-glass overflow-x-auto custom-scrollbar z-10">
             <button
               type="button"
               onClick={() => setSelectedMonthFilter('all')}
               className={`shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-all ${
                 selectedMonthFilter === 'all'
-                  ? 'bg-circle-charcoal dark:bg-circle-primary text-white dark:text-circle-charcoal shadow-xs'
+                  ? 'bg-circle-charcoal dark:bg-circle-primary text-white dark:text-circle-dark-canvas shadow-xs'
                   : 'bg-circle-wash dark:bg-circle-dark-canvas text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white'
               }`}
             >
-              {isVi ? 'Tất cả' : 'All'} ({momentsWithLocations.length})
+              {t.common.all} ({momentsWithLocations.length})
             </button>
 
             {monthlyCalendars.map((cal) => (
@@ -789,7 +821,7 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
                 onClick={() => setSelectedMonthFilter(cal.key)}
                 className={`shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-all ${
                   selectedMonthFilter === cal.key
-                    ? 'bg-circle-charcoal dark:bg-circle-primary text-white dark:text-circle-charcoal shadow-xs'
+                    ? 'bg-circle-charcoal dark:bg-circle-primary text-white dark:text-circle-dark-canvas shadow-xs'
                     : 'bg-circle-wash dark:bg-circle-dark-canvas text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-white'
                 }`}
               >
@@ -798,7 +830,7 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
             ))}
           </div>
 
-          {/* Native Leaflet OpenStreetMap Map */}
+          {/* Native Leaflet Map */}
           <div className="flex-1 w-full min-h-[480px] h-full relative overflow-hidden" style={{ minHeight: '480px', height: '100%' }}>
             <MomentPlacesMap
               clusters={effectiveClusters}
@@ -806,6 +838,8 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
               onSelectCluster={setActiveCluster}
               onViewClusterMoments={(clusterMoments) => {
                 setLightboxSwapped(false);
+                setConfirmDeleteLightbox(false);
+                setLightboxError(null);
                 setActivePhotoIndex(0);
                 setSelectedDayMoments(clusterMoments);
               }}
@@ -819,12 +853,22 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
           FULL-SCREEN PHOTO DETAIL LIGHTBOX MODAL
          ========================================================================= */}
       {selectedDayMoments && selectedDayMoments.length > 0 && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in">
-          <div className="relative w-full max-w-md flex flex-col items-center">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in"
+          onClick={() => {
+            setConfirmDeleteLightbox(false);
+            setLightboxError(null);
+            setSelectedDayMoments(null);
+          }}
+        >
+          <div
+            className="relative w-full max-w-md flex flex-col items-center"
+            onClick={(e) => e.stopPropagation()}
+          >
             {/* Header Bar */}
-            <div className="w-full flex items-center justify-between text-white pb-3">
-              <div>
-                <p className="text-sm font-bold">
+            <div className="w-full flex items-center justify-between text-white pb-3 gap-2">
+              <div className="min-w-0">
+                <p className="text-sm font-bold truncate">
                   {new Date(selectedDayMoments[activePhotoIndex]!.createdAt).toLocaleDateString(isVi ? 'vi-VN' : 'en-US', {
                     weekday: 'long',
                     day: 'numeric',
@@ -834,31 +878,90 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
                 </p>
                 {selectedDayMoments.length > 1 && (
                   <p className="text-xs text-white/70">
-                    {isVi ? 'Ảnh' : 'Photo'} {activePhotoIndex + 1} / {selectedDayMoments.length}
+                    {t.moments.photoCounterLabel} {activePhotoIndex + 1} / {selectedDayMoments.length}
                   </p>
                 )}
               </div>
 
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleDeleteCurrentLightboxMoment}
-                  className="p-2 rounded-full bg-white/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 transition-colors"
-                  title={isVi ? 'Xoá khoảnh khắc' : 'Delete moment'}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+              <div className="flex items-center gap-2 shrink-0">
+                {selectedDayMoments[activePhotoIndex]?.id !== 'captured-today' && !confirmDeleteLightbox && (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDeleteLightbox(true)}
+                    className="p-2 rounded-full bg-white/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 transition-colors"
+                    title={t.moments.deleteTitle}
+                    aria-label={t.moments.deleteTitle}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                )}
 
                 <button
                   type="button"
-                  onClick={() => setSelectedDayMoments(null)}
+                  onClick={() => {
+                    setConfirmDeleteLightbox(false);
+                    setLightboxError(null);
+                    setSelectedDayMoments(null);
+                  }}
                   className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
-                  title={isVi ? 'Đóng' : 'Close'}
+                  title={t.common.close}
+                  aria-label={t.common.close}
                 >
                   <X className="h-5 w-5" />
                 </button>
               </div>
             </div>
+
+            {/* Inline Delete / Hide Confirmation Strip */}
+            {confirmDeleteLightbox && (() => {
+              const currentMoment = selectedDayMoments[activePhotoIndex]!;
+              const isOwn =
+                currentMoment.authorId === user?.id ||
+                currentMoment.author?.id === user?.id ||
+                currentMoment.userId === user?.id;
+
+              return (
+                <div className="w-full mb-3 flex items-center justify-between gap-2 rounded-2xl bg-rose-500/20 border border-rose-400/40 px-3.5 py-2 text-xs text-rose-100">
+                  <span className="min-w-0 flex-1">
+                    {isOwn ? t.moments.deleteForeverConfirm : t.moments.hideMomentConfirm}
+                  </span>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={handleConfirmDeleteCurrentLightboxMoment}
+                      disabled={deleteMomentMutation.isPending}
+                      className="rounded-full bg-rose-500 hover:bg-rose-600 text-white px-3 py-1 font-bold transition-colors"
+                    >
+                      {t.common.confirm}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDeleteLightbox(false)}
+                      className="rounded-full bg-white/10 hover:bg-white/20 text-white px-3 py-1 font-semibold transition-colors"
+                    >
+                      {t.common.cancel}
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {lightboxError && (
+              <div className="w-full mb-3 flex items-center justify-between gap-2 rounded-2xl bg-rose-500/20 border border-rose-400/40 px-3.5 py-2 text-xs text-rose-200">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  <span className="truncate">{lightboxError}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setLightboxError(null)}
+                  aria-label={t.common.dismiss}
+                  className="p-0.5 hover:text-white"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
 
             {/* Media Container 1:1 Square Card */}
             {(() => {
@@ -866,7 +969,12 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
               const { mainUrl, pipUrl } = parseMomentPhotos(currentMoment.photoUrl);
               const displayMain = lightboxSwapped ? pipUrl || mainUrl : mainUrl;
               const displayPip = lightboxSwapped ? mainUrl : pipUrl;
-              const locInfo = resolveMomentLocation(currentMoment, activePhotoIndex);
+              const locInfo = resolveMomentLocation(
+                currentMoment,
+                activePhotoIndex,
+                isDark,
+                t.moments.capturedLocation,
+              );
 
               return (
                 <div className="w-full flex flex-col items-center space-y-3">
@@ -883,7 +991,8 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
                         type="button"
                         onClick={() => setLightboxSwapped(!lightboxSwapped)}
                         className="absolute bottom-4 right-4 w-[28%] h-[28%] min-w-[80px] aspect-square rounded-2xl overflow-hidden border-2 border-white shadow-xl cursor-pointer hover:scale-105 active:scale-95 transition-transform z-20"
-                        title={isVi ? 'Nhấn để đổi ảnh' : 'Click to swap photo'}
+                        title={t.moments.swapPhotoTitle}
+                        aria-label={t.moments.swapPhotoTitle}
                       >
                         <img
                           src={displayPip}
@@ -910,9 +1019,12 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
                             type="button"
                             onClick={() => {
                               setLightboxSwapped(false);
+                              setConfirmDeleteLightbox(false);
+                              setLightboxError(null);
                               setActivePhotoIndex((prev) => Math.max(prev - 1, 0));
                             }}
-                            className="absolute left-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 hover:bg-black/75 text-white backdrop-blur-xs transition-colors z-20"
+                            aria-label={t.moments.prevStory}
+                            className="absolute left-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 hover:bg-black/75 text-white backdrop-blur-sm transition-colors z-20"
                           >
                             <ChevronLeft className="h-5 w-5" />
                           </button>
@@ -923,9 +1035,12 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
                             type="button"
                             onClick={() => {
                               setLightboxSwapped(false);
+                              setConfirmDeleteLightbox(false);
+                              setLightboxError(null);
                               setActivePhotoIndex((prev) => Math.min(prev + 1, selectedDayMoments.length - 1));
                             }}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 hover:bg-black/75 text-white backdrop-blur-xs transition-colors z-20"
+                            aria-label={t.moments.nextStory}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 hover:bg-black/75 text-white backdrop-blur-sm transition-colors z-20"
                           >
                             <ChevronRight className="h-5 w-5" />
                           </button>
@@ -946,7 +1061,7 @@ export const MomentHistoryView: React.FC<MomentHistoryViewProps> = ({
                     />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 font-bold text-xs truncate">
-                        <MapPin className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                        <MapPin className="h-3.5 w-3.5 text-circle-dark-primary shrink-0" />
                         <span className="truncate">{locInfo.name}</span>
                       </div>
                       <p className="text-[11px] text-white/70 truncate mt-0.5">

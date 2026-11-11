@@ -6,25 +6,22 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
-  Alert,
-  Dimensions,
   Platform,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { BlurView } from 'expo-blur';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
 import {
   MapPin,
   Radio,
-  Clock,
   LocateFixed,
   RotateCw,
-  Users,
   Navigation,
   Send,
-  ShieldCheck,
   CheckCircle2,
+  X,
 } from 'lucide-react-native';
 import {
   getLiveLocationsApi,
@@ -33,6 +30,7 @@ import {
 } from '../../services/circle-tools.service';
 import { LiveLocationEntity, MessageType } from '@circle/types';
 import { useThemeStore } from '../../stores/theme.store';
+import { getGlassTheme } from '../../constants/glass-theme';
 import { useLanguageStore } from '../../stores/language.store';
 import { useAuthStore } from '../../stores/auth.store';
 import { useSendMessageMutation, useCircleDetailQuery } from '../../hooks/use-circle-queries';
@@ -56,10 +54,14 @@ function calculateDistanceKm(lat1: number, lon1: number, lat2: number, lon2: num
 }
 
 export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId }) => {
-  const { colors, resolvedTheme } = useThemeStore();
+  const { colors, resolvedTheme, uiStyle } = useThemeStore();
   const isDark = resolvedTheme === 'dark';
+  const isGlass = uiStyle === 'glass';
+  const glassTheme = useMemo(() => getGlassTheme(isDark, uiStyle), [isDark, uiStyle]);
   const { t } = useLanguageStore();
   const user = useAuthStore((s) => s.user);
+  const insets = useSafeAreaInsets();
+  const topClearance = Math.max(insets.top + 52, Platform.OS === 'ios' ? 74 : 64);
 
   const [locations, setLocations] = useState<LiveLocationEntity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -68,6 +70,8 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
   const [myCoords, setMyCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [isSendingToChat, setIsSendingToChat] = useState(false);
   const [chatSentSuccess, setChatSentSuccess] = useState(false);
+  const [errorNotice, setErrorNotice] = useState<string | null>(null);
+  const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const webViewRef = useRef<WebView>(null);
 
@@ -75,6 +79,18 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
   const channels = circle?.channels || [];
   const defaultChannel = channels[0];
   const sendMessageMutation = useSendMessageMutation(defaultChannel?.id || '');
+
+  const showError = (msg: string) => {
+    if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
+    setErrorNotice(msg);
+    errorTimerRef.current = setTimeout(() => setErrorNotice(null), 3500);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
+    };
+  }, []);
 
   // Acquire GPS coordinates on mount
   useEffect(() => {
@@ -131,6 +147,7 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
     try {
       Haptics.selectionAsync();
       setIsLoading(true);
+      setErrorNotice(null);
 
       let lat = myCoords?.lat || 10.7828;
       let lng = myCoords?.lng || 106.6958;
@@ -164,7 +181,7 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
         true;
       `);
     } catch (err: any) {
-      Alert.alert('Lỗi', err.message || 'Không thể bắt đầu chia sẻ vị trí');
+      showError(err?.message || t.collab.startLocationError);
     } finally {
       setIsLoading(false);
     }
@@ -173,12 +190,13 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
   const handleStopSharing = async () => {
     try {
       Haptics.selectionAsync();
+      setErrorNotice(null);
       await stopLiveLocationApi(circleId);
       setIsSharing(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       loadLocations();
     } catch (err: any) {
-      Alert.alert('Lỗi', err.message || 'Không thể dừng chia sẻ');
+      showError(err?.message || t.collab.stopLocationError);
     }
   };
 
@@ -198,12 +216,13 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
     if (!defaultChannel?.id || !myCoords) return;
     try {
       setIsSendingToChat(true);
+      setErrorNotice(null);
       Haptics.selectionAsync();
       const payload = {
         lat: myCoords.lat,
         lng: myCoords.lng,
-        title: t.collab?.locationCardTitle || 'Điểm hẹn nhóm',
-        address: 'Vị trí hiện tại',
+        title: t.collab.locationCardTitle,
+        address: t.collab.locationCurrentLabel,
       };
       await sendMessageMutation.mutateAsync({
         content: `[LOCATION_PIN]:${JSON.stringify(payload)}`,
@@ -213,7 +232,7 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
       setChatSentSuccess(true);
       setTimeout(() => setChatSentSuccess(false), 3000);
     } catch (err: any) {
-      Alert.alert('Lỗi', err.message || 'Không thể chia sẻ vị trí vào chat');
+      showError(err?.message || t.collab.locationSendToChatError);
     } finally {
       setIsSendingToChat(false);
     }
@@ -221,13 +240,13 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
 
   const getRemainingTime = (expiresAtStr: string) => {
     const diff = new Date(expiresAtStr).getTime() - Date.now();
-    if (diff <= 0) return t.collab?.sharingExpired || 'Hết hạn';
+    if (diff <= 0) return t.collab.sharingExpired;
     const mins = Math.floor(diff / 60000);
     const secs = Math.floor((diff % 60000) / 1000);
     return `${mins}m ${secs < 10 ? '0' : ''}${secs}s`;
   };
 
-  // Leaflet HTML template for OpenStreetMap tiles map
+  // Leaflet HTML template with CartoDB dark_all / light_all fallback
   const mapHtml = useMemo(() => {
     const centerLat = myCoords?.lat || 10.7828;
     const centerLng = myCoords?.lng || 106.6958;
@@ -237,12 +256,18 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
         id: loc.id,
         lat: loc.latitude,
         lng: loc.longitude,
-        name: loc.member?.user?.profile?.displayName || 'Thành viên',
+        name: loc.member?.user?.profile?.displayName || t.collab.memberDefault,
         avatarUrl: loc.member?.user?.profile?.avatarUrl,
         remaining: getRemainingTime(loc.expiresAt),
         isMe: loc.member?.userId === user?.id,
+        meSuffix: t.collab.meLabel,
       })),
     );
+
+    const tileTheme = isDark ? 'dark_all' : 'light_all';
+    const canvasBg = isDark ? '#131316' : '#FFFFFF';
+    const tagBg = isDark ? 'rgba(22, 22, 26, 0.92)' : 'rgba(23, 23, 26, 0.88)';
+    const borderSurface = isDark ? '#1D1D21' : '#FFFFFF';
 
     return `<!DOCTYPE html>
 <html>
@@ -262,7 +287,7 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
       right: 0;
       bottom: 0;
       overflow: hidden;
-      background: ${isDark ? '#0f172a' : '#f8fafc'};
+      background: ${canvasBg};
     }
     #map {
       width: 100%;
@@ -289,7 +314,7 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
       width: 38px;
       height: 38px;
       border-radius: 19px;
-      border: 2.5px solid #FFFFFF;
+      border: 2.5px solid ${borderSurface};
       background: ${colors.primary};
       box-shadow: 0 4px 14px rgba(0,0,0,0.35);
       position: relative;
@@ -297,21 +322,21 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
       display: flex;
       align-items: center;
       justify-content: center;
-      color: #FFFFFF;
+      color: ${colors.onPrimary};
       font-weight: 700;
       font-size: 13px;
     }
     .member-avatar-box.is-me {
       background: ${colors.primary};
-      border-color: #FFFFFF;
+      border-color: ${borderSurface};
       box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.4), 0 4px 14px rgba(0,0,0,0.35);
     }
     .member-name-tag {
       margin-top: 3px;
       padding: 2px 7px;
       border-radius: 10px;
-      background: rgba(15, 23, 42, 0.85);
-      border: 1px solid rgba(16, 185, 129, 0.4);
+      background: ${tagBg};
+      border: 1px solid rgba(52, 211, 153, 0.4);
       color: #FFFFFF;
       font-size: 10px;
       font-weight: 700;
@@ -333,26 +358,30 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
     var mapboxStyle = '${isDark ? 'dark-v11' : 'streets-v12'}';
     var tileUrl = mapboxToken
       ? 'https://api.mapbox.com/styles/v1/mapbox/' + mapboxStyle + '/tiles/512/{z}/{x}/{y}@2x?access_token=' + mapboxToken
-      : 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}';
+      : 'https://{s}.basemaps.cartocdn.com/${tileTheme}/{z}/{x}/{y}{r}.png';
 
-    L.tileLayer(tileUrl, {
-      maxZoom: mapboxToken ? 22 : 19,
+    var tileOptions = {
+      maxZoom: mapboxToken ? 22 : 20,
       tileSize: mapboxToken ? 512 : 256,
       zoomOffset: mapboxToken ? -1 : 0
-    }).addTo(map);
+    };
+    if (!mapboxToken) {
+      tileOptions.subdomains = 'abcd';
+    }
+    L.tileLayer(tileUrl, tileOptions).addTo(map);
 
     var pins = ${pinsData};
     var markersGroup = L.featureGroup().addTo(map);
 
     pins.forEach(function(pin) {
       var initials = (pin.name || 'US').substring(0, 2).toUpperCase();
-      var avatarContent = pin.avatarUrl 
-        ? '<img src="' + pin.avatarUrl + '" style="width:100%;height:100%;object-fit:cover;" />' 
+      var avatarContent = pin.avatarUrl
+        ? '<img src="' + pin.avatarUrl + '" style="width:100%;height:100%;object-fit:cover;" />'
         : initials;
 
       var html = '<div class="member-pin-marker">' +
         '<div class="member-avatar-box ' + (pin.isMe ? 'is-me' : '') + '">' + avatarContent + '</div>' +
-        '<div class="member-name-tag">' + (pin.name || 'Thành viên') + (pin.isMe ? ' (Tôi)' : '') + '</div>' +
+        '<div class="member-name-tag">' + pin.name + (pin.isMe ? ' ' + pin.meSuffix : '') + '</div>' +
         '</div>';
 
       var customIcon = L.divIcon({
@@ -380,88 +409,184 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
   </script>
 </body>
 </html>`;
-  }, [locations, myCoords, isDark]);
+  }, [locations, myCoords, isDark, colors.primary, colors.onPrimary, t.collab.memberDefault, t.collab.meLabel, t.collab.sharingExpired]);
+
+  const pillSurfaceColor = isGlass ? glassTheme.colors.glassBg : colors.surface;
+  const pillBorderColor = isGlass ? glassTheme.colors.glassBorder : colors.hairline;
+
+  const badgePillInner = (
+    <View style={styles.topPillInner}>
+      <MapPin size={15} color={colors.sage} />
+      <Text style={[styles.topTitle, { color: colors.text }]} numberOfLines={1}>
+        {locations.length > 0
+          ? `${locations.length} ${t.collab.locationLiveBadge}`
+          : t.collab.locationMapTabLabel}
+      </Text>
+    </View>
+  );
+
+  const durationSelectorInner = (
+    <View style={styles.durationInnerRow}>
+      {[15, 30, 60].map((dur) => (
+        <TouchableOpacity
+          key={dur}
+          activeOpacity={0.7}
+          onPress={() => setSelectedDuration(dur)}
+          style={[
+            styles.durBtn,
+            selectedDuration === dur && [styles.durBtnActive, { backgroundColor: colors.wash }],
+          ]}
+        >
+          <Text
+            style={[
+              styles.durBtnText,
+              { color: selectedDuration === dur ? colors.text : colors.subtle },
+            ]}
+          >
+            {dur}m
+          </Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+
+  const bottomStripInner = (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.bottomScroll}
+    >
+      {locations.length === 0 ? (
+        <View style={styles.emptyWrap}>
+          <Navigation size={14} color={colors.subtle} />
+          <Text style={[styles.emptyText, { color: colors.subtle }]}>
+            {t.collab.emptyLocationTitle}
+          </Text>
+        </View>
+      ) : (
+        locations.map((loc) => {
+          const isMe = loc.member?.userId === user?.id;
+          const name = loc.member?.user?.profile?.displayName || t.collab.memberDefault;
+          const initials = name.substring(0, 2).toUpperCase();
+
+          let distanceText: string | null = null;
+          if (myCoords && !isMe) {
+            const dist = calculateDistanceKm(
+              myCoords.lat,
+              myCoords.lng,
+              loc.latitude,
+              loc.longitude,
+            );
+            if (dist < 1) {
+              distanceText = `${Math.round(dist * 1000)}m`;
+            } else {
+              distanceText = `${dist.toFixed(1)}km`;
+            }
+          }
+
+          return (
+            <TouchableOpacity
+              key={loc.id}
+              activeOpacity={0.8}
+              onPress={() => {
+                Haptics.selectionAsync();
+                webViewRef.current?.injectJavaScript(`
+                  if (window.panToCoords) {
+                    window.panToCoords(${loc.latitude}, ${loc.longitude});
+                  }
+                  true;
+                `);
+              }}
+              style={[
+                styles.memberPill,
+                {
+                  backgroundColor: colors.wash,
+                  borderColor: colors.hairline,
+                },
+              ]}
+            >
+              <View style={[styles.memberAvatar, { backgroundColor: colors.primary }]}>
+                <Text style={[styles.memberAvatarText, { color: colors.onPrimary }]}>{initials}</Text>
+              </View>
+              <View>
+                <Text style={[styles.memberName, { color: colors.text }]}>
+                  {isMe ? `${name} ${t.collab.meLabel}` : name}
+                </Text>
+                <Text style={[styles.memberRemaining, { color: isDark ? '#FBBF24' : '#B45309' }]}>
+                  {distanceText ? `${distanceText} · ` : ''}
+                  {getRemainingTime(loc.expiresAt)}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          );
+        })
+      )}
+    </ScrollView>
+  );
 
   return (
     <View style={[styles.container, { backgroundColor: colors.canvas }]}>
-      {/* Floating Glass Top Toolbar */}
+      {/* Floating Top Toolbar (strictly gated Glass vs Flat) */}
       <View
         pointerEvents="box-none"
         style={{
           position: 'absolute',
-          top: Platform.OS === 'ios' ? 68 : 58,
+          top: topClearance,
           left: 14,
           right: 14,
           zIndex: 30,
           flexDirection: 'row',
+          flexWrap: 'wrap',
           alignItems: 'center',
           justifyContent: 'space-between',
+          gap: 6,
         }}
       >
-        <BlurView
-          intensity={isDark ? 85 : 75}
-          tint={isDark ? 'dark' : 'light'}
-          style={{
-            borderRadius: 999,
-            overflow: 'hidden',
-            backgroundColor: isDark ? 'rgba(22, 22, 26, 0.90)' : 'rgba(255, 255, 255, 0.92)',
-            borderWidth: StyleSheet.hairlineWidth,
-            borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : colors.hairline,
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: isDark ? 0.3 : 0.08,
-            shadowRadius: 8,
-            elevation: 3,
-            flexDirection: 'row',
-            alignItems: 'center',
-            paddingVertical: 6,
-            paddingHorizontal: 12,
-            gap: 8,
-          }}
-        >
-          <MapPin size={16} color={colors.primary} />
-          <Text style={[styles.topTitle, { color: colors.text }]}>
-            {locations.length > 0 ? `${locations.length} trực tiếp` : 'Bản đồ'}
-          </Text>
-        </BlurView>
-
-        {/* Duration Selector or Stop Button */}
-        {!isSharing ? (
+        {isGlass ? (
           <BlurView
-            intensity={isDark ? 85 : 75}
-            tint={isDark ? 'dark' : 'light'}
-            style={{
-              borderRadius: 999,
-              overflow: 'hidden',
-              backgroundColor: isDark ? 'rgba(22, 22, 26, 0.90)' : 'rgba(255, 255, 255, 0.92)',
-              borderWidth: StyleSheet.hairlineWidth,
-              borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : colors.hairline,
-              flexDirection: 'row',
-              padding: 3,
-              gap: 2,
-            }}
+            intensity={glassTheme.blur.intensity}
+            tint={glassTheme.blur.tint}
+            style={[
+              styles.topBadgeShell,
+              { backgroundColor: pillSurfaceColor, borderColor: pillBorderColor },
+            ]}
           >
-            {[15, 30, 60].map((dur) => (
-              <TouchableOpacity
-                key={dur}
-                activeOpacity={0.7}
-                onPress={() => setSelectedDuration(dur)}
-                style={[
-                  styles.durBtn,
-                  selectedDuration === dur && [styles.durBtnActive, { backgroundColor: colors.surface }],
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.durBtnText,
-                    { color: selectedDuration === dur ? colors.text : colors.subtle },
-                  ]}
-                >
-                  {dur}m
-                </Text>
-              </TouchableOpacity>
-            ))}
+            {badgePillInner}
           </BlurView>
+        ) : (
+          <View
+            style={[
+              styles.topBadgeShell,
+              { backgroundColor: pillSurfaceColor, borderColor: pillBorderColor },
+            ]}
+          >
+            {badgePillInner}
+          </View>
+        )}
+
+        {/* Duration Selector when not currently sharing */}
+        {!isSharing ? (
+          isGlass ? (
+            <BlurView
+              intensity={glassTheme.blur.intensity}
+              tint={glassTheme.blur.tint}
+              style={[
+                styles.durationShell,
+                { backgroundColor: pillSurfaceColor, borderColor: pillBorderColor },
+              ]}
+            >
+              {durationSelectorInner}
+            </BlurView>
+          ) : (
+            <View
+              style={[
+                styles.durationShell,
+                { backgroundColor: pillSurfaceColor, borderColor: pillBorderColor },
+              ]}
+            >
+              {durationSelectorInner}
+            </View>
+          )
         ) : null}
 
         <View style={styles.topActionsRow}>
@@ -471,9 +596,7 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
               onPress={handleStopSharing}
               style={styles.stopBtn}
             >
-              <Text style={styles.stopBtnText}>
-                {t.collab?.stopLiveShare || 'Dừng'}
-              </Text>
+              <Text style={styles.stopBtnText}>{t.collab.stopLiveShare}</Text>
             </TouchableOpacity>
           ) : (
             <TouchableOpacity
@@ -483,12 +606,12 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
               style={[styles.startBtn, { backgroundColor: colors.primary }]}
             >
               {isLoading ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
+                <ActivityIndicator size="small" color={colors.onPrimary} />
               ) : (
                 <>
-                  <Radio size={14} color="#FFFFFF" />
-                  <Text style={styles.startBtnText}>
-                    {t.collab?.startLiveShare || 'Bật'}
+                  <Radio size={14} color={colors.onPrimary} />
+                  <Text style={[styles.startBtnText, { color: colors.onPrimary }]}>
+                    {t.collab.startLiveShare}
                   </Text>
                 </>
               )}
@@ -497,19 +620,35 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
 
           <TouchableOpacity
             activeOpacity={0.7}
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
             onPress={loadLocations}
             style={[
               styles.iconActionBtn,
               {
-                backgroundColor: isDark ? 'rgba(22, 22, 26, 0.90)' : 'rgba(255, 255, 255, 0.92)',
-                borderColor: colors.hairline,
+                backgroundColor: pillSurfaceColor,
+                borderColor: pillBorderColor,
               },
             ]}
+            accessibilityLabel={t.common.refresh}
           >
             <RotateCw size={15} color={colors.subtle} />
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Inline Error Banner */}
+      {errorNotice && (
+        <View pointerEvents="box-none" style={[styles.errorWrapper, { top: topClearance + 46 }]}>
+          <View style={[styles.errorBanner, { backgroundColor: colors.surface, borderColor: '#DC2626' }]}>
+            <Text style={[styles.errorText, { color: colors.text }]} numberOfLines={2}>
+              {errorNotice}
+            </Text>
+            <TouchableOpacity onPress={() => setErrorNotice(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <X size={14} color={colors.subtle} />
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
 
       {/* Interactive Leaflet Map via WebView */}
       <View style={styles.mapContainer}>
@@ -526,13 +665,15 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
         />
 
         {/* Floating Actions on Map */}
-        <View style={styles.floatingActionGroup}>
+        <View style={[styles.floatingActionGroup, { bottom: Math.max(insets.bottom + 78, 84) }]}>
           <TouchableOpacity
             activeOpacity={0.85}
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
             onPress={handleRecenter}
             style={[styles.floatingCircleBtn, { backgroundColor: colors.surface, borderColor: colors.hairline }]}
+            accessibilityLabel={t.collab.recenterMap}
           >
-            <LocateFixed size={18} color={colors.primary} />
+            <LocateFixed size={18} color={colors.sage} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -542,104 +683,49 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
             style={[styles.floatingCheckinBtn, { backgroundColor: colors.primary }]}
           >
             {isSendingToChat ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
+              <ActivityIndicator size="small" color={colors.onPrimary} />
             ) : chatSentSuccess ? (
-              <CheckCircle2 size={15} color="#FFFFFF" />
+              <CheckCircle2 size={15} color={colors.onPrimary} />
             ) : (
-              <Send size={15} color="#FFFFFF" />
+              <Send size={15} color={colors.onPrimary} />
             )}
-            <Text style={styles.floatingCheckinText}>
-              {chatSentSuccess ? 'Đã gửi' : (t.collab?.sendStaticLocation || 'Gửi vào Chat')}
+            <Text style={[styles.floatingCheckinText, { color: colors.onPrimary }]}>
+              {chatSentSuccess ? t.collab.locationSentBadge : t.collab.sendStaticLocation}
             </Text>
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* Active Members Floating Glass Strip */}
-      <BlurView
-        intensity={isDark ? 85 : 75}
-        tint={isDark ? 'dark' : 'light'}
-        style={[
-          styles.bottomStrip,
-          {
-            backgroundColor: isDark ? 'rgba(22, 22, 26, 0.90)' : 'rgba(255, 255, 255, 0.92)',
-            borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : colors.hairline,
-          },
-        ]}
-      >
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.bottomScroll}
+      {/* Active Members Floating Strip (strictly gated Glass vs Flat) */}
+      {isGlass ? (
+        <BlurView
+          intensity={glassTheme.blur.intensity}
+          tint={glassTheme.blur.tint}
+          style={[
+            styles.bottomStrip,
+            {
+              bottom: Math.max(insets.bottom + 8, 14),
+              backgroundColor: pillSurfaceColor,
+              borderColor: pillBorderColor,
+            },
+          ]}
         >
-          {locations.length === 0 ? (
-            <View style={styles.emptyWrap}>
-              <Navigation size={14} color={colors.subtle} />
-              <Text style={[styles.emptyText, { color: colors.subtle }]}>
-                {t.collab?.emptyLocationTitle || 'Chưa có ai đang chia sẻ vị trí'}
-              </Text>
-            </View>
-          ) : (
-            locations.map((loc) => {
-              const isMe = loc.member?.userId === user?.id;
-              const name = loc.member?.user?.profile?.displayName || 'Thành viên';
-              const avatar = loc.member?.user?.profile?.avatarUrl;
-              const initials = name.substring(0, 2).toUpperCase();
-
-              let distanceText: string | null = null;
-              if (myCoords && !isMe) {
-                const dist = calculateDistanceKm(
-                  myCoords.lat,
-                  myCoords.lng,
-                  loc.latitude,
-                  loc.longitude,
-                );
-                if (dist < 1) {
-                  distanceText = `${Math.round(dist * 1000)}m`;
-                } else {
-                  distanceText = `${dist.toFixed(1)}km`;
-                }
-              }
-
-              return (
-                <TouchableOpacity
-                  key={loc.id}
-                  activeOpacity={0.8}
-                  onPress={() => {
-                    Haptics.selectionAsync();
-                    webViewRef.current?.injectJavaScript(`
-                      if (window.panToCoords) {
-                        window.panToCoords(${loc.latitude}, ${loc.longitude});
-                      }
-                      true;
-                    `);
-                  }}
-                  style={[
-                    styles.memberPill,
-                    {
-                      backgroundColor: colors.wash,
-                      borderColor: colors.hairline,
-                    },
-                  ]}
-                >
-                  <View style={[styles.memberAvatar, { backgroundColor: colors.primary }]}>
-                    <Text style={styles.memberAvatarText}>{initials}</Text>
-                  </View>
-                  <View>
-                    <Text style={[styles.memberName, { color: colors.text }]}>
-                      {name} {isMe && '(Tôi)'}
-                    </Text>
-                    <Text style={[styles.memberRemaining, { color: '#F59E0B' }]}>
-                      {distanceText ? `${distanceText} · ` : ''}
-                      {getRemainingTime(loc.expiresAt)}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              );
-            })
-          )}
-        </ScrollView>
-      </BlurView>
+          {bottomStripInner}
+        </BlurView>
+      ) : (
+        <View
+          style={[
+            styles.bottomStrip,
+            {
+              bottom: Math.max(insets.bottom + 8, 14),
+              backgroundColor: pillSurfaceColor,
+              borderColor: pillBorderColor,
+            },
+          ]}
+        >
+          {bottomStripInner}
+        </View>
+      )}
     </View>
   );
 };
@@ -648,39 +734,36 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  topBar: {
+  topBadgeShell: {
+    borderRadius: 999,
+    overflow: 'hidden',
+    borderWidth: StyleSheet.hairlineWidth,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.14,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  topPillInner: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  topBarLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  iconBox: {
-    width: 32,
-    height: 32,
-    borderRadius: 9,
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    gap: 6,
   },
   topTitle: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
   },
-  topSub: {
-    fontSize: 10,
+  durationShell: {
+    borderRadius: 999,
+    overflow: 'hidden',
+    borderWidth: StyleSheet.hairlineWidth,
   },
-  durationWrap: {
+  durationInnerRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 8,
-    borderWidth: 1,
-    padding: 2,
+    padding: 3,
+    gap: 2,
   },
   durBtn: {
     paddingHorizontal: 7,
@@ -706,18 +789,17 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 8,
+    borderRadius: 999,
   },
   startBtnText: {
-    color: '#FFFFFF',
     fontSize: 11,
     fontWeight: '700',
   },
   stopBtn: {
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: '#EF4444',
+    borderRadius: 999,
+    backgroundColor: '#DC2626',
   },
   stopBtnText: {
     color: '#FFFFFF',
@@ -726,8 +808,29 @@ const styles = StyleSheet.create({
   },
   iconActionBtn: {
     padding: 6,
-    borderRadius: 8,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  errorWrapper: {
+    position: 'absolute',
+    left: 14,
+    right: 14,
+    zIndex: 35,
+    alignItems: 'center',
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
     borderWidth: 1,
+  },
+  errorText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '600',
   },
   mapContainer: {
     flex: 1,
@@ -738,7 +841,6 @@ const styles = StyleSheet.create({
   },
   floatingActionGroup: {
     position: 'absolute',
-    bottom: 84,
     right: 16,
     flexDirection: 'column',
     alignItems: 'flex-end',
@@ -751,6 +853,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 5,
     elevation: 3,
@@ -762,18 +866,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 9,
     borderRadius: 20,
-    shadowOpacity: 0.25,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
     shadowRadius: 6,
     elevation: 4,
   },
   floatingCheckinText: {
-    color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '700',
   },
   bottomStrip: {
     position: 'absolute',
-    bottom: 14,
     left: 14,
     right: 14,
     zIndex: 30,
@@ -817,7 +921,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   memberAvatarText: {
-    color: '#FFFFFF',
     fontSize: 10,
     fontWeight: '700',
   },

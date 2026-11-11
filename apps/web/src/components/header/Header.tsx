@@ -2,11 +2,12 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { Search, Bell, LogOut, ChevronDown, User as UserIcon, Sliders, AtSign } from 'lucide-react';
+import { Bell, LogOut, User as UserIcon, Sliders, AtSign, Menu, Users, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useCircleStore } from '../../stores/circle.store';
 import { useLanguageStore } from '../../stores/language.store';
 import { useThemeStore } from '../../stores/theme.store';
+import { useMyCirclesQuery } from '../../hooks/use-circle-queries';
 import { EditProfileModal } from '../profile/EditProfileModal';
 import { SystemSettingsModal } from '../settings/SystemSettingsModal';
 
@@ -18,25 +19,55 @@ function getInitials(name: string): string {
 
 export const Header: React.FC = () => {
   const { user, isAuthenticated, isLoading, logout } = useAuth();
+  const activeCircle = useCircleStore((s) => s.activeCircle);
   const setActiveCircle = useCircleStore((s) => s.setActiveCircle);
+  const setManageModalOpen = useCircleStore((s) => s.setManageModalOpen);
+  const isMobileDrawerOpen = useCircleStore((s) => s.isMobileDrawerOpen);
+  const setMobileDrawerOpen = useCircleStore((s) => s.setMobileDrawerOpen);
+  const { data: myCircles = [] } = useMyCirclesQuery();
   const t = useLanguageStore((s) => s.t);
   const uiStyle = useThemeStore((s) => s.uiStyle);
   const isGlass = uiStyle === 'glass';
   const [showMenu, setShowMenu] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isSystemSettingsModalOpen, setIsSystemSettingsModalOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const notifRef = useRef<HTMLDivElement>(null);
 
-  // Close menu on click outside
+  // Close menus on click outside or Escape
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setShowMenu(false);
       }
+      if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
+        setShowNotifications(false);
+      }
+    }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setShowMenu(false);
+        setShowNotifications(false);
+      }
     }
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
   }, []);
+
+  const pendingRequestCircles = myCircles.filter(
+    (c: any) =>
+      (c.role === 'OWNER' || c.role === 'ADMIN') &&
+      Number(c.pendingJoinRequestsCount || 0) > 0,
+  );
+  const totalNotifications = pendingRequestCircles.reduce(
+    (acc: number, c: any) => acc + Number(c.pendingJoinRequestsCount || 0),
+    0,
+  );
 
   const displayName = user?.profile?.displayName || user?.email?.split('@')[0] || t.auth.guest;
   const avatarUrl = user?.profile?.avatarUrl;
@@ -45,10 +76,10 @@ export const Header: React.FC = () => {
 
   return (
     <>
-      {/* Unlimited Floating Header Layer: Floating Brand Pill (Top-Left) & Floating Avatar + Notifications (Top-Right) */}
+      {/* Floating Header Layer */}
       <header className="pointer-events-none fixed top-0 left-0 right-0 z-40 flex items-center justify-between p-3 sm:p-3.5 w-full bg-transparent border-0 shadow-none transition-colors">
-        {/* Top-Left: Floating Brand Capsule Pill ("Viên thuốc bo sát") */}
-        <div className="pointer-events-auto">
+        {/* Top-Left: Floating Brand Capsule Pill + Mobile Sidebar Toggle */}
+        <div className="pointer-events-auto flex items-center gap-2">
           <Link
             href="/"
             onClick={() => setActiveCircle(null)}
@@ -66,32 +97,115 @@ export const Header: React.FC = () => {
               {t.common.appName}
             </span>
           </Link>
+
+          {isAuthenticated && activeCircle && (
+            <button
+              type="button"
+              onClick={() => setMobileDrawerOpen(!isMobileDrawerOpen)}
+              aria-label={t.common.openMenu}
+              title={t.common.openMenu}
+              className={`flex md:hidden h-9 w-9 items-center justify-center rounded-full border transition-all text-circle-charcoal dark:text-circle-dark-text active:scale-95 ${
+                isGlass
+                  ? 'backdrop-blur-xl bg-white/94 dark:bg-circle-dark-surface/92 border-circle-hairline/80 dark:border-white/12 shadow-sm hover:shadow-md'
+                  : 'bg-white dark:bg-circle-dark-surface border-circle-hairline dark:border-circle-dark-hairline shadow-xs'
+              }`}
+            >
+              <Menu className="h-4 w-4" />
+            </button>
+          )}
         </div>
 
-        {/* Top-Right: Floating Notification Button (Left) + Floating User Avatar (Sát góc phải trên) */}
+        {/* Top-Right: Floating Notification Button + Floating User Avatar */}
         <div className="pointer-events-auto flex items-center gap-2">
-          {/* Nút thông báo hình tròn treo lơ lửng bên trái của avt */}
-          <button
-            type="button"
-            className={`flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full border transition-all text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text relative active:scale-95 ${
-              isGlass
-                ? 'backdrop-blur-xl bg-white/94 dark:bg-circle-dark-surface/92 border-circle-hairline/80 dark:border-white/12 shadow-sm hover:shadow-md hover:scale-105'
-                : 'bg-white dark:bg-circle-dark-surface border-circle-hairline dark:border-circle-dark-hairline shadow-xs hover:border-circle-slate dark:hover:border-circle-dark-muted'
-            }`}
-            title={t.nav.notifications}
-          >
-            <Bell className="h-4 w-4" />
-            <span className="absolute top-2.5 right-2.5 h-2 w-2 rounded-full bg-circle-coral" />
-          </button>
+          {/* Notification Bell + Popover */}
+          <div className="relative" ref={notifRef}>
+            <button
+              type="button"
+              onClick={() => {
+                setShowMenu(false);
+                setShowNotifications((prev) => !prev);
+              }}
+              aria-label={t.nav.notifications}
+              title={t.nav.notifications}
+              className={`flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full border transition-all text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text relative active:scale-95 ${
+                isGlass
+                  ? 'backdrop-blur-xl bg-white/94 dark:bg-circle-dark-surface/92 border-circle-hairline/80 dark:border-white/12 shadow-sm hover:shadow-md hover:scale-105'
+                  : 'bg-white dark:bg-circle-dark-surface border-circle-hairline dark:border-circle-dark-hairline shadow-xs hover:border-circle-slate dark:hover:border-circle-dark-muted'
+              }`}
+            >
+              <Bell className="h-4 w-4" />
+              {totalNotifications > 0 && (
+                <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-circle-coral ring-2 ring-white dark:ring-circle-dark-surface" />
+              )}
+            </button>
 
-          {/* User Avatar Circle (Sát góc phải trên) */}
+            {showNotifications && (
+              <div
+                className={`absolute right-0 mt-2 w-72 sm:w-80 rounded-2xl p-2 animate-fadeIn z-50 ${
+                  isGlass
+                    ? 'glass backdrop-blur-xl bg-white/94 dark:bg-circle-dark-surface/92 border border-circle-hairline/80 dark:border-white/16 shadow-2xl'
+                    : 'bg-white dark:bg-circle-dark-surface border border-circle-hairline dark:border-circle-dark-hairline shadow-xl'
+                }`}
+              >
+                <div className="px-2.5 py-2 border-b border-circle-hairline dark:border-circle-dark-hairline">
+                  <p className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
+                    {t.nav.notifications}
+                  </p>
+                  <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted mt-0.5">
+                    {t.nav.notificationsSubtitle}
+                  </p>
+                </div>
+
+                {pendingRequestCircles.length > 0 ? (
+                  <div className="py-1.5 space-y-1 max-h-64 overflow-y-auto">
+                    {pendingRequestCircles.map((circle: any) => (
+                      <button
+                        key={circle.id}
+                        type="button"
+                        onClick={() => {
+                          setShowNotifications(false);
+                          setActiveCircle(circle);
+                          setManageModalOpen(true, 'requests');
+                        }}
+                        className="flex w-full items-center justify-between gap-2.5 rounded-xl px-2.5 py-2 text-left hover:bg-circle-wash/70 dark:hover:bg-circle-dark-elevated transition-colors"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <Users className="h-4 w-4 shrink-0 text-circle-sage dark:text-circle-primary" />
+                          <span className="text-xs font-medium text-circle-charcoal dark:text-circle-dark-text truncate">
+                            {t.nav.pendingRequestsNotice
+                              .replace('{circle}', circle.name)
+                              .replace('{count}', String(circle.pendingJoinRequestsCount))}
+                          </span>
+                        </div>
+                        <span className="shrink-0 text-[11px] font-bold text-circle-sage dark:text-circle-primary">
+                          {t.nav.reviewNow}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="px-3 py-5 text-center space-y-1.5">
+                    <CheckCircle2 className="h-5 w-5 mx-auto text-circle-sage dark:text-circle-primary opacity-80" />
+                    <p className="text-xs text-circle-slate dark:text-circle-dark-muted">
+                      {t.nav.noNotifications}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* User Avatar Circle */}
           {isLoading ? (
             <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-full bg-circle-hairline dark:bg-circle-dark-hairline animate-pulse" />
           ) : isAuthenticated && user ? (
             <div className="relative" ref={menuRef}>
               <button
                 type="button"
-                onClick={() => setShowMenu(!showMenu)}
+                onClick={() => {
+                  setShowNotifications(false);
+                  setShowMenu(!showMenu);
+                }}
                 className={`flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full border transition-all overflow-hidden focus:outline-none active:scale-95 ${
                   isGlass
                     ? 'backdrop-blur-xl bg-white/94 dark:bg-circle-dark-surface/92 border-circle-hairline/80 dark:border-white/12 shadow-sm hover:shadow-md hover:scale-105'
@@ -113,7 +227,7 @@ export const Header: React.FC = () => {
                 <div
                   className={`absolute right-0 mt-2 w-60 rounded-2xl p-1.5 animate-fadeIn z-50 ${
                     isGlass
-                      ? 'glass backdrop-blur-xl bg-white/85 dark:bg-circle-dark-surface/85 border border-white/40 dark:border-white/10 shadow-2xl'
+                      ? 'glass backdrop-blur-xl bg-white/94 dark:bg-circle-dark-surface/92 border border-circle-hairline/80 dark:border-white/16 shadow-2xl'
                       : 'bg-white dark:bg-circle-dark-surface border border-circle-hairline dark:border-circle-dark-hairline shadow-xl'
                   }`}
                 >
@@ -190,7 +304,7 @@ export const Header: React.FC = () => {
               </Link>
               <Link
                 href="/register"
-                className="rounded-full bg-circle-charcoal dark:bg-circle-primary px-4 py-1.5 text-xs font-semibold text-white dark:text-circle-charcoal hover:bg-circle-charcoal/90 dark:hover:bg-circle-sage transition-colors shadow-xs"
+                className="rounded-full bg-circle-charcoal dark:bg-circle-primary px-4 py-1.5 text-xs font-semibold text-white dark:text-circle-charcoal hover:bg-circle-charcoal/90 dark:hover:bg-circle-sage dark:hover:text-white transition-colors shadow-xs"
               >
                 {t.auth.register}
               </Link>

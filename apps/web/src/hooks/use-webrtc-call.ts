@@ -4,6 +4,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { getSocket } from '../lib/socket';
 import { CallType, IceServerConfig } from '@circle/types';
 
+import { useLanguageStore } from '../stores/language.store';
+
 interface PeerStream {
   userId: string;
   stream: MediaStream;
@@ -39,7 +41,7 @@ export function useWebRTCCall({
   const startLocalMedia = useCallback(async () => {
     try {
       if (typeof window === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
-        throw new Error('Trình duyệt không hỗ trợ WebRTC MediaDevices');
+        throw new Error(useLanguageStore.getState().t.calls.mediaDevicesUnsupported);
       }
 
       const constraints: MediaStreamConstraints = {
@@ -74,7 +76,7 @@ export function useWebRTCCall({
       return stream;
     } catch (err: any) {
       console.error('[WebRTC] Error acquiring media stream:', err);
-      setError(err?.message || 'Không thể truy cập Microphone hoặc Camera');
+      setError(err?.message || useLanguageStore.getState().t.calls.mediaAccessDenied);
       return null;
     }
   }, [callType]);

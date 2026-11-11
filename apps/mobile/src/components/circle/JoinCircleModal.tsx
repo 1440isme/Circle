@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   Platform,
+  KeyboardAvoidingView,
   ActivityIndicator,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
@@ -14,15 +15,17 @@ import { KeyRound, X, AlertCircle } from 'lucide-react-native';
 import { useThemeStore } from '../../stores/theme.store';
 import { useLanguageStore } from '../../stores/language.store';
 import { useCircleStore } from '../../stores/circle.store';
+import { getGlassTheme } from '../../constants/glass-theme';
 import { useJoinCircleMutation } from '../../hooks/use-circle-queries';
 import { useEdgeSwipeDismiss } from '../../hooks/use-edge-swipe';
 import { createCircleSchemas } from '@circle/shared';
 
 export function JoinCircleModal() {
-  const { colors, resolvedTheme } = useThemeStore();
+  const { colors, resolvedTheme, uiStyle } = useThemeStore();
   const t = useLanguageStore((s) => s.t);
   const locale = useLanguageStore((s) => s.locale);
   const isDark = resolvedTheme === 'dark';
+  const glassTheme = getGlassTheme(isDark, uiStyle);
 
   const visible = useCircleStore((s) => s.joinModalVisible);
   const setVisible = useCircleStore((s) => s.setJoinModalVisible);
@@ -81,29 +84,33 @@ export function JoinCircleModal() {
       animationType="fade"
       onRequestClose={handleClose}
     >
-      <View style={styles.modalOverlay}>
-        <BlurView
-          intensity={Platform.OS === 'ios' ? 45 : 85}
-          tint={isDark ? 'dark' : 'light'}
-          style={StyleSheet.absoluteFill}
-        />
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.modalOverlay}
+      >
+        {uiStyle === 'glass' && (
+          <BlurView
+            intensity={glassTheme.blur.intensity}
+            tint={glassTheme.blur.tint}
+            style={StyleSheet.absoluteFill}
+          />
+        )}
 
         <View
           {...edgePan.panHandlers}
           style={[
             styles.dialogContainer,
             {
-              backgroundColor: colors.sheetBg,
-              borderColor: colors.glassBorder,
+              backgroundColor: glassTheme.colors.glassBgSheet,
+              borderColor:
+                uiStyle === 'glass' ? glassTheme.colors.glassBorder : colors.hairline,
             },
           ]}
         >
-          {/* Header */}
+          {/* Header (Bare Icon Invariant) */}
           <View style={styles.header}>
             <View style={styles.headerLeft}>
-              <View style={[styles.iconCircle, { backgroundColor: `${colors.primary}20` }]}>
-                <KeyRound size={22} color={colors.primary} />
-              </View>
+              <KeyRound size={22} color={colors.sage} />
               <View style={styles.headerTextGroup}>
                 <Text style={[styles.title, { color: colors.text }]}>
                   {t.circle.joinModalTitle}
@@ -112,7 +119,9 @@ export function JoinCircleModal() {
             </View>
             <TouchableOpacity
               onPress={handleClose}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               style={[styles.closeBtn, { backgroundColor: colors.wash }]}
+              accessibilityLabel={t.common.close}
             >
               <X size={18} color={colors.subtle} />
             </TouchableOpacity>
@@ -189,21 +198,26 @@ export function JoinCircleModal() {
                   backgroundColor:
                     canSubmit && !joinCircleMutation.isPending
                       ? colors.primary
-                      : `${colors.primary}50`,
+                      : colors.border,
                 },
               ]}
             >
               {joinCircleMutation.isPending ? (
                 <ActivityIndicator color={colors.onPrimary} size="small" />
               ) : (
-                <Text style={[styles.submitBtnText, { color: colors.onPrimary }]}>
+                <Text
+                  style={[
+                    styles.submitBtnText,
+                    { color: canSubmit ? colors.onPrimary : colors.subtle },
+                  ]}
+                >
                   {t.circle.joinCircleBtn}
                 </Text>
               )}
             </TouchableOpacity>
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

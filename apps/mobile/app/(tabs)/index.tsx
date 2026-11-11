@@ -5,31 +5,27 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   Platform,
   Modal,
   ActivityIndicator,
 } from 'react-native';
 import {
-  Sparkles,
   Plus,
   KeyRound,
-  ShieldCheck,
-  Compass,
   Radio,
   UserCheck,
   Camera,
-  Image as ImageIcon,
   MessageSquare,
+  X,
 } from 'lucide-react-native';
 import { BlurView } from 'expo-blur';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeStore } from '../../src/stores/theme.store';
 import { getGlassTheme } from '../../src/constants/glass-theme';
 import { useLanguageStore } from '../../src/stores/language.store';
 import { useAuthStore } from '../../src/stores/auth.store';
 import { useCircleStore } from '../../src/stores/circle.store';
 import { useMyCirclesQuery } from '../../src/hooks/use-circle-queries';
-import { HeaderControls } from '../../src/components/common/HeaderControls';
 import { useRouter } from 'expo-router';
 
 function getInitials(name: string): string {
@@ -40,6 +36,7 @@ function getInitials(name: string): string {
 
 export default function HomeScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { colors, resolvedTheme, uiStyle } = useThemeStore();
   const t = useLanguageStore((s) => s.t);
   const { user } = useAuthStore();
@@ -48,19 +45,13 @@ export default function HomeScreen() {
   const isGlass = uiStyle === 'glass';
   const glassTheme = getGlassTheme(isDark, uiStyle);
   const displayName = user?.profile?.displayName || user?.email?.split('@')[0] || t.auth.guest;
-  const initials = getInitials(displayName);
   const roleLabel = user?.globalRole === 'ADMIN' ? t.auth.admin : t.auth.member;
-
-  const handleAction = (msg: string) => {
-    Alert.alert(t.common.appName, msg);
-  };
 
   const { data: myCircles = [], isLoading: isLoadingCircles } = useMyCirclesQuery();
   const setCreateModalVisible = useCircleStore((s) => s.setCreateModalVisible);
   const setJoinModalVisible = useCircleStore((s) => s.setJoinModalVisible);
   const activeCircle = useCircleStore((s) => s.activeCircle);
   const setActiveCircle = useCircleStore((s) => s.setActiveCircle);
-  const setManageModalVisible = useCircleStore((s) => s.setManageModalVisible);
 
   const currentCircle = activeCircle || (myCircles.length > 0 ? myCircles[0] : null);
   const hasCircles = myCircles.length > 0;
@@ -78,17 +69,16 @@ export default function HomeScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.canvas }]}>
       {/* Top Floating Glass Header (Floating glass controls with scroll-under content) */}
-      <View style={styles.headerBar} pointerEvents="box-none">
+      <View
+        style={[styles.headerBar, { paddingTop: insets.top + 8 }]}
+        pointerEvents="box-none"
+      >
         <View
           style={[
             styles.brandCapsule,
             {
-              backgroundColor: isGlass
-                ? (isDark ? 'rgba(22,22,26,0.92)' : 'rgba(255,255,255,0.94)')
-                : colors.surface,
-              borderColor: isGlass
-                ? (isDark ? 'rgba(255,255,255,0.16)' : 'rgba(0,0,0,0.08)')
-                : colors.hairline,
+              backgroundColor: isGlass ? glassTheme.colors.glassBg : colors.surface,
+              borderColor: isGlass ? glassTheme.colors.glassBorder : colors.hairline,
             },
           ]}
           pointerEvents="auto"
@@ -107,19 +97,19 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Header Right: Floating Glass Button for Active Circle Avatar (No text, opens switcher) */}
+        {/* Header Right: Floating Button for Active Circle Avatar */}
         <TouchableOpacity
           activeOpacity={0.8}
           onPress={() => setCircleSwitcherVisible(true)}
+          hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
           style={[
             styles.headerCircleAvatarBtn,
             {
               backgroundColor: colors.primary,
-              borderColor: isGlass
-                ? (isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)')
-                : colors.hairline,
+              borderColor: isGlass ? glassTheme.colors.glassBorder : colors.hairline,
             },
           ]}
+          accessibilityLabel={t.nav.yourCircles}
         >
           {currentCircle ? (
             <Text style={[styles.headerCircleAvatarText, { color: colors.onPrimary }]}>
@@ -132,19 +122,18 @@ export default function HomeScreen() {
       </View>
 
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingTop: insets.top + 68 },
+        ]}
         showsVerticalScrollIndicator={false}
       >
-
-
         {/* Loading Indicator while fetching circles */}
         {isLoadingCircles && (
           <View style={{ paddingVertical: 24, alignItems: 'center' }}>
-            <ActivityIndicator size="small" color={colors.primary} />
+            <ActivityIndicator size="small" color={colors.sage} />
           </View>
         )}
-
-
 
         {/* When user has circles, show active circle quick card */}
         {hasCircles && currentCircle && (
@@ -179,19 +168,19 @@ export default function HomeScreen() {
 
             <View style={styles.spotlightActions}>
               <View style={styles.spotlightActionItem}>
-                <MessageSquare size={14} color={colors.primary} />
+                <MessageSquare size={14} color={colors.sage} />
                 <Text style={[styles.spotlightActionText, { color: colors.text }]}>
                   {t.chat.title}
                 </Text>
               </View>
               <View style={styles.spotlightActionItem}>
-                <Camera size={14} color={colors.primary} />
+                <Camera size={14} color={colors.sage} />
                 <Text style={[styles.spotlightActionText, { color: colors.text }]}>
                   {t.composer.momentTitle}
                 </Text>
               </View>
               <View style={styles.spotlightActionItem}>
-                <Radio size={14} color={colors.primary} />
+                <Radio size={14} color={colors.sage} />
                 <Text style={[styles.spotlightActionText, { color: colors.text }]}>
                   {t.nav.groupCall}
                 </Text>
@@ -200,7 +189,7 @@ export default function HomeScreen() {
           </TouchableOpacity>
         )}
 
-        {/* Circle Switcher Modal */}
+        {/* Circle Switcher Modal (Gated Glass vs Flat) */}
         <Modal
           visible={circleSwitcherVisible}
           transparent
@@ -208,21 +197,36 @@ export default function HomeScreen() {
           onRequestClose={() => setCircleSwitcherVisible(false)}
         >
           <TouchableOpacity
-            style={styles.modalBackdrop}
+            style={[
+              styles.modalBackdrop,
+              { paddingBottom: Math.max(insets.bottom + 12, 24) },
+            ]}
             activeOpacity={1}
             onPress={() => setCircleSwitcherVisible(false)}
           >
-            <BlurView
-              intensity={glassTheme.blur.intensity + 20}
-              tint={glassTheme.blur.tint}
+            <TouchableOpacity
+              activeOpacity={1}
+              onPress={(e) => e.stopPropagation()}
               style={[
                 styles.switcherSheet,
                 {
-                  backgroundColor: glassTheme.colors.glassBgSheet,
-                  borderColor: glassTheme.colors.glassBorder,
+                  backgroundColor: isGlass
+                    ? glassTheme.colors.glassBgSheet
+                    : colors.surface,
+                  borderColor: isGlass
+                    ? glassTheme.colors.glassBorder
+                    : colors.hairline,
                 },
               ]}
             >
+              {isGlass ? (
+                <BlurView
+                  intensity={glassTheme.blur.intensity}
+                  tint={glassTheme.blur.tint}
+                  style={StyleSheet.absoluteFill}
+                />
+              ) : null}
+
               <View style={[styles.sheetHandle, { backgroundColor: colors.hairline }]} />
               <View style={styles.switcherHeader}>
                 <Text style={[styles.switcherTitle, { color: colors.text }]}>
@@ -230,9 +234,11 @@ export default function HomeScreen() {
                 </Text>
                 <TouchableOpacity
                   onPress={() => setCircleSwitcherVisible(false)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   style={[styles.closeBtn, { backgroundColor: colors.wash }]}
+                  accessibilityLabel={t.common.close}
                 >
-                  <Text style={{ color: colors.subtle, fontWeight: '700' }}>✕</Text>
+                  <X size={16} color={colors.subtle} />
                 </TouchableOpacity>
               </View>
 
@@ -305,11 +311,9 @@ export default function HomeScreen() {
                   </Text>
                 </TouchableOpacity>
               </View>
-            </BlurView>
+            </TouchableOpacity>
           </TouchableOpacity>
         </Modal>
-
-
 
         {/* Voice Stage Status Banner - Seamless Wash Pill */}
         <View
@@ -322,8 +326,8 @@ export default function HomeScreen() {
           ]}
         >
           <View style={styles.stageHeader}>
-            <Radio size={14} color={colors.primary} />
-            <Text style={[styles.stageHeaderText, { color: colors.primary }]}>
+            <Radio size={14} color={colors.sage} />
+            <Text style={[styles.stageHeaderText, { color: colors.sage }]}>
               {t.home.realtimeVoiceStage}
             </Text>
           </View>
@@ -343,7 +347,7 @@ export default function HomeScreen() {
           ]}
         >
           <View style={styles.accountLeft}>
-            <UserCheck size={16} color={colors.primary} />
+            <UserCheck size={16} color={colors.sage} />
             <Text style={[styles.roleText, { color: colors.text }]}>
               {roleLabel} · {user?.email}
             </Text>

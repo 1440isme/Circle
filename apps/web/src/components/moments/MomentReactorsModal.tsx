@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, Heart, Smile } from 'lucide-react';
+import { X, Smile } from 'lucide-react';
 import { MomentEntity, MomentReactionEntity } from '@circle/types';
 import { useLanguageStore } from '@/stores/language.store';
 import { Emoji } from '@/components/ui/Emoji';
@@ -17,7 +17,7 @@ export const MomentReactorsModal: React.FC<MomentReactorsModalProps> = ({
   onClose,
   moment,
 }) => {
-  const { locale } = useLanguageStore();
+  const t = useLanguageStore((s) => s.t);
   const [selectedEmojiFilter, setSelectedEmojiFilter] = useState<string>('ALL');
 
   useEffect(() => {
@@ -40,7 +40,6 @@ export const MomentReactorsModal: React.FC<MomentReactorsModalProps> = ({
 
   const reactions: MomentReactionEntity[] = moment.reactions || [];
 
-  // Group counts by emoji
   const emojiCounts: Record<string, number> = {};
   reactions.forEach((r) => {
     emojiCounts[r.emoji] = (emojiCounts[r.emoji] || 0) + 1;
@@ -58,10 +57,10 @@ export const MomentReactorsModal: React.FC<MomentReactorsModalProps> = ({
       const d = new Date(dateStr);
       const diffMs = Date.now() - d.getTime();
       const diffMins = Math.floor(diffMs / (1000 * 60));
-      if (diffMins < 1) return locale === 'vi' ? 'Vừa xong' : 'Just now';
-      if (diffMins < 60) return `${diffMins}p ${locale === 'vi' ? 'trước' : 'ago'}`;
+      if (diffMins < 1) return t.moments.justNow;
+      if (diffMins < 60) return t.moments.minutesAgoShort.replace('{m}', String(diffMins));
       const diffHours = Math.floor(diffMins / 60);
-      if (diffHours < 24) return `${diffHours}h ${locale === 'vi' ? 'trước' : 'ago'}`;
+      if (diffHours < 24) return t.moments.hoursAgoShort.replace('{h}', String(diffHours));
       return d.toLocaleDateString([], { month: 'numeric', day: 'numeric' });
     } catch {
       return '';
@@ -74,16 +73,16 @@ export const MomentReactorsModal: React.FC<MomentReactorsModalProps> = ({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md bg-white dark:bg-circle-dark-surface rounded-3xl shadow-circle-card border border-circle-hairline dark:border-circle-dark-hairline overflow-hidden flex flex-col max-h-[85vh] animate-scale-up"
+        className="glass-sheet w-full max-w-md rounded-3xl shadow-circle-card border border-circle-hairline dark:border-circle-dark-hairline overflow-hidden flex flex-col max-h-[85vh] animate-scale-up"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-circle-hairline dark:border-circle-dark-hairline">
           <div className="flex items-center gap-2">
             <h3 className="text-base font-bold text-circle-charcoal dark:text-circle-dark-text">
-              {locale === 'vi' ? 'Lượt bày tỏ cảm xúc' : 'Reactions'}
+              {t.moments.reactionsHeader}
             </h3>
-            <span className="px-2 py-0.5 rounded-full bg-circle-primary/20 text-circle-sage dark:text-circle-primary text-xs font-bold">
+            <span className="px-2 py-0.5 rounded-full bg-circle-primary/20 text-circle-sage dark:text-circle-dark-primary text-xs font-bold">
               {reactions.length}
             </span>
           </div>
@@ -91,6 +90,8 @@ export const MomentReactorsModal: React.FC<MomentReactorsModalProps> = ({
           <button
             type="button"
             onClick={onClose}
+            aria-label={t.common.close}
+            title={t.common.close}
             className="p-1.5 rounded-full text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors"
           >
             <X className="h-5 w-5" />
@@ -105,11 +106,11 @@ export const MomentReactorsModal: React.FC<MomentReactorsModalProps> = ({
               onClick={() => setSelectedEmojiFilter('ALL')}
               className={`px-3 py-1 rounded-full text-xs font-semibold transition-all ${
                 selectedEmojiFilter === 'ALL'
-                  ? 'bg-circle-charcoal dark:bg-circle-primary text-white dark:text-circle-charcoal shadow-sm'
+                  ? 'bg-circle-charcoal dark:bg-circle-primary text-white dark:text-circle-dark-canvas shadow-sm'
                   : 'bg-circle-canvas dark:bg-circle-dark-surface text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash border border-circle-hairline dark:border-circle-dark-hairline'
               }`}
             >
-              {locale === 'vi' ? 'Tất cả' : 'All'} ({reactions.length})
+              {t.common.all} ({reactions.length})
             </button>
 
             {uniqueEmojis.map((emoji) => (
@@ -119,7 +120,7 @@ export const MomentReactorsModal: React.FC<MomentReactorsModalProps> = ({
                 onClick={() => setSelectedEmojiFilter(emoji)}
                 className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold transition-all ${
                   selectedEmojiFilter === emoji
-                    ? 'bg-circle-primary/20 border border-circle-primary/50 text-circle-sage dark:text-circle-primary shadow-sm scale-105'
+                    ? 'bg-circle-primary/20 border border-circle-primary/50 text-circle-sage dark:text-circle-dark-primary shadow-sm scale-105'
                     : 'bg-circle-canvas dark:bg-circle-dark-surface text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash border border-circle-hairline dark:border-circle-dark-hairline'
                 }`}
               >
@@ -135,15 +136,11 @@ export const MomentReactorsModal: React.FC<MomentReactorsModalProps> = ({
           {filteredReactions.length === 0 ? (
             <div className="py-12 text-center text-circle-slate dark:text-circle-dark-muted space-y-2">
               <Smile className="h-10 w-10 mx-auto opacity-40 stroke-[1.5]" />
-              <p className="text-xs">
-                {locale === 'vi'
-                  ? 'Chưa có ai thả cảm xúc này.'
-                  : 'No reactions in this category.'}
-              </p>
+              <p className="text-xs">{t.moments.noReactorsForEmoji}</p>
             </div>
           ) : (
             filteredReactions.map((r) => {
-              const displayName = r.user?.displayName || 'Người dùng';
+              const displayName = r.user?.displayName || t.collab.memberDefault;
               const avatarUrl = r.user?.avatarUrl;
               const initials = displayName.slice(0, 2).toUpperCase();
 
@@ -155,7 +152,7 @@ export const MomentReactorsModal: React.FC<MomentReactorsModalProps> = ({
                   <div className="flex items-center gap-3 min-w-0">
                     {/* Avatar with small emoji badge */}
                     <div className="relative shrink-0">
-                      <div className="h-10 w-10 rounded-full bg-circle-primary text-circle-charcoal font-bold text-xs flex items-center justify-center overflow-hidden border border-circle-hairline dark:border-circle-dark-hairline shadow-sm">
+                      <div className="h-10 w-10 rounded-full bg-circle-primary text-circle-charcoal dark:text-circle-dark-canvas font-bold text-xs flex items-center justify-center overflow-hidden border border-circle-hairline dark:border-circle-dark-hairline shadow-sm">
                         {avatarUrl ? (
                           <img
                             src={avatarUrl}

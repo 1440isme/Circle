@@ -16,6 +16,10 @@ Known traps, framework quirks, and subtle pitfalls in CIRCLE. Consult this list 
 
 - **SSR Socket Connection:** Connecting to Socket.IO inside a Server Component throws `window is not defined`. Always wrap socket connection hooks inside `'use client'` components and run them inside `useEffect`.
 - **Hydration Mismatches with Dates:** Formatting relative time on the server (SSR) and client causes hydration mismatch if the system clock or timezone differs. Use client-only mounting guards or ISO format before hydration.
+- **Leaflet `subdomains: undefined` Crash (Web & Mobile WebView):** Passing `{ subdomains: mapboxToken ? undefined : 'abcd' }` to `L.tileLayer(url, options)` overrides Leaflet's `'abc'` default with `undefined`, throwing `TypeError: Cannot read properties of undefined (reading 'length')` inside `TileLayer.prototype._getSubdomain`. Always omit the `subdomains` key when `mapboxToken` is set, and add `.dark .leaflet-container { background-color: #131316; }` to avoid a grey flash while tiles load.
+- **CSS Containing Block Portal Trap (`backdrop-filter` / `transform`):** Any `fixed inset-0` modal or lightbox rendered inside an ancestor with `backdrop-filter` (e.g., `.glass`, `.glass-sheet`) or `transform` (e.g., `scale-[1.02]` message highlight) gets clipped to that ancestor's bounds. Wrap nested modals and lightboxes in `createPortal(..., document.body)`.
+- **Tailwind Dark Text Overriding `:hover:text-white`:** In Tailwind CSS output order, `.dark .dark\:text-circle-dark-canvas` / `.dark\:text-circle-charcoal` overrides `.hover\:text-white:hover`. Any Web button pairing `hover:bg-circle-sage` with dark-mode dark text MUST explicitly include `dark:hover:text-white` (unless using `dark:hover:bg-circle-primary-hover`).
+- **Chromium Background Tab Entrance Animation Stall:** Taking screenshots from a background browser tab pauses CSS keyframe entrance animations starting at `opacity: 0` (like `circleFadeIn`). In [`scripts/brave-bridge.mjs`](../../scripts/brave-bridge.mjs), call `anim.finish()` on finite non-infinite Web Animations before `page.screenshot()`, and keep `@media (prefers-reduced-motion: reduce)` enabled.
 
 ---
 

@@ -6,15 +6,15 @@ import {
   Modal,
   TouchableOpacity,
   ScrollView,
-  TextInput,
-  Dimensions,
+  useWindowDimensions,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
-import { X, Search } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { X } from 'lucide-react-native';
 import { useThemeStore } from '../../stores/theme.store';
 import { useLanguageStore } from '../../stores/language.store';
 import { getGlassTheme } from '../../constants/glass-theme';
-import { EMOJI_CATEGORIES, EmojiCategory } from '@circle/shared';
+import { EMOJI_CATEGORIES } from '@circle/shared';
 import { Emoji } from './Emoji';
 
 interface FullEmojiPickerModalProps {
@@ -24,8 +24,6 @@ interface FullEmojiPickerModalProps {
   title?: string;
 }
 
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
-
 export const FullEmojiPickerModal: React.FC<FullEmojiPickerModalProps> = ({
   visible,
   onClose,
@@ -34,20 +32,90 @@ export const FullEmojiPickerModal: React.FC<FullEmojiPickerModalProps> = ({
 }) => {
   const { colors, resolvedTheme, uiStyle } = useThemeStore();
   const t = useLanguageStore((s) => s.t);
-  const resolvedTitle = title || t.emoji?.title || 'Chọn biểu cảm';
+  const resolvedTitle = title || t.emoji.title;
   const isDark = resolvedTheme === 'dark';
   const glassTheme = getGlassTheme(isDark, uiStyle);
+  const insets = useSafeAreaInsets();
+  const { height: screenHeight } = useWindowDimensions();
 
-  const [activeCategoryId, setActiveCategoryId] = useState<string>(EMOJI_CATEGORIES[0]?.id || 'smileys');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [activeCategoryId, setActiveCategoryId] = useState<string>(
+    EMOJI_CATEGORIES[0]?.id || 'smileys',
+  );
 
   if (!visible) return null;
 
-  const currentCategory = EMOJI_CATEGORIES.find((c) => c.id === activeCategoryId) || EMOJI_CATEGORIES[0];
+  const currentCategory =
+    EMOJI_CATEGORIES.find((c) => c.id === activeCategoryId) || EMOJI_CATEGORIES[0];
 
-  const displayedEmojis = searchQuery.trim().length > 0
-    ? EMOJI_CATEGORIES.flatMap((c) => c.emojis)
-    : currentCategory.emojis;
+  const displayedEmojis = currentCategory.emojis;
+
+  const sheetInner = (
+    <>
+      {/* Header */}
+      <View style={[styles.headerRow, { borderBottomColor: colors.hairline }]}>
+        <Text style={[styles.titleText, { color: colors.text }]}>{resolvedTitle}</Text>
+        <TouchableOpacity
+          onPress={onClose}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          style={[styles.closeBtn, { backgroundColor: colors.wash }]}
+          accessibilityLabel={t.common.close}
+        >
+          <X size={18} color={colors.text} />
+        </TouchableOpacity>
+      </View>
+
+      {/* Category Tabs (Clean Icon-Only Tabs) */}
+      <View style={[styles.categoryBar, { borderBottomColor: colors.hairline }]}>
+        <View style={styles.categoryIconsRow}>
+          {EMOJI_CATEGORIES.map((cat) => {
+            const isActive = activeCategoryId === cat.id;
+            const categoryName = (t.emoji.categories as any)?.[cat.id] || cat.name;
+            return (
+              <TouchableOpacity
+                key={cat.id}
+                onPress={() => setActiveCategoryId(cat.id)}
+                hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
+                style={[
+                  styles.categoryTab,
+                  isActive && [
+                    styles.categoryTabActive,
+                    { backgroundColor: colors.wash, borderColor: colors.hairline },
+                  ],
+                ]}
+                accessibilityLabel={categoryName}
+              >
+                <Text style={[styles.categoryIcon, { fontSize: 20 }]}>{cat.icon}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </View>
+
+      {/* Emoji Grid */}
+      <ScrollView
+        style={styles.emojiScroll}
+        contentContainerStyle={[
+          styles.emojiGrid,
+          { paddingBottom: Math.max(insets.bottom, 16) },
+        ]}
+        showsVerticalScrollIndicator={true}
+      >
+        {displayedEmojis.map((emoji, index) => (
+          <TouchableOpacity
+            key={`${emoji}-${index}`}
+            activeOpacity={0.65}
+            onPress={() => {
+              onSelectEmoji(emoji);
+              onClose();
+            }}
+            style={styles.emojiGridItem}
+          >
+            <Emoji emoji={emoji} size={30} />
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+    </>
+  );
 
   return (
     <Modal
@@ -63,77 +131,35 @@ export const FullEmojiPickerModal: React.FC<FullEmojiPickerModalProps> = ({
           onPress={onClose}
         />
 
-        <BlurView
-          intensity={glassTheme.blur.intensity + 20}
-          tint={glassTheme.blur.tint}
-          style={[
-            styles.sheetContainer,
-            {
-              backgroundColor: glassTheme.colors.glassBgSheet,
-              borderColor: glassTheme.colors.glassBorder,
-            },
-          ]}
-        >
-          {/* Header */}
-          <View style={[styles.headerRow, { borderBottomColor: colors.hairline }]}>
-            <Text style={[styles.titleText, { color: colors.text }]}>{resolvedTitle}</Text>
-            <TouchableOpacity
-              onPress={onClose}
-              style={[styles.closeBtn, { backgroundColor: colors.wash }]}
-              accessibilityLabel="Close"
-            >
-              <X size={18} color={colors.text} />
-            </TouchableOpacity>
-          </View>
-
-          {/* Category Tabs (Clean Icon-Only Tabs) */}
-          <View style={[styles.categoryBar, { borderBottomColor: colors.hairline }]}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', width: '100%', paddingVertical: 4 }}>
-              {EMOJI_CATEGORIES.map((cat) => {
-                const isActive = activeCategoryId === cat.id;
-                const categoryName = (t.emoji?.categories as any)?.[cat.id] || cat.name;
-                return (
-                  <TouchableOpacity
-                    key={cat.id}
-                    onPress={() => {
-                      setActiveCategoryId(cat.id);
-                      setSearchQuery('');
-                    }}
-                    style={[
-                      styles.categoryTab,
-                      { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12 },
-                      isActive && [styles.categoryTabActive, { backgroundColor: colors.wash, borderColor: colors.hairline }],
-                    ]}
-                    accessibilityLabel={categoryName}
-                  >
-                    <Text style={[styles.categoryIcon, { fontSize: 20 }]}>{cat.icon}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
-
-          {/* Emoji Grid */}
-          <ScrollView
-            style={styles.emojiScroll}
-            contentContainerStyle={styles.emojiGrid}
-            showsVerticalScrollIndicator={true}
+        {uiStyle === 'glass' ? (
+          <BlurView
+            intensity={glassTheme.blur.intensity}
+            tint={glassTheme.blur.tint}
+            style={[
+              styles.sheetContainer,
+              {
+                maxHeight: screenHeight * 0.62,
+                backgroundColor: glassTheme.colors.glassBgSheet,
+                borderColor: glassTheme.colors.glassBorder,
+              },
+            ]}
           >
-            {displayedEmojis.map((emoji, index) => (
-              <TouchableOpacity
-                key={`${emoji}-${index}`}
-                activeOpacity={0.65}
-                onPress={() => {
-                  onSelectEmoji(emoji);
-                  onClose();
-                }}
-                style={styles.emojiGridItem}
-              >
-                <Emoji emoji={emoji} size={30} />
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </BlurView>
+            {sheetInner}
+          </BlurView>
+        ) : (
+          <View
+            style={[
+              styles.sheetContainer,
+              {
+                maxHeight: screenHeight * 0.62,
+                backgroundColor: glassTheme.colors.glassBgSheet,
+                borderColor: colors.hairline,
+              },
+            ]}
+          >
+            {sheetInner}
+          </View>
+        )}
       </View>
     </Modal>
   );
@@ -149,7 +175,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   sheetContainer: {
-    maxHeight: SCREEN_HEIGHT * 0.62,
     minHeight: 380,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
@@ -181,27 +206,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  categoryScroll: {
+  categoryIconsRow: {
     flexDirection: 'row',
+    justifyContent: 'space-around',
     alignItems: 'center',
-    gap: 8,
+    width: '100%',
+    paddingVertical: 4,
   },
   categoryTab: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 16,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: 'transparent',
   },
   categoryTabActive: {},
   categoryIcon: {
-    fontSize: 15,
-  },
-  categoryName: {
-    fontSize: 12,
+    fontSize: 20,
   },
   emojiScroll: {
     flex: 1,

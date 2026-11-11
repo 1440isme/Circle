@@ -279,7 +279,7 @@ export const MessageList: React.FC<MessageListProps> = ({
   return (
     <div
       ref={containerRef}
-      className="flex-1 min-h-0 overflow-y-auto px-4 pt-16 pb-24 space-y-4"
+      className="flex-1 min-h-0 overflow-y-auto px-4 pt-28 md:pt-16 pb-28 space-y-4"
     >
       {/* Load earlier messages button */}
       {hasMore && (
@@ -312,25 +312,23 @@ export const MessageList: React.FC<MessageListProps> = ({
           ))}
         </div>
       ) : messages.length === 0 ? (
-        /* Minimalist & Elegant Channel Welcome */
+        /* Minimalist & Elegant Channel Welcome (Bare Icon Invariant) */
         <div className="flex flex-col items-center justify-center py-16 px-4 text-center select-none max-w-md mx-auto">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-circle-wash/80 dark:bg-circle-dark-wash/80 border border-circle-hairline dark:border-circle-dark-hairline mb-3.5 text-circle-sage dark:text-circle-primary">
-            <Hash className="h-6 w-6 opacity-75" />
-          </div>
+          <Hash className="h-8 w-8 mb-3.5 text-circle-sage dark:text-circle-primary opacity-80" />
 
           <h3 className="text-sm font-semibold text-circle-charcoal dark:text-circle-dark-text tracking-tight">
             {circleName
-              ? (t.chat.welcomeTitle || 'Chào mừng bạn đến với {name}').replace('{name}', circleName)
+              ? t.chat.welcomeTitle.replace('{name}', circleName)
               : t.chat.noMessagesYet}
           </h3>
 
           {onSendIcebreaker && (
             <button
               type="button"
-              onClick={() => onSendIcebreaker(t.chat.helloMessage || 'Xin chào mọi người!')}
-              className="mt-4 inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium bg-circle-primary text-white hover:bg-circle-primary/90 active:scale-95 transition-all shadow-xs cursor-pointer"
+              onClick={() => onSendIcebreaker(t.chat.helloMessage)}
+              className="mt-4 inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium bg-circle-charcoal dark:bg-circle-primary text-white dark:text-circle-charcoal hover:opacity-90 active:scale-95 transition-all shadow-xs cursor-pointer"
             >
-              <span>{t.chat.sayHelloAction || 'Gửi lời chào đầu tiên'}</span>
+              <span>{t.chat.sayHelloAction}</span>
             </button>
           )}
         </div>

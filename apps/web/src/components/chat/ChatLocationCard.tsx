@@ -39,10 +39,10 @@ export const ChatLocationCard: React.FC<ChatLocationCardProps> = ({
       href={googleMapsUrl}
       target="_blank"
       rel="noopener noreferrer"
-      className="relative block w-full min-w-[240px] max-w-[320px] h-36 rounded-2xl overflow-hidden border border-black/10 dark:border-white/10 bg-slate-900 group shadow-sm select-none cursor-pointer transition-transform active:scale-[0.99]"
+      className="relative block w-full min-w-[240px] max-w-[320px] h-36 rounded-2xl overflow-hidden border border-black/10 dark:border-white/15 bg-circle-canvas dark:bg-slate-900 group shadow-sm select-none cursor-pointer transition-transform active:scale-[0.99]"
       title={t.collab.openInGoogleMaps}
     >
-      {!imageError ? (
+      {!imageError && MAPBOX_TOKEN ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={staticMapUrl}
@@ -53,12 +53,12 @@ export const ChatLocationCard: React.FC<ChatLocationCardProps> = ({
       ) : (
         <>
           {/* Fallback Grid lines */}
-          <div className="absolute inset-0 bg-[linear-gradient(to_right,#10b98110_1px,transparent_1px),linear-gradient(to_bottom,#10b98110_1px,transparent_1px)] bg-[size:16px_16px]" />
-          <div className="relative z-10 flex flex-col items-center justify-center h-full">
-            <div className="w-8 h-8 rounded-full bg-circle-primary text-white flex items-center justify-center shadow-[0_0_15px_rgba(16,185,129,0.6)]">
+          <div className="absolute inset-0 bg-[linear-gradient(to_right,#10b98115_1px,transparent_1px),linear-gradient(to_bottom,#10b98115_1px,transparent_1px)] bg-[size:16px_16px]" />
+          <div className="relative z-10 flex flex-col items-center justify-center h-full px-3 text-center">
+            <div className="w-8 h-8 rounded-full bg-circle-primary text-circle-charcoal dark:text-circle-dark-canvas flex items-center justify-center shadow-[0_0_15px_rgba(16,185,129,0.5)]">
               <Navigation className="w-4 h-4 fill-current rotate-45" />
             </div>
-            <span className="mt-1 text-[10px] font-mono font-bold text-emerald-200 bg-slate-950/80 px-2 py-0.5 rounded-full border border-emerald-500/30">
+            <span className="mt-1.5 text-[10px] font-mono font-bold text-circle-sage dark:text-emerald-200 bg-white/90 dark:bg-slate-950/85 px-2.5 py-0.5 rounded-full border border-circle-primary/30 shadow-2xs">
               {lat.toFixed(4)}, {lng.toFixed(4)}
             </span>
           </div>

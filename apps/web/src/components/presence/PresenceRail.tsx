@@ -47,6 +47,7 @@ function getInitials(name: string): string {
 export const PresenceRail: React.FC = () => {
   const { user } = useAuth();
   const t = useLanguageStore((s) => s.t);
+  const locale = useLanguageStore((s) => s.locale);
   const activeCircle = useCircleStore((s) => s.activeCircle);
   const setManageModalOpen = useCircleStore((s) => s.setManageModalOpen);
   const setActiveCallStageSession = useCircleStore((s) => s.setActiveCallStageSession);
@@ -168,14 +169,14 @@ export const PresenceRail: React.FC = () => {
   const roleLabel = user?.globalRole === 'ADMIN' ? t.auth.admin : t.auth.member;
 
   return (
-    <aside className="hidden lg:flex w-72 2xl:w-76 shrink-0 flex-col gap-4 bg-white dark:bg-circle-dark-surface p-3 pt-3 h-full overflow-y-auto transition-colors border-l border-circle-hairline/60 dark:border-circle-dark-hairline/60">
+    <aside className="hidden lg:flex w-72 2xl:w-76 shrink-0 flex-col gap-4 bg-white dark:bg-circle-dark-surface p-3 pt-16 min-[1680px]:pt-3 h-full overflow-y-auto transition-colors border-l border-circle-hairline/60 dark:border-circle-dark-hairline/60">
 
       {/* Active Circle Members Rail (Flat container without visible border barrier) */}
       {activeCircle && (
         <div className="p-1 transition-colors">
           <div className="flex items-center justify-between mb-2.5">
             <div className="flex items-center gap-2 px-1">
-              <Users className="h-4 w-4 text-circle-primary shrink-0" />
+              <Users className="h-4 w-4 text-circle-sage dark:text-circle-primary shrink-0" />
               <span className="text-[11px] font-bold uppercase tracking-wider text-circle-charcoal dark:text-circle-dark-text">
                 {t.circle.membersTitle} ({members.length})
               </span>
@@ -187,10 +188,10 @@ export const PresenceRail: React.FC = () => {
               </span>
               <button
                 onClick={() => setManageModalOpen(true, 'members')}
-                className="relative p-1.5 rounded-lg bg-circle-canvas dark:bg-circle-dark-canvas hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-primary transition-colors"
+                className="relative p-1.5 rounded-lg hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-sage dark:text-circle-primary transition-colors"
                 title={t.circle.manageMembers}
               >
-                <Settings className="h-3.5 w-3.5 text-circle-primary" />
+                <Settings className="h-3.5 w-3.5 text-circle-sage dark:text-circle-primary" />
                 {joinRequests.length > 0 && (
                   <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-circle-primary ring-2 ring-white dark:ring-circle-dark-surface animate-pulse" />
                 )}
@@ -242,7 +243,7 @@ export const PresenceRail: React.FC = () => {
             <UserPlus className="h-3.5 w-3.5 text-circle-primary shrink-0" />
             <span>{t.circle.invitesAndRequests}</span>
             {joinRequests.length > 0 && (
-              <span className="rounded-full px-1.5 py-0.2 text-[10px] bg-circle-primary text-white font-bold ml-auto">
+              <span className="rounded-full px-1.5 py-0.2 text-[10px] bg-circle-primary text-circle-charcoal dark:text-circle-dark-canvas font-bold ml-auto">
                 {joinRequests.length}
               </span>
             )}
@@ -329,7 +330,7 @@ export const PresenceRail: React.FC = () => {
             <button
               type="button"
               onClick={handleJoinActiveCall}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-circle-primary hover:bg-circle-primary/90 active:scale-98 text-white py-2 px-3 text-xs font-bold transition-all shadow-md shadow-circle-primary/20"
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-circle-primary hover:bg-circle-primary/90 active:scale-98 text-circle-charcoal dark:text-circle-dark-canvas py-2 px-3 text-xs font-bold transition-all shadow-md shadow-circle-primary/20"
             >
               <PhoneCall className="h-3.5 w-3.5 animate-pulse" />
               <span>{t.calls.joinCall}</span>
@@ -369,12 +370,12 @@ export const PresenceRail: React.FC = () => {
       <div className="flex flex-col gap-2 pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline">
         <div className="flex items-center justify-between mb-2 px-1">
           <div className="flex items-center gap-2">
-            <CalendarDays className="h-4 w-4 text-circle-primary shrink-0" />
+            <CalendarDays className="h-4 w-4 text-circle-sage dark:text-circle-primary shrink-0" />
             <span className="text-[11px] font-bold text-circle-charcoal dark:text-circle-dark-text uppercase tracking-wider">
               {t.collab.railUpcomingEvents}
             </span>
             {upcomingEvents.length > 0 && (
-              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-circle-primary/10 text-circle-primary">
+              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-circle-primary/15 text-circle-sage dark:text-circle-primary">
                 {upcomingEvents.length}
               </span>
             )}
@@ -382,7 +383,7 @@ export const PresenceRail: React.FC = () => {
           <button
             type="button"
             onClick={() => setActiveCircleView('calendar')}
-            className="text-[11px] font-semibold text-circle-primary hover:underline flex items-center gap-0.5"
+            className="text-[11px] font-semibold text-circle-sage dark:text-circle-primary hover:underline flex items-center gap-0.5"
           >
             <span>{t.collab.railOpenCalendar}</span>
             <ChevronRight className="h-3 w-3" />
@@ -400,30 +401,30 @@ export const PresenceRail: React.FC = () => {
                   onClick={() => setActiveCircleView('calendar')}
                   className="rounded-xl border border-circle-hairline/80 dark:border-circle-dark-hairline/80 bg-circle-canvas/60 dark:bg-circle-dark-canvas/60 p-2.5 hover:border-circle-primary/50 transition-all cursor-pointer group flex items-start gap-2.5"
                 >
-                  <CalendarDays className="h-4 w-4 text-circle-primary shrink-0 mt-0.5" />
+                  <CalendarDays className="h-4 w-4 text-circle-sage dark:text-circle-primary shrink-0 mt-0.5" />
                   <div className="min-w-0 flex-1 space-y-1">
                     <div className="flex items-center justify-between gap-1">
-                      <span className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text group-hover:text-circle-primary truncate">
+                      <span className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text group-hover:text-circle-sage dark:group-hover:text-circle-primary truncate">
                         {ev.eventTitle}
                       </span>
                       <span className="text-[10px] font-mono text-circle-slate dark:text-circle-dark-muted shrink-0">
-                        {start.toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' })}
+                        {start.toLocaleDateString(locale === 'vi' ? 'vi-VN' : 'en-US', { month: 'numeric', day: 'numeric' })}
                       </span>
                     </div>
                     <div className="flex items-center justify-between text-[10px] text-circle-slate dark:text-circle-dark-muted">
                       <div className="flex items-center gap-1">
-                        <Clock className="h-2.5 w-2.5 text-circle-primary" />
+                        <Clock className="h-2.5 w-2.5 text-circle-sage dark:text-circle-primary" />
                         <span>{start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                       </div>
                       {yesCount > 0 && (
-                        <span className="text-circle-primary font-semibold">
+                        <span className="text-circle-sage dark:text-circle-primary font-semibold">
                           {t.collab.railMembersGoing.replace('{count}', String(yesCount))}
                         </span>
                       )}
                     </div>
                     {ev.location && (
                       <div className="flex items-center gap-1 text-[10px] text-circle-slate dark:text-circle-dark-muted pt-0.5">
-                        <MapPin className="h-2.5 w-2.5 shrink-0 text-circle-primary" />
+                        <MapPin className="h-2.5 w-2.5 shrink-0 text-circle-sage dark:text-circle-primary" />
                         <span className="truncate">{ev.location}</span>
                       </div>
                     )}
@@ -440,9 +441,9 @@ export const PresenceRail: React.FC = () => {
             <button
               type="button"
               onClick={() => setActiveCircleView('calendar')}
-              className="mt-2 text-[11px] font-semibold text-circle-primary hover:underline inline-flex items-center gap-1"
+              className="mt-2 text-[11px] font-semibold text-circle-sage dark:text-circle-primary hover:underline inline-flex items-center gap-1"
             >
-              <Plus className="h-3 w-3 text-circle-primary" />
+              <Plus className="h-3 w-3" />
               <span>{t.collab.railNewEvent}</span>
             </button>
 
@@ -454,12 +455,12 @@ export const PresenceRail: React.FC = () => {
       <div className="flex flex-col gap-2 pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline">
         <div className="flex items-center justify-between mb-2 px-1">
           <div className="flex items-center gap-2">
-            <Navigation className="h-4 w-4 text-circle-primary shrink-0" />
+            <Navigation className="h-4 w-4 text-circle-sage dark:text-circle-primary shrink-0" />
             <span className="text-[11px] font-bold text-circle-charcoal dark:text-circle-dark-text uppercase tracking-wider">
               {t.collab.railLiveLocations}
             </span>
             {activeLocations.length > 0 && (
-              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-circle-primary/10 text-circle-primary">
+              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-circle-primary/15 text-circle-sage dark:text-circle-primary">
                 {activeLocations.length}
               </span>
             )}
@@ -467,7 +468,7 @@ export const PresenceRail: React.FC = () => {
           <button
             type="button"
             onClick={() => setActiveCircleView('location')}
-            className="text-[11px] font-semibold text-circle-primary hover:underline flex items-center gap-0.5"
+            className="text-[11px] font-semibold text-circle-sage dark:text-circle-primary hover:underline flex items-center gap-0.5"
           >
             <span>{t.collab.railOpenMap}</span>
             <ChevronRight className="h-3 w-3" />
@@ -492,7 +493,7 @@ export const PresenceRail: React.FC = () => {
                   className="rounded-xl border border-circle-hairline/80 dark:border-circle-dark-hairline/80 bg-circle-canvas/60 dark:bg-circle-dark-canvas/60 p-2 hover:border-circle-primary/50 transition-all cursor-pointer group flex items-center justify-between gap-2"
                 >
                   <div className="flex items-center gap-2 min-w-0">
-                    <div className="relative w-7 h-7 rounded-full overflow-hidden bg-circle-primary/20 text-circle-primary font-bold text-[9px] flex items-center justify-center shrink-0">
+                    <div className="relative w-7 h-7 rounded-full overflow-hidden bg-circle-primary/20 text-circle-sage dark:text-circle-primary font-bold text-[9px] flex items-center justify-center shrink-0">
                       {avatar ? (
                         <img src={avatar} alt="avatar" className="w-full h-full object-cover" />
                       ) : (
@@ -500,12 +501,12 @@ export const PresenceRail: React.FC = () => {
                       )}
                       <span className="absolute bottom-0 right-0 w-1.5 h-1.5 rounded-full bg-circle-primary ring-1 ring-white dark:ring-circle-dark-surface" />
                     </div>
-                    <span className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text group-hover:text-circle-primary truncate">
+                    <span className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text group-hover:text-circle-sage dark:group-hover:text-circle-primary truncate">
                       {name} {isMe && ` ${t.collab.meLabel}`}
                     </span>
                   </div>
 
-                  <span className="text-[10px] font-medium text-circle-primary shrink-0 flex items-center gap-1">
+                  <span className="text-[10px] font-medium text-circle-sage dark:text-circle-primary shrink-0 flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-circle-primary animate-pulse" />
                     {t.collab.railSharingActive}
                   </span>
@@ -521,9 +522,9 @@ export const PresenceRail: React.FC = () => {
             <button
               type="button"
               onClick={() => setActiveCircleView('location')}
-              className="mt-1.5 text-[11px] font-semibold text-circle-primary hover:underline inline-flex items-center gap-1"
+              className="mt-1.5 text-[11px] font-semibold text-circle-sage dark:text-circle-primary hover:underline inline-flex items-center gap-1"
             >
-              <Radio className="h-3 w-3 text-circle-primary" />
+              <Radio className="h-3 w-3" />
               <span>{t.collab.railStartSharing}</span>
             </button>
           </div>
@@ -534,12 +535,12 @@ export const PresenceRail: React.FC = () => {
       <div className="flex flex-col gap-2 pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline">
         <div className="flex items-center justify-between mb-2 px-1">
           <div className="flex items-center gap-2">
-            <Vote className="h-4 w-4 text-circle-primary shrink-0" />
+            <Vote className="h-4 w-4 text-circle-sage dark:text-circle-primary shrink-0" />
             <span className="text-[11px] font-bold text-circle-charcoal dark:text-circle-dark-text uppercase tracking-wider">
               {t.collab.railActivePolls}
             </span>
             {activePolls.length > 0 && (
-              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-circle-primary/10 text-circle-primary">
+              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-circle-primary/15 text-circle-sage dark:text-circle-primary">
                 {activePolls.length}
               </span>
             )}
@@ -547,7 +548,7 @@ export const PresenceRail: React.FC = () => {
           <button
             type="button"
             onClick={() => setActiveCircleView('polls')}
-            className="text-[11px] font-semibold text-circle-primary hover:underline flex items-center gap-0.5"
+            className="text-[11px] font-semibold text-circle-sage dark:text-circle-primary hover:underline flex items-center gap-0.5"
           >
             <span>{t.collab.railOpenPolls}</span>
             <ChevronRight className="h-3 w-3" />
@@ -564,9 +565,9 @@ export const PresenceRail: React.FC = () => {
                   onClick={() => handleJumpToPoll(poll.id)}
                   className="rounded-xl border border-circle-hairline/80 dark:border-circle-dark-hairline/80 bg-circle-canvas/60 dark:bg-circle-dark-canvas/60 p-2.5 hover:border-circle-primary/50 transition-all cursor-pointer group flex items-start gap-2.5"
                 >
-                  <Vote className="h-4 w-4 text-circle-primary shrink-0 mt-0.5" />
+                  <Vote className="h-4 w-4 text-circle-sage dark:text-circle-primary shrink-0 mt-0.5" />
                   <div className="min-w-0 flex-1 space-y-1">
-                    <span className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text group-hover:text-circle-primary line-clamp-2 block leading-snug">
+                    <span className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text group-hover:text-circle-sage dark:group-hover:text-circle-primary line-clamp-2 block leading-snug">
                       {poll.question}
                     </span>
                     <div className="flex items-center justify-between text-[10px] text-circle-slate dark:text-circle-dark-muted pt-0.5">
@@ -574,7 +575,7 @@ export const PresenceRail: React.FC = () => {
                         {t.collab.railTotalVotes.replace('{count}', String(poll.totalVotes || 0))}
                       </span>
                       {hasVoted && (
-                        <span className="text-circle-primary font-semibold flex items-center gap-1">
+                        <span className="text-circle-sage dark:text-circle-primary font-semibold flex items-center gap-1">
                           <CheckCircle2 className="h-3 w-3" />
                           <span>{t.collab.railVoted}</span>
                         </span>
@@ -593,9 +594,9 @@ export const PresenceRail: React.FC = () => {
             <button
               type="button"
               onClick={() => setActiveCircleView('polls')}
-              className="mt-1.5 text-[11px] font-semibold text-circle-primary hover:underline inline-flex items-center gap-1"
+              className="mt-1.5 text-[11px] font-semibold text-circle-sage dark:text-circle-primary hover:underline inline-flex items-center gap-1"
             >
-              <Plus className="h-3 w-3 text-circle-primary" />
+              <Plus className="h-3 w-3" />
               <span>{t.collab.railNewPoll}</span>
             </button>
           </div>

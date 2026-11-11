@@ -10,6 +10,7 @@ import {
   TextInput,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ArrowLeft,
   ArrowRight,
@@ -33,10 +34,9 @@ import { PasswordComplexityChecklist } from '../../src/components/auth/PasswordC
 
 export default function RegisterScreen() {
   const router = useRouter();
-  const { colors, resolvedTheme } = useThemeStore();
+  const insets = useSafeAreaInsets();
+  const { colors } = useThemeStore();
   const { t, locale } = useLanguageStore();
-
-  const isDark = resolvedTheme === 'dark';
 
   // 3-Step Wizard: 1 = Name, 2 = Email, 3 = Password
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -120,14 +120,16 @@ export default function RegisterScreen() {
       style={[styles.container, { backgroundColor: colors.canvas }]}
     >
       {/* Top Header & Step Progress Bar */}
-      <View style={styles.topBar}>
+      <View style={[styles.topBar, { paddingTop: insets.top + 12 }]}>
         <TouchableOpacity
           onPress={handlePrevStep}
           activeOpacity={0.7}
+          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
           style={[
             styles.backBtn,
             { backgroundColor: colors.wash },
           ]}
+          accessibilityLabel={t.common.back}
         >
           <ArrowLeft size={18} color={colors.text} />
         </TouchableOpacity>
@@ -179,8 +181,8 @@ export default function RegisterScreen() {
             { backgroundColor: colors.wash },
           ]}
         >
-          <Sparkles size={12} color={colors.primary} />
-          <Text style={[styles.stepBadgeText, { color: colors.primary }]}>
+          <Sparkles size={12} color={colors.sage} />
+          <Text style={[styles.stepBadgeText, { color: colors.sage }]}>
             {step === 1
               ? t.auth.wizardStep1Badge
               : step === 2
@@ -412,29 +414,41 @@ export default function RegisterScreen() {
           styles.bottomBar,
           {
             backgroundColor: colors.canvas,
+            paddingBottom: Math.max(insets.bottom + 10, 20),
           },
         ]}
       >
         {step < 3 ? (
-          <TouchableOpacity
-            onPress={handleNextStep}
-            disabled={step === 1 ? !isNameValid : !isEmailValid}
-            activeOpacity={0.8}
-            style={[
-              styles.primaryBtn,
-              {
-                backgroundColor:
-                  (step === 1 && isNameValid) || (step === 2 && isEmailValid)
-                    ? colors.primary
-                    : colors.wash,
-              },
-            ]}
-          >
-            <Text style={[styles.primaryBtnText, { color: colors.onPrimary }]}>
-              {t.auth.continueBtn}
-            </Text>
-            <ArrowRight size={18} color={colors.onPrimary} />
-          </TouchableOpacity>
+          (() => {
+            const isStepReady =
+              (step === 1 && isNameValid) || (step === 2 && isEmailValid);
+            return (
+              <TouchableOpacity
+                onPress={handleNextStep}
+                disabled={!isStepReady}
+                activeOpacity={0.8}
+                style={[
+                  styles.primaryBtn,
+                  {
+                    backgroundColor: isStepReady ? colors.primary : colors.border,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.primaryBtnText,
+                    { color: isStepReady ? colors.onPrimary : colors.subtle },
+                  ]}
+                >
+                  {t.auth.continueBtn}
+                </Text>
+                <ArrowRight
+                  size={18}
+                  color={isStepReady ? colors.onPrimary : colors.subtle}
+                />
+              </TouchableOpacity>
+            );
+          })()
         ) : (
           <Button
             title={t.auth.registerAndVerifyOtp}
@@ -452,7 +466,7 @@ export default function RegisterScreen() {
           <Text style={[styles.linkSubText, { color: colors.subtle }]}>
             {t.auth.hasAccount}{' '}
           </Text>
-          <Text style={[styles.linkHighlight, { color: colors.primary }]}>
+          <Text style={[styles.linkHighlight, { color: colors.sage }]}>
             {t.auth.signInHere}
           </Text>
         </TouchableOpacity>

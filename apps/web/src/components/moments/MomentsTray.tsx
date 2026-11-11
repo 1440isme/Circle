@@ -32,11 +32,11 @@ export const MomentsTray: React.FC<MomentsTrayProps> = ({ circleId }) => {
   const moments = targetCircleId ? circleMoments : feedMoments;
   const isLoading = targetCircleId ? isLoadingCircle : isLoadingFeed;
 
-  const displayName = user?.profile?.displayName || user?.email?.split('@')[0] || 'ME';
+  const displayName = user?.profile?.displayName || user?.email?.split('@')[0] || t.calls.youLabel;
   const userInitial = displayName.slice(0, 2).toUpperCase();
 
   return (
-    <div className="w-full bg-white dark:bg-circle-dark-surface border-b border-circle-hairline dark:border-circle-dark-hairline py-3 px-4 sm:px-6">
+    <div className="w-full frosted-glass border-b border-circle-hairline dark:border-circle-dark-hairline py-3 px-4 sm:px-6">
       <div className="flex items-center gap-3 overflow-x-auto no-scrollbar py-1">
         
         {/* Button 1: Thêm Khoảnh Khắc Của Bạn */}
@@ -46,7 +46,7 @@ export const MomentsTray: React.FC<MomentsTrayProps> = ({ circleId }) => {
         >
           <div className="relative">
             {/* User Avatar */}
-            <div className="h-14 w-14 rounded-full bg-circle-primary/20 text-circle-charcoal dark:text-circle-primary font-bold text-sm flex items-center justify-center border-2 border-dashed border-circle-primary/60 group-hover:border-circle-primary transition-all overflow-hidden shadow-sm">
+            <div className="h-14 w-14 rounded-full bg-circle-primary/20 text-circle-charcoal dark:text-circle-dark-primary font-bold text-sm flex items-center justify-center border-2 border-dashed border-circle-primary/60 group-hover:border-circle-primary transition-all overflow-hidden shadow-sm">
               {user?.profile?.avatarUrl ? (
                 <img src={user.profile.avatarUrl} alt={displayName} className="h-full w-full object-cover" />
               ) : (
@@ -54,7 +54,7 @@ export const MomentsTray: React.FC<MomentsTrayProps> = ({ circleId }) => {
               )}
             </div>
             {/* Plus Icon Badge */}
-            <div className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-circle-primary text-circle-charcoal flex items-center justify-center shadow-md border-2 border-white dark:border-circle-dark-surface group-hover:scale-110 transition-transform">
+            <div className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-circle-primary text-circle-charcoal dark:text-circle-dark-canvas flex items-center justify-center shadow-md border-2 border-white dark:border-circle-dark-surface group-hover:scale-110 transition-transform">
               <Plus className="h-3.5 w-3.5 stroke-[3]" />
             </div>
           </div>
@@ -77,7 +77,7 @@ export const MomentsTray: React.FC<MomentsTrayProps> = ({ circleId }) => {
 
         {/* Moments Roster */}
         {moments.map((moment, index) => {
-          const authorName = moment.author?.profile?.displayName || 'User';
+          const authorName = moment.author?.profile?.displayName || t.moments.defaultFriendName;
           const authorInitial = authorName.slice(0, 2).toUpperCase();
           const mainUrl = parseMomentPhotos(moment.photoUrl).mainUrl;
           const isVideo =

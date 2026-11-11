@@ -9,12 +9,14 @@ import {
   StyleSheet,
   Platform,
   ActivityIndicator,
-  Alert,
   Share,
   Image as RNImage,
   Switch,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter, useSegments } from 'expo-router';
 import {
   X,
   MessageSquare,
@@ -53,6 +55,8 @@ import { useAuthStore } from '../../stores/auth.store';
 import { useCircleStore, CircleManageTab } from '../../stores/circle.store';
 import { useSoundStore } from '../../stores/sound.store';
 import { triggerSelectionHaptic } from '../../services/sound.service';
+import { getGlassTheme } from '../../constants/glass-theme';
+import { copyTextSafe } from '../../utils/clipboard';
 import {
   useCircleDetailQuery,
   useCircleMembersQuery,
@@ -103,12 +107,18 @@ export function CircleManagementModal() {
   const t = useLanguageStore((s) => s.t);
   const user = useAuthStore((s) => s.user);
   const isDark = resolvedTheme === 'dark';
+  const isGlass = uiStyle === 'glass';
+  const glassTheme = getGlassTheme(isDark, uiStyle);
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const segments = useSegments();
 
   const visible = useCircleStore((s) => s.manageModalVisible);
   const setVisible = useCircleStore((s) => s.setManageModalVisible);
   const activeTab = useCircleStore((s) => s.manageActiveTab);
   const setActiveTab = useCircleStore((s) => s.setManageActiveTab);
   const activeCircle = useCircleStore((s) => s.activeCircle);
+  const setClearChatRequested = useCircleStore((s) => s.setClearChatRequested);
   const soundEnabled = useSoundStore((s) => s.soundEnabled);
   const toggleSound = useSoundStore((s) => s.toggleSound);
 
@@ -187,15 +197,27 @@ export function CircleManagementModal() {
   const [reportUserReason, setReportUserReason] = useState('harassment');
   const [isHelpOpen, setIsHelpOpen] = useState(false);
 
-  // Feedback Banners
+  // Feedback Banners & Inline Confirmation
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [subModalError, setSubModalError] = useState<string | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
+  const [pendingConfirm, setPendingConfirm] = useState<{
+    type: 'kick' | 'transfer' | 'leave' | 'delete';
+    memberId?: string;
+    title: string;
+    message: string;
+    confirmLabel: string;
+    danger: boolean;
+  } | null>(null);
+  const [isConfirmBusy, setIsConfirmBusy] = useState(false);
 
   const edgePan = useEdgeSwipeDismiss({
     onDismiss: () => {
-      if (activeTab !== 'menu') {
+      if (pendingConfirm) {
+        setPendingConfirm(null);
+      } else if (activeTab !== 'menu') {
         setActiveTab('menu');
       } else {
         handleClose();
@@ -216,6 +238,9 @@ export function CircleManagementModal() {
       setMembersSubTab('roster');
       setErrorMessage(null);
       setSuccessMessage(null);
+      setSubModalError(null);
+      setPendingConfirm(null);
+      setIsConfirmBusy(false);
       setIsAddFriendsOpen(false);
       setSelectedFriendIds([]);
       setFriendSearch('');
@@ -260,6 +285,22 @@ export function CircleManagementModal() {
     setIsReportUserOpen(false);
     setErrorMessage(null);
     setSuccessMessage(null);
+    setSubModalError(null);
+    setPendingConfirm(null);
+    setIsConfirmBusy(false);
+  };
+
+  const handleOpenClearChat = () => {
+    if (!circle?.id) return;
+    handleClose();
+    if (segments[0] === 'circle') {
+      setClearChatRequested(true);
+    } else {
+      router.push({
+        pathname: '/circle/[id]' as any,
+        params: { id: circle.id, openClearChat: '1' },
+      });
+    }
   };
 
   const inviteCode = circle?.inviteCode || '';
@@ -270,7 +311,7 @@ export function CircleManagementModal() {
     try {
       await Share.share({
         title: `CIRCLE - ${circle.name}`,
-        message: `${(t.circle.sharedContentText || 'Tham gia Vòng tròn {name} trên CIRCLE').replace('{name}', circle.name)}: ${inviteLink}`,
+        message: `${t.circle.sharedContentText.replace('{name}', circle.name)}: ${inviteLink}`,
         url: inviteLink,
       });
     } catch {
@@ -278,18 +319,31 @@ export function CircleManagementModal() {
     }
   };
 
-  const handleCopyLink = () => {
+  const handleCopyLink = async () => {
+    const ok = await copyTextSafe(inviteLink);
+    if (!ok) {
+      setErrorMessage(t.common.copyFailed);
+      setTimeout(() => setErrorMessage(null), 2500);
+      return;
+    }
     setCopiedLink(true);
-    setSuccessMessage(t.circle.copiedInviteLink || 'Đã sao chép liên kết');
+    setSuccessMessage(t.circle.copiedInviteLink || t.common.copied);
     setTimeout(() => {
       setCopiedLink(false);
       setSuccessMessage(null);
     }, 2500);
   };
 
-  const handleCopyCode = () => {
+  const handleCopyCode = async () => {
+    if (!inviteCode) return;
+    const ok = await copyTextSafe(inviteCode);
+    if (!ok) {
+      setErrorMessage(t.common.copyFailed);
+      setTimeout(() => setErrorMessage(null), 2500);
+      return;
+    }
     setCopiedCode(true);
-    setSuccessMessage(t.circle.copiedInviteCode || 'Đã sao chép mã');
+    setSuccessMessage(t.circle.copiedInviteCode || t.common.copied);
     setTimeout(() => {
       setCopiedCode(false);
       setSuccessMessage(null);
@@ -303,7 +357,7 @@ export function CircleManagementModal() {
 
     const targetName = formName.trim() || circle?.name || '';
     if (!targetName || targetName.length < 2) {
-      setErrorMessage(t.validation.circleNameMinLength || 'Tên Vòng tròn tối thiểu 2 ký tự');
+      setErrorMessage(t.validation.circleNameMinLength);
       return;
     }
 
@@ -313,10 +367,10 @@ export function CircleManagementModal() {
         avatarUrl: formAvatar.trim() || undefined,
       });
       setIsEditingChatInfo(false);
-      setSuccessMessage(t.circle.savedSuccess || 'Đã lưu thay đổi thành công!');
+      setSuccessMessage(t.circle.savedSuccess);
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err: any) {
-      setErrorMessage(err?.message || t.circle.createError || 'Có lỗi xảy ra');
+      setErrorMessage(err?.message || t.circle.createError);
     }
   };
 
@@ -326,7 +380,7 @@ export function CircleManagementModal() {
       setIsMuteDurationModalOpen(true);
     } else {
       setIsChatMuted(false);
-      setSuccessMessage(t.circle.muteChatUnmutedToast || 'Đã bật lại thông báo đoạn chat');
+      setSuccessMessage(t.circle.muteChatUnmutedToast);
       setTimeout(() => setSuccessMessage(null), 2000);
     }
   };
@@ -335,26 +389,26 @@ export function CircleManagementModal() {
     setMuteDuration(dur);
     setIsChatMuted(true);
     setIsMuteDurationModalOpen(false);
-    setSuccessMessage(t.circle.muteChatMutedToast || 'Đã tắt thông báo đoạn chat');
+    setSuccessMessage(t.circle.muteChatMutedToast);
     setTimeout(() => setSuccessMessage(null), 2000);
   };
 
   const getMuteDurationLabel = (dur: string) => {
     switch (dur) {
-      case '15m': return t.circle.notificationMute15m || '15 phút';
-      case '1h': return t.circle.notificationMute1h || '1 giờ';
-      case '8h': return t.circle.notificationMute8h || '8 giờ';
-      case '24h': return t.circle.notificationMute24h || '24 giờ';
-      case 'forever': return t.circle.muteUntilTurnOn || 'Đến khi bật lại';
+      case '15m': return t.circle.notificationMute15m;
+      case '1h': return t.circle.notificationMute1h;
+      case '8h': return t.circle.notificationMute8h;
+      case '24h': return t.circle.notificationMute24h;
+      case 'forever': return t.circle.muteUntilTurnOn;
       default: return dur;
     }
   };
 
   const getMsgLevelLabel = (lvl: 'all' | 'mentions' | 'none') => {
     switch (lvl) {
-      case 'all': return t.circle.msgNotifyAll || 'Tất cả';
-      case 'mentions': return t.circle.msgNotifyMentions || 'Lượt nhắc & phản hồi';
-      case 'none': return t.circle.msgNotifyNone || 'Không thông báo';
+      case 'all': return t.circle.msgNotifyAll;
+      case 'mentions': return t.circle.msgNotifyMentions;
+      case 'none': return t.circle.msgNotifyNone;
     }
   };
 
@@ -405,22 +459,24 @@ export function CircleManagementModal() {
 
   // Tab 2: Nicknames
   const handleOpenNicknameDialog = (memberId: string, currentNickname: string | null, displayName: string) => {
+    setSubModalError(null);
     setEditingMember({ id: memberId, nickname: currentNickname || '', name: displayName });
     setNicknameInput(currentNickname || '');
   };
 
   const handleSaveNickname = async () => {
     if (!editingMember || !circleId) return;
+    setSubModalError(null);
     try {
       await updateNicknameMutation.mutateAsync({
         memberId: editingMember.id,
         nickname: nicknameInput.trim() || null,
       });
       setEditingMember(null);
-      setSuccessMessage(t.circle.nicknameUpdated || 'Đã cập nhật biệt danh');
+      setSuccessMessage(t.circle.nicknameUpdated);
       setTimeout(() => setSuccessMessage(null), 2500);
     } catch (err: any) {
-      Alert.alert(t.common.appName || 'CIRCLE', err?.message || t.common.unknownError || 'Có lỗi xảy ra');
+      setSubModalError(err?.message || t.circle.actionFailed || t.common.unknownError);
     }
   };
 
@@ -441,116 +497,109 @@ export function CircleManagementModal() {
 
   const handleConfirmAddMembers = async () => {
     if (selectedFriendIds.length === 0 || !circleId) return;
+    setSubModalError(null);
     try {
       await addMembersMutation.mutateAsync({ memberIds: selectedFriendIds });
       setIsAddFriendsOpen(false);
       setSelectedFriendIds([]);
       setFriendSearch('');
-      setSuccessMessage(t.circle.addMembersSuccess || 'Đã thêm thành viên vào Vòng tròn');
+      setSuccessMessage(t.circle.addMembersSuccess);
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err: any) {
-      Alert.alert(t.common.appName || 'CIRCLE', err?.message || t.common.unknownError || 'Có lỗi xảy ra');
+      setSubModalError(err?.message || t.circle.actionFailed || t.common.unknownError);
     }
   };
 
   const handleKickMember = (memberId: string, name: string) => {
-    Alert.alert(
-      t.circle.kickMember || 'Xóa khỏi Vòng tròn',
-      (t.circle.kickMemberConfirm || 'Bạn có chắc chắn muốn xóa {name} khỏi Vòng tròn?').replace('{name}', name),
-      [
-        { text: t.common.cancel || 'Hủy', style: 'cancel' },
-        {
-          text: t.circle.kickMember || 'Xóa',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await removeMemberMutation.mutateAsync(memberId);
-            } catch (err: any) {
-              Alert.alert(t.common.appName || 'CIRCLE', err?.message || t.common.unknownError);
-            }
-          },
-        },
-      ],
-    );
+    setErrorMessage(null);
+    setPendingConfirm({
+      type: 'kick',
+      memberId,
+      title: t.circle.confirmKickTitle || t.circle.kickMember,
+      message: t.circle.kickMemberConfirm.replace('{name}', name),
+      confirmLabel: t.circle.kickMember,
+      danger: true,
+    });
   };
 
   const handleTransferOwnership = (newOwnerId: string, name: string) => {
-    Alert.alert(
-      t.circle.transferOwnership || 'Chuyển quyền Trưởng nhóm',
-      (t.circle.transferOwnershipConfirm || 'Bạn có chắc chắn muốn chuyển quyền Trưởng nhóm cho {name}?').replace('{name}', name),
-      [
-        { text: t.common.cancel || 'Hủy', style: 'cancel' },
-        {
-          text: t.circle.transferOwnership || 'Chuyển quyền',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await transferOwnershipMutation.mutateAsync(newOwnerId);
-            } catch (err: any) {
-              Alert.alert(t.common.appName || 'CIRCLE', err?.message || t.common.unknownError);
-            }
-          },
-        },
-      ],
-    );
+    setErrorMessage(null);
+    setPendingConfirm({
+      type: 'transfer',
+      memberId: newOwnerId,
+      title: t.circle.confirmTransferTitle || t.circle.transferOwnership,
+      message: t.circle.transferOwnershipConfirm.replace('{name}', name),
+      confirmLabel: t.circle.transferOwnership,
+      danger: true,
+    });
   };
 
   const handleLeaveCircle = () => {
+    setErrorMessage(null);
     if (isOwner && members.length > 1) {
-      Alert.alert(t.circle.leaveCircle || 'Rời Vòng tròn', t.circle.ownerCannotLeaveMustTransfer || 'Bạn là Trưởng nhóm. Vui lòng chuyển quyền trước khi rời nhóm.');
+      setErrorMessage(t.circle.cannotLeaveOwnerAlert || t.circle.ownerCannotLeaveMustTransfer);
+      setTimeout(() => setErrorMessage(null), 5000);
       return;
     }
-    Alert.alert(
-      t.circle.leaveCircle || 'Rời Vòng tròn',
-      t.circle.leaveCircleConfirm || 'Bạn có chắc muốn rời khỏi Vòng tròn này?',
-      [
-        { text: t.common.cancel || 'Hủy', style: 'cancel' },
-        {
-          text: t.circle.leaveCircle || 'Rời nhóm',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await leaveCircleMutation.mutateAsync();
-            } catch (err: any) {
-              Alert.alert(t.common.appName || 'CIRCLE', err?.message || t.common.unknownError);
-            }
-          },
-        },
-      ],
-    );
+    setPendingConfirm({
+      type: 'leave',
+      title: t.circle.confirmLeaveTitle || t.circle.leaveCircle,
+      message: t.circle.leaveCircleConfirm,
+      confirmLabel: t.circle.leaveCircle,
+      danger: true,
+    });
   };
 
   const handleDeleteCircle = () => {
-    Alert.alert(
-      t.circle.deleteCircle || 'Giải tán Vòng tròn',
-      t.circle.deleteCircleConfirm || 'Hành động này không thể hoàn tác. Mọi tin nhắn và dữ liệu sẽ bị xóa vĩnh viễn.',
-      [
-        { text: t.common.cancel || 'Hủy', style: 'cancel' },
-        {
-          text: t.circle.deleteCircle || 'Giải tán',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteCircleMutation.mutateAsync();
-            } catch (err: any) {
-              Alert.alert(t.common.appName || 'CIRCLE', err?.message || t.common.unknownError);
-            }
-          },
-        },
-      ],
-    );
+    setErrorMessage(null);
+    setPendingConfirm({
+      type: 'delete',
+      title: t.circle.deleteCircle,
+      message: t.circle.deleteCircleConfirm,
+      confirmLabel: t.circle.deleteCircle,
+      danger: true,
+    });
+  };
+
+  const handleConfirmPendingAction = async () => {
+    if (!pendingConfirm) return;
+    setErrorMessage(null);
+    setIsConfirmBusy(true);
+    try {
+      if (pendingConfirm.type === 'kick' && pendingConfirm.memberId) {
+        await removeMemberMutation.mutateAsync(pendingConfirm.memberId);
+        setSuccessMessage(t.circle.memberRemoved);
+        setTimeout(() => setSuccessMessage(null), 2500);
+      } else if (pendingConfirm.type === 'transfer' && pendingConfirm.memberId) {
+        await transferOwnershipMutation.mutateAsync(pendingConfirm.memberId);
+        setSuccessMessage(t.circle.transferSuccess);
+        setTimeout(() => setSuccessMessage(null), 2500);
+      } else if (pendingConfirm.type === 'leave') {
+        await leaveCircleMutation.mutateAsync();
+        setSuccessMessage(t.circle.leaveSuccess);
+      } else if (pendingConfirm.type === 'delete') {
+        await deleteCircleMutation.mutateAsync();
+      }
+      setPendingConfirm(null);
+    } catch (err: any) {
+      setErrorMessage(err?.message || t.circle.actionFailed || t.common.unknownError);
+      setPendingConfirm(null);
+    } finally {
+      setIsConfirmBusy(false);
+    }
   };
 
   const handleReviewRequest = async (requestId: string, status: 'APPROVED' | 'REJECTED') => {
+    setErrorMessage(null);
     try {
       await reviewJoinRequestMutation.mutateAsync({
         requestId,
         input: { status },
       });
-      setSuccessMessage(status === 'APPROVED' ? (t.circle.joinRequestApproved || 'Đã duyệt yêu cầu') : (t.circle.joinRequestRejected || 'Đã từ chối'));
+      setSuccessMessage(status === 'APPROVED' ? t.circle.joinRequestApproved : t.circle.joinRequestRejected);
       setTimeout(() => setSuccessMessage(null), 2500);
     } catch (err: any) {
-      Alert.alert(t.common.appName || 'CIRCLE', err?.message || t.common.unknownError);
+      setErrorMessage(err?.message || t.circle.actionFailed || t.common.unknownError);
     }
   };
 
@@ -583,22 +632,24 @@ export function CircleManagementModal() {
 
   const handleSubmitReportCircle = async () => {
     if (!circleId) return;
+    setSubModalError(null);
     try {
       await createReportMutation.mutateAsync({
         targetType: 'CIRCLE',
         reason: reportReason,
       });
       setIsReportOpen(false);
-      setSuccessMessage(t.circle.reportSubmittedSuccess || 'Đã gửi báo cáo vi phạm');
+      setSuccessMessage(t.circle.reportSubmittedSuccess);
       setTimeout(() => setSuccessMessage(null), 3500);
     } catch (err: any) {
-      Alert.alert(t.common.appName || 'CIRCLE', err?.message || 'Không thể gửi báo cáo');
+      setSubModalError(err?.message || t.circle.reportSendError || t.common.unknownError);
     }
   };
 
   const handleSubmitReportUser = async () => {
+    setSubModalError(null);
     if (!reportedUserId || !circleId) {
-      Alert.alert('CIRCLE', 'Vui lòng chọn thành viên cần báo cáo');
+      setSubModalError(t.circle.selectMemberError);
       return;
     }
     try {
@@ -609,10 +660,10 @@ export function CircleManagementModal() {
       });
       setIsReportUserOpen(false);
       setReportedUserId('');
-      setSuccessMessage(t.circle.userReportSuccess || 'Đã gửi báo cáo người dùng vi phạm');
+      setSuccessMessage(t.circle.userReportSuccess);
       setTimeout(() => setSuccessMessage(null), 3500);
     } catch (err: any) {
-      Alert.alert(t.common.appName || 'CIRCLE', err?.message || 'Không thể gửi báo cáo');
+      setSubModalError(err?.message || t.circle.reportSendError || t.common.unknownError);
     }
   };
 
@@ -643,20 +694,20 @@ export function CircleManagementModal() {
     switch (activeTab) {
       case 'chatInfo':
       case 'info':
-        return t.circle.chatInfoTab || 'Thông tin đoạn chat';
+        return t.circle.chatInfoTab;
       case 'members':
-        return t.circle.settingsTabMembers || 'Thành viên';
+        return t.circle.settingsTabMembers;
       case 'privacySupport':
-        return t.circle.notificationsAndPrivacyTab || 'Thông báo & Quyền riêng tư';
+        return t.circle.notificationsAndPrivacyTab;
       case 'circleSettings':
       case 'settings':
-        return t.circle.circleSettingsTab || 'Thiết lập Vòng tròn';
+        return t.circle.circleSettingsTab;
       case 'supportReports':
-        return t.circle.supportAndReportsTab || 'Trợ giúp & Báo cáo';
+        return t.circle.supportAndReportsTab;
       case 'requests':
-        return `${t.circle.joinRequestsTitle || 'Yêu cầu tham gia'} (${joinRequests.length})`;
+        return `${t.circle.joinRequestsTitle} (${joinRequests.length})`;
       default:
-        return t.nav.circleSettings || 'Cài đặt Vòng tròn';
+        return t.nav.circleSettings;
     }
   };
 
@@ -667,23 +718,33 @@ export function CircleManagementModal() {
       animationType="slide"
       onRequestClose={handleClose}
     >
-      <View style={styles.modalOverlay}>
-        <BlurView
-          intensity={Platform.OS === 'ios' ? 45 : 85}
-          tint={isDark ? 'dark' : 'light'}
-          style={StyleSheet.absoluteFill}
-        />
-
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={[
+          styles.modalOverlay,
+          { backgroundColor: isDark ? 'rgba(0, 0, 0, 0.52)' : 'rgba(0, 0, 0, 0.36)' },
+        ]}
+      >
         <View
           {...edgePan.panHandlers}
           style={[
             styles.sheetContainer,
             {
-              backgroundColor: colors.sheetBg,
-              borderColor: colors.glassBorder,
+              backgroundColor: glassTheme.colors.glassBgSheet,
+              borderColor: glassTheme.colors.glassBorder,
+              paddingBottom: Math.max(insets.bottom + 12, Platform.OS === 'ios' ? 36 : 24),
+              overflow: 'hidden',
             },
           ]}
         >
+          {isGlass ? (
+            <BlurView
+              intensity={glassTheme.blur.intensity}
+              tint={glassTheme.blur.tint}
+              style={StyleSheet.absoluteFill}
+            />
+          ) : null}
+
           {/* Sheet Handle */}
           <View style={[styles.sheetHandle, { backgroundColor: colors.hairline }]} />
 
@@ -692,8 +753,13 @@ export function CircleManagementModal() {
             {activeTab !== 'menu' ? (
               <TouchableOpacity
                 activeOpacity={0.7}
-                onPress={() => setActiveTab('menu')}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                onPress={() => {
+                  setPendingConfirm(null);
+                  setActiveTab('menu');
+                }}
                 style={[styles.closeBtn, { backgroundColor: colors.wash }]}
+                accessibilityLabel={t.common.back}
               >
                 <ArrowLeft size={18} color={colors.text} />
               </TouchableOpacity>
@@ -702,16 +768,71 @@ export function CircleManagementModal() {
             )}
 
             <Text numberOfLines={1} style={[styles.title, { color: colors.text }]}>
-              {activeTab === 'menu' ? (t.nav?.circleSettings || 'Cài đặt Vòng tròn') : getSubHeaderTitle()}
+              {activeTab === 'menu' ? t.nav.circleSettings : getSubHeaderTitle()}
             </Text>
 
             <TouchableOpacity
               onPress={handleClose}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               style={[styles.closeBtn, { backgroundColor: colors.wash }]}
+              accessibilityLabel={t.common.close}
             >
               <X size={18} color={colors.subtle} />
             </TouchableOpacity>
           </View>
+
+          {/* Inline Confirmation Banner */}
+          {pendingConfirm && (
+            <View
+              style={[
+                styles.confirmInlineCard,
+                {
+                  backgroundColor: isDark ? 'rgba(220, 38, 38, 0.14)' : 'rgba(220, 38, 38, 0.06)',
+                  borderColor: isDark ? 'rgba(248, 113, 113, 0.35)' : 'rgba(220, 38, 38, 0.25)',
+                },
+              ]}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <AlertTriangle size={16} color={colors.danger} />
+                <Text style={[styles.confirmInlineTitle, { color: colors.text }]}>
+                  {pendingConfirm.title}
+                </Text>
+              </View>
+              <Text style={[styles.confirmInlineDesc, { color: colors.subtle }]}>
+                {pendingConfirm.message}
+              </Text>
+              <View style={styles.btnRow}>
+                <TouchableOpacity
+                  onPress={() => setPendingConfirm(null)}
+                  disabled={isConfirmBusy}
+                  style={[styles.actionBtn, { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.hairline }]}
+                >
+                  <Text style={[styles.actionBtnText, { color: colors.text }]}>{t.common.cancel}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={handleConfirmPendingAction}
+                  disabled={isConfirmBusy}
+                  style={[
+                    styles.actionBtn,
+                    { backgroundColor: pendingConfirm.danger ? '#DC2626' : colors.primary },
+                  ]}
+                >
+                  {isConfirmBusy ? (
+                    <ActivityIndicator color={pendingConfirm.danger ? '#FFFFFF' : colors.onPrimary} size="small" />
+                  ) : (
+                    <Text
+                      style={[
+                        styles.actionBtnText,
+                        { color: pendingConfirm.danger ? '#FFFFFF' : colors.onPrimary },
+                      ]}
+                    >
+                      {pendingConfirm.confirmLabel}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
 
           {/* Feedback Banners */}
           {errorMessage && (
@@ -738,7 +859,7 @@ export function CircleManagementModal() {
                   {circle.avatarUrl ? (
                     <RNImage source={{ uri: circle.avatarUrl }} style={styles.heroAvatarImg} />
                   ) : (
-                    <Text style={[styles.heroAvatarText, { color: colors.primary }]}>
+                    <Text style={[styles.heroAvatarText, { color: colors.sage }]}>
                       {getInitials(circle.name)}
                     </Text>
                   )}
@@ -748,12 +869,16 @@ export function CircleManagementModal() {
                 </Text>
                 <View style={styles.heroMetaRow}>
                   <Text style={[styles.heroMetaText, { color: colors.subtle }]}>
-                    {members.length} {t.circle.settingsTabMembers || 'thành viên'}
+                    {members.length} {t.circle.settingsTabMembers}
                   </Text>
                   <Text style={[styles.heroMetaDot, { color: colors.subtle }]}>•</Text>
                   <View style={[styles.heroRoleBadge, { backgroundColor: isOwner ? `${colors.warning || '#F59E0B'}20` : colors.wash }]}>
                     <Text style={[styles.heroRoleText, { color: isOwner ? (colors.warning || '#F59E0B') : colors.text }]}>
-                      {isOwner ? (t.circle.memberRoleOwner || 'Trưởng nhóm') : userRole === 'ADMIN' ? (t.circle.memberRoleAdmin || 'Quản trị viên') : 'Thành viên'}
+                      {isOwner
+                        ? t.circle.memberRoleOwner
+                        : userRole === 'ADMIN'
+                          ? t.circle.memberRoleAdmin
+                          : t.circle.memberRoleMember}
                     </Text>
                   </View>
                 </View>
@@ -767,7 +892,7 @@ export function CircleManagementModal() {
                   >
                     <Share2 size={13} color={colors.text} />
                     <Text style={[styles.heroInvitePillText, { color: colors.text }]}>
-                      {t.circle.inviteCodeLabel || 'Mã mời'}: <Text style={{ fontWeight: '700' }}>{circle.inviteCode}</Text>
+                      {t.circle.inviteCodeLabel}: <Text style={{ fontWeight: '700' }}>{circle.inviteCode}</Text>
                     </Text>
                   </TouchableOpacity>
                 )}
@@ -788,7 +913,7 @@ export function CircleManagementModal() {
                     <MessageSquare size={18} color={colors.text} />
                     <View style={styles.menuRowContent}>
                       <Text style={[styles.menuRowTitle, { color: colors.text }]}>
-                        {t.circle.chatInfoTab || 'Thông tin đoạn chat'}
+                        {t.circle.chatInfoTab}
                       </Text>
                     </View>
                     <ChevronRight size={18} color={colors.subtle} />
@@ -803,7 +928,7 @@ export function CircleManagementModal() {
                     <Users size={18} color={colors.text} />
                     <View style={styles.menuRowContent}>
                       <Text style={[styles.menuRowTitle, { color: colors.text }]}>
-                        {t.circle.settingsTabMembers || 'Thành viên'}
+                        {t.circle.settingsTabMembers}
                       </Text>
                     </View>
                     <View style={styles.menuRowRight}>
@@ -823,7 +948,7 @@ export function CircleManagementModal() {
                     <Bell size={18} color={colors.text} />
                     <View style={styles.menuRowContent}>
                       <Text style={[styles.menuRowTitle, { color: colors.text }]}>
-                        {t.circle.notificationsAndPrivacyTab || 'Thông báo & Quyền riêng tư'}
+                        {t.circle.notificationsAndPrivacyTab}
                       </Text>
                     </View>
                     <ChevronRight size={18} color={colors.subtle} />
@@ -846,12 +971,12 @@ export function CircleManagementModal() {
                       <Sliders size={18} color={colors.text} />
                       <View style={styles.menuRowContent}>
                         <Text style={[styles.menuRowTitle, { color: colors.text }]}>
-                          {t.circle.circleSettingsTab || 'Thiết lập Vòng tròn'}
+                          {t.circle.circleSettingsTab}
                         </Text>
                       </View>
                       <View style={styles.menuRowRight}>
                         {joinRequests.length > 0 && isOwner && (
-                          <View style={[styles.requestCountBadge, { backgroundColor: colors.danger }]}>
+                          <View style={[styles.requestCountBadge, { backgroundColor: '#DC2626' }]}>
                             <Text style={styles.requestCountText}>{joinRequests.length}</Text>
                           </View>
                         )}
@@ -878,6 +1003,7 @@ export function CircleManagementModal() {
                         <TouchableOpacity
                           key={key}
                           activeOpacity={0.7}
+                          hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
                           onPress={() => handleThemeColorChange(key)}
                           style={{
                             width: 38,
@@ -918,7 +1044,7 @@ export function CircleManagementModal() {
                     <HelpCircle size={18} color={colors.text} />
                     <View style={styles.menuRowContent}>
                       <Text style={[styles.menuRowTitle, { color: colors.text }]}>
-                        {t.circle.supportAndReportsTab || 'Trợ giúp & Báo cáo'}
+                        {t.circle.supportAndReportsTab}
                       </Text>
                     </View>
                     <ChevronRight size={18} color={colors.subtle} />
@@ -934,6 +1060,23 @@ export function CircleManagementModal() {
                 <View style={[styles.menuSectionCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
                   <TouchableOpacity
                     activeOpacity={0.7}
+                    onPress={handleOpenClearChat}
+                    style={[
+                      styles.menuRowItem,
+                      { borderBottomColor: colors.hairline, borderBottomWidth: StyleSheet.hairlineWidth },
+                    ]}
+                  >
+                    <Trash2 size={18} color={colors.subtle} />
+                    <View style={styles.menuRowContent}>
+                      <Text style={[styles.menuRowTitle, { color: colors.text }]}>
+                        {t.circle.clearHistoryBtn || t.chat.clearChatAction}
+                      </Text>
+                    </View>
+                    <ChevronRight size={18} color={colors.subtle} />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    activeOpacity={0.7}
                     onPress={handleLeaveCircle}
                     style={[
                       styles.menuRowItem,
@@ -943,7 +1086,7 @@ export function CircleManagementModal() {
                     <LogOut size={18} color={colors.coral} />
                     <View style={styles.menuRowContent}>
                       <Text style={[styles.menuRowTitle, { color: colors.coral }]}>
-                        {t.circle.leaveCircle || 'Rời Vòng tròn'}
+                        {t.circle.leaveCircle}
                       </Text>
                     </View>
                     <ChevronRight size={18} color={colors.subtle} />
@@ -958,7 +1101,7 @@ export function CircleManagementModal() {
                       <Trash2 size={18} color={colors.danger} />
                       <View style={styles.menuRowContent}>
                         <Text style={[styles.menuRowTitle, { color: colors.danger }]}>
-                          {t.circle.deleteCircle || 'Giải tán Vòng tròn'}
+                          {t.circle.deleteCircle}
                         </Text>
                       </View>
                       <ChevronRight size={18} color={colors.subtle} />
@@ -985,7 +1128,7 @@ export function CircleManagementModal() {
                         style={styles.bigAvatarImg}
                       />
                     ) : (
-                      <Text style={[styles.bigAvatarText, { color: colors.primary }]}>
+                      <Text style={[styles.bigAvatarText, { color: colors.sage }]}>
                         {getInitials(formName || circle.name)}
                       </Text>
                     )}
@@ -995,8 +1138,13 @@ export function CircleManagementModal() {
                   {isOwner && (
                     <TouchableOpacity
                       activeOpacity={0.8}
+                      hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                       onPress={() => setIsAvatarPickerOpen(true)}
-                      style={[styles.cameraBadgeBtn, { backgroundColor: colors.primary }]}
+                      style={[
+                        styles.cameraBadgeBtn,
+                        { backgroundColor: colors.primary, borderColor: colors.surface },
+                      ]}
+                      accessibilityLabel={t.circle.changeAvatar}
                     >
                       <Camera size={14} color={colors.onPrimary} />
                     </TouchableOpacity>
@@ -1040,11 +1188,11 @@ export function CircleManagementModal() {
 
                   {/* Name Input */}
                   <View style={styles.formField}>
-                    <Text style={[styles.label, { color: colors.text }]}>{t.circle.nameLabel || 'Tên Vòng tròn'}</Text>
+                    <Text style={[styles.label, { color: colors.text }]}>{t.circle.nameLabel}</Text>
                     <TextInput
                       value={formName}
                       onChangeText={setFormName}
-                      placeholder={circle.name || (t.circle.namePlaceholder || 'Nhập tên Vòng tròn...')}
+                      placeholder={circle.name || t.circle.namePlaceholder}
                       placeholderTextColor={colors.subtle}
                       style={[
                         styles.input,
@@ -1066,7 +1214,7 @@ export function CircleManagementModal() {
                             onPress={() => setFormAvatar(presetUrl)}
                             style={[
                               styles.presetAvatarBtn,
-                              { borderColor: isSelected ? colors.primary : colors.hairline },
+                              { borderColor: isSelected ? colors.sage : colors.hairline },
                               isSelected && { borderWidth: 2.5 },
                             ]}
                           >
@@ -1095,7 +1243,7 @@ export function CircleManagementModal() {
                       <>
                         <Save size={16} color={colors.onPrimary} />
                         <Text style={[styles.primaryActionBtnText, { color: colors.onPrimary }]}>
-                          {t.circle.saveChanges || 'Lưu thay đổi'}
+                          {t.circle.saveChanges}
                         </Text>
                       </>
                     )}
@@ -1124,11 +1272,11 @@ export function CircleManagementModal() {
                     <Text
                       style={[
                         styles.segmentBtnText,
-                        { color: membersSubTab === 'roster' ? colors.primary : colors.subtle },
+                        { color: membersSubTab === 'roster' ? colors.sage : colors.subtle },
                         membersSubTab === 'roster' && { fontWeight: '700' },
                       ]}
                     >
-                      {t.circle.settingsTabMembers || 'Thành viên'}
+                      {t.circle.settingsTabMembers}
                     </Text>
                   </TouchableOpacity>
 
@@ -1143,11 +1291,11 @@ export function CircleManagementModal() {
                     <Text
                       style={[
                         styles.segmentBtnText,
-                        { color: membersSubTab === 'requests' ? colors.primary : colors.subtle },
+                        { color: membersSubTab === 'requests' ? colors.sage : colors.subtle },
                         membersSubTab === 'requests' && { fontWeight: '700' },
                       ]}
                     >
-                      {t.circle.joinRequestsTitle || 'Yêu cầu tham gia'} ({joinRequests.length})
+                      {t.circle.joinRequestsTitle} ({joinRequests.length})
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -1160,7 +1308,7 @@ export function CircleManagementModal() {
                   <TextInput
                     value={memberSearch}
                     onChangeText={setMemberSearch}
-                    placeholder={t.circle.friendsSearchPlaceholder || 'Tìm kiếm thành viên...'}
+                    placeholder={t.circle.friendsSearchPlaceholder}
                     placeholderTextColor={colors.subtle}
                     style={[styles.searchInput, { color: colors.text }]}
                   />
@@ -1168,12 +1316,15 @@ export function CircleManagementModal() {
 
                 <TouchableOpacity
                   activeOpacity={0.8}
-                  onPress={() => setIsAddFriendsOpen(true)}
+                  onPress={() => {
+                    setSubModalError(null);
+                    setIsAddFriendsOpen(true);
+                  }}
                   style={[styles.addMemberBtn, { backgroundColor: colors.primary }]}
                 >
                   <UserPlus size={15} color={colors.onPrimary} />
                   <Text style={[styles.addMemberBtnText, { color: colors.onPrimary }]}>
-                    {t.circle.addMemberBtn || 'Thêm'}
+                    {t.circle.addMemberBtn}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -1181,11 +1332,11 @@ export function CircleManagementModal() {
               {/* Subtab 1: Roster */}
               {membersSubTab === 'roster' && (
                 isLoadingMembers ? (
-                  <ActivityIndicator style={{ marginVertical: 30 }} color={colors.primary} />
+                  <ActivityIndicator style={{ marginVertical: 30 }} color={colors.sage} />
                 ) : (
                   <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.memberList}>
                     {filteredMembers.map((m) => {
-                      const realDisplayName = m.user?.profile?.displayName || m.user?.email?.split('@')[0] || (t.auth?.member || 'Thành viên');
+                      const realDisplayName = m.user?.profile?.displayName || m.user?.email?.split('@')[0] || t.circle.memberFallback;
                       const hasNickname = Boolean(m.nickname && m.nickname.trim().length > 0);
                       const displayTitle = hasNickname ? m.nickname : realDisplayName;
                       const isSelf = user?.id === m.userId;
@@ -1205,7 +1356,7 @@ export function CircleManagementModal() {
                               {m.user?.profile?.avatarUrl ? (
                                 <RNImage source={{ uri: m.user.profile.avatarUrl }} style={styles.memberAvatarImg} />
                               ) : (
-                                <Text style={[styles.avatarText, { color: colors.primary }]}>
+                                <Text style={[styles.avatarText, { color: colors.sage }]}>
                                   {getInitials(displayTitle || realDisplayName)}
                                 </Text>
                               )}
@@ -1223,8 +1374,10 @@ export function CircleManagementModal() {
                                 {/* Pencil Icon to change nickname */}
                                 <TouchableOpacity
                                   activeOpacity={0.7}
+                                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                                   onPress={() => handleOpenNicknameDialog(m.id, m.nickname ?? null, realDisplayName)}
                                   style={[styles.pencilBtn, { backgroundColor: colors.wash }]}
+                                  accessibilityLabel={t.circle.editNickname}
                                 >
                                   <Pencil size={12} color={colors.subtle} />
                                 </TouchableOpacity>
@@ -1244,14 +1397,14 @@ export function CircleManagementModal() {
                               <View style={[styles.roleBadge, { backgroundColor: `${colors.warning || '#F59E0B'}20` }]}>
                                 <Crown size={12} color={colors.warning || '#F59E0B'} />
                                 <Text style={[styles.roleText, { color: colors.warning || '#F59E0B' }]}>
-                                  {t.circle.memberRoleOwner || 'Trưởng nhóm'}
+                                  {t.circle.memberRoleOwner}
                                 </Text>
                               </View>
                             ) : isMemberAdmin ? (
                               <View style={[styles.roleBadge, { backgroundColor: `${colors.primary}20` }]}>
-                                <ShieldCheck size={12} color={colors.primary} />
-                                <Text style={[styles.roleText, { color: colors.primary }]}>
-                                  {t.circle.memberRoleAdmin || 'Quản trị viên'}
+                                <ShieldCheck size={12} color={colors.sage} />
+                                <Text style={[styles.roleText, { color: colors.sage }]}>
+                                  {t.circle.memberRoleAdmin}
                                 </Text>
                               </View>
                             ) : null}
@@ -1260,15 +1413,19 @@ export function CircleManagementModal() {
                             {isOwner && !isMemberOwner && !isSelf && (
                               <View style={styles.memberActions}>
                                 <TouchableOpacity
+                                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                                   onPress={() => handleTransferOwnership(m.id, realDisplayName)}
                                   style={[styles.iconActionBtn, { backgroundColor: `${colors.warning || '#F59E0B'}15` }]}
+                                  accessibilityLabel={t.circle.transferOwnership}
                                 >
                                   <Crown size={14} color={colors.warning || '#F59E0B'} />
                                 </TouchableOpacity>
 
                                 <TouchableOpacity
+                                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                                   onPress={() => handleKickMember(m.id, realDisplayName)}
                                   style={[styles.iconActionBtn, { backgroundColor: `${colors.danger}15` }]}
+                                  accessibilityLabel={t.circle.kickMember}
                                 >
                                   <UserX size={14} color={colors.danger} />
                                 </TouchableOpacity>
@@ -1286,16 +1443,16 @@ export function CircleManagementModal() {
               {membersSubTab === 'requests' && (
                 <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.memberList}>
                   {isLoadingRequests ? (
-                    <ActivityIndicator style={{ marginVertical: 30 }} color={colors.primary} />
+                    <ActivityIndicator style={{ marginVertical: 30 }} color={colors.sage} />
                   ) : joinRequests.length === 0 ? (
                     <View style={[styles.emptyBox, { backgroundColor: colors.wash, marginVertical: 20 }]}>
                       <Text style={[styles.emptyText, { color: colors.subtle }]}>
-                        {t.circle.noPendingJoinRequests || 'Không có yêu cầu tham gia nào đang chờ'}
+                        {t.circle.noPendingJoinRequests}
                       </Text>
                     </View>
                   ) : (
                     joinRequests.map((req) => {
-                      const reqName = req.user?.profile?.displayName || req.user?.email || 'User';
+                      const reqName = req.user?.profile?.displayName || req.user?.email || t.chat.defaultMemberName;
                       return (
                         <View
                           key={req.id}
@@ -1303,7 +1460,7 @@ export function CircleManagementModal() {
                         >
                           <View style={styles.memberLeft}>
                             <View style={[styles.avatarBox, { backgroundColor: `${colors.primary}20` }]}>
-                              <Text style={[styles.avatarText, { color: colors.primary }]}>
+                              <Text style={[styles.avatarText, { color: colors.sage }]}>
                                 {getInitials(reqName)}
                               </Text>
                             </View>
@@ -1317,14 +1474,18 @@ export function CircleManagementModal() {
 
                           <View style={styles.requestActions}>
                             <TouchableOpacity
+                              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                               onPress={() => handleReviewRequest(req.id, 'APPROVED')}
-                              style={[styles.acceptBtn, { backgroundColor: colors.success || '#10B981' }]}
+                              style={[styles.acceptBtn, { backgroundColor: colors.primary }]}
+                              accessibilityLabel={t.circle.approveJoinRequest}
                             >
-                              <Check size={16} color="#FFFFFF" />
+                              <Check size={16} color={colors.onPrimary} />
                             </TouchableOpacity>
                             <TouchableOpacity
+                              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                               onPress={() => handleReviewRequest(req.id, 'REJECTED')}
                               style={[styles.rejectBtn, { backgroundColor: `${colors.danger}20` }]}
+                              accessibilityLabel={t.circle.rejectJoinRequest}
                             >
                               <X size={16} color={colors.danger} />
                             </TouchableOpacity>
@@ -1346,14 +1507,14 @@ export function CircleManagementModal() {
               {/* Section 1: Thông báo */}
               <View style={styles.sectionGroupWrapper}>
                 <Text style={[styles.sectionGroupTitle, { color: colors.subtle }]}>
-                  {t.circle.notificationsTitle || 'THÔNG BÁO'}
+                  {t.circle.notificationsTitle}
                 </Text>
                 <View style={[styles.menuSectionCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
                   {/* 1. Tắt thông báo về đoạn chat (Opens duration popup on toggle) */}
                   <View style={[styles.preferenceRow, { borderBottomColor: colors.hairline, borderBottomWidth: StyleSheet.hairlineWidth }]}>
                     <View style={{ flex: 1, paddingRight: 10 }}>
                       <Text style={[styles.prefTitle, { color: colors.text }]}>
-                        {t.circle.muteChat || 'Tắt thông báo về đoạn chat'}
+                        {t.circle.muteChat}
                       </Text>
                       {isChatMuted && (
                         <Text style={[styles.prefDesc, { color: colors.danger, fontWeight: '600' }]}>
@@ -1377,21 +1538,21 @@ export function CircleManagementModal() {
                         style={[styles.preferenceRow, { borderBottomColor: colors.hairline, borderBottomWidth: StyleSheet.hairlineWidth }]}
                       >
                         <View style={{ flex: 1 }}>
-                          <Text style={[styles.prefTitle, { color: colors.text }]}>
-                            {t.circle.messageNotifications || 'Thông báo về tin nhắn'}
-                          </Text>
-                          <Text style={[styles.prefDesc, { color: colors.primary, fontWeight: '600' }]}>
-                            {getMsgLevelLabel(messageNotificationLevel)}
-                          </Text>
-                        </View>
-                        <ChevronRight size={16} color={colors.subtle} />
-                      </TouchableOpacity>
+                      <Text style={[styles.prefTitle, { color: colors.text }]}>
+                        {t.circle.messageNotifications}
+                      </Text>
+                      <Text style={[styles.prefDesc, { color: colors.sage, fontWeight: '600' }]}>
+                        {getMsgLevelLabel(messageNotificationLevel)}
+                      </Text>
+                    </View>
+                    <ChevronRight size={16} color={colors.subtle} />
+                  </TouchableOpacity>
 
                       {/* Tắt thông báo cuộc gọi */}
                       <View style={[styles.preferenceRow, { borderBottomColor: colors.hairline, borderBottomWidth: StyleSheet.hairlineWidth }]}>
                         <View style={{ flex: 1, paddingRight: 10 }}>
                           <Text style={[styles.prefTitle, { color: colors.text }]}>
-                            {t.circle.muteCalls || 'Tắt thông báo về cuộc gọi'}
+                            {t.circle.muteCalls}
                           </Text>
                         </View>
                         <Switch
@@ -1411,10 +1572,10 @@ export function CircleManagementModal() {
                   >
                     <View style={{ flex: 1 }}>
                       <Text style={[styles.prefTitle, { color: colors.text }]}>
-                        {t.circle.muteMemberNotificationsTitle || 'Tắt thông báo từ thành viên'}
+                        {t.circle.muteMemberNotificationsTitle}
                       </Text>
                       <Text style={[styles.prefDesc, { color: colors.subtle }]}>
-                        {mutedMemberIds.length > 0 ? (t.circle.mutedMembersCount || 'Đã tắt tiếng {count} thành viên').replace('{count}', String(mutedMemberIds.length)) : (t.circle.noMutedMembersText || 'Chưa tắt tiếng thành viên nào')}
+                        {mutedMemberIds.length > 0 ? t.circle.mutedMembersCount.replace('{count}', String(mutedMemberIds.length)) : t.circle.noMutedMembersText}
                       </Text>
                     </View>
                     <ChevronRight size={16} color={colors.subtle} />
@@ -1424,7 +1585,7 @@ export function CircleManagementModal() {
                   <View style={styles.preferenceRow}>
                     <View style={{ flex: 1, paddingRight: 10 }}>
                       <Text style={[styles.prefTitle, { color: colors.text }]}>
-                        {t.circle.soundEffectsTitle || 'Âm thanh thông báo & hiệu ứng'}
+                        {t.circle.soundEffectsTitle}
                       </Text>
                     </View>
                     <Switch
@@ -1442,14 +1603,14 @@ export function CircleManagementModal() {
               {/* Section 2: Quyền riêng tư */}
               <View style={styles.sectionGroupWrapper}>
                 <Text style={[styles.sectionGroupTitle, { color: colors.subtle }]}>
-                  {t.circle.privacySection || 'QUYỀN RIÊNG TƯ'}
+                  {t.circle.privacySection}
                 </Text>
                 <View style={[styles.menuSectionCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
                   {/* Read Receipts */}
                   <View style={[styles.preferenceRow, { borderBottomColor: colors.hairline, borderBottomWidth: StyleSheet.hairlineWidth }]}>
                     <View style={{ flex: 1, paddingRight: 10 }}>
                       <Text style={[styles.prefTitle, { color: colors.text }]}>
-                        {t.circle.readReceiptsTitle || 'Thông báo đã xem'}
+                        {t.circle.readReceiptsTitle}
                       </Text>
                     </View>
                     <Switch
@@ -1463,7 +1624,7 @@ export function CircleManagementModal() {
                   <View style={[styles.preferenceRow, { borderBottomColor: colors.hairline, borderBottomWidth: StyleSheet.hairlineWidth }]}>
                     <View style={{ flex: 1, paddingRight: 10 }}>
                       <Text style={[styles.prefTitle, { color: colors.text }]}>
-                        {t.circle.typingIndicatorTitle || 'Chỉ báo đang nhập'}
+                        {t.circle.typingIndicatorTitle}
                       </Text>
                     </View>
                     <Switch
@@ -1477,7 +1638,7 @@ export function CircleManagementModal() {
                   <View style={styles.preferenceRow}>
                     <View style={{ flex: 1, paddingRight: 10 }}>
                       <Text style={[styles.prefTitle, { color: colors.text }]}>
-                        {t.circle.aiAssistanceTitle || 'Cho phép AI xử lý nội dung tin nhắn'}
+                        {t.circle.aiAssistanceTitle}
                       </Text>
                     </View>
                     <Switch
@@ -1536,7 +1697,7 @@ export function CircleManagementModal() {
                 </View>
               </View>
 
-              {/* Section 1: Cần trưởng nhóm phê duyệt */}
+              {/* Section 1: Cần trưởng nhóm phê duyệt & Giới hạn thành viên */}
               <View style={styles.sectionGroupWrapper}>
                 <Text style={[styles.sectionGroupTitle, { color: colors.subtle }]}>
                   {t.circle.joinScopeHeader}
@@ -1544,11 +1705,14 @@ export function CircleManagementModal() {
                 <View style={[styles.menuSectionCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
                   {/* Switch Cần trưởng nhóm phê duyệt (Instant Auto-Save) */}
                   <View
-                    style={styles.preferenceRow}
+                    style={[
+                      styles.preferenceRow,
+                      isOwner && { borderBottomColor: colors.hairline, borderBottomWidth: StyleSheet.hairlineWidth },
+                    ]}
                   >
                     <View style={{ flex: 1, paddingRight: 10 }}>
                       <Text style={[styles.prefTitle, { color: colors.text }]}>
-                        {t.circle.requireApprovalTitle || 'Cần trưởng nhóm phê duyệt'}
+                        {t.circle.requireApprovalTitle}
                       </Text>
                     </View>
                     <Switch
@@ -1558,20 +1722,46 @@ export function CircleManagementModal() {
                       trackColor={{ false: colors.hairline, true: colors.primary }}
                     />
                   </View>
+
+                  {isOwner && (
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      onPress={() => {
+                        setTempCapacityInput(formMaxMembers ? String(formMaxMembers) : '');
+                        setIsCapacityModalOpen(true);
+                      }}
+                      style={styles.menuRowItem}
+                    >
+                      <Users size={18} color={colors.text} />
+                      <View style={styles.menuRowContent}>
+                        <Text style={[styles.menuRowTitle, { color: colors.text }]}>
+                          {t.circle.capacityLimitBtn || t.circle.maxMembersLabel}
+                        </Text>
+                        <Text style={[styles.menuRowSub, { color: colors.subtle }]}>
+                          {formMaxMembers
+                            ? t.circle.circleCapacityCount
+                                .replace('{count}', String(members.length))
+                                .replace('{max}', String(formMaxMembers))
+                            : t.circle.unlimited}
+                        </Text>
+                      </View>
+                      <ChevronRight size={18} color={colors.subtle} />
+                    </TouchableOpacity>
+                  )}
                 </View>
               </View>
 
               {/* Section 2: Mã mời & Liên kết tham gia */}
               <View style={styles.sectionGroupWrapper}>
                 <Text style={[styles.sectionGroupTitle, { color: colors.subtle }]}>
-                  {t.circle.inviteCodeAndLink || 'MÃ MỜI & LIÊN KẾT'}
+                  {t.circle.inviteCodeAndLink}
                 </Text>
                 <View style={[styles.menuSectionCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
                   {/* 1. Mã mời tham gia */}
                   <View style={[styles.preferenceRow, { borderBottomColor: colors.hairline, borderBottomWidth: StyleSheet.hairlineWidth }]}>
                     <View style={{ flex: 1 }}>
                       <Text style={[styles.codeLabel, { color: colors.subtle }]}>
-                        {t.circle.inviteCodeLabel || 'Mã mời'}:
+                        {t.circle.inviteCodeLabel}:
                       </Text>
                       <Text style={[styles.codeText, { color: colors.text }]}>{inviteCode || '------'}</Text>
                     </View>
@@ -1581,7 +1771,7 @@ export function CircleManagementModal() {
                     >
                       {copiedCode ? <Check size={14} color={colors.onPrimary} /> : <Copy size={14} color={colors.onPrimary} />}
                       <Text style={[styles.smallPrimaryBtnText, { color: colors.onPrimary }]}>
-                        {copiedCode ? (t.circle.copiedInviteCode || 'Đã sao chép') : (t.circle.copyCodeBtn || 'Sao chép mã')}
+                        {copiedCode ? t.circle.copiedInviteCode : t.circle.copyCodeBtn}
                       </Text>
                     </TouchableOpacity>
                   </View>
@@ -1590,7 +1780,7 @@ export function CircleManagementModal() {
                   <View style={styles.preferenceRow}>
                     <View style={{ flex: 1, paddingRight: 8 }}>
                       <Text style={[styles.codeLabel, { color: colors.subtle }]}>
-                        {t.circle.linkTitle || 'Liên kết'}:
+                        {t.circle.linkTitle}:
                       </Text>
                       <Text numberOfLines={1} style={[styles.inviteLinkTextClean, { color: colors.text }]}>
                         {inviteLink}
@@ -1601,7 +1791,7 @@ export function CircleManagementModal() {
                         onPress={handleCopyLink}
                         style={[styles.smallOutlineBtn, { borderColor: colors.hairline, backgroundColor: colors.surface }]}
                       >
-                        {copiedLink ? <Check size={14} color={colors.success || '#10B981'} /> : <Copy size={14} color={colors.text} />}
+                        {copiedLink ? <Check size={14} color={colors.sage} /> : <Copy size={14} color={colors.text} />}
                         <Text style={[styles.smallOutlineBtnText, { color: colors.text }]}>
                           {copiedLink ? t.chat.copySuccess : t.chat.copyAction}
                         </Text>
@@ -1621,7 +1811,7 @@ export function CircleManagementModal() {
               {isOwner && (
                 <View style={styles.sectionGroupWrapper}>
                   <Text style={[styles.sectionGroupTitle, { color: colors.danger }]}>
-                    {t.circle.dangerZone || 'HÀNH ĐỘNG NGUY HIỂM'}
+                    {t.circle.dangerZone}
                   </Text>
                   <View style={[styles.menuSectionCard, { backgroundColor: colors.surface, borderColor: `${colors.danger}40` }]}>
                     <TouchableOpacity
@@ -1632,7 +1822,7 @@ export function CircleManagementModal() {
                       <Trash2 size={18} color={colors.danger} />
                       <View style={styles.menuRowContent}>
                         <Text style={[styles.menuRowTitle, { color: colors.danger }]}>
-                          {t.circle.deleteCircle || 'Giải tán Vòng tròn'}
+                          {t.circle.deleteCircle}
                         </Text>
                       </View>
                       <ChevronRight size={18} color={colors.subtle} />
@@ -1656,13 +1846,16 @@ export function CircleManagementModal() {
                   {/* 1. Báo cáo người dùng vi phạm (Opens popup) */}
                   <TouchableOpacity
                     activeOpacity={0.7}
-                    onPress={() => setIsReportUserOpen(true)}
+                    onPress={() => {
+                      setSubModalError(null);
+                      setIsReportUserOpen(true);
+                    }}
                     style={[styles.menuRowItem, { borderBottomColor: colors.hairline, borderBottomWidth: StyleSheet.hairlineWidth }]}
                   >
                     <UserX size={18} color={colors.text} />
                     <View style={styles.menuRowContent}>
                       <Text style={[styles.menuRowTitle, { color: colors.text }]}>
-                        {t.circle.reportUserTitle || 'Báo cáo người dùng vi phạm'}
+                        {t.circle.reportUserTitle}
                       </Text>
                     </View>
                     <ChevronRight size={18} color={colors.subtle} />
@@ -1671,13 +1864,16 @@ export function CircleManagementModal() {
                   {/* 2. Báo cáo Vòng tròn (Opens popup) */}
                   <TouchableOpacity
                     activeOpacity={0.7}
-                    onPress={() => setIsReportOpen(true)}
+                    onPress={() => {
+                      setSubModalError(null);
+                      setIsReportOpen(true);
+                    }}
                     style={styles.menuRowItem}
                   >
                     <Flag size={18} color={colors.text} />
                     <View style={styles.menuRowContent}>
                       <Text style={[styles.menuRowTitle, { color: colors.text }]}>
-                        {t.circle.reportCircleTitle || 'Báo cáo Vòng tròn'}
+                        {t.circle.reportCircleTitle}
                       </Text>
                     </View>
                     <ChevronRight size={18} color={colors.subtle} />
@@ -1688,15 +1884,18 @@ export function CircleManagementModal() {
               {/* Quy tắc cộng đồng */}
               <View style={styles.sectionGroupWrapper}>
                 <Text style={[styles.sectionGroupTitle, { color: colors.subtle }]}>
-                  {t.circle.helpCenterTitle || 'QUY TẮC CỘNG ĐỒNG'}
+                  {t.circle.helpCenterTitle}
                 </Text>
                 <View style={[styles.menuSectionCard, { backgroundColor: colors.surface, borderColor: colors.hairline, padding: 16 }]}>
                   <View style={styles.labelRowBetween}>
                     <Text style={[styles.prefTitle, { color: colors.text }]}>
                       {t.circle.safeGuideTitle}
                     </Text>
-                    <TouchableOpacity onPress={() => setIsHelpOpen(!isHelpOpen)}>
-                      <Text style={[styles.linkText, { color: colors.primary }]}>
+                    <TouchableOpacity
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      onPress={() => setIsHelpOpen(!isHelpOpen)}
+                    >
+                      <Text style={[styles.linkText, { color: colors.sage }]}>
                         {isHelpOpen ? t.common.collapse : t.common.viewGuide}
                       </Text>
                     </TouchableOpacity>
@@ -1732,7 +1931,7 @@ export function CircleManagementModal() {
                     <LogOut size={18} color={colors.coral} />
                     <View style={styles.menuRowContent}>
                       <Text style={[styles.menuRowTitle, { color: colors.coral }]}>
-                        {t.circle.leaveCircle || 'Rời Vòng tròn'}
+                        {t.circle.leaveCircle}
                       </Text>
                     </View>
                     <ChevronRight size={18} color={colors.subtle} />
@@ -1746,7 +1945,12 @@ export function CircleManagementModal() {
               POPUP MODAL 1: MUTE DURATION SELECTOR
              ========================================================================= */}
           {isMuteDurationModalOpen && (
-            <Modal transparent animationType="fade" visible={isMuteDurationModalOpen}>
+            <Modal
+              transparent
+              animationType="fade"
+              visible={isMuteDurationModalOpen}
+              onRequestClose={() => setIsMuteDurationModalOpen(false)}
+            >
               <View style={styles.subModalOverlay}>
                 <View style={[styles.subModalCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
                   <Text style={[styles.subModalTitle, { color: colors.text }]}>
@@ -1769,7 +1973,7 @@ export function CircleManagementModal() {
                         ]}
                       >
                         <Text style={[styles.popupOptionText, { color: colors.text }]}>{item.label}</Text>
-                        {muteDuration === item.key && <Check size={16} color={colors.primary} />}
+                        {muteDuration === item.key && <Check size={16} color={colors.sage} />}
                       </TouchableOpacity>
                     ))}
                   </View>
@@ -1777,7 +1981,7 @@ export function CircleManagementModal() {
                     onPress={() => setIsMuteDurationModalOpen(false)}
                     style={[styles.actionBtn, { backgroundColor: colors.wash, marginTop: 4 }]}
                   >
-                    <Text style={[styles.actionBtnText, { color: colors.text }]}>{t.common.cancel || 'Hủy'}</Text>
+                    <Text style={[styles.actionBtnText, { color: colors.text }]}>{t.common.cancel}</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -1788,7 +1992,12 @@ export function CircleManagementModal() {
               POPUP MODAL 2: MESSAGE NOTIFICATION LEVEL SELECTOR
              ========================================================================= */}
           {isMsgLevelModalOpen && (
-            <Modal transparent animationType="fade" visible={isMsgLevelModalOpen}>
+            <Modal
+              transparent
+              animationType="fade"
+              visible={isMsgLevelModalOpen}
+              onRequestClose={() => setIsMsgLevelModalOpen(false)}
+            >
               <View style={styles.subModalOverlay}>
                 <View style={[styles.subModalCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
                   <Text style={[styles.subModalTitle, { color: colors.text }]}>
@@ -1812,7 +2021,7 @@ export function CircleManagementModal() {
                         ]}
                       >
                         <Text style={[styles.popupOptionText, { color: colors.text }]}>{item.label}</Text>
-                        {messageNotificationLevel === item.key && <Check size={16} color={colors.primary} />}
+                        {messageNotificationLevel === item.key && <Check size={16} color={colors.sage} />}
                       </TouchableOpacity>
                     ))}
                   </View>
@@ -1820,7 +2029,7 @@ export function CircleManagementModal() {
                     onPress={() => setIsMsgLevelModalOpen(false)}
                     style={[styles.actionBtn, { backgroundColor: colors.wash, marginTop: 4 }]}
                   >
-                    <Text style={[styles.actionBtnText, { color: colors.text }]}>{t.common.cancel || 'Đóng'}</Text>
+                    <Text style={[styles.actionBtnText, { color: colors.text }]}>{t.common.close}</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -1831,8 +2040,16 @@ export function CircleManagementModal() {
               POPUP MODAL 3: CAPACITY SELECTOR
              ========================================================================= */}
           {isCapacityModalOpen && (
-            <Modal transparent animationType="fade" visible={isCapacityModalOpen}>
-              <View style={styles.subModalOverlay}>
+            <Modal
+              transparent
+              animationType="fade"
+              visible={isCapacityModalOpen}
+              onRequestClose={() => setIsCapacityModalOpen(false)}
+            >
+              <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={styles.subModalOverlay}
+              >
                 <View style={[styles.subModalCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
                   <Text style={[styles.subModalTitle, { color: colors.text }]}>
                     {t.circle.maxMembersLabel}
@@ -1847,7 +2064,7 @@ export function CircleManagementModal() {
                     ]}
                   >
                     <Text style={[styles.popupOptionText, { color: colors.text }]}>{t.circle.unlimited}</Text>
-                    {formMaxMembers === null && <Check size={16} color={colors.primary} />}
+                    {formMaxMembers === null && <Check size={16} color={colors.sage} />}
                   </TouchableOpacity>
 
                   {/* Option 2: Giới hạn số lượng */}
@@ -1862,11 +2079,11 @@ export function CircleManagementModal() {
                         placeholderTextColor={colors.subtle}
                         style={[
                           styles.input,
-                          { backgroundColor: colors.wash, borderColor: colors.primary, color: colors.text, flex: 1 },
+                          { backgroundColor: colors.wash, borderColor: colors.sage, color: colors.text, flex: 1 },
                         ]}
                       />
                       <Text style={[styles.subtleText, { color: colors.subtle }]}>
-                        {t.circle.membersCount ? t.circle.membersCount.replace('{count}', '').trim() : 'thành viên'}
+                        {t.circle.membersSubTab || t.circle.memberFallback}
                       </Text>
                     </View>
                   </View>
@@ -1876,7 +2093,7 @@ export function CircleManagementModal() {
                       onPress={() => setIsCapacityModalOpen(false)}
                       style={[styles.actionBtn, { backgroundColor: colors.wash }]}
                     >
-                      <Text style={[styles.actionBtnText, { color: colors.text }]}>{t.common.cancel || 'Hủy'}</Text>
+                      <Text style={[styles.actionBtnText, { color: colors.text }]}>{t.common.cancel}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       onPress={() => {
@@ -1893,7 +2110,7 @@ export function CircleManagementModal() {
                     </TouchableOpacity>
                   </View>
                 </View>
-              </View>
+              </KeyboardAvoidingView>
             </Modal>
           )}
 
@@ -1901,14 +2118,42 @@ export function CircleManagementModal() {
               POPUP MODAL 4: MANAGE MUTED MEMBERS
              ========================================================================= */}
           {isManageMutedMembersOpen && (
-            <Modal transparent animationType="slide" visible={isManageMutedMembersOpen}>
-              <View style={styles.subModalOverlay}>
-                <View style={[styles.addFriendsCard, { backgroundColor: colors.sheetBg, borderColor: colors.glassBorder }]}>
+            <Modal
+              transparent
+              animationType="slide"
+              visible={isManageMutedMembersOpen}
+              onRequestClose={() => setIsManageMutedMembersOpen(false)}
+            >
+              <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={styles.subModalOverlay}
+              >
+                <View
+                  style={[
+                    styles.addFriendsCard,
+                    {
+                      backgroundColor: glassTheme.colors.glassBgSheet,
+                      borderColor: glassTheme.colors.glassBorder,
+                      overflow: 'hidden',
+                    },
+                  ]}
+                >
+                  {isGlass ? (
+                    <BlurView
+                      intensity={glassTheme.blur.intensity}
+                      tint={glassTheme.blur.tint}
+                      style={StyleSheet.absoluteFill}
+                    />
+                  ) : null}
                   <View style={styles.header}>
                     <Text style={[styles.title, { color: colors.text }]}>
                       {t.circle.muteMemberNotificationsTitle}
                     </Text>
-                    <TouchableOpacity onPress={() => setIsManageMutedMembersOpen(false)} style={[styles.closeBtn, { backgroundColor: colors.wash }]}>
+                    <TouchableOpacity
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      onPress={() => setIsManageMutedMembersOpen(false)}
+                      style={[styles.closeBtn, { backgroundColor: colors.wash }]}
+                    >
                       <X size={18} color={colors.subtle} />
                     </TouchableOpacity>
                   </View>
@@ -1918,7 +2163,7 @@ export function CircleManagementModal() {
                     <TextInput
                       value={memberMuteSearch}
                       onChangeText={setMemberMuteSearch}
-                      placeholder={t.circle.muteMemberPlaceholder || 'Tìm thành viên...'}
+                      placeholder={t.circle.muteMemberPlaceholder}
                       placeholderTextColor={colors.subtle}
                       style={[styles.searchInput, { color: colors.text }]}
                     />
@@ -1939,7 +2184,7 @@ export function CircleManagementModal() {
                           <View key={m.id} style={styles.memberMuteRow}>
                             <View style={styles.memberLeft}>
                               <View style={[styles.avatarBox, { backgroundColor: `${colors.primary}20` }]}>
-                                <Text style={[styles.avatarText, { color: colors.primary }]}>{getInitials(name)}</Text>
+                                <Text style={[styles.avatarText, { color: colors.sage }]}>{getInitials(name)}</Text>
                               </View>
                               <Text numberOfLines={1} style={[styles.memberName, { color: colors.text, flex: 1 }]}>
                                 {name}
@@ -1969,7 +2214,7 @@ export function CircleManagementModal() {
                     <Text style={[styles.actionBtnText, { color: colors.onPrimary }]}>{t.circle.doneBtn}</Text>
                   </TouchableOpacity>
                 </View>
-              </View>
+              </KeyboardAvoidingView>
             </Modal>
           )}
 
@@ -1977,7 +2222,12 @@ export function CircleManagementModal() {
               POPUP MODAL 5: AVATAR PICKER (Presets)
              ========================================================================= */}
           {isAvatarPickerOpen && (
-            <Modal transparent animationType="fade" visible={isAvatarPickerOpen}>
+            <Modal
+              transparent
+              animationType="fade"
+              visible={isAvatarPickerOpen}
+              onRequestClose={() => setIsAvatarPickerOpen(false)}
+            >
               <View style={styles.subModalOverlay}>
                 <View style={[styles.subModalCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
                   <Text style={[styles.subModalTitle, { color: colors.text }]}>
@@ -1996,7 +2246,7 @@ export function CircleManagementModal() {
                           }}
                           style={[
                             styles.presetAvatarBtn,
-                            { borderColor: isSelected ? colors.primary : colors.hairline },
+                            { borderColor: isSelected ? colors.sage : colors.hairline },
                             isSelected && { borderWidth: 2.5 },
                           ]}
                         >
@@ -2014,7 +2264,7 @@ export function CircleManagementModal() {
                     onPress={() => setIsAvatarPickerOpen(false)}
                     style={[styles.actionBtn, { backgroundColor: colors.wash, marginTop: 8 }]}
                   >
-                    <Text style={[styles.actionBtnText, { color: colors.text }]}>{t.common.cancel || 'Đóng'}</Text>
+                    <Text style={[styles.actionBtnText, { color: colors.text }]}>{t.common.close}</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -2025,12 +2275,23 @@ export function CircleManagementModal() {
               POPUP MODAL 6: REPORT USER
              ========================================================================= */}
           {isReportUserOpen && (
-            <Modal transparent animationType="slide" visible={isReportUserOpen}>
+            <Modal
+              transparent
+              animationType="slide"
+              visible={isReportUserOpen}
+              onRequestClose={() => setIsReportUserOpen(false)}
+            >
               <View style={styles.subModalOverlay}>
                 <View style={[styles.subModalCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
                   <Text style={[styles.subModalTitle, { color: colors.text }]}>
                     {t.circle.reportUserBtn}
                   </Text>
+                  {subModalError && (
+                    <View style={[styles.bannerBox, { backgroundColor: `${colors.danger}15`, borderColor: `${colors.danger}40`, marginBottom: 4 }]}>
+                      <AlertTriangle size={15} color={colors.danger} />
+                      <Text style={[styles.bannerText, { color: colors.danger }]}>{subModalError}</Text>
+                    </View>
+                  )}
                   <Text style={[styles.label, { color: colors.text }]}>{t.circle.reportUserPrompt}</Text>
                   <ScrollView style={{ maxHeight: 120 }}>
                     {members.filter((m) => m.userId !== user?.id).map((m) => {
@@ -2039,14 +2300,17 @@ export function CircleManagementModal() {
                       return (
                         <TouchableOpacity
                           key={m.id}
-                          onPress={() => setReportedUserId(m.userId)}
+                          onPress={() => {
+                            setSubModalError(null);
+                            setReportedUserId(m.userId);
+                          }}
                           style={[
                             styles.radioRow,
                             isSelected && { backgroundColor: `${colors.primary}15`, borderRadius: 8, paddingHorizontal: 6 },
                           ]}
                         >
-                          <View style={[styles.radioCircle, { borderColor: isSelected ? colors.primary : colors.subtle }]}>
-                            {isSelected && <View style={[styles.radioDot, { backgroundColor: colors.primary }]} />}
+                          <View style={[styles.radioCircle, { borderColor: isSelected ? colors.sage : colors.subtle }]}>
+                            {isSelected && <View style={[styles.radioDot, { backgroundColor: colors.sage }]} />}
                           </View>
                           <Text style={[styles.radioLabel, { color: colors.text }]}>{mName}</Text>
                         </TouchableOpacity>
@@ -2065,8 +2329,8 @@ export function CircleManagementModal() {
                       onPress={() => setReportUserReason(r.key)}
                       style={styles.radioRow}
                     >
-                      <View style={[styles.radioCircle, { borderColor: reportUserReason === r.key ? colors.primary : colors.subtle }]}>
-                        {reportUserReason === r.key && <View style={[styles.radioDot, { backgroundColor: colors.primary }]} />}
+                      <View style={[styles.radioCircle, { borderColor: reportUserReason === r.key ? colors.sage : colors.subtle }]}>
+                        {reportUserReason === r.key && <View style={[styles.radioDot, { backgroundColor: colors.sage }]} />}
                       </View>
                       <Text style={[styles.radioLabel, { color: colors.text }]}>{r.label}</Text>
                     </TouchableOpacity>
@@ -2074,16 +2338,24 @@ export function CircleManagementModal() {
 
                   <View style={styles.btnRow}>
                     <TouchableOpacity
-                      onPress={() => setIsReportUserOpen(false)}
+                      onPress={() => {
+                        setSubModalError(null);
+                        setIsReportUserOpen(false);
+                      }}
                       style={[styles.actionBtn, { backgroundColor: colors.wash }]}
                     >
-                      <Text style={[styles.actionBtnText, { color: colors.text }]}>{t.common.cancel || 'Hủy'}</Text>
+                      <Text style={[styles.actionBtnText, { color: colors.text }]}>{t.common.cancel}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       onPress={handleSubmitReportUser}
-                      style={[styles.actionBtn, { backgroundColor: colors.danger || '#EF4444' }]}
+                      disabled={createReportMutation.isPending}
+                      style={[styles.actionBtn, { backgroundColor: '#DC2626' }]}
                     >
-                      <Text style={[styles.actionBtnText, { color: '#FFFFFF' }]}>{t.circle.sendReportBtn}</Text>
+                      {createReportMutation.isPending ? (
+                        <ActivityIndicator color="#FFFFFF" size="small" />
+                      ) : (
+                        <Text style={[styles.actionBtnText, { color: '#FFFFFF' }]}>{t.circle.sendReportBtn}</Text>
+                      )}
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -2095,12 +2367,23 @@ export function CircleManagementModal() {
               POPUP MODAL 7: REPORT CIRCLE
              ========================================================================= */}
           {isReportOpen && (
-            <Modal transparent animationType="slide" visible={isReportOpen}>
+            <Modal
+              transparent
+              animationType="slide"
+              visible={isReportOpen}
+              onRequestClose={() => setIsReportOpen(false)}
+            >
               <View style={styles.subModalOverlay}>
                 <View style={[styles.subModalCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
                   <Text style={[styles.subModalTitle, { color: colors.text }]}>
                     {t.circle.reportCircleBtn}
                   </Text>
+                  {subModalError && (
+                    <View style={[styles.bannerBox, { backgroundColor: `${colors.danger}15`, borderColor: `${colors.danger}40`, marginBottom: 4 }]}>
+                      <AlertTriangle size={15} color={colors.danger} />
+                      <Text style={[styles.bannerText, { color: colors.danger }]}>{subModalError}</Text>
+                    </View>
+                  )}
                   <Text style={[styles.label, { color: colors.text }]}>{t.circle.reportReasonLabel}</Text>
                   {[
                     { key: 'harassment', label: t.circle.reasonHarassment },
@@ -2113,8 +2396,8 @@ export function CircleManagementModal() {
                       onPress={() => setReportReason(r.key)}
                       style={styles.radioRow}
                     >
-                      <View style={[styles.radioCircle, { borderColor: reportReason === r.key ? colors.primary : colors.subtle }]}>
-                        {reportReason === r.key && <View style={[styles.radioDot, { backgroundColor: colors.primary }]} />}
+                      <View style={[styles.radioCircle, { borderColor: reportReason === r.key ? colors.sage : colors.subtle }]}>
+                        {reportReason === r.key && <View style={[styles.radioDot, { backgroundColor: colors.sage }]} />}
                       </View>
                       <Text style={[styles.radioLabel, { color: colors.text }]}>{r.label}</Text>
                     </TouchableOpacity>
@@ -2122,16 +2405,24 @@ export function CircleManagementModal() {
 
                   <View style={styles.btnRow}>
                     <TouchableOpacity
-                      onPress={() => setIsReportOpen(false)}
+                      onPress={() => {
+                        setSubModalError(null);
+                        setIsReportOpen(false);
+                      }}
                       style={[styles.actionBtn, { backgroundColor: colors.wash }]}
                     >
-                      <Text style={[styles.actionBtnText, { color: colors.text }]}>{t.common.cancel || 'Hủy'}</Text>
+                      <Text style={[styles.actionBtnText, { color: colors.text }]}>{t.common.cancel}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       onPress={handleSubmitReportCircle}
-                      style={[styles.actionBtn, { backgroundColor: colors.danger || '#EF4444' }]}
+                      disabled={createReportMutation.isPending}
+                      style={[styles.actionBtn, { backgroundColor: '#DC2626' }]}
                     >
-                      <Text style={[styles.actionBtnText, { color: '#FFFFFF' }]}>{t.circle.sendReportBtn}</Text>
+                      {createReportMutation.isPending ? (
+                        <ActivityIndicator color="#FFFFFF" size="small" />
+                      ) : (
+                        <Text style={[styles.actionBtnText, { color: '#FFFFFF' }]}>{t.circle.sendReportBtn}</Text>
+                      )}
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -2143,31 +2434,51 @@ export function CircleManagementModal() {
               SUBMODAL: EDIT NICKNAME
              ========================================================================= */}
           {editingMember && (
-            <Modal transparent animationType="fade" visible={Boolean(editingMember)}>
-              <View style={styles.subModalOverlay}>
+            <Modal
+              transparent
+              animationType="fade"
+              visible={Boolean(editingMember)}
+              onRequestClose={() => setEditingMember(null)}
+            >
+              <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={styles.subModalOverlay}
+              >
                 <View style={[styles.subModalCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
                   <Text style={[styles.subModalTitle, { color: colors.text }]}>
-                    {t.circle.editNickname || 'Đổi biệt danh'}
+                    {t.circle.editNickname}
                   </Text>
                   <Text style={[styles.subModalDesc, { color: colors.subtle }]}>
                     {editingMember.name}
                   </Text>
+                  {subModalError && (
+                    <View style={[styles.bannerBox, { backgroundColor: `${colors.danger}15`, borderColor: `${colors.danger}40`, marginBottom: 4 }]}>
+                      <AlertTriangle size={15} color={colors.danger} />
+                      <Text style={[styles.bannerText, { color: colors.danger }]}>{subModalError}</Text>
+                    </View>
+                  )}
 
                   <TextInput
                     value={nicknameInput}
-                    onChangeText={setNicknameInput}
+                    onChangeText={(txt) => {
+                      setSubModalError(null);
+                      setNicknameInput(txt);
+                    }}
                     maxLength={30}
-                    placeholder={t.circle.nicknamePlaceholder || 'Nhập biệt danh cho thành viên...'}
+                    placeholder={t.circle.nicknamePlaceholder}
                     placeholderTextColor={colors.subtle}
                     style={[styles.input, { backgroundColor: colors.wash, borderColor: colors.hairline, color: colors.text }]}
                   />
 
                   <View style={styles.btnRow}>
                     <TouchableOpacity
-                      onPress={() => setEditingMember(null)}
+                      onPress={() => {
+                        setSubModalError(null);
+                        setEditingMember(null);
+                      }}
                       style={[styles.actionBtn, { backgroundColor: colors.wash }]}
                     >
-                      <Text style={[styles.actionBtnText, { color: colors.text }]}>{t.common.cancel || 'Hủy'}</Text>
+                      <Text style={[styles.actionBtnText, { color: colors.text }]}>{t.common.cancel}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       onPress={handleSaveNickname}
@@ -2177,12 +2488,12 @@ export function CircleManagementModal() {
                       {updateNicknameMutation.isPending ? (
                         <ActivityIndicator color={colors.onPrimary} size="small" />
                       ) : (
-                        <Text style={[styles.actionBtnText, { color: colors.onPrimary }]}>{t.common.save || 'Lưu'}</Text>
+                        <Text style={[styles.actionBtnText, { color: colors.onPrimary }]}>{t.common.save}</Text>
                       )}
                     </TouchableOpacity>
                   </View>
                 </View>
-              </View>
+              </KeyboardAvoidingView>
             </Modal>
           )}
 
@@ -2190,24 +2501,62 @@ export function CircleManagementModal() {
               SUBMODAL: ADD FRIENDS
              ========================================================================= */}
           {isAddFriendsOpen && (
-            <Modal transparent animationType="slide" visible={isAddFriendsOpen}>
-              <View style={styles.subModalOverlay}>
-                <View style={[styles.addFriendsCard, { backgroundColor: colors.sheetBg, borderColor: colors.glassBorder }]}>
+            <Modal
+              transparent
+              animationType="slide"
+              visible={isAddFriendsOpen}
+              onRequestClose={() => setIsAddFriendsOpen(false)}
+            >
+              <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={styles.subModalOverlay}
+              >
+                <View
+                  style={[
+                    styles.addFriendsCard,
+                    {
+                      backgroundColor: glassTheme.colors.glassBgSheet,
+                      borderColor: glassTheme.colors.glassBorder,
+                      overflow: 'hidden',
+                    },
+                  ]}
+                >
+                  {isGlass ? (
+                    <BlurView
+                      intensity={glassTheme.blur.intensity}
+                      tint={glassTheme.blur.tint}
+                      style={StyleSheet.absoluteFill}
+                    />
+                  ) : null}
                   <View style={styles.header}>
                     <Text style={[styles.title, { color: colors.text }]}>
-                      {t.circle.addMembersTitle || 'Thêm bạn bè vào Vòng tròn'}
+                      {t.circle.addMembersTitle}
                     </Text>
-                    <TouchableOpacity onPress={() => setIsAddFriendsOpen(false)} style={[styles.closeBtn, { backgroundColor: colors.wash }]}>
+                    <TouchableOpacity
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      onPress={() => {
+                        setSubModalError(null);
+                        setIsAddFriendsOpen(false);
+                      }}
+                      style={[styles.closeBtn, { backgroundColor: colors.wash }]}
+                    >
                       <X size={18} color={colors.subtle} />
                     </TouchableOpacity>
                   </View>
+
+                  {subModalError && (
+                    <View style={[styles.bannerBox, { backgroundColor: `${colors.danger}15`, borderColor: `${colors.danger}40`, marginBottom: 4 }]}>
+                      <AlertTriangle size={15} color={colors.danger} />
+                      <Text style={[styles.bannerText, { color: colors.danger }]}>{subModalError}</Text>
+                    </View>
+                  )}
 
                   <View style={[styles.searchBar, { backgroundColor: colors.surface, borderColor: colors.hairline, marginBottom: 8 }]}>
                     <Search size={15} color={colors.subtle} />
                     <TextInput
                       value={friendSearch}
                       onChangeText={setFriendSearch}
-                      placeholder={t.circle.friendsSearchPlaceholder || 'Tìm kiếm bạn bè...'}
+                      placeholder={t.circle.friendsSearchPlaceholder}
                       placeholderTextColor={colors.subtle}
                       style={[styles.searchInput, { color: colors.text }]}
                     />
@@ -2215,7 +2564,7 @@ export function CircleManagementModal() {
 
                   <View style={styles.selectAllRow}>
                     <TouchableOpacity onPress={handleSelectAllFriends}>
-                      <Text style={[styles.linkText, { color: colors.primary }]}>
+                      <Text style={[styles.linkText, { color: colors.sage }]}>
                         {selectedFriendIds.length === availableFriends.length && availableFriends.length > 0
                           ? t.moments.deselectAll
                           : t.moments.selectAll}
@@ -2225,11 +2574,11 @@ export function CircleManagementModal() {
 
                   <ScrollView style={{ maxHeight: 240 }}>
                     {isLoadingFriends ? (
-                      <ActivityIndicator style={{ marginVertical: 20 }} color={colors.primary} />
+                      <ActivityIndicator style={{ marginVertical: 20 }} color={colors.sage} />
                     ) : availableFriends.length === 0 ? (
                       <View style={[styles.emptyBox, { backgroundColor: colors.wash }]}>
                         <Text style={[styles.emptyText, { color: colors.subtle }]}>
-                          {t.circle.noSelectableFriends || 'Không có bạn bè khả dụng'}
+                          {t.circle.noSelectableFriends}
                         </Text>
                       </View>
                     ) : (
@@ -2246,13 +2595,13 @@ export function CircleManagementModal() {
                           >
                             <View style={styles.memberLeft}>
                               <View style={[styles.avatarBox, { backgroundColor: colors.wash }]}>
-                                <Text style={[styles.avatarText, { color: colors.primary }]}>
+                                <Text style={[styles.avatarText, { color: colors.sage }]}>
                                   {getInitials(f.displayName || f.email)}
                                 </Text>
                               </View>
                               <View style={{ flex: 1 }}>
                                 <Text style={[styles.memberName, { color: colors.text }]}>{f.displayName}</Text>
-                                <Text style={[styles.handleSubText, { color: colors.primary }]}>
+                                <Text style={[styles.handleSubText, { color: colors.sage }]}>
                                   @{f.handle || f.email.split('@')[0]}
                                 </Text>
                               </View>
@@ -2276,10 +2625,13 @@ export function CircleManagementModal() {
 
                   <View style={styles.btnRow}>
                     <TouchableOpacity
-                      onPress={() => setIsAddFriendsOpen(false)}
+                      onPress={() => {
+                        setSubModalError(null);
+                        setIsAddFriendsOpen(false);
+                      }}
                       style={[styles.actionBtn, { backgroundColor: colors.wash }]}
                     >
-                      <Text style={[styles.actionBtnText, { color: colors.text }]}>{t.common.cancel || 'Hủy'}</Text>
+                      <Text style={[styles.actionBtnText, { color: colors.text }]}>{t.common.cancel}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       onPress={handleConfirmAddMembers}
@@ -2298,17 +2650,17 @@ export function CircleManagementModal() {
                         <ActivityIndicator color={colors.onPrimary} size="small" />
                       ) : (
                         <Text style={[styles.actionBtnText, { color: colors.onPrimary }]}>
-                          {t.circle.addMembersSubmit || 'Thêm vào Vòng tròn'} ({selectedFriendIds.length})
+                          {t.circle.addMembersSubmit} ({selectedFriendIds.length})
                         </Text>
                       )}
                     </TouchableOpacity>
                   </View>
                 </View>
-              </View>
+              </KeyboardAvoidingView>
             </Modal>
           )}
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -2423,6 +2775,22 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     flex: 1,
   },
+  confirmInlineCard: {
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 8,
+    marginBottom: 12,
+  },
+  confirmInlineTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    flex: 1,
+  },
+  confirmInlineDesc: {
+    fontSize: 12,
+    lineHeight: 17,
+  },
   tabContent: {
     gap: 16,
     paddingBottom: 28,
@@ -2512,19 +2880,16 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     gap: 12,
   },
-  menuIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   menuRowContent: {
     flex: 1,
   },
   menuRowTitle: {
     fontSize: 14,
     fontWeight: '700',
+  },
+  menuRowSub: {
+    fontSize: 12,
+    marginTop: 2,
   },
   menuRowRight: {
     flexDirection: 'row',
@@ -2635,7 +3000,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: '#FFFFFF',
     elevation: 3,
   },
   profileCircleName: {
