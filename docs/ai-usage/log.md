@@ -6944,3 +6944,36 @@
   - **Resolution / Fix:** N/A.
 - **Commit:** 08a52a7
 - **PR:** Pending
+
+
+---
+
+## [AI-0194] - 2026-11-11
+
+- **Developer:** Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 2.5 Pro
+- **Related Issue:** #120
+- **Purpose:** Tinh chỉnh hiển thị địa điểm trong Modal Chi tiết sự kiện (`CircleEventDetailModal.tsx` & `EventLocationDisplay.tsx`):
+  1. Loại bỏ dòng chú thích phụ "Mở trên Google Maps" / "Tham gia Google Meet" bên dưới địa chỉ/liên kết để giao diện gọn gàng, tinh tế.
+  2. Chuẩn hóa hiển thị URL thuần thành chính liên kết đó thay vì text giả lập gượng gạo.
+  3. Tư vấn và đối soát thuật ngữ kỹ thuật Link Preview / Link Unfurling / Open Graph Protocol cho tài liệu thiết kế hệ thống CIRCLE.
+- **Prompt Summary:** bỏ chú thích Mở trên Google Maps, Tham gia Google Meet trong chi tiết sự kiện và tôi muốn nó kiểu hiển thị cơ chế đó goiij là j... được ko
+- **Files Affected:**
+  - `apps/web/src/components/tools/CircleEventDetailModal.tsx`
+  - `apps/web/src/components/tools/EventLocationDisplay.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% tinh chỉnh mã nguồn loại bỏ chú thích lặp trong modal chi tiết và phản hồi tư vấn thuật ngữ chuẩn.
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+  - npx tsc --noEmit --project apps/web/tsconfig.json: Passed 100%, 0 lỗi.
+  - bash ./scripts/check-agent-map.sh: 127/127 references resolve.
+  - bash ./scripts/check-secrets.sh: Passed, 0 secret leaks.
+- **Official Source Checked:** PROJECT_GOD.md, agentic/RULES.md & agentic/CONVENTIONS.md.
+- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A.
+  - **Resolution / Fix:** N/A.
+- **Commit:** 624fd33
+- **PR:** Pending

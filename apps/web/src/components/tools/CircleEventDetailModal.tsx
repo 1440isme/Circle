@@ -676,11 +676,6 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
                 <span className="truncate group-hover:underline">{parsedLocation.text}</span>
                 <ExternalLink className="h-4 w-4 shrink-0 text-circle-slate group-hover:text-teal-600 transition-colors" />
               </a>
-              <div className="text-xs text-teal-600 dark:text-teal-400 font-medium mt-0.5">
-                {parsedLocation.category === 'meet'
-                  ? (parsedLocation.linkText || 'Mở liên kết họp online')
-                  : 'Mở trên Google Maps'}
-              </div>
             </div>
           </div>
         )}

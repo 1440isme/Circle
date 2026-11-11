@@ -73,9 +73,9 @@ export function parseEventLocation(raw: string): ParsedLocation {
     return {
       type: category,
       category,
-      text: defaultLabel,
+      text: rawUrl,
       url,
-      linkText: defaultLabel,
+      linkText: null,
     };
   }
 
