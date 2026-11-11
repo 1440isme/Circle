@@ -924,21 +924,17 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
       {/* Floating Pill Toolbar: Các nút điều khiển dạng Floating Pill Button */}
       <div className="sticky top-0 z-20 flex items-center justify-between pointer-events-none mb-3 py-1">
         <div className="pointer-events-auto">
-          {/* Toggle Panel Pill Button */}
-          <button
-            onClick={() => setIsPanelCollapsed((prev) => !prev)}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-full border border-border/80 bg-background/90 dark:bg-circle-dark-surface/90 backdrop-blur-md shadow-xs hover:bg-muted text-foreground transition-all active:scale-95"
-            title={isPanelCollapsed ? t.luckyWheel.expandPanel : t.luckyWheel.collapsePanel}
-          >
-            {isPanelCollapsed ? (
+          {/* Mở bảng khi bị thu gọn */}
+          {isPanelCollapsed && (
+            <button
+              onClick={() => setIsPanelCollapsed(false)}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-full border border-border/80 bg-background/90 dark:bg-circle-dark-surface/90 backdrop-blur-md shadow-xs hover:bg-muted text-foreground hover:text-teal-600 transition-all active:scale-95"
+              title={t.luckyWheel.expandPanel}
+            >
               <PanelRightOpen className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
-            ) : (
-              <PanelRightClose className="w-3.5 h-3.5 text-muted-foreground" />
-            )}
-            <span className="hidden sm:inline">
-              {isPanelCollapsed ? t.luckyWheel.expandPanel : t.luckyWheel.collapsePanel}
-            </span>
-          </button>
+              <span className="hidden sm:inline">{t.luckyWheel.expandPanel}</span>
+            </button>
+          )}
         </div>
 
         <div className="flex items-center gap-2 pointer-events-auto">
@@ -970,7 +966,7 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
       {/* Main Responsive Layout */}
       <div className="flex flex-col lg:flex-row gap-6 w-full flex-1 items-stretch">
         {/* LEFT COLUMN: Visual Arena */}
-        <div className="flex-1 flex flex-col bg-card rounded-2xl border border-border/70 shadow-sm p-4 sm:p-6 transition-all min-h-[460px]">
+        <div className="flex-1 flex flex-col items-center justify-center p-2 sm:p-4 transition-all min-h-[460px]">
           {/* SÂN KHẤU VÒNG QUAY (VISUAL ARENA) */}
           {wheels.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
@@ -1004,12 +1000,12 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
                     }}
                     className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border text-sm sm:text-base font-bold transition-all shadow-2xs max-w-[260px] ${
                       activeWheelId === wheels[0]!.id
-                        ? 'bg-primary/10 border-primary/40 text-primary'
-                        : 'bg-card border-border/80 text-foreground hover:bg-muted'
+                        ? 'bg-teal-600 border-teal-600 text-white shadow-xs'
+                        : 'bg-card/90 dark:bg-circle-dark-surface/90 border-border/80 text-foreground hover:bg-muted'
                     }`}
                     title={wheels[0]!.title}
                   >
-                    <Compass className="w-4 h-4 shrink-0 text-primary" />
+                    <Compass className={`w-4 h-4 shrink-0 ${activeWheelId === wheels[0]!.id ? 'text-white' : 'text-teal-600'}`} />
                     <span className="truncate">{wheels[0]!.title}</span>
                   </button>
 
@@ -1045,12 +1041,12 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
                           }}
                           className={`flex items-center gap-1.5 px-3 py-1 rounded-xl border text-xs sm:text-sm font-bold transition-all shadow-2xs max-w-[200px] ${
                             activeWheelId === wheel.id
-                              ? 'bg-primary/10 border-primary/40 text-primary'
-                              : 'bg-card border-border/80 text-foreground hover:bg-muted'
+                              ? 'bg-teal-600 border-teal-600 text-white shadow-xs'
+                              : 'bg-card/90 dark:bg-circle-dark-surface/90 border-border/80 text-foreground hover:bg-muted'
                           }`}
                           title={wheel.title}
                         >
-                          <Compass className="w-3.5 h-3.5 shrink-0 text-primary" />
+                          <Compass className={`w-3.5 h-3.5 shrink-0 ${activeWheelId === wheel.id ? 'text-white' : 'text-teal-600'}`} />
                           <span className="truncate">{wheel.title}</span>
                         </button>
 
@@ -1091,12 +1087,12 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
                             }}
                             className={`flex items-center gap-1.5 px-3 py-1 rounded-xl border text-xs sm:text-sm font-bold transition-all shadow-2xs max-w-[200px] ${
                               activeWheelId === wheel.id
-                                ? 'bg-primary/10 border-primary/40 text-primary'
-                                : 'bg-card border-border/80 text-foreground hover:bg-muted'
+                                ? 'bg-teal-600 border-teal-600 text-white shadow-xs'
+                              : 'bg-card/90 dark:bg-circle-dark-surface/90 border-border/80 text-foreground hover:bg-muted'
                             }`}
                             title={wheel.title}
                           >
-                            <Compass className="w-3.5 h-3.5 shrink-0 text-primary" />
+                            <Compass className={`w-3.5 h-3.5 shrink-0 ${activeWheelId === wheel.id ? 'text-white' : 'text-teal-600'}`} />
                             <span className="truncate">{wheel.title}</span>
                           </button>
 
@@ -1126,12 +1122,12 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
                         }}
                         className={`flex items-center gap-1.5 px-3 py-1 rounded-xl border text-xs sm:text-sm font-bold transition-all shadow-2xs max-w-[200px] ${
                           activeWheelId === wheels[2]!.id
-                            ? 'bg-primary/10 border-primary/40 text-primary'
-                            : 'bg-card border-border/80 text-foreground hover:bg-muted'
+                            ? 'bg-teal-600 border-teal-600 text-white shadow-xs'
+                            : 'bg-card/90 dark:bg-circle-dark-surface/90 border-border/80 text-foreground hover:bg-muted'
                         }`}
                         title={wheels[2]!.title}
                       >
-                        <Compass className="w-3.5 h-3.5 shrink-0 text-primary" />
+                        <Compass className={`w-3.5 h-3.5 shrink-0 ${activeWheelId === wheels[2]!.id ? 'text-white' : 'text-teal-600'}`} />
                         <span className="truncate">{wheels[2]!.title}</span>
                       </button>
 
@@ -1169,12 +1165,12 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
                           }}
                           className={`flex items-center gap-1.5 px-3 py-1 rounded-xl border text-xs sm:text-sm font-bold transition-all shadow-2xs max-w-[200px] ${
                             activeWheelId === wheel.id
-                              ? 'bg-primary/10 border-primary/40 text-primary'
-                              : 'bg-card border-border/80 text-foreground hover:bg-muted'
+                              ? 'bg-teal-600 border-teal-600 text-white shadow-xs'
+                              : 'bg-card/90 dark:bg-circle-dark-surface/90 border-border/80 text-foreground hover:bg-muted'
                           }`}
                           title={wheel.title}
                         >
-                          <Compass className="w-3.5 h-3.5 shrink-0 text-primary" />
+                          <Compass className={`w-3.5 h-3.5 shrink-0 ${activeWheelId === wheel.id ? 'text-white' : 'text-teal-600'}`} />
                           <span className="truncate">{wheel.title}</span>
                         </button>
 
@@ -1198,51 +1194,64 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
         {/* RIGHT COLUMN: "CÁI BẢNG" (TABBED OPTIONS BOARD & RESULTS) */}
         {!isPanelCollapsed && (
           <div className="w-full lg:w-[380px] xl:w-[420px] flex flex-col bg-card rounded-2xl border border-border/70 shadow-sm p-4 sm:p-5 transition-all">
-            {/* Tabs Header: Hiển thị thẳng tên của từng vòng + TAB KẾT QUẢ */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-3 border-b border-border/60 no-scrollbar">
-              {wheels.map((wheel) => {
-                const isSelected = activeTab === wheel.id;
-                return (
-                  <button
-                    key={wheel.id}
-                    onClick={() => {
-                      setActiveTab(wheel.id);
-                      setActiveWheelId(wheel.id);
-                    }}
-                    className={`flex items-center px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
-                      isSelected
-                        ? 'bg-primary text-primary-foreground shadow-sm'
-                        : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground'
-                    }`}
-                  >
-                    <span className="max-w-[130px] truncate">{wheel.title}</span>
-                  </button>
-                );
-              })}
-
-              {/* Tab Kết Quả */}
+            {/* Tabs Header: Icon thu gọn bảng ở góc trên bên trái + Tên của từng vòng + TAB KẾT QUẢ */}
+            <div className="flex items-center gap-1.5 pb-3 border-b border-border/60">
+              {/* Nút thu gọn bảng ở góc trên bên trái khung bo bảng */}
               <button
-                onClick={() => setActiveTab('results')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
-                  activeTab === 'results'
-                    ? 'bg-amber-500 text-white shadow-sm font-bold'
-                    : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground'
-                }`}
+                type="button"
+                onClick={() => setIsPanelCollapsed(true)}
+                className="p-1.5 rounded-xl border border-border/70 hover:border-teal-500/50 bg-muted/60 hover:bg-teal-50 dark:hover:bg-teal-950/30 text-teal-600 dark:text-teal-400 shrink-0 transition-colors"
+                title={t.luckyWheel.collapsePanel || 'Thu gọn bảng'}
+                aria-label={t.luckyWheel.collapsePanel || 'Thu gọn bảng'}
               >
-                <Trophy className="w-3.5 h-3.5" />
-                <span>{t.luckyWheel.resultsTab}</span>
-                {resultLinesCount > 0 && (
-                  <span
-                    className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
-                      activeTab === 'results'
-                        ? 'bg-white/20 text-white'
-                        : 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
-                    }`}
-                  >
-                    {resultLinesCount}
-                  </span>
-                )}
+                <PanelRightClose className="w-4 h-4" />
               </button>
+
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar flex-1">
+                {wheels.map((wheel) => {
+                  const isSelected = activeTab === wheel.id;
+                  return (
+                    <button
+                      key={wheel.id}
+                      onClick={() => {
+                        setActiveTab(wheel.id);
+                        setActiveWheelId(wheel.id);
+                      }}
+                      className={`flex items-center px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+                        isSelected
+                          ? 'bg-teal-600 text-white shadow-xs font-bold'
+                          : 'bg-slate-100 dark:bg-circle-dark-hairline text-slate-600 dark:text-circle-dark-muted hover:bg-slate-200 dark:hover:bg-white/10 hover:text-foreground'
+                      }`}
+                    >
+                      <span className="max-w-[130px] truncate">{wheel.title}</span>
+                    </button>
+                  );
+                })}
+
+                {/* Tab Kết Quả */}
+                <button
+                  onClick={() => setActiveTab('results')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+                    activeTab === 'results'
+                      ? 'bg-amber-500 text-white shadow-xs font-bold'
+                      : 'bg-slate-100 dark:bg-circle-dark-hairline text-slate-600 dark:text-circle-dark-muted hover:bg-slate-200 dark:hover:bg-white/10 hover:text-foreground'
+                  }`}
+                >
+                  <Trophy className="w-3.5 h-3.5" />
+                  <span>{t.luckyWheel.resultsTab}</span>
+                  {resultLinesCount > 0 && (
+                    <span
+                      className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                        activeTab === 'results'
+                          ? 'bg-white/20 text-white'
+                          : 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+                      }`}
+                    >
+                      {resultLinesCount}
+                    </span>
+                  )}
+                </button>
+              </div>
             </div>
 
             {/* TAB CONTENT: KẾT QUẢ (DẠNG TEXT NHƯ KHI NHẬP, GHI THEO LẦN) */}
@@ -1518,54 +1527,70 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
         )}
       </div>
 
-      {/* COMBINED / BATCH RESULTS MODAL */}
+      {/* COMBINED / BATCH RESULTS MODAL - CIRCLE DESIGN SYSTEM */}
       {combinedResultsModal && combinedResultsModal.length > 0 && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-in fade-in duration-200">
-          <div className="w-full max-w-sm sm:max-w-md bg-card dark:bg-circle-dark-surface rounded-3xl border border-border/70 dark:border-white/10 shadow-2xl p-6 flex flex-col items-center relative animate-in zoom-in-95 duration-200">
-            <button
-              onClick={() => setCombinedResultsModal(null)}
-              className="absolute top-4 right-4 p-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
-              title={t.luckyWheel.close}
-            >
-              <X className="w-4 h-4" />
-            </button>
-
-            {/* Header Badge */}
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold mb-2">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>{t.luckyWheel.winnerTitle}</span>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
+          <div
+            className="relative w-full max-w-md overflow-hidden rounded-3xl border border-circle-slate/15 dark:border-circle-dark-hairline bg-white dark:bg-circle-charcoal text-circle-charcoal dark:text-white shadow-2xl animate-scaleUp flex flex-col"
+            role="dialog"
+            aria-modal="true"
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-circle-slate/10 dark:border-white/10 px-6 py-4.5 bg-white dark:bg-circle-charcoal">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-teal-500/10 text-teal-600 dark:text-teal-400">
+                  <Sparkles className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-circle-charcoal dark:text-white">
+                    {t.luckyWheel.winnerTitle}
+                  </h3>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCombinedResultsModal(null)}
+                className="flex h-8 w-8 items-center justify-center rounded-full text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors"
+                title={t.luckyWheel.close}
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
 
             {/* Single Winner Layout */}
             {combinedResultsModal.length === 1 && (
               <>
-                <div className="w-full my-3 p-6 rounded-2xl bg-muted/40 dark:bg-muted/10 border border-border/60 dark:border-white/5 flex flex-col items-center justify-center text-center">
-                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                    {combinedResultsModal[0]!.wheelTitle}
-                  </span>
-                  <span className="text-2xl sm:text-3xl font-black text-foreground tracking-tight select-all">
-                    {combinedResultsModal[0]!.result}
-                  </span>
+                <div className="p-6 bg-white dark:bg-circle-charcoal">
+                  <div className="w-full p-6 rounded-2xl bg-teal-50 dark:bg-teal-950/40 border border-teal-500/25 flex flex-col items-center justify-center text-center shadow-xs">
+                    <span className="text-xs font-bold text-teal-700 dark:text-teal-400 uppercase tracking-wider mb-2">
+                      {combinedResultsModal[0]!.wheelTitle}
+                    </span>
+                    <span className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight select-all">
+                      {combinedResultsModal[0]!.result}
+                    </span>
+                  </div>
                 </div>
 
-                <div className="flex flex-col gap-2.5 w-full mt-2">
+                <div className="border-t border-circle-slate/10 dark:border-white/10 px-6 py-4 flex items-center justify-end gap-3 bg-slate-50/80 dark:bg-circle-dark-surface/60">
                   <button
-                    onClick={() => setCombinedResultsModal(null)}
-                    className="w-full py-2.5 rounded-xl font-bold text-sm bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs transition-all active:scale-[0.98]"
-                  >
-                    {t.luckyWheel.close}
-                  </button>
-                  <button
+                    type="button"
                     onClick={() =>
                       handleRemoveResult(
                         combinedResultsModal[0]!.wheelId,
                         combinedResultsModal[0]!.resultIndex,
                       )
                     }
-                    className="w-full py-2.5 rounded-xl font-semibold text-sm border border-rose-200 dark:border-rose-900/40 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-all active:scale-[0.98] flex items-center justify-center gap-1.5"
+                    className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-rose-200 dark:border-rose-900/40 text-sm font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-all active:scale-95"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    <Trash2 className="h-4 w-4" />
                     <span>{t.luckyWheel.removeResult}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCombinedResultsModal(null)}
+                    className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold shadow-md shadow-teal-600/20 transition-all active:scale-95"
+                  >
+                    <span>{t.luckyWheel.close}</span>
                   </button>
                 </div>
               </>
@@ -1574,44 +1599,48 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
             {/* Multiple Winners Layout */}
             {combinedResultsModal.length > 1 && (
               <>
-                <div className="flex flex-col gap-2.5 w-full my-3 max-h-[50vh] overflow-y-auto pr-1">
-                  {combinedResultsModal.map((item) => (
-                    <div
-                      key={item.wheelId}
-                      className="flex items-center justify-between p-3.5 rounded-2xl bg-muted/40 dark:bg-muted/10 border border-border/60 dark:border-white/5 transition-all"
-                    >
-                      <div className="flex flex-col min-w-0 pr-3">
-                        <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider truncate mb-0.5">
-                          {item.wheelTitle}
-                        </span>
-                        <span className="text-base sm:text-lg font-bold text-foreground truncate">
-                          {item.result}
-                        </span>
-                      </div>
-                      <button
-                        onClick={() => handleRemoveResult(item.wheelId, item.resultIndex)}
-                        className="p-2 rounded-xl text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 border border-transparent hover:border-rose-200 dark:hover:border-rose-900/40 transition-all shrink-0"
-                        title={t.luckyWheel.removeResult}
+                <div className="p-6 bg-white dark:bg-circle-charcoal">
+                  <div className="flex flex-col gap-2.5 max-h-[50vh] overflow-y-auto pr-1">
+                    {combinedResultsModal.map((item) => (
+                      <div
+                        key={item.wheelId}
+                        className="flex items-center justify-between p-3.5 rounded-2xl bg-teal-50 dark:bg-teal-950/40 border border-teal-500/25 transition-all"
                       >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
+                        <div className="flex flex-col min-w-0 pr-3">
+                          <span className="text-[11px] font-bold text-teal-700 dark:text-teal-400 uppercase tracking-wider truncate mb-0.5">
+                            {item.wheelTitle}
+                          </span>
+                          <span className="text-base sm:text-lg font-bold text-slate-900 dark:text-white truncate">
+                            {item.result}
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => handleRemoveResult(item.wheelId, item.resultIndex)}
+                          className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 border border-transparent hover:border-rose-200 dark:hover:border-rose-900/40 transition-all shrink-0"
+                          title={t.luckyWheel.removeResult}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-2.5 w-full mt-2">
+                <div className="border-t border-circle-slate/10 dark:border-white/10 px-6 py-4 flex items-center justify-end gap-3 bg-slate-50/80 dark:bg-circle-dark-surface/60">
                   <button
-                    onClick={() => setCombinedResultsModal(null)}
-                    className="flex-1 py-2.5 rounded-xl font-bold text-sm bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs transition-all active:scale-[0.98]"
+                    type="button"
+                    onClick={handleRemoveAllBatchResults}
+                    className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-rose-200 dark:border-rose-900/40 text-sm font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-all active:scale-95"
                   >
-                    {t.luckyWheel.close}
+                    <Trash2 className="h-4 w-4" />
+                    <span>{t.luckyWheel.removeAllResults || 'Loại bỏ tất cả'}</span>
                   </button>
                   <button
-                    onClick={handleRemoveAllBatchResults}
-                    className="flex-1 py-2.5 rounded-xl font-semibold text-sm border border-rose-200 dark:border-rose-900/40 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-all active:scale-[0.98] flex items-center justify-center gap-1.5"
+                    type="button"
+                    onClick={() => setCombinedResultsModal(null)}
+                    className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold shadow-md shadow-teal-600/20 transition-all active:scale-95"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>{t.luckyWheel.removeAllResults || 'Loại bỏ tất cả'}</span>
+                    <span>{t.luckyWheel.close}</span>
                   </button>
                 </div>
               </>

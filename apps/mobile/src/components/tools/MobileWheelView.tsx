@@ -772,21 +772,19 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
     <View style={styles.container}>
       {/* Floating Pill Toolbar: Floating over content with pointerEvents="box-none" */}
       <View style={styles.floatingHeaderArea} pointerEvents="box-none">
-        {/* Left: Toggle Panel Pill */}
-        <TouchableOpacity
-          style={styles.floatingPillBtn}
-          onPress={() => setIsBoardCollapsed((prev) => !prev)}
-          activeOpacity={0.8}
-        >
-          {isBoardCollapsed ? (
+        {/* Left: Mở bảng khi đang thu gọn */}
+        {isBoardCollapsed ? (
+          <TouchableOpacity
+            style={styles.floatingPillBtn}
+            onPress={() => setIsBoardCollapsed(false)}
+            activeOpacity={0.8}
+          >
             <PanelRightOpen size={14} color="#0D9488" />
-          ) : (
-            <PanelRightClose size={14} color="#6B7280" />
-          )}
-          <Text style={styles.floatingPillText}>
-            {isBoardCollapsed ? t.luckyWheel.expandPanel : t.luckyWheel.collapsePanel}
-          </Text>
-        </TouchableOpacity>
+            <Text style={styles.floatingPillText}>{t.luckyWheel.expandPanel}</Text>
+          </TouchableOpacity>
+        ) : (
+          <View />
+        )}
 
         {/* Right: Add Wheel & Spin All Pills */}
         <View style={styles.floatingRightActions}>
@@ -854,7 +852,7 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
                     activeWheelId === wheels[0]!.id && styles.mobileWheelTitleBadgeActive,
                   ]}
                 >
-                  <Compass size={13} color={activeWheelId === wheels[0]!.id ? '#0D9488' : '#6B7280'} />
+                  <Compass size={13} color={activeWheelId === wheels[0]!.id ? '#FFFFFF' : '#0D9488'} />
                   <Text
                     style={[
                       styles.mobileWheelTitleText,
@@ -950,7 +948,7 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
                           activeWheelId === wheel.id && styles.mobileWheelTitleBadgeActive,
                         ]}
                       >
-                        <Compass size={12} color={activeWheelId === wheel.id ? '#0D9488' : '#6B7280'} />
+                        <Compass size={12} color={activeWheelId === wheel.id ? '#FFFFFF' : '#0D9488'} />
                         <Text
                           style={[
                             styles.mobileWheelTitleText,
@@ -1047,7 +1045,7 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
                             activeWheelId === wheel.id && styles.mobileWheelTitleBadgeActive,
                           ]}
                         >
-                          <Compass size={12} color={activeWheelId === wheel.id ? '#0D9488' : '#6B7280'} />
+                          <Compass size={12} color={activeWheelId === wheel.id ? '#FFFFFF' : '#0D9488'} />
                           <Text
                             style={[
                               styles.mobileWheelTitleText,
@@ -1136,7 +1134,7 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
                         activeWheelId === wheels[2]!.id && styles.mobileWheelTitleBadgeActive,
                       ]}
                     >
-                      <Compass size={12} color={activeWheelId === wheels[2]!.id ? '#0D9488' : '#6B7280'} />
+                      <Compass size={12} color={activeWheelId === wheels[2]!.id ? '#FFFFFF' : '#0D9488'} />
                       <Text
                         style={[
                           styles.mobileWheelTitleText,
@@ -1234,7 +1232,7 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
                           activeWheelId === wheel.id && styles.mobileWheelTitleBadgeActive,
                         ]}
                       >
-                        <Compass size={12} color={activeWheelId === wheel.id ? '#0D9488' : '#6B7280'} />
+                        <Compass size={12} color={activeWheelId === wheel.id ? '#FFFFFF' : '#0D9488'} />
                         <Text
                           style={[
                             styles.mobileWheelTitleText,
@@ -1316,66 +1314,76 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
       {/* "CÁI BẢNG" (TABBED OPTIONS BOARD BÊN DƯỚI) */}
       {!isBoardCollapsed && (
         <View style={styles.tabbedBoard}>
-          {/* Horizontal Tabs: Hiển thị thẳng tên của từng vòng + TAB KẾT QUẢ */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.tabsScroll}
-          >
-            {wheels.map((wheel) => {
-              const isSelected = activeTab === wheel.id;
-              return (
-                <TouchableOpacity
-                  key={wheel.id}
-                  onPress={() => {
-                    setActiveTab(wheel.id);
-                    setActiveWheelId(wheel.id);
-                  }}
-                  style={[styles.tabPill, isSelected && styles.tabPillActive]}
-                >
-                  <Text style={[styles.tabPillText, isSelected && styles.tabPillTextActive]}>
-                    {wheel.title}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-
-            {/* Tab Kết Quả */}
+          {/* Header hàng Tabs: Nút thu gọn bảng ở góc trên bên trái + Horizontal Tabs */}
+          <View style={styles.boardHeaderRow}>
             <TouchableOpacity
-              onPress={() => setActiveTab('results')}
-              style={[
-                styles.tabPill,
-                activeTab === 'results' && styles.tabPillActiveResults,
-              ]}
+              style={styles.collapseBoardBtn}
+              onPress={() => setIsBoardCollapsed(true)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Trophy size={13} color={activeTab === 'results' ? '#FFFFFF' : '#F59E0B'} />
-              <Text
+              <PanelRightClose size={15} color="#0D9488" />
+            </TouchableOpacity>
+
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.tabsScroll}
+            >
+              {wheels.map((wheel) => {
+                const isSelected = activeTab === wheel.id;
+                return (
+                  <TouchableOpacity
+                    key={wheel.id}
+                    onPress={() => {
+                      setActiveTab(wheel.id);
+                      setActiveWheelId(wheel.id);
+                    }}
+                    style={[styles.tabPill, isSelected && styles.tabPillActive]}
+                  >
+                    <Text style={[styles.tabPillText, isSelected && styles.tabPillTextActive]}>
+                      {wheel.title}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+
+              {/* Tab Kết Quả */}
+              <TouchableOpacity
+                onPress={() => setActiveTab('results')}
                 style={[
-                  styles.tabPillText,
-                  activeTab === 'results' && styles.tabPillTextActive,
+                  styles.tabPill,
+                  activeTab === 'results' && styles.tabPillActiveResults,
                 ]}
               >
-                {t.luckyWheel.resultsTab}
-              </Text>
-              {resultLinesCount > 0 && (
-                <View
+                <Trophy size={13} color={activeTab === 'results' ? '#FFFFFF' : '#F59E0B'} />
+                <Text
                   style={[
-                    styles.tabBadge,
-                    activeTab === 'results' && { backgroundColor: 'rgba(255,255,255,0.25)' },
+                    styles.tabPillText,
+                    activeTab === 'results' && styles.tabPillTextActive,
                   ]}
                 >
-                  <Text
+                  {t.luckyWheel.resultsTab}
+                </Text>
+                {resultLinesCount > 0 && (
+                  <View
                     style={[
-                      styles.tabBadgeText,
-                      activeTab === 'results' && { color: '#FFFFFF' },
+                      styles.tabBadge,
+                      activeTab === 'results' && { backgroundColor: 'rgba(255,255,255,0.25)' },
                     ]}
                   >
-                    {resultLinesCount}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          </ScrollView>
+                    <Text
+                      style={[
+                        styles.tabBadgeText,
+                        activeTab === 'results' && { color: '#FFFFFF' },
+                      ]}
+                    >
+                      {resultLinesCount}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
 
           {/* TAB CONTENT: KẾT QUẢ (DẠNG TEXT NHƯ KHI NHẬP, GHI THEO LẦN) */}
           {activeTab === 'results' ? (
@@ -1942,11 +1950,9 @@ const styles = StyleSheet.create({
     minHeight: 300,
   },
   arenaContainer: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    padding: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
     marginBottom: 14,
   },
   arenaStage: {
@@ -2047,18 +2053,32 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
     padding: 12,
   },
-  tabsScroll: {
+  boardHeaderRow: {
     flexDirection: 'row',
-    gap: 6,
+    alignItems: 'center',
+    gap: 8,
     paddingBottom: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
+  },
+  collapseBoardBtn: {
+    padding: 6,
+    borderRadius: 10,
+    backgroundColor: '#F0FDFA',
+    borderWidth: 1,
+    borderColor: '#CCFBF1',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabsScroll: {
+    flexDirection: 'row',
+    gap: 6,
   },
   tabPill: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 10,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#F1F5F9',
   },
   tabPillActive: {
     backgroundColor: '#0D9488',
@@ -2324,9 +2344,9 @@ const styles = StyleSheet.create({
   },
   singleWinnerCard: {
     width: '100%',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F0FDFA',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#99F6E4',
     borderRadius: 18,
     paddingVertical: 20,
     paddingHorizontal: 16,
@@ -2336,15 +2356,15 @@ const styles = StyleSheet.create({
   },
   singleWinnerWheelTitle: {
     fontSize: 11,
-    fontWeight: '600',
-    color: '#64748B',
+    fontWeight: '700',
+    color: '#0F766E',
     textTransform: 'uppercase',
     letterSpacing: 0.8,
     marginBottom: 6,
   },
   singleWinnerName: {
     fontSize: 24,
-    fontWeight: '800',
+    fontWeight: '900',
     color: '#0F172A',
     textAlign: 'center',
   },
@@ -2357,9 +2377,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F0FDFA',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#99F6E4',
     borderRadius: 14,
     paddingHorizontal: 14,
     paddingVertical: 12,
@@ -2367,15 +2387,15 @@ const styles = StyleSheet.create({
   },
   multiWinnerWheelTitle: {
     fontSize: 11,
-    fontWeight: '600',
-    color: '#64748B',
+    fontWeight: '700',
+    color: '#0F766E',
     textTransform: 'uppercase',
     letterSpacing: 0.6,
     marginBottom: 2,
   },
   multiWinnerName: {
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#0F172A',
   },
   multiWinnerRemoveIconBtn: {
@@ -2565,7 +2585,7 @@ const styles = StyleSheet.create({
   },
   mobileWheelTitleBadgeActive: {
     borderColor: '#0D9488',
-    backgroundColor: 'rgba(13, 148, 136, 0.08)',
+    backgroundColor: '#0D9488',
   },
   mobileWheelTitleText: {
     fontSize: 12,
@@ -2573,7 +2593,7 @@ const styles = StyleSheet.create({
     color: '#374151',
   },
   mobileWheelTitleTextActive: {
-    color: '#0D9488',
+    color: '#FFFFFF',
   },
   resultsHintText: {
     fontSize: 11,
