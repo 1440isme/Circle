@@ -7260,3 +7260,38 @@
   - **Resolution / Fix:** N/A.
 - **Commit:** b07d96b
 - **PR:** Pending
+
+
+---
+
+## AI-0178: Ghim nút mở lại bảng vào mép phải của vùng hiển thị nội dung (Content Area) thay vì mép màn hình (Viewport) (#120)
+
+- **Date:** 2026-11-11 16:42:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120
+- **Purpose:**
+  1. Điều chỉnh định vị nút mở lại bảng quay khi thu gọn (`isPanelCollapsed === true`) trên Web (`CircleWheelView.tsx`): Chuyển từ `fixed right-0 top-1/2 -translate-y-1/2` (dính ra mép ngoài cùng toàn màn hình trình duyệt) sang `absolute right-0 top-6` neo theo container `relative` của phần hiển thị nội dung công cụ (`Main Responsive Layout`), tạo thẻ tab handle mép phải tinh gọn, tự nhiên.
+  2. Sửa lỗi trên Mobile (`MobileWheelView.tsx`): Di chuyển nút mở lại bảng `floatingRightEdgeOpenBtn` ra ngoài `ScrollView`, đặt trực tiếp trong `styles.container` với `position: 'absolute', right: 0`, đảm bảo nút luôn hiển thị chính xác ở mép phải của phần hiển thị màn hình di động khi bảng bị thu gọn.
+- **Prompt Summary:** "mép phải của phần hiền thị ko phải của màn hình"
+- **Files Affected:**
+  - `apps/web/src/components/tools/CircleWheelView.tsx`
+  - `apps/mobile/src/components/tools/MobileWheelView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% css layout positioning và component hierarchy adjustment.
+- **Human Modifications:** Trương Công Bình làm rõ yêu cầu nút mở bảng khi thu gọn phải nằm ở mép phải của phần hiển thị nội dung công cụ (Content Area) chứ không phải mép ngoài cùng màn hình cửa sổ trình duyệt (Viewport).
+- **Verification Method:**
+  - `npx tsc --noEmit -p apps/web/tsconfig.json`: Passed 0 errors.
+  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Passed 0 errors.
+  - `npm test --prefix apps/backend -- circle-tools.service.spec.ts`: Passed 45/45 tests (100%).
+  - `bash ./scripts/check-secrets.sh`: Passed 100%, 0 secret leaks.
+  - `bash ./scripts/check-agent-map.sh`: Passed 100%, 128 references resolve.
+- **Official Source Checked:** PROJECT_GOD.md, Circle Layout Guidelines.
+- **Security & License Check:** An toàn, không chứa secrets, tuân thủ nguyên tắc bảo mật.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** Ở phiên trước, agent đã dùng fixed right-0 khiến nút mở bảng bị neo theo cửa sổ trình duyệt thay vì vùng hiển thị công cụ.
+  - **Root Cause:** Dùng nhầm CSS position fixed thay vì absolute kết hợp với container cha có relative.
+  - **Resolution / Fix:** Bổ sung relative vào container Main Responsive Layout và đổi nút mở sang absolute right-0 top-6. Trên mobile chuyển nút ra ngoài ScrollView để neo trực tiếp vào container.
+- **Commit:** f203c5c
+- **PR:** Pending

@@ -1372,18 +1372,6 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
               </TouchableOpacity>
             </ScrollView>
 
-      {/* Nút mở lại bảng: Ghim ở mép bên phải cùng màn hình khi thu gọn */}
-      {isBoardCollapsed && (
-        <TouchableOpacity
-          style={styles.floatingRightEdgeOpenBtn}
-          onPress={() => setIsBoardCollapsed(false)}
-          activeOpacity={0.8}
-        >
-          <PanelRightOpen size={16} color="#0D9488" />
-        </TouchableOpacity>
-      )}
-
-
           {/* TAB CONTENT: KẾT QUẢ (DẠNG TEXT NHƯ KHI NHẬP, GHI THEO LẦN) */}
           {activeTab === 'results' ? (
             <View style={styles.activeContentCard}>
@@ -1594,6 +1582,17 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
         </View>
       )}
       </ScrollView>
+
+      {/* Nút mở lại bảng: Ghim ở mép bên phải của phần hiển thị khi thu gọn */}
+      {isBoardCollapsed && (
+        <TouchableOpacity
+          style={styles.floatingRightEdgeOpenBtn}
+          onPress={() => setIsBoardCollapsed(false)}
+          activeOpacity={0.8}
+        >
+          <PanelRightOpen size={16} color="#0D9488" />
+        </TouchableOpacity>
+      )}
 
       {/* COMBINED / BATCH RESULTS MODAL - CELEBRATION WINNER SHOWCASE */}
       <Modal visible={!!combinedWinnersModal && combinedWinnersModal.length > 0} transparent animationType="fade">

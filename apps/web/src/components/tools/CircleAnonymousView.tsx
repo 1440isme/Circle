@@ -11,11 +11,15 @@ import {
   Loader2,
   Quote,
   Sparkles,
+  Smile,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguageStore } from '../../stores/language.store';
 import { useQueryClient } from '@tanstack/react-query';
 import { getSocket } from '../../lib/socket';
+import { Emoji } from '../ui/Emoji';
+import { FullEmojiPickerModal } from '../ui/FullEmojiPickerModal';
+import { PROMINENT_QUICK_EMOJIS } from '@circle/shared';
 import {
   useAnonymousPostsQuery,
   useCreateAnonymousPostMutation,
@@ -79,6 +83,16 @@ const THEMES: ThemeConfig[] = [
   },
 ];
 
+const formatPostDate = (isoString: string) => {
+  const d = new Date(isoString);
+  const hours = String(d.getHours()).padStart(2, '0');
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  return `${hours}:${minutes} ${day}/${month}/${year}`;
+};
+
 export const CircleAnonymousView: React.FC<CircleAnonymousViewProps> = ({ circleId }) => {
   const { user } = useAuth();
   const t = useLanguageStore((s) => s.t);
@@ -86,6 +100,7 @@ export const CircleAnonymousView: React.FC<CircleAnonymousViewProps> = ({ circle
   const [isComposeModalOpen, setIsComposeModalOpen] = useState(false);
   const [content, setContent] = useState('');
   const [selectedTheme, setSelectedTheme] = useState('sunset');
+  const [fullEmojiTargetPostId, setFullEmojiTargetPostId] = useState<string | null>(null);
 
   const { data: posts = [], isLoading } = useAnonymousPostsQuery(circleId);
   const createMutation = useCreateAnonymousPostMutation(circleId);
@@ -129,34 +144,29 @@ export const CircleAnonymousView: React.FC<CircleAnonymousViewProps> = ({ circle
 
   return (
     <div className="relative flex-1 flex flex-col h-full bg-circle-canvas dark:bg-circle-dark-surface overflow-hidden transition-colors">
-      {/* Floating Glass Toolbar (Floating glass controls with scroll-under content) */}
-      <div className="pointer-events-none absolute top-3 left-0 right-0 z-20 flex justify-center px-4">
-        <div className="pointer-events-auto flex items-center justify-between px-5 py-2.5 rounded-full backdrop-blur-xl bg-white/94 dark:bg-circle-dark-surface/92 border border-circle-hairline/80 dark:border-white/12 shadow-sm max-w-4xl w-full">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <Heart className="h-4 w-4 text-rose-500 shrink-0" />
-            <h1 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text truncate">
-              {t.nav.reflectionMailbox}
-            </h1>
-            {posts.length > 0 && (
-              <span className="text-xs text-circle-slate dark:text-circle-dark-muted hidden sm:inline">
-                • {posts.length} lời nhắn
-              </span>
-            )}
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setIsComposeModalOpen(true)}
-            className="flex items-center gap-1.5 rounded-full bg-circle-primary hover:bg-circle-sage px-4 py-1.5 text-xs font-semibold text-white transition-all shadow-xs active:scale-98"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            <span>Gửi tâm sự ẩn danh</span>
-          </button>
+      {/* Floating Pill Controls Bar (Không text heading, controls dạng Floating Pill Button) */}
+      <div className="pointer-events-none absolute top-3 left-0 right-0 z-20 flex items-center justify-between px-4 md:px-6">
+        <div className="pointer-events-auto flex items-center gap-2">
+          {posts.length > 0 && (
+            <div className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full backdrop-blur-xl bg-white/92 dark:bg-circle-dark-surface/90 border border-circle-hairline/80 dark:border-white/12 shadow-xs text-xs font-semibold text-circle-slate dark:text-circle-dark-muted select-none">
+              <Heart className="h-3.5 w-3.5 text-rose-500 shrink-0" />
+              <span>{posts.length} lời nhắn</span>
+            </div>
+          )}
         </div>
+
+        <button
+          type="button"
+          onClick={() => setIsComposeModalOpen(true)}
+          className="pointer-events-auto flex items-center gap-1.5 px-4 py-1.5 rounded-full backdrop-blur-xl bg-circle-primary hover:bg-circle-sage text-white text-xs font-bold shadow-sm transition-all active:scale-95 cursor-pointer"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          <span>Gửi tâm sự ẩn danh</span>
+        </button>
       </div>
 
       {/* Scroll-under Content Layer */}
-      <div className="flex-1 overflow-y-auto px-4 md:px-6 pt-20 pb-12">
+      <div className="flex-1 overflow-y-auto px-4 md:px-6 pt-16 pb-12">
 
       {/* Security / Anonymity Banner */}
       <div className="mb-6 flex items-start gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 dark:bg-emerald-500/10 p-3.5">
@@ -173,14 +183,14 @@ export const CircleAnonymousView: React.FC<CircleAnonymousViewProps> = ({ circle
           <Loader2 className="h-6 w-6 animate-spin text-circle-slate dark:text-circle-dark-muted" />
         </div>
       ) : posts.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+        <div className="columns-1 sm:columns-2 md:columns-3 gap-4 [column-fill:_balance]">
           {posts.map((post) => {
             const theme =
               THEMES.find((th) => th.id === post.cardTheme) || THEMES[0]!;
             return (
               <div
                 key={post.id}
-                className={`relative rounded-2xl border p-4 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between ${theme.bgGradient}`}
+                className={`break-inside-avoid mb-4 w-full relative rounded-2xl border p-4 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between ${theme.bgGradient}`}
               >
                 <div>
                   <div className="flex items-center justify-between mb-3">
@@ -209,7 +219,7 @@ export const CircleAnonymousView: React.FC<CircleAnonymousViewProps> = ({ circle
                   </div>
                 </div>
 
-                {/* Reactions Bar */}
+                {/* Reactions Bar (Chat-style Floating Pill Reactions & Apple Color Emojis) */}
                 <div className="mt-3 pt-2.5 border-t border-black/5 dark:border-white/5 flex flex-wrap items-center justify-between gap-2">
                   <div className="flex flex-wrap items-center gap-1.5">
                     {(post.reactions || []).map((rx) => (
@@ -217,34 +227,43 @@ export const CircleAnonymousView: React.FC<CircleAnonymousViewProps> = ({ circle
                         key={rx.emoji}
                         type="button"
                         onClick={() => reactMutation.mutate({ postId: post.id, emoji: rx.emoji })}
-                        className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border transition-all ${
+                        className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-all cursor-pointer ${
                           rx.userReacted
-                            ? 'bg-circle-charcoal/15 dark:bg-white/20 border-circle-charcoal/40 dark:border-white/40 text-circle-charcoal dark:text-white shadow-2xs scale-105'
-                            : 'bg-white/60 dark:bg-black/30 border-black/10 dark:border-white/10 text-circle-slate dark:text-circle-dark-muted hover:border-black/25'
+                            ? 'bg-circle-primary/15 dark:bg-circle-primary/25 border-circle-primary/40 text-circle-primary dark:text-circle-primary shadow-2xs scale-105'
+                            : 'bg-white/80 dark:bg-circle-dark-surface/80 border-black/10 dark:border-white/10 text-circle-slate dark:text-circle-dark-muted hover:border-black/25 dark:hover:border-white/25'
                         }`}
                       >
-                        <span>{rx.emoji}</span>
+                        <Emoji emoji={rx.emoji} size={14} />
                         <span className="text-[10px] font-bold">{rx.count}</span>
                       </button>
                     ))}
 
-                    {/* Quick emoji reaction pickers */}
-                    <div className="flex items-center gap-0.5 ml-1 opacity-70 hover:opacity-100 transition-opacity">
-                      {['❤️', '😂', '🥺', '👏', '🔥'].map((em) => {
+                    {/* Quick emoji reaction pickers (Chat-like Floating Pill Toolbar) */}
+                    <div className="flex items-center gap-0.5 p-0.5 rounded-full border border-black/10 dark:border-white/10 bg-white/70 dark:bg-circle-dark-surface/70 backdrop-blur-xs">
+                      {PROMINENT_QUICK_EMOJIS.map((em) => {
                         const isAlreadyReacted = post.reactions?.some((r) => r.emoji === em && r.userReacted);
-                        if (isAlreadyReacted) return null;
                         return (
                           <button
                             key={em}
                             type="button"
                             onClick={() => reactMutation.mutate({ postId: post.id, emoji: em })}
-                            className="p-1 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-xs transition-transform hover:scale-125 active:scale-95"
+                            className={`flex h-6 w-6 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-transform hover:scale-125 active:scale-95 cursor-pointer ${
+                              isAlreadyReacted ? 'opacity-40' : 'opacity-85 hover:opacity-100'
+                            }`}
                             title={`Thả ${em}`}
                           >
-                            {em}
+                            <Emoji emoji={em} size={15} />
                           </button>
                         );
                       })}
+                      <button
+                        type="button"
+                        onClick={() => setFullEmojiTargetPostId(post.id)}
+                        className="flex h-6 w-6 items-center justify-center rounded-full text-circle-slate dark:text-circle-dark-muted hover:bg-black/5 dark:hover:bg-white/10 hover:text-circle-charcoal dark:hover:text-white transition-colors cursor-pointer"
+                        title="Thêm biểu cảm khác"
+                      >
+                        <Smile className="h-3.5 w-3.5" />
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -254,13 +273,8 @@ export const CircleAnonymousView: React.FC<CircleAnonymousViewProps> = ({ circle
                     <Sparkles className="h-3 w-3" />
                     <span>Điều muốn nói</span>
                   </div>
-                  <span>
-                    {new Date(post.postedAt).toLocaleDateString('vi-VN', {
-                      day: '2-digit',
-                      month: '2-digit',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
+                  <span className="font-medium tracking-tight">
+                    {formatPostDate(post.postedAt)}
                   </span>
                 </div>
               </div>
@@ -271,7 +285,7 @@ export const CircleAnonymousView: React.FC<CircleAnonymousViewProps> = ({ circle
         <div className="flex-1 flex flex-col items-center justify-center p-12 text-center rounded-2xl border border-dashed border-circle-hairline dark:border-circle-dark-hairline bg-white/40 dark:bg-circle-dark-surface/40">
           <Heart className="h-12 w-12 text-circle-slate dark:text-circle-dark-muted opacity-40 mb-3" />
           <h4 className="text-sm font-semibold text-circle-charcoal dark:text-circle-dark-text">
-            Hộp thư Điều muốn nói đang trống
+            Hộp thư đang trống
           </h4>
           <p className="text-xs text-circle-slate dark:text-circle-dark-muted mt-1 max-w-sm mb-4">
             Gửi gắm lời cảm ơn, động viên hoặc một lời chúc tốt lành ẩn danh đến các thành viên trong nhóm!
@@ -279,7 +293,7 @@ export const CircleAnonymousView: React.FC<CircleAnonymousViewProps> = ({ circle
           <button
             type="button"
             onClick={() => setIsComposeModalOpen(true)}
-            className="flex items-center gap-1.5 rounded-lg bg-circle-charcoal dark:bg-circle-primary px-4 py-2 text-xs font-semibold text-white dark:text-circle-charcoal hover:bg-circle-sage transition-all shadow-sm"
+            className="flex items-center gap-2 rounded-full bg-circle-primary hover:bg-circle-sage px-5 py-2 text-xs font-bold text-white transition-all shadow-sm active:scale-95 cursor-pointer"
           >
             <Plus className="h-3.5 w-3.5" />
             <span>Viết lời tâm sự ngay</span>
@@ -317,7 +331,7 @@ export const CircleAnonymousView: React.FC<CircleAnonymousViewProps> = ({ circle
                       key={theme.id}
                       type="button"
                       onClick={() => setSelectedTheme(theme.id)}
-                      className={`flex-1 py-1.5 rounded-lg text-[11px] font-semibold transition-all border ${
+                      className={`flex-1 py-1.5 rounded-full text-[11px] font-semibold transition-all border cursor-pointer ${
                         selectedTheme === theme.id
                           ? 'border-circle-charcoal dark:border-white shadow-xs font-bold scale-105'
                           : 'border-transparent opacity-70 hover:opacity-100'
@@ -351,14 +365,14 @@ export const CircleAnonymousView: React.FC<CircleAnonymousViewProps> = ({ circle
                 <button
                   type="button"
                   onClick={() => setIsComposeModalOpen(false)}
-                  className="rounded-lg px-3.5 py-2 text-xs font-semibold text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors"
+                  className="rounded-full px-4 py-2 text-xs font-semibold border border-circle-hairline dark:border-circle-dark-hairline text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors cursor-pointer"
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
                   disabled={createMutation.isPending || !content.trim()}
-                  className="flex items-center gap-1.5 rounded-lg bg-circle-charcoal dark:bg-circle-primary px-4 py-2 text-xs font-semibold text-white dark:text-circle-charcoal hover:bg-circle-sage transition-all disabled:opacity-50"
+                  className="flex items-center gap-1.5 rounded-full bg-circle-primary hover:bg-circle-sage px-5 py-2 text-xs font-bold text-white shadow-sm transition-all disabled:opacity-50 active:scale-95 cursor-pointer"
                 >
                   <Send className="h-3.5 w-3.5" />
                   <span>{createMutation.isPending ? 'Đang gửi...' : 'Gửi lời nhắn'}</span>
@@ -368,6 +382,18 @@ export const CircleAnonymousView: React.FC<CircleAnonymousViewProps> = ({ circle
           </div>
         </div>
       )}
+
+      {/* Full Comprehensive Emoji Picker Modal */}
+      <FullEmojiPickerModal
+        isOpen={Boolean(fullEmojiTargetPostId)}
+        onClose={() => setFullEmojiTargetPostId(null)}
+        onSelectEmoji={(emoji) => {
+          if (fullEmojiTargetPostId) {
+            reactMutation.mutate({ postId: fullEmojiTargetPostId, emoji });
+            setFullEmojiTargetPostId(null);
+          }
+        }}
+      />
     </div>
   );
 };

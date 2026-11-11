@@ -917,7 +917,7 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-circle-canvas dark:bg-circle-dark-surface overflow-y-auto p-4 md:p-6 transition-colors">
+    <div className="relative flex-1 flex flex-col h-full bg-circle-canvas dark:bg-circle-dark-surface overflow-y-auto p-4 md:p-6 transition-colors">
       {/* Floating Pill Toolbar: Các nút điều khiển dạng Floating Pill Button */}
       <div className="sticky top-0 z-20 flex items-center justify-end pointer-events-none mb-3 py-1">
 
@@ -949,7 +949,7 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
       </div>
 
       {/* Main Responsive Layout */}
-      <div className="flex flex-col lg:flex-row gap-6 w-full flex-1 items-stretch">
+      <div className="relative flex flex-col lg:flex-row gap-6 w-full flex-1 items-stretch">
         {/* LEFT COLUMN: Visual Arena */}
         <div className="flex-1 flex flex-col items-center justify-center p-2 sm:p-4 transition-all min-h-[460px]">
           {/* SÂN KHẤU VÒNG QUAY (VISUAL ARENA) */}
@@ -1509,12 +1509,12 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
           </div>
         )}
 
-        {/* Nút mở lại bảng: Ghim ở mép bên phải cùng màn hình khi thu gọn */}
+        {/* Nút mở lại bảng: Ghim ở mép bên phải của phần hiển thị nội dung khi thu gọn */}
         {isPanelCollapsed && (
           <button
             type="button"
             onClick={() => setIsPanelCollapsed(false)}
-            className="fixed right-0 top-1/2 -translate-y-1/2 z-30 flex items-center justify-center w-8 h-12 rounded-l-2xl bg-white/95 dark:bg-circle-dark-surface/95 backdrop-blur-md border-y border-l border-border/80 shadow-lg text-teal-600 hover:text-teal-700 hover:w-9 transition-all active:scale-90 group"
+            className="absolute right-0 top-6 z-30 flex items-center justify-center w-7 h-9 rounded-l-xl bg-white dark:bg-circle-charcoal border-y border-l border-border/80 shadow-md text-slate-500 hover:text-teal-600 dark:hover:text-teal-400 transition-all active:scale-90 group"
             title={t.luckyWheel.expandPanel || 'Mở bảng'}
             aria-label={t.luckyWheel.expandPanel || 'Mở bảng'}
           >

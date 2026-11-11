@@ -94,6 +94,16 @@ const THEMES: MobileTheme[] = [
   },
 ];
 
+const formatPostDate = (isoString: string) => {
+  const d = new Date(isoString);
+  const hours = String(d.getHours()).padStart(2, '0');
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  return `${hours}:${minutes} ${day}/${month}/${year}`;
+};
+
 export const MobileAnonymousView: React.FC<MobileAnonymousViewProps> = ({ circleId }) => {
   const { colors, resolvedTheme } = useThemeStore();
   const isDark = resolvedTheme === 'dark';
@@ -268,13 +278,63 @@ export const MobileAnonymousView: React.FC<MobileAnonymousViewProps> = ({ circle
                     {post.content}
                   </Text>
 
+                  {/* Reactions Bar */}
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginTop: 10 }}>
+                    {(post.reactions || []).map((rx) => (
+                      <TouchableOpacity
+                        key={rx.emoji}
+                        activeOpacity={0.7}
+                        onPress={() => handleToggleReaction(post.id, rx.emoji)}
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 4,
+                          paddingHorizontal: 8,
+                          paddingVertical: 3,
+                          borderRadius: 16,
+                          backgroundColor: rx.userReacted ? 'rgba(13, 148, 136, 0.18)' : 'rgba(255, 255, 255, 0.75)',
+                          borderWidth: 1,
+                          borderColor: rx.userReacted ? '#0D9488' : 'rgba(0, 0, 0, 0.08)',
+                        }}
+                      >
+                        <Text style={{ fontSize: 13 }}>{rx.emoji}</Text>
+                        <Text style={{ fontSize: 10, fontWeight: '700', color: rx.userReacted ? '#0D9488' : '#64748B' }}>
+                          {rx.count}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        backgroundColor: 'rgba(255, 255, 255, 0.75)',
+                        borderRadius: 16,
+                        borderWidth: 1,
+                        borderColor: 'rgba(0, 0, 0, 0.08)',
+                        paddingHorizontal: 4,
+                        paddingVertical: 1,
+                      }}
+                    >
+                      {['❤️', '👍', '😂'].map((em) => (
+                        <TouchableOpacity
+                          key={em}
+                          activeOpacity={0.6}
+                          onPress={() => handleToggleReaction(post.id, em)}
+                          style={{ paddingHorizontal: 4, paddingVertical: 2 }}
+                        >
+                          <Text style={{ fontSize: 13 }}>{em}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+
                   <View style={styles.cardFooter}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                       <Sparkles size={11} color="#64748B" />
                       <Text style={styles.footerText}>Điều muốn nói</Text>
                     </View>
                     <Text style={styles.footerText}>
-                      {new Date(post.postedAt).toLocaleDateString('vi-VN')}
+                      {formatPostDate(post.postedAt)}
                     </Text>
                   </View>
                 </View>
