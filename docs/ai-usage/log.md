@@ -7575,3 +7575,44 @@
   - **Resolution / Fix:** N/A.
 - **Commit:** 83ef80b
 - **PR:** Pending
+
+
+---
+
+## AI-0186: Khắc phục Triệt để Hiển thị System Message Động khi Chỉnh Sửa Lịch Hẹn & Cập nhật Kênh Mục Tiêu (#120)
+
+- **Date:** 2026-11-12 17:25:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120
+- **Purpose:** 
+  1. **Khắc phục nguyên nhân dòng System Message không hiển thị đúng khi sửa lịch hẹn:**
+     - **Nguyên nhân 1 (Target Channel):** `broadcastCalendarEventMessage` và `respondCalendarEventRsvp` trước đây truy vấn kênh chat theo `createdAt: 'asc'`, dẫn tới nếu sự kiện được đăng ở kênh chat khác hoặc trong vòng tròn có nhiều kênh, tin nhắn cập nhật và thông báo hệ thống bị gửi lệch kênh. Đã sửa: Tự động tìm chính xác kênh chat mà thẻ sự kiện gốc đang hiện diện (`where: { channel: { circleId }, content: { contains: eventId } }`).
+     - **Nguyên nhân 2 (Dynamic Header trên thẻ gốc):** Khi cập nhật thẻ gốc trong database, trường `action` được giữ là `'CREATED'` (để thẻ không bị ẩn thành dòng pill), nhưng `latestAction` không được lưu. Do đó, dòng thông báo hệ thống nằm phía trên thẻ sự kiện gốc vẫn luôn giữ text "Bạn tạo nhắc hẹn mới" mà không đổi thành "Bạn đã cập nhật lịch hẹn… Xem". Đã bổ sung trường `latestAction: 'UPDATED'` | `'RSVP_UPDATED'` | `'CANCELLED'` vào `CalendarEventMessagePayload`, giúp header của thẻ sự kiện gốc ngay lập tức đổi thành "Bạn đã cập nhật lịch hẹn… Xem" / "[Tên] đã cập nhật lịch hẹn… Xem".
+     - **Nguyên nhân 3 (Visual pill & icon):** Chuẩn hóa dòng thông báo hệ thống pill độc lập với icon `<CalendarDays />` tinh tế, căn giữa, giúp người dùng nhận diện ngay thông báo trạng thái sự kiện trong luồng tin nhắn chat.
+  2. **Đồng bộ toàn diện Web & Mobile:**
+     - `CalendarEventChatEmbed.tsx` (Web) và `MobileCalendarEventChatEmbed.tsx` (Mobile) đồng bộ 100% logic `getActionType` (ưu tiên `latestAction || action`), hiển thị chuẩn xác cả dòng header trên thẻ sự kiện lẫn dòng system message độc lập.
+- **Prompt Summary:** sao tôi sửa mà chưa có system message trong tin nhắn nhỉ nhỉ
+- **Files Affected:**
+  - `packages/types/src/index.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.service.spec.ts`
+  - `apps/web/src/components/chat/CalendarEventChatEmbed.tsx`
+  - `apps/mobile/src/components/chat/MobileCalendarEventChatEmbed.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% logic điều hướng kênh mục tiêu, bổ sung `latestAction`, và đồng bộ hiển thị System Message.
+- **Human Modifications:** Người dùng phản ánh sau khi sửa lịch hẹn chưa thấy system message cập nhật trong tin nhắn.
+- **Verification Method:**
+  - `npx tsc --noEmit --project apps/web/tsconfig.json`: Passed 0 errors.
+  - `npx tsc --noEmit --project apps/mobile/tsconfig.json`: Passed 0 errors.
+  - `npx tsc --noEmit --project apps/backend/tsconfig.json`: Passed 0 errors.
+  - `npm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.spec.ts`: Passed 45/45 tests.
+- **Official Source Checked:** PROJECT_GOD.md, agentic/RULES.md & agentic/CONVENTIONS.md.
+- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A.
+  - **Resolution / Fix:** N/A.
+- **Commit:** Pending
+- **PR:** Pending

@@ -70,38 +70,28 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
   const [pendingVoteStatus, setPendingVoteStatus] = useState<EventRsvpStatus | null>(null);
 
   // Dynamic system message action tracker (thay đổi nội dung theo tạo, sửa, có người bình chọn)
+  const getActionType = (data: CalendarEventMessagePayload): 'CREATED' | 'UPDATED' | 'CANCELLED' | 'RSVP_UPDATED' => {
+    if (data.isCancelled || data.action === 'CANCELLED' || data.latestAction === 'CANCELLED') {
+      return 'CANCELLED';
+    }
+    const act = data.latestAction || data.action;
+    if (act === 'UPDATED') return 'UPDATED';
+    if (act === 'RSVP_UPDATED') return 'RSVP_UPDATED';
+    return 'CREATED';
+  };
+
   const [lastAction, setLastAction] = useState<{
     type: 'CREATED' | 'UPDATED' | 'CANCELLED' | 'RSVP_UPDATED';
     actorName?: string;
     actorUserId?: string;
     rsvpStatus?: EventRsvpStatus;
   }>(() => {
-    if (eventData.isCancelled || eventData.action === 'CANCELLED') {
-      return {
-        type: 'CANCELLED',
-        actorName: eventData.lastActorName || senderDisplayName || eventData.creatorName,
-        actorUserId: eventData.lastActorUserId,
-      };
-    }
-    if (eventData.action === 'UPDATED') {
-      return {
-        type: 'UPDATED',
-        actorName: eventData.lastActorName || senderDisplayName || eventData.creatorName,
-        actorUserId: eventData.lastActorUserId,
-      };
-    }
-    if (eventData.action === 'RSVP_UPDATED') {
-      return {
-        type: 'RSVP_UPDATED',
-        actorName: eventData.lastActorName || senderDisplayName,
-        actorUserId: eventData.lastActorUserId,
-        rsvpStatus: eventData.lastRsvpStatus,
-      };
-    }
+    const actType = getActionType(eventData);
     return {
-      type: 'CREATED',
-      actorName: senderDisplayName || eventData.creatorName,
-      actorUserId: isSenderMe ? currentUserId : undefined,
+      type: actType,
+      actorName: eventData.lastActorName || senderDisplayName || eventData.creatorName,
+      actorUserId: eventData.lastActorUserId || (isSenderMe && actType === 'CREATED' ? currentUserId : undefined),
+      rsvpStatus: eventData.lastRsvpStatus,
     };
   });
 
@@ -144,33 +134,24 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
 
   // Đồng bộ trạng thái khi prop eventData thay đổi (ví dụ khi tin nhắn cập nhật realtime qua chat:message-updated)
   useEffect(() => {
-    if (eventData.isCancelled || eventData.action === 'CANCELLED') {
-      setLastAction({
-        type: 'CANCELLED',
-        actorName: eventData.lastActorName || eventData.creatorName,
-        actorUserId: eventData.lastActorUserId,
-      });
-    } else if (eventData.action === 'UPDATED') {
-      setLastAction({
-        type: 'UPDATED',
-        actorName: eventData.lastActorName || eventData.creatorName,
-        actorUserId: eventData.lastActorUserId,
-      });
-    } else if (eventData.action === 'RSVP_UPDATED') {
-      setLastAction({
-        type: 'RSVP_UPDATED',
-        actorName: eventData.lastActorName || 'Thành viên',
-        actorUserId: eventData.lastActorUserId,
-        rsvpStatus: eventData.lastRsvpStatus,
-      });
-    }
+    const actType = getActionType(eventData);
+    setLastAction({
+      type: actType,
+      actorName: eventData.lastActorName || senderDisplayName || eventData.creatorName,
+      actorUserId: eventData.lastActorUserId || (isSenderMe && actType === 'CREATED' ? currentUserId : undefined),
+      rsvpStatus: eventData.lastRsvpStatus,
+    });
   }, [
     eventData.action,
+    eventData.latestAction,
     eventData.isCancelled,
     eventData.lastActorName,
     eventData.lastActorUserId,
     eventData.lastRsvpStatus,
     eventData.creatorName,
+    senderDisplayName,
+    isSenderMe,
+    currentUserId,
   ]);
 
   // Realtime Socket.IO sync for RSVP updates (COL-09)
@@ -401,7 +382,7 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
     if (lastAction.type === 'UPDATED') {
       return isMe ? 'Bạn đã cập nhật lịch hẹn' : `${actor} đã cập nhật lịch hẹn`;
     }
-    if (eventData.action === 'REMINDER') {
+    if (eventData.action === 'REMINDER' || eventData.latestAction === 'REMINDER') {
       return `Nhắc hẹn: ${eventData.eventTitle || 'Sự kiện sắp diễn ra'}`;
     }
     if (lastAction.type === 'RSVP_UPDATED') {
@@ -422,6 +403,7 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
     senderDisplayName,
     eventData.creatorName,
     eventData.action,
+    eventData.latestAction,
     eventData.eventTitle,
   ]);
 
@@ -434,8 +416,9 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
 
   if (!showCard) {
     return (
-      <div className="w-full flex items-center justify-center my-1.5 select-none">
+      <div className="w-full flex items-center justify-center my-2 select-none">
         <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-circle-wash/80 dark:bg-circle-dark-wash/80 text-circle-slate dark:text-circle-dark-muted border border-circle-hairline/60 dark:border-circle-dark-hairline/60 shadow-2xs">
+          <CalendarDays className="w-3.5 h-3.5 text-circle-primary shrink-0" />
           <span>{systemMessageText}</span>
           <span className="opacity-50">…</span>
           <button

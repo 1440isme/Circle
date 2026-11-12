@@ -155,6 +155,16 @@ export const MobileCalendarEventChatEmbed: React.FC<MobileCalendarEventChatEmbed
   }, [propData, content]);
 
   // Trạng thái hành động mới nhất của lịch hẹn để hiển thị thông báo hệ thống động
+  const getActionType = (raw: any): 'CREATED' | 'UPDATED' | 'CANCELLED' | 'RSVP_UPDATED' => {
+    if (raw?.isCancelled || raw?.action === 'CANCELLED' || raw?.action === 'DELETED' || raw?.latestAction === 'CANCELLED') {
+      return 'CANCELLED';
+    }
+    const act = raw?.latestAction || raw?.action;
+    if (act === 'UPDATED') return 'UPDATED';
+    if (act === 'RSVP_UPDATED') return 'RSVP_UPDATED';
+    return 'CREATED';
+  };
+
   const [lastAction, setLastAction] = useState<{
     type: 'CREATED' | 'UPDATED' | 'RSVP_UPDATED' | 'CANCELLED';
     actorName?: string;
@@ -162,32 +172,12 @@ export const MobileCalendarEventChatEmbed: React.FC<MobileCalendarEventChatEmbed
     rsvpStatus?: EventRsvpStatus;
   }>(() => {
     const castData = data as any;
-    if (data?.isCancelled || data?.action === 'CANCELLED' || data?.action === 'DELETED') {
-      return {
-        type: 'CANCELLED',
-        actorName: castData?.lastActorName || senderDisplayName || data?.creatorName,
-        actorUserId: castData?.lastActorUserId,
-      };
-    }
-    if (data?.action === 'UPDATED') {
-      return {
-        type: 'UPDATED',
-        actorName: castData?.lastActorName || senderDisplayName || data?.creatorName,
-        actorUserId: castData?.lastActorUserId,
-      };
-    }
-    if (data?.action === 'RSVP_UPDATED') {
-      return {
-        type: 'RSVP_UPDATED',
-        actorName: castData?.lastActorName || senderDisplayName,
-        actorUserId: castData?.lastActorUserId,
-        rsvpStatus: castData?.lastRsvpStatus,
-      };
-    }
+    const actType = getActionType(data);
     return {
-      type: 'CREATED',
-      actorName: senderDisplayName || data?.creatorName,
-      actorUserId: isSenderMe ? effectiveUserId : undefined,
+      type: actType,
+      actorName: castData?.lastActorName || senderDisplayName || data?.creatorName,
+      actorUserId: castData?.lastActorUserId || (isSenderMe && actType === 'CREATED' ? effectiveUserId : undefined),
+      rsvpStatus: castData?.lastRsvpStatus,
     };
   });
 
@@ -195,34 +185,24 @@ export const MobileCalendarEventChatEmbed: React.FC<MobileCalendarEventChatEmbed
   useEffect(() => {
     if (!data) return;
     const castData = data as any;
-    if (data.isCancelled || data.action === 'CANCELLED' || data.action === 'DELETED') {
-      setLastAction({
-        type: 'CANCELLED',
-        actorName: castData.lastActorName || senderDisplayName || data.creatorName,
-        actorUserId: castData.lastActorUserId,
-      });
-    } else if (data.action === 'UPDATED') {
-      setLastAction({
-        type: 'UPDATED',
-        actorName: castData.lastActorName || senderDisplayName || data.creatorName,
-        actorUserId: castData.lastActorUserId,
-      });
-    } else if (data.action === 'RSVP_UPDATED') {
-      setLastAction({
-        type: 'RSVP_UPDATED',
-        actorName: castData.lastActorName || senderDisplayName || 'Thành viên',
-        actorUserId: castData.lastActorUserId,
-        rsvpStatus: castData.lastRsvpStatus,
-      });
-    }
+    const actType = getActionType(data);
+    setLastAction({
+      type: actType,
+      actorName: castData.lastActorName || senderDisplayName || data.creatorName,
+      actorUserId: castData.lastActorUserId || (isSenderMe && actType === 'CREATED' ? effectiveUserId : undefined),
+      rsvpStatus: castData.lastRsvpStatus,
+    });
   }, [
     data?.action,
+    (data as any)?.latestAction,
     data?.isCancelled,
     (data as any)?.lastActorName,
     (data as any)?.lastActorUserId,
     (data as any)?.lastRsvpStatus,
     data?.creatorName,
     senderDisplayName,
+    isSenderMe,
+    effectiveUserId,
   ]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -620,7 +600,7 @@ export const MobileCalendarEventChatEmbed: React.FC<MobileCalendarEventChatEmbed
     if (lastAction.type === 'UPDATED') {
       return isMe ? 'Bạn đã cập nhật lịch hẹn' : `${actor} đã cập nhật lịch hẹn`;
     }
-    if (data?.action === 'REMINDER') {
+    if (data?.action === 'REMINDER' || (data as any)?.latestAction === 'REMINDER') {
       return `Nhắc hẹn: ${eventTitle || 'Sự kiện sắp diễn ra'}`;
     }
     if (lastAction.type === 'RSVP_UPDATED') {
@@ -641,6 +621,7 @@ export const MobileCalendarEventChatEmbed: React.FC<MobileCalendarEventChatEmbed
     senderDisplayName,
     data?.creatorName,
     data?.action,
+    (data as any)?.latestAction,
     eventTitle,
   ]);
 

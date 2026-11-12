@@ -33,6 +33,8 @@ describe('CircleToolsService', () => {
       },
       message: {
         create: jest.fn(),
+        findFirst: jest.fn(),
+        update: jest.fn(),
       },
       sharedAlbum: {
         findMany: jest.fn(),

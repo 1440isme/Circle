@@ -1549,41 +1549,52 @@ export class CircleToolsService {
       // Cập nhật số lượng vote trên thẻ gốc trong DB (giữ action: 'CREATED' để thẻ gốc vẫn là thẻ sự kiện đầy đủ),
       // đồng thời gửi 1 tin nhắn thông báo hệ thống mới (action: 'RSVP_UPDATED') vào chat
       try {
-        const channel = await this.prisma.channel.findFirst({
-          where: { circleId },
-          orderBy: { createdAt: 'asc' },
-        });
-        if (channel) {
-          const existingMessage = await this.prisma.message.findFirst({
-            where: {
-              channelId: channel.id,
-              content: {
-                contains: `"eventId":"${eventId}"`,
-              },
+        const existingMessage = await this.prisma.message.findFirst({
+          where: {
+            channel: { circleId },
+            content: {
+              contains: `"eventId":"${eventId}"`,
             },
-            orderBy: { sentAt: 'desc' },
-            include: {
-              sender: {
-                include: {
-                  user: {
-                    include: {
-                      profile: true,
-                    },
+          },
+          orderBy: { sentAt: 'desc' },
+          include: {
+            channel: true,
+            sender: {
+              include: {
+                user: {
+                  include: {
+                    profile: true,
                   },
                 },
               },
-              reactions: true,
-              pinnedRecord: true,
             },
-          });
+            reactions: true,
+            pinnedRecord: true,
+          },
+        });
+
+        const defaultChannel = await this.prisma.channel.findFirst({
+          where: { circleId },
+          orderBy: { createdAt: 'asc' },
+        });
+        const channel = existingMessage?.channel || defaultChannel;
+
+        if (channel) {
+          const actorName =
+            rsvp.user?.profile?.displayName || rsvp.user?.email?.split('@')[0] || 'Thành viên';
+
           if (existingMessage && existingMessage.content) {
             let parsedContent: any = {};
             try {
               parsedContent = JSON.parse(existingMessage.content.replace('[CALENDAR_EVENT]:', ''));
             } catch {}
             parsedContent.rsvps = rsvpsBreakdown;
-            // Thẻ gốc giữ action: 'CREATED' để vẫn hiển thị đầy đủ thẻ sự kiện
+            // Thẻ gốc giữ action: 'CREATED' để vẫn hiển thị đầy đủ thẻ sự kiện, nhưng cập nhật latestAction
             parsedContent.action = 'CREATED';
+            parsedContent.latestAction = 'RSVP_UPDATED';
+            parsedContent.lastActorName = actorName;
+            parsedContent.lastActorUserId = rsvp.userId;
+            parsedContent.lastRsvpStatus = rsvp.status as any;
 
             const updatedRaw = await this.prisma.message.update({
               where: { id: existingMessage.id },
@@ -1614,8 +1625,6 @@ export class CircleToolsService {
             where: { circleId_userId: { circleId, userId: rsvp.userId } },
           });
           if (member) {
-            const actorName =
-              rsvp.user?.profile?.displayName || rsvp.user?.email?.split('@')[0] || 'Thành viên';
             const rsvpSystemPayload: CalendarEventMessagePayload = {
               type: 'CALENDAR_EVENT',
               eventId: updatedEvent.id,
@@ -1627,6 +1636,7 @@ export class CircleToolsService {
               lastActorUserId: rsvp.userId,
               lastRsvpStatus: rsvp.status as any,
               action: 'RSVP_UPDATED',
+              latestAction: 'RSVP_UPDATED',
             };
 
             const rawRsvpMsg = await this.prisma.message.create({
@@ -1825,10 +1835,43 @@ export class CircleToolsService {
     action: 'CREATED' | 'UPDATED' | 'CANCELLED' | 'DELETED' | 'RSVP_UPDATED' = 'CREATED',
   ) {
     try {
-      const channel = await this.prisma.channel.findFirst({
-        where: { circleId },
-        orderBy: { createdAt: 'asc' },
-      });
+      let channel: any = null;
+      let existingMessage: any = null;
+
+      // Khi sửa, hủy hoặc cập nhật RSVP: Tìm kênh chat nơi thẻ sự kiện gốc được đăng
+      if (action !== 'CREATED' && this.prisma.message?.findFirst) {
+        existingMessage = await this.prisma.message.findFirst({
+          where: {
+            channel: { circleId },
+            content: {
+              contains: `"eventId":"${event.id}"`,
+            },
+          },
+          orderBy: { sentAt: 'desc' },
+          include: {
+            channel: true,
+            sender: {
+              include: {
+                user: {
+                  include: {
+                    profile: true,
+                  },
+                },
+              },
+            },
+            reactions: true,
+            pinnedRecord: true,
+          },
+        });
+        channel = existingMessage?.channel;
+      }
+
+      if (!channel) {
+        channel = await this.prisma.channel.findFirst({
+          where: { circleId },
+          orderBy: { createdAt: 'asc' },
+        });
+      }
       if (!channel) return;
 
       const creatorName =
@@ -1862,6 +1905,7 @@ export class CircleToolsService {
       const payload: CalendarEventMessagePayload = {
         type: 'CALENDAR_EVENT',
         action,
+        latestAction: action,
         eventId: event.id,
         eventTitle: event.eventTitle || event.title,
         description: event.description || null,
@@ -1878,32 +1922,9 @@ export class CircleToolsService {
 
       // "và chỉ cần thẻ sự kiện khi tạo hoặc nhắc thui":
       // Khi sửa, hủy hoặc xóa:
-      // 1) Cập nhật thẻ gốc trong database (giữ action: 'CREATED' để thẻ gốc vẫn hiển thị đầy đủ thẻ)
+      // 1) Cập nhật thẻ gốc trong database (giữ action: 'CREATED' để thẻ gốc vẫn hiển thị đầy đủ thẻ, đồng thời cập nhật latestAction để header thẻ hiển thị chính xác)
       // 2) Gửi tin nhắn thông báo hệ thống mới vào kênh chat (action !== 'CREATED', chỉ hiển thị dòng text)
       if (action !== 'CREATED') {
-        const existingMessage = await this.prisma.message.findFirst({
-          where: {
-            channelId: channel.id,
-            content: {
-              contains: `"eventId":"${event.id}"`,
-            },
-          },
-          orderBy: { sentAt: 'desc' },
-          include: {
-            sender: {
-              include: {
-                user: {
-                  include: {
-                    profile: true,
-                  },
-                },
-              },
-            },
-            reactions: true,
-            pinnedRecord: true,
-          },
-        });
-
         if (existingMessage && existingMessage.content) {
           let parsedExisting: any = {};
           try {
@@ -1920,6 +1941,9 @@ export class CircleToolsService {
             reminderTime: event.reminderTime ? (event.reminderTime instanceof Date ? event.reminderTime.toISOString() : String(event.reminderTime)) : null,
             isCancelled: Boolean(event.isCancelled || action === 'CANCELLED'),
             action: 'CREATED',
+            latestAction: action,
+            lastActorName: creatorName,
+            lastActorUserId: member.userId,
           };
 
           const updatedRaw = await this.prisma.message.update({
