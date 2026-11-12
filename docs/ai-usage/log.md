@@ -7329,3 +7329,37 @@
   - **Resolution / Fix:** N/A.
 - **Commit:** 67768a1
 - **PR:** Pending
+
+
+---
+
+## AI-0180: Khắc phục lỗi thiếu lề (padding) và hỗ trợ cuộn mượt mà trong màn hình Chi tiết lịch hẹn Web (#120)
+
+- **Date:** 2026-11-12 14:16:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120
+- **Purpose:** 
+  1. Khắc phục triệt để lỗi màn hình Chi tiết lịch hẹn trên Web (`CircleEventDetailModal.tsx`) bị sát mép 0px, không cách lề (padding):
+     - Định vị thanh công cụ Floating Pill Controls bằng lớp phủ `pointer-events-none absolute top-14 lg:top-3 left-0 right-0 z-30 flex flex-col items-center gap-2 px-4 md:px-6` đồng bộ 100% với form Tạo/Sửa và Lịch ngoài.
+     - Đưa toàn bộ nội dung chi tiết vào vùng cuộn `flex-1 overflow-y-auto px-4 md:px-6 pt-28 lg:pt-20 pb-16` với khoảng đệm đầu chuẩn xác, chống che khuất nút floating pill, và bao bọc bởi container căn giữa `max-w-4xl mx-auto w-full`.
+     - Giữ nguyên các popup phụ (`showPollModal`, `showAttendeesModal`, `showReminderScopeModal`, `showPollScopeModal`, `showReminderConfirmModal`) độc lập với lớp phủ `fixed inset-0`.
+- **Prompt Summary:** chi tiết lịch hẹn web đang BỊ KHÔNG CÁCH LỀ HÃY SỬA LẠI
+- **Files Affected:**
+  - `apps/web/src/components/tools/CircleEventDetailModal.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% tái cấu trúc container cuộn và padding cách lề cho CircleEventDetailModal.
+- **Human Modifications:** Người dùng phản hồi chi tiết lịch hẹn trên web đang bị không cách lề và yêu cầu sửa lại.
+- **Verification Method:**
+  - `npx tsc --noEmit --project apps/web/tsconfig.json`: Passed 0 errors.
+  - `bash ./scripts/check-agent-map.sh`: Passed (130 files).
+  - `bash ./scripts/check-secrets.sh`: Passed, 0 secret leaks (599 files).
+- **Official Source Checked:** PROJECT_GOD.md, agentic/RULES.md & agentic/CONVENTIONS.md.
+- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A.
+  - **Resolution / Fix:** N/A.
+- **Commit:** dd10597
+- **PR:** Pending

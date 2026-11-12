@@ -509,17 +509,18 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
   };
 
   return (
-    <div className="space-y-6 w-full pb-16 animate-in fade-in duration-200">
+    <>
       {/* Floating Pill Buttons Bar (No static heading, pure floating controls with scroll-under content) */}
-      <div className="sticky top-0 z-30 pointer-events-none flex items-center justify-between gap-3 py-1 -mt-1 mb-2">
-        {/* Left: Nút Quay lại dạng ngày tháng năm - Floating Pill Button */}
-        <button
-          type="button"
-          onClick={onClose}
-          className="pointer-events-auto inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full backdrop-blur-xl bg-white/92 dark:bg-circle-dark-surface/90 border border-circle-hairline/80 dark:border-white/12 shadow-sm hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text font-bold text-xs sm:text-sm transition-all active:scale-95 cursor-pointer"
-          title="Quay lại Lịch"
-        >
-          <ChevronLeft className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+      <div className="pointer-events-none absolute top-14 lg:top-3 left-0 right-0 z-30 flex flex-col items-center gap-2 px-4 md:px-6">
+        <div className="w-full flex items-center justify-between gap-3">
+          {/* Left: Nút Quay lại dạng ngày tháng năm - Floating Pill Button */}
+          <button
+            type="button"
+            onClick={onClose}
+            className="pointer-events-auto inline-flex items-center gap-1.5 px-3.5 h-9 rounded-full backdrop-blur-xl bg-white/92 dark:bg-circle-dark-surface/90 border border-circle-hairline/80 dark:border-white/12 shadow-sm hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text font-bold text-xs sm:text-sm transition-all active:scale-95 cursor-pointer"
+            title="Quay lại Lịch"
+          >
+          <ChevronLeft className="w-4 h-4 text-circle-sage dark:text-circle-dark-primary" />
           <span>
             {currentOccDate.toLocaleDateString('vi-VN', {
               weekday: 'short',
@@ -537,7 +538,7 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
               type="button"
               onClick={handleShareClick}
               title="Chia sẻ vào tin nhắn nhóm"
-              className="flex items-center justify-center h-9 w-9 rounded-full backdrop-blur-xl bg-white/92 dark:bg-circle-dark-surface/90 border border-circle-hairline/80 dark:border-white/12 shadow-sm hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate dark:text-circle-dark-muted hover:text-teal-600 transition-all active:scale-95 cursor-pointer"
+              className="flex items-center justify-center h-9 w-9 rounded-full backdrop-blur-xl bg-white/92 dark:bg-circle-dark-surface/90 border border-circle-hairline/80 dark:border-white/12 shadow-sm hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate dark:text-circle-dark-muted hover:text-circle-sage dark:hover:text-circle-dark-primary transition-all active:scale-95 cursor-pointer"
             >
               <Share2 className="w-4 h-4 text-circle-slate dark:text-circle-dark-muted" />
             </button>
@@ -548,7 +549,7 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
               type="button"
               onClick={() => onEdit(event, currentOccDate)}
               title="Chỉnh sửa lịch hẹn"
-              className="flex items-center justify-center h-9 w-9 rounded-full backdrop-blur-xl bg-white/92 dark:bg-circle-dark-surface/90 border border-circle-hairline/80 dark:border-white/12 shadow-sm hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate dark:text-circle-dark-muted hover:text-teal-600 transition-all active:scale-95 cursor-pointer"
+              className="flex items-center justify-center h-9 w-9 rounded-full backdrop-blur-xl bg-white/92 dark:bg-circle-dark-surface/90 border border-circle-hairline/80 dark:border-white/12 shadow-sm hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate dark:text-circle-dark-muted hover:text-circle-sage dark:hover:text-circle-dark-primary transition-all active:scale-95 cursor-pointer"
             >
               <Pencil className="w-4 h-4 text-circle-slate dark:text-circle-dark-muted" />
             </button>
@@ -584,16 +585,20 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
           </button>
         </div>
       </div>
+    </div>
 
-      {/* Share Feedback Toast */}
-      {copiedShare && (
-        <div className="p-2.5 rounded-xl bg-teal-600 text-white text-xs text-center font-bold animate-in fade-in shadow-xs">
-          Đã chia sẻ lịch hẹn vào tin nhắn nhóm thành công!
-        </div>
-      )}
+    {/* Detail Content Scroll Container */}
+    <div className="flex-1 overflow-y-auto px-4 md:px-6 pt-28 lg:pt-20 pb-16">
+      <div className="space-y-6 max-w-4xl mx-auto w-full animate-in fade-in duration-200">
+        {/* Share Feedback Toast */}
+        {copiedShare && (
+          <div className="p-2.5 rounded-xl bg-circle-primary text-white text-xs text-center font-bold animate-in fade-in shadow-xs">
+            Đã chia sẻ lịch hẹn vào tin nhắn nhóm thành công!
+          </div>
+        )}
 
-      {/* Chi tiết sự kiện (Bỏ khung thẻ, giao diện trực tiếp mượt mà như app) */}
-      <div className="space-y-6 pt-1">
+        {/* Chi tiết sự kiện (Bỏ khung thẻ, giao diện trực tiếp mượt mà như app) */}
+        <div className="space-y-6 pt-1">
         {/* Tiêu đề & Trạng thái */}
         <div className="space-y-3">
           <div className="flex items-start justify-between gap-3">
@@ -628,9 +633,9 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
           )}
         </div>
 
-        {/* 1. Hàng Thời gian (Icon Clock - màu xanh teal) */}
+        {/* 1. Hàng Thời gian (Icon Clock - màu xanh hệ thống) */}
         <div className="flex items-start gap-4 pt-4 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60">
-          <div className="h-9 w-9 rounded-xl bg-teal-500/10 flex items-center justify-center text-teal-600 shrink-0 mt-0.5">
+          <div className="h-9 w-9 rounded-xl bg-circle-primary/10 flex items-center justify-center text-circle-sage dark:text-circle-dark-primary shrink-0 mt-0.5">
             <Clock className="h-5 w-5" />
           </div>
           <div className="flex-1 min-w-0">
@@ -652,10 +657,10 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
           </div>
         </div>
 
-        {/* 2. Hàng Địa điểm (Icon MapPin / Video - đồng bộ màu xanh teal) */}
+        {/* 2. Hàng Địa điểm (Icon MapPin / Video - đồng bộ màu xanh hệ thống) */}
         {parsedLocation && parsedLocation.text && (
           <div className="flex items-start gap-4 pt-4 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60">
-            <div className="h-9 w-9 rounded-xl bg-teal-500/10 flex items-center justify-center text-teal-600 shrink-0 mt-0.5">
+            <div className="h-9 w-9 rounded-xl bg-circle-primary/10 flex items-center justify-center text-circle-sage dark:text-circle-dark-primary shrink-0 mt-0.5">
               {parsedLocation.category === 'meet' ? (
                 <Video className="h-5 w-5" />
               ) : (
@@ -670,11 +675,11 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
                 }
                 target="_blank"
                 rel="noopener noreferrer"
-                className="group inline-flex items-center gap-1.5 text-sm font-bold text-circle-charcoal dark:text-circle-dark-text hover:text-teal-600 dark:hover:text-teal-400 transition-colors"
+                className="group inline-flex items-center gap-1.5 text-sm font-bold text-circle-charcoal dark:text-circle-dark-text hover:text-circle-sage dark:hover:text-circle-dark-primary transition-colors"
                 title={parsedLocation.url ? 'Mở liên kết cuộc họp' : 'Xem địa chỉ trên Google Maps'}
               >
                 <span className="truncate group-hover:underline">{parsedLocation.text}</span>
-                <ExternalLink className="h-4 w-4 shrink-0 text-circle-slate group-hover:text-teal-600 transition-colors" />
+                <ExternalLink className="h-4 w-4 shrink-0 text-circle-slate group-hover:text-circle-sage dark:group-hover:text-circle-dark-primary transition-colors" />
               </a>
             </div>
           </div>
@@ -683,7 +688,7 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
         {/* 3. Hàng Lặp lại (Ghi rõ: Lặp lại hằng tuần vào T4) */}
         {isRecurring && recurrenceConfig && (
           <div className="flex items-start gap-4 pt-4 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60">
-            <div className="h-9 w-9 rounded-xl bg-teal-500/10 flex items-center justify-center text-teal-600 shrink-0 mt-0.5">
+            <div className="h-9 w-9 rounded-xl bg-circle-primary/10 flex items-center justify-center text-circle-sage dark:text-circle-dark-primary shrink-0 mt-0.5">
               <Repeat className="h-5 w-5" />
             </div>
             <div className="flex-1 min-w-0 flex items-center justify-between gap-4">
@@ -746,15 +751,15 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
             className="flex items-center gap-3 min-w-0 cursor-pointer group flex-1"
             title="Xem danh sách người tham gia"
           >
-            <div className="h-9 w-9 rounded-xl bg-teal-500/10 flex items-center justify-center text-teal-600 shrink-0 group-hover:bg-teal-500/20 transition-colors">
+            <div className="h-9 w-9 rounded-xl bg-circle-primary/10 flex items-center justify-center text-circle-sage dark:text-circle-dark-primary shrink-0 group-hover:bg-circle-wash transition-colors">
               <Users className="h-5 w-5" />
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
-                <span className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text group-hover:text-teal-600 transition-colors">
+                <span className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text group-hover:text-circle-sage dark:group-hover:text-circle-dark-primary transition-colors">
                   Người tham gia ({totalRsvps})
                 </span>
-                <ChevronRight className="h-3.5 w-3.5 text-circle-slate group-hover:text-teal-600 transition-colors" />
+                <ChevronRight className="h-3.5 w-3.5 text-circle-slate group-hover:text-circle-sage dark:group-hover:text-circle-dark-primary transition-colors" />
               </div>
               <div className="text-xs text-circle-slate dark:text-circle-dark-muted font-medium mt-0.5">
                 {totalRsvps > 0 ? `${yesRsvps.length} người tham gia` : 'Chưa có phản hồi nào'}
@@ -804,7 +809,7 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
                   : myRsvp === EventRsvpStatus.MAYBE
                   ? 'bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 border-amber-500/40 hover:bg-amber-100'
                   : 'bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 border-rose-500/40 hover:bg-rose-100'
-                : 'bg-teal-600 hover:bg-teal-700 text-white border-transparent shadow-xs'
+                : 'bg-circle-primary hover:bg-circle-sage text-white border-transparent shadow-xs'
             }`}
           >
             <span>
@@ -823,7 +828,7 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
         {/* 5. Hàng Nhắc nhở (Icon Bell - Select nằm bên phải luôn, hỏi xác nhận cập nhật như lưu chỉnh sửa) */}
         <div className="flex items-center justify-between gap-4 pt-4 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="h-9 w-9 rounded-xl bg-teal-500/10 flex items-center justify-center text-teal-600 shrink-0">
+            <div className="h-9 w-9 rounded-xl bg-circle-primary/10 flex items-center justify-center text-circle-sage dark:text-circle-dark-primary shrink-0">
               <Bell className="h-5 w-5" />
             </div>
             <span className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text shrink-0">
@@ -833,7 +838,7 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
 
           <div className="flex items-center gap-2 shrink-0">
             {isUpdatingReminder && (
-              <div className="flex items-center gap-1.5 text-xs text-teal-600 font-medium">
+              <div className="flex items-center gap-1.5 text-xs text-circle-primary font-medium">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 <span className="hidden sm:inline">Đang lưu...</span>
               </div>
@@ -857,9 +862,9 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
           </div>
         </div>
 
-        {/* 6. Hàng Ghi chú (Icon AlignLeft - đồng bộ màu xanh teal) */}
+        {/* 6. Hàng Ghi chú (Icon AlignLeft - đồng bộ màu xanh hệ thống) */}
         <div className="flex items-start gap-4 pt-4 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60">
-          <div className="h-9 w-9 rounded-xl bg-teal-500/10 flex items-center justify-center text-teal-600 shrink-0 mt-0.5">
+          <div className="h-9 w-9 rounded-xl bg-circle-primary/10 flex items-center justify-center text-circle-sage dark:text-circle-dark-primary shrink-0 mt-0.5">
             <AlignLeft className="h-5 w-5" />
           </div>
           <div className="flex-1 min-w-0">
@@ -878,6 +883,8 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
           </div>
         </div>
       </div>
+        </div>
+      </div>
 
       {/* ============================================================== */}
       {/* POPUP 1: BÌNH CHỌN THAM GIA (TÁCH BIỆT HOÀN TOÀN) */}
@@ -888,7 +895,7 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
             {/* Header */}
             <div className="flex items-center justify-between pb-3 border-b border-circle-hairline dark:border-circle-dark-hairline">
               <div className="flex items-center gap-2">
-                <Users className="h-4 w-4 text-teal-600" />
+                <Users className="h-4 w-4 text-circle-sage dark:text-circle-dark-primary" />
                 <h3 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
                   Bình chọn tham gia
                 </h3>
@@ -984,7 +991,7 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
                   setShowPollModal(false);
                   setShowAttendeesModal(true);
                 }}
-                className="text-xs font-bold text-teal-600 hover:text-teal-700 hover:underline cursor-pointer"
+                className="text-xs font-bold text-circle-sage dark:text-circle-dark-primary hover:underline cursor-pointer"
               >
                 Xem danh sách ({totalRsvps})
               </button>
@@ -1009,7 +1016,7 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
             {/* Header */}
             <div className="flex items-center justify-between pb-3 border-b border-circle-hairline dark:border-circle-dark-hairline">
               <div className="flex items-center gap-2">
-                <Users className="h-4 w-4 text-teal-600" />
+                <Users className="h-4 w-4 text-circle-sage dark:text-circle-dark-primary" />
                 <h3 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
                   Danh sách phản hồi ({totalRsvps})
                 </h3>
@@ -1039,7 +1046,7 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
                       onClick={() => setAttendeeTab(tab.key as 'yes' | 'maybe' | 'no')}
                       className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer text-center ${
                         isActive
-                          ? 'bg-white dark:bg-circle-dark-surface text-teal-600 dark:text-teal-400 shadow-2xs'
+                          ? 'bg-white dark:bg-circle-dark-surface text-circle-sage dark:text-circle-dark-primary shadow-2xs'
                           : 'text-circle-slate hover:text-circle-charcoal dark:hover:text-white'
                       }`}
                     >
@@ -1089,7 +1096,7 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text truncate">
-                            {dName} {isMe && <span className="text-teal-600 font-semibold">(Tôi)</span>}
+                            {dName} {isMe && <span className="text-circle-sage dark:text-circle-dark-primary font-semibold">(Tôi)</span>}
                           </div>
                           <div className="text-[11px] text-circle-slate dark:text-circle-dark-muted truncate">
                             {realNameOrHandle}
@@ -1110,7 +1117,7 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
                   setShowAttendeesModal(false);
                   setShowPollModal(true);
                 }}
-                className="text-xs font-bold text-teal-600 hover:text-teal-700 hover:underline cursor-pointer"
+                className="text-xs font-bold text-circle-sage dark:text-circle-dark-primary hover:underline cursor-pointer"
               >
                 Bình chọn tham gia
               </button>
@@ -1142,7 +1149,7 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
               <button
                 type="button"
                 onClick={() => handleApplyReminder('this')}
-                className="w-full text-left p-3 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas hover:border-teal-500 hover:bg-teal-50/40 dark:hover:bg-teal-950/20 transition-all cursor-pointer"
+                className="w-full text-left p-3 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas hover:border-circle-primary/60 hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-all cursor-pointer"
               >
                 <p className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
                   Chỉ lần này
@@ -1155,7 +1162,7 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
               <button
                 type="button"
                 onClick={() => handleApplyReminder('future')}
-                className="w-full text-left p-3 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas hover:border-teal-500 hover:bg-teal-50/40 dark:hover:bg-teal-950/20 transition-all cursor-pointer"
+                className="w-full text-left p-3 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas hover:border-circle-primary/60 hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-all cursor-pointer"
               >
                 <p className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
                   Lần này và các lần tiếp theo
@@ -1168,7 +1175,7 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
               <button
                 type="button"
                 onClick={() => handleApplyReminder('all')}
-                className="w-full text-left p-3 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas hover:border-teal-500 hover:bg-teal-50/40 dark:hover:bg-teal-950/20 transition-all cursor-pointer"
+                className="w-full text-left p-3 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas hover:border-circle-primary/60 hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-all cursor-pointer"
               >
                 <p className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
                   Tất cả các lần
@@ -1208,7 +1215,7 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
               <button
                 type="button"
                 onClick={() => handleApplyPollScope('this')}
-                className="w-full text-left p-3 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas hover:border-teal-500 hover:bg-teal-50/40 dark:hover:bg-teal-950/20 transition-all cursor-pointer"
+                className="w-full text-left p-3 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas hover:border-circle-primary/60 hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-all cursor-pointer"
               >
                 <p className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
                   Chỉ lần này
@@ -1221,7 +1228,7 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
               <button
                 type="button"
                 onClick={() => handleApplyPollScope('future')}
-                className="w-full text-left p-3 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas hover:border-teal-500 hover:bg-teal-50/40 dark:hover:bg-teal-950/20 transition-all cursor-pointer"
+                className="w-full text-left p-3 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas hover:border-circle-primary/60 hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-all cursor-pointer"
               >
                 <p className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
                   Lần này và các lần tiếp theo
@@ -1234,7 +1241,7 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
               <button
                 type="button"
                 onClick={() => handleApplyPollScope('all')}
-                className="w-full text-left p-3 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas hover:border-teal-500 hover:bg-teal-50/40 dark:hover:bg-teal-950/20 transition-all cursor-pointer"
+                className="w-full text-left p-3 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas hover:border-circle-primary/60 hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-all cursor-pointer"
               >
                 <p className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
                   Tất cả các lần
@@ -1287,7 +1294,7 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
               <button
                 type="button"
                 onClick={() => handleApplyReminder('all')}
-                className="px-4 py-1.5 rounded-xl text-xs font-bold bg-teal-600 hover:bg-teal-700 text-white transition-colors cursor-pointer"
+                className="px-4 py-1.5 rounded-full text-xs font-bold bg-circle-primary hover:bg-circle-sage text-white transition-all active:scale-95 cursor-pointer shadow-xs"
               >
                 Cập nhật
               </button>
@@ -1295,6 +1302,6 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 };
