@@ -13,6 +13,7 @@ import {
   Lock,
   X,
   Repeat,
+  FileText,
 } from 'lucide-react';
 import { CalendarEventMessagePayload, EventRsvpStatus } from '@circle/types';
 import { useCircleStore } from '../../stores/circle.store';
@@ -321,58 +322,12 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
   const totalVotes =
     (rsvps?.yesCount || 0) + (rsvps?.maybeCount || 0) + (rsvps?.noCount || 0);
 
-  const yesPercent =
-    totalVotes > 0 ? Math.round(((rsvps?.yesCount || 0) / totalVotes) * 100) : 0;
-  const maybePercent =
-    totalVotes > 0 ? Math.round(((rsvps?.maybeCount || 0) / totalVotes) * 100) : 0;
-  const noPercent =
-    totalVotes > 0 ? Math.round(((rsvps?.noCount || 0) / totalVotes) * 100) : 0;
-
-  const pollOptions = [
-    {
-      status: EventRsvpStatus.YES,
-      label: t.collab.rsvpGoing,
-      icon: Check,
-      count: rsvps?.yesCount || 0,
-      percent: yesPercent,
-      users: yesUsers,
-      barColor: 'bg-emerald-500/15 dark:bg-emerald-500/20',
-      activeBarColor: 'bg-emerald-500/25 dark:bg-emerald-500/35',
-      activeBorder: 'border-emerald-500/70 dark:border-emerald-400/80 ring-1 ring-emerald-500/30',
-      iconColor: 'text-emerald-600 dark:text-emerald-400',
-    },
-    {
-      status: EventRsvpStatus.MAYBE,
-      label: t.collab.rsvpMaybe,
-      icon: HelpCircle,
-      count: rsvps?.maybeCount || 0,
-      percent: maybePercent,
-      users: maybeUsers,
-      barColor: 'bg-amber-500/15 dark:bg-amber-500/20',
-      activeBarColor: 'bg-amber-500/25 dark:bg-amber-500/35',
-      activeBorder: 'border-amber-500/70 dark:border-amber-400/80 ring-1 ring-amber-500/30',
-      iconColor: 'text-amber-600 dark:text-amber-400',
-    },
-    {
-      status: EventRsvpStatus.NO,
-      label: t.collab.rsvpDecline,
-      icon: X,
-      count: rsvps?.noCount || 0,
-      percent: noPercent,
-      users: noUsers,
-      barColor: 'bg-rose-500/15 dark:bg-rose-500/20',
-      activeBarColor: 'bg-rose-500/25 dark:bg-rose-500/35',
-      activeBorder: 'border-rose-500/70 dark:border-rose-400/80 ring-1 ring-rose-500/30',
-      iconColor: 'text-rose-600 dark:text-rose-400',
-    },
-  ];
-
   return (
     <div className="w-full max-w-lg mx-auto transition-all select-text">
       {/* Container with balanced legible card styling */}
-      <div className="rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white/95 dark:bg-circle-dark-surface/95 backdrop-blur-md shadow-md overflow-hidden transition-all hover:border-circle-primary/40">
-        {/* 1. Log Tin nhắn: Người tạo/chia sẻ + Thời gian gửi */}
-        <div className="flex items-center justify-between gap-2 px-4 py-2 border-b border-circle-hairline/60 dark:border-circle-dark-hairline/60 bg-circle-canvas/30 dark:bg-circle-dark-canvas/30 text-xs text-circle-slate dark:text-circle-dark-muted">
+      <div className="rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface shadow-md overflow-hidden transition-all hover:border-circle-primary/40">
+        {/* 1. Header Log tin nhắn: Người tạo + Thời gian gửi */}
+        <div className="flex items-center justify-between gap-2 px-4 py-2 border-b border-circle-hairline/60 dark:border-circle-dark-hairline/60 bg-circle-canvas/40 dark:bg-circle-dark-canvas/40 text-xs text-circle-slate dark:text-circle-dark-muted">
           <div className="flex items-center gap-2 min-w-0">
             {senderAvatarUrl ? (
               <img
@@ -399,212 +354,261 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
           )}
         </div>
 
-        {/* 2. Tiêu đề sự kiện & Nút Xem trên Lịch (BỎ text "LỊCH HẸN NHÓM") */}
-        <div className="flex items-start justify-between gap-3 px-4 pt-3.5 pb-2">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="h-8 w-8 rounded-xl bg-circle-primary/10 flex items-center justify-center text-circle-sage dark:text-circle-dark-primary shrink-0">
-              <CalendarIcon className="h-4 w-4" />
+        {/* 2. Ảnh bìa (Màu chủ đạo của Web) + Tên sự kiện */}
+        <div className="relative overflow-hidden bg-gradient-to-br from-teal-700 via-teal-800 to-emerald-900 px-5 pt-6 pb-5 text-white select-none">
+          {/* Decorative Pattern & Glass elements */}
+          <div className="pointer-events-none absolute -right-6 -bottom-6 h-32 w-32 rounded-full bg-white/10 blur-xl" />
+          <div className="pointer-events-none absolute -left-6 -top-6 h-28 w-28 rounded-full bg-emerald-400/15 blur-lg" />
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:16px_16px] opacity-10" />
+
+          <div className="relative z-10 space-y-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-white/15 backdrop-blur-md border border-white/20 text-teal-100 shadow-xs">
+                <CalendarIcon className="h-3.5 w-3.5 text-teal-200" />
+                <span>Sự kiện Circle</span>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleOpenCalendar}
+                title={t.collab.viewOnCalendar}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold text-white bg-white/20 hover:bg-white/30 backdrop-blur-md border border-white/30 transition-all shrink-0 cursor-pointer active:scale-95 shadow-xs"
+              >
+                <CalendarDays className="h-3.5 w-3.5 text-teal-200" />
+                <span>Xem lịch</span>
+              </button>
             </div>
-            <div className="min-w-0">
+
+            <div className="space-y-1">
               <h3
-                className={`text-base font-bold text-circle-charcoal dark:text-circle-dark-text leading-snug break-words ${
-                  isCancelled ? 'line-through opacity-60 text-rose-600 dark:text-rose-400' : ''
+                className={`text-lg sm:text-xl font-bold tracking-tight text-white leading-snug break-words drop-shadow-xs ${
+                  isCancelled ? 'line-through opacity-70 text-rose-200' : ''
                 }`}
               >
                 {eventData.eventTitle}
               </h3>
+              {isCancelled && (
+                <span className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-500/80 text-white border border-rose-400 shadow-xs">
+                  Sự kiện đã bị hủy
+                </span>
+              )}
             </div>
-            {isCancelled && (
-              <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
-                Đã hủy
-              </span>
-            )}
           </div>
-
-          <button
-            type="button"
-            onClick={handleOpenCalendar}
-            title={t.collab.viewOnCalendar}
-            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold text-circle-slate hover:text-circle-charcoal dark:hover:text-white bg-circle-wash dark:bg-circle-dark-wash hover:bg-circle-canvas transition-all shrink-0 cursor-pointer active:scale-95 border border-circle-hairline/60 dark:border-white/10"
-          >
-            <CalendarDays className="h-3.5 w-3.5 text-circle-sage dark:text-circle-dark-primary" />
-            <span className="hidden sm:inline">Xem lịch</span>
-          </button>
         </div>
 
-        {/* 3. Event Details: Khung thời gian text (Time Capsule Box), Địa điểm, Lặp lại, Nhắc hẹn, Ghi chú */}
-        <div className="px-4 pb-3 space-y-3">
-          {/* Time Capsule Box (Dạng text thuần túy: bao quát cả 1 ngày lẫn nhiều ngày) */}
-          <div className="rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas/60 px-3.5 py-2.5 flex items-center gap-2.5 text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text">
-            <Clock className="h-4 w-4 text-circle-sage dark:text-circle-dark-primary shrink-0" />
-            {isSameDay ? (
-              <span>
-                {startTimeStr}{endTimeStr ? ` – ${endTimeStr}` : ''} • {weekdayStr}, {formatDateOnly(startDate)}
+        {/* 3. Chi tiết: Địa điểm, Thời gian bắt đầu - kết thúc, Lặp lại, Ghi chú */}
+        <div className="p-4 sm:p-5 space-y-3.5 text-xs text-circle-charcoal dark:text-circle-dark-text">
+          {/* Thời gian bắt đầu – kết thúc */}
+          <div className="flex items-start gap-3">
+            <div className="h-7 w-7 rounded-lg bg-teal-500/10 dark:bg-teal-500/20 text-teal-600 dark:text-teal-400 flex items-center justify-center shrink-0 mt-0.5">
+              <Clock className="h-4 w-4" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-[11px] font-semibold text-circle-slate dark:text-circle-dark-muted">
+                Thời gian
+              </div>
+              {isSameDay ? (
+                <div className="font-semibold text-circle-charcoal dark:text-circle-dark-text text-sm">
+                  {startTimeStr}{endTimeStr ? ` – ${endTimeStr}` : ''} • {weekdayStr}, {formatDateOnly(startDate)}
+                </div>
+              ) : (
+                <div className="font-semibold text-circle-charcoal dark:text-circle-dark-text text-sm flex items-center gap-1.5 flex-wrap">
+                  <span>{startTimeStr}, {formatDateOnly(startDate)}</span>
+                  <span className="text-circle-slate dark:text-circle-dark-muted font-bold">➔</span>
+                  <span>{endTimeStr || ''}, {formatDateOnly(endDate!)}</span>
+                  <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-circle-primary/15 text-circle-sage dark:text-circle-dark-primary">
+                    {durationDays} ngày
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Địa điểm */}
+          {eventData.location && (
+            <div className="flex items-start gap-3">
+              <div className="h-7 w-7 rounded-lg bg-rose-500/10 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0 mt-0.5">
+                <MapPin className="h-4 w-4" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-[11px] font-semibold text-circle-slate dark:text-circle-dark-muted">
+                  Địa điểm
+                </div>
+                <div className="font-semibold text-circle-charcoal dark:text-circle-dark-text text-sm break-words">
+                  <EventLocationDisplay
+                    location={eventData.location}
+                    className="text-sm font-semibold"
+                    iconClassName="hidden"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Lặp lại */}
+          {isRecurring && recurrenceSummaryText && (
+            <div className="flex items-start gap-3">
+              <div className="h-7 w-7 rounded-lg bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 mt-0.5">
+                <Repeat className="h-4 w-4" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-[11px] font-semibold text-circle-slate dark:text-circle-dark-muted">
+                  Lặp lại
+                </div>
+                <div className="font-semibold text-circle-charcoal dark:text-circle-dark-text text-sm">
+                  {recurrenceSummaryText}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Nhắc hẹn nếu có */}
+          {reminderStr && (
+            <div className="flex items-center gap-2 pl-10 text-[11px] font-medium text-amber-600 dark:text-amber-400">
+              <Bell className="h-3 w-3 shrink-0" />
+              <span>Nhắc hẹn: {reminderStr}</span>
+            </div>
+          )}
+
+          {/* Ghi chú được tách thành một vùng riêng */}
+          {cleanDesc && (
+            <div className="rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas/60 p-3 space-y-1.5 mt-1">
+              <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-circle-slate dark:text-circle-dark-muted">
+                <FileText className="h-3.5 w-3.5 text-circle-sage dark:text-circle-dark-primary" />
+                <span>Ghi chú</span>
+              </div>
+              <p className="text-xs text-circle-charcoal dark:text-circle-dark-text leading-relaxed whitespace-pre-wrap italic">
+                {cleanDesc}
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* 4. Số thành viên xác nhận & Ba nút phản hồi (Tham gia, Có thể, Từ chối) */}
+        <div className="px-4 sm:px-5 py-4 bg-circle-canvas/50 dark:bg-circle-dark-canvas/50 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60 space-y-3.5">
+          {/* Header: Số thành viên xác nhận */}
+          <div className="flex items-center justify-between text-xs">
+            <div className="flex items-center gap-2">
+              <Users className="h-4 w-4 text-circle-sage dark:text-circle-primary" />
+              <span className="font-bold text-circle-charcoal dark:text-circle-dark-text">
+                {yesUsers.length} thành viên xác nhận
               </span>
-            ) : (
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span>{startTimeStr}, {formatDateOnly(startDate)}</span>
-                <span className="text-circle-slate dark:text-circle-dark-muted font-bold">➔</span>
-                <span>{endTimeStr || ''}, {formatDateOnly(endDate!)}</span>
-                <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-circle-primary/15 text-circle-sage dark:text-circle-dark-primary">
-                  {durationDays} ngày
-                </span>
+            </div>
+
+            {/* Circular avatars of confirmed attendees */}
+            {yesUsers.length > 0 && (
+              <div className="flex items-center -space-x-1.5 shrink-0 pl-2">
+                {yesUsers.slice(0, 5).map((u, idx) => {
+                  const isMe = u.userId === currentUserId;
+                  const name = isMe ? t.calls.youLabel : u.displayName;
+                  return (
+                    <div
+                      key={u.userId || idx}
+                      title={name}
+                      className="relative inline-flex h-6 w-6 items-center justify-center rounded-full ring-2 ring-white dark:ring-circle-dark-surface bg-circle-wash dark:bg-circle-dark-wash overflow-hidden shrink-0 shadow-xs"
+                    >
+                      {u.avatarUrl ? (
+                        <img
+                          src={u.avatarUrl}
+                          alt={name}
+                          className="h-full w-full rounded-full object-cover"
+                        />
+                      ) : (
+                        <span className="flex h-full w-full items-center justify-center rounded-full bg-circle-primary text-circle-charcoal text-[10px] font-bold">
+                          {name.charAt(0).toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+                {yesUsers.length > 5 && (
+                  <span
+                    title={yesUsers.slice(5).map((u) => u.displayName).join(', ')}
+                    className="relative inline-flex h-6 w-6 items-center justify-center rounded-full bg-circle-charcoal/80 dark:bg-circle-slate text-white text-[9px] font-bold ring-2 ring-white dark:ring-circle-dark-surface shrink-0"
+                  >
+                    +{yesUsers.length - 5}
+                  </span>
+                )}
               </div>
             )}
           </div>
 
-          {/* Location row */}
-          {eventData.location && (
-            <div className="flex items-center gap-2 text-xs text-circle-slate dark:text-circle-dark-muted">
-              <MapPin className="h-3.5 w-3.5 text-circle-sage dark:text-circle-dark-primary shrink-0" />
-              <EventLocationDisplay
-                location={eventData.location}
-                className="text-xs"
-                iconClassName="hidden"
-              />
-            </div>
-          )}
+          {/* Ba nút phản hồi: Tham gia, Có thể, Từ chối */}
+          <div className="grid grid-cols-3 gap-2">
+            {/* 1. Tham gia */}
+            <button
+              type="button"
+              disabled={isLocked || rsvpMutation.isPending}
+              onClick={() => handleVoteOptionClick(EventRsvpStatus.YES)}
+              className={`flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                isLocked ? 'cursor-not-allowed opacity-60' : 'active:scale-95'
+              } ${
+                myRsvp === EventRsvpStatus.YES
+                  ? 'bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-500/30'
+                  : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/20'
+              }`}
+            >
+              <Check className="h-4 w-4 shrink-0" />
+              <span>Tham gia</span>
+              <span className="text-[11px] opacity-80">({rsvps?.yesCount || 0})</span>
+            </button>
 
-          {/* Recurrence summary row (Chu kỳ lặp lại) */}
-          {isRecurring && recurrenceSummaryText && (
-            <div className="flex items-center gap-2 text-xs text-circle-charcoal dark:text-circle-dark-text font-medium">
-              <Repeat className="h-3.5 w-3.5 text-circle-sage dark:text-circle-dark-primary shrink-0" />
-              <span>{recurrenceSummaryText}</span>
-            </div>
-          )}
+            {/* 2. Có thể */}
+            <button
+              type="button"
+              disabled={isLocked || rsvpMutation.isPending}
+              onClick={() => handleVoteOptionClick(EventRsvpStatus.MAYBE)}
+              className={`flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                isLocked ? 'cursor-not-allowed opacity-60' : 'active:scale-95'
+              } ${
+                myRsvp === EventRsvpStatus.MAYBE
+                  ? 'bg-amber-600 text-white shadow-sm ring-2 ring-amber-500/30'
+                  : 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/30 hover:bg-amber-500/20'
+              }`}
+            >
+              <HelpCircle className="h-4 w-4 shrink-0" />
+              <span>Có thể</span>
+              <span className="text-[11px] opacity-80">({rsvps?.maybeCount || 0})</span>
+            </button>
 
-          {/* Reminder badge (Nhắc hẹn) */}
-          {reminderStr && (
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 text-[11px] font-semibold">
-              <Bell className="h-3 w-3 shrink-0" />
-              <span>{reminderStr}</span>
-            </div>
-          )}
-
-          {/* Clean description (Ghi chú mô tả) */}
-          {cleanDesc && (
-            <div className="text-xs text-circle-slate dark:text-circle-dark-muted bg-circle-canvas/50 dark:bg-circle-dark-canvas/50 rounded-xl p-2.5 border border-circle-hairline/60 dark:border-circle-dark-hairline/60 leading-relaxed italic">
-              "{cleanDesc}"
-            </div>
-          )}
-        </div>
-
-        {/* 4. RSVP Section (Giữ nguyên phần bình chọn cũ: 3 thanh Poll progress bar + avatar stack) */}
-        <div className="px-4 py-3 bg-circle-canvas/50 dark:bg-circle-dark-canvas/50 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60 space-y-3">
-          <div className="flex items-center justify-between text-xs">
-            <span className="font-semibold text-circle-charcoal dark:text-circle-dark-text flex items-center gap-1.5">
-              {isCancelled ? (
-                <>
-                  <Lock className="h-3.5 w-3.5 text-rose-500" />
-                  <span className="text-rose-600 dark:text-rose-400">{t.collab.eventCancelledBanner}</span>
-                </>
-              ) : isStarted ? (
-                <>
-                  <Lock className="h-3.5 w-3.5 text-circle-slate dark:text-circle-dark-muted" />
-                  <span className="text-circle-slate dark:text-circle-dark-muted">{t.collab.rsvpClosed}</span>
-                </>
-              ) : (
-                <>
-                  <Users className="h-3.5 w-3.5 text-circle-sage dark:text-circle-primary" />
-                  <span>{t.collab.attendancePoll}</span>
-                </>
-              )}
-            </span>
-            <span className="text-[11px] text-circle-slate dark:text-circle-dark-muted font-medium">
-              {t.collab.responsesCount.replace('{count}', String(totalVotes))}
-            </span>
+            {/* 3. Từ chối */}
+            <button
+              type="button"
+              disabled={isLocked || rsvpMutation.isPending}
+              onClick={() => handleVoteOptionClick(EventRsvpStatus.NO)}
+              className={`flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                isLocked ? 'cursor-not-allowed opacity-60' : 'active:scale-95'
+              } ${
+                myRsvp === EventRsvpStatus.NO
+                  ? 'bg-rose-600 text-white shadow-sm ring-2 ring-rose-500/30'
+                  : 'bg-rose-500/10 text-rose-700 dark:text-rose-300 border border-rose-500/30 hover:bg-rose-500/20'
+              }`}
+            >
+              <X className="h-4 w-4 shrink-0" />
+              <span>Từ chối</span>
+              <span className="text-[11px] opacity-80">({rsvps?.noCount || 0})</span>
+            </button>
           </div>
 
-          {/* Poll Options List */}
-          <div className="space-y-2">
-            {pollOptions.map((opt) => {
-              const isSelected = myRsvp === opt.status;
-              return (
-                <div key={opt.status} className="space-y-1.5">
-                  <button
-                    type="button"
-                    disabled={isLocked || rsvpMutation.isPending}
-                    onClick={() => handleVoteOptionClick(opt.status)}
-                    className={`relative w-full overflow-hidden rounded-xl border p-2.5 text-left transition-all cursor-pointer ${
-                      isLocked ? 'cursor-not-allowed opacity-75' : 'hover:border-circle-primary/50 active:scale-[0.99]'
-                    } ${
-                      isSelected
-                        ? `${opt.activeBorder} bg-circle-canvas/90 dark:bg-circle-dark-canvas/90 font-bold shadow-2xs`
-                        : 'border-circle-hairline/80 dark:border-circle-dark-hairline/80 bg-white/90 dark:bg-circle-dark-surface/90'
-                    }`}
-                  >
-                    {/* Progress Bar Fill */}
-                    <div
-                      className={`absolute inset-y-0 left-0 transition-all duration-500 ease-out ${
-                        isSelected ? opt.activeBarColor : opt.barColor
-                      }`}
-                      style={{ width: `${opt.percent}%` }}
-                    />
-
-                    {/* Bar Labels */}
-                    <div className="relative z-10 flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border transition-all ${
-                            isSelected
-                              ? 'border-circle-primary bg-circle-primary text-circle-charcoal'
-                              : 'border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface'
-                          }`}
-                        >
-                          {isSelected && <Check className="h-2.5 w-2.5 stroke-[3]" />}
-                        </span>
-                        <opt.icon className={`h-3.5 w-3.5 ${opt.iconColor}`} />
-                        <span className="font-semibold text-circle-charcoal dark:text-circle-dark-text">
-                          {opt.label}
-                        </span>
-                      </div>
-
-                      {/* Circular avatars of respondents replacing percent & count */}
-                      <div className="flex items-center -space-x-1.5 shrink-0 pl-2">
-                        {opt.users.slice(0, 5).map((u, idx) => {
-                          const isMe = u.userId === currentUserId;
-                          const name = isMe ? t.calls.youLabel : u.displayName;
-                          return (
-                            <div
-                              key={u.userId || idx}
-                              title={name}
-                              className="relative inline-flex h-6 w-6 items-center justify-center rounded-full ring-2 ring-white dark:ring-circle-dark-surface bg-circle-wash dark:bg-circle-dark-wash overflow-hidden shrink-0 shadow-xs"
-                            >
-                              {u.avatarUrl ? (
-                                <img
-                                  src={u.avatarUrl}
-                                  alt={name}
-                                  className="h-full w-full rounded-full object-cover"
-                                />
-                              ) : (
-                                <span className="flex h-full w-full items-center justify-center rounded-full bg-circle-primary text-circle-charcoal text-[10px] font-bold">
-                                  {name.charAt(0).toUpperCase()}
-                                </span>
-                              )}
-                            </div>
-                          );
-                        })}
-                        {opt.users.length > 5 && (
-                          <span
-                            title={opt.users.slice(5).map((u) => u.displayName).join(', ')}
-                            className="relative inline-flex h-6 w-6 items-center justify-center rounded-full bg-circle-charcoal/80 dark:bg-circle-slate text-white text-[9px] font-bold ring-2 ring-white dark:ring-circle-dark-surface shrink-0"
-                          >
-                            +{opt.users.length - 5}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </button>
-                </div>
-              );
-            })}
-          </div>
+          {/* Locked / Notice banner */}
+          {isCancelled && (
+            <div className="flex items-center justify-center gap-1.5 text-xs text-rose-600 dark:text-rose-400 font-medium pt-1">
+              <Lock className="h-3.5 w-3.5" />
+              <span>{t.collab.eventCancelledBanner}</span>
+            </div>
+          )}
+          {!isCancelled && isStarted && (
+            <div className="flex items-center justify-center gap-1.5 text-xs text-circle-slate dark:text-circle-dark-muted font-medium pt-1">
+              <Lock className="h-3.5 w-3.5" />
+              <span>{t.collab.rsvpClosed}</span>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* ============================================================== */}
-      {/* MODAL XÁC NHẬN PHẠM VI ÁP DỤNG KHI BÌNH CHỌN SỰ KIỆN LẶP LẠI */}
-      {/* ============================================================== */}
+      {/* ===================================================================
+          MODAL XÁC NHẬN PHẠM VI BÌNH CHỌN CHO SỰ KIỆN LẶP LẠI
+          =================================================================== */}
       {showScopeModal && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
           <div className="w-full max-w-sm rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-5 shadow-2xl space-y-4">

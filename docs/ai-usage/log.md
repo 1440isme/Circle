@@ -7409,3 +7409,40 @@
   - **Resolution / Fix:** N/A.
 - **Commit:** ad7a0de
 - **PR:** Pending
+
+---
+
+## AI-0182: Tái Thiết Kế Thẻ Lịch Hẹn Web: Ảnh Bìa Màu Chủ Đạo, Địa Điểm, Thời Gian, Vùng Ghi Chú Riêng, Số Thành Viên Xác Nhận & 3 Nút Tham Gia, Có Thể, Từ Chối (#120)
+
+- **Date:** 2026-11-12 15:38:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120
+- **Purpose:** 
+  1. Cập nhật thẻ lịch hẹn trong khung chat Web (`CalendarEventChatEmbed.tsx`) theo đặc tả mới của người dùng:
+     - **Ảnh bìa & Tên sự kiện:** Banner màu chủ đạo của Web (Circle Teal/Emerald brand gradient), hoa văn nền tinh tế, tên sự kiện màu trắng nổi bật, huy hiệu sự kiện và nút "Xem lịch".
+     - **Địa điểm:** Dòng địa điểm trực quan với icon `MapPin` và `EventLocationDisplay`.
+     - **Thời gian bắt đầu – kết thúc:** Icon `Clock`, format thông minh cho cả sự kiện 1 ngày và nhiều ngày.
+     - **Lặp lại:** Dòng hiển thị chu kỳ lặp lại với icon `Repeat`.
+     - **Ghi chú được tách thành một vùng riêng:** Hộp card ghi chú độc lập có tiêu đề `Ghi chú` kèm icon `FileText`, chữ nghiêng rõ ràng.
+     - **Số thành viên xác nhận:** Dòng hiển thị số lượng thành viên đã xác nhận tham gia cùng danh sách avatar tròn xếp chồng.
+     - **Ba nút phản hồi: Tham gia, Có thể, Từ chối:** 3 nút hành động ngang hàng có trạng thái active nổi bật khi người dùng đã chọn, kèm số lượng vote và tích hợp modal xác nhận phạm vi áp dụng cho sự kiện lặp lại.
+- **Prompt Summary:** sửa web trước nhé: theo này đi Thiết kế gồm: - Ảnh bìa(màu chủ đạo của web) và tên sự kiện. - Địa điểm . - Thời gian bắt đầu – kết thúc. - Lặp lại - Ghi chú được tách thành một vùng riêng. - Số thành viên xác nhận. - Ba nút phản hồi: Tham gia, Có thể, Từ chối.
+- **Files Affected:**
+  - `apps/web/src/components/chat/CalendarEventChatEmbed.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% tái thiết kế giao diện thẻ sự kiện Web theo chuẩn thương hiệu Circle.
+- **Human Modifications:** Người dùng yêu cầu cấu trúc thẻ gồm ảnh bìa, địa điểm, thời gian, lặp lại, vùng ghi chú riêng, số thành viên xác nhận, và 3 nút (Tham gia, Có thể, Từ chối).
+- **Verification Method:**
+  - `npx tsc --noEmit --project apps/web/tsconfig.json`: Passed 0 errors.
+  - `bash ./scripts/check-agent-map.sh`: Passed (130 files).
+  - `bash ./scripts/check-secrets.sh`: Passed, 0 secret leaks (600 files).
+- **Official Source Checked:** PROJECT_GOD.md, agentic/RULES.md & agentic/CONVENTIONS.md.
+- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A.
+  - **Resolution / Fix:** N/A.
+- **Commit:** Pending
+- **PR:** Pending
