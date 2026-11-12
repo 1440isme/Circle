@@ -68,8 +68,11 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
   const [showScopeModal, setShowScopeModal] = useState(false);
   const [pendingVoteStatus, setPendingVoteStatus] = useState<EventRsvpStatus | null>(null);
 
-  // Dynamic system message action tracker (thay đổi nội dung theo tạo, sửa, có người bình chọn)
-  const getActionType = (data: CalendarEventMessagePayload): 'CREATED' | 'UPDATED' | 'CANCELLED' | 'RSVP_UPDATED' => {
+  // Dynamic system message action tracker (thay đổi nội dung theo tạo, sửa, có người bình chọn, hủy, xóa)
+  const getActionType = (data: CalendarEventMessagePayload): 'CREATED' | 'UPDATED' | 'CANCELLED' | 'DELETED' | 'RSVP_UPDATED' => {
+    if (data.action === 'DELETED' || data.latestAction === 'DELETED') {
+      return 'DELETED';
+    }
     if (data.isCancelled || data.action === 'CANCELLED' || data.latestAction === 'CANCELLED') {
       return 'CANCELLED';
     }
@@ -80,7 +83,7 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
   };
 
   const [lastAction, setLastAction] = useState<{
-    type: 'CREATED' | 'UPDATED' | 'CANCELLED' | 'RSVP_UPDATED';
+    type: 'CREATED' | 'UPDATED' | 'CANCELLED' | 'DELETED' | 'RSVP_UPDATED';
     actorName?: string;
     actorUserId?: string;
     rsvpStatus?: EventRsvpStatus;
@@ -366,7 +369,8 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
     [rsvps]
   );
 
-  // Nội dung thông báo hệ thống động theo hành động: Tạo, Sửa, Huỷ, hoặc Bình chọn
+  // Nội dung thông báo hệ thống động theo hành động: Tạo, Sửa, Huỷ, Xoá, hoặc Bình chọn
+  // Tất cả đều có "lịch hẹn [tên lịch hẹn]" theo yêu cầu
   const systemMessageText = useMemo(() => {
     const isMe =
       (lastAction.actorUserId && lastAction.actorUserId === currentUserId) ||
@@ -375,15 +379,19 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
     const actor = isMe
       ? 'Bạn'
       : (lastAction.actorName || senderDisplayName || eventData.creatorName || 'Một thành viên');
+    const eventTitle = eventData.eventTitle || 'sự kiện';
 
+    if (lastAction.type === 'DELETED' || eventData.action === 'DELETED' || eventData.latestAction === 'DELETED') {
+      return isMe ? `Bạn đã xóa lịch hẹn "${eventTitle}"` : `${actor} đã xóa lịch hẹn "${eventTitle}"`;
+    }
     if (lastAction.type === 'CANCELLED' || isCancelled) {
-      return isMe ? 'Bạn đã hủy lịch hẹn' : `${actor} đã hủy lịch hẹn`;
+      return isMe ? `Bạn đã hủy lịch hẹn "${eventTitle}"` : `${actor} đã hủy lịch hẹn "${eventTitle}"`;
     }
     if (lastAction.type === 'UPDATED') {
-      return isMe ? 'Bạn đã cập nhật lịch hẹn' : `${actor} đã cập nhật lịch hẹn`;
+      return isMe ? `Bạn đã cập nhật lịch hẹn "${eventTitle}"` : `${actor} đã cập nhật lịch hẹn "${eventTitle}"`;
     }
     if (eventData.action === 'REMINDER' || eventData.latestAction === 'REMINDER') {
-      return `Nhắc hẹn: ${eventData.eventTitle || 'Sự kiện sắp diễn ra'}`;
+      return `Nhắc hẹn: Lịch hẹn "${eventTitle}" sắp diễn ra`;
     }
     if (lastAction.type === 'RSVP_UPDATED') {
       let actionVerb = 'tham gia';
@@ -392,9 +400,11 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
       } else if (lastAction.rsvpStatus === EventRsvpStatus.NO) {
         actionVerb = 'từ chối tham gia';
       }
-      return isMe ? `Bạn đã xác nhận ${actionVerb}` : `${actor} đã xác nhận ${actionVerb}`;
+      return isMe
+        ? `Bạn đã xác nhận ${actionVerb} lịch hẹn "${eventTitle}"`
+        : `${actor} đã xác nhận ${actionVerb} lịch hẹn "${eventTitle}"`;
     }
-    return isMe ? 'Bạn tạo nhắc hẹn mới' : `${actor} tạo nhắc hẹn mới`;
+    return isMe ? `Bạn đã tạo lịch hẹn "${eventTitle}"` : `${actor} đã tạo lịch hẹn "${eventTitle}"`;
   }, [
     lastAction,
     isCancelled,

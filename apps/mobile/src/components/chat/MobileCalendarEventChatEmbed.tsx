@@ -158,8 +158,11 @@ export const MobileCalendarEventChatEmbed: React.FC<MobileCalendarEventChatEmbed
   }, [propData, content]);
 
   // Trạng thái hành động mới nhất của lịch hẹn để hiển thị thông báo hệ thống động
-  const getActionType = (raw: any): 'CREATED' | 'UPDATED' | 'CANCELLED' | 'RSVP_UPDATED' => {
-    if (raw?.isCancelled || raw?.action === 'CANCELLED' || raw?.action === 'DELETED' || raw?.latestAction === 'CANCELLED') {
+  const getActionType = (raw: any): 'CREATED' | 'UPDATED' | 'CANCELLED' | 'DELETED' | 'RSVP_UPDATED' => {
+    if (raw?.action === 'DELETED' || raw?.latestAction === 'DELETED') {
+      return 'DELETED';
+    }
+    if (raw?.isCancelled || raw?.action === 'CANCELLED' || raw?.latestAction === 'CANCELLED') {
       return 'CANCELLED';
     }
     const act = raw?.latestAction || raw?.action;
@@ -169,7 +172,7 @@ export const MobileCalendarEventChatEmbed: React.FC<MobileCalendarEventChatEmbed
   };
 
   const [lastAction, setLastAction] = useState<{
-    type: 'CREATED' | 'UPDATED' | 'RSVP_UPDATED' | 'CANCELLED';
+    type: 'CREATED' | 'UPDATED' | 'RSVP_UPDATED' | 'CANCELLED' | 'DELETED';
     actorName?: string;
     actorUserId?: string;
     rsvpStatus?: EventRsvpStatus;
@@ -588,7 +591,8 @@ export const MobileCalendarEventChatEmbed: React.FC<MobileCalendarEventChatEmbed
     },
   ];
 
-  // Nội dung thông báo hệ thống động theo hành động: Tạo, Sửa, Huỷ, hoặc Bình chọn
+  // Nội dung thông báo hệ thống động theo hành động: Tạo, Sửa, Huỷ, Xoá, hoặc Bình chọn
+  // Tất cả đều có "lịch hẹn [tên lịch hẹn]" theo yêu cầu
   const systemMessageText = useMemo(() => {
     const isMe =
       (lastAction.actorUserId && lastAction.actorUserId === effectiveUserId) ||
@@ -597,15 +601,19 @@ export const MobileCalendarEventChatEmbed: React.FC<MobileCalendarEventChatEmbed
     const actor = isMe
       ? 'Bạn'
       : (lastAction.actorName || senderDisplayName || data?.creatorName || 'Một thành viên');
+    const name = eventTitle || data?.eventTitle || (data as any)?.title || 'sự kiện';
 
+    if (lastAction.type === 'DELETED' || data?.action === 'DELETED' || (data as any)?.latestAction === 'DELETED') {
+      return isMe ? `Bạn đã xóa lịch hẹn "${name}"` : `${actor} đã xóa lịch hẹn "${name}"`;
+    }
     if (lastAction.type === 'CANCELLED' || isCancelled) {
-      return isMe ? 'Bạn đã hủy lịch hẹn' : `${actor} đã hủy lịch hẹn`;
+      return isMe ? `Bạn đã hủy lịch hẹn "${name}"` : `${actor} đã hủy lịch hẹn "${name}"`;
     }
     if (lastAction.type === 'UPDATED') {
-      return isMe ? 'Bạn đã cập nhật lịch hẹn' : `${actor} đã cập nhật lịch hẹn`;
+      return isMe ? `Bạn đã cập nhật lịch hẹn "${name}"` : `${actor} đã cập nhật lịch hẹn "${name}"`;
     }
     if (data?.action === 'REMINDER' || (data as any)?.latestAction === 'REMINDER') {
-      return `Nhắc hẹn: ${eventTitle || 'Sự kiện sắp diễn ra'}`;
+      return `Nhắc hẹn: Lịch hẹn "${name}" sắp diễn ra`;
     }
     if (lastAction.type === 'RSVP_UPDATED') {
       let actionVerb = 'tham gia';
@@ -614,9 +622,11 @@ export const MobileCalendarEventChatEmbed: React.FC<MobileCalendarEventChatEmbed
       } else if (lastAction.rsvpStatus === EventRsvpStatus.NO) {
         actionVerb = 'từ chối tham gia';
       }
-      return isMe ? `Bạn đã xác nhận ${actionVerb}` : `${actor} đã xác nhận ${actionVerb}`;
+      return isMe
+        ? `Bạn đã xác nhận ${actionVerb} lịch hẹn "${name}"`
+        : `${actor} đã xác nhận ${actionVerb} lịch hẹn "${name}"`;
     }
-    return isMe ? 'Bạn tạo nhắc hẹn mới' : `${actor} tạo nhắc hẹn mới`;
+    return isMe ? `Bạn đã tạo lịch hẹn "${name}"` : `${actor} đã tạo lịch hẹn "${name}"`;
   }, [
     lastAction,
     isCancelled,
@@ -627,6 +637,7 @@ export const MobileCalendarEventChatEmbed: React.FC<MobileCalendarEventChatEmbed
     data?.action,
     (data as any)?.latestAction,
     eventTitle,
+    data?.eventTitle,
   ]);
 
   // "và chỉ cần thẻ sự kiện khi tạo hoặc nhắc thui" (chỉ có tạo với nhắc lại mới hiện thẻ banner mà)

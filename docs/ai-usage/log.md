@@ -7701,3 +7701,49 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
   - **Resolution / Fix:** N/A.
 - **Commit:** b5a87aa
 - **PR:** Pending
+
+
+---
+
+## AI-0189: Chuẩn Hóa Thông Báo Hệ Thống Kèm Tên Lịch Hẹn & Phân Biệt Hủy/Xóa (#120)
+
+- **Date:** 2026-11-12 18:20:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120
+- **Purpose:** 
+  1. **Chuẩn hóa thông điệp hệ thống kèm tên sự kiện theo chỉ đạo người dùng:**
+     - Người dùng yêu cầu: Khi hủy hay xóa thì ghi rõ là hủy hoặc xóa lịch hẹn [tên lịch hẹn], và tất cả các thông báo đều phải có chữ "lịch hẹn [tên lịch hẹn kèm theo]".
+     - Cập nhật phân biệt rõ ràng hai hành động:
+       - **Hủy sự kiện (`CANCELLED`):** `Bạn đã hủy lịch hẹn "[Tên]"` / `[Người thực hiện] đã hủy lịch hẹn "[Tên]"`.
+       - **Xóa sự kiện (`DELETED`):** `Bạn đã xóa lịch hẹn "[Tên]"` / `[Người thực hiện] đã xóa lịch hẹn "[Tên]"`.
+     - Chuẩn hóa toàn bộ các hành động khác để luôn đính kèm tên lịch hẹn:
+       - **Tạo mới (`CREATED`):** `Bạn đã tạo lịch hẹn "[Tên]"` / `[Người thực hiện] đã tạo lịch hẹn "[Tên]"`.
+       - **Cập nhật (`UPDATED`):** `Bạn đã cập nhật lịch hẹn "[Tên]"` / `[Người thực hiện] đã cập nhật lịch hẹn "[Tên]"`.
+       - **Bình chọn (`RSVP_UPDATED`):** `Bạn đã xác nhận [tham gia/có thể tham gia/từ chối tham gia] lịch hẹn "[Tên]"`.
+       - **Nhắc hẹn (`REMINDER`):** `Nhắc hẹn: Lịch hẹn "[Tên]" sắp diễn ra`.
+  2. **Đồng bộ Web & Mobile:**
+     - Áp dụng trên cả `CalendarEventChatEmbed.tsx` (Web) và `MobileCalendarEventChatEmbed.tsx` (Mobile).
+- **Prompt Summary:** huỷ hay xoá thì ghi huỷ hoặc xoá  lịch hẹn j ... tất cả đều có là lịch hẹn(tên lịch hẹn kèm theo)
+- **Files Affected:**
+  - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
+  - `apps/web/src/components/chat/CalendarEventChatEmbed.tsx`
+  - `apps/mobile/src/components/chat/MobileCalendarEventChatEmbed.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% logic phân loại hành động DELETED, CANCELLED và format chuỗi thông báo hệ thống.
+- **Human Modifications:** Người dùng yêu cầu ghi rõ hành vi hủy/xóa và gắn tên sự kiện vào toàn bộ các thông báo.
+- **Verification Method:**
+  - `npx tsc --noEmit --project apps/web/tsconfig.json`: Passed 0 errors.
+  - `npx tsc --noEmit --project apps/mobile/tsconfig.json`: Passed 0 errors.
+  - `npm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.spec.ts`: Passed 45/45 tests.
+  - `bash ./scripts/check-agent-map.sh`: 130/130 files pass.
+  - `bash ./scripts/check-secrets.sh`: 600 files checked, 0 secret leaks.
+- **Official Source Checked:** PROJECT_GOD.md, agentic/RULES.md & agentic/CONVENTIONS.md.
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A.
+  - **Resolution / Fix:** N/A.
+- **Commit:** ad6f1e4
+- **PR:** Pending
