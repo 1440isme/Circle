@@ -401,6 +401,9 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
     if (lastAction.type === 'UPDATED') {
       return isMe ? 'Bạn đã cập nhật lịch hẹn' : `${actor} đã cập nhật lịch hẹn`;
     }
+    if (eventData.action === 'REMINDER') {
+      return `Nhắc hẹn: ${eventData.eventTitle || 'Sự kiện sắp diễn ra'}`;
+    }
     if (lastAction.type === 'RSVP_UPDATED') {
       let actionVerb = 'tham gia';
       if (lastAction.rsvpStatus === EventRsvpStatus.MAYBE) {
@@ -418,7 +421,34 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
     isSenderMe,
     senderDisplayName,
     eventData.creatorName,
+    eventData.action,
+    eventData.eventTitle,
   ]);
+
+  // "và chỉ cần thẻ sự kiện khi tạo hoặc nhắc thui"
+  // Các hành động sửa, bình chọn, hủy chỉ hiển thị dòng thông báo hệ thống (System Message)
+  const showCard =
+    eventData.action === 'CREATED' ||
+    eventData.action === 'REMINDER' ||
+    !eventData.action;
+
+  if (!showCard) {
+    return (
+      <div className="w-full flex items-center justify-center my-1.5 select-none">
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-circle-wash/80 dark:bg-circle-dark-wash/80 text-circle-slate dark:text-circle-dark-muted border border-circle-hairline/60 dark:border-circle-dark-hairline/60 shadow-2xs">
+          <span>{systemMessageText}</span>
+          <span className="opacity-50">…</span>
+          <button
+            type="button"
+            onClick={handleOpenCalendar}
+            className="text-circle-primary dark:text-circle-dark-primary font-bold hover:underline cursor-pointer transition-colors"
+          >
+            Xem
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-lg mx-auto transition-all select-text">

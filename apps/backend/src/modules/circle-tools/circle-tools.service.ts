@@ -1545,8 +1545,9 @@ export class CircleToolsService {
         rsvps: rsvpsBreakdown,
       });
 
-      // "mấy lần sau ko cần gửi lại thẻ":
-      // Cập nhật nội dung thẻ tin nhắn hiện có trong database nếu có, không phát thẻ mới vào chat
+      // "và chỉ cần thẻ sự kiện khi tạo hoặc nhắc thui":
+      // Cập nhật số lượng vote trên thẻ gốc trong DB (giữ action: 'CREATED' để thẻ gốc vẫn là thẻ sự kiện đầy đủ),
+      // đồng thời gửi 1 tin nhắn thông báo hệ thống mới (action: 'RSVP_UPDATED') vào chat
       try {
         const channel = await this.prisma.channel.findFirst({
           where: { circleId },
@@ -1561,6 +1562,19 @@ export class CircleToolsService {
               },
             },
             orderBy: { sentAt: 'desc' },
+            include: {
+              sender: {
+                include: {
+                  user: {
+                    include: {
+                      profile: true,
+                    },
+                  },
+                },
+              },
+              reactions: true,
+              pinnedRecord: true,
+            },
           });
           if (existingMessage && existingMessage.content) {
             let parsedContent: any = {};
@@ -1568,18 +1582,76 @@ export class CircleToolsService {
               parsedContent = JSON.parse(existingMessage.content.replace('[CALENDAR_EVENT]:', ''));
             } catch {}
             parsedContent.rsvps = rsvpsBreakdown;
-            parsedContent.action = 'RSVP_UPDATED';
-            parsedContent.lastActorName =
-              rsvp.user?.profile?.displayName || rsvp.user?.email?.split('@')[0] || 'Thành viên';
-            parsedContent.lastActorUserId = rsvp.userId;
-            parsedContent.lastRsvpStatus = rsvp.status;
+            // Thẻ gốc giữ action: 'CREATED' để vẫn hiển thị đầy đủ thẻ sự kiện
+            parsedContent.action = 'CREATED';
 
-            await this.prisma.message.update({
+            const updatedRaw = await this.prisma.message.update({
               where: { id: existingMessage.id },
               data: {
                 content: `[CALENDAR_EVENT]:${JSON.stringify(parsedContent)}`,
               },
+              include: {
+                sender: {
+                  include: {
+                    user: {
+                      include: {
+                        profile: true,
+                      },
+                    },
+                  },
+                },
+                reactions: true,
+                pinnedRecord: true,
+              },
             });
+
+            this.chatGateway?.broadcastMessageUpdated(channel.id, this.mapMessageToEntity(updatedRaw));
+          }
+
+          // Tạo tin nhắn thông báo hệ thống mới (action: 'RSVP_UPDATED') gửi vào chat
+          // Client sẽ chỉ hiển thị dòng thông báo hệ thống (KHÔNG CÓ THẺ SỰ KIỆN)
+          const member = await this.prisma.circleMember.findUnique({
+            where: { circleId_userId: { circleId, userId: rsvp.userId } },
+          });
+          if (member) {
+            const actorName =
+              rsvp.user?.profile?.displayName || rsvp.user?.email?.split('@')[0] || 'Thành viên';
+            const rsvpSystemPayload: CalendarEventMessagePayload = {
+              type: 'CALENDAR_EVENT',
+              eventId: updatedEvent.id,
+              eventTitle: updatedEvent.eventTitle,
+              startTime: updatedEvent.startTime.toISOString(),
+              endTime: updatedEvent.endTime ? updatedEvent.endTime.toISOString() : null,
+              creatorName: (updatedEvent as any).creator?.profile?.displayName || 'Người tạo',
+              lastActorName: actorName,
+              lastActorUserId: rsvp.userId,
+              lastRsvpStatus: rsvp.status as any,
+              action: 'RSVP_UPDATED',
+            };
+
+            const rawRsvpMsg = await this.prisma.message.create({
+              data: {
+                channelId: channel.id,
+                memberId: member.id,
+                type: 'TEXT',
+                content: `[CALENDAR_EVENT]:${JSON.stringify(rsvpSystemPayload)}`,
+              },
+              include: {
+                sender: {
+                  include: {
+                    user: {
+                      include: {
+                        profile: true,
+                      },
+                    },
+                  },
+                },
+                reactions: true,
+                pinnedRecord: true,
+              },
+            });
+
+            this.chatGateway?.broadcastNewMessage(channel.id, this.mapMessageToEntity(rawRsvpMsg));
           }
         }
       } catch (err: any) {
@@ -1686,14 +1758,71 @@ export class CircleToolsService {
     };
   }
 
+  private mapMessageToEntity(raw: any): MessageEntity {
+    return {
+      id: raw.id,
+      channelId: raw.channelId,
+      memberId: raw.memberId,
+      type: raw.type as any,
+      content: raw.content,
+      fileUrl: raw.fileUrl,
+      fileName: raw.fileName,
+      fileSize: raw.fileSize,
+      audioDuration: raw.audioDuration,
+      replyToId: raw.replyToId,
+      sentAt: raw.sentAt ? raw.sentAt.toISOString() : new Date().toISOString(),
+      updatedAt: raw.updatedAt ? raw.updatedAt.toISOString() : new Date().toISOString(),
+      sender: raw.sender
+        ? {
+            id: raw.sender.id,
+            circleId: raw.sender.circleId,
+            userId: raw.sender.userId,
+            role: raw.sender.role as any,
+            nickname: raw.sender.nickname,
+            joinedAt: raw.sender?.joinedAt ? raw.sender.joinedAt.toISOString() : new Date().toISOString(),
+            updatedAt: raw.sender?.updatedAt ? raw.sender.updatedAt.toISOString() : new Date().toISOString(),
+            user: raw.sender.user
+              ? {
+                  id: raw.sender.user.id,
+                  email: raw.sender.user.email,
+                  isActivated: raw.sender.user.isActivated,
+                  globalRole: raw.sender.user.globalRole as any,
+                  createdAt: raw.sender.user.createdAt ? raw.sender.user.createdAt.toISOString() : new Date().toISOString(),
+                  updatedAt: raw.sender.user.updatedAt ? raw.sender.user.updatedAt.toISOString() : new Date().toISOString(),
+                  profile: raw.sender.user.profile
+                    ? {
+                        id: raw.sender.user.profile.id,
+                        userId: raw.sender.user.profile.userId,
+                        displayName: raw.sender.user.profile.displayName,
+                        avatarUrl: raw.sender.user.profile.avatarUrl,
+                        bio: raw.sender.user.profile.bio,
+                        dateOfBirth: raw.sender.user.profile.dateOfBirth?.toISOString() || null,
+                        updatedAt: raw.sender.user.profile.updatedAt ? raw.sender.user.profile.updatedAt.toISOString() : new Date().toISOString(),
+                      }
+                    : null,
+                }
+              : undefined,
+          }
+        : undefined,
+      replyTo: null,
+      reactions: [],
+      reactionCounts: {},
+      userReactions: [],
+      isPinned: false,
+    };
+  }
+
   /**
    * Helper: Broadcast a rich calendar event message into the circle's primary chat channel.
+   * "và chỉ cần thẻ sự kiện khi tạo hoặc nhắc thui":
+   * - Tạo mới (CREATED) / Nhắc hẹn (REMINDER): Gửi tin nhắn chứa thông báo hệ thống + THẺ SỰ KIỆN.
+   * - Sửa / Hủy: Cập nhật thẻ gốc trong DB (giữ action: 'CREATED') và gửi tin nhắn thông báo hệ thống (KHÔNG CÓ THẺ SỰ KIỆN).
    */
   private async broadcastCalendarEventMessage(
     circleId: string,
     member: any,
     event: any,
-    action: 'CREATED' | 'UPDATED' | 'CANCELLED' | 'DELETED',
+    action: 'CREATED' | 'UPDATED' | 'CANCELLED' | 'DELETED' | 'RSVP_UPDATED' = 'CREATED',
   ) {
     try {
       const channel = await this.prisma.channel.findFirst({
@@ -1734,7 +1863,7 @@ export class CircleToolsService {
         type: 'CALENDAR_EVENT',
         action,
         eventId: event.id,
-        eventTitle: event.eventTitle,
+        eventTitle: event.eventTitle || event.title,
         description: event.description || null,
         location: event.location || null,
         startTime: event.startTime instanceof Date ? event.startTime.toISOString() : String(event.startTime),
@@ -1747,9 +1876,10 @@ export class CircleToolsService {
         rsvps: rsvpsData,
       };
 
-      // "mấy lần sau ko cần gửi lại thẻ":
-      // Khi sửa, hủy hoặc xóa, cập nhật trực tiếp thẻ tin nhắn cũ và phát socket message-updated,
-      // tuyệt đối không gửi thêm thẻ mới vào kênh chat.
+      // "và chỉ cần thẻ sự kiện khi tạo hoặc nhắc thui":
+      // Khi sửa, hủy hoặc xóa:
+      // 1) Cập nhật thẻ gốc trong database (giữ action: 'CREATED' để thẻ gốc vẫn hiển thị đầy đủ thẻ)
+      // 2) Gửi tin nhắn thông báo hệ thống mới vào kênh chat (action !== 'CREATED', chỉ hiển thị dòng text)
       if (action !== 'CREATED') {
         const existingMessage = await this.prisma.message.findFirst({
           where: {
@@ -1769,28 +1899,33 @@ export class CircleToolsService {
                 },
               },
             },
-            reactions: {
-              include: {
-                member: {
-                  include: {
-                    user: {
-                      include: {
-                        profile: true,
-                      },
-                    },
-                  },
-                },
-              },
-            },
+            reactions: true,
             pinnedRecord: true,
           },
         });
 
-        if (existingMessage) {
+        if (existingMessage && existingMessage.content) {
+          let parsedExisting: any = {};
+          try {
+            parsedExisting = JSON.parse(existingMessage.content.replace('[CALENDAR_EVENT]:', ''));
+          } catch {}
+
+          const updatedCardPayload: CalendarEventMessagePayload = {
+            ...parsedExisting,
+            eventTitle: event.eventTitle || event.title,
+            startTime: event.startTime instanceof Date ? event.startTime.toISOString() : String(event.startTime),
+            endTime: event.endTime ? (event.endTime instanceof Date ? event.endTime.toISOString() : String(event.endTime)) : null,
+            location: event.location || null,
+            description: event.description || null,
+            reminderTime: event.reminderTime ? (event.reminderTime instanceof Date ? event.reminderTime.toISOString() : String(event.reminderTime)) : null,
+            isCancelled: Boolean(event.isCancelled || action === 'CANCELLED'),
+            action: 'CREATED',
+          };
+
           const updatedRaw = await this.prisma.message.update({
             where: { id: existingMessage.id },
             data: {
-              content: `[CALENDAR_EVENT]:${JSON.stringify(payload)}`,
+              content: `[CALENDAR_EVENT]:${JSON.stringify(updatedCardPayload)}`,
             },
             include: {
               sender: {
@@ -1802,79 +1937,39 @@ export class CircleToolsService {
                   },
                 },
               },
-              reactions: {
-                include: {
-                  member: {
-                    include: {
-                      user: {
-                        include: {
-                          profile: true,
-                        },
-                      },
-                    },
-                  },
-                },
-              },
+              reactions: true,
               pinnedRecord: true,
             },
           });
 
-          const formattedMessage: MessageEntity = {
-            id: updatedRaw.id,
-            channelId: updatedRaw.channelId,
-            memberId: updatedRaw.memberId,
-            type: updatedRaw.type as any,
-            content: updatedRaw.content,
-            fileUrl: updatedRaw.fileUrl,
-            fileName: updatedRaw.fileName,
-            fileSize: updatedRaw.fileSize,
-            audioDuration: updatedRaw.audioDuration,
-            replyToId: updatedRaw.replyToId,
-            sentAt: updatedRaw.sentAt ? updatedRaw.sentAt.toISOString() : new Date().toISOString(),
-            updatedAt: updatedRaw.updatedAt ? updatedRaw.updatedAt.toISOString() : new Date().toISOString(),
-            sender: updatedRaw.sender
-              ? {
-                  id: updatedRaw.sender.id,
-                  circleId: updatedRaw.sender.circleId,
-                  userId: updatedRaw.sender.userId,
-                  role: updatedRaw.sender.role as any,
-                  nickname: updatedRaw.sender.nickname,
-                  joinedAt: updatedRaw.sender?.joinedAt ? updatedRaw.sender.joinedAt.toISOString() : new Date().toISOString(),
-                  updatedAt: updatedRaw.sender?.updatedAt ? updatedRaw.sender.updatedAt.toISOString() : new Date().toISOString(),
-                  user: updatedRaw.sender.user
-                    ? {
-                        id: updatedRaw.sender.user.id,
-                        email: updatedRaw.sender.user.email,
-                        isActivated: updatedRaw.sender.user.isActivated,
-                        globalRole: updatedRaw.sender.user.globalRole as any,
-                        createdAt: updatedRaw.sender.user.createdAt ? updatedRaw.sender.user.createdAt.toISOString() : new Date().toISOString(),
-                        updatedAt: updatedRaw.sender.user.updatedAt ? updatedRaw.sender.user.updatedAt.toISOString() : new Date().toISOString(),
-                        profile: updatedRaw.sender.user.profile
-                          ? {
-                              id: updatedRaw.sender.user.profile.id,
-                              userId: updatedRaw.sender.user.profile.userId,
-                              displayName: updatedRaw.sender.user.profile.displayName,
-                              avatarUrl: updatedRaw.sender.user.profile.avatarUrl,
-                              bio: updatedRaw.sender.user.profile.bio,
-                              dateOfBirth: updatedRaw.sender.user.profile.dateOfBirth?.toISOString() || null,
-                              updatedAt: updatedRaw.sender.user.profile.updatedAt ? updatedRaw.sender.user.profile.updatedAt.toISOString() : new Date().toISOString(),
-                            }
-                          : null,
-                      }
-                    : undefined,
-                }
-              : undefined,
-            replyTo: null,
-            reactions: [],
-            reactionCounts: {},
-            userReactions: [],
-            isPinned: false,
-          };
-
-          this.chatGateway?.broadcastMessageUpdated(channel.id, formattedMessage);
-          return;
+          this.chatGateway?.broadcastMessageUpdated(channel.id, this.mapMessageToEntity(updatedRaw));
         }
 
+        // Tạo tin nhắn thông báo hệ thống mới (action: 'UPDATED' hoặc 'CANCELLED')
+        // Client sẽ chỉ hiển thị dòng thông báo hệ thống (KHÔNG CÓ THẺ SỰ KIỆN)
+        const rawSystemMessage = await this.prisma.message.create({
+          data: {
+            channelId: channel.id,
+            memberId: member.id,
+            type: 'TEXT',
+            content: `[CALENDAR_EVENT]:${JSON.stringify(payload)}`,
+          },
+          include: {
+            sender: {
+              include: {
+                user: {
+                  include: {
+                    profile: true,
+                  },
+                },
+              },
+            },
+            reactions: true,
+            pinnedRecord: true,
+          },
+        });
+
+        this.chatGateway?.broadcastNewMessage(channel.id, this.mapMessageToEntity(rawSystemMessage));
         return;
       }
 
@@ -1895,76 +1990,12 @@ export class CircleToolsService {
               },
             },
           },
-          reactions: {
-            include: {
-              member: {
-                include: {
-                  user: {
-                    include: {
-                      profile: true,
-                    },
-                  },
-                },
-              },
-            },
-          },
+          reactions: true,
           pinnedRecord: true,
         },
       });
 
-      const formattedMessage: MessageEntity = {
-        id: rawMessage.id,
-        channelId: rawMessage.channelId,
-        memberId: rawMessage.memberId,
-        type: rawMessage.type as any,
-        content: rawMessage.content,
-        fileUrl: rawMessage.fileUrl,
-        fileName: rawMessage.fileName,
-        fileSize: rawMessage.fileSize,
-        audioDuration: rawMessage.audioDuration,
-        replyToId: rawMessage.replyToId,
-        sentAt: rawMessage.sentAt ? rawMessage.sentAt.toISOString() : new Date().toISOString(),
-        updatedAt: rawMessage.updatedAt ? rawMessage.updatedAt.toISOString() : new Date().toISOString(),
-        sender: rawMessage.sender
-          ? {
-              id: rawMessage.sender.id,
-              circleId: rawMessage.sender.circleId,
-              userId: rawMessage.sender.userId,
-              role: rawMessage.sender.role as any,
-              nickname: rawMessage.sender.nickname,
-              joinedAt: rawMessage.sender?.joinedAt ? rawMessage.sender.joinedAt.toISOString() : new Date().toISOString(),
-              updatedAt: rawMessage.sender?.updatedAt ? rawMessage.sender.updatedAt.toISOString() : new Date().toISOString(),
-              user: rawMessage.sender.user
-                ? {
-                    id: rawMessage.sender.user.id,
-                    email: rawMessage.sender.user.email,
-                    isActivated: rawMessage.sender.user.isActivated,
-                    globalRole: rawMessage.sender.user.globalRole as any,
-                    createdAt: rawMessage.sender.user.createdAt ? rawMessage.sender.user.createdAt.toISOString() : new Date().toISOString(),
-                    updatedAt: rawMessage.sender.user.updatedAt ? rawMessage.sender.user.updatedAt.toISOString() : new Date().toISOString(),
-                    profile: rawMessage.sender.user.profile
-                      ? {
-                          id: rawMessage.sender.user.profile.id,
-                          userId: rawMessage.sender.user.profile.userId,
-                          displayName: rawMessage.sender.user.profile.displayName,
-                          avatarUrl: rawMessage.sender.user.profile.avatarUrl,
-                          bio: rawMessage.sender.user.profile.bio,
-                          dateOfBirth: rawMessage.sender.user.profile.dateOfBirth?.toISOString() || null,
-                          updatedAt: rawMessage.sender.user.profile.updatedAt ? rawMessage.sender.user.profile.updatedAt.toISOString() : new Date().toISOString(),
-                        }
-                      : null,
-                  }
-                : undefined,
-            }
-          : undefined,
-        replyTo: null,
-        reactions: [],
-        reactionCounts: {},
-        userReactions: [],
-        isPinned: false,
-      };
-
-      this.chatGateway?.broadcastNewMessage(channel.id, formattedMessage);
+      this.chatGateway?.broadcastNewMessage(channel.id, this.mapMessageToEntity(rawMessage));
     } catch (err) {
       console.error('Failed to broadcast calendar event message to channel:', err);
     }

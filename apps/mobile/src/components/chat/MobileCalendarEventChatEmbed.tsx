@@ -620,6 +620,9 @@ export const MobileCalendarEventChatEmbed: React.FC<MobileCalendarEventChatEmbed
     if (lastAction.type === 'UPDATED') {
       return isMe ? 'Bạn đã cập nhật lịch hẹn' : `${actor} đã cập nhật lịch hẹn`;
     }
+    if (data?.action === 'REMINDER') {
+      return `Nhắc hẹn: ${eventTitle || 'Sự kiện sắp diễn ra'}`;
+    }
     if (lastAction.type === 'RSVP_UPDATED') {
       let actionVerb = 'tham gia';
       if (lastAction.rsvpStatus === EventRsvpStatus.MAYBE) {
@@ -637,7 +640,46 @@ export const MobileCalendarEventChatEmbed: React.FC<MobileCalendarEventChatEmbed
     isSenderMe,
     senderDisplayName,
     data?.creatorName,
+    data?.action,
+    eventTitle,
   ]);
+
+  // "và chỉ cần thẻ sự kiện khi tạo hoặc nhắc thui"
+  // Các hành động sửa, bình chọn, hủy chỉ hiển thị dòng thông báo hệ thống (System Message)
+  const showCard =
+    data.action === 'CREATED' ||
+    data.action === 'REMINDER' ||
+    !data.action;
+
+  if (!showCard) {
+    return (
+      <View style={styles.standaloneSystemMessageRow}>
+        <View
+          style={[
+            styles.systemMessagePill,
+            {
+              backgroundColor: colors.wash || '#F1F5F9',
+              borderColor: colors.hairline || '#E2E8F0',
+            },
+          ]}
+        >
+          <Text style={[styles.systemMessageText, { color: colors.subtle || '#64748B' }]}>
+            {systemMessageText}
+          </Text>
+          <Text style={[styles.systemMessageDots, { color: colors.subtle || '#64748B' }]}>…</Text>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={handleOpenCalendar}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Text style={[styles.systemMessageAction, { color: colors.primary || '#10B981' }]}>
+              Xem
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.outerContainer}>
@@ -1043,6 +1085,22 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
     marginVertical: 4,
+  },
+  standaloneSystemMessageRow: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 4,
+  },
+  systemMessagePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 9999,
+    borderWidth: 1,
   },
   systemMessageRow: {
     flexDirection: 'row',

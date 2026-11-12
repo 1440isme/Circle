@@ -7530,3 +7530,48 @@
   - **Resolution / Fix:** Inspected `apps/backend/prisma/schema.prisma` and corrected sorting to `orderBy: { sentAt: 'desc' }`, added missing logger.
 - **Commit:** af6a60c
 - **PR:** Pending
+
+
+---
+
+## AI-0185: Tách Biệt Thẻ Sự Kiện (Chỉ Khi Tạo/Nhắc) & Hiển Thị Độc Lập Dòng Thông Báo Hệ Thống Khi Sửa/Bình Chọn (#120)
+
+- **Date:** 2026-11-12 16:49:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120
+- **Purpose:** 
+  1. **Điều kiện hiển thị Thẻ sự kiện ("chỉ cần thẻ sự kiện khi tạo hoặc nhắc thui"):**
+     - Thẻ sự kiện đầy đủ (Card có ảnh bìa màu xanh Emerald, thời gian, địa điểm, ghi chú, danh sách thành viên xác nhận và 3 nút bình chọn) chỉ hiển thị khi **Tạo mới** (`action: 'CREATED'`) hoặc khi **Nhắc hẹn** (`action: 'REMINDER'`).
+     - Khi **Sửa lịch hẹn** (`action: 'UPDATED'`), **Có người bình chọn** (`action: 'RSVP_UPDATED'`), hoặc **Hủy** (`action: 'CANCELLED'`): Client chỉ hiển thị duy nhất **Dòng thông báo hệ thống (System Message)** căn giữa tinh gọn (`"[Tên] đã cập nhật lịch hẹn… Xem"`, `"[Tên] đã xác nhận [tham gia/có thể tham gia/từ chối tham gia]… Xem"`), hoàn toàn không render thẻ sự kiện to bên dưới.
+  2. **Cơ chế cập nhật backend (`CircleToolsService`):**
+     - Cập nhật thông tin và số lượng RSVP trên thẻ sự kiện gốc trong DB (luôn giữ `action: 'CREATED'` để thẻ gốc vẫn hiển thị đầy đủ thẻ khi xem lại).
+     - Phát socket `circle:calendar-event-rsvp-updated` hoặc `chat:message-updated` để đồng bộ realtime cho các client đang mở thẻ gốc.
+     - Đồng thời tạo tin nhắn thông báo hệ thống mới (`action: 'UPDATED'` hoặc `'RSVP_UPDATED'`) phát vào kênh chat để mọi người nắm được diễn biến mới nhất mà không bị rối mắt bởi thẻ sự kiện lặp lại.
+  3. **Đồng bộ Web & Mobile:**
+     - `CalendarEventChatEmbed.tsx` (Web) và `MobileCalendarEventChatEmbed.tsx` (Mobile) đồng bộ 100% logic `showCard` và giao diện thông báo hệ thống.
+- **Prompt Summary:** . Dòng Thông Báo Hệ Thống Động (System Message) system mesage cái này phải thay đổi nội dung theo tạo ,sửa, có người bình chọn....... và chỉ cần thẻ sự kiện khi tạo hoặc nhắc thui
+- **Files Affected:**
+  - `packages/types/src/index.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
+  - `apps/web/src/components/chat/CalendarEventChatEmbed.tsx`
+  - `apps/mobile/src/components/chat/MobileCalendarEventChatEmbed.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% logic tách biệt thẻ sự kiện, chuẩn hóa thông báo hệ thống động và quy trình cập nhật backend.
+- **Human Modifications:** Người dùng yêu cầu Thẻ sự kiện chỉ cần xuất hiện khi tạo hoặc nhắc, còn khi sửa hoặc có người bình chọn thì chỉ hiện dòng thông báo hệ thống.
+- **Verification Method:**
+  - `npx tsc --noEmit --project apps/web/tsconfig.json`: Passed 0 errors.
+  - `cd apps/mobile; npx tsc --noEmit`: Passed 0 errors.
+  - `cd apps/backend; npx tsc --noEmit`: Passed 0 errors.
+  - `cd apps/backend; npm test`: 11 test suites passed, 200 tests passed.
+  - `bash ./scripts/check-agent-map.sh`: Passed (130 files).
+  - `bash ./scripts/check-secrets.sh`: Passed, 0 secret leaks (600 files).
+- **Official Source Checked:** PROJECT_GOD.md, agentic/RULES.md & agentic/CONVENTIONS.md.
+- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A.
+  - **Resolution / Fix:** N/A.
+- **Commit:** 83ef80b
+- **PR:** Pending

@@ -849,7 +849,7 @@ export interface UpdateCalendarEventInput {
 }
 export interface CalendarEventMessagePayload {
   type: 'CALENDAR_EVENT';
-  action: 'CREATED' | 'UPDATED' | 'CANCELLED' | 'DELETED' | 'RSVP_UPDATED';
+  action: 'CREATED' | 'UPDATED' | 'CANCELLED' | 'DELETED' | 'RSVP_UPDATED' | 'REMINDER';
   eventId: string;
   eventTitle: string;
   description?: string | null;
