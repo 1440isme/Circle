@@ -7363,3 +7363,49 @@
   - **Resolution / Fix:** N/A.
 - **Commit:** dd10597
 - **PR:** Pending
+
+---
+
+## AI-0181: Hiện đại hóa Thẻ Lịch hẹn Trong Khung Chat Web & Mobile: Hộp Thời Gian Dạng Text, Nhật Ký Người Tạo, Ghi Chú, Lặp Lại & Xác Nhận Phạm Vi Bình Chọn (#120)
+
+- **Date:** 2026-11-12 15:20:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120
+- **Purpose:** 
+  1. Loại bỏ hoàn toàn text nhãn thừa `"LỊCH HẸN NHÓM"` / `"LỊCH HẸN VÒNG TRÒN"` trên thẻ sự kiện chat.
+  2. Tích hợp thanh nhật ký tin nhắn (Message Log Header) phía trên cùng: hiển thị avatar người tạo, tên người tạo, nhãn `đã tạo lịch hẹn` và mốc thời gian gửi `HH:mm`.
+  3. Thay thế ô lịch 1 ngày (1-day bloc calendar tile) bằng Hộp thông tin thời gian dạng text (Time Capsule Box):
+     - Sự kiện diễn ra trong 1 ngày: `08:00 – 11:30 • Thứ X, dd/MM/yyyy` (hoặc `08:00 • Thứ X, dd/MM/yyyy`).
+     - Sự kiện kéo dài qua nhiều ngày (multi-day): `08:00, dd/MM/yyyy ➔ 17:00, dd/MM/yyyy (N ngày)`.
+  4. Hiển thị thông tin chu kỳ lặp lại (`Repeat` icon + văn bản tóm tắt lặp), huy hiệu nhắc hẹn (`Bell` icon), địa điểm (`MapPin`), và trích dẫn ghi chú mô tả (`cleanDesc`).
+  5. Giữ nguyên toàn bộ khu vực bình chọn tham gia (RSVP section) với 3 thanh tiến trình Poll (`Tham gia`, `Chưa chắc`, `Bận`) kèm danh sách avatar tròn của các thành viên đã phản hồi.
+  6. Bổ sung modal / hộp thoại hỏi phạm vi áp dụng khi bình chọn cho lịch hẹn lặp lại:
+     - `Chỉ lần này` (tách thành sự kiện riêng lẻ độc lập và lưu vote)
+     - `Lần này và các lần tiếp theo`
+     - `Tất cả các lần` (lưu vote cho toàn bộ chuỗi sự kiện)
+     - `Đóng / Hủy`
+  7. Đồng bộ tính năng và thẩm mỹ tuyệt đối giữa Web (`CalendarEventChatEmbed.tsx`) và Mobile (`MobileCalendarEventChatEmbed.tsx`), thay thế hoàn toàn phiên bản nhúng cũ `MobileChatCalendarCard`.
+- **Prompt Summary:** theo như này mà BỎ TEXT" LỊCH HẸN NHÓM" VÀ CÓ GHI LOG TIN NHẮN . CÓ THÊM GHI CHÚ VÀ LẶP LẠI.  ĐI NHỈ KHI BÌNH CHỌN THÌ CÓ XÁC NHẬN CHỌN CHO LẦN NÀO - oke vậy thư coi và phần dưới chỗ bình chọn vẫn giữ của cái cũ
+- **Files Affected:**
+  - `apps/web/src/components/chat/CalendarEventChatEmbed.tsx`
+  - `apps/web/src/components/chat/MessageBubble.tsx`
+  - `apps/mobile/src/components/chat/MobileCalendarEventChatEmbed.tsx`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% tái thiết kế thẻ sự kiện lịch hẹn trên chat Web và Mobile.
+- **Human Modifications:** Người dùng định hướng bố cục dạng text, bỏ chữ "LỊCH HẸN NHÓM", hiển thị log tin nhắn người tạo, thêm ghi chú/lặp lại, xác nhận phạm vi bình chọn cho sự kiện lặp, và giữ nguyên giao diện bình chọn cũ.
+- **Verification Method:**
+  - `cd apps/mobile; npx tsc --noEmit`: Passed 0 errors.
+  - `npx tsc --noEmit --project apps/web/tsconfig.json`: Passed 0 errors.
+  - `bash ./scripts/check-agent-map.sh`: Passed (130 files).
+  - `bash ./scripts/check-secrets.sh`: Passed, 0 secret leaks (599 files).
+- **Official Source Checked:** PROJECT_GOD.md, agentic/RULES.md & agentic/CONVENTIONS.md.
+- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A.
+  - **Resolution / Fix:** N/A.
+- **Commit:** Pending
+- **PR:** Pending
