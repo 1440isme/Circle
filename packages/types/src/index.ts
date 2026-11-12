@@ -859,6 +859,9 @@ export interface CalendarEventMessagePayload {
   reminderTime?: string | null;
   isCancelled?: boolean;
   creatorName: string;
+  lastActorName?: string;
+  lastActorUserId?: string;
+  lastRsvpStatus?: EventRsvpStatus;
   rsvps?: {
     yesCount: number;
     noCount: number;

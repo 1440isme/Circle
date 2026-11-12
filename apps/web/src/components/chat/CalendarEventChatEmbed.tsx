@@ -69,6 +69,42 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
   const [showScopeModal, setShowScopeModal] = useState(false);
   const [pendingVoteStatus, setPendingVoteStatus] = useState<EventRsvpStatus | null>(null);
 
+  // Dynamic system message action tracker (thay đổi nội dung theo tạo, sửa, có người bình chọn)
+  const [lastAction, setLastAction] = useState<{
+    type: 'CREATED' | 'UPDATED' | 'CANCELLED' | 'RSVP_UPDATED';
+    actorName?: string;
+    actorUserId?: string;
+    rsvpStatus?: EventRsvpStatus;
+  }>(() => {
+    if (eventData.isCancelled || eventData.action === 'CANCELLED') {
+      return {
+        type: 'CANCELLED',
+        actorName: eventData.lastActorName || senderDisplayName || eventData.creatorName,
+        actorUserId: eventData.lastActorUserId,
+      };
+    }
+    if (eventData.action === 'UPDATED') {
+      return {
+        type: 'UPDATED',
+        actorName: eventData.lastActorName || senderDisplayName || eventData.creatorName,
+        actorUserId: eventData.lastActorUserId,
+      };
+    }
+    if (eventData.action === 'RSVP_UPDATED') {
+      return {
+        type: 'RSVP_UPDATED',
+        actorName: eventData.lastActorName || senderDisplayName,
+        actorUserId: eventData.lastActorUserId,
+        rsvpStatus: eventData.lastRsvpStatus,
+      };
+    }
+    return {
+      type: 'CREATED',
+      actorName: senderDisplayName || eventData.creatorName,
+      actorUserId: isSenderMe ? currentUserId : undefined,
+    };
+  });
+
   const rsvpMutation = useRespondEventRsvpMutation(activeCircleId || '');
   const updateMutation = useUpdateCalendarEventMutation(activeCircleId || '');
   const createMutation = useCreateCalendarEventMutation(activeCircleId || '');
@@ -106,14 +142,55 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
     setRsvps(initialRsvps);
   }, [initialRsvps]);
 
+  // Đồng bộ trạng thái khi prop eventData thay đổi (ví dụ khi tin nhắn cập nhật realtime qua chat:message-updated)
+  useEffect(() => {
+    if (eventData.isCancelled || eventData.action === 'CANCELLED') {
+      setLastAction({
+        type: 'CANCELLED',
+        actorName: eventData.lastActorName || eventData.creatorName,
+        actorUserId: eventData.lastActorUserId,
+      });
+    } else if (eventData.action === 'UPDATED') {
+      setLastAction({
+        type: 'UPDATED',
+        actorName: eventData.lastActorName || eventData.creatorName,
+        actorUserId: eventData.lastActorUserId,
+      });
+    } else if (eventData.action === 'RSVP_UPDATED') {
+      setLastAction({
+        type: 'RSVP_UPDATED',
+        actorName: eventData.lastActorName || 'Thành viên',
+        actorUserId: eventData.lastActorUserId,
+        rsvpStatus: eventData.lastRsvpStatus,
+      });
+    }
+  }, [
+    eventData.action,
+    eventData.isCancelled,
+    eventData.lastActorName,
+    eventData.lastActorUserId,
+    eventData.lastRsvpStatus,
+    eventData.creatorName,
+  ]);
+
   // Realtime Socket.IO sync for RSVP updates (COL-09)
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
 
-    const handleRsvpUpdated = (data: { eventId: string; circleId: string; rsvps: any }) => {
-      if (data.eventId === eventData.eventId && data.rsvps) {
-        setRsvps(data.rsvps);
+    const handleRsvpUpdated = (data: { eventId: string; circleId: string; rsvps: any; rsvp?: any }) => {
+      if (data.eventId === eventData.eventId) {
+        if (data.rsvps) {
+          setRsvps(data.rsvps);
+        }
+        if (data.rsvp) {
+          setLastAction({
+            type: 'RSVP_UPDATED',
+            actorName: data.rsvp.user?.profile?.displayName || 'Thành viên',
+            actorUserId: data.rsvp.userId,
+            rsvpStatus: data.rsvp.status,
+          });
+        }
       }
     };
 
@@ -219,6 +296,14 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
       const noCount = updatedUserRsvps.filter((u) => u.status === EventRsvpStatus.NO).length;
       setRsvps({ yesCount, maybeCount, noCount, userRsvps: updatedUserRsvps });
 
+      // Cập nhật thông báo hệ thống phía trên thẻ
+      setLastAction({
+        type: 'RSVP_UPDATED',
+        actorName: 'Bạn',
+        actorUserId: currentUserId,
+        rsvpStatus: status,
+      });
+
       await rsvpMutation.mutateAsync({ eventId: eventData.eventId, status });
     } catch (err) {
       console.error('Failed to update RSVP:', err);
@@ -300,15 +385,46 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
     [rsvps]
   );
 
+  // Nội dung thông báo hệ thống động theo hành động: Tạo, Sửa, Huỷ, hoặc Bình chọn
+  const systemMessageText = useMemo(() => {
+    const isMe =
+      (lastAction.actorUserId && lastAction.actorUserId === currentUserId) ||
+      lastAction.actorName === 'Bạn' ||
+      (isSenderMe && lastAction.type === 'CREATED');
+    const actor = isMe
+      ? 'Bạn'
+      : (lastAction.actorName || senderDisplayName || eventData.creatorName || 'Một thành viên');
+
+    if (lastAction.type === 'CANCELLED' || isCancelled) {
+      return isMe ? 'Bạn đã hủy lịch hẹn' : `${actor} đã hủy lịch hẹn`;
+    }
+    if (lastAction.type === 'UPDATED') {
+      return isMe ? 'Bạn đã cập nhật lịch hẹn' : `${actor} đã cập nhật lịch hẹn`;
+    }
+    if (lastAction.type === 'RSVP_UPDATED') {
+      let actionVerb = 'tham gia';
+      if (lastAction.rsvpStatus === EventRsvpStatus.MAYBE) {
+        actionVerb = 'có thể tham gia';
+      } else if (lastAction.rsvpStatus === EventRsvpStatus.NO) {
+        actionVerb = 'từ chối tham gia';
+      }
+      return isMe ? `Bạn đã xác nhận ${actionVerb}` : `${actor} đã xác nhận ${actionVerb}`;
+    }
+    return isMe ? 'Bạn tạo nhắc hẹn mới' : `${actor} tạo nhắc hẹn mới`;
+  }, [
+    lastAction,
+    isCancelled,
+    currentUserId,
+    isSenderMe,
+    senderDisplayName,
+    eventData.creatorName,
+  ]);
+
   return (
     <div className="w-full max-w-lg mx-auto transition-all select-text">
-      {/* 1. Dòng thông báo hệ thống nằm phía trên thẻ (System Message) */}
+      {/* 1. Dòng thông báo hệ thống nằm phía trên thẻ (System Message động) */}
       <div className="flex items-center justify-center gap-1.5 text-xs text-circle-slate dark:text-circle-dark-muted mb-2 font-medium select-none">
-        <span>
-          {isSenderMe
-            ? 'Bạn tạo nhắc hẹn mới'
-            : `${senderDisplayName || eventData.creatorName || 'Một thành viên'} tạo nhắc hẹn mới`}
-        </span>
+        <span>{systemMessageText}</span>
         <span className="opacity-60">…</span>
         <button
           type="button"

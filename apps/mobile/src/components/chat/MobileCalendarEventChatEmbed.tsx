@@ -21,6 +21,7 @@ import {
   Bell,
   Lock,
   CalendarDays,
+  FileText,
 } from 'lucide-react-native';
 import { getSocket } from '../../services/socket';
 import { useAuthStore } from '../../stores/auth.store';
@@ -137,6 +138,93 @@ export const MobileCalendarEventChatEmbed: React.FC<MobileCalendarEventChatEmbed
     }
   });
 
+  // Đồng bộ data khi propData hoặc content thay đổi
+  useEffect(() => {
+    if (propData) {
+      setData(propData);
+    } else if (content) {
+      try {
+        const jsonStr = content.startsWith('[CALENDAR_EVENT]:')
+          ? content.replace('[CALENDAR_EVENT]:', '').trim()
+          : content;
+        setData(JSON.parse(jsonStr));
+      } catch {
+        // ignore
+      }
+    }
+  }, [propData, content]);
+
+  // Trạng thái hành động mới nhất của lịch hẹn để hiển thị thông báo hệ thống động
+  const [lastAction, setLastAction] = useState<{
+    type: 'CREATED' | 'UPDATED' | 'RSVP_UPDATED' | 'CANCELLED';
+    actorName?: string;
+    actorUserId?: string;
+    rsvpStatus?: EventRsvpStatus;
+  }>(() => {
+    const castData = data as any;
+    if (data?.isCancelled || data?.action === 'CANCELLED' || data?.action === 'DELETED') {
+      return {
+        type: 'CANCELLED',
+        actorName: castData?.lastActorName || senderDisplayName || data?.creatorName,
+        actorUserId: castData?.lastActorUserId,
+      };
+    }
+    if (data?.action === 'UPDATED') {
+      return {
+        type: 'UPDATED',
+        actorName: castData?.lastActorName || senderDisplayName || data?.creatorName,
+        actorUserId: castData?.lastActorUserId,
+      };
+    }
+    if (data?.action === 'RSVP_UPDATED') {
+      return {
+        type: 'RSVP_UPDATED',
+        actorName: castData?.lastActorName || senderDisplayName,
+        actorUserId: castData?.lastActorUserId,
+        rsvpStatus: castData?.lastRsvpStatus,
+      };
+    }
+    return {
+      type: 'CREATED',
+      actorName: senderDisplayName || data?.creatorName,
+      actorUserId: isSenderMe ? effectiveUserId : undefined,
+    };
+  });
+
+  // Cập nhật lastAction khi data thay đổi (realtime update qua chat:message-updated)
+  useEffect(() => {
+    if (!data) return;
+    const castData = data as any;
+    if (data.isCancelled || data.action === 'CANCELLED' || data.action === 'DELETED') {
+      setLastAction({
+        type: 'CANCELLED',
+        actorName: castData.lastActorName || senderDisplayName || data.creatorName,
+        actorUserId: castData.lastActorUserId,
+      });
+    } else if (data.action === 'UPDATED') {
+      setLastAction({
+        type: 'UPDATED',
+        actorName: castData.lastActorName || senderDisplayName || data.creatorName,
+        actorUserId: castData.lastActorUserId,
+      });
+    } else if (data.action === 'RSVP_UPDATED') {
+      setLastAction({
+        type: 'RSVP_UPDATED',
+        actorName: castData.lastActorName || senderDisplayName || 'Thành viên',
+        actorUserId: castData.lastActorUserId,
+        rsvpStatus: castData.lastRsvpStatus,
+      });
+    }
+  }, [
+    data?.action,
+    data?.isCancelled,
+    (data as any)?.lastActorName,
+    (data as any)?.lastActorUserId,
+    (data as any)?.lastRsvpStatus,
+    data?.creatorName,
+    senderDisplayName,
+  ]);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showScopeModal, setShowScopeModal] = useState(false);
   const [pendingVoteStatus, setPendingVoteStatus] = useState<EventRsvpStatus | null>(null);
@@ -220,6 +308,14 @@ export const MobileCalendarEventChatEmbed: React.FC<MobileCalendarEventChatEmbed
             noCount: payload.rsvps.noCount || 0,
             maybeCount: payload.rsvps.maybeCount || 0,
             userRsvps: payload.rsvps.userRsvps || [],
+          });
+        }
+        if (payload.rsvp) {
+          setLastAction({
+            type: 'RSVP_UPDATED',
+            actorName: payload.rsvp.user?.profile?.displayName || 'Thành viên',
+            actorUserId: payload.rsvp.userId,
+            rsvpStatus: payload.rsvp.status,
           });
         }
       }
@@ -352,6 +448,14 @@ export const MobileCalendarEventChatEmbed: React.FC<MobileCalendarEventChatEmbed
       return { yesCount, maybeCount, noCount, userRsvps: filtered };
     });
 
+    // Cập nhật thông báo hệ thống phía trên thẻ
+    setLastAction({
+      type: 'RSVP_UPDATED',
+      actorName: 'Bạn',
+      actorUserId: effectiveUserId,
+      rsvpStatus: status,
+    });
+
     try {
       await respondCalendarEventRsvpApi(circleId, eventId, { status });
     } catch (err) {
@@ -468,13 +572,13 @@ export const MobileCalendarEventChatEmbed: React.FC<MobileCalendarEventChatEmbed
       users: yesUsers,
       barColor: '#DCFCE7',
       activeBarColor: '#BBF7D0',
-      activeBorder: '#16A34A',
-      iconColor: '#15803D',
-      textColor: '#15803D',
+      activeBorder: '#10B981',
+      iconColor: '#059669',
+      textColor: '#059669',
     },
     {
       status: EventRsvpStatus.MAYBE,
-      label: 'Chưa chắc',
+      label: 'Có thể',
       icon: HelpCircle,
       count: rsvps?.maybeCount || 0,
       percent: maybePercent,
@@ -487,7 +591,7 @@ export const MobileCalendarEventChatEmbed: React.FC<MobileCalendarEventChatEmbed
     },
     {
       status: EventRsvpStatus.NO,
-      label: 'Bận',
+      label: 'Từ chối',
       icon: X,
       count: rsvps?.noCount || 0,
       percent: noPercent,
@@ -500,8 +604,61 @@ export const MobileCalendarEventChatEmbed: React.FC<MobileCalendarEventChatEmbed
     },
   ];
 
+  // Nội dung thông báo hệ thống động theo hành động: Tạo, Sửa, Huỷ, hoặc Bình chọn
+  const systemMessageText = useMemo(() => {
+    const isMe =
+      (lastAction.actorUserId && lastAction.actorUserId === effectiveUserId) ||
+      lastAction.actorName === 'Bạn' ||
+      (isSenderMe && lastAction.type === 'CREATED');
+    const actor = isMe
+      ? 'Bạn'
+      : (lastAction.actorName || senderDisplayName || data?.creatorName || 'Một thành viên');
+
+    if (lastAction.type === 'CANCELLED' || isCancelled) {
+      return isMe ? 'Bạn đã hủy lịch hẹn' : `${actor} đã hủy lịch hẹn`;
+    }
+    if (lastAction.type === 'UPDATED') {
+      return isMe ? 'Bạn đã cập nhật lịch hẹn' : `${actor} đã cập nhật lịch hẹn`;
+    }
+    if (lastAction.type === 'RSVP_UPDATED') {
+      let actionVerb = 'tham gia';
+      if (lastAction.rsvpStatus === EventRsvpStatus.MAYBE) {
+        actionVerb = 'có thể tham gia';
+      } else if (lastAction.rsvpStatus === EventRsvpStatus.NO) {
+        actionVerb = 'từ chối tham gia';
+      }
+      return isMe ? `Bạn đã xác nhận ${actionVerb}` : `${actor} đã xác nhận ${actionVerb}`;
+    }
+    return isMe ? 'Bạn tạo nhắc hẹn mới' : `${actor} tạo nhắc hẹn mới`;
+  }, [
+    lastAction,
+    isCancelled,
+    effectiveUserId,
+    isSenderMe,
+    senderDisplayName,
+    data?.creatorName,
+  ]);
+
   return (
     <View style={styles.outerContainer}>
+      {/* 1. Dòng thông báo hệ thống nằm phía trên thẻ (System Message) */}
+      <View style={styles.systemMessageRow}>
+        <Text style={[styles.systemMessageText, { color: colors.subtle || '#64748B' }]}>
+          {systemMessageText}
+        </Text>
+        <Text style={[styles.systemMessageDots, { color: colors.subtle || '#64748B' }]}>…</Text>
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={handleOpenCalendar}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Text style={[styles.systemMessageAction, { color: colors.primary || '#10B981' }]}>
+            Xem
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Thẻ sự kiện */}
       <View
         style={[
           styles.cardContainer,
@@ -511,108 +668,60 @@ export const MobileCalendarEventChatEmbed: React.FC<MobileCalendarEventChatEmbed
           },
         ]}
       >
-        {/* 1. Log Tin nhắn: Người tạo/chia sẻ + Thời gian gửi */}
-        <View
-          style={[
-            styles.logHeaderRow,
-            {
-              backgroundColor: colors.wash || '#F8FAFC',
-              borderBottomColor: colors.hairline || '#E2E8F0',
-            },
-          ]}
-        >
-          <View style={styles.logSenderInfo}>
-            {senderAvatarUrl ? (
-              <Image source={{ uri: senderAvatarUrl }} style={styles.logAvatarImg} />
-            ) : (
-              <View style={[styles.logAvatarFallback, { backgroundColor: '#CCFBF1' }]}>
-                <Text style={styles.logAvatarInitial}>
-                  {(senderDisplayName || data.creatorName || 'U').charAt(0).toUpperCase()}
-                </Text>
-              </View>
-            )}
-            <Text numberOfLines={1} style={[styles.logSenderName, { color: colors.text || '#0F172A' }]}>
-              {senderDisplayName || data.creatorName || 'Thành viên'}
-            </Text>
-            <Text style={[styles.logActionText, { color: colors.subtle || '#64748B' }]}>
-              đã tạo lịch hẹn
-            </Text>
-          </View>
-          {sentTimeStr && (
-            <Text style={[styles.logTimeText, { color: colors.subtle || '#64748B' }]}>
-              {sentTimeStr}
-            </Text>
-          )}
-        </View>
-
-        {/* 2. Tiêu đề sự kiện & Nút Xem trên Lịch (BỎ text "LỊCH HẸN NHÓM") */}
-        <View style={styles.titleActionRow}>
-          <View style={styles.titleLeftCol}>
-            <View style={[styles.iconBadge, { backgroundColor: '#CCFBF1' }]}>
-              <Calendar size={18} color="#0D9488" />
+        {/* 2. Ảnh bìa (Màu chủ đạo Emerald Brand) & Tên sự kiện */}
+        <View style={styles.bannerContainer}>
+          <View style={styles.bannerHeaderRow}>
+            <View style={styles.bannerBadge}>
+              <Calendar size={13} color="#FFFFFF" />
+              <Text style={styles.bannerBadgeText}>Lịch hẹn</Text>
             </View>
-            <View style={styles.titleTextCol}>
-              <Text
-                numberOfLines={2}
-                style={[
-                  styles.eventTitleText,
-                  { color: colors.text || '#0F172A' },
-                  isCancelled && styles.titleCancelled,
-                ]}
+
+            {(onOpenCalendar || onViewOnCalendar) && (
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={handleOpenCalendar}
+                style={styles.bannerViewCalendarBtn}
               >
-                {eventTitle}
-              </Text>
-            </View>
-            {isCancelled && (
-              <View style={styles.cancelledBadge}>
-                <Text style={styles.cancelledBadgeText}>Đã hủy</Text>
-              </View>
+                <CalendarDays size={13} color="#FFFFFF" />
+                <Text style={styles.bannerViewCalendarBtnText}>Xem lịch</Text>
+              </TouchableOpacity>
             )}
           </View>
 
-          {(onOpenCalendar || onViewOnCalendar) && (
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={handleOpenCalendar}
+          <View style={styles.bannerTitleCol}>
+            <Text
+              numberOfLines={2}
               style={[
-                styles.viewCalendarBtn,
-                {
-                  backgroundColor: colors.wash || '#F1F5F9',
-                  borderColor: colors.hairline || '#E2E8F0',
-                },
+                styles.bannerEventTitle,
+                isCancelled && styles.titleCancelled,
               ]}
             >
-              <CalendarDays size={13} color="#0D9488" />
-              <Text style={styles.viewCalendarBtnText}>Xem lịch</Text>
-            </TouchableOpacity>
-          )}
+              {eventTitle}
+            </Text>
+            {isCancelled && (
+              <View style={styles.cancelledBadge}>
+                <Text style={styles.cancelledBadgeText}>Sự kiện đã bị hủy</Text>
+              </View>
+            )}
+          </View>
         </View>
 
-        {/* 3. Event Details: Time Capsule Box, Địa điểm, Lặp lại, Nhắc hẹn, Ghi chú */}
+        {/* 3. Event Details: Thời gian, Địa điểm, Lặp lại, Nhắc hẹn, Ghi chú (Chỉ giữ lại icon) */}
         <View style={styles.detailsContainer}>
-          {/* Time Capsule Box (Dạng text thuần túy: bao quát cả 1 ngày lẫn nhiều ngày) */}
-          <View
-            style={[
-              styles.timeCapsuleBox,
-              {
-                backgroundColor: colors.wash || '#F8FAFC',
-                borderColor: colors.hairline || '#E2E8F0',
-              },
-            ]}
-          >
-            <Clock size={15} color="#0D9488" />
+          {/* Thời gian bắt đầu – kết thúc (icon Clock + text) */}
+          <View style={styles.detailRow}>
+            <Clock size={15} color="#10B981" />
             {isSameDay ? (
-              <Text style={[styles.timeCapsuleText, { color: colors.text || '#0F172A' }]}>
-                {startTimeStr}
-                {endTimeStr ? ` – ${endTimeStr}` : ''} • {weekdayStr}, {startDateStr}
+              <Text style={[styles.detailTimeText, { color: colors.text || '#0F172A' }]}>
+                {startTimeStr}{endTimeStr ? ` – ${endTimeStr}` : ''} • {weekdayStr}, {startDateStr}
               </Text>
             ) : (
               <View style={styles.multiDayRow}>
-                <Text style={[styles.timeCapsuleText, { color: colors.text || '#0F172A' }]}>
+                <Text style={[styles.detailTimeText, { color: colors.text || '#0F172A' }]}>
                   {startTimeStr}, {startDateStr}
                 </Text>
                 <Text style={styles.multiDayArrow}>➔</Text>
-                <Text style={[styles.timeCapsuleText, { color: colors.text || '#0F172A' }]}>
+                <Text style={[styles.detailTimeText, { color: colors.text || '#0F172A' }]}>
                   {endTimeStr || ''}, {endDateStr}
                 </Text>
                 <View style={styles.durationPill}>
@@ -622,23 +731,23 @@ export const MobileCalendarEventChatEmbed: React.FC<MobileCalendarEventChatEmbed
             )}
           </View>
 
-          {/* Location row */}
+          {/* Địa điểm (icon MapPin) */}
           {Boolean(data.location) && (
             <View style={styles.detailRow}>
-              <MapPin size={14} color="#0D9488" />
+              <MapPin size={15} color="#F43F5E" />
               <Text
                 numberOfLines={2}
-                style={[styles.detailText, { color: colors.subtle || '#475569' }]}
+                style={[styles.detailText, { color: colors.text || '#0F172A' }]}
               >
                 {data.location}
               </Text>
             </View>
           )}
 
-          {/* Recurrence summary row */}
+          {/* Lặp lại (icon Repeat) */}
           {isRecurring && recurrenceSummaryText && (
             <View style={styles.detailRow}>
-              <Repeat size={14} color="#0D9488" />
+              <Repeat size={15} color="#10B981" />
               <Text
                 numberOfLines={1}
                 style={[styles.recurrenceText, { color: colors.text || '#0F172A' }]}
@@ -648,17 +757,15 @@ export const MobileCalendarEventChatEmbed: React.FC<MobileCalendarEventChatEmbed
             </View>
           )}
 
-          {/* Reminder badge */}
+          {/* Nhắc hẹn nếu có (icon Bell) */}
           {reminderStr && (
-            <View style={styles.reminderRow}>
-              <View style={styles.reminderBadge}>
-                <Bell size={11} color="#D97706" />
-                <Text style={styles.reminderBadgeText}>{reminderStr}</Text>
-              </View>
+            <View style={styles.detailRow}>
+              <Bell size={15} color="#D97706" />
+              <Text style={styles.reminderBadgeText}>{reminderStr}</Text>
             </View>
           )}
 
-          {/* Clean description quote */}
+          {/* Ghi chú được tách thành vùng riêng (icon FileText) */}
           {cleanDesc ? (
             <View
               style={[
@@ -669,17 +776,18 @@ export const MobileCalendarEventChatEmbed: React.FC<MobileCalendarEventChatEmbed
                 },
               ]}
             >
+              <FileText size={14} color="#64748B" style={{ marginTop: 2 }} />
               <Text
-                style={[styles.quoteText, { color: colors.subtle || '#64748B' }]}
+                style={[styles.quoteText, { color: colors.text || '#0F172A' }]}
                 numberOfLines={4}
               >
-                "{cleanDesc}"
+                {cleanDesc}
               </Text>
             </View>
           ) : null}
         </View>
 
-        {/* 4. RSVP Section: 3 Poll Progress Bars with Respondent Avatars */}
+        {/* 4. RSVP Section: Số thành viên xác nhận & 3 nút phản hồi */}
         <View
           style={[
             styles.pollSection,
@@ -689,38 +797,47 @@ export const MobileCalendarEventChatEmbed: React.FC<MobileCalendarEventChatEmbed
             },
           ]}
         >
-          {/* Poll Header */}
+          {/* Header: Số thành viên xác nhận & Avatars */}
           <View style={styles.pollHeaderRow}>
             <View style={styles.pollHeaderLeft}>
-              {isCancelled ? (
-                <>
-                  <Lock size={13} color="#DC2626" />
-                  <Text style={[styles.pollStatusText, { color: '#DC2626' }]}>
-                    Sự kiện đã bị hủy
-                  </Text>
-                </>
-              ) : isStarted ? (
-                <>
-                  <Lock size={13} color="#64748B" />
-                  <Text style={[styles.pollStatusText, { color: '#64748B' }]}>
-                    Đã khóa bình chọn
-                  </Text>
-                </>
-              ) : (
-                <>
-                  <Users size={13} color="#0D9488" />
-                  <Text style={[styles.pollStatusText, { color: colors.text || '#0F172A' }]}>
-                    Phản hồi tham gia
-                  </Text>
-                </>
-              )}
+              <Users size={14} color="#10B981" />
+              <Text style={[styles.pollStatusText, { color: colors.text || '#0F172A' }]}>
+                {yesUsers.length} thành viên xác nhận
+              </Text>
             </View>
-            <Text style={[styles.pollCountText, { color: colors.subtle || '#64748B' }]}>
-              {totalVotes} phản hồi
-            </Text>
+            {yesUsers.length > 0 && (
+              <View style={styles.respondentsWrap}>
+                {yesUsers.slice(0, 4).map((u, idx) => (
+                  <View
+                    key={u.userId || idx}
+                    style={[
+                      styles.respAvatarWrap,
+                      { marginLeft: idx === 0 ? 0 : -8 },
+                    ]}
+                  >
+                    {u.avatarUrl ? (
+                      <Image source={{ uri: u.avatarUrl }} style={styles.respAvatarImg} />
+                    ) : (
+                      <View style={[styles.respAvatarFallback, { backgroundColor: '#10B981' }]}>
+                        <Text style={styles.respAvatarInitial}>
+                          {(u.displayName || 'U').charAt(0).toUpperCase()}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                ))}
+                {yesUsers.length > 4 && (
+                  <View style={[styles.respAvatarWrap, styles.respAvatarMore]}>
+                    <Text style={styles.respAvatarMoreText}>
+                      +{yesUsers.length - 4}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
           </View>
 
-          {/* Poll Options Progress Bars */}
+          {/* 3 nút/thanh phản hồi: Tham gia, Có thể, Từ chối */}
           <View style={styles.pollOptionsCol}>
             {pollOptions.map((opt) => {
               const isSelected = myRsvp === opt.status;
@@ -927,6 +1044,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginVertical: 4,
   },
+  systemMessageRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    marginBottom: 8,
+    paddingHorizontal: 8,
+  },
+  systemMessageText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  systemMessageDots: {
+    fontSize: 12,
+    opacity: 0.6,
+  },
+  systemMessageAction: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
   cardContainer: {
     width: '100%',
     maxWidth: 340,
@@ -939,132 +1076,88 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
   },
-  logHeaderRow: {
+  bannerContainer: {
+    backgroundColor: '#10B981',
+    paddingHorizontal: 14,
+    paddingTop: 14,
+    paddingBottom: 14,
+  },
+  bannerHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    marginBottom: 8,
   },
-  logSenderInfo: {
+  bannerBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    flex: 1,
-    minWidth: 0,
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 3.5,
+    borderRadius: 9999,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
   },
-  logAvatarImg: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-  },
-  logAvatarFallback: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logAvatarInitial: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#0D9488',
-  },
-  logSenderName: {
-    fontSize: 12,
-    fontWeight: '700',
-    maxWidth: 110,
-  },
-  logActionText: {
+  bannerBadgeText: {
     fontSize: 11,
-    opacity: 0.85,
-  },
-  logTimeText: {
-    fontSize: 10.5,
-    fontFamily: 'monospace',
-    marginLeft: 6,
-  },
-  titleActionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 12,
-    paddingTop: 10,
-    paddingBottom: 6,
-    gap: 8,
-  },
-  titleLeftCol: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    flex: 1,
-    minWidth: 0,
-  },
-  iconBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  titleTextCol: {
-    flex: 1,
-    minWidth: 0,
-  },
-  eventTitleText: {
-    fontSize: 14.5,
     fontWeight: '700',
-    lineHeight: 19,
+    color: '#FFFFFF',
   },
-  titleCancelled: {
-    textDecorationLine: 'line-through',
-    color: '#DC2626',
-    opacity: 0.7,
-  },
-  cancelledBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-    backgroundColor: '#FEE2E2',
-    borderWidth: 1,
-    borderColor: '#FECACA',
-  },
-  cancelledBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#DC2626',
-  },
-  viewCalendarBtn: {
+  bannerViewCalendarBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     paddingHorizontal: 9,
-    paddingVertical: 5,
-    borderRadius: 12,
-    borderWidth: 1,
+    paddingVertical: 3.5,
+    borderRadius: 9999,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
   },
-  viewCalendarBtnText: {
-    fontSize: 11,
+  bannerViewCalendarBtnText: {
+    fontSize: 11.5,
     fontWeight: '600',
-    color: '#0D9488',
+    color: '#FFFFFF',
+  },
+  bannerTitleCol: {
+    marginTop: 2,
+    gap: 4,
+  },
+  bannerEventTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    lineHeight: 22,
+  },
+  titleCancelled: {
+    textDecorationLine: 'line-through',
+    color: '#FECACA',
+    opacity: 0.8,
+  },
+  cancelledBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    backgroundColor: 'rgba(220, 38, 38, 0.8)',
+    borderWidth: 1,
+    borderColor: '#F87171',
+    marginTop: 2,
+  },
+  cancelledBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   detailsContainer: {
-    paddingHorizontal: 12,
-    paddingBottom: 10,
-    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 10,
   },
-  timeCapsuleBox: {
+  detailRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderRadius: 12,
-    borderWidth: 1,
   },
-  timeCapsuleText: {
-    fontSize: 12,
+  detailTimeText: {
+    fontSize: 12.5,
     fontWeight: '600',
     flexShrink: 1,
   },
@@ -1072,7 +1165,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
-    gap: 4,
+    gap: 5,
     flex: 1,
   },
   multiDayArrow: {
@@ -1081,23 +1174,19 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
   durationPill: {
-    paddingHorizontal: 5,
-    paddingVertical: 1.5,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
     borderRadius: 5,
-    backgroundColor: '#CCFBF1',
+    backgroundColor: '#D1FAE5',
   },
   durationPillText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#0D9488',
-  },
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+    color: '#059669',
   },
   detailText: {
-    fontSize: 12,
+    fontSize: 12.5,
+    fontWeight: '600',
     flex: 1,
   },
   recurrenceText: {
@@ -1121,20 +1210,24 @@ const styles = StyleSheet.create({
     borderColor: '#FDE68A',
   },
   reminderBadgeText: {
-    fontSize: 11,
+    fontSize: 11.5,
     fontWeight: '600',
     color: '#D97706',
   },
   quoteBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
     paddingHorizontal: 10,
-    paddingVertical: 7,
+    paddingVertical: 8,
     borderRadius: 10,
     borderWidth: 1,
   },
   quoteText: {
-    fontSize: 11.5,
+    fontSize: 12,
     fontStyle: 'italic',
-    lineHeight: 16,
+    lineHeight: 17,
+    flex: 1,
   },
   pollSection: {
     paddingHorizontal: 12,
@@ -1228,7 +1321,7 @@ const styles = StyleSheet.create({
   respAvatarFallback: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#0D9488',
+    backgroundColor: '#10B981',
     alignItems: 'center',
     justifyContent: 'center',
   },

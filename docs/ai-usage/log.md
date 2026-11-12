@@ -7478,3 +7478,55 @@
   - **Resolution / Fix:** N/A.
 - **Commit:** d3c84f1
 - **PR:** Pending
+
+
+---
+
+## AI-0184: Đồng Bộ Thông Báo Hệ Thống Động Theo Hành Động (Tạo, Sửa, Huỷ, Bình Chọn), Cập Nhật Thẻ Tại Chỗ & Đồng Bộ Toàn Diện Web/Mobile Parity (#120)
+
+- **Date:** 2026-11-12 16:32:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120
+- **Purpose:** 
+  1. **Dòng thông báo hệ thống động phía trên thẻ:**
+     - Tự động thay đổi nội dung linh hoạt theo từng hành vi:
+       - Tạo mới: `"Bạn tạo nhắc hẹn mới… Xem"` / `"[Tên] tạo nhắc hẹn mới… Xem"`.
+       - Chỉnh sửa/cập nhật: `"Bạn đã cập nhật lịch hẹn… Xem"` / `"[Tên] đã cập nhật lịch hẹn… Xem"`.
+       - Bình chọn/phản hồi: `"Bạn đã xác nhận [tham gia / có thể tham gia / từ chối tham gia]… Xem"` / `"[Tên] đã xác nhận [tham gia / có thể tham gia / từ chối tham gia]… Xem"`.
+       - Hủy: `"Bạn đã hủy lịch hẹn… Xem"` / `"[Tên] đã hủy lịch hẹn… Xem"`.
+     - Nhấp "Xem" mở trực tiếp chế độ xem chi tiết trên Lịch.
+  2. **Cập nhật thẻ tại chỗ, không gửi lặp lại thẻ trong chat ("mấy lần sau ko cần gửi lại thẻ"):**
+     - Tại `apps/backend/src/modules/circle-tools/circle-tools.service.ts`:
+       - Khi cập nhật hoặc hủy lịch hẹn (`action !== 'CREATED'`), backend tìm thẻ tin nhắn `[CALENDAR_EVENT]` hiện có trong database, cập nhật nội dung tại chỗ và phát sự kiện `chat:message-updated` qua `ChatGateway` thay vì tạo thêm tin nhắn mới.
+       - Khi có thành viên RSVP (`respondCalendarEventRsvp`): Backend cập nhật payload tin nhắn trong DB với `rsvps`, `action: 'RSVP_UPDATED'`, `lastActorName`, `lastActorUserId`, `lastRsvpStatus`.
+  3. **Đồng bộ toàn diện Web & Mobile Parity (`MobileCalendarEventChatEmbed.tsx`):**
+     - Đưa dòng thông báo hệ thống động lên phía trên thẻ, loại bỏ header cũ bên trong thẻ.
+     - Thiết kế ảnh bìa màu xanh chủ đạo Circle Emerald `#10B981`, tiêu đề sự kiện chữ trắng nổi bật, huy hiệu "Lịch hẹn" và nút "Xem lịch".
+     - Giữ lại icon trực quan (`Clock`, `MapPin`, `Repeat`, `Bell`, `FileText`) và loại bỏ hoàn toàn các nhãn text thừa.
+     - Khu vực phản hồi với số thành viên xác nhận, avatar xếp chồng và 3 nút/thanh: "Tham gia", "Có thể", "Từ chối".
+- **Prompt Summary:** cái này phải thay đổi nội dung theo tạo sửa có người bình chọn....... và mấy lần sau ko cần gửi lại thẻ
+- **Files Affected:**
+  - `packages/types/src/index.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
+  - `apps/web/src/components/chat/CalendarEventChatEmbed.tsx`
+  - `apps/mobile/src/components/chat/MobileCalendarEventChatEmbed.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% logic cập nhật tại chỗ realtime cho chat message, thông báo hệ thống động và giao diện đồng bộ Web/Mobile.
+- **Human Modifications:** Người dùng chỉ đạo thông báo hệ thống phải thay đổi nội dung linh hoạt theo các thao tác tạo/sửa/bình chọn/hủy và các lần cập nhật sau không được gửi lại thẻ mới vào đoạn chat.
+- **Verification Method:**
+  - `npx tsc --noEmit --project apps/web/tsconfig.json`: Passed 0 errors.
+  - `cd apps/mobile; npx tsc --noEmit`: Passed 0 errors.
+  - `cd apps/backend; npx tsc --noEmit`: Passed 0 errors.
+  - `cd apps/backend; npm test`: 11 test suites passed, 200 tests passed.
+  - `bash ./scripts/check-agent-map.sh`: Passed (130 files).
+  - `bash ./scripts/check-secrets.sh`: Passed, 0 secret leaks (600 files).
+- **Official Source Checked:** PROJECT_GOD.md, agentic/RULES.md & agentic/CONVENTIONS.md.
+- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** Prisma Message model uses `sentAt` instead of `createdAt`, causing initial TS2353 error during backend typecheck.
+  - **Root Cause:** Assumed `createdAt` was present on Message model without checking schema.
+  - **Resolution / Fix:** Inspected `apps/backend/prisma/schema.prisma` and corrected sorting to `orderBy: { sentAt: 'desc' }`, added missing logger.
+- **Commit:** af6a60c
+- **PR:** Pending
