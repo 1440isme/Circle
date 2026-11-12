@@ -7446,3 +7446,35 @@
   - **Resolution / Fix:** N/A.
 - **Commit:** e27adf9
 - **PR:** Pending
+
+---
+
+## AI-0183: Chuyển Thông Báo Tạo Lịch Thành System Message, Chuẩn Hóa Màu Xanh Nền Thương Hiệu & Tối Giản Nhãn Chữ Bằng Icon (#120)
+
+- **Date:** 2026-11-12 15:56:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120
+- **Purpose:** 
+  1. Loại bỏ thanh log bên trong thẻ và chuyển thành System Message căn giữa nằm phía trên thẻ: `"Bạn tạo nhắc hẹn mới… Xem"` (hoặc `"[Tên] tạo nhắc hẹn mới… Xem"`), có nút "Xem" mở trực tiếp lịch hẹn.
+  2. Chuẩn hóa màu xanh của ảnh bìa theo đúng màu thương hiệu Circle Emerald `#10B981` (`from-emerald-500 via-emerald-600 to-teal-600`) thay cho dải màu teal tối.
+  3. Loại bỏ toàn bộ các chữ nhãn thừa (`Thời gian:`, `Địa điểm:`, `Lặp lại:`, `Nhắc hẹn:`, `Ghi chú:`) và chỉ giữ lại icon trực quan (`Clock`, `MapPin`, `Repeat`, `Bell`, `FileText`) theo phong cách tối giản thanh thoát.
+- **Prompt Summary:** bỏ Tí đã tạo lịch hẹn 15:21 ra khỏi và viết thành System Message: Dòng thông báo hệ thống nằm phía trên thẻ, ví dụ “Bạn tạo nhắc hẹn mới… Xem”. màu xanh của nền đang bị sai với thiết kế bỏ các text :Thời gian,Địa điểm,Nhắc hẹn,Ghi chú:... để lại icon đc rồi.
+- **Files Affected:**
+  - `apps/web/src/components/chat/CalendarEventChatEmbed.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% tái cấu trúc System Message, màu nền thương hiệu và tối giản icon trên Web.
+- **Human Modifications:** Người dùng phản hồi bỏ log trong thẻ đưa ra làm System message phía trên, sửa màu xanh nền chuẩn thiết kế và bỏ các nhãn text chỉ để lại icon.
+- **Verification Method:**
+  - `npx tsc --noEmit --project apps/web/tsconfig.json`: Passed 0 errors.
+  - `bash ./scripts/check-agent-map.sh`: Passed (130 files).
+  - `bash ./scripts/check-secrets.sh`: Passed, 0 secret leaks (600 files).
+- **Official Source Checked:** PROJECT_GOD.md, agentic/RULES.md & agentic/CONVENTIONS.md.
+- **Security & License Check:** An toàn, không chứa secret, tuân thủ nguyên tắc bảo mật.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A.
+  - **Resolution / Fix:** N/A.
+- **Commit:** Pending
+- **PR:** Pending
