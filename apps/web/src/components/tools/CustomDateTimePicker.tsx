@@ -471,7 +471,7 @@ export const CustomDateTimePicker: React.FC<CustomDateTimePickerProps> = ({
                       className="p-1 rounded-lg hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate hover:text-circle-charcoal transition-colors"
                       title="Xong"
                     >
-                      <Check className="h-3.5 w-3.5 text-teal-600" />
+                      <Check className="h-3.5 w-3.5 text-circle-sage dark:text-circle-dark-primary" />
                     </button>
                   )}
                 </div>

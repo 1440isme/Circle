@@ -917,20 +917,18 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
   };
 
   return (
-    <div className="relative flex-1 flex flex-col h-full bg-circle-canvas dark:bg-circle-dark-surface overflow-y-auto p-4 md:p-6 transition-colors">
-      {/* Floating Pill Toolbar: Các nút điều khiển dạng Floating Pill Button */}
-      <div className="sticky top-0 z-20 flex items-center justify-end pointer-events-none mb-3 py-1">
-
-
-        <div className="flex items-center gap-2 pointer-events-auto">
+    <div className="relative flex-1 flex flex-col h-full bg-circle-canvas dark:bg-circle-dark-surface overflow-hidden transition-colors">
+      {/* Floating Pill Controls (Full gần sát lề như lịch hẹn sự kiện) */}
+      <div className="pointer-events-none absolute top-14 lg:top-3 left-0 right-0 z-20 flex flex-col items-center gap-2 px-4 md:px-6">
+        <div className="w-full flex items-center justify-end gap-2">
           {/* Add Wheel Pill Button */}
           <button
             onClick={handleAddDefaultWheel}
             disabled={wheels.length >= 4 || isAnySpinning || createWheelMutation.isPending}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-full border border-border/80 bg-background/90 dark:bg-circle-dark-surface/90 backdrop-blur-md shadow-xs hover:bg-muted text-foreground transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="pointer-events-auto inline-flex items-center gap-1.5 px-4 h-9 rounded-full backdrop-blur-xl bg-white/92 dark:bg-circle-dark-surface/90 border border-circle-hairline/80 dark:border-white/12 shadow-sm hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text font-bold text-xs sm:text-sm transition-all active:scale-95 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
             title={wheels.length >= 4 ? t.luckyWheel.maxWheelsBadge : undefined}
           >
-            <Plus className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+            <Plus className="w-4 h-4 text-circle-sage dark:text-circle-dark-primary" />
             <span>{t.luckyWheel.addWheel}</span>
           </button>
 
@@ -939,17 +937,19 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
             <button
               onClick={handleSpinAll}
               disabled={isAnySpinning || spinAllMutation.isPending}
-              className="flex items-center gap-1.5 px-4 py-1.5 text-xs sm:text-sm font-bold rounded-full bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white shadow-xs hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95"
+              className="pointer-events-auto inline-flex items-center gap-1.5 px-4 h-9 rounded-full backdrop-blur-xl bg-circle-primary hover:bg-circle-sage text-white font-bold text-xs sm:text-sm shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer shrink-0"
             >
-              <RotateCw className={`w-3.5 h-3.5 ${isAnySpinning ? 'animate-spin' : ''}`} />
+              <RotateCw className={`w-4 h-4 ${isAnySpinning ? 'animate-spin' : ''}`} />
               <span>{t.luckyWheel.spinAll}</span>
             </button>
           )}
         </div>
       </div>
 
-      {/* Main Responsive Layout */}
-      <div className="relative flex flex-col lg:flex-row gap-6 w-full flex-1 items-stretch">
+      {/* Scroll-under Content Layer */}
+      <div className="flex-1 overflow-y-auto px-4 md:px-6 pt-28 lg:pt-20 pb-12">
+        {/* Main Responsive Layout */}
+        <div className="relative flex flex-col lg:flex-row gap-6 w-full flex-1 items-stretch max-w-6xl mx-auto">
         {/* LEFT COLUMN: Visual Arena */}
         <div className="flex-1 flex flex-col items-center justify-center p-2 sm:p-4 transition-all min-h-[460px]">
           {/* SÂN KHẤU VÒNG QUAY (VISUAL ARENA) */}
@@ -964,10 +964,10 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
               </p>
               <button
                 onClick={handleAddDefaultWheel}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 transition-all"
+                className="inline-flex items-center gap-1.5 px-5 h-9 text-xs sm:text-sm font-bold rounded-full bg-circle-primary hover:bg-circle-sage text-white shadow-sm transition-all active:scale-95 cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
-                {t.luckyWheel.createWheel}
+                <span>{t.luckyWheel.createWheel}</span>
               </button>
             </div>
           ) : (
@@ -985,12 +985,12 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
                     }}
                     className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border text-sm sm:text-base font-bold transition-all shadow-2xs max-w-[260px] ${
                       activeWheelId === wheels[0]!.id
-                        ? 'bg-teal-600 border-teal-600 text-white shadow-xs'
+                        ? 'bg-circle-primary border-circle-primary text-white shadow-xs'
                         : 'bg-card/90 dark:bg-circle-dark-surface/90 border-border/80 text-foreground hover:bg-muted'
                     }`}
                     title={wheels[0]!.title}
                   >
-                    <Compass className={`w-4 h-4 shrink-0 ${activeWheelId === wheels[0]!.id ? 'text-white' : 'text-teal-600'}`} />
+                    <Compass className={`w-4 h-4 shrink-0 ${activeWheelId === wheels[0]!.id ? 'text-white' : 'text-circle-sage dark:text-circle-dark-primary'}`} />
                     <span className="truncate">{wheels[0]!.title}</span>
                   </button>
 
@@ -1026,12 +1026,12 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
                           }}
                           className={`flex items-center gap-1.5 px-3 py-1 rounded-xl border text-xs sm:text-sm font-bold transition-all shadow-2xs max-w-[200px] ${
                             activeWheelId === wheel.id
-                              ? 'bg-teal-600 border-teal-600 text-white shadow-xs'
+                              ? 'bg-circle-primary border-circle-primary text-white shadow-xs'
                               : 'bg-card/90 dark:bg-circle-dark-surface/90 border-border/80 text-foreground hover:bg-muted'
                           }`}
                           title={wheel.title}
                         >
-                          <Compass className={`w-3.5 h-3.5 shrink-0 ${activeWheelId === wheel.id ? 'text-white' : 'text-teal-600'}`} />
+                          <Compass className={`w-3.5 h-3.5 shrink-0 ${activeWheelId === wheel.id ? 'text-white' : 'text-circle-sage dark:text-circle-dark-primary'}`} />
                           <span className="truncate">{wheel.title}</span>
                         </button>
 
@@ -1072,12 +1072,12 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
                             }}
                             className={`flex items-center gap-1.5 px-3 py-1 rounded-xl border text-xs sm:text-sm font-bold transition-all shadow-2xs max-w-[200px] ${
                               activeWheelId === wheel.id
-                                ? 'bg-teal-600 border-teal-600 text-white shadow-xs'
+                                ? 'bg-circle-primary border-circle-primary text-white shadow-xs'
                               : 'bg-card/90 dark:bg-circle-dark-surface/90 border-border/80 text-foreground hover:bg-muted'
                             }`}
                             title={wheel.title}
                           >
-                            <Compass className={`w-3.5 h-3.5 shrink-0 ${activeWheelId === wheel.id ? 'text-white' : 'text-teal-600'}`} />
+                            <Compass className={`w-3.5 h-3.5 shrink-0 ${activeWheelId === wheel.id ? 'text-white' : 'text-circle-sage dark:text-circle-dark-primary'}`} />
                             <span className="truncate">{wheel.title}</span>
                           </button>
 
@@ -1107,12 +1107,12 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
                         }}
                         className={`flex items-center gap-1.5 px-3 py-1 rounded-xl border text-xs sm:text-sm font-bold transition-all shadow-2xs max-w-[200px] ${
                           activeWheelId === wheels[2]!.id
-                            ? 'bg-teal-600 border-teal-600 text-white shadow-xs'
+                            ? 'bg-circle-primary border-circle-primary text-white shadow-xs'
                             : 'bg-card/90 dark:bg-circle-dark-surface/90 border-border/80 text-foreground hover:bg-muted'
                         }`}
                         title={wheels[2]!.title}
                       >
-                        <Compass className={`w-3.5 h-3.5 shrink-0 ${activeWheelId === wheels[2]!.id ? 'text-white' : 'text-teal-600'}`} />
+                        <Compass className={`w-3.5 h-3.5 shrink-0 ${activeWheelId === wheels[2]!.id ? 'text-white' : 'text-circle-sage dark:text-circle-dark-primary'}`} />
                         <span className="truncate">{wheels[2]!.title}</span>
                       </button>
 
@@ -1150,12 +1150,12 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
                           }}
                           className={`flex items-center gap-1.5 px-3 py-1 rounded-xl border text-xs sm:text-sm font-bold transition-all shadow-2xs max-w-[200px] ${
                             activeWheelId === wheel.id
-                              ? 'bg-teal-600 border-teal-600 text-white shadow-xs'
+                              ? 'bg-circle-primary border-circle-primary text-white shadow-xs'
                               : 'bg-card/90 dark:bg-circle-dark-surface/90 border-border/80 text-foreground hover:bg-muted'
                           }`}
                           title={wheel.title}
                         >
-                          <Compass className={`w-3.5 h-3.5 shrink-0 ${activeWheelId === wheel.id ? 'text-white' : 'text-teal-600'}`} />
+                          <Compass className={`w-3.5 h-3.5 shrink-0 ${activeWheelId === wheel.id ? 'text-white' : 'text-circle-sage dark:text-circle-dark-primary'}`} />
                           <span className="truncate">{wheel.title}</span>
                         </button>
 
@@ -1183,7 +1183,7 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
             <button
               type="button"
               onClick={() => setIsPanelCollapsed(true)}
-              className="absolute top-6 -left-4 z-30 w-8 h-12 flex items-center justify-center rounded-xl bg-white dark:bg-circle-charcoal border border-border/80 shadow-md hover:bg-slate-50 dark:hover:bg-circle-dark-surface text-slate-500 hover:text-teal-600 dark:hover:text-teal-400 transition-all active:scale-90 group cursor-pointer"
+              className="absolute top-6 -left-4 z-30 w-8 h-12 flex items-center justify-center rounded-xl bg-white dark:bg-circle-charcoal border border-border/80 shadow-md hover:bg-slate-50 dark:hover:bg-circle-dark-surface text-slate-500 hover:text-circle-primary dark:hover:text-circle-dark-primary transition-all active:scale-90 group cursor-pointer"
               title={t.luckyWheel.collapsePanel || 'Thu gọn bảng'}
               aria-label={t.luckyWheel.collapsePanel || 'Thu gọn bảng'}
             >
@@ -1203,7 +1203,7 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
                       }}
                       className={`flex items-center px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
                         isSelected
-                          ? 'bg-teal-600 text-white shadow-xs font-bold'
+                          ? 'bg-circle-primary text-white shadow-xs font-bold'
                           : 'bg-slate-100 dark:bg-circle-dark-hairline text-slate-600 dark:text-circle-dark-muted hover:bg-slate-200 dark:hover:bg-white/10 hover:text-foreground'
                       }`}
                     >
@@ -1431,7 +1431,7 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
                       title={t.luckyWheel.shuffleOptions}
                       aria-label={t.luckyWheel.shuffleOptions}
                     >
-                      <Shuffle className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                      <Shuffle className="w-4 h-4 text-circle-sage dark:text-circle-dark-primary" />
                     </button>
 
                     {/* Sort A-Z Button */}
@@ -1451,7 +1451,7 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
                       disabled={isAnySpinning || updateWheelMutation.isPending}
                       className={`flex items-center justify-center py-2 px-2 rounded-xl border transition-all active:scale-95 ${
                         saveInitialFeedback
-                          ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400'
+                          ? 'border-circle-primary bg-circle-wash dark:bg-circle-dark-wash text-circle-sage dark:text-circle-dark-primary'
                           : 'border-border hover:bg-muted text-foreground disabled:opacity-40'
                       }`}
                       title={t.luckyWheel.saveAsInitial}
@@ -1459,7 +1459,7 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
                     >
                       <BookmarkCheck
                         className={`w-4 h-4 ${
-                          saveInitialFeedback ? 'text-emerald-500' : 'text-teal-600 dark:text-teal-400'
+                          saveInitialFeedback ? 'text-circle-primary' : 'text-circle-sage dark:text-circle-dark-primary'
                         }`}
                       />
                     </button>
@@ -1514,13 +1514,14 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
           <button
             type="button"
             onClick={() => setIsPanelCollapsed(false)}
-            className="absolute right-0 top-6 z-30 flex items-center justify-center w-8 h-12 rounded-l-2xl bg-white dark:bg-circle-charcoal border-y border-l border-border/80 shadow-md text-slate-500 hover:text-teal-600 dark:hover:text-teal-400 transition-all active:scale-90 group cursor-pointer"
+            className="absolute right-0 top-6 z-30 flex items-center justify-center w-8 h-12 rounded-l-2xl bg-white dark:bg-circle-charcoal border-y border-l border-border/80 shadow-md text-slate-500 hover:text-circle-primary dark:hover:text-circle-dark-primary transition-all active:scale-90 group cursor-pointer"
             title={t.luckyWheel.expandPanel || 'Mở bảng'}
             aria-label={t.luckyWheel.expandPanel || 'Mở bảng'}
           >
             <PanelRightOpen className="w-4.5 h-4.5 group-hover:scale-110 transition-transform" />
           </button>
         )}
+      </div>
       </div>
 
       {/* COMBINED / BATCH RESULTS MODAL - CELEBRATION WINNER SHOWCASE */}
@@ -1532,7 +1533,7 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
             aria-modal="true"
           >
             {/* Celebration Header Background Glow */}
-            <div className="relative pt-7 pb-3 px-6 flex flex-col items-center text-center bg-gradient-to-b from-amber-400/15 via-teal-500/5 to-transparent">
+            <div className="relative pt-7 pb-3 px-6 flex flex-col items-center text-center bg-gradient-to-b from-amber-400/15 via-circle-wash to-transparent">
               {/* Nút X đóng ở góc trên bên phải */}
               <button
                 type="button"
@@ -1586,7 +1587,7 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
                   <button
                     type="button"
                     onClick={() => setCombinedResultsModal(null)}
-                    className="w-full py-3 px-6 rounded-2xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white font-bold text-sm shadow-md shadow-teal-600/25 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+                    className="w-full py-3 px-6 rounded-2xl bg-circle-primary hover:bg-circle-sage text-white font-bold text-sm shadow-sm transition-all active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <Check className="w-4 h-4" />
                     <span>{t.luckyWheel.close}</span>
@@ -1600,7 +1601,7 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
                         combinedResultsModal[0]!.resultIndex,
                       )
                     }
-                    className="w-full py-2 px-4 rounded-xl text-xs font-semibold text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-all flex items-center justify-center gap-1.5"
+                    className="w-full py-2 px-4 rounded-xl text-xs font-semibold text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                     <span>{t.luckyWheel.removeResult}</span>
@@ -1616,7 +1617,7 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
                   {combinedResultsModal.map((item) => (
                     <div
                       key={item.wheelId}
-                      className="flex items-center justify-between p-3.5 rounded-2xl bg-gradient-to-r from-amber-50/70 to-teal-50/70 dark:from-amber-950/20 dark:to-teal-950/20 border border-amber-200/60 dark:border-white/10 transition-all"
+                      className="flex items-center justify-between p-3.5 rounded-2xl bg-gradient-to-r from-amber-50/70 to-circle-wash dark:from-amber-950/20 dark:to-circle-dark-wash border border-amber-200/60 dark:border-white/10 transition-all"
                     >
                       <div className="flex flex-col min-w-0 pr-3">
                         <span className="text-[11px] font-bold text-amber-800 dark:text-amber-400 uppercase tracking-wider truncate mb-0.5">
@@ -1628,7 +1629,7 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
                       </div>
                       <button
                         onClick={() => handleRemoveResult(item.wheelId, item.resultIndex)}
-                        className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 border border-transparent hover:border-rose-200 dark:hover:border-rose-900/40 transition-all shrink-0"
+                        className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 border border-transparent hover:border-rose-200 dark:hover:border-rose-900/40 transition-all shrink-0 active:scale-95 cursor-pointer"
                         title={t.luckyWheel.removeResult}
                       >
                         <Trash2 className="w-4 h-4" />
@@ -1641,7 +1642,7 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
                   <button
                     type="button"
                     onClick={() => setCombinedResultsModal(null)}
-                    className="w-full py-3 px-6 rounded-2xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white font-bold text-sm shadow-md shadow-teal-600/25 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+                    className="w-full py-3 px-6 rounded-2xl bg-circle-primary hover:bg-circle-sage text-white font-bold text-sm shadow-sm transition-all active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <Check className="w-4 h-4" />
                     <span>{t.luckyWheel.close}</span>
@@ -1649,7 +1650,7 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
                   <button
                     type="button"
                     onClick={handleRemoveAllBatchResults}
-                    className="w-full py-2 px-4 rounded-xl text-xs font-semibold text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-all flex items-center justify-center gap-1.5"
+                    className="w-full py-2 px-4 rounded-xl text-xs font-semibold text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                     <span>{t.luckyWheel.removeAllResults || 'Loại bỏ tất cả'}</span>

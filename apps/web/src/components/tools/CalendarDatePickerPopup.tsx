@@ -95,14 +95,14 @@ export const CalendarDatePickerPopup: React.FC<CalendarDatePickerPopupProps> = (
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
-          className={`flex-1 flex items-center justify-between px-3 py-2 rounded-xl border text-xs transition-all ${
+          className={`flex-1 flex items-center justify-between px-3 py-2 rounded-xl border text-xs transition-all active:scale-95 cursor-pointer ${
             isOpen
-              ? 'border-teal-600 ring-2 ring-teal-500/20 bg-teal-50/30 dark:bg-teal-950/20'
-              : 'border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface hover:border-teal-500/60'
+              ? 'border-circle-primary ring-2 ring-circle-primary/20 bg-circle-wash dark:bg-circle-dark-wash'
+              : 'border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface hover:border-circle-primary/60'
           }`}
         >
           <div className="flex items-center gap-2 truncate">
-            <CalendarIcon className="h-3.5 w-3.5 text-teal-600 shrink-0" />
+            <CalendarIcon className="h-3.5 w-3.5 text-circle-primary shrink-0" />
             <span
               className={
                 formattedDisplay
@@ -114,7 +114,7 @@ export const CalendarDatePickerPopup: React.FC<CalendarDatePickerPopupProps> = (
             </span>
           </div>
 
-          <span className="text-[10px] uppercase font-bold text-teal-600 tracking-wider">
+          <span className="text-[10px] uppercase font-bold text-circle-sage dark:text-circle-dark-primary tracking-wider">
             {isOpen ? 'Đóng' : 'Chọn ngày'}
           </span>
         </button>
@@ -188,11 +188,11 @@ export const CalendarDatePickerPopup: React.FC<CalendarDatePickerPopupProps> = (
                   type="button"
                   disabled={isDisabled}
                   onClick={() => handleSelectDay(day)}
-                  className={`h-7 w-7 rounded-lg text-xs flex items-center justify-center transition-all ${
+                  className={`h-7 w-7 rounded-lg text-xs flex items-center justify-center transition-all active:scale-95 cursor-pointer ${
                     isSelected
-                      ? 'bg-teal-600 text-white font-bold shadow-2xs'
+                      ? 'bg-circle-primary text-white font-bold shadow-2xs'
                       : isToday
-                      ? 'border border-teal-600 text-teal-600 font-bold hover:bg-teal-50 dark:hover:bg-teal-950/30'
+                      ? 'border border-circle-primary text-circle-sage dark:text-circle-dark-primary font-bold hover:bg-circle-wash dark:hover:bg-circle-dark-wash'
                       : isDisabled
                       ? 'opacity-25 cursor-not-allowed text-circle-slate'
                       : 'text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash'
@@ -213,28 +213,28 @@ export const CalendarDatePickerPopup: React.FC<CalendarDatePickerPopupProps> = (
               <button
                 type="button"
                 onClick={() => handleQuickPreset(1)}
-                className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-circle-wash dark:bg-circle-dark-canvas hover:bg-teal-50 hover:text-teal-700 text-circle-charcoal dark:text-circle-dark-text transition-colors"
+                className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-circle-wash dark:bg-circle-dark-canvas hover:bg-circle-primary/10 hover:text-circle-sage dark:hover:text-circle-dark-primary text-circle-charcoal dark:text-circle-dark-text transition-all active:scale-95 cursor-pointer"
               >
                 1 tháng
               </button>
               <button
                 type="button"
                 onClick={() => handleQuickPreset(3)}
-                className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-circle-wash dark:bg-circle-dark-canvas hover:bg-teal-50 hover:text-teal-700 text-circle-charcoal dark:text-circle-dark-text transition-colors"
+                className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-circle-wash dark:bg-circle-dark-canvas hover:bg-circle-primary/10 hover:text-circle-sage dark:hover:text-circle-dark-primary text-circle-charcoal dark:text-circle-dark-text transition-all active:scale-95 cursor-pointer"
               >
                 3 tháng
               </button>
               <button
                 type="button"
                 onClick={() => handleQuickPreset(6)}
-                className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-circle-wash dark:bg-circle-dark-canvas hover:bg-teal-50 hover:text-teal-700 text-circle-charcoal dark:text-circle-dark-text transition-colors"
+                className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-circle-wash dark:bg-circle-dark-canvas hover:bg-circle-primary/10 hover:text-circle-sage dark:hover:text-circle-dark-primary text-circle-charcoal dark:text-circle-dark-text transition-all active:scale-95 cursor-pointer"
               >
                 6 tháng
               </button>
               <button
                 type="button"
                 onClick={() => handleQuickPreset(12)}
-                className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-circle-wash dark:bg-circle-dark-canvas hover:bg-teal-50 hover:text-teal-700 text-circle-charcoal dark:text-circle-dark-text transition-colors"
+                className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-circle-wash dark:bg-circle-dark-canvas hover:bg-circle-primary/10 hover:text-circle-sage dark:hover:text-circle-dark-primary text-circle-charcoal dark:text-circle-dark-text transition-all active:scale-95 cursor-pointer"
               >
                 1 năm
               </button>

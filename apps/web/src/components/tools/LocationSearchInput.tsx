@@ -136,7 +136,7 @@ export const LocationSearchInput: React.FC<LocationSearchInputProps> = ({
               setIsFocused(false);
             }}
             placeholder={placeholder}
-            className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas pl-3.5 pr-8 py-2 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-hidden focus:ring-1 focus:ring-teal-500"
+            className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas pl-3.5 pr-8 py-2 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-hidden focus:ring-1 focus:ring-circle-primary focus:border-circle-primary"
           />
           <div className="absolute right-2.5 top-2.5 flex items-center gap-1">
             {isSearching && (
@@ -168,7 +168,7 @@ export const LocationSearchInput: React.FC<LocationSearchInputProps> = ({
             setShowSuggestions(false);
             setIsMapModalOpen(true);
           }}
-          className="flex items-center gap-1 rounded-xl border border-teal-500/30 bg-teal-500/10 hover:bg-teal-500/20 px-2.5 py-2 text-xs font-semibold text-teal-600 dark:text-teal-400 transition-all shrink-0 active:scale-95 shadow-2xs cursor-pointer"
+          className="flex items-center gap-1.5 rounded-full border border-circle-primary/30 bg-circle-primary/10 hover:bg-circle-primary/20 px-3.5 py-2 text-xs font-bold text-circle-sage dark:text-circle-dark-primary transition-all shrink-0 active:scale-95 shadow-2xs cursor-pointer"
           title="Mở bản đồ tìm kiếm và ghim vị trí"
         >
           <Map className="h-3.5 w-3.5" />
@@ -189,7 +189,7 @@ export const LocationSearchInput: React.FC<LocationSearchInputProps> = ({
               onClick={() => handleSelectSuggestion(item)}
               className="w-full text-left px-3 py-2 hover:bg-circle-wash dark:hover:bg-circle-dark-wash border-b border-circle-hairline/30 dark:border-circle-dark-hairline/30 last:border-none flex items-start gap-2 transition-colors cursor-pointer"
             >
-              <MapPin className="h-3.5 w-3.5 text-teal-600 dark:text-teal-400 shrink-0 mt-0.5" />
+              <MapPin className="h-3.5 w-3.5 text-circle-sage dark:text-circle-dark-primary shrink-0 mt-0.5" />
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text truncate">
                   {item.name || item.display_name?.split(',')?.[0]}

@@ -450,7 +450,7 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface z-10 shrink-0">
           <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-teal-500/10 text-teal-600 dark:text-teal-400">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-circle-primary/10 text-circle-sage dark:text-circle-dark-primary">
               <MapPin className="h-4 w-4" />
             </div>
             <div>
@@ -493,7 +493,7 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
                 }
               }}
               placeholder="Tìm địa điểm trên bản đồ: Landmark 81, Hồ Con Rùa, SPKT..."
-              className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface pl-3.5 pr-8 py-2 text-xs text-circle-charcoal dark:text-circle-dark-text placeholder:text-circle-slate/60 focus:outline-hidden focus:ring-1 focus:ring-teal-500"
+              className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface pl-3.5 pr-8 py-2 text-xs text-circle-charcoal dark:text-circle-dark-text placeholder:text-circle-slate/60 focus:outline-hidden focus:ring-1 focus:ring-circle-primary focus:border-circle-primary"
             />
             <div className="absolute right-2.5 top-2.5 flex items-center gap-1">
               {isSearching && (
@@ -536,7 +536,7 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
                   }}
                   className="w-full text-left px-3 py-2 hover:bg-circle-wash dark:hover:bg-circle-dark-wash border-b border-circle-hairline/30 dark:border-circle-dark-hairline/30 last:border-none flex items-start gap-2 transition-colors cursor-pointer"
                 >
-                  <MapPin className="h-3.5 w-3.5 text-teal-600 dark:text-teal-400 shrink-0 mt-0.5" />
+                  <MapPin className="h-3.5 w-3.5 text-circle-sage dark:text-circle-dark-primary shrink-0 mt-0.5" />
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text truncate">
                       {item.name || item.display_name?.split(',')?.[0]}
@@ -558,7 +558,7 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
           {/* Mapbox badge */}
           {MAPBOX_TOKEN && (
             <div className="absolute top-3 left-3 z-10 pointer-events-none">
-              <span className="px-2 py-0.5 rounded-md bg-white/85 dark:bg-slate-900/85 backdrop-blur-sm border border-teal-500/30 text-[10px] font-semibold text-teal-700 dark:text-teal-400 shadow-xs">
+              <span className="px-2 py-0.5 rounded-md bg-white/85 dark:bg-slate-900/85 backdrop-blur-sm border border-circle-primary/30 text-[10px] font-semibold text-circle-sage dark:text-circle-dark-primary shadow-xs">
                 Mapbox
               </span>
             </div>
@@ -568,7 +568,7 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
           <button
             type="button"
             onClick={handleLocateMe}
-            className="absolute bottom-4 right-4 z-10 flex h-9 w-9 items-center justify-center rounded-xl bg-white dark:bg-circle-dark-surface border border-circle-hairline dark:border-circle-dark-hairline text-teal-600 dark:text-teal-400 shadow-md hover:bg-teal-50 dark:hover:bg-teal-950/40 transition-all active:scale-95 cursor-pointer"
+            className="absolute bottom-4 right-4 z-10 flex h-9 w-9 items-center justify-center rounded-xl bg-white dark:bg-circle-dark-surface border border-circle-hairline dark:border-circle-dark-hairline text-circle-sage dark:text-circle-dark-primary shadow-md hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-all active:scale-95 cursor-pointer"
             title="Định vị vị trí của tôi"
           >
             <LocateFixed className="h-4 w-4" />
@@ -579,14 +579,14 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
         <div className="px-4 py-3 bg-white dark:bg-circle-dark-surface border-t border-circle-hairline dark:border-circle-dark-hairline flex items-center justify-between gap-3 shrink-0">
           <div className="min-w-0 flex-1">
             {isReverseGeocoding ? (
-              <div className="flex items-center gap-1.5 text-xs text-teal-600 dark:text-teal-400 font-medium">
-                <Loader2 className="h-3.5 w-3.5 animate-spin text-teal-600" />
+              <div className="flex items-center gap-1.5 text-xs text-circle-sage dark:text-circle-dark-primary font-medium">
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-circle-sage" />
                 <span>Đang xác định địa chỉ...</span>
               </div>
             ) : selectedPlace ? (
               <div>
                 <p className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text truncate flex items-center gap-1.5">
-                  <span className="inline-block w-2 h-2 rounded-full bg-teal-500 shrink-0" />
+                  <span className="inline-block w-2 h-2 rounded-full bg-circle-primary shrink-0" />
                   {selectedPlace.name}
                 </p>
                 <p className="text-[10px] text-circle-slate dark:text-circle-dark-muted truncate pl-3.5">
@@ -604,7 +604,7 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg px-3 py-1.5 text-xs font-semibold text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors cursor-pointer"
+              className="rounded-full px-4 h-9 text-xs sm:text-sm font-bold text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-all active:scale-95 cursor-pointer"
             >
               Hủy
             </button>
@@ -612,7 +612,7 @@ export const MapLocationPickerModal: React.FC<MapLocationPickerModalProps> = ({
               type="button"
               disabled={!selectedPlace || isReverseGeocoding}
               onClick={handleConfirm}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-teal-600 hover:bg-teal-700 text-white px-3.5 py-1.5 text-xs font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-xs active:scale-95 cursor-pointer"
+              className="inline-flex items-center gap-1.5 rounded-full bg-circle-primary hover:bg-circle-sage text-white px-4 h-9 text-xs sm:text-sm font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-xs active:scale-95 cursor-pointer"
             >
               <Check className="h-3.5 w-3.5" />
               <span>Chọn địa điểm này</span>

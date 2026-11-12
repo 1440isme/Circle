@@ -344,37 +344,39 @@ export const CircleLocationView: React.FC<CircleLocationViewProps> = ({ circleId
 
   return (
     <div className="relative flex-1 flex flex-col h-full bg-white dark:bg-circle-dark-bg overflow-hidden">
-      {/* Floating Glass Toolbar */}
-      <div className="pointer-events-none absolute top-14 lg:top-3 left-0 right-0 z-[1000] flex flex-col items-center gap-2 px-4">
-        <div className="pointer-events-auto flex flex-wrap items-center justify-between gap-2 px-4 sm:px-5 py-2.5 rounded-full glass shadow-md max-w-4xl w-full transition-all">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <MapPin className="w-5 h-5 text-circle-sage dark:text-circle-dark-primary shrink-0" />
-            <div className="flex items-center gap-2 min-w-0">
-              <h2 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text truncate">
-                {t.collab.locationTitle}
-              </h2>
-              {activeLocations.length > 0 && (
-                <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-circle-primary/15 text-circle-sage dark:text-circle-dark-primary shrink-0">
+      {/* Floating Pill Controls (Full gần sát lề như lịch hẹn sự kiện) */}
+      <div className="pointer-events-none absolute top-14 lg:top-3 left-0 right-0 z-[1000] flex flex-col items-center gap-2 px-4 md:px-6">
+        <div className="w-full flex items-center justify-between gap-2">
+          {/* Left: Active broadcasting count pill badge if any */}
+          <div>
+            {activeLocations.length > 0 && (
+              <div className="pointer-events-auto inline-flex items-center gap-2 px-3.5 h-9 rounded-full backdrop-blur-xl bg-white/92 dark:bg-circle-dark-surface/90 border border-circle-hairline/80 dark:border-white/12 shadow-sm text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                </span>
+                <span>
                   {t.collab.activeBroadcastingCount.replace(
                     '{count}',
                     String(activeLocations.length),
                   )}
                 </span>
-              )}
-            </div>
+              </div>
+            )}
           </div>
 
-          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          {/* Right: Floating Pill Buttons */}
+          <div className="pointer-events-auto flex items-center gap-2 shrink-0">
             {!myActiveShare && (
-              <div className="hidden sm:flex items-center rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-circle-wash/80 dark:bg-circle-dark-canvas/80 p-0.5 text-xs">
+              <div className="hidden sm:inline-flex items-center h-9 rounded-full backdrop-blur-xl bg-white/92 dark:bg-circle-dark-surface/90 border border-circle-hairline/80 dark:border-white/12 p-0.5 shadow-sm text-xs">
                 {[15, 30, 60].map((dur) => (
                   <button
                     key={dur}
                     type="button"
                     onClick={() => setSelectedDuration(dur)}
-                    className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-all ${
+                    className={`px-3 h-full rounded-full text-xs font-bold transition-all cursor-pointer active:scale-95 ${
                       selectedDuration === dur
-                        ? 'bg-white dark:bg-circle-dark-surface text-circle-charcoal dark:text-circle-dark-text shadow-2xs'
+                        ? 'bg-circle-primary text-white shadow-xs'
                         : 'text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text'
                     }`}
                   >
@@ -389,16 +391,16 @@ export const CircleLocationView: React.FC<CircleLocationViewProps> = ({ circleId
                 type="button"
                 onClick={handleStopSharing}
                 disabled={stopMutation.isPending}
-                className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-rose-500 hover:bg-rose-600 text-white transition-all shadow-xs"
+                className="inline-flex items-center gap-1.5 px-4 h-9 rounded-full backdrop-blur-xl bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs sm:text-sm shadow-sm border border-rose-400/30 transition-all active:scale-95 cursor-pointer"
               >
-                {t.collab.stopLiveShare}
+                <span>{t.collab.stopLiveShare}</span>
               </button>
             ) : (
               <button
                 type="button"
                 onClick={handleStartSharing}
                 disabled={isLocating || startMutation.isPending}
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold bg-circle-primary hover:bg-circle-sage text-circle-charcoal dark:text-circle-dark-canvas hover:text-white dark:hover:text-white transition-all shadow-xs disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 px-4 h-9 rounded-full backdrop-blur-xl bg-circle-primary hover:bg-circle-sage text-white font-bold text-xs sm:text-sm shadow-sm border border-circle-hairline/60 dark:border-white/12 transition-all active:scale-95 cursor-pointer disabled:opacity-50"
               >
                 {isLocating ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -413,17 +415,17 @@ export const CircleLocationView: React.FC<CircleLocationViewProps> = ({ circleId
               type="button"
               onClick={handleSendLocationToChat}
               disabled={isSendingToChat || !currentCoords}
-              className={`p-1.5 rounded-full border transition-all shadow-xs ${
+              className={`inline-flex items-center justify-center w-9 h-9 rounded-full backdrop-blur-xl border shadow-sm transition-all active:scale-95 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
                 chatSentSuccess
-                  ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
-                  : 'border-circle-hairline dark:border-circle-dark-hairline bg-white/90 dark:bg-circle-dark-surface/90 text-circle-sage dark:text-circle-dark-primary hover:text-circle-charcoal dark:hover:text-white'
+                  ? 'border-circle-primary/40 bg-circle-primary/20 text-circle-sage dark:text-circle-dark-primary'
+                  : 'border-circle-hairline/80 dark:border-white/12 bg-white/92 dark:bg-circle-dark-surface/90 text-circle-slate dark:text-circle-dark-muted hover:text-circle-sage dark:hover:text-circle-dark-primary hover:bg-circle-wash dark:hover:bg-circle-dark-wash'
               }`}
               title={t.collab.sendStaticLocationHint}
             >
               {isSendingToChat ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : chatSentSuccess ? (
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                <CheckCircle2 className="w-4 h-4 text-circle-primary" />
               ) : (
                 <Send className="w-4 h-4" />
               )}
@@ -432,7 +434,7 @@ export const CircleLocationView: React.FC<CircleLocationViewProps> = ({ circleId
             <button
               type="button"
               onClick={handleRecenter}
-              className="p-1.5 rounded-full border border-circle-hairline dark:border-circle-dark-hairline hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate dark:text-circle-dark-muted transition-colors shadow-xs"
+              className="inline-flex items-center justify-center w-9 h-9 rounded-full backdrop-blur-xl bg-white/92 dark:bg-circle-dark-surface/90 border border-circle-hairline/80 dark:border-white/12 shadow-sm text-circle-slate dark:text-circle-dark-muted hover:text-circle-sage dark:hover:text-circle-dark-primary hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-all active:scale-95 cursor-pointer"
               title={t.collab.recenterMap}
             >
               <LocateFixed className="w-4 h-4" />
@@ -441,7 +443,7 @@ export const CircleLocationView: React.FC<CircleLocationViewProps> = ({ circleId
             <button
               type="button"
               onClick={() => refetch()}
-              className="p-1.5 rounded-full border border-circle-hairline dark:border-circle-dark-hairline hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate dark:text-circle-dark-muted transition-colors shadow-xs"
+              className="inline-flex items-center justify-center w-9 h-9 rounded-full backdrop-blur-xl bg-white/92 dark:bg-circle-dark-surface/90 border border-circle-hairline/80 dark:border-white/12 shadow-sm text-circle-slate dark:text-circle-dark-muted hover:text-circle-sage dark:hover:text-circle-dark-primary hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-all active:scale-95 cursor-pointer"
               title={t.common.refresh}
             >
               <RotateCw className="w-4 h-4" />

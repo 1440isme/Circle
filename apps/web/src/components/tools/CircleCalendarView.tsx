@@ -1331,48 +1331,54 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
   const isSubmitting = createMutation.isPending || updateMutation.isPending;
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-circle-canvas dark:bg-circle-dark-surface overflow-y-auto p-4 md:p-6 transition-colors">
+    <div className="relative flex-1 flex flex-col h-full bg-circle-canvas dark:bg-circle-dark-surface overflow-hidden transition-colors">
       {isAddModalOpen ? (
         /* ============================================================== */
         /* FULL-VIEW FORM TẠO & CHỈNH SỬA SỰ KIỆN (ICON-DRIVEN VERTICAL) */
         /* ============================================================== */
-        <div className="space-y-6 w-full pb-16 animate-in fade-in duration-200">
-          {/* Floating Pill Buttons Bar (Bỏ heading, thay bằng Floating Pill Buttons) */}
-          <div className="sticky top-0 z-30 pointer-events-none flex items-center justify-between gap-3 py-1 -mt-1 mb-2">
-            {/* Left: Nút Quay lại - Floating Pill Button: "< Lịch" khi Tạo mới, "< Chi tiết" khi Chỉnh sửa */}
-            <button
-              type="button"
-              onClick={handleRequestCloseForm}
-              className="pointer-events-auto inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full backdrop-blur-xl bg-white/92 dark:bg-circle-dark-surface/90 border border-circle-hairline/80 dark:border-white/12 shadow-sm hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text font-bold text-xs sm:text-sm transition-all active:scale-95 cursor-pointer"
-              title={editingEvent ? 'Quay lại Chi tiết lịch hẹn' : 'Quay lại Lịch'}
-            >
-              <ChevronLeft className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-              <span>{editingEvent ? 'Chi tiết' : 'Lịch'}</span>
-            </button>
-
-            {/* Right: Floating Pill Buttons: Đóng và Lưu (Cân bằng kích thước chuẩn xác) */}
-            <div className="pointer-events-auto flex items-center gap-2 shrink-0">
+        <>
+          {/* Floating Pill Controls (Full gần sát lề như lịch hẹn sự kiện) */}
+          <div className="pointer-events-none absolute top-14 lg:top-3 left-0 right-0 z-30 flex flex-col items-center gap-2 px-4 md:px-6">
+            <div className="w-full flex items-center justify-between gap-3">
+              {/* Left: Nút Quay lại - Floating Pill Button: "< Lịch" khi Tạo mới, "< Chi tiết" khi Chỉnh sửa */}
               <button
                 type="button"
                 onClick={handleRequestCloseForm}
-                className="inline-flex items-center justify-center w-20 sm:w-24 h-9 rounded-full backdrop-blur-xl bg-white/92 dark:bg-circle-dark-surface/90 border border-circle-hairline/80 dark:border-white/12 shadow-sm hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate dark:text-circle-dark-muted font-bold text-xs sm:text-sm transition-all active:scale-95 cursor-pointer"
+                className="pointer-events-auto inline-flex items-center gap-1.5 px-3.5 h-9 rounded-full backdrop-blur-xl bg-white/92 dark:bg-circle-dark-surface/90 border border-circle-hairline/80 dark:border-white/12 shadow-sm hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text font-bold text-xs sm:text-sm transition-all active:scale-95 cursor-pointer"
+                title={editingEvent ? 'Quay lại Chi tiết lịch hẹn' : 'Quay lại Lịch'}
               >
-                Đóng
+                <ChevronLeft className="w-4 h-4 text-circle-sage dark:text-circle-dark-primary" />
+                <span>{editingEvent ? 'Chi tiết' : 'Lịch'}</span>
               </button>
-              <button
-                type="button"
-                disabled={isSubmitting}
-                onClick={handleAttemptSubmit}
-                className="inline-flex items-center justify-center w-20 sm:w-24 h-9 rounded-full backdrop-blur-xl bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white font-bold text-xs sm:text-sm shadow-sm transition-all active:scale-95 cursor-pointer"
-              >
-                {isSubmitting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <span>Lưu</span>
-                )}
-              </button>
+
+              {/* Right: Floating Pill Buttons: Đóng và Lưu (Cân bằng kích thước chuẩn xác) */}
+              <div className="pointer-events-auto flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={handleRequestCloseForm}
+                  className="inline-flex items-center justify-center w-20 sm:w-24 h-9 rounded-full backdrop-blur-xl bg-white/92 dark:bg-circle-dark-surface/90 border border-circle-hairline/80 dark:border-white/12 shadow-sm hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate dark:text-circle-dark-muted font-bold text-xs sm:text-sm transition-all active:scale-95 cursor-pointer"
+                >
+                  Đóng
+                </button>
+                <button
+                  type="button"
+                  disabled={isSubmitting}
+                  onClick={handleAttemptSubmit}
+                  className="inline-flex items-center justify-center w-20 sm:w-24 h-9 rounded-full backdrop-blur-xl bg-circle-primary hover:bg-circle-sage disabled:opacity-50 text-white font-bold text-xs sm:text-sm shadow-sm transition-all active:scale-95 cursor-pointer"
+                >
+                  {isSubmitting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <span>Lưu</span>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
+
+          {/* Form Scroll Container */}
+          <div className="flex-1 overflow-y-auto px-4 md:px-6 pt-28 lg:pt-20 pb-16">
+            <div className="space-y-6 max-w-4xl mx-auto w-full animate-in fade-in duration-200">
 
           {/* Form Fields: Xếp hàng dọc theo thứ tự, bỏ khung thẻ mượt mà trực tiếp */}
           <div className="space-y-6 pt-1">
@@ -1384,13 +1390,13 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Thêm tiêu đề sự kiện *"
-                className="w-full text-xl sm:text-2xl font-bold tracking-tight text-circle-charcoal dark:text-circle-dark-text placeholder:text-circle-slate/40 border-b border-circle-hairline dark:border-circle-dark-hairline pb-3 focus:outline-hidden focus:border-teal-600 bg-transparent transition-colors"
+                className="w-full text-xl sm:text-2xl font-bold tracking-tight text-circle-charcoal dark:text-circle-dark-text placeholder:text-circle-slate/40 border-b border-circle-hairline dark:border-circle-dark-hairline pb-3 focus:outline-hidden focus:border-circle-primary bg-transparent transition-colors"
               />
             </div>
 
-            {/* 2. Địa chỉ / Vị trí / Họp online (Icon MapPin - đồng bộ màu xanh teal) ngay dưới tiêu đề */}
+            {/* 2. Địa chỉ / Vị trí / Họp online (Icon MapPin - đồng bộ màu xanh hệ thống) ngay dưới tiêu đề */}
             <div className="flex items-center gap-4 pt-2">
-              <div className="h-9 w-9 rounded-xl bg-teal-500/10 flex items-center justify-center text-teal-600 shrink-0">
+              <div className="h-9 w-9 rounded-xl bg-circle-primary/10 flex items-center justify-center text-circle-sage dark:text-circle-dark-primary shrink-0">
                 <MapPin className="h-5 w-5" />
               </div>
               <div className="flex-1 min-w-0">
@@ -1404,7 +1410,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
 
             {/* 3. Hàng Thời gian (Icon Clock): Bỏ label, giữa 2 picker có mũi tên ArrowRight */}
             <div className="flex items-center gap-4 pt-4 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60">
-              <div className="h-9 w-9 rounded-xl bg-teal-500/10 flex items-center justify-center text-teal-600 shrink-0">
+              <div className="h-9 w-9 rounded-xl bg-circle-primary/10 flex items-center justify-center text-circle-sage dark:text-circle-dark-primary shrink-0">
                 <Clock className="h-5 w-5" />
               </div>
               <div className="flex-1 min-w-0">
@@ -1479,7 +1485,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
 
             {/* 3. Hàng Lặp lại (Icon Repeat) */}
             <div className="flex items-start gap-4 pt-4 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60">
-              <div className="h-9 w-9 rounded-xl bg-teal-500/10 flex items-center justify-center text-teal-600 shrink-0 mt-0.5">
+              <div className="h-9 w-9 rounded-xl bg-circle-primary/10 flex items-center justify-center text-circle-sage dark:text-circle-dark-primary shrink-0 mt-0.5">
                 <Repeat className="h-5 w-5" />
               </div>
               <div className="flex-1 min-w-0 space-y-3">
@@ -1519,13 +1525,13 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                         }}
                         className={`w-full flex items-center justify-between px-3.5 py-2.5 text-xs text-left hover:bg-circle-wash dark:hover:bg-circle-dark-wash cursor-pointer transition-colors ${
                           recurrenceConfig.frequency === 'none'
-                            ? 'font-bold text-teal-600 dark:text-teal-400 bg-teal-50/50 dark:bg-teal-950/30'
+                            ? 'font-bold text-circle-sage dark:text-circle-dark-primary bg-circle-wash dark:bg-circle-dark-wash'
                             : 'text-circle-charcoal dark:text-circle-dark-text'
                         }`}
                       >
                         <span>Không lặp lại</span>
                         {recurrenceConfig.frequency === 'none' && (
-                          <Check className="h-3.5 w-3.5 text-teal-600 shrink-0 ml-2" />
+                          <Check className="h-3.5 w-3.5 text-circle-sage dark:text-circle-dark-primary shrink-0 ml-2" />
                         )}
                       </button>
 
@@ -1537,13 +1543,13 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                         }}
                         className={`w-full flex items-center justify-between px-3.5 py-2.5 text-xs text-left hover:bg-circle-wash dark:hover:bg-circle-dark-wash cursor-pointer transition-colors ${
                           !recurrenceConfig.isCustom && recurrenceConfig.frequency === 'daily'
-                            ? 'font-bold text-teal-600 dark:text-teal-400 bg-teal-50/50 dark:bg-teal-950/30'
+                            ? 'font-bold text-circle-sage dark:text-circle-dark-primary bg-circle-wash dark:bg-circle-dark-wash'
                             : 'text-circle-charcoal dark:text-circle-dark-text'
                         }`}
                       >
                         <span>Hằng ngày</span>
                         {!recurrenceConfig.isCustom && recurrenceConfig.frequency === 'daily' && (
-                          <Check className="h-3.5 w-3.5 text-teal-600 shrink-0 ml-2" />
+                          <Check className="h-3.5 w-3.5 text-circle-sage dark:text-circle-dark-primary shrink-0 ml-2" />
                         )}
                       </button>
 
@@ -1555,13 +1561,13 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                         }}
                         className={`w-full flex items-center justify-between px-3.5 py-2.5 text-xs text-left hover:bg-circle-wash dark:hover:bg-circle-dark-wash cursor-pointer transition-colors ${
                           !recurrenceConfig.isCustom && recurrenceConfig.frequency === 'weekly'
-                            ? 'font-bold text-teal-600 dark:text-teal-400 bg-teal-50/50 dark:bg-teal-950/30'
+                            ? 'font-bold text-circle-sage dark:text-circle-dark-primary bg-circle-wash dark:bg-circle-dark-wash'
                             : 'text-circle-charcoal dark:text-circle-dark-text'
                         }`}
                       >
                         <span>Hằng tuần</span>
                         {!recurrenceConfig.isCustom && recurrenceConfig.frequency === 'weekly' && (
-                          <Check className="h-3.5 w-3.5 text-teal-600 shrink-0 ml-2" />
+                          <Check className="h-3.5 w-3.5 text-circle-sage dark:text-circle-dark-primary shrink-0 ml-2" />
                         )}
                       </button>
 
@@ -1573,13 +1579,13 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                         }}
                         className={`w-full flex items-center justify-between px-3.5 py-2.5 text-xs text-left hover:bg-circle-wash dark:hover:bg-circle-dark-wash cursor-pointer transition-colors ${
                           !recurrenceConfig.isCustom && recurrenceConfig.frequency === 'monthly'
-                            ? 'font-bold text-teal-600 dark:text-teal-400 bg-teal-50/50 dark:bg-teal-950/30'
+                            ? 'font-bold text-circle-sage dark:text-circle-dark-primary bg-circle-wash dark:bg-circle-dark-wash'
                             : 'text-circle-charcoal dark:text-circle-dark-text'
                         }`}
                       >
                         <span>Hằng tháng</span>
                         {!recurrenceConfig.isCustom && recurrenceConfig.frequency === 'monthly' && (
-                          <Check className="h-3.5 w-3.5 text-teal-600 shrink-0 ml-2" />
+                          <Check className="h-3.5 w-3.5 text-circle-sage dark:text-circle-dark-primary shrink-0 ml-2" />
                         )}
                       </button>
 
@@ -1591,13 +1597,13 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                         }}
                         className={`w-full flex items-center justify-between px-3.5 py-2.5 text-xs text-left hover:bg-circle-wash dark:hover:bg-circle-dark-wash cursor-pointer transition-colors ${
                           !recurrenceConfig.isCustom && recurrenceConfig.frequency === 'yearly'
-                            ? 'font-bold text-teal-600 dark:text-teal-400 bg-teal-50/50 dark:bg-teal-950/30'
+                            ? 'font-bold text-circle-sage dark:text-circle-dark-primary bg-circle-wash dark:bg-circle-dark-wash'
                             : 'text-circle-charcoal dark:text-circle-dark-text'
                         }`}
                       >
                         <span>Hằng năm</span>
                         {!recurrenceConfig.isCustom && recurrenceConfig.frequency === 'yearly' && (
-                          <Check className="h-3.5 w-3.5 text-teal-600 shrink-0 ml-2" />
+                          <Check className="h-3.5 w-3.5 text-circle-sage dark:text-circle-dark-primary shrink-0 ml-2" />
                         )}
                       </button>
 
@@ -1611,13 +1617,13 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                         }}
                         className={`w-full flex items-center justify-between px-3.5 py-2.5 text-xs text-left hover:bg-circle-wash dark:hover:bg-circle-dark-wash cursor-pointer transition-colors ${
                           recurrenceConfig.isCustom
-                            ? 'font-bold text-teal-600 dark:text-teal-400 bg-teal-50/50 dark:bg-teal-950/30'
+                            ? 'font-bold text-circle-sage dark:text-circle-dark-primary bg-circle-wash dark:bg-circle-dark-wash'
                             : 'text-circle-charcoal dark:text-circle-dark-text'
                         }`}
                       >
                         <span>Tùy chỉnh...</span>
                         {recurrenceConfig.isCustom && (
-                          <Check className="h-3.5 w-3.5 text-teal-600 shrink-0 ml-2" />
+                          <Check className="h-3.5 w-3.5 text-circle-sage dark:text-circle-dark-primary shrink-0 ml-2" />
                         )}
                       </button>
                     </div>
@@ -1642,7 +1648,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                         }
                         className={`px-3 py-1 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
                           recurrenceConfig.endType === 'never'
-                            ? 'bg-teal-600 text-white border-teal-600 shadow-2xs font-bold'
+                            ? 'bg-circle-primary text-white border-circle-primary shadow-2xs font-bold'
                             : 'bg-white dark:bg-circle-dark-surface border-circle-hairline text-circle-slate hover:text-circle-charcoal'
                         }`}
                       >
@@ -1659,7 +1665,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                         }
                         className={`px-3 py-1 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
                           recurrenceConfig.endType === 'on_date'
-                            ? 'bg-teal-600 text-white border-teal-600 shadow-2xs font-bold'
+                            ? 'bg-circle-primary text-white border-circle-primary shadow-2xs font-bold'
                             : 'bg-white dark:bg-circle-dark-surface border-circle-hairline text-circle-slate hover:text-circle-charcoal'
                         }`}
                       >
@@ -1710,7 +1716,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
 
             {/* 5. Hàng Nhắc nhở (Icon Bell) */}
             <div className="flex items-start gap-4 pt-4 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60">
-              <div className="h-9 w-9 rounded-xl bg-teal-500/10 flex items-center justify-center text-teal-600 shrink-0 mt-0.5">
+              <div className="h-9 w-9 rounded-xl bg-circle-primary/10 flex items-center justify-center text-circle-sage dark:text-circle-dark-primary shrink-0 mt-0.5">
                 <Bell className="h-5 w-5" />
               </div>
               <div className="flex-1 min-w-0 max-w-sm">
@@ -1734,7 +1740,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
 
             {/* 6. Hàng Ghi chú / Mô tả (Icon AlignLeft) */}
             <div className="flex items-start gap-4 pt-4 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60">
-              <div className="h-9 w-9 rounded-xl bg-teal-500/10 flex items-center justify-center text-teal-600 shrink-0 mt-0.5">
+              <div className="h-9 w-9 rounded-xl bg-circle-primary/10 flex items-center justify-center text-circle-sage dark:text-circle-dark-primary shrink-0 mt-0.5">
                 <AlignLeft className="h-5 w-5" />
               </div>
               <div className="flex-1 min-w-0">
@@ -1743,7 +1749,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Thêm ghi chú, tài liệu hoặc nội dung cần chuẩn bị cho cuộc họp / sự kiện..."
-                  className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/40 dark:bg-circle-dark-canvas/40 px-3.5 py-2.5 text-xs text-circle-charcoal dark:text-circle-dark-text placeholder:text-circle-slate dark:placeholder:text-circle-dark-muted focus:outline-hidden focus:ring-1 focus:ring-teal-500 resize-y min-h-[96px]"
+                  className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/40 dark:bg-circle-dark-canvas/40 px-3.5 py-2.5 text-xs text-circle-charcoal dark:text-circle-dark-text placeholder:text-circle-slate dark:placeholder:text-circle-dark-muted focus:outline-hidden focus:ring-1 focus:ring-circle-primary resize-y min-h-[96px]"
                 />
               </div>
             </div>
@@ -1753,10 +1759,10 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                 {submitError}
               </div>
             )}
-
-
+            </div>
           </div>
         </div>
+      </>
       ) : detailModalState.isOpen && detailModalState.event ? (
         /* ============================================================== */
         /* FULL-VIEW CHI TIẾT LỊCH HẸN (TƯƠNG TỰ FORM TẠO/SỬA) */
@@ -1791,55 +1797,61 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
         />
       ) : (
         <>
-          {/* Floating Pill Buttons Bar (Bỏ heading, thay bằng Floating Pill Buttons đồng bộ) */}
-          <div className="sticky top-0 z-30 pointer-events-none flex items-center justify-between gap-3 py-1 -mt-1 mb-4">
-            {/* Left: View mode toggle pill (Theo tháng / Sắp tới) */}
-            <div className="pointer-events-auto inline-flex items-center p-1 rounded-full backdrop-blur-xl bg-white/92 dark:bg-circle-dark-surface/90 border border-circle-hairline/80 dark:border-white/12 shadow-sm">
-              <button
-                type="button"
-                onClick={() => setViewMode('month')}
-                className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
-                  viewMode === 'month'
-                    ? 'bg-teal-600 text-white shadow-xs'
-                    : 'text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text'
-                }`}
-              >
-                <CalendarDays className="h-3.5 w-3.5" />
-                <span>Theo tháng</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode('upcoming')}
-                className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
-                  viewMode === 'upcoming'
-                    ? 'bg-teal-600 text-white shadow-xs'
-                    : 'text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text'
-                }`}
-              >
-                <Clock className="h-3.5 w-3.5" />
-                <span>Theo lịch trình</span>
-              </button>
-            </div>
+          {/* Floating Pill Controls (Full gần sát lề như lịch hẹn sự kiện) */}
+          <div className="pointer-events-none absolute top-14 lg:top-3 left-0 right-0 z-30 flex flex-col items-center gap-2 px-4 md:px-6">
+            <div className="w-full flex items-center justify-between gap-3">
+              {/* Left: View mode toggle pill (Theo tháng / Sắp tới) */}
+              <div className="pointer-events-auto inline-flex items-center p-1 rounded-full backdrop-blur-xl bg-white/92 dark:bg-circle-dark-surface/90 border border-circle-hairline/80 dark:border-white/12 shadow-sm">
+                <button
+                  type="button"
+                  onClick={() => setViewMode('month')}
+                  className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer active:scale-95 ${
+                    viewMode === 'month'
+                      ? 'bg-circle-primary text-white shadow-xs'
+                      : 'text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text'
+                  }`}
+                >
+                  <CalendarDays className="h-3.5 w-3.5" />
+                  <span>Theo tháng</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('upcoming')}
+                  className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer active:scale-95 ${
+                    viewMode === 'upcoming'
+                      ? 'bg-circle-primary text-white shadow-xs'
+                      : 'text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text'
+                  }`}
+                >
+                  <Clock className="h-3.5 w-3.5" />
+                  <span>Theo lịch trình</span>
+                </button>
+              </div>
 
-            {/* Right: Floating Pill Buttons: "Hôm nay" và "Tạo sự kiện" */}
-            <div className="pointer-events-auto flex items-center gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={goToToday}
-                className="inline-flex items-center justify-center px-4 h-9 rounded-full backdrop-blur-xl bg-white/92 dark:bg-circle-dark-surface/90 border border-circle-hairline/80 dark:border-white/12 shadow-sm hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text font-bold text-xs sm:text-sm transition-all active:scale-95 cursor-pointer"
-              >
-                Hôm nay
-              </button>
-              <button
-                type="button"
-                onClick={handleOpenCreateModal}
-                className="inline-flex items-center gap-1.5 px-4 h-9 rounded-full backdrop-blur-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs sm:text-sm shadow-sm transition-all active:scale-95 cursor-pointer"
-              >
-                <Plus className="h-4 w-4" />
-                <span>Tạo sự kiện</span>
-              </button>
+              {/* Right: Floating Pill Buttons: "Hôm nay" và "Tạo sự kiện" */}
+              <div className="pointer-events-auto flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={goToToday}
+                  className="inline-flex items-center justify-center px-4 h-9 rounded-full backdrop-blur-xl bg-white/92 dark:bg-circle-dark-surface/90 border border-circle-hairline/80 dark:border-white/12 shadow-sm hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text font-bold text-xs sm:text-sm transition-all active:scale-95 cursor-pointer"
+                >
+                  Hôm nay
+                </button>
+                <button
+                  type="button"
+                  onClick={handleOpenCreateModal}
+                  className="inline-flex items-center gap-1.5 px-4 h-9 rounded-full backdrop-blur-xl bg-circle-primary hover:bg-circle-sage text-white font-bold text-xs sm:text-sm shadow-sm transition-all active:scale-95 cursor-pointer"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span>Tạo sự kiện</span>
+                </button>
+              </div>
             </div>
           </div>
+
+          {/* Scroll-under Content Layer */}
+          <div className="flex-1 overflow-y-auto px-4 md:px-6 pt-28 lg:pt-20 pb-12">
+            <div className="max-w-6xl mx-auto w-full">
 
       {/* Main Content Area */}
       {viewMode === 'upcoming' ? (
@@ -1862,14 +1874,14 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                 <button
                   type="button"
                   onClick={handleLoadMorePast}
-                  className="px-3.5 py-1.5 rounded-full text-xs font-semibold border border-circle-hairline hover:border-teal-500 text-circle-slate hover:text-circle-charcoal cursor-pointer transition-colors"
+                  className="px-3.5 py-1.5 rounded-full text-xs font-semibold border border-circle-hairline hover:border-circle-primary text-circle-slate hover:text-circle-charcoal cursor-pointer transition-colors active:scale-95"
                 >
                   Tải thêm sự kiện quá khứ
                 </button>
                 <button
                   type="button"
                   onClick={handleLoadMoreFuture}
-                  className="px-3.5 py-1.5 rounded-full text-xs font-semibold border border-circle-hairline hover:border-teal-500 text-circle-slate hover:text-circle-charcoal cursor-pointer transition-colors"
+                  className="px-3.5 py-1.5 rounded-full text-xs font-semibold border border-circle-hairline hover:border-circle-primary text-circle-slate hover:text-circle-charcoal cursor-pointer transition-colors active:scale-95"
                 >
                   Tải thêm sự kiện tương lai
                 </button>
@@ -1883,12 +1895,12 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                   type="button"
                   disabled={isLoadingMorePast}
                   onClick={handleLoadMorePast}
-                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-semibold text-circle-slate dark:text-circle-dark-muted hover:text-teal-600 dark:hover:text-teal-400 bg-circle-wash/60 dark:bg-circle-dark-surface/60 hover:bg-circle-wash dark:hover:bg-circle-dark-surface border border-circle-hairline dark:border-white/10 transition-all cursor-pointer shadow-2xs active:scale-95 disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-semibold text-circle-slate dark:text-circle-dark-muted hover:text-circle-sage dark:hover:text-circle-dark-primary bg-circle-wash/60 dark:bg-circle-dark-surface/60 hover:bg-circle-wash dark:hover:bg-circle-dark-surface border border-circle-hairline dark:border-white/10 transition-all cursor-pointer shadow-2xs active:scale-95 disabled:opacity-50"
                   title="Tải thêm các ngày trước đó"
                 >
                   {isLoadingMorePast ? (
                     <>
-                      <Loader2 className="h-3.5 w-3.5 animate-spin text-teal-600" />
+                      <Loader2 className="h-3.5 w-3.5 animate-spin text-circle-primary" />
                       <span>Đang tải sự kiện trước đó...</span>
                     </>
                   ) : (
@@ -1943,7 +1955,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                               occDate: dateObj,
                             })
                           }
-                          className={`w-full group cursor-pointer hover:border-teal-500/60 hover:shadow-xs transition-all rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-canvas p-4 shadow-2xs space-y-2.5 ${
+                          className={`w-full group cursor-pointer hover:border-circle-primary/60 hover:shadow-xs transition-all rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-canvas p-4 shadow-2xs space-y-2.5 ${
                             isPast ? 'bg-zinc-50/40 dark:bg-zinc-900/20' : ''
                           }`}
                         >
@@ -1996,7 +2008,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                           </div>
 
                           {/* Row 2: Thời gian diễn ra (dòng riêng) */}
-                          <div className="flex items-center gap-1.5 text-xs text-teal-600 dark:text-teal-400 font-medium">
+                          <div className="flex items-center gap-1.5 text-xs text-circle-sage dark:text-circle-dark-primary font-medium">
                             <Clock className="h-3.5 w-3.5 shrink-0" />
                             <span>{formatEventTimeForDate(ev, dateObj)}</span>
                           </div>
@@ -2021,12 +2033,12 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                   type="button"
                   disabled={isLoadingMoreFuture}
                   onClick={handleLoadMoreFuture}
-                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-semibold text-circle-slate dark:text-circle-dark-muted hover:text-teal-600 dark:hover:text-teal-400 bg-circle-wash/60 dark:bg-circle-dark-surface/60 hover:bg-circle-wash dark:hover:bg-circle-dark-surface border border-circle-hairline dark:border-white/10 transition-all cursor-pointer shadow-2xs active:scale-95 disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-semibold text-circle-slate dark:text-circle-dark-muted hover:text-circle-sage dark:hover:text-circle-dark-primary bg-circle-wash/60 dark:bg-circle-dark-surface/60 hover:bg-circle-wash dark:hover:bg-circle-dark-surface border border-circle-hairline dark:border-white/10 transition-all cursor-pointer shadow-2xs active:scale-95 disabled:opacity-50"
                   title="Tải thêm các ngày tiếp theo"
                 >
                   {isLoadingMoreFuture ? (
                     <>
-                      <Loader2 className="h-3.5 w-3.5 animate-spin text-teal-600" />
+                      <Loader2 className="h-3.5 w-3.5 animate-spin text-circle-primary" />
                       <span>Đang tải sự kiện tiếp theo...</span>
                     </>
                   ) : (
@@ -2075,7 +2087,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                         <button
                           type="button"
                           onClick={handleWheelJumpToday}
-                          className="text-xs font-bold text-teal-600 dark:text-teal-400 hover:underline cursor-pointer"
+                          className="text-xs font-bold text-circle-sage dark:text-circle-dark-primary hover:underline cursor-pointer"
                         >
                           Hôm nay
                         </button>
@@ -2084,7 +2096,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                       {/* BÁNH XE THÁNG VÀ NĂM CÓ CỤC ĐEN CỐ ĐỊNH (Dạng xe lăn) */}
                       <div className="relative h-[200px] w-full overflow-hidden flex justify-center items-center select-none bg-circle-wash/30 dark:bg-circle-dark-canvas/50 rounded-xl border border-circle-hairline/60">
                         {/* CỤC ĐEN CỐ ĐỊNH Ở CHÍNH GIỮA */}
-                        <div className="absolute inset-x-2 top-[80px] h-10 rounded-xl bg-circle-charcoal dark:bg-teal-600 shadow-md pointer-events-none z-0 border border-white/10" />
+                        <div className="absolute inset-x-2 top-[80px] h-10 rounded-xl bg-circle-charcoal dark:bg-circle-primary shadow-md pointer-events-none z-0 border border-white/10" />
 
                         {/* Cột Tháng (Tháng 01 - Tháng 12) - ẨN 100% THANH CUỘN */}
                         <div
@@ -2149,7 +2161,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                         <button
                           type="button"
                           onClick={() => setIsMonthPickerOpen(false)}
-                          className="px-4 py-1.5 rounded-xl text-xs font-bold bg-teal-600 text-white hover:bg-teal-700 transition-colors shadow-2xs cursor-pointer"
+                          className="px-4 py-1.5 rounded-xl text-xs font-bold bg-circle-primary text-white hover:bg-circle-sage transition-colors shadow-2xs cursor-pointer active:scale-95"
                         >
                           Xong
                         </button>
@@ -2214,9 +2226,9 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                     onClick={() => setSelectedDate(new Date(year, month - 1, dayNum))}
                     className={`min-h-[80px] p-1.5 rounded-xl border text-left flex flex-col justify-between transition-all ${
                       isSelected
-                        ? 'border-teal-600 ring-2 ring-teal-500/20 bg-teal-50/20 dark:bg-teal-950/20'
+                        ? 'border-circle-primary ring-2 ring-circle-primary/20 bg-circle-wash dark:bg-circle-dark-wash'
                         : isToday
-                        ? 'border-teal-500/40 bg-teal-50/10'
+                        ? 'border-circle-primary/40 bg-circle-wash/60'
                         : 'border-circle-hairline/60 dark:border-circle-dark-hairline/40 hover:bg-circle-wash/50 dark:hover:bg-circle-dark-surface/50'
                     }`}
                   >
@@ -2224,16 +2236,16 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                       <span
                         className={`text-xs font-bold h-6 w-6 rounded-full flex items-center justify-center ${
                           isToday
-                            ? 'bg-teal-600 text-white'
+                            ? 'bg-circle-primary text-white'
                             : isSelected
-                            ? 'text-teal-700 dark:text-teal-300 font-extrabold'
+                            ? 'text-circle-sage dark:text-circle-dark-primary font-extrabold'
                             : 'text-circle-charcoal dark:text-circle-dark-text'
                         }`}
                       >
                         {dayNum}
                       </span>
                       {dayEvents.length > 0 && (
-                        <span className="text-[9px] font-bold text-teal-600 bg-teal-500/10 px-1.5 py-0.2 rounded-full">
+                        <span className="text-[9px] font-bold text-circle-sage dark:text-circle-dark-primary bg-circle-primary/10 px-1.5 py-0.2 rounded-full">
                           {dayEvents.length}
                         </span>
                       )}
@@ -2258,7 +2270,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                             className={`text-[9px] px-1 py-0.2 rounded-sm truncate text-left font-medium cursor-pointer hover:opacity-80 transition-opacity ${
                               isCancelled
                                 ? 'bg-rose-500/10 text-rose-600 line-through'
-                                : 'bg-teal-500/15 text-teal-800 dark:text-teal-300'
+                                : 'bg-circle-primary/15 text-circle-sage dark:text-circle-dark-primary'
                             }`}
                           >
                             {ev.eventTitle}
@@ -2323,7 +2335,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                           occDate: new Date(selectedDate),
                         });
                       }}
-                      className={`rounded-xl border p-3 space-y-2.5 transition-all cursor-pointer hover:border-teal-500/60 hover:shadow-xs ${
+                      className={`rounded-xl border p-3 space-y-2.5 transition-all cursor-pointer hover:border-circle-primary/60 hover:shadow-xs ${
                         isOccCancelled
                           ? 'border-rose-200 bg-rose-50/40 dark:bg-rose-950/20'
                           : 'border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-surface'
@@ -2348,7 +2360,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                       </div>
 
                       {/* Row 2: Thời gian diễn ra */}
-                      <div className="flex items-center gap-1.5 text-xs text-teal-600 dark:text-teal-400 font-medium">
+                      <div className="flex items-center gap-1.5 text-xs text-circle-sage dark:text-circle-dark-primary font-medium">
                         <Clock className="h-3.5 w-3.5 shrink-0" />
                         <span>{formatEventTimeForDate(ev, selectedDate)}</span>
                       </div>
@@ -2405,6 +2417,8 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
           </div>
         </div>
       )}
+            </div>
+          </div>
         </>
       )}
 
@@ -2427,7 +2441,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                 type="button"
                 disabled={isApplyingPollScope}
                 onClick={() => handleApplyPollScope('this')}
-                className="w-full text-left p-3 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas hover:border-teal-500 hover:bg-teal-50/40 dark:hover:bg-teal-950/20 transition-all cursor-pointer disabled:opacity-50"
+                className="w-full text-left p-3 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas hover:border-circle-primary hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-all cursor-pointer disabled:opacity-50"
               >
                 <p className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
                   Chỉ lần này
@@ -2441,7 +2455,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                 type="button"
                 disabled={isApplyingPollScope}
                 onClick={() => handleApplyPollScope('future')}
-                className="w-full text-left p-3 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas hover:border-teal-500 hover:bg-teal-50/40 dark:hover:bg-teal-950/20 transition-all cursor-pointer disabled:opacity-50"
+                className="w-full text-left p-3 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas hover:border-circle-primary hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-all cursor-pointer disabled:opacity-50"
               >
                 <p className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
                   Lần này và các lần tiếp theo
@@ -2455,7 +2469,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                 type="button"
                 disabled={isApplyingPollScope}
                 onClick={() => handleApplyPollScope('all')}
-                className="w-full text-left p-3 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas hover:border-teal-500 hover:bg-teal-50/40 dark:hover:bg-teal-950/20 transition-all cursor-pointer disabled:opacity-50"
+                className="w-full text-left p-3 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas hover:border-circle-primary hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-all cursor-pointer disabled:opacity-50"
               >
                 <p className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
                   Tất cả các lần
@@ -2523,7 +2537,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
               <button
                 type="button"
                 onClick={() => setShowUnsavedChangesModal(false)}
-                className="px-3.5 py-1.5 rounded-xl text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 transition-colors shadow-xs cursor-pointer"
+                className="px-3.5 py-1.5 rounded-xl text-xs font-bold text-white bg-circle-primary hover:bg-circle-sage transition-colors shadow-xs cursor-pointer active:scale-95"
               >
                 Tiếp tục chỉnh sửa
               </button>
@@ -2551,7 +2565,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                   setShowScopeModal(false);
                   handleCreateOrUpdateEvent('this');
                 }}
-                className="w-full text-left p-3 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas hover:border-teal-500 hover:bg-teal-50/40 dark:hover:bg-teal-950/20 transition-all"
+                className="w-full text-left p-3 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas hover:border-circle-primary hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-all"
               >
                 <p className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
                   Chỉ lần này
@@ -2567,7 +2581,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                   setShowScopeModal(false);
                   handleCreateOrUpdateEvent('future');
                 }}
-                className="w-full text-left p-3 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas hover:border-teal-500 hover:bg-teal-50/40 dark:hover:bg-teal-950/20 transition-all"
+                className="w-full text-left p-3 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas hover:border-circle-primary hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-all"
               >
                 <p className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
                   Lần này và các lần tiếp theo
@@ -2583,7 +2597,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
                   setShowScopeModal(false);
                   handleCreateOrUpdateEvent('all');
                 }}
-                className="w-full text-left p-3 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas hover:border-teal-500 hover:bg-teal-50/40 dark:hover:bg-teal-950/20 transition-all"
+                className="w-full text-left p-3 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas hover:border-circle-primary hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-all"
               >
                 <p className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
                   Tất cả các lần

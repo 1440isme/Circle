@@ -586,6 +586,34 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId }) 
     <View style={[styles.container, { backgroundColor: colors.canvas }]}>
       {renderNoticeBanner()}
 
+      {/* Floating Pill Button (Bỏ heading, thay nút Tạo album thành Floating Pill Button ở góc trên) */}
+      <View
+        pointerEvents="box-none"
+        style={{
+          position: 'absolute',
+          top: topClearance + 8,
+          left: 16,
+          right: 16,
+          zIndex: 30,
+          flexDirection: 'row',
+          justifyContent: 'flex-end',
+        }}
+      >
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={() => {
+            setFormError(null);
+            setIsCreateModalOpen(true);
+          }}
+          style={[styles.floatingTopPillBtn, { backgroundColor: colors.primary }]}
+        >
+          <Plus size={14} color={colors.onPrimary} />
+          <Text style={[styles.floatingTopPillText, { color: colors.onPrimary }]}>
+            {t.collab.createAlbum}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       {/* Scroll-under Content Layer */}
       {isLoading ? (
         <ActivityIndicator size="large" color={colors.sage} style={{ marginTop: topClearance + 56 }} />
@@ -593,7 +621,7 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId }) 
         <ScrollView
           contentContainerStyle={[
             styles.albumsList,
-            { paddingTop: topClearance, paddingBottom: Math.max(insets.bottom + 80, 100) },
+            { paddingTop: topClearance + 48, paddingBottom: Math.max(insets.bottom + 40, 60) },
           ]}
         >
           {albums.map((album) => {
@@ -655,25 +683,6 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId }) 
           </TouchableOpacity>
         </View>
       )}
-
-      {/* Floating Action Button (FAB) */}
-      <TouchableOpacity
-        activeOpacity={0.85}
-        onPress={() => {
-          setFormError(null);
-          setIsCreateModalOpen(true);
-        }}
-        style={[
-          styles.fab,
-          {
-            bottom: Math.max(insets.bottom + 16, 24),
-            backgroundColor: colors.primary,
-          },
-        ]}
-      >
-        <Plus size={18} color={colors.onPrimary} />
-        <Text style={[styles.fabText, { color: colors.onPrimary }]}>{t.collab.createAlbum}</Text>
-      </TouchableOpacity>
 
       {/* Create Album Modal */}
       <Modal
@@ -813,6 +822,23 @@ const createStyles = (colors: any, isDark: boolean, photoSize: number) => StyleS
     padding: 16,
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
+  },
+  floatingTopPillBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  floatingTopPillText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   fab: {
     position: 'absolute',

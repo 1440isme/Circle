@@ -77,7 +77,7 @@ const THEMES: ThemeConfig[] = [
     id: 'mint',
     name: 'Bạc hà',
     bgGradient:
-      'bg-gradient-to-br from-emerald-100 via-teal-100 to-green-100 dark:from-emerald-950/40 dark:via-teal-950/40 dark:to-green-950/40 border-emerald-200/80 dark:border-emerald-800/40',
+      'bg-gradient-to-br from-emerald-100 via-emerald-100 to-green-100 dark:from-emerald-950/40 dark:via-emerald-950/40 dark:to-green-950/40 border-emerald-200/80 dark:border-emerald-800/40',
     textColor: 'text-emerald-950 dark:text-emerald-100',
     tagColor: 'bg-emerald-500/20 text-emerald-800 dark:text-emerald-300',
   },
@@ -115,8 +115,10 @@ function useColumnCount(): number {
         setColumns(1);
       } else if (width < 1024) {
         setColumns(2);
-      } else {
+      } else if (width < 1440) {
         setColumns(3);
+      } else {
+        setColumns(4);
       }
     };
 
@@ -214,29 +216,32 @@ export const CircleAnonymousView: React.FC<CircleAnonymousViewProps> = ({ circle
 
   return (
     <div className="relative flex-1 flex flex-col h-full bg-circle-canvas dark:bg-circle-dark-surface overflow-hidden transition-colors">
-      {/* Floating Pill Controls Bar (Không text heading, controls dạng Floating Pill Button) */}
-      <div className="pointer-events-none absolute top-3 left-0 right-0 z-20 flex items-center justify-between px-4 md:px-6">
-        <div className="pointer-events-auto flex items-center gap-2">
-          {posts.length > 0 && (
-            <div className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full backdrop-blur-xl bg-white/92 dark:bg-circle-dark-surface/90 border border-circle-hairline/80 dark:border-white/12 shadow-xs text-xs font-semibold text-circle-slate dark:text-circle-dark-muted select-none">
-              <Heart className="h-3.5 w-3.5 text-rose-500 shrink-0" />
-              <span>{posts.length} lời nhắn</span>
-            </div>
-          )}
-        </div>
+      {/* Floating Pill Controls Bar (Full gần sát lề như lịch hẹn sự kiện) */}
+      <div className="pointer-events-none absolute top-14 lg:top-3 left-0 right-0 z-20 flex flex-col items-center gap-2 px-4 md:px-6">
+        <div className="w-full flex items-center justify-between gap-2">
+          <div className="pointer-events-auto flex items-center gap-2">
+            {posts.length > 0 && (
+              <div className="inline-flex items-center gap-1.5 px-4 h-9 rounded-full backdrop-blur-xl bg-white/92 dark:bg-circle-dark-surface/90 border border-circle-hairline/80 dark:border-white/12 shadow-sm text-xs font-semibold text-circle-slate dark:text-circle-dark-muted select-none">
+                <Heart className="h-3.5 w-3.5 text-rose-500 shrink-0" />
+                <span>{posts.length} lời nhắn</span>
+              </div>
+            )}
+          </div>
 
-        <button
-          type="button"
-          onClick={() => setIsComposeModalOpen(true)}
-          className="pointer-events-auto flex items-center gap-1.5 px-4 py-1.5 rounded-full backdrop-blur-xl bg-circle-primary hover:bg-circle-sage text-white text-xs font-bold shadow-sm transition-all active:scale-95 cursor-pointer"
-        >
-          <Plus className="h-3.5 w-3.5" />
-          <span>Gửi tâm sự ẩn danh</span>
-        </button>
+          <button
+            type="button"
+            onClick={() => setIsComposeModalOpen(true)}
+            className="pointer-events-auto inline-flex items-center justify-center gap-1.5 px-4 h-9 rounded-full backdrop-blur-xl bg-circle-primary hover:bg-circle-sage text-white font-bold text-xs sm:text-sm shadow-sm border border-circle-hairline/60 dark:border-white/12 transition-all active:scale-95 cursor-pointer shrink-0"
+          >
+            <Plus className="h-4 w-4 stroke-[2.5]" />
+            <span>Gửi tâm sự ẩn danh</span>
+          </button>
+        </div>
       </div>
 
       {/* Scroll-under Content Layer */}
-      <div className="flex-1 overflow-y-auto px-4 md:px-6 pt-16 pb-12">
+      <div className="flex-1 overflow-y-auto px-4 md:px-6 pt-28 lg:pt-20 pb-12">
+        <div className="w-full">
 
       {/* Security / Anonymity Banner */}
       <div className="mb-6 flex items-start gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 dark:bg-emerald-500/10 p-3.5">
@@ -367,13 +372,14 @@ export const CircleAnonymousView: React.FC<CircleAnonymousViewProps> = ({ circle
           <button
             type="button"
             onClick={() => setIsComposeModalOpen(true)}
-            className="flex items-center gap-2 rounded-full bg-circle-primary hover:bg-circle-sage px-5 py-2 text-xs font-bold text-white transition-all shadow-sm active:scale-95 cursor-pointer"
+            className="inline-flex items-center justify-center gap-2 px-5 h-9 rounded-full bg-circle-primary hover:bg-circle-sage text-white font-bold text-xs sm:text-sm transition-all shadow-sm active:scale-95 cursor-pointer"
           >
-            <Plus className="h-3.5 w-3.5" />
+            <Plus className="h-4 w-4 stroke-[2.5]" />
             <span>Viết lời tâm sự ngay</span>
           </button>
         </div>
       )}
+        </div>
       </div>
 
       {/* Compose Modal */}
@@ -439,14 +445,14 @@ export const CircleAnonymousView: React.FC<CircleAnonymousViewProps> = ({ circle
                 <button
                   type="button"
                   onClick={() => setIsComposeModalOpen(false)}
-                  className="rounded-full px-4 py-2 text-xs font-semibold border border-circle-hairline dark:border-circle-dark-hairline text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors cursor-pointer"
+                  className="inline-flex items-center justify-center rounded-full px-4 h-9 text-xs sm:text-sm font-bold border border-circle-hairline dark:border-circle-dark-hairline text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-all active:scale-95 cursor-pointer"
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
                   disabled={createMutation.isPending || !content.trim()}
-                  className="flex items-center gap-1.5 rounded-full bg-circle-primary hover:bg-circle-sage px-5 py-2 text-xs font-bold text-white shadow-sm transition-all disabled:opacity-50 active:scale-95 cursor-pointer"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-full bg-circle-primary hover:bg-circle-sage px-5 h-9 text-xs sm:text-sm font-bold text-white shadow-sm transition-all disabled:opacity-50 active:scale-95 cursor-pointer"
                 >
                   <Send className="h-3.5 w-3.5" />
                   <span>{createMutation.isPending ? 'Đang gửi...' : 'Gửi lời nhắn'}</span>
