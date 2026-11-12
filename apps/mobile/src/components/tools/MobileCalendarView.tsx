@@ -1202,7 +1202,8 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
             startTime: evStart.toISOString(),
             endTime: evEnd ? evEnd.toISOString() : undefined,
             reminderTime,
-          });
+            isRecurrenceSplit: true,
+          } as any);
 
           setDetailEvent(createdSingle);
           setDetailOccurrenceDate(new Date(createdSingle.startTime));
@@ -1248,7 +1249,8 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
               startTime: evStart.toISOString(),
               endTime: evEnd ? evEnd.toISOString() : undefined,
               reminderTime,
-            });
+              isRecurrenceSplit: true,
+            } as any);
             setDetailEvent(createdNewSeries);
             setDetailOccurrenceDate(new Date(createdNewSeries.startTime));
           }

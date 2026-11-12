@@ -7653,3 +7653,51 @@
   - **Resolution / Fix:** N/A.
 - **Commit:** 85e3110
 - **PR:** Pending
+
+
+---
+
+## AI-0188: Tuyệt Đối Chỉ Hiển Thị Thẻ Banner khi Tạo Mới và Nhắc Hẹn (#120)
+
+- **Date:** 2026-11-12 18:05:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120
+- **Purpose:** 
+  1. **Khắc phục triệt để lỗi thẻ banner vẫn xuất hiện khi chỉnh sửa sự kiện:**
+     - Nguyên tắc bất biến được chốt: Thẻ sự kiện banner (Card có ảnh bìa màu xanh Emerald brand) CHỈ ĐƯỢC PHÉP HIỂN THỊ khi **Tạo mới** (ction: 'CREATED') hoặc **Nhắc hẹn** (ction: 'REMINDER').
+     - Tất cả các trường hợp **Chỉnh sửa** (UPDATED), **Bình chọn** (RSVP_UPDATED), **Hủy** (CANCELLED / isCancelled) TUYỆT ĐỐI KHÔNG HIỂN THỊ THẺ BANNER, mà chỉ hiển thị dòng thông báo hệ thống dạng text ([Tên] đã cập nhật lịch hẹn… Xem / [Tên] sẽ tham gia… Xem).
+     - Sửa điều kiện showCard trong CalendarEventChatEmbed.tsx (Web) và MobileCalendarEventChatEmbed.tsx (Mobile) để kiểm tra chặt chẽ latestAction và ction, ngăn không cho bất kỳ tin nhắn cập nhật nào hiển thị thẻ banner.
+     - Cập nhật backend circle-tools.service.ts: khi sửa sự kiện, thẻ trong DB được gán chính xác ction: 'UPDATED' và latestAction: 'UPDATED'.
+     - Ngăn ngừa tình trạng tách chuỗi lặp (isRecurrenceSplit) phát sóng nhầm hành động 'CREATED' gửi thẻ banner mới vào chat.
+  2. **Đồng bộ 100% Web & Mobile:**
+     - Đảm bảo trải nghiệm trực quan đồng nhất trên toàn bộ hệ thống CIRCLE.
+- **Prompt Summary:** sao đã kêu chỉ có tạo với nhắc lại mới hiện thẻ banner mà
+- **Files Affected:**
+  - pps/backend/src/modules/circle-tools/circle-tools.service.ts
+  - pps/web/src/components/chat/CalendarEventChatEmbed.tsx
+  - pps/mobile/src/components/chat/MobileCalendarEventChatEmbed.tsx
+  - pps/web/src/components/tools/CircleCalendarView.tsx
+  - pps/web/src/components/tools/CircleEventDetailModal.tsx
+  - pps/mobile/src/components/tools/MobileCalendarView.tsx
+  - docs/ai-usage/log.md
+- **AI-Generated Portion:** 100% logic điều kiện hiển thị showCard, xử lý isRecurrenceSplit và đồng bộ Web & Mobile.
+- **Human Modifications:** Người dùng nhấn mạnh lại yêu cầu cốt lõi: chỉ có tạo và nhắc lại mới được hiện thẻ banner.
+- **Verification Method:**
+  - 
+px tsc --noEmit --project apps/web/tsconfig.json: Passed 0 errors.
+  - 
+px tsc --noEmit --project apps/mobile/tsconfig.json: Passed 0 errors.
+  - 
+pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.spec.ts: Passed 45/45 tests.
+  - ash ./scripts/check-agent-map.sh: 130/130 files pass.
+  - ash ./scripts/check-secrets.sh: 600 files checked, 0 secret leaks.
+- **Official Source Checked:** PROJECT_GOD.md, agentic/RULES.md & agentic/CONVENTIONS.md.
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A.
+  - **Resolution / Fix:** N/A.
+- **Commit:** b5a87aa
+- **PR:** Pending

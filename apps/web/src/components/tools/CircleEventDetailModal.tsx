@@ -223,7 +223,8 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
           startTime: occStartDate.toISOString(),
           endTime: occEndDate.toISOString(),
           reminderTime: standaloneReminderIso || undefined,
-        });
+          isRecurrenceSplit: true,
+        } as any);
       } else if (isRecurring && scope === 'future') {
         const splitDay = new Date(
           occStartDate.getFullYear(),
@@ -278,7 +279,8 @@ export const CircleEventDetailModal: React.FC<CircleEventDetailModalProps> = ({
             startTime: occStartDate.toISOString(),
             endTime: occEndDate.toISOString(),
             reminderTime: newReminderIso || undefined,
-          });
+            isRecurrenceSplit: true,
+          } as any);
         } else {
           // Trùng hoặc trước ngày bắt đầu ban đầu: cập nhật tất cả
           await updateMutation.mutateAsync({

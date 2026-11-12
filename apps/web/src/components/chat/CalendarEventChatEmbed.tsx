@@ -340,7 +340,8 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
           startTime: startDate.toISOString(),
           endTime: evEnd.toISOString(),
           reminderTime: eventData.reminderTime || undefined,
-        });
+          isRecurrenceSplit: true,
+        } as any);
 
         await rsvpMutation.mutateAsync({ eventId: created.id, status });
       } else {
@@ -406,12 +407,17 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
     eventData.eventTitle,
   ]);
 
-  // "và chỉ cần thẻ sự kiện khi tạo hoặc nhắc thui"
-  // Các hành động sửa, bình chọn, hủy chỉ hiển thị dòng thông báo hệ thống (System Message)
+  // "và chỉ cần thẻ sự kiện khi tạo hoặc nhắc thui" (chỉ có tạo với nhắc lại mới hiện thẻ banner mà)
+  // Chỉ có Tạo mới (CREATED) và Nhắc hẹn (REMINDER) mới hiển thị thẻ banner đầy đủ.
+  // Khi Sửa (UPDATED), Hủy (CANCELLED), hoặc xóa: KHÔNG BAO GIỜ hiện thẻ banner, chỉ hiện dòng thông báo hệ thống dạng text.
+  const effectiveAction = eventData.latestAction || eventData.action;
   const showCard =
-    eventData.action === 'CREATED' ||
-    eventData.action === 'REMINDER' ||
-    !eventData.action;
+    (effectiveAction === 'CREATED' || effectiveAction === 'REMINDER') &&
+    eventData.action !== 'UPDATED' &&
+    eventData.latestAction !== 'UPDATED' &&
+    eventData.action !== 'CANCELLED' &&
+    eventData.latestAction !== 'CANCELLED' &&
+    !eventData.isCancelled;
 
   if (!showCard) {
     return (

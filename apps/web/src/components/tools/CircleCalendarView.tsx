@@ -443,7 +443,8 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
           startTime: occStartDate.toISOString(),
           endTime: occEndDate.toISOString(),
           reminderTime: event.reminderTime || undefined,
-        });
+          isRecurrenceSplit: true,
+        } as any);
 
         await rsvpMutation.mutateAsync({ eventId: created.id, status });
       } else if (isRecurring && scope === 'future') {
@@ -481,7 +482,8 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
             startTime: occStartDate.toISOString(),
             endTime: occEndDate.toISOString(),
             reminderTime: event.reminderTime || undefined,
-          });
+            isRecurrenceSplit: true,
+          } as any);
 
           await rsvpMutation.mutateAsync({ eventId: created.id, status });
         } else {
@@ -995,7 +997,8 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
             startTime: start.toISOString(),
             endTime: end.toISOString(),
             reminderTime: reminderIso,
-          });
+            isRecurrenceSplit: true,
+          } as any);
 
           if (previousDetailModalRef.current) {
             setDetailModalState({
@@ -1060,7 +1063,8 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
               startTime: start.toISOString(),
               endTime: end.toISOString(),
               reminderTime: reminderIso,
-            });
+              isRecurrenceSplit: true,
+            } as any);
 
             if (previousDetailModalRef.current) {
               setDetailModalState({

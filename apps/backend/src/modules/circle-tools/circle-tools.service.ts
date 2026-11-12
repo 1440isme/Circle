@@ -1232,7 +1232,8 @@ export class CircleToolsService {
       },
     });
 
-    await this.broadcastCalendarEventMessage(circleId, member, createdEvent, 'CREATED');
+    const broadcastAction = (dto as any)?.isRecurrenceSplit ? 'UPDATED' : 'CREATED';
+    await this.broadcastCalendarEventMessage(circleId, member, createdEvent, broadcastAction);
 
     return createdEvent;
   }
@@ -1940,7 +1941,7 @@ export class CircleToolsService {
             description: event.description || null,
             reminderTime: event.reminderTime ? (event.reminderTime instanceof Date ? event.reminderTime.toISOString() : String(event.reminderTime)) : null,
             isCancelled: Boolean(event.isCancelled || action === 'CANCELLED'),
-            action: 'CREATED',
+            action,
             latestAction: action,
             lastActorName: creatorName,
             lastActorUserId: member.userId,
