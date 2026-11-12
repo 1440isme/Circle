@@ -10,7 +10,6 @@ import {
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import {
-  Calendar,
   Clock,
   MapPin,
   Check,
@@ -635,29 +634,19 @@ export const MobileCalendarEventChatEmbed: React.FC<MobileCalendarEventChatEmbed
   if (!showCard) {
     return (
       <View style={styles.standaloneSystemMessageRow}>
-        <View
-          style={[
-            styles.systemMessagePill,
-            {
-              backgroundColor: colors.wash || '#F1F5F9',
-              borderColor: colors.hairline || '#E2E8F0',
-            },
-          ]}
+        <Text style={[styles.systemMessageText, { color: colors.subtle || '#64748B' }]}>
+          {systemMessageText}
+        </Text>
+        <Text style={[styles.systemMessageDots, { color: colors.subtle || '#64748B' }]}>…</Text>
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={handleOpenCalendar}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Text style={[styles.systemMessageText, { color: colors.subtle || '#64748B' }]}>
-            {systemMessageText}
+          <Text style={[styles.systemMessageAction, { color: colors.primary || '#10B981' }]}>
+            Xem
           </Text>
-          <Text style={[styles.systemMessageDots, { color: colors.subtle || '#64748B' }]}>…</Text>
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={handleOpenCalendar}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Text style={[styles.systemMessageAction, { color: colors.primary || '#10B981' }]}>
-              Xem
-            </Text>
-          </TouchableOpacity>
-        </View>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -694,11 +683,6 @@ export const MobileCalendarEventChatEmbed: React.FC<MobileCalendarEventChatEmbed
         {/* 2. Ảnh bìa (Màu chủ đạo Emerald Brand) & Tên sự kiện */}
         <View style={styles.bannerContainer}>
           <View style={styles.bannerHeaderRow}>
-            <View style={styles.bannerBadge}>
-              <Calendar size={13} color="#FFFFFF" />
-              <Text style={styles.bannerBadgeText}>Lịch hẹn</Text>
-            </View>
-
             {(onOpenCalendar || onViewOnCalendar) && (
               <TouchableOpacity
                 activeOpacity={0.8}
@@ -1069,19 +1053,12 @@ const styles = StyleSheet.create({
   },
   standaloneSystemMessageRow: {
     width: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginVertical: 4,
-  },
-  systemMessagePill: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 5,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 9999,
-    borderWidth: 1,
+    gap: 4,
+    marginVertical: 4,
+    paddingHorizontal: 8,
   },
   systemMessageRow: {
     flexDirection: 'row',
@@ -1124,22 +1101,8 @@ const styles = StyleSheet.create({
   bannerHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     marginBottom: 8,
-  },
-  bannerBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 8,
-    paddingVertical: 3.5,
-    borderRadius: 9999,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
-  },
-  bannerBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#FFFFFF',
   },
   bannerViewCalendarBtn: {
     flexDirection: 'row',

@@ -7614,5 +7614,42 @@
   - **Error Description:** None.
   - **Root Cause:** N/A.
   - **Resolution / Fix:** N/A.
-- **Commit:** e889c22
+- **Commit:** 0bf85f3
+- **PR:** Pending
+
+---
+
+## AI-0187: Loại bỏ Khung Bo Xanh và Tinh Giản Dòng Thông Báo Hệ Thống Lịch Hẹn (#120)
+
+- **Date:** 2026-11-12 17:42:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120
+- **Purpose:** 
+  1. **Loại bỏ viền khung bo ("bo khung xanh") theo yêu cầu người dùng:**
+     - Tinh giản dòng thông báo hệ thống độc lập (`!showCard`) trên cả Web (`CalendarEventChatEmbed.tsx`) và Mobile (`MobileCalendarEventChatEmbed.tsx`): loại bỏ thẻ pill bo tròn (`rounded-full`, viền khung border, nền wash và icon rườm rà), chuyển thành dòng thông báo hệ thống dạng text thuần phẳng, thanh thoát căn giữa luồng chat (nhất quán với dòng thông báo hệ thống nằm trên thẻ sự kiện).
+     - Loại bỏ badge bo tròn "Lịch hẹn" trong dải banner bìa sự kiện, giữ nút "Xem lịch" căn lề phải gọn gàng, loại bỏ hoàn toàn viền bo xanh hover trên container thẻ sự kiện.
+  2. **Đồng bộ Web & Mobile:**
+     - Đảm bảo trải nghiệm trực quan thống nhất, tối giản và chuyên nghiệp trên cả 2 nền tảng Web và Mobile.
+- **Prompt Summary:** ko cần bo khung xanh
+- **Files Affected:**
+  - `apps/web/src/components/chat/CalendarEventChatEmbed.tsx`
+  - `apps/mobile/src/components/chat/MobileCalendarEventChatEmbed.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% tinh chỉnh CSS/layout loại bỏ pill box và viền khung bo.
+- **Human Modifications:** Người dùng yêu cầu không cần bo khung xanh cho thông báo.
+- **Verification Method:**
+  - `npx tsc --noEmit --project apps/web/tsconfig.json`: Passed 0 errors.
+  - `npx tsc --noEmit --project apps/mobile/tsconfig.json`: Passed 0 errors.
+  - `npm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.spec.ts`: Passed 45/45 tests.
+  - `bash ./scripts/check-agent-map.sh`: 130/130 files pass.
+  - `bash ./scripts/check-secrets.sh`: 600 files checked, 0 secret leaks.
+- **Official Source Checked:** PROJECT_GOD.md, agentic/RULES.md & agentic/CONVENTIONS.md.
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** None.
+  - **Root Cause:** N/A.
+  - **Resolution / Fix:** N/A.
+- **Commit:** 85e3110
 - **PR:** Pending

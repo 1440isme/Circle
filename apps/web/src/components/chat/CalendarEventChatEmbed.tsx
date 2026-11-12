@@ -5,7 +5,6 @@ import {
   CalendarDays,
   Clock,
   MapPin,
-  Calendar as CalendarIcon,
   Bell,
   Users,
   Check,
@@ -417,10 +416,9 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
   if (!showCard) {
     return (
       <div className="w-full flex items-center justify-center my-2 select-none">
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-circle-wash/80 dark:bg-circle-dark-wash/80 text-circle-slate dark:text-circle-dark-muted border border-circle-hairline/60 dark:border-circle-dark-hairline/60 shadow-2xs">
-          <CalendarDays className="w-3.5 h-3.5 text-circle-primary shrink-0" />
+        <div className="flex items-center justify-center gap-1.5 text-xs text-circle-slate dark:text-circle-dark-muted font-medium">
           <span>{systemMessageText}</span>
-          <span className="opacity-50">…</span>
+          <span className="opacity-60">…</span>
           <button
             type="button"
             onClick={handleOpenCalendar}
@@ -449,7 +447,7 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
       </div>
 
       {/* Container thẻ sự kiện */}
-      <div className="rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface shadow-md overflow-hidden transition-all hover:border-circle-primary/40">
+      <div className="rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface shadow-md overflow-hidden transition-all">
         {/* 2. Ảnh bìa (Màu chủ đạo của Web: Emerald/Sage Brand Gradient) & Tên sự kiện */}
         <div className="relative overflow-hidden bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 px-5 pt-5 pb-5 text-white select-none">
           {/* Decorative Pattern & Glass elements */}
@@ -458,12 +456,7 @@ export const CalendarEventChatEmbed: React.FC<CalendarEventChatEmbedProps> = ({
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:16px_16px] opacity-10" />
 
           <div className="relative z-10 space-y-3">
-            <div className="flex items-start justify-between gap-3">
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-white/20 backdrop-blur-md border border-white/25 text-white shadow-xs">
-                <CalendarIcon className="h-3.5 w-3.5 text-emerald-100" />
-                <span>Lịch hẹn</span>
-              </div>
-
+            <div className="flex items-start justify-end gap-3">
               <button
                 type="button"
                 onClick={handleOpenCalendar}
