@@ -30,11 +30,17 @@ import {
   GroupPollEntity,
   CreatePollInput,
   VotePollInput,
+  MediaHubResponse,
 } from '@circle/types';
 
 // =============================================================================
-// 1. SHARED ALBUM (UC14)
+// 1. SHARED ALBUM & MEDIA HUB (UC14)
 // =============================================================================
+
+export async function getMediaHubApi(circleId: string): Promise<MediaHubResponse> {
+  const res = await mobileApiRequest<MediaHubResponse>(`/circles/${circleId}/media-hub`);
+  return res.data;
+}
 
 export async function getAlbumsApi(circleId: string): Promise<SharedAlbumEntity[]> {
   const res = await mobileApiRequest<SharedAlbumEntity[]>(`/circles/${circleId}/albums`);

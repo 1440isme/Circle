@@ -267,9 +267,9 @@ export const CircleAnonymousView: React.FC<CircleAnonymousViewProps> = ({ circle
                 return (
                   <div
                     key={post.id}
-                    className={`w-full relative rounded-2xl border p-4 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between ${theme.bgGradient}`}
+                    className={`w-full relative rounded-2xl border p-4 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between overflow-hidden min-w-0 ${theme.bgGradient}`}
                   >
-                    <div>
+                    <div className="w-full min-w-0">
                       <div className="flex items-center justify-between mb-3">
                         <span
                           className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${theme.tagColor}`}
@@ -286,10 +286,10 @@ export const CircleAnonymousView: React.FC<CircleAnonymousViewProps> = ({ circle
                         </button>
                       </div>
 
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 min-w-0">
                         <Quote className="h-4 w-4 opacity-30 shrink-0 mt-0.5" />
                         <p
-                          className={`text-xs font-medium leading-relaxed whitespace-pre-wrap ${theme.textColor}`}
+                          className={`text-xs font-medium leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere] [word-break:break-word] min-w-0 flex-1 ${theme.textColor}`}
                         >
                           {post.content}
                         </p>

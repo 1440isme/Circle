@@ -7747,3 +7747,330 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
   - **Resolution / Fix:** N/A.
 - **Commit:** ad6f1e4
 - **PR:** Pending
+
+
+---
+
+## AI-0190: Tái Thiết Kế Hub Phương Tiện, Album, Floating Pill Popover & Tinh Chỉnh Ergonomics (#120)
+
+- **Date:** 2026-11-13 17:05:00 +07:00
+- **Developer:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 2.5 (High)
+- **Related Issue:** #120
+- **Purpose:** Triển khai chuỗi cải tiến UI/UX chuyên sâu cho Hub File phương tiện & Album trên Web theo yêu cầu người dùng:
+  1. **Tách biệt và tối ưu hóa 3 tab Hub:**
+     - Tab Media (File phương tiện): hiển thị lưới ảnh/video, gắn avatar người gửi tròn tinh tế góc trên bên trái từng ảnh; hover để hiển thị thanh thông tin mờ người tạo và ngày gửi.
+     - Tab Links (Liên kết): tìm kiếm liên kết theo ngữ cảnh, thẻ metadata trực quan.
+     - Tab Files (Tệp tài liệu): tìm kiếm tệp tin, lọc danh mục theo loại tệp (PDF, Word, Excel, Canva, RAR/Zip, Khác).
+  2. **Bộ lọc dạng Floating Pill Popover hiện đại:**
+     - **Người gửi (`SenderFilterPopover`):** Thiết kế nút rút gọn `w-26 min-w-[92px] px-2.5`, hiển thị nhãn "Người gửi" hoặc tên người gửi đã chọn kèm nút 'x' để xóa nhanh. Menu popover hỗ trợ tìm kiếm thành viên kèm avatar tròn và danh sách chọn mượt mà.
+     - **Loại file (`FileTypeFilterPopover`):** Thiết kế nút rút gọn `w-24 min-w-[84px] px-2.5`, hiển thị nhãn "Loại file" hoặc loại file đã chọn kèm nút 'x'.
+     - **Ngày gửi (`DateRangePickerPopover`):** Thiết kế nút cố định `w-48 sm:w-52 min-w-[190px]` với định dạng đầy đủ ngày tháng năm (`DD/MM/YYYY`, ví dụ `13/11/2026 - 15/11/2026` hoặc `Từ 13/11/2026`). Popover trải ngang hai ô "Từ ngày" và "Đến ngày" hiển thị placeholder ngầm, tích hợp bộ chọn lịch trực tiếp kèm nút "Xong" để chốt thời gian.
+  3. **Mở rộng chiều dài ô tìm kiếm:**
+     - Nhờ thu gọn tối đa 2 nút "Người gửi" và "Loại file", ô tìm kiếm được mở rộng đáng kể lên `w-44 sm:w-56 md:w-64`, giúp trải nghiệm nhập từ khóa thoải mái và thông thoáng.
+  4. **Khắc phục lỗi menu popover bị cắt chìm dưới nền:**
+     - Loại bỏ `overflow-x-auto` trên container thanh Floating Pill Bar để khôi phục `overflow: visible`, ngăn chặn việc CSS vô tình cắt bỏ các menu popover con.
+     - Nâng cấp stacking context: đặt thanh công cụ ở `z-30`, các menu popover ở `z-50` kèm `pointer-events-auto`, đảm bảo nhận 100% sự kiện tương tác của người dùng.
+  5. **Tính thường trực của Floating Pill Buttons trong Album:**
+     - Tất cả các nút công cụ trong màn hình Chi tiết Album (Quay lại "Album", Camera tìm kiếm theo ảnh, Lọc Người gửi, Lọc Ngày gửi, Nút "Chọn", Nút Tải ảnh lên, Nút Xóa album) luôn hiển thị thường trực ngay cả khi album mới tạo chưa có ảnh.
+  6. **Chế độ chọn nhiều ảnh (Multi-select) & Thao tác hàng loạt:**
+     - Hỗ trợ chọn từng ảnh hoặc chọn tất cả trong Album để tải về hoặc xóa ảnh.
+     - Nút "Chọn" ở thanh Tất cả file phương tiện hỗ trợ chọn nhiều ảnh để lưu đồng loạt với floating action bar nổi ở đáy màn hình.
+- **Files Affected:**
+  - `apps/web/src/components/tools/CircleAlbumsView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% UI layout, Popover logic, DateRange picker, CSS stacking context and styling refinements.
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+  - `npx tsc -p apps/web/tsconfig.json --noEmit`: Passed 0 errors.
+  - `npm run build --workspace=apps/web`: Passed 0 errors (12/12 static pages generated).
+  - `bash ./scripts/check-agent-map.sh`: Passed (130/130 files resolve).
+  - `bash ./scripts/check-secrets.sh`: Passed (600 files checked, 0 secret leaks).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`, `agentic/CONVENTIONS.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
+- **Commit:** Pending
+- **PR:** Pending
+
+
+---
+
+## AI-0191: Tinh Chỉnh Popover Bộ Lọc, Inline Accordion Calendar, Inline Rename Album & Bộ Lọc Nội Bộ Album (#120)
+
+- **Date:** 2026-11-13 05:10:00 +07:00
+- **Developer:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 2.5 (High)
+- **Related Issue:** #120
+- **Purpose:** Triển khai đợt nâng cấp chi tiết trải nghiệm người dùng theo phản hồi trực tiếp:
+  1. **Bộ lọc Loại file & Người gửi (Popover Options Clean-up):**
+     - Loại bỏ tùy chọn "Loại file" và "Người gửi" trong danh sách xổ xuống của Popover vì đã có nút icon 'X' trực tiếp trên nút để reset về mặc định.
+     - Chuyển bộ lọc Loại file sang dạng Custom Popover đồng bộ hoàn toàn với bộ lọc Người gửi.
+  2. **Bộ lọc Ngày gửi (Fixed Width & Inline Accordion Calendar):**
+     - Nút "Ngày gửi" trên thanh Floating Pill Bar được cố định kích thước (`w-52 sm:w-56 min-w-[210px]`) đảm bảo không bị co dãn hay giật layout trước và sau khi chọn khoảng ngày.
+     - Popover mở ra với 2 ô "Từ ngày" và "Đến ngày" nằm ngang, tối giản sạch sẽ, không chứa nút X hay nút phụ nào bên trong.
+     - Khi ấn vào ô chọn ngày, lịch (Calendar View) mở rộng kéo dài xuống phía dưới trực tiếp bên trong Popover (dạng accordion) thay vì nhảy popup đè lên.
+  3. **Tất cả file phương tiện:**
+     - Loại bỏ nút "Chọn tất cả" trong cả header phần và thanh thao tác nổi bên dưới; người dùng chỉ chọn các ảnh đơn lẻ cần tải về.
+  4. **Chi tiết Album (Inline Rename & Xóa Album):**
+     - Nhấn vào Cây bút (hoặc tên album) sẽ hiển thị con trỏ trực tiếp ở tên album (Inline Rename) để đổi tên tức thì khi nhấn Enter hoặc click ra ngoài, không cần popup.
+     - Thay nút cây bút trên thanh top bar thành nút Thùng rác (Xóa album) có hộp thoại xác nhận an toàn.
+  5. **Bộ lọc trong Album:**
+     - Tích hợp trọn bộ công cụ lọc vào trong Chi tiết Album: nút Camera tìm kiếm theo ảnh, bộ lọc Người gửi (theo các thành viên có ảnh trong album) và bộ lọc Ngày gửi (Inline Accordion Calendar).
+- **Files Affected:**
+  - `apps/web/src/components/tools/CircleAlbumsView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% logic subcomponents `DateRangePickerPopover`, `FileTypeFilterPopover`, `SenderFilterPopover`, inline editing album title, internal album filtering.
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+  - `npx tsc -p apps/web/tsconfig.json --noEmit`: Passed 0 errors.
+  - `npm run build --workspace=apps/web`: Passed 0 errors (12/12 static pages generated).
+  - `bash ./scripts/check-agent-map.sh`: Passed (130/130 files resolve).
+  - `bash ./scripts/check-secrets.sh`: Passed (600 files checked, 0 secret leaks).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`, `agentic/CONVENTIONS.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
+- **AI Errors / Hallucinations Found:** None.
+- **Commit:** Pending
+- **PR:** Pending
+
+
+---
+
+## AI-0192: Tối Ưu Thanh Điều Khiển 1 Dòng, Nút Xong Cho Lịch Ngày Gửi & Nâng Cấp Chi Tiết Album (#120)
+
+- **Date:** 2026-11-13 05:46:00 +07:00
+- **Developer:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 2.5 (High)
+- **Related Issue:** #120
+- **Purpose:** Triển khai đợt tinh chỉnh UI/UX Web chuyên sâu cho Media Hub & Albums theo yêu cầu người dùng:
+  1. **Chi tiết Album (Album Detail View):**
+     - Đổi chữ cạnh icon mũi tên quay lại từ "File phương tiện" thành "Album".
+     - Các nút điều khiển trên thanh Floating Pill Bar (Camera tìm kiếm ảnh, Bộ lọc Người gửi, Bộ lọc Ngày gửi, Chọn ảnh, Tải ảnh lên, Xóa album) luôn hiển thị đầy đủ, không bị ẩn khi album chưa có ảnh hay chưa có người gửi.
+  2. **Tối ưu thanh điều khiển gọn gàng trên 1 dòng duy nhất (Single-row optimization):**
+     - **Ô tìm kiếm:** Đưa icon kính lúp và văn bản placeholder sát lề hơn (`left-2.5`, `pl-7 pr-6`), thu gọn độ rộng (`w-28 sm:w-32 md:w-36`).
+     - **Bộ lọc Loại file:** Loại bỏ tùy chọn `PowerPoint`; rút ngắn nhãn "Tệp nén" thành "RAR,Zip"; thu gọn kích thước nút (`w-24 sm:w-28 min-w-[88px] h-8.5`).
+     - **Bộ lọc Người gửi:** Thu gọn kích thước nút (`w-26 sm:w-30 min-w-[98px] h-8.5`), luôn hiển thị nhất quán trên thanh công cụ.
+     - **Bộ lọc Ngày gửi:** Bỏ icon Calendar trên nút ngoài để rút ngắn chiều rộng (`w-28 sm:w-32 min-w-[110px] h-8.5`); hiển thị khoảng ngày dạng rút gọn `DD/MM` (ví dụ `13/11 - 15/11` hoặc `Từ 13/11`); thiết lập `md:flex-nowrap` giúp toàn bộ thanh công cụ nằm trên 1 dòng duy nhất.
+  3. **Cơ chế Lịch chọn Ngày gửi (Date Range Picker Popover UX):**
+     - Sử dụng trạng thái nháp nội bộ (`draftFrom`, `draftTo`) bên trong popover.
+     - Khi chọn ngày ở "Từ ngày", hệ thống giữ nguyên ở "Từ ngày", không tự động nhảy sang "Đến ngày" để người dùng thoải mái chỉnh sửa. Muốn chọn "Đến ngày", người dùng chủ động nhấn qua ô "Đến ngày".
+     - Bổ sung nút "Xong" (Done) và "Xóa" (Clear) ở chân lịch: Chỉ khi người dùng bấm "Xong" thì khoảng ngày mới được áp dụng ra ngoài thanh điều khiển.
+- **Files Affected:**
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `apps/web/src/components/tools/CircleAlbumsView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% logic draft date selection with Done confirmation, single-row responsive styling, always-visible controls.
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+  - `npx tsc -p apps/web/tsconfig.json --noEmit`: Passed 0 errors.
+  - `npm run build --workspace=apps/web`: Passed 0 errors (12/12 static pages generated).
+  - `bash ./scripts/check-agent-map.sh`: Passed (130/130 files resolve).
+  - `bash ./scripts/check-secrets.sh`: Passed (600 files checked, 0 secret leaks).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`, `agentic/CONVENTIONS.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
+- **AI Errors / Hallucinations Found:** None.
+- **Commit:** Pending
+- **PR:** Pending
+
+
+---
+
+## AI-0193: Khôi Phục Kích Cỡ Chuẩn & Đồng Bộ Thanh Điều Khiển Floating Pill Bar Trên Web (#120)
+
+- **Date:** 2026-11-13 05:57:00 +07:00
+- **Developer:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 2.5 (High)
+- **Related Issue:** #120
+- **Purpose:** Khôi phục kích thước chuẩn và tính đồng bộ cao cấp cho toàn bộ thanh điều khiển Floating Pill Bar:
+  1. **Khôi phục chiều cao chuẩn `h-9` (36px):** Đồng bộ tuyệt đối chiều cao của tất cả các nút điều khiển, các tab, ô tìm kiếm và các bộ lọc popover ở cả màn hình chính lẫn chi tiết album, loại bỏ triệt để hiện tượng nút bị bé hay lệch hàng.
+  2. **Khôi phục khoảng đệm & độ rộng cân đối (Proportional Sizing):**
+     - **Ô tìm kiếm:** Kích thước chuẩn `h-9 w-36 sm:w-44 md:w-48 pl-7 pr-7`, icon kính lúp cách lề vừa vặn `left-2.5`.
+     - **Bộ lọc Loại file:** Kích thước chuẩn `h-9 w-32 min-w-[120px] px-3`, chữ hiển thị `max-w-[85px]`.
+     - **Bộ lọc Người gửi:** Kích thước chuẩn `h-9 w-36 min-w-[130px] px-3`, chữ hiển thị `max-w-[95px]`.
+     - **Bộ lọc Ngày gửi:** Kích thước chuẩn `h-9 w-36 sm:w-40 min-w-[130px] px-3`, chữ hiển thị `max-w-[100px]`.
+     - **Các nút chức năng khác (Camera, Chọn ảnh, Tải ảnh lên, Xóa album, Quay lại):** Chiều cao chuẩn `h-9`, padding `px-3` hoặc `px-3.5` cân đối, hài hòa.
+  3. **Đảm bảo trải phẳng 1 hàng duy nhất:** Áp dụng `overflow-x-auto no-scrollbar` và `shrink-0` linh hoạt, giữ cho thanh công cụ luôn nằm trên 1 dòng duy nhất, không bị co dúm hay vỡ giao diện khi thu nhỏ cửa sổ.
+- **Files Affected:**
+  - `apps/web/src/components/tools/CircleAlbumsView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% cân chỉnh kích thước và đồng bộ hóa styling.
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+  - `npx tsc -p apps/web/tsconfig.json --noEmit`: Passed 0 errors.
+  - `npm run build --workspace=apps/web`: Passed 0 errors (12/12 static pages generated).
+  - `bash ./scripts/check-agent-map.sh`: Passed (130/130 files resolve).
+  - `bash ./scripts/check-secrets.sh`: Passed (600 files checked, 0 secret leaks).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`, `agentic/CONVENTIONS.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
+- **Commit:** Pending
+- **PR:** Pending
+
+
+---
+
+## AI-0194: Hiển Thị Thường Trực Toàn Bộ Floating Pill Buttons Trong Album (#120)
+
+- **Date:** 2026-11-13 16:43:00 +07:00
+- **Developer:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 2.5 (High)
+- **Related Issue:** #120
+- **Purpose:** Đảm bảo tất cả các Floating Pill Buttons trong Album luôn hiển thị ngay từ đầu theo phản hồi người dùng:
+  1. **Nút "Chọn" ảnh luôn xuất hiện:** Loại bỏ điều kiện kiểm tra ảnh (`photos.length > 0`), giúp nút "Chọn" luôn hiện diện trên thanh Floating Pill Bar ngay cả khi album mới tạo và chưa có ảnh nào.
+  2. **Thanh công cụ đầy đủ và cố định:** Toàn bộ 7 nút chức năng (Quay lại "Album", Camera tìm kiếm theo ảnh, Bộ lọc Người gửi, Bộ lọc Ngày gửi, Nút "Chọn", Nút Tải ảnh lên, Nút Xóa album) đều luôn hiển thị thường trực, tạo cảm giác ổn định, liền mạch và chuyên nghiệp.
+  3. **Đồng bộ phần Tất cả file phương tiện:** Nút "Chọn" cũng luôn được hiển thị thường trực trên tiêu đề danh sách file phương tiện.
+- **Files Affected:**
+  - `apps/web/src/components/tools/CircleAlbumsView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% logic rendering and condition cleanup.
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+  - `npx tsc -p apps/web/tsconfig.json --noEmit`: Passed 0 errors.
+  - `npm run build --workspace=apps/web`: Passed 0 errors (12/12 static pages generated).
+  - `bash ./scripts/check-agent-map.sh`: Passed (130/130 files resolve).
+  - `bash ./scripts/check-secrets.sh`: Passed (600 files checked, 0 secret leaks).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`, `agentic/CONVENTIONS.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
+- **Commit:** Pending
+- **PR:** Pending
+
+
+---
+
+## AI-0195: Sửa Lỗi Cắt/Chìm Menu Popover Dưới Nền & Nâng Cấp Stacking Context Floating Pill Bar (#120)
+
+- **Date:** 2026-11-13 16:53:00 +07:00
+- **Developer:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 2.5 (High)
+- **Related Issue:** #120
+- **Purpose:** Khắc phục triệt để lỗi các nút lọc khi nhấn vào bị chìm hoặc đè dưới nền giao diện:
+  1. **Loại bỏ `overflow-x-auto` trên container thanh Floating Pill Bar:**
+     - Trong CSS, thuộc tính `overflow-x-auto` sẽ tự động chuyển `overflow-y` thành `auto` (hoặc `hidden`), tạo thành một vùng cuộn giới hạn theo chiều cao nút (36px). Kết quả là khi click vào các bộ lọc (Ngày gửi, Người gửi, Loại file), menu popover xổ xuống bị cắt đứt ngang và giấu dưới nền, không thể xem hoặc click vào các mục bên trong.
+     - Đã loại bỏ `overflow-x-auto`, khôi phục `overflow: visible` mặc định để các popover tự do bung phủ lên trên nền trang.
+  2. **Nâng cấp Stacking Context & Z-Index:**
+     - Đưa thanh Floating Pill Controls Bar từ `z-20` lên `z-30` (tránh xung đột với các phần tử `z-20` của ảnh trong lớp cuộn content layer bên dưới).
+     - Thiết lập `z-50` và bổ sung `pointer-events-auto` cho tất cả menu popover (`FileTypeFilterPopover`, `SenderFilterPopover`, `DateRangePickerPopover`), đảm bảo menu luôn nổi lên trên cùng và nhận 100% sự kiện click/touch.
+- **Files Affected:**
+  - `apps/web/src/components/tools/CircleAlbumsView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% CSS stacking context and overflow fix.
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+  - `npx tsc -p apps/web/tsconfig.json --noEmit`: Passed 0 errors.
+  - `npm run build --workspace=apps/web`: Passed 0 errors (12/12 static pages generated).
+  - `bash ./scripts/check-agent-map.sh`: Passed (130/130 files resolve).
+  - `bash ./scripts/check-secrets.sh`: Passed (600 files checked, 0 secret leaks).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`, `agentic/CONVENTIONS.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
+- **Commit:** Pending
+- **PR:** Pending
+
+
+---
+
+## AI-0196: Tối Ưu Chiều Rộng Tối Giản Các Nút Lọc (Không Bị Ellipsis ...) & Kéo Dài Thanh Tìm Kiếm (#120)
+
+- **Date:** 2026-11-13 17:30:00 +07:00
+- **Developer:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 2.5 (High)
+- **Related Issue:** #120
+- **Purpose:** Tối ưu hóa không gian thanh Floating Pill Bar trên giao diện Web theo phản hồi của người dùng:
+  1. **Nút "Loại file" (FileTypeFilterPopover):**
+     - Rút gọn kích thước từ `w-32 min-w-[120px] px-3` xuống `w-[100px] px-2.5 gap-1 shrink-0`.
+     - Sử dụng `whitespace-nowrap` cho nhãn hiển thị; vừa vặn trọn vẹn nhãn mặc định "Loại file" (~54px) và tất cả các loại file ("RAR,Zip", "Word", "Excel", "PDF", "Canva", "Khác") mà không bao giờ bị cắt chữ dạng `...`.
+  2. **Nút "Người gửi" (SenderFilterPopover):**
+     - Rút gọn kích thước từ `w-36 min-w-[130px] px-3` xuống `w-[110px] px-2.5 gap-1 shrink-0`.
+     - Nhãn văn bản hiển thị mặc định "Người gửi" (~56px) với `max-w-[76px]` vừa khít 100% không bị `...`, đồng thời icon đóng/mở hoặc nút xoá reset hiển thị tinh tế, gọn gàng.
+  3. **Nút "Ngày gửi" (DateRangePickerPopover):**
+     - Rút gọn kích thước từ `w-36 sm:w-40 min-w-[130px] px-3` xuống `w-[118px] px-2.5 gap-1 shrink-0`.
+     - Áp dụng `whitespace-nowrap` cho nhãn hiển thị; đáp ứng hoàn hảo cho cả chuỗi dải ngày dài nhất (ví dụ: `13/11 - 15/11` ~75px) lẫn các trạng thái `Từ 13/11`, `Đến 15/11` và mặc định `Ngày gửi` mà không bao giờ xuất hiện `...`.
+  4. **Kéo dài thanh tìm kiếm (Search Bar) hấp thụ không gian tiết kiệm được:**
+     - Mở rộng thanh tìm kiếm từ `w-36 sm:w-44 md:w-48` lên `w-48 sm:w-64 md:w-72 lg:w-80` (từ 192px lên tối đa 320px).
+     - Người dùng có thêm hơn 100px không gian nhập liệu tìm kiếm tệp tin và liên kết, giúp trải nghiệm gõ từ khóa dài thoải mái và trực quan hơn rất nhiều.
+- **Files Affected:**
+  - `apps/web/src/components/tools/CircleAlbumsView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% CSS dimension optimization and responsiveness calibration.
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+  - `npx tsc -p apps/web/tsconfig.json --noEmit`: Passed 0 errors.
+  - `npm run build --workspace=apps/web`: Passed 0 errors (12/12 static pages generated).
+  - `bash ./scripts/check-agent-map.sh`: Passed (130/130 files resolve).
+  - `bash ./scripts/check-secrets.sh`: Passed (600 files checked, 0 secret leaks).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`, `agentic/CONVENTIONS.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
+- **Commit:** Pending
+- **PR:** Pending
+
+
+---
+
+## AI-0197: Cố Định Nhãn Nút "Chọn" Ảnh/Media Khi Đang Chọn (Tránh Co Dãn Giao Diện) (#120)
+
+- **Date:** 2026-11-13 17:40:00 +07:00
+- **Developer:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 2.5 (High)
+- **Related Issue:** #120
+- **Purpose:** Cố định nhãn text của nút "Chọn" trên giao diện Web theo phản hồi người dùng:
+  1. **Nút Chọn trong Chi tiết Album (Floating Pill Controls Bar):**
+     - Giữ nguyên nhãn hiển thị `t.collab.selectAction` ("Chọn") liên tục, không chuyển đổi văn bản sang "Huỷ" khi ở chế độ chọn (`isAlbumSelectMode`).
+     - Trạng thái được phân biệt bằng màu nhấn active (`bg-circle-primary text-white border-circle-primary shadow-xs`), khi bấm lại sẽ tự động tắt chế độ chọn và reset danh sách đã chọn.
+     - Thêm `shrink-0` bảo đảm nút không bao giờ bị co dãn hay thay đổi kích thước ngang làm xê dịch các nút xung quanh trên thanh điều khiển.
+  2. **Nút Chọn trong Tab File Phương tiện (Tất cả ảnh/video):**
+     - Đồng bộ hóa logic nút "Chọn": Giữ nguyên icon `<CheckSquare>` và nhãn "Chọn" khi bật/tắt chế độ chọn (`isMediaSelectMode`), không thay thế bằng nút chữ "Huỷ" trơn.
+     - Khi active chuyển sang nền màu chủ đạo `bg-circle-primary text-white shadow-xs` với kích thước cố định, chống co dãn giao diện triệt để.
+- **Files Affected:**
+  - `apps/web/src/components/tools/CircleAlbumsView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% UI label and active state logic stabilization.
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+  - `npx tsc -p apps/web/tsconfig.json --noEmit`: Passed 0 errors.
+  - `npm run build --workspace=apps/web`: Passed 0 errors (12/12 static pages generated).
+  - `bash ./scripts/check-agent-map.sh`: Passed (130/130 files resolve).
+  - `bash ./scripts/check-secrets.sh`: Passed (600 files checked, 0 secret leaks).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`, `agentic/CONVENTIONS.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
+- **Commit:** Pending
+- **PR:** Pending
+
+
+---
+
+## AI-0198: Tối Giản Modal Tạo Album — Chỉ Cần Tên Album, Loại Bỏ Trường Mô Tả (#120)
+
+- **Date:** 2026-11-13 18:14:00 +07:00
+- **Developer:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 2.5 (High)
+- **Related Issue:** #120
+- **Purpose:** Tối giản quy trình tạo album trên cả Web và Mobile theo phản hồi của người dùng:
+  1. **Web (`CircleAlbumsView.tsx`):**
+     - Loại bỏ hoàn toàn trường nhập liệu "Mô tả album" (`newDescription` textarea) khỏi Modal Tạo Album mới.
+     - Form tạo album giờ chỉ yêu cầu duy nhất trường "Tên album" bắt buộc, giúp giao diện tạo album tinh gọn, tập trung và thao tác nhanh chóng hơn.
+     - Dọn dẹp state và logic submit `createAlbumMutation` không còn gửi dữ liệu mô tả rỗng.
+  2. **Mobile (`MobileAlbumsView.tsx`):**
+     - Đồng bộ hóa trải nghiệm (Web/Mobile parity): Loại bỏ trường nhập liệu mô tả (`albumDescription` textarea) khỏi modal tạo album trên React Native.
+     - Modal tạo album di động trở nên gọn gàng, giảm bớt chiều cao che khuất màn hình khi bật bàn phím ảo.
+- **Files Affected:**
+  - `apps/web/src/components/tools/CircleAlbumsView.tsx`
+  - `apps/mobile/src/components/tools/MobileAlbumsView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% UI simplification and state cleanup.
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+  - `npx tsc -p apps/web/tsconfig.json --noEmit`: Passed 0 errors.
+  - `npx tsc -p apps/mobile/tsconfig.json --noEmit`: Passed 0 errors.
+  - `npm run build --workspace=apps/web`: Passed 0 errors (12/12 static pages generated).
+  - `bash ./scripts/check-agent-map.sh`: Passed (130/130 files resolve).
+  - `bash ./scripts/check-secrets.sh`: Passed (600 files checked, 0 secret leaks).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`, `agentic/CONVENTIONS.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
+- **Commit:** Pending
+- **PR:** Pending

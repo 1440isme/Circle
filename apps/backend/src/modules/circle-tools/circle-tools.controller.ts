@@ -45,8 +45,22 @@ export class CircleToolsController {
   constructor(private readonly toolsService: CircleToolsService) {}
 
   // ===========================================================================
-  // 1. SHARED ALBUM (UC14)
+  // 1. SHARED ALBUM & MEDIA HUB (UC14)
   // ===========================================================================
+
+  @Get('media-hub')
+  async getMediaHub(
+    @Param('circleId') circleId: string,
+    @CurrentUser('id') userId: string,
+  ): Promise<ApiResponse<any>> {
+    const data = await this.toolsService.getMediaHub(circleId, userId);
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      data,
+      timestamp: new Date().toISOString(),
+    };
+  }
 
   @Get('albums')
   async getAlbums(

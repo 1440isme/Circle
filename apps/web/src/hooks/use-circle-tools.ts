@@ -31,10 +31,12 @@ import {
   GroupPollEntity,
   CreatePollInput,
   VotePollInput,
+  MediaHubResponse,
 } from '@circle/types';
 
 export const TOOLS_KEYS = {
   all: ['circle-tools'] as const,
+  mediaHub: (circleId: string) => [...TOOLS_KEYS.all, circleId, 'media-hub'] as const,
   albums: (circleId: string) => [...TOOLS_KEYS.all, circleId, 'albums'] as const,
   albumDetail: (circleId: string, albumId: string) =>
     [...TOOLS_KEYS.all, circleId, 'albums', albumId] as const,
@@ -58,6 +60,18 @@ export const TOOLS_KEYS = {
 // =============================================================================
 // 1. SHARED ALBUMS HOOKS (UC14)
 // =============================================================================
+
+export function useMediaHubQuery(circleId: string | null) {
+  return useQuery({
+    queryKey: TOOLS_KEYS.mediaHub(circleId || ''),
+    queryFn: async () => {
+      if (!circleId) return null;
+      const res = await apiRequest<MediaHubResponse>(`/circles/${circleId}/media-hub`);
+      return res.data;
+    },
+    enabled: !!circleId,
+  });
+}
 
 export function useAlbumsQuery(circleId: string | null) {
   return useQuery({

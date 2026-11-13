@@ -309,6 +309,116 @@ export class CircleToolsService {
     return { success: true };
   }
 
+  /**
+   * UC14.1: Unified Media & Files Hub
+   * Aggregates chat media (photos/videos sent in group chat), links, and documents shared in the circle.
+   */
+  async getMediaHub(circleId: string, userId: string) {
+    await this.getMemberOrThrow(circleId, userId);
+
+    // Messages with files or links in circle channels
+    const channels = await this.prisma.channel.findMany({
+      where: { circleId },
+      select: { id: true },
+    });
+    const channelIds = channels.map((c) => c.id);
+
+    const messages =
+      channelIds.length > 0
+        ? await this.prisma.message.findMany({
+            where: {
+              channelId: { in: channelIds },
+              deletedAt: null,
+              OR: [
+                { type: 'FILE', fileUrl: { not: null } },
+                { content: { contains: 'http' } },
+              ],
+            },
+            include: {
+              sender: {
+                include: {
+                  user: {
+                    include: { profile: true },
+                  },
+                },
+              },
+            },
+            orderBy: { sentAt: 'desc' },
+            take: 300,
+          })
+        : [];
+
+    const isMediaFile = (url: string) =>
+      /\.(jpe?g|png|webp|gif|svg|mp4|webm|mov|m4v)(\?.*)?$/i.test(url);
+
+    // Aggregate Media Items (chat only per user requirement)
+    const media: any[] = [];
+
+    // Aggregate Links & General Files
+    const links: any[] = [];
+    const files: any[] = [];
+    const linkRegex = /(https?:\/\/[^\s<]+)/g;
+
+    for (const m of messages) {
+      if (m.type === 'FILE' && m.fileUrl) {
+        if (isMediaFile(m.fileUrl)) {
+          media.push({
+            id: m.id,
+            fileUrl: m.fileUrl,
+            fileName: m.fileName,
+            caption: m.content || undefined,
+            createdAt: m.sentAt.toISOString(),
+            source: 'chat',
+            uploader: m.sender,
+          });
+        } else {
+          const ext = m.fileName?.split('.').pop()?.toUpperCase() || 'FILE';
+          files.push({
+            id: m.id,
+            fileUrl: m.fileUrl,
+            fileName: m.fileName || 'Tài liệu',
+            fileSize: m.fileSize,
+            extension: ext,
+            sentAt: m.sentAt.toISOString(),
+            sender: m.sender,
+          });
+        }
+      }
+
+      if (m.content) {
+        const matches = m.content.match(linkRegex);
+        if (matches) {
+          for (let i = 0; i < matches.length; i++) {
+            const rawUrl = matches[i];
+            if (rawUrl) {
+              try {
+                const parsed = new URL(rawUrl);
+                links.push({
+                  id: `${m.id}-${i}`,
+                  url: rawUrl,
+                  domain: parsed.hostname.replace(/^www\./, ''),
+                  sentAt: m.sentAt.toISOString(),
+                  sender: m.sender,
+                });
+              } catch {
+                // Ignore invalid url
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Sort media by newest first
+    media.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    return {
+      media,
+      links,
+      files,
+    };
+  }
+
   // ===========================================================================
   // 2. DECISION WHEEL (UC16)
   // ===========================================================================

@@ -650,6 +650,79 @@ export interface AddPhotosInput {
   }[];
 }
 
+export interface MediaHubMediaItem {
+  id: string;
+  fileUrl: string;
+  fileName?: string | null;
+  caption?: string | null;
+  createdAt: string;
+  source: 'album' | 'chat';
+  albumId?: string | null;
+  albumTitle?: string | null;
+  uploader?: {
+    id: string;
+    userId: string;
+    nickname?: string | null;
+    user?: {
+      id: string;
+      email: string;
+      profile?: {
+        displayName: string;
+        avatarUrl?: string | null;
+      } | null;
+    };
+  } | null;
+}
+
+export interface MediaHubLinkItem {
+  id: string;
+  url: string;
+  domain: string;
+  title?: string;
+  sentAt: string;
+  sender?: {
+    id: string;
+    userId: string;
+    nickname?: string | null;
+    user?: {
+      id: string;
+      email: string;
+      profile?: {
+        displayName: string;
+        avatarUrl?: string | null;
+      } | null;
+    };
+  } | null;
+}
+
+export interface MediaHubFileItem {
+  id: string;
+  fileUrl: string;
+  fileName: string;
+  fileSize?: number | null;
+  extension?: string;
+  sentAt: string;
+  sender?: {
+    id: string;
+    userId: string;
+    nickname?: string | null;
+    user?: {
+      id: string;
+      email: string;
+      profile?: {
+        displayName: string;
+        avatarUrl?: string | null;
+      } | null;
+    };
+  } | null;
+}
+
+export interface MediaHubResponse {
+  media: MediaHubMediaItem[];
+  links: MediaHubLinkItem[];
+  files: MediaHubFileItem[];
+}
+
 export interface WheelOptionEntity {
   id: string;
   wheelId: string;

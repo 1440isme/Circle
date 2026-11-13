@@ -528,6 +528,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     padding: 14,
+    overflow: 'hidden',
   },
   cardHeader: {
     flexDirection: 'row',
@@ -548,6 +549,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
     fontSize: 13,
     lineHeight: 20,
     fontWeight: '500',
+    flexShrink: 1,
   },
   cardFooter: {
     flexDirection: 'row',
