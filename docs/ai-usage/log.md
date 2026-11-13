@@ -7408,7 +7408,7 @@
   - **Root Cause:** N/A.
   - **Resolution / Fix:** N/A.
 - **Commit:** ad7a0de
-- **PR:** Pending
+- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
 
 ---
 
@@ -7445,7 +7445,7 @@
   - **Root Cause:** N/A.
   - **Resolution / Fix:** N/A.
 - **Commit:** e27adf9
-- **PR:** Pending
+- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
 
 ---
 
@@ -7477,7 +7477,7 @@
   - **Root Cause:** N/A.
   - **Resolution / Fix:** N/A.
 - **Commit:** d3c84f1
-- **PR:** Pending
+- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
 
 
 ---
@@ -7529,7 +7529,7 @@
   - **Root Cause:** Assumed `createdAt` was present on Message model without checking schema.
   - **Resolution / Fix:** Inspected `apps/backend/prisma/schema.prisma` and corrected sorting to `orderBy: { sentAt: 'desc' }`, added missing logger.
 - **Commit:** af6a60c
-- **PR:** Pending
+- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
 
 
 ---
@@ -7574,7 +7574,7 @@
   - **Root Cause:** N/A.
   - **Resolution / Fix:** N/A.
 - **Commit:** 83ef80b
-- **PR:** Pending
+- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
 
 
 ---
@@ -7615,7 +7615,7 @@
   - **Root Cause:** N/A.
   - **Resolution / Fix:** N/A.
 - **Commit:** 0bf85f3
-- **PR:** Pending
+- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
 
 ---
 
@@ -7652,7 +7652,7 @@
   - **Root Cause:** N/A.
   - **Resolution / Fix:** N/A.
 - **Commit:** 85e3110
-- **PR:** Pending
+- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
 
 
 ---
@@ -7700,7 +7700,7 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
   - **Root Cause:** N/A.
   - **Resolution / Fix:** N/A.
 - **Commit:** b5a87aa
-- **PR:** Pending
+- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
 
 
 ---
@@ -7746,7 +7746,7 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
   - **Root Cause:** N/A.
   - **Resolution / Fix:** N/A.
 - **Commit:** ad6f1e4
-- **PR:** Pending
+- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
 
 
 ---
@@ -7790,7 +7790,7 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 - **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`, `agentic/CONVENTIONS.md`.
 - **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
 - **Commit:** cc0f00f
-- **PR:** Pending
+- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
 
 
 ---
@@ -7831,7 +7831,7 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 - **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
 - **AI Errors / Hallucinations Found:** None.
 - **Commit:** cc0f00f
-- **PR:** Pending
+- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
 
 
 ---
@@ -7872,7 +7872,7 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 - **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
 - **AI Errors / Hallucinations Found:** None.
 - **Commit:** cc0f00f
-- **PR:** Pending
+- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
 
 
 ---
@@ -7906,7 +7906,7 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 - **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`, `agentic/CONVENTIONS.md`.
 - **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
 - **Commit:** cc0f00f
-- **PR:** Pending
+- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
 
 
 ---
@@ -7935,7 +7935,7 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 - **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`, `agentic/CONVENTIONS.md`.
 - **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
 - **Commit:** cc0f00f
-- **PR:** Pending
+- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
 
 
 ---
@@ -7967,7 +7967,7 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 - **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`, `agentic/CONVENTIONS.md`.
 - **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
 - **Commit:** cc0f00f
-- **PR:** Pending
+- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
 
 
 ---
@@ -8005,7 +8005,7 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 - **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`, `agentic/CONVENTIONS.md`.
 - **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
 - **Commit:** cc0f00f
-- **PR:** Pending
+- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
 
 
 ---
@@ -8038,7 +8038,7 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 - **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`, `agentic/CONVENTIONS.md`.
 - **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
 - **Commit:** cc0f00f
-- **PR:** Pending
+- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
 
 
 ---
@@ -8073,4 +8073,4 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 - **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`, `agentic/CONVENTIONS.md`.
 - **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
 - **Commit:** cc0f00f
-- **PR:** Pending
+- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
