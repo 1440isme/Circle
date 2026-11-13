@@ -8,6 +8,10 @@ import {
   AddPhotosInput,
   DecisionWheelEntity,
   CreateWheelInput,
+  UpdateWheelInput,
+  WheelFolderEntity,
+  CreateWheelFolderInput,
+  UpdateWheelFolderInput,
   SpinWheelResult,
   AnonymousPostEntity,
   CreateAnonymousPostInput,
@@ -27,17 +31,23 @@ import {
   GroupPollEntity,
   CreatePollInput,
   VotePollInput,
+  MediaHubResponse,
 } from '@circle/types';
 
 export const TOOLS_KEYS = {
   all: ['circle-tools'] as const,
+  mediaHub: (circleId: string) => [...TOOLS_KEYS.all, circleId, 'media-hub'] as const,
   albums: (circleId: string) => [...TOOLS_KEYS.all, circleId, 'albums'] as const,
   albumDetail: (circleId: string, albumId: string) =>
     [...TOOLS_KEYS.all, circleId, 'albums', albumId] as const,
   wheels: (circleId: string) => [...TOOLS_KEYS.all, circleId, 'wheels'] as const,
+  wheelFolders: (circleId: string) =>
+    [...TOOLS_KEYS.all, circleId, 'wheels', 'folders'] as const,
   anonymous: (circleId: string) => [...TOOLS_KEYS.all, circleId, 'anonymous-posts'] as const,
   calendar: (circleId: string, month?: number, year?: number) =>
     [...TOOLS_KEYS.all, circleId, 'calendar', month, year] as const,
+  upcomingCalendar: (circleId: string) =>
+    [...TOOLS_KEYS.all, circleId, 'calendar', 'upcoming'] as const,
   planningSheets: (circleId: string) => [...TOOLS_KEYS.all, circleId, 'planning-sheets'] as const,
   planningSheetDetail: (circleId: string, sheetId: string) =>
     [...TOOLS_KEYS.all, circleId, 'planning-sheets', sheetId] as const,
@@ -50,6 +60,18 @@ export const TOOLS_KEYS = {
 // =============================================================================
 // 1. SHARED ALBUMS HOOKS (UC14)
 // =============================================================================
+
+export function useMediaHubQuery(circleId: string | null) {
+  return useQuery({
+    queryKey: TOOLS_KEYS.mediaHub(circleId || ''),
+    queryFn: async () => {
+      if (!circleId) return null;
+      const res = await apiRequest<MediaHubResponse>(`/circles/${circleId}/media-hub`);
+      return res.data;
+    },
+    enabled: !!circleId,
+  });
+}
 
 export function useAlbumsQuery(circleId: string | null) {
   return useQuery({
@@ -252,6 +274,159 @@ export function useDeleteWheelMutation(circleId: string) {
   });
 }
 
+export function useUpdateWheelMutation(circleId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      wheelId,
+      input,
+    }: {
+      wheelId: string;
+      input: UpdateWheelInput;
+    }) => {
+      const res = await apiRequest<DecisionWheelEntity>(
+        `/circles/${circleId}/wheels/${wheelId}`,
+        {
+          method: 'PUT',
+          body: JSON.stringify(input),
+        },
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: TOOLS_KEYS.wheels(circleId) });
+    },
+  });
+}
+
+export function useSpinAllWheelsMutation(circleId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest<SpinWheelResult[]>(
+        `/circles/${circleId}/wheels/spin-all`,
+        {
+          method: 'POST',
+        },
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: TOOLS_KEYS.wheels(circleId) });
+    },
+  });
+}
+
+export function useDeleteAllWheelsMutation(circleId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (defaultTitle?: string) => {
+      const url = defaultTitle
+        ? `/circles/${circleId}/wheels?title=${encodeURIComponent(defaultTitle)}`
+        : `/circles/${circleId}/wheels`;
+      const res = await apiRequest<{ success: boolean; defaultWheel?: DecisionWheelEntity }>(
+        url,
+        {
+          method: 'DELETE',
+        },
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: TOOLS_KEYS.wheels(circleId) });
+    },
+  });
+}
+
+export function useWheelFoldersQuery(circleId: string | null) {
+  return useQuery({
+    queryKey: TOOLS_KEYS.wheelFolders(circleId || ''),
+    queryFn: async () => {
+      if (!circleId) return [];
+      const res = await apiRequest<WheelFolderEntity[]>(
+        `/circles/${circleId}/wheels/folders`,
+      );
+      return res.data;
+    },
+    enabled: !!circleId,
+  });
+}
+
+export function useCreateWheelFolderMutation(circleId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: CreateWheelFolderInput) => {
+      const res = await apiRequest<WheelFolderEntity>(
+        `/circles/${circleId}/wheels/folders`,
+        {
+          method: 'POST',
+          body: JSON.stringify(input),
+        },
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: TOOLS_KEYS.wheelFolders(circleId) });
+    },
+  });
+}
+
+export function useRestoreWheelFolderMutation(circleId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (folderId: string) => {
+      const res = await apiRequest<DecisionWheelEntity[]>(
+        `/circles/${circleId}/wheels/folders/${folderId}/restore`,
+        {
+          method: 'POST',
+        },
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: TOOLS_KEYS.wheels(circleId) });
+      queryClient.invalidateQueries({ queryKey: TOOLS_KEYS.wheelFolders(circleId) });
+    },
+  });
+}
+
+export function useDeleteWheelFolderMutation(circleId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (folderId: string) => {
+      const res = await apiRequest<{ success: boolean }>(
+        `/circles/${circleId}/wheels/folders/${folderId}`,
+        {
+          method: 'DELETE',
+        },
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: TOOLS_KEYS.wheelFolders(circleId) });
+    },
+  });
+}
+
+export function useUpdateWheelFolderMutation(circleId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ folderId, input }: { folderId: string; input: UpdateWheelFolderInput }) => {
+      const res = await apiRequest<WheelFolderEntity>(
+        `/circles/${circleId}/wheels/folders/${folderId}`,
+        {
+          method: 'PUT',
+          body: JSON.stringify(input),
+        },
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: TOOLS_KEYS.wheelFolders(circleId) });
+    },
+  });
+}
+
 // =============================================================================
 // 3. ANONYMOUS POSTS / WORDS UNSAID HOOKS (UC21)
 // =============================================================================
@@ -281,6 +456,22 @@ export function useCreateAnonymousPostMutation(circleId: string) {
           body: JSON.stringify(input),
         },
       );
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: TOOLS_KEYS.anonymous(circleId) });
+    },
+  });
+}
+
+export function useReactAnonymousPostMutation(circleId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ postId, emoji }: { postId: string; emoji: string }) => {
+      const res = await apiRequest<any>(`/circles/${circleId}/anonymous-posts/${postId}/react`, {
+        method: 'POST',
+        body: JSON.stringify({ emoji }),
+      });
       return res.data;
     },
     onSuccess: () => {
@@ -413,6 +604,33 @@ export function useDeleteCalendarEventMutation(circleId: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: TOOLS_KEYS.all });
       queryClient.invalidateQueries({ queryKey: ['chat'] });
+    },
+  });
+}
+export function useUpcomingCalendarEventsQuery(circleId: string | null) {
+  return useQuery({
+    queryKey: TOOLS_KEYS.upcomingCalendar(circleId || ''),
+    queryFn: async () => {
+      if (!circleId) return [];
+      const res = await apiRequest<CalendarEventEntity[]>(
+        `/circles/${circleId}/calendar-events/upcoming`,
+      );
+      return res.data;
+    },
+    enabled: !!circleId,
+  });
+}
+
+export function useShareCalendarEventToChatMutation(circleId: string) {
+  return useMutation({
+    mutationFn: async (eventId: string) => {
+      const res = await apiRequest<{ success: boolean }>(
+        `/circles/${circleId}/calendar-events/${eventId}/share-to-chat`,
+        {
+          method: 'POST',
+        },
+      );
+      return res.data;
     },
   });
 }
@@ -818,6 +1036,21 @@ export function useDeletePollMutation(circleId: string) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: TOOLS_KEYS.polls(circleId) });
+    },
+  });
+}
+
+export function useShareWheelResultsToChatMutation(circleId: string) {
+  return useMutation({
+    mutationFn: async (results: { wheelTitle: string; winner: string }[]) => {
+      const res = await apiRequest<{ success: boolean; messageId: string }>(
+        `/circles/${circleId}/tools/wheels/share-results`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ results }),
+        },
+      );
+      return res.data;
     },
   });
 }

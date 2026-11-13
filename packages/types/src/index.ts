@@ -316,6 +316,8 @@ export interface MomentEntity {
     email: string;
     profile?: {
       displayName: string;
+      handle?: string | null;
+      fullName?: string | null;
       avatarUrl?: string | null;
     } | null;
   };
@@ -648,6 +650,79 @@ export interface AddPhotosInput {
   }[];
 }
 
+export interface MediaHubMediaItem {
+  id: string;
+  fileUrl: string;
+  fileName?: string | null;
+  caption?: string | null;
+  createdAt: string;
+  source: 'album' | 'chat';
+  albumId?: string | null;
+  albumTitle?: string | null;
+  uploader?: {
+    id: string;
+    userId: string;
+    nickname?: string | null;
+    user?: {
+      id: string;
+      email: string;
+      profile?: {
+        displayName: string;
+        avatarUrl?: string | null;
+      } | null;
+    };
+  } | null;
+}
+
+export interface MediaHubLinkItem {
+  id: string;
+  url: string;
+  domain: string;
+  title?: string;
+  sentAt: string;
+  sender?: {
+    id: string;
+    userId: string;
+    nickname?: string | null;
+    user?: {
+      id: string;
+      email: string;
+      profile?: {
+        displayName: string;
+        avatarUrl?: string | null;
+      } | null;
+    };
+  } | null;
+}
+
+export interface MediaHubFileItem {
+  id: string;
+  fileUrl: string;
+  fileName: string;
+  fileSize?: number | null;
+  extension?: string;
+  sentAt: string;
+  sender?: {
+    id: string;
+    userId: string;
+    nickname?: string | null;
+    user?: {
+      id: string;
+      email: string;
+      profile?: {
+        displayName: string;
+        avatarUrl?: string | null;
+      } | null;
+    };
+  } | null;
+}
+
+export interface MediaHubResponse {
+  media: MediaHubMediaItem[];
+  links: MediaHubLinkItem[];
+  files: MediaHubFileItem[];
+}
+
 export interface WheelOptionEntity {
   id: string;
   wheelId: string;
@@ -662,6 +737,9 @@ export interface DecisionWheelEntity {
   createdById?: string | null;
   lastResult?: string | null;
   lastSpunAt?: string | null;
+  soundEnabled?: boolean;
+  confettiEnabled?: boolean;
+  initialOptions?: string[];
   createdAt: string;
   options: WheelOptionEntity[];
   creator?: {
@@ -680,17 +758,85 @@ export interface DecisionWheelEntity {
 }
 
 export interface CreateWheelInput {
+  title?: string;
+  options: {
+    optionLabel: string;
+    color?: string;
+  }[];
+  soundEnabled?: boolean;
+  confettiEnabled?: boolean;
+  initialOptions?: string[];
+}
+
+export interface UpdateWheelInput {
+  title?: string;
+  options?: {
+    optionLabel: string;
+    color?: string;
+  }[];
+  soundEnabled?: boolean;
+  confettiEnabled?: boolean;
+  initialOptions?: string[];
+}
+
+export interface WheelFolderSnapshotItem {
+  id?: string;
   title: string;
   options: {
     optionLabel: string;
     color?: string;
   }[];
+  soundEnabled?: boolean;
+  confettiEnabled?: boolean;
+  initialOptions?: string[];
+  lastResult?: string | null;
+  lastSpunAt?: string | null;
+}
+
+export interface WheelFolderEntity {
+  id: string;
+  circleId: string;
+  name: string;
+  data: WheelFolderSnapshotItem[];
+  createdById?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  creator?: {
+    id: string;
+    userId: string;
+    nickname?: string | null;
+    user?: {
+      id: string;
+      email: string;
+      profile?: {
+        displayName: string;
+        avatarUrl?: string | null;
+      } | null;
+    };
+  } | null;
+}
+
+export interface CreateWheelFolderInput {
+  name: string;
+  data?: WheelFolderSnapshotItem[];
+}
+
+export interface UpdateWheelFolderInput {
+  name?: string;
+  data?: WheelFolderSnapshotItem[];
 }
 
 export interface SpinWheelResult {
   wheelId: string;
   selectedOption: WheelOptionEntity;
+  selectedOptionIndex?: number;
   spunAt: string;
+}
+
+export interface AnonymousPostReactionSummary {
+  emoji: string;
+  count: number;
+  userReacted?: boolean;
 }
 
 export interface AnonymousPostEntity {
@@ -699,6 +845,29 @@ export interface AnonymousPostEntity {
   content: string;
   cardTheme?: string | null;
   postedAt: string;
+  reactions?: AnonymousPostReactionSummary[];
+}
+
+export interface ReactAnonymousPostInput {
+  emoji: string;
+}
+
+export interface WheelSpunSocketPayload {
+  wheelId: string;
+  circleId: string;
+  selectedOption: WheelOptionEntity;
+  spunAt: string;
+  spunBy?: {
+    userId: string;
+    displayName: string;
+  };
+}
+
+export interface AnonymousPostReactionSocketPayload {
+  postId: string;
+  reactions: { emoji: string; count: number }[];
+  toggledEmoji: string;
+  action: 'ADDED' | 'REMOVED';
 }
 
 export interface CreateAnonymousPostInput {
@@ -749,11 +918,12 @@ export interface UpdateCalendarEventInput {
   location?: string;
   startTime?: string;
   endTime?: string;
-  reminderTime?: string;
+  reminderTime?: string | null;
 }
 export interface CalendarEventMessagePayload {
   type: 'CALENDAR_EVENT';
-  action: 'CREATED' | 'UPDATED' | 'CANCELLED' | 'DELETED' | 'RSVP_UPDATED';
+  action: 'CREATED' | 'UPDATED' | 'CANCELLED' | 'DELETED' | 'RSVP_UPDATED' | 'REMINDER';
+  latestAction?: 'CREATED' | 'UPDATED' | 'CANCELLED' | 'DELETED' | 'RSVP_UPDATED' | 'REMINDER';
   eventId: string;
   eventTitle: string;
   description?: string | null;
@@ -763,6 +933,9 @@ export interface CalendarEventMessagePayload {
   reminderTime?: string | null;
   isCancelled?: boolean;
   creatorName: string;
+  lastActorName?: string;
+  lastActorUserId?: string;
+  lastRsvpStatus?: EventRsvpStatus;
   rsvps?: {
     yesCount: number;
     noCount: number;
@@ -794,6 +967,8 @@ export interface CalendarEventRsvpEntity {
     email: string;
     profile?: {
       displayName: string;
+      handle?: string | null;
+      fullName?: string | null;
       avatarUrl?: string | null;
     } | null;
   };

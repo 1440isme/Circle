@@ -49,8 +49,49 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // 2. Try BigDataCloud reverse geocode (Extremely reliable, fast, Vietnamese address support)
   try {
-    // 2. Try Photon reverse fallback
+    const bUrl = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=vi`;
+    const bRes = await fetch(bUrl, {
+      headers: { Accept: 'application/json' },
+      next: { revalidate: 300 },
+    });
+    if (bRes.ok) {
+      const d = await bRes.json();
+      const info = d.localityInfo?.informative || [];
+      const districtObj = info.find(
+        (x: any) =>
+          x.name &&
+          (x.name.includes('Quận') ||
+            x.name.includes('Huyện') ||
+            x.name.includes('Thị xã') ||
+            x.name.includes('Thành phố') ||
+            x.name.includes('District'))
+      );
+      const district = districtObj ? districtObj.name : '';
+      const locality = d.locality || '';
+      const city = d.city || d.principalSubdivision || '';
+      const name = district
+        ? locality && locality !== district
+          ? `${locality}, ${district}`
+          : district
+        : locality || city || 'Vị trí hiện tại';
+      const addressParts = [locality, district, city, d.countryName || 'Việt Nam'].filter(Boolean);
+      const address = Array.from(new Set(addressParts)).join(', ');
+
+      return NextResponse.json({
+        name,
+        address: address || name,
+        lat,
+        lng,
+      });
+    }
+  } catch (err) {
+    console.warn('[Locations Reverse] BigDataCloud error:', err);
+  }
+
+  // 3. Try Photon reverse fallback
+  try {
     const pUrl = `https://photon.komoot.io/reverse?lat=${lat}&lon=${lng}`;
     const pRes = await fetch(pUrl, {
       headers: { 'Accept': 'application/json' },
@@ -86,7 +127,7 @@ export async function GET(req: NextRequest) {
     console.warn('[Locations Reverse] Photon error:', err);
   }
 
-  // 2. Fallback to Nominatim reverse
+  // 4. Fallback to Nominatim reverse
   try {
     const nUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`;
     const nRes = await fetch(nUrl, {
@@ -112,7 +153,7 @@ export async function GET(req: NextRequest) {
   }
 
   return NextResponse.json({
-    name: `Vị trí (${lat.toFixed(5)}, ${lng.toFixed(5)})`,
+    name: 'Vị trí hiện tại',
     address: '',
     lat,
     lng,

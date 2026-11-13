@@ -218,7 +218,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       locationPinData = JSON.parse(message.content!.replace('[LOCATION_PIN]:', ''));
     } catch {}
   }
-
   const isCallSummary = message.content?.startsWith('[CALL_SUMMARY]:');
   let callSummaryData: {
     callType: 'AUDIO' | 'VIDEO';
@@ -232,6 +231,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       callSummaryData = JSON.parse(message.content!.replace('[CALL_SUMMARY]:', ''));
     } catch {}
   }
+
 
   const isRecalled = Boolean(message.deletedAt);
   const hasPreviousContent = Boolean(message.previousContent);
@@ -281,6 +281,14 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     message.reactionCounts && Object.keys(message.reactionCounts).length > 0;
 
   if (isCalendarEvent && calendarEventData) {
+    const senderName =
+      message.sender?.nickname ||
+      message.sender?.user?.profile?.displayName ||
+      message.sender?.user?.email?.split('@')[0] ||
+      calendarEventData.creatorName ||
+      'Thành viên';
+    const senderAvatar = message.sender?.user?.profile?.avatarUrl || null;
+
     return (
       <div id={`message-${message.id}`} className="w-full flex justify-center my-3 px-2">
         <CalendarEventChatEmbed
@@ -288,6 +296,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           isSenderMe={isSenderMe}
           messageId={message.id}
           currentUserId={currentUserId}
+          senderDisplayName={senderName}
+          senderAvatarUrl={senderAvatar}
+          sentAt={message.sentAt}
         />
       </div>
     );

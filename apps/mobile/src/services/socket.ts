@@ -81,6 +81,11 @@ export async function getMobileSocket(): Promise<Socket | null> {
   return socket;
 }
 
+export const getSocket = getMobileSocket;
+export function getSocketSync(): Socket | null {
+  return socket;
+}
+
 export function disconnectMobileSocket(): void {
   if (socket) {
     socket.disconnect();

@@ -446,6 +446,7 @@ export const PresenceRail: React.FC = () => {
               <Plus className="h-3 w-3" />
               <span>{t.collab.railNewEvent}</span>
             </button>
+
           </div>
         )}
       </div>

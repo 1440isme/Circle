@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -129,6 +129,7 @@ import { MomentsView, parseMomentPhotos, MomentFeedPipView, formatMomentRelative
 import { CreateCircleModal } from '../../src/components/circle/CreateCircleModal';
 import { JoinCircleModal } from '../../src/components/circle/JoinCircleModal';
 import { PinnedMessagesModal } from '../../src/components/chat/PinnedMessagesModal';
+import { MobileCalendarEventChatEmbed } from '../../src/components/chat/MobileCalendarEventChatEmbed';
 import { SearchMessagesModal } from '../../src/components/chat/SearchMessagesModal';
 import { MobileCallStageModal } from '../../src/components/call/MobileCallStageModal';
 import { Emoji } from '../../src/components/ui/Emoji';
@@ -409,8 +410,11 @@ interface MobileChatCalendarCardProps {
   circleId: string;
   data: any;
   colors: any;
-  t: any;
-  locale: string;
+  t?: any;
+  locale?: string;
+  senderDisplayName?: string;
+  senderAvatarUrl?: string | null;
+  sentAt?: string;
   onViewOnCalendar?: (eventId?: string) => void;
 }
 
@@ -418,245 +422,21 @@ function MobileChatCalendarCard({
   circleId,
   data,
   colors,
-  t,
-  locale,
+  senderDisplayName,
+  senderAvatarUrl,
+  sentAt,
   onViewOnCalendar,
 }: MobileChatCalendarCardProps) {
-  const queryClient = useQueryClient();
-  const [myStatus, setMyStatus] = useState<EventRsvpStatus | null>(data?.rsvps?.myStatus || null);
-  const [counts, setCounts] = useState({
-    yes: Number(data?.rsvps?.yesCount || 0),
-    maybe: Number(data?.rsvps?.maybeCount || 0),
-    no: Number(data?.rsvps?.noCount || 0),
-  });
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [rsvpError, setRsvpError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (data?.rsvps) {
-      setMyStatus(data.rsvps.myStatus || null);
-      setCounts({
-        yes: Number(data.rsvps.yesCount || 0),
-        maybe: Number(data.rsvps.maybeCount || 0),
-        no: Number(data.rsvps.noCount || 0),
-      });
-    }
-  }, [data?.rsvps?.myStatus, data?.rsvps?.yesCount, data?.rsvps?.maybeCount, data?.rsvps?.noCount]);
-
-  const startDate = new Date(data?.startTime || Date.now());
-  const dateLocale = locale === 'vi' ? 'vi-VN' : 'en-US';
-  const timeStr = startDate.toLocaleTimeString(dateLocale, {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  });
-  const dateStr = startDate.toLocaleDateString(dateLocale);
-  const isCancelled = Boolean(data?.isCancelled);
-  const eventId = data?.eventId || data?.id;
-
-  const handleRsvp = async (nextStatus: EventRsvpStatus) => {
-    if (!circleId || !eventId || isCancelled || isSubmitting) return;
-    triggerSelectionHaptic();
-    setRsvpError(null);
-    const prevStatus = myStatus;
-    const prevCounts = { ...counts };
-
-    // Optimistic count adjustment
-    const nextCounts = { ...counts };
-    if (prevStatus === EventRsvpStatus.YES) nextCounts.yes = Math.max(0, nextCounts.yes - 1);
-    if (prevStatus === EventRsvpStatus.MAYBE) nextCounts.maybe = Math.max(0, nextCounts.maybe - 1);
-    if (prevStatus === EventRsvpStatus.NO) nextCounts.no = Math.max(0, nextCounts.no - 1);
-    if (nextStatus === EventRsvpStatus.YES) nextCounts.yes += 1;
-    if (nextStatus === EventRsvpStatus.MAYBE) nextCounts.maybe += 1;
-    if (nextStatus === EventRsvpStatus.NO) nextCounts.no += 1;
-
-    setMyStatus(nextStatus);
-    setCounts(nextCounts);
-
-    try {
-      setIsSubmitting(true);
-      await respondEventRsvpApi(circleId, eventId, { status: nextStatus });
-      queryClient.invalidateQueries({ queryKey: ['circle-calendar', circleId] });
-    } catch (err: any) {
-      setMyStatus(prevStatus);
-      setCounts(prevCounts);
-      setRsvpError(err?.message || t.collab.rsvpUpdateError);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const badgeLabel = isCancelled
-    ? t.collab.eventCancelledTag
-    : data?.action === 'UPDATED'
-    ? t.collab.eventUpdatedBadge
-    : t.collab.eventNewRsvpBadge;
-
-  const rsvpOptions: Array<{ status: EventRsvpStatus; label: string; count: number }> = [
-    { status: EventRsvpStatus.YES, label: t.collab.rsvpGoing, count: counts.yes },
-    { status: EventRsvpStatus.MAYBE, label: t.collab.rsvpMaybe, count: counts.maybe },
-    { status: EventRsvpStatus.NO, label: t.collab.rsvpDecline, count: counts.no },
-  ];
-
   return (
-    <View style={{ width: '100%', alignItems: 'center', marginVertical: 8, paddingHorizontal: 12 }}>
-      <View
-        style={{
-          width: '100%',
-          maxWidth: 340,
-          borderRadius: 16,
-          borderWidth: 1,
-          borderColor: colors.hairline,
-          backgroundColor: colors.surface,
-          overflow: 'hidden',
-        }}
-      >
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            paddingHorizontal: 12,
-            paddingVertical: 8,
-            backgroundColor: colors.wash,
-            borderBottomWidth: 1,
-            borderBottomColor: colors.hairline,
-          }}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
-            <Calendar size={14} color={isCancelled ? colors.danger : colors.sage} />
-            <Text
-              numberOfLines={1}
-              style={{
-                fontSize: 11,
-                fontWeight: '700',
-                color: isCancelled ? colors.danger : colors.sage,
-                textTransform: 'uppercase',
-              }}
-            >
-              {badgeLabel}
-            </Text>
-          </View>
-          {Boolean(data?.creatorName) && (
-            <Text numberOfLines={1} style={{ fontSize: 10, color: colors.subtle, marginLeft: 8 }}>
-              {data.creatorName}
-            </Text>
-          )}
-        </View>
-
-        <View style={{ padding: 12, gap: 6 }}>
-          <Text
-            style={{
-              fontSize: 15,
-              fontWeight: '700',
-              color: colors.text,
-              textDecorationLine: isCancelled ? 'line-through' : 'none',
-            }}
-          >
-            {data?.eventTitle || data?.title || t.collab.eventNoticeFallback}
-          </Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Clock size={13} color={colors.sage} />
-            <Text style={{ fontSize: 12, color: colors.text, fontWeight: '500' }}>
-              {timeStr} • {dateStr}
-            </Text>
-          </View>
-          {Boolean(data?.location) && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <MapPin size={13} color={colors.danger} />
-              <Text style={{ fontSize: 12, color: colors.subtle, flex: 1 }} numberOfLines={1}>
-                {data.location}
-              </Text>
-            </View>
-          )}
-          {Boolean(data?.description) && (
-            <Text style={{ fontSize: 11.5, color: colors.subtle, marginTop: 2 }} numberOfLines={2}>
-              {data.description}
-            </Text>
-          )}
-
-          {/* 3-State RSVP Action Pills */}
-          {Boolean(eventId) && !isCancelled ? (
-            <View
-              style={{
-                flexDirection: 'row',
-                gap: 6,
-                marginTop: 6,
-                paddingTop: 8,
-                borderTopWidth: StyleSheet.hairlineWidth,
-                borderTopColor: colors.hairline,
-              }}
-            >
-              {rsvpOptions.map((opt) => {
-                const isSelected = myStatus === opt.status;
-                return (
-                  <TouchableOpacity
-                    key={opt.status}
-                    activeOpacity={0.75}
-                    disabled={isSubmitting}
-                    onPress={() => handleRsvp(opt.status)}
-                    style={{
-                      flex: 1,
-                      minHeight: 34,
-                      borderRadius: 10,
-                      borderWidth: 1,
-                      borderColor: isSelected ? colors.primary : colors.hairline,
-                      backgroundColor: isSelected ? colors.primary : colors.wash,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      paddingHorizontal: 6,
-                    }}
-                  >
-                    <Text
-                      numberOfLines={1}
-                      style={{
-                        fontSize: 11.5,
-                        fontWeight: '700',
-                        color: isSelected ? colors.onPrimary : colors.text,
-                      }}
-                    >
-                      {opt.label} ({opt.count})
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          ) : (
-            <Text style={{ fontSize: 11, color: colors.danger, fontWeight: '600', marginTop: 4 }}>
-              {t.collab.rsvpClosed}
-            </Text>
-          )}
-
-          {rsvpError ? (
-            <Text style={{ fontSize: 11, color: colors.danger, marginTop: 2 }}>{rsvpError}</Text>
-          ) : null}
-
-          {onViewOnCalendar ? (
-            <TouchableOpacity
-              activeOpacity={0.75}
-              onPress={() => onViewOnCalendar(eventId)}
-              style={{
-                marginTop: 4,
-                minHeight: 34,
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 6,
-                borderRadius: 10,
-                backgroundColor: colors.wash,
-                borderWidth: StyleSheet.hairlineWidth,
-                borderColor: colors.hairline,
-              }}
-            >
-              <Calendar size={13} color={colors.sage} />
-              <Text style={{ fontSize: 12, fontWeight: '600', color: colors.sage }}>
-                {t.collab.viewOnCalendar}
-              </Text>
-            </TouchableOpacity>
-          ) : null}
-        </View>
-      </View>
-    </View>
+    <MobileCalendarEventChatEmbed
+      circleId={circleId}
+      data={data}
+      colors={colors}
+      senderDisplayName={senderDisplayName}
+      senderAvatarUrl={senderAvatarUrl}
+      sentAt={sentAt}
+      onViewOnCalendar={onViewOnCalendar}
+    />
   );
 }
 
@@ -896,15 +676,36 @@ const MobileSwipeMessageBubble = React.memo(function MobileSwipeMessageBubble({
   });
 
   if (isCalendarEvent && calendarEventData) {
+    const senderName =
+      msg.sender?.nickname ||
+      msg.sender?.user?.profile?.displayName ||
+      msg.sender?.profile?.displayName ||
+      msg.sender?.displayName ||
+      msg.sender?.name ||
+      msg.sender?.user?.email?.split('@')[0] ||
+      calendarEventData.creatorName ||
+      'Thành viên';
+    const senderAvatar =
+      msg.sender?.user?.profile?.avatarUrl ||
+      msg.sender?.profile?.avatarUrl ||
+      msg.sender?.avatarUrl ||
+      null;
+
     return (
-      <MobileChatCalendarCard
-        circleId={circleId || ''}
-        data={calendarEventData}
-        colors={colors}
-        t={t}
-        locale={locale}
-        onViewOnCalendar={onViewOnCalendar}
-      />
+      <View style={{ width: '100%', alignItems: 'center', marginVertical: 4, paddingHorizontal: 12 }}>
+        <MobileCalendarEventChatEmbed
+          circleId={circleId || ''}
+          data={calendarEventData}
+          content={msg.content}
+          isSenderMe={isSenderMe}
+          senderDisplayName={senderName}
+          senderAvatarUrl={senderAvatar}
+          sentAt={msg.sentAt || msg.createdAt}
+          senderTextColor={senderTextColor}
+          colors={colors}
+          onViewOnCalendar={onViewOnCalendar}
+        />
+      </View>
     );
   }
 
@@ -1362,7 +1163,32 @@ const MobileSwipeMessageBubble = React.memo(function MobileSwipeMessageBubble({
                     senderTextColor={senderTextColor}
                   />
                 );
-              })() : callSummaryData ? (
+              })() : Boolean(msg.content?.startsWith('[CALENDAR_EVENT]:')) ? (
+                <MobileCalendarEventChatEmbed
+                  content={msg.content}
+                  circleId={msg.circleId || circleId || ''}
+                  isSenderMe={isSenderMe}
+                  senderTextColor={senderTextColor}
+                  senderDisplayName={
+                    msg.sender?.nickname ||
+                    msg.sender?.user?.profile?.displayName ||
+                    msg.sender?.profile?.displayName ||
+                    msg.sender?.displayName ||
+                    msg.sender?.name ||
+                    msg.sender?.user?.email?.split('@')[0] ||
+                    'Thành viên'
+                  }
+                  senderAvatarUrl={
+                    msg.sender?.user?.profile?.avatarUrl ||
+                    msg.sender?.profile?.avatarUrl ||
+                    msg.sender?.avatarUrl ||
+                    null
+                  }
+                  sentAt={msg.sentAt || msg.createdAt}
+                  colors={colors}
+                  onViewOnCalendar={onViewOnCalendar}
+                />
+              ) : callSummaryData ? (
                 <View style={styles.callSummaryCard}>
                   <View style={styles.callSummaryHeader}>
                     <View
@@ -1680,6 +1506,14 @@ export default function CircleWorkspaceScreen() {
     openClearChat?: string;
   }>();
   const circleId = id || '';
+
+  const handleGoBack = useCallback(() => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)');
+    }
+  }, [router]);
 
   const { colors, resolvedTheme, uiStyle } = useThemeStore();
   const { t, locale } = useLanguageStore();
@@ -2103,7 +1937,7 @@ export default function CircleWorkspaceScreen() {
   const reactMessageMutation = useReactMessageMutation(currentChannelId);
   const pinMessageMutation = usePinMessageMutation(currentChannelId);
   const { data: pinnedMessages = [] } = usePinnedMessagesQuery(currentChannelId);
-  const edgePan = useEdgeSwipeDismiss({ onDismiss: () => router.back() });
+  const edgePan = useEdgeSwipeDismiss({ onDismiss: handleGoBack });
   const { typingUsers, reportTyping } = useMobileChannelTyping(currentChannelId);
 
   // Mark message as read when channel is viewed or new messages arrive
@@ -2689,7 +2523,7 @@ export default function CircleWorkspaceScreen() {
           {t.circle.notFound}
         </Text>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={handleGoBack}
           style={[styles.backBtnPill, { backgroundColor: colors.primary }]}
         >
           <Text style={[styles.backBtnText, { color: colors.onPrimary }]}>
@@ -2754,7 +2588,7 @@ export default function CircleWorkspaceScreen() {
           <TouchableOpacity
             activeOpacity={0.7}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            onPress={() => router.back()}
+            onPress={handleGoBack}
             style={[
               styles.floatingNavBtn,
               {
@@ -5306,15 +5140,19 @@ export default function CircleWorkspaceScreen() {
                 </TouchableOpacity>
               );
 
+              const showTitlePill = selectedTool !== 'album';
+
               if (isGlass) {
                 return (
                   <>
                     <BlurView intensity={glassTheme.blur.intensity} tint={glassTheme.blur.tint} style={pillBaseStyle}>
                       {backPill}
                     </BlurView>
-                    <BlurView intensity={glassTheme.blur.intensity} tint={glassTheme.blur.tint} style={pillBaseStyle}>
-                      {titlePill}
-                    </BlurView>
+                    {showTitlePill && (
+                      <BlurView intensity={glassTheme.blur.intensity} tint={glassTheme.blur.tint} style={pillBaseStyle}>
+                        {titlePill}
+                      </BlurView>
+                    )}
                     <BlurView intensity={glassTheme.blur.intensity} tint={glassTheme.blur.tint} style={pillBaseStyle}>
                       {closePill}
                     </BlurView>
@@ -5325,7 +5163,7 @@ export default function CircleWorkspaceScreen() {
               return (
                 <>
                   <View style={pillBaseStyle}>{backPill}</View>
-                  <View style={pillBaseStyle}>{titlePill}</View>
+                  {showTitlePill && <View style={pillBaseStyle}>{titlePill}</View>}
                   <View style={pillBaseStyle}>{closePill}</View>
                 </>
               );

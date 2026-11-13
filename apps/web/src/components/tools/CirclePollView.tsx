@@ -168,25 +168,16 @@ export const CirclePollView: React.FC<CirclePollViewProps> = ({ circleId }) => {
 
   return (
     <div className="relative flex-1 flex flex-col h-full bg-white dark:bg-circle-dark-bg overflow-hidden">
-      {/* Floating Glass Toolbar */}
-      <div className="pointer-events-none absolute top-14 lg:top-3 left-0 right-0 z-20 flex justify-center px-4">
-        <div className="pointer-events-auto flex items-center justify-between px-5 py-2.5 rounded-full glass shadow-sm max-w-4xl w-full transition-all">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <Vote className="w-5 h-5 text-circle-sage dark:text-circle-dark-primary shrink-0" />
-            <h1 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text truncate">
-              {t.collab.pollCardHeader}
-            </h1>
-          </div>
-
-          <button
-            type="button"
-            onClick={handleOpenCreateModal}
-            className="px-3.5 py-1.5 rounded-full bg-circle-primary hover:bg-circle-sage text-circle-charcoal dark:text-circle-dark-canvas hover:text-white dark:hover:text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 active:scale-95"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>{t.collab.createPoll}</span>
-          </button>
-        </div>
+      {/* Floating Pill Controls (Full gần sát lề như lịch hẹn sự kiện) */}
+      <div className="pointer-events-none absolute top-14 lg:top-3 left-0 right-0 z-20 flex items-center justify-end px-4 md:px-6">
+        <button
+          type="button"
+          onClick={handleOpenCreateModal}
+          className="pointer-events-auto inline-flex items-center gap-1.5 px-4 h-9 rounded-full backdrop-blur-xl bg-circle-primary hover:bg-circle-sage text-white font-bold text-xs sm:text-sm shadow-sm border border-circle-hairline/60 dark:border-white/12 transition-all active:scale-95 cursor-pointer shrink-0"
+        >
+          <Plus className="h-4 w-4" />
+          <span>{t.collab.createPoll}</span>
+        </button>
       </div>
 
       {/* Poll Cards List (Scroll-under content with safe top padding) */}
@@ -224,9 +215,10 @@ export const CirclePollView: React.FC<CirclePollViewProps> = ({ circleId }) => {
             <button
               type="button"
               onClick={handleOpenCreateModal}
-              className="px-5 py-2.5 rounded-xl bg-circle-primary hover:bg-circle-sage text-circle-charcoal dark:text-circle-dark-canvas hover:text-white dark:hover:text-white text-xs font-bold transition-colors shadow-sm"
+              className="inline-flex items-center gap-1.5 px-5 h-9 rounded-full bg-circle-primary hover:bg-circle-sage text-white text-xs sm:text-sm font-bold transition-all shadow-sm active:scale-95 cursor-pointer"
             >
-              {t.collab.pollCreateFirst}
+              <Plus className="h-4 w-4" />
+              <span>{t.collab.pollCreateFirst}</span>
             </button>
           </div>
         ) : (
@@ -527,14 +519,14 @@ export const CirclePollView: React.FC<CirclePollViewProps> = ({ circleId }) => {
                 <button
                   type="button"
                   onClick={() => setIsCreateModalOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-hover rounded-xl"
+                  className="px-4 h-9 text-xs sm:text-sm font-bold text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-hover rounded-full transition-all active:scale-95 cursor-pointer"
                 >
                   {t.common.cancel}
                 </button>
                 <button
                   type="submit"
                   disabled={createPollMutation.isPending}
-                  className="px-5 py-2 text-xs font-bold bg-circle-primary hover:bg-circle-sage text-circle-charcoal dark:text-circle-dark-canvas hover:text-white dark:hover:text-white rounded-xl shadow-sm disabled:opacity-50"
+                  className="px-5 h-9 text-xs sm:text-sm font-bold bg-circle-primary hover:bg-circle-sage text-white rounded-full shadow-sm transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
                 >
                   {createPollMutation.isPending ? t.collab.pollCreating : t.collab.createPoll}
                 </button>

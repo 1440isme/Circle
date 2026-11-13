@@ -3,7 +3,12 @@ import {
   UpdateSharedAlbumInput,
   AddPhotosInput,
   CreateWheelInput,
+  UpdateWheelInput,
+  CreateWheelFolderInput,
+  UpdateWheelFolderInput,
+  WheelFolderSnapshotItem,
   CreateAnonymousPostInput,
+  ReactAnonymousPostInput,
   CreateCalendarEventInput,
   UpdateCalendarEventInput,
   RespondEventRsvpInput,
@@ -38,16 +43,49 @@ export class AddPhotosDto implements AddPhotosInput {
 }
 
 export class CreateWheelDto implements CreateWheelInput {
-  title: string;
+  title?: string;
   options: {
     optionLabel: string;
     color?: string;
   }[];
+  soundEnabled?: boolean;
+  confettiEnabled?: boolean;
+  initialOptions?: string[];
+}
+
+export class UpdateWheelDto implements UpdateWheelInput {
+  title?: string;
+  options?: {
+    optionLabel: string;
+    color?: string;
+  }[];
+  soundEnabled?: boolean;
+  confettiEnabled?: boolean;
+  initialOptions?: string[];
+}
+
+
+export class CreateWheelFolderDto implements CreateWheelFolderInput {
+  name: string;
+  data?: WheelFolderSnapshotItem[];
+}
+
+export class UpdateWheelFolderDto implements UpdateWheelFolderInput {
+  name?: string;
+  data?: WheelFolderSnapshotItem[];
+}
+
+export class ShareWheelResultsDto {
+  results: { wheelTitle: string; winner: string }[];
 }
 
 export class CreateAnonymousPostDto implements CreateAnonymousPostInput {
   content: string;
   cardTheme?: string;
+}
+
+export class ReactAnonymousPostDto implements ReactAnonymousPostInput {
+  emoji: string;
 }
 
 export class CreateCalendarEventDto implements CreateCalendarEventInput {

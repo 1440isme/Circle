@@ -11,8 +11,12 @@ import {
   ChevronRight,
   Flame,
   Trash2,
+  FolderPlus,
+  Check,
   AlertCircle,
 } from 'lucide-react';
+import { useCircleStore } from '@/stores/circle.store';
+import { useAlbumsQuery, useAddPhotosMutation } from '@/hooks/use-circle-tools';
 import { useAuth } from '@/context/AuthContext';
 import { useLanguageStore } from '@/stores/language.store';
 import { useThemeStore } from '@/stores/theme.store';

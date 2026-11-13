@@ -1,27 +1,37 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import {
+  Calendar as CalendarIcon,
   Plus,
   Clock,
+  MapPin,
   Trash2,
   Pencil,
   Ban,
   X,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Bell,
   Loader2,
   CalendarDays,
-  Users,
+  Repeat,
+  Share2,
+  Info,
+  RotateCcw,
+  ArrowRight,
+  AlignLeft,
   Check,
   HelpCircle,
-  Lock,
-  AlertCircle,
 } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { getSocket } from '../../lib/socket';
 import { EventLocationDisplay } from './EventLocationDisplay';
 import { LocationSearchInput } from './LocationSearchInput';
 import { CustomDateTimePicker } from './CustomDateTimePicker';
+import { CustomRecurrenceModal } from './CustomRecurrenceModal';
+import { CircleEventDetailModal } from './CircleEventDetailModal';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguageStore } from '../../stores/language.store';
 import { useCircleStore } from '../../stores/circle.store';
@@ -32,8 +42,57 @@ import {
   useDeleteCalendarEventMutation,
   useUpdateCalendarEventMutation,
   useRespondEventRsvpMutation,
+  useUpcomingCalendarEventsQuery,
+  useShareCalendarEventToChatMutation,
+  TOOLS_KEYS,
 } from '../../hooks/use-circle-tools';
 import { CalendarEventEntity, EventRsvpStatus } from '@circle/types';
+import {
+  RecurrenceFrequency,
+  NthWeekdayOrder,
+  MonthlyType,
+  YearlyType,
+  RecurrenceEndType,
+  RecurrenceConfig,
+  WEEKDAY_INFO,
+  NTH_ORDER_INFO,
+  formatDateKey,
+  getWeekdayNumber,
+  getDefaultWeeklyDays,
+  getNthOrderFromDate,
+  formatRecurrenceSummary,
+  createDefaultRecurrenceConfig,
+  formatDateOnly,
+  serializeRecurrence,
+  parseEventRecurrence,
+  isEventOccurringOnDate,
+  isEventCancelledOnDate,
+  formatEventTimeForDate,
+  getNextOrPrevOccurrence,
+} from './calendar-recurrence';
+
+export type {
+  RecurrenceFrequency,
+  NthWeekdayOrder,
+  MonthlyType,
+  YearlyType,
+  RecurrenceEndType,
+  RecurrenceConfig,
+};
+export {
+  WEEKDAY_INFO,
+  NTH_ORDER_INFO,
+  formatDateKey,
+  formatRecurrenceSummary,
+  createDefaultRecurrenceConfig,
+  formatDateOnly,
+  serializeRecurrence,
+  parseEventRecurrence,
+  isEventOccurringOnDate,
+  isEventCancelledOnDate,
+  formatEventTimeForDate,
+  getNextOrPrevOccurrence,
+};
 
 interface CircleCalendarViewProps {
   circleId: string;
@@ -42,32 +101,15 @@ interface CircleCalendarViewProps {
 export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId }) => {
   const { user } = useAuth();
   const t = useLanguageStore((s) => s.t);
-  const locale = useLanguageStore((s) => s.locale);
   const setActiveCircleView = useCircleStore((s) => s.setActiveCircleView);
   const targetCalendarDate = useCircleStore((s) => s.targetCalendarDate);
   const targetCalendarEventId = useCircleStore((s) => s.targetCalendarEventId);
-  const setTargetCalendarEvent = useCircleStore((s) => s.setTargetCalendarEvent);
 
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
-  // Form states
-  const [title, setTitle] = useState('');
-  const [location, setLocation] = useState('');
-  const [description, setDescription] = useState('');
-  const [startTime, setStartTime] = useState('');
-  const [endTime, setEndTime] = useState('');
-  const [reminderMinutes, setReminderMinutes] = useState('15');
-
-  const [editingEvent, setEditingEvent] = useState<CalendarEventEntity | null>(null);
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  const [calendarError, setCalendarError] = useState<string | null>(null);
-  const [pendingAction, setPendingAction] = useState<{
-    eventId: string;
-    type: 'cancel' | 'delete';
-  } | null>(null);
-
+  const now = new Date();
   const formatToLocalDateTimeInput = (date: Date, hours = 0, minutes = 0) => {
     const d = new Date(date);
     d.setHours(hours, minutes, 0, 0);
@@ -79,8 +121,107 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
     return `${y}-${m}-${day}T${h}:${min}`;
   };
 
-  const now = new Date();
   const nowIsoLocal = formatToLocalDateTimeInput(now, now.getHours(), now.getMinutes());
+
+  // Form states matching web style (mặc định 06:00 đến 23:59)
+  const [title, setTitle] = useState('');
+  const [location, setLocation] = useState('');
+  const [description, setDescription] = useState('');
+  const [startTime, setStartTime] = useState(() => formatToLocalDateTimeInput(now, 6, 0));
+  const [endTime, setEndTime] = useState(() => formatToLocalDateTimeInput(now, 23, 59));
+  const [reminderMinutes, setReminderMinutes] = useState('15');
+
+  const [recurrenceConfig, setRecurrenceConfig] = useState<RecurrenceConfig>(() =>
+    createDefaultRecurrenceConfig(new Date())
+  );
+
+  // Dedicated Scope & Modal States
+  const [editingEvent, setEditingEvent] = useState<CalendarEventEntity | null>(null);
+  const [editingOccurrenceDate, setEditingOccurrenceDate] = useState<Date | null>(null);
+  const [showScopeModal, setShowScopeModal] = useState(false);
+  const [showUnsavedChangesModal, setShowUnsavedChangesModal] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const previousDetailModalRef = useRef<{
+    event: CalendarEventEntity;
+    occDate: Date | null;
+  } | null>(null);
+
+  const initialFormSnapshotRef = useRef<{
+    title: string;
+    location: string;
+    description: string;
+    startTime: string;
+    endTime: string;
+    reminderMinutes: string;
+    recurrenceConfigStr: string;
+  } | null>(null);
+
+  // Month & Year Picker State in Month Navigator (Dạng Bánh xe / Xe lăn)
+  const [isMonthPickerOpen, setIsMonthPickerOpen] = useState(false);
+  const monthPickerRef = useRef<HTMLDivElement>(null);
+  const wheelMonthsScrollRef = useRef<HTMLDivElement>(null);
+  const wheelYearsScrollRef = useRef<HTMLDivElement>(null);
+  const isWheelProgrammaticScrollRef = useRef(false);
+  const wheelMonthTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const wheelYearTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Poll Scope State khi bình chọn tham gia trên thẻ ngoài cho sự kiện lặp lại
+  const [pollScopeState, setPollScopeState] = useState<{
+    isOpen: boolean;
+    event: CalendarEventEntity | null;
+    status: EventRsvpStatus | null;
+    occDate: Date;
+  } | null>(null);
+  const [isApplyingPollScope, setIsApplyingPollScope] = useState(false);
+
+  // Cửa sổ tải theo lịch trình (Infinite Scroll giống tin nhắn: mặc định 15 ngày quá khứ + 45 ngày tương lai)
+  const [schedulePastDays, setSchedulePastDays] = useState(15);
+  const [scheduleFutureDays, setScheduleFutureDays] = useState(45);
+  const [isLoadingMorePast, setIsLoadingMorePast] = useState(false);
+  const [isLoadingMoreFuture, setIsLoadingMoreFuture] = useState(false);
+  const hasInitialScrolledRef = useRef(false);
+
+  // Delete & Cancel Scope Modals
+  const [deleteModalState, setDeleteModalState] = useState<{
+    isOpen: boolean;
+    event: CalendarEventEntity | null;
+    occDate: Date | null;
+  }>({ isOpen: false, event: null, occDate: null });
+
+  const [cancelModalState, setCancelModalState] = useState<{
+    isOpen: boolean;
+    event: CalendarEventEntity | null;
+    occDate: Date | null;
+  }>({ isOpen: false, event: null, occDate: null });
+
+  // Event Detail Modal & Custom Recurrence Popup Modal
+  const [detailModalState, setDetailModalState] = useState<{
+    isOpen: boolean;
+    event: CalendarEventEntity | null;
+    occDate: Date | null;
+  }>({ isOpen: false, event: null, occDate: null });
+
+  const [isCustomRepeatOpen, setIsCustomRepeatOpen] = useState(false);
+  const [isRepeatDropdownOpen, setIsRepeatDropdownOpen] = useState(false);
+  const repeatDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        repeatDropdownRef.current &&
+        !repeatDropdownRef.current.contains(e.target as Node)
+      ) {
+        setIsRepeatDropdownOpen(false);
+      }
+    };
+    if (isRepeatDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isRepeatDropdownOpen]);
 
   const month = currentDate.getMonth() + 1;
   const year = currentDate.getFullYear();
@@ -91,84 +232,561 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
   const cancelMutation = useCancelCalendarEventMutation(circleId);
   const deleteMutation = useDeleteCalendarEventMutation(circleId);
   const rsvpMutation = useRespondEventRsvpMutation(circleId);
+  const queryClient = useQueryClient();
+  const [viewMode, setViewMode] = useState<'month' | 'upcoming'>('month');
+  const { data: allCalendarEvents = [], isLoading: isAllEventsLoading } = useCalendarEventsQuery(circleId);
+  const shareToChatMutation = useShareCalendarEventToChatMutation(circleId);
+  const [shareSuccessId, setShareSuccessId] = useState<string | null>(null);
 
+  // Realtime Socket.IO sync for RSVP updates
   useEffect(() => {
-    if (!isAddModalOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setIsAddModalOpen(false);
-        setSubmitError(null);
+    const socket = getSocket();
+    if (!socket) return;
+
+    const handleRsvpUpdated = () => {
+      queryClient.invalidateQueries({ queryKey: TOOLS_KEYS.calendar(circleId) });
+      queryClient.invalidateQueries({ queryKey: TOOLS_KEYS.upcomingCalendar(circleId) });
+    };
+
+    socket.on('circle:calendar-event-rsvp-updated', handleRsvpUpdated);
+    return () => {
+      socket.off('circle:calendar-event-rsvp-updated', handleRsvpUpdated);
+    };
+  }, [circleId, queryClient]);
+
+  // Close Month-Year picker on click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (monthPickerRef.current && !monthPickerRef.current.contains(e.target as Node)) {
+        setIsMonthPickerOpen(false);
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isAddModalOpen]);
+    if (isMonthPickerOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isMonthPickerOpen]);
+
+  // Hằng số cho Bánh xe cuộn Tháng & Năm (Wheel Picker)
+  const ITEM_HEIGHT = 40;
+  const WHEEL_START_YEAR = 2015;
+  const WHEEL_END_YEAR = 2035;
+  const WHEEL_YEARS = useMemo(
+    () => Array.from({ length: WHEEL_END_YEAR - WHEEL_START_YEAR + 1 }, (_, i) => WHEEL_START_YEAR + i),
+    [],
+  );
+  const WHEEL_MONTH_NAMES = useMemo(
+    () => [
+      'Tháng 01',
+      'Tháng 02',
+      'Tháng 03',
+      'Tháng 04',
+      'Tháng 05',
+      'Tháng 06',
+      'Tháng 07',
+      'Tháng 08',
+      'Tháng 09',
+      'Tháng 10',
+      'Tháng 11',
+      'Tháng 12',
+    ],
+    [],
+  );
+
+  // Định vị bánh xe Tháng & Năm ngay khi mở popover
+  useEffect(() => {
+    if (isMonthPickerOpen) {
+      isWheelProgrammaticScrollRef.current = true;
+      const timer = setTimeout(() => {
+        if (wheelMonthsScrollRef.current) {
+          wheelMonthsScrollRef.current.scrollTop = (month - 1) * ITEM_HEIGHT;
+        }
+        if (wheelYearsScrollRef.current) {
+          const yIdx = Math.max(0, Math.min(WHEEL_YEARS.length - 1, year - WHEEL_START_YEAR));
+          wheelYearsScrollRef.current.scrollTop = yIdx * ITEM_HEIGHT;
+        }
+        setTimeout(() => {
+          isWheelProgrammaticScrollRef.current = false;
+        }, 60);
+      }, 10);
+      return () => clearTimeout(timer);
+    }
+  }, [isMonthPickerOpen, month, year, WHEEL_YEARS.length]);
+
+  useEffect(() => {
+    return () => {
+      if (wheelMonthTimerRef.current) clearTimeout(wheelMonthTimerRef.current);
+      if (wheelYearTimerRef.current) clearTimeout(wheelYearTimerRef.current);
+    };
+  }, []);
+
+  const handleWheelSelectMonth = (mIdx: number) => {
+    isWheelProgrammaticScrollRef.current = true;
+    if (wheelMonthsScrollRef.current) {
+      wheelMonthsScrollRef.current.scrollTo({ top: mIdx * ITEM_HEIGHT, behavior: 'smooth' });
+    }
+    setCurrentDate(new Date(year, mIdx, 1));
+    setTimeout(() => {
+      isWheelProgrammaticScrollRef.current = false;
+    }, 250);
+  };
+
+  const handleWheelSelectYear = (targetYear: number) => {
+    isWheelProgrammaticScrollRef.current = true;
+    const yIdx = Math.max(0, targetYear - WHEEL_START_YEAR);
+    if (wheelYearsScrollRef.current) {
+      wheelYearsScrollRef.current.scrollTo({ top: yIdx * ITEM_HEIGHT, behavior: 'smooth' });
+    }
+    setCurrentDate(new Date(targetYear, month - 1, 1));
+    setTimeout(() => {
+      isWheelProgrammaticScrollRef.current = false;
+    }, 250);
+  };
+
+  const handleWheelMonthScroll = () => {
+    if (isWheelProgrammaticScrollRef.current || !wheelMonthsScrollRef.current) return;
+    if (wheelMonthTimerRef.current) clearTimeout(wheelMonthTimerRef.current);
+    wheelMonthTimerRef.current = setTimeout(() => {
+      if (!wheelMonthsScrollRef.current || isWheelProgrammaticScrollRef.current) return;
+      const scrollTop = wheelMonthsScrollRef.current.scrollTop;
+      const idx = Math.min(11, Math.max(0, Math.round(scrollTop / ITEM_HEIGHT)));
+      if (idx !== month - 1) {
+        setCurrentDate(new Date(year, idx, 1));
+      }
+    }, 90);
+  };
+
+  const handleWheelYearScroll = () => {
+    if (isWheelProgrammaticScrollRef.current || !wheelYearsScrollRef.current) return;
+    if (wheelYearTimerRef.current) clearTimeout(wheelYearTimerRef.current);
+    wheelYearTimerRef.current = setTimeout(() => {
+      if (!wheelYearsScrollRef.current || isWheelProgrammaticScrollRef.current) return;
+      const scrollTop = wheelYearsScrollRef.current.scrollTop;
+      const idx = Math.min(WHEEL_YEARS.length - 1, Math.max(0, Math.round(scrollTop / ITEM_HEIGHT)));
+      const targetYear = WHEEL_YEARS[idx];
+      if (targetYear !== undefined && targetYear !== year) {
+        setCurrentDate(new Date(targetYear, month - 1, 1));
+      }
+    }, 90);
+  };
+
+  const handleWheelJumpToday = () => {
+    const now = new Date();
+    setCurrentDate(new Date(now.getFullYear(), now.getMonth(), 1));
+    handleWheelSelectMonth(now.getMonth());
+    handleWheelSelectYear(now.getFullYear());
+  };
+
+  // Xử lý RSVP từ thẻ ngoài (Nếu là sự kiện lặp lại thì hỏi phạm vi áp dụng)
+  const handleCardRsvpClick = (ev: CalendarEventEntity, status: EventRsvpStatus, occDate: Date) => {
+    if (ev.isCancelled || rsvpMutation.isPending || isApplyingPollScope) return;
+    const { recurrenceConfig } = parseEventRecurrence(ev.description);
+    const isRecurring = Boolean(recurrenceConfig && recurrenceConfig.frequency !== 'none');
+    if (isRecurring) {
+      setPollScopeState({
+        isOpen: true,
+        event: ev,
+        status,
+        occDate,
+      });
+    } else {
+      rsvpMutation.mutate({ eventId: ev.id, status });
+    }
+  };
+
+  const handleApplyPollScope = async (scope: 'this' | 'future' | 'all') => {
+    if (!pollScopeState || !pollScopeState.event || !pollScopeState.status) return;
+    const { event, status, occDate } = pollScopeState;
+    setIsApplyingPollScope(true);
+
+    const { recurrenceConfig, cleanDesc } = parseEventRecurrence(event.description);
+    const isRecurring = Boolean(recurrenceConfig && recurrenceConfig.frequency !== 'none');
+    const evStart = new Date(event.startTime);
+    const evEnd = event.endTime ? new Date(event.endTime) : evStart;
+    const durationMs = Math.max(0, evEnd.getTime() - evStart.getTime());
+
+    const occStartDate = new Date(occDate);
+    occStartDate.setHours(evStart.getHours(), evStart.getMinutes(), evStart.getSeconds(), 0);
+    const occEndDate = new Date(occStartDate.getTime() + durationMs);
+
+    try {
+      if (isRecurring && scope === 'this') {
+        const occKey = formatDateKey(occDate);
+        const currentExcluded = recurrenceConfig?.excludedDates || [];
+        const nextExcluded = currentExcluded.includes(occKey)
+          ? currentExcluded
+          : [...currentExcluded, occKey];
+        const updatedParentRecurrence: RecurrenceConfig = {
+          ...(recurrenceConfig!),
+          excludedDates: nextExcluded,
+        };
+        const updatedParentDesc = serializeRecurrence(updatedParentRecurrence, cleanDesc);
+
+        await updateMutation.mutateAsync({
+          eventId: event.id,
+          input: { description: updatedParentDesc },
+        });
+
+        const standaloneConfig: RecurrenceConfig = {
+          ...(recurrenceConfig!),
+          frequency: 'none',
+          endType: 'never',
+          endDate: null,
+          isCustom: false,
+        };
+        const standaloneDesc = serializeRecurrence(standaloneConfig, cleanDesc);
+
+        const created = await createMutation.mutateAsync({
+          eventTitle: event.eventTitle,
+          description: standaloneDesc,
+          location: event.location || undefined,
+          startTime: occStartDate.toISOString(),
+          endTime: occEndDate.toISOString(),
+          reminderTime: event.reminderTime || undefined,
+          isRecurrenceSplit: true,
+        } as any);
+
+        await rsvpMutation.mutateAsync({ eventId: created.id, status });
+      } else if (isRecurring && scope === 'future') {
+        const splitDay = new Date(occStartDate.getFullYear(), occStartDate.getMonth(), occStartDate.getDate());
+        const evOriginalStartDay = new Date(evStart.getFullYear(), evStart.getMonth(), evStart.getDate());
+
+        if (splitDay.getTime() > evOriginalStartDay.getTime()) {
+          const dayBefore = new Date(splitDay);
+          dayBefore.setDate(dayBefore.getDate() - 1);
+          dayBefore.setHours(23, 59, 59, 999);
+
+          const updatedParentRecurrence: RecurrenceConfig = {
+            ...(recurrenceConfig!),
+            endType: 'on_date',
+            endDate: dayBefore,
+          };
+          const updatedParentDesc = serializeRecurrence(updatedParentRecurrence, cleanDesc);
+
+          await updateMutation.mutateAsync({
+            eventId: event.id,
+            input: { description: updatedParentDesc },
+          });
+
+          const childConfig: RecurrenceConfig = {
+            ...(recurrenceConfig!),
+            excludedDates: [],
+            cancelledDates: [],
+          };
+          const childDesc = serializeRecurrence(childConfig, cleanDesc);
+
+          const created = await createMutation.mutateAsync({
+            eventTitle: event.eventTitle,
+            description: childDesc,
+            location: event.location || undefined,
+            startTime: occStartDate.toISOString(),
+            endTime: occEndDate.toISOString(),
+            reminderTime: event.reminderTime || undefined,
+            isRecurrenceSplit: true,
+          } as any);
+
+          await rsvpMutation.mutateAsync({ eventId: created.id, status });
+        } else {
+          await rsvpMutation.mutateAsync({ eventId: event.id, status });
+        }
+      } else {
+        await rsvpMutation.mutateAsync({ eventId: event.id, status });
+      }
+    } catch (err: any) {
+      console.warn('Failed to apply poll vote scope from card:', err);
+    } finally {
+      setIsApplyingPollScope(false);
+      setPollScopeState(null);
+    }
+  };
+
+
+
+  const handleShareToChat = async (eventId: string) => {
+    try {
+      await shareToChatMutation.mutateAsync(eventId);
+      setShareSuccessId(eventId);
+      setTimeout(() => setShareSuccessId(null), 2500);
+    } catch (err: any) {
+      alert(err.message || 'Lỗi khi chia sẻ sự kiện');
+    }
+  };
+
+  // Group schedule events chronologically by date: "Thứ, ngày tháng năm"
+  // Bung các lần lặp lại (recurrence) theo cửa sổ ngày quanh Hôm nay (Infinite Scroll giống tin nhắn)
+  const groupedScheduleByDate = useMemo(() => {
+    const now = new Date();
+    const todayDateOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+
+    // Cửa sổ thời gian: từ (Hôm nay - schedulePastDays) đến (Hôm nay + scheduleFutureDays)
+    const windowStartDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - schedulePastDays, 0, 0, 0, 0);
+    const windowEndDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + scheduleFutureDays, 23, 59, 59, 999);
+
+    const map = new Map<
+      string,
+      {
+        dateObj: Date;
+        dateLabel: string;
+        isPast: boolean;
+        isToday: boolean;
+        isFuture: boolean;
+        list: CalendarEventEntity[];
+      }
+    >();
+
+    const addEventEntry = (d: Date, ev: CalendarEventEntity) => {
+      const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+      if (!map.has(dateKey)) {
+        const rawWeekday = d.toLocaleDateString('vi-VN', { weekday: 'long' });
+        const weekday = rawWeekday
+          .split(' ')
+          .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+          .join(' ');
+        const day = d.getDate();
+        const month = d.getMonth() + 1;
+        const year = d.getFullYear();
+        const dateLabel = `${weekday}, ngày ${day} tháng ${month} năm ${year}`;
+
+        const gDateOnly = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+        const isToday = gDateOnly === todayDateOnly;
+        const isPast = gDateOnly < todayDateOnly;
+        const isFuture = gDateOnly > todayDateOnly;
+
+        map.set(dateKey, { dateObj: d, dateLabel, isPast, isToday, isFuture, list: [] });
+      }
+
+      if (!map.get(dateKey)!.list.some((e) => e.id === ev.id)) {
+        map.get(dateKey)!.list.push(ev);
+      }
+    };
+
+    for (const ev of allCalendarEvents) {
+      // isEventOccurringOnDate đã hỗ trợ toàn diện cả sự kiện đơn, kéo dài nhiều ngày và chu kỳ lặp
+      const cur = new Date(windowStartDate);
+      while (cur.getTime() <= windowEndDate.getTime()) {
+        if (isEventOccurringOnDate(ev, cur)) {
+          const isCancelledThisOcc = isEventCancelledOnDate(ev, cur);
+          const occEvent = isCancelledThisOcc ? { ...ev, isCancelled: true } : ev;
+          addEventEntry(new Date(cur), occEvent);
+        }
+        cur.setDate(cur.getDate() + 1);
+      }
+    }
+
+    return Array.from(map.values()).sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime());
+  }, [allCalendarEvents, schedulePastDays, scheduleFutureDays]);
+
+  // Determine current active target for "Hôm nay" jump and red header highlighting
+  const currentTargetDateLabel = useMemo(() => {
+    const now = new Date();
+    const todayDateOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+
+    // 1. Try finding today
+    const todayGroup = groupedScheduleByDate.find((g) => {
+      const gTime = new Date(g.dateObj.getFullYear(), g.dateObj.getMonth(), g.dateObj.getDate()).getTime();
+      return gTime === todayDateOnly;
+    });
+    if (todayGroup) return todayGroup.dateLabel;
+
+    // 2. Try finding the first upcoming group (future)
+    const nextGroup = groupedScheduleByDate.find((g) => {
+      const gTime = new Date(g.dateObj.getFullYear(), g.dateObj.getMonth(), g.dateObj.getDate()).getTime();
+      return gTime > todayDateOnly;
+    });
+    if (nextGroup) return nextGroup.dateLabel;
+
+    // 3. Fallback to the last past group if everything is in the past
+    if (groupedScheduleByDate.length > 0) {
+      return groupedScheduleByDate[groupedScheduleByDate.length - 1].dateLabel;
+    }
+    return null;
+  }, [groupedScheduleByDate]);
 
   const handleOpenCreateModal = () => {
     setEditingEvent(null);
+    setEditingOccurrenceDate(null);
     setSubmitError(null);
     setTitle('');
     setLocation('');
     setDescription('');
     setReminderMinutes('15');
-    setStartTime(formatToLocalDateTimeInput(selectedDate, 9, 0));
-    setEndTime(formatToLocalDateTimeInput(selectedDate, 10, 0));
+
+    const baseDate = new Date(selectedDate);
+    // Mặc định ngày đó từ 06:00 đến 23:59 (cả 2 đều bắt buộc)
+    const initialStart = formatToLocalDateTimeInput(baseDate, 6, 0);
+    const initialEnd = formatToLocalDateTimeInput(baseDate, 23, 59);
+    const initialRec = createDefaultRecurrenceConfig(baseDate);
+
+    setStartTime(initialStart);
+    setEndTime(initialEnd);
+    setRecurrenceConfig(initialRec);
+
+    previousDetailModalRef.current = null;
+    initialFormSnapshotRef.current = {
+      title: '',
+      location: '',
+      description: '',
+      startTime: initialStart,
+      endTime: initialEnd,
+      reminderMinutes: '15',
+      recurrenceConfigStr: JSON.stringify(initialRec),
+    };
+
     setIsAddModalOpen(true);
   };
 
-  const getFormValidationError = (): string | null => {
-    if (!title.trim()) return t.collab.calendarEventRequired;
-    if (!startTime) return t.collab.calendarStartRequired;
-
-    const start = new Date(startTime);
-    if (isNaN(start.getTime())) return t.collab.calendarStartInvalid;
-
-    if (endTime) {
-      const end = new Date(endTime);
-      if (isNaN(end.getTime())) return t.collab.calendarEndInvalid;
-      if (end.getTime() <= start.getTime()) {
-        return t.collab.calendarEndAfterStart;
-      }
-    }
-
-    return null;
-  };
-
-  const handleOpenEditModal = (ev: CalendarEventEntity) => {
+  const handleOpenEditModal = (ev: CalendarEventEntity, occDate?: Date) => {
     setEditingEvent(ev);
+    const targetOcc = occDate || (selectedDate ? new Date(selectedDate) : new Date(ev.startTime));
+    setEditingOccurrenceDate(targetOcc);
     setSubmitError(null);
     setTitle(ev.eventTitle);
     setLocation(ev.location || '');
-    setDescription(ev.description || '');
 
-    if (ev.startTime) {
-      const s = new Date(ev.startTime);
-      setStartTime(formatToLocalDateTimeInput(s, s.getHours(), s.getMinutes()));
+    const { cleanDesc, recurrenceConfig: parsedRec } = parseEventRecurrence(ev.description);
+    setDescription(cleanDesc);
+
+    const s = new Date(ev.startTime);
+    const e = ev.endTime ? new Date(ev.endTime) : new Date(s.getTime() + 3600000);
+
+    let startVal = '';
+    let endVal = '';
+
+    if (parsedRec && parsedRec.frequency !== 'none' && targetOcc) {
+      const occStart = new Date(targetOcc);
+      occStart.setHours(s.getHours(), s.getMinutes(), 0, 0);
+      startVal = formatToLocalDateTimeInput(occStart, s.getHours(), s.getMinutes());
+
+      const diffDays = Math.round(
+        (new Date(e.getFullYear(), e.getMonth(), e.getDate()).getTime() -
+          new Date(s.getFullYear(), s.getMonth(), s.getDate()).getTime()) /
+          (1000 * 60 * 60 * 24)
+      );
+      const occEnd = new Date(targetOcc);
+      occEnd.setDate(occEnd.getDate() + Math.max(0, diffDays));
+      endVal = formatToLocalDateTimeInput(occEnd, e.getHours(), e.getMinutes());
     } else {
-      setStartTime('');
+      startVal = formatToLocalDateTimeInput(s, s.getHours(), s.getMinutes());
+      endVal = formatToLocalDateTimeInput(e, e.getHours(), e.getMinutes());
     }
 
-    if (ev.endTime) {
-      const e = new Date(ev.endTime);
-      setEndTime(formatToLocalDateTimeInput(e, e.getHours(), e.getMinutes()));
-    } else {
-      setEndTime('');
-    }
+    setStartTime(startVal);
+    setEndTime(endVal);
 
+    const recVal = parsedRec || createDefaultRecurrenceConfig(s, e);
+    setRecurrenceConfig(recVal);
+
+    let remVal = 'none';
     if (ev.reminderTime && ev.startTime) {
       const diffMins = Math.round(
-        (new Date(ev.startTime).getTime() - new Date(ev.reminderTime).getTime()) / 60000,
+        (new Date(ev.startTime).getTime() - new Date(ev.reminderTime).getTime()) / 60000
       );
-      if ([15, 30, 60, 1440].includes(diffMins)) {
-        setReminderMinutes(String(diffMins));
-      } else {
-        setReminderMinutes('none');
+      if ([0, 5, 15, 30, 60, 120, 1440, 2880].includes(diffMins)) {
+        remVal = String(diffMins);
       }
+    }
+    setReminderMinutes(remVal);
+
+    previousDetailModalRef.current = {
+      event: ev,
+      occDate: targetOcc,
+    };
+    initialFormSnapshotRef.current = {
+      title: ev.eventTitle,
+      location: ev.location || '',
+      description: cleanDesc,
+      startTime: startVal,
+      endTime: endVal,
+      reminderMinutes: remVal,
+      recurrenceConfigStr: JSON.stringify(recVal),
+    };
+
+    setDetailModalState({ isOpen: false, event: null, occDate: null });
+    setIsAddModalOpen(true);
+  };
+
+  const hasFormChanges = useCallback(() => {
+    const initial = initialFormSnapshotRef.current;
+    if (!initial) return false;
+    if (title.trim() !== initial.title.trim()) return true;
+    if (location.trim() !== initial.location.trim()) return true;
+    if (description.trim() !== initial.description.trim()) return true;
+    if (startTime !== initial.startTime) return true;
+    if (endTime !== initial.endTime) return true;
+    if (reminderMinutes !== initial.reminderMinutes) return true;
+    if (JSON.stringify(recurrenceConfig) !== initial.recurrenceConfigStr) return true;
+    return false;
+  }, [title, location, description, startTime, endTime, reminderMinutes, recurrenceConfig]);
+
+  const handleForceCloseForm = useCallback(() => {
+    setShowUnsavedChangesModal(false);
+    setIsAddModalOpen(false);
+    const prev = previousDetailModalRef.current;
+    setEditingEvent(null);
+    setEditingOccurrenceDate(null);
+    previousDetailModalRef.current = null;
+    initialFormSnapshotRef.current = null;
+
+    if (prev && prev.event) {
+      setDetailModalState({
+        isOpen: true,
+        event: prev.event,
+        occDate: prev.occDate,
+      });
+    }
+  }, []);
+
+  const handleRequestCloseForm = useCallback(() => {
+    if (hasFormChanges()) {
+      setShowUnsavedChangesModal(true);
     } else {
-      setReminderMinutes('none');
+      handleForceCloseForm();
+    }
+  }, [hasFormChanges, handleForceCloseForm]);
+
+  const handleRepeatOptionChange = (value: string) => {
+    if (value === 'custom') {
+      const sDate = startTime ? new Date(startTime) : new Date();
+      const eDate = endTime ? new Date(endTime) : sDate;
+      const baseWk = getDefaultWeeklyDays(sDate, eDate);
+      setRecurrenceConfig((prev) => ({
+        ...prev,
+        frequency: prev.frequency === 'none' ? 'weekly' : prev.frequency,
+        interval: Math.max(1, prev.interval || 1),
+        weeklyDays: prev.weeklyDays.length > 0 ? prev.weeklyDays : baseWk,
+        isCustom: true,
+      }));
+      setIsCustomRepeatOpen(true);
+      return;
     }
 
-    setIsAddModalOpen(true);
+    const freq = value as RecurrenceFrequency;
+    if (freq === 'none') {
+      setRecurrenceConfig((prev) => ({
+        ...prev,
+        frequency: 'none',
+        isCustom: false,
+      }));
+    } else {
+      const sDate = startTime ? new Date(startTime) : new Date();
+      const eDate = endTime ? new Date(endTime) : sDate;
+      const baseWk = getDefaultWeeklyDays(sDate, eDate);
+      setRecurrenceConfig((prev) => ({
+        ...prev,
+        frequency: freq,
+        interval: 1,
+        weeklyDays: baseWk,
+        monthlyType: 'day_of_month',
+        monthlyDay: sDate.getDate(),
+        monthlyNthWeekday: getWeekdayNumber(sDate),
+        monthlyNthOrder: getNthOrderFromDate(sDate),
+        yearlyType: 'specific_date',
+        yearlyDay: sDate.getDate(),
+        yearlyMonth: sDate.getMonth() + 1,
+        isCustom: false,
+      }));
+    }
   };
 
   // Calendar math
@@ -177,7 +795,8 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
   }, [year, month]);
 
   const firstDayOfWeek = useMemo(() => {
-    return new Date(year, month - 1, 1).getDay();
+    const day = new Date(year, month - 1, 1).getDay();
+    return day === 0 ? 6 : day - 1; // 0 = Thứ Hai, 6 = Chủ Nhật
   }, [year, month]);
 
   const prevMonth = () => {
@@ -188,110 +807,64 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
     setCurrentDate(new Date(year, month, 1));
   };
 
-  const today = () => {
-    const cur = new Date();
-    setCurrentDate(cur);
-    setSelectedDate(cur);
-  };
+  const goToToday = () => {
+    const today = new Date();
+    setCurrentDate(today);
+    setSelectedDate(today);
 
-  const handleFormSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmitError(null);
-
-    const validationErr = getFormValidationError();
-    if (validationErr) {
-      setSubmitError(validationErr);
-      return;
-    }
-
-    const start = new Date(startTime);
-    const end = endTime ? new Date(endTime).toISOString() : undefined;
-
-    let reminder: string | undefined;
-    if (reminderMinutes && reminderMinutes !== 'none') {
-      const mins = parseInt(reminderMinutes, 10);
-      reminder = new Date(start.getTime() - mins * 60 * 1000).toISOString();
-    }
-
-    try {
-      if (editingEvent) {
-        await updateMutation.mutateAsync({
-          eventId: editingEvent.id,
-          input: {
-            eventTitle: title.trim(),
-            description: description.trim() || undefined,
-            location: location.trim() || undefined,
-            startTime: start.toISOString(),
-            endTime: end,
-            reminderTime: reminder,
-          },
-        });
-      } else {
-        await createMutation.mutateAsync({
-          eventTitle: title.trim(),
-          description: description.trim() || undefined,
-          location: location.trim() || undefined,
-          startTime: start.toISOString(),
-          endTime: end,
-          reminderTime: reminder,
-        });
-        setActiveCircleView('chat');
-      }
-
-      setEditingEvent(null);
-      setTitle('');
-      setLocation('');
-      setDescription('');
-      setStartTime('');
-      setEndTime('');
-      setIsAddModalOpen(false);
-    } catch (err: any) {
-      setSubmitError(
-        err?.message || (editingEvent ? t.collab.updateEventError : t.collab.createEventError),
-      );
+    if (viewMode === 'upcoming') {
+      setTimeout(() => {
+        const el = document.getElementById('schedule-current-target');
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 50);
     }
   };
 
-  const handleConfirmCancelEvent = async (eventId: string) => {
-    setCalendarError(null);
-    try {
-      await cancelMutation.mutateAsync(eventId);
-      setPendingAction(null);
-    } catch (err: any) {
-      setCalendarError(err?.message || t.collab.cancelEventError);
-      setPendingAction(null);
-    }
+  // Tải thêm các ngày trong quá khứ (+30 ngày)
+  const handleLoadMorePast = () => {
+    if (isLoadingMorePast) return;
+    setIsLoadingMorePast(true);
+    setTimeout(() => {
+      setSchedulePastDays((prev) => prev + 30);
+      setIsLoadingMorePast(false);
+    }, 200);
   };
 
-  const handleConfirmDeleteEvent = async (eventId: string) => {
-    setCalendarError(null);
-    try {
-      await deleteMutation.mutateAsync(eventId);
-      setPendingAction(null);
-    } catch (err: any) {
-      setCalendarError(err?.message || t.collab.deleteEventError);
-      setPendingAction(null);
-    }
+  // Tải thêm các ngày trong tương lai (+30 ngày)
+  const handleLoadMoreFuture = () => {
+    if (isLoadingMoreFuture) return;
+    setIsLoadingMoreFuture(true);
+    setTimeout(() => {
+      setScheduleFutureDays((prev) => prev + 30);
+      setIsLoadingMoreFuture(false);
+    }, 200);
   };
 
-  // Group events by day of current month (supporting multi-day events)
+  // Auto-scroll to today or next upcoming event when switching to schedule view
+  useEffect(() => {
+    if (viewMode !== 'upcoming') {
+      hasInitialScrolledRef.current = false;
+    } else if (!hasInitialScrolledRef.current && !isAllEventsLoading && groupedScheduleByDate.length > 0) {
+      hasInitialScrolledRef.current = true;
+      const timer = setTimeout(() => {
+        const el = document.getElementById('schedule-current-target');
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 120);
+      return () => clearTimeout(timer);
+    }
+  }, [viewMode, isAllEventsLoading, groupedScheduleByDate.length]);
+
+  // Map events to days of the current month
   const eventsByDay = useMemo(() => {
     const map = new Map<number, CalendarEventEntity[]>();
-    const totalDays = new Date(year, month, 0).getDate();
-
-    for (let d = 1; d <= totalDays; d++) {
-      const targetTime = new Date(year, month - 1, d).getTime();
+    for (let d = 1; d <= daysInMonth; d++) {
+      const targetDate = new Date(year, month - 1, d);
       for (const ev of events) {
-        const start = new Date(ev.startTime);
-        const startDayTime = new Date(
-          start.getFullYear(),
-          start.getMonth(),
-          start.getDate(),
-        ).getTime();
-        const end = ev.endTime ? new Date(ev.endTime) : start;
-        const endDayTime = new Date(end.getFullYear(), end.getMonth(), end.getDate()).getTime();
-
-        if (targetTime >= startDayTime && targetTime <= endDayTime) {
+        if (isEventOccurringOnDate(ev, targetDate)) {
           if (!map.has(d)) map.set(d, []);
           map.get(d)!.push(ev);
         }
@@ -300,7 +873,7 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
     return map;
   }, [events, month, year]);
 
-  // Automatically sync calendar date and month when navigating from chat/rail
+  // Sync calendar target date from navigation
   useEffect(() => {
     if (targetCalendarDate) {
       const d = new Date(targetCalendarDate);
@@ -312,15 +885,25 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
   }, [targetCalendarDate]);
 
   const selectedDayEvents = useMemo(() => {
-    if (selectedDate.getMonth() + 1 !== month || selectedDate.getFullYear() !== year) {
+    if (
+      selectedDate.getMonth() + 1 !== month ||
+      selectedDate.getFullYear() !== year
+    ) {
       return [];
     }
     return eventsByDay.get(selectedDate.getDate()) || [];
   }, [eventsByDay, selectedDate, month, year]);
 
-  // Scroll to targeted event card if present
   useEffect(() => {
     if (targetCalendarEventId && selectedDayEvents.length > 0) {
+      const targetEv = selectedDayEvents.find((e) => e.id === targetCalendarEventId);
+      if (targetEv) {
+        setDetailModalState({
+          isOpen: true,
+          event: targetEv,
+          occDate: new Date(selectedDate),
+        });
+      }
       const timer = setTimeout(() => {
         const el = document.getElementById(`calendar-event-${targetCalendarEventId}`);
         if (el) {
@@ -329,711 +912,1916 @@ export const CircleCalendarView: React.FC<CircleCalendarViewProps> = ({ circleId
       }, 150);
       return () => clearTimeout(timer);
     }
-  }, [targetCalendarEventId, selectedDayEvents]);
+  }, [targetCalendarEventId, selectedDayEvents, selectedDate]);
 
-  const weekdays = useMemo(
-    () => [
-      t.collab.weekdaySun,
-      t.collab.weekdayMon,
-      t.collab.weekdayTue,
-      t.collab.weekdayWed,
-      t.collab.weekdayThu,
-      t.collab.weekdayFri,
-      t.collab.weekdaySat,
-    ],
-    [t],
-  );
+  // Form Submit Handler supporting isolated occurrence scopes
+  const handleCreateOrUpdateEvent = async (scope: 'this' | 'future' | 'all' = 'all') => {
+    setSubmitError(null);
 
-  const dateLocale = locale === 'vi' ? 'vi-VN' : 'en-US';
-  const monthLabel = t.collab.monthYearTitle
-    .replace('{month}', String(month))
-    .replace('{year}', String(year));
+    if (!title.trim()) {
+      setSubmitError('Vui lòng nhập tên sự kiện');
+      return;
+    }
+    if (!startTime) {
+      setSubmitError('Vui lòng chọn thời gian bắt đầu');
+      return;
+    }
+    if (!endTime) {
+      setSubmitError('Vui lòng chọn thời gian kết thúc');
+      return;
+    }
+
+    const start = new Date(startTime);
+    if (isNaN(start.getTime())) {
+      setSubmitError('Thời gian bắt đầu không hợp lệ');
+      return;
+    }
+
+    const end = new Date(endTime);
+    if (isNaN(end.getTime())) {
+      setSubmitError('Thời gian kết thúc không hợp lệ');
+      return;
+    }
+    if (end.getTime() <= start.getTime()) {
+      setSubmitError('Thời gian kết thúc phải lớn hơn thời gian bắt đầu');
+      return;
+    }
+
+    const finalDesc = serializeRecurrence(recurrenceConfig, description);
+
+    let reminderIso: string | undefined = undefined;
+    if (reminderMinutes && reminderMinutes !== 'none') {
+      const mins = parseInt(reminderMinutes, 10);
+      reminderIso = new Date(start.getTime() - mins * 60 * 1000).toISOString();
+    }
+
+    try {
+      if (editingEvent) {
+        const isRecurring = Boolean(
+          recurrenceConfig.frequency !== 'none' ||
+          (editingEvent.description &&
+            (editingEvent.description.includes('[RECURRENCE:') || editingEvent.description.includes('[Lặp lại:')))
+        );
+
+        if (isRecurring && scope === 'this' && editingOccurrenceDate) {
+          const occKey = formatDateKey(editingOccurrenceDate);
+          const { recurrenceConfig: parentConfig, cleanDesc: parentCleanDesc } = parseEventRecurrence(editingEvent.description);
+          const currentExcluded = parentConfig?.excludedDates || [];
+          const nextExcluded = currentExcluded.includes(occKey) ? currentExcluded : [...currentExcluded, occKey];
+          const updatedParentRecurrence: RecurrenceConfig = {
+            ...(parentConfig || recurrenceConfig),
+            excludedDates: nextExcluded,
+          };
+          const updatedParentDesc = serializeRecurrence(updatedParentRecurrence, parentCleanDesc);
+
+          await updateMutation.mutateAsync({
+            eventId: editingEvent.id,
+            input: {
+              description: updatedParentDesc,
+            },
+          });
+
+          const standaloneConfig: RecurrenceConfig = {
+            ...recurrenceConfig,
+            frequency: 'none',
+            endType: 'never',
+            endDate: null,
+            isCustom: false,
+          };
+          const standaloneDesc = serializeRecurrence(standaloneConfig, description);
+
+          const created = await createMutation.mutateAsync({
+            eventTitle: title.trim(),
+            description: standaloneDesc,
+            location: location.trim() || undefined,
+            startTime: start.toISOString(),
+            endTime: end.toISOString(),
+            reminderTime: reminderIso,
+            isRecurrenceSplit: true,
+          } as any);
+
+          if (previousDetailModalRef.current) {
+            setDetailModalState({
+              isOpen: true,
+              event: created,
+              occDate: new Date(created.startTime),
+            });
+          }
+        } else if (isRecurring && scope === 'future' && (editingOccurrenceDate || startTime)) {
+          const splitDate = startTime ? new Date(startTime) : editingOccurrenceDate ? new Date(editingOccurrenceDate) : new Date();
+          const evOriginalStart = new Date(editingEvent.startTime);
+          const evOriginalStartDay = new Date(
+            evOriginalStart.getFullYear(),
+            evOriginalStart.getMonth(),
+            evOriginalStart.getDate(),
+          );
+          const splitDay = new Date(
+            splitDate.getFullYear(),
+            splitDate.getMonth(),
+            splitDate.getDate(),
+          );
+
+          // Nếu ngày tách lớn hơn ngày bắt đầu đầu tiên của sự kiện: Tách làm 2 sự kiện có chu kỳ lặp khác nhau
+          if (splitDay.getTime() > evOriginalStartDay.getTime()) {
+            const dayBefore = new Date(splitDay);
+            dayBefore.setDate(dayBefore.getDate() - 1);
+            dayBefore.setHours(23, 59, 59, 999);
+
+            const { recurrenceConfig: parentConfig, cleanDesc: parentCleanDesc } =
+              parseEventRecurrence(editingEvent.description);
+            const updatedParentRecurrence: RecurrenceConfig = {
+              ...(parentConfig || recurrenceConfig),
+              endType: 'on_date',
+              endDate: dayBefore,
+            };
+            const updatedParentDesc = serializeRecurrence(
+              updatedParentRecurrence,
+              parentCleanDesc,
+            );
+
+            // 1. Cập nhật sự kiện cũ: kết thúc lặp vào ngày trước splitDate
+            await updateMutation.mutateAsync({
+              eventId: editingEvent.id,
+              input: {
+                description: updatedParentDesc,
+              },
+            });
+
+            // 2. Tạo sự kiện mới: độ lặp mới bắt đầu từ splitDate
+            // Reset excludedDates và cancelledDates để không bị ảnh hưởng bởi chuỗi cũ
+            const childConfig: RecurrenceConfig = {
+              ...recurrenceConfig,
+              excludedDates: [],
+              cancelledDates: [],
+            };
+            const childDesc = serializeRecurrence(childConfig, description);
+
+            const created = await createMutation.mutateAsync({
+              eventTitle: title.trim(),
+              description: childDesc,
+              location: location.trim() || undefined,
+              startTime: start.toISOString(),
+              endTime: end.toISOString(),
+              reminderTime: reminderIso,
+              isRecurrenceSplit: true,
+            } as any);
+
+            if (previousDetailModalRef.current) {
+              setDetailModalState({
+                isOpen: true,
+                event: created,
+                occDate: new Date(created.startTime),
+              });
+            }
+          } else {
+            // Nếu ngày tách trùng hoặc trước ngày bắt đầu ban đầu: cập nhật trực tiếp sự kiện hiện tại
+            const updated = await updateMutation.mutateAsync({
+              eventId: editingEvent.id,
+              input: {
+                eventTitle: title.trim(),
+                description: finalDesc,
+                location: location.trim() || undefined,
+                startTime: start.toISOString(),
+                endTime: end.toISOString(),
+                reminderTime: reminderIso,
+              },
+            });
+
+            if (previousDetailModalRef.current) {
+              setDetailModalState({
+                isOpen: true,
+                event: updated,
+                occDate: editingOccurrenceDate || new Date(updated.startTime),
+              });
+            }
+          }
+        } else {
+          const updated = await updateMutation.mutateAsync({
+            eventId: editingEvent.id,
+            input: {
+              eventTitle: title.trim(),
+              description: finalDesc,
+              location: location.trim() || undefined,
+              startTime: start.toISOString(),
+              endTime: end.toISOString(),
+              reminderTime: reminderIso,
+            },
+          });
+
+          if (previousDetailModalRef.current) {
+            setDetailModalState({
+              isOpen: true,
+              event: updated,
+              occDate: editingOccurrenceDate || new Date(updated.startTime),
+            });
+          }
+        }
+      } else {
+        await createMutation.mutateAsync({
+          eventTitle: title.trim(),
+          description: finalDesc,
+          location: location.trim() || undefined,
+          startTime: start.toISOString(),
+          endTime: end.toISOString(),
+          reminderTime: reminderIso,
+        });
+        setActiveCircleView('chat');
+      }
+
+      setIsAddModalOpen(false);
+      setEditingEvent(null);
+      setEditingOccurrenceDate(null);
+      previousDetailModalRef.current = null;
+      initialFormSnapshotRef.current = null;
+    } catch (err: any) {
+      setSubmitError(err?.message || 'Có lỗi xảy ra khi lưu sự kiện');
+    }
+  };
+
+  const handleAttemptSubmit = () => {
+    if (editingEvent) {
+      const isRecurring = Boolean(
+        recurrenceConfig.frequency !== 'none' ||
+        (editingEvent.description &&
+          (editingEvent.description.includes('[RECURRENCE:') || editingEvent.description.includes('[Lặp lại:')))
+      );
+      if (isRecurring) {
+        setShowScopeModal(true);
+        return;
+      }
+    }
+    handleCreateOrUpdateEvent('all');
+  };
+
+  // Execution handler for Deleting events with 3 options
+  const executeDelete = async (scope: 'this' | 'future' | 'all') => {
+    const ev = deleteModalState.event;
+    const occD = deleteModalState.occDate || selectedDate || (ev ? new Date(ev.startTime) : new Date());
+    if (!ev) return;
+
+    try {
+      const { recurrenceConfig: parentConfig, cleanDesc: parentCleanDesc } = parseEventRecurrence(ev.description);
+      const isRecurring = Boolean(parentConfig && parentConfig.frequency !== 'none');
+
+      if (isRecurring && parentConfig) {
+        const occKey = formatDateKey(occD);
+
+        if (scope === 'this') {
+          const currentExcluded = parentConfig.excludedDates || [];
+          const nextExcluded = Array.from(new Set([...currentExcluded, occKey]));
+          const updatedParentRecurrence: RecurrenceConfig = {
+            ...parentConfig,
+            excludedDates: nextExcluded,
+          };
+          const updatedParentDesc = serializeRecurrence(updatedParentRecurrence, parentCleanDesc);
+
+          await updateMutation.mutateAsync({
+            eventId: ev.id,
+            input: {
+              description: updatedParentDesc,
+            },
+          });
+        } else if (scope === 'future') {
+          const startOfOld = new Date(ev.startTime);
+          if (formatDateKey(occD) <= formatDateKey(startOfOld)) {
+            await deleteMutation.mutateAsync(ev.id);
+          } else {
+            const dayBefore = new Date(occD);
+            dayBefore.setDate(dayBefore.getDate() - 1);
+            const updatedConfig: RecurrenceConfig = {
+              ...parentConfig,
+              endType: 'on_date',
+              endDate: dayBefore,
+            };
+            const newDesc = serializeRecurrence(updatedConfig, parentCleanDesc);
+            await updateMutation.mutateAsync({
+              eventId: ev.id,
+              input: {
+                description: newDesc,
+              },
+            });
+          }
+        } else {
+          await deleteMutation.mutateAsync(ev.id);
+        }
+      } else {
+        await deleteMutation.mutateAsync(ev.id);
+      }
+
+      setDeleteModalState({ isOpen: false, event: null, occDate: null });
+      if (detailModalState.event?.id === ev.id) {
+        setDetailModalState({ isOpen: false, event: null, occDate: null });
+      }
+    } catch (err: any) {
+      alert(err?.message || 'Có lỗi xảy ra khi xóa sự kiện');
+    }
+  };
+
+  // Execution handler for Cancelling events with 3 options
+  const executeCancel = async (scope: 'this' | 'future' | 'all') => {
+    const ev = cancelModalState.event;
+    const occD = cancelModalState.occDate || selectedDate || (ev ? new Date(ev.startTime) : new Date());
+    if (!ev) return;
+
+    try {
+      const { recurrenceConfig: parentConfig, cleanDesc: parentCleanDesc } = parseEventRecurrence(ev.description);
+      const isRecurring = Boolean(parentConfig && parentConfig.frequency !== 'none');
+
+      if (isRecurring && parentConfig) {
+        const occKey = formatDateKey(occD);
+
+        if (scope === 'this') {
+          const currentCancelled = parentConfig.cancelledDates || [];
+          const nextCancelled = Array.from(new Set([...currentCancelled, occKey]));
+          const updatedParentRecurrence: RecurrenceConfig = {
+            ...parentConfig,
+            cancelledDates: nextCancelled,
+          };
+          const updatedParentDesc = serializeRecurrence(updatedParentRecurrence, parentCleanDesc);
+
+          const updated = await updateMutation.mutateAsync({
+            eventId: ev.id,
+            input: {
+              description: updatedParentDesc,
+            },
+          });
+
+          if (detailModalState.event?.id === ev.id) {
+            setDetailModalState((prev) => (prev.event ? { ...prev, event: updated } : prev));
+          }
+        } else if (scope === 'future') {
+          const dayBefore = new Date(occD);
+          dayBefore.setDate(dayBefore.getDate() - 1);
+          const updatedConfig: RecurrenceConfig = {
+            ...parentConfig,
+            endType: 'on_date',
+            endDate: dayBefore,
+          };
+          const newDesc = serializeRecurrence(updatedConfig, parentCleanDesc);
+          const updated = await updateMutation.mutateAsync({
+            eventId: ev.id,
+            input: {
+              description: newDesc,
+            },
+          });
+
+          if (detailModalState.event?.id === ev.id) {
+            setDetailModalState((prev) => (prev.event ? { ...prev, event: updated } : prev));
+          }
+        } else {
+          await cancelMutation.mutateAsync(ev.id);
+          if (detailModalState.event?.id === ev.id) {
+            setDetailModalState((prev) =>
+              prev.event ? { ...prev, event: { ...prev.event, isCancelled: true } } : prev
+            );
+          }
+        }
+      } else {
+        await cancelMutation.mutateAsync(ev.id);
+        if (detailModalState.event?.id === ev.id) {
+          setDetailModalState((prev) =>
+            prev.event ? { ...prev, event: { ...prev.event, isCancelled: true } } : prev
+          );
+        }
+      }
+
+      setCancelModalState({ isOpen: false, event: null, occDate: null });
+    } catch (err: any) {
+      alert(err?.message || 'Có lỗi xảy ra khi hủy lịch hẹn');
+    }
+  };
+
+  // Execution handler for Restoring cancelled events / occurrences
+  const executeRestore = async (ev: CalendarEventEntity, occD: Date) => {
+    try {
+      const { recurrenceConfig: parentConfig, cleanDesc: parentCleanDesc } = parseEventRecurrence(ev.description);
+      const isRecurring = Boolean(parentConfig && parentConfig.frequency !== 'none');
+      const occKey = formatDateKey(occD);
+
+      if (isRecurring && parentConfig) {
+        const updatedConfig: RecurrenceConfig = {
+          ...parentConfig,
+          cancelledDates: (parentConfig.cancelledDates || []).filter((d) => d !== occKey),
+        };
+        const newDesc = serializeRecurrence(updatedConfig, parentCleanDesc);
+        const updated = await updateMutation.mutateAsync({
+          eventId: ev.id,
+          input: {
+            description: newDesc,
+          },
+        });
+        if (detailModalState.event?.id === ev.id) {
+          setDetailModalState((prev) => (prev.event ? { ...prev, event: updated } : prev));
+        }
+      } else {
+        // If single event was marked isCancelled
+        const updated = await updateMutation.mutateAsync({
+          eventId: ev.id,
+          input: {
+            description: parentCleanDesc,
+          },
+        });
+        if (detailModalState.event?.id === ev.id) {
+          setDetailModalState((prev) =>
+            prev.event ? { ...prev, event: { ...prev.event, isCancelled: false } } : prev
+          );
+        }
+      }
+    } catch (err: any) {
+      alert(err?.message || 'Không thể khôi phục lịch hẹn');
+    }
+  };
+
+  const isSubmitting = createMutation.isPending || updateMutation.isPending;
 
   return (
     <div className="relative flex-1 flex flex-col h-full bg-circle-canvas dark:bg-circle-dark-surface overflow-hidden transition-colors">
-      {/* Floating Glass Toolbar */}
-      <div className="pointer-events-none absolute top-14 lg:top-3 left-0 right-0 z-20 flex flex-col items-center gap-2 px-4">
-        <div className="pointer-events-auto flex flex-wrap items-center justify-between px-4 sm:px-5 py-2 rounded-full glass shadow-sm max-w-5xl w-full gap-2 sm:gap-3 transition-all">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <CalendarDays className="h-5 w-5 text-circle-sage dark:text-circle-dark-primary shrink-0" />
-            <h1 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text truncate">
-              {t.collab.calendarTitle}
-            </h1>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={today}
-              className="rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-circle-wash/80 dark:bg-circle-dark-canvas/80 px-3 py-1 text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash transition-colors shadow-2xs"
-            >
-              {t.collab.today}
-            </button>
-            <div className="flex items-center rounded-full border border-circle-hairline dark:border-circle-dark-hairline bg-circle-wash/80 dark:bg-circle-dark-canvas/80 overflow-hidden shadow-2xs">
+      {isAddModalOpen ? (
+        /* ============================================================== */
+        /* FULL-VIEW FORM TẠO & CHỈNH SỬA SỰ KIỆN (ICON-DRIVEN VERTICAL) */
+        /* ============================================================== */
+        <>
+          {/* Floating Pill Controls (Full gần sát lề như lịch hẹn sự kiện) */}
+          <div className="pointer-events-none absolute top-14 lg:top-3 left-0 right-0 z-30 flex flex-col items-center gap-2 px-4 md:px-6">
+            <div className="w-full flex items-center justify-between gap-3">
+              {/* Left: Nút Quay lại - Floating Pill Button: "< Lịch" khi Tạo mới, "< Chi tiết" khi Chỉnh sửa */}
               <button
                 type="button"
-                onClick={prevMonth}
-                className="p-1.5 hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate dark:text-circle-dark-muted"
+                onClick={handleRequestCloseForm}
+                className="pointer-events-auto inline-flex items-center gap-1.5 px-3.5 h-9 rounded-full backdrop-blur-xl bg-white/92 dark:bg-circle-dark-surface/90 border border-circle-hairline/80 dark:border-white/12 shadow-sm hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text font-bold text-xs sm:text-sm transition-all active:scale-95 cursor-pointer"
+                title={editingEvent ? 'Quay lại Chi tiết lịch hẹn' : 'Quay lại Lịch'}
               >
-                <ChevronLeft className="h-3.5 w-3.5" />
+                <ChevronLeft className="w-4 h-4 text-circle-sage dark:text-circle-dark-primary" />
+                <span>{editingEvent ? 'Chi tiết' : 'Lịch'}</span>
               </button>
-              <span className="px-2 sm:px-2.5 text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text">
-                {locale === 'vi'
-                  ? monthLabel
-                  : `${new Date(year, month - 1).toLocaleString('en', { month: 'short' })} ${year}`}
-              </span>
-              <button
-                type="button"
-                onClick={nextMonth}
-                className="p-1.5 hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate dark:text-circle-dark-muted"
-              >
-                <ChevronRight className="h-3.5 w-3.5" />
-              </button>
-            </div>
-            <button
-              type="button"
-              onClick={handleOpenCreateModal}
-              className="flex items-center gap-1.5 rounded-full bg-circle-primary hover:bg-circle-sage px-3.5 py-1 text-xs font-semibold text-circle-charcoal dark:text-circle-dark-canvas hover:text-white dark:hover:text-white transition-all shadow-sm active:scale-98"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              <span>{t.collab.createEvent}</span>
-            </button>
-          </div>
-        </div>
 
-        {calendarError && (
-          <div className="pointer-events-auto flex items-center justify-between gap-2 px-4 py-2 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-xs font-medium text-rose-700 dark:text-rose-400 max-w-5xl w-full backdrop-blur-md">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-              <span>{calendarError}</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setCalendarError(null)}
-              className="p-0.5 rounded-full hover:bg-rose-500/20"
-              title={t.common.dismiss}
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* Calendar Scroll-Under Content */}
-      <div className="flex-1 overflow-y-auto px-4 md:px-6 pt-28 lg:pt-20 pb-12">
-        {isLoading ? (
-          <div className="flex-1 flex items-center justify-center py-16">
-            <Loader2 className="h-6 w-6 animate-spin text-circle-slate dark:text-circle-dark-muted" />
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
-            {/* Calendar Grid (2 cols on large screen) */}
-            <div className="lg:col-span-2 rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-canvas p-4 shadow-2xs">
-              {/* Weekdays */}
-              <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-bold text-circle-slate dark:text-circle-dark-muted pb-2 border-b border-circle-hairline dark:border-circle-dark-hairline">
-                {weekdays.map((day) => (
-                  <span key={day}>{day}</span>
-                ))}
-              </div>
-
-              {/* Days grid */}
-              <div className="grid grid-cols-7 gap-1.5 pt-2">
-                {Array.from({ length: firstDayOfWeek }).map((_, i) => (
-                  <div key={`empty-${i}`} className="aspect-square opacity-0" />
-                ))}
-                {Array.from({ length: daysInMonth }).map((_, i) => {
-                  const dayNum = i + 1;
-                  const isSelected =
-                    selectedDate.getDate() === dayNum &&
-                    selectedDate.getMonth() + 1 === month &&
-                    selectedDate.getFullYear() === year;
-                  const isCurrentToday =
-                    new Date().getDate() === dayNum &&
-                    new Date().getMonth() + 1 === month &&
-                    new Date().getFullYear() === year;
-
-                  const dayEvents = eventsByDay.get(dayNum) || [];
-
-                  return (
-                    <button
-                      key={`day-${dayNum}`}
-                      type="button"
-                      onClick={() => {
-                        setSelectedDate(new Date(year, month - 1, dayNum));
-                        setTargetCalendarEvent(null, null);
-                      }}
-                      className={`aspect-square rounded-xl p-1.5 flex flex-col items-center justify-between transition-all border ${
-                        isSelected
-                          ? 'border-circle-sage bg-circle-sage/10 text-circle-sage dark:border-circle-primary dark:bg-circle-primary/15 dark:text-circle-dark-primary font-bold shadow-2xs'
-                          : isCurrentToday
-                            ? 'border-circle-charcoal/30 dark:border-white/25 bg-circle-wash dark:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text font-bold'
-                            : 'border-transparent hover:bg-circle-wash/60 dark:hover:bg-circle-dark-wash/60 text-circle-charcoal dark:text-circle-dark-text'
-                      }`}
-                    >
-                      <span className="text-xs">{dayNum}</span>
-                      <div className="flex gap-0.5">
-                        {dayEvents.slice(0, 3).map((_, eIdx) => (
-                          <span
-                            key={eIdx}
-                            className="h-1.5 w-1.5 rounded-full bg-circle-sage dark:bg-circle-dark-primary"
-                          />
-                        ))}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Day Events Details (1 col) */}
-            <div className="rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-canvas p-4 shadow-2xs flex flex-col h-full">
-              <div className="flex items-center justify-between pb-3 border-b border-circle-hairline dark:border-circle-dark-hairline mb-3 gap-2">
-                <h3 className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text uppercase tracking-wider truncate">
-                  {t.collab.eventsOnDate.replace(
-                    '{date}',
-                    selectedDate.toLocaleDateString(dateLocale),
+              {/* Right: Floating Pill Buttons: Đóng và Lưu (Cân bằng kích thước chuẩn xác) */}
+              <div className="pointer-events-auto flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={handleRequestCloseForm}
+                  className="inline-flex items-center justify-center w-20 sm:w-24 h-9 rounded-full backdrop-blur-xl bg-white/92 dark:bg-circle-dark-surface/90 border border-circle-hairline/80 dark:border-white/12 shadow-sm hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate dark:text-circle-dark-muted font-bold text-xs sm:text-sm transition-all active:scale-95 cursor-pointer"
+                >
+                  Đóng
+                </button>
+                <button
+                  type="button"
+                  disabled={isSubmitting}
+                  onClick={handleAttemptSubmit}
+                  className="inline-flex items-center justify-center w-20 sm:w-24 h-9 rounded-full backdrop-blur-xl bg-circle-primary hover:bg-circle-sage disabled:opacity-50 text-white font-bold text-xs sm:text-sm shadow-sm transition-all active:scale-95 cursor-pointer"
+                >
+                  {isSubmitting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <span>Lưu</span>
                   )}
-                </h3>
-                <span className="text-[11px] text-circle-slate dark:text-circle-dark-muted font-medium shrink-0">
-                  {t.collab.eventsCountLabel.replace('{count}', String(selectedDayEvents.length))}
-                </span>
+                </button>
               </div>
+            </div>
+          </div>
 
-              {selectedDayEvents.length > 0 ? (
-                <div className="space-y-3 overflow-y-auto max-h-[500px] pr-1">
-                  {selectedDayEvents.map((ev) => {
-                    const yesRsvps = ev.rsvps?.filter((r) => r.status === 'YES') || [];
-                    const maybeRsvps = ev.rsvps?.filter((r) => r.status === 'MAYBE') || [];
-                    const noRsvps = ev.rsvps?.filter((r) => r.status === 'NO') || [];
-                    const totalRsvps = yesRsvps.length + maybeRsvps.length + noRsvps.length;
-                    const myRsvp = ev.rsvps?.find((r) => r.userId === user?.id)?.status;
-                    const isStarted = new Date(ev.startTime) <= new Date();
+          {/* Form Scroll Container */}
+          <div className="flex-1 overflow-y-auto px-4 md:px-6 pt-28 lg:pt-20 pb-16">
+            <div className="space-y-6 max-w-4xl mx-auto w-full animate-in fade-in duration-200">
 
-                    const handleRsvp = async (status: EventRsvpStatus) => {
-                      setCalendarError(null);
-                      try {
-                        await rsvpMutation.mutateAsync({ eventId: ev.id, status });
-                      } catch (err: any) {
-                        setCalendarError(err?.message || t.collab.votePollError);
-                      }
-                    };
+          {/* Form Fields: Xếp hàng dọc theo thứ tự, bỏ khung thẻ mượt mà trực tiếp */}
+          <div className="space-y-6 pt-1">
+            {/* 1. Tiêu đề sự kiện */}
+            <div>
+              <input
+                type="text"
+                required
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Thêm tiêu đề sự kiện *"
+                className="w-full text-xl sm:text-2xl font-bold tracking-tight text-circle-charcoal dark:text-circle-dark-text placeholder:text-circle-slate/40 border-b border-circle-hairline dark:border-circle-dark-hairline pb-3 focus:outline-hidden focus:border-circle-primary bg-transparent transition-colors"
+              />
+            </div>
 
-                    const isTargeted = targetCalendarEventId === ev.id;
-                    const cardPending =
-                      pendingAction?.eventId === ev.id ? pendingAction.type : null;
+            {/* 2. Địa chỉ / Vị trí / Họp online (Icon MapPin - đồng bộ màu xanh hệ thống) ngay dưới tiêu đề */}
+            <div className="flex items-center gap-4 pt-2">
+              <div className="h-9 w-9 rounded-xl bg-circle-primary/10 flex items-center justify-center text-circle-sage dark:text-circle-dark-primary shrink-0">
+                <MapPin className="h-5 w-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <LocationSearchInput
+                  value={location}
+                  onChange={(loc) => setLocation(loc)}
+                  placeholder="Thêm địa điểm trên bản đồ hoặc link họp online (Google Meet, Zoom...)"
+                />
+              </div>
+            </div>
 
-                    return (
-                      <div
-                        key={ev.id}
-                        id={`calendar-event-${ev.id}`}
-                        className={`rounded-xl border p-3 shadow-2xs space-y-2.5 transition-all ${
-                          isTargeted
-                            ? 'border-circle-sage dark:border-circle-primary bg-circle-sage/10 dark:bg-circle-primary/10 ring-2 ring-circle-sage dark:ring-circle-primary'
-                            : 'border-circle-hairline/80 dark:border-circle-dark-hairline/80 bg-circle-wash/40 dark:bg-circle-dark-wash/40'
+            {/* 3. Hàng Thời gian (Icon Clock): Bỏ label, giữa 2 picker có mũi tên ArrowRight */}
+            <div className="flex items-center gap-4 pt-4 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60">
+              <div className="h-9 w-9 rounded-xl bg-circle-primary/10 flex items-center justify-center text-circle-sage dark:text-circle-dark-primary shrink-0">
+                <Clock className="h-5 w-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
+                  <div className="flex-1 min-w-0">
+                    <CustomDateTimePicker
+                      required
+                      value={startTime}
+                      onChange={(val) => {
+                        const prevStartDate = startTime ? startTime.split('T')[0] : '';
+                        setStartTime(val);
+                        if (val) {
+                          const s = new Date(val);
+                          setEditingOccurrenceDate(s);
+                          const newStartDate = val.split('T')[0];
+                          const newStartTimePart = val.includes('T') ? val.split('T')[1] : '06:00';
+
+                          if (!endTime) {
+                            setEndTime(`${newStartDate}T23:59`);
+                          } else {
+                            const [endD, endT] = endTime.includes('T') ? endTime.split('T') : [endTime, '23:59'];
+                            const timePart = endT || '23:59';
+
+                            // Khi người dùng chọn/đổi ngày bắt đầu (hoặc ngày kết thúc nhỏ hơn ngày bắt đầu):
+                            // Ngày kết thúc tự động nhảy theo ngày bắt đầu, giữ nguyên phần giờ:phút hiện có của endTime (ngày chứ ko nhảy giờ)
+                            if (newStartDate !== prevStartDate || endD < newStartDate) {
+                              if (timePart > newStartTimePart) {
+                                setEndTime(`${newStartDate}T${timePart}`);
+                              } else if (newStartTimePart === '23:59') {
+                                const nextDay = new Date(s);
+                                nextDay.setDate(nextDay.getDate() + 1);
+                                setEndTime(`${formatDateKey(nextDay)}T23:59`);
+                              } else {
+                                setEndTime(`${newStartDate}T23:59`);
+                              }
+                            } else if (endD === newStartDate && timePart <= newStartTimePart) {
+                              // Cùng ngày nhưng giờ kết thúc <= giờ bắt đầu
+                              if (newStartTimePart === '23:59') {
+                                const nextDay = new Date(s);
+                                nextDay.setDate(nextDay.getDate() + 1);
+                                setEndTime(`${formatDateKey(nextDay)}T23:59`);
+                              } else {
+                                setEndTime(`${newStartDate}T23:59`);
+                              }
+                            }
+                          }
+                        }
+                      }}
+                      min={undefined}
+                      placeholder="dd/mm/yyyy --:--"
+                      align="left"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-center px-1 text-circle-slate shrink-0">
+                    <ArrowRight className="h-4 w-4" />
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <CustomDateTimePicker
+                      required
+                      value={endTime}
+                      onChange={(val) => setEndTime(val)}
+                      min={startTime || undefined}
+                      placeholder="dd/mm/yyyy --:--"
+                      align="right"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 3. Hàng Lặp lại (Icon Repeat) */}
+            <div className="flex items-start gap-4 pt-4 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60">
+              <div className="h-9 w-9 rounded-xl bg-circle-primary/10 flex items-center justify-center text-circle-sage dark:text-circle-dark-primary shrink-0 mt-0.5">
+                <Repeat className="h-5 w-5" />
+              </div>
+              <div className="flex-1 min-w-0 space-y-3">
+                <div ref={repeatDropdownRef} className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setIsRepeatDropdownOpen((prev) => !prev)}
+                    className="w-full flex items-center justify-between rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/40 dark:bg-circle-dark-canvas/40 px-3.5 py-2.5 text-xs text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-canvas/60 transition-colors text-left focus:outline-hidden focus:ring-1 focus:ring-circle-sage cursor-pointer"
+                  >
+                    <span className="truncate font-medium">
+                      {recurrenceConfig.frequency === 'none'
+                        ? 'Không lặp lại'
+                        : recurrenceConfig.isCustom
+                        ? formatRecurrenceSummary(recurrenceConfig, false)
+                        : recurrenceConfig.frequency === 'daily'
+                        ? 'Hằng ngày'
+                        : recurrenceConfig.frequency === 'weekly'
+                        ? 'Hằng tuần'
+                        : recurrenceConfig.frequency === 'monthly'
+                        ? 'Hằng tháng'
+                        : 'Hằng năm'}
+                    </span>
+                    <ChevronDown
+                      className={`h-4 w-4 text-circle-slate transition-transform duration-200 shrink-0 ml-2 ${
+                        isRepeatDropdownOpen ? 'rotate-180' : ''
+                      }`}
+                    />
+                  </button>
+
+                  {isRepeatDropdownOpen && (
+                    <div className="absolute left-0 top-full mt-1.5 w-full bg-white dark:bg-circle-dark-surface rounded-xl border border-circle-hairline dark:border-circle-dark-hairline shadow-lg z-50 py-1 overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleRepeatOptionChange('none');
+                          setIsRepeatDropdownOpen(false);
+                        }}
+                        className={`w-full flex items-center justify-between px-3.5 py-2.5 text-xs text-left hover:bg-circle-wash dark:hover:bg-circle-dark-wash cursor-pointer transition-colors ${
+                          recurrenceConfig.frequency === 'none'
+                            ? 'font-bold text-circle-sage dark:text-circle-dark-primary bg-circle-wash dark:bg-circle-dark-wash'
+                            : 'text-circle-charcoal dark:text-circle-dark-text'
                         }`}
                       >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-                            <h4
-                              className={`text-xs font-bold ${
-                                ev.isCancelled
-                                  ? 'line-through text-circle-slate/70 dark:text-circle-dark-muted/70'
-                                  : 'text-circle-charcoal dark:text-circle-dark-text'
-                              }`}
-                            >
-                              {ev.eventTitle}
-                            </h4>
-                            {ev.isCancelled && (
-                              <span className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20">
-                                {t.collab.eventCancelledTag}
-                              </span>
-                            )}
-                          </div>
+                        <span>Không lặp lại</span>
+                        {recurrenceConfig.frequency === 'none' && (
+                          <Check className="h-3.5 w-3.5 text-circle-sage dark:text-circle-dark-primary shrink-0 ml-2" />
+                        )}
+                      </button>
 
-                          <div className="flex items-center gap-1 shrink-0">
-                            {!ev.isCancelled && (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={() => handleOpenEditModal(ev)}
-                                  className="p-1 text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text transition-colors"
-                                  title={t.collab.calendarEditTooltip}
-                                >
-                                  <Pencil className="h-3.5 w-3.5" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setPendingAction((prev) =>
-                                      prev?.eventId === ev.id && prev.type === 'cancel'
-                                        ? null
-                                        : { eventId: ev.id, type: 'cancel' },
-                                    )
-                                  }
-                                  className="p-1 text-amber-600 hover:text-amber-700 dark:text-amber-400 transition-colors"
-                                  title={t.collab.calendarCancelTooltip}
-                                >
-                                  <Ban className="h-3.5 w-3.5" />
-                                </button>
-                              </>
-                            )}
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setPendingAction((prev) =>
-                                  prev?.eventId === ev.id && prev.type === 'delete'
-                                    ? null
-                                    : { eventId: ev.id, type: 'delete' },
-                                )
-                              }
-                              className="p-1 text-circle-slate dark:text-circle-dark-muted hover:text-rose-500 transition-colors"
-                              title={t.collab.calendarDeleteTooltip}
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
-                        </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleRepeatOptionChange('daily');
+                          setIsRepeatDropdownOpen(false);
+                        }}
+                        className={`w-full flex items-center justify-between px-3.5 py-2.5 text-xs text-left hover:bg-circle-wash dark:hover:bg-circle-dark-wash cursor-pointer transition-colors ${
+                          !recurrenceConfig.isCustom && recurrenceConfig.frequency === 'daily'
+                            ? 'font-bold text-circle-sage dark:text-circle-dark-primary bg-circle-wash dark:bg-circle-dark-wash'
+                            : 'text-circle-charcoal dark:text-circle-dark-text'
+                        }`}
+                      >
+                        <span>Hằng ngày</span>
+                        {!recurrenceConfig.isCustom && recurrenceConfig.frequency === 'daily' && (
+                          <Check className="h-3.5 w-3.5 text-circle-sage dark:text-circle-dark-primary shrink-0 ml-2" />
+                        )}
+                      </button>
 
-                        {cardPending && (
-                          <div className="flex flex-col gap-1.5 p-2 rounded-lg bg-white dark:bg-circle-dark-surface border border-circle-hairline dark:border-circle-dark-hairline">
-                            <span className="text-[11px] font-semibold text-circle-charcoal dark:text-circle-dark-text">
-                              {cardPending === 'cancel'
-                                ? t.collab.cancelEventWarning
-                                : t.collab.deleteEventWarning}
-                            </span>
-                            <div className="flex items-center justify-end gap-1.5">
-                              <button
-                                type="button"
-                                onClick={() => setPendingAction(null)}
-                                className="px-2 py-0.5 rounded-md text-[10px] font-semibold text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash"
-                              >
-                                {t.common.cancel}
-                              </button>
-                              <button
-                                type="button"
-                                disabled={
-                                  cardPending === 'cancel'
-                                    ? cancelMutation.isPending
-                                    : deleteMutation.isPending
-                                }
-                                onClick={() =>
-                                  cardPending === 'cancel'
-                                    ? handleConfirmCancelEvent(ev.id)
-                                    : handleConfirmDeleteEvent(ev.id)
-                                }
-                                className={`px-2.5 py-0.5 rounded-md text-[10px] font-semibold text-white disabled:opacity-50 ${
-                                  cardPending === 'cancel'
-                                    ? 'bg-amber-600 hover:bg-amber-700'
-                                    : 'bg-rose-500 hover:bg-rose-600'
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleRepeatOptionChange('weekly');
+                          setIsRepeatDropdownOpen(false);
+                        }}
+                        className={`w-full flex items-center justify-between px-3.5 py-2.5 text-xs text-left hover:bg-circle-wash dark:hover:bg-circle-dark-wash cursor-pointer transition-colors ${
+                          !recurrenceConfig.isCustom && recurrenceConfig.frequency === 'weekly'
+                            ? 'font-bold text-circle-sage dark:text-circle-dark-primary bg-circle-wash dark:bg-circle-dark-wash'
+                            : 'text-circle-charcoal dark:text-circle-dark-text'
+                        }`}
+                      >
+                        <span>Hằng tuần</span>
+                        {!recurrenceConfig.isCustom && recurrenceConfig.frequency === 'weekly' && (
+                          <Check className="h-3.5 w-3.5 text-circle-sage dark:text-circle-dark-primary shrink-0 ml-2" />
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleRepeatOptionChange('monthly');
+                          setIsRepeatDropdownOpen(false);
+                        }}
+                        className={`w-full flex items-center justify-between px-3.5 py-2.5 text-xs text-left hover:bg-circle-wash dark:hover:bg-circle-dark-wash cursor-pointer transition-colors ${
+                          !recurrenceConfig.isCustom && recurrenceConfig.frequency === 'monthly'
+                            ? 'font-bold text-circle-sage dark:text-circle-dark-primary bg-circle-wash dark:bg-circle-dark-wash'
+                            : 'text-circle-charcoal dark:text-circle-dark-text'
+                        }`}
+                      >
+                        <span>Hằng tháng</span>
+                        {!recurrenceConfig.isCustom && recurrenceConfig.frequency === 'monthly' && (
+                          <Check className="h-3.5 w-3.5 text-circle-sage dark:text-circle-dark-primary shrink-0 ml-2" />
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleRepeatOptionChange('yearly');
+                          setIsRepeatDropdownOpen(false);
+                        }}
+                        className={`w-full flex items-center justify-between px-3.5 py-2.5 text-xs text-left hover:bg-circle-wash dark:hover:bg-circle-dark-wash cursor-pointer transition-colors ${
+                          !recurrenceConfig.isCustom && recurrenceConfig.frequency === 'yearly'
+                            ? 'font-bold text-circle-sage dark:text-circle-dark-primary bg-circle-wash dark:bg-circle-dark-wash'
+                            : 'text-circle-charcoal dark:text-circle-dark-text'
+                        }`}
+                      >
+                        <span>Hằng năm</span>
+                        {!recurrenceConfig.isCustom && recurrenceConfig.frequency === 'yearly' && (
+                          <Check className="h-3.5 w-3.5 text-circle-sage dark:text-circle-dark-primary shrink-0 ml-2" />
+                        )}
+                      </button>
+
+                      <div className="my-1 border-t border-circle-hairline dark:border-circle-dark-hairline" />
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsRepeatDropdownOpen(false);
+                          handleRepeatOptionChange('custom');
+                        }}
+                        className={`w-full flex items-center justify-between px-3.5 py-2.5 text-xs text-left hover:bg-circle-wash dark:hover:bg-circle-dark-wash cursor-pointer transition-colors ${
+                          recurrenceConfig.isCustom
+                            ? 'font-bold text-circle-sage dark:text-circle-dark-primary bg-circle-wash dark:bg-circle-dark-wash'
+                            : 'text-circle-charcoal dark:text-circle-dark-text'
+                        }`}
+                      >
+                        <span>Tùy chỉnh...</span>
+                        {recurrenceConfig.isCustom && (
+                          <Check className="h-3.5 w-3.5 text-circle-sage dark:text-circle-dark-primary shrink-0 ml-2" />
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Kết thúc lặp lại nếu frequency !== 'none' */}
+                {recurrenceConfig.frequency !== 'none' && (
+                  <div className="flex flex-wrap items-center gap-3 pt-1">
+                    <span className="text-xs font-semibold text-circle-slate dark:text-circle-dark-muted">
+                      Kết thúc lặp:
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setRecurrenceConfig((prev) => ({
+                            ...prev,
+                            endType: 'never',
+                            endDate: null,
+                          }))
+                        }
+                        className={`px-3 py-1 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+                          recurrenceConfig.endType === 'never'
+                            ? 'bg-circle-primary text-white border-circle-primary shadow-2xs font-bold'
+                            : 'bg-white dark:bg-circle-dark-surface border-circle-hairline text-circle-slate hover:text-circle-charcoal'
+                        }`}
+                      >
+                        Không giới hạn
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setRecurrenceConfig((prev) => ({
+                            ...prev,
+                            endType: 'on_date',
+                            endDate: prev.endDate || (startTime ? new Date(startTime) : new Date()),
+                          }))
+                        }
+                        className={`px-3 py-1 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+                          recurrenceConfig.endType === 'on_date'
+                            ? 'bg-circle-primary text-white border-circle-primary shadow-2xs font-bold'
+                            : 'bg-white dark:bg-circle-dark-surface border-circle-hairline text-circle-slate hover:text-circle-charcoal'
+                        }`}
+                      >
+                        Vào ngày
+                      </button>
+                    </div>
+
+                    {recurrenceConfig.endType === 'on_date' && (
+                      <div className="w-48">
+                        <CustomDateTimePicker
+                          dateOnly
+                          value={
+                            recurrenceConfig.endDate
+                              ? formatDateKey(recurrenceConfig.endDate)
+                              : ''
+                          }
+                          onChange={(val) => {
+                            if (!val) {
+                              setRecurrenceConfig((prev) => ({
+                                ...prev,
+                                endType: 'never',
+                                endDate: null,
+                              }));
+                            } else {
+                              const [y, m, d] = val.split('-').map(Number);
+                              const targetDate = new Date(y, m - 1, d, 23, 59, 59);
+                              setRecurrenceConfig((prev) => ({
+                                ...prev,
+                                endType: 'on_date',
+                                endDate: targetDate,
+                              }));
+                            }
+                          }}
+                          min={
+                            startTime
+                              ? startTime.split('T')[0]
+                              : undefined
+                          }
+                          placeholder="dd/mm/yyyy"
+                          align="left"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 5. Hàng Nhắc nhở (Icon Bell) */}
+            <div className="flex items-start gap-4 pt-4 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60">
+              <div className="h-9 w-9 rounded-xl bg-circle-primary/10 flex items-center justify-center text-circle-sage dark:text-circle-dark-primary shrink-0 mt-0.5">
+                <Bell className="h-5 w-5" />
+              </div>
+              <div className="flex-1 min-w-0 max-w-sm">
+                <select
+                  value={reminderMinutes}
+                  onChange={(e) => setReminderMinutes(e.target.value)}
+                  className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/40 dark:bg-circle-dark-canvas/40 px-3.5 py-2.5 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-hidden focus:ring-1 focus:ring-circle-sage"
+                >
+                  <option value="none">Không nhắc</option>
+                  <option value="0">Khi sự kiện diễn ra</option>
+                  <option value="5">Trước 5 phút</option>
+                  <option value="15">Trước 15 phút</option>
+                  <option value="30">Trước 30 phút</option>
+                  <option value="60">Trước 1 giờ</option>
+                  <option value="120">Trước 2 giờ</option>
+                  <option value="1440">Trước 1 ngày</option>
+                  <option value="2880">Trước 2 ngày</option>
+                </select>
+              </div>
+            </div>
+
+            {/* 6. Hàng Ghi chú / Mô tả (Icon AlignLeft) */}
+            <div className="flex items-start gap-4 pt-4 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60">
+              <div className="h-9 w-9 rounded-xl bg-circle-primary/10 flex items-center justify-center text-circle-sage dark:text-circle-dark-primary shrink-0 mt-0.5">
+                <AlignLeft className="h-5 w-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <textarea
+                  rows={4}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Thêm ghi chú, tài liệu hoặc nội dung cần chuẩn bị cho cuộc họp / sự kiện..."
+                  className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/40 dark:bg-circle-dark-canvas/40 px-3.5 py-2.5 text-xs text-circle-charcoal dark:text-circle-dark-text placeholder:text-circle-slate dark:placeholder:text-circle-dark-muted focus:outline-hidden focus:ring-1 focus:ring-circle-primary resize-y min-h-[96px]"
+                />
+              </div>
+            </div>
+
+            {submitError && (
+              <div className="p-3.5 rounded-2xl bg-rose-50 text-rose-600 border border-rose-200 text-xs font-medium">
+                {submitError}
+              </div>
+            )}
+            </div>
+          </div>
+        </div>
+      </>
+      ) : detailModalState.isOpen && detailModalState.event ? (
+        /* ============================================================== */
+        /* FULL-VIEW CHI TIẾT LỊCH HẸN (TƯƠNG TỰ FORM TẠO/SỬA) */
+        /* ============================================================== */
+        <CircleEventDetailModal
+          isOpen={detailModalState.isOpen}
+          onClose={() => setDetailModalState({ isOpen: false, event: null, occDate: null })}
+          event={detailModalState.event}
+          occurrenceDate={detailModalState.occDate}
+          circleId={circleId}
+          onEdit={(ev, occDate) => {
+            handleOpenEditModal(ev, occDate);
+          }}
+          onDelete={(ev, occDate) => {
+            setDeleteModalState({
+              isOpen: true,
+              event: ev,
+              occDate,
+            });
+          }}
+          onCancel={(ev, occDate) => {
+            setCancelModalState({
+              isOpen: true,
+              event: ev,
+              occDate,
+            });
+          }}
+          onRestore={(ev, occDate) => {
+            executeRestore(ev, occDate);
+          }}
+          onShareToChat={handleShareToChat}
+        />
+      ) : (
+        <>
+          {/* Floating Pill Controls (Full gần sát lề như lịch hẹn sự kiện) */}
+          <div className="pointer-events-none absolute top-14 lg:top-3 left-0 right-0 z-30 flex flex-col items-center gap-2 px-4 md:px-6">
+            <div className="w-full flex items-center justify-between gap-3">
+              {/* Left: View mode toggle pill (Theo tháng / Sắp tới) */}
+              <div className="pointer-events-auto inline-flex items-center p-1 rounded-full backdrop-blur-xl bg-white/92 dark:bg-circle-dark-surface/90 border border-circle-hairline/80 dark:border-white/12 shadow-sm">
+                <button
+                  type="button"
+                  onClick={() => setViewMode('month')}
+                  className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer active:scale-95 ${
+                    viewMode === 'month'
+                      ? 'bg-circle-primary text-white shadow-xs'
+                      : 'text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text'
+                  }`}
+                >
+                  <CalendarDays className="h-3.5 w-3.5" />
+                  <span>Theo tháng</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('upcoming')}
+                  className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer active:scale-95 ${
+                    viewMode === 'upcoming'
+                      ? 'bg-circle-primary text-white shadow-xs'
+                      : 'text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text'
+                  }`}
+                >
+                  <Clock className="h-3.5 w-3.5" />
+                  <span>Theo lịch trình</span>
+                </button>
+              </div>
+
+              {/* Right: Floating Pill Buttons: "Hôm nay" và "Tạo sự kiện" */}
+              <div className="pointer-events-auto flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={goToToday}
+                  className="inline-flex items-center justify-center px-4 h-9 rounded-full backdrop-blur-xl bg-white/92 dark:bg-circle-dark-surface/90 border border-circle-hairline/80 dark:border-white/12 shadow-sm hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text font-bold text-xs sm:text-sm transition-all active:scale-95 cursor-pointer"
+                >
+                  Hôm nay
+                </button>
+                <button
+                  type="button"
+                  onClick={handleOpenCreateModal}
+                  className="inline-flex items-center gap-1.5 px-4 h-9 rounded-full backdrop-blur-xl bg-circle-primary hover:bg-circle-sage text-white font-bold text-xs sm:text-sm shadow-sm transition-all active:scale-95 cursor-pointer"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span>Tạo sự kiện</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Scroll-under Content Layer */}
+          <div className="flex-1 overflow-y-auto px-4 md:px-6 pt-28 lg:pt-20 pb-12">
+            <div className="max-w-6xl mx-auto w-full">
+
+      {/* Main Content Area */}
+      {viewMode === 'upcoming' ? (
+        /* Schedule feed (Cơ chế cuộn vô tận giống tin nhắn) */
+        <div className="space-y-6 w-full">
+          {isAllEventsLoading ? (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="h-6 w-6 animate-spin text-circle-slate" />
+            </div>
+          ) : groupedScheduleByDate.length === 0 ? (
+            <div className="text-center py-16 rounded-2xl border border-dashed border-circle-hairline bg-white dark:bg-circle-dark-canvas p-8">
+              <CalendarIcon className="h-10 w-10 text-circle-slate/40 mx-auto mb-3" />
+              <p className="text-sm font-semibold text-circle-charcoal dark:text-circle-dark-text">
+                Không có sự kiện nào trong khoảng thời gian này
+              </p>
+              <p className="text-xs text-circle-slate dark:text-circle-dark-muted mt-1 mb-4">
+                Đang hiển thị {schedulePastDays} ngày trước và {scheduleFutureDays} ngày tới quanh Hôm nay.
+              </p>
+              <div className="flex items-center justify-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleLoadMorePast}
+                  className="px-3.5 py-1.5 rounded-full text-xs font-semibold border border-circle-hairline hover:border-circle-primary text-circle-slate hover:text-circle-charcoal cursor-pointer transition-colors active:scale-95"
+                >
+                  Tải thêm sự kiện quá khứ
+                </button>
+                <button
+                  type="button"
+                  onClick={handleLoadMoreFuture}
+                  className="px-3.5 py-1.5 rounded-full text-xs font-semibold border border-circle-hairline hover:border-circle-primary text-circle-slate hover:text-circle-charcoal cursor-pointer transition-colors active:scale-95"
+                >
+                  Tải thêm sự kiện tương lai
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Nút tải sự kiện cũ hơn ở trên đỉnh (giống cuộn lên xem tin nhắn cũ) */}
+              <div className="flex justify-center pt-1 pb-2">
+                <button
+                  type="button"
+                  disabled={isLoadingMorePast}
+                  onClick={handleLoadMorePast}
+                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-semibold text-circle-slate dark:text-circle-dark-muted hover:text-circle-sage dark:hover:text-circle-dark-primary bg-circle-wash/60 dark:bg-circle-dark-surface/60 hover:bg-circle-wash dark:hover:bg-circle-dark-surface border border-circle-hairline dark:border-white/10 transition-all cursor-pointer shadow-2xs active:scale-95 disabled:opacity-50"
+                  title="Tải thêm các ngày trước đó"
+                >
+                  {isLoadingMorePast ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin text-circle-primary" />
+                      <span>Đang tải sự kiện trước đó...</span>
+                    </>
+                  ) : (
+                    <span>Tải sự kiện trước đó (+30 ngày)</span>
+                  )}
+                </button>
+              </div>
+
+              {groupedScheduleByDate.map(({ dateLabel, dateObj, isPast, isToday, isFuture, list }) => {
+              const isCurrentTarget = dateLabel === currentTargetDateLabel;
+
+              return (
+                <div
+                  key={dateLabel}
+                  id={isCurrentTarget ? 'schedule-current-target' : undefined}
+                  className={`space-y-3 scroll-mt-24 ${isPast ? 'opacity-85' : ''}`}
+                >
+                  <div className="flex items-center gap-2">
+                    <h3
+                      className={`text-xs sm:text-sm font-bold transition-colors ${
+                        isCurrentTarget
+                          ? 'text-red-600 dark:text-red-400 font-extrabold'
+                          : isPast
+                          ? 'text-zinc-500/80 dark:text-zinc-400/80 font-medium'
+                          : 'text-circle-charcoal dark:text-circle-dark-text font-bold'
+                      }`}
+                    >
+                      {dateLabel}
+                    </h3>
+                    {isToday ? (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20">
+                        Hôm nay
+                      </span>
+                    ) : isCurrentTarget ? (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20">
+                        Sắp diễn ra
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="space-y-3">
+                    {list.map((ev) => {
+                      const isCancelled = ev.isCancelled;
+                      const myRsvp = ev.rsvps?.find((r) => r.userId === user?.id)?.status;
+
+                      return (
+                        <div
+                          key={`${ev.id}-${dateLabel}`}
+                          onClick={() =>
+                            setDetailModalState({
+                              isOpen: true,
+                              event: ev,
+                              occDate: dateObj,
+                            })
+                          }
+                          className={`w-full group cursor-pointer hover:border-circle-primary/60 hover:shadow-xs transition-all rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-canvas p-4 shadow-2xs space-y-2.5 ${
+                            isPast ? 'bg-zinc-50/40 dark:bg-zinc-900/20' : ''
+                          }`}
+                        >
+                          {/* Row 1: Tiêu đề & Tag Đã Hủy (bên trái), 3 Nút phản hồi nhanh (bên phải) */}
+                          <div className="flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span
+                                className={`text-sm sm:text-base font-bold truncate ${
+                                  isPast
+                                    ? 'text-zinc-600 dark:text-zinc-300'
+                                    : 'text-circle-charcoal dark:text-circle-dark-text'
                                 }`}
                               >
-                                {t.common.confirm}
-                              </button>
-                            </div>
-                          </div>
-                        )}
-
-                        <div className="space-y-1.5 text-[11px] text-circle-slate dark:text-circle-dark-muted">
-                          <div className="flex items-center gap-1.5">
-                            <Clock className="h-3 w-3 text-circle-sage dark:text-circle-dark-primary shrink-0" />
-                            <span>
-                              {new Date(ev.startTime).toLocaleTimeString(dateLocale, {
-                                hour: '2-digit',
-                                minute: '2-digit',
-                              })}
-                              {ev.endTime &&
-                                ` - ${new Date(ev.endTime).toLocaleTimeString(dateLocale, {
-                                  hour: '2-digit',
-                                  minute: '2-digit',
-                                })}`}
-                            </span>
-                          </div>
-
-                          {ev.location && (
-                            <EventLocationDisplay
-                              location={ev.location}
-                              className="text-[11px]"
-                              iconClassName="h-3 w-3 shrink-0"
-                            />
-                          )}
-
-                          {ev.reminderTime && (
-                            <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
-                              <Bell className="h-3 w-3 shrink-0" />
-                              <span>
-                                {t.collab.calendarRemindAtPrefix.replace(
-                                  '{time}',
-                                  new Date(ev.reminderTime).toLocaleTimeString(dateLocale, {
-                                    hour: '2-digit',
-                                    minute: '2-digit',
-                                  }),
-                                )}
+                                {ev.eventTitle}
                               </span>
+                              {isCancelled && (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-600 border border-rose-500/20 shrink-0">
+                                  ĐÃ HỦY
+                                </span>
+                              )}
+                            </div>
+
+                            {/* 3 Nút phản hồi nhanh */}
+                            <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                              {[
+                                { status: EventRsvpStatus.YES, label: 'Tham gia', icon: Check, active: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/40 font-bold', hover: 'hover:border-emerald-500/50 hover:text-emerald-600' },
+                                { status: EventRsvpStatus.MAYBE, label: 'Chưa chắc', icon: HelpCircle, active: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/40 font-bold', hover: 'hover:border-amber-500/50 hover:text-amber-600' },
+                                { status: EventRsvpStatus.NO, label: 'Bận', icon: X, active: 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/40 font-bold', hover: 'hover:border-rose-500/50 hover:text-rose-600' },
+                              ].map((btn) => {
+                                const isSelected = myRsvp === btn.status;
+                                const Icon = btn.icon;
+                                return (
+                                  <button
+                                    key={btn.status}
+                                    type="button"
+                                    disabled={ev.isCancelled || rsvpMutation.isPending || isApplyingPollScope}
+                                    onClick={() => handleCardRsvpClick(ev, btn.status, dateObj)}
+                                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs border transition-all cursor-pointer shadow-2xs ${
+                                      isSelected
+                                        ? btn.active
+                                        : `bg-white dark:bg-circle-dark-surface text-circle-slate dark:text-circle-dark-muted border-circle-hairline dark:border-white/10 ${btn.hover}`
+                                    } disabled:opacity-50`}
+                                  >
+                                    {isSelected && <Icon className="h-3 w-3 shrink-0" />}
+                                    <span>{btn.label}</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          {/* Row 2: Thời gian diễn ra (dòng riêng) */}
+                          <div className="flex items-center gap-1.5 text-xs text-circle-sage dark:text-circle-dark-primary font-medium">
+                            <Clock className="h-3.5 w-3.5 shrink-0" />
+                            <span>{formatEventTimeForDate(ev, dateObj)}</span>
+                          </div>
+
+                          {/* Row 3: Địa điểm (dòng riêng bên dưới, duy nhất 1 icon từ EventLocationDisplay) */}
+                          {ev.location && (
+                            <div className="text-xs text-circle-slate dark:text-circle-dark-muted min-w-0">
+                              <EventLocationDisplay location={ev.location} className="text-xs" />
                             </div>
                           )}
                         </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
 
-                        {ev.description && (
-                          <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted pt-2 border-t border-circle-hairline/50 dark:border-circle-dark-hairline/50">
-                            {ev.description}
-                          </p>
-                        )}
+              {/* Nút tải thêm sự kiện tương lai ở cuối (giống cuộn xuống tin nhắn mới) */}
+              <div className="flex justify-center pt-3 pb-8">
+                <button
+                  type="button"
+                  disabled={isLoadingMoreFuture}
+                  onClick={handleLoadMoreFuture}
+                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-semibold text-circle-slate dark:text-circle-dark-muted hover:text-circle-sage dark:hover:text-circle-dark-primary bg-circle-wash/60 dark:bg-circle-dark-surface/60 hover:bg-circle-wash dark:hover:bg-circle-dark-surface border border-circle-hairline dark:border-white/10 transition-all cursor-pointer shadow-2xs active:scale-95 disabled:opacity-50"
+                  title="Tải thêm các ngày tiếp theo"
+                >
+                  {isLoadingMoreFuture ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin text-circle-primary" />
+                      <span>Đang tải sự kiện tiếp theo...</span>
+                    </>
+                  ) : (
+                    <span>Tải sự kiện tiếp theo (+30 ngày)</span>
+                  )}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      ) : (
+        /* Month View Grid */
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+          {/* Calendar Grid (2 cols) */}
+          <div className="lg:col-span-2 rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-canvas p-4 shadow-2xs space-y-4">
+            {/* Month Navigator */}
+            <div className="flex items-center justify-between pb-3 border-b border-circle-hairline dark:border-circle-dark-hairline">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={prevMonth}
+                  className="p-1.5 rounded-lg text-circle-slate hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors cursor-pointer"
+                  title="Tháng trước"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
 
-                        <div className="text-[10px] text-circle-slate/80 dark:text-circle-dark-muted/80">
-                          {t.collab.pollCreatedBy.replace(
-                            '{name}',
-                            ev.creator?.user?.profile?.displayName || t.collab.memberDefault,
-                          )}
+                {/* Month & Year Picker Dropdown (Dạng Bánh xe / Xe lăn) */}
+                <div ref={monthPickerRef} className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setIsMonthPickerOpen((prev) => !prev)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash border border-transparent hover:border-circle-hairline dark:hover:border-white/10 transition-all cursor-pointer"
+                    title="Chọn tháng và năm"
+                  >
+                    <span>Tháng {month} / {year}</span>
+                    <ChevronDown className={`h-3.5 w-3.5 text-circle-slate transition-transform duration-200 ${isMonthPickerOpen ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {isMonthPickerOpen && (
+                    <div className="absolute top-full left-0 mt-2 z-40 w-72 p-3.5 rounded-2xl bg-white dark:bg-circle-dark-surface border border-circle-hairline dark:border-white/10 shadow-2xl space-y-3 animate-in fade-in zoom-in-95 duration-150">
+                      <div className="flex items-center justify-between px-1">
+                        <span className="text-xs font-bold uppercase tracking-wider text-circle-slate dark:text-circle-dark-muted">
+                          Chọn Tháng & Năm
+                        </span>
+                        <button
+                          type="button"
+                          onClick={handleWheelJumpToday}
+                          className="text-xs font-bold text-circle-sage dark:text-circle-dark-primary hover:underline cursor-pointer"
+                        >
+                          Hôm nay
+                        </button>
+                      </div>
+
+                      {/* BÁNH XE THÁNG VÀ NĂM CÓ CỤC ĐEN CỐ ĐỊNH (Dạng xe lăn) */}
+                      <div className="relative h-[200px] w-full overflow-hidden flex justify-center items-center select-none bg-circle-wash/30 dark:bg-circle-dark-canvas/50 rounded-xl border border-circle-hairline/60">
+                        {/* CỤC ĐEN CỐ ĐỊNH Ở CHÍNH GIỮA */}
+                        <div className="absolute inset-x-2 top-[80px] h-10 rounded-xl bg-circle-charcoal dark:bg-circle-primary shadow-md pointer-events-none z-0 border border-white/10" />
+
+                        {/* Cột Tháng (Tháng 01 - Tháng 12) - ẨN 100% THANH CUỘN */}
+                        <div
+                          ref={wheelMonthsScrollRef}
+                          onScroll={handleWheelMonthScroll}
+                          className="h-full w-28 overflow-y-auto snap-y snap-mandatory z-10 text-center py-0 scrollbar-none [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+                        >
+                          <div className="h-[80px] shrink-0 pointer-events-none" />
+                          {WHEEL_MONTH_NAMES.map((mName, idx) => {
+                            const isSelected = idx === month - 1;
+                            return (
+                              <div
+                                key={mName}
+                                onClick={() => handleWheelSelectMonth(idx)}
+                                className={`h-10 flex items-center justify-center snap-center text-xs font-bold transition-all cursor-pointer ${
+                                  isSelected
+                                    ? 'text-white dark:text-white scale-105 font-extrabold'
+                                    : 'text-circle-slate dark:text-circle-dark-muted opacity-35 hover:opacity-80 scale-90'
+                                }`}
+                              >
+                                {mName}
+                              </div>
+                            );
+                          })}
+                          <div className="h-[80px] shrink-0 pointer-events-none" />
                         </div>
 
-                        {/* RSVP Section */}
-                        <div className="pt-2.5 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60 space-y-2.5">
-                          <div className="flex items-center justify-between text-[11px]">
-                            <span className="font-semibold flex items-center gap-1">
-                              {ev.isCancelled ? (
-                                <>
-                                  <Lock className="h-3 w-3 text-rose-500" />
-                                  <span className="text-rose-700 dark:text-rose-400">
-                                    {t.collab.eventCancelledBanner}
-                                  </span>
-                                </>
-                              ) : isStarted ? (
-                                <>
-                                  <Lock className="h-3 w-3 text-circle-slate dark:text-circle-dark-muted" />
-                                  <span className="text-circle-slate dark:text-circle-dark-muted">
-                                    {t.collab.rsvpClosed}
-                                  </span>
-                                </>
-                              ) : (
-                                <>
-                                  <Users className="h-3 w-3 text-circle-sage dark:text-circle-dark-primary" />
-                                  <span className="text-circle-charcoal dark:text-circle-dark-text">
-                                    {t.collab.attendancePoll}
-                                  </span>
-                                </>
-                              )}
-                            </span>
-                            <span className="text-[10px] text-circle-slate dark:text-circle-dark-muted font-medium">
-                              {t.collab.responsesCount.replace('{count}', String(totalRsvps))}
-                            </span>
+                        {/* Dấu gạch chéo phân cách */}
+                        <div className="z-10 font-bold text-sm text-white/70 dark:text-white/70 pointer-events-none px-1">
+                          /
+                        </div>
+
+                        {/* Cột Năm - ẨN 100% THANH CUỘN */}
+                        <div
+                          ref={wheelYearsScrollRef}
+                          onScroll={handleWheelYearScroll}
+                          className="h-full w-20 overflow-y-auto snap-y snap-mandatory z-10 text-center py-0 scrollbar-none [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+                        >
+                          <div className="h-[80px] shrink-0 pointer-events-none" />
+                          {WHEEL_YEARS.map((y) => {
+                            const isSelected = y === year;
+                            return (
+                              <div
+                                key={y}
+                                onClick={() => handleWheelSelectYear(y)}
+                                className={`h-10 flex items-center justify-center snap-center text-xs font-bold transition-all cursor-pointer ${
+                                  isSelected
+                                    ? 'text-white dark:text-white scale-105 font-extrabold'
+                                    : 'text-circle-slate dark:text-circle-dark-muted opacity-35 hover:opacity-80 scale-90'
+                                }`}
+                              >
+                                {y}
+                              </div>
+                            );
+                          })}
+                          <div className="h-[80px] shrink-0 pointer-events-none" />
+                        </div>
+                      </div>
+
+                      {/* Nút Xong */}
+                      <div className="flex justify-end pt-1">
+                        <button
+                          type="button"
+                          onClick={() => setIsMonthPickerOpen(false)}
+                          className="px-4 py-1.5 rounded-xl text-xs font-bold bg-circle-primary text-white hover:bg-circle-sage transition-colors shadow-2xs cursor-pointer active:scale-95"
+                        >
+                          Xong
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={nextMonth}
+                  className="p-1.5 rounded-lg text-circle-slate hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors cursor-pointer"
+                  title="Tháng sau"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+
+              <span className="text-xs text-circle-slate dark:text-circle-dark-muted font-medium">
+                {events.length} sự kiện trong tháng
+              </span>
+            </div>
+
+            {/* Weekday Labels (Thứ 2 đến CN) */}
+            <div className="grid grid-cols-7 gap-1 text-center text-xs font-bold text-circle-slate dark:text-circle-dark-muted mb-2">
+              {['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map((d) => (
+                <div key={d} className="py-1">
+                  {d}
+                </div>
+              ))}
+            </div>
+
+            {/* Days Grid */}
+            <div className="grid grid-cols-7 gap-1">
+              {/* Empty leading slots */}
+              {Array.from({ length: firstDayOfWeek }).map((_, i) => (
+                <div
+                  key={`empty-${i}`}
+                  className="min-h-[80px] p-1 rounded-xl bg-circle-canvas/30 dark:bg-circle-dark-surface/20 border border-transparent"
+                />
+              ))}
+
+              {/* Day cells */}
+              {Array.from({ length: daysInMonth }).map((_, i) => {
+                const dayNum = i + 1;
+                const isSelected =
+                  selectedDate.getDate() === dayNum &&
+                  selectedDate.getMonth() + 1 === month &&
+                  selectedDate.getFullYear() === year;
+
+                const isToday =
+                  now.getDate() === dayNum &&
+                  now.getMonth() + 1 === month &&
+                  now.getFullYear() === year;
+
+                const dayEvents = eventsByDay.get(dayNum) || [];
+
+                return (
+                  <button
+                    key={dayNum}
+                    type="button"
+                    onClick={() => setSelectedDate(new Date(year, month - 1, dayNum))}
+                    className={`min-h-[80px] p-1.5 rounded-xl border text-left flex flex-col justify-between transition-all ${
+                      isSelected
+                        ? 'border-circle-primary ring-2 ring-circle-primary/20 bg-circle-wash dark:bg-circle-dark-wash'
+                        : isToday
+                        ? 'border-circle-primary/40 bg-circle-wash/60'
+                        : 'border-circle-hairline/60 dark:border-circle-dark-hairline/40 hover:bg-circle-wash/50 dark:hover:bg-circle-dark-surface/50'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between w-full">
+                      <span
+                        className={`text-xs font-bold h-6 w-6 rounded-full flex items-center justify-center ${
+                          isToday
+                            ? 'bg-circle-primary text-white'
+                            : isSelected
+                            ? 'text-circle-sage dark:text-circle-dark-primary font-extrabold'
+                            : 'text-circle-charcoal dark:text-circle-dark-text'
+                        }`}
+                      >
+                        {dayNum}
+                      </span>
+                      {dayEvents.length > 0 && (
+                        <span className="text-[9px] font-bold text-circle-sage dark:text-circle-dark-primary bg-circle-primary/10 px-1.5 py-0.2 rounded-full">
+                          {dayEvents.length}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Event indicators - Clicking directly opens Event Detail Modal */}
+                    <div className="w-full space-y-0.5 overflow-hidden">
+                      {dayEvents.slice(0, 2).map((ev) => {
+                        const isCancelled = isEventCancelledOnDate(ev, new Date(year, month - 1, dayNum));
+                        return (
+                          <div
+                            key={ev.id}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedDate(new Date(year, month - 1, dayNum));
+                              setDetailModalState({
+                                isOpen: true,
+                                event: ev,
+                                occDate: new Date(year, month - 1, dayNum),
+                              });
+                            }}
+                            className={`text-[9px] px-1 py-0.2 rounded-sm truncate text-left font-medium cursor-pointer hover:opacity-80 transition-opacity ${
+                              isCancelled
+                                ? 'bg-rose-500/10 text-rose-600 line-through'
+                                : 'bg-circle-primary/15 text-circle-sage dark:text-circle-dark-primary'
+                            }`}
+                          >
+                            {ev.eventTitle}
                           </div>
+                        );
+                      })}
+                      {dayEvents.length > 2 && (
+                        <div className="text-[8px] font-bold text-circle-slate text-center">
+                          +{dayEvents.length - 2}
+                        </div>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
-                          <div className="space-y-1.5">
+          {/* Day Events Details (1 col) */}
+          <div className="rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-canvas p-4 shadow-2xs flex flex-col h-full">
+            <div className="flex items-center justify-between pb-3 border-b border-circle-hairline dark:border-circle-dark-hairline mb-3">
+              <div>
+                <h2 className="text-xs font-bold uppercase tracking-wider text-circle-slate dark:text-circle-dark-muted">
+                  Lịch trình ngày
+                </h2>
+                <p className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
+                  {selectedDate.toLocaleDateString('vi-VN', {
+                    weekday: 'long',
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric',
+                  })}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-3">
+              {isLoading ? (
+                <div className="flex items-center justify-center py-10">
+                  <Loader2 className="h-5 w-5 animate-spin text-circle-slate" />
+                </div>
+              ) : selectedDayEvents.length === 0 ? (
+                <div className="text-center py-12">
+                  <Clock className="h-8 w-8 text-circle-slate/40 mx-auto mb-2" />
+                  <p className="text-xs font-medium text-circle-slate dark:text-circle-dark-muted">
+                    Không có lịch hẹn nào trong ngày này
+                  </p>
+                </div>
+              ) : (
+                selectedDayEvents.map((ev) => {
+                  const isOccCancelled = isEventCancelledOnDate(ev, selectedDate);
+                  const { recurrenceConfig: rec } = parseEventRecurrence(ev.description);
+
+                  return (
+                    <div
+                      key={ev.id}
+                      id={`calendar-event-${ev.id}`}
+                      onClick={() => {
+                        setDetailModalState({
+                          isOpen: true,
+                          event: ev,
+                          occDate: new Date(selectedDate),
+                        });
+                      }}
+                      className={`rounded-xl border p-3 space-y-2.5 transition-all cursor-pointer hover:border-circle-primary/60 hover:shadow-xs ${
+                        isOccCancelled
+                          ? 'border-rose-200 bg-rose-50/40 dark:bg-rose-950/20'
+                          : 'border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-surface'
+                      }`}
+                    >
+                      {/* Row 1: Tiêu đề & Tag Đã Hủy */}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span
+                          className={`text-xs sm:text-sm font-bold ${
+                            isOccCancelled
+                              ? 'text-rose-700 dark:text-rose-400 line-through'
+                              : 'text-circle-charcoal dark:text-circle-dark-text'
+                          }`}
+                        >
+                          {ev.eventTitle}
+                        </span>
+                        {isOccCancelled && (
+                          <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-rose-500/10 text-rose-600 border border-rose-500/20">
+                            Đã hủy
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Row 2: Thời gian diễn ra */}
+                      <div className="flex items-center gap-1.5 text-xs text-circle-sage dark:text-circle-dark-primary font-medium">
+                        <Clock className="h-3.5 w-3.5 shrink-0" />
+                        <span>{formatEventTimeForDate(ev, selectedDate)}</span>
+                      </div>
+
+                      {/* Row 3: Địa điểm */}
+                      {ev.location && (
+                        <div className="text-xs text-circle-slate dark:text-circle-dark-muted min-w-0">
+                          <EventLocationDisplay location={ev.location} className="text-xs" />
+                        </div>
+                      )}
+
+                      {/* Row 4: 3 Nút phản hồi nhanh RSVP */}
+                      {(() => {
+                        const rsvps = ev.rsvps || [];
+                        const myVote = rsvps.find((r) => r.userId === user?.id)?.status;
+
+                        return (
+                          <div
+                            className="pt-2 border-t border-circle-hairline/60 dark:border-circle-dark-hairline/60 flex items-center justify-end gap-1.5"
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             {[
-                              {
-                                status: EventRsvpStatus.YES,
-                                label: t.collab.rsvpGoing,
-                                icon: Check,
-                                percent:
-                                  totalRsvps > 0
-                                    ? Math.round((yesRsvps.length / totalRsvps) * 100)
-                                    : 0,
-                                rsvps: yesRsvps,
-                                barColor: 'bg-emerald-500/15 dark:bg-emerald-500/20',
-                                activeBarColor: 'bg-emerald-500/25 dark:bg-emerald-500/35',
-                                activeBorder:
-                                  'border-emerald-500/70 dark:border-emerald-400/80 ring-1 ring-emerald-500/30',
-                                iconColor: 'text-emerald-700 dark:text-emerald-400',
-                              },
-                              {
-                                status: EventRsvpStatus.MAYBE,
-                                label: t.collab.rsvpMaybe,
-                                icon: HelpCircle,
-                                percent:
-                                  totalRsvps > 0
-                                    ? Math.round((maybeRsvps.length / totalRsvps) * 100)
-                                    : 0,
-                                rsvps: maybeRsvps,
-                                barColor: 'bg-amber-500/15 dark:bg-amber-500/20',
-                                activeBarColor: 'bg-amber-500/25 dark:bg-amber-500/35',
-                                activeBorder:
-                                  'border-amber-500/70 dark:border-amber-400/80 ring-1 ring-amber-500/30',
-                                iconColor: 'text-amber-600 dark:text-amber-400',
-                              },
-                              {
-                                status: EventRsvpStatus.NO,
-                                label: t.collab.rsvpDecline,
-                                icon: X,
-                                percent:
-                                  totalRsvps > 0
-                                    ? Math.round((noRsvps.length / totalRsvps) * 100)
-                                    : 0,
-                                rsvps: noRsvps,
-                                barColor: 'bg-rose-500/15 dark:bg-rose-500/20',
-                                activeBarColor: 'bg-rose-500/25 dark:bg-rose-500/35',
-                                activeBorder:
-                                  'border-rose-500/70 dark:border-rose-400/80 ring-1 ring-rose-500/30',
-                                iconColor: 'text-rose-700 dark:text-rose-400',
-                              },
-                            ].map((opt) => {
-                              const isSelected = myRsvp === opt.status;
+                              { status: EventRsvpStatus.YES, label: 'Tham gia', icon: Check, active: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/40 font-bold', hover: 'hover:border-emerald-500/50 hover:text-emerald-600' },
+                              { status: EventRsvpStatus.MAYBE, label: 'Chưa chắc', icon: HelpCircle, active: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/40 font-bold', hover: 'hover:border-amber-500/50 hover:text-amber-600' },
+                              { status: EventRsvpStatus.NO, label: 'Bận', icon: X, active: 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/40 font-bold', hover: 'hover:border-rose-500/50 hover:text-rose-600' },
+                            ].map((btn) => {
+                              const isSelected = myVote === btn.status;
+                              const Icon = btn.icon;
                               return (
-                                <div key={opt.status} className="space-y-1">
-                                  <button
-                                    type="button"
-                                    disabled={
-                                      isStarted || Boolean(ev.isCancelled) || rsvpMutation.isPending
-                                    }
-                                    onClick={() => handleRsvp(opt.status)}
-                                    className={`relative w-full overflow-hidden rounded-xl border p-2 text-left transition-all ${
-                                      isStarted || Boolean(ev.isCancelled)
-                                        ? 'cursor-not-allowed opacity-75'
-                                        : 'hover:border-circle-primary/50 active:scale-[0.99]'
-                                    } ${
-                                      isSelected
-                                        ? `${opt.activeBorder} bg-circle-canvas/90 dark:bg-circle-dark-canvas/90 font-bold shadow-2xs`
-                                        : 'border-circle-hairline/80 dark:border-circle-dark-hairline/80 bg-white/90 dark:bg-circle-dark-surface/90'
-                                    }`}
-                                  >
-                                    <div
-                                      className={`absolute inset-y-0 left-0 transition-all duration-500 ease-out ${
-                                        isSelected ? opt.activeBarColor : opt.barColor
-                                      }`}
-                                      style={{ width: `${opt.percent}%` }}
-                                    />
-
-                                    <div className="relative z-10 flex items-center justify-between text-[11px]">
-                                      <div className="flex items-center gap-1.5">
-                                        <span
-                                          className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border transition-all ${
-                                            isSelected
-                                              ? 'border-circle-primary bg-circle-primary text-circle-charcoal dark:text-circle-dark-canvas'
-                                              : 'border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface'
-                                          }`}
-                                        >
-                                          {isSelected && <Check className="h-2 w-2 stroke-[3]" />}
-                                        </span>
-                                        <opt.icon className={`h-3 w-3 ${opt.iconColor}`} />
-                                        <span className="font-semibold text-circle-charcoal dark:text-circle-dark-text">
-                                          {opt.label}
-                                        </span>
-                                      </div>
-
-                                      <div className="flex items-center -space-x-1.5 shrink-0 pl-2">
-                                        {opt.rsvps.slice(0, 5).map((r, idx) => {
-                                          const name =
-                                            r.user?.profile?.displayName ||
-                                            r.user?.email?.split('@')[0] ||
-                                            t.collab.memberDefault;
-                                          const avatarUrl = r.user?.profile?.avatarUrl;
-                                          const isMe = r.userId === user?.id;
-                                          const displayName = isMe ? t.calls.youLabel : name;
-                                          return (
-                                            <div
-                                              key={r.id || r.userId || idx}
-                                              title={displayName}
-                                              className="relative inline-flex h-5 w-5 items-center justify-center rounded-full ring-2 ring-white dark:ring-circle-dark-surface bg-circle-wash dark:bg-circle-dark-wash overflow-hidden shrink-0 shadow-xs"
-                                            >
-                                              {avatarUrl ? (
-                                                <img
-                                                  src={avatarUrl}
-                                                  alt={displayName}
-                                                  className="h-full w-full rounded-full object-cover"
-                                                />
-                                              ) : (
-                                                <span className="flex h-full w-full items-center justify-center rounded-full bg-circle-primary text-circle-charcoal dark:text-circle-dark-canvas text-[8px] font-bold">
-                                                  {displayName.charAt(0).toUpperCase()}
-                                                </span>
-                                              )}
-                                            </div>
-                                          );
-                                        })}
-                                        {opt.rsvps.length > 5 && (
-                                          <span
-                                            title={opt.rsvps
-                                              .slice(5)
-                                              .map(
-                                                (r) =>
-                                                  r.user?.profile?.displayName ||
-                                                  t.collab.memberDefault,
-                                              )
-                                              .join(', ')}
-                                            className="relative inline-flex h-5 w-5 items-center justify-center rounded-full bg-circle-charcoal/80 dark:bg-circle-slate text-white text-[8px] font-bold ring-2 ring-white dark:ring-circle-dark-surface shrink-0"
-                                          >
-                                            +{opt.rsvps.length - 5}
-                                          </span>
-                                        )}
-                                      </div>
-                                    </div>
-                                  </button>
-                                </div>
+                                <button
+                                  key={btn.status}
+                                  type="button"
+                                  disabled={isOccCancelled || rsvpMutation.isPending || isApplyingPollScope}
+                                  onClick={() => handleCardRsvpClick(ev, btn.status, new Date(selectedDate))}
+                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] border transition-all cursor-pointer ${
+                                    isSelected
+                                      ? btn.active
+                                      : `bg-white dark:bg-circle-dark-surface text-circle-slate dark:text-circle-dark-muted border-circle-hairline dark:border-white/10 ${btn.hover}`
+                                  } disabled:opacity-50`}
+                                >
+                                  {isSelected && <Icon className="h-3 w-3 shrink-0" />}
+                                  <span>{btn.label}</span>
+                                </button>
                               );
                             })}
                           </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
-                  <CalendarDays className="h-10 w-10 text-circle-slate dark:text-circle-dark-muted opacity-40 mb-2" />
-                  <p className="text-xs text-circle-slate dark:text-circle-dark-muted">
-                    {t.collab.noEventsOnDay}
-                  </p>
+                        );
+                      })()}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+            </div>
+          </div>
+        </>
+      )}
+
+
+
+      {/* ============================================================== */}
+      {/* MODAL PHẠM VI ÁP DỤNG KHI BÌNH CHỌN TRÊN THẺ CHO SỰ KIỆN LẶP LẠI */}
+      {/* ============================================================== */}
+      {pollScopeState && pollScopeState.isOpen && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="w-full max-w-sm rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-5 shadow-2xl space-y-4">
+            <div>
+              <h4 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
+                Bạn muốn áp dụng thay đổi như thế nào ?
+              </h4>
+            </div>
+
+            <div className="space-y-2">
+              <button
+                type="button"
+                disabled={isApplyingPollScope}
+                onClick={() => handleApplyPollScope('this')}
+                className="w-full text-left p-3 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas hover:border-circle-primary hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-all cursor-pointer disabled:opacity-50"
+              >
+                <p className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
+                  Chỉ lần này
+                </p>
+                <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted mt-0.5">
+                  Chỉ áp dụng phản hồi cho riêng ngày {formatDateOnly(pollScopeState.occDate)}, các lần khác giữ nguyên.
+                </p>
+              </button>
+
+              <button
+                type="button"
+                disabled={isApplyingPollScope}
+                onClick={() => handleApplyPollScope('future')}
+                className="w-full text-left p-3 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas hover:border-circle-primary hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-all cursor-pointer disabled:opacity-50"
+              >
+                <p className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
+                  Lần này và các lần tiếp theo
+                </p>
+                <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted mt-0.5">
+                  Áp dụng phản hồi từ ngày {formatDateOnly(pollScopeState.occDate)} trở đi (sẽ tách làm 2 sự kiện có chu kỳ lặp khác nhau).
+                </p>
+              </button>
+
+              <button
+                type="button"
+                disabled={isApplyingPollScope}
+                onClick={() => handleApplyPollScope('all')}
+                className="w-full text-left p-3 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas hover:border-circle-primary hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-all cursor-pointer disabled:opacity-50"
+              >
+                <p className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
+                  Tất cả các lần
+                </p>
+                <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted mt-0.5">
+                  Cập nhật phản hồi cho toàn bộ các lần diễn ra trong chuỗi lặp lại.
+                </p>
+              </button>
+            </div>
+
+            <div className="pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline flex justify-end">
+              <button
+                type="button"
+                disabled={isApplyingPollScope}
+                onClick={() => setPollScopeState(null)}
+                className="px-4 py-1.5 rounded-xl text-xs font-semibold text-circle-slate hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors cursor-pointer"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* POPUP TÙY CHỈNH QUY TẮC LẶP */}
+      {/* ============================================================== */}
+      <CustomRecurrenceModal
+        isOpen={isCustomRepeatOpen}
+        onClose={() => setIsCustomRepeatOpen(false)}
+        config={recurrenceConfig}
+        startDate={startTime ? new Date(startTime) : new Date()}
+        onApply={(updated) => {
+          setRecurrenceConfig(updated);
+        }}
+      />
+
+      
+
+
+
+      {/* ============================================================== */}
+      {/* MODAL CẢNH BÁO: THAY ĐỔI CHƯA LƯU */}
+      {/* ============================================================== */}
+      {showUnsavedChangesModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="w-full max-w-sm rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-5 shadow-2xl space-y-4">
+            <div className="space-y-1.5">
+              <h4 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
+                Thay đổi chưa lưu
+              </h4>
+              <p className="text-xs text-circle-slate dark:text-circle-dark-muted leading-relaxed">
+                Bạn muốn bỏ nội dung chỉnh sửa hay tiếp tục chỉnh sửa?
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline">
+              <button
+                type="button"
+                onClick={handleForceCloseForm}
+                className="px-3.5 py-1.5 rounded-xl text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 transition-colors cursor-pointer"
+              >
+                Bỏ nội dung chỉnh sửa
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowUnsavedChangesModal(false)}
+                className="px-3.5 py-1.5 rounded-xl text-xs font-bold text-white bg-circle-primary hover:bg-circle-sage transition-colors shadow-xs cursor-pointer active:scale-95"
+              >
+                Tiếp tục chỉnh sửa
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* SCOPE CONFIRMATION MODAL CHO LƯU / SỬA (3 OPTIONS) */}
+      {/* ============================================================== */}
+      {showScopeModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="w-full max-w-sm rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-5 shadow-2xl space-y-4">
+            <div>
+              <h4 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
+                Bạn muốn áp dụng thay đổi như thế nào ?
+              </h4>
+            </div>
+
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowScopeModal(false);
+                  handleCreateOrUpdateEvent('this');
+                }}
+                className="w-full text-left p-3 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas hover:border-circle-primary hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-all"
+              >
+                <p className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
+                  Chỉ lần này
+                </p>
+                <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted mt-0.5">
+                  Chỉ thay đổi riêng ngày {editingOccurrenceDate ? formatDateOnly(editingOccurrenceDate) : ''}, các lần khác giữ nguyên.
+                </p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowScopeModal(false);
+                  handleCreateOrUpdateEvent('future');
+                }}
+                className="w-full text-left p-3 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas hover:border-circle-primary hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-all"
+              >
+                <p className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
+                  Lần này và các lần tiếp theo
+                </p>
+                <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted mt-0.5">
+                  Áp dụng thay đổi từ ngày {startTime ? formatDateOnly(new Date(startTime)) : editingOccurrenceDate ? formatDateOnly(editingOccurrenceDate) : ''} trở đi (sẽ tách làm 2 sự kiện có chu kỳ lặp khác nhau).
+                </p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowScopeModal(false);
+                  handleCreateOrUpdateEvent('all');
+                }}
+                className="w-full text-left p-3 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas hover:border-circle-primary hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-all"
+              >
+                <p className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
+                  Tất cả các lần
+                </p>
+                <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted mt-0.5">
+                  Cập nhật toàn bộ các lần diễn ra trong chuỗi lặp lại.
+                </p>
+              </button>
+            </div>
+
+            <div className="pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowScopeModal(false)}
+                className="px-4 py-1.5 rounded-xl text-xs font-semibold text-circle-slate hover:bg-circle-wash transition-colors"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* SCOPE CONFIRMATION MODAL CHO XÓA (3 OPTIONS HOẶC CONFIRM ĐƠN) */}
+      {/* ============================================================== */}
+      {deleteModalState.isOpen && deleteModalState.event && (() => {
+        const ev = deleteModalState.event;
+        const occD = deleteModalState.occDate || selectedDate || new Date(ev.startTime);
+        const { recurrenceConfig: parsedRec } = parseEventRecurrence(ev.description);
+        const isRecurring = Boolean(parsedRec && parsedRec.frequency !== 'none');
+
+        return (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+            <div className="w-full max-w-sm rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-5 shadow-2xl space-y-4">
+              <div>
+                <h4 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
+                  {isRecurring ? 'Xóa sự kiện lặp lại' : 'Xóa vĩnh viễn sự kiện'}
+                </h4>
+                <p className="text-xs text-circle-slate dark:text-circle-dark-muted mt-1">
+                  {isRecurring
+                    ? 'Bạn muốn xóa sự kiện này cho lần diễn ra này, các lần tiếp theo hay tất cả các lần?'
+                    : 'Bạn có chắc chắn muốn xóa vĩnh viễn sự kiện này khỏi lịch nhóm?'}
+                </p>
+              </div>
+
+              {isRecurring ? (
+                <div className="space-y-2">
                   <button
                     type="button"
-                    onClick={handleOpenCreateModal}
-                    className="mt-3 text-xs font-semibold text-circle-sage dark:text-circle-dark-primary hover:underline"
+                    onClick={() => executeDelete('this')}
+                    className="w-full text-left p-3 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas hover:border-rose-500 hover:bg-rose-50/40 dark:hover:bg-rose-950/20 transition-all"
                   >
-                    + {t.collab.newEventSchedulePrompt}
+                    <p className="text-xs font-bold text-rose-600 dark:text-rose-400">
+                      Chỉ xóa lần này
+                    </p>
+                    <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted mt-0.5">
+                      Ẩn sự kiện vào ngày {formatDateOnly(occD)}. Các lần khác vẫn hiển thị bình thường.
+                    </p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => executeDelete('future')}
+                    className="w-full text-left p-3 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas hover:border-rose-500 hover:bg-rose-50/40 dark:hover:bg-rose-950/20 transition-all"
+                  >
+                    <p className="text-xs font-bold text-rose-600 dark:text-rose-400">
+                      Xóa lần này và các lần tiếp theo
+                    </p>
+                    <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted mt-0.5">
+                      Ngừng chuỗi lặp lại từ ngày {formatDateOnly(occD)} trở đi.
+                    </p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => executeDelete('all')}
+                    className="w-full text-left p-3 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas hover:border-rose-500 hover:bg-rose-50/40 dark:hover:bg-rose-950/20 transition-all"
+                  >
+                    <p className="text-xs font-bold text-rose-600 dark:text-rose-400">
+                      Xóa tất cả các lần
+                    </p>
+                    <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted mt-0.5">
+                      Xóa vĩnh viễn toàn bộ chuỗi sự kiện khỏi lịch nhóm.
+                    </p>
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-circle-hairline">
+                  <button
+                    type="button"
+                    onClick={() => setDeleteModalState({ isOpen: false, event: null, occDate: null })}
+                    className="px-4 py-1.5 rounded-xl text-xs font-semibold text-circle-slate hover:bg-circle-wash transition-colors"
+                  >
+                    Đóng
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => executeDelete('all')}
+                    className="px-4 py-1.5 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white transition-colors"
+                  >
+                    Xác nhận xóa
+                  </button>
+                </div>
+              )}
+
+              {isRecurring && (
+                <div className="pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setDeleteModalState({ isOpen: false, event: null, occDate: null })}
+                    className="px-4 py-1.5 rounded-xl text-xs font-semibold text-circle-slate hover:bg-circle-wash transition-colors"
+                  >
+                    Đóng
                   </button>
                 </div>
               )}
             </div>
           </div>
-        )}
-      </div>
+        );
+      })()}
 
-      {/* Add / Edit Event Modal */}
-      {isAddModalOpen && (
-        <div
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setIsAddModalOpen(false);
-              setSubmitError(null);
-            }
-          }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-150"
-        >
-          <div className="w-full max-w-md rounded-2xl glass-sheet p-5 shadow-2xl max-h-[92vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-circle-hairline dark:border-circle-dark-hairline mb-4">
-              <h3 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
-                {editingEvent ? t.collab.editEventTitle : t.collab.createEventTitle}
-              </h3>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsAddModalOpen(false);
-                  setSubmitError(null);
-                }}
-                className="p-1 text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text"
-                title={t.common.close}
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
+      {/* ============================================================== */}
+      {/* SCOPE CONFIRMATION MODAL CHO HỦY (3 OPTIONS HOẶC CONFIRM ĐƠN) */}
+      {/* ============================================================== */}
+      {cancelModalState.isOpen && cancelModalState.event && (() => {
+        const ev = cancelModalState.event;
+        const occD = cancelModalState.occDate || selectedDate || new Date(ev.startTime);
+        const { recurrenceConfig: parsedRec } = parseEventRecurrence(ev.description);
+        const isRecurring = Boolean(parsedRec && parsedRec.frequency !== 'none');
 
-            <form onSubmit={handleFormSubmit} className="space-y-3.5">
+        return (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+            <div className="w-full max-w-sm rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-5 shadow-2xl space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-circle-slate dark:text-circle-dark-muted mb-1">
-                  {t.collab.calendarTitleLabel}
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder={t.collab.calendarTitlePlaceholder}
-                  className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas px-3.5 py-2 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-none focus:ring-1 focus:ring-circle-sage"
-                />
+                <h4 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
+                  {isRecurring ? 'Hủy sự kiện lặp lại' : 'Hủy lịch hẹn'}
+                </h4>
+                <p className="text-xs text-circle-slate dark:text-circle-dark-muted mt-1">
+                  {isRecurring
+                    ? 'Bạn muốn hủy sự kiện này cho lần diễn ra này, các lần tiếp theo hay tất cả các lần?'
+                    : 'Bạn có chắc chắn muốn hủy lịch hẹn này? Sự kiện sẽ được đánh dấu [Đã hủy] và giữ lại trên lịch nhóm.'}
+                </p>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-circle-slate dark:text-circle-dark-muted mb-1">
-                  {t.collab.calendarLocationLabel}
-                </label>
-                <LocationSearchInput
-                  value={location}
-                  onChange={setLocation}
-                  placeholder={t.collab.mapPickerSearchPlaceholder}
-                />
-              </div>
+              {isRecurring ? (
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    onClick={() => executeCancel('this')}
+                    className="w-full text-left p-3 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas hover:border-amber-500 hover:bg-amber-50/40 dark:hover:bg-amber-950/20 transition-all"
+                  >
+                    <p className="text-xs font-bold text-amber-700 dark:text-amber-400">
+                      Chỉ hủy lần này
+                    </p>
+                    <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted mt-0.5">
+                      Đánh dấu đã hủy cho ngày {formatDateOnly(occD)}. Lịch hẹn vẫn lưu lại để nhóm theo dõi.
+                    </p>
+                  </button>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-circle-slate dark:text-circle-dark-muted mb-1">
-                    {t.collab.startsAt} *
-                  </label>
-                  <CustomDateTimePicker
-                    required
-                    value={startTime}
-                    onChange={setStartTime}
-                    min={!editingEvent ? nowIsoLocal : undefined}
-                    placeholder={t.collab.datePickerPlaceholder}
-                    align="left"
-                  />
+                  <button
+                    type="button"
+                    onClick={() => executeCancel('future')}
+                    className="w-full text-left p-3 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas hover:border-amber-500 hover:bg-amber-50/40 dark:hover:bg-amber-950/20 transition-all"
+                  >
+                    <p className="text-xs font-bold text-amber-700 dark:text-amber-400">
+                      Hủy lần này và các lần tiếp theo
+                    </p>
+                    <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted mt-0.5">
+                      Đánh dấu đã hủy từ ngày {formatDateOnly(occD)} trở đi.
+                    </p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => executeCancel('all')}
+                    className="w-full text-left p-3 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas hover:border-amber-500 hover:bg-amber-50/40 dark:hover:bg-amber-950/20 transition-all"
+                  >
+                    <p className="text-xs font-bold text-amber-700 dark:text-amber-400">
+                      Hủy tất cả các lần
+                    </p>
+                    <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted mt-0.5">
+                      Đánh dấu đã hủy cho toàn bộ chuỗi sự kiện.
+                    </p>
+                  </button>
                 </div>
-                <div>
-                  <label className="block text-xs font-semibold text-circle-slate dark:text-circle-dark-muted mb-1">
-                    {t.collab.endsAt} ({t.common.optional})
-                  </label>
-                  <CustomDateTimePicker
-                    value={endTime}
-                    onChange={setEndTime}
-                    min={startTime || (!editingEvent ? nowIsoLocal : undefined)}
-                    placeholder={t.collab.datePickerPlaceholder}
-                    align="right"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-circle-slate dark:text-circle-dark-muted mb-1">
-                  {t.collab.calendarReminderLabel}
-                </label>
-                <select
-                  value={reminderMinutes}
-                  onChange={(e) => setReminderMinutes(e.target.value)}
-                  className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas px-3.5 py-2 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-none focus:ring-1 focus:ring-circle-sage"
-                >
-                  <option value="none">{t.collab.calendarReminderNone}</option>
-                  <option value="15">{t.collab.calendarReminder15m}</option>
-                  <option value="30">{t.collab.calendarReminder30m}</option>
-                  <option value="60">{t.collab.calendarReminder1h}</option>
-                  <option value="1440">{t.collab.calendarReminder1d}</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-circle-slate dark:text-circle-dark-muted mb-1">
-                  {t.collab.calendarNotesLabel}
-                </label>
-                <textarea
-                  rows={2}
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder={t.collab.calendarNotesPlaceholder}
-                  className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas px-3.5 py-2 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-none focus:ring-1 focus:ring-circle-sage"
-                />
-              </div>
-
-              {submitError && (
-                <div className="flex items-center gap-1.5 p-2 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-700 dark:text-rose-400 font-medium">
-                  <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-                  <span>{submitError}</span>
+              ) : (
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-circle-hairline">
+                  <button
+                    type="button"
+                    onClick={() => setCancelModalState({ isOpen: false, event: null, occDate: null })}
+                    className="px-4 py-1.5 rounded-xl text-xs font-semibold text-circle-slate hover:bg-circle-wash transition-colors"
+                  >
+                    Quay lại
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => executeCancel('all')}
+                    className="px-4 py-1.5 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white transition-colors"
+                  >
+                    Xác nhận hủy
+                  </button>
                 </div>
               )}
 
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsAddModalOpen(false);
-                    setSubmitError(null);
-                  }}
-                  className="rounded-lg px-3.5 py-2 text-xs font-semibold text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors"
-                >
-                  {t.common.cancel}
-                </button>
-                <button
-                  type="submit"
-                  disabled={editingEvent ? updateMutation.isPending : createMutation.isPending}
-                  className="rounded-lg bg-circle-charcoal dark:bg-circle-primary px-4 py-2 text-xs font-semibold text-white dark:text-circle-dark-canvas hover:bg-circle-sage hover:text-white dark:hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {editingEvent
-                    ? updateMutation.isPending
-                      ? t.collab.calendarSaving
-                      : t.common.save
-                    : createMutation.isPending
-                      ? t.collab.calendarCreating
-                      : t.collab.calendarScheduleNow}
-                </button>
-              </div>
-            </form>
+              {isRecurring && (
+                <div className="pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setCancelModalState({ isOpen: false, event: null, occDate: null })}
+                    className="px-4 py-1.5 rounded-xl text-xs font-semibold text-circle-slate hover:bg-circle-wash transition-colors"
+                  >
+                    Đóng
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 };

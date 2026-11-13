@@ -84,9 +84,9 @@ export function parseEventLocation(
     return {
       type: category,
       category,
-      text: defaultLabel,
+      text: rawUrl,
       url,
-      linkText: defaultLabel,
+      linkText: null,
     };
   }
 
