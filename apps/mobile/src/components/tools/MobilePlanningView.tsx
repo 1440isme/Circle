@@ -50,7 +50,8 @@ export const MobilePlanningView: React.FC<MobilePlanningViewProps> = ({ circleId
   const { t, locale } = useLanguageStore();
   const insets = useSafeAreaInsets();
   const dateLocale = locale === 'vi' ? 'vi-VN' : 'en-US';
-  const topClearance = Platform.OS === 'ios' ? 52 : 36;
+  const headerButtonTop = Platform.OS === 'ios' ? 52 : 36;
+  const topClearance = Math.max(insets.top + 52, Platform.OS === 'ios' ? 74 : 64);
   const bottomClearance = Math.max(insets.bottom + 16, 24);
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
@@ -266,7 +267,7 @@ export const MobilePlanningView: React.FC<MobilePlanningViewProps> = ({ circleId
 
   const renderNoticeBanner = () =>
     statusNotice ? (
-      <View pointerEvents="box-none" style={[styles.noticeWrapper, { top: selectedSheet ? topClearance + 46 : topClearance + 4 }]}>
+      <View pointerEvents="box-none" style={[styles.noticeWrapper, { top: selectedSheet ? headerButtonTop + 46 : topClearance + 4 }]}>
         <View
           style={[
             styles.noticeBanner,
@@ -340,7 +341,7 @@ export const MobilePlanningView: React.FC<MobilePlanningViewProps> = ({ circleId
         {/* Floating Sub-toolbar (strictly gated Glass vs Flat) */}
         <View
           pointerEvents="box-none"
-          style={[styles.subToolbarContainer, { top: topClearance }]}
+          style={[styles.subToolbarContainer, { top: headerButtonTop }]}
         >
           {renderSurfacePill(
             <View style={[styles.glassPillTouch, { paddingHorizontal: 12 }]}>
@@ -400,7 +401,7 @@ export const MobilePlanningView: React.FC<MobilePlanningViewProps> = ({ circleId
         <ScrollView
           style={styles.gridContainer}
           contentContainerStyle={{
-            paddingTop: topClearance + 50,
+            paddingTop: headerButtonTop + 48,
             paddingHorizontal: 14,
             paddingBottom: bottomClearance,
           }}
@@ -730,7 +731,7 @@ export const MobilePlanningView: React.FC<MobilePlanningViewProps> = ({ circleId
           <ActivityIndicator size="large" color={colors.sage} />
         </View>
       ) : sheets.length === 0 ? (
-        <View style={[styles.emptyContainer, { paddingTop: topClearance }]}>
+        <View style={[styles.emptyContainer, { paddingTop: topClearance + 20 }]}>
           <Table size={48} color={colors.subtle} />
           <Text style={[styles.emptyTitle, { color: colors.text }]}>
             {t.collab.sheetEmptyTitle}

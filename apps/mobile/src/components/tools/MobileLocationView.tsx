@@ -14,7 +14,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
 import {
-  MapPin,
   Radio,
   LocateFixed,
   RotateCw,
@@ -22,6 +21,7 @@ import {
   Send,
   CheckCircle2,
   X,
+  Clock,
 } from 'lucide-react-native';
 import {
   getLiveLocationsApi,
@@ -37,6 +37,7 @@ import { useSendMessageMutation, useCircleDetailQuery } from '../../hooks/use-ci
 
 interface MobileLocationViewProps {
   circleId: string;
+  onRegisterBack?: (handler: (() => boolean) | null) => void;
 }
 
 function calculateDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -61,11 +62,16 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
   const { t } = useLanguageStore();
   const user = useAuthStore((s) => s.user);
   const insets = useSafeAreaInsets();
-  const topClearance = Math.max(insets.top + 52, Platform.OS === 'ios' ? 74 : 64);
+  const topClearance = Platform.OS === 'ios' ? 52 : 36;
 
   const [locations, setLocations] = useState<LiveLocationEntity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedDuration, setSelectedDuration] = useState<number>(30); // 15, 30, 60 mins
+
+  const handleCycleDuration = () => {
+    Haptics.selectionAsync().catch(() => {});
+    setSelectedDuration((prev) => (prev === 15 ? 30 : prev === 30 ? 60 : 15));
+  };
   const [isSharing, setIsSharing] = useState(false);
   const [myCoords, setMyCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [isSendingToChat, setIsSendingToChat] = useState(false);
@@ -414,40 +420,18 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
   const pillSurfaceColor = isGlass ? glassTheme.colors.glassBg : colors.surface;
   const pillBorderColor = isGlass ? glassTheme.colors.glassBorder : colors.hairline;
 
-  const badgePillInner = (
-    <View style={styles.topPillInner}>
-      <MapPin size={15} color={colors.sage} />
-      <Text style={[styles.topTitle, { color: colors.text }]} numberOfLines={1}>
-        {locations.length > 0
-          ? `${locations.length} ${t.collab.locationLiveBadge}`
-          : t.collab.locationMapTabLabel}
+  const durationCycleInner = (
+    <TouchableOpacity
+      activeOpacity={0.7}
+      onPress={handleCycleDuration}
+      style={styles.durationCycleTouch}
+      accessibilityLabel={`Thời lượng: ${selectedDuration}m`}
+    >
+      <Clock size={13} color={colors.subtle} style={{ marginRight: 4 }} />
+      <Text style={[styles.durationCycleText, { color: colors.text }]}>
+        {selectedDuration}m
       </Text>
-    </View>
-  );
-
-  const durationSelectorInner = (
-    <View style={styles.durationInnerRow}>
-      {[15, 30, 60].map((dur) => (
-        <TouchableOpacity
-          key={dur}
-          activeOpacity={0.7}
-          onPress={() => setSelectedDuration(dur)}
-          style={[
-            styles.durBtn,
-            selectedDuration === dur && [styles.durBtnActive, { backgroundColor: colors.wash }],
-          ]}
-        >
-          <Text
-            style={[
-              styles.durBtnText,
-              { color: selectedDuration === dur ? colors.text : colors.subtle },
-            ]}
-          >
-            {dur}m
-          </Text>
-        </TouchableOpacity>
-      ))}
-    </View>
+    </TouchableOpacity>
   );
 
   const bottomStripInner = (
@@ -526,65 +510,42 @@ export const MobileLocationView: React.FC<MobileLocationViewProps> = ({ circleId
 
   return (
     <View style={[styles.container, { backgroundColor: colors.canvas }]}>
-      {/* Floating Top Toolbar (strictly gated Glass vs Flat) */}
+      {/* Floating Top Toolbar (actions on right, universal back button on left) */}
       <View
         pointerEvents="box-none"
         style={{
           position: 'absolute',
           top: topClearance,
-          left: 14,
-          right: 14,
+          left: 60,
+          right: 16,
           zIndex: 30,
           flexDirection: 'row',
-          flexWrap: 'wrap',
           alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 6,
+          justifyContent: 'flex-end',
+          gap: 8,
         }}
       >
-        {isGlass ? (
-          <BlurView
-            intensity={glassTheme.blur.intensity}
-            tint={glassTheme.blur.tint}
-            style={[
-              styles.topBadgeShell,
-              { backgroundColor: pillSurfaceColor, borderColor: pillBorderColor },
-            ]}
-          >
-            {badgePillInner}
-          </BlurView>
-        ) : (
-          <View
-            style={[
-              styles.topBadgeShell,
-              { backgroundColor: pillSurfaceColor, borderColor: pillBorderColor },
-            ]}
-          >
-            {badgePillInner}
-          </View>
-        )}
-
-        {/* Duration Selector when not currently sharing */}
+        {/* Cycle Duration Button when not sharing (15m -> 30m -> 60m) */}
         {!isSharing ? (
           isGlass ? (
             <BlurView
               intensity={glassTheme.blur.intensity}
               tint={glassTheme.blur.tint}
               style={[
-                styles.durationShell,
+                styles.durationCycleShell,
                 { backgroundColor: pillSurfaceColor, borderColor: pillBorderColor },
               ]}
             >
-              {durationSelectorInner}
+              {durationCycleInner}
             </BlurView>
           ) : (
             <View
               style={[
-                styles.durationShell,
+                styles.durationCycleShell,
                 { backgroundColor: pillSurfaceColor, borderColor: pillBorderColor },
               ]}
             >
-              {durationSelectorInner}
+              {durationCycleInner}
             </View>
           )
         ) : null}
@@ -734,48 +695,25 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  topBadgeShell: {
+  durationCycleShell: {
     borderRadius: 999,
     overflow: 'hidden',
     borderWidth: StyleSheet.hairlineWidth,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.14,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  topPillInner: {
+  durationCycleTouch: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 10,
     paddingVertical: 6,
-    paddingHorizontal: 12,
-    gap: 6,
+    minHeight: 30,
   },
-  topTitle: {
+  durationCycleText: {
     fontSize: 12,
-    fontWeight: '700',
-  },
-  durationShell: {
-    borderRadius: 999,
-    overflow: 'hidden',
-    borderWidth: StyleSheet.hairlineWidth,
-  },
-  durationInnerRow: {
-    flexDirection: 'row',
-    padding: 3,
-    gap: 2,
-  },
-  durBtn: {
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  durBtnActive: {
-    shadowOpacity: 0.1,
-    elevation: 1,
-  },
-  durBtnText: {
-    fontSize: 11,
     fontWeight: '700',
   },
   topActionsRow: {

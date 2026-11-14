@@ -53,6 +53,8 @@ import {
   Flame,
   ThumbsUp,
   Smile,
+  Navigation,
+  Maximize2,
   Edit2,
   KeyRound,
   FileSpreadsheet,
@@ -744,6 +746,13 @@ const MobileSwipeMessageBubble = React.memo(function MobileSwipeMessageBubble({
       typeof msg.content === 'string' &&
       msg.content.startsWith('[LOCATION_PIN]:'),
   );
+  const isImageMessage = Boolean(
+    msg.fileUrl &&
+      !isCalendarEvent &&
+      !isGroupPoll &&
+      !isDocumentAttachment(msg.fileUrl, msg.fileName),
+  );
+  const isBorderlessMessage = isImageMessage || isLocationPin;
   const previousContentText: string | null =
     (msg as any).previousContent || (msg as any).originalContent || null;
   const hasPreviousContent = Boolean(previousContentText);
@@ -929,6 +938,15 @@ const MobileSwipeMessageBubble = React.memo(function MobileSwipeMessageBubble({
               styles.messageBubble,
               bubbleShapeStyle,
               bubbleColorStyle,
+              isBorderlessMessage && {
+                backgroundColor: 'transparent',
+                borderColor: 'transparent',
+                borderWidth: 0,
+                paddingHorizontal: 0,
+                paddingVertical: 0,
+                shadowOpacity: 0,
+                elevation: 0,
+              },
               isMediaOnly && {
                 backgroundColor: 'transparent',
                 borderColor: 'transparent',
@@ -1162,6 +1180,10 @@ const MobileSwipeMessageBubble = React.memo(function MobileSwipeMessageBubble({
                     address={locData.address}
                     isSenderMe={isSenderMe}
                     senderTextColor={senderTextColor}
+                    onLongPress={() => {
+                      triggerSelectionHaptic();
+                      onLongPress();
+                    }}
                   />
                 );
               })() : Boolean(msg.content?.startsWith('[CALENDAR_EVENT]:')) ? (
@@ -4196,6 +4218,96 @@ export default function CircleWorkspaceScreen() {
                     },
                   ]}
                 >
+                  {/* Location Pin Specific Actions */}
+                  {Boolean(rawContent && rawContent.startsWith('[LOCATION_PIN]:')) && (() => {
+                    let locData: any = null;
+                    try {
+                      locData = JSON.parse(rawContent.replace('[LOCATION_PIN]:', ''));
+                    } catch {}
+                    if (!locData) return null;
+                    return (
+                      <>
+                        <TouchableOpacity
+                          activeOpacity={0.7}
+                          onPress={() => {
+                            triggerSelectionHaptic();
+                            const url = `https://www.google.com/maps/search/?api=1&query=${locData.lat},${locData.lng}`;
+                            Linking.openURL(url).catch(() => {});
+                            setActiveActionMessage(null);
+                            setActiveActionLayout(null);
+                            setConfirmRecallId(null);
+                          }}
+                          style={styles.contextMenuItem}
+                        >
+                          <Navigation size={16} color={colors.text} />
+                          <Text style={[styles.contextMenuItemText, { color: colors.text }]}>
+                            {t.chat.openMapDirections}
+                          </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          activeOpacity={0.7}
+                          onPress={async () => {
+                            const coordStr = `${locData.lat.toFixed(5)}, ${locData.lng.toFixed(5)}`;
+                            const ok = await copyTextSafe(coordStr);
+                            triggerSendHaptic();
+                            setActiveActionMessage(null);
+                            setActiveActionLayout(null);
+                            setConfirmRecallId(null);
+                            showChatNotice(ok ? t.chat.copiedNotice : t.common.copyFailed, ok ? 'info' : 'error');
+                          }}
+                          style={styles.contextMenuItem}
+                        >
+                          <Copy size={16} color={colors.text} />
+                          <Text style={[styles.contextMenuItemText, { color: colors.text }]}>
+                            {t.chat.copyCoordinates}
+                          </Text>
+                        </TouchableOpacity>
+                      </>
+                    );
+                  })()}
+
+                  {/* Image Specific Actions */}
+                  {Boolean(activeActionMessage.fileUrl && !isDocumentAttachment(activeActionMessage.fileUrl, activeActionMessage.fileName)) && (
+                    <>
+                      <TouchableOpacity
+                        activeOpacity={0.7}
+                        onPress={() => {
+                          triggerSelectionHaptic();
+                          const targetUrl = activeActionMessage.fileUrl;
+                          setActiveActionMessage(null);
+                          setActiveActionLayout(null);
+                          setConfirmRecallId(null);
+                          handleOpenImagePreview(targetUrl);
+                        }}
+                        style={styles.contextMenuItem}
+                      >
+                        <Maximize2 size={16} color={colors.text} />
+                        <Text style={[styles.contextMenuItemText, { color: colors.text }]}>
+                          {t.chat.viewImage}
+                        </Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        activeOpacity={0.7}
+                        onPress={() => {
+                          triggerSelectionHaptic();
+                          const targetUrl = activeActionMessage.fileUrl;
+                          setActiveActionMessage(null);
+                          setActiveActionLayout(null);
+                          setConfirmRecallId(null);
+                          Share.share(Platform.OS === 'ios' ? { url: targetUrl } : { message: targetUrl }).catch(() => {});
+                        }}
+                        style={styles.contextMenuItem}
+                      >
+                        <Share2 size={16} color={colors.text} />
+                        <Text style={[styles.contextMenuItemText, { color: colors.text }]}>
+                          {t.chat.shareImage}
+                        </Text>
+                      </TouchableOpacity>
+                    </>
+                  )}
+
                   {/* Copy Action */}
                   {Boolean(rawContent && !rawContent.startsWith('[') && !rawContent.includes('"callType"')) && (
                     <TouchableOpacity
