@@ -1010,6 +1010,8 @@ export const vi = {
     copiedNotice: 'Đã sao chép tin nhắn',
     viewImage: 'Xem ảnh',
     shareImage: 'Chia sẻ ảnh',
+    downloadImage: 'Tải ảnh xuống',
+    downloadImageSuccess: 'Đã lưu ảnh vào thiết bị',
     openMapDirections: 'Chỉ đường',
     copyCoordinates: 'Sao chép tọa độ',
     moreActions: 'Tùy chọn khác',

@@ -1012,6 +1012,8 @@ export const en: TranslationDictionary = {
     copiedNotice: 'Message copied',
     viewImage: 'View photo',
     shareImage: 'Share photo',
+    downloadImage: 'Download photo',
+    downloadImageSuccess: 'Photo saved to device',
     openMapDirections: 'Get directions',
     copyCoordinates: 'Copy coordinates',
     moreActions: 'More actions',

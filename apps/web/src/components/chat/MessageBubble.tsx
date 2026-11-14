@@ -617,18 +617,33 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                   setPreviewImageUrl(null);
                 }}
               >
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsImageModalOpen(false);
-                    setPreviewImageUrl(null);
-                  }}
-                  aria-label={t.common.close}
-                  className="absolute top-4 right-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/15 hover:bg-white/25 text-white backdrop-blur-md transition-colors"
+                <div
+                  className="absolute top-4 right-4 flex items-center gap-2 z-10"
+                  onClick={(e) => e.stopPropagation()}
                 >
-                  <X className="h-5 w-5" />
-                </button>
+                  <a
+                    href={previewImageUrl || message.fileUrl!}
+                    download={message.fileName || 'circle-photo.jpg'}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={t.chat.downloadImage}
+                    title={t.chat.downloadImage}
+                    className="flex h-10 w-10 items-center justify-center rounded-full bg-white/15 hover:bg-white/25 text-white backdrop-blur-md transition-colors cursor-pointer"
+                  >
+                    <Download className="h-5 w-5" />
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsImageModalOpen(false);
+                      setPreviewImageUrl(null);
+                    }}
+                    aria-label={t.common.close}
+                    className="flex h-10 w-10 items-center justify-center rounded-full bg-white/15 hover:bg-white/25 text-white backdrop-blur-md transition-colors"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
                 <img
                   src={previewImageUrl || message.fileUrl!}
                   alt={message.fileName || 'Attachment'}
@@ -785,46 +800,31 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
                     {/* Image Specific Actions */}
                     {isImageMessage && message.fileUrl && (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setIsMenuOpen(false);
-                            setPreviewImageUrl(message.fileUrl!);
-                            setIsImageModalOpen(true);
-                          }}
-                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors text-left font-medium"
-                        >
-                          <Maximize2 className="h-3.5 w-3.5 text-circle-slate dark:text-circle-dark-muted shrink-0" />
-                          <span>{t.chat.viewImage}</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            setIsMenuOpen(false);
-                            const imageUrl = message.fileUrl!;
-                            if (typeof navigator !== 'undefined' && (navigator as any).share) {
-                              try {
-                                await (navigator as any).share({
-                                  title: message.fileName || 'Circle Photo',
-                                  url: imageUrl,
-                                });
-                                return;
-                              } catch {}
-                            }
-                            if (navigator.clipboard) {
-                              navigator.clipboard.writeText(imageUrl);
-                              setIsCopied(true);
-                              setTimeout(() => setIsCopied(false), 2000);
-                            }
-                          }}
-                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors text-left font-medium"
-                        >
-                          <Share2 className="h-3.5 w-3.5 text-circle-slate dark:text-circle-dark-muted shrink-0" />
-                          <span>{t.chat.shareImage}</span>
-                        </button>
-                      </>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          setIsMenuOpen(false);
+                          const imageUrl = message.fileUrl!;
+                          if (typeof navigator !== 'undefined' && (navigator as any).share) {
+                            try {
+                              await (navigator as any).share({
+                                title: message.fileName || 'Circle Photo',
+                                url: imageUrl,
+                              });
+                              return;
+                            } catch {}
+                          }
+                          if (navigator.clipboard) {
+                            navigator.clipboard.writeText(imageUrl);
+                            setIsCopied(true);
+                            setTimeout(() => setIsCopied(false), 2000);
+                          }
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors text-left font-medium"
+                      >
+                        <Share2 className="h-3.5 w-3.5 text-circle-slate dark:text-circle-dark-muted shrink-0" />
+                        <span>{t.chat.shareImage}</span>
+                      </button>
                     )}
 
                     {/* Copy Content Action (Exclude special structured formats) */}

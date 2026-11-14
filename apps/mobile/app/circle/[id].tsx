@@ -85,8 +85,11 @@ import {
   Copy,
   Search,
   Hash,
+  Download,
 } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { File, Paths } from 'expo-file-system';
+import * as MediaLibrary from 'expo-media-library';
 import { editMessageApi, recallMessageApi, clearChannelHistoryApi } from '../../src/services/chat.service';
 import { respondEventRsvpApi } from '../../src/services/circle-tools.service';
 import { copyTextSafe } from '../../src/utils/clipboard';
@@ -292,6 +295,7 @@ function MomentCardChatEmbed({
   metadata,
   fallbackCreatedAt,
   onPress,
+  onLongPress,
   colors,
   defaultMemberLabel,
 }: {
@@ -299,6 +303,7 @@ function MomentCardChatEmbed({
   metadata: MomentReplyMetadata | null;
   fallbackCreatedAt?: string | null;
   onPress?: () => void;
+  onLongPress?: (pageY?: number) => void;
   colors: any;
   defaultMemberLabel: string;
 }) {
@@ -336,6 +341,12 @@ function MomentCardChatEmbed({
     <TouchableOpacity
       activeOpacity={0.9}
       onPress={onPress}
+      onLongPress={(e) => {
+        triggerSelectionHaptic();
+        const pageY = e?.nativeEvent?.pageY;
+        onLongPress?.(pageY);
+      }}
+      delayLongPress={280}
       style={styles.momentCardPhotoFrame}
     >
       {displayMain ? (
@@ -1073,6 +1084,7 @@ const MobileSwipeMessageBubble = React.memo(function MobileSwipeMessageBubble({
                       metadata={momentMeta}
                       fallbackCreatedAt={msg.sentAt || msg.createdAt}
                       onPress={() => onPreviewImage?.(msg.fileUrl)}
+                      onLongPress={(pageY) => onLongPress(pageY)}
                       colors={colors}
                       defaultMemberLabel={t.chat.defaultMemberName}
                     />
@@ -1092,6 +1104,12 @@ const MobileSwipeMessageBubble = React.memo(function MobileSwipeMessageBubble({
                           onNotice?.(t.chat.fileLoadError, 'error');
                         });
                       }}
+                      onLongPress={(e) => {
+                        triggerSelectionHaptic();
+                        const pageY = e?.nativeEvent?.pageY;
+                        onLongPress(pageY);
+                      }}
+                      delayLongPress={280}
                       style={{
                         flexDirection: 'row',
                         alignItems: 'center',
@@ -1140,6 +1158,12 @@ const MobileSwipeMessageBubble = React.memo(function MobileSwipeMessageBubble({
                   <TouchableOpacity
                     activeOpacity={0.9}
                     onPress={() => onPreviewImage?.(msg.fileUrl)}
+                    onLongPress={(e) => {
+                      triggerSelectionHaptic();
+                      const pageY = e?.nativeEvent?.pageY;
+                      onLongPress(pageY);
+                    }}
+                    delayLongPress={280}
                     style={styles.bubbleImageWrapper}
                   >
                     <RNImage
@@ -1722,6 +1746,35 @@ export default function CircleWorkspaceScreen() {
     setPreviewCorner(parsed.cornerIndex || 0);
     setPreviewSwapped(false);
     setPreviewingImageUrl(url);
+  };
+
+  const handleDownloadImage = async (url: string) => {
+    if (!url) return;
+    triggerSelectionHaptic();
+    try {
+      const { status } = await MediaLibrary.requestPermissionsAsync(true);
+      if (status === 'granted') {
+        const ext = url.includes('.png') ? 'png' : 'jpg';
+        const targetFile = new File(Paths.cache, `circle_img_${Date.now()}.${ext}`);
+        const downloaded = await File.downloadFileAsync(url, targetFile, { idempotent: true });
+        const localUri = downloaded.uri;
+        if (localUri) {
+          if (MediaLibrary.Asset && typeof MediaLibrary.Asset.create === 'function') {
+            await MediaLibrary.Asset.create(localUri);
+          } else if (typeof (MediaLibrary as any).createAssetAsync === 'function') {
+            await (MediaLibrary as any).createAssetAsync(localUri);
+          } else {
+            await (MediaLibrary as any).saveToLibraryAsync(localUri);
+          }
+          triggerSuccessHaptic();
+          showChatNotice(t.chat.downloadImageSuccess, 'info');
+          return;
+        }
+      }
+      Linking.openURL(url).catch(() => {});
+    } catch {
+      Linking.openURL(url).catch(() => {});
+    }
   };
   const [isSocketConnected, setIsSocketConnected] = useState(true);
   const [replyingMessage, setReplyingMessage] = useState<any | null>(null);
@@ -4269,43 +4322,23 @@ export default function CircleWorkspaceScreen() {
 
                   {/* Image Specific Actions */}
                   {Boolean(activeActionMessage.fileUrl && !isDocumentAttachment(activeActionMessage.fileUrl, activeActionMessage.fileName)) && (
-                    <>
-                      <TouchableOpacity
-                        activeOpacity={0.7}
-                        onPress={() => {
-                          triggerSelectionHaptic();
-                          const targetUrl = activeActionMessage.fileUrl;
-                          setActiveActionMessage(null);
-                          setActiveActionLayout(null);
-                          setConfirmRecallId(null);
-                          handleOpenImagePreview(targetUrl);
-                        }}
-                        style={styles.contextMenuItem}
-                      >
-                        <Maximize2 size={16} color={colors.text} />
-                        <Text style={[styles.contextMenuItemText, { color: colors.text }]}>
-                          {t.chat.viewImage}
-                        </Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        activeOpacity={0.7}
-                        onPress={() => {
-                          triggerSelectionHaptic();
-                          const targetUrl = activeActionMessage.fileUrl;
-                          setActiveActionMessage(null);
-                          setActiveActionLayout(null);
-                          setConfirmRecallId(null);
-                          Share.share(Platform.OS === 'ios' ? { url: targetUrl } : { message: targetUrl }).catch(() => {});
-                        }}
-                        style={styles.contextMenuItem}
-                      >
-                        <Share2 size={16} color={colors.text} />
-                        <Text style={[styles.contextMenuItemText, { color: colors.text }]}>
-                          {t.chat.shareImage}
-                        </Text>
-                      </TouchableOpacity>
-                    </>
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      onPress={() => {
+                        triggerSelectionHaptic();
+                        const targetUrl = activeActionMessage.fileUrl;
+                        setActiveActionMessage(null);
+                        setActiveActionLayout(null);
+                        setConfirmRecallId(null);
+                        Share.share(Platform.OS === 'ios' ? { url: targetUrl } : { message: targetUrl }).catch(() => {});
+                      }}
+                      style={styles.contextMenuItem}
+                    >
+                      <Share2 size={16} color={colors.text} />
+                      <Text style={[styles.contextMenuItemText, { color: colors.text }]}>
+                        {t.chat.shareImage}
+                      </Text>
+                    </TouchableOpacity>
                   )}
 
                   {/* Copy Action */}
@@ -4519,6 +4552,17 @@ export default function CircleWorkspaceScreen() {
                   }}
                 >
                   <RefreshCw size={18} color="#FFFFFF" />
+                </TouchableOpacity>
+              )}
+              {Boolean(previewingImageUrl) && (
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  style={[styles.fullScreenActionBtn, { backgroundColor: 'rgba(255, 255, 255, 0.2)' }]}
+                  onPress={() => handleDownloadImage(previewingImageUrl!)}
+                  accessibilityLabel={t.chat.downloadImage}
+                >
+                  <Download size={19} color="#FFFFFF" />
                 </TouchableOpacity>
               )}
               <TouchableOpacity
