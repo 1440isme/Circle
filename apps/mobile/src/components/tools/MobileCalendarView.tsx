@@ -1026,6 +1026,13 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
 
   const [isUpdatingReminder, setIsUpdatingReminder] = useState(false);
 
+  // Poll & Reminder Scope / Confirmation Modals (đồng bộ 100% với Web)
+  const [showPollScopeModal, setShowPollScopeModal] = useState(false);
+  const [pendingPollStatus, setPendingPollStatus] = useState<EventRsvpStatus | null>(null);
+  const [showReminderScopeModal, setShowReminderScopeModal] = useState(false);
+  const [showReminderConfirmModal, setShowReminderConfirmModal] = useState(false);
+  const [pendingReminderValue, setPendingReminderValue] = useState<string | null>(null);
+
   // End repeat date picker states (độc lập với ngày kết thúc sự kiện)
   const [isEndRepeatPickerOpen, setIsEndRepeatPickerOpen] = useState(false);
   const [isEndRepeatMonthYearOpen, setIsEndRepeatMonthYearOpen] = useState(false);
@@ -3279,77 +3286,618 @@ const handleOpenEditModal = (ev: CalendarEventEntity, occDate?: Date) => {
     );
   };
 
-  const handleRsvp = async (status: EventRsvpStatus) => {
+  // Xử lý Bình chọn (RSVP) - Nếu là sự kiện lặp lại thì hỏi phạm vi áp dụng
+  const handleVoteOptionClick = (status: EventRsvpStatus) => {
     if (!detailEvent || detailEvent.isCancelled) return;
+    setIsDetailPollModalOpen(false);
+
+    const { recurrenceConfig: rec } = parseEventRecurrence(detailEvent.description);
+    const isRecurring = Boolean(rec && rec.frequency !== 'none');
+
+    if (isRecurring) {
+      setPendingPollStatus(status);
+      setShowPollScopeModal(true);
+    } else {
+      executeVote(status, 'all');
+    }
+  };
+
+  const executeVote = async (status: EventRsvpStatus, scope: 'this' | 'future' | 'all') => {
+    if (!detailEvent) return;
+    const currentOccDate = detailOccurrenceDate || selectedDate || new Date(detailEvent.startTime);
+    const { recurrenceConfig, cleanDesc } = parseEventRecurrence(detailEvent.description);
+    const isRecurring = Boolean(recurrenceConfig && recurrenceConfig.frequency !== 'none');
+
     try {
       Haptics.selectionAsync();
-      await respondCalendarEventRsvpApi(circleId, detailEvent.id, { status });
 
-      setDetailEvent((prev) => {
-        if (!prev) return null;
-        const existing = prev.rsvps || [];
-        const filtered = existing.filter((r) => r.userId !== user?.id);
-        const newRsvp: CalendarEventRsvpEntity = {
-          id: `rsvp-${Date.now()}`,
-          eventId: prev.id,
-          userId: user?.id || '',
-          status,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          user: user
-            ? {
-                id: user.id,
-                email: user.email,
-                profile: user.profile
-                  ? {
-                      displayName: user.profile.displayName || 'Tôi',
-                      avatarUrl: user.profile.avatarUrl,
-                    }
-                  : null,
-              }
-            : undefined,
+      if (isRecurring && scope === 'this') {
+        const occKey = formatDateKey(currentOccDate);
+        const currentExcluded = recurrenceConfig?.excludedDates || [];
+        const nextExcluded = currentExcluded.includes(occKey)
+          ? currentExcluded
+          : [...currentExcluded, occKey];
+        const updatedParentRecurrence: RecurrenceConfig = {
+          ...(recurrenceConfig!),
+          excludedDates: nextExcluded,
         };
-        return {
-          ...prev,
-          rsvps: [...filtered, newRsvp],
+        const updatedParentDesc = serializeRecurrence(updatedParentRecurrence, cleanDesc);
+
+        // 1. Loại trừ ngày này khỏi chuỗi lặp cha
+        await updateCalendarEventApi(circleId, detailEvent.id, {
+          description: updatedParentDesc,
+        });
+
+        // 2. Tạo sự kiện đơn lẻ cho ngày này
+        const evStart = new Date(detailEvent.startTime);
+        const occStartDate = new Date(
+          currentOccDate.getFullYear(),
+          currentOccDate.getMonth(),
+          currentOccDate.getDate(),
+          evStart.getHours(),
+          evStart.getMinutes(),
+          0,
+        );
+        let occEndDate = occStartDate;
+        if (detailEvent.endTime) {
+          const evEnd = new Date(detailEvent.endTime);
+          const durationMs = evEnd.getTime() - evStart.getTime();
+          occEndDate = new Date(occStartDate.getTime() + durationMs);
+        }
+
+        const standaloneConfig: RecurrenceConfig = {
+          ...(recurrenceConfig!),
+          frequency: 'none',
+          endType: 'never',
+          endDate: null,
+          isCustom: false,
         };
-      });
+        const standaloneDesc = serializeRecurrence(standaloneConfig, cleanDesc);
+
+        const created = await createCalendarEventApi(circleId, {
+          eventTitle: detailEvent.eventTitle,
+          description: standaloneDesc,
+          location: detailEvent.location || undefined,
+          startTime: occStartDate.toISOString(),
+          endTime: occEndDate.toISOString(),
+          reminderTime: detailEvent.reminderTime || undefined,
+          isRecurrenceSplit: true,
+        } as any);
+
+        // 3. Gửi vote cho sự kiện đơn lẻ vừa tạo
+        await respondCalendarEventRsvpApi(circleId, created.id, { status });
+
+        setDetailEvent(created);
+        setDetailOccurrenceDate(new Date(created.startTime));
+      } else if (isRecurring && scope === 'future') {
+        const evStart = new Date(detailEvent.startTime);
+        const occStartDate = new Date(
+          currentOccDate.getFullYear(),
+          currentOccDate.getMonth(),
+          currentOccDate.getDate(),
+          evStart.getHours(),
+          evStart.getMinutes(),
+          0,
+        );
+        const splitDay = new Date(
+          occStartDate.getFullYear(),
+          occStartDate.getMonth(),
+          occStartDate.getDate(),
+        );
+        const evOriginalStartDay = new Date(
+          evStart.getFullYear(),
+          evStart.getMonth(),
+          evStart.getDate(),
+        );
+
+        if (splitDay.getTime() > evOriginalStartDay.getTime()) {
+          const dayBefore = new Date(splitDay);
+          dayBefore.setDate(dayBefore.getDate() - 1);
+          dayBefore.setHours(23, 59, 59, 999);
+
+          const updatedParentRecurrence: RecurrenceConfig = {
+            ...(recurrenceConfig!),
+            endType: 'on_date',
+            endDate: dayBefore,
+          };
+          const updatedParentDesc = serializeRecurrence(updatedParentRecurrence, cleanDesc);
+
+          // 1. Cập nhật chuỗi cha kết thúc trước splitDay
+          await updateCalendarEventApi(circleId, detailEvent.id, {
+            description: updatedParentDesc,
+          });
+
+          // 2. Tạo chuỗi mới từ ngày này
+          let occEndDate = occStartDate;
+          if (detailEvent.endTime) {
+            const evEnd = new Date(detailEvent.endTime);
+            const durationMs = evEnd.getTime() - evStart.getTime();
+            occEndDate = new Date(occStartDate.getTime() + durationMs);
+          }
+
+          const childConfig: RecurrenceConfig = {
+            ...(recurrenceConfig!),
+            excludedDates: [],
+            cancelledDates: [],
+          };
+          const childDesc = serializeRecurrence(childConfig, cleanDesc);
+
+          const created = await createCalendarEventApi(circleId, {
+            eventTitle: detailEvent.eventTitle,
+            description: childDesc,
+            location: detailEvent.location || undefined,
+            startTime: occStartDate.toISOString(),
+            endTime: occEndDate.toISOString(),
+            reminderTime: detailEvent.reminderTime || undefined,
+            isRecurrenceSplit: true,
+          } as any);
+
+          // 3. Vote cho chuỗi mới
+          await respondCalendarEventRsvpApi(circleId, created.id, { status });
+
+          setDetailEvent(created);
+          setDetailOccurrenceDate(new Date(created.startTime));
+        } else {
+          // Trùng ngày bắt đầu ban đầu: vote cho toàn bộ chuỗi
+          await respondCalendarEventRsvpApi(circleId, detailEvent.id, { status });
+          setDetailEvent((prev) => {
+            if (!prev) return null;
+            const existing = prev.rsvps || [];
+            const filtered = existing.filter((r) => r.userId !== user?.id);
+            const newRsvp: CalendarEventRsvpEntity = {
+              id: `rsvp-${Date.now()}`,
+              eventId: prev.id,
+              userId: user?.id || '',
+              status,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              user: user
+                ? {
+                    id: user.id,
+                    email: user.email,
+                    profile: user.profile
+                      ? {
+                          displayName: user.profile.displayName || 'Tôi',
+                          avatarUrl: user.profile.avatarUrl,
+                        }
+                      : null,
+                  }
+                : undefined,
+            };
+            return {
+              ...prev,
+              rsvps: [...filtered, newRsvp],
+            };
+          });
+        }
+      } else {
+        // Cập nhật tất cả các lần (hoặc sự kiện đơn)
+        await respondCalendarEventRsvpApi(circleId, detailEvent.id, { status });
+        setDetailEvent((prev) => {
+          if (!prev) return null;
+          const existing = prev.rsvps || [];
+          const filtered = existing.filter((r) => r.userId !== user?.id);
+          const newRsvp: CalendarEventRsvpEntity = {
+            id: `rsvp-${Date.now()}`,
+            eventId: prev.id,
+            userId: user?.id || '',
+            status,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            user: user
+              ? {
+                  id: user.id,
+                  email: user.email,
+                  profile: user.profile
+                    ? {
+                        displayName: user.profile.displayName || 'Tôi',
+                        avatarUrl: user.profile.avatarUrl,
+                      }
+                    : null,
+                }
+              : undefined,
+          };
+          return {
+            ...prev,
+            rsvps: [...filtered, newRsvp],
+          };
+        });
+      }
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       loadEvents();
     } catch (err: any) {
       Alert.alert('Lỗi', err.message || 'Không thể gửi phản hồi tham gia');
+    } finally {
+      setShowPollScopeModal(false);
+      setPendingPollStatus(null);
     }
   };
 
-  const handleQuickUpdateReminder = async (optionValue: string) => {
-    if (!detailEvent) return;
+  // Chọn thời gian nhắc nhở: Hỏi xác nhận hoặc phạm vi áp dụng
+  const handleReminderOptionSelect = (optionValue: string) => {
+    if (!detailEvent || isUpdatingReminder) return;
+    setIsQuickReminderModalOpen(false);
+
+    const { recurrenceConfig: rec } = parseEventRecurrence(detailEvent.description);
+    const isRecurring = Boolean(rec && rec.frequency !== 'none');
+
+    setPendingReminderValue(optionValue);
+    if (isRecurring) {
+      setShowReminderScopeModal(true);
+    } else {
+      setShowReminderConfirmModal(true);
+    }
+  };
+
+  const executeReminder = async (scope: 'this' | 'future' | 'all') => {
+    if (!detailEvent || !pendingReminderValue) return;
+    const newVal = pendingReminderValue;
+    const currentOccDate = detailOccurrenceDate || selectedDate || new Date(detailEvent.startTime);
+    const { recurrenceConfig, cleanDesc } = parseEventRecurrence(detailEvent.description);
+    const isRecurring = Boolean(recurrenceConfig && recurrenceConfig.frequency !== 'none');
+
     setIsUpdatingReminder(true);
+    setShowReminderScopeModal(false);
+    setShowReminderConfirmModal(false);
+
     try {
-      let newReminderTime: string | null = null;
-      if (optionValue !== 'none') {
-        const minutes = parseInt(optionValue, 10);
-        const startMs = new Date(detailEvent.startTime).getTime();
-        newReminderTime = new Date(startMs - minutes * 60 * 1000).toISOString();
+      const diffMins = newVal !== 'none' ? parseInt(newVal, 10) : null;
+      const evStart = new Date(detailEvent.startTime);
+      const occStartDate = new Date(
+        currentOccDate.getFullYear(),
+        currentOccDate.getMonth(),
+        currentOccDate.getDate(),
+        evStart.getHours(),
+        evStart.getMinutes(),
+        0,
+      );
+
+      if (isRecurring && scope === 'this') {
+        const occKey = formatDateKey(currentOccDate);
+        const currentExcluded = recurrenceConfig?.excludedDates || [];
+        const nextExcluded = currentExcluded.includes(occKey)
+          ? currentExcluded
+          : [...currentExcluded, occKey];
+        const updatedParentRecurrence: RecurrenceConfig = {
+          ...(recurrenceConfig!),
+          excludedDates: nextExcluded,
+        };
+        const updatedParentDesc = serializeRecurrence(updatedParentRecurrence, cleanDesc);
+
+        // 1. Exclude this occurrence from parent series
+        await updateCalendarEventApi(circleId, detailEvent.id, {
+          description: updatedParentDesc,
+        });
+
+        // 2. Create standalone non-recurring event for this occurrence
+        let standaloneReminderIso: string | null = null;
+        if (diffMins !== null) {
+          const s = new Date(occStartDate);
+          s.setMinutes(s.getMinutes() - diffMins);
+          standaloneReminderIso = s.toISOString();
+        }
+
+        let occEndDate = occStartDate;
+        if (detailEvent.endTime) {
+          const evEnd = new Date(detailEvent.endTime);
+          const durationMs = evEnd.getTime() - evStart.getTime();
+          occEndDate = new Date(occStartDate.getTime() + durationMs);
+        }
+
+        const standaloneConfig: RecurrenceConfig = {
+          ...(recurrenceConfig!),
+          frequency: 'none',
+          endType: 'never',
+          endDate: null,
+          isCustom: false,
+        };
+        const standaloneDesc = serializeRecurrence(standaloneConfig, cleanDesc);
+
+        const created = await createCalendarEventApi(circleId, {
+          eventTitle: detailEvent.eventTitle,
+          description: standaloneDesc,
+          location: detailEvent.location || undefined,
+          startTime: occStartDate.toISOString(),
+          endTime: occEndDate.toISOString(),
+          reminderTime: standaloneReminderIso || undefined,
+          isRecurrenceSplit: true,
+        } as any);
+
+        setDetailEvent(created);
+        setDetailOccurrenceDate(new Date(created.startTime));
+      } else if (isRecurring && scope === 'future') {
+        const splitDay = new Date(
+          occStartDate.getFullYear(),
+          occStartDate.getMonth(),
+          occStartDate.getDate(),
+        );
+        const evOriginalStartDay = new Date(
+          evStart.getFullYear(),
+          evStart.getMonth(),
+          evStart.getDate(),
+        );
+
+        let newReminderIso: string | null = null;
+        if (diffMins !== null) {
+          const s = new Date(occStartDate);
+          s.setMinutes(s.getMinutes() - diffMins);
+          newReminderIso = s.toISOString();
+        }
+
+        if (splitDay.getTime() > evOriginalStartDay.getTime()) {
+          const dayBefore = new Date(splitDay);
+          dayBefore.setDate(dayBefore.getDate() - 1);
+          dayBefore.setHours(23, 59, 59, 999);
+
+          const updatedParentRecurrence: RecurrenceConfig = {
+            ...(recurrenceConfig!),
+            endType: 'on_date',
+            endDate: dayBefore,
+          };
+          const updatedParentDesc = serializeRecurrence(updatedParentRecurrence, cleanDesc);
+
+          // 1. Cập nhật sự kiện cũ: kết thúc lặp vào ngày trước splitDate
+          await updateCalendarEventApi(circleId, detailEvent.id, {
+            description: updatedParentDesc,
+          });
+
+          // 2. Tạo sự kiện mới bắt đầu từ occStartDate với chu kỳ lặp mới và reminderTime mới
+          let occEndDate = occStartDate;
+          if (detailEvent.endTime) {
+            const evEnd = new Date(detailEvent.endTime);
+            const durationMs = evEnd.getTime() - evStart.getTime();
+            occEndDate = new Date(occStartDate.getTime() + durationMs);
+          }
+
+          const childConfig: RecurrenceConfig = {
+            ...(recurrenceConfig!),
+            excludedDates: [],
+            cancelledDates: [],
+          };
+          const childDesc = serializeRecurrence(childConfig, cleanDesc);
+
+          const created = await createCalendarEventApi(circleId, {
+            eventTitle: detailEvent.eventTitle,
+            description: childDesc,
+            location: detailEvent.location || undefined,
+            startTime: occStartDate.toISOString(),
+            endTime: occEndDate.toISOString(),
+            reminderTime: newReminderIso || undefined,
+            isRecurrenceSplit: true,
+          } as any);
+
+          setDetailEvent(created);
+          setDetailOccurrenceDate(new Date(created.startTime));
+        } else {
+          // Trùng hoặc trước ngày bắt đầu ban đầu: cập nhật tất cả
+          await updateCalendarEventApi(circleId, detailEvent.id, {
+            reminderTime: newReminderIso as any,
+          });
+          setDetailEvent((prev) =>
+            prev && prev.id === detailEvent.id
+              ? { ...prev, reminderTime: newReminderIso as any }
+              : prev,
+          );
+        }
+      } else {
+        // Cập nhật tất cả các lần (hoặc sự kiện đơn)
+        let newReminderTime: string | null = null;
+        if (newVal !== 'none') {
+          const minutes = parseInt(newVal, 10);
+          const startMs = new Date(detailEvent.startTime).getTime();
+          newReminderTime = new Date(startMs - minutes * 60 * 1000).toISOString();
+        }
+
+        await updateCalendarEventApi(circleId, detailEvent.id, {
+          reminderTime: newReminderTime as any,
+        });
+
+        setDetailEvent((prev) =>
+          prev && prev.id === detailEvent.id
+            ? { ...prev, reminderTime: newReminderTime as any }
+            : prev,
+        );
       }
 
-      await updateCalendarEventApi(circleId, detailEvent.id, {
-        reminderTime: newReminderTime as any,
-      });
-
-      setDetailEvent((prev) =>
-        prev && prev.id === detailEvent.id
-          ? { ...prev, reminderTime: newReminderTime as any }
-          : prev,
-      );
-      setIsQuickReminderModalOpen(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       loadEvents();
     } catch (err: any) {
       Alert.alert('Lỗi', err.message || 'Không thể cập nhật nhắc nhở');
     } finally {
       setIsUpdatingReminder(false);
+      setPendingReminderValue(null);
     }
+  };
+
+  {/* SCOPE MODAL KHI BÌNH CHỌN CHO SỰ KIỆN LẶP LẠI (3 OPTIONS) */}
+  const renderPollScopeModal = () => {
+    if (!showPollScopeModal || !detailEvent) return null;
+    const currentOccDate = detailOccurrenceDate || selectedDate || new Date(detailEvent.startTime);
+
+    return (
+      <View style={styles.inModalPopupBackdrop}>
+        <TouchableOpacity
+          style={StyleSheet.absoluteFill}
+          activeOpacity={1}
+          onPress={() => {
+            setShowPollScopeModal(false);
+            setPendingPollStatus(null);
+          }}
+        />
+        <View style={styles.scopeModalCard}>
+          <Text style={styles.scopeModalTitle}>
+            Bạn muốn áp dụng thay đổi như thế nào ?
+          </Text>
+
+          <View style={styles.scopeOptionsContainer}>
+            <TouchableOpacity
+              style={styles.scopeOptionBtn}
+              activeOpacity={0.7}
+              onPress={() => executeVote(pendingPollStatus!, 'this')}
+            >
+              <Text style={styles.scopeOptionTitle}>Chỉ lần này</Text>
+              <Text style={styles.scopeOptionSubtext}>
+                Chỉ áp dụng phản hồi cho riêng ngày {formatDateOnly(currentOccDate)}, các lần khác giữ nguyên.
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.scopeOptionBtn}
+              activeOpacity={0.7}
+              onPress={() => executeVote(pendingPollStatus!, 'future')}
+            >
+              <Text style={styles.scopeOptionTitle}>Lần này và các lần tiếp theo</Text>
+              <Text style={styles.scopeOptionSubtext}>
+                Áp dụng phản hồi từ ngày {formatDateOnly(currentOccDate)} trở đi (sẽ tách làm 2 sự kiện có chu kỳ lặp khác nhau).
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.scopeOptionBtn}
+              activeOpacity={0.7}
+              onPress={() => executeVote(pendingPollStatus!, 'all')}
+            >
+              <Text style={styles.scopeOptionTitle}>Tất cả các lần</Text>
+              <Text style={styles.scopeOptionSubtext}>
+                Cập nhật phản hồi cho toàn bộ các lần diễn ra trong chuỗi lặp lại.
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.scopeModalFooter}>
+            <TouchableOpacity
+              style={styles.scopeModalCloseBtn}
+              activeOpacity={0.7}
+              onPress={() => {
+                setShowPollScopeModal(false);
+                setPendingPollStatus(null);
+              }}
+            >
+              <Text style={styles.scopeModalCloseText}>Đóng</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    );
+  };
+
+  {/* SCOPE MODAL KHI CẬP NHẬT NHẮC HẸN CHO SỰ KIỆN LẶP LẠI (3 OPTIONS) */}
+  const renderReminderScopeModal = () => {
+    if (!showReminderScopeModal || !detailEvent) return null;
+    const currentOccDate = detailOccurrenceDate || selectedDate || new Date(detailEvent.startTime);
+
+    return (
+      <View style={styles.inModalPopupBackdrop}>
+        <TouchableOpacity
+          style={StyleSheet.absoluteFill}
+          activeOpacity={1}
+          onPress={() => {
+            setShowReminderScopeModal(false);
+            setPendingReminderValue(null);
+          }}
+        />
+        <View style={styles.scopeModalCard}>
+          <Text style={styles.scopeModalTitle}>
+            Bạn muốn áp dụng thay đổi như thế nào ?
+          </Text>
+
+          <View style={styles.scopeOptionsContainer}>
+            <TouchableOpacity
+              style={styles.scopeOptionBtn}
+              activeOpacity={0.7}
+              onPress={() => executeReminder('this')}
+            >
+              <Text style={styles.scopeOptionTitle}>Chỉ lần này</Text>
+              <Text style={styles.scopeOptionSubtext}>
+                Chỉ thay đổi riêng ngày {formatDateOnly(currentOccDate)}, các lần khác giữ nguyên.
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.scopeOptionBtn}
+              activeOpacity={0.7}
+              onPress={() => executeReminder('future')}
+            >
+              <Text style={styles.scopeOptionTitle}>Lần này và các lần tiếp theo</Text>
+              <Text style={styles.scopeOptionSubtext}>
+                Áp dụng thay đổi từ ngày {formatDateOnly(currentOccDate)} trở đi (sẽ tách làm 2 sự kiện có chu kỳ lặp khác nhau).
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.scopeOptionBtn}
+              activeOpacity={0.7}
+              onPress={() => executeReminder('all')}
+            >
+              <Text style={styles.scopeOptionTitle}>Tất cả các lần</Text>
+              <Text style={styles.scopeOptionSubtext}>
+                Cập nhật thời gian nhắc hẹn cho toàn bộ các lần diễn ra trong chuỗi lặp lại.
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.scopeModalFooter}>
+            <TouchableOpacity
+              style={styles.scopeModalCloseBtn}
+              activeOpacity={0.7}
+              onPress={() => {
+                setShowReminderScopeModal(false);
+                setPendingReminderValue(null);
+              }}
+            >
+              <Text style={styles.scopeModalCloseText}>Đóng</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    );
+  };
+
+  {/* CONFIRMATION MODAL KHI CẬP NHẬT NHẮC HẸN CHO SỰ KIỆN ĐƠN */}
+  const renderReminderConfirmModal = () => {
+    if (!showReminderConfirmModal || !detailEvent) return null;
+
+    return (
+      <View style={styles.inModalPopupBackdrop}>
+        <TouchableOpacity
+          style={StyleSheet.absoluteFill}
+          activeOpacity={1}
+          onPress={() => {
+            setShowReminderConfirmModal(false);
+            setPendingReminderValue(null);
+          }}
+        />
+        <View style={styles.scopeModalCard}>
+          <Text style={styles.scopeModalTitle}>
+            Cập nhật thời gian nhắc hẹn
+          </Text>
+          <Text style={styles.scopeModalSubtitle}>
+            Bạn có chắc chắn muốn thay đổi thời gian nhắc hẹn cho sự kiện này?
+          </Text>
+
+          <View style={[styles.scopeModalFooter, { justifyContent: 'flex-end', gap: 10, marginTop: 16 }]}>
+            <TouchableOpacity
+              style={styles.scopeModalCloseBtn}
+              activeOpacity={0.7}
+              onPress={() => {
+                setShowReminderConfirmModal(false);
+                setPendingReminderValue(null);
+              }}
+            >
+              <Text style={styles.scopeModalCloseText}>Đóng</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.scopeConfirmPrimaryBtn}
+              activeOpacity={0.7}
+              onPress={() => executeReminder('all')}
+            >
+              <Text style={styles.scopeConfirmBtnText}>Cập nhật</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    );
   };
 
   {/* Màn hình Chi tiết lịch hẹn (Full-Screen View, không phải popup) */}
@@ -3911,8 +4459,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity, occDate?: Date) => {
                         activeOpacity={0.7}
                         disabled={isPollClosed}
                         onPress={() => {
-                          handleRsvp(opt.status);
-                          setIsDetailPollModalOpen(false);
+                          handleVoteOptionClick(opt.status);
                         }}
                       >
                         {/* Progress bar background fill */}
@@ -4312,7 +4859,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity, occDate?: Date) => {
                         styles.popupItem,
                         idx < REMINDER_OPTIONS.length - 1 && styles.popupItemBorder,
                       ]}
-                      onPress={() => handleQuickUpdateReminder(item.value)}
+                      onPress={() => handleReminderOptionSelect(item.value)}
                       activeOpacity={0.6}
                     >
                       <Text
@@ -4337,6 +4884,15 @@ const handleOpenEditModal = (ev: CalendarEventEntity, occDate?: Date) => {
 
         {/* SCOPE CONFIRMATION MODAL CHO HỦY (3 OPTIONS HOẶC CONFIRM ĐƠN) */}
         {renderScopeCancelModal()}
+
+        {/* SCOPE MODAL KHI BÌNH CHỌN CHO SỰ KIỆN LẶP LẠI (3 OPTIONS) */}
+        {renderPollScopeModal()}
+
+        {/* SCOPE MODAL KHI CẬP NHẬT NHẮC HẸN CHO SỰ KIỆN LẶP LẠI (3 OPTIONS) */}
+        {renderReminderScopeModal()}
+
+        {/* CONFIRMATION MODAL KHI CẬP NHẬT NHẮC HẸN CHO SỰ KIỆN ĐƠN */}
+        {renderReminderConfirmModal()}
       </View>
     );
   };
@@ -8116,6 +8672,12 @@ appleYearBtn: {
   },
   scopeConfirmCancelBtn: {
     backgroundColor: '#D97706',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+  },
+  scopeConfirmPrimaryBtn: {
+    backgroundColor: '#0D9488',
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 10,

@@ -8178,3 +8178,34 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 - **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
 - **Commit:** 0fa070f
 - **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
+
+
+---
+
+## AI-0202: Đồng Bộ Scope Modals Cho Bình Chọn (RSVP) Và Chỉnh Giờ Nhắc Hẹn Trên Mobile (#120)
+
+- **Date:** 2026-11-14 15:15:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120
+- **Purpose:** Bổ sung hộp thoại hỏi xác nhận và phạm vi áp dụng (Scope Modals) cho tính năng Bình chọn tham gia (RSVP) và Chỉnh giờ thông báo nhắc hẹn trên Mobile App (`MobileCalendarView.tsx`), đồng bộ 100% với Web (`CircleEventDetailModal.tsx`):
+  1. **Hỏi phạm vi áp dụng khi Bình chọn (RSVP) sự kiện lặp lại (`showPollScopeModal`):**
+     - Khi người dùng bấm bình chọn ("Tham gia", "Chưa chắc", "Bận") trên một lần diễn ra của sự kiện lặp lại, hiển thị Scope Modal hỏi: "Bạn muốn áp dụng thay đổi như thế nào ?" với 3 lựa chọn trực quan ("Chỉ lần này", "Lần này và các lần tiếp theo", "Tất cả các lần") kèm mô tả chi tiết ngày áp dụng.
+     - Thực thi tách sự kiện độc lập (`split`) hoặc cắt ngắn chuỗi lặp chuẩn xác theo lựa chọn của người dùng.
+  2. **Hỏi xác nhận và phạm vi khi Chỉnh giờ nhắc hẹn (`showReminderScopeModal` & `showReminderConfirmModal`):**
+     - **Sự kiện lặp lại:** Khi đổi thời gian nhắc nhở (15 phút, 30 phút, 1 giờ,...), hiển thị Scope Modal 3 tùy chọn tương tự Web.
+     - **Sự kiện đơn lẻ:** Hiển thị Confirmation Modal: "Bạn có chắc chắn muốn thay đổi thời gian nhắc hẹn cho sự kiện này?" kèm nút "Cập nhật" và "Đóng".
+- **Files Affected:**
+  - `apps/mobile/src/components/tools/MobileCalendarView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% logic modal xác nhận scope và API handlers cho RSVP & Reminder.
+- **Human Modifications:** Người dùng phản hồi yêu cầu bổ sung thông báo hỏi cho bình chọn và chỉnh giờ báo như web.
+- **Verification Method:**
+  - `npx tsc -p apps/mobile/tsconfig.json --noEmit`: Passed 0 errors.
+  - `bash ./scripts/check-agent-map.sh`: Passed (130/130 files resolve).
+  - `bash ./scripts/check-secrets.sh`: Passed (600 files checked, 0 secret leaks).
+- **Official Source Checked:** `PROJECT_GOD.md` §2.2, `agentic/playbooks/cross-cutting-gate.md` (Web/Mobile parity).
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
+- **Commit:** 5a78936
+- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
