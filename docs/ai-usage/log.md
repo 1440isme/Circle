@@ -8209,3 +8209,39 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 - **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
 - **Commit:** 5a78936
 - **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
+
+---
+
+## AI-0203: Tinh Chỉnh Khoảng Đệm Và Vị Trí Hiển Thị Floating Pill Buttons & Vòng Xoay May Mắn (#120)
+
+- **Date:** 2026-11-14 16:20:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120
+- **Purpose:** Điều chỉnh khoảng đệm và vị trí hiển thị để Floating Pill Buttons cùng toàn bộ nội dung không còn bị đè lên nhau hay dính sát mép màn hình ở cả Mobile và Web cho tính năng Vòng xoay may mắn (Decision Wheel):
+  1. **Mobile (`MobileWheelView.tsx`):**
+     - Tích hợp `useSafeAreaInsets` từ `react-native-safe-area-context` và `Platform` từ `react-native`.
+     - Tính toán khoảng cách an toàn:
+       - `navBarBottom = Math.max(insets.top + 8, 16) + 36`: Tọa độ chân thanh Navigation bar của Modal cha (nơi chứa nút Back, Tiêu đề, Đóng X).
+       - `floatingToolbarTop = navBarBottom + 10`: Đặt Floating Pill Toolbar (`Add Wheel`, `Spin All`) nằm ngay dưới thanh điều hướng, không còn đè lên nút Back hay nút Đóng X.
+       - `scrollPaddingTop = floatingToolbarTop + 44`: Đệm đỉnh ScrollView nội dung để toàn bộ sân khấu vòng xoay xuất hiện trọn vẹn dưới Floating Toolbar, không bị che khuất khi ở đầu trang.
+       - `scrollPaddingBottom = Math.max(insets.bottom + 36, 60)` & `paddingHorizontal: 16`: Loại bỏ hiện tượng nội dung dính sát lề dưới và mép hai bên.
+  2. **Web (`CircleWheelView.tsx`):**
+     - Đưa container chứa Floating Pill Controls vào trục căn giữa `max-w-6xl mx-auto` thay vì tràn toàn bộ `w-full`, giúp các nút Floating Pill thẳng hàng hoàn hảo với mép phải của Bảng thiết lập, không bị trôi ra ngoài biên phải màn hình.
+     - Chuẩn hóa khoảng cách đỉnh `top-4` và khoảng đệm đỉnh nội dung `pt-16 md:pt-18 pb-12`, tạo không gian thoáng đãng, sang trọng và không bị che khuất.
+- **Files Affected:**
+  - `apps/mobile/src/components/tools/MobileWheelView.tsx`
+  - `apps/web/src/components/tools/CircleWheelView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% giải thuật tính toán Safe Area clearances và Tailwind grid layout alignment.
+- **Human Modifications:** Người dùng phản hồi yêu cầu điều chỉnh khoảng đệm và vị trí hiển thị Floating Pill buttons cùng nội dung không bị đè lên nhau hay dính sát mép.
+- **Verification Method:**
+  - `npx tsc --noEmit -p apps/web/tsconfig.json`: Passed 0 errors.
+  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Passed 0 errors.
+  - `npm test --prefix apps/backend -- circle-tools.service.spec.ts`: Passed 45/45 tests (100%).
+  - `bash ./scripts/check-secrets.sh`: Passed (600 files checked, 0 secret leaks).
+- **Official Source Checked:** `PROJECT_GOD.md` §2.2, `agentic/playbooks/cross-cutting-gate.md` (Responsiveness, Safe Area & Padding).
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
+- **Commit:** Pending
+- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)

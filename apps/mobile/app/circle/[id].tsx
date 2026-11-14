@@ -5140,7 +5140,7 @@ export default function CircleWorkspaceScreen() {
                 </TouchableOpacity>
               );
 
-              const showTitlePill = selectedTool !== 'album';
+              const showTitlePill = selectedTool !== 'album' && selectedTool !== 'anonymous';
 
               if (isGlass) {
                 return (

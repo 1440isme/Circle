@@ -12,12 +12,12 @@ import {
   Platform,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Heart,
   Plus,
   Trash2,
   X,
-  ShieldCheck,
   Send,
   Sparkles,
 } from 'lucide-react-native';
@@ -236,19 +236,23 @@ export const MobileAnonymousView: React.FC<MobileAnonymousViewProps> = ({ circle
     ]);
   };
 
+  const insets = useSafeAreaInsets();
+  const topClearance = Math.max(insets.top + 8, 16) + 38 + 14;
+  const bottomClearance = Math.max(insets.bottom + 88, 96);
+
   return (
     <View style={[styles.container, { backgroundColor: colors.canvas }]}>
       {/* Scroll-under Content Layer */}
-      <ScrollView contentContainerStyle={styles.content}>
-        {/* Security Banner */}
-        <View style={styles.securityBanner}>
-          <ShieldCheck size={18} color="#059669" />
-          <Text style={styles.securityText}>
-            <Text style={{ fontWeight: '700' }}>Bảo Mật Tuyệt Đối: </Text>
-            Lời nhắn được bóc tách 100% danh tính và không lưu vết người gửi trên hệ thống.
-          </Text>
-        </View>
-
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          {
+            paddingTop: topClearance,
+            paddingBottom: bottomClearance,
+          },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
         {isLoading ? (
           <ActivityIndicator size="large" color="#475569" style={{ marginTop: 40 }} />
         ) : posts.length > 0 ? (
@@ -368,6 +372,8 @@ export const MobileAnonymousView: React.FC<MobileAnonymousViewProps> = ({ circle
           {
             backgroundColor: colors.primary,
             shadowColor: colors.primary,
+            bottom: Math.max(insets.bottom + 16, 24),
+            right: 18,
           },
         ]}
       >
@@ -483,13 +489,9 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   },
   content: {
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'ios' ? 74 : 64,
-    paddingBottom: 100,
   },
   fab: {
     position: 'absolute',
-    bottom: 24,
-    right: 16,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
@@ -506,23 +508,6 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#FFF',
-  },
-  securityBanner: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-    backgroundColor: '#ECFDF5',
-    borderWidth: 1,
-    borderColor: '#A7F3D0',
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 16,
-  },
-  securityText: {
-    flex: 1,
-    fontSize: 11,
-    color: '#065F46',
-    lineHeight: 16,
   },
   postCard: {
     borderRadius: 16,

@@ -6,7 +6,6 @@ import {
   Plus,
   Trash2,
   X,
-  ShieldCheck,
   Send,
   Loader2,
   Quote,
@@ -216,9 +215,9 @@ export const CircleAnonymousView: React.FC<CircleAnonymousViewProps> = ({ circle
 
   return (
     <div className="relative flex-1 flex flex-col h-full bg-circle-canvas dark:bg-circle-dark-surface overflow-hidden transition-colors">
-      {/* Floating Pill Controls Bar (Full gần sát lề như lịch hẹn sự kiện) */}
-      <div className="pointer-events-none absolute top-14 lg:top-3 left-0 right-0 z-20 flex flex-col items-center gap-2 px-4 md:px-6">
-        <div className="w-full flex items-center justify-between gap-2">
+      {/* Floating Pill Controls Bar (Full gần sát lề, cân đối với nội dung) */}
+      <div className="pointer-events-none absolute top-14 lg:top-4 left-0 right-0 z-20 flex flex-col items-center gap-2 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-6xl mx-auto w-full flex items-center justify-between gap-3">
           <div className="pointer-events-auto flex items-center gap-2">
             {posts.length > 0 && (
               <div className="inline-flex items-center gap-1.5 px-4 h-9 rounded-full backdrop-blur-xl bg-white/92 dark:bg-circle-dark-surface/90 border border-circle-hairline/80 dark:border-white/12 shadow-sm text-xs font-semibold text-circle-slate dark:text-circle-dark-muted select-none">
@@ -240,18 +239,8 @@ export const CircleAnonymousView: React.FC<CircleAnonymousViewProps> = ({ circle
       </div>
 
       {/* Scroll-under Content Layer */}
-      <div className="flex-1 overflow-y-auto px-4 md:px-6 pt-28 lg:pt-20 pb-12">
-        <div className="w-full">
-
-      {/* Security / Anonymity Banner */}
-      <div className="mb-6 flex items-start gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 dark:bg-emerald-500/10 p-3.5">
-        <ShieldCheck className="h-5 w-5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-        <div className="text-xs leading-relaxed text-emerald-950 dark:text-emerald-200">
-          <span className="font-bold">Bảo Mật Danh Tính Tuyệt Đối:</span> Lời nhắn của bạn được hệ
-          thống bóc tách hoàn toàn và không lưu bất kỳ thông tin nhận dạng nào ở cơ sở dữ liệu. Cả
-          thành viên và Trưởng nhóm đều không biết ai là người gửi.
-        </div>
-      </div>
+      <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 pt-28 lg:pt-18 pb-16">
+        <div className="max-w-6xl mx-auto w-full">
 
       {isLoading ? (
         <div className="flex-1 flex items-center justify-center">

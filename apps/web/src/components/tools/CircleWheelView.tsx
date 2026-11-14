@@ -918,9 +918,9 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
 
   return (
     <div className="relative flex-1 flex flex-col h-full bg-circle-canvas dark:bg-circle-dark-surface overflow-hidden transition-colors">
-      {/* Floating Pill Controls (Full gần sát lề như lịch hẹn sự kiện) */}
-      <div className="pointer-events-none absolute top-14 lg:top-3 left-0 right-0 z-20 flex flex-col items-center gap-2 px-4 md:px-6">
-        <div className="w-full flex items-center justify-end gap-2">
+      {/* Floating Pill Controls */}
+      <div className="pointer-events-none absolute top-4 left-0 right-0 z-20 flex flex-col items-center px-4 md:px-6">
+        <div className="w-full max-w-6xl mx-auto flex items-center justify-end gap-2.5">
           {/* Add Wheel Pill Button */}
           <button
             onClick={handleAddDefaultWheel}
@@ -947,9 +947,9 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
       </div>
 
       {/* Scroll-under Content Layer */}
-      <div className="flex-1 overflow-y-auto px-4 md:px-6 pt-28 lg:pt-20 pb-12">
+      <div className="flex-1 overflow-y-auto px-4 md:px-6 pt-16 md:pt-18 pb-12">
         {/* Main Responsive Layout */}
-        <div className="relative flex flex-col lg:flex-row gap-6 w-full flex-1 items-stretch max-w-6xl mx-auto">
+        <div className="relative flex flex-col lg:flex-row gap-6 lg:gap-8 w-full flex-1 items-stretch max-w-6xl mx-auto">
         {/* LEFT COLUMN: Visual Arena */}
         <div className="flex-1 flex flex-col items-center justify-center p-2 sm:p-4 transition-all min-h-[460px]">
           {/* SÂN KHẤU VÒNG QUAY (VISUAL ARENA) */}

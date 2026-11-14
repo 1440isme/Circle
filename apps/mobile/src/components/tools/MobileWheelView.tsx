@@ -11,7 +11,9 @@ import {
   Alert,
   Animated,
   Easing,
+  Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, G, Circle, Rect, Text as SvgText } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import {
@@ -73,8 +75,15 @@ interface WheelMobileState {
 }
 
 export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) => {
+  const insets = useSafeAreaInsets();
   const t = useLanguageStore((s) => s.t);
   const user = useAuthStore((s) => s.user);
+
+  // Khoảng cách an toàn để Floating Pill Toolbar và nội dung không bị đè lên thanh điều hướng của Modal cha
+  const navBarBottom = Math.max(insets.top + 8, 16) + 36;
+  const floatingToolbarTop = navBarBottom + 10;
+  const scrollPaddingTop = floatingToolbarTop + 44;
+  const scrollPaddingBottom = Math.max(insets.bottom + 36, 60);
 
   // Wheels state
   const [wheels, setWheels] = useState<DecisionWheelEntity[]>([]);
@@ -771,7 +780,7 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
   return (
     <View style={styles.container}>
       {/* Floating Pill Toolbar: Floating over content with pointerEvents="box-none" */}
-      <View style={styles.floatingHeaderArea} pointerEvents="box-none">
+      <View style={[styles.floatingHeaderArea, { top: floatingToolbarTop }]} pointerEvents="box-none">
         <View />
 
         {/* Right: Add Wheel & Spin All Pills */}
@@ -808,7 +817,13 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
 
       <ScrollView
         style={styles.scrollContainer}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          {
+            paddingTop: scrollPaddingTop,
+            paddingBottom: scrollPaddingBottom,
+          },
+        ]}
         showsVerticalScrollIndicator={false}
       >
         {/* SÂN KHẤU VÒNG QUAY (VISUAL ARENA) */}
@@ -1823,9 +1838,8 @@ const styles = StyleSheet.create({
   },
   floatingHeaderArea: {
     position: 'absolute',
-    top: 10,
-    left: 14,
-    right: 14,
+    left: 16,
+    right: 16,
     zIndex: 25,
     flexDirection: 'row',
     alignItems: 'center',
@@ -1880,9 +1894,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingTop: 54,
-    paddingHorizontal: 14,
-    paddingBottom: 60,
+    paddingHorizontal: 16,
   },
   mobileBackBtn: {
     padding: 6,
