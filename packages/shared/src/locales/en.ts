@@ -1543,6 +1543,7 @@ export const en: TranslationDictionary = {
     anonymousEmptyDesc: 'Send warm anonymous notes, encouragement, or heartfelt wishes to circle members!',
     anonymousContentRequired: 'Please enter your message',
     anonymousRemoveTitle: 'Remove Note',
+    anonymousRemoveError: 'Failed to remove note',
     calendarEventRequired: 'Please enter an event title',
     calendarStartRequired: 'Please select a start time',
     calendarStartInvalid: 'Invalid start time',

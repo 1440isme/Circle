@@ -1541,6 +1541,7 @@ export const vi = {
     anonymousEmptyDesc: 'Gửi gắm lời cảm ơn, động viên hoặc một lời chúc tốt lành ẩn danh đến các thành viên trong nhóm!',
     anonymousContentRequired: 'Vui lòng nhập nội dung tâm sự',
     anonymousRemoveTitle: 'Gỡ lời nhắn',
+    anonymousRemoveError: 'Không thể gỡ bài viết',
     calendarEventRequired: 'Vui lòng nhập tên sự kiện',
     calendarStartRequired: 'Vui lòng chọn thời gian bắt đầu',
     calendarStartInvalid: 'Thời gian bắt đầu không hợp lệ',

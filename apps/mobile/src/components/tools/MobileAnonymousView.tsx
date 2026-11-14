@@ -140,15 +140,15 @@ const getMobileTheme = (id?: string | null, isDark?: boolean): MobileThemeColors
 const getThemeName = (id: string, t: any): string => {
   switch (id) {
     case 'sunset':
-      return t.chat?.anonymousThemeSunset || 'Hoàng hôn';
+      return t.collab?.anonymousThemeSunset || 'Hoàng hôn';
     case 'ocean':
-      return t.chat?.anonymousThemeOcean || 'Đại dương';
+      return t.collab?.anonymousThemeOcean || 'Đại dương';
     case 'lavender':
-      return t.chat?.anonymousThemeLavender || 'Oải hương';
+      return t.collab?.anonymousThemeLavender || 'Oải hương';
     case 'rose':
-      return t.chat?.anonymousThemeRose || 'Hoa hồng';
+      return t.collab?.anonymousThemeRose || 'Hoa hồng';
     case 'mint':
-      return t.chat?.anonymousThemeMint || 'Bạc hà';
+      return t.collab?.anonymousThemeMint || 'Bạc hà';
     default:
       return id;
   }
@@ -292,7 +292,7 @@ export const MobileAnonymousView: React.FC<MobileAnonymousViewProps> = ({ circle
             await deleteAnonymousPostApi(circleId, postId);
             loadPosts();
           } catch (err: any) {
-            Alert.alert(t.common.error, err.message || 'Không thể gỡ bài viết');
+            Alert.alert(t.common.error, err.message || t.collab.anonymousRemoveError || 'Không thể gỡ bài viết');
           }
         },
       },
@@ -317,7 +317,7 @@ export const MobileAnonymousView: React.FC<MobileAnonymousViewProps> = ({ circle
         showsVerticalScrollIndicator={false}
       >
         {isLoading ? (
-          <ActivityIndicator size="large" color="#475569" style={{ marginTop: 40 }} />
+          <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 40 }} />
         ) : posts.length > 0 ? (
           <View style={{ gap: 12 }}>
             {posts.map((post) => {
@@ -574,7 +574,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: colors.hairline,
     backgroundColor: colors.surface,
   },
   screenTitle: {
@@ -804,7 +804,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
     paddingTop: 8,
     marginTop: 4,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(0,0,0,0.06)',
+    borderTopColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
   },
   reactionBtn: {
     flexDirection: 'row',
@@ -813,12 +813,12 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.6)',
+    backgroundColor: isDark ? colors.elevated : 'rgba(255,255,255,0.6)',
   },
   reactionBtnActive: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: isDark ? colors.surface : '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#0D9488',
+    borderColor: colors.primary,
   },
   reactionEmoji: {
     fontSize: 14,
@@ -826,10 +826,10 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   reactionCount: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#64748B',
+    color: colors.subtle,
   },
   reactionCountActive: {
-    color: '#0D9488',
+    color: colors.primary,
     fontWeight: '700',
   },
 });

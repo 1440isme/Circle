@@ -79,7 +79,7 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
   const insets = useSafeAreaInsets();
   const { colors, resolvedTheme } = useThemeStore();
   const isDark = resolvedTheme === 'dark';
-  const { t } = useLanguageStore();
+  const { locale, t } = useLanguageStore();
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
   const user = useAuthStore((s) => s.user);
 
@@ -609,7 +609,9 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
 
     const nextNumber = wheels.length + 1;
     const defaultTitle = t.luckyWheel.wheelNumber.replace('{number}', String(nextNumber));
-    const defaultChoices = ['Phở', 'Bún bò', 'Cơm tấm', 'Bánh mì'];
+    const defaultChoices = locale === 'vi'
+      ? ['Phở', 'Bún bò', 'Cơm tấm', 'Bánh mì']
+      : ['Pizza', 'Burger', 'Sushi', 'Tacos'];
 
     try {
       const res = await createWheelApi(circleId, {
@@ -770,7 +772,7 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#0D9488" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }

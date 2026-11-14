@@ -148,7 +148,7 @@ function useColumnCount(): number {
 
 export const CircleAnonymousView: React.FC<CircleAnonymousViewProps> = ({ circleId }) => {
   const { user } = useAuth();
-  const t = useLanguageStore((s) => s.t);
+  const { t, locale } = useLanguageStore();
 
   const [isComposeModalOpen, setIsComposeModalOpen] = useState(false);
   const [content, setContent] = useState('');
@@ -333,7 +333,7 @@ export const CircleAnonymousView: React.FC<CircleAnonymousViewProps> = ({ circle
                                 className={`flex h-6 w-6 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-transform hover:scale-125 active:scale-95 cursor-pointer ${
                                   isAlreadyReacted ? 'opacity-40' : 'opacity-85 hover:opacity-100'
                                 }`}
-                                title={`Thả ${em}`}
+                                title={locale === 'vi' ? `Thả ${em}` : `React ${em}`}
                               >
                                 <Emoji emoji={em} size={15} />
                               </button>

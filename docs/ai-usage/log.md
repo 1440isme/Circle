@@ -8281,5 +8281,49 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
   - `bash ./scripts/check-secrets.sh`: Passed (600 files checked, 0 secret leaks).
 - **Official Source Checked:** `agentic/playbooks/cross-cutting-gate.md` (Theme & Design Tokens, Language — i18n).
 - **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
-- **Commit:** Pending
+- **Commit:** ca85cfb
+- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
+
+---
+
+## AI-0205: Đồng Bộ Theme Sáng Tối Và Ngôn Ngữ Anh - Việt Cho Hộp Thư Ẩn Danh (#120)
+
+- **Date:** 2026-11-14 16:45:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120
+- **Purpose:** Hoàn thiện và đồng bộ hóa toàn diện giao diện Theme Sáng / Tối (Light / Dark Mode) và bản địa hóa đa ngôn ngữ (Anh - Việt) cho tính năng Hộp thư ẩn danh (Words Unsaid / Anonymous Reflections) trên cả Web và Mobile:
+  1. **Mobile Theme & Localization (`MobileAnonymousView.tsx`):**
+     - Đồng bộ bảng màu thẻ theo theme sáng/tối (`THEME_PRESETS`: `sunset`, `ocean`, `lavender`, `rose`, `mint`) với tỷ lệ tương phản cao, không bị lóa khi ở Dark mode.
+     - Đồng bộ token viền header `colors.hairline`, màu viền và nền reaction bar (`colors.elevated`, `colors.surface`, `colors.primary`, `colors.subtle`).
+     - Chuẩn hóa màu `ActivityIndicator` theo `colors.primary`.
+     - Chuyển toàn bộ tên theme sang từ điển `t.collab.anonymousTheme*` chuẩn i18n thay vì fallback cứng.
+     - Bổ sung `t.collab.anonymousRemoveError` vào thông báo lỗi khi không thể gỡ lời nhắn.
+  2. **Web Theme & Localization (`CircleAnonymousView.tsx`):**
+     - Đọc trạng thái `locale` từ `useLanguageStore` để bản địa hóa tooltip nút thả biểu cảm nhanh (`Thả ${em}` / `React ${em}`).
+     - Đảm bảo thẻ lời nhắn giữ nguyên các gradient nền `dark:` chuẩn Circle token và border tinh tế.
+  3. **Mobile Wheel Localization Polish (`MobileWheelView.tsx`):**
+     - Đọc `locale` từ `useLanguageStore` để tự động khởi tạo danh sách lựa chọn mặc định theo ngôn ngữ: Phở, Bún bò, Cơm tấm, Bánh mì (VI) hoặc Pizza, Burger, Sushi, Tacos (EN).
+     - Đổi màu `ActivityIndicator` sang `colors.primary`.
+  4. **Shared Locales (`vi.ts` & `en.ts`):**
+     - Bổ sung key `anonymousRemoveError`: 'Không thể gỡ bài viết' (VI) / 'Failed to remove note' (EN).
+- **Files Affected:**
+  - `apps/mobile/src/components/tools/MobileAnonymousView.tsx`
+  - `apps/mobile/src/components/tools/MobileWheelView.tsx`
+  - `apps/web/src/components/tools/CircleAnonymousView.tsx`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% theme styling alignment và localization dictionary mapping.
+- **Human Modifications:** Người dùng yêu cầu đồng bộ theme sáng tối và ngôn ngữ Anh - Việt.
+- **Verification Method:**
+  - `npm run build --workspace=@circle/shared`: Passed cleanly.
+  - `npx tsc --noEmit -p apps/web/tsconfig.json`: Passed 0 errors.
+  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Passed 0 errors.
+  - `bash ./scripts/check-agent-map.sh`: Passed (all references resolve).
+  - `bash ./scripts/check-secrets.sh`: Passed (600 files checked, 0 secret leaks).
+- **Official Source Checked:** `PROJECT_GOD.md` §2.2, `agentic/playbooks/cross-cutting-gate.md` (Theme & Design Tokens, Language — i18n).
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
+- **Commit:** 581be88
 - **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
