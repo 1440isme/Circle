@@ -8144,3 +8144,37 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 - **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
 - **Commit:** 6036159
 - **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
+
+
+---
+
+## AI-0201: Đồng Bộ Hóa 100% Thông Báo Xác Nhận Scope Lưu, Xóa, Hủy Lịch Hẹn Giữa Mobile và Web (#120)
+
+- **Date:** 2026-11-14 15:00:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120
+- **Purpose:** Đồng bộ hóa trải nghiệm xác nhận phạm vi áp dụng khi Lưu/Sửa, Xóa và Hủy lịch hẹn sự kiện trên Mobile App (`MobileCalendarView.tsx`) y chang Web (`CircleCalendarView.tsx`):
+  1. **Thay thế `Alert.alert` gốc bằng Scope Confirmation Modals chuyên dụng:**
+     - Khắc phục triệt để giới hạn tối đa 3 nút trên Android Alert (vốn làm mất tùy chọn thứ 4 khi có 4 lựa chọn).
+     - Thiết kế giao diện hộp thoại bo góc mềm mại (`borderRadius: 20`, shadow, border hairline) hiển thị đầy đủ tiêu đề và văn bản mô tả giải thích chi tiết ngày bị ảnh hưởng.
+  2. **Đồng bộ hóa 3 nhóm thông báo hỏi:**
+     - **Lưu / Sửa (`showScopeModal`):** Khi sửa sự kiện lặp lại, hiển thị 3 lựa chọn trực quan ("Chỉ lần này", "Lần này và các lần tiếp theo", "Tất cả các lần") kèm mô tả chi tiết từng ngày áp dụng.
+     - **Xóa (`deleteModalState`):** Hỗ trợ cả sự kiện lặp lại (3 lựa chọn: "Chỉ xóa lần này", "Xóa lần này và các lần tiếp theo", "Xóa tất cả các lần") lẫn sự kiện đơn lẻ (xác nhận xóa vĩnh viễn với nút đỏ `Xác nhận xóa`).
+     - **Hủy (`cancelModalState`):** Bổ sung đầy đủ lựa chọn "Hủy lần này và các lần tiếp theo" vốn bị thiếu trước đây, cùng 2 lựa chọn "Chỉ hủy lần này", "Hủy tất cả các lần" và xác nhận hủy đơn lẻ.
+  3. **Hỗ trợ khôi phục sự kiện đơn lẻ:**
+     - Mở rộng `handleRestoreEventInDetail` hỗ trợ chuyển trạng thái `isCancelled: false` cho cả lịch hẹn đơn lẻ và chuỗi lặp lại.
+- **Files Affected:**
+  - `apps/mobile/src/components/tools/MobileCalendarView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% logic modal xác nhận scope và styling đồng bộ Web.
+- **Human Modifications:** Người dùng yêu cầu đồng bộ thông báo hỏi khi lưu, xóa, sửa ở App giống như Web.
+- **Verification Method:**
+  - `npx tsc -p apps/mobile/tsconfig.json --noEmit`: Passed 0 errors.
+  - `bash ./scripts/check-agent-map.sh`: Passed (130/130 files resolve).
+  - `bash ./scripts/check-secrets.sh`: Passed (600 files checked, 0 secret leaks).
+- **Official Source Checked:** `PROJECT_GOD.md` §2.2, `agentic/playbooks/cross-cutting-gate.md` (Web/Mobile parity).
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
+- **Commit:** 0fa070f
+- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)

@@ -879,6 +879,19 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
   const [calendarTab, setCalendarTab] = useState<'month' | 'upcoming'>('month');
   const [isSharingToChat, setIsSharingToChat] = useState<string | null>(null);
 
+  // Scope confirmation modals (đồng bộ 100% UX với Web cho Lưu/Sửa, Xóa, Hủy)
+  const [showScopeModal, setShowScopeModal] = useState(false);
+  const [deleteModalState, setDeleteModalState] = useState<{
+    isOpen: boolean;
+    event: CalendarEventEntity | null;
+    occDate: Date | null;
+  }>({ isOpen: false, event: null, occDate: null });
+  const [cancelModalState, setCancelModalState] = useState<{
+    isOpen: boolean;
+    event: CalendarEventEntity | null;
+    occDate: Date | null;
+  }>({ isOpen: false, event: null, occDate: null });
+
   const handleShareToChat = useCallback(
     async (eventId: string) => {
       try {
@@ -1268,7 +1281,7 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
     return null;
   };
 
-const handleOpenEditModal = (ev: CalendarEventEntity) => {
+const handleOpenEditModal = (ev: CalendarEventEntity, occDate?: Date) => {
     setEditingEvent(ev);
     setTitle(ev.eventTitle);
     setLocation(ev.location || '');
@@ -1277,7 +1290,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
     const validDesc = cleanDesc.trim().toLowerCase() === 'body' ? '' : cleanDesc;
     setDescription(validDesc);
 
-    const occD = detailOccurrenceDate || selectedDate || new Date(ev.startTime);
+    const occD = occDate || detailOccurrenceDate || selectedDate || new Date(ev.startTime);
     setEditingOccurrenceDate(occD);
 
     const evStart = new Date(ev.startTime);
@@ -1483,110 +1496,128 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
     }
   };
 
-  const promptEditScope = (onProceed: (scope: 'this' | 'future' | 'all') => void) => {
-    if (!editingEvent) return;
-    const { recurrenceConfig: savedConfig } = parseEventRecurrence(editingEvent.description);
-    if (!savedConfig || savedConfig.frequency === 'none') {
-      onProceed('all');
-      return;
-    }
+  // Xử lý Xóa sự kiện với phạm vi (đồng bộ 100% với Web)
+  const executeDelete = async (scope: 'this' | 'future' | 'all') => {
+    const ev = deleteModalState.event;
+    const occD = deleteModalState.occDate || selectedDate || (ev ? new Date(ev.startTime) : new Date());
+    if (!ev) return;
 
-    Alert.alert(
-      'Cập nhật sự kiện lặp lại',
-      'Bạn muốn áp dụng các thay đổi này cho lần diễn ra này, các lần tiếp theo hay tất cả các lần?',
-      [
-        { text: 'Hủy bỏ', style: 'cancel' },
-        {
-          text: 'Chỉ lần này',
-          onPress: () => onProceed('this'),
-        },
-        {
-          text: 'Lần này và các lần tiếp theo',
-          onPress: () => onProceed('future'),
-        },
-        {
-          text: 'Tất cả các lần',
-          onPress: () => onProceed('all'),
-        },
-      ],
-    );
+    try {
+      const { recurrenceConfig: parentConfig, cleanDesc: parentCleanDesc } = parseEventRecurrence(ev.description);
+      const isRecurring = Boolean(parentConfig && parentConfig.frequency !== 'none');
+
+      if (isRecurring && parentConfig) {
+        const occKey = formatDateKey(occD);
+
+        if (scope === 'this') {
+          const currentExcluded = parentConfig.excludedDates || [];
+          const nextExcluded = Array.from(new Set([...currentExcluded, occKey]));
+          const updatedParentRecurrence: RecurrenceConfig = {
+            ...parentConfig,
+            excludedDates: nextExcluded,
+          };
+          const updatedParentDesc = serializeRecurrence(updatedParentRecurrence, parentCleanDesc);
+          await updateCalendarEventApi(circleId, ev.id, {
+            description: updatedParentDesc,
+          });
+        } else if (scope === 'future') {
+          const startOfOld = new Date(ev.startTime);
+          if (formatDateKey(occD) <= formatDateKey(startOfOld)) {
+            await deleteCalendarEventApi(circleId, ev.id);
+          } else {
+            const dayBefore = new Date(occD);
+            dayBefore.setDate(dayBefore.getDate() - 1);
+            const updatedConfig: RecurrenceConfig = {
+              ...parentConfig,
+              endType: 'on_date',
+              endDate: dayBefore,
+            };
+            const newDesc = serializeRecurrence(updatedConfig, parentCleanDesc);
+            await updateCalendarEventApi(circleId, ev.id, {
+              description: newDesc,
+            });
+          }
+        } else {
+          await deleteCalendarEventApi(circleId, ev.id);
+        }
+      } else {
+        await deleteCalendarEventApi(circleId, ev.id);
+      }
+
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setDeleteModalState({ isOpen: false, event: null, occDate: null });
+      if (detailEvent?.id === ev.id) {
+        setDetailEvent(null);
+        setDetailOccurrenceDate(null);
+      }
+      setIsDetailMenuOpen(false);
+      loadEvents();
+    } catch (err: any) {
+      Alert.alert('Lỗi', err.message || 'Không thể xóa sự kiện');
+    }
   };
 
-  const handleCancelEventInDetail = (eventId: string) => {
-    if (!detailEvent) return;
-    const { recurrenceConfig: savedConfig, cleanDesc } = parseEventRecurrence(detailEvent.description);
-    const isRecurring = Boolean(savedConfig && savedConfig.frequency !== 'none');
-    const currentOccD = detailOccurrenceDate || selectedDate || new Date(detailEvent.startTime);
+  // Xử lý Hủy lịch hẹn với phạm vi (đồng bộ 100% với Web)
+  const executeCancel = async (scope: 'this' | 'future' | 'all') => {
+    const ev = cancelModalState.event;
+    const occD = cancelModalState.occDate || selectedDate || (ev ? new Date(ev.startTime) : new Date());
+    if (!ev) return;
 
-    if (isRecurring && savedConfig) {
-      Alert.alert(
-        'Hủy sự kiện lặp lại',
-        'Bạn muốn hủy sự kiện này cho lần diễn ra này hay tất cả các lần?',
-        [
-          { text: 'Đóng', style: 'cancel' },
-          {
-            text: 'Chỉ hủy lần này',
-            style: 'destructive',
-            onPress: async () => {
-              try {
-                const occKey = formatDateKey(currentOccD);
-                const updatedConfig: RecurrenceConfig = {
-                  ...savedConfig,
-                  cancelledDates: Array.from(new Set([...(savedConfig.cancelledDates || []), occKey])),
-                };
-                const newDesc = serializeRecurrence(updatedConfig, cleanDesc);
-                const updatedEv = await updateCalendarEventApi(circleId, eventId, {
-                  description: newDesc,
-                });
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                setDetailEvent(updatedEv);
-                setIsDetailMenuOpen(false);
-                loadEvents();
-              } catch (err: any) {
-                Alert.alert('Lỗi', err.message || 'Không thể hủy lịch hẹn');
-              }
-            },
-          },
-          {
-            text: 'Hủy tất cả các lần',
-            style: 'destructive',
-            onPress: async () => {
-              try {
-                await cancelCalendarEventApi(circleId, eventId);
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                setDetailEvent((prev) => (prev && prev.id === eventId ? { ...prev, isCancelled: true } : prev));
-                setIsDetailMenuOpen(false);
-                loadEvents();
-              } catch (err: any) {
-                Alert.alert('Lỗi', err.message || 'Không thể hủy lịch hẹn');
-              }
-            },
-          },
-        ],
-      );
-    } else {
-      Alert.alert(
-        'Hủy lịch hẹn',
-        'Bạn có chắc chắn muốn hủy lịch hẹn này? Sự kiện sẽ được đánh dấu là Đã hủy và hiển thị trên lịch nhóm.',
-        [
-          { text: 'Quay lại', style: 'cancel' },
-          {
-            text: 'Xác nhận hủy',
-            style: 'destructive',
-            onPress: async () => {
-              try {
-                await cancelCalendarEventApi(circleId, eventId);
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                setDetailEvent((prev) => (prev && prev.id === eventId ? { ...prev, isCancelled: true } : prev));
-                setIsDetailMenuOpen(false);
-                loadEvents();
-              } catch (err: any) {
-                Alert.alert('Lỗi', err.message || 'Không thể hủy lịch hẹn');
-              }
-            },
-          },
-        ],
-      );
+    try {
+      const { recurrenceConfig: parentConfig, cleanDesc: parentCleanDesc } = parseEventRecurrence(ev.description);
+      const isRecurring = Boolean(parentConfig && parentConfig.frequency !== 'none');
+
+      if (isRecurring && parentConfig) {
+        const occKey = formatDateKey(occD);
+
+        if (scope === 'this') {
+          const currentCancelled = parentConfig.cancelledDates || [];
+          const nextCancelled = Array.from(new Set([...currentCancelled, occKey]));
+          const updatedParentRecurrence: RecurrenceConfig = {
+            ...parentConfig,
+            cancelledDates: nextCancelled,
+          };
+          const updatedParentDesc = serializeRecurrence(updatedParentRecurrence, parentCleanDesc);
+          const updatedEv = await updateCalendarEventApi(circleId, ev.id, {
+            description: updatedParentDesc,
+          });
+          if (detailEvent?.id === ev.id) {
+            setDetailEvent(updatedEv);
+          }
+        } else if (scope === 'future') {
+          const dayBefore = new Date(occD);
+          dayBefore.setDate(dayBefore.getDate() - 1);
+          const updatedConfig: RecurrenceConfig = {
+            ...parentConfig,
+            endType: 'on_date',
+            endDate: dayBefore,
+          };
+          const newDesc = serializeRecurrence(updatedConfig, parentCleanDesc);
+          const updatedEv = await updateCalendarEventApi(circleId, ev.id, {
+            description: newDesc,
+          });
+          if (detailEvent?.id === ev.id) {
+            setDetailEvent(updatedEv);
+          }
+        } else {
+          await cancelCalendarEventApi(circleId, ev.id);
+          if (detailEvent?.id === ev.id) {
+            setDetailEvent((prev) => (prev && prev.id === ev.id ? { ...prev, isCancelled: true } : prev));
+          }
+        }
+      } else {
+        await cancelCalendarEventApi(circleId, ev.id);
+        if (detailEvent?.id === ev.id) {
+          setDetailEvent((prev) => (prev && prev.id === ev.id ? { ...prev, isCancelled: true } : prev));
+        }
+      }
+
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setCancelModalState({ isOpen: false, event: null, occDate: null });
+      setIsDetailMenuOpen(false);
+      loadEvents();
+    } catch (err: any) {
+      Alert.alert('Lỗi', err.message || 'Không thể hủy lịch hẹn');
     }
   };
 
@@ -1608,6 +1639,11 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
           description: newDesc,
         });
         setDetailEvent(updatedEv);
+      } else {
+        const updatedEv = await updateCalendarEventApi(circleId, eventId, {
+          isCancelled: false,
+        } as any);
+        setDetailEvent(updatedEv);
       }
       setIsDetailMenuOpen(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -1617,115 +1653,276 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
     }
   };
 
-  const handleDeleteEventInDetail = (eventId: string) => {
-    if (!detailEvent) return;
-    const { recurrenceConfig: savedConfig, cleanDesc } = parseEventRecurrence(detailEvent.description);
-    const isRecurring = Boolean(savedConfig && savedConfig.frequency !== 'none');
-    const currentOccD = detailOccurrenceDate || selectedDate || new Date(detailEvent.startTime);
+  {/* SCOPE CONFIRMATION MODAL CHO LƯU / SỬA (3 OPTIONS) */}
+  const renderScopeSaveModal = () => {
+    if (!showScopeModal) return null;
 
-    if (isRecurring && savedConfig) {
-      Alert.alert(
-        'Xóa sự kiện lặp lại',
-        'Bạn muốn xóa sự kiện này cho lần diễn ra này, các lần tiếp theo hay tất cả các lần?',
-        [
-          { text: 'Đóng', style: 'cancel' },
-          {
-            text: 'Chỉ xóa lần này',
-            style: 'destructive',
-            onPress: async () => {
-              try {
-                const occKey = formatDateKey(currentOccD);
-                const updatedConfig: RecurrenceConfig = {
-                  ...savedConfig,
-                  excludedDates: Array.from(new Set([...(savedConfig.excludedDates || []), occKey])),
-                };
-                const newDesc = serializeRecurrence(updatedConfig, cleanDesc);
-                await updateCalendarEventApi(circleId, eventId, {
-                  description: newDesc,
-                });
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                setIsDetailMenuOpen(false);
-                setDetailEvent(null);
-                setDetailOccurrenceDate(null);
-                loadEvents();
-              } catch (err: any) {
-                Alert.alert('Lỗi', err.message || 'Không thể xóa sự kiện');
-              }
-            },
-          },
-          {
-            text: 'Xóa toàn bộ lần tiếp theo',
-            style: 'destructive',
-            onPress: async () => {
-              try {
-                const startOfOld = new Date(detailEvent.startTime);
-                if (formatDateKey(currentOccD) <= formatDateKey(startOfOld)) {
-                  await deleteCalendarEventApi(circleId, eventId);
-                } else {
-                  const dayBefore = new Date(currentOccD);
-                  dayBefore.setDate(dayBefore.getDate() - 1);
-                  const updatedConfig: RecurrenceConfig = {
-                    ...savedConfig,
-                    endType: 'on_date',
-                    endDate: dayBefore,
-                  };
-                  const newDesc = serializeRecurrence(updatedConfig, cleanDesc);
-                  await updateCalendarEventApi(circleId, eventId, {
-                    description: newDesc,
-                  });
-                }
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                setIsDetailMenuOpen(false);
-                setDetailEvent(null);
-                setDetailOccurrenceDate(null);
-                loadEvents();
-              } catch (err: any) {
-                Alert.alert('Lỗi', err.message || 'Không thể xóa sự kiện');
-              }
-            },
-          },
-          {
-            text: 'Xóa tất cả các lần',
-            style: 'destructive',
-            onPress: async () => {
-              try {
-                await deleteCalendarEventApi(circleId, eventId);
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                setIsDetailMenuOpen(false);
-                setDetailEvent(null);
-                setDetailOccurrenceDate(null);
-                loadEvents();
-              } catch (err: any) {
-                Alert.alert('Lỗi', err.message || 'Không thể xóa sự kiện');
-              }
-            },
-          },
-        ],
-      );
-    } else {
-      Alert.alert(
-        'Xóa vĩnh viễn',
-        'Bạn có chắc chắn muốn xóa vĩnh viễn sự kiện này khỏi lịch nhóm?',
-        [
-          { text: 'Hủy', style: 'cancel' },
-          {
-            text: 'Xóa vĩnh viễn',
-            style: 'destructive',
-            onPress: async () => {
-              try {
-                await deleteCalendarEventApi(circleId, eventId);
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                setIsDetailMenuOpen(false);
-                setDetailEvent(null);
-                loadEvents();
-              } catch (err: any) {
-                Alert.alert('Lỗi', err.message || 'Không thể xóa sự kiện');
-              }
-            },
-          },
-        ],
-      );
-    }
+    return (
+      <View style={styles.inModalPopupBackdrop}>
+        <TouchableOpacity
+          style={StyleSheet.absoluteFill}
+          activeOpacity={1}
+          onPress={() => setShowScopeModal(false)}
+        />
+        <View style={styles.scopeModalCard}>
+          <Text style={styles.scopeModalTitle}>
+            Bạn muốn áp dụng thay đổi như thế nào ?
+          </Text>
+
+          <View style={styles.scopeOptionsContainer}>
+            <TouchableOpacity
+              style={styles.scopeOptionBtn}
+              activeOpacity={0.7}
+              onPress={() => {
+                setShowScopeModal(false);
+                handleCreateOrUpdateEvent('this');
+              }}
+            >
+              <Text style={styles.scopeOptionTitle}>Chỉ lần này</Text>
+              <Text style={styles.scopeOptionSubtext}>
+                Chỉ thay đổi riêng ngày {editingOccurrenceDate ? formatDateOnly(editingOccurrenceDate) : ''}, các lần khác giữ nguyên.
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.scopeOptionBtn}
+              activeOpacity={0.7}
+              onPress={() => {
+                setShowScopeModal(false);
+                handleCreateOrUpdateEvent('future');
+              }}
+            >
+              <Text style={styles.scopeOptionTitle}>Lần này và các lần tiếp theo</Text>
+              <Text style={styles.scopeOptionSubtext}>
+                Áp dụng thay đổi từ ngày {startDate ? formatDateOnly(startDate) : editingOccurrenceDate ? formatDateOnly(editingOccurrenceDate) : ''} trở đi (sẽ tách làm 2 sự kiện có chu kỳ lặp khác nhau).
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.scopeOptionBtn}
+              activeOpacity={0.7}
+              onPress={() => {
+                setShowScopeModal(false);
+                handleCreateOrUpdateEvent('all');
+              }}
+            >
+              <Text style={styles.scopeOptionTitle}>Tất cả các lần</Text>
+              <Text style={styles.scopeOptionSubtext}>
+                Cập nhật toàn bộ các lần diễn ra trong chuỗi lặp lại.
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.scopeModalFooter}>
+            <TouchableOpacity
+              style={styles.scopeModalCloseBtn}
+              activeOpacity={0.7}
+              onPress={() => setShowScopeModal(false)}
+            >
+              <Text style={styles.scopeModalCloseText}>Đóng</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    );
+  };
+
+  {/* SCOPE CONFIRMATION MODAL CHO XÓA (3 OPTIONS HOẶC CONFIRM ĐƠN) */}
+  const renderScopeDeleteModal = () => {
+    if (!deleteModalState.isOpen || !deleteModalState.event) return null;
+    const ev = deleteModalState.event;
+    const occD = deleteModalState.occDate || selectedDate || new Date(ev.startTime);
+    const { recurrenceConfig: parsedRec } = parseEventRecurrence(ev.description);
+    const isRecurring = Boolean(parsedRec && parsedRec.frequency !== 'none');
+
+    return (
+      <View style={styles.inModalPopupBackdrop}>
+        <TouchableOpacity
+          style={StyleSheet.absoluteFill}
+          activeOpacity={1}
+          onPress={() => setDeleteModalState({ isOpen: false, event: null, occDate: null })}
+        />
+        <View style={styles.scopeModalCard}>
+          <Text style={styles.scopeModalTitle}>
+            {isRecurring ? 'Xóa sự kiện lặp lại' : 'Xóa vĩnh viễn sự kiện'}
+          </Text>
+          <Text style={styles.scopeModalSubtitle}>
+            {isRecurring
+              ? 'Bạn muốn xóa sự kiện này cho lần diễn ra này, các lần tiếp theo hay tất cả các lần?'
+              : 'Bạn có chắc chắn muốn xóa vĩnh viễn sự kiện này khỏi lịch nhóm?'}
+          </Text>
+
+          {isRecurring ? (
+            <View style={styles.scopeOptionsContainer}>
+              <TouchableOpacity
+                style={[styles.scopeOptionBtn, styles.scopeOptionBtnDelete]}
+                activeOpacity={0.7}
+                onPress={() => executeDelete('this')}
+              >
+                <Text style={[styles.scopeOptionTitle, { color: '#E11D48' }]}>
+                  Chỉ xóa lần này
+                </Text>
+                <Text style={styles.scopeOptionSubtext}>
+                  Ẩn sự kiện vào ngày {formatDateOnly(occD)}. Các lần khác vẫn hiển thị bình thường.
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.scopeOptionBtn, styles.scopeOptionBtnDelete]}
+                activeOpacity={0.7}
+                onPress={() => executeDelete('future')}
+              >
+                <Text style={[styles.scopeOptionTitle, { color: '#E11D48' }]}>
+                  Xóa lần này và các lần tiếp theo
+                </Text>
+                <Text style={styles.scopeOptionSubtext}>
+                  Ngừng chuỗi lặp lại từ ngày {formatDateOnly(occD)} trở đi.
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.scopeOptionBtn, styles.scopeOptionBtnDelete]}
+                activeOpacity={0.7}
+                onPress={() => executeDelete('all')}
+              >
+                <Text style={[styles.scopeOptionTitle, { color: '#E11D48' }]}>
+                  Xóa tất cả các lần
+                </Text>
+                <Text style={styles.scopeOptionSubtext}>
+                  Xóa vĩnh viễn toàn bộ chuỗi sự kiện khỏi lịch nhóm.
+                </Text>
+              </TouchableOpacity>
+
+              <View style={styles.scopeModalFooter}>
+                <TouchableOpacity
+                  style={styles.scopeModalCloseBtn}
+                  activeOpacity={0.7}
+                  onPress={() => setDeleteModalState({ isOpen: false, event: null, occDate: null })}
+                >
+                  <Text style={styles.scopeModalCloseText}>Đóng</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <View style={[styles.scopeModalFooter, { justifyContent: 'flex-end', gap: 10, marginTop: 16 }]}>
+              <TouchableOpacity
+                style={styles.scopeModalCloseBtn}
+                activeOpacity={0.7}
+                onPress={() => setDeleteModalState({ isOpen: false, event: null, occDate: null })}
+              >
+                <Text style={styles.scopeModalCloseText}>Đóng</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.scopeConfirmDeleteBtn}
+                activeOpacity={0.7}
+                onPress={() => executeDelete('all')}
+              >
+                <Text style={styles.scopeConfirmBtnText}>Xác nhận xóa</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+      </View>
+    );
+  };
+
+  {/* SCOPE CONFIRMATION MODAL CHO HỦY (3 OPTIONS HOẶC CONFIRM ĐƠN) */}
+  const renderScopeCancelModal = () => {
+    if (!cancelModalState.isOpen || !cancelModalState.event) return null;
+    const ev = cancelModalState.event;
+    const occD = cancelModalState.occDate || selectedDate || new Date(ev.startTime);
+    const { recurrenceConfig: parsedRec } = parseEventRecurrence(ev.description);
+    const isRecurring = Boolean(parsedRec && parsedRec.frequency !== 'none');
+
+    return (
+      <View style={styles.inModalPopupBackdrop}>
+        <TouchableOpacity
+          style={StyleSheet.absoluteFill}
+          activeOpacity={1}
+          onPress={() => setCancelModalState({ isOpen: false, event: null, occDate: null })}
+        />
+        <View style={styles.scopeModalCard}>
+          <Text style={styles.scopeModalTitle}>
+            {isRecurring ? 'Hủy sự kiện lặp lại' : 'Hủy lịch hẹn'}
+          </Text>
+          <Text style={styles.scopeModalSubtitle}>
+            {isRecurring
+              ? 'Bạn muốn hủy sự kiện này cho lần diễn ra này, các lần tiếp theo hay tất cả các lần?'
+              : 'Bạn có chắc chắn muốn hủy lịch hẹn này? Sự kiện sẽ được đánh dấu [Đã hủy] và giữ lại trên lịch nhóm.'}
+          </Text>
+
+          {isRecurring ? (
+            <View style={styles.scopeOptionsContainer}>
+              <TouchableOpacity
+                style={[styles.scopeOptionBtn, styles.scopeOptionBtnCancel]}
+                activeOpacity={0.7}
+                onPress={() => executeCancel('this')}
+              >
+                <Text style={[styles.scopeOptionTitle, { color: '#D97706' }]}>
+                  Chỉ hủy lần này
+                </Text>
+                <Text style={styles.scopeOptionSubtext}>
+                  Đánh dấu đã hủy cho ngày {formatDateOnly(occD)}. Lịch hẹn vẫn lưu lại để nhóm theo dõi.
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.scopeOptionBtn, styles.scopeOptionBtnCancel]}
+                activeOpacity={0.7}
+                onPress={() => executeCancel('future')}
+              >
+                <Text style={[styles.scopeOptionTitle, { color: '#D97706' }]}>
+                  Hủy lần này và các lần tiếp theo
+                </Text>
+                <Text style={styles.scopeOptionSubtext}>
+                  Đánh dấu đã hủy từ ngày {formatDateOnly(occD)} trở đi.
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.scopeOptionBtn, styles.scopeOptionBtnCancel]}
+                activeOpacity={0.7}
+                onPress={() => executeCancel('all')}
+              >
+                <Text style={[styles.scopeOptionTitle, { color: '#D97706' }]}>
+                  Hủy tất cả các lần
+                </Text>
+                <Text style={styles.scopeOptionSubtext}>
+                  Đánh dấu đã hủy cho toàn bộ chuỗi sự kiện.
+                </Text>
+              </TouchableOpacity>
+
+              <View style={styles.scopeModalFooter}>
+                <TouchableOpacity
+                  style={styles.scopeModalCloseBtn}
+                  activeOpacity={0.7}
+                  onPress={() => setCancelModalState({ isOpen: false, event: null, occDate: null })}
+                >
+                  <Text style={styles.scopeModalCloseText}>Quay lại</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <View style={[styles.scopeModalFooter, { justifyContent: 'flex-end', gap: 10, marginTop: 16 }]}>
+              <TouchableOpacity
+                style={styles.scopeModalCloseBtn}
+                activeOpacity={0.7}
+                onPress={() => setCancelModalState({ isOpen: false, event: null, occDate: null })}
+              >
+                <Text style={styles.scopeModalCloseText}>Quay lại</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.scopeConfirmCancelBtn}
+                activeOpacity={0.7}
+                onPress={() => executeCancel('all')}
+              >
+                <Text style={styles.scopeConfirmBtnText}>Xác nhận hủy</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+      </View>
+    );
   };
 
   const togglePickerTarget = (
@@ -3593,7 +3790,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                 activeOpacity={0.7}
                 onPress={() => {
                   const evToEdit = detailEvent;
-                  handleOpenEditModal(evToEdit);
+                  handleOpenEditModal(evToEdit, currentOccDate);
                 }}
               >
                 <Pencil size={17} color="#0D9488" />
@@ -4019,7 +4216,11 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                     activeOpacity={0.7}
                     onPress={() => {
                       setIsDetailMenuOpen(false);
-                      handleCancelEventInDetail(detailEvent.id);
+                      setCancelModalState({
+                        isOpen: true,
+                        event: detailEvent,
+                        occDate: detailOccurrenceDate || selectedDate || (detailEvent ? new Date(detailEvent.startTime) : new Date()),
+                      });
                     }}
                   >
                     <Ban size={18} color="#D97706" />
@@ -4058,7 +4259,11 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                   activeOpacity={0.7}
                   onPress={() => {
                     setIsDetailMenuOpen(false);
-                    handleDeleteEventInDetail(detailEvent.id);
+                    setDeleteModalState({
+                      isOpen: true,
+                      event: detailEvent,
+                      occDate: detailOccurrenceDate || selectedDate || (detailEvent ? new Date(detailEvent.startTime) : new Date()),
+                    });
                   }}
                 >
                   <Trash2 size={18} color="#EF4444" />
@@ -4126,6 +4331,12 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
             </View>
           </View>
         )}
+
+        {/* SCOPE CONFIRMATION MODAL CHO XÓA (3 OPTIONS HOẶC CONFIRM ĐƠN) */}
+        {renderScopeDeleteModal()}
+
+        {/* SCOPE CONFIRMATION MODAL CHO HỦY (3 OPTIONS HOẶC CONFIRM ĐƠN) */}
+        {renderScopeCancelModal()}
       </View>
     );
   };
@@ -4534,9 +4745,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
                       (editingEvent.description && (editingEvent.description.includes('[RECURRENCE:') || editingEvent.description.includes('[Lặp lại:')))
                     );
                     if (isRecurring) {
-                      promptEditScope((scope) => {
-                        handleCreateOrUpdateEvent(scope);
-                      });
+                      setShowScopeModal(true);
                       return;
                     }
                   }
@@ -5046,6 +5255,9 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
 
             {/* Modal / Sheet Tùy chỉnh Lặp lại (Custom Recurrence View) */}
             {renderCustomRepeatModal()}
+
+            {/* Scope Confirmation Modal cho Lưu / Sửa */}
+            {renderScopeSaveModal()}
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -7821,5 +8033,96 @@ appleYearBtn: {
     backgroundColor: '#CCFBF1',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  scopeModalCard: {
+    width: '100%',
+    maxWidth: 360,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  scopeModalTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  scopeModalSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 4,
+    lineHeight: 17,
+  },
+  scopeOptionsContainer: {
+    marginTop: 14,
+    gap: 8,
+  },
+  scopeOptionBtn: {
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+  },
+  scopeOptionBtnDelete: {
+    backgroundColor: '#FFF1F2',
+    borderColor: '#FECDD3',
+  },
+  scopeOptionBtnCancel: {
+    backgroundColor: '#FFFBEB',
+    borderColor: '#FDE68A',
+  },
+  scopeOptionTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  scopeOptionSubtext: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 3,
+    lineHeight: 15,
+  },
+  scopeModalFooter: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#E2E8F0',
+  },
+  scopeModalCloseBtn: {
+    paddingVertical: 7,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+  },
+  scopeModalCloseText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  scopeConfirmDeleteBtn: {
+    backgroundColor: '#E11D48',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+  },
+  scopeConfirmCancelBtn: {
+    backgroundColor: '#D97706',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+  },
+  scopeConfirmBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });
