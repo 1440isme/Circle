@@ -23,6 +23,9 @@ import {
   MoreVertical,
   Copy,
   X,
+  Navigation,
+  Maximize2,
+  Share2,
 } from 'lucide-react';
 import { MessageEntity, MessageType, CalendarEventMessagePayload } from '@circle/types';
 import { CalendarEventChatEmbed } from './CalendarEventChatEmbed';
@@ -218,6 +221,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       locationPinData = JSON.parse(message.content!.replace('[LOCATION_PIN]:', ''));
     } catch {}
   }
+
+  const isImageMessage = Boolean(isImageAttachment || isMomentReply);
+  const isBorderlessMessage = isLocationPin || isImageMessage;
   const isCallSummary = message.content?.startsWith('[CALL_SUMMARY]:');
   let callSummaryData: {
     callType: 'AUDIO' | 'VIDEO';
@@ -414,12 +420,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         <div className="relative inline-block w-fit max-w-full">
         <div
           onClick={() => setShowTimestamp((prev) => !prev)}
-          className={`relative cursor-pointer select-text transition-all shadow-sm w-fit max-w-full ${getBubbleRadius()} ${
-            isMomentReply && !message.content
+          className={`relative cursor-pointer select-text transition-all w-fit max-w-full ${getBubbleRadius()} ${
+            isBorderlessMessage
               ? 'p-0 bg-transparent border-0 shadow-none'
-              : isMomentReply && message.content
-              ? 'p-1.5 ' + (isSenderMe ? 'msg-bubble-me' : 'msg-bubble-other')
-              : 'px-4 py-2.5 ' + (isSenderMe ? 'msg-bubble-me' : 'msg-bubble-other')
+              : 'px-4 py-2.5 shadow-sm ' + (isSenderMe ? 'msg-bubble-me' : 'msg-bubble-other')
           } ${message.isPinned ? 'ring-2 ring-amber-400/40' : ''} ${
             isHighlighted
               ? 'ring-2 ring-circle-primary dark:ring-circle-dark-primary shadow-xl scale-[1.02] bg-circle-primary/15 transition-all duration-300 animate-pulse'
@@ -571,7 +575,11 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           ) : message.content ? (
             <div
               className={`text-xs sm:text-sm whitespace-pre-wrap break-words leading-relaxed font-normal ${
-                isMomentReply ? 'px-2 pt-1 pb-1 font-medium' : ''
+                isImageMessage
+                  ? `px-3.5 py-1.5 mb-1.5 rounded-2xl shadow-xs ${isSenderMe ? 'msg-bubble-me' : 'msg-bubble-other'}`
+                  : isMomentReply
+                  ? 'px-2 pt-1 pb-1 font-medium'
+                  : ''
               }`}
             >
               {renderContentWithMentions(message.content)}
@@ -580,19 +588,19 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
           {/* Attachment: Image (Standard Non-Moment Image) */}
           {!isMomentReply && isImageAttachment && message.fileUrl && (
-            <div className="mt-2" onClick={(e) => e.stopPropagation()}>
+            <div className={message.content ? 'mt-1.5' : ''} onClick={(e) => e.stopPropagation()}>
               <button
                 type="button"
                 onClick={() => {
                   setPreviewImageUrl(message.fileUrl!);
                   setIsImageModalOpen(true);
                 }}
-                className="group/img relative max-w-sm overflow-hidden rounded-2xl border border-white/20 dark:border-black/20 shadow-sm hover:opacity-95 transition-opacity"
+                className="group/img relative max-w-sm overflow-hidden rounded-2xl border border-white/20 dark:border-black/20 shadow-sm hover:opacity-95 transition-opacity block"
               >
                 <img
                   src={message.fileUrl}
                   alt={message.fileName || 'Attachment'}
-                  className="max-h-72 w-auto object-cover rounded-2xl"
+                  className="max-h-72 w-auto object-cover rounded-2xl block"
                 />
               </button>
             </div>
@@ -740,8 +748,93 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                       isSenderMe ? 'right-0' : 'left-0'
                     }`}
                   >
-                    {/* Copy Content Action */}
-                    {Boolean(message.content) && (
+                    {/* Location Pin Specific Actions */}
+                    {isLocationPin && locationPinData && (
+                      <>
+                        <a
+                          href={`https://www.google.com/maps/search/?api=1&query=${locationPinData.lat},${locationPinData.lng}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={() => setIsMenuOpen(false)}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors text-left font-medium"
+                        >
+                          <Navigation className="h-3.5 w-3.5 text-circle-slate dark:text-circle-dark-muted shrink-0 rotate-45" />
+                          <span>{t.chat.openMapDirections}</span>
+                        </a>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const coordStr = `${locationPinData!.lat.toFixed(5)}, ${locationPinData!.lng.toFixed(5)}`;
+                            navigator.clipboard.writeText(coordStr);
+                            setIsCopied(true);
+                            setTimeout(() => setIsCopied(false), 2000);
+                            setIsMenuOpen(false);
+                          }}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors text-left font-medium"
+                        >
+                          {isCopied ? (
+                            <Check className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                          ) : (
+                            <Copy className="h-3.5 w-3.5 text-circle-slate dark:text-circle-dark-muted shrink-0" />
+                          )}
+                          <span>{isCopied ? t.chat.copiedNotice : t.chat.copyCoordinates}</span>
+                        </button>
+                      </>
+                    )}
+
+                    {/* Image Specific Actions */}
+                    {isImageMessage && message.fileUrl && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsMenuOpen(false);
+                            setPreviewImageUrl(message.fileUrl!);
+                            setIsImageModalOpen(true);
+                          }}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors text-left font-medium"
+                        >
+                          <Maximize2 className="h-3.5 w-3.5 text-circle-slate dark:text-circle-dark-muted shrink-0" />
+                          <span>{t.chat.viewImage}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            setIsMenuOpen(false);
+                            const imageUrl = message.fileUrl!;
+                            if (typeof navigator !== 'undefined' && (navigator as any).share) {
+                              try {
+                                await (navigator as any).share({
+                                  title: message.fileName || 'Circle Photo',
+                                  url: imageUrl,
+                                });
+                                return;
+                              } catch {}
+                            }
+                            if (navigator.clipboard) {
+                              navigator.clipboard.writeText(imageUrl);
+                              setIsCopied(true);
+                              setTimeout(() => setIsCopied(false), 2000);
+                            }
+                          }}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors text-left font-medium"
+                        >
+                          <Share2 className="h-3.5 w-3.5 text-circle-slate dark:text-circle-dark-muted shrink-0" />
+                          <span>{t.chat.shareImage}</span>
+                        </button>
+                      </>
+                    )}
+
+                    {/* Copy Content Action (Exclude special structured formats) */}
+                    {Boolean(
+                      message.content &&
+                        !isLocationPin &&
+                        !isCalendarEvent &&
+                        !isGroupPoll &&
+                        !isCallSummary,
+                    ) && (
                       <button
                         type="button"
                         onClick={handleCopyMessage}
