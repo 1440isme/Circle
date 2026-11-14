@@ -8243,5 +8243,43 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
   - `bash ./scripts/check-secrets.sh`: Passed (600 files checked, 0 secret leaks).
 - **Official Source Checked:** `PROJECT_GOD.md` §2.2, `agentic/playbooks/cross-cutting-gate.md` (Responsiveness, Safe Area & Padding).
 - **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
+- **Commit:** 46fbb61
+- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
+
+---
+
+## AI-0204: Đồng Bộ Theme Sáng Tối Toàn Diện Và Đa Ngôn Ngữ Anh - Việt Cho Vòng Xoay May Mắn (#120)
+
+- **Date:** 2026-11-14 16:38:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120
+- **Purpose:** Đồng bộ hóa toàn diện giao diện Theme Sáng / Tối (Light / Dark Mode) và loại bỏ hoàn toàn các chuỗi giao diện hardcode theo chuẩn i18n Đa ngôn ngữ (Anh - Việt) cho chức năng Vòng xoay may mắn trên cả Mobile App và Web App:
+  1. **Mobile Theme Synchronization (`MobileWheelView.tsx`):**
+     - Tích hợp `useThemeStore` từ `stores/theme.store.ts` để đọc token màu `colors` và cờ trạng thái `isDark`.
+     - Tái cấu trúc toàn bộ stylesheet tĩnh thành hàm động `createStyles(colors, isDark)` được memoized qua `useMemo`.
+     - Chuyển toàn bộ màu nền, text, viền hardcode (`#FFFFFF`, `#F9FAFB`, `#111827`, `#000000`, ...) sang token màu chuẩn (`colors.canvas`, `colors.surface`, `colors.elevated`, `colors.text`, `colors.subtle`, `colors.hairline`).
+     - Tinh chỉnh ổ bi tâm bánh xe SVG và con trỏ pointer SVG tự động thích ứng với theme (nền `colors.elevated`, viền `colors.primary`, con trỏ sắc nét không bị chìm vào nền tối).
+     - Điều chỉnh toàn bộ Modal chúc mừng (Celebration Modal), thẻ kết quả trúng thưởng, input textarea và thanh toolbar floating pill sang Dark/Light theme chuẩn WCAG AA.
+  2. **i18n Localization Parity (`packages/shared/src/locales/vi.ts` & `en.ts`):**
+     - Bổ sung 2 keys đa ngôn ngữ còn thiếu: `luckyChoiceBadge` ("Lựa chọn may mắn của bạn!" / "Your lucky choice!") và `turnNumber` ("Lần {number}" / "Turn {number}").
+     - Loại bỏ toàn bộ chuỗi hardcode tiếng Việt và fallback chuỗi cứng trên cả Web (`CircleWheelView.tsx`) và Mobile (`MobileWheelView.tsx`).
+     - Bổ sung `accessibilityLabel` bằng ngôn ngữ hiện tại cho toàn bộ các nút icon (Plus, Spin All, Thu gọn bảng, Mở bảng, Xáo trộn, Sắp xếp A-Z, Gửi tin nhắn kết quả, Xóa tất cả, Đóng modal).
+- **Files Affected:**
+  - `apps/mobile/src/components/tools/MobileWheelView.tsx`
+  - `apps/web/src/components/tools/CircleWheelView.tsx`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% theme token mapping và localization keys.
+- **Human Modifications:** Người dùng yêu cầu đồng bộ theme sáng tối toàn diện và đảm bảo hỗ trợ đầy đủ tiếng Anh - tiếng Việt.
+- **Verification Method:**
+  - `npx tsc --noEmit -p apps/web/tsconfig.json`: Passed 0 errors.
+  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Passed 0 errors.
+  - `npm test --prefix apps/backend -- circle-tools.service.spec.ts`: Passed 45/45 tests (100%).
+  - `bash ./scripts/check-secrets.sh`: Passed (600 files checked, 0 secret leaks).
+- **Official Source Checked:** `agentic/playbooks/cross-cutting-gate.md` (Theme & Design Tokens, Language — i18n).
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
 - **Commit:** Pending
 - **PR:** #127 (https://github.com/1440isme/Circle/pull/127)

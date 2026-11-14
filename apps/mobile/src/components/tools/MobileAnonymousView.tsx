@@ -20,6 +20,7 @@ import {
   X,
   Send,
   Sparkles,
+  Smile,
 } from 'lucide-react-native';
 import {
   getAnonymousPostsApi,
@@ -31,14 +32,14 @@ import { AnonymousPostEntity } from '@circle/types';
 import { getSocket } from '../../services/socket';
 import { useThemeStore } from '../../stores/theme.store';
 import { useLanguageStore } from '../../stores/language.store';
+import { FullEmojiPickerModal } from '../ui/FullEmojiPickerModal';
+import { PROMINENT_QUICK_EMOJIS } from '@circle/shared';
 
 interface MobileAnonymousViewProps {
   circleId: string;
 }
 
-interface MobileTheme {
-  id: string;
-  name: string;
+interface MobileThemeColors {
   bg: string;
   border: string;
   text: string;
@@ -46,53 +47,112 @@ interface MobileTheme {
   tagText: string;
 }
 
-const THEMES: MobileTheme[] = [
-  {
-    id: 'sunset',
-    name: 'Hoàng hôn',
-    bg: '#FEF3C7',
-    border: '#FDE68A',
-    text: '#78350F',
-    tagBg: '#FDE68A',
-    tagText: '#92400E',
+const THEME_PRESETS: Record<string, { light: MobileThemeColors; dark: MobileThemeColors }> = {
+  sunset: {
+    light: {
+      bg: '#FEF3C7',
+      border: '#FDE68A',
+      text: '#78350F',
+      tagBg: '#FDE68A',
+      tagText: '#92400E',
+    },
+    dark: {
+      bg: '#3B1A06',
+      border: '#78350F',
+      text: '#FEF3C7',
+      tagBg: 'rgba(251, 191, 36, 0.25)',
+      tagText: '#FDE68A',
+    },
   },
-  {
-    id: 'ocean',
-    name: 'Đại dương',
-    bg: '#E0F2FE',
-    border: '#BAE6FD',
-    text: '#0C4A6E',
-    tagBg: '#BAE6FD',
-    tagText: '#0369A1',
+  ocean: {
+    light: {
+      bg: '#E0F2FE',
+      border: '#BAE6FD',
+      text: '#0C4A6E',
+      tagBg: '#BAE6FD',
+      tagText: '#0369A1',
+    },
+    dark: {
+      bg: '#08283E',
+      border: '#0369A1',
+      text: '#E0F2FE',
+      tagBg: 'rgba(56, 189, 248, 0.25)',
+      tagText: '#BAE6FD',
+    },
   },
-  {
-    id: 'lavender',
-    name: 'Oải hương',
-    bg: '#F3E8FF',
-    border: '#E9D5FF',
-    text: '#581C87',
-    tagBg: '#E9D5FF',
-    tagText: '#7E22CE',
+  lavender: {
+    light: {
+      bg: '#F3E8FF',
+      border: '#E9D5FF',
+      text: '#581C87',
+      tagBg: '#E9D5FF',
+      tagText: '#7E22CE',
+    },
+    dark: {
+      bg: '#2E094F',
+      border: '#6B21A8',
+      text: '#F3E8FF',
+      tagBg: 'rgba(192, 132, 252, 0.25)',
+      tagText: '#E9D5FF',
+    },
   },
-  {
-    id: 'rose',
-    name: 'Hoa hồng',
-    bg: '#FFE4E6',
-    border: '#FECDD3',
-    text: '#881337',
-    tagBg: '#FECDD3',
-    tagText: '#BE123C',
+  rose: {
+    light: {
+      bg: '#FFE4E6',
+      border: '#FECDD3',
+      text: '#881337',
+      tagBg: '#FECDD3',
+      tagText: '#BE123C',
+    },
+    dark: {
+      bg: '#3E0818',
+      border: '#9F1239',
+      text: '#FFE4E6',
+      tagBg: 'rgba(251, 113, 133, 0.25)',
+      tagText: '#FECDD3',
+    },
   },
-  {
-    id: 'mint',
-    name: 'Bạc hà',
-    bg: '#D1FAE5',
-    border: '#A7F3D0',
-    text: '#064E3B',
-    tagBg: '#A7F3D0',
-    tagText: '#047857',
+  mint: {
+    light: {
+      bg: '#D1FAE5',
+      border: '#A7F3D0',
+      text: '#064E3B',
+      tagBg: '#A7F3D0',
+      tagText: '#047857',
+    },
+    dark: {
+      bg: '#03261D',
+      border: '#047857',
+      text: '#D1FAE5',
+      tagBg: 'rgba(52, 211, 153, 0.25)',
+      tagText: '#A7F3D0',
+    },
   },
-];
+};
+
+const THEME_IDS = ['sunset', 'ocean', 'lavender', 'rose', 'mint'];
+
+const getMobileTheme = (id?: string | null, isDark?: boolean): MobileThemeColors => {
+  const preset = THEME_PRESETS[id || 'sunset'] || THEME_PRESETS.sunset!;
+  return isDark ? preset.dark : preset.light;
+};
+
+const getThemeName = (id: string, t: any): string => {
+  switch (id) {
+    case 'sunset':
+      return t.chat?.anonymousThemeSunset || 'Hoàng hôn';
+    case 'ocean':
+      return t.chat?.anonymousThemeOcean || 'Đại dương';
+    case 'lavender':
+      return t.chat?.anonymousThemeLavender || 'Oải hương';
+    case 'rose':
+      return t.chat?.anonymousThemeRose || 'Hoa hồng';
+    case 'mint':
+      return t.chat?.anonymousThemeMint || 'Bạc hà';
+    default:
+      return id;
+  }
+};
 
 const formatPostDate = (isoString: string) => {
   const d = new Date(isoString);
@@ -176,6 +236,9 @@ export const MobileAnonymousView: React.FC<MobileAnonymousViewProps> = ({ circle
   };
   const [isLoading, setIsLoading] = useState(true);
 
+  // Full emoji picker
+  const [fullEmojiTargetPostId, setFullEmojiTargetPostId] = useState<string | null>(null);
+
   // Compose modal
   const [isComposeModalOpen, setIsComposeModalOpen] = useState(false);
   const [content, setContent] = useState('');
@@ -187,7 +250,7 @@ export const MobileAnonymousView: React.FC<MobileAnonymousViewProps> = ({ circle
       const data = await getAnonymousPostsApi(circleId);
       setPosts(data);
     } catch (err: any) {
-      Alert.alert('Lỗi', err.message || 'Không thể tải lời nhắn ẩn danh');
+      Alert.alert(t.common.error, err.message || t.collab.loadNotesError);
     } finally {
       setIsLoading(false);
     }
@@ -199,7 +262,7 @@ export const MobileAnonymousView: React.FC<MobileAnonymousViewProps> = ({ circle
 
   const handleCreatePost = async () => {
     if (!content.trim()) {
-      Alert.alert('Thông báo', 'Vui lòng nhập nội dung tâm sự');
+      Alert.alert(t.common.notice, t.collab.anonymousContentRequired || 'Vui lòng nhập nội dung tâm sự');
       return;
     }
 
@@ -214,22 +277,22 @@ export const MobileAnonymousView: React.FC<MobileAnonymousViewProps> = ({ circle
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       loadPosts();
     } catch (err: any) {
-      Alert.alert('Lỗi', err.message || 'Không thể gửi tâm sự');
+      Alert.alert(t.common.error, err.message || t.collab.sendNoteError);
     }
   };
 
   const handleDeletePost = (postId: string) => {
-    Alert.alert('Gỡ lời nhắn', 'Bạn có chắc chắn muốn gỡ bỏ lời nhắn này khỏi nhóm?', [
-      { text: 'Hủy', style: 'cancel' },
+    Alert.alert(t.collab.anonymousRemoveAction, t.collab.anonymousRemoveConfirm, [
+      { text: t.common.cancel, style: 'cancel' },
       {
-        text: 'Gỡ bỏ',
+        text: t.collab.anonymousRemoveAction,
         style: 'destructive',
         onPress: async () => {
           try {
             await deleteAnonymousPostApi(circleId, postId);
             loadPosts();
           } catch (err: any) {
-            Alert.alert('Lỗi', err.message || 'Không thể gỡ bài viết');
+            Alert.alert(t.common.error, err.message || 'Không thể gỡ bài viết');
           }
         },
       },
@@ -258,7 +321,7 @@ export const MobileAnonymousView: React.FC<MobileAnonymousViewProps> = ({ circle
         ) : posts.length > 0 ? (
           <View style={{ gap: 12 }}>
             {posts.map((post) => {
-              const th = THEMES.find((t) => t.id === post.cardTheme) || THEMES[0]!;
+              const th = getMobileTheme(post.cardTheme, isDark);
               return (
                 <View
                   key={post.id}
@@ -270,11 +333,15 @@ export const MobileAnonymousView: React.FC<MobileAnonymousViewProps> = ({ circle
                   <View style={styles.cardHeader}>
                     <View style={[styles.tag, { backgroundColor: th.tagBg }]}>
                       <Text style={[styles.tagText, { color: th.tagText }]}>
-                        Người gửi ẩn danh
+                        {t.nav.anonymousSender}
                       </Text>
                     </View>
-                    <TouchableOpacity onPress={() => handleDeletePost(post.id)}>
-                      <Trash2 size={14} color="#94A3B8" />
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      onPress={() => handleDeletePost(post.id)}
+                      accessibilityLabel={t.collab.anonymousRemoveTooltip}
+                    >
+                      <Trash2 size={14} color={isDark ? '#94A3B8' : '#94A3B8'} />
                     </TouchableOpacity>
                   </View>
 
@@ -296,13 +363,23 @@ export const MobileAnonymousView: React.FC<MobileAnonymousViewProps> = ({ circle
                           paddingHorizontal: 8,
                           paddingVertical: 3,
                           borderRadius: 16,
-                          backgroundColor: rx.userReacted ? 'rgba(13, 148, 136, 0.18)' : 'rgba(255, 255, 255, 0.75)',
+                          backgroundColor: rx.userReacted
+                            ? (isDark ? 'rgba(13, 148, 136, 0.28)' : 'rgba(13, 148, 136, 0.18)')
+                            : (isDark ? 'rgba(30, 41, 59, 0.85)' : 'rgba(255, 255, 255, 0.75)'),
                           borderWidth: 1,
-                          borderColor: rx.userReacted ? '#0D9488' : 'rgba(0, 0, 0, 0.08)',
+                          borderColor: rx.userReacted
+                            ? '#0D9488'
+                            : (isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)'),
                         }}
                       >
                         <Text style={{ fontSize: 13 }}>{rx.emoji}</Text>
-                        <Text style={{ fontSize: 10, fontWeight: '700', color: rx.userReacted ? '#0D9488' : '#64748B' }}>
+                        <Text
+                          style={{
+                            fontSize: 10,
+                            fontWeight: '700',
+                            color: rx.userReacted ? '#0D9488' : (isDark ? '#94A3B8' : '#64748B'),
+                          }}
+                        >
                           {rx.count}
                         </Text>
                       </TouchableOpacity>
@@ -311,15 +388,15 @@ export const MobileAnonymousView: React.FC<MobileAnonymousViewProps> = ({ circle
                       style={{
                         flexDirection: 'row',
                         alignItems: 'center',
-                        backgroundColor: 'rgba(255, 255, 255, 0.75)',
+                        backgroundColor: isDark ? 'rgba(30, 41, 59, 0.85)' : 'rgba(255, 255, 255, 0.75)',
                         borderRadius: 16,
                         borderWidth: 1,
-                        borderColor: 'rgba(0, 0, 0, 0.08)',
+                        borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)',
                         paddingHorizontal: 4,
                         paddingVertical: 1,
                       }}
                     >
-                      {['❤️', '👍', '😂'].map((em) => (
+                      {PROMINENT_QUICK_EMOJIS.slice(0, 4).map((em) => (
                         <TouchableOpacity
                           key={em}
                           activeOpacity={0.6}
@@ -329,15 +406,23 @@ export const MobileAnonymousView: React.FC<MobileAnonymousViewProps> = ({ circle
                           <Text style={{ fontSize: 13 }}>{em}</Text>
                         </TouchableOpacity>
                       ))}
+                      <TouchableOpacity
+                        activeOpacity={0.6}
+                        onPress={() => setFullEmojiTargetPostId(post.id)}
+                        style={{ paddingHorizontal: 4, paddingVertical: 2 }}
+                        accessibilityLabel={t.emoji.addOtherEmoji}
+                      >
+                        <Smile size={13} color={isDark ? '#94A3B8' : '#64748B'} />
+                      </TouchableOpacity>
                     </View>
                   </View>
 
-                  <View style={styles.cardFooter}>
+                  <View style={[styles.cardFooter, { borderTopColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.05)' }]}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                      <Sparkles size={11} color="#64748B" />
-                      <Text style={styles.footerText}>Điều muốn nói</Text>
+                      <Sparkles size={11} color={isDark ? '#94A3B8' : '#64748B'} />
+                      <Text style={[styles.footerText, { color: isDark ? '#94A3B8' : '#64748B' }]}>{t.collab.anonymousCardTag}</Text>
                     </View>
-                    <Text style={styles.footerText}>
+                    <Text style={[styles.footerText, { color: isDark ? '#94A3B8' : '#64748B' }]}>
                       {formatPostDate(post.postedAt)}
                     </Text>
                   </View>
@@ -347,17 +432,17 @@ export const MobileAnonymousView: React.FC<MobileAnonymousViewProps> = ({ circle
           </View>
         ) : (
           <View style={[styles.emptyContainer, { backgroundColor: colors.canvas }]}>
-            <Heart size={48} color="#94A3B8" />
-            <Text style={[styles.emptyTitle, { color: colors.text }]}>Hộp thư đang trống</Text>
-            <Text style={styles.emptySub}>
-              Hãy là người đầu tiên gửi lời cảm ơn hoặc tâm sự ẩn danh đến vòng tròn!
+            <Heart size={48} color={isDark ? '#475569' : '#94A3B8'} />
+            <Text style={[styles.emptyTitle, { color: colors.text }]}>{t.collab.notesEmptyTitle}</Text>
+            <Text style={[styles.emptySub, { color: colors.subtle }]}>
+              {t.collab.notesEmptyDesc}
             </Text>
             <TouchableOpacity
-              style={styles.createEmptyBtn}
+              style={[styles.createEmptyBtn, { backgroundColor: colors.primary }]}
               onPress={() => setIsComposeModalOpen(true)}
             >
               <Plus size={16} color="#FFFFFF" />
-              <Text style={styles.createEmptyText}>Gửi Tâm Sự Ngay</Text>
+              <Text style={styles.createEmptyText}>{t.collab.createAnonymousNote}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -378,55 +463,71 @@ export const MobileAnonymousView: React.FC<MobileAnonymousViewProps> = ({ circle
         ]}
       >
         <Plus size={18} color="#FFF" />
-        <Text style={styles.fabText}>Gửi lời nhắn</Text>
+        <Text style={styles.fabText}>{t.collab.anonymousComposeSubmit}</Text>
       </TouchableOpacity>
 
       {/* Compose Modal */}
       <Modal visible={isComposeModalOpen} transparent animationType="slide">
         <View style={styles.modalBackdrop}>
-          <View style={[styles.modalContent, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+          <View style={[styles.modalContent, { backgroundColor: colors.surface, borderTopColor: colors.hairline }]}>
             <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: colors.text }]}>Gửi Lời Nhắn Ẩn Danh</Text>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>{t.collab.anonymousComposeTitle}</Text>
               <TouchableOpacity onPress={() => setIsComposeModalOpen(false)}>
-                <X size={20} color="#64748B" />
+                <X size={20} color={colors.subtle} />
               </TouchableOpacity>
             </View>
 
             {/* Theme Picker */}
             <View style={styles.formGroup}>
-              <Text style={styles.label}>Màu thiệp trang trí</Text>
+              <Text style={[styles.label, { color: colors.subtle }]}>{t.collab.anonymousThemeLabel}</Text>
               <View style={styles.themesRow}>
-                {THEMES.map((th) => (
-                  <TouchableOpacity
-                    key={th.id}
-                    style={[
-                      styles.themeBtn,
-                      { backgroundColor: th.bg, borderColor: th.border },
-                      selectedTheme === th.id && styles.themeBtnSelected,
-                    ]}
-                    onPress={() => setSelectedTheme(th.id)}
-                  >
-                    <Text style={[styles.themeBtnText, { color: th.text }]}>
-                      {th.name}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+                {THEME_IDS.map((id) => {
+                  const th = getMobileTheme(id, isDark);
+                  const isSelected = selectedTheme === id;
+                  return (
+                    <TouchableOpacity
+                      key={id}
+                      style={[
+                        styles.themeBtn,
+                        { backgroundColor: th.bg, borderColor: th.border },
+                        isSelected && {
+                          borderWidth: 2,
+                          borderColor: isDark ? '#FFFFFF' : '#0F172A',
+                        },
+                      ]}
+                      onPress={() => setSelectedTheme(id)}
+                    >
+                      <Text style={[styles.themeBtnText, { color: th.text }]}>
+                        {getThemeName(id, t)}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             </View>
 
             <View style={styles.formGroup}>
-              <Text style={styles.label}>Nội dung tâm sự *</Text>
+              <Text style={[styles.label, { color: colors.subtle }]}>{t.collab.anonymousContentLabel}</Text>
               <TextInput
-                style={styles.textArea}
-                placeholder="Viết điều bạn muốn nhắn nhủ một cách chân thành..."
-                placeholderTextColor="#94A3B8"
+                style={[
+                  styles.textArea,
+                  {
+                    backgroundColor: colors.canvas,
+                    borderColor: colors.hairline,
+                    color: colors.text,
+                  },
+                ]}
+                placeholder={t.collab.anonymousContentExample}
+                placeholderTextColor={isDark ? '#64748B' : '#94A3B8'}
                 multiline
                 numberOfLines={4}
                 maxLength={1000}
                 value={content}
                 onChangeText={setContent}
               />
-              <Text style={styles.charCount}>{content.length}/1000 ký tự</Text>
+              <Text style={[styles.charCount, { color: colors.subtle }]}>
+                {t.collab.anonymousCharCount.replace('{count}', String(content.length))}
+              </Text>
             </View>
 
             <View style={styles.modalButtons}>
@@ -434,16 +535,29 @@ export const MobileAnonymousView: React.FC<MobileAnonymousViewProps> = ({ circle
                 style={styles.cancelBtn}
                 onPress={() => setIsComposeModalOpen(false)}
               >
-                <Text style={styles.cancelText}>Hủy</Text>
+                <Text style={[styles.cancelText, { color: colors.subtle }]}>{t.common.cancel}</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.submitBtn} onPress={handleCreatePost}>
+              <TouchableOpacity style={[styles.submitBtn, { backgroundColor: colors.primary }]} onPress={handleCreatePost}>
                 <Send size={14} color="#FFFFFF" />
-                <Text style={styles.submitText}>Gửi lời nhắn</Text>
+                <Text style={styles.submitText}>{t.collab.anonymousComposeSubmit}</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
+
+      {/* Full Emoji Picker Modal */}
+      <FullEmojiPickerModal
+        visible={Boolean(fullEmojiTargetPostId)}
+        onClose={() => setFullEmojiTargetPostId(null)}
+        onSelectEmoji={(emoji) => {
+          if (fullEmojiTargetPostId) {
+            handleToggleReaction(fullEmojiTargetPostId, emoji);
+            setFullEmojiTargetPostId(null);
+          }
+        }}
+        title={t.emoji.title}
+      />
     </View>
   );
 };

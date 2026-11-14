@@ -1539,6 +1539,10 @@ export const en: TranslationDictionary = {
     anonymousRemoveTooltip: 'Remove note',
     anonymousCardTag: 'Reflection',
     anonymousComposeSubmit: 'Send note',
+    anonymousEmptyTitle: 'Reflection Mailbox is empty',
+    anonymousEmptyDesc: 'Send warm anonymous notes, encouragement, or heartfelt wishes to circle members!',
+    anonymousContentRequired: 'Please enter your message',
+    anonymousRemoveTitle: 'Remove Note',
     calendarEventRequired: 'Please enter an event title',
     calendarStartRequired: 'Please select a start time',
     calendarStartInvalid: 'Invalid start time',
@@ -1855,5 +1859,7 @@ export const en: TranslationDictionary = {
     confirmClearResultsDesc: 'Are you sure you want to clear all spin results history?',
     resultsPlaceholder: 'No spin results yet. Each spin turn will be recorded as a line here...',
     resultsHint: '* Each line corresponds to one spin turn, separated by " - ". You can edit or copy directly.',
+    luckyChoiceBadge: 'Your lucky choice!',
+    turnNumber: 'Turn {number}',
   },
 };

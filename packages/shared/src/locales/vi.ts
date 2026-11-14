@@ -1537,6 +1537,10 @@ export const vi = {
     anonymousRemoveTooltip: 'Gỡ lời nhắn (Chủ vòng tròn)',
     anonymousCardTag: 'Điều muốn nói',
     anonymousComposeSubmit: 'Gửi lời nhắn',
+    anonymousEmptyTitle: 'Hộp thư đang trống',
+    anonymousEmptyDesc: 'Gửi gắm lời cảm ơn, động viên hoặc một lời chúc tốt lành ẩn danh đến các thành viên trong nhóm!',
+    anonymousContentRequired: 'Vui lòng nhập nội dung tâm sự',
+    anonymousRemoveTitle: 'Gỡ lời nhắn',
     calendarEventRequired: 'Vui lòng nhập tên sự kiện',
     calendarStartRequired: 'Vui lòng chọn thời gian bắt đầu',
     calendarStartInvalid: 'Thời gian bắt đầu không hợp lệ',
@@ -1853,6 +1857,8 @@ export const vi = {
     confirmClearResultsDesc: 'Bạn có chắc chắn muốn xóa toàn bộ lịch sử kết quả quay này không?',
     resultsPlaceholder: 'Chưa có kết quả quay nào. Mỗi lần quay sẽ được ghi nhận thành một dòng tại đây...',
     resultsHint: '* Mỗi dòng tương ứng một lần quay, các vòng cách nhau bằng dấu " - ". Bạn có thể chỉnh sửa hoặc sao chép.',
+    luckyChoiceBadge: 'Lựa chọn may mắn của bạn!',
+    turnNumber: 'Lần {number}',
   },
 };
 

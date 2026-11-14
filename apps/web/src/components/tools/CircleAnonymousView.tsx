@@ -39,46 +39,63 @@ interface ThemeConfig {
   tagColor: string;
 }
 
+const getThemeName = (id: string, t: any) => {
+  switch (id) {
+    case 'sunset':
+      return t.collab?.anonymousThemeSunset || 'Hoàng hôn';
+    case 'ocean':
+      return t.collab?.anonymousThemeOcean || 'Đại dương';
+    case 'lavender':
+      return t.collab?.anonymousThemeLavender || 'Oải hương';
+    case 'rose':
+      return t.collab?.anonymousThemeRose || 'Hoa hồng';
+    case 'mint':
+      return t.collab?.anonymousThemeMint || 'Bạc hà';
+    default:
+      return id;
+  }
+};
+
 const THEMES: ThemeConfig[] = [
   {
     id: 'sunset',
     name: 'Hoàng hôn',
     bgGradient:
-      'bg-gradient-to-br from-amber-100 via-rose-100 to-orange-100 dark:from-amber-950/40 dark:via-rose-950/40 dark:to-orange-950/40 border-amber-200/80 dark:border-amber-800/40',
+      'bg-gradient-to-br from-amber-100 via-rose-100 to-orange-100 dark:from-amber-950/70 dark:via-rose-950/60 dark:to-orange-950/70 border-amber-200/80 dark:border-amber-700/50',
     textColor: 'text-amber-950 dark:text-amber-100',
-    tagColor: 'bg-amber-500/20 text-amber-800 dark:text-amber-300',
+    tagColor: 'bg-amber-500/20 text-amber-800 dark:bg-amber-400/20 dark:text-amber-300',
   },
   {
     id: 'ocean',
     name: 'Đại dương',
     bgGradient:
-      'bg-gradient-to-br from-sky-100 via-cyan-100 to-blue-100 dark:from-sky-950/40 dark:via-cyan-950/40 dark:to-blue-950/40 border-sky-200/80 dark:border-sky-800/40',
+      'bg-gradient-to-br from-sky-100 via-cyan-100 to-blue-100 dark:from-sky-950/70 dark:via-cyan-950/60 dark:to-blue-950/70 border-sky-200/80 dark:border-sky-700/50',
     textColor: 'text-sky-950 dark:text-sky-100',
-    tagColor: 'bg-sky-500/20 text-sky-800 dark:text-sky-300',
+    tagColor: 'bg-sky-500/20 text-sky-800 dark:bg-sky-400/20 dark:text-sky-300',
   },
   {
     id: 'lavender',
     name: 'Oải hương',
     bgGradient:
-      'bg-gradient-to-br from-purple-100 via-fuchsia-100 to-indigo-100 dark:from-purple-950/40 dark:via-fuchsia-950/40 dark:to-indigo-950/40 border-purple-200/80 dark:border-purple-800/40',
+      'bg-gradient-to-br from-purple-100 via-fuchsia-100 to-indigo-100 dark:from-purple-950/70 dark:via-fuchsia-950/60 dark:to-indigo-950/70 border-purple-200/80 dark:border-purple-700/50',
     textColor: 'text-purple-950 dark:text-purple-100',
-    tagColor: 'bg-purple-500/20 text-purple-800 dark:text-purple-300',
+    tagColor: 'bg-purple-500/20 text-purple-800 dark:bg-purple-400/20 dark:text-purple-300',
   },
   {
     id: 'rose',
     name: 'Hoa hồng',
     bgGradient:
-      'bg-gradient-to-br from-pink-100 via-rose-100 to-red-100 dark:from-pink-950/40 dark:via-rose-950/40 dark:to-red-950/40 border-pink-200/80 dark:border-pink-800/40',
+      'bg-gradient-to-br from-pink-100 via-rose-100 to-red-100 dark:from-pink-950/70 dark:via-rose-950/60 dark:to-red-950/70 border-pink-200/80 dark:border-pink-700/50',
     textColor: 'text-pink-950 dark:text-pink-100',
-    tagColor: 'bg-pink-500/20 text-pink-800 dark:text-pink-300',
+    tagColor: 'bg-pink-500/20 text-pink-800 dark:bg-pink-400/20 dark:text-pink-300',
   },
   {
     id: 'mint',
     name: 'Bạc hà',
     bgGradient:
-      'bg-gradient-to-br from-emerald-100 via-emerald-100 to-green-100 dark:from-emerald-950/40 dark:via-emerald-950/40 dark:to-green-950/40 border-emerald-200/80 dark:border-emerald-800/40',
+      'bg-gradient-to-br from-emerald-100 via-emerald-100 to-green-100 dark:from-emerald-950/70 dark:via-emerald-950/60 dark:to-green-950/70 border-emerald-200/80 dark:border-emerald-700/50',
     textColor: 'text-emerald-950 dark:text-emerald-100',
-    tagColor: 'bg-emerald-500/20 text-emerald-800 dark:text-emerald-300',
+    tagColor: 'bg-emerald-500/20 text-emerald-800 dark:bg-emerald-400/20 dark:text-emerald-300',
   },
 ];
 
@@ -208,7 +225,7 @@ export const CircleAnonymousView: React.FC<CircleAnonymousViewProps> = ({ circle
   };
 
   const handleDeletePost = async (postId: string) => {
-    if (confirm('Gỡ bỏ lời nhắn ẩn danh này khỏi vòng tròn?')) {
+    if (confirm(t.collab.anonymousRemoveConfirm)) {
       await deleteMutation.mutateAsync(postId);
     }
   };
@@ -222,7 +239,7 @@ export const CircleAnonymousView: React.FC<CircleAnonymousViewProps> = ({ circle
             {posts.length > 0 && (
               <div className="inline-flex items-center gap-1.5 px-4 h-9 rounded-full backdrop-blur-xl bg-white/92 dark:bg-circle-dark-surface/90 border border-circle-hairline/80 dark:border-white/12 shadow-sm text-xs font-semibold text-circle-slate dark:text-circle-dark-muted select-none">
                 <Heart className="h-3.5 w-3.5 text-rose-500 shrink-0" />
-                <span>{posts.length} lời nhắn</span>
+                <span>{t.collab.anonymousCountLabel.replace('{count}', String(posts.length))}</span>
               </div>
             )}
           </div>
@@ -233,7 +250,7 @@ export const CircleAnonymousView: React.FC<CircleAnonymousViewProps> = ({ circle
             className="pointer-events-auto inline-flex items-center justify-center gap-1.5 px-4 h-9 rounded-full backdrop-blur-xl bg-circle-primary hover:bg-circle-sage text-white font-bold text-xs sm:text-sm shadow-sm border border-circle-hairline/60 dark:border-white/12 transition-all active:scale-95 cursor-pointer shrink-0"
           >
             <Plus className="h-4 w-4 stroke-[2.5]" />
-            <span>Gửi tâm sự ẩn danh</span>
+            <span>{t.collab.createAnonymousNote}</span>
           </button>
         </div>
       </div>
@@ -268,8 +285,8 @@ export const CircleAnonymousView: React.FC<CircleAnonymousViewProps> = ({ circle
                         <button
                           type="button"
                           onClick={() => handleDeletePost(post.id)}
-                          className="p-1 text-circle-slate hover:text-red-500 transition-colors opacity-60 hover:opacity-100"
-                          title="Gỡ lời nhắn (Chủ vòng tròn)"
+                          className="p-1 text-circle-slate dark:text-circle-dark-muted hover:text-red-500 dark:hover:text-red-400 transition-colors opacity-60 hover:opacity-100"
+                          title={t.collab.anonymousRemoveTooltip}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
@@ -326,7 +343,7 @@ export const CircleAnonymousView: React.FC<CircleAnonymousViewProps> = ({ circle
                             type="button"
                             onClick={() => setFullEmojiTargetPostId(post.id)}
                             className="flex h-6 w-6 items-center justify-center rounded-full text-circle-slate dark:text-circle-dark-muted hover:bg-black/5 dark:hover:bg-white/10 hover:text-circle-charcoal dark:hover:text-white transition-colors cursor-pointer"
-                            title="Thêm biểu cảm khác"
+                            title={t.emoji.addOtherEmoji}
                           >
                             <Smile className="h-3.5 w-3.5" />
                           </button>
@@ -337,7 +354,7 @@ export const CircleAnonymousView: React.FC<CircleAnonymousViewProps> = ({ circle
                     <div className="mt-2 pt-2 border-t border-black/5 dark:border-white/5 flex items-center justify-between text-[10px] opacity-70">
                       <div className="flex items-center gap-1">
                         <Sparkles className="h-3 w-3" />
-                        <span>Điều muốn nói</span>
+                        <span>{t.collab.anonymousCardTag}</span>
                       </div>
                       <span className="font-medium tracking-tight">
                         {formatPostDate(post.postedAt)}
@@ -353,10 +370,10 @@ export const CircleAnonymousView: React.FC<CircleAnonymousViewProps> = ({ circle
         <div className="flex-1 flex flex-col items-center justify-center p-12 text-center rounded-2xl border border-dashed border-circle-hairline dark:border-circle-dark-hairline bg-white/40 dark:bg-circle-dark-surface/40">
           <Heart className="h-12 w-12 text-circle-slate dark:text-circle-dark-muted opacity-40 mb-3" />
           <h4 className="text-sm font-semibold text-circle-charcoal dark:text-circle-dark-text">
-            Hộp thư đang trống
+            {t.collab.notesEmptyTitle}
           </h4>
           <p className="text-xs text-circle-slate dark:text-circle-dark-muted mt-1 max-w-sm mb-4">
-            Gửi gắm lời cảm ơn, động viên hoặc một lời chúc tốt lành ẩn danh đến các thành viên trong nhóm!
+            {t.collab.notesEmptyDesc}
           </p>
           <button
             type="button"
@@ -364,7 +381,7 @@ export const CircleAnonymousView: React.FC<CircleAnonymousViewProps> = ({ circle
             className="inline-flex items-center justify-center gap-2 px-5 h-9 rounded-full bg-circle-primary hover:bg-circle-sage text-white font-bold text-xs sm:text-sm transition-all shadow-sm active:scale-95 cursor-pointer"
           >
             <Plus className="h-4 w-4 stroke-[2.5]" />
-            <span>Viết lời tâm sự ngay</span>
+            <span>{t.collab.createAnonymousNote}</span>
           </button>
         </div>
       )}
@@ -377,7 +394,7 @@ export const CircleAnonymousView: React.FC<CircleAnonymousViewProps> = ({ circle
           <div className="w-full max-w-md rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface p-5 shadow-2xl">
             <div className="flex items-center justify-between pb-3 border-b border-circle-hairline dark:border-circle-dark-hairline mb-4">
               <h3 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
-                Gửi Lời Nhắn Ẩn Danh Đến Vòng Tròn
+                {t.collab.anonymousComposeTitle}
               </h3>
               <button
                 type="button"
@@ -392,7 +409,7 @@ export const CircleAnonymousView: React.FC<CircleAnonymousViewProps> = ({ circle
               {/* Theme selector */}
               <div>
                 <label className="block text-xs font-semibold text-circle-slate dark:text-circle-dark-muted mb-2">
-                  Chọn màu thiệp trang trí
+                  {t.collab.anonymousThemeLabel}
                 </label>
                 <div className="flex items-center gap-2">
                   {THEMES.map((theme) => (
@@ -406,7 +423,7 @@ export const CircleAnonymousView: React.FC<CircleAnonymousViewProps> = ({ circle
                           : 'border-transparent opacity-70 hover:opacity-100'
                       } ${theme.bgGradient} ${theme.textColor}`}
                     >
-                      {theme.name}
+                      {getThemeName(theme.id, t)}
                     </button>
                   ))}
                 </div>
@@ -414,7 +431,7 @@ export const CircleAnonymousView: React.FC<CircleAnonymousViewProps> = ({ circle
 
               <div>
                 <label className="block text-xs font-semibold text-circle-slate dark:text-circle-dark-muted mb-1">
-                  Nội dung tâm sự *
+                  {t.collab.anonymousContentLabel}
                 </label>
                 <textarea
                   required
@@ -422,11 +439,11 @@ export const CircleAnonymousView: React.FC<CircleAnonymousViewProps> = ({ circle
                   maxLength={1000}
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
-                  placeholder="Viết điều bạn muốn chia sẻ một cách chân thành..."
+                  placeholder={t.collab.anonymousContentExample}
                   className="w-full rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas p-3 text-xs text-circle-charcoal dark:text-circle-dark-text focus:outline-hidden focus:ring-1 focus:ring-circle-sage"
                 />
                 <div className="text-right text-[10px] text-circle-slate dark:text-circle-dark-muted mt-1">
-                  {content.length}/1000 ký tự
+                  {t.collab.anonymousCharCount.replace('{count}', String(content.length))}
                 </div>
               </div>
 
@@ -436,7 +453,7 @@ export const CircleAnonymousView: React.FC<CircleAnonymousViewProps> = ({ circle
                   onClick={() => setIsComposeModalOpen(false)}
                   className="inline-flex items-center justify-center rounded-full px-4 h-9 text-xs sm:text-sm font-bold border border-circle-hairline dark:border-circle-dark-hairline text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-all active:scale-95 cursor-pointer"
                 >
-                  Hủy
+                  {t.common.cancel}
                 </button>
                 <button
                   type="submit"
@@ -444,7 +461,7 @@ export const CircleAnonymousView: React.FC<CircleAnonymousViewProps> = ({ circle
                   className="inline-flex items-center justify-center gap-1.5 rounded-full bg-circle-primary hover:bg-circle-sage px-5 h-9 text-xs sm:text-sm font-bold text-white shadow-sm transition-all disabled:opacity-50 active:scale-95 cursor-pointer"
                 >
                   <Send className="h-3.5 w-3.5" />
-                  <span>{createMutation.isPending ? 'Đang gửi...' : 'Gửi lời nhắn'}</span>
+                  <span>{createMutation.isPending ? t.collab.anonymousSending : t.collab.anonymousComposeSubmit}</span>
                 </button>
               </div>
             </form>
