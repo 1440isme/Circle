@@ -8109,3 +8109,38 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 - **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
 - **Commit:** e5a52e7
 - **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
+
+
+---
+
+## AI-0200: Điều Chỉnh Safe-Area Clearance Cho Floating Pill Buttons Và Chi Tiết Lịch Hẹn (#120)
+
+- **Date:** 2026-11-14 14:40:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120
+- **Purpose:** Xử lý triệt để hiện tượng Floating Pill Button đè lên nội dung và thanh trạng thái / tai thỏ trên Mobile App (`MobileCalendarView.tsx`):
+  1. **Tích hợp `useSafeAreaInsets` từ `react-native-safe-area-context`:**
+     - Tự động nhận diện phần viền an toàn (Safe Area Top/Bottom) trên mọi thiết bị iOS (tai thỏ, Dynamic Island) và Android.
+  2. **Dịch chuyển Floating Pill Buttons và nội dung trong Màn hình Chi tiết Lịch hẹn (`renderDetailScreen`):**
+     - Nâng thanh 3 nút Floating Pill Header lên `top: Math.max(insets.top + 8, 16)`, đảm bảo các nút không bị dính sát mép trên hoặc đè vào Dynamic Island / Notch.
+     - Dịch nội dung thẻ sự kiện (`detailFullScreenContent`) xuống với `paddingTop: Math.max(insets.top + 8, 16) + 38 + 14`, tạo khoảng đệm thông thoáng 14px bên dưới 3 nút Floating Pill, không còn bị đè lên tiêu đề hay địa điểm khi mới mở màn hình.
+     - Dịch nút bình chọn ở đáy (`detailFloatingBottomContainer`) lên `bottom: Math.max(insets.bottom + 16, 24)`, tránh bị che bởi thanh điều hướng cử chỉ Home Indicator.
+  3. **Dịch chuyển Header Lịch tháng & Năm trên màn hình chính:**
+     - Bổ sung `paddingTop: Math.max(insets.top + 54, Platform.OS === 'ios' ? 88 : 76)` cho `appleMonthCalendarHeader` và `appleYearHeader`, tạo khoảng cách thở hoàn hảo dưới thanh Floating Pill điều hướng của modal cha (`[id].tsx`).
+- **Files Affected:**
+  - `apps/mobile/src/components/tools/MobileCalendarView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% tinh chỉnh CSS Safe Area và positioning.
+- **Human Modifications:** Người dùng phản hồi yêu cầu dịch chuyển Floating Pill và nội dung chi tiết lịch hẹn để không bị che khuất.
+- **Verification Method:**
+  - `npx tsc -p apps/mobile/tsconfig.json --noEmit`: Passed 0 errors.
+  - `npx tsc -p apps/web/tsconfig.json --noEmit`: Passed 0 errors.
+  - `npm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.spec.ts`: Passed 45/45 tests.
+  - `bash ./scripts/check-agent-map.sh`: Passed 130/130 files.
+  - `bash ./scripts/check-secrets.sh`: Passed (600 files checked, 0 secret leaks).
+- **Official Source Checked:** Apple HIG Insets & Layout Guidelines, React Native Safe Area Context.
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
+- **Commit:** 6036159
+- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)

@@ -18,6 +18,7 @@ import {
   Keyboard,
   Image,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import {
   Calendar as CalendarIcon,
@@ -860,6 +861,7 @@ interface MobileCalendarViewProps {
 }
 
 export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId }) => {
+  const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
   const { colors } = useThemeStore();
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -3283,7 +3285,10 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
         {/* Scrollable Content (Toàn màn hình, khi cuộn nội dung sẽ lướt qua bên dưới 3 nút Floating Pill) */}
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.detailFullScreenContent}
+          contentContainerStyle={[
+            styles.detailFullScreenContent,
+            { paddingTop: Math.max(insets.top + 8, 16) + 38 + 14 },
+          ]}
         >
           {/* =========================================================================
               THẺ 1: TÊN, ĐỊA ĐIỂM (LINK), THỜI GIAN, LẶP LẠI (NAV), NGƯỜI THAM GIA
@@ -3557,7 +3562,13 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
         {/* =========================================================================
             3 NÚT FLOATING PILL BUTTONS (Nổi lơ lửng ở đỉnh, nội dung lướt qua bên dưới)
            ========================================================================= */}
-        <View style={styles.detailFloatingPillHeader} pointerEvents="box-none">
+        <View
+          style={[
+            styles.detailFloatingPillHeader,
+            { top: Math.max(insets.top + 8, 16) },
+          ]}
+          pointerEvents="box-none"
+        >
           {/* Nút 1: Quay lại dạng ngày tháng năm dd/mm/yyyy - Dạng Floating Pill Button */}
           <TouchableOpacity
             style={[styles.detailFloatingPillBtn, styles.detailFloatingBackPill]}
@@ -3605,7 +3616,13 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
         {/* =========================================================================
             NÚT TREO ĐÁY: THAM GIA BÌNH CHỌN (DẠNG FLOATING PILL BUTTON)
            ========================================================================= */}
-        <View style={styles.detailFloatingBottomContainer} pointerEvents="box-none">
+        <View
+          style={[
+            styles.detailFloatingBottomContainer,
+            { bottom: Math.max(insets.bottom + 16, 24) },
+          ]}
+          pointerEvents="box-none"
+        >
           <TouchableOpacity
             style={styles.detailFloatingPollPillBtn}
             activeOpacity={0.85}
@@ -4119,7 +4136,12 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
     return (
       <View style={styles.container}>
         {/* Year View Header */}
-        <View style={styles.appleYearHeader}>
+        <View
+          style={[
+            styles.appleYearHeader,
+            { paddingTop: Math.max(insets.top + 54, Platform.OS === 'ios' ? 88 : 76) },
+          ]}
+        >
           <View style={{ flex: 1 }} />
 
           <View style={styles.appleHeaderActions}>
@@ -4278,7 +4300,12 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
   return (
     <View style={styles.container}>
       {/* Month Calendar Header */}
-      <View style={styles.appleMonthCalendarHeader}>
+      <View
+        style={[
+          styles.appleMonthCalendarHeader,
+          { paddingTop: Math.max(insets.top + 54, Platform.OS === 'ios' ? 88 : 76) },
+        ]}
+      >
         <View style={styles.appleMonthTitleContainer}>
           {/* Năm nằm trước Tháng - Chạm vào Năm để mở danh sách Năm cuộn dọc */}
           <TouchableOpacity
