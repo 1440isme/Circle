@@ -19,10 +19,11 @@ import {
   useWindowDimensions,
   NativeSyntheticEvent,
   NativeScrollEvent,
+  BackHandler,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ArrowLeft,
@@ -1507,14 +1508,6 @@ export default function CircleWorkspaceScreen() {
   }>();
   const circleId = id || '';
 
-  const handleGoBack = useCallback(() => {
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.replace('/(tabs)');
-    }
-  }, [router]);
-
   const { colors, resolvedTheme, uiStyle } = useThemeStore();
   const { t, locale } = useLanguageStore();
   const user = useAuthStore((s) => s.user);
@@ -1532,7 +1525,7 @@ export default function CircleWorkspaceScreen() {
 
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const horizontalPagerRef = useRef<React.ElementRef<typeof ScrollView>>(null);
-  const TAB_ORDER: WorkspaceTab[] = useMemo(() => ['moments', 'chat', 'tools'], []);
+  const TAB_ORDER: WorkspaceTab[] = useMemo(() => ['chat', 'moments', 'tools'], []);
 
   const [circleSwitcherVisible, setCircleSwitcherVisible] = useState(false);
 
@@ -1587,13 +1580,15 @@ export default function CircleWorkspaceScreen() {
     const targetTab = resolveInitialTab(tab);
     setActiveTab(targetTab);
     const idx = TAB_ORDER.indexOf(targetTab);
-    const timer = setTimeout(() => {
-      horizontalPagerRef.current?.scrollTo({
-        x: (idx !== -1 ? idx : 1) * screenWidth,
-        animated: false,
-      });
-    }, 50);
-    return () => clearTimeout(timer);
+    if (idx > 0) {
+      const timer = setTimeout(() => {
+        horizontalPagerRef.current?.scrollTo({
+          x: idx * screenWidth,
+          animated: false,
+        });
+      }, 50);
+      return () => clearTimeout(timer);
+    }
   }, [tab, screenWidth, TAB_ORDER]);
 
   const VALID_TOOLS = ['menu', 'album', 'calendar', 'wheel', 'anonymous', 'planning', 'location', 'poll'] as const;
@@ -1601,6 +1596,57 @@ export default function CircleWorkspaceScreen() {
   const [selectedTool, setSelectedTool] = useState<ToolKey>(() =>
     tool && (VALID_TOOLS as readonly string[]).includes(tool) ? (tool as ToolKey) : 'menu',
   );
+
+  const handleSelectTool = useCallback((toolKey: ToolKey) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    setSelectedTool(toolKey);
+  }, []);
+
+  // Universal contextual back handler supporting sub-level detail -> tool root -> chat tab -> home
+  const toolSubLevelBackRef = useRef<(() => boolean) | null>(null);
+
+  const handleHierarchicalBack = useCallback(() => {
+    // Level 3: Tool internal sub-level (sheet detail, album detail, active tool modal)
+    if (toolSubLevelBackRef.current && toolSubLevelBackRef.current()) {
+      Haptics.selectionAsync().catch(() => {});
+      return true;
+    }
+
+    // Level 2: Tool modal open -> return to tools menu
+    if (selectedTool !== 'menu') {
+      Haptics.selectionAsync().catch(() => {});
+      setSelectedTool('menu');
+      return true;
+    }
+
+    // Level 1: Not on chat tab -> return to chat tab
+    if (activeTab !== 'chat') {
+      Haptics.selectionAsync().catch(() => {});
+      handleTabSelect('chat');
+      return true;
+    }
+
+    // Level 0: On chat tab (root) -> exit Circle to Home
+    Haptics.selectionAsync().catch(() => {});
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)');
+    }
+    return true;
+  }, [selectedTool, activeTab, router]);
+
+  // Hardware Android Back button listener
+  useEffect(() => {
+    const onHardwareBack = () => {
+      handleHierarchicalBack();
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onHardwareBack);
+    return () => sub.remove();
+  }, [handleHierarchicalBack]);
+
+  const handleGoBack = handleHierarchicalBack;
 
   useEffect(() => {
     if (tool && (VALID_TOOLS as readonly string[]).includes(tool)) {
@@ -1937,7 +1983,8 @@ export default function CircleWorkspaceScreen() {
   const reactMessageMutation = useReactMessageMutation(currentChannelId);
   const pinMessageMutation = usePinMessageMutation(currentChannelId);
   const { data: pinnedMessages = [] } = usePinnedMessagesQuery(currentChannelId);
-  const edgePan = useEdgeSwipeDismiss({ onDismiss: handleGoBack });
+  const edgePan = useEdgeSwipeDismiss({ onDismiss: handleHierarchicalBack });
+  const toolEdgePan = useEdgeSwipeDismiss({ onDismiss: handleHierarchicalBack });
   const { typingUsers, reportTyping } = useMobileChannelTyping(currentChannelId);
 
   // Mark message as read when channel is viewed or new messages arrive
@@ -2540,6 +2587,7 @@ export default function CircleWorkspaceScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={[styles.container, { backgroundColor: colors.canvas }]}
     >
+      <Stack.Screen options={{ gestureEnabled: false, headerShown: false }} />
       {/* Unlimited Floating Frosted Header Bar (Row 1: Symmetrical Nav + Row 2: Centered Sub-header Title) */}
       <View
         style={[
@@ -2622,23 +2670,6 @@ export default function CircleWorkspaceScreen() {
               >
                 <TouchableOpacity
                   activeOpacity={0.7}
-                  onPress={() => handleTabSelect('moments')}
-                  style={[
-                    styles.tabSliderItem,
-                    activeTab === 'moments'
-                      ? [styles.tabSliderItemActive, { backgroundColor: isDark ? 'rgba(255,255,255,0.16)' : 'rgba(0,0,0,0.08)' }]
-                      : styles.tabSliderItemFaded,
-                  ]}
-                  accessibilityLabel={t.moments.viewHistory}
-                >
-                  <Camera
-                    size={16}
-                    color={activeTab === 'moments' ? colors.sage : colors.subtle}
-                  />
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  activeOpacity={0.7}
                   onPress={() => handleTabSelect('chat')}
                   style={[
                     styles.tabSliderItem,
@@ -2651,6 +2682,23 @@ export default function CircleWorkspaceScreen() {
                   <MessageSquare
                     size={16}
                     color={activeTab === 'chat' ? colors.sage : colors.subtle}
+                  />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => handleTabSelect('moments')}
+                  style={[
+                    styles.tabSliderItem,
+                    activeTab === 'moments'
+                      ? [styles.tabSliderItemActive, { backgroundColor: isDark ? 'rgba(255,255,255,0.16)' : 'rgba(0,0,0,0.08)' }]
+                      : styles.tabSliderItemFaded,
+                  ]}
+                  accessibilityLabel={t.moments.viewHistory}
+                >
+                  <Camera
+                    size={16}
+                    color={activeTab === 'moments' ? colors.sage : colors.subtle}
                   />
                 </TouchableOpacity>
 
@@ -2686,23 +2734,6 @@ export default function CircleWorkspaceScreen() {
               >
                 <TouchableOpacity
                   activeOpacity={0.7}
-                  onPress={() => handleTabSelect('moments')}
-                  style={[
-                    styles.tabSliderItem,
-                    activeTab === 'moments'
-                      ? [styles.tabSliderItemActive, { backgroundColor: colors.surface }]
-                      : styles.tabSliderItemFaded,
-                  ]}
-                  accessibilityLabel={t.moments.viewHistory}
-                >
-                  <Camera
-                    size={16}
-                    color={activeTab === 'moments' ? colors.sage : colors.subtle}
-                  />
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  activeOpacity={0.7}
                   onPress={() => handleTabSelect('chat')}
                   style={[
                     styles.tabSliderItem,
@@ -2715,6 +2746,23 @@ export default function CircleWorkspaceScreen() {
                   <MessageSquare
                     size={16}
                     color={activeTab === 'chat' ? colors.sage : colors.subtle}
+                  />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => handleTabSelect('moments')}
+                  style={[
+                    styles.tabSliderItem,
+                    activeTab === 'moments'
+                      ? [styles.tabSliderItemActive, { backgroundColor: colors.surface }]
+                      : styles.tabSliderItemFaded,
+                  ]}
+                  accessibilityLabel={t.moments.viewHistory}
+                >
+                  <Camera
+                    size={16}
+                    color={activeTab === 'moments' ? colors.sage : colors.subtle}
                   />
                 </TouchableOpacity>
 
@@ -3052,22 +3100,6 @@ export default function CircleWorkspaceScreen() {
         style={{ flex: 1 }}
         contentContainerStyle={{ flexGrow: 1 }}
       >
-        
-        {/* TAB 2: KHOẢNH KHẮC THƯỜNG NGÀY (AUTHENTIC MOMENTS VIEW) */}
-        <View style={{ width: screenWidth, flex: 1, paddingTop: headerHeight }}>
-          <MomentsView
-            circleId={circleId}
-            circleName={circle.name}
-            isActive={activeTab === 'moments'}
-            selectedMemberId={momentsMemberFilter}
-            onSelectMemberId={setMomentsMemberFilter}
-            isHistoryActive={isMomentsHistoryActive}
-            onHistoryActiveChange={setIsMomentsHistoryActive}
-            historyViewMode={momentsHistoryViewMode}
-            onHistoryViewModeChange={setMomentsHistoryViewMode}
-          />
-        </View>
-
         {/* TAB 1: TRÒ CHUYỆN TRỰC TIẾP TRONG CIRCLE */}
         <View style={{ width: screenWidth, flex: 1 }}>
           <View
@@ -3849,13 +3881,34 @@ export default function CircleWorkspaceScreen() {
         </View>
       </View>
 
+        {/* TAB 2: KHOẢNH KHẮC THƯỜNG NGÀY (AUTHENTIC MOMENTS VIEW) */}
+        <View style={{ width: screenWidth, flex: 1, paddingTop: headerHeight }}>
+          <MomentsView
+            circleId={circleId}
+            circleName={circle.name}
+            isActive={activeTab === 'moments'}
+            selectedMemberId={momentsMemberFilter}
+            onSelectMemberId={setMomentsMemberFilter}
+            isHistoryActive={isMomentsHistoryActive}
+            onHistoryActiveChange={setIsMomentsHistoryActive}
+            historyViewMode={momentsHistoryViewMode}
+            onHistoryViewModeChange={setMomentsHistoryViewMode}
+          />
+        </View>
+
         {/* TAB 3: TIỆN ÍCH NHÓM */}
         <View style={{ width: screenWidth, flex: 1, paddingTop: headerHeight }}>
-          <ScrollView contentContainerStyle={[styles.toolsContainer, { paddingTop: 12 }]} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            nestedScrollEnabled={true}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={[styles.toolsContainer, { paddingTop: 12 }]}
+            showsVerticalScrollIndicator={false}
+          >
             <View style={[styles.toolsCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
               {/* Tool 1: Realtime Voice Stage */}
               <TouchableOpacity
-                activeOpacity={0.7}
+                activeOpacity={0.6}
+                delayPressIn={0}
                 onPress={() => handleStartCall('audio')}
                 style={[styles.toolRow, { borderBottomColor: colors.hairline }]}
               >
@@ -3870,8 +3923,9 @@ export default function CircleWorkspaceScreen() {
 
               {/* Tool 2: Photo Album */}
               <TouchableOpacity
-                activeOpacity={0.7}
-                onPress={() => setSelectedTool('album')}
+                activeOpacity={0.6}
+                delayPressIn={0}
+                onPress={() => handleSelectTool('album')}
                 style={[styles.toolRow, { borderBottomColor: colors.hairline }]}
               >
                 <ImageIcon size={20} color={colors.text} />
@@ -3885,8 +3939,9 @@ export default function CircleWorkspaceScreen() {
 
               {/* Tool 3: Calendar Events */}
               <TouchableOpacity
-                activeOpacity={0.7}
-                onPress={() => setSelectedTool('calendar')}
+                activeOpacity={0.6}
+                delayPressIn={0}
+                onPress={() => handleSelectTool('calendar')}
                 style={[styles.toolRow, { borderBottomColor: colors.hairline }]}
               >
                 <Calendar size={20} color={colors.text} />
@@ -3900,8 +3955,9 @@ export default function CircleWorkspaceScreen() {
 
               {/* Tool 4: Planning Sheet (UC18) */}
               <TouchableOpacity
-                activeOpacity={0.7}
-                onPress={() => setSelectedTool('planning')}
+                activeOpacity={0.6}
+                delayPressIn={0}
+                onPress={() => handleSelectTool('planning')}
                 style={[styles.toolRow, { borderBottomColor: colors.hairline }]}
               >
                 <FileSpreadsheet size={20} color={colors.text} />
@@ -3915,8 +3971,9 @@ export default function CircleWorkspaceScreen() {
 
               {/* Tool 5: Live Location (UC19) */}
               <TouchableOpacity
-                activeOpacity={0.7}
-                onPress={() => setSelectedTool('location')}
+                activeOpacity={0.6}
+                delayPressIn={0}
+                onPress={() => handleSelectTool('location')}
                 style={[styles.toolRow, { borderBottomColor: colors.hairline }]}
               >
                 <MapPin size={20} color={colors.text} />
@@ -3930,8 +3987,9 @@ export default function CircleWorkspaceScreen() {
 
               {/* Tool 6: Group Poll (UC15) */}
               <TouchableOpacity
-                activeOpacity={0.7}
-                onPress={() => setSelectedTool('poll')}
+                activeOpacity={0.6}
+                delayPressIn={0}
+                onPress={() => handleSelectTool('poll')}
                 style={[styles.toolRow, { borderBottomColor: colors.hairline }]}
               >
                 <BarChart3 size={20} color={colors.text} />
@@ -3945,8 +4003,9 @@ export default function CircleWorkspaceScreen() {
 
               {/* Tool 7: Lucky Wheel */}
               <TouchableOpacity
-                activeOpacity={0.7}
-                onPress={() => setSelectedTool('wheel')}
+                activeOpacity={0.6}
+                delayPressIn={0}
+                onPress={() => handleSelectTool('wheel')}
                 style={[styles.toolRow, { borderBottomColor: colors.hairline }]}
               >
                 <Compass size={20} color={colors.text} />
@@ -3960,8 +4019,9 @@ export default function CircleWorkspaceScreen() {
 
               {/* Tool 8: Anonymous Mailbox */}
               <TouchableOpacity
-                activeOpacity={0.7}
-                onPress={() => setSelectedTool('anonymous')}
+                activeOpacity={0.6}
+                delayPressIn={0}
+                onPress={() => handleSelectTool('anonymous')}
                 style={styles.toolRow}
               >
                 <Heart size={20} color={colors.text} />
@@ -5034,157 +5094,95 @@ export default function CircleWorkspaceScreen() {
         </View>
       )}
     
-      {/* Full-Screen Tool Modal: Expands edge-to-edge with strictly gated Glass/Flat floating controls */}
+      {/* Full-Screen Tool Modal: Expands edge-to-edge with unified fixed-position Back button */}
       <Modal
         visible={selectedTool !== 'menu'}
         animationType="slide"
         presentationStyle="fullScreen"
-        onRequestClose={() => setSelectedTool('menu')}
+        onRequestClose={() => {
+          handleHierarchicalBack();
+        }}
       >
-        <View style={{ flex: 1, backgroundColor: colors.canvas }}>
-          {/* Floating Navigation Bar (strictly gated Glass vs Flat) */}
+        <View
+          style={{ flex: 1, backgroundColor: colors.canvas }}
+          {...toolEdgePan.panHandlers}
+        >
+          {/* Universal Contextual Back Button: Fixed top-left matching header position for every tier */}
           <View
             pointerEvents="box-none"
             style={{
               position: 'absolute',
-              top: Math.max(insets.top + 8, 16),
+              top: Platform.OS === 'ios' ? 52 : 36,
               left: 16,
-              right: 16,
-              zIndex: 50,
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
+              zIndex: 100,
             }}
           >
-            {(() => {
-              const pillBaseStyle = {
-                borderRadius: 999,
-                overflow: 'hidden' as const,
-                backgroundColor: isGlass ? glassTheme.colors.glassBg : colors.surface,
-                borderWidth: isGlass ? StyleSheet.hairlineWidth : 1,
-                borderColor: isGlass ? glassTheme.colors.glassBorder : colors.hairline,
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: isGlass ? (isDark ? 0.3 : 0.08) : 0,
-                shadowRadius: 8,
-                elevation: isGlass ? 3 : 0,
-              };
-
-              const backPill = (
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  onPress={() => setSelectedTool('menu')}
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 6,
-                    minHeight: 36,
-                    paddingVertical: 7,
-                    paddingHorizontal: 12,
-                  }}
-                  accessibilityLabel={t.common.back}
-                >
-                  <ArrowLeft size={16} color={colors.text} />
-                  <Text style={{ fontSize: 13, fontWeight: '600', color: colors.text }}>
-                    {t.nav.groupTools}
-                  </Text>
-                </TouchableOpacity>
-              );
-
-              const titlePill = (
-                <View
-                  style={{
-                    minHeight: 36,
-                    justifyContent: 'center',
-                    paddingVertical: 7,
-                    paddingHorizontal: 16,
-                    alignItems: 'center',
-                  }}
-                >
-                  <Text style={{ fontSize: 13, fontWeight: '700', color: colors.text }}>
-                    {selectedTool === 'album'
-                      ? t.nav.photoAlbum
-                      : selectedTool === 'calendar'
-                      ? t.nav.calendarEvents
-                      : selectedTool === 'planning'
-                      ? t.nav.planningSheet
-                      : selectedTool === 'location'
-                      ? t.nav.liveLocation
-                      : selectedTool === 'poll'
-                      ? t.nav.groupPoll
-                      : selectedTool === 'wheel'
-                      ? t.nav.luckyWheel
-                      : selectedTool === 'anonymous'
-                      ? t.nav.reflectionMailbox
-                      : ''}
-                  </Text>
-                </View>
-              );
-
-              const closePill = (
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  onPress={() => setSelectedTool('menu')}
-                  style={{
-                    minWidth: 36,
-                    minHeight: 36,
-                    padding: 8,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                  accessibilityLabel={t.common.close}
-                >
-                  <X size={16} color={colors.text} />
-                </TouchableOpacity>
-              );
-
-              const showTitlePill = selectedTool !== 'album';
-
-              if (isGlass) {
-                return (
-                  <>
-                    <BlurView intensity={glassTheme.blur.intensity} tint={glassTheme.blur.tint} style={pillBaseStyle}>
-                      {backPill}
-                    </BlurView>
-                    {showTitlePill && (
-                      <BlurView intensity={glassTheme.blur.intensity} tint={glassTheme.blur.tint} style={pillBaseStyle}>
-                        {titlePill}
-                      </BlurView>
-                    )}
-                    <BlurView intensity={glassTheme.blur.intensity} tint={glassTheme.blur.tint} style={pillBaseStyle}>
-                      {closePill}
-                    </BlurView>
-                  </>
-                );
-              }
-
-              return (
-                <>
-                  <View style={pillBaseStyle}>{backPill}</View>
-                  {showTitlePill && <View style={pillBaseStyle}>{titlePill}</View>}
-                  <View style={pillBaseStyle}>{closePill}</View>
-                </>
-              );
-            })()}
+            <TouchableOpacity
+              activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              onPress={handleHierarchicalBack}
+              style={[
+                styles.floatingNavBtn,
+                {
+                  backgroundColor: isGlass
+                    ? (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)')
+                    : colors.wash,
+                  borderColor: isGlass
+                    ? (isDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.06)')
+                    : colors.hairline,
+                },
+              ]}
+              accessibilityLabel={t.common.back}
+            >
+              <ArrowLeft size={18} color={colors.text} />
+            </TouchableOpacity>
           </View>
 
           <View style={{ flex: 1 }}>
             {selectedTool === 'album' ? (
-              <MobileAlbumsView circleId={circleId} />
+              <MobileAlbumsView
+                circleId={circleId}
+                onRegisterBack={(handler) => {
+                  toolSubLevelBackRef.current = handler;
+                }}
+              />
             ) : selectedTool === 'calendar' ? (
-              <MobileCalendarView circleId={circleId} />
+              <MobileCalendarView
+                circleId={circleId}
+                onRegisterBack={(handler) => {
+                  toolSubLevelBackRef.current = handler;
+                }}
+              />
             ) : selectedTool === 'planning' ? (
-              <MobilePlanningView circleId={circleId} />
+              <MobilePlanningView
+                circleId={circleId}
+                onRegisterBack={(handler) => {
+                  toolSubLevelBackRef.current = handler;
+                }}
+              />
             ) : selectedTool === 'location' ? (
               <MobileLocationView circleId={circleId} />
             ) : selectedTool === 'poll' ? (
-              <MobilePollView circleId={circleId} />
+              <MobilePollView
+                circleId={circleId}
+                onRegisterBack={(handler) => {
+                  toolSubLevelBackRef.current = handler;
+                }}
+              />
             ) : selectedTool === 'wheel' ? (
-              <MobileWheelView circleId={circleId} />
+              <MobileWheelView
+                circleId={circleId}
+                onRegisterBack={(handler) => {
+                  toolSubLevelBackRef.current = handler;
+                }}
+              />
             ) : selectedTool === 'anonymous' ? (
-              <MobileAnonymousView circleId={circleId} />
+              <MobileAnonymousView
+                circleId={circleId}
+                onRegisterBack={(handler) => {
+                  toolSubLevelBackRef.current = handler;
+                }}
+              />
             ) : null}
           </View>
         </View>

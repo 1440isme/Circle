@@ -17,7 +17,6 @@ import * as Haptics from 'expo-haptics';
 import {
   FileSpreadsheet,
   Plus,
-  ArrowLeft,
   Trash2,
   X,
   Check,
@@ -40,9 +39,10 @@ import { useLanguageStore } from '../../stores/language.store';
 
 interface MobilePlanningViewProps {
   circleId: string;
+  onRegisterBack?: (handler: (() => boolean) | null) => void;
 }
 
-export const MobilePlanningView: React.FC<MobilePlanningViewProps> = ({ circleId }) => {
+export const MobilePlanningView: React.FC<MobilePlanningViewProps> = ({ circleId, onRegisterBack }) => {
   const { colors, resolvedTheme, uiStyle } = useThemeStore();
   const isDark = resolvedTheme === 'dark';
   const isGlass = uiStyle === 'glass';
@@ -50,12 +50,29 @@ export const MobilePlanningView: React.FC<MobilePlanningViewProps> = ({ circleId
   const { t, locale } = useLanguageStore();
   const insets = useSafeAreaInsets();
   const dateLocale = locale === 'vi' ? 'vi-VN' : 'en-US';
-  const topClearance = Math.max(insets.top + 52, Platform.OS === 'ios' ? 74 : 64);
+  const topClearance = Platform.OS === 'ios' ? 52 : 36;
   const bottomClearance = Math.max(insets.bottom + 16, 24);
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
   const [sheets, setSheets] = useState<PlanningSheetEntity[]>([]);
   const [selectedSheet, setSelectedSheet] = useState<PlanningSheetEntity | null>(null);
+
+  useEffect(() => {
+    if (onRegisterBack) {
+      if (selectedSheet) {
+        onRegisterBack(() => {
+          setConfirmDeleteSheet(false);
+          setSelectedSheet(null);
+          return true;
+        });
+      } else {
+        onRegisterBack(null);
+      }
+    }
+    return () => {
+      onRegisterBack?.(null);
+    };
+  }, [selectedSheet, onRegisterBack]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAddingRow, setIsAddingRow] = useState(false);
 
@@ -326,21 +343,12 @@ export const MobilePlanningView: React.FC<MobilePlanningViewProps> = ({ circleId
           style={[styles.subToolbarContainer, { top: topClearance }]}
         >
           {renderSurfacePill(
-            <TouchableOpacity
-              activeOpacity={0.7}
-              style={styles.glassPillTouch}
-              onPress={() => {
-                setConfirmDeleteSheet(false);
-                setSelectedSheet(null);
-              }}
-              accessibilityLabel={t.collab.backToList}
-            >
-              <ArrowLeft size={15} color={colors.text} />
+            <View style={[styles.glassPillTouch, { paddingHorizontal: 12 }]}>
               <Text style={[styles.backText, { color: colors.text }]} numberOfLines={1}>
                 {selectedSheet.title}
               </Text>
-            </TouchableOpacity>,
-            { flexShrink: 1, maxWidth: '42%' },
+            </View>,
+            { flexShrink: 1, maxWidth: '48%' },
           )}
 
           <View style={styles.subToolbarActions}>
@@ -942,7 +950,7 @@ const createStyles = (colors: ColorTheme, isDark: boolean) =>
     },
     subToolbarContainer: {
       position: 'absolute',
-      left: 14,
+      left: 60,
       right: 14,
       zIndex: 30,
       flexDirection: 'row',

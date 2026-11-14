@@ -687,9 +687,10 @@ export function formatEventTimeForDate(ev: CalendarEventEntity, targetDate: Date
 
 interface MobileCalendarViewProps {
   circleId: string;
+  onRegisterBack?: (handler: (() => boolean) | null) => void;
 }
 
-export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId }) => {
+export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId, onRegisterBack }) => {
   const user = useAuthStore((s) => s.user);
   const { colors } = useThemeStore();
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -703,6 +704,28 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
   const [detailEvent, setDetailEvent] = useState<CalendarEventEntity | null>(null);
   const [detailOccurrenceDate, setDetailOccurrenceDate] = useState<Date | null>(null);
   const [editingOccurrenceDate, setEditingOccurrenceDate] = useState<Date | null>(null);
+
+  useEffect(() => {
+    if (onRegisterBack) {
+      if (detailEvent) {
+        onRegisterBack(() => {
+          setDetailEvent(null);
+          setDetailOccurrenceDate(null);
+          return true;
+        });
+      } else if (isAddModalOpen) {
+        onRegisterBack(() => {
+          setIsAddModalOpen(false);
+          setEditingEvent(null);
+          setEditingOccurrenceDate(null);
+          return true;
+        });
+      } else {
+        onRegisterBack(null);
+      }
+    }
+    return () => onRegisterBack?.(null);
+  }, [detailEvent, isAddModalOpen, onRegisterBack]);
   const [isYearView, setIsYearView] = useState(false);
   const [calendarTab, setCalendarTab] = useState<'month' | 'upcoming'>('month');
   const [isSharingToChat, setIsSharingToChat] = useState<string | null>(null);

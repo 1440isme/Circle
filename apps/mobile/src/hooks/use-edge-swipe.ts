@@ -14,6 +14,9 @@ export function useEdgeSwipeDismiss({
   distanceThreshold = 60,
   velocityThreshold = 0.35,
 }: UseEdgeSwipeDismissOptions) {
+  const onDismissRef = useRef(onDismiss);
+  onDismissRef.current = onDismiss;
+
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => false,
@@ -21,18 +24,24 @@ export function useEdgeSwipeDismiss({
       onMoveShouldSetPanResponder: (_, gestureState) => {
         return (
           gestureState.x0 <= edgeThreshold &&
-          gestureState.dx > 20 &&
-          Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 2
+          gestureState.dx > 15 &&
+          Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.5
         );
       },
-      onMoveShouldSetPanResponderCapture: () => false,
+      onMoveShouldSetPanResponderCapture: (_, gestureState) => {
+        return (
+          gestureState.x0 <= edgeThreshold &&
+          gestureState.dx > 15 &&
+          Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.5
+        );
+      },
       onPanResponderRelease: (_, gestureState) => {
         const isFromEdge = gestureState.x0 <= edgeThreshold + 15;
         const hasPassedDistance = gestureState.dx >= distanceThreshold;
         const hasPassedFlick = gestureState.dx >= 30 && gestureState.vx >= velocityThreshold;
 
         if (isFromEdge && (hasPassedDistance || hasPassedFlick)) {
-          onDismiss();
+          onDismissRef.current();
         }
       },
       onPanResponderTerminationRequest: () => true,
@@ -41,3 +50,4 @@ export function useEdgeSwipeDismiss({
 
   return panResponder;
 }
+

@@ -34,6 +34,7 @@ import { useLanguageStore } from '../../stores/language.store';
 
 interface MobileAnonymousViewProps {
   circleId: string;
+  onRegisterBack?: (handler: (() => boolean) | null) => void;
 }
 
 interface MobileTheme {
@@ -104,7 +105,7 @@ const formatPostDate = (isoString: string) => {
   return `${hours}:${minutes} ${day}/${month}/${year}`;
 };
 
-export const MobileAnonymousView: React.FC<MobileAnonymousViewProps> = ({ circleId }) => {
+export const MobileAnonymousView: React.FC<MobileAnonymousViewProps> = ({ circleId, onRegisterBack }) => {
   const { colors, resolvedTheme } = useThemeStore();
   const isDark = resolvedTheme === 'dark';
   const { t } = useLanguageStore();
@@ -180,6 +181,20 @@ export const MobileAnonymousView: React.FC<MobileAnonymousViewProps> = ({ circle
   const [isComposeModalOpen, setIsComposeModalOpen] = useState(false);
   const [content, setContent] = useState('');
   const [selectedTheme, setSelectedTheme] = useState('sunset');
+
+  useEffect(() => {
+    if (onRegisterBack) {
+      if (isComposeModalOpen) {
+        onRegisterBack(() => {
+          setIsComposeModalOpen(false);
+          return true;
+        });
+      } else {
+        onRegisterBack(null);
+      }
+    }
+    return () => onRegisterBack?.(null);
+  }, [isComposeModalOpen, onRegisterBack]);
 
   const loadPosts = async () => {
     try {

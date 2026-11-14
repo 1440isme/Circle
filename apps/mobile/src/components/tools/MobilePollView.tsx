@@ -36,9 +36,10 @@ import { useLanguageStore } from '../../stores/language.store';
 
 interface MobilePollViewProps {
   circleId: string;
+  onRegisterBack?: (handler: (() => boolean) | null) => void;
 }
 
-export const MobilePollView: React.FC<MobilePollViewProps> = ({ circleId }) => {
+export const MobilePollView: React.FC<MobilePollViewProps> = ({ circleId, onRegisterBack }) => {
   const { colors, resolvedTheme } = useThemeStore();
   const isDark = resolvedTheme === 'dark';
   const { t, locale } = useLanguageStore();
@@ -62,6 +63,20 @@ export const MobilePollView: React.FC<MobilePollViewProps> = ({ circleId }) => {
 
   // Modal: Create Poll
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (onRegisterBack) {
+      if (isCreateModalOpen) {
+        onRegisterBack(() => {
+          setIsCreateModalOpen(false);
+          return true;
+        });
+      } else {
+        onRegisterBack(null);
+      }
+    }
+    return () => onRegisterBack?.(null);
+  }, [isCreateModalOpen, onRegisterBack]);
   const [question, setQuestion] = useState('');
   const [options, setOptions] = useState<string[]>(['', '']);
   const [formError, setFormError] = useState<string | null>(null);

@@ -50,6 +50,7 @@ import { useLanguageStore } from '../../stores/language.store';
 
 interface MobileWheelViewProps {
   circleId: string;
+  onRegisterBack?: (handler: (() => boolean) | null) => void;
 }
 
 const PASTEL_WHEEL_COLORS = [
@@ -72,7 +73,7 @@ interface WheelMobileState {
   isSpinning: boolean;
 }
 
-export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) => {
+export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onRegisterBack }) => {
   const t = useLanguageStore((s) => s.t);
   const user = useAuthStore((s) => s.user);
 
@@ -114,6 +115,20 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
   const [combinedWinnersModal, setCombinedWinnersModal] = useState<
     { wheelId: string; wheelTitle: string; winner: string; winningIndex: number }[] | null
   >(null);
+
+  useEffect(() => {
+    if (onRegisterBack) {
+      if (combinedWinnersModal && combinedWinnersModal.length > 0) {
+        onRegisterBack(() => {
+          setCombinedWinnersModal(null);
+          return true;
+        });
+      } else {
+        onRegisterBack(null);
+      }
+    }
+    return () => onRegisterBack?.(null);
+  }, [combinedWinnersModal, onRegisterBack]);
 
   // Sync wheel states when wheels load
   useEffect(() => {

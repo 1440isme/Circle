@@ -22,7 +22,6 @@ import * as Haptics from 'expo-haptics';
 import {
   FolderOpen,
   Plus,
-  ArrowLeft,
   Trash2,
   X,
   UploadCloud,
@@ -58,9 +57,10 @@ import { copyTextSafe } from '../../utils/clipboard';
 
 interface MobileAlbumsViewProps {
   circleId: string;
+  onRegisterBack?: (handler: (() => boolean) | null) => void;
 }
 
-export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId }) => {
+export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, onRegisterBack }) => {
   const { colors, resolvedTheme, uiStyle } = useThemeStore();
   const isDark = resolvedTheme === 'dark';
   const isGlass = uiStyle === 'glass';
@@ -70,7 +70,7 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId }) 
   const insets = useSafeAreaInsets();
   const photoSize = (width - 48) / 3;
   const dateLocale = locale === 'vi' ? 'vi-VN' : 'en-US';
-  const topClearance = Math.max(insets.top + 52, Platform.OS === 'ios' ? 74 : 64);
+  const topClearance = Platform.OS === 'ios' ? 52 : 36;
   const styles = useMemo(() => createStyles(colors, isDark, photoSize), [colors, isDark, photoSize]);
 
   const [albums, setAlbums] = useState<SharedAlbumEntity[]>([]);
@@ -121,6 +121,51 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId }) 
   const [selectedSenderId, setSelectedSenderId] = useState<string>('ALL');
   const [selectedFileType, setSelectedFileType] = useState<'ALL' | 'DOCS' | 'SHEETS' | 'ARCHIVES' | 'OTHER'>('ALL');
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (onRegisterBack) {
+      if (selectedPhotoIndex !== null) {
+        onRegisterBack(() => {
+          setSelectedPhotoIndex(null);
+          return true;
+        });
+      } else if (selectedHubPhoto !== null) {
+        onRegisterBack(() => {
+          setSelectedHubPhoto(null);
+          return true;
+        });
+      } else if (isCreateModalOpen) {
+        onRegisterBack(() => {
+          setIsCreateModalOpen(false);
+          return true;
+        });
+      } else if (isFilterModalOpen) {
+        onRegisterBack(() => {
+          setIsFilterModalOpen(false);
+          return true;
+        });
+      } else if (selectedAlbum !== null) {
+        onRegisterBack(() => {
+          setIsConfirmingDeleteAlbum(false);
+          setSelectedAlbum(null);
+          loadAlbums();
+          return true;
+        });
+      } else {
+        onRegisterBack(null);
+      }
+    }
+    return () => {
+      onRegisterBack?.(null);
+    };
+  }, [
+    selectedPhotoIndex,
+    selectedHubPhoto,
+    isCreateModalOpen,
+    isFilterModalOpen,
+    selectedAlbum,
+    onRegisterBack,
+  ]);
 
   // Extract unique senders
   const uniqueSenders = useMemo(() => {
@@ -500,22 +545,6 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId }) 
     const pillBorderColor = isGlass ? glassTheme.colors.glassBorder : colors.hairline;
     const pillBgColor = isGlass ? glassTheme.colors.glassBg : colors.surface;
 
-    const backButtonContent = (
-      <TouchableOpacity
-        style={styles.glassPillInner}
-        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-        onPress={() => {
-          setIsConfirmingDeleteAlbum(false);
-          setSelectedAlbum(null);
-          loadAlbums();
-        }}
-        accessibilityLabel={t.common.back}
-      >
-        <ArrowLeft size={16} color={colors.text} />
-        <Text style={styles.backText}>{t.common.back}</Text>
-      </TouchableOpacity>
-    );
-
     const deleteIconContent = (
       <TouchableOpacity
         style={styles.glassIconInner}
@@ -531,66 +560,51 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId }) 
       <View style={[styles.container, { backgroundColor: colors.canvas }]}>
         {renderNoticeBanner()}
 
-        {/* Floating Sub-toolbar (strictly gated Glass vs Flat) */}
+        {/* Floating Sub-toolbar (actions on right, universal back button at left: 16) */}
         <View
           pointerEvents="box-none"
           style={{
             position: 'absolute',
             top: topClearance,
-            left: 16,
+            left: 60,
             right: 16,
             zIndex: 30,
             flexDirection: 'row',
             alignItems: 'center',
-            justifyContent: 'space-between',
+            justifyContent: 'flex-end',
+            gap: 8,
           }}
         >
+          <TouchableOpacity
+            style={[styles.uploadBtn, { backgroundColor: colors.primary }]}
+            disabled={isUploading}
+            onPress={handlePickAndUploadPhotos}
+          >
+            {isUploading ? (
+              <ActivityIndicator size="small" color={colors.onPrimary} />
+            ) : (
+              <>
+                <UploadCloud size={14} color={colors.onPrimary} />
+                <Text style={[styles.uploadBtnText, { color: colors.onPrimary }]}>
+                  {t.collab.addPhotosBtn}
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+
           {isGlass ? (
             <BlurView
               intensity={glassTheme.blur.intensity}
               tint={glassTheme.blur.tint}
-              style={[styles.glassPillShell, { backgroundColor: pillBgColor, borderColor: pillBorderColor }]}
+              style={[styles.glassIconShell, { backgroundColor: pillBgColor, borderColor: pillBorderColor }]}
             >
-              {backButtonContent}
+              {deleteIconContent}
             </BlurView>
           ) : (
-            <View style={[styles.glassPillShell, { backgroundColor: pillBgColor, borderColor: pillBorderColor }]}>
-              {backButtonContent}
+            <View style={[styles.glassIconShell, { backgroundColor: pillBgColor, borderColor: pillBorderColor }]}>
+              {deleteIconContent}
             </View>
           )}
-
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <TouchableOpacity
-              style={[styles.uploadBtn, { backgroundColor: colors.primary }]}
-              disabled={isUploading}
-              onPress={handlePickAndUploadPhotos}
-            >
-              {isUploading ? (
-                <ActivityIndicator size="small" color={colors.onPrimary} />
-              ) : (
-                <>
-                  <UploadCloud size={14} color={colors.onPrimary} />
-                  <Text style={[styles.uploadBtnText, { color: colors.onPrimary }]}>
-                    {t.collab.addPhotosBtn}
-                  </Text>
-                </>
-              )}
-            </TouchableOpacity>
-
-            {isGlass ? (
-              <BlurView
-                intensity={glassTheme.blur.intensity}
-                tint={glassTheme.blur.tint}
-                style={[styles.glassIconShell, { backgroundColor: pillBgColor, borderColor: pillBorderColor }]}
-              >
-                {deleteIconContent}
-              </BlurView>
-            ) : (
-              <View style={[styles.glassIconShell, { backgroundColor: pillBgColor, borderColor: pillBorderColor }]}>
-                {deleteIconContent}
-              </View>
-            )}
-          </View>
         </View>
 
         {/* Inline 2-step Confirm Bar for Deleting Album */}
@@ -805,8 +819,8 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId }) 
         pointerEvents="box-none"
         style={{
           position: 'absolute',
-          top: topClearance + 6,
-          left: 14,
+          top: topClearance,
+          left: 60,
           right: 14,
           zIndex: 30,
           gap: 6,
