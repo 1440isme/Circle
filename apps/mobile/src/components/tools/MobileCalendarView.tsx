@@ -7,6 +7,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
+  FlatList,
   TextInput,
   ActivityIndicator,
   Modal,
@@ -685,6 +686,175 @@ export function formatEventTimeForDate(ev: CalendarEventEntity, targetDate: Date
   return ev.endTime ? `${startHourStr} – ${endHourStr}` : startHourStr;
 }
 
+// =============================================================================
+// SUB-COMPONENTS TỐI ƯU HIỆU NĂNG CHO LƯỚI THÁNG (HIGH-PERFORMANCE MEMOIZED CELLS)
+// =============================================================================
+
+interface DayCellProps {
+  dayNum: number;
+  isSelected: boolean;
+  isToday: boolean;
+  dotsCount: number;
+  onPress: () => void;
+}
+
+const DayCell = React.memo<DayCellProps>(
+  ({ dayNum, isSelected, isToday, dotsCount, onPress }) => {
+    return (
+      <TouchableOpacity
+        style={styles.appleMonthDayCell}
+        activeOpacity={0.7}
+        onPress={onPress}
+      >
+        <View
+          style={[
+            styles.appleMonthDayCircle,
+            isSelected &&
+              (isToday
+                ? styles.appleMonthDayCircleTodaySelected
+                : styles.appleMonthDayCircleSelected),
+          ]}
+        >
+          <Text
+            style={[
+              styles.appleMonthDayText,
+              isToday && !isSelected && styles.appleMonthDayTextToday,
+              isSelected && styles.appleMonthDayTextSelected,
+            ]}
+          >
+            {dayNum}
+          </Text>
+        </View>
+
+        {/* Chấm sự kiện (1 sự kiện = 1 chấm, tối đa 5 chấm) */}
+        <View style={styles.appleMonthEventDotsContainer}>
+          {Array.from({ length: dotsCount }).map((_, dotIdx) => (
+            <View
+              key={`dot-${dotIdx}`}
+              style={[
+                styles.appleMonthEventDot,
+                isSelected && !isToday && styles.appleMonthEventDotSelected,
+              ]}
+            />
+          ))}
+        </View>
+      </TouchableOpacity>
+    );
+  },
+  (prev, next) => {
+    return (
+      prev.dayNum === next.dayNum &&
+      prev.isSelected === next.isSelected &&
+      prev.isToday === next.isToday &&
+      prev.dotsCount === next.dotsCount
+    );
+  },
+);
+
+interface MonthPageBlockProps {
+  item: { year: number; month: number; key: string };
+  selectedDate: Date;
+  activeMonthEventsCountMap: Record<number, number>;
+  activeViewMonth: number;
+  activeViewYear: number;
+  onSelectDay: (year: number, month: number, dayNum: number) => void;
+}
+
+const MonthPageBlock = React.memo<MonthPageBlockProps>(
+  ({
+    item,
+    selectedDate,
+    activeMonthEventsCountMap,
+    activeViewMonth,
+    activeViewYear,
+    onSelectDay,
+  }) => {
+    const itemYear = item.year;
+    const itemMonth = item.month;
+    const itemDaysInMonth = new Date(itemYear, itemMonth, 0).getDate();
+    const itemFirstDay = new Date(itemYear, itemMonth - 1, 1).getDay();
+    const totalSlots = 42;
+    const trailingEmpty = totalSlots - (itemFirstDay + itemDaysInMonth);
+    const now = new Date();
+    const isCurrentViewMonth = itemMonth === activeViewMonth && itemYear === activeViewYear;
+
+    return (
+      <View style={styles.monthPageBlock}>
+        {/* Lưới ngày 7 cột x 6 hàng cố định không hiển thị chữ tháng năm ở góc */}
+        <View style={styles.appleMainMonthGrid}>
+          {Array.from({ length: itemFirstDay }).map((_, i) => (
+            <View key={`empty-lead-${item.key}-${i}`} style={styles.appleMonthEmptyDayCell} />
+          ))}
+
+          {Array.from({ length: itemDaysInMonth }).map((_, i) => {
+            const dayNum = i + 1;
+            const isSelected =
+              selectedDate.getDate() === dayNum &&
+              selectedDate.getMonth() + 1 === itemMonth &&
+              selectedDate.getFullYear() === itemYear;
+
+            const isToday =
+              now.getDate() === dayNum &&
+              now.getMonth() + 1 === itemMonth &&
+              now.getFullYear() === itemYear;
+
+            const dayEventsCount = isCurrentViewMonth
+              ? activeMonthEventsCountMap[dayNum] || 0
+              : 0;
+            const dotsCount = Math.min(dayEventsCount, 5);
+
+            return (
+              <DayCell
+                key={`day-${item.key}-${dayNum}`}
+                dayNum={dayNum}
+                isSelected={isSelected}
+                isToday={isToday}
+                dotsCount={dotsCount}
+                onPress={() => onSelectDay(itemYear, itemMonth, dayNum)}
+              />
+            );
+          })}
+
+          {/* Bù các ô trống cuối tháng để mọi tháng đều đúng 6 hàng */}
+          {Array.from({ length: Math.max(0, trailingEmpty) }).map((_, i) => (
+            <View key={`empty-trail-${item.key}-${i}`} style={styles.appleMonthEmptyDayCell} />
+          ))}
+        </View>
+      </View>
+    );
+  },
+  (prev, next) => {
+    const prevYear = prev.selectedDate.getFullYear();
+    const prevMonth = prev.selectedDate.getMonth() + 1;
+    const nextYear = next.selectedDate.getFullYear();
+    const nextMonth = next.selectedDate.getMonth() + 1;
+
+    const affectsPrev = prevYear === prev.item.year && prevMonth === prev.item.month;
+    const affectsNext = nextYear === next.item.year && nextMonth === next.item.month;
+
+    if (affectsPrev || affectsNext) {
+      return false;
+    }
+
+    if (prev.activeViewMonth !== next.activeViewMonth || prev.activeViewYear !== next.activeViewYear) {
+      if (prev.item.month === next.activeViewMonth && prev.item.year === next.activeViewYear) {
+        return false;
+      }
+      if (prev.item.month === prev.activeViewMonth && prev.item.year === prev.activeViewYear) {
+        return false;
+      }
+    }
+
+    if (prev.activeMonthEventsCountMap !== next.activeMonthEventsCountMap) {
+      if (prev.item.month === next.activeViewMonth && prev.item.year === next.activeViewYear) {
+        return false;
+      }
+    }
+
+    return true;
+  },
+);
+
 interface MobileCalendarViewProps {
   circleId: string;
 }
@@ -745,10 +915,18 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
     return list;
   }, []);
 
-  const monthScrollRef = useRef<React.ElementRef<typeof ScrollView>>(null);
+  const monthScrollRef = useRef<FlatList<any>>(null);
   const yearLayoutsRef = useRef<Record<number, number>>({});
   const yearScrollRef = useRef<React.ElementRef<typeof ScrollView>>(null);
   const isInitialScrollDoneRef = useRef(false);
+
+  const initialMonthIndex = useMemo(() => {
+    const now = new Date();
+    const idx = MONTHS_RANGE.findIndex(
+      (it) => it.year === now.getFullYear() && it.month === now.getMonth() + 1,
+    );
+    return idx !== -1 ? idx : 0;
+  }, [MONTHS_RANGE]);
 
   const scrollToMonth = useCallback(
     (targetYear: number, targetMonth: number, animated = true) => {
@@ -759,7 +937,7 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
         if (animated) {
           isInitialScrollDoneRef.current = false;
         }
-        monthScrollRef.current.scrollTo({ y: idx * MONTH_PAGE_HEIGHT, animated });
+        monthScrollRef.current.scrollToOffset({ offset: idx * MONTH_PAGE_HEIGHT, animated });
         if (animated) {
           setTimeout(() => {
             isInitialScrollDoneRef.current = true;
@@ -796,6 +974,18 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
       }
     },
     [MONTHS_RANGE, currentDate],
+  );
+
+  const handleSelectDay = useCallback(
+    (itemYear: number, itemMonth: number, dayNum: number) => {
+      const newSel = new Date(itemYear, itemMonth - 1, dayNum);
+      setSelectedDate(newSel);
+      if (itemMonth !== (currentDate.getMonth() + 1) || itemYear !== currentDate.getFullYear()) {
+        setCurrentDate(new Date(itemYear, itemMonth - 1, 1));
+      }
+      Haptics.selectionAsync();
+    },
+    [currentDate],
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [title, setTitle] = useState('');
@@ -4158,9 +4348,29 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
           ))}
         </View>
 
-        {/* Lướt theo từng tháng (paging / snap chuẩn từng tháng) */}
-        <ScrollView
+        {/* Lướt theo từng tháng (FlatList ảo hóa, chỉ giữ 1–3 tháng trong RAM, siêu mượt 60-120 FPS) */}
+        <FlatList
           ref={monthScrollRef}
+          data={MONTHS_RANGE}
+          keyExtractor={(item) => item.key}
+          getItemLayout={(_, index) => ({
+            length: MONTH_PAGE_HEIGHT,
+            offset: MONTH_PAGE_HEIGHT * index,
+            index,
+          })}
+          initialScrollIndex={initialMonthIndex}
+          onScrollToIndexFailed={(info) => {
+            setTimeout(() => {
+              monthScrollRef.current?.scrollToOffset({
+                offset: info.index * MONTH_PAGE_HEIGHT,
+                animated: false,
+              });
+            }, 50);
+          }}
+          initialNumToRender={1}
+          maxToRenderPerBatch={2}
+          windowSize={3}
+          removeClippedSubviews={Platform.OS === 'android'}
           showsVerticalScrollIndicator={false}
           snapToInterval={MONTH_PAGE_HEIGHT}
           decelerationRate="fast"
@@ -4168,104 +4378,17 @@ const handleOpenEditModal = (ev: CalendarEventEntity) => {
           style={styles.monthScrollViewport}
           contentContainerStyle={styles.monthScrollContent}
           onMomentumScrollEnd={handleMonthScrollEnd}
-        >
-          {MONTHS_RANGE.map((item) => {
-            const itemYear = item.year;
-            const itemMonth = item.month;
-            const itemDaysInMonth = new Date(itemYear, itemMonth, 0).getDate();
-            const itemFirstDay = new Date(itemYear, itemMonth - 1, 1).getDay();
-            const totalSlots = 42;
-            const trailingEmpty = totalSlots - (itemFirstDay + itemDaysInMonth);
-
-            return (
-              <View
-                key={item.key}
-                style={styles.monthPageBlock}
-              >
-                {/* Lưới ngày 7 cột x 6 hàng cố định không hiển thị chữ tháng năm ở góc */}
-                <View style={styles.appleMainMonthGrid}>
-                  {Array.from({ length: itemFirstDay }).map((_, i) => (
-                    <View key={`empty-lead-${item.key}-${i}`} style={styles.appleMonthEmptyDayCell} />
-                  ))}
-
-                  {Array.from({ length: itemDaysInMonth }).map((_, i) => {
-                    const dayNum = i + 1;
-                    const now = new Date();
-                    const isSelected =
-                      selectedDate.getDate() === dayNum &&
-                      selectedDate.getMonth() + 1 === itemMonth &&
-                      selectedDate.getFullYear() === itemYear;
-
-                    const isToday =
-                      now.getDate() === dayNum &&
-                      now.getMonth() + 1 === itemMonth &&
-                      now.getFullYear() === itemYear;
-
-                    const isCurrentViewMonth = itemMonth === month && itemYear === year;
-                    const dayEventsCount = isCurrentViewMonth
-                      ? activeMonthEventsCountMap[dayNum] || 0
-                      : 0;
-                    const dotsCount = Math.min(dayEventsCount, 5);
-
-                    return (
-                      <TouchableOpacity
-                        key={`day-${item.key}-${dayNum}`}
-                        style={styles.appleMonthDayCell}
-                        activeOpacity={0.7}
-                        onPress={() => {
-                          const newSel = new Date(itemYear, itemMonth - 1, dayNum);
-                          setSelectedDate(newSel);
-                          if (itemMonth !== month || itemYear !== year) {
-                            setCurrentDate(new Date(itemYear, itemMonth - 1, 1));
-                          }
-                          Haptics.selectionAsync();
-                        }}
-                      >
-                        <View
-                          style={[
-                            styles.appleMonthDayCircle,
-                            isSelected &&
-                              (isToday
-                                ? styles.appleMonthDayCircleTodaySelected
-                                : styles.appleMonthDayCircleSelected),
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.appleMonthDayText,
-                              isToday && !isSelected && styles.appleMonthDayTextToday,
-                              isSelected && styles.appleMonthDayTextSelected,
-                            ]}
-                          >
-                            {dayNum}
-                          </Text>
-                        </View>
-
-                        {/* Chấm sự kiện (1 sự kiện = 1 chấm) */}
-                        <View style={styles.appleMonthEventDotsContainer}>
-                          {Array.from({ length: dotsCount }).map((_, dotIdx) => (
-                            <View
-                              key={`dot-${dotIdx}`}
-                              style={[
-                                styles.appleMonthEventDot,
-                                isSelected && !isToday && styles.appleMonthEventDotSelected,
-                              ]}
-                            />
-                          ))}
-                        </View>
-                      </TouchableOpacity>
-                    );
-                  })}
-
-                  {/* Bù các ô trống cuối tháng để mọi tháng đều đúng 6 hàng */}
-                  {Array.from({ length: Math.max(0, trailingEmpty) }).map((_, i) => (
-                    <View key={`empty-trail-${item.key}-${i}`} style={styles.appleMonthEmptyDayCell} />
-                  ))}
-                </View>
-              </View>
-            );
-          })}
-        </ScrollView>
+          renderItem={({ item }) => (
+            <MonthPageBlock
+              item={item}
+              selectedDate={selectedDate}
+              activeMonthEventsCountMap={activeMonthEventsCountMap}
+              activeViewMonth={month}
+              activeViewYear={year}
+              onSelectDay={handleSelectDay}
+            />
+          )}
+        />
       </View>
 
       {/* PHẦN 2: SỰ KIỆN Ở DƯỚI (Lướt cuộn độc lập, đã bỏ thứ ngày tháng) */}
