@@ -8074,3 +8074,57 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 - **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
 - **Commit:** cc0f00f
 - **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
+
+
+---
+
+## AI-0199: Triển Khai Hệ Thống Thông Báo In-App Realtime & Push Notification Đa Nền Tảng (Module 8) (#128)
+
+- **Date:** 2026-11-14 13:48:00 +07:00
+- **Developer:** Trương Công Bình & Ninh Thị Mỹ Hạnh
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (Medium)
+- **Related Issue:** #128
+- **Purpose:** Xây dựng hoàn chỉnh Hệ thống Thông báo In-App Realtime & Mobile Push Notification Service đa nền tảng (Web & Mobile Parity, Module 8):
+  1. **Prisma & Data Model:** Mở rộng entity `Notification` (type, targetType, targetId, deepLink, metadata, readAt) và tạo entity `DeviceToken` (upsert theo deviceId, platform, status).
+  2. **Backend Engine (`@circle/backend`):** `NotificationsModule` (Service + Controller) với phân trang cursor, đếm unread count, đánh dấu đã đọc / đã đọc tất cả, xóa thông báo.
+  3. **Realtime Socket.IO Delivery:** Đồng bộ tức thì tới phòng cá nhân `user:<userId>` qua các sự kiện `notification:new` và `notification:unread_count`.
+  4. **Mobile Push Notification (Expo Push API):** `PushNotificationService` với cơ chế bảo mật màn hình khóa (NOT-08), dọn dẹp token chết khi nhận lỗi `DeviceNotRegistered` (NOT-09), exponential backoff retry.
+  5. **Frontend Web (`apps/web`):** `NotificationCenterPopover` chuẩn kiến trúc Liquid Glass, filter tabs (Tất cả / Chưa đọc), mark all as read, delete, click deep link.
+  6. **Frontend Mobile (`apps/mobile`):** `MobileNotificationCenterModal` chuẩn Liquid Glass controls & scroll-under content, tích hợp đăng ký Expo Push Token khi đăng nhập và thu hồi token khi đăng xuất.
+  7. **Shared & Zero Hardcoding:** `NotificationType`, `NotificationEntity`, `DeviceTokenEntity` trong `@circle/types`; 100% i18n keys trong `@circle/shared` (`vi.ts` và `en.ts`).
+- **Files Affected:**
+  - `apps/backend/prisma/schema.prisma`
+  - `apps/backend/src/app.module.ts`
+  - `apps/backend/src/modules/chat/chat.gateway.ts`
+  - `apps/backend/src/modules/notifications/dto/query-notifications.dto.ts`
+  - `apps/backend/src/modules/notifications/dto/register-device-token.dto.ts`
+  - `apps/backend/src/modules/notifications/push-notification.service.ts`
+  - `apps/backend/src/modules/notifications/notifications.service.ts`
+  - `apps/backend/src/modules/notifications/notifications.controller.ts`
+  - `apps/backend/src/modules/notifications/notifications.module.ts`
+  - `apps/backend/src/modules/notifications/notifications.service.spec.ts`
+  - `packages/types/src/index.ts`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `apps/web/src/components/notifications/NotificationCenterPopover.tsx`
+  - `apps/web/src/components/header/Header.tsx`
+  - `apps/mobile/package.json`
+  - `apps/mobile/src/services/notifications.service.ts`
+  - `apps/mobile/src/components/notifications/MobileNotificationCenterModal.tsx`
+  - `apps/mobile/app/(tabs)/index.tsx`
+  - `apps/mobile/app/_layout.tsx`
+  - `apps/mobile/src/stores/auth.store.ts`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% full-stack notification and push implementation.
+- **Human Modifications:** Không có thay đổi thủ công.
+- **Verification Method:**
+  - `npm test --workspace=@circle/backend`: Passed 12/12 suites, 208/208 tests.
+  - `npx tsc -p apps/backend/tsconfig.json --noEmit`: Passed 0 errors.
+  - `npx tsc -p apps/web/tsconfig.json --noEmit`: Passed 0 errors.
+  - `npx tsc -p apps/mobile/tsconfig.json --noEmit`: Passed 0 errors.
+  - `npm run build --workspace=apps/web`: Passed 0 errors (12/12 static pages).
+  - `bash ./scripts/check-agent-map.sh`: Passed (131/131 files resolve).
+  - `bash ./scripts/check-secrets.sh`: Passed (600 files checked, 0 secret leaks).
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/playbooks/08-notification.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.

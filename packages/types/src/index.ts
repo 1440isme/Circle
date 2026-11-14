@@ -1169,3 +1169,66 @@ export interface ClearChatResult {
   clearedAt: string;
 }
 
+// =============================================================================
+// NOTIFICATION & DEVICE TOKENS DOMAIN
+// =============================================================================
+
+export enum NotificationType {
+  CIRCLE_INVITE = 'CIRCLE_INVITE',
+  CHAT_MESSAGE = 'CHAT_MESSAGE',
+  CALENDAR_REMINDER = 'CALENDAR_REMINDER',
+  POLL_NEW = 'POLL_NEW',
+  CALL_MISSED = 'CALL_MISSED',
+  SYSTEM = 'SYSTEM',
+}
+
+export type DevicePlatform = 'IOS' | 'ANDROID' | 'WEB';
+export type DeviceTokenStatus = 'ACTIVE' | 'INVALID';
+
+export interface NotificationEntity {
+  id: string;
+  userId: string;
+  title: string;
+  content: string;
+  type: NotificationType | string;
+  targetType?: string | null;
+  targetId?: string | null;
+  deepLink?: string | null;
+  metadata?: Record<string, any> | null;
+  isRead: boolean;
+  readAt?: string | null;
+  createdAt: string;
+}
+
+export interface NotificationUnreadCountResponse {
+  unreadCount: number;
+}
+
+export interface RegisterDeviceTokenInput {
+  token: string;
+  deviceId: string;
+  platform: DevicePlatform;
+}
+
+export interface DeviceTokenEntity {
+  id: string;
+  userId: string;
+  deviceId: string;
+  platform: DevicePlatform;
+  token: string;
+  status: DeviceTokenStatus;
+  lastSeenAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NotificationSocketNewPayload {
+  notification: NotificationEntity;
+  unreadCount: number;
+}
+
+export interface NotificationSocketCountPayload {
+  unreadCount: number;
+}
+
+

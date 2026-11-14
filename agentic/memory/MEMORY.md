@@ -63,10 +63,9 @@
 
 ## Open loops
 
-- Tái cấu trúc và nâng cấp trải nghiệm cụm tính năng Cộng tác nhóm (Collab Module 7) trước khi sang Module 8:
-  - Issue #119 (Bình): Tích hợp Unified Interactive Map Engine toàn hệ thống (Leaflet Web + MapView Mobile), đưa Group Poll vào luồng Chat và cải thiện Planning Sheet.
-  - Issue #120 (Hạnh): Hệ thống Event RSVP (3 trạng thái), Thẻ Lịch hẹn trong Chat, Lightbox Album và Realtime Wheel Sync.
-  - Issue #125 (Bình): US-UX-002 — Kiến trúc Floating Glass Controls with Scroll-Under Content toàn diện hệ thống (Web & Mobile).
+- Khởi động Giai đoạn Tuần 11 – 12 (Module 8 & Module 9):
+  - Issue #128 (Bình): US-NOTIF-001 — Realtime In-App Notification Center & Mobile Push Notification Service (Web & Mobile Parity, Liquid Glass Architecture).
+  - Issue #120 (Hạnh) & #125 (Bình): Đã hoàn tất và merge vào develop (PR #126, #127).
 
 ## Core Reference Topics (Lớp 3 — bối cảnh sâu)
 

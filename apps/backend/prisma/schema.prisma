@@ -82,19 +82,20 @@ model User {
   updatedAt    DateTime   @updatedAt
   deletedAt    DateTime?
 
-  profile             UserProfile?
-  refreshTokens       RefreshToken[]
-  sentFriendships     Friendship[]        @relation("FriendshipSender")
-  receivedFriendships Friendship[]        @relation("FriendshipReceiver")
-  notifications       Notification[]
-  memberships         CircleMember[]
-  circleJoinRequests  CircleJoinRequest[]
-  moments             Moment[]
-  momentReactions     MomentReaction[]
-  messageReceipts     MessageReceipt[]
-  filedReports        CircleReport[]      @relation("ReportedBy")
-  receivedReports     CircleReport[]      @relation("ReportedUser")
-  calendarEventRsvps  CalendarEventRsvp[]
+  profile                UserProfile?
+  refreshTokens          RefreshToken[]
+  sentFriendships        Friendship[]            @relation("FriendshipSender")
+  receivedFriendships    Friendship[]            @relation("FriendshipReceiver")
+  notifications          Notification[]
+  deviceTokens           DeviceToken[]
+  memberships            CircleMember[]
+  circleJoinRequests     CircleJoinRequest[]
+  moments                Moment[]
+  momentReactions        MomentReaction[]
+  messageReceipts        MessageReceipt[]
+  filedReports           CircleReport[]          @relation("ReportedBy")
+  receivedReports        CircleReport[]          @relation("ReportedUser")
+  calendarEventRsvps     CalendarEventRsvp[]
   anonymousPostReactions AnonymousPostReaction[]
 
   @@index([email])
@@ -148,17 +149,42 @@ model Friendship {
 }
 
 model Notification {
-  id        String   @id @default(cuid())
-  userId    String
-  title     String
-  content   String
-  isRead    Boolean  @default(false)
-  type      String?
-  createdAt DateTime @default(now())
+  id         String    @id @default(cuid())
+  userId     String
+  title      String
+  content    String
+  type       String    @default("SYSTEM")
+  targetType String?
+  targetId   String?
+  deepLink   String?
+  metadata   Json?
+  isRead     Boolean   @default(false)
+  readAt     DateTime?
+  createdAt  DateTime  @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, isRead])
+  @@index([userId, createdAt])
+  @@index([userId, type])
+}
+
+model DeviceToken {
+  id         String   @id @default(cuid())
+  userId     String
+  deviceId   String
+  platform   String   @default("ANDROID") // IOS | ANDROID | WEB
+  token      String
+  status     String   @default("ACTIVE") // ACTIVE | INVALID
+  lastSeenAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, deviceId])
+  @@index([userId, status])
+  @@index([token])
 }
 
 // =============================================================================
@@ -200,32 +226,34 @@ model Circle {
 }
 
 model CircleMember {
-  id        String     @id @default(cuid())
-  circleId  String
-  userId    String
-  role      MemberRole @default(MEMBER)
-  nickname      String?
-  clearedChatAt DateTime?
-  joinedAt      DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  id                String     @id @default(cuid())
+  circleId          String
+  userId            String
+  role              MemberRole @default(MEMBER)
+  nickname          String?
+  notificationLevel String     @default("ALL") // ALL | MENTIONS | NONE
+  mutedUntil        DateTime?
+  clearedChatAt     DateTime?
+  joinedAt          DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
 
   circle Circle @relation(fields: [circleId], references: [id], onDelete: Cascade)
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  messages         Message[]
-  reactions        Reaction[]
-  pollVotes        PollVote[]
-  createdEvents    CalendarEvent[]
-  createdSheets    PlanningSheet[]
-  editedCells      SheetCell[]
-  liveLocations    LiveLocationShare[]
-  callParticipants CallParticipant[]
-  createdInvites   CircleInvite[]
-  createdAlbums    SharedAlbum[]
-  uploadedPhotos   Photo[]
-  createdWheels    DecisionWheel[]
+  messages            Message[]
+  reactions           Reaction[]
+  pollVotes           PollVote[]
+  createdEvents       CalendarEvent[]
+  createdSheets       PlanningSheet[]
+  editedCells         SheetCell[]
+  liveLocations       LiveLocationShare[]
+  callParticipants    CallParticipant[]
+  createdInvites      CircleInvite[]
+  createdAlbums       SharedAlbum[]
+  uploadedPhotos      Photo[]
+  createdWheels       DecisionWheel[]
   createdWheelFolders WheelFolder[]
-  createdPolls     GroupPoll[]
+  createdPolls        GroupPoll[]
 
   @@unique([circleId, userId])
   @@index([circleId])
@@ -286,20 +314,20 @@ model Channel {
 }
 
 model Message {
-  id            String      @id @default(cuid())
-  channelId     String
-  memberId      String
+  id              String      @id @default(cuid())
+  channelId       String
+  memberId        String
   type            MessageType @default(TEXT)
   content         String?
   previousContent String?
   fileUrl         String?
-  fileName      String?
-  fileSize      Int?
-  audioDuration Int?
-  replyToId     String?
-  sentAt        DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-  deletedAt     DateTime?
+  fileName        String?
+  fileSize        Int?
+  audioDuration   Int?
+  replyToId       String?
+  sentAt          DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  deletedAt       DateTime?
 
   channel      Channel          @relation(fields: [channelId], references: [id], onDelete: Cascade)
   sender       CircleMember     @relation(fields: [memberId], references: [id], onDelete: Cascade)
@@ -540,16 +568,16 @@ model PollVote {
 }
 
 model DecisionWheel {
-  id          String    @id @default(cuid())
-  circleId    String
-  title       String
-  createdById String?
-  lastResult  String?
+  id              String    @id @default(cuid())
+  circleId        String
+  title           String
+  createdById     String?
+  lastResult      String?
   lastSpunAt      DateTime?
   soundEnabled    Boolean   @default(true)
   confettiEnabled Boolean   @default(true)
   initialOptions  String[]  @default([])
-  createdAt   DateTime  @default(now())
+  createdAt       DateTime  @default(now())
 
   circle  Circle        @relation(fields: [circleId], references: [id], onDelete: Cascade)
   creator CircleMember? @relation(fields: [createdById], references: [id], onDelete: SetNull)
@@ -585,7 +613,6 @@ model WheelFolder {
   @@index([circleId, createdAt(sort: Desc)])
   @@index([createdById])
 }
-
 
 model AnonymousPost {
   id        String   @id @default(cuid())

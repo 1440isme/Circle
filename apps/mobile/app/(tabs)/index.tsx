@@ -17,6 +17,7 @@ import {
   Camera,
   MessageSquare,
   X,
+  Bell,
 } from 'lucide-react-native';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -27,6 +28,9 @@ import { useAuthStore } from '../../src/stores/auth.store';
 import { useCircleStore } from '../../src/stores/circle.store';
 import { useMyCirclesQuery } from '../../src/hooks/use-circle-queries';
 import { useRouter } from 'expo-router';
+import { MobileNotificationCenterModal } from '../../src/components/notifications/MobileNotificationCenterModal';
+import { getUnreadCountApi } from '../../src/services/notifications.service';
+import { getMobileSocket } from '../../src/services/socket';
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -65,6 +69,47 @@ export default function HomeScreen() {
   };
 
   const [circleSwitcherVisible, setCircleSwitcherVisible] = React.useState(false);
+  const [notificationModalVisible, setNotificationModalVisible] = React.useState(false);
+  const [unreadCount, setUnreadCount] = React.useState(0);
+
+  React.useEffect(() => {
+    let isMounted = true;
+    getUnreadCountApi()
+      .then((res) => {
+        if (isMounted && res.success && res.data) {
+          setUnreadCount(res.data.unreadCount);
+        }
+      })
+      .catch(() => {});
+
+    let activeSocket: any = null;
+    getMobileSocket().then((socket) => {
+      if (!isMounted || !socket) return;
+      activeSocket = socket;
+
+      const handleUnreadCount = (payload: { unreadCount: number }) => {
+        if (isMounted && typeof payload?.unreadCount === 'number') {
+          setUnreadCount(payload.unreadCount);
+        }
+      };
+      const handleNewNotif = (payload: { unreadCount?: number }) => {
+        if (isMounted && typeof payload?.unreadCount === 'number') {
+          setUnreadCount(payload.unreadCount);
+        }
+      };
+
+      socket.on('notification:unread_count', handleUnreadCount);
+      socket.on('notification:new', handleNewNotif);
+    });
+
+    return () => {
+      isMounted = false;
+      if (activeSocket) {
+        activeSocket.off('notification:unread_count');
+        activeSocket.off('notification:new');
+      }
+    };
+  }, []);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.canvas }]}>
@@ -97,28 +142,47 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Header Right: Floating Button for Active Circle Avatar */}
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={() => setCircleSwitcherVisible(true)}
-          hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
-          style={[
-            styles.headerCircleAvatarBtn,
-            {
-              backgroundColor: colors.primary,
-              borderColor: isGlass ? glassTheme.colors.glassBorder : colors.hairline,
-            },
-          ]}
-          accessibilityLabel={t.nav.yourCircles}
-        >
-          {currentCircle ? (
-            <Text style={[styles.headerCircleAvatarText, { color: colors.onPrimary }]}>
-              {getInitials(currentCircle.name)}
-            </Text>
-          ) : (
-            <Plus size={18} color={colors.onPrimary} strokeWidth={2.5} />
-          )}
-        </TouchableOpacity>
+        {/* Header Right: Floating Notifications Bell + Circle Avatar */}
+        <View style={styles.headerRightGroup} pointerEvents="auto">
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => setNotificationModalVisible(true)}
+            hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+            style={[
+              styles.headerCircleAvatarBtn,
+              {
+                backgroundColor: isGlass ? glassTheme.colors.glassBg : colors.surface,
+                borderColor: isGlass ? glassTheme.colors.glassBorder : colors.hairline,
+              },
+            ]}
+            accessibilityLabel={t.nav.notifications}
+          >
+            <Bell size={18} color={colors.text} />
+            {unreadCount > 0 && <View style={styles.headerCoralDot} />}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => setCircleSwitcherVisible(true)}
+            hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+            style={[
+              styles.headerCircleAvatarBtn,
+              {
+                backgroundColor: colors.primary,
+                borderColor: isGlass ? glassTheme.colors.glassBorder : colors.hairline,
+              },
+            ]}
+            accessibilityLabel={t.nav.yourCircles}
+          >
+            {currentCircle ? (
+              <Text style={[styles.headerCircleAvatarText, { color: colors.onPrimary }]}>
+                {getInitials(currentCircle.name)}
+              </Text>
+            ) : (
+              <Plus size={18} color={colors.onPrimary} strokeWidth={2.5} />
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView
@@ -354,6 +418,14 @@ export default function HomeScreen() {
           </View>
         </View>
       </ScrollView>
+
+      {/* Floating Glass Notification Center Modal */}
+      <MobileNotificationCenterModal
+        visible={notificationModalVisible}
+        onClose={() => setNotificationModalVisible(false)}
+        unreadCount={unreadCount}
+        onUnreadCountChange={setUnreadCount}
+      />
     </View>
   );
 }
@@ -361,6 +433,20 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  headerRightGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerCoralDot: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#E07A5F',
   },
   headerBar: {
     position: 'absolute',

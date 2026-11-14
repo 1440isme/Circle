@@ -436,6 +436,24 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   /**
+   * Send realtime notification to specific user
+   */
+  sendNotificationToUser(userId: string, payload: { notification: any; unreadCount: number }) {
+    if (this.server) {
+      this.server.to(`user:${userId}`).emit('notification:new', payload);
+    }
+  }
+
+  /**
+   * Sync unread notification count to specific user
+   */
+  sendUnreadCountToUser(userId: string, unreadCount: number) {
+    if (this.server) {
+      this.server.to(`user:${userId}`).emit('notification:unread_count', { unreadCount });
+    }
+  }
+
+  /**
    * Helper to check if a user is currently online
    */
   isUserOnline(userId: string): boolean {

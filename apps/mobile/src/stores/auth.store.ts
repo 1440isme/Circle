@@ -9,6 +9,7 @@ import {
   saveUserData,
 } from '../services/storage';
 import { mobileApiRequest } from '../services/api';
+import { getDeviceId, revokePushTokenApi } from '../services/notifications.service';
 
 interface AuthState {
   user: AuthUserData | null;
@@ -69,6 +70,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   logout: async () => {
     try {
+      // Revoke mobile device push token (NOT-09)
+      try {
+        const deviceId = await getDeviceId();
+        await revokePushTokenApi(deviceId);
+      } catch {}
+
       const { tokens } = get();
       if (tokens?.refreshToken) {
         await mobileApiRequest('/auth/logout', {

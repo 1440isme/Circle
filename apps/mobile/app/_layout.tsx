@@ -24,6 +24,7 @@ import {
   isBiometricUnlockEnabled,
   authenticateWithBiometrics,
 } from '../src/services/biometric.service';
+import { initPushNotifications } from '../src/services/notifications.service';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -68,6 +69,26 @@ function RootNavigator() {
     initAuth();
     initTheme();
   }, [initAuth, initTheme]);
+
+  // Initialize Push Notifications (NOT-03, NOT-04, NOT-09)
+  useEffect(() => {
+    if (!isAuthenticated || isLoading) return;
+    let cleanup: (() => void) | null = null;
+
+    initPushNotifications((data) => {
+      if (data?.deepLink) {
+        router.push(data.deepLink as any);
+      } else if (data?.targetType === 'circle' && data?.targetId) {
+        router.push(`/circle/${data.targetId}` as any);
+      }
+    }).then((unsub) => {
+      cleanup = unsub;
+    });
+
+    return () => {
+      if (cleanup) cleanup();
+    };
+  }, [isAuthenticated, isLoading, router]);
 
   // Global incoming call listener so users receive call alerts from any tab
   useEffect(() => {

@@ -10,6 +10,9 @@ import { useThemeStore } from '../../stores/theme.store';
 import { useMyCirclesQuery } from '../../hooks/use-circle-queries';
 import { EditProfileModal } from '../profile/EditProfileModal';
 import { SystemSettingsModal } from '../settings/SystemSettingsModal';
+import { NotificationCenterPopover } from '../notifications/NotificationCenterPopover';
+import { apiRequest } from '@/lib/api';
+import { getSocket } from '@/lib/socket';
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -30,10 +33,51 @@ export const Header: React.FC = () => {
   const isGlass = uiStyle === 'glass';
   const [showMenu, setShowMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isSystemSettingsModalOpen, setIsSystemSettingsModalOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
+
+  // Sync unread notification count
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    let isMounted = true;
+
+    apiRequest<{ unreadCount: number }>('/notifications/unread-count')
+      .then((res) => {
+        if (isMounted && res.success && res.data) {
+          setUnreadCount(res.data.unreadCount);
+        }
+      })
+      .catch(() => {});
+
+    const socket = getSocket();
+    if (socket) {
+      const handleUnreadCount = (payload: { unreadCount: number }) => {
+        if (isMounted && typeof payload?.unreadCount === 'number') {
+          setUnreadCount(payload.unreadCount);
+        }
+      };
+      const handleNewNotif = (payload: { unreadCount?: number }) => {
+        if (isMounted && typeof payload?.unreadCount === 'number') {
+          setUnreadCount(payload.unreadCount);
+        }
+      };
+      socket.on('notification:unread_count', handleUnreadCount);
+      socket.on('notification:new', handleNewNotif);
+
+      return () => {
+        isMounted = false;
+        socket.off('notification:unread_count', handleUnreadCount);
+        socket.off('notification:new', handleNewNotif);
+      };
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isAuthenticated]);
 
   // Close menus on click outside or Escape
   useEffect(() => {
@@ -134,65 +178,17 @@ export const Header: React.FC = () => {
               }`}
             >
               <Bell className="h-4 w-4" />
-              {totalNotifications > 0 && (
+              {(unreadCount > 0 || totalNotifications > 0) && (
                 <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-circle-coral ring-2 ring-white dark:ring-circle-dark-surface" />
               )}
             </button>
 
-            {showNotifications && (
-              <div
-                className={`absolute right-0 mt-2 w-72 sm:w-80 rounded-2xl p-2 animate-fadeIn z-50 ${
-                  isGlass
-                    ? 'glass backdrop-blur-xl bg-white/94 dark:bg-circle-dark-surface/92 border border-circle-hairline/80 dark:border-white/16 shadow-2xl'
-                    : 'bg-white dark:bg-circle-dark-surface border border-circle-hairline dark:border-circle-dark-hairline shadow-xl'
-                }`}
-              >
-                <div className="px-2.5 py-2 border-b border-circle-hairline dark:border-circle-dark-hairline">
-                  <p className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
-                    {t.nav.notifications}
-                  </p>
-                  <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted mt-0.5">
-                    {t.nav.notificationsSubtitle}
-                  </p>
-                </div>
-
-                {pendingRequestCircles.length > 0 ? (
-                  <div className="py-1.5 space-y-1 max-h-64 overflow-y-auto">
-                    {pendingRequestCircles.map((circle: any) => (
-                      <button
-                        key={circle.id}
-                        type="button"
-                        onClick={() => {
-                          setShowNotifications(false);
-                          setActiveCircle(circle);
-                          setManageModalOpen(true, 'requests');
-                        }}
-                        className="flex w-full items-center justify-between gap-2.5 rounded-xl px-2.5 py-2 text-left hover:bg-circle-wash/70 dark:hover:bg-circle-dark-elevated transition-colors"
-                      >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <Users className="h-4 w-4 shrink-0 text-circle-sage dark:text-circle-primary" />
-                          <span className="text-xs font-medium text-circle-charcoal dark:text-circle-dark-text truncate">
-                            {t.nav.pendingRequestsNotice
-                              .replace('{circle}', circle.name)
-                              .replace('{count}', String(circle.pendingJoinRequestsCount))}
-                          </span>
-                        </div>
-                        <span className="shrink-0 text-[11px] font-bold text-circle-sage dark:text-circle-primary">
-                          {t.nav.reviewNow}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="px-3 py-5 text-center space-y-1.5">
-                    <CheckCircle2 className="h-5 w-5 mx-auto text-circle-sage dark:text-circle-primary opacity-80" />
-                    <p className="text-xs text-circle-slate dark:text-circle-dark-muted">
-                      {t.nav.noNotifications}
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
+            <NotificationCenterPopover
+              isOpen={showNotifications}
+              onClose={() => setShowNotifications(false)}
+              unreadCount={unreadCount}
+              onUnreadCountChange={setUnreadCount}
+            />
           </div>
 
           {/* User Avatar Circle */}
