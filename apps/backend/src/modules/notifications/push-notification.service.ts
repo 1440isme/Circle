@@ -54,8 +54,11 @@ export class PushNotificationService {
 
       if (payload.type === 'CHAT_MESSAGE') {
         safeTitle = 'CIRCLE';
-        const circleName = payload.metadata?.circleName || 'Vòng tròn';
-        safeBody = `Bạn có tin nhắn mới trong ${circleName}`;
+        const isEn = payload.metadata?.locale === 'en';
+        const circleName = payload.metadata?.circleName || (isEn ? 'Circle' : 'Vòng tròn');
+        safeBody = isEn
+          ? `You have a new message in ${circleName}`
+          : `Bạn có tin nhắn mới trong ${circleName}`;
       }
 
       const messages: PushMessagePayload[] = devices.map((d) => ({

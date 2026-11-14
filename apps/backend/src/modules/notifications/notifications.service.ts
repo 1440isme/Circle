@@ -213,6 +213,18 @@ export class NotificationsService {
    * Register or refresh device push token (upsert per deviceId)
    */
   async registerDeviceToken(userId: string, dto: RegisterDeviceTokenDto) {
+    // Invalidate any other user's active token on this same physical device (NOT-09)
+    await this.prisma.deviceToken.updateMany({
+      where: {
+        deviceId: dto.deviceId,
+        userId: { not: userId },
+        status: 'ACTIVE',
+      },
+      data: {
+        status: 'INVALID',
+      },
+    });
+
     const device = await this.prisma.deviceToken.upsert({
       where: {
         userId_deviceId: {

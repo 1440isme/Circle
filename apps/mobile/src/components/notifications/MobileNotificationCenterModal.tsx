@@ -206,11 +206,11 @@ export function MobileNotificationCenterModal({
       case NotificationType.CHAT_MESSAGE:
         return <MessageSquare size={18} color={colors.sage} />;
       case NotificationType.CALENDAR_REMINDER:
-        return <Calendar size={18} color="#E07A5F" />;
+        return <Calendar size={18} color={colors.coral} />;
       case NotificationType.POLL_NEW:
         return <BarChart2 size={18} color={colors.primary} />;
       case NotificationType.CALL_MISSED:
-        return <PhoneMissed size={18} color="#E07A5F" />;
+        return <PhoneMissed size={18} color={colors.coral} />;
       default:
         return <Info size={18} color={colors.subtle} />;
     }
@@ -242,7 +242,7 @@ export function MobileNotificationCenterModal({
                 {t.title}
               </Text>
               {unreadCount > 0 && (
-                <View style={styles.unreadBadge}>
+                <View style={[styles.unreadBadge, { backgroundColor: colors.coral }]}>
                   <Text style={styles.unreadBadgeText}>
                     {unreadCount > 99 ? '99+' : unreadCount}
                   </Text>
@@ -319,7 +319,7 @@ export function MobileNotificationCenterModal({
                 >
                   {t.filterUnread}
                 </Text>
-                {unreadCount > 0 && <View style={styles.tabCoralDot} />}
+                {unreadCount > 0 && <View style={[styles.tabCoralDot, { backgroundColor: colors.coral }]} />}
               </View>
             </TouchableOpacity>
           </View>
@@ -389,7 +389,7 @@ export function MobileNotificationCenterModal({
                         <Text style={[styles.timeText, { color: colors.subtle }]}>
                           {formatRelativeTime(item.createdAt)}
                         </Text>
-                        {!item.isRead && <View style={styles.coralDot} />}
+                        {!item.isRead && <View style={[styles.coralDot, { backgroundColor: colors.coral }]} />}
                       </View>
                     </View>
 

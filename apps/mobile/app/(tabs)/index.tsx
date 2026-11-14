@@ -158,7 +158,7 @@ export default function HomeScreen() {
             accessibilityLabel={t.nav.notifications}
           >
             <Bell size={18} color={colors.text} />
-            {unreadCount > 0 && <View style={styles.headerCoralDot} />}
+            {unreadCount > 0 && <View style={[styles.headerCoralDot, { backgroundColor: colors.coral }]} />}
           </TouchableOpacity>
 
           <TouchableOpacity
