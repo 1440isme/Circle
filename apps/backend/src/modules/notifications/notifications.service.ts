@@ -82,13 +82,14 @@ export class NotificationsService {
    * Cursor-based paginated notification list with filters
    */
   async getNotifications(userId: string, query: QueryNotificationsDto) {
-    const limit = query.limit || 20;
+    const limit = Number(query.limit) > 0 ? Number(query.limit) : 20;
     const where: any = { userId };
 
     if (query.type) {
       where.type = query.type;
     }
-    if (query.unreadOnly) {
+    const isUnreadOnly = query.unreadOnly === true || String(query.unreadOnly) === 'true';
+    if (isUnreadOnly) {
       where.isRead = false;
     }
 
