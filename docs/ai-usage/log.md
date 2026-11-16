@@ -8449,3 +8449,33 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 - **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
 - **Commit:** c94cea4
 - **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
+
+
+## AI-0209: Khôi Phục Thanh Chuyển Tab Nổi Dưới Đáy Màn Hình Cho Mobile Media Hub (#120)
+
+- **Date:** 2026-11-16 14:05:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120
+- **Purpose:** Khôi phục thanh chuyển tab nổi dưới đáy màn hình (Bottom Dock) cho giao diện Media Hub trên ứng dụng Mobile theo phản hồi của người dùng:
+  1. **Khôi Phục Thanh Dock Nổi Ở Đáy:**
+     - Đặt thanh dock nổi bo tròn 999px ở vị trí `bottom: bottomDockBottom` (`Math.max(insets.bottom + 10, 16)`), căn giữa màn hình với `zIndex: 40`.
+     - 3 nút tab điều hướng: **File phương tiện** (`ImageIcon`), **File liên kết** (`Link2`), và **File** (`FileText`).
+     - Tương thích hoàn toàn dark/light theme, trạng thái active chuyển màu `colors.primary` và `colors.onPrimary`.
+  2. **Đồng Bộ Cuộn Tránh Bị Che:**
+     - Giữ nguyên khoảng đệm `paddingBottom: bottomDockBottom + 56` trên tất cả các danh sách cuộn để nội dung không bị che khuất bởi thanh dock.
+- **Files Affected:**
+  - `apps/mobile/src/components/tools/MobileAlbumsView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% bottom dock JSX restoration và theme binding.
+- **Human Modifications:** Người dùng thắc mắc thanh tab file phương tiện, file liên kết, file ở dưới bị thiếu.
+- **Verification Method:**
+  - `npx tsc -p apps/mobile/tsconfig.json --noEmit`: Passed (0 errors).
+  - `npx tsc -p apps/web/tsconfig.json --noEmit`: Passed (0 errors).
+  - `bash ./scripts/check-agent-map.sh`: Passed (all references resolve).
+  - `bash ./scripts/check-secrets.sh`: Passed (601 files checked, 0 secret leaks).
+- **Official Source Checked:** `PROJECT_GOD.md` §2.2, `agentic/playbooks/cross-cutting-gate.md` (Web/Mobile parity, Ergonomics & Bottom Dock).
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
+- **Commit:** bc9e3ab
+- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)

@@ -2195,6 +2195,96 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
       </View>
 
       {/* ======================================================================= */}
+      {/* THANH CHUYỂN TAB NỔI DƯỚI ĐÁY (BOTTOM DOCK: MEDIA, LINKS, FILES)       */}
+      {/* ======================================================================= */}
+      <View
+        pointerEvents="box-none"
+        style={{
+          position: 'absolute',
+          bottom: bottomDockBottom,
+          left: 0,
+          right: 0,
+          alignItems: 'center',
+          zIndex: 40,
+        }}
+      >
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 4,
+            padding: 4,
+            borderRadius: 999,
+            backgroundColor: isDark ? 'rgba(29, 29, 33, 0.94)' : 'rgba(255, 255, 255, 0.95)',
+            borderWidth: StyleSheet.hairlineWidth,
+            borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : colors.hairline,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: isDark ? 0.35 : 0.12,
+            shadowRadius: 10,
+            elevation: 6,
+          }}
+        >
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => setActiveTab('media')}
+            style={[
+              styles.bottomTabBtn,
+              activeTab === 'media' && { backgroundColor: colors.primary },
+            ]}
+          >
+            <ImageIcon size={14} color={activeTab === 'media' ? colors.onPrimary : colors.subtle} />
+            <Text
+              style={[
+                styles.bottomTabText,
+                { color: activeTab === 'media' ? colors.onPrimary : colors.text },
+              ]}
+            >
+              {t.collab.tabMedia}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => setActiveTab('links')}
+            style={[
+              styles.bottomTabBtn,
+              activeTab === 'links' && { backgroundColor: colors.primary },
+            ]}
+          >
+            <Link2 size={14} color={activeTab === 'links' ? colors.onPrimary : colors.subtle} />
+            <Text
+              style={[
+                styles.bottomTabText,
+                { color: activeTab === 'links' ? colors.onPrimary : colors.text },
+              ]}
+            >
+              {t.collab.tabLinks}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => setActiveTab('files')}
+            style={[
+              styles.bottomTabBtn,
+              activeTab === 'files' && { backgroundColor: colors.primary },
+            ]}
+          >
+            <FileText size={14} color={activeTab === 'files' ? colors.onPrimary : colors.subtle} />
+            <Text
+              style={[
+                styles.bottomTabText,
+                { color: activeTab === 'files' ? colors.onPrimary : colors.text },
+              ]}
+            >
+              {t.collab.tabFiles}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* ======================================================================= */}
       {/* UNIFIED FILTER MODAL IN MEDIA HUB (SPLIT LAYOUT: TABS LEFT + CONTENT RIGHT) */}
       {/* ======================================================================= */}
       <Modal
