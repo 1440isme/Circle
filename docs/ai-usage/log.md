@@ -8407,3 +8407,45 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 - **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
 - **Commit:** 221353d
 - **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
+
+
+## AI-0208: Tái Thiết Kế Modal Bộ Lọc Sang Bố Cục 2 Cột Split Master-Detail Cho Mobile Media Hub (#120)
+
+- **Date:** 2026-11-16 12:10:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120
+- **Purpose:** Tối ưu hóa trải nghiệm người dùng với bố cục 2 cột (Split Master-Detail) cho modal bộ lọc trên ứng dụng Mobile theo yêu cầu:
+  1. **Cột Bên Trái (Filter Category Tabs):**
+     - Hiển thị danh sách các danh mục lọc dạng dọc: "Ngày gửi" (`Calendar`), "Người gửi" (`User`), "Loại file" (`FileText` khi ở tab File).
+     - Tab đang chọn có đường viền chỉ báo (left border accent), nền nổi bật và màu chữ primary.
+     - Có chấm tròn (dot badge) chỉ báo khi danh mục đó đang có giá trị lọc được chọn.
+  2. **Cột Bên Phải (Filter Option Panel):**
+     - Hiển thị nội dung tương ứng theo tab đang chọn:
+       - **Ngày gửi:** Lịch chọn ngày tương tác From/To, điều hướng tháng, các ô ngày tỷ lệ chuẩn 14.28% không bị tràn viền, hỗ trợ nút "Xóa ngày" nhanh.
+       - **Người gửi:** Ô tìm kiếm tên thành viên, tùy chọn "Tất cả người gửi", danh sách người gửi kèm avatar tròn và icon checkmark.
+       - **Loại file:** Danh sách định dạng tệp (PDF, Word, Excel, Canva, Nén, Khác) với dấu tick chọn.
+  3. **Header & Footer Cố Định:**
+     - Header cố định với tiêu đề "Bộ lọc", nút "Đặt lại" nhanh và nút đóng "X".
+     - Footer cố định với nút "Áp dụng" full chiều ngang, có tính toán khoảng đệm an toàn `insets.bottom`.
+  4. **Đồng Bộ i18n & Theme:**
+     - Bổ sung khóa `filter` vào từ điển `common` trong `@circle/shared` (VI: 'Bộ lọc', EN: 'Filter').
+     - Sử dụng toàn bộ bảng màu Semantic từ `useThemeStore` và `colors.*`.
+- **Files Affected:**
+  - `apps/mobile/src/components/tools/MobileAlbumsView.tsx`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% split layout UI, calendar sizing optimization, master-detail state orchestration, và i18n keys.
+- **Human Modifications:** Người dùng yêu cầu phần bộ lọc có mấy tab tính năng bên trái (ví dụ ngày gửi, người gửi, loại file), bên phải là nội dung nhìn sẽ gọn hơn.
+- **Verification Method:**
+  - `npm run build --workspace=@circle/shared`: Passed 100%.
+  - `npx tsc -p apps/mobile/tsconfig.json --noEmit`: Passed (0 errors).
+  - `npx tsc -p apps/web/tsconfig.json --noEmit`: Passed (0 errors).
+  - `bash ./scripts/check-agent-map.sh`: Passed (all references resolve).
+  - `bash ./scripts/check-secrets.sh`: Passed (601 files checked, 0 secret leaks).
+- **Official Source Checked:** `PROJECT_GOD.md` §2.2, `agentic/playbooks/cross-cutting-gate.md` (Ergonomics, Responsive Breakpoints, i18n VI+EN).
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
+- **Commit:** c94cea4
+- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)

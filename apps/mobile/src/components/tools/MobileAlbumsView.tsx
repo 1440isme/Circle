@@ -43,6 +43,7 @@ import {
   CheckSquare,
   MoreVertical,
   ScanSearch,
+  User,
 } from 'lucide-react-native';
 import {
   getAlbumsApi,
@@ -121,6 +122,8 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
   // GOM CHUNG TẤT CẢ BỘ LỌC (FILE TYPE, SENDER, DATE) VÀO 1 NÚT LỌC DUY NHẤT
   // =========================================================================
   const [isUnifiedFilterModalOpen, setIsUnifiedFilterModalOpen] = useState(false);
+  type UnifiedFilterCategory = 'date' | 'sender' | 'fileType';
+  const [unifiedFilterTab, setUnifiedFilterTab] = useState<UnifiedFilterCategory>('date');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSenderId, setSelectedSenderId] = useState<string>('ALL');
   const [draftSenderId, setDraftSenderId] = useState<string>('ALL');
@@ -162,6 +165,8 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
 
   // Filter inside album (bộ lọc như ở ngoài)
   const [isAlbumFilterModalOpen, setIsAlbumFilterModalOpen] = useState(false);
+  type AlbumFilterCategory = 'date' | 'sender';
+  const [albumFilterTab, setAlbumFilterTab] = useState<AlbumFilterCategory>('date');
   const [selectedAlbumSenderId, setSelectedAlbumSenderId] = useState<string>('ALL');
   const [draftAlbumSenderId, setDraftAlbumSenderId] = useState<string>('ALL');
   const [albumSenderSearchQuery, setAlbumSenderSearchQuery] = useState('');
@@ -693,6 +698,13 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
     setDraftTo(dateTo);
     setDraftFileType(selectedFileType);
     setActiveDateField('from');
+    setUnifiedFilterTab(
+      activeTab === 'files' && selectedFileType !== 'ALL'
+        ? 'fileType'
+        : selectedSenderId !== 'ALL'
+        ? 'sender'
+        : 'date',
+    );
     setIsUnifiedFilterModalOpen(true);
   };
 
@@ -719,6 +731,7 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
     setAlbumDraftFrom(albumDateFrom);
     setAlbumDraftTo(albumDateTo);
     setAlbumActiveDateField('from');
+    setAlbumFilterTab(selectedAlbumSenderId !== 'ALL' ? 'sender' : 'date');
     setIsAlbumFilterModalOpen(true);
   };
 
@@ -774,50 +787,79 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
     };
 
     return (
-      <View style={{ marginTop: 6 }}>
+      <View style={{ marginTop: 2 }}>
         {/* From / To Date Selection Tabs */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={() => setActField('from')}
             style={[
-              styles.dateFieldBtn,
+              {
+                flex: 1,
+                paddingVertical: 6,
+                paddingHorizontal: 6,
+                borderRadius: 8,
+                borderWidth: 1,
+                alignItems: 'center',
+              },
               actField === 'from'
                 ? { borderColor: colors.primary, backgroundColor: isDark ? 'rgba(13,148,136,0.18)' : 'rgba(13,148,136,0.08)' }
                 : { borderColor: colors.hairline, backgroundColor: colors.canvas },
             ]}
           >
-            <Text style={{ fontSize: 11, color: colors.subtle, fontWeight: '600' }}>
+            <Text style={{ fontSize: 10, color: colors.subtle, fontWeight: '600' }}>
               {t.collab.filterDateFrom}:
             </Text>
-            <Text style={{ fontSize: 12, fontWeight: '700', color: dFrom ? colors.text : colors.subtle }}>
-              {dFrom ? formatShortDate(dFrom) : t.collab.filterDateFrom}
+            <Text style={{ fontSize: 11, fontWeight: '700', color: dFrom ? colors.text : colors.subtle }} numberOfLines={1}>
+              {dFrom ? formatShortDate(dFrom) : '--/--'}
             </Text>
           </TouchableOpacity>
 
-          <Text style={{ fontSize: 12, color: colors.subtle, fontWeight: '700' }}>—</Text>
+          <Text style={{ fontSize: 11, color: colors.subtle, fontWeight: '700' }}>—</Text>
 
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={() => setActField('to')}
             style={[
-              styles.dateFieldBtn,
+              {
+                flex: 1,
+                paddingVertical: 6,
+                paddingHorizontal: 6,
+                borderRadius: 8,
+                borderWidth: 1,
+                alignItems: 'center',
+              },
               actField === 'to'
                 ? { borderColor: colors.primary, backgroundColor: isDark ? 'rgba(13,148,136,0.18)' : 'rgba(13,148,136,0.08)' }
                 : { borderColor: colors.hairline, backgroundColor: colors.canvas },
             ]}
           >
-            <Text style={{ fontSize: 11, color: colors.subtle, fontWeight: '600' }}>
+            <Text style={{ fontSize: 10, color: colors.subtle, fontWeight: '600' }}>
               {t.collab.filterDateTo}:
             </Text>
-            <Text style={{ fontSize: 12, fontWeight: '700', color: dTo ? formatShortDate(dTo) : colors.subtle }}>
-              {dTo ? formatShortDate(dTo) : t.collab.filterDateTo}
+            <Text style={{ fontSize: 11, fontWeight: '700', color: dTo ? colors.text : colors.subtle }} numberOfLines={1}>
+              {dTo ? formatShortDate(dTo) : '--/--'}
             </Text>
           </TouchableOpacity>
         </View>
 
+        {(dFrom || dTo) ? (
+          <TouchableOpacity
+            onPress={() => {
+              setDFrom('');
+              setDTo('');
+              setActField('from');
+            }}
+            style={{ alignSelf: 'flex-end', marginBottom: 6 }}
+          >
+            <Text style={{ fontSize: 11, color: colors.danger, fontWeight: '600' }}>
+              {t.common.clear || 'Xóa ngày'}
+            </Text>
+          </TouchableOpacity>
+        ) : null}
+
         {/* Month Navigation */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, paddingHorizontal: 4 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, paddingHorizontal: 2 }}>
           <TouchableOpacity
             onPress={() => setPMonth((p) => new Date(p.getFullYear(), p.getMonth() - 1, 1))}
             style={{ padding: 4, borderRadius: 8, backgroundColor: colors.wash }}
@@ -836,18 +878,18 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
         </View>
 
         {/* Weekdays Row */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+        <View style={{ flexDirection: 'row', width: '100%', marginBottom: 4 }}>
           {weekdays.map((w) => (
-            <View key={w} style={{ width: (width - 76) / 7, alignItems: 'center' }}>
+            <View key={w} style={{ width: '14.28%', alignItems: 'center' }}>
               <Text style={{ fontSize: 10, fontWeight: '700', color: colors.subtle }}>{w}</Text>
             </View>
           ))}
         </View>
 
         {/* Days Grid */}
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-start' }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', width: '100%' }}>
           {Array.from({ length: firstDayIndex }).map((_, i) => (
-            <View key={`blank-${i}`} style={{ width: (width - 76) / 7, height: 30 }} />
+            <View key={`blank-${i}`} style={{ width: '14.28%', height: 28 }} />
           ))}
           {Array.from({ length: daysInMonth }).map((_, i) => {
             const day = i + 1;
@@ -863,8 +905,8 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
                 activeOpacity={0.7}
                 onPress={() => handleSelectDay(day)}
                 style={{
-                  width: (width - 76) / 7,
-                  height: 30,
+                  width: '14.28%',
+                  height: 28,
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
@@ -872,20 +914,24 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
                 <View
                   style={[
                     {
-                      width: 26,
-                      height: 26,
-                      borderRadius: 13,
+                      width: 24,
+                      height: 24,
+                      borderRadius: 12,
                       alignItems: 'center',
                       justifyContent: 'center',
                     },
                     isSelected && { backgroundColor: colors.primary },
-                    isInRange && { backgroundColor: isDark ? 'rgba(13,148,136,0.22)' : 'rgba(13,148,136,0.12)' },
+                    isInRange && {
+                      backgroundColor: isDark ? 'rgba(13,148,136,0.25)' : 'rgba(13,148,136,0.15)',
+                      borderRadius: 0,
+                      width: '100%',
+                    },
                   ]}
                 >
                   <Text
                     style={[
                       { fontSize: 11, fontWeight: '600', color: colors.text },
-                      isSelected && { color: '#FFFFFF', fontWeight: '700' },
+                      isSelected && { color: colors.onPrimary, fontWeight: '700' },
                       isInRange && { color: colors.primary, fontWeight: '700' },
                     ]}
                   >
@@ -2149,97 +2195,7 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
       </View>
 
       {/* ======================================================================= */}
-      {/* BOTTOM TAB DOCK: 3 TABS (File phương tiện, File liên kết, File)         */}
-      {/* ======================================================================= */}
-      <View
-        pointerEvents="box-none"
-        style={{
-          position: 'absolute',
-          bottom: bottomDockBottom,
-          left: 0,
-          right: 0,
-          alignItems: 'center',
-          zIndex: 40,
-        }}
-      >
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 4,
-            padding: 4,
-            borderRadius: 999,
-            backgroundColor: isDark ? 'rgba(29, 29, 33, 0.94)' : 'rgba(255, 255, 255, 0.95)',
-            borderWidth: StyleSheet.hairlineWidth,
-            borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : colors.hairline,
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: isDark ? 0.35 : 0.12,
-            shadowRadius: 10,
-            elevation: 6,
-          }}
-        >
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => setActiveTab('media')}
-            style={[
-              styles.bottomTabBtn,
-              activeTab === 'media' && { backgroundColor: colors.primary },
-            ]}
-          >
-            <ImageIcon size={14} color={activeTab === 'media' ? colors.onPrimary : colors.subtle} />
-            <Text
-              style={[
-                styles.bottomTabText,
-                { color: activeTab === 'media' ? colors.onPrimary : colors.text },
-              ]}
-            >
-              {t.collab.tabMedia}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => setActiveTab('links')}
-            style={[
-              styles.bottomTabBtn,
-              activeTab === 'links' && { backgroundColor: colors.primary },
-            ]}
-          >
-            <Link2 size={14} color={activeTab === 'links' ? colors.onPrimary : colors.subtle} />
-            <Text
-              style={[
-                styles.bottomTabText,
-                { color: activeTab === 'links' ? colors.onPrimary : colors.text },
-              ]}
-            >
-              {t.collab.tabLinks}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => setActiveTab('files')}
-            style={[
-              styles.bottomTabBtn,
-              activeTab === 'files' && { backgroundColor: colors.primary },
-            ]}
-          >
-            <FileText size={14} color={activeTab === 'files' ? colors.onPrimary : colors.subtle} />
-            <Text
-              style={[
-                styles.bottomTabText,
-                { color: activeTab === 'files' ? colors.onPrimary : colors.text },
-              ]}
-            >
-              {t.collab.tabFiles}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* ======================================================================= */}
-      {/* UNIFIED FILTER MODAL IN MEDIA HUB (FILE TYPE + DATE + SENDER GOM CHUNG) */}
+      {/* UNIFIED FILTER MODAL IN MEDIA HUB (SPLIT LAYOUT: TABS LEFT + CONTENT RIGHT) */}
       {/* ======================================================================= */}
       <Modal
         visible={isUnifiedFilterModalOpen}
@@ -2252,22 +2208,36 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
           onPress={() => setIsUnifiedFilterModalOpen(false)}
           style={styles.filterModalBackdrop}
         >
-          <View
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
             style={[
               styles.filterModalContent,
               {
                 backgroundColor: colors.surface,
-                paddingBottom: Math.max(insets.bottom + 16, 24),
-                maxHeight: '85%',
+                padding: 0,
+                paddingBottom: Math.max(insets.bottom + 8, 16),
+                maxHeight: '90%',
               },
             ]}
           >
             {/* Header */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                paddingHorizontal: 16,
+                paddingTop: 16,
+                paddingBottom: 12,
+                borderBottomWidth: StyleSheet.hairlineWidth,
+                borderBottomColor: colors.hairline,
+              }}
+            >
               <Text style={{ fontSize: 16, fontWeight: '700', color: colors.text }}>
-                {t.collab.filterBySender || 'Bộ lọc'}
+                {t.common.filter || 'Bộ lọc'}
               </Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
                 <TouchableOpacity onPress={handleResetUnifiedFilters}>
                   <Text style={{ fontSize: 13, fontWeight: '600', color: colors.danger }}>
                     {t.collab.resetFilter || 'Đặt lại'}
@@ -2282,149 +2252,250 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
               </View>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {/* Section 1: Loại file (chỉ hiển thị ở tab Files) */}
-              {activeTab === 'files' && (
-                <View style={{ marginBottom: 16 }}>
-                  <Text style={[styles.filterSectionTitle, { color: colors.subtle }]}>
-                    {t.collab.filterFileType}
-                  </Text>
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
-                    {[
-                      { key: 'ALL', label: t.collab.filterAllTypes },
-                      { key: 'PDF', label: t.collab.fileTypePdf },
-                      { key: 'WORD', label: t.collab.fileTypeWord },
-                      { key: 'EXCEL', label: t.collab.fileTypeExcel },
-                      { key: 'CANVA', label: t.collab.fileTypeCanva },
-                      { key: 'ARCHIVES', label: t.collab.fileTypeArchives },
-                      { key: 'OTHER', label: t.collab.fileTypeOther },
-                    ].map((ft) => (
-                      <TouchableOpacity
-                        key={ft.key}
-                        onPress={() => setDraftFileType(ft.key as any)}
-                        style={[
-                          styles.chipBtn,
-                          draftFileType === ft.key
-                            ? { backgroundColor: colors.primary, borderColor: colors.primary }
-                            : { backgroundColor: colors.canvas, borderColor: colors.hairline },
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.chipText,
-                            { color: draftFileType === ft.key ? colors.onPrimary : colors.text },
-                          ]}
-                        >
-                          {ft.label}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
-              )}
-
-              {/* Section 2: Ngày gửi */}
-              <View style={{ marginBottom: 16 }}>
-                <Text style={[styles.filterSectionTitle, { color: colors.subtle }]}>
-                  {t.collab.filterDateBtn}
-                </Text>
-                {renderCalendarPicker(
-                  draftFrom,
-                  setDraftFrom,
-                  draftTo,
-                  setDraftTo,
-                  activeDateField,
-                  setActiveDateField,
-                  pickerMonth,
-                  setPickerMonth,
-                )}
-              </View>
-
-              {/* Section 3: Người gửi */}
-              <View style={{ marginBottom: 16 }}>
-                <Text style={[styles.filterSectionTitle, { color: colors.subtle }]}>
-                  {t.collab.filterBySender}
-                </Text>
-                <View style={{ marginTop: 8 }}>
-                  <View
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      backgroundColor: colors.canvas,
-                      borderRadius: 12,
-                      borderWidth: StyleSheet.hairlineWidth,
-                      borderColor: colors.hairline,
-                      paddingHorizontal: 10,
-                      height: 36,
-                      marginBottom: 8,
-                      gap: 6,
-                    }}
-                  >
-                    <Search size={13} color={colors.subtle} />
-                    <TextInput
-                      value={senderSearchQuery}
-                      onChangeText={setSenderSearchQuery}
-                      placeholder={t.collab.searchSendersPlaceholder}
-                      placeholderTextColor={colors.subtle}
-                      style={{ flex: 1, fontSize: 12, color: colors.text, paddingVertical: 0 }}
-                    />
-                  </View>
-
-                  <TouchableOpacity
-                    onPress={() => setDraftSenderId('ALL')}
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      paddingVertical: 10,
-                      borderBottomWidth: StyleSheet.hairlineWidth,
-                      borderBottomColor: colors.hairline,
-                    }}
-                  >
-                    <Text
+            {/* Split Body */}
+            <View style={{ flexDirection: 'row', minHeight: 330, maxHeight: 420 }}>
+              {/* Left Sidebar Tabs */}
+              <View
+                style={{
+                  width: 105,
+                  backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : colors.canvas,
+                  borderRightWidth: StyleSheet.hairlineWidth,
+                  borderRightColor: colors.hairline,
+                  paddingVertical: 8,
+                }}
+              >
+                {[
+                  {
+                    key: 'date' as const,
+                    label: t.collab.filterDateBtn || 'Ngày gửi',
+                    icon: Calendar,
+                    hasFilter: Boolean(draftFrom || draftTo),
+                  },
+                  {
+                    key: 'sender' as const,
+                    label: t.collab.filterBySender || 'Người gửi',
+                    icon: User,
+                    hasFilter: draftSenderId !== 'ALL',
+                  },
+                  ...(activeTab === 'files'
+                    ? [
+                        {
+                          key: 'fileType' as const,
+                          label: t.collab.filterFileType || 'Loại file',
+                          icon: FileText,
+                          hasFilter: draftFileType !== 'ALL',
+                        },
+                      ]
+                    : []),
+                ].map((tab) => {
+                  const isActive = unifiedFilterTab === tab.key;
+                  const IconComp = tab.icon;
+                  return (
+                    <TouchableOpacity
+                      key={tab.key}
+                      onPress={() => setUnifiedFilterTab(tab.key)}
+                      activeOpacity={0.7}
                       style={{
-                        fontSize: 13,
-                        fontWeight: draftSenderId === 'ALL' ? '700' : '500',
-                        color: draftSenderId === 'ALL' ? colors.primary : colors.text,
+                        paddingVertical: 14,
+                        paddingHorizontal: 10,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        backgroundColor: isActive ? colors.surface : 'transparent',
+                        borderLeftWidth: 3,
+                        borderLeftColor: isActive ? colors.primary : 'transparent',
+                        gap: 7,
                       }}
                     >
-                      {t.collab.filterAllSenders}
-                    </Text>
-                    {draftSenderId === 'ALL' && <Check size={16} color={colors.primary} />}
-                  </TouchableOpacity>
-
-                  {uniqueSenders
-                    .filter((s) => s.name.toLowerCase().includes(senderSearchQuery.trim().toLowerCase()))
-                    .map((sender) => {
-                      const isSelected = draftSenderId === sender.id;
-                      return (
-                        <TouchableOpacity
-                          key={sender.id}
-                          onPress={() => setDraftSenderId(sender.id)}
+                      <IconComp size={15} color={isActive ? colors.primary : colors.subtle} />
+                      <Text
+                        style={{
+                          fontSize: 12,
+                          fontWeight: isActive ? '700' : '500',
+                          color: isActive ? colors.primary : colors.text,
+                          flex: 1,
+                        }}
+                        numberOfLines={1}
+                      >
+                        {tab.label}
+                      </Text>
+                      {tab.hasFilter && (
+                        <View
                           style={{
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            paddingVertical: 10,
-                            borderBottomWidth: StyleSheet.hairlineWidth,
-                            borderBottomColor: colors.hairline,
+                            width: 6,
+                            height: 6,
+                            borderRadius: 3,
+                            backgroundColor: colors.primary,
                           }}
-                        >
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                            <View
-                              style={{
-                                width: 28,
-                                height: 28,
-                                borderRadius: 14,
-                                backgroundColor: isDark ? 'rgba(13,148,136,0.2)' : 'rgba(13,148,136,0.1)',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                              }}
-                            >
-                              <Text style={{ fontSize: 12, fontWeight: '700', color: colors.primary }}>
-                                {sender.name.charAt(0).toUpperCase()}
+                        />
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* Right Content Pane */}
+              <View style={{ flex: 1, paddingHorizontal: 12, paddingTop: 10 }}>
+                {unifiedFilterTab === 'date' && (
+                  <ScrollView showsVerticalScrollIndicator={false}>
+                    <Text style={[styles.filterSectionTitle, { color: colors.subtle, marginBottom: 8 }]}>
+                      {t.collab.filterDateBtn}
+                    </Text>
+                    {renderCalendarPicker(
+                      draftFrom,
+                      setDraftFrom,
+                      draftTo,
+                      setDraftTo,
+                      activeDateField,
+                      setActiveDateField,
+                      pickerMonth,
+                      setPickerMonth,
+                    )}
+                  </ScrollView>
+                )}
+
+                {unifiedFilterTab === 'sender' && (
+                  <ScrollView showsVerticalScrollIndicator={false}>
+                    <Text style={[styles.filterSectionTitle, { color: colors.subtle, marginBottom: 8 }]}>
+                      {t.collab.filterBySender}
+                    </Text>
+
+                    {/* Search Sender */}
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        backgroundColor: colors.canvas,
+                        borderRadius: 10,
+                        borderWidth: StyleSheet.hairlineWidth,
+                        borderColor: colors.hairline,
+                        paddingHorizontal: 8,
+                        height: 34,
+                        marginBottom: 8,
+                        gap: 6,
+                      }}
+                    >
+                      <Search size={13} color={colors.subtle} />
+                      <TextInput
+                        value={senderSearchQuery}
+                        onChangeText={setSenderSearchQuery}
+                        placeholder={t.collab.searchSendersPlaceholder}
+                        placeholderTextColor={colors.subtle}
+                        style={{ flex: 1, fontSize: 12, color: colors.text, paddingVertical: 0 }}
+                      />
+                    </View>
+
+                    {/* ALL Option */}
+                    <TouchableOpacity
+                      onPress={() => setDraftSenderId('ALL')}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        paddingVertical: 10,
+                        paddingHorizontal: 4,
+                        borderBottomWidth: StyleSheet.hairlineWidth,
+                        borderBottomColor: colors.hairline,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontSize: 13,
+                          fontWeight: draftSenderId === 'ALL' ? '700' : '500',
+                          color: draftSenderId === 'ALL' ? colors.primary : colors.text,
+                        }}
+                      >
+                        {t.collab.filterAllSenders}
+                      </Text>
+                      {draftSenderId === 'ALL' && <Check size={16} color={colors.primary} />}
+                    </TouchableOpacity>
+
+                    {/* Sender list */}
+                    {uniqueSenders
+                      .filter((s) => s.name.toLowerCase().includes(senderSearchQuery.trim().toLowerCase()))
+                      .map((sender) => {
+                        const isSelected = draftSenderId === sender.id;
+                        return (
+                          <TouchableOpacity
+                            key={sender.id}
+                            onPress={() => setDraftSenderId(sender.id)}
+                            style={{
+                              flexDirection: 'row',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              paddingVertical: 10,
+                              paddingHorizontal: 4,
+                              borderBottomWidth: StyleSheet.hairlineWidth,
+                              borderBottomColor: colors.hairline,
+                            }}
+                          >
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+                              <View
+                                style={{
+                                  width: 26,
+                                  height: 26,
+                                  borderRadius: 13,
+                                  backgroundColor: isDark ? 'rgba(13,148,136,0.2)' : 'rgba(13,148,136,0.1)',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                }}
+                              >
+                                <Text style={{ fontSize: 11, fontWeight: '700', color: colors.primary }}>
+                                  {sender.name.charAt(0).toUpperCase()}
+                                </Text>
+                              </View>
+                              <Text
+                                style={{
+                                  fontSize: 13,
+                                  fontWeight: isSelected ? '700' : '500',
+                                  color: isSelected ? colors.primary : colors.text,
+                                  flex: 1,
+                                }}
+                                numberOfLines={1}
+                              >
+                                {sender.name}
                               </Text>
                             </View>
+                            {isSelected && <Check size={16} color={colors.primary} />}
+                          </TouchableOpacity>
+                        );
+                      })}
+                  </ScrollView>
+                )}
+
+                {unifiedFilterTab === 'fileType' && activeTab === 'files' && (
+                  <ScrollView showsVerticalScrollIndicator={false}>
+                    <Text style={[styles.filterSectionTitle, { color: colors.subtle, marginBottom: 8 }]}>
+                      {t.collab.filterFileType}
+                    </Text>
+                    <View style={{ gap: 4 }}>
+                      {[
+                        { key: 'ALL', label: t.collab.filterAllTypes },
+                        { key: 'PDF', label: t.collab.fileTypePdf },
+                        { key: 'WORD', label: t.collab.fileTypeWord },
+                        { key: 'EXCEL', label: t.collab.fileTypeExcel },
+                        { key: 'CANVA', label: t.collab.fileTypeCanva },
+                        { key: 'ARCHIVES', label: t.collab.fileTypeArchives },
+                        { key: 'OTHER', label: t.collab.fileTypeOther },
+                      ].map((ft) => {
+                        const isSelected = draftFileType === ft.key;
+                        return (
+                          <TouchableOpacity
+                            key={ft.key}
+                            onPress={() => setDraftFileType(ft.key as any)}
+                            style={{
+                              flexDirection: 'row',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              paddingVertical: 10,
+                              paddingHorizontal: 8,
+                              borderRadius: 8,
+                              backgroundColor: isSelected
+                                ? isDark
+                                  ? 'rgba(13,148,136,0.15)'
+                                  : 'rgba(13,148,136,0.08)'
+                                : 'transparent',
+                            }}
+                          >
                             <Text
                               style={{
                                 fontSize: 13,
@@ -2432,27 +2503,37 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
                                 color: isSelected ? colors.primary : colors.text,
                               }}
                             >
-                              {sender.name}
+                              {ft.label}
                             </Text>
-                          </View>
-                          {isSelected && <Check size={16} color={colors.primary} />}
-                        </TouchableOpacity>
-                      );
-                    })}
-                </View>
+                            {isSelected && <Check size={16} color={colors.primary} />}
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </ScrollView>
+                )}
               </View>
-            </ScrollView>
+            </View>
 
-            {/* Apply Button */}
-            <TouchableOpacity
-              style={[styles.applyFilterBtn, { backgroundColor: colors.primary }]}
-              onPress={handleApplyUnifiedFilters}
+            {/* Footer Apply Button */}
+            <View
+              style={{
+                paddingHorizontal: 16,
+                paddingTop: 12,
+                borderTopWidth: StyleSheet.hairlineWidth,
+                borderTopColor: colors.hairline,
+              }}
             >
-              <Text style={[styles.applyFilterText, { color: colors.onPrimary }]}>
-                {t.collab.applyFilter || 'Áp dụng'}
-              </Text>
-            </TouchableOpacity>
-          </View>
+              <TouchableOpacity
+                style={[styles.applyFilterBtn, { backgroundColor: colors.primary, marginTop: 0 }]}
+                onPress={handleApplyUnifiedFilters}
+              >
+                <Text style={[styles.applyFilterText, { color: colors.onPrimary }]}>
+                  {t.collab.applyFilter || 'Áp dụng'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
 

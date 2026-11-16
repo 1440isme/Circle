@@ -14,6 +14,7 @@ export const en: TranslationDictionary = {
     cancel: 'Cancel',
     close: 'Close',
     confirm: 'Confirm',
+    filter: 'Filter',
     error: 'Error',
     notice: 'Notice',
     language: 'Language',

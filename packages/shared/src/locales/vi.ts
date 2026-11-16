@@ -12,6 +12,7 @@ export const vi = {
     cancel: 'Hủy',
     close: 'Đóng',
     confirm: 'Xác nhận',
+    filter: 'Bộ lọc',
     error: 'Lỗi',
     notice: 'Thông báo',
     language: 'Ngôn ngữ',
