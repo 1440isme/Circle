@@ -159,10 +159,6 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
   const [selectedPhotoIds, setSelectedPhotoIds] = useState<Set<string>>(new Set());
   const [isBatchDeleting, setIsBatchDeleting] = useState(false);
 
-  // Search inside album (chỉ mở ra khi ấn vào icon tìm kiếm)
-  const [isAlbumSearchOpen, setIsAlbumSearchOpen] = useState(false);
-  const [albumSearchQuery, setAlbumSearchQuery] = useState('');
-
   // Filter inside album (bộ lọc như ở ngoài)
   const [isAlbumFilterModalOpen, setIsAlbumFilterModalOpen] = useState(false);
   type AlbumFilterCategory = 'date' | 'sender';
@@ -372,15 +368,9 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
       if (!isWithinDateRange(p.createdAt, albumDateFrom, albumDateTo)) {
         return false;
       }
-      if (isAlbumSearchOpen && albumSearchQuery.trim()) {
-        const q = albumSearchQuery.toLowerCase();
-        const uploaderName = p.uploader?.user?.profile?.displayName?.toLowerCase() || '';
-        const caption = p.caption?.toLowerCase() || '';
-        return uploaderName.includes(q) || caption.includes(q);
-      }
       return true;
     });
-  }, [selectedAlbum, selectedAlbumSenderId, albumDateFrom, albumDateTo, isAlbumSearchOpen, albumSearchQuery]);
+  }, [selectedAlbum, selectedAlbumSenderId, albumDateFrom, albumDateTo]);
 
   const showNotice = (message: string, type: 'success' | 'error' = 'success') => {
     if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
@@ -425,8 +415,6 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
       setSelectedAlbumSenderId('ALL');
       setAlbumDateFrom('');
       setAlbumDateTo('');
-      setAlbumSearchQuery('');
-      setIsAlbumSearchOpen(false);
       setIsSelectionMode(false);
       setSelectedPhotoIds(new Set());
     } catch (err: any) {
@@ -1003,25 +991,17 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
               </Text>
             </View>
 
-            {/* Search Icon Button (nào ấn vào mới ra thanh tìm kiếm) */}
+            {/* ScanSearch Icon: Tìm kiếm bằng hình ảnh trong album */}
             <TouchableOpacity
               activeOpacity={0.8}
-              onPress={() => {
-                setIsAlbumSearchOpen((prev) => !prev);
-                if (isAlbumSearchOpen) setAlbumSearchQuery('');
-              }}
+              onPress={handleImageSearch}
               style={[
                 styles.headerIconBtn,
-                isAlbumSearchOpen || albumSearchQuery
-                  ? { backgroundColor: colors.primary }
-                  : { backgroundColor: isDark ? 'rgba(29, 29, 33, 0.92)' : 'rgba(255, 255, 255, 0.94)' },
+                { backgroundColor: isDark ? 'rgba(29, 29, 33, 0.92)' : 'rgba(255, 255, 255, 0.94)' },
               ]}
-              accessibilityLabel={t.common.searchPlaceholder}
+              accessibilityLabel={t.collab.imageSearchBtn}
             >
-              <Search
-                size={14}
-                color={isAlbumSearchOpen || albumSearchQuery ? colors.onPrimary : colors.subtle}
-              />
+              <ScanSearch size={16} color={colors.primary} />
             </TouchableOpacity>
 
             {/* Filter Button (có bộ lọc như ở ngoài) */}
@@ -1074,42 +1054,6 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
               <MoreVertical size={16} color={colors.text} />
             </TouchableOpacity>
           </View>
-
-          {/* Row 2: Expandable Search Bar in Album (chỉ mở ra khi ấn vào icon tìm kiếm) */}
-          {isAlbumSearchOpen && (
-            <View
-              style={{
-                height: 36,
-                borderRadius: 18,
-                backgroundColor: isDark ? 'rgba(29, 29, 33, 0.92)' : 'rgba(255, 255, 255, 0.94)',
-                borderWidth: StyleSheet.hairlineWidth,
-                borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : colors.hairline,
-                flexDirection: 'row',
-                alignItems: 'center',
-                paddingHorizontal: 10,
-                gap: 6,
-              }}
-            >
-              <Search size={13} color={colors.subtle} />
-              <TextInput
-                value={albumSearchQuery}
-                onChangeText={setAlbumSearchQuery}
-                placeholder={t.collab.searchInAlbum || 'Tìm kiếm trong album...'}
-                placeholderTextColor={colors.subtle}
-                autoFocus
-                style={{ flex: 1, fontSize: 12, color: colors.text, paddingVertical: 0 }}
-              />
-              <TouchableOpacity
-                onPress={() => {
-                  setAlbumSearchQuery('');
-                  setIsAlbumSearchOpen(false);
-                }}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <X size={13} color={colors.subtle} />
-              </TouchableOpacity>
-            </View>
-          )}
         </View>
 
         {/* Inline 2-step Confirm Bar for Deleting Album */}
@@ -1118,7 +1062,7 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
             style={[
               styles.inlineConfirmCard,
               {
-                top: topHeaderTop + (isAlbumSearchOpen ? 90 : 48),
+                top: topHeaderTop + 48,
                 backgroundColor: colors.surface,
                 borderColor: '#DC2626',
               },
@@ -1161,7 +1105,7 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
             contentContainerStyle={[
               styles.photosGrid,
               {
-                paddingTop: topHeaderTop + (isAlbumSearchOpen ? 94 : 50) + (isConfirmingDeleteAlbum ? 94 : 0),
+                paddingTop: topHeaderTop + 50 + (isConfirmingDeleteAlbum ? 94 : 0),
                 paddingBottom: Math.max(insets.bottom + 40, 60),
               },
             ]}

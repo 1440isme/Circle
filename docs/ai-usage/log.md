@@ -8479,3 +8479,35 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 - **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
 - **Commit:** bc9e3ab
 - **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
+
+
+## AI-0210: Chuyển Đổi Tìm Kiếm Text Sang Tìm Kiếm Bằng Hình Ảnh Trong Chi Tiết Album (#120)
+
+- **Date:** 2026-11-16 14:15:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120
+- **Purpose:** Tinh chỉnh công cụ tìm kiếm trong màn hình Chi tiết Album trên Mobile theo yêu cầu người dùng:
+  1. **Loại Bỏ Tìm Kiếm Text Trong Chi Tiết Album:**
+     - Loại bỏ nút tìm kiếm văn bản và ô input tìm kiếm trượt xuống (`isAlbumSearchOpen`, `albumSearchQuery`).
+     - Tối ưu hóa bộ lọc ảnh trong album (`filteredAlbumPhotos`) chỉ cần điều kiện người gửi và khoảng ngày.
+  2. **Thay Thế Bằng Tìm Kiếm Hình Ảnh (`ScanSearch`):**
+     - Bổ sung nút icon `ScanSearch` (kính lúp quét ảnh) ngay trên header chi tiết Album kết nối với `handleImageSearch`.
+  3. **Header Cố Định Chuẩn 1 Dòng Duy Nhất:**
+     - Bố cục header chi tiết Album gồm: Nút `<` quay lại, Tên Album, Nút tìm kiếm ảnh `ScanSearch`, Nút lọc `Filter`, Nút `+` thêm ảnh, Nút `...` tùy chọn khác (Đổi tên, Chọn ảnh, Xóa album).
+     - Khoảng cách và padding đỉnh lưới ảnh cố định `topHeaderTop + 50`, loại bỏ hiện tượng giật nhảy layout.
+- **Files Affected:**
+  - `apps/mobile/src/components/tools/MobileAlbumsView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% header icon update, state cleanup và layout padding stabilization.
+- **Human Modifications:** Người dùng yêu cầu trong chi tiết album cũng bỏ tìm kiếm kia đi thay bằng tìm kiếm hình ảnh.
+- **Verification Method:**
+  - `npx tsc -p apps/mobile/tsconfig.json --noEmit`: Passed (0 errors).
+  - `npx tsc -p apps/web/tsconfig.json --noEmit`: Passed (0 errors).
+  - `bash ./scripts/check-agent-map.sh`: Passed (all references resolve).
+  - `bash ./scripts/check-secrets.sh`: Passed (601 files checked, 0 secret leaks).
+- **Official Source Checked:** `PROJECT_GOD.md` §2.2, `agentic/playbooks/cross-cutting-gate.md` (Web/Mobile parity, Visual consistency).
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
+- **Commit:** 13f10e4
+- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
