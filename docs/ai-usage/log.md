@@ -8511,3 +8511,42 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 - **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
 - **Commit:** 13f10e4
 - **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
+
+
+## AI-0211: Cố Định Layout 2 Hàng (2x2) Cho 4 Vòng Xoay May Mắn Trên Mobile App (#120)
+
+- **Date:** 2026-11-16 14:30:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120
+- **Purpose:** Tối ưu hóa layout hiển thị Vòng Xoay May Mắn (Lucky Wheel) trên Mobile App theo yêu cầu người dùng: "vòng xoay ở apps cho 4 cái thành 2 hàng thôi".
+  1. **Layout 2x2 Cố Định Tuyệt Đối Trên Mobile (`MobileWheelView.tsx`):**
+     - Loại bỏ cơ chế `flexWrap: 'wrap'` dễ gây rớt dòng thành 3 hoặc 4 hàng dọc khi kích thước đĩa quay vượt quá chiều rộng màn hình.
+     - Chia 4 vòng thành 2 hàng tường minh (`gridFourWheelsContainer`), mỗi hàng chứa chính xác 2 vòng:
+       - Hàng 1: `wheels.slice(0, 2)`
+       - Hàng 2: `wheels.slice(2, 4)`
+     - Mỗi card vòng quay được bọc trong `smallWheelItemWrapper` với `{ flex: 1, alignItems: 'center', maxWidth: '50%' }` để căn giữa đối xứng 50/50.
+  2. **Tính Toán Responsive Disc Size Dựa Trên Kích Thước Màn Hình Thật (`useWindowDimensions`):**
+     - Sử dụng `useWindowDimensions()` tính toán `availableColWidth = Math.floor((windowWidth - 32) / 2)`.
+     - `fourDiscSize = Math.max(110, Math.min(availableColWidth - 18, isBoardCollapsed ? 150 : 130))`, đảm bảo đĩa quay và con trỏ (pointer nhô ra 19px) luôn nằm trọn vẹn trong cột, không bao giờ tràn mép màn hình.
+     - Giảm `paddingHorizontal` của `cleanSmallWheelCard` từ 16px xuống 4px để tối ưu hóa không gian hiển thị.
+  3. **Tái Cấu Trúc Helper `renderSmallWheelItem` Dùng Chung:**
+     - Gom logic render các vòng quay nhỏ thành một helper duy nhất cho các trường hợp 2 vòng, 3 vòng và 4 vòng, loại bỏ hơn 350 dòng mã trùng lặp, đồng bộ triệt để theme Dark/Light mode và i18n cho toàn bộ các nhãn & chỉ số.
+  4. **Đồng Bộ Trên Web (`CircleWheelView.tsx`):**
+     - Đổi breakpoint lưới 4 vòng từ `grid-cols-1 sm:grid-cols-2` thành `grid-cols-2 gap-4 sm:gap-8` để luôn duy trì 2 cột (2 hàng) ngay cả khi co nhỏ màn hình trình duyệt.
+- **Files Affected:**
+  - `apps/mobile/src/components/tools/MobileWheelView.tsx`
+  - `apps/web/src/components/tools/CircleWheelView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% responsive calculation, component refactoring, và grid style updates.
+- **Human Modifications:** Người dùng yêu cầu vòng xoay ở app cho 4 cái thành 2 hàng thôi.
+- **Verification Method:**
+  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Passed (0 errors).
+  - `npx tsc --noEmit -p apps/web/tsconfig.json`: Passed (0 errors).
+  - `npm test --prefix apps/backend -- circle-tools.service.spec.ts`: Passed (45/45 tests pass 100%).
+  - `bash ./scripts/check-secrets.sh`: Passed (601 files checked, 0 secret leaks).
+- **Official Source Checked:** `PROJECT_GOD.md` §2.2, `agentic/playbooks/cross-cutting-gate.md` (Web/Mobile parity, Responsive breakpoints).
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
+- **Commit:** 6cec412
+- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)

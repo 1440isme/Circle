@@ -1131,7 +1131,7 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
 
               {/* 4 VÒNG: LƯỚI 2x2 (2 vòng hàng trên, 2 vòng hàng dưới) */}
               {wheels.length === 4 && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 w-full max-w-3xl justify-items-center">
+                <div className="grid grid-cols-2 gap-4 sm:gap-8 w-full max-w-3xl justify-items-center">
                   {wheels.map((wheel) => {
                     const local = wheelsState[wheel.id];
                     const parsed = parseOptions(local?.optionsText || '');

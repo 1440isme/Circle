@@ -12,6 +12,7 @@ import {
   Animated,
   Easing,
   Platform,
+  useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, G, Circle, Rect, Text as SvgText } from 'react-native-svg';
@@ -766,8 +767,117 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
   }, [activeState, parseOptions]);
 
   // Dynamic Disc Size for Mobile
+  const { width: windowWidth } = useWindowDimensions();
+  const availableColWidth = Math.floor((windowWidth - 32) / 2);
   const singleDiscSize = isBoardCollapsed ? 280 : 230;
-  const multiDiscSize = isBoardCollapsed ? 165 : 145;
+  const multiDiscSize = Math.max(120, Math.min(availableColWidth - 18, isBoardCollapsed ? 165 : 145));
+  const fourDiscSize = Math.max(110, Math.min(availableColWidth - 18, isBoardCollapsed ? 150 : 130));
+
+  // Render a single small wheel item (used in 2-wheel, 3-wheel, and 4-wheel layouts)
+  const renderSmallWheelItem = (wheel: DecisionWheelEntity, discSize: number) => {
+    const local = wheelStates[wheel.id];
+    const opts = parseOptions(local?.optionsText || '');
+    const isActive = activeWheelId === wheel.id;
+
+    return (
+      <View key={wheel.id} style={styles.smallWheelItemWrapper}>
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => {
+            setActiveWheelId(wheel.id);
+            setActiveTab(wheel.id);
+            setIsBoardCollapsed(false);
+          }}
+          style={[
+            styles.mobileWheelTitleBadge,
+            isActive && styles.mobileWheelTitleBadgeActive,
+          ]}
+        >
+          <Compass
+            size={12}
+            color={isActive ? '#FFFFFF' : (isDark ? colors.primary : '#0D9488')}
+          />
+          <Text
+            style={[
+              styles.mobileWheelTitleText,
+              isActive && styles.mobileWheelTitleTextActive,
+            ]}
+            numberOfLines={1}
+          >
+            {wheel.title}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={() => {
+            handleSpinSingle(wheel.id);
+          }}
+          style={styles.cleanSmallWheelCard}
+        >
+          <View style={{ width: discSize, height: discSize, position: 'relative' }}>
+            <Animated.View
+              style={{
+                width: discSize,
+                height: discSize,
+                transform: [
+                  {
+                    rotate: (
+                      rotateAnims.current[wheel.id] || new Animated.Value(0)
+                    ).interpolate({
+                      inputRange: [0, 360],
+                      outputRange: ['0deg', '360deg'],
+                    }),
+                  },
+                ],
+              }}
+            >
+              <Svg width={discSize} height={discSize}>
+                {renderWheelSvg(opts, discSize)}
+                <Circle
+                  cx={discSize / 2}
+                  cy={discSize / 2}
+                  r={12}
+                  fill={isDark ? colors.elevated : '#FFFFFF'}
+                  stroke={colors.primary}
+                  strokeWidth={2}
+                />
+                <Circle
+                  cx={discSize / 2}
+                  cy={discSize / 2}
+                  r={4}
+                  fill={colors.primary}
+                />
+              </Svg>
+            </Animated.View>
+            <View style={styles.pointerRightSmall} pointerEvents="none">
+              <Svg width={24} height={16} viewBox="0 0 24 16">
+                <Path
+                  d="M2 8L14 2C16 1 17 2 17 3.5V12.5C17 14 16 15 14 14L2 8Z"
+                  fill={colors.primary}
+                  stroke={isDark ? colors.elevated : '#FFFFFF'}
+                  strokeWidth={1.5}
+                  strokeLinejoin="round"
+                />
+                <Rect
+                  x={15}
+                  y={3}
+                  width={7}
+                  height={10}
+                  rx={2}
+                  fill={isDark ? colors.primaryDark : '#0F766E'}
+                  stroke={isDark ? colors.elevated : '#FFFFFF'}
+                  strokeWidth={1.5}
+                />
+                <Circle cx={18.5} cy={8} r={2} fill={isDark ? colors.elevated : '#FFFFFF'} />
+                <Circle cx={18.5} cy={8} r={1} fill={colors.primary} />
+              </Svg>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </View>
+    );
+  };
 
   if (isLoading) {
     return (
@@ -945,96 +1055,7 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
             {/* 2 VÒNG: Hàng trên 2 vòng đặt cạnh nhau */}
             {wheels.length === 2 && (
               <View style={styles.rowTwoWheels}>
-                {wheels.map((wheel) => {
-                  const local = wheelStates[wheel.id];
-                  const opts = parseOptions(local?.optionsText || '');
-                  return (
-                    <View key={wheel.id} style={{ alignItems: 'center' }}>
-                      <TouchableOpacity
-                        activeOpacity={0.8}
-                        onPress={() => {
-                          setActiveWheelId(wheel.id);
-                          setActiveTab(wheel.id);
-                          setIsBoardCollapsed(false);
-                        }}
-                        style={[
-                          styles.mobileWheelTitleBadge,
-                          activeWheelId === wheel.id && styles.mobileWheelTitleBadgeActive,
-                        ]}
-                      >
-                        <Compass size={12} color={activeWheelId === wheel.id ? '#FFFFFF' : (isDark ? colors.primary : '#0D9488')} />
-                        <Text
-                          style={[
-                            styles.mobileWheelTitleText,
-                            activeWheelId === wheel.id && styles.mobileWheelTitleTextActive,
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {wheel.title}
-                        </Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        activeOpacity={0.9}
-                        onPress={() => {
-                          handleSpinSingle(wheel.id);
-                        }}
-                        style={styles.cleanSmallWheelCard}
-                      >
-                        <View style={{ width: multiDiscSize, height: multiDiscSize, position: 'relative' }}>
-                          <Animated.View
-                            style={{
-                              width: multiDiscSize,
-                              height: multiDiscSize,
-                              transform: [
-                                {
-                                  rotate: (
-                                    rotateAnims.current[wheel.id] || new Animated.Value(0)
-                                  ).interpolate({
-                                    inputRange: [0, 360],
-                                    outputRange: ['0deg', '360deg'],
-                                  }),
-                                },
-                              ],
-                            }}
-                          >
-                            <Svg width={multiDiscSize} height={multiDiscSize}>
-                              {renderWheelSvg(opts, multiDiscSize)}
-                              <Circle
-                                cx={multiDiscSize / 2}
-                                cy={multiDiscSize / 2}
-                                r={12}
-                                fill={isDark ? colors.elevated : '#FFFFFF'}
-                                stroke={colors.primary}
-                                strokeWidth={2}
-                              />
-                              <Circle
-                                cx={multiDiscSize / 2}
-                                cy={multiDiscSize / 2}
-                                r={4}
-                                fill={colors.primary}
-                              />
-                            </Svg>
-                          </Animated.View>
-                          <View style={styles.pointerRightSmall} pointerEvents="none">
-                            <Svg width={24} height={16} viewBox="0 0 24 16">
-                              <Path
-                                d="M2 8L14 2C16 1 17 2 17 3.5V12.5C17 14 16 15 14 14L2 8Z"
-                                fill={colors.primary}
-                                stroke={isDark ? colors.elevated : '#FFFFFF'}
-                                strokeWidth={1.5}
-                                strokeLinejoin="round"
-                              />
-                              <Rect x={15} y={3} width={7} height={10} rx={2} fill={isDark ? colors.primaryDark : '#0F766E'} stroke={isDark ? colors.elevated : '#FFFFFF'} strokeWidth={1.5} />
-                              <Circle cx={18.5} cy={8} r={2} fill={isDark ? colors.elevated : '#FFFFFF'} />
-                              <Circle cx={18.5} cy={8} r={1} fill={colors.primary} />
-                            </Svg>
-                          </View>
-                        </View>
-                      </TouchableOpacity>
-                    </View>
-                  );
-                })}
+                {wheels.map((wheel) => renderSmallWheelItem(wheel, multiDiscSize))}
               </View>
             )}
 
@@ -1042,283 +1063,26 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
             {wheels.length === 3 && (
               <View style={styles.gridThreeWheels}>
                 <View style={styles.rowTwoWheels}>
-                  {wheels.slice(0, 2).map((wheel) => {
-                    const local = wheelStates[wheel.id];
-                    const opts = parseOptions(local?.optionsText || '');
-                    return (
-                      <View key={wheel.id} style={{ alignItems: 'center' }}>
-                        <TouchableOpacity
-                          activeOpacity={0.8}
-                          onPress={() => {
-                            setActiveWheelId(wheel.id);
-                            setActiveTab(wheel.id);
-                            setIsBoardCollapsed(false);
-                          }}
-                          style={[
-                            styles.mobileWheelTitleBadge,
-                            activeWheelId === wheel.id && styles.mobileWheelTitleBadgeActive,
-                          ]}
-                        >
-                          <Compass size={12} color={activeWheelId === wheel.id ? '#FFFFFF' : '#0D9488'} />
-                          <Text
-                            style={[
-                              styles.mobileWheelTitleText,
-                              activeWheelId === wheel.id && styles.mobileWheelTitleTextActive,
-                            ]}
-                            numberOfLines={1}
-                          >
-                            {wheel.title}
-                          </Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                          activeOpacity={0.9}
-                          onPress={() => {
-                            handleSpinSingle(wheel.id);
-                          }}
-                          style={styles.cleanSmallWheelCard}
-                        >
-                          <View style={{ width: multiDiscSize, height: multiDiscSize, position: 'relative' }}>
-                            <Animated.View
-                              style={{
-                                width: multiDiscSize,
-                                height: multiDiscSize,
-                                transform: [
-                                  {
-                                    rotate: (
-                                      rotateAnims.current[wheel.id] || new Animated.Value(0)
-                                    ).interpolate({
-                                      inputRange: [0, 360],
-                                      outputRange: ['0deg', '360deg'],
-                                    }),
-                                  },
-                                ],
-                              }}
-                            >
-                              <Svg width={multiDiscSize} height={multiDiscSize}>
-                                {renderWheelSvg(opts, multiDiscSize)}
-                                <Circle
-                                  cx={multiDiscSize / 2}
-                                  cy={multiDiscSize / 2}
-                                  r={12}
-                                  fill="#FFFFFF"
-                                  stroke="#0D9488"
-                                  strokeWidth={2}
-                                />
-                                <Circle
-                                  cx={multiDiscSize / 2}
-                                  cy={multiDiscSize / 2}
-                                  r={4}
-                                  fill="#0D9488"
-                                />
-                              </Svg>
-                            </Animated.View>
-                            <View style={styles.pointerRightSmall} pointerEvents="none">
-                              <Svg width={24} height={16} viewBox="0 0 24 16">
-                                <Path
-                                  d="M2 8L14 2C16 1 17 2 17 3.5V12.5C17 14 16 15 14 14L2 8Z"
-                                  fill="#0D9488"
-                                  stroke="#FFFFFF"
-                                  strokeWidth={1.5}
-                                  strokeLinejoin="round"
-                                />
-                                <Rect x={15} y={3} width={7} height={10} rx={2} fill="#0F766E" stroke="#FFFFFF" strokeWidth={1.5} />
-                                <Circle cx={18.5} cy={8} r={2} fill="#FFFFFF" />
-                                <Circle cx={18.5} cy={8} r={1} fill="#0D9488" />
-                              </Svg>
-                            </View>
-                          </View>
-                        </TouchableOpacity>
-                      </View>
-                    );
-                  })}
+                  {wheels.slice(0, 2).map((wheel) => renderSmallWheelItem(wheel, multiDiscSize))}
                 </View>
 
                 {wheels[2] && (
                   <View style={{ alignItems: 'center', marginTop: 10 }}>
-                    <TouchableOpacity
-                      activeOpacity={0.8}
-                      onPress={() => {
-                        setActiveWheelId(wheels[2]!.id);
-                        setActiveTab(wheels[2]!.id);
-                        setIsBoardCollapsed(false);
-                      }}
-                      style={[
-                        styles.mobileWheelTitleBadge,
-                        activeWheelId === wheels[2]!.id && styles.mobileWheelTitleBadgeActive,
-                      ]}
-                    >
-                      <Compass size={12} color={activeWheelId === wheels[2]!.id ? '#FFFFFF' : (isDark ? colors.primary : '#0D9488')} />
-                      <Text
-                        style={[
-                          styles.mobileWheelTitleText,
-                          activeWheelId === wheels[2]!.id && styles.mobileWheelTitleTextActive,
-                        ]}
-                        numberOfLines={1}
-                      >
-                        {wheels[2]!.title}
-                      </Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      activeOpacity={0.9}
-                      onPress={() => {
-                        handleSpinSingle(wheels[2]!.id);
-                      }}
-                      style={styles.cleanSmallWheelCard}
-                    >
-                      <View style={{ width: multiDiscSize, height: multiDiscSize, position: 'relative' }}>
-                        <Animated.View
-                          style={{
-                            width: multiDiscSize,
-                            height: multiDiscSize,
-                            transform: [
-                              {
-                                rotate: (
-                                  rotateAnims.current[wheels[2]!.id] || new Animated.Value(0)
-                                ).interpolate({
-                                  inputRange: [0, 360],
-                                  outputRange: ['0deg', '360deg'],
-                                }),
-                              },
-                            ],
-                          }}
-                        >
-                          <Svg width={multiDiscSize} height={multiDiscSize}>
-                            {renderWheelSvg(
-                              parseOptions(wheelStates[wheels[2]!.id]?.optionsText || ''),
-                              multiDiscSize,
-                            )}
-                            <Circle
-                              cx={multiDiscSize / 2}
-                              cy={multiDiscSize / 2}
-                              r={12}
-                              fill={isDark ? colors.elevated : '#FFFFFF'}
-                              stroke={colors.primary}
-                              strokeWidth={2}
-                            />
-                            <Circle
-                              cx={multiDiscSize / 2}
-                              cy={multiDiscSize / 2}
-                              r={4}
-                              fill={colors.primary}
-                            />
-                          </Svg>
-                        </Animated.View>
-                        <View style={styles.pointerRightSmall} pointerEvents="none">
-                          <Svg width={24} height={16} viewBox="0 0 24 16">
-                            <Path
-                              d="M2 8L14 2C16 1 17 2 17 3.5V12.5C17 14 16 15 14 14L2 8Z"
-                              fill={colors.primary}
-                              stroke={isDark ? colors.elevated : '#FFFFFF'}
-                              strokeWidth={1.5}
-                              strokeLinejoin="round"
-                            />
-                            <Rect x={15} y={3} width={7} height={10} rx={2} fill={isDark ? colors.primaryDark : '#0F766E'} stroke={isDark ? colors.elevated : '#FFFFFF'} strokeWidth={1.5} />
-                            <Circle cx={18.5} cy={8} r={2} fill={isDark ? colors.elevated : '#FFFFFF'} />
-                            <Circle cx={18.5} cy={8} r={1} fill={colors.primary} />
-                          </Svg>
-                        </View>
-                      </View>
-                    </TouchableOpacity>
+                    {renderSmallWheelItem(wheels[2], multiDiscSize)}
                   </View>
                 )}
               </View>
             )}
 
-            {/* 4 VÒNG: LƯỚI 2x2 */}
+            {/* 4 VÒNG: CHÍNH XÁC 2 HÀNG (MỖI HÀNG 2 VÒNG) */}
             {wheels.length === 4 && (
-              <View style={styles.gridFourWheels}>
-                {wheels.map((wheel) => {
-                  const local = wheelStates[wheel.id];
-                  const opts = parseOptions(local?.optionsText || '');
-                  return (
-                    <View key={wheel.id} style={{ alignItems: 'center' }}>
-                      <TouchableOpacity
-                        activeOpacity={0.8}
-                        onPress={() => {
-                          setActiveWheelId(wheel.id);
-                          setActiveTab(wheel.id);
-                          setIsBoardCollapsed(false);
-                        }}
-                        style={[
-                          styles.mobileWheelTitleBadge,
-                          activeWheelId === wheel.id && styles.mobileWheelTitleBadgeActive,
-                        ]}
-                      >
-                        <Compass size={12} color={activeWheelId === wheel.id ? '#FFFFFF' : (isDark ? colors.primary : '#0D9488')} />
-                        <Text
-                          style={[
-                            styles.mobileWheelTitleText,
-                            activeWheelId === wheel.id && styles.mobileWheelTitleTextActive,
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {wheel.title}
-                        </Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        activeOpacity={0.9}
-                        onPress={() => {
-                          handleSpinSingle(wheel.id);
-                        }}
-                        style={styles.cleanSmallWheelCard}
-                      >
-                        <View style={{ width: multiDiscSize, height: multiDiscSize, position: 'relative' }}>
-                          <Animated.View
-                            style={{
-                              width: multiDiscSize,
-                              height: multiDiscSize,
-                              transform: [
-                                {
-                                  rotate: (
-                                    rotateAnims.current[wheel.id] || new Animated.Value(0)
-                                  ).interpolate({
-                                    inputRange: [0, 360],
-                                    outputRange: ['0deg', '360deg'],
-                                  }),
-                                },
-                              ],
-                            }}
-                          >
-                            <Svg width={multiDiscSize} height={multiDiscSize}>
-                              {renderWheelSvg(opts, multiDiscSize)}
-                              <Circle
-                                cx={multiDiscSize / 2}
-                                cy={multiDiscSize / 2}
-                                r={12}
-                                fill={isDark ? colors.elevated : '#FFFFFF'}
-                                stroke={colors.primary}
-                                strokeWidth={2}
-                              />
-                              <Circle
-                                cx={multiDiscSize / 2}
-                                cy={multiDiscSize / 2}
-                                r={4}
-                                fill={colors.primary}
-                              />
-                            </Svg>
-                          </Animated.View>
-                          <View style={styles.pointerRightSmall} pointerEvents="none">
-                            <Svg width={24} height={16} viewBox="0 0 24 16">
-                              <Path
-                                d="M2 8L14 2C16 1 17 2 17 3.5V12.5C17 14 16 15 14 14L2 8Z"
-                                fill={colors.primary}
-                                stroke={isDark ? colors.elevated : '#FFFFFF'}
-                                strokeWidth={1.5}
-                                strokeLinejoin="round"
-                              />
-                              <Rect x={15} y={3} width={7} height={10} rx={2} fill={isDark ? colors.primaryDark : '#0F766E'} stroke={isDark ? colors.elevated : '#FFFFFF'} strokeWidth={1.5} />
-                              <Circle cx={18.5} cy={8} r={2} fill={isDark ? colors.elevated : '#FFFFFF'} />
-                              <Circle cx={18.5} cy={8} r={1} fill={colors.primary} />
-                            </Svg>
-                          </View>
-                        </View>
-                      </TouchableOpacity>
-                    </View>
-                  );
-                })}
+              <View style={styles.gridFourWheelsContainer}>
+                <View style={styles.rowTwoWheels}>
+                  {wheels.slice(0, 2).map((wheel) => renderSmallWheelItem(wheel, fourDiscSize))}
+                </View>
+                <View style={[styles.rowTwoWheels, { marginTop: 12 }]}>
+                  {wheels.slice(2, 4).map((wheel) => renderSmallWheelItem(wheel, fourDiscSize))}
+                </View>
               </View>
             )}
           </View>
@@ -2175,22 +1939,24 @@ function createStyles(colors: any, isDark: boolean) {
   rowTwoWheels: {
     flexDirection: 'row',
     justifyContent: 'space-around',
+    alignItems: 'center',
     width: '100%',
   },
   gridThreeWheels: {
     width: '100%',
   },
-  gridFourWheels: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-around',
-    gap: 8,
+  gridFourWheelsContainer: {
     width: '100%',
+  },
+  smallWheelItemWrapper: {
+    flex: 1,
+    alignItems: 'center',
+    maxWidth: '50%',
   },
   cleanSmallWheelCard: {
     alignItems: 'center',
     paddingVertical: 6,
-    paddingHorizontal: 16,
+    paddingHorizontal: 4,
   },
   smallWheelTitle: {
     fontSize: 12,
@@ -2735,7 +2501,7 @@ function createStyles(colors: any, isDark: boolean) {
     borderWidth: 1,
     borderColor: colors.hairline,
     marginBottom: 6,
-    maxWidth: 160,
+    maxWidth: 140,
   },
   mobileWheelTitleBadgeActive: {
     borderColor: colors.primary,
