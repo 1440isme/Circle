@@ -8614,3 +8614,39 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 - **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
 - **Commit:** 26fd99d
 - **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
+
+
+## AI-0214: Tinh gọn Navigation Bar và Tìm kiếm Sự kiện dạng Lịch trình trên Mobile (#120)
+
+- **Date:** 2026-11-16 15:25:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120
+- **Purpose:** Tinh chỉnh giao diện và luồng tìm kiếm lịch hẹn sự kiện trên ứng dụng Mobile theo yêu cầu người dùng:
+  1. **Tinh Gọn Floating Navigation Bar:**
+     - Loại bỏ nút đóng `X` (`closePill`) khi người dùng đang mở công cụ Lịch hẹn (`selectedTool === 'calendar'`).
+     - Tối giản nút quay lại chỉ còn biểu tượng mũi tên `<` (`ArrowLeft`), lược bỏ nhãn chữ "Công cụ nhóm".
+     - Bố trí nhãn tiêu đề "Lịch hẹn" (`titlePill`) đặt cạnh nút quay lại ở góc trái (`gap: 8`, `justifyContent: 'flex-start'`).
+  2. **Tìm Kiếm Sự Kiện Hiển Thị Dạng Lịch Trình (Schedule Feed Như Ở Web):**
+     - Khi ấn nút tìm kiếm (`Search` icon) ở header tháng/năm, kích hoạt giao diện tìm kiếm với ô nhập ở trên đỉnh (`TextInput` kèm icon kính lúp, nút xóa nhanh text và nút "Đóng").
+     - Lọc theo từ khóa tên sự kiện (`eventTitle`) trong toàn bộ sự kiện của Vòng tròn (`getCalendarEventsApi`).
+     - Hiển thị danh sách kết quả gom nhóm theo ngày (Thứ, ngày DD tháng MM năm YYYY kèm badge "Hôm nay" nếu trùng ngày).
+     - Mỗi thẻ sự kiện hiển thị chuẩn đẹp: Tiêu đề sự kiện, badge ĐÃ HỦY (nếu bị hủy), giờ diễn ra kèm icon Clock, địa điểm kèm icon MapPin, và 3 nút phản hồi nhanh RSVP trực tiếp (Tham gia, Chưa chắc, Bận).
+     - Chạm vào thẻ sự kiện mở chi tiết sự kiện toàn màn hình.
+  3. **Đồng Bộ Dữ Liệu Realtime:**
+     - Tự động cập nhật socket event `circle:calendar-event-rsvp-updated` vào danh sách sự kiện tìm kiếm và lịch tháng.
+- **Files Affected:**
+  - `apps/mobile/app/circle/[id].tsx`
+  - `apps/mobile/src/components/tools/MobileCalendarView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% navigation bar adjustments, schedule grouping, and event search schedule UI.
+- **Human Modifications:** Người dùng yêu cầu ở app phần lịch hẹn sự kiện bỏ nút x, nút quay lại chỉ còn icon gần đó có tên lịch hẹn dạng label, khi ấn tìm kiếm hiển thị ô nhập tìm kiếm ở trên khi viết tìm kiếm tên sự kiện hiển thị dạng lịch trình như ở web.
+- **Verification Method:**
+  - `npx tsc --noEmit --project apps/mobile/tsconfig.json`: Passed 0 errors.
+  - `bash ./scripts/check-agent-map.sh`: Passed (all references resolve).
+  - `bash ./scripts/check-secrets.sh`: Passed (601 files checked, 0 secret leaks).
+- **Official Source Checked:** `PROJECT_GOD.md` §2.2, `agentic/playbooks/cross-cutting-gate.md` (Web/Mobile parity, UI states).
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
+- **Commit:** 610b959
+- **PR:** #120

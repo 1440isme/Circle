@@ -56,6 +56,7 @@ import {
   respondCalendarEventRsvpApi,
   shareCalendarEventToChatApi,
 } from '../../services/circle-tools.service';
+import { getSocket } from '../../services/socket';
 import { MobileUpcomingEventsFeed } from './MobileUpcomingEventsFeed';
 import { CalendarEventEntity, CalendarEventRsvpEntity, EventRsvpStatus } from '@circle/types';
 
@@ -879,6 +880,12 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
   const [calendarTab, setCalendarTab] = useState<'month' | 'upcoming'>('month');
   const [isSharingToChat, setIsSharingToChat] = useState<string | null>(null);
 
+  // Search State & All Events for Search
+  const [isSearchActive, setIsSearchActive] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [allSearchEvents, setAllSearchEvents] = useState<CalendarEventEntity[]>([]);
+  const [isSearchLoading, setIsSearchLoading] = useState(false);
+
   // Scope confirmation modals (đồng bộ 100% UX với Web cho Lưu/Sửa, Xóa, Hủy)
   const [showScopeModal, setShowScopeModal] = useState(false);
   const [deleteModalState, setDeleteModalState] = useState<{
@@ -1092,6 +1099,91 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
   useEffect(() => {
     loadEvents();
   }, [circleId, month, year]);
+
+  const loadAllSearchEvents = useCallback(async () => {
+    try {
+      setIsSearchLoading(true);
+      const data = await getCalendarEventsApi(circleId);
+      setAllSearchEvents(Array.isArray(data) ? data : []);
+    } catch {
+      if (events && events.length > 0) {
+        setAllSearchEvents(events);
+      }
+    } finally {
+      setIsSearchLoading(false);
+    }
+  }, [circleId, events]);
+
+  // Realtime Socket listener cho toàn bộ sự kiện trong Calendar
+  useEffect(() => {
+    let activeSocket: any = null;
+    getSocket().then((s) => {
+      if (!s) return;
+      activeSocket = s;
+      s.on('circle:calendar-event-rsvp-updated', (payload: any) => {
+        if (payload.circleId === circleId) {
+          const updateList = (prev: CalendarEventEntity[]) =>
+            prev.map((ev) => {
+              if (ev.id !== payload.eventId) return ev;
+              const curRsvps = ev.rsvps || [];
+              const idx = curRsvps.findIndex((r) => r.userId === payload.userId);
+              let nextRsvps = [...curRsvps];
+              if (idx >= 0) {
+                nextRsvps[idx] = {
+                  ...nextRsvps[idx],
+                  status: payload.status,
+                  user: payload.user || nextRsvps[idx]?.user,
+                };
+              } else {
+                nextRsvps.push({
+                  id: payload.rsvpId || `rsvp-${Date.now()}`,
+                  eventId: payload.eventId,
+                  userId: payload.userId,
+                  status: payload.status,
+                  user: payload.user,
+                  createdAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString(),
+                });
+              }
+              return { ...ev, rsvps: nextRsvps };
+            });
+
+          setEvents(updateList);
+          setAllSearchEvents(updateList);
+          setDetailEvent((prev) => {
+            if (!prev || prev.id !== payload.eventId) return prev;
+            const curRsvps = prev.rsvps || [];
+            const idx = curRsvps.findIndex((r) => r.userId === payload.userId);
+            let nextRsvps = [...curRsvps];
+            if (idx >= 0) {
+              nextRsvps[idx] = {
+                ...nextRsvps[idx],
+                status: payload.status,
+                user: payload.user || nextRsvps[idx]?.user,
+              };
+            } else {
+              nextRsvps.push({
+                id: payload.rsvpId || `rsvp-${Date.now()}`,
+                eventId: payload.eventId,
+                userId: payload.userId,
+                status: payload.status,
+                user: payload.user,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              });
+            }
+            return { ...prev, rsvps: nextRsvps };
+          });
+        }
+      });
+    });
+
+    return () => {
+      if (activeSocket) {
+        activeSocket.off('circle:calendar-event-rsvp-updated');
+      }
+    };
+  }, [circleId]);
 
   // Tự động cuộn đến tháng hiện tại sau khi layout khởi tạo
   useEffect(() => {
@@ -1496,6 +1588,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity, occDate?: Date) => {
       setEditingOccurrenceDate(null);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       loadEvents();
+      loadAllSearchEvents();
     } catch (err: any) {
       Alert.alert('Lỗi', err.message || (editingEvent ? 'Không thể cập nhật sự kiện' : 'Không thể tạo sự kiện'));
     } finally {
@@ -1559,6 +1652,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity, occDate?: Date) => {
       }
       setIsDetailMenuOpen(false);
       loadEvents();
+      loadAllSearchEvents();
     } catch (err: any) {
       Alert.alert('Lỗi', err.message || 'Không thể xóa sự kiện');
     }
@@ -1623,6 +1717,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity, occDate?: Date) => {
       setCancelModalState({ isOpen: false, event: null, occDate: null });
       setIsDetailMenuOpen(false);
       loadEvents();
+      loadAllSearchEvents();
     } catch (err: any) {
       Alert.alert('Lỗi', err.message || 'Không thể hủy lịch hẹn');
     }
@@ -1655,6 +1750,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity, occDate?: Date) => {
       setIsDetailMenuOpen(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       loadEvents();
+      loadAllSearchEvents();
     } catch (err: any) {
       Alert.alert('Lỗi', err.message || 'Không thể khôi phục lịch hẹn');
     }
@@ -3506,6 +3602,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity, occDate?: Date) => {
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       loadEvents();
+      loadAllSearchEvents();
     } catch (err: any) {
       Alert.alert('Lỗi', err.message || 'Không thể gửi phản hồi tham gia');
     } finally {
@@ -3702,6 +3799,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity, occDate?: Date) => {
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       loadEvents();
+      loadAllSearchEvents();
     } catch (err: any) {
       Alert.alert('Lỗi', err.message || 'Không thể cập nhật nhắc nhở');
     } finally {
@@ -4897,6 +4995,361 @@ const handleOpenEditModal = (ev: CalendarEventEntity, occDate?: Date) => {
     );
   };
 
+  // Group schedule events chronologically by date: "Thứ, ngày tháng năm" (như ở Web)
+  const groupedScheduleSearch = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    const baseList = allSearchEvents.length > 0 ? allSearchEvents : events;
+    const filtered = query
+      ? baseList.filter((ev) => ev.eventTitle?.toLowerCase().includes(query))
+      : baseList;
+
+    if (filtered.length === 0) return [];
+
+    const now = new Date();
+    const todayDateOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+
+    // Cửa sổ thời gian bung lặp (-30 ngày đến +90 ngày)
+    const windowStartDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30, 0, 0, 0, 0);
+    const windowEndDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 90, 23, 59, 59, 999);
+
+    const map = new Map<
+      string,
+      {
+        dateKey: string;
+        dateObj: Date;
+        dateLabel: string;
+        isPast: boolean;
+        isToday: boolean;
+        list: CalendarEventEntity[];
+      }
+    >();
+
+    const addEntry = (d: Date, ev: CalendarEventEntity) => {
+      const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      if (!map.has(dateKey)) {
+        const rawWeekday = d.toLocaleDateString('vi-VN', { weekday: 'long' });
+        const weekday = rawWeekday
+          .split(' ')
+          .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+          .join(' ');
+        const day = d.getDate();
+        const monthNum = d.getMonth() + 1;
+        const yearNum = d.getFullYear();
+        const dateLabel = `${weekday}, ngày ${day} tháng ${monthNum} năm ${yearNum}`;
+
+        const gDateOnly = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+        const isToday = gDateOnly === todayDateOnly;
+        const isPast = gDateOnly < todayDateOnly;
+
+        map.set(dateKey, { dateKey, dateObj: d, dateLabel, isPast, isToday, list: [] });
+      }
+
+      if (!map.get(dateKey)!.list.some((e) => e.id === ev.id)) {
+        map.get(dateKey)!.list.push(ev);
+      }
+    };
+
+    for (const ev of filtered) {
+      const { recurrenceConfig } = parseEventRecurrence(ev.description);
+      const isRecurring = Boolean(recurrenceConfig && recurrenceConfig.frequency !== 'none');
+
+      if (!isRecurring) {
+        const startD = new Date(ev.startTime);
+        addEntry(new Date(startD.getFullYear(), startD.getMonth(), startD.getDate()), ev);
+      } else {
+        const cur = new Date(windowStartDate);
+        while (cur.getTime() <= windowEndDate.getTime()) {
+          if (isEventOccurringOnDate(ev, cur, recurrenceConfig)) {
+            const isCancelledThisOcc = isEventCancelledOnDate(ev, cur, recurrenceConfig);
+            const occEvent = isCancelledThisOcc ? { ...ev, isCancelled: true } : ev;
+            addEntry(new Date(cur), occEvent);
+          }
+          cur.setDate(cur.getDate() + 1);
+        }
+      }
+    }
+
+    return Array.from(map.values()).sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime());
+  }, [allSearchEvents, events, searchQuery]);
+
+  const handleScheduleCardRsvp = useCallback(
+    async (ev: CalendarEventEntity, status: EventRsvpStatus) => {
+      Haptics.selectionAsync();
+      const optimisticUpdate = (list: CalendarEventEntity[]) =>
+        list.map((item) => {
+          if (item.id !== ev.id) return item;
+          const curRsvps = item.rsvps || [];
+          const filtered = curRsvps.filter((r) => r.userId !== user?.id);
+          filtered.push({
+            id: `rsvp-${Date.now()}`,
+            eventId: item.id,
+            userId: user?.id || '',
+            status,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            user: user
+              ? {
+                  id: user.id,
+                  email: user.email,
+                  profile: user.profile
+                    ? {
+                        displayName: user.profile.displayName || 'Tôi',
+                        avatarUrl: user.profile.avatarUrl,
+                      }
+                    : null,
+                }
+              : undefined,
+          });
+          return { ...item, rsvps: filtered };
+        });
+
+      setAllSearchEvents(optimisticUpdate);
+      setEvents(optimisticUpdate);
+
+      try {
+        await respondCalendarEventRsvpApi(circleId, ev.id, { status });
+      } catch (err: any) {
+        Alert.alert('Lỗi', err.message || 'Không thể cập nhật bình chọn');
+        loadAllSearchEvents();
+      }
+    },
+    [circleId, user, loadAllSearchEvents],
+  );
+
+  const renderSearchScheduleScreen = () => {
+    return (
+      <View style={[styles.container, { backgroundColor: '#F8FAFC' }]}>
+        {/* Thanh tìm kiếm ở trên đỉnh */}
+        <View
+          style={[
+            styles.searchHeaderContainer,
+            { paddingTop: Math.max(insets.top + 54, Platform.OS === 'ios' ? 88 : 76) },
+          ]}
+        >
+          <View style={styles.searchInputRow}>
+            <View style={styles.searchInputWrapper}>
+              <Search size={18} color="#64748B" style={styles.searchIcon} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Tìm kiếm sự kiện theo tên..."
+                placeholderTextColor="#94A3B8"
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                autoFocus
+                returnKeyType="search"
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity
+                  style={styles.searchClearBtn}
+                  onPress={() => setSearchQuery('')}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <View style={styles.searchClearIconWrap}>
+                    <X size={12} color="#FFFFFF" />
+                  </View>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <TouchableOpacity
+              style={styles.searchCancelBtn}
+              onPress={() => {
+                setIsSearchActive(false);
+                setSearchQuery('');
+                Keyboard.dismiss();
+                Haptics.selectionAsync();
+              }}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Text style={styles.searchCancelText}>Đóng</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Danh sách sự kiện dạng lịch trình */}
+        {isSearchLoading ? (
+          <View style={styles.searchLoadingContainer}>
+            <ActivityIndicator size="small" color="#0D9488" />
+            <Text style={styles.searchLoadingText}>Đang tải lịch hẹn...</Text>
+          </View>
+        ) : groupedScheduleSearch.length === 0 ? (
+          <View style={styles.searchEmptyContainer}>
+            <View style={styles.searchEmptyIconWrap}>
+              <Search size={36} color="#94A3B8" />
+            </View>
+            <Text style={styles.searchEmptyTitle}>
+              {searchQuery.trim()
+                ? 'Không tìm thấy sự kiện phù hợp'
+                : 'Chưa có sự kiện nào trong lịch'}
+            </Text>
+            <Text style={styles.searchEmptySubtitle}>
+              {searchQuery.trim()
+                ? `Không có sự kiện nào chứa từ khóa "${searchQuery.trim()}"`
+                : 'Hãy tạo sự kiện mới để bắt đầu lên lịch cùng nhóm nhé'}
+            </Text>
+          </View>
+        ) : (
+          <ScrollView
+            style={styles.searchScrollView}
+            contentContainerStyle={styles.searchScrollContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+          >
+            {groupedScheduleSearch.map((group) => (
+              <View key={group.dateKey} style={styles.scheduleGroupSection}>
+                {/* Header ngày */}
+                <View style={styles.scheduleDateHeaderRow}>
+                  <Text
+                    style={[
+                      styles.scheduleDateLabel,
+                      group.isToday && styles.scheduleDateLabelToday,
+                    ]}
+                  >
+                    {group.dateLabel}
+                  </Text>
+                  {group.isToday && (
+                    <View style={styles.scheduleTodayBadge}>
+                      <Text style={styles.scheduleTodayBadgeText}>Hôm nay</Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* Danh sách thẻ sự kiện trong ngày */}
+                <View style={styles.scheduleCardsList}>
+                  {group.list.map((ev) => {
+                    const myRsvp = ev.rsvps?.find((r) => r.userId === user?.id)?.status;
+                    const formattedTime = formatEventTimeForDate(ev, group.dateObj);
+
+                    return (
+                      <View
+                        key={`${ev.id}-${group.dateKey}`}
+                        style={[
+                          styles.scheduleCard,
+                          ev.isCancelled && styles.scheduleCardCancelled,
+                        ]}
+                      >
+                        <TouchableOpacity
+                          activeOpacity={0.7}
+                          onPress={() => {
+                            setDetailOccurrenceDate(group.dateObj);
+                            setDetailEvent(ev);
+                          }}
+                        >
+                          {/* Hàng 1: Tiêu đề & Tag Đã Hủy */}
+                          <View style={styles.scheduleCardTopRow}>
+                            <View style={styles.scheduleCardTitleWrap}>
+                              <Text
+                                numberOfLines={1}
+                                style={[
+                                  styles.scheduleCardTitle,
+                                  ev.isCancelled && styles.scheduleCardTitleCancelled,
+                                ]}
+                              >
+                                {ev.eventTitle}
+                              </Text>
+                              {ev.isCancelled && (
+                                <View style={styles.scheduleCancelledBadge}>
+                                  <Text style={styles.scheduleCancelledBadgeText}>ĐÃ HỦY</Text>
+                                </View>
+                              )}
+                            </View>
+                          </View>
+
+                          {/* Hàng 2: Thời gian diễn ra */}
+                          <View style={styles.scheduleMetaRow}>
+                            <Clock size={14} color="#0D9488" style={{ marginRight: 6 }} />
+                            <Text style={styles.scheduleTimeText}>{formattedTime}</Text>
+                          </View>
+
+                          {/* Hàng 3: Địa điểm (nếu có) */}
+                          {Boolean(ev.location) && (
+                            <View style={styles.scheduleMetaRow}>
+                              <MapPin size={14} color="#64748B" style={{ marginRight: 6 }} />
+                              <Text numberOfLines={1} style={styles.scheduleLocationText}>
+                                {ev.location}
+                              </Text>
+                            </View>
+                          )}
+                        </TouchableOpacity>
+
+                        {/* Hàng 4: 3 Nút RSVP nhanh */}
+                        <View style={styles.scheduleRsvpRow}>
+                          {[
+                            {
+                              status: EventRsvpStatus.YES,
+                              label: 'Tham gia',
+                              icon: Check,
+                              activeBg: '#ECFDF5',
+                              activeBorder: '#A7F3D0',
+                              activeColor: '#059669',
+                            },
+                            {
+                              status: EventRsvpStatus.MAYBE,
+                              label: 'Chưa chắc',
+                              icon: HelpCircle,
+                              activeBg: '#FFFBEB',
+                              activeBorder: '#FDE68A',
+                              activeColor: '#D97706',
+                            },
+                            {
+                              status: EventRsvpStatus.NO,
+                              label: 'Bận',
+                              icon: X,
+                              activeBg: '#FEF2F2',
+                              activeBorder: '#FECACA',
+                              activeColor: '#DC2626',
+                            },
+                          ].map((btn) => {
+                            const isSelected = myRsvp === btn.status;
+                            const Icon = btn.icon;
+                            return (
+                              <TouchableOpacity
+                                key={btn.status}
+                                disabled={ev.isCancelled}
+                                activeOpacity={0.7}
+                                onPress={() => handleScheduleCardRsvp(ev, btn.status)}
+                                style={[
+                                  styles.scheduleRsvpBtn,
+                                  isSelected
+                                    ? {
+                                        backgroundColor: btn.activeBg,
+                                        borderColor: btn.activeBorder,
+                                      }
+                                    : styles.scheduleRsvpBtnInactive,
+                                ]}
+                              >
+                                <Icon
+                                  size={12}
+                                  color={isSelected ? btn.activeColor : '#64748B'}
+                                  style={{ marginRight: 4 }}
+                                />
+                                <Text
+                                  style={[
+                                    styles.scheduleRsvpBtnText,
+                                    isSelected
+                                      ? { color: btn.activeColor, fontWeight: '700' }
+                                      : { color: '#64748B', fontWeight: '500' },
+                                  ]}
+                                >
+                                  {btn.label}
+                                </Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+            ))}
+          </ScrollView>
+        )}
+      </View>
+    );
+  };
+
   const renderYearView = () => {
     const today = new Date();
 
@@ -4931,6 +5384,9 @@ const handleOpenEditModal = (ev: CalendarEventEntity, occDate?: Date) => {
               style={styles.appleSearchBtn}
               activeOpacity={0.7}
               onPress={() => {
+                setIsYearView(false);
+                setIsSearchActive(true);
+                loadAllSearchEvents();
                 Haptics.selectionAsync();
               }}
             >
@@ -5060,6 +5516,21 @@ const handleOpenEditModal = (ev: CalendarEventEntity, occDate?: Date) => {
     );
   };
 
+  if (isSearchActive) {
+    return (
+      <View style={styles.container}>
+        {renderSearchScheduleScreen()}
+        {detailEvent && renderDetailScreen()}
+        {renderScopeDeleteModal()}
+        {renderScopeCancelModal()}
+        {renderPollScopeModal()}
+        {renderReminderScopeModal()}
+        {renderReminderConfirmModal()}
+        {renderScopeSaveModal()}
+      </View>
+    );
+  }
+
   if (isYearView) {
     return renderYearView();
   }
@@ -5108,6 +5579,8 @@ const handleOpenEditModal = (ev: CalendarEventEntity, occDate?: Date) => {
             style={styles.appleSearchBtn}
             activeOpacity={0.7}
             onPress={() => {
+              setIsSearchActive(true);
+              loadAllSearchEvents();
               Haptics.selectionAsync();
             }}
           >
@@ -8686,5 +9159,243 @@ appleYearBtn: {
     fontSize: 13,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+
+  // Search Header Styles
+  searchHeaderContainer: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 2,
+    zIndex: 10,
+  },
+  searchInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  searchInputWrapper: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    height: 40,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#0F172A',
+    paddingVertical: 0,
+  },
+  searchClearBtn: {
+    padding: 4,
+    marginLeft: 4,
+  },
+  searchClearIconWrap: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#94A3B8',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  searchCancelBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+  },
+  searchCancelText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#0D9488',
+  },
+
+  // Search Results Loading & Empty
+  searchLoadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  searchLoadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  searchEmptyContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+    paddingVertical: 80,
+  },
+  searchEmptyIconWrap: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  searchEmptyTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1E293B',
+    textAlign: 'center',
+    marginBottom: 6,
+  },
+  searchEmptySubtitle: {
+    fontSize: 13,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+
+  // Schedule View (như ở Web)
+  searchScrollView: {
+    flex: 1,
+  },
+  searchScrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 40,
+  },
+  scheduleGroupSection: {
+    marginBottom: 20,
+  },
+  scheduleDateHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
+  },
+  scheduleDateLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  scheduleDateLabelToday: {
+    color: '#DC2626',
+    fontWeight: '800',
+  },
+  scheduleTodayBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 999,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  scheduleTodayBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#DC2626',
+  },
+  scheduleCardsList: {
+    gap: 10,
+  },
+  scheduleCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  scheduleCardCancelled: {
+    backgroundColor: '#FFF1F2',
+    borderColor: '#FECDD3',
+  },
+  scheduleCardTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  scheduleCardTitleWrap: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  scheduleCardTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+    flexShrink: 1,
+  },
+  scheduleCardTitleCancelled: {
+    color: '#94A3B8',
+    textDecorationLine: 'line-through',
+  },
+  scheduleCancelledBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    backgroundColor: '#FEE2E2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  scheduleCancelledBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#DC2626',
+  },
+  scheduleMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  scheduleTimeText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#0D9488',
+  },
+  scheduleLocationText: {
+    fontSize: 13,
+    color: '#64748B',
+    flex: 1,
+  },
+  scheduleRsvpRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  scheduleRsvpBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  scheduleRsvpBtnInactive: {
+    backgroundColor: '#F8FAFC',
+    borderColor: '#E2E8F0',
+  },
+  scheduleRsvpBtnText: {
+    fontSize: 12,
   },
 });

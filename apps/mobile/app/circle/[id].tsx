@@ -5054,10 +5054,12 @@ export default function CircleWorkspaceScreen() {
                 zIndex: 50,
                 flexDirection: 'row',
                 alignItems: 'center',
-                justifyContent: 'space-between',
+                justifyContent: selectedTool === 'calendar' ? 'flex-start' : 'space-between',
+                gap: 8,
               }}
             >
               {(() => {
+                const isCalendar = selectedTool === 'calendar';
                 const pillBaseStyle = {
                   borderRadius: 999,
                   overflow: 'hidden' as const,
@@ -5079,17 +5081,21 @@ export default function CircleWorkspaceScreen() {
                     style={{
                       flexDirection: 'row',
                       alignItems: 'center',
+                      justifyContent: 'center',
                       gap: 6,
                       minHeight: 36,
+                      minWidth: isCalendar ? 36 : undefined,
                       paddingVertical: 7,
-                      paddingHorizontal: 12,
+                      paddingHorizontal: isCalendar ? 10 : 12,
                     }}
                     accessibilityLabel={t.common.back}
                   >
                     <ArrowLeft size={16} color={colors.text} />
-                    <Text style={{ fontSize: 13, fontWeight: '600', color: colors.text }}>
-                      {t.nav.groupTools}
-                    </Text>
+                    {!isCalendar && (
+                      <Text style={{ fontSize: 13, fontWeight: '600', color: colors.text }}>
+                        {t.nav.groupTools}
+                      </Text>
+                    )}
                   </TouchableOpacity>
                 );
 
@@ -5099,7 +5105,7 @@ export default function CircleWorkspaceScreen() {
                       minHeight: 36,
                       justifyContent: 'center',
                       paddingVertical: 7,
-                      paddingHorizontal: 16,
+                      paddingHorizontal: isCalendar ? 12 : 16,
                       alignItems: 'center',
                     }}
                   >
@@ -5140,6 +5146,7 @@ export default function CircleWorkspaceScreen() {
                 );
 
                 const showTitlePill = selectedTool !== 'anonymous';
+                const showClosePill = !isCalendar;
 
                 if (isGlass) {
                   return (
@@ -5152,9 +5159,11 @@ export default function CircleWorkspaceScreen() {
                           {titlePill}
                         </BlurView>
                       )}
-                      <BlurView intensity={glassTheme.blur.intensity} tint={glassTheme.blur.tint} style={pillBaseStyle}>
-                        {closePill}
-                      </BlurView>
+                      {showClosePill && (
+                        <BlurView intensity={glassTheme.blur.intensity} tint={glassTheme.blur.tint} style={pillBaseStyle}>
+                          {closePill}
+                        </BlurView>
+                      )}
                     </>
                   );
                 }
@@ -5163,7 +5172,7 @@ export default function CircleWorkspaceScreen() {
                   <>
                     <View style={pillBaseStyle}>{backPill}</View>
                     {showTitlePill && <View style={pillBaseStyle}>{titlePill}</View>}
-                    <View style={pillBaseStyle}>{closePill}</View>
+                    {showClosePill && <View style={pillBaseStyle}>{closePill}</View>}
                   </>
                 );
               })()}
