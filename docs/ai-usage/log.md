@@ -8368,3 +8368,42 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 - **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
 - **Commit:** f7feb75
 - **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
+
+
+## AI-0207: Hợp Nhất Bộ Lọc, Menu 3 Chấm Album Và Tìm Kiếm Thu Gọn Trên Mobile Media Hub (#120)
+
+- **Date:** 2026-11-16 12:00:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120
+- **Purpose:** Tối ưu hóa UI/UX Media Hub và Chi tiết Album trên Mobile theo yêu cầu người dùng:
+  1. **Hợp Nhất Bộ Lọc Vào Nút Lọc Duy Nhất (Unified Filter Modal):**
+     - Gom tất cả các tùy chọn lọc rời rạc (Loại file, Người gửi, Ngày gửi) vào một nút Lọc (`Filter` icon) duy nhất.
+     - Khi nhấn nút Lọc, mở Modal bộ lọc hợp nhất trực quan gồm: Lọc theo người gửi (chips), Lọc theo khoảng ngày (lịch tương tác), và Lọc theo loại tệp (tất cả, pdf, docs, sheets, zips,...).
+     - Hỗ trợ nút "Đặt lại" để xóa nhanh bộ lọc và nút "Áp dụng".
+  2. **Icon Tìm Kiếm Bằng Hình Ảnh Mới (`ScanSearch`):**
+     - Thay đổi biểu tượng tìm kiếm bằng hình ảnh từ `Camera` sang `ScanSearch` (kính lúp quét) để chống nhầm lẫn với tính năng chụp ảnh hoặc tải ảnh lên.
+  3. **Ẩn Thanh Tìm Kiếm Text Ở Tab "File Phương Tiện":**
+     - Ở tab `media` (Ảnh/Video), ẩn thanh tìm kiếm text để giải phóng tối đa không gian màn hình, chỉ hiển thị nút tìm kiếm bằng hình ảnh (`ScanSearch`) và nút Lọc (`Filter`). Thanh tìm kiếm văn bản chỉ hiển thị ở tab `links` và `files`.
+  4. **Tối Giản Hóa Header Chi Tiết Album (3-Dot Action Menu & Expandable Search):**
+     - Gom toàn bộ các nút thao tác quản lý: "Đổi tên album", "Chọn ảnh" (chế độ chọn nhiều) và "Xóa album" vào một nút 3 chấm dọc (`MoreVertical`). Nhấn vào sẽ mở Action Sheet menu.
+     - Tích hợp nút Lọc (`Filter`) tương tự như bên ngoài để lọc ảnh trong album theo người gửi và ngày đăng.
+     - Tối ưu hóa tìm kiếm trong album: chỉ hiển thị biểu tượng kính lúp (`Search`). Khi chạm vào mới bung thanh tìm kiếm xuống bên dưới.
+- **Files Affected:**
+  - `apps/mobile/src/components/tools/MobileAlbumsView.tsx`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% logic hợp nhất filter modal, dynamic search toggling, 3-dots action sheet, icon migration, và i18n keys.
+- **Human Modifications:** Người dùng yêu cầu gom tất cả chỗ lọc vào nút lọc, đổi icon tìm kiếm bằng hình ảnh để chống nhầm lẫn, ẩn thanh tìm kiếm ở file phương tiện, gom đổi tên/xoá/chọn trong chi tiết album vào nút 3 chấm và tìm kiếm chỉ hiện icon khi ấn mới ra.
+- **Verification Method:**
+  - `npm run build --workspace=@circle/shared`: Passed 100%.
+  - `npx tsc -p apps/mobile/tsconfig.json --noEmit`: Passed (0 errors).
+  - `npx tsc -p apps/web/tsconfig.json --noEmit`: Passed (0 errors).
+  - `bash ./scripts/check-agent-map.sh`: Passed (all references resolve).
+  - `bash ./scripts/check-secrets.sh`: Passed (601 files checked, 0 secret leaks).
+- **Official Source Checked:** `PROJECT_GOD.md` §2.2, `agentic/playbooks/cross-cutting-gate.md` (Web/Mobile parity, Ergonomics).
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
+- **Commit:** 221353d
+- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)

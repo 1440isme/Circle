@@ -16,7 +16,6 @@ import {
   Linking,
   Alert,
 } from 'react-native';
-import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
@@ -37,12 +36,13 @@ import {
   ExternalLink,
   Download,
   Search,
-  Camera,
   Filter,
   Pencil,
   ChevronLeft,
   ChevronRight,
   CheckSquare,
+  MoreVertical,
+  ScanSearch,
 } from 'lucide-react-native';
 import {
   getAlbumsApi,
@@ -57,7 +57,6 @@ import {
 import { uploadMobileMedia } from '../../services/storage-upload.service';
 import { SharedAlbumEntity, PhotoEntity, MediaHubResponse } from '@circle/types';
 import { useThemeStore } from '../../stores/theme.store';
-import { getGlassTheme } from '../../constants/glass-theme';
 import { useLanguageStore } from '../../stores/language.store';
 import { copyTextSafe } from '../../utils/clipboard';
 
@@ -70,10 +69,8 @@ type HubTab = 'media' | 'links' | 'files';
 type FileTypeFilter = 'ALL' | 'PDF' | 'WORD' | 'EXCEL' | 'CANVA' | 'ARCHIVES' | 'OTHER';
 
 export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, onBack }) => {
-  const { colors, resolvedTheme, uiStyle } = useThemeStore();
+  const { colors, resolvedTheme } = useThemeStore();
   const isDark = resolvedTheme === 'dark';
-  const isGlass = uiStyle === 'glass';
-  const glassTheme = useMemo(() => getGlassTheme(isDark, uiStyle), [isDark, uiStyle]);
   const { t, locale } = useLanguageStore();
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -81,11 +78,11 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
   const dateLocale = locale === 'vi' ? 'vi-VN' : 'en-US';
   const styles = useMemo(() => createStyles(colors, isDark, photoSize), [colors, isDark, photoSize]);
 
-  // Top header and bottom dock clearances
+  // Clearances
   const topHeaderTop = Math.max(insets.top + 8, 16);
   const bottomDockBottom = Math.max(insets.bottom + 10, 16);
 
-  // Albums & Media state
+  // Albums & Media Hub state
   const [albums, setAlbums] = useState<SharedAlbumEntity[]>([]);
   const [selectedAlbum, setSelectedAlbum] = useState<SharedAlbumEntity | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -105,13 +102,6 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
   const [selectedHubPhoto, setSelectedHubPhoto] = useState<any | null>(null);
   const photos = selectedAlbum?.photos || [];
   const selectedPhoto = selectedPhotoIndex !== null ? photos[selectedPhotoIndex] : null;
-  const setSelectedPhoto = (photo: PhotoEntity | null) => {
-    if (!photo) setSelectedPhotoIndex(null);
-    else {
-      const idx = photos.findIndex((p) => p.id === photo.id);
-      setSelectedPhotoIndex(idx >= 0 ? idx : 0);
-    }
-  };
 
   // Inline feedback & notice banner
   const [statusNotice, setStatusNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -127,43 +117,67 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
   const [formError, setFormError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
 
-  // Global Hub Filters (Search, Sender, Date Range, File Type)
+  // =========================================================================
+  // GOM CHUNG TẤT CẢ BỘ LỌC (FILE TYPE, SENDER, DATE) VÀO 1 NÚT LỌC DUY NHẤT
+  // =========================================================================
+  const [isUnifiedFilterModalOpen, setIsUnifiedFilterModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSenderId, setSelectedSenderId] = useState<string>('ALL');
-  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+  const [draftSenderId, setDraftSenderId] = useState<string>('ALL');
   const [senderSearchQuery, setSenderSearchQuery] = useState('');
 
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-  const [isDateModalOpen, setIsDateModalOpen] = useState(false);
   const [draftFrom, setDraftFrom] = useState('');
   const [draftTo, setDraftTo] = useState('');
   const [activeDateField, setActiveDateField] = useState<'from' | 'to'>('from');
   const [pickerMonth, setPickerMonth] = useState(() => new Date());
 
   const [selectedFileType, setSelectedFileType] = useState<FileTypeFilter>('ALL');
+  const [draftFileType, setDraftFileType] = useState<FileTypeFilter>('ALL');
 
-  // Album Detail Inner State (In-place Rename, Multi-select, Search & Filter in Album)
-  const [isEditingAlbumTitle, setIsEditingAlbumTitle] = useState(false);
-  const [editingAlbumTitleText, setEditingAlbumTitleText] = useState('');
+  // Check if any filter is active in Media Hub
+  const hasActiveFilters = useMemo(() => {
+    return (
+      selectedSenderId !== 'ALL' ||
+      Boolean(dateFrom) ||
+      Boolean(dateTo) ||
+      (activeTab === 'files' && selectedFileType !== 'ALL')
+    );
+  }, [selectedSenderId, dateFrom, dateTo, activeTab, selectedFileType]);
+
+  // =========================================================================
+  // CHI TIẾT ALBUM: 3 CHẤM DỌC (ĐỔI TÊN, XÓA, CHỌN) + BỘ LỌC + TÌM KIẾM EXPANDABLE
+  // =========================================================================
+  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
+  const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
+  const [renameTitleDraft, setRenameTitleDraft] = useState('');
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedPhotoIds, setSelectedPhotoIds] = useState<Set<string>>(new Set());
   const [isBatchDeleting, setIsBatchDeleting] = useState(false);
 
+  // Search inside album (chỉ mở ra khi ấn vào icon tìm kiếm)
+  const [isAlbumSearchOpen, setIsAlbumSearchOpen] = useState(false);
   const [albumSearchQuery, setAlbumSearchQuery] = useState('');
+
+  // Filter inside album (bộ lọc như ở ngoài)
+  const [isAlbumFilterModalOpen, setIsAlbumFilterModalOpen] = useState(false);
   const [selectedAlbumSenderId, setSelectedAlbumSenderId] = useState<string>('ALL');
-  const [isAlbumSenderModalOpen, setIsAlbumSenderModalOpen] = useState(false);
+  const [draftAlbumSenderId, setDraftAlbumSenderId] = useState<string>('ALL');
   const [albumSenderSearchQuery, setAlbumSenderSearchQuery] = useState('');
 
   const [albumDateFrom, setAlbumDateFrom] = useState('');
   const [albumDateTo, setAlbumDateTo] = useState('');
-  const [isAlbumDateModalOpen, setIsAlbumDateModalOpen] = useState(false);
   const [albumDraftFrom, setAlbumDraftFrom] = useState('');
   const [albumDraftTo, setAlbumDraftTo] = useState('');
   const [albumActiveDateField, setAlbumActiveDateField] = useState<'from' | 'to'>('from');
   const [albumPickerMonth, setAlbumPickerMonth] = useState(() => new Date());
 
-  // Extract unique senders across media hub
+  const hasActiveAlbumFilters = useMemo(() => {
+    return selectedAlbumSenderId !== 'ALL' || Boolean(albumDateFrom) || Boolean(albumDateTo);
+  }, [selectedAlbumSenderId, albumDateFrom, albumDateTo]);
+
+  // Extract unique senders in Media Hub
   const uniqueSenders = useMemo(() => {
     const map = new Map<string, { id: string; name: string }>();
     albums.forEach((alb) => {
@@ -205,7 +219,7 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
     return Array.from(map.values());
   }, [albums, mediaItems, linkItems, fileItems, t]);
 
-  // Extract senders inside current album
+  // Extract senders in current Album
   const albumSenders = useMemo(() => {
     const map = new Map<string, { id: string; name: string }>();
     (selectedAlbum?.photos || []).forEach((p) => {
@@ -220,7 +234,7 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
     return Array.from(map.values());
   }, [selectedAlbum, t]);
 
-  // Helper: check if a date string falls within [fromStr, toStr]
+  // Helper: check if date falls within [f, to]
   const isWithinDateRange = (dateInput?: string | Date | null, fromStr?: string, toStr?: string) => {
     const f = fromStr !== undefined ? fromStr : dateFrom;
     const to = toStr !== undefined ? toStr : dateTo;
@@ -248,7 +262,7 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
       if (!isWithinDateRange(alb.updatedAt || alb.createdAt)) {
         return false;
       }
-      if (searchQuery.trim()) {
+      if (activeTab !== 'media' && searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         return (
           alb.albumTitle.toLowerCase().includes(q) ||
@@ -262,7 +276,7 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
       const timeB = new Date(b.updatedAt).getTime();
       return timeB - timeA;
     });
-  }, [albums, selectedSenderId, dateFrom, dateTo, searchQuery]);
+  }, [albums, selectedSenderId, dateFrom, dateTo, searchQuery, activeTab]);
 
   // Filtered Media in Hub
   const filteredMediaItems = useMemo(() => {
@@ -273,13 +287,6 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
       if (!isWithinDateRange(item.createdAt)) {
         return false;
       }
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        return (
-          (item.caption && item.caption.toLowerCase().includes(q)) ||
-          (item.fileName && item.fileName.toLowerCase().includes(q))
-        );
-      }
       return true;
     });
     return result.sort((a, b) => {
@@ -287,7 +294,7 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
       const timeB = new Date(b.createdAt || '').getTime();
       return timeB - timeA;
     });
-  }, [mediaItems, selectedSenderId, dateFrom, dateTo, searchQuery]);
+  }, [mediaItems, selectedSenderId, dateFrom, dateTo]);
 
   // Filtered Links in Hub
   const filteredLinkItems = useMemo(() => {
@@ -350,7 +357,7 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
     });
   }, [fileItems, selectedSenderId, dateFrom, dateTo, selectedFileType, searchQuery]);
 
-  // Filtered Photos inside Selected Album
+  // Filtered Photos in Album
   const filteredAlbumPhotos = useMemo(() => {
     if (!selectedAlbum?.photos) return [];
     return selectedAlbum.photos.filter((p) => {
@@ -360,7 +367,7 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
       if (!isWithinDateRange(p.createdAt, albumDateFrom, albumDateTo)) {
         return false;
       }
-      if (albumSearchQuery.trim()) {
+      if (isAlbumSearchOpen && albumSearchQuery.trim()) {
         const q = albumSearchQuery.toLowerCase();
         const uploaderName = p.uploader?.user?.profile?.displayName?.toLowerCase() || '';
         const caption = p.caption?.toLowerCase() || '';
@@ -368,7 +375,7 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
       }
       return true;
     });
-  }, [selectedAlbum, selectedAlbumSenderId, albumDateFrom, albumDateTo, albumSearchQuery]);
+  }, [selectedAlbum, selectedAlbumSenderId, albumDateFrom, albumDateTo, isAlbumSearchOpen, albumSearchQuery]);
 
   const showNotice = (message: string, type: 'success' | 'error' = 'success') => {
     if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
@@ -414,6 +421,7 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
       setAlbumDateFrom('');
       setAlbumDateTo('');
       setAlbumSearchQuery('');
+      setIsAlbumSearchOpen(false);
       setIsSelectionMode(false);
       setSelectedPhotoIds(new Set());
     } catch (err: any) {
@@ -423,7 +431,7 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
     }
   };
 
-  // Create album (only Album Name, description removed per user requirement)
+  // Create album (Tên Album only)
   const handleCreateAlbum = async () => {
     if (!albumTitle.trim()) {
       setFormError(t.collab.enterAlbumNameError);
@@ -445,12 +453,12 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
     }
   };
 
-  // In-place rename album title
-  const handleSaveAlbumTitle = async () => {
+  // Confirm rename album
+  const handleConfirmRenameAlbum = async () => {
     if (!selectedAlbum) return;
-    const trimmed = editingAlbumTitleText.trim();
+    const trimmed = renameTitleDraft.trim();
     if (!trimmed || trimmed === selectedAlbum.albumTitle) {
-      setIsEditingAlbumTitle(false);
+      setIsRenameModalOpen(false);
       return;
     }
     try {
@@ -459,12 +467,11 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
         description: selectedAlbum.description || undefined,
       });
       setSelectedAlbum((prev) => (prev ? { ...prev, albumTitle: trimmed } : null));
+      setIsRenameModalOpen(false);
       showNotice(t.collab.editAlbumSave || 'Đã lưu thay đổi!', 'success');
       loadAlbums();
     } catch (err: any) {
       showNotice(err?.message || (t.collab.renameAlbumError || 'Không thể đổi tên album'), 'error');
-    } finally {
-      setIsEditingAlbumTitle(false);
     }
   };
 
@@ -564,9 +571,10 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
   const handleBatchDeletePhotos = () => {
     if (selectedPhotoIds.size === 0 || !selectedAlbum) return;
     const count = selectedPhotoIds.size;
-    const confirmMsg = t.collab.batchDeletePhotosConfirm
-      ? t.collab.batchDeletePhotosConfirm.replace('{count}', String(count))
-      : `Bạn có chắc chắn muốn xóa ${count} ảnh đã chọn khỏi album này?`;
+    const confirmMsg = (t.collab.batchDeletePhotosConfirm || 'Bạn có chắc chắn muốn xóa {count} ảnh đã chọn khỏi album này?').replace(
+      '{count}',
+      String(count),
+    );
 
     Alert.alert(
       t.collab.deletePhotoTitle,
@@ -610,7 +618,7 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
     );
   };
 
-  // Reverse Image Search / Camera button
+  // Visual Image Search (ScanSearch icon)
   const handleImageSearch = async () => {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -670,7 +678,6 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
       </View>
     ) : null;
 
-  // Calendar Day Pad
   const pad = (n: number) => (n < 10 ? `0${n}` : `${n}`);
   const formatShortDate = (dStr: string) => {
     if (!dStr) return '';
@@ -679,10 +686,59 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
     return dStr;
   };
 
-  // Reusable Calendar Picker Modal
-  const renderCalendarPickerModal = (
-    visible: boolean,
-    onClose: () => void,
+  // Open Unified Filter Modal (init drafts)
+  const handleOpenUnifiedFilterModal = () => {
+    setDraftSenderId(selectedSenderId);
+    setDraftFrom(dateFrom);
+    setDraftTo(dateTo);
+    setDraftFileType(selectedFileType);
+    setActiveDateField('from');
+    setIsUnifiedFilterModalOpen(true);
+  };
+
+  // Apply Unified Filters in Hub
+  const handleApplyUnifiedFilters = () => {
+    setSelectedSenderId(draftSenderId);
+    setDateFrom(draftFrom);
+    setDateTo(draftTo);
+    setSelectedFileType(draftFileType);
+    setIsUnifiedFilterModalOpen(false);
+  };
+
+  // Reset Unified Filters
+  const handleResetUnifiedFilters = () => {
+    setDraftSenderId('ALL');
+    setDraftFrom('');
+    setDraftTo('');
+    setDraftFileType('ALL');
+  };
+
+  // Open Album Filter Modal (init drafts)
+  const handleOpenAlbumFilterModal = () => {
+    setDraftAlbumSenderId(selectedAlbumSenderId);
+    setAlbumDraftFrom(albumDateFrom);
+    setAlbumDraftTo(albumDateTo);
+    setAlbumActiveDateField('from');
+    setIsAlbumFilterModalOpen(true);
+  };
+
+  // Apply Album Filters
+  const handleApplyAlbumFilters = () => {
+    setSelectedAlbumSenderId(draftAlbumSenderId);
+    setAlbumDateFrom(albumDraftFrom);
+    setAlbumDateTo(albumDraftTo);
+    setIsAlbumFilterModalOpen(false);
+  };
+
+  // Reset Album Filters
+  const handleResetAlbumFilters = () => {
+    setDraftAlbumSenderId('ALL');
+    setAlbumDraftFrom('');
+    setAlbumDraftTo('');
+  };
+
+  // Render Calendar Sub-component for Filter Modals
+  const renderCalendarPicker = (
     dFrom: string,
     setDFrom: (s: string) => void,
     dTo: string,
@@ -691,7 +747,6 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
     setActField: (f: 'from' | 'to') => void,
     pMonth: Date,
     setPMonth: React.Dispatch<React.SetStateAction<Date>>,
-    onApply: (f: string, t: string) => void,
   ) => {
     const year = pMonth.getFullYear();
     const month = pMonth.getMonth(); // 0-11
@@ -719,343 +774,129 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
     };
 
     return (
-      <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-        <View style={styles.modalBackdrop}>
-          <View
+      <View style={{ marginTop: 6 }}>
+        {/* From / To Date Selection Tabs */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => setActField('from')}
             style={[
-              styles.dateModalCard,
-              {
-                backgroundColor: colors.surface,
-                borderColor: colors.hairline,
-                paddingBottom: Math.max(insets.bottom + 16, 20),
-              },
+              styles.dateFieldBtn,
+              actField === 'from'
+                ? { borderColor: colors.primary, backgroundColor: isDark ? 'rgba(13,148,136,0.18)' : 'rgba(13,148,136,0.08)' }
+                : { borderColor: colors.hairline, backgroundColor: colors.canvas },
             ]}
           >
-            {/* Header */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-              <Text style={{ fontSize: 15, fontWeight: '700', color: colors.text }}>
-                {t.collab.filterDateTitle}
-              </Text>
-              <TouchableOpacity onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <X size={18} color={colors.subtle} />
-              </TouchableOpacity>
+            <Text style={{ fontSize: 11, color: colors.subtle, fontWeight: '600' }}>
+              {t.collab.filterDateFrom}:
+            </Text>
+            <Text style={{ fontSize: 12, fontWeight: '700', color: dFrom ? colors.text : colors.subtle }}>
+              {dFrom ? formatShortDate(dFrom) : t.collab.filterDateFrom}
+            </Text>
+          </TouchableOpacity>
+
+          <Text style={{ fontSize: 12, color: colors.subtle, fontWeight: '700' }}>—</Text>
+
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => setActField('to')}
+            style={[
+              styles.dateFieldBtn,
+              actField === 'to'
+                ? { borderColor: colors.primary, backgroundColor: isDark ? 'rgba(13,148,136,0.18)' : 'rgba(13,148,136,0.08)' }
+                : { borderColor: colors.hairline, backgroundColor: colors.canvas },
+            ]}
+          >
+            <Text style={{ fontSize: 11, color: colors.subtle, fontWeight: '600' }}>
+              {t.collab.filterDateTo}:
+            </Text>
+            <Text style={{ fontSize: 12, fontWeight: '700', color: dTo ? formatShortDate(dTo) : colors.subtle }}>
+              {dTo ? formatShortDate(dTo) : t.collab.filterDateTo}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Month Navigation */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, paddingHorizontal: 4 }}>
+          <TouchableOpacity
+            onPress={() => setPMonth((p) => new Date(p.getFullYear(), p.getMonth() - 1, 1))}
+            style={{ padding: 4, borderRadius: 8, backgroundColor: colors.wash }}
+          >
+            <ChevronLeft size={16} color={colors.text} />
+          </TouchableOpacity>
+          <Text style={{ fontSize: 12, fontWeight: '700', color: colors.text }}>
+            {locale === 'vi' ? `Tháng ${pad(month + 1)}, ${year}` : `Month ${pad(month + 1)}, ${year}`}
+          </Text>
+          <TouchableOpacity
+            onPress={() => setPMonth((p) => new Date(p.getFullYear(), p.getMonth() + 1, 1))}
+            style={{ padding: 4, borderRadius: 8, backgroundColor: colors.wash }}
+          >
+            <ChevronRight size={16} color={colors.text} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Weekdays Row */}
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+          {weekdays.map((w) => (
+            <View key={w} style={{ width: (width - 76) / 7, alignItems: 'center' }}>
+              <Text style={{ fontSize: 10, fontWeight: '700', color: colors.subtle }}>{w}</Text>
             </View>
+          ))}
+        </View>
 
-            {/* From / To Date Selection Tabs */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+        {/* Days Grid */}
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-start' }}>
+          {Array.from({ length: firstDayIndex }).map((_, i) => (
+            <View key={`blank-${i}`} style={{ width: (width - 76) / 7, height: 30 }} />
+          ))}
+          {Array.from({ length: daysInMonth }).map((_, i) => {
+            const day = i + 1;
+            const dayKey = `${year}-${pad(month + 1)}-${pad(day)}`;
+            const isFrom = dayKey === dFrom;
+            const isTo = dayKey === dTo;
+            const isSelected = isFrom || isTo;
+            const isInRange = Boolean(dFrom && dTo && dayKey > dFrom && dayKey < dTo);
+
+            return (
               <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={() => setActField('from')}
-                style={[
-                  styles.dateFieldBtn,
-                  actField === 'from'
-                    ? { borderColor: colors.primary, backgroundColor: isDark ? 'rgba(13,148,136,0.18)' : 'rgba(13,148,136,0.08)' }
-                    : { borderColor: colors.hairline, backgroundColor: colors.canvas },
-                ]}
+                key={dayKey}
+                activeOpacity={0.7}
+                onPress={() => handleSelectDay(day)}
+                style={{
+                  width: (width - 76) / 7,
+                  height: 30,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
               >
-                <Text style={{ fontSize: 11, color: colors.subtle, fontWeight: '600' }}>
-                  {t.collab.filterDateFrom}:
-                </Text>
-                <Text style={{ fontSize: 12, fontWeight: '700', color: dFrom ? colors.text : colors.subtle }}>
-                  {dFrom ? formatShortDate(dFrom) : t.collab.filterDateFrom}
-                </Text>
-              </TouchableOpacity>
-
-              <Text style={{ fontSize: 12, color: colors.subtle, fontWeight: '700' }}>—</Text>
-
-              <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={() => setActField('to')}
-                style={[
-                  styles.dateFieldBtn,
-                  actField === 'to'
-                    ? { borderColor: colors.primary, backgroundColor: isDark ? 'rgba(13,148,136,0.18)' : 'rgba(13,148,136,0.08)' }
-                    : { borderColor: colors.hairline, backgroundColor: colors.canvas },
-                ]}
-              >
-                <Text style={{ fontSize: 11, color: colors.subtle, fontWeight: '600' }}>
-                  {t.collab.filterDateTo}:
-                </Text>
-                <Text style={{ fontSize: 12, fontWeight: '700', color: dTo ? formatShortDate(dTo) : colors.subtle }}>
-                  {dTo ? formatShortDate(dTo) : t.collab.filterDateTo}
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Month Navigation */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, paddingHorizontal: 4 }}>
-              <TouchableOpacity
-                onPress={() => setPMonth((p) => new Date(p.getFullYear(), p.getMonth() - 1, 1))}
-                style={{ padding: 6, borderRadius: 8, backgroundColor: colors.wash }}
-              >
-                <ChevronLeft size={16} color={colors.text} />
-              </TouchableOpacity>
-              <Text style={{ fontSize: 13, fontWeight: '700', color: colors.text }}>
-                {locale === 'vi' ? `Tháng ${pad(month + 1)}, ${year}` : `Month ${pad(month + 1)}, ${year}`}
-              </Text>
-              <TouchableOpacity
-                onPress={() => setPMonth((p) => new Date(p.getFullYear(), p.getMonth() + 1, 1))}
-                style={{ padding: 6, borderRadius: 8, backgroundColor: colors.wash }}
-              >
-                <ChevronRight size={16} color={colors.text} />
-              </TouchableOpacity>
-            </View>
-
-            {/* Weekdays Row */}
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-              {weekdays.map((w) => (
-                <View key={w} style={{ width: (width - 76) / 7, alignItems: 'center' }}>
-                  <Text style={{ fontSize: 11, fontWeight: '700', color: colors.subtle }}>{w}</Text>
-                </View>
-              ))}
-            </View>
-
-            {/* Days Grid */}
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-start' }}>
-              {Array.from({ length: firstDayIndex }).map((_, i) => (
-                <View key={`blank-${i}`} style={{ width: (width - 76) / 7, height: 34 }} />
-              ))}
-              {Array.from({ length: daysInMonth }).map((_, i) => {
-                const day = i + 1;
-                const dayKey = `${year}-${pad(month + 1)}-${pad(day)}`;
-                const isFrom = dayKey === dFrom;
-                const isTo = dayKey === dTo;
-                const isSelected = isFrom || isTo;
-                const isInRange = Boolean(dFrom && dTo && dayKey > dFrom && dayKey < dTo);
-
-                return (
-                  <TouchableOpacity
-                    key={dayKey}
-                    activeOpacity={0.7}
-                    onPress={() => handleSelectDay(day)}
-                    style={{
-                      width: (width - 76) / 7,
-                      height: 34,
+                <View
+                  style={[
+                    {
+                      width: 26,
+                      height: 26,
+                      borderRadius: 13,
                       alignItems: 'center',
                       justifyContent: 'center',
-                    }}
-                  >
-                    <View
-                      style={[
-                        {
-                          width: 30,
-                          height: 30,
-                          borderRadius: 15,
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        },
-                        isSelected && { backgroundColor: colors.primary },
-                        isInRange && { backgroundColor: isDark ? 'rgba(13,148,136,0.22)' : 'rgba(13,148,136,0.12)' },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          { fontSize: 12, fontWeight: '600', color: colors.text },
-                          isSelected && { color: '#FFFFFF', fontWeight: '700' },
-                          isInRange && { color: colors.primary, fontWeight: '700' },
-                        ]}
-                      >
-                        {day}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            {/* Footer Buttons: Xóa on left, Xong on right */}
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                marginTop: 14,
-                paddingTop: 10,
-                borderTopWidth: StyleSheet.hairlineWidth,
-                borderTopColor: colors.hairline,
-              }}
-            >
-              <TouchableOpacity
-                onPress={() => {
-                  setDFrom('');
-                  setDTo('');
-                }}
-                style={{ paddingVertical: 8, paddingHorizontal: 12 }}
-              >
-                <Text style={{ fontSize: 13, fontWeight: '600', color: colors.danger }}>
-                  {t.common.clear || 'Xóa'}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => onApply(dFrom, dTo)}
-                style={{
-                  backgroundColor: colors.primary,
-                  paddingVertical: 8,
-                  paddingHorizontal: 20,
-                  borderRadius: 999,
-                }}
-              >
-                <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFFFF' }}>
-                  {t.common.done || 'Xong'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-    );
-  };
-
-  // Reusable Sender Filter Modal
-  const renderSenderFilterModal = (
-    visible: boolean,
-    onClose: () => void,
-    senderList: { id: string; name: string }[],
-    currentSenderId: string,
-    onSelectSender: (sId: string) => void,
-    searchVal: string,
-    setSearchVal: (s: string) => void,
-  ) => {
-    const filteredSenders = senderList.filter((s) =>
-      s.name.toLowerCase().includes(searchVal.trim().toLowerCase()),
-    );
-
-    return (
-      <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-        <TouchableOpacity
-          activeOpacity={1}
-          onPress={onClose}
-          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}
-        >
-          <View
-            style={{
-              backgroundColor: colors.surface,
-              borderTopLeftRadius: 24,
-              borderTopRightRadius: 24,
-              padding: 20,
-              paddingBottom: Math.max(insets.bottom + 16, 24),
-              maxHeight: '65%',
-            }}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-              <Text style={{ fontSize: 16, fontWeight: '700', color: colors.text }}>
-                {t.collab.filterBySender}
-              </Text>
-              <TouchableOpacity onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <X size={18} color={colors.subtle} />
-              </TouchableOpacity>
-            </View>
-
-            {/* Search sender input */}
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                backgroundColor: colors.canvas,
-                borderRadius: 12,
-                borderWidth: StyleSheet.hairlineWidth,
-                borderColor: colors.hairline,
-                paddingHorizontal: 10,
-                height: 38,
-                marginBottom: 12,
-                gap: 6,
-              }}
-            >
-              <Search size={14} color={colors.subtle} />
-              <TextInput
-                value={searchVal}
-                onChangeText={setSearchVal}
-                placeholder={t.collab.searchSendersPlaceholder}
-                placeholderTextColor={colors.subtle}
-                style={{ flex: 1, fontSize: 13, color: colors.text, paddingVertical: 0 }}
-              />
-              {searchVal.length > 0 && (
-                <TouchableOpacity onPress={() => setSearchVal('')}>
-                  <X size={13} color={colors.subtle} />
-                </TouchableOpacity>
-              )}
-            </View>
-
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {/* Option: ALL */}
-              <TouchableOpacity
-                onPress={() => {
-                  onSelectSender('ALL');
-                  onClose();
-                }}
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  paddingVertical: 12,
-                  borderBottomWidth: StyleSheet.hairlineWidth,
-                  borderBottomColor: colors.hairline,
-                }}
-              >
-                <Text
-                  style={{
-                    fontSize: 14,
-                    fontWeight: currentSenderId === 'ALL' ? '700' : '500',
-                    color: currentSenderId === 'ALL' ? colors.primary : colors.text,
-                  }}
+                    },
+                    isSelected && { backgroundColor: colors.primary },
+                    isInRange && { backgroundColor: isDark ? 'rgba(13,148,136,0.22)' : 'rgba(13,148,136,0.12)' },
+                  ]}
                 >
-                  {t.collab.filterAllSenders}
-                </Text>
-                {currentSenderId === 'ALL' && <Check size={16} color={colors.primary} />}
-              </TouchableOpacity>
-
-              {/* Sender items */}
-              {filteredSenders.map((sender) => {
-                const isSelected = currentSenderId === sender.id;
-                return (
-                  <TouchableOpacity
-                    key={sender.id}
-                    onPress={() => {
-                      onSelectSender(sender.id);
-                      onClose();
-                    }}
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      paddingVertical: 12,
-                      borderBottomWidth: StyleSheet.hairlineWidth,
-                      borderBottomColor: colors.hairline,
-                    }}
+                  <Text
+                    style={[
+                      { fontSize: 11, fontWeight: '600', color: colors.text },
+                      isSelected && { color: '#FFFFFF', fontWeight: '700' },
+                      isInRange && { color: colors.primary, fontWeight: '700' },
+                    ]}
                   >
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                      <View
-                        style={{
-                          width: 32,
-                          height: 32,
-                          borderRadius: 16,
-                          backgroundColor: isDark ? 'rgba(13,148,136,0.2)' : 'rgba(13,148,136,0.1)',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        }}
-                      >
-                        <Text style={{ fontSize: 13, fontWeight: '700', color: colors.primary }}>
-                          {sender.name.charAt(0).toUpperCase()}
-                        </Text>
-                      </View>
-                      <Text
-                        style={{
-                          fontSize: 14,
-                          fontWeight: isSelected ? '700' : '500',
-                          color: isSelected ? colors.primary : colors.text,
-                        }}
-                      >
-                        {sender.name}
-                      </Text>
-                    </View>
-                    {isSelected && <Check size={16} color={colors.primary} />}
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </View>
-        </TouchableOpacity>
-      </Modal>
+                    {day}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </View>
     );
   };
 
@@ -1075,7 +916,7 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
       <View style={[styles.container, { backgroundColor: colors.canvas }]}>
         {renderNoticeBanner()}
 
-        {/* Pinned Top Header Row for Album Detail */}
+        {/* Pinned Top Header Row in Album Detail */}
         <View
           pointerEvents="box-none"
           style={{
@@ -1087,9 +928,9 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
             gap: 8,
           }}
         >
-          {/* Row 1: Back Button + Editable Title + Chọn + Thêm + Xóa */}
+          {/* Row 1: Back + Album Title + Search Icon + Filter + Thêm ảnh + 3 Dots (More) */}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            {/* Back button (< icon only) */}
+            {/* Back button */}
             <TouchableOpacity
               activeOpacity={0.7}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -1109,133 +950,97 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
               <ArrowLeft size={16} color={colors.text} />
             </TouchableOpacity>
 
-            {/* Inline Editable Album Title */}
-            <View
-              style={{
-                flex: 1,
-                height: 36,
-                borderRadius: 18,
-                backgroundColor: isDark ? 'rgba(29, 29, 33, 0.92)' : 'rgba(255, 255, 255, 0.94)',
-                borderWidth: StyleSheet.hairlineWidth,
-                borderColor: isEditingAlbumTitle ? colors.primary : (isDark ? 'rgba(255, 255, 255, 0.12)' : colors.hairline),
-                flexDirection: 'row',
-                alignItems: 'center',
-                paddingHorizontal: 12,
-                gap: 6,
-              }}
-            >
-              {isEditingAlbumTitle ? (
-                <TextInput
-                  value={editingAlbumTitleText}
-                  onChangeText={setEditingAlbumTitleText}
-                  onBlur={handleSaveAlbumTitle}
-                  onSubmitEditing={handleSaveAlbumTitle}
-                  returnKeyType="done"
-                  autoFocus
-                  style={{
-                    flex: 1,
-                    fontSize: 13,
-                    fontWeight: '700',
-                    color: colors.text,
-                    paddingVertical: 0,
-                  }}
-                />
-              ) : (
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() => {
-                    setEditingAlbumTitleText(selectedAlbum.albumTitle);
-                    setIsEditingAlbumTitle(true);
-                  }}
-                  style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}
-                >
-                  <Text
-                    numberOfLines={1}
-                    style={{ fontSize: 13, fontWeight: '700', color: colors.text, maxWidth: width - 240 }}
-                  >
-                    {selectedAlbum.albumTitle}
-                  </Text>
-                  <Pencil size={12} color={colors.subtle} />
-                </TouchableOpacity>
-              )}
-              {isEditingAlbumTitle && (
-                <TouchableOpacity onPress={handleSaveAlbumTitle} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                  <Check size={14} color={colors.primary} />
-                </TouchableOpacity>
-              )}
+            {/* Album Title (display only, rename is inside 3 dots menu) */}
+            <View style={{ flex: 1, minWidth: 0, paddingHorizontal: 4 }}>
+              <Text numberOfLines={1} style={{ fontSize: 15, fontWeight: '700', color: colors.text }}>
+                {selectedAlbum.albumTitle}
+              </Text>
             </View>
 
-            {/* Multi-select ("Chọn") button */}
+            {/* Search Icon Button (nào ấn vào mới ra thanh tìm kiếm) */}
             <TouchableOpacity
               activeOpacity={0.8}
               onPress={() => {
-                setIsSelectionMode((prev) => !prev);
-                setSelectedPhotoIds(new Set());
+                setIsAlbumSearchOpen((prev) => !prev);
+                if (isAlbumSearchOpen) setAlbumSearchQuery('');
               }}
               style={[
-                styles.actionPillBtn,
-                isSelectionMode
-                  ? { backgroundColor: colors.primary, borderColor: colors.primary }
-                  : { backgroundColor: isDark ? 'rgba(29, 29, 33, 0.92)' : 'rgba(255, 255, 255, 0.94)', borderColor: colors.hairline },
+                styles.headerIconBtn,
+                isAlbumSearchOpen || albumSearchQuery
+                  ? { backgroundColor: colors.primary }
+                  : { backgroundColor: isDark ? 'rgba(29, 29, 33, 0.92)' : 'rgba(255, 255, 255, 0.94)' },
               ]}
+              accessibilityLabel={t.common.searchPlaceholder}
             >
-              <Text
-                style={[
-                  styles.actionPillText,
-                  { color: isSelectionMode ? colors.onPrimary : colors.text },
-                ]}
-              >
-                {t.collab.selectAction || 'Chọn'}
-              </Text>
+              <Search
+                size={14}
+                color={isAlbumSearchOpen || albumSearchQuery ? colors.onPrimary : colors.subtle}
+              />
             </TouchableOpacity>
 
-            {/* Thêm ảnh Button */}
+            {/* Filter Button (có bộ lọc như ở ngoài) */}
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={handleOpenAlbumFilterModal}
+              style={[
+                styles.headerIconBtn,
+                hasActiveAlbumFilters
+                  ? { backgroundColor: colors.primary }
+                  : { backgroundColor: isDark ? 'rgba(29, 29, 33, 0.92)' : 'rgba(255, 255, 255, 0.94)' },
+              ]}
+              accessibilityLabel={t.collab.filterBySender}
+            >
+              <Filter
+                size={14}
+                color={hasActiveAlbumFilters ? colors.onPrimary : colors.subtle}
+              />
+            </TouchableOpacity>
+
+            {/* + Thêm ảnh Button */}
             <TouchableOpacity
               activeOpacity={0.8}
               onPress={handlePickAndUploadPhotos}
               disabled={isUploading}
-              style={[styles.actionPillBtn, { backgroundColor: colors.primary, borderColor: colors.primary }]}
+              style={[
+                styles.headerIconBtn,
+                { backgroundColor: colors.primary, borderColor: colors.primary },
+              ]}
+              accessibilityLabel={t.collab.addPhotosBtn}
             >
               {isUploading ? (
                 <ActivityIndicator size="small" color={colors.onPrimary} />
               ) : (
-                <>
-                  <UploadCloud size={13} color={colors.onPrimary} />
-                  <Text style={[styles.actionPillText, { color: colors.onPrimary }]}>
-                    {t.collab.addPhotosBtn}
-                  </Text>
-                </>
+                <Plus size={16} color={colors.onPrimary} />
               )}
             </TouchableOpacity>
 
-            {/* Xóa Album Button */}
+            {/* 3 Chấm Dọc (Đổi tên, Chọn, Xóa) */}
             <TouchableOpacity
               activeOpacity={0.8}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              onPress={() => setIsConfirmingDeleteAlbum(true)}
+              onPress={() => setIsMoreMenuOpen(true)}
               style={[
                 styles.headerIconBtn,
                 { backgroundColor: isDark ? 'rgba(29, 29, 33, 0.92)' : 'rgba(255, 255, 255, 0.94)' },
               ]}
-              accessibilityLabel={t.collab.deleteAlbumTitle}
+              accessibilityLabel={t.collab.moreOptions || 'Tùy chọn khác'}
             >
-              <Trash2 size={15} color={colors.danger} />
+              <MoreVertical size={16} color={colors.text} />
             </TouchableOpacity>
           </View>
 
-          {/* Row 2: Search in album + Sender + Date Filter inside Album */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          {/* Row 2: Expandable Search Bar in Album (chỉ mở ra khi ấn vào icon tìm kiếm) */}
+          {isAlbumSearchOpen && (
             <View
               style={{
-                flex: 1,
-                height: 32,
-                borderRadius: 16,
+                height: 36,
+                borderRadius: 18,
                 backgroundColor: isDark ? 'rgba(29, 29, 33, 0.92)' : 'rgba(255, 255, 255, 0.94)',
                 borderWidth: StyleSheet.hairlineWidth,
                 borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : colors.hairline,
                 flexDirection: 'row',
                 alignItems: 'center',
-                paddingHorizontal: 8,
+                paddingHorizontal: 10,
                 gap: 6,
               }}
             >
@@ -1243,48 +1048,22 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
               <TextInput
                 value={albumSearchQuery}
                 onChangeText={setAlbumSearchQuery}
-                placeholder={t.collab.searchMediaPlaceholder}
+                placeholder={t.collab.searchInAlbum || 'Tìm kiếm trong album...'}
                 placeholderTextColor={colors.subtle}
-                style={{ flex: 1, fontSize: 11, color: colors.text, paddingVertical: 0 }}
+                autoFocus
+                style={{ flex: 1, fontSize: 12, color: colors.text, paddingVertical: 0 }}
               />
-              {albumSearchQuery.length > 0 && (
-                <TouchableOpacity onPress={() => setAlbumSearchQuery('')}>
-                  <X size={12} color={colors.subtle} />
-                </TouchableOpacity>
-              )}
-            </View>
-
-            {albumSenders.length > 0 && (
               <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={() => setIsAlbumSenderModalOpen(true)}
-                style={[
-                  styles.headerSmallBtn,
-                  selectedAlbumSenderId !== 'ALL' && { backgroundColor: colors.primary },
-                  selectedAlbumSenderId === 'ALL' && { backgroundColor: isDark ? 'rgba(29, 29, 33, 0.92)' : 'rgba(255, 255, 255, 0.94)' },
-                ]}
+                onPress={() => {
+                  setAlbumSearchQuery('');
+                  setIsAlbumSearchOpen(false);
+                }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <Filter size={12} color={selectedAlbumSenderId !== 'ALL' ? colors.onPrimary : colors.subtle} />
+                <X size={13} color={colors.subtle} />
               </TouchableOpacity>
-            )}
-
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => {
-                setAlbumDraftFrom(albumDateFrom);
-                setAlbumDraftTo(albumDateTo);
-                setAlbumActiveDateField('from');
-                setIsAlbumDateModalOpen(true);
-              }}
-              style={[
-                styles.headerSmallBtn,
-                (albumDateFrom || albumDateTo) && { backgroundColor: colors.primary },
-                (!albumDateFrom && !albumDateTo) && { backgroundColor: isDark ? 'rgba(29, 29, 33, 0.92)' : 'rgba(255, 255, 255, 0.94)' },
-              ]}
-            >
-              <Calendar size={12} color={(albumDateFrom || albumDateTo) ? colors.onPrimary : colors.subtle} />
-            </TouchableOpacity>
-          </View>
+            </View>
+          )}
         </View>
 
         {/* Inline 2-step Confirm Bar for Deleting Album */}
@@ -1293,7 +1072,7 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
             style={[
               styles.inlineConfirmCard,
               {
-                top: topHeaderTop + 86,
+                top: topHeaderTop + (isAlbumSearchOpen ? 90 : 48),
                 backgroundColor: colors.surface,
                 borderColor: '#DC2626',
               },
@@ -1325,9 +1104,9 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
           </View>
         )}
 
-        {/* Photos Grid with scroll-under header */}
+        {/* Photos Grid */}
         {isLoading ? (
-          <ActivityIndicator size="large" color={colors.sage} style={{ marginTop: topHeaderTop + 96 }} />
+          <ActivityIndicator size="large" color={colors.sage} style={{ marginTop: topHeaderTop + 80 }} />
         ) : (
           <FlatList
             data={filteredAlbumPhotos}
@@ -1336,7 +1115,7 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
             contentContainerStyle={[
               styles.photosGrid,
               {
-                paddingTop: topHeaderTop + 88 + (isConfirmingDeleteAlbum ? 88 : 0),
+                paddingTop: topHeaderTop + (isAlbumSearchOpen ? 94 : 50) + (isConfirmingDeleteAlbum ? 94 : 0),
                 paddingBottom: Math.max(insets.bottom + 40, 60),
               },
             ]}
@@ -1346,6 +1125,19 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
                   <Text style={[styles.metaText, { color: colors.subtle }]}>{countText}</Text>
                   <Text style={[styles.metaDot, { color: colors.subtle }]}>•</Text>
                   <Text style={[styles.metaText, { color: colors.subtle }]}>{creatorText}</Text>
+                  {isSelectionMode && (
+                    <TouchableOpacity
+                      onPress={() => {
+                        setIsSelectionMode(false);
+                        setSelectedPhotoIds(new Set());
+                      }}
+                      style={{ marginLeft: 'auto', paddingHorizontal: 8, paddingVertical: 2 }}
+                    >
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: colors.primary }}>
+                        {t.common.done || 'Xong'}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               </View>
             }
@@ -1457,39 +1249,342 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
           </View>
         )}
 
-        {/* Sender Filter Modal in Album */}
-        {renderSenderFilterModal(
-          isAlbumSenderModalOpen,
-          () => setIsAlbumSenderModalOpen(false),
-          albumSenders,
-          selectedAlbumSenderId,
-          (sId) => setSelectedAlbumSenderId(sId),
-          albumSenderSearchQuery,
-          setAlbumSenderSearchQuery,
-        )}
+        {/* 3 Chấm Dọc Menu Sheet (Đổi tên, Chọn ảnh, Xóa album) */}
+        <Modal
+          visible={isMoreMenuOpen}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setIsMoreMenuOpen(false)}
+        >
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={() => setIsMoreMenuOpen(false)}
+            style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}
+          >
+            <View
+              style={{
+                backgroundColor: colors.surface,
+                borderTopLeftRadius: 24,
+                borderTopRightRadius: 24,
+                padding: 20,
+                paddingBottom: Math.max(insets.bottom + 16, 24),
+              }}
+            >
+              {/* Option 1: Đổi tên album */}
+              <TouchableOpacity
+                onPress={() => {
+                  setIsMoreMenuOpen(false);
+                  setRenameTitleDraft(selectedAlbum.albumTitle);
+                  setIsRenameModalOpen(true);
+                }}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 12,
+                  paddingVertical: 14,
+                  borderBottomWidth: StyleSheet.hairlineWidth,
+                  borderBottomColor: colors.hairline,
+                }}
+              >
+                <Pencil size={18} color={colors.text} />
+                <Text style={{ fontSize: 14, fontWeight: '600', color: colors.text }}>
+                  {t.collab.renameAlbumTitle || 'Đổi tên album'}
+                </Text>
+              </TouchableOpacity>
 
-        {/* Date Range Filter Modal in Album */}
-        {renderCalendarPickerModal(
-          isAlbumDateModalOpen,
-          () => setIsAlbumDateModalOpen(false),
-          albumDraftFrom,
-          setAlbumDraftFrom,
-          albumDraftTo,
-          setAlbumDraftTo,
-          albumActiveDateField,
-          setAlbumActiveDateField,
-          albumPickerMonth,
-          setAlbumPickerMonth,
-          (f, to) => {
-            setAlbumDateFrom(f);
-            setAlbumDateTo(to);
-            setIsAlbumDateModalOpen(false);
-          },
-        )}
+              {/* Option 2: Chọn ảnh */}
+              <TouchableOpacity
+                onPress={() => {
+                  setIsMoreMenuOpen(false);
+                  setIsSelectionMode(true);
+                  setSelectedPhotoIds(new Set());
+                }}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 12,
+                  paddingVertical: 14,
+                  borderBottomWidth: StyleSheet.hairlineWidth,
+                  borderBottomColor: colors.hairline,
+                }}
+              >
+                <CheckSquare size={18} color={colors.primary} />
+                <Text style={{ fontSize: 14, fontWeight: '600', color: colors.text }}>
+                  {t.collab.selectAction || 'Chọn ảnh'}
+                </Text>
+              </TouchableOpacity>
+
+              {/* Option 3: Xóa album */}
+              <TouchableOpacity
+                onPress={() => {
+                  setIsMoreMenuOpen(false);
+                  setIsConfirmingDeleteAlbum(true);
+                }}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 12,
+                  paddingVertical: 14,
+                }}
+              >
+                <Trash2 size={18} color={colors.danger} />
+                <Text style={{ fontSize: 14, fontWeight: '700', color: colors.danger }}>
+                  {t.collab.deleteAlbumTitle || 'Xóa album'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </Modal>
+
+        {/* Rename Album Modal */}
+        <Modal
+          visible={isRenameModalOpen}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setIsRenameModalOpen(false)}
+        >
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.modalBackdrop}
+          >
+            <View
+              style={[
+                styles.modalContent,
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.hairline,
+                  paddingBottom: Math.max(insets.bottom + 16, 20),
+                },
+              ]}
+            >
+              <View style={styles.modalHeader}>
+                <Text style={[styles.modalTitle, { color: colors.text }]}>
+                  {t.collab.renameAlbumTitle || 'Đổi tên album'}
+                </Text>
+                <TouchableOpacity
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  onPress={() => setIsRenameModalOpen(false)}
+                >
+                  <X size={20} color={colors.subtle} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>{t.collab.albumNameRequiredLabel}</Text>
+                <TextInput
+                  style={[
+                    styles.input,
+                    { backgroundColor: colors.canvas, borderColor: colors.hairline, color: colors.text },
+                  ]}
+                  placeholder={t.collab.renameAlbumPlaceholder || 'Nhập tên album...'}
+                  placeholderTextColor={colors.subtle}
+                  value={renameTitleDraft}
+                  onChangeText={setRenameTitleDraft}
+                  autoFocus
+                />
+              </View>
+
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={styles.cancelBtn}
+                  onPress={() => setIsRenameModalOpen(false)}
+                >
+                  <Text style={styles.cancelText}>{t.common.cancel}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.submitBtn, { backgroundColor: colors.primary }]}
+                  onPress={handleConfirmRenameAlbum}
+                  disabled={!renameTitleDraft.trim()}
+                >
+                  <Text style={[styles.submitText, { color: colors.onPrimary }]}>
+                    {t.common.save}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </Modal>
+
+        {/* Filter Modal in Album (Bộ lọc như ở ngoài: Người gửi & Ngày gửi) */}
+        <Modal
+          visible={isAlbumFilterModalOpen}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setIsAlbumFilterModalOpen(false)}
+        >
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={() => setIsAlbumFilterModalOpen(false)}
+            style={styles.filterModalBackdrop}
+          >
+            <View
+              style={[
+                styles.filterModalContent,
+                {
+                  backgroundColor: colors.surface,
+                  paddingBottom: Math.max(insets.bottom + 16, 24),
+                  maxHeight: '85%',
+                },
+              ]}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: colors.text }}>
+                  {t.collab.filterBySender || 'Bộ lọc'}
+                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  <TouchableOpacity onPress={handleResetAlbumFilters}>
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: colors.danger }}>
+                      {t.collab.resetFilter || 'Đặt lại'}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => setIsAlbumFilterModalOpen(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <X size={18} color={colors.subtle} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {/* Date Range inside Album */}
+                <View style={{ marginBottom: 16 }}>
+                  <Text style={[styles.filterSectionTitle, { color: colors.subtle }]}>
+                    {t.collab.filterDateBtn}
+                  </Text>
+                  {renderCalendarPicker(
+                    albumDraftFrom,
+                    setAlbumDraftFrom,
+                    albumDraftTo,
+                    setAlbumDraftTo,
+                    albumActiveDateField,
+                    setAlbumActiveDateField,
+                    albumPickerMonth,
+                    setAlbumPickerMonth,
+                  )}
+                </View>
+
+                {/* Senders inside Album */}
+                {albumSenders.length > 0 && (
+                  <View style={{ marginBottom: 16 }}>
+                    <Text style={[styles.filterSectionTitle, { color: colors.subtle }]}>
+                      {t.collab.filterBySender}
+                    </Text>
+                    <View style={{ marginTop: 8 }}>
+                      {/* Search sender */}
+                      <View
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          backgroundColor: colors.canvas,
+                          borderRadius: 12,
+                          borderWidth: StyleSheet.hairlineWidth,
+                          borderColor: colors.hairline,
+                          paddingHorizontal: 10,
+                          height: 36,
+                          marginBottom: 8,
+                          gap: 6,
+                        }}
+                      >
+                        <Search size={13} color={colors.subtle} />
+                        <TextInput
+                          value={albumSenderSearchQuery}
+                          onChangeText={setAlbumSenderSearchQuery}
+                          placeholder={t.collab.searchSendersPlaceholder}
+                          placeholderTextColor={colors.subtle}
+                          style={{ flex: 1, fontSize: 12, color: colors.text, paddingVertical: 0 }}
+                        />
+                      </View>
+
+                      {/* ALL Option */}
+                      <TouchableOpacity
+                        onPress={() => setDraftAlbumSenderId('ALL')}
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          paddingVertical: 10,
+                          borderBottomWidth: StyleSheet.hairlineWidth,
+                          borderBottomColor: colors.hairline,
+                        }}
+                      >
+                        <Text
+                          style={{
+                            fontSize: 13,
+                            fontWeight: draftAlbumSenderId === 'ALL' ? '700' : '500',
+                            color: draftAlbumSenderId === 'ALL' ? colors.primary : colors.text,
+                          }}
+                        >
+                          {t.collab.filterAllSenders}
+                        </Text>
+                        {draftAlbumSenderId === 'ALL' && <Check size={16} color={colors.primary} />}
+                      </TouchableOpacity>
+
+                      {/* Sender list */}
+                      {albumSenders
+                        .filter((s) => s.name.toLowerCase().includes(albumSenderSearchQuery.trim().toLowerCase()))
+                        .map((sender) => {
+                          const isSelected = draftAlbumSenderId === sender.id;
+                          return (
+                            <TouchableOpacity
+                              key={sender.id}
+                              onPress={() => setDraftAlbumSenderId(sender.id)}
+                              style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                paddingVertical: 10,
+                                borderBottomWidth: StyleSheet.hairlineWidth,
+                                borderBottomColor: colors.hairline,
+                              }}
+                            >
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                <View
+                                  style={{
+                                    width: 28,
+                                    height: 28,
+                                    borderRadius: 14,
+                                    backgroundColor: isDark ? 'rgba(13,148,136,0.2)' : 'rgba(13,148,136,0.1)',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                  }}
+                                >
+                                  <Text style={{ fontSize: 12, fontWeight: '700', color: colors.primary }}>
+                                    {sender.name.charAt(0).toUpperCase()}
+                                  </Text>
+                                </View>
+                                <Text
+                                  style={{
+                                    fontSize: 13,
+                                    fontWeight: isSelected ? '700' : '500',
+                                    color: isSelected ? colors.primary : colors.text,
+                                  }}
+                                >
+                                  {sender.name}
+                                </Text>
+                              </View>
+                              {isSelected && <Check size={16} color={colors.primary} />}
+                            </TouchableOpacity>
+                          );
+                        })}
+                    </View>
+                  </View>
+                )}
+              </ScrollView>
+
+              {/* Apply button */}
+              <TouchableOpacity
+                style={[styles.applyFilterBtn, { backgroundColor: colors.primary }]}
+                onPress={handleApplyAlbumFilters}
+              >
+                <Text style={[styles.applyFilterText, { color: colors.onPrimary }]}>
+                  {t.collab.applyFilter || 'Áp dụng'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </Modal>
 
         {/* Photo Lightbox */}
         {selectedPhoto && (
-          <Modal visible transparent animationType="fade" onRequestClose={() => setSelectedPhoto(null)}>
+          <Modal visible transparent animationType="fade" onRequestClose={() => setSelectedPhotoIndex(null)}>
             <View style={styles.lightboxBackdrop}>
               <View style={styles.lightboxHeader}>
                 <View style={styles.lightboxCounterBadge}>
@@ -1501,7 +1596,7 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
                   style={styles.lightboxCloseBtn}
                   onPress={() => {
                     setIsConfirmingDeletePhoto(false);
-                    setSelectedPhoto(null);
+                    setSelectedPhotoIndex(null);
                   }}
                   accessibilityLabel={t.common.close}
                 >
@@ -1570,7 +1665,7 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
     <View style={[styles.container, { backgroundColor: colors.canvas }]}>
       {renderNoticeBanner()}
 
-      {/* Pinned Top Header Row in Media Hub: Back + Search + Camera + Sender + Date */}
+      {/* Pinned Top Header Row in Media Hub */}
       <View
         pointerEvents="box-none"
         style={{
@@ -1579,11 +1674,10 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
           left: 14,
           right: 14,
           zIndex: 40,
-          gap: 8,
         }}
       >
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          {/* Clean Back Button (< icon only, NO "Tiện ích nhóm" text!) */}
+          {/* Clean Back Button (< icon only, NO 'Tiện ích nhóm' text!) */}
           <TouchableOpacity
             activeOpacity={0.7}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -1597,48 +1691,55 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
             <ArrowLeft size={16} color={colors.text} />
           </TouchableOpacity>
 
-          {/* Search Input Bar (flex: 1) */}
-          <View
-            style={{
-              flex: 1,
-              height: 36,
-              borderRadius: 18,
-              backgroundColor: isDark ? 'rgba(29, 29, 33, 0.92)' : 'rgba(255, 255, 255, 0.94)',
-              borderWidth: StyleSheet.hairlineWidth,
-              borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : colors.hairline,
-              flexDirection: 'row',
-              alignItems: 'center',
-              paddingHorizontal: 10,
-              gap: 6,
-            }}
-          >
-            <Search size={14} color={colors.subtle} />
-            <TextInput
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholder={
-                activeTab === 'media'
-                  ? t.collab.searchMediaPlaceholder
-                  : activeTab === 'links'
-                  ? t.collab.searchLinksPlaceholder
-                  : t.collab.searchFilesPlaceholder
-              }
-              placeholderTextColor={colors.subtle}
+          {/* TAB MEDIA: KHÔNG CÓ THANH TÌM KIẾM THEO YÊU CẦU */}
+          {activeTab === 'media' ? (
+            <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 4 }}>
+              <Text style={{ fontSize: 15, fontWeight: '700', color: colors.text }}>
+                {t.collab.tabMedia}
+              </Text>
+            </View>
+          ) : (
+            /* TAB LINKS & FILES: CÓ THANH TÌM KIẾM */
+            <View
               style={{
                 flex: 1,
-                fontSize: 12,
-                color: colors.text,
-                paddingVertical: 0,
+                height: 36,
+                borderRadius: 18,
+                backgroundColor: isDark ? 'rgba(29, 29, 33, 0.92)' : 'rgba(255, 255, 255, 0.94)',
+                borderWidth: StyleSheet.hairlineWidth,
+                borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : colors.hairline,
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingHorizontal: 10,
+                gap: 6,
               }}
-            />
-            {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <X size={13} color={colors.subtle} />
-              </TouchableOpacity>
-            )}
-          </View>
+            >
+              <Search size={14} color={colors.subtle} />
+              <TextInput
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholder={
+                  activeTab === 'links'
+                    ? t.collab.searchLinksPlaceholder
+                    : t.collab.searchFilesPlaceholder
+                }
+                placeholderTextColor={colors.subtle}
+                style={{
+                  flex: 1,
+                  fontSize: 12,
+                  color: colors.text,
+                  paddingVertical: 0,
+                }}
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <X size={13} color={colors.subtle} />
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
 
-          {/* Camera Button (Visual Search) in media tab */}
+          {/* ScanSearch Icon: Đổi icon tìm kiếm bằng hình ảnh (thay Camera để chống nhầm lẫn) */}
           {activeTab === 'media' && (
             <TouchableOpacity
               activeOpacity={0.8}
@@ -1649,84 +1750,28 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
               ]}
               accessibilityLabel={t.collab.imageSearchBtn}
             >
-              <Camera size={15} color={colors.primary} />
+              <ScanSearch size={16} color={colors.primary} />
             </TouchableOpacity>
           )}
 
-          {/* Sender Filter Button */}
+          {/* GOM TẤT CẢ CHỖ LỌC (LOẠI FILE, NGƯỜI GỬI, NGÀY GỬI) VÀO 1 NÚT LỌC DUY NHẤT */}
           <TouchableOpacity
             activeOpacity={0.8}
-            onPress={() => setIsFilterModalOpen(true)}
+            onPress={handleOpenUnifiedFilterModal}
             style={[
               styles.headerIconBtn,
-              selectedSenderId !== 'ALL'
-                ? { backgroundColor: colors.primary }
+              hasActiveFilters
+                ? { backgroundColor: colors.primary, borderColor: colors.primary }
                 : { backgroundColor: isDark ? 'rgba(29, 29, 33, 0.92)' : 'rgba(255, 255, 255, 0.94)' },
             ]}
             accessibilityLabel={t.collab.filterBySender}
           >
-            <Filter size={14} color={selectedSenderId !== 'ALL' ? colors.onPrimary : colors.subtle} />
-          </TouchableOpacity>
-
-          {/* Date Range Filter Button */}
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => {
-              setDraftFrom(dateFrom);
-              setDraftTo(dateTo);
-              setActiveDateField('from');
-              setIsDateModalOpen(true);
-            }}
-            style={[
-              styles.headerIconBtn,
-              (dateFrom || dateTo)
-                ? { backgroundColor: colors.primary }
-                : { backgroundColor: isDark ? 'rgba(29, 29, 33, 0.92)' : 'rgba(255, 255, 255, 0.94)' },
-            ]}
-            accessibilityLabel={t.collab.filterDateBtn}
-          >
-            <Calendar size={14} color={(dateFrom || dateTo) ? colors.onPrimary : colors.subtle} />
+            <Filter size={15} color={hasActiveFilters ? colors.onPrimary : colors.subtle} />
           </TouchableOpacity>
         </View>
-
-        {/* Row 2 for Files Tab: File Type Filter Chips */}
-        {activeTab === 'files' && (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingVertical: 2 }}>
-            {[
-              { key: 'ALL', label: t.collab.filterAllTypes },
-              { key: 'PDF', label: t.collab.fileTypePdf },
-              { key: 'WORD', label: t.collab.fileTypeWord },
-              { key: 'EXCEL', label: t.collab.fileTypeExcel },
-              { key: 'CANVA', label: t.collab.fileTypeCanva },
-              { key: 'ARCHIVES', label: t.collab.fileTypeArchives },
-              { key: 'OTHER', label: t.collab.fileTypeOther },
-            ].map((ft) => (
-              <TouchableOpacity
-                key={ft.key}
-                activeOpacity={0.8}
-                onPress={() => setSelectedFileType(ft.key as any)}
-                style={[
-                  styles.chipBtn,
-                  selectedFileType === ft.key
-                    ? { backgroundColor: colors.primary, borderColor: colors.primary }
-                    : { backgroundColor: isDark ? colors.surface : '#FFFFFF', borderColor: colors.hairline },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.chipText,
-                    { color: selectedFileType === ft.key ? colors.onPrimary : colors.text },
-                  ]}
-                >
-                  {ft.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        )}
       </View>
 
-      {/* Main Content Area: Scroll-under Top Header and Bottom Tab Dock */}
+      {/* Main Content Area */}
       <View style={{ flex: 1 }}>
         {/* ===================================================================== */}
         {/* TAB 1: FILE PHƯƠNG TIỆN (ALBUM CUỘN NGANG + TẤT CẢ FILE CỘT DỌC)      */}
@@ -1742,7 +1787,7 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
               },
             ]}
           >
-            {/* Section 1: Album (Cuộn ngang - Horizontal Carousel) */}
+            {/* Section 1: Album (Cuộn ngang) */}
             <View style={{ marginBottom: 20 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -1755,7 +1800,7 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
                       {filteredAlbums.length}
                     </Text>
                   </View>
-                  {/* Dấu cộng bên cạnh album */}
+                  {/* Dấu cộng tạo album bên cạnh chữ Album */}
                   <TouchableOpacity
                     activeOpacity={0.7}
                     onPress={() => {
@@ -1787,7 +1832,6 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
                   showsHorizontalScrollIndicator={false}
                   contentContainerStyle={{ gap: 10, paddingVertical: 4 }}
                 >
-                  {/* Quick Add Card (when 0 albums) */}
                   {filteredAlbums.length === 0 && (
                     <TouchableOpacity
                       activeOpacity={0.75}
@@ -1827,7 +1871,6 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
                     </TouchableOpacity>
                   )}
 
-                  {/* Album Cards */}
                   {filteredAlbums.map((album) => {
                     const coverUrl = album.photos?.[0]?.fileUrl;
                     const photoCount = album._count?.photos || album.photos?.length || 0;
@@ -1887,7 +1930,7 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
               )}
             </View>
 
-            {/* Section 2: Tất cả file phương tiện (Lưới cột dọc trải dài) */}
+            {/* Section 2: Tất cả file phương tiện */}
             <View>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 }}>
                 <ImageIcon size={16} color={colors.primary} />
@@ -2041,7 +2084,7 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
             contentContainerStyle={[
               styles.scrollContent,
               {
-                paddingTop: topHeaderTop + 84,
+                paddingTop: topHeaderTop + 48,
                 paddingBottom: bottomDockBottom + 56,
               },
             ]}
@@ -2195,37 +2238,225 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
         </View>
       </View>
 
-      {/* Global Sender Filter Modal */}
-      {renderSenderFilterModal(
-        isFilterModalOpen,
-        () => setIsFilterModalOpen(false),
-        uniqueSenders,
-        selectedSenderId,
-        (sId) => setSelectedSenderId(sId),
-        senderSearchQuery,
-        setSenderSearchQuery,
-      )}
+      {/* ======================================================================= */}
+      {/* UNIFIED FILTER MODAL IN MEDIA HUB (FILE TYPE + DATE + SENDER GOM CHUNG) */}
+      {/* ======================================================================= */}
+      <Modal
+        visible={isUnifiedFilterModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsUnifiedFilterModalOpen(false)}
+      >
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={() => setIsUnifiedFilterModalOpen(false)}
+          style={styles.filterModalBackdrop}
+        >
+          <View
+            style={[
+              styles.filterModalContent,
+              {
+                backgroundColor: colors.surface,
+                paddingBottom: Math.max(insets.bottom + 16, 24),
+                maxHeight: '85%',
+              },
+            ]}
+          >
+            {/* Header */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: colors.text }}>
+                {t.collab.filterBySender || 'Bộ lọc'}
+              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <TouchableOpacity onPress={handleResetUnifiedFilters}>
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: colors.danger }}>
+                    {t.collab.resetFilter || 'Đặt lại'}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => setIsUnifiedFilterModalOpen(false)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <X size={18} color={colors.subtle} />
+                </TouchableOpacity>
+              </View>
+            </View>
 
-      {/* Global Date Range Filter Modal */}
-      {renderCalendarPickerModal(
-        isDateModalOpen,
-        () => setIsDateModalOpen(false),
-        draftFrom,
-        setDraftFrom,
-        draftTo,
-        setDraftTo,
-        activeDateField,
-        setActiveDateField,
-        pickerMonth,
-        setPickerMonth,
-        (f, to) => {
-          setDateFrom(f);
-          setDateTo(to);
-          setIsDateModalOpen(false);
-        },
-      )}
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {/* Section 1: Loại file (chỉ hiển thị ở tab Files) */}
+              {activeTab === 'files' && (
+                <View style={{ marginBottom: 16 }}>
+                  <Text style={[styles.filterSectionTitle, { color: colors.subtle }]}>
+                    {t.collab.filterFileType}
+                  </Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                    {[
+                      { key: 'ALL', label: t.collab.filterAllTypes },
+                      { key: 'PDF', label: t.collab.fileTypePdf },
+                      { key: 'WORD', label: t.collab.fileTypeWord },
+                      { key: 'EXCEL', label: t.collab.fileTypeExcel },
+                      { key: 'CANVA', label: t.collab.fileTypeCanva },
+                      { key: 'ARCHIVES', label: t.collab.fileTypeArchives },
+                      { key: 'OTHER', label: t.collab.fileTypeOther },
+                    ].map((ft) => (
+                      <TouchableOpacity
+                        key={ft.key}
+                        onPress={() => setDraftFileType(ft.key as any)}
+                        style={[
+                          styles.chipBtn,
+                          draftFileType === ft.key
+                            ? { backgroundColor: colors.primary, borderColor: colors.primary }
+                            : { backgroundColor: colors.canvas, borderColor: colors.hairline },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.chipText,
+                            { color: draftFileType === ft.key ? colors.onPrimary : colors.text },
+                          ]}
+                        >
+                          {ft.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              )}
 
-      {/* Create Album Modal (Name only, description removed) */}
+              {/* Section 2: Ngày gửi */}
+              <View style={{ marginBottom: 16 }}>
+                <Text style={[styles.filterSectionTitle, { color: colors.subtle }]}>
+                  {t.collab.filterDateBtn}
+                </Text>
+                {renderCalendarPicker(
+                  draftFrom,
+                  setDraftFrom,
+                  draftTo,
+                  setDraftTo,
+                  activeDateField,
+                  setActiveDateField,
+                  pickerMonth,
+                  setPickerMonth,
+                )}
+              </View>
+
+              {/* Section 3: Người gửi */}
+              <View style={{ marginBottom: 16 }}>
+                <Text style={[styles.filterSectionTitle, { color: colors.subtle }]}>
+                  {t.collab.filterBySender}
+                </Text>
+                <View style={{ marginTop: 8 }}>
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      backgroundColor: colors.canvas,
+                      borderRadius: 12,
+                      borderWidth: StyleSheet.hairlineWidth,
+                      borderColor: colors.hairline,
+                      paddingHorizontal: 10,
+                      height: 36,
+                      marginBottom: 8,
+                      gap: 6,
+                    }}
+                  >
+                    <Search size={13} color={colors.subtle} />
+                    <TextInput
+                      value={senderSearchQuery}
+                      onChangeText={setSenderSearchQuery}
+                      placeholder={t.collab.searchSendersPlaceholder}
+                      placeholderTextColor={colors.subtle}
+                      style={{ flex: 1, fontSize: 12, color: colors.text, paddingVertical: 0 }}
+                    />
+                  </View>
+
+                  <TouchableOpacity
+                    onPress={() => setDraftSenderId('ALL')}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      paddingVertical: 10,
+                      borderBottomWidth: StyleSheet.hairlineWidth,
+                      borderBottomColor: colors.hairline,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        fontWeight: draftSenderId === 'ALL' ? '700' : '500',
+                        color: draftSenderId === 'ALL' ? colors.primary : colors.text,
+                      }}
+                    >
+                      {t.collab.filterAllSenders}
+                    </Text>
+                    {draftSenderId === 'ALL' && <Check size={16} color={colors.primary} />}
+                  </TouchableOpacity>
+
+                  {uniqueSenders
+                    .filter((s) => s.name.toLowerCase().includes(senderSearchQuery.trim().toLowerCase()))
+                    .map((sender) => {
+                      const isSelected = draftSenderId === sender.id;
+                      return (
+                        <TouchableOpacity
+                          key={sender.id}
+                          onPress={() => setDraftSenderId(sender.id)}
+                          style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            paddingVertical: 10,
+                            borderBottomWidth: StyleSheet.hairlineWidth,
+                            borderBottomColor: colors.hairline,
+                          }}
+                        >
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                            <View
+                              style={{
+                                width: 28,
+                                height: 28,
+                                borderRadius: 14,
+                                backgroundColor: isDark ? 'rgba(13,148,136,0.2)' : 'rgba(13,148,136,0.1)',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                              }}
+                            >
+                              <Text style={{ fontSize: 12, fontWeight: '700', color: colors.primary }}>
+                                {sender.name.charAt(0).toUpperCase()}
+                              </Text>
+                            </View>
+                            <Text
+                              style={{
+                                fontSize: 13,
+                                fontWeight: isSelected ? '700' : '500',
+                                color: isSelected ? colors.primary : colors.text,
+                              }}
+                            >
+                              {sender.name}
+                            </Text>
+                          </View>
+                          {isSelected && <Check size={16} color={colors.primary} />}
+                        </TouchableOpacity>
+                      );
+                    })}
+                </View>
+              </View>
+            </ScrollView>
+
+            {/* Apply Button */}
+            <TouchableOpacity
+              style={[styles.applyFilterBtn, { backgroundColor: colors.primary }]}
+              onPress={handleApplyUnifiedFilters}
+            >
+              <Text style={[styles.applyFilterText, { color: colors.onPrimary }]}>
+                {t.collab.applyFilter || 'Áp dụng'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Create Album Modal (Name only) */}
       <Modal
         visible={isCreateModalOpen}
         transparent
@@ -2303,7 +2534,7 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* Lightbox for Media Hub Photos */}
+      {/* Lightbox for Hub Photos */}
       {selectedHubPhoto && (
         <Modal visible transparent animationType="fade" onRequestClose={() => setSelectedHubPhoto(null)}>
           <View style={styles.lightboxBackdrop}>
@@ -2355,15 +2586,6 @@ const createStyles = (colors: any, isDark: boolean, photoSize: number) =>
       shadowRadius: 4,
       elevation: 2,
     },
-    headerSmallBtn: {
-      width: 32,
-      height: 32,
-      borderRadius: 16,
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : colors.hairline,
-    },
     bottomTabBtn: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -2386,23 +2608,23 @@ const createStyles = (colors: any, isDark: boolean, photoSize: number) =>
       fontSize: 11,
       fontWeight: '600',
     },
-    actionPillBtn: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 4,
-      paddingHorizontal: 12,
-      height: 36,
-      borderRadius: 18,
-      borderWidth: StyleSheet.hairlineWidth,
-      justifyContent: 'center',
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: isDark ? 0.2 : 0.05,
-      shadowRadius: 3,
-      elevation: 2,
-    },
-    actionPillText: {
+    filterSectionTitle: {
       fontSize: 12,
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+      marginBottom: 2,
+    },
+    applyFilterBtn: {
+      width: '100%',
+      paddingVertical: 12,
+      borderRadius: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: 10,
+    },
+    applyFilterText: {
+      fontSize: 14,
       fontWeight: '700',
     },
     selectCheckbox: {
@@ -2416,18 +2638,6 @@ const createStyles = (colors: any, isDark: boolean, photoSize: number) =>
       alignItems: 'center',
       justifyContent: 'center',
     },
-    dateModalCard: {
-      width: '100%',
-      maxWidth: 360,
-      borderRadius: 20,
-      padding: 18,
-      borderWidth: 1,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: isDark ? 0.4 : 0.15,
-      shadowRadius: 16,
-      elevation: 8,
-    },
     dateFieldBtn: {
       flex: 1,
       paddingVertical: 8,
@@ -2437,6 +2647,16 @@ const createStyles = (colors: any, isDark: boolean, photoSize: number) =>
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
+    },
+    filterModalBackdrop: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.5)',
+      justifyContent: 'flex-end',
+    },
+    filterModalContent: {
+      borderTopLeftRadius: 24,
+      borderTopRightRadius: 24,
+      padding: 20,
     },
     albumMetaPill: {
       padding: 12,
