@@ -8650,3 +8650,37 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 - **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
 - **Commit:** 610b959
 - **PR:** #120
+
+
+## AI-0215: Tái Cấu Trúc Top Header Đơn Hàng Và Cố Định Mở Bảng Cho Vòng Xoay May Mắn Mobile (#120)
+
+- **Date:** 2026-11-16 15:35:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120
+- **Purpose:** Tinh giản và thống nhất giao diện header và bảng thiết lập của Vòng Xoay May Mắn trên Mobile theo yêu cầu người dùng:
+  1. **Loại Bỏ Nút Đóng `X`:**
+     - Tách Vòng Xoay May Mắn (`selectedTool === 'wheel'`) ra khỏi thanh điều hướng mặc định của Modal công cụ trong `apps/mobile/app/circle/[id].tsx`, loại bỏ hoàn toàn nút đóng `X` (`closePill`).
+  2. **Thống Nhất Header Đơn Hàng (Single Line Top Header):**
+     - Nút quay lại chỉ còn biểu tượng icon `<` (`ArrowLeft`), loại bỏ nhãn chữ "Công cụ nhóm".
+     - Nhãn tên tính năng "Vòng xoay may mắn" (`headerTitleLabel`) đặt ngay cạnh nút quay lại với icon la bàn (`Compass`) và bo góc tròn chuẩn pill.
+     - Đẩy nút "Thêm vòng xoay" (`+`) và "Quay tất cả" (`RotateCw`) lên cùng một hàng header bên phải, loại bỏ hoàn toàn việc phân tầng thành 2 hàng floating bars gây chiếm dụng chiều cao màn hình.
+  3. **Cố Định Mở Bảng Thiết Lập (Always-Open Board):**
+     - Bỏ nút thu gọn bảng (`collapseHandleBtn`) và nút mở rộng bảng ở mép phải (`floatingRightEdgeOpenBtn`).
+     - Bảng thiết lập danh sách lựa chọn (`tabbedBoard`) luôn luôn hiển thị mở (`always-open`), tối ưu hóa trải nghiệm trực quan cho người dùng.
+- **Files Affected:**
+  - `apps/mobile/app/circle/[id].tsx`
+  - `apps/mobile/src/components/tools/MobileWheelView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% header restructuring, single line toolbar layout, và board collapse cleanup.
+- **Human Modifications:** Người dùng yêu cầu ở app phần vòng xoay may mắn bỏ nút x, nút quay lại chỉ còn icon gần đó có tên vòng xoay dạng label, thêm vòng xoay và quay tất cả đẩy lên chỗ đó, bỏ nút mở rộng bảng lúc nào cũng mở rồi.
+- **Verification Method:**
+  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Passed (0 errors).
+  - `npx tsc --noEmit -p apps/web/tsconfig.json`: Passed (0 errors).
+  - `npm test --prefix apps/backend -- circle-tools.service.spec.ts`: Passed (45/45 tests pass 100%).
+  - `bash ./scripts/check-secrets.sh`: Passed (601 files checked, 0 secret leaks).
+- **Official Source Checked:** `PROJECT_GOD.md` §2.2, `agentic/playbooks/cross-cutting-gate.md` (Web/Mobile parity, UI states).
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
+- **Commit:** f8f40f0
+- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)

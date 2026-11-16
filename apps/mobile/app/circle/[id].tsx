@@ -5043,7 +5043,7 @@ export default function CircleWorkspaceScreen() {
       >
         <View style={{ flex: 1, backgroundColor: colors.canvas }}>
           {/* Floating Navigation Bar (strictly gated Glass vs Flat) */}
-          {selectedTool !== 'album' && (
+          {selectedTool !== 'album' && selectedTool !== 'wheel' && (
             <View
               pointerEvents="box-none"
               style={{
@@ -5118,8 +5118,6 @@ export default function CircleWorkspaceScreen() {
                         ? t.nav.liveLocation
                         : selectedTool === 'poll'
                         ? t.nav.groupPoll
-                        : selectedTool === 'wheel'
-                        ? t.nav.luckyWheel
                         : selectedTool === 'anonymous'
                         ? t.nav.reflectionMailbox
                         : ''}
@@ -5191,7 +5189,7 @@ export default function CircleWorkspaceScreen() {
             ) : selectedTool === 'poll' ? (
               <MobilePollView circleId={circleId} />
             ) : selectedTool === 'wheel' ? (
-              <MobileWheelView circleId={circleId} />
+              <MobileWheelView circleId={circleId} onBack={() => setSelectedTool('menu')} />
             ) : selectedTool === 'anonymous' ? (
               <MobileAnonymousView circleId={circleId} />
             ) : null}

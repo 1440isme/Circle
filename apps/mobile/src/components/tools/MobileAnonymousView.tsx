@@ -10,6 +10,8 @@ import {
   Modal,
   Alert,
   Platform,
+  KeyboardAvoidingView,
+  Keyboard,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -466,84 +468,122 @@ export const MobileAnonymousView: React.FC<MobileAnonymousViewProps> = ({ circle
         <Text style={styles.fabText}>{t.collab.anonymousComposeSubmit}</Text>
       </TouchableOpacity>
 
-      {/* Compose Modal */}
-      <Modal visible={isComposeModalOpen} transparent animationType="slide">
-        <View style={styles.modalBackdrop}>
-          <View style={[styles.modalContent, { backgroundColor: colors.surface, borderTopColor: colors.hairline }]}>
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: colors.text }]}>{t.collab.anonymousComposeTitle}</Text>
-              <TouchableOpacity onPress={() => setIsComposeModalOpen(false)}>
-                <X size={20} color={colors.subtle} />
-              </TouchableOpacity>
-            </View>
+      {/* Compose Modal - Mở trượt lên chuẩn Apple Sheet như Tạo sự kiện */}
+      <Modal
+        visible={isComposeModalOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => {
+          Keyboard.dismiss();
+          setIsComposeModalOpen(false);
+        }}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalBackdrop}
+        >
+          {/* Vùng mờ phía trên để chạm đóng */}
+          <TouchableOpacity
+            style={styles.modalBackdropTouch}
+            activeOpacity={1}
+            onPress={() => {
+              Keyboard.dismiss();
+              setIsComposeModalOpen(false);
+            }}
+          />
 
-            {/* Theme Picker */}
-            <View style={styles.formGroup}>
-              <Text style={[styles.label, { color: colors.subtle }]}>{t.collab.anonymousThemeLabel}</Text>
-              <View style={styles.themesRow}>
-                {THEME_IDS.map((id) => {
-                  const th = getMobileTheme(id, isDark);
-                  const isSelected = selectedTheme === id;
-                  return (
-                    <TouchableOpacity
-                      key={id}
-                      style={[
-                        styles.themeBtn,
-                        { backgroundColor: th.bg, borderColor: th.border },
-                        isSelected && {
-                          borderWidth: 2,
-                          borderColor: isDark ? '#FFFFFF' : '#0F172A',
-                        },
-                      ]}
-                      onPress={() => setSelectedTheme(id)}
-                    >
-                      <Text style={[styles.themeBtnText, { color: th.text }]}>
-                        {getThemeName(id, t)}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={[styles.label, { color: colors.subtle }]}>{t.collab.anonymousContentLabel}</Text>
-              <TextInput
-                style={[
-                  styles.textArea,
-                  {
-                    backgroundColor: colors.canvas,
-                    borderColor: colors.hairline,
-                    color: colors.text,
-                  },
-                ]}
-                placeholder={t.collab.anonymousContentExample}
-                placeholderTextColor={isDark ? '#64748B' : '#94A3B8'}
-                multiline
-                numberOfLines={4}
-                maxLength={1000}
-                value={content}
-                onChangeText={setContent}
-              />
-              <Text style={[styles.charCount, { color: colors.subtle }]}>
-                {t.collab.anonymousCharCount.replace('{count}', String(content.length))}
-              </Text>
-            </View>
-
-            <View style={styles.modalButtons}>
+          <View style={[styles.appleModalContent, { backgroundColor: isDark ? colors.canvas : '#F2F2F7' }]}>
+            {/* Apple Navigation Bar */}
+            <View style={[styles.appleNavBar, { backgroundColor: colors.surface, borderBottomColor: colors.hairline }]}>
               <TouchableOpacity
-                style={styles.cancelBtn}
-                onPress={() => setIsComposeModalOpen(false)}
+                onPress={() => {
+                  Keyboard.dismiss();
+                  setIsComposeModalOpen(false);
+                }}
+                style={styles.appleNavBtn}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <Text style={[styles.cancelText, { color: colors.subtle }]}>{t.common.cancel}</Text>
+                <Text style={[styles.appleCancelText, { color: colors.primary }]}>{t.common.cancel}</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.submitBtn, { backgroundColor: colors.primary }]} onPress={handleCreatePost}>
-                <Send size={14} color="#FFFFFF" />
-                <Text style={styles.submitText}>{t.collab.anonymousComposeSubmit}</Text>
+
+              <Text style={[styles.appleNavTitle, { color: colors.text }]} numberOfLines={1}>
+                {t.collab.anonymousComposeTitle}
+              </Text>
+
+              <TouchableOpacity
+                onPress={handleCreatePost}
+                style={styles.appleNavBtn}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Text style={[styles.appleAddText, { color: colors.primary }]}>
+                  {t.collab.anonymousComposeSubmit}
+                </Text>
               </TouchableOpacity>
             </View>
+
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
+              contentContainerStyle={[styles.appleScrollView, { paddingBottom: Math.max(insets.bottom + 24, 40) }]}
+            >
+              {/* Group 1: Theme Picker */}
+              <View style={[styles.appleGroupCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+                <Text style={[styles.label, { color: colors.subtle }]}>{t.collab.anonymousThemeLabel}</Text>
+                <View style={styles.themesRow}>
+                  {THEME_IDS.map((id) => {
+                    const th = getMobileTheme(id, isDark);
+                    const isSelected = selectedTheme === id;
+                    return (
+                      <TouchableOpacity
+                        key={id}
+                        activeOpacity={0.7}
+                        style={[
+                          styles.themeBtn,
+                          { backgroundColor: th.bg, borderColor: th.border },
+                          isSelected && {
+                            borderWidth: 2,
+                            borderColor: isDark ? '#FFFFFF' : '#0F172A',
+                          },
+                        ]}
+                        onPress={() => setSelectedTheme(id)}
+                      >
+                        <Text style={[styles.themeBtnText, { color: th.text }]}>
+                          {getThemeName(id, t)}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+
+              {/* Group 2: Content TextInput */}
+              <View style={[styles.appleGroupCard, { backgroundColor: colors.surface, borderColor: colors.hairline }]}>
+                <Text style={[styles.label, { color: colors.subtle }]}>{t.collab.anonymousContentLabel}</Text>
+                <TextInput
+                  style={[
+                    styles.textArea,
+                    {
+                      backgroundColor: colors.canvas,
+                      borderColor: colors.hairline,
+                      color: colors.text,
+                    },
+                  ]}
+                  placeholder={t.collab.anonymousContentExample}
+                  placeholderTextColor={isDark ? '#64748B' : '#94A3B8'}
+                  multiline
+                  numberOfLines={5}
+                  maxLength={1000}
+                  value={content}
+                  onChangeText={setContent}
+                />
+                <Text style={[styles.charCount, { color: colors.subtle }]}>
+                  {t.collab.anonymousCharCount.replace('{count}', String(content.length))}
+                </Text>
+              </View>
+            </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Full Emoji Picker Modal */}
@@ -700,25 +740,62 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
     justifyContent: 'flex-end',
   },
-  modalContent: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 20,
+  modalBackdropTouch: {
+    flex: 1,
   },
-  modalHeader: {
+  appleModalContent: {
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+    height: '92%',
+    overflow: 'hidden',
+  },
+  appleNavBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  modalTitle: {
+  appleNavBtn: {
+    paddingVertical: 4,
+    paddingHorizontal: 4,
+    minWidth: 44,
+  },
+  appleNavTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+    flex: 1,
+    marginHorizontal: 8,
+  },
+  appleCancelText: {
     fontSize: 15,
-    fontWeight: '700',
-    color: colors.text,
+    fontWeight: '400',
+  },
+  appleAddText: {
+    fontSize: 15,
+    fontWeight: '600',
+    textAlign: 'right',
+  },
+  appleScrollView: {
+    padding: 16,
+  },
+  appleGroupCard: {
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
   },
   formGroup: {
     marginBottom: 12,
@@ -727,7 +804,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: colors.subtle,
-    marginBottom: 6,
+    marginBottom: 8,
   },
   themesRow: {
     flexDirection: 'row',
@@ -737,7 +814,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 6,
+    paddingVertical: 8,
     borderRadius: 8,
     borderWidth: 1,
   },
@@ -756,45 +833,16 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    fontSize: 13,
+    fontSize: 14,
     color: colors.text,
-    height: 100,
+    minHeight: 120,
     textAlignVertical: 'top',
   },
   charCount: {
     fontSize: 10,
     color: colors.subtle,
     textAlign: 'right',
-    marginTop: 4,
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 8,
-    marginTop: 10,
-  },
-  cancelBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  cancelText: {
-    fontSize: 13,
-    color: colors.subtle,
-    fontWeight: '600',
-  },
-  submitBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: colors.primary,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  submitText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '600',
+    marginTop: 6,
   },
 
   reactionBar: {

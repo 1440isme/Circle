@@ -29,8 +29,7 @@ import {
   Shuffle,
   RotateCcw,
   ArrowDownAZ,
-  PanelRightClose,
-  PanelRightOpen,
+  ArrowLeft,
   BookmarkCheck,
   Check,
   Share2,
@@ -54,6 +53,7 @@ import { useThemeStore } from '../../stores/theme.store';
 
 interface MobileWheelViewProps {
   circleId: string;
+  onBack?: () => void;
 }
 
 const PASTEL_WHEEL_COLORS = [
@@ -76,7 +76,7 @@ interface WheelMobileState {
   isSpinning: boolean;
 }
 
-export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) => {
+export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onBack }) => {
   const insets = useSafeAreaInsets();
   const { colors, resolvedTheme } = useThemeStore();
   const isDark = resolvedTheme === 'dark';
@@ -84,10 +84,9 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
   const user = useAuthStore((s) => s.user);
 
-  // Khoảng cách an toàn để Floating Pill Toolbar và nội dung không bị đè lên thanh điều hướng của Modal cha
-  const navBarBottom = Math.max(insets.top + 8, 16) + 36;
-  const floatingToolbarTop = navBarBottom + 10;
-  const scrollPaddingTop = floatingToolbarTop + 44;
+  // Khoảng cách an toàn cho Floating Header và nội dung cuộn bên dưới
+  const floatingToolbarTop = Math.max(insets.top + 8, 16);
+  const scrollPaddingTop = floatingToolbarTop + 48;
   const scrollPaddingBottom = Math.max(insets.bottom + 36, 60);
 
   // Wheels state
@@ -109,9 +108,6 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
   const resultLinesCount = resultLines.length;
   const [isSharingResults, setIsSharingResults] = useState(false);
   const [shareSuccess, setShareSuccess] = useState(false);
-
-  // Board Collapsed State (mặc định thu gọn khi mới vào để xem vòng tròn trọn vẹn)
-  const [isBoardCollapsed, setIsBoardCollapsed] = useState(true);
 
   // Local state per wheel
   const [wheelStates, setWheelStates] = useState<Record<string, WheelMobileState>>({});
@@ -769,9 +765,10 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
   // Dynamic Disc Size for Mobile
   const { width: windowWidth } = useWindowDimensions();
   const availableColWidth = Math.floor((windowWidth - 32) / 2);
-  const singleDiscSize = isBoardCollapsed ? 280 : 230;
-  const multiDiscSize = Math.max(120, Math.min(availableColWidth - 18, isBoardCollapsed ? 165 : 145));
-  const fourDiscSize = Math.max(110, Math.min(availableColWidth - 18, isBoardCollapsed ? 150 : 130));
+  const isCompactScreen = windowWidth < 380;
+  const singleDiscSize = Math.min(240, windowWidth - 64);
+  const multiDiscSize = Math.max(120, Math.min(availableColWidth - 18, 145));
+  const fourDiscSize = Math.max(110, Math.min(availableColWidth - 18, 130));
 
   // Render a single small wheel item (used in 2-wheel, 3-wheel, and 4-wheel layouts)
   const renderSmallWheelItem = (wheel: DecisionWheelEntity, discSize: number) => {
@@ -786,7 +783,6 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
           onPress={() => {
             setActiveWheelId(wheel.id);
             setActiveTab(wheel.id);
-            setIsBoardCollapsed(false);
           }}
           style={[
             styles.mobileWheelTitleBadge,
@@ -898,9 +894,29 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
 
   return (
     <View style={styles.container}>
-      {/* Floating Pill Toolbar: Floating over content with pointerEvents="box-none" */}
+      {/* Floating Header Bar: Unified single line with Back Icon, Wheel Title Label, and Actions */}
       <View style={[styles.floatingHeaderArea, { top: floatingToolbarTop }]} pointerEvents="box-none">
-        <View />
+        {/* Left: Back Button (icon only) + Wheel Title Label */}
+        <View style={styles.headerLeftGroup}>
+          {onBack && (
+            <TouchableOpacity
+              activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              onPress={onBack}
+              style={styles.headerBackBtn}
+              accessibilityLabel={t.common.back}
+            >
+              <ArrowLeft size={16} color={colors.text} />
+            </TouchableOpacity>
+          )}
+
+          <View style={styles.headerTitleLabel}>
+            <Compass size={14} color={isDark ? colors.primary : '#0D9488'} />
+            <Text style={styles.headerTitleLabelText} numberOfLines={1}>
+              {t.nav?.luckyWheel || t.luckyWheel?.title || 'Vòng xoay may mắn'}
+            </Text>
+          </View>
+        </View>
 
         {/* Right: Add Wheel & Spin All Pills */}
         <View style={styles.floatingRightActions}>
@@ -915,7 +931,9 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
             accessibilityLabel={t.luckyWheel.addWheel}
           >
             <Plus size={14} color={isDark ? colors.primary : '#0D9488'} />
-            <Text style={styles.floatingPillText}>{t.luckyWheel.addWheel}</Text>
+            <Text style={styles.floatingPillText}>
+              {isCompactScreen ? (locale === 'vi' ? 'Thêm' : 'Add') : t.luckyWheel.addWheel}
+            </Text>
           </TouchableOpacity>
 
           {wheels.length > 0 && (
@@ -969,7 +987,6 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
                   onPress={() => {
                     setActiveWheelId(wheels[0]!.id);
                     setActiveTab(wheels[0]!.id);
-                    setIsBoardCollapsed(false);
                   }}
                   style={[
                     styles.mobileWheelTitleBadge,
@@ -1089,18 +1106,8 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
         )}
       </View>
 
-      {/* "CÁI BẢNG" (TABBED OPTIONS BOARD BÊN DƯỚI) */}
-      {!isBoardCollapsed && (
-        <View style={styles.tabbedBoard}>
-          {/* Nút thu gọn bảng: Nửa trong nửa ngoài trên viền mép trên của bảng */}
-          <TouchableOpacity
-            style={styles.collapseHandleBtn}
-            onPress={() => setIsBoardCollapsed(true)}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            accessibilityLabel={t.luckyWheel.collapsePanel}
-          >
-            <PanelRightClose size={14} color={isDark ? colors.primary : '#0D9488'} />
-          </TouchableOpacity>
+      {/* "CÁI BẢNG" (TABBED OPTIONS BOARD BÊN DƯỚI) - LUÔN MỞ */}
+      <View style={styles.tabbedBoard}>
 
           {/* Horizontal Tabs: Hiển thị thẳng tên của từng vòng + TAB KẾT QUẢ */}
           <ScrollView
@@ -1380,20 +1387,7 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
             )
           )}
         </View>
-      )}
       </ScrollView>
-
-      {/* Nút mở lại bảng: Ghim ở mép bên phải của phần hiển thị khi thu gọn */}
-      {isBoardCollapsed && (
-        <TouchableOpacity
-          style={styles.floatingRightEdgeOpenBtn}
-          onPress={() => setIsBoardCollapsed(false)}
-          activeOpacity={0.8}
-          accessibilityLabel={t.luckyWheel.expandPanel}
-        >
-          <PanelRightOpen size={16} color={isDark ? colors.primary : '#0D9488'} />
-        </TouchableOpacity>
-      )}
 
       {/* COMBINED / BATCH RESULTS MODAL - CELEBRATION WINNER SHOWCASE */}
       <Modal visible={!!combinedWinnersModal && combinedWinnersModal.length > 0} transparent animationType="fade">
@@ -1523,46 +1517,6 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId }) =>
 
 function createStyles(colors: any, isDark: boolean) {
   return StyleSheet.create({
-  floatingRightEdgeOpenBtn: {
-    position: 'absolute',
-    right: 0,
-    top: '46%',
-    zIndex: 35,
-    width: 32,
-    height: 48,
-    borderTopLeftRadius: 16,
-    borderBottomLeftRadius: 16,
-    backgroundColor: isDark ? colors.elevated : '#FFFFFF',
-    borderWidth: 1,
-    borderRightWidth: 0,
-    borderColor: colors.hairline,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: -2, height: 2 },
-    shadowOpacity: isDark ? 0.3 : 0.1,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  collapseHandleBtn: {
-    position: 'absolute',
-    top: -14,
-    left: 16,
-    zIndex: 25,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: isDark ? colors.elevated : '#FFFFFF',
-    borderWidth: 1,
-    borderColor: colors.hairline,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: isDark ? 0.3 : 0.1,
-    shadowRadius: 3,
-    elevation: 3,
-  },
   trophyWrapper: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -1634,6 +1588,49 @@ function createStyles(colors: any, isDark: boolean) {
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  headerLeftGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerBackBtn: {
+    minWidth: 36,
+    minHeight: 36,
+    padding: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 999,
+    backgroundColor: isDark ? colors.elevated : 'rgba(255, 255, 255, 0.94)',
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    shadowColor: '#000',
+    shadowOpacity: isDark ? 0.3 : 0.08,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 5,
+    elevation: 3,
+  },
+  headerTitleLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    minHeight: 36,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 999,
+    backgroundColor: isDark ? colors.elevated : 'rgba(255, 255, 255, 0.94)',
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    shadowColor: '#000',
+    shadowOpacity: isDark ? 0.3 : 0.08,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 5,
+    elevation: 3,
+  },
+  headerTitleLabelText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.text,
+  },
   floatingRightActions: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1642,11 +1639,11 @@ function createStyles(colors: any, isDark: boolean) {
   floatingPillBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 4,
     backgroundColor: isDark ? colors.elevated : 'rgba(255, 255, 255, 0.94)',
     borderWidth: 1,
     borderColor: colors.hairline,
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 7,
     borderRadius: 100,
     shadowColor: '#000',
@@ -1663,9 +1660,9 @@ function createStyles(colors: any, isDark: boolean) {
   floatingPillPrimaryBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 4,
     backgroundColor: colors.primary,
-    paddingHorizontal: 13,
+    paddingHorizontal: 11,
     paddingVertical: 7,
     borderRadius: 100,
     shadowColor: colors.primary,
