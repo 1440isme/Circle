@@ -8550,3 +8550,34 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 - **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
 - **Commit:** 6cec412
 - **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
+
+
+## AI-0212: Đồng Bộ Bố Cục 2 Cột Cho Bộ Lọc Album Và Phản Hồi Trực Tiếp Tìm Kiếm Ảnh (#120)
+
+- **Date:** 2026-11-16 14:35:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120
+- **Purpose:** Tinh chỉnh tính năng bộ lọc và tìm kiếm hình ảnh trên ứng dụng Mobile theo phản hồi người dùng:
+  1. **Đồng Bộ Bố Cục 2 Cột Cho Bộ Lọc Chi Tiết Album:**
+     - Tái thiết kế modal bộ lọc trong chi tiết Album (`isAlbumFilterModalOpen`) sang chuẩn bố cục 2 cột Split Master-Detail đồng nhất 100% với bên ngoài Media Hub.
+     - Cột trái: Tab "Ngày gửi" (`Calendar`) và Tab "Người gửi" (`User`) có viền nhấn bên trái, nền nổi bật và chấm tròn chỉ báo khi có bộ lọc hoạt động.
+     - Cột phải: Khối nội dung tương ứng (Lịch tương tác From/To chia tỷ lệ 14.28% chuẩn, hoặc ô tìm kiếm và danh sách thành viên trong album).
+     - Header với nút Đặt lại và Footer với nút Áp dụng chuẩn theme.
+  2. **Phản Hồi Trực Tiếp Cho Tìm Kiếm Bằng Hình Ảnh:**
+     - Khi người dùng chạm vào biểu tượng `ScanSearch`, hiển thị ngay thông báo `t.collab.imageSearchComingSoon` ("Tính năng tìm kiếm bằng hình ảnh đang được hoàn thiện") cùng rung nhẹ Haptics, không mở thư viện ảnh hay xin quyền máy cục bộ.
+- **Files Affected:**
+  - `apps/mobile/src/components/tools/MobileAlbumsView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% split modal layout synchronization và direct notice trigger for image search.
+- **Human Modifications:** Người dùng nhận xét bộ lọc trong app chưa được thiết kế như ở ngoài và yêu cầu khi ấn tìm kiếm hình ảnh là thông báo tính năng đang hoàn thiện luôn.
+- **Verification Method:**
+  - `npx tsc -p apps/mobile/tsconfig.json --noEmit`: Passed (0 errors).
+  - `npx tsc -p apps/web/tsconfig.json --noEmit`: Passed (0 errors).
+  - `bash ./scripts/check-agent-map.sh`: Passed (all references resolve).
+  - `bash ./scripts/check-secrets.sh`: Passed (601 files checked, 0 secret leaks).
+- **Official Source Checked:** `PROJECT_GOD.md` §2.2, `agentic/playbooks/cross-cutting-gate.md` (Web/Mobile parity, UI states).
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
+- **Commit:** 6745377
+- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
