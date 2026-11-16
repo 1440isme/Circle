@@ -8581,3 +8581,36 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 - **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
 - **Commit:** 6745377
 - **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
+
+
+## AI-0213: Tối Ưu Header Thu Gọn Tìm Kiếm Hub Và Bổ Sung Năm Cho Bộ Lọc Ngày (#120)
+
+- **Date:** 2026-11-16 15:00:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120
+- **Purpose:** Tinh chỉnh thanh header và bộ lịch chọn ngày trên ứng dụng Mobile theo yêu cầu người dùng:
+  1. **Hiển Thị Tên Tab Gần Nút Quay Lại:**
+     - Cả 3 tab Media Hub (`media`: "File phương tiện", `links`: "File liên kết", `files`: "File") đều có tiêu đề hiển thị trang trọng bên cạnh nút quay lại `<`.
+  2. **Thu Gọn Tìm Kiếm Thành Icon Kính Lúp (Expandable Search):**
+     - Ở tab Liên kết và Tệp tin, thanh tìm kiếm mặc định thu gọn thành nút icon kính lúp (`Search`).
+     - Chỉ khi người dùng nhấn vào icon `Search`, thanh tìm kiếm mới bung mở rộng xuống hàng 2 kèm ô nhập từ khóa, tự động focus và nút "X" xóa/đóng nhanh.
+     - Cập nhật khoảng đệm `paddingTop: topHeaderTop + (isHubSearchOpen ? 92 : 48)` cho danh sách cuộn mượt mà.
+  3. **Bổ Sung Năm Cho Bộ Lọc Ngày Gửi:**
+     - Cập nhật định dạng ngày hiển thị `DD/MM/YYYY` (ví dụ: `16/11/2026`) thay vì chỉ hiện ngày/tháng.
+     - Bổ sung nút điều hướng chuyển năm nhanh `<<` (`ChevronsLeft`) và `>>` (`ChevronsRight`) trên thanh tiêu đề tháng/năm của bộ lịch.
+- **Files Affected:**
+  - `apps/mobile/src/components/tools/MobileAlbumsView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% expandable header logic, year formatting & year jump navigation.
+- **Human Modifications:** Người dùng yêu cầu phần tìm kiếm file và liên kết để icon khi nào ấn mới mở rộng ra, có tên gần nút quay lại, và bộ lọc ngày gửi bổ sung năm.
+- **Verification Method:**
+  - `npx tsc -p apps/mobile/tsconfig.json --noEmit`: Passed (0 errors).
+  - `npx tsc -p apps/web/tsconfig.json --noEmit`: Passed (0 errors).
+  - `bash ./scripts/check-agent-map.sh`: Passed (all references resolve).
+  - `bash ./scripts/check-secrets.sh`: Passed (601 files checked, 0 secret leaks).
+- **Official Source Checked:** `PROJECT_GOD.md` §2.2, `agentic/playbooks/cross-cutting-gate.md` (Web/Mobile parity, UI states).
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
+- **Commit:** 26fd99d
+- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)

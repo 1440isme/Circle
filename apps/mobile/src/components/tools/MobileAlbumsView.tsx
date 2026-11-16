@@ -40,6 +40,8 @@ import {
   Pencil,
   ChevronLeft,
   ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   CheckSquare,
   MoreVertical,
   ScanSearch,
@@ -122,6 +124,7 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
   // GOM CHUNG TẤT CẢ BỘ LỌC (FILE TYPE, SENDER, DATE) VÀO 1 NÚT LỌC DUY NHẤT
   // =========================================================================
   const [isUnifiedFilterModalOpen, setIsUnifiedFilterModalOpen] = useState(false);
+  const [isHubSearchOpen, setIsHubSearchOpen] = useState(false);
   type UnifiedFilterCategory = 'date' | 'sender' | 'fileType';
   const [unifiedFilterTab, setUnifiedFilterTab] = useState<UnifiedFilterCategory>('date');
   const [searchQuery, setSearchQuery] = useState('');
@@ -661,7 +664,7 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
   const formatShortDate = (dStr: string) => {
     if (!dStr) return '';
     const parts = dStr.split('-');
-    if (parts.length === 3) return `${parts[2]}/${parts[1]}`;
+    if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
     return dStr;
   };
 
@@ -785,7 +788,7 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
               {t.collab.filterDateFrom}:
             </Text>
             <Text style={{ fontSize: 11, fontWeight: '700', color: dFrom ? colors.text : colors.subtle }} numberOfLines={1}>
-              {dFrom ? formatShortDate(dFrom) : '--/--'}
+              {dFrom ? formatShortDate(dFrom) : '--/--/----'}
             </Text>
           </TouchableOpacity>
 
@@ -812,7 +815,7 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
               {t.collab.filterDateTo}:
             </Text>
             <Text style={{ fontSize: 11, fontWeight: '700', color: dTo ? colors.text : colors.subtle }} numberOfLines={1}>
-              {dTo ? formatShortDate(dTo) : '--/--'}
+              {dTo ? formatShortDate(dTo) : '--/--/----'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -832,23 +835,49 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
           </TouchableOpacity>
         ) : null}
 
-        {/* Month Navigation */}
+        {/* Month & Year Navigation (hỗ trợ chuyển tháng và chuyển năm nhanh) */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, paddingHorizontal: 2 }}>
-          <TouchableOpacity
-            onPress={() => setPMonth((p) => new Date(p.getFullYear(), p.getMonth() - 1, 1))}
-            style={{ padding: 4, borderRadius: 8, backgroundColor: colors.wash }}
-          >
-            <ChevronLeft size={16} color={colors.text} />
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+            <TouchableOpacity
+              onPress={() => setPMonth((p) => new Date(p.getFullYear() - 1, p.getMonth(), 1))}
+              style={{ padding: 4, borderRadius: 6, backgroundColor: colors.wash }}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              accessibilityLabel="-1 year"
+            >
+              <ChevronsLeft size={14} color={colors.text} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setPMonth((p) => new Date(p.getFullYear(), p.getMonth() - 1, 1))}
+              style={{ padding: 4, borderRadius: 6, backgroundColor: colors.wash }}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              accessibilityLabel="-1 month"
+            >
+              <ChevronLeft size={14} color={colors.text} />
+            </TouchableOpacity>
+          </View>
+
           <Text style={{ fontSize: 12, fontWeight: '700', color: colors.text }}>
             {locale === 'vi' ? `Tháng ${pad(month + 1)}, ${year}` : `Month ${pad(month + 1)}, ${year}`}
           </Text>
-          <TouchableOpacity
-            onPress={() => setPMonth((p) => new Date(p.getFullYear(), p.getMonth() + 1, 1))}
-            style={{ padding: 4, borderRadius: 8, backgroundColor: colors.wash }}
-          >
-            <ChevronRight size={16} color={colors.text} />
-          </TouchableOpacity>
+
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+            <TouchableOpacity
+              onPress={() => setPMonth((p) => new Date(p.getFullYear(), p.getMonth() + 1, 1))}
+              style={{ padding: 4, borderRadius: 6, backgroundColor: colors.wash }}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              accessibilityLabel="+1 month"
+            >
+              <ChevronRight size={14} color={colors.text} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setPMonth((p) => new Date(p.getFullYear() + 1, p.getMonth(), 1))}
+              style={{ padding: 4, borderRadius: 6, backgroundColor: colors.wash }}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              accessibilityLabel="+1 year"
+            >
+              <ChevronsRight size={14} color={colors.text} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Weekdays Row */}
@@ -1753,6 +1782,7 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
           left: 14,
           right: 14,
           zIndex: 40,
+          gap: 8,
         }}
       >
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -1770,55 +1800,18 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
             <ArrowLeft size={16} color={colors.text} />
           </TouchableOpacity>
 
-          {/* TAB MEDIA: KHÔNG CÓ THANH TÌM KIẾM THEO YÊU CẦU */}
-          {activeTab === 'media' ? (
-            <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 4 }}>
-              <Text style={{ fontSize: 15, fontWeight: '700', color: colors.text }}>
-                {t.collab.tabMedia}
-              </Text>
-            </View>
-          ) : (
-            /* TAB LINKS & FILES: CÓ THANH TÌM KIẾM */
-            <View
-              style={{
-                flex: 1,
-                height: 36,
-                borderRadius: 18,
-                backgroundColor: isDark ? 'rgba(29, 29, 33, 0.92)' : 'rgba(255, 255, 255, 0.94)',
-                borderWidth: StyleSheet.hairlineWidth,
-                borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : colors.hairline,
-                flexDirection: 'row',
-                alignItems: 'center',
-                paddingHorizontal: 10,
-                gap: 6,
-              }}
-            >
-              <Search size={14} color={colors.subtle} />
-              <TextInput
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                placeholder={
-                  activeTab === 'links'
-                    ? t.collab.searchLinksPlaceholder
-                    : t.collab.searchFilesPlaceholder
-                }
-                placeholderTextColor={colors.subtle}
-                style={{
-                  flex: 1,
-                  fontSize: 12,
-                  color: colors.text,
-                  paddingVertical: 0,
-                }}
-              />
-              {searchQuery.length > 0 && (
-                <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                  <X size={13} color={colors.subtle} />
-                </TouchableOpacity>
-              )}
-            </View>
-          )}
+          {/* TAB TITLE: CÓ TÊN GẦN NÚT QUAY LẠI CHO CẢ 3 TAB */}
+          <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 4 }}>
+            <Text numberOfLines={1} style={{ fontSize: 15, fontWeight: '700', color: colors.text }}>
+              {activeTab === 'media'
+                ? t.collab.tabMedia
+                : activeTab === 'links'
+                ? t.collab.tabLinks
+                : t.collab.tabFiles}
+            </Text>
+          </View>
 
-          {/* ScanSearch Icon: Đổi icon tìm kiếm bằng hình ảnh (thay Camera để chống nhầm lẫn) */}
+          {/* TAB MEDIA: ScanSearch Icon */}
           {activeTab === 'media' && (
             <TouchableOpacity
               activeOpacity={0.8}
@@ -1833,7 +1826,30 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
             </TouchableOpacity>
           )}
 
-          {/* GOM TẤT CẢ CHỖ LỌC (LOẠI FILE, NGƯỜI GỬI, NGÀY GỬI) VÀO 1 NÚT LỌC DUY NHẤT */}
+          {/* TAB LINKS & FILES: Search Icon (khi nào ấn mới mở rộng ra) */}
+          {(activeTab === 'links' || activeTab === 'files') && (
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => {
+                setIsHubSearchOpen((prev) => !prev);
+                if (isHubSearchOpen) setSearchQuery('');
+              }}
+              style={[
+                styles.headerIconBtn,
+                isHubSearchOpen || searchQuery
+                  ? { backgroundColor: colors.primary }
+                  : { backgroundColor: isDark ? 'rgba(29, 29, 33, 0.92)' : 'rgba(255, 255, 255, 0.94)' },
+              ]}
+              accessibilityLabel={t.common.searchPlaceholder}
+            >
+              <Search
+                size={14}
+                color={isHubSearchOpen || searchQuery ? colors.onPrimary : colors.subtle}
+              />
+            </TouchableOpacity>
+          )}
+
+          {/* Filter Button (GOM TẤT CẢ CHỖ LỌC VÀO 1 NÚT LỌC DUY NHẤT) */}
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={handleOpenUnifiedFilterModal}
@@ -1848,6 +1864,47 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
             <Filter size={15} color={hasActiveFilters ? colors.onPrimary : colors.subtle} />
           </TouchableOpacity>
         </View>
+
+        {/* Row 2: Expandable Search Bar in Media Hub (khi nào ấn vào icon tìm kiếm mới mở rộng ra) */}
+        {(activeTab === 'links' || activeTab === 'files') && isHubSearchOpen && (
+          <View
+            style={{
+              height: 36,
+              borderRadius: 18,
+              backgroundColor: isDark ? 'rgba(29, 29, 33, 0.92)' : 'rgba(255, 255, 255, 0.94)',
+              borderWidth: StyleSheet.hairlineWidth,
+              borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : colors.hairline,
+              flexDirection: 'row',
+              alignItems: 'center',
+              paddingHorizontal: 10,
+              gap: 6,
+            }}
+          >
+            <Search size={13} color={colors.subtle} />
+            <TextInput
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder={
+                activeTab === 'links'
+                  ? t.collab.searchLinksPlaceholder
+                  : t.collab.searchFilesPlaceholder
+              }
+              placeholderTextColor={colors.subtle}
+              autoFocus
+              style={{
+                flex: 1,
+                fontSize: 12,
+                color: colors.text,
+                paddingVertical: 0,
+              }}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <X size={13} color={colors.subtle} />
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
       </View>
 
       {/* Main Content Area */}
@@ -2079,7 +2136,7 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
             contentContainerStyle={[
               styles.scrollContent,
               {
-                paddingTop: topHeaderTop + 48,
+                paddingTop: topHeaderTop + (isHubSearchOpen ? 92 : 48),
                 paddingBottom: bottomDockBottom + 56,
               },
             ]}
@@ -2163,7 +2220,7 @@ export const MobileAlbumsView: React.FC<MobileAlbumsViewProps> = ({ circleId, on
             contentContainerStyle={[
               styles.scrollContent,
               {
-                paddingTop: topHeaderTop + 48,
+                paddingTop: topHeaderTop + (isHubSearchOpen ? 92 : 48),
                 paddingBottom: bottomDockBottom + 56,
               },
             ]}
