@@ -3,6 +3,7 @@ import {
   SharedAlbumEntity,
   PhotoEntity,
   CreateSharedAlbumInput,
+  UpdateSharedAlbumInput,
   AddPhotosInput,
   DecisionWheelEntity,
   CreateWheelInput,
@@ -65,6 +66,21 @@ export async function createAlbumApi(
     method: 'POST',
     body: JSON.stringify(input),
   });
+  return res.data;
+}
+
+export async function updateAlbumApi(
+  circleId: string,
+  albumId: string,
+  input: UpdateSharedAlbumInput,
+): Promise<SharedAlbumEntity> {
+  const res = await mobileApiRequest<SharedAlbumEntity>(
+    `/circles/${circleId}/albums/${albumId}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    },
+  );
   return res.data;
 }
 

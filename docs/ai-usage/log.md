@@ -8327,3 +8327,44 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 - **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
 - **Commit:** 581be88
 - **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
+
+---
+
+## AI-0206: Tinh Chỉnh Giao Diện Header, Bottom Dock Và Đồng Bộ Toàn Diện Tính Năng Cho Album Mobile (#120)
+
+- **Date:** 2026-11-16 11:40:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120
+- **Purpose:** Tinh chỉnh bố cục điều hướng và đồng bộ toàn diện tính năng cho Album / Media Hub trên ứng dụng Mobile theo yêu cầu người dùng:
+  1. **Tối Giản Hóa Header Điều Hướng:**
+     - Loại bỏ nút đóng 'X' khi xem Album; loại bỏ chữ "Tiện ích nhóm" ở nút quay lại, chỉ giữ lại icon `<` tinh gọn trong nút pill tròn 36x36.
+     - Đưa thanh tìm kiếm và toàn bộ cụm nút lọc (Camera tìm kiếm ảnh, Bộ lọc Người gửi, Bộ lọc Ngày gửi, Bộ lọc Loại file) lên cùng một hàng header ở đỉnh màn hình (`topHeaderTop`).
+  2. **Thanh Chuyển Tab Nổi Ở Đáy Màn Hình (Bottom Dock):**
+     - Di chuyển 3 nút tab (File phương tiện, File liên kết, File) xuống dock nổi bo tròn ở dưới cùng (`bottomDockBottom`), tạo không gian duyệt nội dung rộng rãi, thoáng đãng.
+  3. **Đồng Bộ Đầy Đủ Tính Năng Album Web Sang Mobile:**
+     - **Bộ Lọc Khoảng Ngày (Date Range):** Tích hợp modal chọn lịch tương tác (Từ ngày - Đến ngày, chuyển tháng, ngày trong tháng, nút Xóa và Xong).
+     - **Chỉnh Sửa Tên Album Trực Tiếp (In-place Rename):** Chạm vào tên hoặc icon bút để kích hoạt `TextInput` inline và lưu qua `updateAlbumApi`.
+     - **Chọn & Xóa Nhiều Ảnh (Multi-select & Batch Delete):** Giữ nguyên nhãn nút "Chọn", hỗ trợ tích chọn nhiều ảnh và thanh xóa hàng loạt kèm modal xác nhận.
+     - **Lọc Trong Album:** Hỗ trợ tìm kiếm, lọc theo người gửi và lọc theo ngày ngay bên trong màn hình chi tiết Album.
+     - **Tạo Album Tinh Gọn:** Form tạo Album chỉ giữ trường Tên Album, loại bỏ trường mô tả.
+- **Files Affected:**
+  - `apps/mobile/app/circle/[id].tsx`
+  - `apps/mobile/src/components/tools/MobileAlbumsView.tsx`
+  - `apps/mobile/src/services/circle-tools.service.ts`
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% layout redesign, bottom dock, in-place title editing, calendar picker modal, batch delete, và service API binding.
+- **Human Modifications:** Người dùng yêu cầu bỏ dấu x, bỏ chữ tiện ích nhóm ở nút quay lại, đưa tìm kiếm và lọc lên header, đưa 3 nút tab xuống dưới cùng, và đồng bộ đầy đủ tính năng của web sang mobile.
+- **Verification Method:**
+  - `npm run build --workspace=@circle/shared`: Passed 100%.
+  - `npx tsc -p apps/mobile/tsconfig.json --noEmit`: Passed (0 errors).
+  - `npx tsc -p apps/web/tsconfig.json --noEmit`: Passed (0 errors).
+  - `bash ./scripts/check-agent-map.sh`: Passed (all references resolve).
+  - `bash ./scripts/check-secrets.sh`: Passed (600 files checked, 0 secret leaks).
+- **Official Source Checked:** `PROJECT_GOD.md` §2.2, `agentic/playbooks/cross-cutting-gate.md` (Web/Mobile parity, Ergonomics & Bottom Dock).
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
+- **Commit:** f7feb75
+- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)

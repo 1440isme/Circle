@@ -5043,136 +5043,136 @@ export default function CircleWorkspaceScreen() {
       >
         <View style={{ flex: 1, backgroundColor: colors.canvas }}>
           {/* Floating Navigation Bar (strictly gated Glass vs Flat) */}
-          <View
-            pointerEvents="box-none"
-            style={{
-              position: 'absolute',
-              top: Math.max(insets.top + 8, 16),
-              left: 16,
-              right: 16,
-              zIndex: 50,
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }}
-          >
-            {(() => {
-              const pillBaseStyle = {
-                borderRadius: 999,
-                overflow: 'hidden' as const,
-                backgroundColor: isGlass ? glassTheme.colors.glassBg : colors.surface,
-                borderWidth: isGlass ? StyleSheet.hairlineWidth : 1,
-                borderColor: isGlass ? glassTheme.colors.glassBorder : colors.hairline,
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: isGlass ? (isDark ? 0.3 : 0.08) : 0,
-                shadowRadius: 8,
-                elevation: isGlass ? 3 : 0,
-              };
+          {selectedTool !== 'album' && (
+            <View
+              pointerEvents="box-none"
+              style={{
+                position: 'absolute',
+                top: Math.max(insets.top + 8, 16),
+                left: 16,
+                right: 16,
+                zIndex: 50,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              {(() => {
+                const pillBaseStyle = {
+                  borderRadius: 999,
+                  overflow: 'hidden' as const,
+                  backgroundColor: isGlass ? glassTheme.colors.glassBg : colors.surface,
+                  borderWidth: isGlass ? StyleSheet.hairlineWidth : 1,
+                  borderColor: isGlass ? glassTheme.colors.glassBorder : colors.hairline,
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: isGlass ? (isDark ? 0.3 : 0.08) : 0,
+                  shadowRadius: 8,
+                  elevation: isGlass ? 3 : 0,
+                };
 
-              const backPill = (
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  onPress={() => setSelectedTool('menu')}
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 6,
-                    minHeight: 36,
-                    paddingVertical: 7,
-                    paddingHorizontal: 12,
-                  }}
-                  accessibilityLabel={t.common.back}
-                >
-                  <ArrowLeft size={16} color={colors.text} />
-                  <Text style={{ fontSize: 13, fontWeight: '600', color: colors.text }}>
-                    {t.nav.groupTools}
-                  </Text>
-                </TouchableOpacity>
-              );
+                const backPill = (
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    onPress={() => setSelectedTool('menu')}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 6,
+                      minHeight: 36,
+                      paddingVertical: 7,
+                      paddingHorizontal: 12,
+                    }}
+                    accessibilityLabel={t.common.back}
+                  >
+                    <ArrowLeft size={16} color={colors.text} />
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: colors.text }}>
+                      {t.nav.groupTools}
+                    </Text>
+                  </TouchableOpacity>
+                );
 
-              const titlePill = (
-                <View
-                  style={{
-                    minHeight: 36,
-                    justifyContent: 'center',
-                    paddingVertical: 7,
-                    paddingHorizontal: 16,
-                    alignItems: 'center',
-                  }}
-                >
-                  <Text style={{ fontSize: 13, fontWeight: '700', color: colors.text }}>
-                    {selectedTool === 'album'
-                      ? t.nav.photoAlbum
-                      : selectedTool === 'calendar'
-                      ? t.nav.calendarEvents
-                      : selectedTool === 'planning'
-                      ? t.nav.planningSheet
-                      : selectedTool === 'location'
-                      ? t.nav.liveLocation
-                      : selectedTool === 'poll'
-                      ? t.nav.groupPoll
-                      : selectedTool === 'wheel'
-                      ? t.nav.luckyWheel
-                      : selectedTool === 'anonymous'
-                      ? t.nav.reflectionMailbox
-                      : ''}
-                  </Text>
-                </View>
-              );
+                const titlePill = (
+                  <View
+                    style={{
+                      minHeight: 36,
+                      justifyContent: 'center',
+                      paddingVertical: 7,
+                      paddingHorizontal: 16,
+                      alignItems: 'center',
+                    }}
+                  >
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: colors.text }}>
+                      {selectedTool === 'calendar'
+                        ? t.nav.calendarEvents
+                        : selectedTool === 'planning'
+                        ? t.nav.planningSheet
+                        : selectedTool === 'location'
+                        ? t.nav.liveLocation
+                        : selectedTool === 'poll'
+                        ? t.nav.groupPoll
+                        : selectedTool === 'wheel'
+                        ? t.nav.luckyWheel
+                        : selectedTool === 'anonymous'
+                        ? t.nav.reflectionMailbox
+                        : ''}
+                    </Text>
+                  </View>
+                );
 
-              const closePill = (
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  onPress={() => setSelectedTool('menu')}
-                  style={{
-                    minWidth: 36,
-                    minHeight: 36,
-                    padding: 8,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                  accessibilityLabel={t.common.close}
-                >
-                  <X size={16} color={colors.text} />
-                </TouchableOpacity>
-              );
+                const closePill = (
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    onPress={() => setSelectedTool('menu')}
+                    style={{
+                      minWidth: 36,
+                      minHeight: 36,
+                      padding: 8,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                    accessibilityLabel={t.common.close}
+                  >
+                    <X size={16} color={colors.text} />
+                  </TouchableOpacity>
+                );
 
-              const showTitlePill = selectedTool !== 'album' && selectedTool !== 'anonymous';
+                const showTitlePill = selectedTool !== 'anonymous';
 
-              if (isGlass) {
+                if (isGlass) {
+                  return (
+                    <>
+                      <BlurView intensity={glassTheme.blur.intensity} tint={glassTheme.blur.tint} style={pillBaseStyle}>
+                        {backPill}
+                      </BlurView>
+                      {showTitlePill && (
+                        <BlurView intensity={glassTheme.blur.intensity} tint={glassTheme.blur.tint} style={pillBaseStyle}>
+                          {titlePill}
+                        </BlurView>
+                      )}
+                      <BlurView intensity={glassTheme.blur.intensity} tint={glassTheme.blur.tint} style={pillBaseStyle}>
+                        {closePill}
+                      </BlurView>
+                    </>
+                  );
+                }
+
                 return (
                   <>
-                    <BlurView intensity={glassTheme.blur.intensity} tint={glassTheme.blur.tint} style={pillBaseStyle}>
-                      {backPill}
-                    </BlurView>
-                    {showTitlePill && (
-                      <BlurView intensity={glassTheme.blur.intensity} tint={glassTheme.blur.tint} style={pillBaseStyle}>
-                        {titlePill}
-                      </BlurView>
-                    )}
-                    <BlurView intensity={glassTheme.blur.intensity} tint={glassTheme.blur.tint} style={pillBaseStyle}>
-                      {closePill}
-                    </BlurView>
+                    <View style={pillBaseStyle}>{backPill}</View>
+                    {showTitlePill && <View style={pillBaseStyle}>{titlePill}</View>}
+                    <View style={pillBaseStyle}>{closePill}</View>
                   </>
                 );
-              }
-
-              return (
-                <>
-                  <View style={pillBaseStyle}>{backPill}</View>
-                  {showTitlePill && <View style={pillBaseStyle}>{titlePill}</View>}
-                  <View style={pillBaseStyle}>{closePill}</View>
-                </>
-              );
-            })()}
-          </View>
+              })()}
+            </View>
+          )}
 
           <View style={{ flex: 1 }}>
             {selectedTool === 'album' ? (
-              <MobileAlbumsView circleId={circleId} />
+              <MobileAlbumsView circleId={circleId} onBack={() => setSelectedTool('menu')} />
             ) : selectedTool === 'calendar' ? (
               <MobileCalendarView circleId={circleId} />
             ) : selectedTool === 'planning' ? (
