@@ -8869,3 +8869,42 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 - **Security & License Check:** An toàn tuyệt đối, zero secrets.
 - **Commit:** 69cffc1
 - **PR:** #120
+
+
+## AI-0218: Đồng Bộ Thứ Tự Vòng Quay Tăng Dần (1-2-3-4), Header Title Label Và Keyboard Avoidance Setup Board (#120)
+
+- **Date:** 2026-11-18 01:45:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120
+- **Purpose:** 
+  1. **Hiển thị tên "Vòng quay may mắn" dạng nhãn text gần nút quay lại trên Mobile:**
+     - Bổ sung Text label `Vòng quay may mắn` (`fontSize: 16, fontWeight: '700'`) ngay cạnh nút tròn Quay lại (`ArrowLeft`) trên thanh Floating Header của `MobileWheelView`.
+     - Giữ nguyên thiết kế tối giản: text thuần không đóng khung viền, hài hòa và đồng nhất với màn hình File phương tiện (`MobileAlbumsView`) và Lịch nhóm (`MobileCalendarView`).
+  2. **Tự động đẩy bảng Setup lên khi nhập liệu không bị che bởi bàn phím:**
+     - Bổ sung `scrollViewRef = useRef<React.ElementRef<typeof ScrollView>>(null)`.
+     - Thêm `automaticallyAdjustKeyboardInsets={true}`, `keyboardShouldPersistTaps="handled"` và mở rộng `paddingBottom: scrollPaddingBottom + 200` cho ScrollView.
+     - Tích hợp sự kiện `onFocus` vào ô sửa tên vòng (`inlineTitleInput`) và ô nhập danh sách tùy chọn (`boardTextarea`), tự động kích hoạt `scrollViewRef.current?.scrollToEnd({ animated: true })` giúp cuộn mượt mà toàn bộ phần setup lên phía trên bàn phím.
+  3. **Sắp xếp thứ tự vòng quay tăng dần 1, 2, 3, 4 trên cả Web và App:**
+     - Backend: Sửa câu truy vấn `getWheels` trong `circle-tools.service.ts` từ `orderBy: { createdAt: 'desc' }` thành `orderBy: { createdAt: 'asc' }`.
+     - Web: Thêm `useMemo` sắp xếp danh sách `wheels` theo `createdAt: 'asc'` và tự nhiên theo tiêu đề vòng.
+     - Mobile: Sắp xếp danh sách `wheels` theo `createdAt: 'asc'` trong hàm nạp dữ liệu `loadData` và sau khi tạo vòng mới `handleAddDefaultWheel`, đảm bảo Vòng 1 luôn ở vị trí đầu tiên/ở trên cùng thay vì vòng mới nhất.
+- **Files Affected:**
+  - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
+  - `apps/web/src/components/tools/CircleWheelView.tsx`
+  - `apps/mobile/src/components/tools/MobileWheelView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% backend query correction, frontend sorting memoization, header layout adjustments, and keyboard scrolling logic.
+- **Human Modifications:** Người dùng yêu cầu ở app thiếu tên vòng quay may mắn gần btn quay lại, khi ấn nhập setup đẩy lên không bị che bởi bàn phím, và ở app + web sắp xếp lại vòng 1, 2, 3, 4 chứ không phải 4, 2, 3, 1 (vòng 1 ở trên).
+- **Verification Method:**
+  - `npx tsc --noEmit -p apps/web/tsconfig.json`: Passed 0 errors.
+  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Passed 0 errors.
+  - `npx tsc --noEmit -p apps/backend/tsconfig.json`: Passed 0 errors.
+  - `npm test --prefix apps/backend -- circle-tools.service.spec.ts`: Passed 45/45 tests.
+  - `bash ./scripts/check-agent-map.sh`: Passed (all 130 files resolve).
+  - `bash ./scripts/check-secrets.sh`: Passed (601 files checked, 0 leaks).
+- **Official Source Checked:** `PROJECT_GOD.md` §2.2, `agentic/playbooks/05-calendar-planning.md`, `agentic/playbooks/cross-cutting-gate.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secrets.
+- **Commit:** f3782a6
+- **PR:** #120

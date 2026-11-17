@@ -125,6 +125,9 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onBa
     { wheelId: string; wheelTitle: string; winner: string; winningIndex: number }[] | null
   >(null);
 
+  // ScrollView Ref để hỗ trợ tự động cuộn lên khi bàn phím mở
+  const scrollViewRef = useRef<React.ElementRef<typeof ScrollView>>(null);
+
   // Sync wheel states when wheels load
   useEffect(() => {
     setWheelStates((prev) => {
@@ -224,12 +227,18 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onBa
     }
   };
 
-  // Load wheels
+  // Load wheels: Luôn sắp xếp vòng 1, 2, 3, 4 theo thời gian tạo tăng dần
   const loadData = useCallback(async () => {
     try {
       setIsLoading(true);
       const wheelsData = await getWheelsApi(circleId);
-      setWheels(wheelsData);
+      const sorted = [...wheelsData].sort((a, b) => {
+        const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        if (timeA !== timeB) return timeA - timeB;
+        return a.title.localeCompare(b.title, 'vi', { numeric: true });
+      });
+      setWheels(sorted);
     } catch (err: any) {
       Alert.alert(t.common.unknownError, err.message || t.common.unknownError);
     } finally {
@@ -622,7 +631,15 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onBa
         confettiEnabled: true,
       });
 
-      setWheels((prev) => [...prev, res]);
+      setWheels((prev) => {
+        const updated = [...prev, res];
+        return updated.sort((a, b) => {
+          const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          if (timeA !== timeB) return timeA - timeB;
+          return a.title.localeCompare(b.title, 'vi', { numeric: true });
+        });
+      });
       setActiveWheelId(res.id);
     } catch (err: any) {
       Alert.alert(t.common.unknownError, err.message || t.luckyWheel.maxWheelsReached);
@@ -895,22 +912,30 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onBa
 
   return (
     <View style={styles.container}>
-      {/* Floating Header Bar: Icon-only Floating Pill Buttons */}
+      {/* Floating Header Bar: Back Button, Title Label, and Action Icons */}
       <View style={[styles.floatingHeaderArea, { top: floatingToolbarTop }]} pointerEvents="box-none">
-        {/* Left: Back Button (icon only) */}
-        {onBack ? (
-          <TouchableOpacity
-            activeOpacity={0.7}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            onPress={onBack}
-            style={styles.floatingPillIconBtn}
-            accessibilityLabel={t.common.back}
+        {/* Left: Back Button (icon only) + Tên vòng quay dạng label (không khung) */}
+        <View style={styles.headerLeftGroup} pointerEvents="box-none">
+          {onBack && (
+            <TouchableOpacity
+              activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              onPress={onBack}
+              style={styles.floatingPillIconBtn}
+              accessibilityLabel={t.common.back}
+            >
+              <ArrowLeft size={16} color={colors.text} />
+            </TouchableOpacity>
+          )}
+
+          <Text
+            style={styles.headerTitleLabelText}
+            numberOfLines={1}
+            ellipsizeMode="tail"
           >
-            <ArrowLeft size={16} color={colors.text} />
-          </TouchableOpacity>
-        ) : (
-          <View />
-        )}
+            {t.nav?.luckyWheel || t.luckyWheel?.title || 'Vòng quay may mắn'}
+          </Text>
+        </View>
 
         {/* Right: Results, Add Wheel & Spin All Buttons (Icon only) */}
         <View style={styles.floatingRightActions}>
@@ -962,14 +987,17 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onBa
       </View>
 
       <ScrollView
+        ref={scrollViewRef}
         style={styles.scrollContainer}
         contentContainerStyle={[
           styles.scrollContent,
           {
             paddingTop: scrollPaddingTop,
-            paddingBottom: scrollPaddingBottom,
+            paddingBottom: scrollPaddingBottom + 200,
           },
         ]}
+        automaticallyAdjustKeyboardInsets={true}
+        keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
         {/* SÂN KHẤU VÒNG QUAY (VISUAL ARENA) */}
@@ -1303,6 +1331,11 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onBa
                       );
                       saveWheelChanges(activeWheel.id, undefined, val);
                     }}
+                    onFocus={() => {
+                      setTimeout(() => {
+                        scrollViewRef.current?.scrollToEnd({ animated: true });
+                      }, 200);
+                    }}
                     placeholder={t.luckyWheel.wheelNamePlaceholder}
                     placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
                   />
@@ -1333,6 +1366,11 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onBa
                   editable={!isAnySpinning}
                   value={activeState?.optionsText || ''}
                   onChangeText={(txt) => handleTextChange(activeWheel.id, txt)}
+                  onFocus={() => {
+                    setTimeout(() => {
+                      scrollViewRef.current?.scrollToEnd({ animated: true });
+                    }, 200);
+                  }}
                   placeholder={t.luckyWheel.optionsPlaceholder}
                   placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
                 />
@@ -1612,44 +1650,14 @@ function createStyles(colors: any, isDark: boolean) {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-  },
-  headerBackBtn: {
-    minWidth: 36,
-    minHeight: 36,
-    padding: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 999,
-    backgroundColor: isDark ? colors.elevated : 'rgba(255, 255, 255, 0.94)',
-    borderWidth: 1,
-    borderColor: colors.hairline,
-    shadowColor: '#000',
-    shadowOpacity: isDark ? 0.3 : 0.08,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 5,
-    elevation: 3,
-  },
-  headerTitleLabel: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    minHeight: 36,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 999,
-    backgroundColor: isDark ? colors.elevated : 'rgba(255, 255, 255, 0.94)',
-    borderWidth: 1,
-    borderColor: colors.hairline,
-    shadowColor: '#000',
-    shadowOpacity: isDark ? 0.3 : 0.08,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 5,
-    elevation: 3,
+    flex: 1,
+    marginRight: 8,
   },
   headerTitleLabelText: {
-    fontSize: 13,
+    fontSize: 16,
     fontWeight: '700',
     color: colors.text,
+    flexShrink: 1,
   },
   floatingRightActions: {
     flexDirection: 'row',

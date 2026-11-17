@@ -244,7 +244,17 @@ export const CircleWheelView: React.FC<CircleWheelViewProps> = ({ circleId }) =>
   const { user } = useAuth();
   const { t } = useLanguageStore();
 
-  const { data: wheels = [], isLoading: isLoadingWheels } = useWheelsQuery(circleId);
+  const { data: rawWheels = [], isLoading: isLoadingWheels } = useWheelsQuery(circleId);
+
+  // Sắp xếp vòng 1, 2, 3, 4 theo thứ tự thời gian tạo tăng dần (Vòng 1 ở trên chứ không phải mới nhất)
+  const wheels = useMemo(() => {
+    return [...rawWheels].sort((a, b) => {
+      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      if (timeA !== timeB) return timeA - timeB;
+      return a.title.localeCompare(b.title, 'vi', { numeric: true });
+    });
+  }, [rawWheels]);
 
   const createWheelMutation = useCreateWheelMutation(circleId);
   const updateWheelMutation = useUpdateWheelMutation(circleId);
