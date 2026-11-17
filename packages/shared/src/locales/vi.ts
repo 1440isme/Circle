@@ -351,7 +351,7 @@ export const vi = {
     confessionCorner: 'Góc tâm sự & Chuyện vui',
     groupTools: 'Tiện ích Nhóm',
     photoAlbum: 'Album kỷ niệm',
-    calendarEvents: 'Lịch hẹn & Sự kiện',
+    calendarEvents: 'Lịch nhóm',
     planningSheet: 'Bảng kế hoạch (Sheet)',
     liveLocation: 'Vị trí trực tiếp',
     groupPoll: 'Bình chọn nhóm',
@@ -393,7 +393,7 @@ export const vi = {
     onlineStatus: 'Đang trực tuyến',
     accountRole: 'Vai trò tài khoản',
     dualTokenSecured: 'Bảo mật phiên: Dual-Token JWT',
-    upcomingEventsTitle: 'Lịch hẹn & Sự kiện',
+    upcomingEventsTitle: 'Lịch nhóm',
     upcomingEventsEmpty: 'Chưa có lịch hẹn nào sắp tới',
     connectingCircle: 'Đang kết nối CIRCLE...',
     composerPlaceholder: 'Tạo hoặc tham gia một Vòng tròn để bắt đầu chia sẻ...',
@@ -433,9 +433,9 @@ export const vi = {
     newCircleTitle: 'Tạo Vòng tròn mới (New Circle)',
     newCircleDesc: 'Khởi tạo không gian kết nối nhóm riêng tư',
     newCircleAlertTitle: 'Tạo Vòng tròn',
-    eventTitle: 'Lịch hẹn & Sự kiện',
+    eventTitle: 'Lịch nhóm',
     eventDesc: 'Lên kế hoạch gặp gỡ hoặc sự kiện chung',
-    eventAlertTitle: 'Lịch hẹn nhóm',
+    eventAlertTitle: 'Lịch nhóm',
     eventAlertDesc: 'Lên lịch hẹn và bình chọn thời gian gặp gỡ sẽ mở trong Module Tiện ích Nhóm!',
   },
   mail: {
@@ -1256,7 +1256,7 @@ export const vi = {
     deleteSheetTooltip: 'Xóa bảng',
 
     // Calendar & Events
-    calendarTitle: 'Lịch hoạt động nhóm',
+    calendarTitle: 'Lịch nhóm',
     today: 'Hôm nay',
     createEvent: 'Tạo sự kiện',
     newEventSchedulePrompt: 'Lên lịch hẹn mới',

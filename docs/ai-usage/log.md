@@ -8684,3 +8684,40 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 - **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
 - **Commit:** f8f40f0
 - **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
+
+
+## AI-0215: Đổi Tên Tính Năng Lịch Hẹn Sự Kiện Thành Lịch Nhóm Trên Toàn Hệ Thống (#120)
+
+- **Date:** 2026-11-17 23:45:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120
+- **Purpose:** Đổi tên hiển thị của tính năng "Lịch hẹn & Sự kiện" thành "Lịch nhóm" trên toàn bộ giao diện Web và Mobile:
+  1. **Đồng Bộ Bộ Khóa Ngôn Ngữ (Locales):**
+     - Tiếng Việt (`packages/shared/src/locales/vi.ts`):
+       - `t.nav.calendarEvents`: Đổi từ `'Lịch hẹn & Sự kiện'` thành `'Lịch nhóm'`.
+       - `t.nav.upcomingEventsTitle`: Đổi từ `'Lịch hẹn & Sự kiện'` thành `'Lịch nhóm'`.
+       - `t.composer.eventTitle` & `t.composer.eventAlertTitle`: Đổi thành `'Lịch nhóm'`.
+       - `t.collab.calendarTitle`: Đổi từ `'Lịch hoạt động nhóm'` thành `'Lịch nhóm'`.
+     - Tiếng Anh (`packages/shared/src/locales/en.ts`):
+       - `t.nav.calendarEvents`, `t.nav.upcomingEventsTitle`, `t.composer.eventTitle`, `t.collab.calendarTitle`: Đồng bộ thành `'Group Calendar'`.
+  2. **Hiển Thị Đồng Bộ Trên Giao Diện:**
+     - **Web (`apps/web`):** Sidebar công cụ nhóm bên trái hiển thị "Lịch nhóm".
+     - **Mobile (`apps/mobile`):** Menu tiện ích nhóm và Floating Navigation Pill Bar góc trên hiển thị "Lịch nhóm".
+- **Files Affected:**
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% localization adjustments and package rebuild.
+- **Human Modifications:** Người dùng yêu cầu lịch hẹn sự kiện đổi tên thành lịch nhóm ở cả web và app.
+- **Verification Method:**
+  - `cd packages/shared && npm run build`: Passed (0 errors).
+  - `npx tsc --noEmit --project apps/web/tsconfig.json`: Passed 0 errors.
+  - `npx tsc --noEmit --project apps/mobile/tsconfig.json`: Passed 0 errors.
+  - `bash ./scripts/check-agent-map.sh`: Passed (130 files).
+  - `bash ./scripts/check-secrets.sh`: Passed, 0 secret leaks.
+- **Official Source Checked:** `PROJECT_GOD.md` §2.2, `agentic/playbooks/cross-cutting-gate.md` (i18n & web/mobile parity).
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
+- **Commit:** 5583834
+- **PR:** #120
