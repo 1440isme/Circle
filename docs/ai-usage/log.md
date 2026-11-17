@@ -8755,3 +8755,43 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 - **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
 - **Commit:** 31a4a9d
 - **PR:** #127 (https://github.com/1440isme/Circle/pull/127)
+
+
+## AI-0215: Tối Ưu Floating Header Lịch Nhóm, Animated Slide-Down Search Và Nút Dạng Xem (#120)
+
+- **Date:** 2026-11-18 00:20:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120
+- **Purpose:** Cập nhật trải nghiệm UI Header và Navigation Lịch nhóm trên ứng dụng di động (Mobile) chuẩn theo thiết kế:
+  1. **Bỏ Khung Viền Tiêu Đề, Dùng Text Label Tự Nhiên Như File Phương Tiện:**
+     - Loại bỏ khung viền Pill bo tròn bao quanh chữ "Lịch nhóm" trên đỉnh `MobileCalendarView`.
+     - Thay bằng nhãn text thuần (`fontSize: 16, fontWeight: '700'`) đặt cạnh icon nút Quay lại `<` (`ArrowLeft`), căn lề tự nhiên đồng bộ tuyệt đối với `MobileAlbumsView`.
+  2. **Bê Nút Tìm Kiếm & Tạo Lịch Lên Thành Floating Pill Button Trên Đỉnh:**
+     - Bỏ 2 nút Tìm kiếm và Thêm mới ở vị trí header tháng cũ.
+     - Đặt cả hai lên thanh Header nổi ở đỉnh (`renderTopFloatingBar`) cùng hàng với nút Quay lại và Tiêu đề.
+     - Nút Tìm kiếm có viền mỏng/nền kính (`headerIconBtn`) và nút Tạo lịch nổi bật với màu thương hiệu teal `#0D9488` (`headerAddBtn`).
+  3. **Thanh Tìm Kiếm Kéo Trượt Từ Trên Xuống (Slide-down Animation) & Nút Dấu "x":**
+     - Khi bấm nút Tìm kiếm, thanh tìm kiếm trượt mượt mà từ trên đỉnh màn hình xuống (`Animated.spring(searchSlideAnim)` từ `-300` về `0`).
+     - Thay nút text "Đóng" thành icon dấu "x" (`X` size 18, bo tròn `searchCloseIconBtn`).
+     - Khi đóng, trượt thu hồi lên trên đỉnh với `Animated.timing`.
+     - Hiển thị kết quả tìm kiếm theo bố cục Lịch trình (Timeline grouped by date) nhất quán như phiên bản Web.
+  4. **Nút "Dạng Xem" (View Mode) Chuyển Đổi Tháng / Lịch Trình:**
+     - Bổ sung Floating Pill Button "Dạng xem" hiển thị icon (`CalendarDays` / `Clock`), nhãn ("Tháng" / "Lịch trình") kèm chevron down.
+     - Khi ấn vào sẽ mở Action Sheet Modal bo góc tròn để người dùng linh hoạt chuyển đổi giữa "Theo tháng" và "Theo lịch trình".
+- **Files Affected:**
+  - `apps/mobile/src/components/tools/MobileCalendarView.tsx`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% component architecture, slide-down animation, header floating bar layout, and type corrections.
+- **Human Modifications:** Người dùng yêu cầu ở app chữ lịch hẹn bỏ khung ghi dạng label như file phương tiện; tìm kiếm tạo lịch bê lên trên thành Floating Pill Button; khi ấn tìm kiếm kéo từ trên xuống (thay chữ đóng thành dấu x); thêm nút dạng xem theo tháng hoặc theo lịch trình.
+- **Verification Method:**
+  - `npx tsc --noEmit --project apps/mobile/tsconfig.json`: Passed 0 errors.
+  - `npx tsc --noEmit --project apps/web/tsconfig.json`: Passed 0 errors.
+  - `bash ./scripts/check-agent-map.sh`: Passed (all 130 files resolve).
+  - `bash ./scripts/check-secrets.sh`: Passed (601 files checked, 0 leaks).
+- **Official Source Checked:** `PROJECT_GOD.md` §2.2, `agentic/playbooks/05-calendar-planning.md`, `agentic/playbooks/cross-cutting-gate.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secrets.
+- **Commit:** Pending
+- **PR:** #120

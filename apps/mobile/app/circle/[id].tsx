@@ -5043,7 +5043,7 @@ export default function CircleWorkspaceScreen() {
       >
         <View style={{ flex: 1, backgroundColor: colors.canvas }}>
           {/* Floating Navigation Bar (strictly gated Glass vs Flat) */}
-          {selectedTool !== 'album' && selectedTool !== 'wheel' && (
+          {selectedTool !== 'album' && selectedTool !== 'wheel' && selectedTool !== 'calendar' && (
             <View
               pointerEvents="box-none"
               style={{
@@ -5054,12 +5054,10 @@ export default function CircleWorkspaceScreen() {
                 zIndex: 50,
                 flexDirection: 'row',
                 alignItems: 'center',
-                justifyContent: selectedTool === 'calendar' ? 'flex-start' : 'space-between',
-                gap: 8,
+                justifyContent: 'space-between',
               }}
             >
               {(() => {
-                const isCalendar = selectedTool === 'calendar';
                 const pillBaseStyle = {
                   borderRadius: 999,
                   overflow: 'hidden' as const,
@@ -5084,18 +5082,15 @@ export default function CircleWorkspaceScreen() {
                       justifyContent: 'center',
                       gap: 6,
                       minHeight: 36,
-                      minWidth: isCalendar ? 36 : undefined,
                       paddingVertical: 7,
-                      paddingHorizontal: isCalendar ? 10 : 12,
+                      paddingHorizontal: 12,
                     }}
                     accessibilityLabel={t.common.back}
                   >
                     <ArrowLeft size={16} color={colors.text} />
-                    {!isCalendar && (
-                      <Text style={{ fontSize: 13, fontWeight: '600', color: colors.text }}>
-                        {t.nav.groupTools}
-                      </Text>
-                    )}
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: colors.text }}>
+                      {t.nav.groupTools}
+                    </Text>
                   </TouchableOpacity>
                 );
 
@@ -5105,14 +5100,12 @@ export default function CircleWorkspaceScreen() {
                       minHeight: 36,
                       justifyContent: 'center',
                       paddingVertical: 7,
-                      paddingHorizontal: isCalendar ? 12 : 16,
+                      paddingHorizontal: 16,
                       alignItems: 'center',
                     }}
                   >
                     <Text style={{ fontSize: 13, fontWeight: '700', color: colors.text }}>
-                      {selectedTool === 'calendar'
-                        ? t.nav.calendarEvents
-                        : selectedTool === 'planning'
+                      {selectedTool === 'planning'
                         ? t.nav.planningSheet
                         : selectedTool === 'location'
                         ? t.nav.liveLocation
@@ -5144,7 +5137,7 @@ export default function CircleWorkspaceScreen() {
                 );
 
                 const showTitlePill = selectedTool !== 'anonymous';
-                const showClosePill = !isCalendar;
+                const showClosePill = true;
 
                 if (isGlass) {
                   return (
@@ -5181,7 +5174,7 @@ export default function CircleWorkspaceScreen() {
             {selectedTool === 'album' ? (
               <MobileAlbumsView circleId={circleId} onBack={() => setSelectedTool('menu')} />
             ) : selectedTool === 'calendar' ? (
-              <MobileCalendarView circleId={circleId} />
+              <MobileCalendarView circleId={circleId} onBack={() => setSelectedTool('menu')} />
             ) : selectedTool === 'planning' ? (
               <MobilePlanningView circleId={circleId} />
             ) : selectedTool === 'location' ? (

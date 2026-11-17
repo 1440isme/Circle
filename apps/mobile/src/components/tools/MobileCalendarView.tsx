@@ -1,5 +1,6 @@
 import { useAuthStore } from '../../stores/auth.store';
 import { useThemeStore } from '../../stores/theme.store';
+import { useLanguageStore } from '../../stores/language.store';
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   View,
@@ -17,6 +18,7 @@ import {
   Platform,
   Keyboard,
   Image,
+  Animated,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -46,6 +48,7 @@ import {
   Users,
   Repeat,
   MessageSquareShare,
+  ArrowLeft,
 } from 'lucide-react-native';
 import {
   getCalendarEventsApi,
@@ -859,12 +862,15 @@ const MonthPageBlock = React.memo<MonthPageBlockProps>(
 
 interface MobileCalendarViewProps {
   circleId: string;
+  onBack?: () => void;
 }
 
-export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId }) => {
+export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId, onBack }) => {
   const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
-  const { colors } = useThemeStore();
+  const { colors, resolvedTheme } = useThemeStore();
+  const isDark = resolvedTheme === 'dark';
+  const { t } = useLanguageStore();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [events, setEvents] = useState<CalendarEventEntity[]>([]);
@@ -878,6 +884,7 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
   const [editingOccurrenceDate, setEditingOccurrenceDate] = useState<Date | null>(null);
   const [isYearView, setIsYearView] = useState(false);
   const [calendarTab, setCalendarTab] = useState<'month' | 'upcoming'>('month');
+  const [isViewModeModalOpen, setIsViewModeModalOpen] = useState(false);
   const [isSharingToChat, setIsSharingToChat] = useState<string | null>(null);
 
   // Search State & All Events for Search
@@ -885,6 +892,7 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
   const [searchQuery, setSearchQuery] = useState('');
   const [allSearchEvents, setAllSearchEvents] = useState<CalendarEventEntity[]>([]);
   const [isSearchLoading, setIsSearchLoading] = useState(false);
+  const searchSlideAnim = useRef(new Animated.Value(-300)).current;
 
   // Scope confirmation modals (đồng bộ 100% UX với Web cho Lưu/Sửa, Xóa, Hủy)
   const [showScopeModal, setShowScopeModal] = useState(false);
@@ -1113,6 +1121,35 @@ export const MobileCalendarView: React.FC<MobileCalendarViewProps> = ({ circleId
       setIsSearchLoading(false);
     }
   }, [circleId, events]);
+
+  const topHeaderTop = Math.max(insets.top + 8, 16);
+
+  const handleOpenSearch = useCallback(() => {
+    setIsYearView(false);
+    searchSlideAnim.setValue(-300);
+    setIsSearchActive(true);
+    loadAllSearchEvents();
+    Haptics.selectionAsync();
+    Animated.spring(searchSlideAnim, {
+      toValue: 0,
+      tension: 50,
+      friction: 8,
+      useNativeDriver: true,
+    }).start();
+  }, [loadAllSearchEvents, searchSlideAnim]);
+
+  const handleCloseSearch = useCallback(() => {
+    Keyboard.dismiss();
+    Haptics.selectionAsync();
+    Animated.timing(searchSlideAnim, {
+      toValue: -350,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      setIsSearchActive(false);
+      setSearchQuery('');
+    });
+  }, [searchSlideAnim]);
 
   // Realtime Socket listener cho toàn bộ sự kiện trong Calendar
   useEffect(() => {
@@ -5116,14 +5153,201 @@ const handleOpenEditModal = (ev: CalendarEventEntity, occDate?: Date) => {
     [circleId, user, loadAllSearchEvents],
   );
 
+  const renderTopFloatingBar = () => {
+    return (
+      <View
+        pointerEvents="box-none"
+        style={{
+          position: 'absolute',
+          top: topHeaderTop,
+          left: 14,
+          right: 14,
+          zIndex: 40,
+          gap: 8,
+        }}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          {/* Nút Quay lại (< icon only) */}
+          <TouchableOpacity
+            activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            onPress={() => onBack?.()}
+            style={[
+              styles.headerIconBtn,
+              { backgroundColor: isDark ? 'rgba(29, 29, 33, 0.92)' : 'rgba(255, 255, 255, 0.94)' },
+            ]}
+            accessibilityLabel={t.common.back}
+          >
+            <ArrowLeft size={16} color={colors.text} />
+          </TouchableOpacity>
+
+          {/* CHỮ LỊCH NHÓM BỎ KHUNG, GHI DẠNG LABEL NHƯ FILE PHƯƠNG TIỆN */}
+          <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 4 }}>
+            <Text numberOfLines={1} style={{ fontSize: 16, fontWeight: '700', color: colors.text }}>
+              {t.nav.calendarEvents}
+            </Text>
+          </View>
+
+          {/* NÚT DẠNG XEM (THEO THÁNG / THEO LỊCH TRÌNH) */}
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => {
+              setIsViewModeModalOpen(true);
+              Haptics.selectionAsync();
+            }}
+            style={[
+              styles.headerViewModeBtn,
+              { backgroundColor: isDark ? 'rgba(29, 29, 33, 0.92)' : 'rgba(255, 255, 255, 0.94)' },
+            ]}
+            accessibilityLabel="Dạng xem"
+          >
+            {calendarTab === 'month' ? (
+              <CalendarDays size={14} color="#0D9488" />
+            ) : (
+              <Clock size={14} color="#0D9488" />
+            )}
+            <Text style={[styles.headerViewModeText, { color: colors.text }]}>
+              {calendarTab === 'month' ? 'Tháng' : 'Lịch trình'}
+            </Text>
+            <ChevronDown size={12} color={colors.subtle} style={{ marginLeft: 1 }} />
+          </TouchableOpacity>
+
+          {/* NÚT TÌM KIẾM (FLOATING PILL BUTTON) */}
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={handleOpenSearch}
+            style={[
+              styles.headerIconBtn,
+              isSearchActive
+                ? { backgroundColor: '#0D9488' }
+                : { backgroundColor: isDark ? 'rgba(29, 29, 33, 0.92)' : 'rgba(255, 255, 255, 0.94)' },
+            ]}
+            accessibilityLabel="Tìm kiếm"
+          >
+            <Search size={16} color={isSearchActive ? '#FFFFFF' : colors.text} />
+          </TouchableOpacity>
+
+          {/* NÚT TẠO LỊCH (FLOATING PILL BUTTON) */}
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => {
+              handleOpenCreateModal();
+              Haptics.selectionAsync();
+            }}
+            style={styles.headerAddBtn}
+            accessibilityLabel="Tạo sự kiện mới"
+          >
+            <Plus size={16} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
+
+  const renderViewModeModal = () => {
+    if (!isViewModeModalOpen) return null;
+
+    return (
+      <Modal
+        visible={isViewModeModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsViewModeModalOpen(false)}
+      >
+        <TouchableOpacity
+          style={styles.viewModeModalBackdrop}
+          activeOpacity={1}
+          onPress={() => setIsViewModeModalOpen(false)}
+        >
+          <View
+            style={[
+              styles.viewModeModalCard,
+              { backgroundColor: isDark ? '#1E293B' : '#FFFFFF' },
+            ]}
+            onStartShouldSetResponder={() => true}
+          >
+            <View style={styles.viewModeModalHeader}>
+              <Text style={[styles.viewModeModalTitle, { color: colors.text }]}>
+                Dạng xem lịch
+              </Text>
+              <TouchableOpacity
+                onPress={() => setIsViewModeModalOpen(false)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <X size={18} color={colors.subtle} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Option 1: Theo tháng */}
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => {
+                setCalendarTab('month');
+                setIsViewModeModalOpen(false);
+                Haptics.selectionAsync();
+              }}
+              style={[
+                styles.viewModeOptionItem,
+                calendarTab === 'month' && styles.viewModeOptionActive,
+              ]}
+            >
+              <View style={[styles.viewModeOptionIconWrap, { backgroundColor: calendarTab === 'month' ? '#ECFDF5' : (isDark ? '#334155' : '#F1F5F9') }]}>
+                <CalendarDays size={18} color={calendarTab === 'month' ? '#0D9488' : colors.text} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.viewModeOptionTitle, { color: colors.text }]}>
+                  Theo tháng
+                </Text>
+                <Text style={[styles.viewModeOptionSubtitle, { color: colors.subtle }]}>
+                  Xem lịch theo tháng, cuộn lướt và xem sự kiện từng ngày
+                </Text>
+              </View>
+              {calendarTab === 'month' && <Check size={18} color="#0D9488" />}
+            </TouchableOpacity>
+
+            {/* Option 2: Theo lịch trình */}
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => {
+                setCalendarTab('upcoming');
+                setIsViewModeModalOpen(false);
+                Haptics.selectionAsync();
+              }}
+              style={[
+                styles.viewModeOptionItem,
+                calendarTab === 'upcoming' && styles.viewModeOptionActive,
+              ]}
+            >
+              <View style={[styles.viewModeOptionIconWrap, { backgroundColor: calendarTab === 'upcoming' ? '#ECFDF5' : (isDark ? '#334155' : '#F1F5F9') }]}>
+                <Clock size={18} color={calendarTab === 'upcoming' ? '#0D9488' : colors.text} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.viewModeOptionTitle, { color: colors.text }]}>
+                  Theo lịch trình
+                </Text>
+                <Text style={[styles.viewModeOptionSubtitle, { color: colors.subtle }]}>
+                  Xem danh sách các sự kiện gom nhóm theo dòng thời gian
+                </Text>
+              </View>
+              {calendarTab === 'upcoming' && <Check size={18} color="#0D9488" />}
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+    );
+  };
+
   const renderSearchScheduleScreen = () => {
     return (
       <View style={[styles.container, { backgroundColor: '#F8FAFC' }]}>
-        {/* Thanh tìm kiếm ở trên đỉnh */}
-        <View
+        {/* Thanh tìm kiếm kéo từ trên đỉnh xuống (Slide Down Animated) */}
+        <Animated.View
           style={[
             styles.searchHeaderContainer,
-            { paddingTop: Math.max(insets.top + 54, Platform.OS === 'ios' ? 88 : 76) },
+            {
+              transform: [{ translateY: searchSlideAnim }],
+              paddingTop: Math.max(insets.top + 8, 16),
+            },
           ]}
         >
           <View style={styles.searchInputRow}>
@@ -5151,20 +5375,17 @@ const handleOpenEditModal = (ev: CalendarEventEntity, occDate?: Date) => {
               )}
             </View>
 
+            {/* Thay chữ Đóng thành dấu X */}
             <TouchableOpacity
-              style={styles.searchCancelBtn}
-              onPress={() => {
-                setIsSearchActive(false);
-                setSearchQuery('');
-                Keyboard.dismiss();
-                Haptics.selectionAsync();
-              }}
+              style={styles.searchCloseIconBtn}
+              onPress={handleCloseSearch}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityLabel={t.common.close}
             >
-              <Text style={styles.searchCancelText}>Đóng</Text>
+              <X size={18} color={colors.text} />
             </TouchableOpacity>
           </View>
-        </View>
+        </Animated.View>
 
         {/* Danh sách sự kiện dạng lịch trình */}
         {isSearchLoading ? (
@@ -5355,6 +5576,8 @@ const handleOpenEditModal = (ev: CalendarEventEntity, occDate?: Date) => {
 
     return (
       <View style={styles.container}>
+        {renderTopFloatingBar()}
+
         {/* Year View Header */}
         <View
           style={[
@@ -5377,29 +5600,6 @@ const handleOpenEditModal = (ev: CalendarEventEntity, occDate?: Date) => {
               }}
             >
               <Text style={styles.appleMonthTodayBtnText}>Hôm nay</Text>
-            </TouchableOpacity>
-
-            {/* Nút Tìm kiếm */}
-            <TouchableOpacity
-              style={styles.appleSearchBtn}
-              activeOpacity={0.7}
-              onPress={() => {
-                setIsYearView(false);
-                setIsSearchActive(true);
-                loadAllSearchEvents();
-                Haptics.selectionAsync();
-              }}
-            >
-              <Search size={18} color="#0D9488" />
-            </TouchableOpacity>
-
-            {/* Nút Tạo sự kiện */}
-            <TouchableOpacity
-              style={styles.appleMonthAddBtn}
-              activeOpacity={0.7}
-              onPress={handleOpenCreateModal}
-            >
-              <Plus size={16} color="#FFFFFF" />
             </TouchableOpacity>
 
             {/* Nút Đóng Year View */}
@@ -5527,6 +5727,7 @@ const handleOpenEditModal = (ev: CalendarEventEntity, occDate?: Date) => {
         {renderReminderScopeModal()}
         {renderReminderConfirmModal()}
         {renderScopeSaveModal()}
+        {renderViewModeModal()}
       </View>
     );
   }
@@ -5537,73 +5738,59 @@ const handleOpenEditModal = (ev: CalendarEventEntity, occDate?: Date) => {
 
   return (
     <View style={styles.container}>
-      {/* Month Calendar Header */}
-      <View
-        style={[
-          styles.appleMonthCalendarHeader,
-          { paddingTop: Math.max(insets.top + 54, Platform.OS === 'ios' ? 88 : 76) },
-        ]}
-      >
-        <View style={styles.appleMonthTitleContainer}>
-          {/* Năm nằm trước Tháng - Chạm vào Năm để mở danh sách Năm cuộn dọc */}
-          <TouchableOpacity
-            style={styles.appleYearBtn}
-            activeOpacity={0.7}
-            onPress={() => {
-              setIsYearView(true);
-              Haptics.selectionAsync();
-            }}
-          >
-            <Text style={styles.appleYearBtnText}>{year}</Text>
-          </TouchableOpacity>
-          <Text style={styles.appleMonthTitleText}>Tháng {month}</Text>
-        </View>
-
-        <View style={styles.appleHeaderActions}>
-          {/* Nút Hôm nay */}
-          <TouchableOpacity
-            style={styles.appleMonthTodayBtn}
-            onPress={() => {
-              const now = new Date();
-              setCurrentDate(new Date(now.getFullYear(), now.getMonth(), 1));
-              setSelectedDate(now);
-              scrollToMonth(now.getFullYear(), now.getMonth() + 1, true);
-              Haptics.selectionAsync();
-            }}
-          >
-            <Text style={styles.appleMonthTodayBtnText}>Hôm nay</Text>
-          </TouchableOpacity>
-
-          {/* Nút Tìm kiếm */}
-          <TouchableOpacity
-            style={styles.appleSearchBtn}
-            activeOpacity={0.7}
-            onPress={() => {
-              setIsSearchActive(true);
-              loadAllSearchEvents();
-              Haptics.selectionAsync();
-            }}
-          >
-            <Search size={18} color="#0D9488" />
-          </TouchableOpacity>
-
-          {/* Nút Tạo sự kiện */}
-          <TouchableOpacity style={styles.appleMonthAddBtn} onPress={handleOpenCreateModal}>
-            <Plus size={16} color="#FFFFFF" />
-          </TouchableOpacity>
-        </View>
-      </View>
+      {renderTopFloatingBar()}
 
       {calendarTab === 'upcoming' ? (
-        <MobileUpcomingEventsFeed
-          circleId={circleId}
-          onSelectEvent={(ev) => {
-            setDetailOccurrenceDate(new Date(ev.startTime));
-            setDetailEvent(ev);
-          }}
-        />
+        <View style={{ flex: 1, paddingTop: topHeaderTop + 44 }}>
+          <MobileUpcomingEventsFeed
+            circleId={circleId}
+            onSelectEvent={(ev) => {
+              setDetailOccurrenceDate(new Date(ev.startTime));
+              setDetailEvent(ev);
+            }}
+          />
+        </View>
       ) : (
         <>
+          {/* Month Calendar Header */}
+          <View
+            style={[
+              styles.appleMonthCalendarHeader,
+              { paddingTop: Math.max(insets.top + 54, Platform.OS === 'ios' ? 88 : 76) },
+            ]}
+          >
+            <View style={styles.appleMonthTitleContainer}>
+              {/* Năm nằm trước Tháng - Chạm vào Năm để mở danh sách Năm cuộn dọc */}
+              <TouchableOpacity
+                style={styles.appleYearBtn}
+                activeOpacity={0.7}
+                onPress={() => {
+                  setIsYearView(true);
+                  Haptics.selectionAsync();
+                }}
+              >
+                <Text style={styles.appleYearBtnText}>{year}</Text>
+              </TouchableOpacity>
+              <Text style={styles.appleMonthTitleText}>Tháng {month}</Text>
+            </View>
+
+            <View style={styles.appleHeaderActions}>
+              {/* Nút Hôm nay */}
+              <TouchableOpacity
+                style={styles.appleMonthTodayBtn}
+                onPress={() => {
+                  const now = new Date();
+                  setCurrentDate(new Date(now.getFullYear(), now.getMonth(), 1));
+                  setSelectedDate(now);
+                  scrollToMonth(now.getFullYear(), now.getMonth() + 1, true);
+                  Haptics.selectionAsync();
+                }}
+              >
+                <Text style={styles.appleMonthTodayBtnText}>Hôm nay</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
           {/* PHẦN 1: LỊCH Ở TRÊN (Lướt theo từng tháng, snap chuẩn xác từng tháng) */}
       <View style={styles.calendarTopContainer}>
         {/* Days of Week - Cố định trên đầu */}
@@ -5742,7 +5929,6 @@ const handleOpenEditModal = (ev: CalendarEventEntity, occDate?: Date) => {
         </>
       )}
 
-      {/* Add Event Modal
       {/* Add Event Modal - Mở to sẵn lên trên, chuẩn Apple HIG */}
       <Modal visible={isAddModalOpen} transparent animationType="slide">
         <KeyboardAvoidingView
@@ -6293,6 +6479,9 @@ const handleOpenEditModal = (ev: CalendarEventEntity, occDate?: Date) => {
     
       {/* Màn hình Chi tiết lịch hẹn (Full-Screen View, không phải popup) */}
       {detailEvent && renderDetailScreen()}
+
+      {/* Modal Chọn Dạng xem (Theo tháng / Theo lịch trình) */}
+      {renderViewModeModal()}
     </View>
   );
 };
@@ -9397,5 +9586,121 @@ appleYearBtn: {
   },
   scheduleRsvpBtnText: {
     fontSize: 12,
+  },
+
+  // Floating Top Header Buttons
+  headerIconBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(0, 0, 0, 0.08)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  headerAddBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#0D9488',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#0D9488',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  headerViewModeBtn: {
+    height: 36,
+    borderRadius: 18,
+    paddingHorizontal: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(0, 0, 0, 0.08)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  headerViewModeText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  searchCloseIconBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F1F5F9',
+  },
+
+  // View Mode Modal Styles
+  viewModeModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'flex-end',
+  },
+  viewModeModalCard: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    paddingBottom: 36,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+  viewModeModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+    paddingBottom: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#E2E8F0',
+  },
+  viewModeModalTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  viewModeOptionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    borderRadius: 14,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 12,
+  },
+  viewModeOptionActive: {
+    borderColor: '#0D9488',
+    backgroundColor: 'rgba(13, 148, 136, 0.04)',
+  },
+  viewModeOptionIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  viewModeOptionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  viewModeOptionSubtitle: {
+    fontSize: 12,
+    marginTop: 2,
   },
 });
