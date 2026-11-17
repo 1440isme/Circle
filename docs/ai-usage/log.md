@@ -8721,3 +8721,37 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 - **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
 - **Commit:** 5583834
 - **PR:** #120
+
+
+## AI-0214: Đổi Tên Tiện Ích Media Hub Và Tab Liên Kết Đồng Bộ Trên Web Và Mobile (#120)
+
+- **Date:** 2026-11-17 23:55:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120
+- **Purpose:** Đổi tên hiển thị cho tiện ích kho lưu trữ và tab liên kết trên cả Web và Mobile theo yêu cầu người dùng:
+  1. **Đổi Tên Tiện Ích Chính:**
+     - Đổi tên tiện ích từ "Album kỷ niệm" sang "File phương tiện, liên kết, file" (`photoAlbum`, `albumsTitle`).
+     - Tự động phản ánh đồng bộ trên thanh Sidebar Web (`Sidebar.tsx`) và Menu Tiện ích nhóm trên Mobile (`[id].tsx`).
+     - Phiên bản tiếng Anh: "Media, Links, Files".
+  2. **Đổi Tên Tab Con Bên Trong:**
+     - Đổi tên tab con từ "File liên kết" thành "Liên kết" (`tabLinks`).
+     - Đồng bộ cả trên Web (`CircleAlbumsView`) và Mobile (`MobileAlbumsView` ở Header và Bottom Dock).
+     - Phiên bản tiếng Anh: "Links".
+- **Files Affected:**
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% i18n dictionary synchronization and build verification.
+- **Human Modifications:** Người dùng yêu cầu album đổi tên thành file phương tiện, liên kết, file; bên trong có file liên kết đổi tên thành liên kết đổi ở cả web và app.
+- **Verification Method:**
+  - `npm run build --workspace=@circle/shared`: Passed 100%.
+  - `npx tsc -p apps/mobile/tsconfig.json --noEmit`: Passed (0 errors).
+  - `npx tsc -p apps/web/tsconfig.json --noEmit`: Passed (0 errors).
+  - `bash ./scripts/check-agent-map.sh`: Passed (all references resolve).
+  - `bash ./scripts/check-secrets.sh`: Passed (601 files checked, 0 secret leaks).
+- **Official Source Checked:** `PROJECT_GOD.md` §2.2, `agentic/playbooks/cross-cutting-gate.md` (i18n VI+EN, Web/Mobile parity).
+- **Security & License Check:** An toàn tuyệt đối, zero secrets leaks.
+- **Commit:** 31a4a9d
+- **PR:** #127 (https://github.com/1440isme/Circle/pull/127)

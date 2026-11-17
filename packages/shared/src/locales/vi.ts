@@ -350,7 +350,7 @@ export const vi = {
     generalDiscussion: 'Thảo luận chung',
     confessionCorner: 'Góc tâm sự & Chuyện vui',
     groupTools: 'Tiện ích Nhóm',
-    photoAlbum: 'Album kỷ niệm',
+    photoAlbum: 'File phương tiện, liên kết, file',
     calendarEvents: 'Lịch nhóm',
     planningSheet: 'Bảng kế hoạch (Sheet)',
     liveLocation: 'Vị trí trực tiếp',
@@ -1305,7 +1305,7 @@ export const vi = {
     deleteNoteConfirm: 'Xóa lá thư ẩn danh này?',
 
     // Shared Albums & Media Hub
-    albumsTitle: 'Album kỷ niệm chung',
+    albumsTitle: 'File phương tiện, liên kết, file',
     createAlbum: 'Tạo album mới',
     albumNamePlaceholder: 'Tên album (ví dụ: Chuyến đi Đà Lạt 2026)...',
     uploadPhotos: 'Tải ảnh lên',
@@ -1314,7 +1314,7 @@ export const vi = {
     emptyAlbumsDesc: 'Tạo album để cùng gom ảnh kỷ niệm những chuyến đi, sự kiện đáng nhớ của nhóm.',
     deleteAlbumConfirm: 'Bạn có chắc chắn muốn xóa album này cùng tất cả ảnh bên trong?',
     tabMedia: 'File phương tiện',
-    tabLinks: 'File liên kết',
+    tabLinks: 'Liên kết',
     tabFiles: 'File',
     subtabAlbums: 'Album',
     subtabAllMedia: 'Tất cả file phương tiện',

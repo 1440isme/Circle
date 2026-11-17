@@ -352,7 +352,7 @@ export const en: TranslationDictionary = {
     generalDiscussion: 'General Discussion',
     confessionCorner: 'Confessions & Joy',
     groupTools: 'Group Utilities',
-    photoAlbum: 'Memory Album',
+    photoAlbum: 'Media, Links, Files',
     calendarEvents: 'Group Calendar',
     planningSheet: 'Planning Sheet',
     liveLocation: 'Live Location',
@@ -1307,7 +1307,7 @@ export const en: TranslationDictionary = {
     deleteNoteConfirm: 'Delete this anonymous note?',
 
     // Shared Albums & Media Hub
-    albumsTitle: 'Shared Albums',
+    albumsTitle: 'Media, Links, Files',
     createAlbum: 'Create new album',
     albumNamePlaceholder: 'Album name (e.g. Da Lat Trip 2026)...',
     uploadPhotos: 'Upload photos',
