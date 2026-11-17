@@ -247,6 +247,20 @@ export async function deleteWheelApi(circleId: string, wheelId: string): Promise
   });
 }
 
+export async function createLiveWheelStageApi(
+  circleId: string,
+  channelId?: string | null,
+): Promise<LiveWheelSession> {
+  const res = await mobileApiRequest<LiveWheelSession>(
+    `/circles/${circleId}/wheels/live-stage`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ channelId }),
+    },
+  );
+  return res.data;
+}
+
 export async function liveSpinWheelApi(
   circleId: string,
   input: LiveSpinWheelInput,

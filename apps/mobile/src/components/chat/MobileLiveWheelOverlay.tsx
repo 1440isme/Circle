@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,8 @@ import {
   Easing,
   useWindowDimensions,
   Platform,
+  ActivityIndicator,
+  ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, G, Circle, Rect, Text as SvgText } from 'react-native-svg';
@@ -21,9 +23,13 @@ import {
   ArrowRight,
   Radio,
   User,
+  Play,
 } from 'lucide-react-native';
-import { LiveWheelSession } from '@circle/types';
-import { getActiveLiveWheelApi } from '../../services/circle-tools.service';
+import { LiveWheelSession, LiveWheelItem } from '@circle/types';
+import {
+  getActiveLiveWheelApi,
+  liveSpinWheelApi,
+} from '../../services/circle-tools.service';
 import { getSocket } from '../../services/socket';
 import { useLanguageStore } from '../../stores/language.store';
 import { useThemeStore } from '../../stores/theme.store';
@@ -58,12 +64,24 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
   const [isVisible, setIsVisible] = useState(false);
   const [dismissedSessionId, setDismissedSessionId] = useState<string | null>(null);
   const [isFinished, setIsFinished] = useState(false);
+  const [isSubmittingSpin, setIsSubmittingSpin] = useState(false);
 
-  const rotateAnim = useRef(new Animated.Value(0)).current;
-  const currentRotationRef = useRef<number>(0);
+  // 4 Animated values cho 4 bánh xe
+  const rotAnim0 = useRef(new Animated.Value(0)).current;
+  const rotAnim1 = useRef(new Animated.Value(0)).current;
+  const rotAnim2 = useRef(new Animated.Value(0)).current;
+  const rotAnim3 = useRef(new Animated.Value(0)).current;
+  const rotateAnims = useMemo(() => [rotAnim0, rotAnim1, rotAnim2, rotAnim3], [
+    rotAnim0,
+    rotAnim1,
+    rotAnim2,
+    rotAnim3,
+  ]);
 
-  // Kích thước đĩa quay phù hợp với màn hình mobile
-  const discSize = Math.min(width - 64, 300);
+  // Kích thước mỗi đĩa quay (2 hàng x 2 cột)
+  const discSize = useMemo(() => {
+    return Math.min(Math.floor((width - 68) / 2), 125);
+  }, [width]);
 
   // 1. Kiểm tra session đang hoạt động khi mount
   useEffect(() => {
@@ -72,22 +90,37 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
       .then((active) => {
         if (active && active.id !== dismissedSessionId) {
           const elapsed = Date.now() - active.startedAt;
-          if (elapsed < 30000) {
+          if (elapsed < 60000) {
             setSession(active);
             setIsVisible(true);
+            if (active.stageStatus === 'idle') {
+              setIsFinished(false);
+            } else if (elapsed >= (active.durationMs || 6000)) {
+              setIsFinished(true);
+            }
           }
         }
       })
       .catch(() => {});
   }, [circleId, dismissedSessionId]);
 
-  // 2. Lắng nghe WebSocket
+  // 2. Lắng nghe WebSocket cả stage-created và started
   useEffect(() => {
     if (!circleId) return;
     let cleanupSocket: (() => void) | undefined;
 
     getSocket().then((socket) => {
       if (!socket) return;
+
+      const handleStageCreated = (incoming: LiveWheelSession) => {
+        if (incoming.circleId === circleId) {
+          setDismissedSessionId(null);
+          setSession(incoming);
+          setIsVisible(true);
+          setIsFinished(false);
+          rotateAnims.forEach((anim) => anim.setValue(0));
+        }
+      };
 
       const handleLiveWheelStarted = (incoming: LiveWheelSession) => {
         if (incoming.circleId === circleId) {
@@ -98,9 +131,11 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
         }
       };
 
+      socket.on('circle:live-wheel:stage-created', handleStageCreated);
       socket.on('circle:live-wheel:started', handleLiveWheelStarted);
 
       cleanupSocket = () => {
+        socket.off('circle:live-wheel:stage-created', handleStageCreated);
         socket.off('circle:live-wheel:started', handleLiveWheelStarted);
       };
     });
@@ -108,64 +143,100 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
     return () => {
       cleanupSocket?.();
     };
-  }, [circleId]);
+  }, [circleId, rotateAnims]);
 
-  // 3. Tính toán và chạy Animation đồng bộ
-  const totalOptions = session?.options?.length || 0;
-  const sliceDeg = useMemo(() => (totalOptions > 0 ? 360 / totalOptions : 360), [totalOptions]);
+  // Danh sách 4 vòng xoay
+  const wheelsList: LiveWheelItem[] = useMemo(() => {
+    if (session?.wheels && session.wheels.length > 0) {
+      return session.wheels.slice(0, 4);
+    }
+    if (session?.options && session.options.length > 0) {
+      return [
+        {
+          wheelId: session.wheelId || 'single-wheel',
+          wheelTitle: session.wheelTitle || 'Vòng 1',
+          options: session.options,
+          winningIndex: session.winningIndex,
+          winningOption: session.winningOption,
+        },
+      ];
+    }
+    return [];
+  }, [session]);
 
+  // 3. Tính toán và chạy Animation đồng bộ cho cả 4 vòng
   useEffect(() => {
-    if (!isVisible || !session || totalOptions === 0) return;
+    if (!isVisible || !session || wheelsList.length === 0) return;
+
+    if (session.stageStatus === 'idle') {
+      setIsFinished(false);
+      rotateAnims.forEach((anim) => anim.setValue(0));
+      return;
+    }
 
     const duration = session.durationMs || 6000;
     const startedAt = session.startedAt;
     const elapsed = Date.now() - startedAt;
 
-    const targetCenterDeg = session.winningIndex * sliceDeg + sliceDeg / 2;
-    const stopAngle = (360 - (targetCenterDeg % 360)) % 360;
-    const extraSpins = 6 * 360;
-    const finalRot = extraSpins + stopAngle;
+    const animations = wheelsList.map((wheel, idx) => {
+      const anim = rotateAnims[idx] || rotAnim0;
+      const count = Math.max(wheel.options.length, 1);
+      const sliceDeg = 360 / count;
+      const winIdx = wheel.winningIndex >= 0 ? wheel.winningIndex : 0;
+      const targetCenterDeg = winIdx * sliceDeg + sliceDeg / 2;
+      const stopAngle = (360 - (targetCenterDeg % 360)) % 360;
+      const extraSpins = (6 + idx) * 360;
+      const finalRot = extraSpins + stopAngle;
+
+      if (elapsed >= duration) {
+        anim.setValue(finalRot);
+        return null;
+      }
+
+      const remaining = duration - elapsed;
+      const initialProgress = Math.max(elapsed / duration, 0);
+      const easeOutInitial = 1 - Math.pow(1 - initialProgress, 4);
+      const startRot = finalRot * easeOutInitial;
+
+      anim.setValue(startRot);
+
+      return Animated.timing(anim, {
+        toValue: finalRot,
+        duration: remaining,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      });
+    });
 
     if (elapsed >= duration) {
-      // Đã quay xong trước khi người dùng vào xem
-      rotateAnim.setValue(finalRot);
-      currentRotationRef.current = finalRot;
       setIsFinished(true);
       return;
     }
 
-    const remaining = duration - elapsed;
-    const initialProgress = Math.max(elapsed / duration, 0);
-    const easeOutInitial = 1 - Math.pow(1 - initialProgress, 4);
-    const startRot = finalRot * easeOutInitial;
-
-    rotateAnim.setValue(startRot);
     setIsFinished(false);
+    const activeTimings = animations.filter(Boolean) as Animated.CompositeAnimation[];
 
-    Animated.timing(rotateAnim, {
-      toValue: finalRot,
-      duration: remaining,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    }).start(() => {
-      currentRotationRef.current = finalRot;
-      setIsFinished(true);
-      try {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      } catch {}
-    });
-  }, [isVisible, session, totalOptions, sliceDeg, rotateAnim]);
+    if (activeTimings.length > 0) {
+      Animated.parallel(activeTimings).start(() => {
+        setIsFinished(true);
+        try {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        } catch {}
+      });
+    }
+  }, [isVisible, session, wheelsList, rotateAnims, rotAnim0]);
 
-  // 4. Render SVG Slices cho đĩa quay
-  const renderWheelSvg = () => {
-    if (!session || totalOptions === 0) return null;
+  // 4. Render SVG cho từng bánh xe
+  const renderWheelSvg = (wheel: LiveWheelItem) => {
+    const totalOptions = wheel.options.length;
+    if (totalOptions === 0) return null;
 
     const radius = discSize / 2;
     const centerX = discSize / 2;
     const centerY = discSize / 2;
     const arcAngle = (2 * Math.PI) / totalOptions;
 
-    return session.options.map((opt, idx) => {
+    return wheel.options.map((opt, idx) => {
       const angle1 = idx * arcAngle;
       const angle2 = (idx + 1) * arcAngle;
       const color = opt.color || PASTEL_WHEEL_COLORS[idx % PASTEL_WHEEL_COLORS.length]!;
@@ -186,18 +257,18 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
       const ty = centerY + textRadius * Math.sin(midAngle);
 
       let label = opt.optionLabel;
-      if (label.length > 12) {
-        label = label.substring(0, 11) + '…';
+      if (label.length > 8) {
+        label = label.substring(0, 7) + '…';
       }
 
       return (
         <G key={`slice-${idx}`}>
-          <Path d={pathD} fill={color} />
+          <Path d={pathD} fill={color} stroke="#FFFFFF" strokeWidth={1} />
           <SvgText
             x={tx}
             y={ty}
             fill="#1E293B"
-            fontSize={discSize > 250 ? 11 : 9.5}
+            fontSize={9}
             fontWeight="bold"
             textAnchor="middle"
             alignmentBaseline="middle"
@@ -210,6 +281,23 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
     });
   };
 
+  // 5. Xử lý khi ấn nút Quay (Bất kỳ ai cũng có thể ấn)
+  const handleSpinClick = async () => {
+    if (isSubmittingSpin || (!isFinished && session?.stageStatus === 'spinning')) return;
+
+    try {
+      setIsSubmittingSpin(true);
+      await liveSpinWheelApi(circleId, {
+        isAll: true,
+        channelId: session?.channelId,
+      });
+    } catch (err: any) {
+      // ignore
+    } finally {
+      setIsSubmittingSpin(false);
+    }
+  };
+
   const handleClose = () => {
     if (session) {
       setDismissedSessionId(session.id);
@@ -219,11 +307,7 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
 
   if (!isVisible || !session) return null;
 
-  const rotateInterpolate = rotateAnim.interpolate({
-    inputRange: [0, 360],
-    outputRange: ['0deg', '360deg'],
-  });
-
+  const isSpinning = !isFinished && session.stageStatus === 'spinning';
   const spunByName = session.spunBy?.displayName || (locale === 'vi' ? 'Thành viên' : 'Member');
 
   return (
@@ -235,16 +319,24 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
             {
               backgroundColor: isDark ? colors.elevated : '#FFFFFF',
               borderColor: colors.hairline,
+              maxHeight: '92%',
             },
           ]}
         >
-          {/* Top Bar */}
-          <View style={styles.topBar}>
+          {/* Top Bar: LIVE Badge + Title + Close Button */}
+          <View style={[styles.topBar, { borderBottomColor: colors.hairline }]}>
             <View style={styles.badgeLive}>
               <View style={styles.redDot} />
               <Radio size={13} color="#E11D48" />
               <Text style={styles.badgeLiveText}>
-                {isFinished ? 'LIVE RESULT' : 'LIVE'}
+                {isSpinning ? 'SPINNING LIVE' : isFinished ? 'LIVE RESULT' : 'LIVE STAGE'}
+              </Text>
+            </View>
+
+            <View style={styles.userBadge}>
+              <User size={12} color={colors.primary} />
+              <Text style={[styles.userBadgeText, { color: colors.text }]} numberOfLines={1}>
+                {spunByName}
               </Text>
             </View>
 
@@ -253,104 +345,194 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
             </TouchableOpacity>
           </View>
 
-          {/* Wheel Title & Spun By */}
+          {/* Title Section */}
           <View style={styles.titleSection}>
-            <Text style={[styles.wheelTitle, { color: colors.text }]} numberOfLines={2}>
-              {session.wheelTitle || t.luckyWheel.liveWheelTitle}
+            <Text style={[styles.wheelTitle, { color: colors.text }]} numberOfLines={1}>
+              {session.wheelTitle || 'Vòng quay may mắn (4 vòng)'}
             </Text>
-            <View style={styles.spunByRow}>
-              <User size={13} color={colors.primary} />
-              <Text style={[styles.spunByText, { color: colors.subtle }]}>
-                {t.luckyWheel.spunBy.replace('{name}', spunByName)}
-              </Text>
-            </View>
+            <Text style={[styles.statusSubtitle, { color: colors.subtle }]}>
+              {isSpinning
+                ? `${t.luckyWheel.spunBy.replace('{name}', spunByName)} - Đang quay...`
+                : isFinished
+                ? 'Đã quay xong! Ai cũng có thể bấm quay tiếp!'
+                : 'Sân khấu trực tiếp! Ai cũng có thể bấm quay!'}
+            </Text>
           </View>
 
-          {/* Wheel Disc with Pointer */}
-          <View style={[styles.discContainer, { width: discSize, height: discSize }]}>
-            <Animated.View
-              style={[
-                styles.wheelRotateBox,
-                {
-                  width: discSize,
-                  height: discSize,
-                  transform: [{ rotate: rotateInterpolate }],
-                },
-              ]}
-            >
-              <Svg width={discSize} height={discSize}>
-                {renderWheelSvg()}
-                {/* Center Hub */}
-                <Circle
-                  cx={discSize / 2}
-                  cy={discSize / 2}
-                  r={20}
-                  fill="#FFFFFF"
-                  stroke="#E2E8F0"
-                  strokeWidth={2}
-                />
-                <Circle cx={discSize / 2} cy={discSize / 2} r={8} fill={colors.primary} />
-              </Svg>
-            </Animated.View>
+          {/* SÂN KHẤU 4 CÁI VÒNG XOAY: 2 HÀNG X 2 CỘT */}
+          <ScrollView
+            style={styles.wheelsScroll}
+            contentContainerStyle={styles.wheelsGrid}
+            showsVerticalScrollIndicator={false}
+          >
+            {wheelsList.map((wheel, idx) => {
+              const anim = rotateAnims[idx] || rotAnim0;
+              const rotateInterpolate = anim.interpolate({
+                inputRange: [0, 360],
+                outputRange: ['0deg', '360deg'],
+              });
 
-            {/* Pointer on the RIGHT OUTSIDE */}
-            <View style={styles.pointerRight} pointerEvents="none">
-              <Svg width={32} height={22} viewBox="0 0 30 20">
-                <Path
-                  d="M2 10L18 2C20 1 21 2 21 4V16C21 18 20 19 18 18L2 10Z"
-                  fill={colors.primary}
-                  stroke={isDark ? colors.elevated : '#FFFFFF'}
-                  strokeWidth={1.5}
-                  strokeLinejoin="round"
-                />
-                <Rect
-                  x={19}
-                  y={4}
-                  width={9}
-                  height={12}
-                  rx={3}
-                  fill={isDark ? colors.primaryDark : '#0F766E'}
-                  stroke={isDark ? colors.elevated : '#FFFFFF'}
-                  strokeWidth={1.5}
-                />
-                <Circle cx={23.5} cy={10} r={2.5} fill={isDark ? colors.elevated : '#FFFFFF'} />
-                <Circle cx={23.5} cy={10} r={1.2} fill={colors.primary} />
-              </Svg>
-            </View>
-          </View>
+              return (
+                <View key={wheel.wheelId || `wheel-${idx}`} style={styles.wheelCell}>
+                  <Text
+                    style={[
+                      styles.wheelCellTitle,
+                      {
+                        color: colors.text,
+                        backgroundColor: isDark ? colors.surface : '#F1F5F9',
+                        borderColor: colors.hairline,
+                      },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {wheel.wheelTitle || `Vòng ${idx + 1}`}
+                  </Text>
 
-          {/* Status or Winner Box */}
-          <View style={styles.statusBoxContainer}>
-            {!isFinished ? (
-              <View style={[styles.spinningBox, { backgroundColor: `${colors.primary}15` }]}>
-                <Compass size={16} color={colors.primary} />
-                <Text style={[styles.spinningText, { color: colors.primary }]}>
+                  <View style={[styles.discBox, { width: discSize, height: discSize }]}>
+                    <Animated.View
+                      style={[
+                        styles.wheelRotateBox,
+                        {
+                          width: discSize,
+                          height: discSize,
+                          transform: [{ rotate: rotateInterpolate }],
+                        },
+                      ]}
+                    >
+                      <Svg width={discSize} height={discSize}>
+                        {renderWheelSvg(wheel)}
+                        <Circle
+                          cx={discSize / 2}
+                          cy={discSize / 2}
+                          r={13}
+                          fill="#FFFFFF"
+                          stroke="#E2E8F0"
+                          strokeWidth={1.5}
+                        />
+                        <Circle
+                          cx={discSize / 2}
+                          cy={discSize / 2}
+                          r={5}
+                          fill={colors.primary}
+                        />
+                      </Svg>
+                    </Animated.View>
+
+                    {/* Kim chỉ bên phải */}
+                    <View style={styles.pointerRight} pointerEvents="none">
+                      <Svg width={22} height={14} viewBox="0 0 30 20">
+                        <Path
+                          d="M2 10L18 2C20 1 21 2 21 4V16C21 18 20 19 18 18L2 10Z"
+                          fill={colors.primary}
+                          stroke="#FFFFFF"
+                          strokeWidth={1.5}
+                          strokeLinejoin="round"
+                        />
+                        <Rect
+                          x={19}
+                          y={4}
+                          width={9}
+                          height={12}
+                          rx={3}
+                          fill={isDark ? colors.primaryDark : '#0F766E'}
+                          stroke="#FFFFFF"
+                          strokeWidth={1.5}
+                        />
+                        <Circle cx={23.5} cy={10} r={2.5} fill="#FFFFFF" />
+                        <Circle cx={23.5} cy={10} r={1.2} fill={colors.primary} />
+                      </Svg>
+                    </View>
+                  </View>
+
+                  {isFinished && wheel.winningOption && (
+                    <Text
+                      style={[
+                        styles.cellWinnerBadge,
+                        {
+                          color: '#D97706',
+                          backgroundColor: '#FEF3C7',
+                          borderColor: '#FDE68A',
+                        },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      🏆 {wheel.winningOption.optionLabel}
+                    </Text>
+                  )}
+                </View>
+              );
+            })}
+          </ScrollView>
+
+          {/* HỘP KẾT QUẢ ĐỒNG BỘ CẢ 4 VÒNG */}
+          <View style={styles.resultContainer}>
+            {isSpinning ? (
+              <View style={[styles.spinningAlert, { backgroundColor: `${colors.primary}15` }]}>
+                <ActivityIndicator size="small" color={colors.primary} />
+                <Text style={[styles.spinningAlertText, { color: colors.primary }]}>
                   {t.luckyWheel.spinningLive}
                 </Text>
               </View>
-            ) : (
+            ) : isFinished && session.winningOption ? (
               <View style={styles.winnerCard}>
-                <View style={styles.winnerHeader}>
-                  <Trophy size={16} color="#D97706" />
-                  <Sparkles size={14} color="#D97706" />
-                  <Text style={styles.winnerHeaderText}>{t.luckyWheel.winnerAnnounce}</Text>
+                <View style={styles.winnerHeaderRow}>
+                  <Trophy size={14} color="#D97706" />
+                  <Sparkles size={13} color="#D97706" />
+                  <Text style={styles.winnerTitle}>{t.luckyWheel.winnerAnnounce}</Text>
                 </View>
                 <Text style={styles.winnerText} numberOfLines={2}>
-                  {session.winningOption?.optionLabel}
+                  {session.winningOption.optionLabel}
                 </Text>
               </View>
+            ) : (
+              <Text style={[styles.idleHintText, { color: colors.subtle }]}>
+                {locale === 'vi'
+                  ? 'Bấm nút "Quay" bên dưới để quay trực tiếp cho cả nhóm!'
+                  : 'Press "Spin" below to start live spinning for the group!'}
+              </Text>
             )}
           </View>
 
-          {/* Back to Chat Button */}
-          <TouchableOpacity
-            activeOpacity={0.85}
-            onPress={handleClose}
-            style={[styles.backToChatBtn, { backgroundColor: colors.primary }]}
-          >
-            <Text style={styles.backToChatBtnText}>{t.luckyWheel.backToChat}</Text>
-            <ArrowRight size={16} color="#FFFFFF" />
-          </TouchableOpacity>
+          {/* NÚT QUAY (AI ẤN CŨNG ĐƯỢC) + NÚT QUAY LẠI CHAT */}
+          <View style={[styles.actionRow, { borderTopColor: colors.hairline }]}>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              disabled={isSpinning || isSubmittingSpin}
+              onPress={handleSpinClick}
+              style={[
+                styles.spinBtn,
+                { backgroundColor: colors.primary },
+                (isSpinning || isSubmittingSpin) && { opacity: 0.5 },
+              ]}
+            >
+              {isSpinning || isSubmittingSpin ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Play size={16} color="#FFFFFF" fill="#FFFFFF" />
+              )}
+              <Text style={styles.spinBtnText}>
+                {isSpinning || isSubmittingSpin
+                  ? t.luckyWheel.spinning
+                  : isFinished
+                  ? t.luckyWheel.spinAgain
+                  : t.luckyWheel.spinAll}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={handleClose}
+              style={[
+                styles.backBtn,
+                { backgroundColor: isDark ? colors.surface : '#F1F5F9' },
+              ]}
+            >
+              <Text style={[styles.backBtnText, { color: colors.text }]}>
+                {t.luckyWheel.backToChat}
+              </Text>
+              <ArrowRight size={14} color={colors.text} />
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     </Modal>
@@ -360,41 +542,41 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.65)',
-    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'center',
-    padding: 16,
+    alignItems: 'center',
+    padding: 14,
   },
   cardContainer: {
     width: '100%',
-    maxWidth: 380,
+    maxWidth: 420,
     borderRadius: 28,
     borderWidth: 1,
-    padding: 20,
-    alignItems: 'center',
+    padding: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
+    shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.25,
-    shadowRadius: 16,
-    elevation: 16,
+    shadowRadius: 20,
+    elevation: 10,
+    overflow: 'hidden',
   },
   topBar: {
-    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
   },
   badgeLive: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
     backgroundColor: 'rgba(225, 29, 72, 0.12)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(225, 29, 72, 0.3)',
+    borderColor: 'rgba(225, 29, 72, 0.25)',
   },
   redDot: {
     width: 6,
@@ -403,118 +585,181 @@ const styles = StyleSheet.create({
     backgroundColor: '#E11D48',
   },
   badgeLiveText: {
-    fontSize: 10.5,
-    fontWeight: 'bold',
+    fontSize: 10,
+    fontWeight: '800',
     color: '#E11D48',
-    letterSpacing: 0.8,
+    letterSpacing: 0.5,
+  },
+  userBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    maxWidth: 120,
+  },
+  userBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
   },
   closeBtn: {
-    padding: 6,
+    padding: 4,
     borderRadius: 16,
   },
   titleSection: {
     alignItems: 'center',
-    marginBottom: 12,
+    marginVertical: 8,
   },
   wheelTitle: {
-    fontSize: 17,
-    fontWeight: 'bold',
+    fontSize: 16,
+    fontWeight: '800',
     textAlign: 'center',
   },
-  spunByRow: {
+  statusSubtitle: {
+    fontSize: 10.5,
+    marginTop: 2,
+    textAlign: 'center',
+  },
+  wheelsScroll: {
+    maxHeight: 290,
+    marginVertical: 4,
+  },
+  wheelsGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-around',
+    gap: 10,
+    paddingVertical: 4,
+  },
+  wheelCell: {
     alignItems: 'center',
-    gap: 5,
-    marginTop: 4,
+    gap: 4,
+    marginBottom: 6,
   },
-  spunByText: {
-    fontSize: 12,
-    fontWeight: '500',
+  wheelCellTitle: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+    borderWidth: 1,
+    maxWidth: 130,
+    textAlign: 'center',
   },
-  discContainer: {
+  discBox: {
     position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
-    marginVertical: 10,
   },
   wheelRotateBox: {
-    borderRadius: 999,
-    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   pointerRight: {
     position: 'absolute',
-    right: -14,
+    right: -10,
     top: '50%',
-    marginTop: -10,
-    zIndex: 20,
+    marginTop: -7,
+    zIndex: 10,
   },
-  statusBoxContainer: {
-    width: '100%',
-    minHeight: 70,
-    alignItems: 'center',
+  cellWinnerBadge: {
+    fontSize: 9.5,
+    fontWeight: 'bold',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    maxWidth: 130,
+    textAlign: 'center',
+  },
+  resultContainer: {
+    minHeight: 52,
     justifyContent: 'center',
-    marginVertical: 8,
+    alignItems: 'center',
+    marginVertical: 6,
   },
-  spinningBox: {
+  spinningAlert: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderRadius: 16,
   },
-  spinningText: {
-    fontSize: 12.5,
-    fontWeight: '600',
+  spinningAlertText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   winnerCard: {
     width: '100%',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 16,
     backgroundColor: 'rgba(245, 158, 11, 0.12)',
     borderWidth: 1.5,
-    borderColor: 'rgba(245, 158, 11, 0.35)',
-    borderRadius: 18,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
+    borderColor: 'rgba(245, 158, 11, 0.4)',
     alignItems: 'center',
-    justifyContent: 'center',
   },
-  winnerHeader: {
+  winnerHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginBottom: 4,
+    gap: 4,
+    marginBottom: 2,
   },
-  winnerHeaderText: {
-    fontSize: 11,
-    fontWeight: 'bold',
-    color: '#B45309',
-    textTransform: 'uppercase',
+  winnerTitle: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: '#D97706',
     letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
   winnerText: {
-    fontSize: 18,
+    fontSize: 13,
     fontWeight: '900',
-    color: '#D97706',
+    color: '#B45309',
     textAlign: 'center',
   },
-  backToChatBtn: {
+  idleHintText: {
+    fontSize: 11,
+    fontStyle: 'italic',
+    textAlign: 'center',
+  },
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingTop: 10,
+    borderTopWidth: 1,
+  },
+  spinBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    width: '100%',
-    height: 46,
+    gap: 6,
+    paddingVertical: 11,
+    paddingHorizontal: 14,
     borderRadius: 16,
-    marginTop: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.12,
     shadowRadius: 4,
     elevation: 3,
   },
-  backToChatBtnText: {
+  spinBtnText: {
     color: '#FFFFFF',
-    fontSize: 13.5,
     fontWeight: 'bold',
+    fontSize: 12.5,
+  },
+  backBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingVertical: 11,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+  },
+  backBtnText: {
+    fontSize: 11.5,
+    fontWeight: '700',
   },
 });

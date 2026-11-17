@@ -442,6 +442,23 @@ export function useActiveLiveWheelQuery(circleId: string | null) {
   });
 }
 
+export function useCreateLiveWheelStageMutation(circleId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input?: { channelId?: string }) => {
+      const res = await apiRequest<LiveWheelSession>(`/circles/${circleId}/wheels/live-stage`, {
+        method: 'POST',
+        body: JSON.stringify(input || {}),
+      });
+      return res.data;
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(['tools', 'wheels', 'live-active', circleId], data);
+      queryClient.invalidateQueries({ queryKey: ['tools', 'wheels', circleId] });
+    },
+  });
+}
+
 export function useLiveSpinWheelMutation(circleId: string) {
   const queryClient = useQueryClient();
   return useMutation({

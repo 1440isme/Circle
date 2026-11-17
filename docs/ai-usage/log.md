@@ -9041,3 +9041,57 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 - **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
 - **Commit:** 6ac5a02
 - **PR:** #120
+
+
+## AI-0222: Đồng Bộ Trực Tiếp Sân Khấu 4 Vòng Quay May Mắn Trong Chat (Live Wheel Synchronization) - Bất Kỳ Thành Viên Nào Cũng Có Thể Ấn Quay (#120)
+
+- **Date:** 2026-11-18 03:34:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120
+- **Purpose:** 
+  1. **Kích hoạt Sân khấu 4 Vòng quay trực tiếp khi bấm nút "Tạo" từ Bảng Setup trong Chat:**
+     - Khi bất kỳ thành viên nào bấm nút **"Tạo"** trong `LiveWheelPickerModal` (Web) hoặc `MobileLiveWheelPickerModal` (Mobile):
+       + Hệ thống tự động đảm bảo Circle có đủ 4 vòng xoay (nếu thiếu, tự động tạo bổ sung các bộ vòng theo thứ tự: Trưa nay ăn gì?, Ai trả tiền hôm nay?, Nước uống gì đây?, Kèo tăng hai đi đâu?).
+       + Gọi endpoint `POST /circles/:circleId/wheels/live-stage`, khởi tạo `LiveWheelSession` với 4 vòng xoay ở trạng thái sẵn sàng (`stageStatus = 'idle'`).
+       + Server phát sự kiện WebSocket `circle:live-wheel:stage-created` và `circle:live-wheel:started` tới tất cả thành viên trong nhóm đoạn chat.
+       + Modal thiết lập tự động đóng, mở bung Sân khấu Vòng quay trực tiếp (`LiveWheelOverlay` trên Web và `MobileLiveWheelOverlay` trên Mobile) đồng thời trên màn hình của toàn bộ mọi người trong nhóm.
+  2. **Hiển thị 4 cái vòng xoay đồng bộ (Live Wheel Synchronization):**
+     - Trên Web: Sắp xếp 4 vòng xoay dạng lưới 2x2 cân xứng, mỗi vòng có Canvas riêng hiển thị tên vòng, các múi phương án màu pastel, kim chỉ bên phải.
+     - Trên Mobile: Sắp xếp 4 vòng xoay dạng 2 hàng x 2 cột (mỗi hàng 2 đĩa SVG đường kính ~125px), vừa khít màn hình, không bị tràn viền.
+  3. **Cơ chế tương tác nhóm mở - Ai ấn quay cũng được:**
+     - Trên sân khấu trực tiếp, bất kỳ thành viên nào trong nhóm (không phân biệt chủ nhóm hay thành viên) đều nhìn thấy nút **"Quay tất cả" / "Quay"**.
+     - Khi một thành viên bất kỳ bấm nút:
+       + Gọi API `POST /circles/:circleId/wheels/live-spin` với `{ isAll: true }`.
+       + Server tính toán ngẫu nhiên kết quả duy nhất cho cả 4 vòng tròn (Server-side deterministic unbiased authority).
+       + Server tự động gửi tin nhắn tổng hợp kết quả của cả 4 vòng vào lịch sử đoạn chat nhóm và ghi rõ `👤 Lượt quay của: [Tên người vừa bấm]`.
+       + Server phát sự kiện WebSocket tới tất cả thiết bị: cả 4 vòng xoay đồng loạt chuyển động mượt mà trong 6 giây kèm âm thanh tick theo góc quay, hiển thị badge `Lượt quay của [Tên người vừa bấm]`.
+       + Khi dừng: cả 4 vòng dừng chính xác tại múi thắng cuộc, nổ pháo hoa Confetti, phát âm thanh fanfare hoặc rung phản hồi Haptics.
+       + Khung kết quả hiển thị chuỗi kết quả của cả 4 vòng: `[KQ1] - [KQ2] - [KQ3] - [KQ4]`.
+       + Nút bấm chuyển sang **"Quay tiếp"** và bất kỳ ai ấn tiếp cũng được.
+  4. **Nút đóng và quay lại đoạn chat:**
+     - Cho phép thành viên quay lại màn hình nhắn tin bất cứ lúc nào qua nút đóng (X) hoặc nút "Quay lại đoạn chat".
+- **Files Affected:**
+  - `packages/types/src/index.ts`
+  - `apps/backend/src/modules/chat/chat.gateway.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.controller.ts`
+  - `apps/web/src/hooks/use-circle-tools.ts`
+  - `apps/web/src/components/chat/LiveWheelOverlay.tsx`
+  - `apps/web/src/components/chat/LiveWheelPickerModal.tsx`
+  - `apps/mobile/src/services/circle-tools.service.ts`
+  - `apps/mobile/src/components/chat/MobileLiveWheelOverlay.tsx`
+  - `apps/mobile/src/components/chat/MobileLiveWheelPickerModal.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% full-stack 4-wheel synchronization implementation across NestJS, Socket.IO, Next.js, and Expo.
+- **Human Modifications:** Người dùng yêu cầu khi nhấn tạo vòng xoay là ra 4 cái vòng xoay theo cơ chế quay trực tiếp trong nhóm (Live Wheel Synchronization) và bất kỳ ai trong nhóm ấn quay cũng được.
+- **Verification Method:**
+  - `npm run build --prefix packages/types`: Passed.
+  - `npx tsc --noEmit -p apps/backend/tsconfig.json`: Passed 0 errors.
+  - `npx tsc --noEmit -p apps/web/tsconfig.json`: Passed 0 errors.
+  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Passed 0 errors.
+  - `npm test --prefix apps/backend -- circle-tools`: Passed 46/46 unit tests.
+  - `bash ./scripts/check-secrets.sh`: Passed (605 files checked, 0 leaks).
+- **Official Source Checked:** `PROJECT_GOD.md` §2.2, §11 (DoD), `agentic/playbooks/05-calendar-planning.md`, `agentic/playbooks/cross-cutting-gate.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.

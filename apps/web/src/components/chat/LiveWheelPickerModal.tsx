@@ -31,6 +31,7 @@ import {
   useDeleteWheelMutation,
   useDeleteAllWheelsMutation,
   useLiveSpinWheelMutation,
+  useCreateLiveWheelStageMutation,
 } from '../../hooks/use-circle-tools';
 
 interface LiveWheelPickerModalProps {
@@ -263,6 +264,7 @@ export const LiveWheelPickerModal: React.FC<LiveWheelPickerModalProps> = ({
   const deleteWheelMutation = useDeleteWheelMutation(circleId);
   const deleteAllMutation = useDeleteAllWheelsMutation(circleId);
   const liveSpinMutation = useLiveSpinWheelMutation(circleId);
+  const createStageMutation = useCreateLiveWheelStageMutation(circleId);
 
   // Chế độ xem: 'setup' (bảng cấu hình) hoặc 'arena' (sân khấu các vòng tròn khi bấm Tạo)
   const [viewMode, setViewMode] = useState<'setup' | 'arena'>('setup');
@@ -488,29 +490,30 @@ export const LiveWheelPickerModal: React.FC<LiveWheelPickerModalProps> = ({
     handleOptionsChange(initial.join('\n'));
   };
 
-  // KHI BẤM NÚT "TẠO": Lưu và tạo ra các vòng tròn quay trên sân khấu Arena
-  const handleCreateStage = () => {
-    if (wheels.length === 0) return;
-
-    // Lưu các lựa chọn đã chỉnh sửa của active wheel
-    if (activeWheel && activeLocalState?.optionsText) {
-      const lines = parseOptions(activeLocalState.optionsText);
-      if (lines.length >= 2) {
-        updateWheelMutation.mutate({
-          wheelId: activeWheel.id,
-          input: {
-            options: lines.map((l) => ({
-              optionLabel: l.label,
-              color: l.color,
-            })),
-          },
-        });
+  // KHI BẤM NÚT "TẠO": Lưu và kích hoạt sân khấu 4 vòng xoay trực tiếp cho cả nhóm
+  const handleCreateStage = async () => {
+    try {
+      // Lưu các lựa chọn đã chỉnh sửa của active wheel nếu có
+      if (activeWheel && activeLocalState?.optionsText) {
+        const lines = parseOptions(activeLocalState.optionsText);
+        if (lines.length >= 2) {
+          await updateWheelMutation.mutateAsync({
+            wheelId: activeWheel.id,
+            input: {
+              options: lines.map((l) => ({
+                optionLabel: l.label,
+                color: l.color,
+              })),
+            },
+          });
+        }
       }
-    }
 
-    // Chuyển sang màn hình Sân khấu các vòng tròn
-    setViewMode('arena');
-    setLastSpinResult(null);
+      await createStageMutation.mutateAsync({ channelId });
+      onClose();
+    } catch (err: any) {
+      alert(err?.response?.data?.message || err?.message || 'Không thể tạo sân khấu vòng quay');
+    }
   };
 
   // KHI BẤM NÚT "QUAY" / "QUAY TẤT CẢ" TRÊN SÂN KHẤU
@@ -839,11 +842,23 @@ export const LiveWheelPickerModal: React.FC<LiveWheelPickerModalProps> = ({
               <button
                 type="button"
                 onClick={handleCreateStage}
-                disabled={wheels.length === 0}
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-circle-primary hover:bg-circle-primary/90 text-circle-charcoal dark:text-circle-dark-canvas font-bold text-xs sm:text-sm shadow-md transition-all active:scale-95 cursor-pointer"
+                disabled={wheels.length === 0 || createStageMutation.isPending}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-circle-primary hover:bg-circle-primary/90 text-circle-charcoal dark:text-circle-dark-canvas font-bold text-xs sm:text-sm shadow-md transition-all active:scale-95 cursor-pointer disabled:opacity-50"
               >
-                <Sparkles className="w-4 h-4" />
-                <span>{locale === 'vi' ? 'Tạo' : 'Create'}</span>
+                {createStageMutation.isPending ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Sparkles className="w-4 h-4" />
+                )}
+                <span>
+                  {createStageMutation.isPending
+                    ? locale === 'vi'
+                      ? 'Đang tạo...'
+                      : 'Creating...'
+                    : locale === 'vi'
+                    ? 'Tạo'
+                    : 'Create'}
+                </span>
               </button>
             </div>
           </>

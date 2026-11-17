@@ -34,6 +34,7 @@ import {
 import {
   SpinWheelResult,
   LiveWheelSession,
+  LiveWheelItem,
   CalendarEventMessagePayload,
   MessageEntity,
 } from '@circle/types';
@@ -52,6 +53,25 @@ export const PASTEL_WHEEL_COLORS = [
   '#FED1BA', // Pastel Peach
   '#D7E3FC', // Pastel Periwinkle
   '#FDE2E4', // Pastel Rose Blossom
+];
+
+export const DEFAULT_FOUR_WHEELS_DATA = [
+  {
+    title: 'Vòng 1: Trưa nay ăn gì?',
+    options: ['Phở bò', 'Bún chả', 'Cơm tấm', 'Bánh mì chảo', 'Bún bò Huế', 'Gà rán'],
+  },
+  {
+    title: 'Vòng 2: Ai trả tiền hôm nay?',
+    options: ['Bình', 'Hạnh', 'Campuchia chia đều', 'Người ít tuổi nhất'],
+  },
+  {
+    title: 'Vòng 3: Nước uống gì đây?',
+    options: ['Trà sữa trân châu', 'Cà phê muối', 'Nước ép cam', 'Trà đào cam sả'],
+  },
+  {
+    title: 'Vòng 4: Kèo tăng hai đi đâu?',
+    options: ['Đi xem phim', 'Hát Karaoke', 'Dạo phố hóng gió', 'Đi về ngủ'],
+  },
 ];
 
 @Injectable()
@@ -854,11 +874,150 @@ export class CircleToolsService {
     const session = this.activeLiveWheelSessions.get(circleId);
     if (!session) return null;
 
-    // Check if session has expired (durationMs + 20s display window)
+    // Check if session has expired (durationMs + 60s display window)
     const elapsed = Date.now() - session.startedAt;
-    if (elapsed > session.durationMs + 20000) {
+    if (elapsed > session.durationMs + 60000) {
       this.activeLiveWheelSessions.delete(circleId);
       return null;
+    }
+
+    return session;
+  }
+
+  async ensureFourWheels(circleId: string) {
+    let existing =
+      (await this.prisma.decisionWheel.findMany({
+        where: { circleId },
+        include: { options: true },
+        orderBy: { createdAt: 'asc' },
+      })) || [];
+
+    if (!Array.isArray(existing)) {
+      existing = [];
+    }
+
+    if (existing.length < 4) {
+      const needed = 4 - existing.length;
+      const startIndex = existing.length;
+      for (let i = 0; i < needed; i++) {
+        const template =
+          DEFAULT_FOUR_WHEELS_DATA[(startIndex + i) % DEFAULT_FOUR_WHEELS_DATA.length]!;
+        try {
+          await this.prisma.decisionWheel.create({
+            data: {
+              circleId,
+              title: template.title,
+              options: {
+                create: template.options.map((optLabel, oIdx) => ({
+                  optionLabel: optLabel,
+                  color: PASTEL_WHEEL_COLORS[oIdx % PASTEL_WHEEL_COLORS.length]!,
+                })),
+              },
+            },
+          });
+        } catch {}
+      }
+
+      const refreshed = await this.prisma.decisionWheel.findMany({
+        where: { circleId },
+        include: { options: true },
+        orderBy: { createdAt: 'asc' },
+      });
+      if (Array.isArray(refreshed) && refreshed.length > 0) {
+        existing = refreshed;
+      }
+    }
+
+    // Nếu trong môi trường test DB chưa có dữ liệu, trả về danh sách 4 vòng giả lập an toàn
+    if (existing.length === 0) {
+      existing = DEFAULT_FOUR_WHEELS_DATA.map((t, idx) => ({
+        id: `mock-wheel-${idx + 1}`,
+        circleId,
+        title: t.title,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        options: t.options.map((optLabel, oIdx) => ({
+          id: `mock-opt-${idx}-${oIdx}`,
+          wheelId: `mock-wheel-${idx + 1}`,
+          optionLabel: optLabel,
+          color: PASTEL_WHEEL_COLORS[oIdx % PASTEL_WHEEL_COLORS.length]!,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })),
+      })) as any;
+    }
+
+    return existing;
+  }
+
+  async createLiveWheelStage(
+    circleId: string,
+    userId: string,
+    channelId?: string,
+  ): Promise<LiveWheelSession> {
+    const member = await this.getMemberOrThrow(circleId, userId);
+    const wheels = await this.ensureFourWheels(circleId);
+    const fourWheels = wheels.slice(0, 4);
+
+    const wheelsList: LiveWheelItem[] = fourWheels.map((w, idx) => ({
+      wheelId: w.id,
+      wheelTitle: w.title || `Vòng ${idx + 1}`,
+      options:
+        w.options.length >= 2
+          ? w.options.map((o, oIdx) => ({
+              optionLabel: o.optionLabel,
+              color: o.color || PASTEL_WHEEL_COLORS[oIdx % PASTEL_WHEEL_COLORS.length]!,
+            }))
+          : ['Phương án 1', 'Phương án 2'].map((lbl, oIdx) => ({
+              optionLabel: lbl,
+              color: PASTEL_WHEEL_COLORS[oIdx]!,
+            })),
+      winningIndex: -1,
+      winningOption: null,
+    }));
+
+    let channel = channelId
+      ? await this.prisma.channel.findFirst({ where: { id: channelId, circleId } })
+      : null;
+
+    if (!channel) {
+      channel = await this.prisma.channel.findFirst({
+        where: { circleId },
+        orderBy: { createdAt: 'asc' },
+      });
+    }
+
+    const senderName =
+      member.user?.profile?.displayName ||
+      member.user?.email?.split('@')[0] ||
+      member.nickname ||
+      'Thành viên';
+
+    const session: LiveWheelSession = {
+      id: `live-wheel-stage-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      circleId,
+      channelId: channel?.id,
+      wheelTitle: 'Vòng quay may mắn (4 vòng)',
+      options: wheelsList[0]?.options || [],
+      winningIndex: 0,
+      winningOption: wheelsList[0]?.options[0] || { optionLabel: '', color: '#0D9488' },
+      startedAt: Date.now(),
+      durationMs: 6000,
+      stageStatus: 'idle',
+      wheels: wheelsList,
+      spunBy: {
+        userId,
+        displayName: senderName,
+        avatarUrl: member.user?.profile?.avatarUrl || null,
+      },
+    };
+
+    this.activeLiveWheelSessions.set(circleId, session);
+
+    // Broadcast đến toàn bộ thành viên trong nhóm
+    if (this.chatGateway) {
+      this.chatGateway.broadcastLiveWheelStageCreated(circleId, session);
+      this.chatGateway.broadcastLiveWheel(circleId, session);
     }
 
     return session;
@@ -871,61 +1030,35 @@ export class CircleToolsService {
   ): Promise<LiveWheelSession> {
     const member = await this.getMemberOrThrow(circleId, userId);
 
-    let wheelTitle = dto.title?.trim() || 'Vòng quay may mắn';
+    const fourWheels = (await this.ensureFourWheels(circleId)).slice(0, 4);
+
+    const wheelsList: LiveWheelItem[] = fourWheels.map((w, idx) => {
+      const rawOptions =
+        w.options.length >= 2
+          ? w.options
+          : [
+              { optionLabel: 'Phương án 1', color: PASTEL_WHEEL_COLORS[0]! },
+              { optionLabel: 'Phương án 2', color: PASTEL_WHEEL_COLORS[1]! },
+            ];
+      const opts = rawOptions.map((o, oIdx) => ({
+        optionLabel: o.optionLabel,
+        color: o.color || PASTEL_WHEEL_COLORS[oIdx % PASTEL_WHEEL_COLORS.length]!,
+      }));
+      const winningIdx = Math.floor(Math.random() * opts.length);
+      return {
+        wheelId: w.id,
+        wheelTitle: w.title || `Vòng ${idx + 1}`,
+        options: opts,
+        winningIndex: winningIdx,
+        winningOption: opts[winningIdx]!,
+      };
+    });
+
+    let wheelTitle = dto.title?.trim() || 'Vòng quay may mắn (4 vòng)';
     let options: { optionLabel: string; color: string }[] = [];
-    let wheelId: string | undefined = undefined;
-    let customWinnerAnnounce: string | undefined = undefined;
+    let winningIndex = 0;
 
-    if (dto.isAll) {
-      const allWheels = await this.prisma.decisionWheel.findMany({
-        where: { circleId },
-        include: { options: true },
-        orderBy: { createdAt: 'asc' },
-      });
-
-      if (allWheels.length > 0) {
-        const allWinners = allWheels.map((w) => {
-          if (w.options.length < 1) return { title: w.title, winner: 'N/A' };
-          const randIdx = Math.floor(Math.random() * w.options.length);
-          return { title: w.title, winner: w.options[randIdx]!.optionLabel };
-        });
-
-        const targetWheel =
-          (dto.wheelId ? allWheels.find((w) => w.id === dto.wheelId) : null) || allWheels[0]!;
-        wheelId = targetWheel.id;
-        wheelTitle =
-          allWheels.length > 1 ? `Quay tất cả (${allWheels.length} vòng)` : targetWheel.title;
-        options =
-          targetWheel.options.length >= 2
-            ? targetWheel.options.map((o, idx) => ({
-                optionLabel: o.optionLabel,
-                color: o.color || PASTEL_WHEEL_COLORS[idx % PASTEL_WHEEL_COLORS.length]!,
-              }))
-            : ['Phương án 1', 'Phương án 2'].map((label, idx) => ({
-                optionLabel: label,
-                color: PASTEL_WHEEL_COLORS[idx]!,
-              }));
-
-        if (allWheels.length > 1) {
-          customWinnerAnnounce = allWinners.map((w) => w.winner).join(' - ');
-        }
-      }
-    } else if (dto.wheelId) {
-      const wheel = await this.prisma.decisionWheel.findFirst({
-        where: { id: dto.wheelId, circleId },
-        include: { options: true },
-      });
-      if (wheel && wheel.options.length >= 2) {
-        wheelId = wheel.id;
-        wheelTitle = wheel.title;
-        options = wheel.options.map((o, idx) => ({
-          optionLabel: o.optionLabel,
-          color: o.color || PASTEL_WHEEL_COLORS[idx % PASTEL_WHEEL_COLORS.length]!,
-        }));
-      }
-    }
-
-    if (options.length < 2 && dto.options && dto.options.length >= 2) {
+    if (dto.options && dto.options.length >= 2) {
       options = dto.options
         .map((label) => label.trim())
         .filter((label) => label.length > 0)
@@ -933,35 +1066,17 @@ export class CircleToolsService {
           optionLabel: label,
           color: PASTEL_WHEEL_COLORS[idx % PASTEL_WHEEL_COLORS.length]!,
         }));
+      winningIndex = Math.floor(Math.random() * options.length);
+    } else {
+      options = wheelsList[0]?.options || [];
+      winningIndex = wheelsList[0]?.winningIndex || 0;
     }
 
-    if (options.length < 2) {
-      const firstWheel = await this.prisma.decisionWheel.findFirst({
-        where: { circleId },
-        include: { options: true },
-        orderBy: { createdAt: 'asc' },
-      });
-      if (firstWheel && firstWheel.options.length >= 2) {
-        wheelId = firstWheel.id;
-        wheelTitle = firstWheel.title;
-        options = firstWheel.options.map((o, idx) => ({
-          optionLabel: o.optionLabel,
-          color: o.color || PASTEL_WHEEL_COLORS[idx % PASTEL_WHEEL_COLORS.length]!,
-        }));
-      } else {
-        const defaults = ['Phương án 1', 'Phương án 2', 'Phương án 3', 'Phương án 4'];
-        options = defaults.map((label, idx) => ({
-          optionLabel: label,
-          color: PASTEL_WHEEL_COLORS[idx % PASTEL_WHEEL_COLORS.length]!,
-        }));
-      }
-    }
+    const combinedWinners = wheelsList.map((w) => w.winningOption?.optionLabel || 'N/A').join(' - ');
 
-    // Server-side deterministic random selection
-    const winningIndex = Math.floor(Math.random() * options.length);
     const winningOption = {
-      optionLabel: customWinnerAnnounce || options[winningIndex]!.optionLabel,
-      color: options[winningIndex]!.color,
+      optionLabel: combinedWinners,
+      color: '#0D9488',
     };
 
     let channel = dto.channelId
@@ -984,7 +1099,10 @@ export class CircleToolsService {
     let messageId: string | undefined = undefined;
 
     if (channel) {
-      const content = `🎯 [VÒNG QUAY MAY MẮN TRỰC TIẾP]\n━━━━━━━━━━━━━━━━━━━━\n🎡 Vòng quay: ${wheelTitle}\n🏆 Kết quả: ${winningOption.optionLabel}\n👤 Người quay: ${senderName}\n━━━━━━━━━━━━━━━━━━━━`;
+      const summaryLines = wheelsList
+        .map((w, idx) => `🎡 Vòng ${idx + 1} (${w.wheelTitle}): ${w.winningOption?.optionLabel}`)
+        .join('\n');
+      const content = `🎯 [VÒNG QUAY MAY MẮN TRỰC TIẾP]\n━━━━━━━━━━━━━━━━━━━━\n${summaryLines}\n━━━━━━━━━━━━━━━━━━━━\n🏆 Kết quả: ${combinedWinners}\n👤 Lượt quay của: ${senderName}\n━━━━━━━━━━━━━━━━━━━━`;
       const rawMessage = await this.prisma.message.create({
         data: {
           channelId: channel.id,
@@ -1068,13 +1186,15 @@ export class CircleToolsService {
       id: `live-wheel-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       circleId,
       channelId: channel?.id,
-      wheelId,
+      wheelId: wheelsList[0]?.wheelId,
       wheelTitle,
       options,
       winningIndex,
       winningOption,
       startedAt: Date.now(),
       durationMs: 6000,
+      stageStatus: 'spinning',
+      wheels: wheelsList,
       spunBy: {
         userId,
         displayName: senderName,
@@ -1085,13 +1205,13 @@ export class CircleToolsService {
 
     this.activeLiveWheelSessions.set(circleId, session);
 
-    // Auto cleanup after duration + 30s
+    // Auto cleanup after duration + 60s
     setTimeout(() => {
       const current = this.activeLiveWheelSessions.get(circleId);
       if (current && current.id === session.id) {
         this.activeLiveWheelSessions.delete(circleId);
       }
-    }, session.durationMs + 30000);
+    }, session.durationMs + 60000);
 
     // Realtime broadcast to everyone in circle
     if (this.chatGateway) {

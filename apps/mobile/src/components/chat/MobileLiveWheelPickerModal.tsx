@@ -46,6 +46,7 @@ import {
   deleteWheelApi,
   deleteAllWheelsApi,
   liveSpinWheelApi,
+  createLiveWheelStageApi,
 } from '../../services/circle-tools.service';
 import { useLanguageStore } from '../../stores/language.store';
 import { useThemeStore } from '../../stores/theme.store';
@@ -310,24 +311,29 @@ export const MobileLiveWheelPickerModal: React.FC<MobileLiveWheelPickerModalProp
     handleOptionsChange(initial.join('\n'));
   };
 
-  // KHI BẤM NÚT "TẠO": Lưu và chuyển sang sân khấu Arena các vòng tròn
-  const handleCreateStage = () => {
-    if (wheels.length === 0) return;
-
-    if (activeWheel && activeLocalState?.optionsText) {
-      const lines = parseOptions(activeLocalState.optionsText);
-      if (lines.length >= 2) {
-        updateWheelApi(circleId, activeWheel.id, {
-          options: lines.map((l, idx) => ({
-            optionLabel: l,
-            color: PASTEL_WHEEL_COLORS[idx % PASTEL_WHEEL_COLORS.length]!,
-          })),
-        }).catch(() => {});
+  // KHI BẤM NÚT "TẠO": Lưu và kích hoạt sân khấu 4 vòng trực tiếp cho cả nhóm
+  const handleCreateStage = async () => {
+    try {
+      setIsSubmitting(true);
+      if (activeWheel && activeLocalState?.optionsText) {
+        const lines = parseOptions(activeLocalState.optionsText);
+        if (lines.length >= 2) {
+          await updateWheelApi(circleId, activeWheel.id, {
+            options: lines.map((l, idx) => ({
+              optionLabel: l,
+              color: PASTEL_WHEEL_COLORS[idx % PASTEL_WHEEL_COLORS.length]!,
+            })),
+          });
+        }
       }
-    }
 
-    setViewMode('arena');
-    setLastSpinResult(null);
+      await createLiveWheelStageApi(circleId, channelId);
+      onClose();
+    } catch (err: any) {
+      Alert.alert('Lỗi', err?.message || 'Không thể tạo sân khấu vòng quay');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // KHI BẤM NÚT "QUAY" / "QUAY TẤT CẢ" TRÊN SÂN KHẤU
