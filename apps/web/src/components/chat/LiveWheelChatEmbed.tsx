@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Compass, Users, Sparkles, ArrowRight } from 'lucide-react';
-import { LiveWheelMessagePayload } from '@circle/types';
+import { LiveWheelMessagePayload, LiveWheelSession } from '@circle/types';
 import { useLanguageStore } from '../../stores/language.store';
 import { useJoinLiveWheelMutation } from '../../hooks/use-circle-tools';
 
@@ -21,15 +21,16 @@ export const LiveWheelChatEmbed: React.FC<LiveWheelChatEmbedProps> = ({
   const joinMutation = useJoinLiveWheelMutation(circleId);
 
   const handleJoin = async () => {
+    let joinedSession: LiveWheelSession | null = null;
     try {
-      await joinMutation.mutateAsync({ sessionId: payload.sessionId });
+      joinedSession = await joinMutation.mutateAsync({ sessionId: payload.sessionId });
     } catch {}
 
     // Dispatch event để mở overlay trực tiếp trên thiết bị của người bấm
     if (typeof window !== 'undefined') {
       window.dispatchEvent(
         new CustomEvent('circle:open-live-wheel', {
-          detail: { circleId, sessionId: payload.sessionId },
+          detail: { circleId, sessionId: payload.sessionId, session: joinedSession },
         })
       );
     }

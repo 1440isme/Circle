@@ -873,12 +873,73 @@ export class CircleToolsService {
   // --- Live Wheel Spin (Synchronized Realtime Interactive Wheel for Group Chat) ---
   async getActiveLiveWheel(circleId: string, userId: string): Promise<LiveWheelSession | null> {
     await this.getMemberOrThrow(circleId, userId);
-    const session = this.activeLiveWheelSessions.get(circleId);
+    let session = this.activeLiveWheelSessions.get(circleId);
+
+    // If memory cache missed, attempt to reconstitute from latest LIVE_WHEEL message
+    if (!session) {
+      const liveMsg = await this.prisma.message.findFirst({
+        where: {
+          channel: { circleId },
+          content: { startsWith: '[LIVE_WHEEL]:' },
+        },
+        orderBy: { sentAt: 'desc' },
+      });
+      if (liveMsg && liveMsg.content) {
+        try {
+          const payload: LiveWheelMessagePayload = JSON.parse(
+            liveMsg.content.replace('[LIVE_WHEEL]:', '')
+          );
+          if (Date.now() - (payload.startedAt || 0) < 4 * 60 * 60 * 1000) {
+            const wheels = await this.ensureFourWheels(circleId);
+            const fourWheels = wheels.slice(0, 4);
+            const wheelsList: LiveWheelItem[] = fourWheels.map((w, idx) => ({
+              wheelId: w.id,
+              wheelTitle: w.title || `Vòng ${idx + 1}`,
+              options:
+                w.options.length >= 2
+                  ? w.options.map((o, oIdx) => ({
+                      optionLabel: o.optionLabel,
+                      color: o.color || PASTEL_WHEEL_COLORS[oIdx % PASTEL_WHEEL_COLORS.length]!,
+                    }))
+                  : ['Phương án 1', 'Phương án 2'].map((lbl, oIdx) => ({
+                      optionLabel: lbl,
+                      color: PASTEL_WHEEL_COLORS[oIdx]!,
+                    })),
+              winningIndex: -1,
+              winningOption: null,
+            }));
+
+            session = {
+              id: payload.sessionId,
+              circleId,
+              channelId: payload.channelId,
+              wheelTitle: payload.wheelTitle || 'Vòng quay may mắn',
+              options: wheelsList[0]?.options || [],
+              winningIndex: 0,
+              winningOption: wheelsList[0]?.options[0] || { optionLabel: '', color: '#0D9488' },
+              startedAt: payload.startedAt || Date.now(),
+              durationMs: 6000,
+              stageStatus: payload.stageStatus || 'idle',
+              wheels: wheelsList,
+              participants: payload.participants || [],
+              spunBy: {
+                userId: payload.creatorId,
+                displayName: payload.creatorName,
+                avatarUrl: payload.creatorAvatar || null,
+              },
+              messageId: liveMsg.id,
+            };
+            this.activeLiveWheelSessions.set(circleId, session);
+          }
+        } catch {}
+      }
+    }
+
     if (!session) return null;
 
-    // Check if session has expired (durationMs + 60s display window)
+    // Session stays active for 4 hours
     const elapsed = Date.now() - session.startedAt;
-    if (elapsed > session.durationMs + 60000) {
+    if (elapsed > 4 * 60 * 60 * 1000) {
       this.activeLiveWheelSessions.delete(circleId);
       return null;
     }
@@ -1144,9 +1205,58 @@ export class CircleToolsService {
     sessionId?: string,
   ): Promise<LiveWheelSession | null> {
     const member = await this.getMemberOrThrow(circleId, userId);
-    const session = this.activeLiveWheelSessions.get(circleId);
-    if (!session) return null;
-    if (sessionId && session.id !== sessionId) return null;
+    let session = await this.getActiveLiveWheel(circleId, userId);
+
+    if (!session) {
+      const wheels = await this.ensureFourWheels(circleId);
+      const fourWheels = wheels.slice(0, 4);
+      const wheelsList: LiveWheelItem[] = fourWheels.map((w, idx) => ({
+        wheelId: w.id,
+        wheelTitle: w.title || `Vòng ${idx + 1}`,
+        options:
+          w.options.length >= 2
+            ? w.options.map((o, oIdx) => ({
+                optionLabel: o.optionLabel,
+                color: o.color || PASTEL_WHEEL_COLORS[oIdx % PASTEL_WHEEL_COLORS.length]!,
+              }))
+            : ['Phương án 1', 'Phương án 2'].map((lbl, oIdx) => ({
+                optionLabel: lbl,
+                color: PASTEL_WHEEL_COLORS[oIdx]!,
+              })),
+        winningIndex: -1,
+        winningOption: null,
+      }));
+
+      const senderName =
+        member.user?.profile?.displayName ||
+        member.user?.email?.split('@')[0] ||
+        member.nickname ||
+        'Thành viên';
+
+      session = {
+        id: sessionId || `live-wheel-${Date.now()}`,
+        circleId,
+        wheelTitle: 'Vòng quay may mắn',
+        options: wheelsList[0]?.options || [],
+        winningIndex: 0,
+        winningOption: wheelsList[0]?.options[0] || { optionLabel: '', color: '#0D9488' },
+        startedAt: Date.now(),
+        durationMs: 6000,
+        stageStatus: 'idle',
+        wheels: wheelsList,
+        participants: [],
+        spunBy: {
+          userId,
+          displayName: senderName,
+          avatarUrl: member.user?.profile?.avatarUrl || null,
+        },
+      };
+      this.activeLiveWheelSessions.set(circleId, session);
+    }
+
+    if (sessionId && session.id !== sessionId) {
+      session.id = sessionId;
+    }
 
     if (!session.participants) {
       session.participants = [];
@@ -1198,6 +1308,76 @@ export class CircleToolsService {
         sessionId: session.id,
         participants: session.participants,
       });
+    }
+
+    return session;
+  }
+
+  async liveRemoveResult(
+    circleId: string,
+    userId: string,
+    dto: { wheelId?: string; optionLabel?: string; removeAll?: boolean },
+  ): Promise<LiveWheelSession> {
+    await this.getMemberOrThrow(circleId, userId);
+    const session = await this.getActiveLiveWheel(circleId, userId);
+    if (!session) {
+      throw new NotFoundException('Không tìm thấy phiên vòng quay đang hoạt động');
+    }
+
+    if (!session.wheels || session.wheels.length === 0) {
+      return session;
+    }
+
+    const wheelsToUpdate: { wheelId: string; optionToDelete: string }[] = [];
+
+    if (dto.removeAll) {
+      session.wheels.forEach((w) => {
+        if (w.winningOption?.optionLabel) {
+          wheelsToUpdate.push({
+            wheelId: w.wheelId,
+            optionToDelete: w.winningOption.optionLabel,
+          });
+          w.options = w.options.filter((o) => o.optionLabel !== w.winningOption?.optionLabel);
+          w.winningOption = null;
+          w.winningIndex = -1;
+        }
+      });
+      session.winningOption = null;
+      session.winningIndex = -1;
+    } else if (dto.wheelId) {
+      const targetWheel = session.wheels.find((w) => w.wheelId === dto.wheelId);
+      if (targetWheel) {
+        const optionLabel = dto.optionLabel || targetWheel.winningOption?.optionLabel;
+        if (optionLabel) {
+          wheelsToUpdate.push({
+            wheelId: targetWheel.wheelId,
+            optionToDelete: optionLabel,
+          });
+          targetWheel.options = targetWheel.options.filter((o) => o.optionLabel !== optionLabel);
+          if (targetWheel.winningOption?.optionLabel === optionLabel) {
+            targetWheel.winningOption = null;
+            targetWheel.winningIndex = -1;
+          }
+        }
+      }
+    }
+
+    // Persist removal in DB
+    for (const item of wheelsToUpdate) {
+      try {
+        await this.prisma.wheelOption.deleteMany({
+          where: {
+            wheelId: item.wheelId,
+            optionLabel: item.optionToDelete,
+          },
+        });
+      } catch {}
+    }
+
+    this.activeLiveWheelSessions.set(circleId, session);
+
+    if (this.chatGateway) {
+      this.chatGateway.broadcastLiveWheelUpdated(circleId, session);
     }
 
     return session;

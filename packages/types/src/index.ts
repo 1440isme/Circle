@@ -849,7 +849,7 @@ export interface LiveWheelSession {
   wheelTitle: string;
   options: { optionLabel: string; color: string }[];
   winningIndex: number;
-  winningOption: { optionLabel: string; color: string };
+  winningOption?: { optionLabel: string; color: string } | null;
   startedAt: number; // timestamp in ms
   durationMs: number;
   stageStatus?: 'idle' | 'spinning' | 'finished';
@@ -887,6 +887,12 @@ export interface LiveSpinWheelInput {
   options?: string[];
   channelId?: string;
   isAll?: boolean;
+}
+
+export interface LiveRemoveResultInput {
+  wheelId?: string;
+  optionLabel?: string;
+  removeAll?: boolean;
 }
 
 export interface SpinWheelResult {

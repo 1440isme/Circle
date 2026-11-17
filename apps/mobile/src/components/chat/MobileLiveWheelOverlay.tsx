@@ -27,11 +27,13 @@ import {
   User,
   Play,
   RotateCw,
+  Trash2,
 } from 'lucide-react-native';
 import { LiveWheelSession, LiveWheelItem, LiveWheelParticipant } from '@circle/types';
 import {
   getActiveLiveWheelApi,
   liveSpinWheelApi,
+  liveRemoveResultApi,
 } from '../../services/circle-tools.service';
 import { getSocket } from '../../services/socket';
 import { useLanguageStore } from '../../stores/language.store';
@@ -93,9 +95,8 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
       .then((active) => {
         if (active && active.id !== dismissedSessionId) {
           const elapsed = Date.now() - active.startedAt;
-          if (elapsed < 60000) {
+          if (elapsed < 4 * 60 * 60 * 1000) {
             setSession(active);
-            setIsVisible(true);
             if (active.stageStatus === 'idle') {
               setIsFinished(false);
             } else if (elapsed >= (active.durationMs || 6000)) {
@@ -107,7 +108,7 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
       .catch(() => {});
   }, [circleId, dismissedSessionId]);
 
-  // 2. Lắng nghe WebSocket cả stage-created, started, participants-updated và DeviceEventEmitter
+  // 2. Lắng nghe WebSocket cả stage-created, started, participants-updated, updated và DeviceEventEmitter
   useEffect(() => {
     if (!circleId) return;
     let cleanupSocket: (() => void) | undefined;
@@ -146,22 +147,37 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
         });
       };
 
+      const handleWheelUpdated = (incoming: LiveWheelSession) => {
+        if (incoming.circleId === circleId) {
+          setSession(incoming);
+        }
+      };
+
       socket.on('circle:live-wheel:stage-created', handleStageCreated);
       socket.on('circle:live-wheel:started', handleLiveWheelStarted);
       socket.on('circle:live-wheel:participants-updated', handleParticipantsUpdated);
+      socket.on('circle:live-wheel:updated', handleWheelUpdated);
 
       cleanupSocket = () => {
         socket.off('circle:live-wheel:stage-created', handleStageCreated);
         socket.off('circle:live-wheel:started', handleLiveWheelStarted);
         socket.off('circle:live-wheel:participants-updated', handleParticipantsUpdated);
+        socket.off('circle:live-wheel:updated', handleWheelUpdated);
       };
     });
 
     // Lắng nghe sự kiện từ tin nhắn card chat khi bấm "Tham gia"
     const sub = DeviceEventEmitter.addListener('circle:open-live-wheel', (data) => {
       if (data?.circleId === circleId) {
-        setIsVisible(true);
         setDismissedSessionId(null);
+        setIsVisible(true);
+        if (data?.session) {
+          setSession(data.session);
+        } else {
+          getActiveLiveWheelApi(circleId).then((act) => {
+            if (act) setSession(act);
+          }).catch(() => {});
+        }
       }
     });
 
@@ -324,6 +340,19 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
     }
   };
 
+  // 6. Xử lý khi ấn nút "Loại bỏ kết quả" (Đồng bộ mọi thành viên)
+  const handleRemoveLiveResult = async (wheelId?: string, optionLabel?: string, removeAll?: boolean) => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      const updated = await liveRemoveResultApi(circleId, { wheelId, optionLabel, removeAll });
+      if (updated) {
+        setSession(updated);
+      }
+    } catch (err: any) {
+      alert(err?.response?.data?.message || err?.message || 'Không thể loại bỏ kết quả');
+    }
+  };
+
   const handleClose = () => {
     if (session) {
       setDismissedSessionId(session.id);
@@ -331,7 +360,30 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
     setIsVisible(false);
   };
 
-  if (!isVisible || !session) return null;
+  if (!isVisible) return null;
+
+  if (!session) {
+    return (
+      <Modal visible={isVisible} animationType="fade" transparent onRequestClose={handleClose}>
+        <View style={styles.backdrop}>
+          <View
+            style={[
+              styles.loadingBox,
+              {
+                backgroundColor: isDark ? colors.elevated : '#FFFFFF',
+                borderColor: colors.hairline,
+              },
+            ]}
+          >
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={{ marginTop: 12, color: colors.text, fontWeight: '600' }}>
+              {locale === 'vi' ? 'Đang kết nối vòng quay...' : 'Connecting to wheel...'}
+            </Text>
+          </View>
+        </View>
+      </Modal>
+    );
+  }
 
   const isSpinning = !isFinished && session.stageStatus === 'spinning';
   const spunByName = session.spunBy?.displayName || (locale === 'vi' ? 'Thành viên' : 'Member');
@@ -461,19 +513,28 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
                   </View>
 
                   {isFinished && wheel.winningOption && (
-                    <Text
-                      style={[
-                        styles.cellWinnerBadge,
-                        {
-                          color: '#D97706',
-                          backgroundColor: '#FEF3C7',
-                          borderColor: '#FDE68A',
-                        },
-                      ]}
-                      numberOfLines={1}
-                    >
-                      🏆 {wheel.winningOption.optionLabel}
-                    </Text>
+                    <View style={styles.cellWinnerRow}>
+                      <Text
+                        style={[
+                          styles.cellWinnerBadge,
+                          {
+                            color: '#D97706',
+                            backgroundColor: '#FEF3C7',
+                            borderColor: '#FDE68A',
+                          },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        🏆 {wheel.winningOption.optionLabel}
+                      </Text>
+                      <TouchableOpacity
+                        style={styles.cellRemoveBtn}
+                        onPress={() => handleRemoveLiveResult(wheel.wheelId, wheel.winningOption?.optionLabel)}
+                        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                      >
+                        <Trash2 size={11} color="#EF4444" />
+                      </TouchableOpacity>
+                    </View>
                   )}
                 </View>
               );
@@ -542,6 +603,16 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
                   <Text style={[styles.spunBySub, { color: colors.subtle }]}>
                     {t.luckyWheel.spunBy.replace('{name}', spunByName)}
                   </Text>
+
+                  {/* Nút Loại bỏ kết quả vừa quay */}
+                  <TouchableOpacity
+                    style={styles.removeResultBtn}
+                    onPress={() => handleRemoveLiveResult(undefined, undefined, true)}
+                    activeOpacity={0.8}
+                  >
+                    <Trash2 size={12} color="#EF4444" />
+                    <Text style={styles.removeResultBtnText}>{t.luckyWheel.removeResult}</Text>
+                  </TouchableOpacity>
                 </View>
               ) : (
                 <Text style={[styles.idleHintText, { color: colors.subtle }]}>
@@ -873,5 +944,42 @@ const styles = StyleSheet.create({
   backBtnText: {
     fontSize: 11,
     fontWeight: '700',
+  },
+  cellWinnerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    marginTop: 3,
+    maxWidth: '100%',
+  },
+  cellRemoveBtn: {
+    padding: 3,
+    borderRadius: 6,
+    backgroundColor: '#FEE2E2',
+  },
+  removeResultBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    marginTop: 6,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+  },
+  removeResultBtnText: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#EF4444',
+  },
+  loadingBox: {
+    padding: 24,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 220,
+    borderWidth: 1,
   },
 });

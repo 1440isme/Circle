@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, DeviceEventEmitter } from 'react-native';
 import { Compass, Users, Sparkles, ArrowRight } from 'lucide-react-native';
-import { LiveWheelMessagePayload } from '@circle/types';
+import { LiveWheelMessagePayload, LiveWheelSession } from '@circle/types';
 import { useLanguageStore } from '../../stores/language.store';
 import { useThemeStore } from '../../stores/theme.store';
 import { joinLiveWheelApi } from '../../services/circle-tools.service';
@@ -41,15 +41,17 @@ export const MobileLiveWheelChatEmbed: React.FC<MobileLiveWheelChatEmbedProps> =
   const participantsCount = participants.length;
 
   const handleJoin = async () => {
+    let joinedSession: LiveWheelSession | null = null;
     try {
       setIsJoining(true);
-      await joinLiveWheelApi(circleId, payload?.sessionId);
+      joinedSession = await joinLiveWheelApi(circleId, payload?.sessionId);
     } catch {}
     finally {
       setIsJoining(false);
       DeviceEventEmitter.emit('circle:open-live-wheel', {
         circleId,
         sessionId: payload?.sessionId,
+        session: joinedSession,
       });
       onOpenLiveWheel?.(payload?.sessionId || '');
     }

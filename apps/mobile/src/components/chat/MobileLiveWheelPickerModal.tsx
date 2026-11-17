@@ -369,7 +369,7 @@ export const MobileLiveWheelPickerModal: React.FC<MobileLiveWheelPickerModalProp
       }).start(() => {
         setIsSpinning(false);
         setIsSubmitting(false);
-        setLastSpinResult(session.winningOption.optionLabel);
+        setLastSpinResult(session.winningOption?.optionLabel || '');
         try {
           if (soundEnabled) {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

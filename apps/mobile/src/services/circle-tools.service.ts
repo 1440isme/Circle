@@ -298,6 +298,20 @@ export async function getActiveLiveWheelApi(
   return res.data;
 }
 
+export async function liveRemoveResultApi(
+  circleId: string,
+  input: { wheelId?: string; optionLabel?: string; removeAll?: boolean },
+): Promise<LiveWheelSession> {
+  const res = await mobileApiRequest<LiveWheelSession>(
+    `/circles/${circleId}/wheels/live-remove-result`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input || {}),
+    },
+  );
+  return res.data;
+}
+
 // =============================================================================
 // 3. ANONYMOUS POST / WORDS UNSAID (UC21)
 // =============================================================================

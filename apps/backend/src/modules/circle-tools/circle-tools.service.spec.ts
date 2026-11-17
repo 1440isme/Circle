@@ -22,6 +22,9 @@ describe('CircleToolsService', () => {
       broadcastPollClosed: jest.fn(),
       broadcastWheelSpun: jest.fn(),
       broadcastLiveWheel: jest.fn(),
+      broadcastLiveWheelStageCreated: jest.fn(),
+      broadcastLiveWheelParticipants: jest.fn(),
+      broadcastLiveWheelUpdated: jest.fn(),
       broadcastAnonymousPostReaction: jest.fn(),
     };
 
@@ -563,6 +566,45 @@ describe('CircleToolsService', () => {
       expect(active?.id).toBe(session.id);
     });
 
+    it('should allow a member to join live wheel session and broadcast participants', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValue({
+        id: 'mem-2',
+        circleId: 'circle-1',
+        userId: 'user-2',
+        role: 'MEMBER',
+        user: { profile: { displayName: 'Hạnh', avatarUrl: null } },
+      });
+
+      const joined = await service.joinLiveWheel('circle-1', 'user-2');
+      expect(joined).not.toBeNull();
+      expect(joined?.participants?.some((p) => p.userId === 'user-2')).toBe(true);
+      expect(mockChatGateway.broadcastLiveWheelParticipants).toHaveBeenCalledWith(
+        'circle-1',
+        expect.objectContaining({
+          sessionId: joined?.id,
+          participants: expect.arrayContaining([
+            expect.objectContaining({ userId: 'user-2', displayName: 'Hạnh' }),
+          ]),
+        }),
+      );
+    });
+
+    it('should eliminate winning result from live wheel session and broadcast update', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValue({
+        id: 'mem-1',
+        circleId: 'circle-1',
+        userId: 'user-1',
+        role: 'MEMBER',
+        user: { profile: { displayName: 'Bình', avatarUrl: null } },
+      });
+      mockPrisma.wheelOption.deleteMany = jest.fn().mockResolvedValue({ count: 1 });
+
+      await service.createLiveWheelStage('circle-1', 'user-1');
+      const updated = await service.liveRemoveResult('circle-1', 'user-1', { removeAll: true });
+      expect(updated).not.toBeNull();
+      expect(updated.winningOption).toBeNull();
+      expect(mockChatGateway.broadcastLiveWheelUpdated).toHaveBeenCalledWith('circle-1', updated);
+    });
   });
 
   // ===========================================================================

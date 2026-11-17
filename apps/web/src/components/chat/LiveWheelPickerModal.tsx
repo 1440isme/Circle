@@ -568,7 +568,7 @@ export const LiveWheelPickerModal: React.FC<LiveWheelPickerModalProps> = ({
           animFrameRef.current = requestAnimationFrame(step);
         } else {
           setIsSpinning(false);
-          setLastSpinResult(session.winningOption.optionLabel);
+          setLastSpinResult(session.winningOption?.optionLabel || '');
           if (soundEnabled) {
             modalAudio.playFanfare();
           }

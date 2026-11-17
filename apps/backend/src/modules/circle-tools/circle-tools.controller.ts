@@ -420,6 +420,21 @@ export class CircleToolsController {
     };
   }
 
+  @Post('wheels/live-remove-result')
+  async liveRemoveResult(
+    @Param('circleId') circleId: string,
+    @CurrentUser('id') userId: string,
+    @Body() dto: { wheelId?: string; optionLabel?: string; removeAll?: boolean },
+  ): Promise<ApiResponse<LiveWheelSession>> {
+    const data = await this.toolsService.liveRemoveResult(circleId, userId, dto);
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      data,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
   @Get('wheels/live-active')
   async getActiveLiveWheel(
     @Param('circleId') circleId: string,

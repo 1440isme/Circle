@@ -14,6 +14,8 @@ import {
   Play,
   Loader2,
   RotateCw,
+  Trash2,
+  Check,
 } from 'lucide-react';
 import { LiveWheelSession, LiveWheelItem, LiveWheelParticipant } from '@circle/types';
 import { useLanguageStore } from '../../stores/language.store';
@@ -21,6 +23,7 @@ import { getSocket } from '../../lib/socket';
 import {
   useActiveLiveWheelQuery,
   useLiveSpinWheelMutation,
+  useLiveRemoveResultMutation,
 } from '../../hooks/use-circle-tools';
 
 interface LiveWheelOverlayProps {
@@ -242,16 +245,16 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
 
   // Hook quay trực tiếp (bất kỳ ai ấn cũng được)
   const liveSpinMutation = useLiveSpinWheelMutation(circleId);
+  const liveRemoveMutation = useLiveRemoveResultMutation(circleId);
 
   // 1. Fetch active session on mount or circle switch
-  const { data: initialActiveSession } = useActiveLiveWheelQuery(circleId);
+  const { data: initialActiveSession, refetch: refetchActiveSession } = useActiveLiveWheelQuery(circleId);
 
   useEffect(() => {
     if (initialActiveSession && initialActiveSession.id !== dismissedSessionId) {
       const elapsed = Date.now() - initialActiveSession.startedAt;
-      if (elapsed < 60000) {
+      if (elapsed < 4 * 60 * 60 * 1000) {
         setSession(initialActiveSession);
-        setIsVisible(true);
         if (initialActiveSession.stageStatus === 'idle') {
           setIsFinished(false);
         } else if (elapsed >= (initialActiveSession.durationMs || 6000)) {
@@ -301,26 +304,39 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
       });
     };
 
+    const handleWheelUpdated = (incoming: LiveWheelSession) => {
+      if (incoming.circleId === circleId) {
+        setSession(incoming);
+      }
+    };
+
     // Lắng nghe sự kiện custom từ tin nhắn chat khi người dùng bấm "Tham gia vòng quay"
     const handleOpenFromChat = (e: any) => {
       if (e.detail?.circleId === circleId) {
-        setIsVisible(true);
         setDismissedSessionId(null);
+        setIsVisible(true);
+        if (e.detail?.session) {
+          setSession(e.detail.session);
+        } else {
+          refetchActiveSession();
+        }
       }
     };
 
     socket.on('circle:live-wheel:stage-created', handleStageCreated);
     socket.on('circle:live-wheel:started', handleLiveWheelStarted);
     socket.on('circle:live-wheel:participants-updated', handleParticipantsUpdated);
+    socket.on('circle:live-wheel:updated', handleWheelUpdated);
     window.addEventListener('circle:open-live-wheel', handleOpenFromChat);
 
     return () => {
       socket.off('circle:live-wheel:stage-created', handleStageCreated);
       socket.off('circle:live-wheel:started', handleLiveWheelStarted);
       socket.off('circle:live-wheel:participants-updated', handleParticipantsUpdated);
+      socket.off('circle:live-wheel:updated', handleWheelUpdated);
       window.removeEventListener('circle:open-live-wheel', handleOpenFromChat);
     };
-  }, [circleId]);
+  }, [circleId, refetchActiveSession]);
 
   // Danh sách 4 vòng xoay trong session
   const wheelsList: LiveWheelItem[] = useMemo(() => {
@@ -499,6 +515,23 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
     }
   };
 
+  // 7. XỬ LÝ LOẠI BỎ KẾT QUẢ TRÚNG THƯỞNG (ĐỒNG BỘ MỌI THÀNH VIÊN)
+  const handleRemoveLiveResult = async (wheelId?: string, optionLabel?: string, removeAll?: boolean) => {
+    if (liveRemoveMutation.isPending) return;
+    try {
+      const updated = await liveRemoveMutation.mutateAsync({
+        wheelId,
+        optionLabel,
+        removeAll,
+      });
+      if (updated) {
+        setSession(updated);
+      }
+    } catch (err: any) {
+      alert(err?.response?.data?.message || err?.message || 'Không thể loại bỏ kết quả');
+    }
+  };
+
   const handleClose = () => {
     if (session) {
       setDismissedSessionId(session.id);
@@ -506,7 +539,20 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
     setIsVisible(false);
   };
 
-  if (!isVisible || !session) return null;
+  if (!isVisible) return null;
+
+  if (!session) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
+        <div className="bg-white dark:bg-circle-dark-surface p-6 rounded-3xl border border-circle-hairline dark:border-circle-dark-hairline shadow-2xl flex flex-col items-center gap-3">
+          <Loader2 className="w-8 h-8 text-circle-primary animate-spin" />
+          <p className="text-sm font-semibold text-circle-charcoal dark:text-circle-dark-text">
+            {locale === 'vi' ? 'Đang kết nối vòng quay...' : 'Connecting to wheel...'}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const isSpinning = !isFinished && session.stageStatus === 'spinning';
   const spunByName = session.spunBy?.displayName || (locale === 'vi' ? 'Thành viên' : 'Member');
@@ -649,12 +695,25 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
                         key={w.wheelId || idx}
                         className="flex items-center justify-between py-1 px-2 rounded-lg bg-circle-wash/50 dark:bg-circle-dark-wash/40 text-xs"
                       >
-                        <span className="font-semibold text-circle-slate dark:text-circle-dark-muted truncate max-w-[110px]">
+                        <span className="font-semibold text-circle-slate dark:text-circle-dark-muted truncate max-w-[95px]">
                           {w.wheelTitle || `Vòng ${idx + 1}`}
                         </span>
-                        <span className="font-bold text-circle-charcoal dark:text-circle-dark-text truncate max-w-[110px] text-right">
-                          {isFinished && w.winningOption ? w.winningOption.optionLabel : '--'}
-                        </span>
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="font-bold text-circle-charcoal dark:text-circle-dark-text truncate max-w-[85px] text-right">
+                            {isFinished && w.winningOption ? w.winningOption.optionLabel : '--'}
+                          </span>
+                          {isFinished && w.winningOption && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveLiveResult(w.wheelId, w.winningOption?.optionLabel)}
+                              disabled={liveRemoveMutation.isPending}
+                              className="p-1 rounded-md text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-all cursor-pointer"
+                              title={t.luckyWheel.removeResult}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -673,6 +732,20 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
                     <div className="flex items-center justify-center gap-1 text-[10px] text-circle-slate dark:text-circle-dark-muted mt-1">
                       <User className="w-3 h-3 text-circle-primary" />
                       <span>{t.luckyWheel.spunBy.replace('{name}', spunByName)}</span>
+                    </div>
+
+                    {/* Nút Loại bỏ kết quả vừa quay */}
+                    <div className="mt-2.5 pt-2 border-t border-amber-500/20 flex items-center justify-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveLiveResult(undefined, undefined, true)}
+                        disabled={liveRemoveMutation.isPending}
+                        className="py-1 px-3 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95 disabled:opacity-40"
+                        title={t.luckyWheel.removeResult}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>{t.luckyWheel.removeResult}</span>
+                      </button>
                     </div>
                   </div>
                 )}

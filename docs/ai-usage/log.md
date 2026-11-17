@@ -9149,3 +9149,59 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 - **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
 - **Commit:** ce4585e
 - **PR:** #120
+
+
+---
+
+## AI-0224: Khắc Phục Lỗi Tham Gia Vòng Quay và Bổ Sung Tính Năng Loại Bỏ Kết Quả (Eliminate Winning Result) Cho Vòng Quay May Mắn (#120)
+
+- **Date:** 2026-11-18 04:35:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120
+- **Purpose:** 
+  1. **Khắc phục triệt để lỗi không ấn được "Tham gia vòng quay" từ thẻ tin nhắn chat:**
+     - **Nguyên nhân cốt lõi:**
+       + Backend chỉ lưu giữ phiên `activeLiveWheelSessions` trong 60 giây, khiến bất kỳ ai bấm tham gia sau 1 phút đều bị trả về `null`. Khi bộ nhớ cache bị mất, hệ thống không tái tạo lại phiên từ tin nhắn trong database.
+       + Frontend (cả Web và Mobile) khi bấm tham gia chỉ dispatch sự kiện `circle:open-live-wheel` mà không truyền kèm đối tượng `session` vừa nhận được từ API `live-join`. Khi overlay đang có `session === null`, overlay bị chặn hiển thị bởi guard check `if (!isVisible || !session) return null;`.
+     - **Giải pháp xử lý:**
+       + Mở rộng thời gian hoạt động của phiên vòng quay lên 4 giờ (`4 * 60 * 60 * 1000`).
+       + Bổ sung cơ chế tự động tái tạo (reconstitution) phiên vòng quay trực tiếp từ tin nhắn `[LIVE_WHEEL]:` gần nhất trong database nếu bộ nhớ tạm (cache) bị miss hoặc server khởi động lại.
+       + Tại API `joinLiveWheel`: nếu phiên chưa có trong memory, tự động khởi tạo lại từ 4 vòng của Circle, thêm thành viên vào danh sách người tham gia, cập nhật database message card và broadcast socket `participants-updated`.
+       + Tại `LiveWheelChatEmbed` (Web) và `MobileLiveWheelChatEmbed` (Mobile): chuyển trực tiếp đối tượng `joinedSession` vào sự kiện `circle:open-live-wheel` để overlay hiển thị tức thì không độ trễ.
+       + Tại `LiveWheelOverlay` và `MobileLiveWheelOverlay`: nếu `isVisible === true` nhưng dữ liệu `session` đang tải, hiển thị giao diện loading spinner mềm mại thay vì ẩn màn hình.
+  2. **Bổ sung tính năng "Loại bỏ kết quả" (Eliminate Winning Result) khi quay xong:**
+     - Khi một lượt quay kết thúc (`isFinished === true`):
+       + Tại từng hàng kết quả của 4 vòng: hiển thị icon thùng rác (`Trash2`) cho phép loại bỏ lựa chọn trúng thưởng của riêng vòng đó.
+       + Tại thẻ tổng kết cúp vàng nổi bật: bổ sung nút bấm nổi bật **"Loại bỏ kết quả"** (`t.luckyWheel.removeResult`) cho phép loại bỏ tất cả các lựa chọn trúng thưởng của cả 4 vòng vừa quay.
+       + Backend bổ sung endpoint `POST /circles/:circleId/wheels/live-remove-result` (`liveRemoveResult`): loại bỏ phương án trúng thưởng khỏi các vòng trong session và xóa khỏi database (`wheelOption.deleteMany`), sau đó phát sự kiện WebSocket `circle:live-wheel:updated` đến toàn bộ thành viên trong nhóm.
+       + Mọi thiết bị tham gia phiên đều lập tức đồng bộ việc loại bỏ kết quả trên các đĩa quay và bảng kết quả theo thời gian thực.
+- **Files Affected:**
+  - `packages/types/src/index.ts`
+  - `apps/backend/src/modules/chat/chat.gateway.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.controller.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.service.spec.ts`
+  - `apps/web/src/hooks/use-circle-tools.ts`
+  - `apps/web/src/components/chat/LiveWheelChatEmbed.tsx`
+  - `apps/web/src/components/chat/LiveWheelOverlay.tsx`
+  - `apps/web/src/components/chat/LiveWheelPickerModal.tsx`
+  - `apps/mobile/src/services/circle-tools.service.ts`
+  - `apps/mobile/src/components/chat/MobileLiveWheelChatEmbed.tsx`
+  - `apps/mobile/src/components/chat/MobileLiveWheelOverlay.tsx`
+  - `apps/mobile/src/components/chat/MobileLiveWheelPickerModal.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% full-stack live wheel joining fix and deterministic winning option elimination across NestJS, Next.js, and Expo.
+- **Human Modifications:** Người dùng phản hồi: "vẫn chưa ấn đc tham gia vòng quay. phần vòn quay may mắn chưa có khi quay xong loạ bỏ kết quả,...".
+- **Verification Method:**
+  - `npm run build --prefix packages/types`: Passed.
+  - `npx tsc --noEmit -p apps/backend/tsconfig.json`: Passed 0 errors.
+  - `npx tsc --noEmit -p apps/web/tsconfig.json`: Passed 0 errors.
+  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Passed 0 errors.
+  - `npm test --prefix apps/backend -- circle-tools`: Passed 48/48 unit tests.
+  - `bash ./scripts/check-secrets.sh`: Passed (607 files checked, 0 leaks).
+- **Official Source Checked:** `PROJECT_GOD.md` §2.2, §11 (DoD), `agentic/playbooks/05-calendar-planning.md`, `agentic/playbooks/cross-cutting-gate.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+- **Commit:** 8cf778d
+- **PR:** #120
