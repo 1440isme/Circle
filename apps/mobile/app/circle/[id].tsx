@@ -147,6 +147,7 @@ import { MobileChatLocationCard } from '../../src/components/chat/MobileChatLoca
 import { MobileCreatePollModal } from '../../src/components/chat/MobileCreatePollModal';
 import { MobileLiveWheelPickerModal } from '../../src/components/chat/MobileLiveWheelPickerModal';
 import { MobileLiveWheelOverlay } from '../../src/components/chat/MobileLiveWheelOverlay';
+import { MobileLiveWheelChatEmbed } from '../../src/components/chat/MobileLiveWheelChatEmbed';
 import * as Location from 'expo-location';
 
 function getInitials(name: string): string {
@@ -1189,6 +1190,12 @@ const MobileSwipeMessageBubble = React.memo(function MobileSwipeMessageBubble({
                   sentAt={msg.sentAt || msg.createdAt}
                   colors={colors}
                   onViewOnCalendar={onViewOnCalendar}
+                />
+              ) : Boolean(msg.content?.startsWith('[LIVE_WHEEL]:')) ? (
+                <MobileLiveWheelChatEmbed
+                  content={msg.content}
+                  circleId={msg.circleId || circleId || ''}
+                  isSenderMe={isSenderMe}
                 />
               ) : callSummaryData ? (
                 <View style={styles.callSummaryCard}>
@@ -4039,6 +4046,8 @@ export default function CircleWorkspaceScreen() {
               ? t.chat.calendarSharedLabel
               : rawContent.startsWith('[LOCATION_PIN]:')
               ? t.chat.locationSharedLabel
+              : rawContent.startsWith('[LIVE_WHEEL]:')
+              ? (locale === 'vi' ? '🎡 Vòng quay may mắn' : '🎡 Lucky Wheel')
               : rawContent.includes('"callType"')
               ? t.nav.groupCall
               : rawContent;

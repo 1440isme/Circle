@@ -390,6 +390,21 @@ export class CircleToolsController {
     };
   }
 
+  @Post('wheels/live-join')
+  async joinLiveWheel(
+    @Param('circleId') circleId: string,
+    @CurrentUser('id') userId: string,
+    @Body() dto: { sessionId?: string },
+  ): Promise<ApiResponse<LiveWheelSession | null>> {
+    const data = await this.toolsService.joinLiveWheel(circleId, userId, dto?.sessionId);
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      data,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
   @Post('wheels/live-spin')
   async liveSpinWheel(
     @Param('circleId') circleId: string,

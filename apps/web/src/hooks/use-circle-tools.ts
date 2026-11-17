@@ -459,6 +459,24 @@ export function useCreateLiveWheelStageMutation(circleId: string) {
   });
 }
 
+export function useJoinLiveWheelMutation(circleId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input?: { sessionId?: string }) => {
+      const res = await apiRequest<LiveWheelSession>(`/circles/${circleId}/wheels/live-join`, {
+        method: 'POST',
+        body: JSON.stringify(input || {}),
+      });
+      return res.data;
+    },
+    onSuccess: (data) => {
+      if (data) {
+        queryClient.setQueryData(['tools', 'wheels', 'live-active', circleId], data);
+      }
+    },
+  });
+}
+
 export function useLiveSpinWheelMutation(circleId: string) {
   const queryClient = useQueryClient();
   return useMutation({

@@ -9095,3 +9095,57 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
   - `bash ./scripts/check-secrets.sh`: Passed (605 files checked, 0 leaks).
 - **Official Source Checked:** `PROJECT_GOD.md` §2.2, §11 (DoD), `agentic/playbooks/05-calendar-planning.md`, `agentic/playbooks/cross-cutting-gate.md`.
 - **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+
+
+---
+
+## AI-0223: Cơ Chế Tham Gia Vòng Quay Trực Tiếp Dạng Cuộc Gọi (Call-like Live Wheel Join Card), Bảng Kết Quả Bên Phải và Giao Diện Chuẩn Vòng Xoay Chức Năng (#120)
+
+- **Date:** 2026-11-18 04:10:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120
+- **Purpose:** 
+  1. **Cơ chế tham gia vòng quay tương tự cuộc gọi nhóm (Call-like Joining Mechanism):**
+     - Khi một thành viên ấn **"Tạo"** vòng quay trong chat nhóm:
+       + Hệ thống tự động gửi tin nhắn thẻ tương tác đặc biệt định dạng `[LIVE_WHEEL]:{...}` vào luồng chat nhóm.
+       + Tin nhắn hiển thị icon 🎡, thông tin người khởi tạo, thời gian, và danh sách avatar những người đã tham gia (`participants`).
+       + Các thành viên trong nhóm có thể bấm nút **"Tham gia vòng quay"** trực tiếp trên tin nhắn chat để vào sân khấu vòng quay.
+       + Khi thành viên bấm tham gia, hệ thống gọi API `POST /circles/:circleId/wheels/live-join`, thêm thành viên vào `session.participants`, tự động cập nhật nội dung tin nhắn trong database và broadcast sự kiện WebSocket `circle:live-wheel:participants-updated` đến toàn bộ thiết bị để cập nhật danh sách người tham gia thời gian thực.
+  2. **Giao diện chuẩn hóa Vòng quay may mắn chức năng:**
+     - Bỏ huy hiệu `LIVE STAGE` ở góc trái.
+     - Tiêu đề rút gọn chuẩn xác thành **"Vòng quay may mắn"**, loại bỏ text `(4 vòng)` và dòng chữ phụ `Sân khấu trực tiếp đã sẵn sàng! Bất kỳ ai cũng có thể ấn quay!`.
+     - Trên từng đĩa xoay (cả Web và Mobile), đặt nhãn nút tiêu đề vòng quay dạng Floating Pill (icon Compass 🧭 + Tên vòng) nằm ngay phía trên đĩa quay, đồng bộ chuẩn xác với giao diện chức năng `CircleWheelView` và `MobileWheelView`.
+  3. **Bố cục bảng kết quả và người tham gia đặt bên phải (Right-side Panel):**
+     - Trên Web: Tách giao diện làm 2 cột rõ rệt:
+       + Cột trái: Lưới 2x2 hiển thị 4 đĩa xoay Canvas độc lập.
+       + Cột phải: Khung hiển thị danh sách người tham gia (`👥 Người tham gia`) kèm avatar, Bảng kết quả từng vòng (`🏆 Kết quả`), Nút Quay tất cả / Quay lại và Nút Quay lại đoạn chat.
+     - Trên Mobile: Hiển thị 4 đĩa xoay dạng 2 hàng x 2 cột, phía dưới là danh sách người tham gia dạng avatar chips ngang, thẻ kết quả cúp vàng nổi bật và cụm nút điều khiển cố định.
+- **Files Affected:**
+  - `packages/types/src/index.ts`
+  - `apps/backend/src/modules/chat/chat.gateway.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.controller.ts`
+  - `apps/web/src/hooks/use-circle-tools.ts`
+  - `apps/web/src/components/chat/LiveWheelChatEmbed.tsx`
+  - `apps/web/src/components/chat/MessageBubble.tsx`
+  - `apps/web/src/components/chat/LiveWheelOverlay.tsx`
+  - `apps/mobile/src/services/circle-tools.service.ts`
+  - `apps/mobile/src/components/chat/MobileLiveWheelChatEmbed.tsx`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `apps/mobile/src/components/chat/MobileLiveWheelOverlay.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% full-stack implementation across NestJS, Socket.IO, Next.js, and Expo.
+- **Human Modifications:** Người dùng yêu cầu: Bỏ `LIVE STAGE`, bỏ `(4 vòng)` và dòng mô tả, đổi tiêu đề thành `Vòng quay may mắn`, thêm kết quả bên phải, cơ chế như cuộc gọi có người tham gia thông báo vào chat để mọi người ấn vào tham gia, và hiển thị giao diện các đĩa quay chuẩn như chức năng vòng xoay may mắn.
+- **Verification Method:**
+  - `npm run build --prefix packages/types`: Passed.
+  - `npx tsc --noEmit -p apps/backend/tsconfig.json`: Passed 0 errors.
+  - `npx tsc --noEmit -p apps/web/tsconfig.json`: Passed 0 errors.
+  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Passed 0 errors.
+  - `npm test --prefix apps/backend -- circle-tools`: Passed 46/46 unit tests.
+  - `bash ./scripts/check-secrets.sh`: Passed (605 files checked, 0 leaks).
+- **Official Source Checked:** `PROJECT_GOD.md` §2.2, §11 (DoD), `agentic/playbooks/05-calendar-planning.md`, `agentic/playbooks/cross-cutting-gate.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+- **Commit:** ce4585e
+- **PR:** #120

@@ -826,6 +826,13 @@ export interface UpdateWheelFolderInput {
   data?: WheelFolderSnapshotItem[];
 }
 
+export interface LiveWheelParticipant {
+  userId: string;
+  displayName: string;
+  avatarUrl?: string | null;
+  joinedAt?: string;
+}
+
 export interface LiveWheelItem {
   wheelId: string;
   wheelTitle: string;
@@ -847,12 +854,27 @@ export interface LiveWheelSession {
   durationMs: number;
   stageStatus?: 'idle' | 'spinning' | 'finished';
   wheels?: LiveWheelItem[];
+  participants?: LiveWheelParticipant[];
   spunBy: {
     userId: string;
     displayName: string;
     avatarUrl?: string | null;
   };
   messageId?: string;
+}
+
+export interface LiveWheelMessagePayload {
+  type: 'LIVE_WHEEL';
+  sessionId: string;
+  circleId: string;
+  channelId?: string;
+  wheelTitle: string;
+  creatorId: string;
+  creatorName: string;
+  creatorAvatar?: string | null;
+  participants: LiveWheelParticipant[];
+  stageStatus: 'idle' | 'spinning' | 'finished';
+  startedAt: number;
 }
 
 export interface CreateLiveStageInput {

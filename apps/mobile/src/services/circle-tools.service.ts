@@ -261,6 +261,20 @@ export async function createLiveWheelStageApi(
   return res.data;
 }
 
+export async function joinLiveWheelApi(
+  circleId: string,
+  sessionId?: string | null,
+): Promise<LiveWheelSession> {
+  const res = await mobileApiRequest<LiveWheelSession>(
+    `/circles/${circleId}/wheels/live-join`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ sessionId }),
+    },
+  );
+  return res.data;
+}
+
 export async function liveSpinWheelApi(
   circleId: string,
   input: LiveSpinWheelInput,

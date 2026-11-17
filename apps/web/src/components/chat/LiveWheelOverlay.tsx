@@ -8,14 +8,14 @@ import {
   Sparkles,
   Volume2,
   VolumeX,
-  Radio,
+  Users,
   ArrowRight,
   User,
   Play,
   Loader2,
   RotateCw,
 } from 'lucide-react';
-import { LiveWheelSession, LiveWheelItem } from '@circle/types';
+import { LiveWheelSession, LiveWheelItem, LiveWheelParticipant } from '@circle/types';
 import { useLanguageStore } from '../../stores/language.store';
 import { getSocket } from '../../lib/socket';
 import {
@@ -103,12 +103,12 @@ class LiveWheelAudioEngine {
 
 const liveAudio = new LiveWheelAudioEngine();
 
-// Component vẽ 1 bánh xe độc lập
+// Component vẽ 1 bánh xe độc lập giống CircleWheelView
 const SingleLiveWheelCanvas: React.FC<{
   options: { optionLabel: string; color: string }[];
   rotation: number;
   size?: number;
-}> = ({ options, rotation, size = 180 }) => {
+}> = ({ options, rotation, size = 175 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
@@ -240,10 +240,10 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
   const lastTickAngleRef = useRef<number>(0);
   const fanfarePlayedRef = useRef<boolean>(false);
 
-  // Hook gọi API quay trực tiếp (bất kỳ ai ấn cũng được)
+  // Hook quay trực tiếp (bất kỳ ai ấn cũng được)
   const liveSpinMutation = useLiveSpinWheelMutation(circleId);
 
-  // 1. Fetch active session on mount or circle switch (hỗ trợ vào sau / reconnect)
+  // 1. Fetch active session on mount or circle switch
   const { data: initialActiveSession } = useActiveLiveWheelQuery(circleId);
 
   useEffect(() => {
@@ -261,7 +261,7 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
     }
   }, [initialActiveSession, dismissedSessionId]);
 
-  // 2. Lắng nghe socket sự kiện realtime: cả stage-created và started
+  // 2. Lắng nghe socket sự kiện realtime
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
@@ -289,12 +289,36 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
       }
     };
 
+    const handleParticipantsUpdated = (data: { sessionId: string; participants: LiveWheelParticipant[] }) => {
+      setSession((prev) => {
+        if (prev && prev.id === data.sessionId) {
+          return {
+            ...prev,
+            participants: data.participants,
+          };
+        }
+        return prev;
+      });
+    };
+
+    // Lắng nghe sự kiện custom từ tin nhắn chat khi người dùng bấm "Tham gia vòng quay"
+    const handleOpenFromChat = (e: any) => {
+      if (e.detail?.circleId === circleId) {
+        setIsVisible(true);
+        setDismissedSessionId(null);
+      }
+    };
+
     socket.on('circle:live-wheel:stage-created', handleStageCreated);
     socket.on('circle:live-wheel:started', handleLiveWheelStarted);
+    socket.on('circle:live-wheel:participants-updated', handleParticipantsUpdated);
+    window.addEventListener('circle:open-live-wheel', handleOpenFromChat);
 
     return () => {
       socket.off('circle:live-wheel:stage-created', handleStageCreated);
       socket.off('circle:live-wheel:started', handleLiveWheelStarted);
+      socket.off('circle:live-wheel:participants-updated', handleParticipantsUpdated);
+      window.removeEventListener('circle:open-live-wheel', handleOpenFromChat);
     };
   }, [circleId]);
 
@@ -303,7 +327,6 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
     if (session?.wheels && session.wheels.length > 0) {
       return session.wheels.slice(0, 4);
     }
-    // Fallback nếu session chỉ có 1 wheel đơn lẻ
     if (session?.options && session.options.length > 0) {
       return [
         {
@@ -326,7 +349,7 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
       const winIdx = w.winningIndex >= 0 ? w.winningIndex : 0;
       const targetCenterDeg = winIdx * sliceDeg + sliceDeg / 2;
       const stopAngle = (360 - (targetCenterDeg % 360)) % 360;
-      const extraSpins = (6 + idx) * 360; // Thêm biến thiên số vòng quay nhẹ cho sinh động
+      const extraSpins = (6 + idx) * 360;
       return extraSpins + stopAngle;
     });
   }, [wheelsList]);
@@ -403,11 +426,10 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
     confettiFrameRef.current = requestAnimationFrame(animateConfetti);
   }, []);
 
-  // 5. Đồng bộ Animation vòng quay theo mốc startedAt & durationMs của server
+  // 5. Đồng bộ Animation vòng quay theo startedAt & durationMs
   useEffect(() => {
     if (!isVisible || !session || wheelsList.length === 0) return;
 
-    // Nếu mới chỉ tạo sân khấu (stageStatus === 'idle') và chưa có lượt quay nào
     if (session.stageStatus === 'idle') {
       setIsFinished(false);
       setWheelRotations(wheelsList.map(() => 0));
@@ -426,7 +448,6 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
       const nextRots = finalRotations.map((fRot) => fRot * easeOut);
       setWheelRotations(nextRots);
 
-      // Âm thanh tick khi bánh xe đầu tiên chạm múi
       if (soundEnabled && nextRots[0] !== undefined) {
         const sliceDeg = 360 / Math.max(wheelsList[0]?.options.length || 6, 1);
         if (Math.abs(nextRots[0] - lastTickAngleRef.current) >= sliceDeg) {
@@ -489,154 +510,209 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
 
   const isSpinning = !isFinished && session.stageStatus === 'spinning';
   const spunByName = session.spunBy?.displayName || (locale === 'vi' ? 'Thành viên' : 'Member');
+  const participants = session.participants || [];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
       {/* Canvas Confetti Layer */}
       <canvas
         ref={confettiCanvasRef}
         className="absolute inset-0 pointer-events-none z-40 w-full h-full"
       />
 
-      <div className="relative w-full max-w-2xl rounded-3xl bg-white/95 dark:bg-circle-dark-card/95 border border-white/20 dark:border-circle-dark-hairline shadow-2xl p-5 sm:p-6 flex flex-col items-center backdrop-blur-xl z-50 overflow-hidden max-h-[92vh]">
+      <div className="relative w-full max-w-4xl rounded-3xl bg-white/95 dark:bg-circle-dark-card/95 border border-white/20 dark:border-circle-dark-hairline shadow-2xl p-5 sm:p-6 flex flex-col backdrop-blur-xl z-50 overflow-hidden max-h-[92vh]">
         {/* Glow ambient background effect */}
         <div className="absolute -top-24 -left-24 w-48 h-48 bg-teal-500/15 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-amber-500/15 rounded-full blur-3xl pointer-events-none" />
 
-        {/* Top Bar: LIVE Badge + Title + Sound + Close Button */}
-        <div className="w-full flex items-center justify-between gap-3 pb-3 border-b border-circle-hairline dark:border-circle-dark-hairline shrink-0">
+        {/* ============================================================== */}
+        {/* HEADER: CHỈ ĐỂ "Vòng quay may mắn" + ÂM THANH + NÚT ĐÓNG       */}
+        {/* ============================================================== */}
+        <div className="w-full flex items-center justify-between pb-3.5 border-b border-circle-hairline dark:border-circle-dark-hairline shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-full bg-circle-primary/15 text-circle-primary flex items-center justify-center">
+              <Compass className="w-4.5 h-4.5" />
+            </div>
+            <h3 className="text-base sm:text-lg font-black text-circle-charcoal dark:text-circle-dark-text tracking-tight">
+              {locale === 'vi' ? 'Vòng quay may mắn' : 'Lucky Wheel'}
+            </h3>
+          </div>
+
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/15 text-rose-600 dark:text-rose-400 font-bold text-xs tracking-wider uppercase border border-rose-500/30 animate-pulse">
-              <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
-              <Radio className="w-3.5 h-3.5" />
-              {isSpinning ? 'SPINNING LIVE' : isFinished ? 'LIVE RESULT' : 'LIVE STAGE'}
-            </span>
             <button
               type="button"
               onClick={() => setSoundEnabled(!soundEnabled)}
-              className="p-1.5 rounded-full hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate dark:text-circle-dark-muted transition-colors cursor-pointer"
+              className="p-2 rounded-full hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate dark:text-circle-dark-muted transition-colors cursor-pointer"
               title={soundEnabled ? 'Tắt âm thanh' : 'Bật âm thanh'}
             >
               {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
             </button>
-          </div>
 
-          <div className="flex items-center gap-1.5 text-xs text-circle-slate dark:text-circle-dark-muted">
-            <User className="w-3.5 h-3.5 text-circle-primary" />
-            <span className="font-semibold text-circle-charcoal dark:text-circle-dark-text truncate max-w-[150px]">
-              {spunByName}
-            </span>
+            <button
+              type="button"
+              onClick={handleClose}
+              className="p-1.5 rounded-full text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors cursor-pointer"
+              title={t.luckyWheel.backToChat}
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
-
-          <button
-            type="button"
-            onClick={handleClose}
-            className="p-1.5 rounded-full text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors cursor-pointer"
-            title={t.luckyWheel.backToChat}
-          >
-            <X className="w-5 h-5" />
-          </button>
         </div>
 
-        {/* Header Title */}
-        <div className="text-center my-2 shrink-0">
-          <h3 className="text-lg sm:text-xl font-black text-circle-charcoal dark:text-circle-dark-text tracking-tight">
-            {session.wheelTitle || 'Vòng quay may mắn (4 vòng)'}
-          </h3>
-          <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted">
-            {isSpinning
-              ? `${t.luckyWheel.spunBy.replace('{name}', spunByName)} - Đang quay trực tiếp...`
-              : isFinished
-              ? 'Lượt quay đã hoàn tất! Ai cũng có thể bấm quay tiếp!'
-              : 'Sân khấu trực tiếp đã sẵn sàng! Bất kỳ ai cũng có thể ấn quay!'}
-          </p>
-        </div>
+        {/* ============================================================== */}
+        {/* BODY: 2 CỘT (BÊN TRÁI: 4 VÒNG XOAY | BÊN PHẢI: KẾT QUẢ & USERS)*/}
+        {/* ============================================================== */}
+        <div className="w-full flex-1 flex flex-col lg:flex-row items-stretch gap-5 pt-4 overflow-y-auto min-h-0">
+          {/* CỘT BÊN TRÁI: HIỂN THỊ 4 VÒNG XOAY (LƯỚI 2x2 CÓ NHÃN NÚT TÊN VÒNG) */}
+          <div className="flex-1 flex flex-col items-center justify-center p-2 min-h-0">
+            <div className="grid grid-cols-2 gap-4 sm:gap-6 justify-items-center w-full max-w-lg mx-auto">
+              {wheelsList.map((wheel, idx) => {
+                const rot = wheelRotations[idx] || 0;
+                return (
+                  <div key={wheel.wheelId || `wheel-${idx}`} className="flex flex-col items-center gap-2">
+                    {/* Nhãn nút tên vòng quay phía trên đĩa (như CircleWheelView) */}
+                    <div className="flex items-center justify-center gap-1.5 px-3 py-1 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white/90 dark:bg-circle-dark-surface/90 text-circle-charcoal dark:text-circle-dark-text text-xs font-bold shadow-2xs w-36">
+                      <Compass className="w-3.5 h-3.5 text-circle-primary shrink-0" />
+                      <span className="truncate">{wheel.wheelTitle || `Vòng ${idx + 1}`}</span>
+                    </div>
 
-        {/* 4 CÁI VÒNG XOAY (GRID 2 HÀNG X 2 CỘT) */}
-        <div className="w-full flex-1 overflow-y-auto py-2 flex items-center justify-center min-h-0">
-          <div className="grid grid-cols-2 gap-4 sm:gap-6 max-w-lg mx-auto">
-            {wheelsList.map((wheel, idx) => {
-              const rot = wheelRotations[idx] || 0;
-              return (
-                <div key={wheel.wheelId || `wheel-${idx}`} className="flex flex-col items-center gap-1.5">
-                  <span className="text-[11px] sm:text-xs font-bold text-circle-charcoal dark:text-circle-dark-text px-2.5 py-0.5 rounded-lg bg-circle-wash/80 dark:bg-circle-dark-wash/80 truncate max-w-[160px] border border-circle-hairline dark:border-circle-dark-hairline">
-                    {wheel.wheelTitle || `Vòng ${idx + 1}`}
-                  </span>
-                  <SingleLiveWheelCanvas
-                    options={wheel.options}
-                    rotation={rot}
-                    size={170}
-                  />
-                  {isFinished && wheel.winningOption && (
-                    <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20 truncate max-w-[160px] text-center animate-in fade-in duration-200">
-                      🏆 {wheel.winningOption.optionLabel}
+                    <SingleLiveWheelCanvas
+                      options={wheel.options}
+                      rotation={rot}
+                      size={175}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* CỘT BÊN PHẢI: "CÁI BẢNG" HIỂN THỊ KẾT QUẢ VÀ NGƯỜI THAM GIA (CALL-LIKE) */}
+          <div className="w-full lg:w-80 xl:w-88 flex flex-col justify-between bg-circle-canvas/60 dark:bg-circle-dark-surface/70 rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline p-4 sm:p-4.5 shrink-0 gap-3">
+            <div className="flex-1 flex flex-col gap-3 min-h-0 overflow-y-auto">
+              {/* 1. MỤC NGƯỜI THAM GIA (CALL-LIKE PARTICIPANTS LIST) */}
+              <div className="bg-white dark:bg-circle-dark-card rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline p-3 shadow-2xs">
+                <div className="flex items-center justify-between pb-2 border-b border-circle-hairline/80 dark:border-circle-dark-hairline mb-2">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
+                    <Users className="w-3.5 h-3.5 text-circle-primary" />
+                    <span>
+                      {locale === 'vi' ? 'Người tham gia' : 'Participants'} ({participants.length})
                     </span>
-                  )}
+                  </div>
+                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    {locale === 'vi' ? 'Trực tiếp' : 'Live'}
+                  </span>
                 </div>
-              );
-            })}
+
+                {/* Danh sách avatar & tên người tham gia */}
+                <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
+                  {participants.map((p) => (
+                    <div
+                      key={p.userId}
+                      className="inline-flex items-center gap-1.5 py-1 px-2 rounded-xl bg-circle-wash/80 dark:bg-circle-dark-wash/60 border border-circle-hairline/60 dark:border-circle-dark-hairline text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text"
+                      title={p.displayName}
+                    >
+                      {p.avatarUrl ? (
+                        <img src={p.avatarUrl} alt={p.displayName} className="w-4.5 h-4.5 rounded-full object-cover" />
+                      ) : (
+                        <div className="w-4.5 h-4.5 rounded-full bg-circle-primary/20 text-circle-primary flex items-center justify-center text-[10px] font-bold">
+                          {p.displayName?.charAt(0) || 'U'}
+                        </div>
+                      )}
+                      <span className="truncate max-w-[85px] text-[11px]">{p.displayName}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 2. MỤC BẢNG KẾT QUẢ CÁC VÒNG (RESULTS PANEL) */}
+              <div className="flex-1 bg-white dark:bg-circle-dark-card rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline p-3 shadow-2xs flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between pb-2 border-b border-circle-hairline/80 dark:border-circle-dark-hairline mb-2">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wide">
+                      <Trophy className="w-3.5 h-3.5 text-amber-500" />
+                      <span>{t.luckyWheel.resultsTab}</span>
+                    </div>
+                    {isSpinning && (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-teal-600 dark:text-teal-400 animate-pulse">
+                        <RotateCw className="w-3 h-3 animate-spin" />
+                        <span>{t.luckyWheel.spinningLive}</span>
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Chi tiết kết quả của 4 vòng */}
+                  <div className="flex flex-col gap-1.5">
+                    {wheelsList.map((w, idx) => (
+                      <div
+                        key={w.wheelId || idx}
+                        className="flex items-center justify-between py-1 px-2 rounded-lg bg-circle-wash/50 dark:bg-circle-dark-wash/40 text-xs"
+                      >
+                        <span className="font-semibold text-circle-slate dark:text-circle-dark-muted truncate max-w-[110px]">
+                          {w.wheelTitle || `Vòng ${idx + 1}`}
+                        </span>
+                        <span className="font-bold text-circle-charcoal dark:text-circle-dark-text truncate max-w-[110px] text-right">
+                          {isFinished && w.winningOption ? w.winningOption.optionLabel : '--'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Khung kết quả tổng hợp nổi bật Cúp vàng khi quay xong */}
+                {isFinished && session.winningOption && (
+                  <div className="mt-3 p-2.5 rounded-xl bg-gradient-to-r from-amber-500/15 via-amber-400/25 to-amber-500/15 border-2 border-amber-500/40 text-center animate-in zoom-in-95 duration-200">
+                    <div className="flex items-center justify-center gap-1 text-[10px] font-extrabold uppercase text-amber-700 dark:text-amber-300 mb-0.5">
+                      <Sparkles className="w-3 h-3 text-amber-500" />
+                      <span>{t.luckyWheel.winnerAnnounce}</span>
+                    </div>
+                    <div className="text-sm font-black text-amber-600 dark:text-amber-400 tracking-wide break-words">
+                      {session.winningOption.optionLabel}
+                    </div>
+                    <div className="flex items-center justify-center gap-1 text-[10px] text-circle-slate dark:text-circle-dark-muted mt-1">
+                      <User className="w-3 h-3 text-circle-primary" />
+                      <span>{t.luckyWheel.spunBy.replace('{name}', spunByName)}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 3. CỤM NÚT ĐIỀU KHIỂN Ở GÓC DƯỚI BÊN PHẢI */}
+            <div className="flex flex-col gap-2 pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline shrink-0">
+              {/* Nút Quay tất cả / Quay tiếp (Ai ấn quay cũng được) */}
+              <button
+                type="button"
+                onClick={handleSpinClick}
+                disabled={isSpinning || liveSpinMutation.isPending}
+                className="w-full py-3 px-4 rounded-xl bg-circle-primary hover:bg-circle-primary/90 text-circle-charcoal dark:text-circle-dark-canvas font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-circle-primary/20 transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer"
+              >
+                {isSpinning || liveSpinMutation.isPending ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Play className="w-4 h-4 fill-current" />
+                )}
+                <span>
+                  {isSpinning || liveSpinMutation.isPending
+                    ? t.luckyWheel.spinning
+                    : isFinished
+                    ? t.luckyWheel.spinAgain
+                    : t.luckyWheel.spinAll}
+                </span>
+              </button>
+
+              {/* Nút Quay lại đoạn chat */}
+              <button
+                type="button"
+                onClick={handleClose}
+                className="w-full py-2 px-3 rounded-xl bg-circle-wash/80 dark:bg-circle-dark-wash/80 hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text font-semibold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+              >
+                <span>{t.luckyWheel.backToChat}</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
-        </div>
-
-        {/* HỘP HIỂN THỊ KẾT QUẢ ĐỒNG BỘ CẢ 4 VÒNG */}
-        <div className="w-full mt-3 min-h-[58px] flex flex-col items-center justify-center shrink-0">
-          {isSpinning ? (
-            <div className="flex items-center gap-2.5 px-4 py-2 rounded-2xl bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 text-xs sm:text-sm font-semibold border border-teal-200 dark:border-teal-800 animate-pulse">
-              <RotateCw className="w-4 h-4 animate-spin text-teal-600 dark:text-teal-400" />
-              <span>{t.luckyWheel.spinningLive}</span>
-            </div>
-          ) : isFinished && session.winningOption ? (
-            <div className="w-full p-3 rounded-2xl bg-gradient-to-r from-amber-500/15 via-amber-400/25 to-amber-500/15 border-2 border-amber-500/40 text-center animate-in zoom-in-95 duration-200">
-              <div className="flex items-center justify-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300 mb-0.5">
-                <Trophy className="w-3.5 h-3.5 text-amber-500" />
-                <Sparkles className="w-3 h-3 text-amber-500" />
-                {t.luckyWheel.winnerAnnounce}
-              </div>
-              <div className="text-base sm:text-lg font-black text-amber-600 dark:text-amber-400 tracking-wide break-words drop-shadow-xs">
-                {session.winningOption.optionLabel}
-              </div>
-            </div>
-          ) : (
-            <div className="text-xs text-circle-slate dark:text-circle-dark-muted italic text-center">
-              {locale === 'vi'
-                ? 'Nhấn nút "Quay tất cả" bên dưới để bắt đầu quay trực tiếp cho cả nhóm!'
-                : 'Click "Spin All" below to start live spinning for everyone!'}
-            </div>
-          )}
-        </div>
-
-        {/* NÚT QUAY DÀNH CHO BẤT KỲ THÀNH VIÊN NÀO + NÚT QUAY LẠI CHAT */}
-        <div className="w-full flex items-center gap-2.5 pt-3 border-t border-circle-hairline dark:border-circle-dark-hairline shrink-0">
-          {/* Nút Quay / Quay tiếp - Ai ấn cũng được */}
-          <button
-            type="button"
-            onClick={handleSpinClick}
-            disabled={isSpinning || liveSpinMutation.isPending}
-            className="flex-1 py-3 px-5 rounded-2xl bg-circle-primary hover:bg-circle-primary/90 text-circle-charcoal dark:text-circle-dark-canvas font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-circle-primary/20 transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer"
-          >
-            {isSpinning || liveSpinMutation.isPending ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Play className="w-4 h-4 fill-current" />
-            )}
-            <span>
-              {isSpinning || liveSpinMutation.isPending
-                ? t.luckyWheel.spinning
-                : isFinished
-                ? t.luckyWheel.spinAgain
-                : t.luckyWheel.spinAll}
-            </span>
-          </button>
-
-          {/* Nút quay lại chat */}
-          <button
-            type="button"
-            onClick={handleClose}
-            className="py-3 px-4 rounded-2xl bg-circle-wash dark:bg-circle-dark-wash hover:bg-circle-wash/80 dark:hover:bg-circle-dark-wash/80 text-circle-charcoal dark:text-circle-dark-text font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all cursor-pointer"
-          >
-            <span>{t.luckyWheel.backToChat}</span>
-            <ArrowRight className="w-4 h-4" />
-          </button>
         </div>
       </div>
     </div>
