@@ -826,6 +826,32 @@ export interface UpdateWheelFolderInput {
   data?: WheelFolderSnapshotItem[];
 }
 
+export interface LiveWheelSession {
+  id: string;
+  circleId: string;
+  channelId?: string;
+  wheelId?: string;
+  wheelTitle: string;
+  options: { optionLabel: string; color: string }[];
+  winningIndex: number;
+  winningOption: { optionLabel: string; color: string };
+  startedAt: number; // timestamp in ms
+  durationMs: number;
+  spunBy: {
+    userId: string;
+    displayName: string;
+    avatarUrl?: string | null;
+  };
+  messageId?: string;
+}
+
+export interface LiveSpinWheelInput {
+  wheelId?: string;
+  title?: string;
+  options?: string[];
+  channelId?: string;
+}
+
 export interface SpinWheelResult {
   wheelId: string;
   selectedOption: WheelOptionEntity;

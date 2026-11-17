@@ -21,6 +21,7 @@ describe('CircleToolsService', () => {
       broadcastPollVoted: jest.fn(),
       broadcastPollClosed: jest.fn(),
       broadcastWheelSpun: jest.fn(),
+      broadcastLiveWheel: jest.fn(),
       broadcastAnonymousPostReaction: jest.fn(),
     };
 
@@ -499,6 +500,67 @@ describe('CircleToolsService', () => {
 
       expect(res.success).toBe(true);
       expect(mockPrisma.message.create).toHaveBeenCalled();
+    });
+
+    it('should start live spin wheel and broadcast session to members', async () => {
+      mockPrisma.circleMember.findUnique.mockResolvedValue(member);
+      mockPrisma.channel.findFirst.mockResolvedValue({ id: 'chan-1', circleId: 'circle-1' });
+      mockPrisma.message.create.mockResolvedValue({
+        id: 'msg-live-1',
+        channelId: 'chan-1',
+        memberId: member.id,
+        type: 'TEXT',
+        content: '🎯 [VÒNG QUAY MAY MẮN TRỰC TIẾP] ...',
+        sentAt: new Date(),
+        updatedAt: new Date(),
+        sender: {
+          id: member.id,
+          circleId: 'circle-1',
+          userId: 'user-1',
+          role: 'MEMBER',
+          nickname: 'Bình',
+          joinedAt: new Date(),
+          updatedAt: new Date(),
+          user: {
+            id: 'user-1',
+            email: 'binh@circle.local',
+            isActivated: true,
+            globalRole: 'USER',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            profile: {
+              id: 'prof-1',
+              userId: 'user-1',
+              displayName: 'Bình',
+              avatarUrl: null,
+              bio: null,
+              dateOfBirth: null,
+              updatedAt: new Date(),
+            },
+          },
+        },
+      });
+
+      const session = await service.liveSpinWheel('circle-1', 'user-1', {
+        title: 'Trưa nay ăn gì?',
+        options: ['Phở', 'Bún chả', 'Cơm tấm'],
+      });
+
+      expect(session.circleId).toBe('circle-1');
+      expect(session.wheelTitle).toBe('Trưa nay ăn gì?');
+      expect(session.options.length).toBe(3);
+      expect(session.winningIndex).toBeGreaterThanOrEqual(0);
+      expect(session.winningIndex).toBeLessThan(3);
+      expect(session.durationMs).toBe(6000);
+      expect(mockChatGateway.broadcastLiveWheel).toHaveBeenCalledWith(
+        'circle-1',
+        expect.objectContaining({ circleId: 'circle-1', wheelTitle: 'Trưa nay ăn gì?' }),
+      );
+
+      // getActiveLiveWheel should return this session
+      const active = await service.getActiveLiveWheel('circle-1', 'user-1');
+      expect(active).not.toBeNull();
+      expect(active?.id).toBe(session.id);
     });
 
   });

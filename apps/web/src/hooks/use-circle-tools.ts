@@ -9,6 +9,8 @@ import {
   DecisionWheelEntity,
   CreateWheelInput,
   UpdateWheelInput,
+  LiveWheelSession,
+  LiveSpinWheelInput,
   WheelFolderEntity,
   CreateWheelFolderInput,
   UpdateWheelFolderInput,
@@ -423,6 +425,35 @@ export function useUpdateWheelFolderMutation(circleId: string) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: TOOLS_KEYS.wheelFolders(circleId) });
+    },
+  });
+}
+
+export function useActiveLiveWheelQuery(circleId: string | null) {
+  return useQuery({
+    queryKey: ['tools', 'wheels', 'live-active', circleId],
+    queryFn: async () => {
+      if (!circleId) return null;
+      const res = await apiRequest<LiveWheelSession | null>(`/circles/${circleId}/wheels/live-active`);
+      return res.data;
+    },
+    enabled: !!circleId,
+    refetchOnWindowFocus: false,
+  });
+}
+
+export function useLiveSpinWheelMutation(circleId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: LiveSpinWheelInput) => {
+      const res = await apiRequest<LiveWheelSession>(`/circles/${circleId}/wheels/live-spin`, {
+        method: 'POST',
+        body: JSON.stringify(input),
+      });
+      return res.data;
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(['tools', 'wheels', 'live-active', circleId], data);
     },
   });
 }

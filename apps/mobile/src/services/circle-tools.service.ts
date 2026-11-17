@@ -8,6 +8,8 @@ import {
   DecisionWheelEntity,
   CreateWheelInput,
   UpdateWheelInput,
+  LiveWheelSession,
+  LiveSpinWheelInput,
   WheelFolderEntity,
   CreateWheelFolderInput,
   UpdateWheelFolderInput,
@@ -243,6 +245,29 @@ export async function deleteWheelApi(circleId: string, wheelId: string): Promise
   await mobileApiRequest(`/circles/${circleId}/wheels/${wheelId}`, {
     method: 'DELETE',
   });
+}
+
+export async function liveSpinWheelApi(
+  circleId: string,
+  input: LiveSpinWheelInput,
+): Promise<LiveWheelSession> {
+  const res = await mobileApiRequest<LiveWheelSession>(
+    `/circles/${circleId}/wheels/live-spin`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    },
+  );
+  return res.data;
+}
+
+export async function getActiveLiveWheelApi(
+  circleId: string,
+): Promise<LiveWheelSession | null> {
+  const res = await mobileApiRequest<LiveWheelSession | null>(
+    `/circles/${circleId}/wheels/live-active`,
+  );
+  return res.data;
 }
 
 // =============================================================================

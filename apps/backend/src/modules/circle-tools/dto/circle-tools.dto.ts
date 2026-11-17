@@ -4,6 +4,7 @@ import {
   AddPhotosInput,
   CreateWheelInput,
   UpdateWheelInput,
+  LiveSpinWheelInput,
   CreateWheelFolderInput,
   UpdateWheelFolderInput,
   WheelFolderSnapshotItem,
@@ -77,6 +78,13 @@ export class UpdateWheelFolderDto implements UpdateWheelFolderInput {
 
 export class ShareWheelResultsDto {
   results: { wheelTitle: string; winner: string }[];
+}
+
+export class LiveSpinWheelDto implements LiveSpinWheelInput {
+  wheelId?: string;
+  title?: string;
+  options?: string[];
+  channelId?: string;
 }
 
 export class CreateAnonymousPostDto implements CreateAnonymousPostInput {

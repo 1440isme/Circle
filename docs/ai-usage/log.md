@@ -8908,3 +8908,55 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 - **Security & License Check:** An toàn tuyệt đối, zero secrets.
 - **Commit:** f3782a6
 - **PR:** #120
+
+
+## AI-0219: Bổ Sung Tính Năng Vòng Quay May Mắn Vào Menu Dấu Cộng (+) Chat Nhóm Và Cơ Chế Live Wheel Đồng Bộ Realtime (#120)
+
+- **Date:** 2026-11-18 02:15:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120
+- **Purpose:** 
+  1. **Bổ sung Vòng quay may mắn vào menu (+) thanh nhập tin nhắn chat nhóm (Web & Mobile):**
+     - Thêm nút tiện ích `Compass` "Vòng quay may mắn" vào menu (+) của thanh soạn tin nhắn (`ChatComposer.tsx` trên Web và `plusMenuContent` trong `apps/mobile/app/circle/[id].tsx`).
+     - Mở giao diện `LiveWheelPickerModal` (Web) / `MobileLiveWheelPickerModal` (Mobile) cho phép thành viên:
+       + Tab 1: Chọn một vòng quay có sẵn đã lưu trong Circle.
+       + Tab 2: Thiết lập tên vòng quay và danh sách lựa chọn mới (tối thiểu 2 lựa chọn) kèm các preset nhanh ("Trưa nay ăn gì?", "Ai trả tiền hôm nay?", "Ai dọn dẹp nhóm?", "Có hoặc Không?").
+  2. **Cơ chế Live Wheel trực tiếp trong nhóm:**
+     - Khi thành viên bấm "Bắt đầu quay trực tiếp", gọi API `POST /circles/:circleId/wheels/live-spin`.
+     - Phía máy chủ (Backend NestJS) đóng vai trò thẩm quyền duy nhất (Authority Server): xác định ngẫu nhiên duy nhất kết quả (`winningIndex`, `winningOption`), lưu session vào bộ nhớ hoạt động `activeLiveWheelSessions`, tạo bản ghi tin nhắn lịch sử hoạt động nhóm `[LIVE_WHEEL]:...` và đồng thời broadcast sự kiện realtime `circle:live-wheel:started` tới toàn bộ thành viên trong Circle qua Socket.IO.
+     - Cả Web (`LiveWheelOverlay.tsx`) và Mobile (`MobileLiveWheelOverlay.tsx`) tự động mở modal/overlay nổi bật toàn màn hình với hiệu ứng làm mờ nền (backdrop blur), badge đỏ phát sáng 🔴 `LIVE` / `LIVE RESULT`, thông tin vòng quay và tên người quay.
+     - Tất cả thành viên cùng quan sát một đĩa quay duy nhất chuyển động theo cùng công thức easing (`1 - (1 - progress)^4`), tốc độ, thời gian quay (`durationMs: 6000`), và dừng chính xác ở cùng một kết quả với hiệu ứng âm thanh tick, fanfare và pháo hoa confetti / haptic feedback.
+     - Thành viên tham gia muộn hoặc kết nối lại trong lúc quay được đồng bộ trạng thái qua endpoint `GET /circles/:circleId/wheels/live-active` (nếu đang quay thì tiếp tục hoạt ảnh từ thời điểm đã trôi qua, nếu đã xong thì hiển thị kết quả ngay).
+     - Có nút đóng "Quay lại đoạn chat" để thành viên chủ động đóng overlay bất cứ lúc nào.
+- **Files Affected:**
+  - `packages/types/src/index.ts`
+  - `packages/shared/src/locales/vi.ts` & `en.ts`
+  - `apps/backend/src/modules/chat/chat.gateway.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.controller.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
+  - `apps/backend/src/modules/circle-tools/dto/circle-tools.dto.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.service.spec.ts`
+  - `apps/web/src/hooks/use-circle-tools.ts`
+  - `apps/web/src/components/chat/ChatComposer.tsx`
+  - `apps/web/src/components/chat/ChannelChatView.tsx`
+  - `apps/web/src/components/chat/LiveWheelPickerModal.tsx`
+  - `apps/web/src/components/chat/LiveWheelOverlay.tsx`
+  - `apps/mobile/src/services/circle-tools.service.ts`
+  - `apps/mobile/app/circle/[id].tsx`
+  - `apps/mobile/src/components/chat/MobileLiveWheelPickerModal.tsx`
+  - `apps/mobile/src/components/chat/MobileLiveWheelOverlay.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% backend controller/service/gateway, WebSocket broadcast, Canvas/SVG realtime synchronized animation, and Web & Mobile modal components.
+- **Human Modifications:** Người dùng yêu cầu bổ sung Vòng quay may mắn vào menu (+) chat nhóm, hỗ trợ chọn vòng có sẵn hoặc tạo mới, quay trực tiếp đồng bộ thời gian thực cho tất cả thành viên qua server-side authority và lưu kết quả vào lịch sử chat.
+- **Verification Method:**
+  - `npx tsc --noEmit -p apps/web/tsconfig.json`: Passed 0 errors.
+  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Passed 0 errors.
+  - `npx tsc --noEmit -p apps/backend/tsconfig.json`: Passed 0 errors.
+  - `npm test --prefix apps/backend -- circle-tools`: Passed 46/46 unit tests.
+  - `bash ./scripts/check-secrets.sh`: Passed (601 files checked, 0 leaks).
+- **Official Source Checked:** `PROJECT_GOD.md` §2.2, §11 (DoD), `agentic/playbooks/05-calendar-planning.md`, `agentic/playbooks/cross-cutting-gate.md`.
+- **Security & License Check:** Kết quả sinh ngẫu nhiên bảo mật từ server, xác thực quyền thành viên Circle; không rò rỉ secret key.
+- **Commit:** b950e86
+- **PR:** #120

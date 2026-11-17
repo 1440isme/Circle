@@ -145,6 +145,8 @@ import { MobilePollView } from '../../src/components/tools/MobilePollView';
 import { MobileChatPollCard } from '../../src/components/chat/MobileChatPollCard';
 import { MobileChatLocationCard } from '../../src/components/chat/MobileChatLocationCard';
 import { MobileCreatePollModal } from '../../src/components/chat/MobileCreatePollModal';
+import { MobileLiveWheelPickerModal } from '../../src/components/chat/MobileLiveWheelPickerModal';
+import { MobileLiveWheelOverlay } from '../../src/components/chat/MobileLiveWheelOverlay';
 import * as Location from 'expo-location';
 
 function getInitials(name: string): string {
@@ -1675,6 +1677,7 @@ export default function CircleWorkspaceScreen() {
   const [isFullEmojiModalVisible, setIsFullEmojiModalVisible] = useState(false);
   const [targetReactMessageId, setTargetReactMessageId] = useState<string | null>(null);
   const [isCreatePollModalVisible, setIsCreatePollModalVisible] = useState(false);
+  const [isLiveWheelPickerVisible, setIsLiveWheelPickerVisible] = useState(false);
   const [isLocatingChat, setIsLocatingChat] = useState(false);
   const [momentsMemberFilter, setMomentsMemberFilter] = useState<string | 'all'>('all');
   const [isMomentsFilterOpen, setIsMomentsFilterOpen] = useState(false);
@@ -3449,6 +3452,28 @@ export default function CircleWorkspaceScreen() {
 
                   <TouchableOpacity
                     activeOpacity={0.75}
+                    onPress={() => {
+                      setIsPlusMenuOpen(false);
+                      setIsLiveWheelPickerVisible(true);
+                    }}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 12,
+                      minHeight: 46,
+                      paddingHorizontal: 14,
+                      borderBottomWidth: StyleSheet.hairlineWidth,
+                      borderBottomColor: colors.hairline,
+                    }}
+                  >
+                    <Compass size={18} color="#D97706" />
+                    <Text style={{ fontSize: 13.5, fontWeight: '600', color: colors.text }}>
+                      {t.luckyWheel.title}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    activeOpacity={0.75}
                     disabled={isLocatingChat}
                     onPress={() => {
                       setIsPlusMenuOpen(false);
@@ -4932,6 +4957,17 @@ export default function CircleWorkspaceScreen() {
         }}
       />
 
+      {/* Mobile Live Wheel Picker Sheet */}
+      <MobileLiveWheelPickerModal
+        visible={isLiveWheelPickerVisible}
+        onClose={() => setIsLiveWheelPickerVisible(false)}
+        circleId={circleId}
+        channelId={currentChannelId}
+      />
+
+      {/* Mobile Live Wheel Realtime Overlay */}
+      <MobileLiveWheelOverlay circleId={circleId} />
+
       {/* Inline Member Filter Dropdown for Moments Tab */}
       {isMomentsFilterOpen && activeTab === 'moments' && (
         <View style={styles.momentsFilterDropdownOverlay}>
@@ -5043,7 +5079,7 @@ export default function CircleWorkspaceScreen() {
       >
         <View style={{ flex: 1, backgroundColor: colors.canvas }}>
           {/* Floating Navigation Bar (strictly gated Glass vs Flat) */}
-          {selectedTool !== 'album' && selectedTool !== 'wheel' && selectedTool !== 'calendar' && (
+          {selectedTool !== 'album' && selectedTool !== 'wheel' && selectedTool !== 'calendar' && selectedTool !== 'anonymous' && (
             <View
               pointerEvents="box-none"
               style={{
@@ -5111,8 +5147,6 @@ export default function CircleWorkspaceScreen() {
                         ? t.nav.liveLocation
                         : selectedTool === 'poll'
                         ? t.nav.groupPoll
-                        : selectedTool === 'anonymous'
-                        ? t.nav.reflectionMailbox
                         : ''}
                     </Text>
                   </View>
@@ -5136,7 +5170,7 @@ export default function CircleWorkspaceScreen() {
                   </TouchableOpacity>
                 );
 
-                const showTitlePill = selectedTool !== 'anonymous';
+                const showTitlePill = true;
                 const showClosePill = true;
 
                 if (isGlass) {
@@ -5184,7 +5218,7 @@ export default function CircleWorkspaceScreen() {
             ) : selectedTool === 'wheel' ? (
               <MobileWheelView circleId={circleId} onBack={() => setSelectedTool('menu')} />
             ) : selectedTool === 'anonymous' ? (
-              <MobileAnonymousView circleId={circleId} />
+              <MobileAnonymousView circleId={circleId} onBack={() => setSelectedTool('menu')} />
             ) : null}
           </View>
         </View>

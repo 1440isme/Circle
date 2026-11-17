@@ -16,6 +16,7 @@ import {
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
+  ArrowLeft,
   Heart,
   Plus,
   Trash2,
@@ -39,6 +40,7 @@ import { PROMINENT_QUICK_EMOJIS } from '@circle/shared';
 
 interface MobileAnonymousViewProps {
   circleId: string;
+  onBack?: () => void;
 }
 
 interface MobileThemeColors {
@@ -59,10 +61,10 @@ const THEME_PRESETS: Record<string, { light: MobileThemeColors; dark: MobileThem
       tagText: '#92400E',
     },
     dark: {
-      bg: '#3B1A06',
-      border: '#78350F',
+      bg: '#2A1B12',
+      border: 'rgba(245, 158, 11, 0.35)',
       text: '#FEF3C7',
-      tagBg: 'rgba(251, 191, 36, 0.25)',
+      tagBg: 'rgba(245, 158, 11, 0.20)',
       tagText: '#FDE68A',
     },
   },
@@ -75,10 +77,10 @@ const THEME_PRESETS: Record<string, { light: MobileThemeColors; dark: MobileThem
       tagText: '#0369A1',
     },
     dark: {
-      bg: '#08283E',
-      border: '#0369A1',
+      bg: '#0E2333',
+      border: 'rgba(14, 165, 233, 0.35)',
       text: '#E0F2FE',
-      tagBg: 'rgba(56, 189, 248, 0.25)',
+      tagBg: 'rgba(14, 165, 233, 0.20)',
       tagText: '#BAE6FD',
     },
   },
@@ -91,10 +93,10 @@ const THEME_PRESETS: Record<string, { light: MobileThemeColors; dark: MobileThem
       tagText: '#7E22CE',
     },
     dark: {
-      bg: '#2E094F',
-      border: '#6B21A8',
+      bg: '#231533',
+      border: 'rgba(168, 85, 247, 0.35)',
       text: '#F3E8FF',
-      tagBg: 'rgba(192, 132, 252, 0.25)',
+      tagBg: 'rgba(168, 85, 247, 0.20)',
       tagText: '#E9D5FF',
     },
   },
@@ -107,10 +109,10 @@ const THEME_PRESETS: Record<string, { light: MobileThemeColors; dark: MobileThem
       tagText: '#BE123C',
     },
     dark: {
-      bg: '#3E0818',
-      border: '#9F1239',
+      bg: '#2E141E',
+      border: 'rgba(244, 63, 94, 0.35)',
       text: '#FFE4E6',
-      tagBg: 'rgba(251, 113, 133, 0.25)',
+      tagBg: 'rgba(244, 63, 94, 0.20)',
       tagText: '#FECDD3',
     },
   },
@@ -123,10 +125,10 @@ const THEME_PRESETS: Record<string, { light: MobileThemeColors; dark: MobileThem
       tagText: '#047857',
     },
     dark: {
-      bg: '#03261D',
-      border: '#047857',
+      bg: '#0E261E',
+      border: 'rgba(16, 185, 129, 0.35)',
       text: '#D1FAE5',
-      tagBg: 'rgba(52, 211, 153, 0.25)',
+      tagBg: 'rgba(16, 185, 129, 0.20)',
       tagText: '#A7F3D0',
     },
   },
@@ -166,7 +168,7 @@ const formatPostDate = (isoString: string) => {
   return `${hours}:${minutes} ${day}/${month}/${year}`;
 };
 
-export const MobileAnonymousView: React.FC<MobileAnonymousViewProps> = ({ circleId }) => {
+export const MobileAnonymousView: React.FC<MobileAnonymousViewProps> = ({ circleId, onBack }) => {
   const { colors, resolvedTheme } = useThemeStore();
   const isDark = resolvedTheme === 'dark';
   const { t } = useLanguageStore();
@@ -178,15 +180,7 @@ export const MobileAnonymousView: React.FC<MobileAnonymousViewProps> = ({ circle
     let activeSocket: any = null;
     const handleReactionUpdated = (data: any) => {
       if (data.circleId === circleId) {
-        setPosts((prev) =>
-          prev.map((p) => {
-            if (p.id !== data.postId) return p;
-            return {
-              ...p,
-              reactions: data.reactions,
-            };
-          }),
-        );
+        loadPosts();
       }
     };
 
@@ -206,26 +200,36 @@ export const MobileAnonymousView: React.FC<MobileAnonymousViewProps> = ({ circle
   const handleToggleReaction = async (postId: string, emoji: string) => {
     Haptics.selectionAsync();
 
-    // Optimistic UI update
+    // Optimistic UI update: Rule 1 reaction per user
     setPosts((prev) =>
       prev.map((p) => {
         if (p.id !== postId) return p;
         const curReactions = p.reactions ? [...p.reactions] : [];
-        const existing = curReactions.find((r) => r.emoji === emoji);
-        let nextReactions: any[];
-        if (existing) {
-          if (existing.userReacted) {
-            nextReactions = curReactions
-              .map((r) => (r.emoji === emoji ? { ...r, count: r.count - 1, userReacted: false } : r))
-              .filter((r) => r.count > 0);
-          } else {
-            nextReactions = curReactions.map((r) =>
+        const currentlyUserReacted = curReactions.find((r) => r.userReacted);
+
+        let nextReactions: typeof curReactions = [];
+
+        if (currentlyUserReacted && currentlyUserReacted.emoji === emoji) {
+          // User unreacts their current emoji
+          nextReactions = curReactions
+            .map((r) => (r.emoji === emoji ? { ...r, count: r.count - 1, userReacted: false } : r))
+            .filter((r) => r.count > 0);
+        } else {
+          // Remove old reaction if exists
+          const cleaned = curReactions
+            .map((r) => (r.userReacted ? { ...r, count: r.count - 1, userReacted: false } : r))
+            .filter((r) => r.count > 0);
+
+          const existingTarget = cleaned.find((r) => r.emoji === emoji);
+          if (existingTarget) {
+            nextReactions = cleaned.map((r) =>
               r.emoji === emoji ? { ...r, count: r.count + 1, userReacted: true } : r,
             );
+          } else {
+            nextReactions = [...cleaned, { emoji, count: 1, userReacted: true }];
           }
-        } else {
-          nextReactions = [...curReactions, { emoji, count: 1, userReacted: true }];
         }
+
         return { ...p, reactions: nextReactions };
       }),
     );
@@ -238,7 +242,8 @@ export const MobileAnonymousView: React.FC<MobileAnonymousViewProps> = ({ circle
   };
   const [isLoading, setIsLoading] = useState(true);
 
-  // Full emoji picker
+  // Quick reaction popup & Full emoji picker
+  const [activeQuickReactionPostId, setActiveQuickReactionPostId] = useState<string | null>(null);
   const [fullEmojiTargetPostId, setFullEmojiTargetPostId] = useState<string | null>(null);
 
   // Compose modal
@@ -303,10 +308,61 @@ export const MobileAnonymousView: React.FC<MobileAnonymousViewProps> = ({ circle
 
   const insets = useSafeAreaInsets();
   const topClearance = Math.max(insets.top + 8, 16) + 38 + 14;
-  const bottomClearance = Math.max(insets.bottom + 88, 96);
+  const bottomClearance = Math.max(insets.bottom + 40, 48);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.canvas }]}>
+      {/* Floating Top Header (Bỏ khung, ghi tên Điều muốn nói như Lịch nhóm, không có text Tiện ích nhóm, bỏ nút X) */}
+      <View
+        style={{
+          position: 'absolute',
+          top: Math.max(insets.top + 8, 16),
+          left: 16,
+          right: 16,
+          zIndex: 50,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+          {/* Nút Quay lại (< icon only) */}
+          <TouchableOpacity
+            activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            onPress={() => onBack?.()}
+            style={[
+              styles.headerIconBtn,
+              { backgroundColor: isDark ? 'rgba(29, 29, 33, 0.92)' : 'rgba(255, 255, 255, 0.94)' },
+            ]}
+            accessibilityLabel={t.common.back}
+          >
+            <ArrowLeft size={16} color={colors.text} />
+          </TouchableOpacity>
+
+          {/* CHỮ ĐIỀU MUỐN NÓI BỎ KHUNG, GHI DẠNG LABEL NHƯ LỊCH NHÓM */}
+          <View style={{ flex: 1, justifyContent: 'center' }}>
+            <Text numberOfLines={1} style={{ fontSize: 16, fontWeight: '700', color: colors.text }}>
+              {t.collab.anonymousTitle || 'Điều muốn nói'}
+            </Text>
+          </View>
+        </View>
+
+        {/* Nút Tạo thiệp tròn góc phải */}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          onPress={() => setIsComposeModalOpen(true)}
+          style={[
+            styles.headerIconBtn,
+            { backgroundColor: colors.primary, borderColor: colors.primary },
+          ]}
+          accessibilityLabel={t.collab.createAnonymousNote}
+        >
+          <Plus size={16} color="#FFFFFF" />
+        </TouchableOpacity>
+      </View>
+
       {/* Scroll-under Content Layer */}
       <ScrollView
         contentContainerStyle={[
@@ -351,79 +407,88 @@ export const MobileAnonymousView: React.FC<MobileAnonymousViewProps> = ({ circle
                     {post.content}
                   </Text>
 
-                  {/* Reactions Bar */}
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginTop: 10 }}>
-                    {(post.reactions || []).map((rx) => (
-                      <TouchableOpacity
-                        key={rx.emoji}
-                        activeOpacity={0.7}
-                        onPress={() => handleToggleReaction(post.id, rx.emoji)}
-                        style={{
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          gap: 4,
-                          paddingHorizontal: 8,
-                          paddingVertical: 3,
-                          borderRadius: 16,
-                          backgroundColor: rx.userReacted
-                            ? (isDark ? 'rgba(13, 148, 136, 0.28)' : 'rgba(13, 148, 136, 0.18)')
-                            : (isDark ? 'rgba(30, 41, 59, 0.85)' : 'rgba(255, 255, 255, 0.75)'),
-                          borderWidth: 1,
-                          borderColor: rx.userReacted
-                            ? '#0D9488'
-                            : (isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)'),
-                        }}
-                      >
-                        <Text style={{ fontSize: 13 }}>{rx.emoji}</Text>
-                        <Text
+                  {/* Chân thiệp: Đẩy phần thả icon xuống góc trái (bỏ text Điều muốn nói), góc phải là ngày giờ */}
+                  <View style={[styles.cardFooter, { borderTopColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.05)' }]}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, flex: 1 }}>
+                      {(post.reactions || []).map((rx) => (
+                        <TouchableOpacity
+                          key={rx.emoji}
+                          activeOpacity={0.7}
+                          onPress={() => handleToggleReaction(post.id, rx.emoji)}
                           style={{
-                            fontSize: 10,
-                            fontWeight: '700',
-                            color: rx.userReacted ? '#0D9488' : (isDark ? '#94A3B8' : '#64748B'),
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            gap: 3,
+                            paddingHorizontal: 7,
+                            paddingVertical: 2,
+                            borderRadius: 12,
+                            backgroundColor: rx.userReacted
+                              ? (isDark ? 'rgba(13, 148, 136, 0.28)' : 'rgba(13, 148, 136, 0.18)')
+                              : (isDark ? 'rgba(30, 41, 59, 0.85)' : 'rgba(255, 255, 255, 0.75)'),
+                            borderWidth: 1,
+                            borderColor: rx.userReacted
+                              ? '#0D9488'
+                              : (isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)'),
                           }}
                         >
-                          {rx.count}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                    <View
-                      style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        backgroundColor: isDark ? 'rgba(30, 41, 59, 0.85)' : 'rgba(255, 255, 255, 0.75)',
-                        borderRadius: 16,
-                        borderWidth: 1,
-                        borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)',
-                        paddingHorizontal: 4,
-                        paddingVertical: 1,
-                      }}
-                    >
-                      {PROMINENT_QUICK_EMOJIS.slice(0, 4).map((em) => (
-                        <TouchableOpacity
-                          key={em}
-                          activeOpacity={0.6}
-                          onPress={() => handleToggleReaction(post.id, em)}
-                          style={{ paddingHorizontal: 4, paddingVertical: 2 }}
-                        >
-                          <Text style={{ fontSize: 13 }}>{em}</Text>
+                          <Text style={{ fontSize: 12 }}>{rx.emoji}</Text>
+                          <Text
+                            style={{
+                              fontSize: 10,
+                              fontWeight: '700',
+                              color: rx.userReacted ? '#0D9488' : (isDark ? '#94A3B8' : '#64748B'),
+                            }}
+                          >
+                            {rx.count}
+                          </Text>
                         </TouchableOpacity>
                       ))}
-                      <TouchableOpacity
-                        activeOpacity={0.6}
-                        onPress={() => setFullEmojiTargetPostId(post.id)}
-                        style={{ paddingHorizontal: 4, paddingVertical: 2 }}
-                        accessibilityLabel={t.emoji.addOtherEmoji}
-                      >
-                        <Smile size={13} color={isDark ? '#94A3B8' : '#64748B'} />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
 
-                  <View style={[styles.cardFooter, { borderTopColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.05)' }]}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                      <Sparkles size={11} color={isDark ? '#94A3B8' : '#64748B'} />
-                      <Text style={[styles.footerText, { color: isDark ? '#94A3B8' : '#64748B' }]}>{t.collab.anonymousCardTag}</Text>
+                      {/* Nút Phản hồi: Thay thế icon đã chọn vào vị trí trái tim, Long Press = mở quick reaction sheet/popup */}
+                      {(() => {
+                        const myReaction = post.reactions?.find((r) => r.userReacted);
+                        return (
+                          <TouchableOpacity
+                            activeOpacity={0.7}
+                            onPress={() => handleToggleReaction(post.id, myReaction ? myReaction.emoji : '❤️')}
+                            onLongPress={() => {
+                              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                              setActiveQuickReactionPostId(post.id);
+                            }}
+                            delayLongPress={250}
+                            style={{
+                              width: 28,
+                              height: 28,
+                              borderRadius: 14,
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              backgroundColor: myReaction
+                                ? (isDark ? 'rgba(13, 148, 136, 0.28)' : 'rgba(13, 148, 136, 0.18)')
+                                : (isDark ? 'rgba(30, 41, 59, 0.85)' : 'rgba(255, 255, 255, 0.75)'),
+                              borderWidth: 1,
+                              borderColor: myReaction
+                                ? '#0D9488'
+                                : (isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.08)'),
+                            }}
+                            accessibilityLabel={
+                              myReaction
+                                ? `Đã thả ${myReaction.emoji} (Chạm để gỡ)`
+                                : 'Thả tim (Nhấn giữ để chọn biểu cảm)'
+                            }
+                          >
+                            {myReaction ? (
+                              <Text style={{ fontSize: 14 }}>{myReaction.emoji}</Text>
+                            ) : (
+                              <Heart
+                                size={13}
+                                color={isDark ? '#94A3B8' : '#64748B'}
+                              />
+                            )}
+                          </TouchableOpacity>
+                        );
+                      })()}
                     </View>
+
                     <Text style={[styles.footerText, { color: isDark ? '#94A3B8' : '#64748B' }]}>
                       {formatPostDate(post.postedAt)}
                     </Text>
@@ -449,6 +514,50 @@ export const MobileAnonymousView: React.FC<MobileAnonymousViewProps> = ({ circle
           </View>
         )}
       </ScrollView>
+
+      {/* Quick Reaction Popup Modal (Telegram/iMessage style) */}
+      <Modal
+        visible={Boolean(activeQuickReactionPostId)}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setActiveQuickReactionPostId(null)}
+      >
+        <TouchableOpacity
+          style={styles.quickReactionOverlay}
+          activeOpacity={1}
+          onPress={() => setActiveQuickReactionPostId(null)}
+        >
+          <View style={styles.quickReactionPill}>
+            {PROMINENT_QUICK_EMOJIS.map((em) => (
+              <TouchableOpacity
+                key={em}
+                activeOpacity={0.6}
+                onPress={() => {
+                  if (activeQuickReactionPostId) {
+                    handleToggleReaction(activeQuickReactionPostId, em);
+                    setActiveQuickReactionPostId(null);
+                  }
+                }}
+                style={styles.quickReactionItem}
+              >
+                <Text style={{ fontSize: 22 }}>{em}</Text>
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity
+              activeOpacity={0.6}
+              onPress={() => {
+                const targetId = activeQuickReactionPostId;
+                setActiveQuickReactionPostId(null);
+                setFullEmojiTargetPostId(targetId);
+              }}
+              style={[styles.quickReactionItem, { paddingHorizontal: 8 }]}
+              accessibilityLabel={t.emoji.addOtherEmoji}
+            >
+              <Smile size={20} color={isDark ? '#94A3B8' : '#64748B'} />
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       {/* Floating Action Button (FAB) */}
       <TouchableOpacity
@@ -879,5 +988,46 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   reactionCountActive: {
     color: colors.primary,
     fontWeight: '700',
+  },
+  headerIconBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: isDark ? 0.3 : 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  quickReactionOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  quickReactionPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 6,
+    gap: 4,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.1)',
+  },
+  quickReactionItem: {
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    borderRadius: 16,
   },
 });

@@ -354,6 +354,12 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
+  broadcastLiveWheel(circleId: string, payload: any) {
+    if (this.server) {
+      this.server.to('circle:' + circleId).emit('circle:live-wheel:started', payload);
+    }
+  }
+
   broadcastAnonymousPostReaction(circleId: string, payload: any) {
     if (this.server) {
       this.server.to('circle:' + circleId).emit('circle:anonymous-post-reaction-updated', payload);

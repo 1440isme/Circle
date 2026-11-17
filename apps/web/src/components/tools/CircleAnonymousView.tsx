@@ -61,41 +61,41 @@ const THEMES: ThemeConfig[] = [
     id: 'sunset',
     name: 'Hoàng hôn',
     bgGradient:
-      'bg-gradient-to-br from-amber-100 via-rose-100 to-orange-100 dark:from-amber-950/70 dark:via-rose-950/60 dark:to-orange-950/70 border-amber-200/80 dark:border-amber-700/50',
+      'bg-gradient-to-br from-amber-50 via-orange-50 to-amber-100/70 dark:from-[#2A1B12] dark:via-[#332014] dark:to-[#26160E] border-amber-200/80 dark:border-amber-500/35',
     textColor: 'text-amber-950 dark:text-amber-100',
-    tagColor: 'bg-amber-500/20 text-amber-800 dark:bg-amber-400/20 dark:text-amber-300',
+    tagColor: 'bg-amber-500/15 text-amber-900 dark:bg-amber-400/20 dark:text-amber-200',
   },
   {
     id: 'ocean',
     name: 'Đại dương',
     bgGradient:
-      'bg-gradient-to-br from-sky-100 via-cyan-100 to-blue-100 dark:from-sky-950/70 dark:via-cyan-950/60 dark:to-blue-950/70 border-sky-200/80 dark:border-sky-700/50',
+      'bg-gradient-to-br from-sky-50 via-cyan-50 to-blue-100/70 dark:from-[#0E2333] dark:via-[#132C3F] dark:to-[#0C1E2B] border-sky-200/80 dark:border-sky-500/35',
     textColor: 'text-sky-950 dark:text-sky-100',
-    tagColor: 'bg-sky-500/20 text-sky-800 dark:bg-sky-400/20 dark:text-sky-300',
+    tagColor: 'bg-sky-500/15 text-sky-900 dark:bg-sky-400/20 dark:text-sky-200',
   },
   {
     id: 'lavender',
     name: 'Oải hương',
     bgGradient:
-      'bg-gradient-to-br from-purple-100 via-fuchsia-100 to-indigo-100 dark:from-purple-950/70 dark:via-fuchsia-950/60 dark:to-indigo-950/70 border-purple-200/80 dark:border-purple-700/50',
+      'bg-gradient-to-br from-purple-50 via-fuchsia-50 to-indigo-100/70 dark:from-[#231533] dark:via-[#2C1A3F] dark:to-[#1E112B] border-purple-200/80 dark:border-purple-500/35',
     textColor: 'text-purple-950 dark:text-purple-100',
-    tagColor: 'bg-purple-500/20 text-purple-800 dark:bg-purple-400/20 dark:text-purple-300',
+    tagColor: 'bg-purple-500/15 text-purple-900 dark:bg-purple-400/20 dark:text-purple-200',
   },
   {
     id: 'rose',
     name: 'Hoa hồng',
     bgGradient:
-      'bg-gradient-to-br from-pink-100 via-rose-100 to-red-100 dark:from-pink-950/70 dark:via-rose-950/60 dark:to-red-950/70 border-pink-200/80 dark:border-pink-700/50',
+      'bg-gradient-to-br from-pink-50 via-rose-50 to-red-100/70 dark:from-[#2E141E] dark:via-[#381824] dark:to-[#261018] border-pink-200/80 dark:border-pink-500/35',
     textColor: 'text-pink-950 dark:text-pink-100',
-    tagColor: 'bg-pink-500/20 text-pink-800 dark:bg-pink-400/20 dark:text-pink-300',
+    tagColor: 'bg-pink-500/15 text-pink-900 dark:bg-pink-400/20 dark:text-pink-200',
   },
   {
     id: 'mint',
     name: 'Bạc hà',
     bgGradient:
-      'bg-gradient-to-br from-emerald-100 via-emerald-100 to-green-100 dark:from-emerald-950/70 dark:via-emerald-950/60 dark:to-green-950/70 border-emerald-200/80 dark:border-emerald-700/50',
+      'bg-gradient-to-br from-emerald-50 via-teal-50 to-emerald-100/70 dark:from-[#0E261E] dark:via-[#133026] dark:to-[#0B2019] border-emerald-200/80 dark:border-emerald-500/35',
     textColor: 'text-emerald-950 dark:text-emerald-100',
-    tagColor: 'bg-emerald-500/20 text-emerald-800 dark:bg-emerald-400/20 dark:text-emerald-300',
+    tagColor: 'bg-emerald-500/15 text-emerald-900 dark:bg-emerald-400/20 dark:text-emerald-200',
   },
 ];
 
@@ -111,13 +111,13 @@ const formatPostDate = (isoString: string) => {
 
 // Estimate card height for dynamic shortest-column waterfall balancing
 const estimateCardHeight = (content: string, reactionCount: number) => {
-  // Base chrome: card padding + sender tag + reaction bar + footer ~ 130px
-  const baseHeight = 130;
+  // Base chrome: card padding + sender tag + footer ~ 90px
+  const baseHeight = 90;
   // Estimated ~42 chars per line in a 3-column layout ~ 20px per line
   const lines = Math.max(1, Math.ceil(content.length / 42));
   const textHeight = lines * 20;
-  // Extra reaction wrap
-  const extraReactions = reactionCount > 3 ? 28 : 0;
+  // Extra reaction wrap if many reactions
+  const extraReactions = reactionCount > 2 ? 24 : 0;
   return baseHeight + textHeight + extraReactions;
 };
 
@@ -230,6 +230,46 @@ export const CircleAnonymousView: React.FC<CircleAnonymousViewProps> = ({ circle
     }
   };
 
+  const handleToggleReaction = (postId: string, emoji: string) => {
+    // Optimistic UI update: Rule 1 reaction per user
+    queryClient.setQueryData(TOOLS_KEYS.anonymous(circleId), (old: any) => {
+      if (!Array.isArray(old)) return old;
+      return old.map((p) => {
+        if (p.id !== postId) return p;
+        const curReactions = p.reactions ? [...p.reactions] : [];
+        const currentlyUserReacted = curReactions.find((r: any) => r.userReacted);
+
+        let nextReactions: any[] = [];
+
+        if (currentlyUserReacted && currentlyUserReacted.emoji === emoji) {
+          // Unreact the current emoji
+          nextReactions = curReactions
+            .map((r: any) => (r.emoji === emoji ? { ...r, count: r.count - 1, userReacted: false } : r))
+            .filter((r: any) => r.count > 0);
+        } else {
+          // Remove old reaction if exists
+          const cleaned = curReactions
+            .map((r: any) => (r.userReacted ? { ...r, count: r.count - 1, userReacted: false } : r))
+            .filter((r: any) => r.count > 0);
+
+          // Add / increment the new emoji
+          const existingTarget = cleaned.find((r: any) => r.emoji === emoji);
+          if (existingTarget) {
+            nextReactions = cleaned.map((r: any) =>
+              r.emoji === emoji ? { ...r, count: r.count + 1, userReacted: true } : r,
+            );
+          } else {
+            nextReactions = [...cleaned, { emoji, count: 1, userReacted: true }];
+          }
+        }
+
+        return { ...p, reactions: nextReactions };
+      });
+    });
+
+    reactMutation.mutate({ postId, emoji });
+  };
+
   return (
     <div className="relative flex-1 flex flex-col h-full bg-circle-canvas dark:bg-circle-dark-surface overflow-hidden transition-colors">
       {/* Floating Pill Controls Bar (Full gần sát lề, cân đối với nội dung) */}
@@ -302,61 +342,92 @@ export const CircleAnonymousView: React.FC<CircleAnonymousViewProps> = ({ circle
                       </div>
                     </div>
 
-                    {/* Reactions Bar (Chat-style Floating Pill Reactions & Apple Color Emojis) */}
-                    <div className="mt-3 pt-2.5 border-t border-black/5 dark:border-white/5 flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex flex-wrap items-center gap-1.5">
+                    {/* Chân thiệp: Đẩy phần thả reaction xuống góc trái thay cho text "Điều muốn nói", góc phải là ngày giờ */}
+                    <div className="mt-3 pt-2.5 border-t border-black/5 dark:border-white/5 flex items-center justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-1.5 min-w-0">
                         {(post.reactions || []).map((rx) => (
                           <button
                             key={rx.emoji}
                             type="button"
-                            onClick={() => reactMutation.mutate({ postId: post.id, emoji: rx.emoji })}
-                            className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-all cursor-pointer ${
+                            onClick={() => handleToggleReaction(post.id, rx.emoji)}
+                            className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border transition-all cursor-pointer ${
                               rx.userReacted
                                 ? 'bg-circle-primary/15 dark:bg-circle-primary/25 border-circle-primary/40 text-circle-primary dark:text-circle-primary shadow-2xs scale-105'
                                 : 'bg-white/80 dark:bg-circle-dark-surface/80 border-black/10 dark:border-white/10 text-circle-slate dark:text-circle-dark-muted hover:border-black/25 dark:hover:border-white/25'
                             }`}
+                            title={locale === 'vi' ? `Biểu cảm ${rx.emoji}` : `React ${rx.emoji}`}
                           >
-                            <Emoji emoji={rx.emoji} size={14} />
+                            <Emoji emoji={rx.emoji} size={13} />
                             <span className="text-[10px] font-bold">{rx.count}</span>
                           </button>
                         ))}
 
-                        {/* Quick emoji reaction pickers (Chat-like Floating Pill Toolbar) */}
-                        <div className="flex items-center gap-0.5 p-0.5 rounded-full border border-black/10 dark:border-white/10 bg-white/70 dark:bg-circle-dark-surface/70 backdrop-blur-xs">
-                          {PROMINENT_QUICK_EMOJIS.map((em) => {
-                            const isAlreadyReacted = post.reactions?.some((r) => r.emoji === em && r.userReacted);
+                        {/* Nút phản hồi: Thay thế icon đã chọn vào vị trí trái tim, Hover ra floating quick reaction toolbar */}
+                        <div className="relative group/react flex items-center">
+                          {(() => {
+                            const myReaction = post.reactions?.find((r) => r.userReacted);
                             return (
                               <button
-                                key={em}
                                 type="button"
-                                onClick={() => reactMutation.mutate({ postId: post.id, emoji: em })}
-                                className={`flex h-6 w-6 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-transform hover:scale-125 active:scale-95 cursor-pointer ${
-                                  isAlreadyReacted ? 'opacity-40' : 'opacity-85 hover:opacity-100'
+                                onClick={() => handleToggleReaction(post.id, myReaction ? myReaction.emoji : '❤️')}
+                                className={`flex items-center justify-center h-6 w-6 rounded-full border transition-all cursor-pointer ${
+                                  myReaction
+                                    ? 'bg-circle-primary/15 dark:bg-circle-primary/25 border-circle-primary/50 text-circle-primary dark:text-circle-primary shadow-2xs scale-105'
+                                    : 'bg-white/80 dark:bg-circle-dark-surface/80 border-black/10 dark:border-white/10 text-circle-slate dark:text-circle-dark-muted hover:text-rose-500 hover:border-rose-400/50 hover:scale-110 active:scale-95'
                                 }`}
-                                title={locale === 'vi' ? `Thả ${em}` : `React ${em}`}
+                                title={
+                                  myReaction
+                                    ? (locale === 'vi' ? `Đã thả ${myReaction.emoji} (Click để gỡ)` : `Reacted ${myReaction.emoji} (Click to remove)`)
+                                    : (locale === 'vi' ? 'Thả tim (Click để thích, di chuột để chọn biểu cảm)' : 'Heart (Click to react, hover for more)')
+                                }
                               >
-                                <Emoji emoji={em} size={15} />
+                                {myReaction ? (
+                                  <Emoji emoji={myReaction.emoji} size={14} />
+                                ) : (
+                                  <Heart className="h-3.5 w-3.5" />
+                                )}
                               </button>
                             );
-                          })}
-                          <button
-                            type="button"
-                            onClick={() => setFullEmojiTargetPostId(post.id)}
-                            className="flex h-6 w-6 items-center justify-center rounded-full text-circle-slate dark:text-circle-dark-muted hover:bg-black/5 dark:hover:bg-white/10 hover:text-circle-charcoal dark:hover:text-white transition-colors cursor-pointer"
-                            title={t.emoji.addOtherEmoji}
-                          >
-                            <Smile className="h-3.5 w-3.5" />
-                          </button>
+                          })()}
+
+                          {/* Quick Emoji Toolbar khi hover (nổi trên nút tim) */}
+                          <div className="absolute bottom-full left-0 mb-1.5 hidden group-hover/react:flex items-center gap-0.5 p-1 rounded-full border border-black/10 dark:border-white/10 bg-white/95 dark:bg-circle-dark-surface/95 backdrop-blur-md shadow-lg z-30 pointer-events-auto">
+                            {PROMINENT_QUICK_EMOJIS.map((em) => {
+                              const isSelected = post.reactions?.some((r) => r.emoji === em && r.userReacted);
+                              return (
+                                <button
+                                  key={em}
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleToggleReaction(post.id, em);
+                                  }}
+                                  className={`flex h-6 w-6 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-transform hover:scale-125 active:scale-95 cursor-pointer ${
+                                    isSelected ? 'scale-110 bg-black/5 dark:bg-white/10' : ''
+                                  }`}
+                                  title={locale === 'vi' ? `Thả ${em}` : `React ${em}`}
+                                >
+                                  <Emoji emoji={em} size={15} />
+                                </button>
+                              );
+                            })}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setFullEmojiTargetPostId(post.id);
+                              }}
+                              className="flex h-6 w-6 items-center justify-center rounded-full text-circle-slate dark:text-circle-dark-muted hover:bg-black/5 dark:hover:bg-white/10 hover:text-circle-charcoal dark:hover:text-white transition-colors cursor-pointer"
+                              title={t.emoji.addOtherEmoji}
+                            >
+                              <Smile className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    <div className="mt-2 pt-2 border-t border-black/5 dark:border-white/5 flex items-center justify-between text-[10px] opacity-70">
-                      <div className="flex items-center gap-1">
-                        <Sparkles className="h-3 w-3" />
-                        <span>{t.collab.anonymousCardTag}</span>
-                      </div>
-                      <span className="font-medium tracking-tight">
+                      {/* Góc phải: Thời gian đăng */}
+                      <span className="text-[10px] opacity-70 font-medium tracking-tight shrink-0">
                         {formatPostDate(post.postedAt)}
                       </span>
                     </div>
@@ -475,7 +546,7 @@ export const CircleAnonymousView: React.FC<CircleAnonymousViewProps> = ({ circle
         onClose={() => setFullEmojiTargetPostId(null)}
         onSelectEmoji={(emoji) => {
           if (fullEmojiTargetPostId) {
-            reactMutation.mutate({ postId: fullEmojiTargetPostId, emoji });
+            handleToggleReaction(fullEmojiTargetPostId, emoji);
             setFullEmojiTargetPostId(null);
           }
         }}

@@ -21,6 +21,7 @@ import {
   CreateWheelFolderDto,
   UpdateWheelFolderDto,
   ShareWheelResultsDto,
+  LiveSpinWheelDto,
   CreateAnonymousPostDto,
   ReactAnonymousPostDto,
   CreateCalendarEventDto,
@@ -37,7 +38,7 @@ import {
 } from './dto/circle-tools.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { ApiResponse } from '@circle/types';
+import { ApiResponse, LiveWheelSession } from '@circle/types';
 
 @Controller('circles/:circleId')
 @UseGuards(JwtAuthGuard)
@@ -369,6 +370,35 @@ export class CircleToolsController {
     return {
       success: true,
       statusCode: HttpStatus.CREATED,
+      data,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  @Post('wheels/live-spin')
+  async liveSpinWheel(
+    @Param('circleId') circleId: string,
+    @CurrentUser('id') userId: string,
+    @Body() dto: LiveSpinWheelDto,
+  ): Promise<ApiResponse<LiveWheelSession>> {
+    const data = await this.toolsService.liveSpinWheel(circleId, userId, dto);
+    return {
+      success: true,
+      statusCode: HttpStatus.CREATED,
+      data,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  @Get('wheels/live-active')
+  async getActiveLiveWheel(
+    @Param('circleId') circleId: string,
+    @CurrentUser('id') userId: string,
+  ): Promise<ApiResponse<LiveWheelSession | null>> {
+    const data = await this.toolsService.getActiveLiveWheel(circleId, userId);
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
       data,
       timestamp: new Date().toISOString(),
     };
