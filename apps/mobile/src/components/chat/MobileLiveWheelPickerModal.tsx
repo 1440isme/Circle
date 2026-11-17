@@ -11,8 +11,13 @@ import {
   Platform,
   KeyboardAvoidingView,
   Alert,
+  Animated,
+  Easing,
+  useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Path, G, Circle, Rect, Text as SvgText } from 'react-native-svg';
+import * as Haptics from 'expo-haptics';
 import {
   Compass,
   X,
@@ -28,7 +33,10 @@ import {
   Check,
   ArrowDownAZ,
   BookmarkCheck,
-  Share2,
+  Sparkles,
+  ArrowLeft,
+  Play,
+  ArrowRight,
 } from 'lucide-react-native';
 import { DecisionWheelEntity } from '@circle/types';
 import {
@@ -37,7 +45,6 @@ import {
   updateWheelApi,
   deleteWheelApi,
   deleteAllWheelsApi,
-  shareWheelResultsToChatApi,
   liveSpinWheelApi,
 } from '../../services/circle-tools.service';
 import { useLanguageStore } from '../../stores/language.store';
@@ -72,23 +79,29 @@ export const MobileLiveWheelPickerModal: React.FC<MobileLiveWheelPickerModalProp
   channelId,
 }) => {
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const { colors, resolvedTheme } = useThemeStore();
   const isDark = resolvedTheme === 'dark';
   const { locale, t } = useLanguageStore();
 
+  // Mode: 'setup' (bảng cấu hình) hoặc 'arena' (sân khấu các vòng tròn quay khi bấm Tạo)
+  const [viewMode, setViewMode] = useState<'setup' | 'arena'>('setup');
+
   const [wheels, setWheels] = useState<DecisionWheelEntity[]>([]);
   const [isLoadingWheels, setIsLoadingWheels] = useState(false);
-  const [activeTab, setActiveTab] = useState<string>('wheel');
   const [activeWheelId, setActiveWheelId] = useState<string | null>(null);
 
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const [resultsText, setResultsText] = useState<string>('');
   const [wheelsState, setWheelsState] = useState<Record<string, { optionsText: string }>>({});
 
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editingTitleText, setEditingTitleText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [shareSuccess, setShareSuccess] = useState(false);
+
+  // Arena Spinning states
+  const [isSpinning, setIsSpinning] = useState(false);
+  const [lastSpinResult, setLastSpinResult] = useState<string | null>(null);
+  const rotateAnim = useRef(new Animated.Value(0)).current;
 
   const scrollViewRef = useRef<React.ElementRef<typeof ScrollView>>(null);
 
@@ -126,7 +139,6 @@ export const MobileLiveWheelPickerModal: React.FC<MobileLiveWheelPickerModalProp
 
       if (sorted.length > 0 && (!activeWheelId || !sorted.some((w) => w.id === activeWheelId))) {
         setActiveWheelId(sorted[0]!.id);
-        setActiveTab(sorted[0]!.id);
       }
     } catch {}
     finally {
@@ -136,9 +148,13 @@ export const MobileLiveWheelPickerModal: React.FC<MobileLiveWheelPickerModalProp
 
   useEffect(() => {
     if (visible) {
+      setViewMode('setup');
+      setLastSpinResult(null);
+      setIsSpinning(false);
+      rotateAnim.setValue(0);
       loadWheels();
     }
-  }, [visible, loadWheels]);
+  }, [visible, loadWheels, rotateAnim]);
 
   const activeWheel = useMemo(() => {
     return wheels.find((w) => w.id === activeWheelId) || wheels[0] || null;
@@ -150,13 +166,6 @@ export const MobileLiveWheelPickerModal: React.FC<MobileLiveWheelPickerModalProp
     return parseOptions(activeLocalState?.optionsText || '');
   }, [activeLocalState, parseOptions]);
 
-  const resultLinesCount = useMemo(() => {
-    return resultsText
-      .split('\n')
-      .map((l) => l.trim())
-      .filter((l) => l.length > 0).length;
-  }, [resultsText]);
-
   const handleOptionsChange = (newText: string) => {
     if (!activeWheel) return;
     setWheelsState((prev) => ({
@@ -165,7 +174,7 @@ export const MobileLiveWheelPickerModal: React.FC<MobileLiveWheelPickerModalProp
     }));
   };
 
-  // Add Wheel
+  // Thêm vòng xoay
   const handleAddDefaultWheel = async () => {
     if (wheels.length >= 4 || isSubmitting) return;
     try {
@@ -190,7 +199,6 @@ export const MobileLiveWheelPickerModal: React.FC<MobileLiveWheelPickerModalProp
       if (newWheel?.id) {
         await loadWheels();
         setActiveWheelId(newWheel.id);
-        setActiveTab(newWheel.id);
       }
     } catch (err: any) {
       Alert.alert(t.common.error, err?.message || 'Không thể thêm vòng quay');
@@ -199,7 +207,7 @@ export const MobileLiveWheelPickerModal: React.FC<MobileLiveWheelPickerModalProp
     }
   };
 
-  // Save Title
+  // Sửa tên vòng
   const saveEditTitle = async () => {
     if (!activeWheel) return;
     const trimmed = editingTitleText.trim();
@@ -212,7 +220,7 @@ export const MobileLiveWheelPickerModal: React.FC<MobileLiveWheelPickerModalProp
     setIsEditingTitle(false);
   };
 
-  // Delete current active wheel
+  // Xóa vòng đang chọn
   const handleDeleteCurrentWheel = () => {
     if (!activeWheel || wheels.length <= 1) return;
     Alert.alert(t.luckyWheel.confirmDeleteTitle, t.luckyWheel.confirmDeleteDesc, [
@@ -230,7 +238,7 @@ export const MobileLiveWheelPickerModal: React.FC<MobileLiveWheelPickerModalProp
     ]);
   };
 
-  // Delete all wheels
+  // Xóa tất cả vòng
   const handleDeleteAllWheels = () => {
     if (wheels.length === 0) return;
     Alert.alert(t.luckyWheel.deleteAllWheels, t.luckyWheel.confirmDeleteAllWheels, [
@@ -245,7 +253,6 @@ export const MobileLiveWheelPickerModal: React.FC<MobileLiveWheelPickerModalProp
             await loadWheels();
             if (res?.defaultWheel?.id) {
               setActiveWheelId(res.defaultWheel.id);
-              setActiveTab(res.defaultWheel.id);
             }
           } catch {}
         },
@@ -303,33 +310,9 @@ export const MobileLiveWheelPickerModal: React.FC<MobileLiveWheelPickerModalProp
     handleOptionsChange(initial.join('\n'));
   };
 
-  // Clear results
-  const handleClearResults = () => {
-    Alert.alert(t.luckyWheel.confirmClearResultsTitle, t.luckyWheel.confirmClearResultsDesc, [
-      { text: t.common.cancel, style: 'cancel' },
-      {
-        text: t.common.confirm,
-        style: 'destructive',
-        onPress: () => setResultsText(''),
-      },
-    ]);
-  };
-
-  // Share results to chat
-  const handleShareResults = async () => {
-    if (!resultsText.trim()) return;
-    try {
-      await shareWheelResultsToChatApi(circleId, [
-        { wheelTitle: t.luckyWheel.title, winner: resultsText.trim() },
-      ]);
-      setShareSuccess(true);
-      setTimeout(() => setShareSuccess(false), 3000);
-    } catch {}
-  };
-
-  // Bắt đầu quay tất cả trực tiếp trong nhóm
-  const handleStartSpinAllLive = async () => {
-    if (wheels.length === 0 || isSubmitting) return;
+  // KHI BẤM NÚT "TẠO": Lưu và chuyển sang sân khấu Arena các vòng tròn
+  const handleCreateStage = () => {
+    if (wheels.length === 0) return;
 
     if (activeWheel && activeLocalState?.optionsText) {
       const lines = parseOptions(activeLocalState.optionsText);
@@ -343,20 +326,121 @@ export const MobileLiveWheelPickerModal: React.FC<MobileLiveWheelPickerModalProp
       }
     }
 
+    setViewMode('arena');
+    setLastSpinResult(null);
+  };
+
+  // KHI BẤM NÚT "QUAY" / "QUAY TẤT CẢ" TRÊN SÂN KHẤU
+  const handleStartSpin = async () => {
+    if (wheels.length === 0 || isSpinning || isSubmitting) return;
+
     try {
       setIsSubmitting(true);
-      await liveSpinWheelApi(circleId, {
+      setIsSpinning(true);
+      setLastSpinResult(null);
+
+      const session = await liveSpinWheelApi(circleId, {
         isAll: true,
         wheelId: activeWheel?.id,
         channelId: channelId || undefined,
       });
-      onClose();
+
+      const duration = session.durationMs || 6000;
+      const targetSlices = session.options.length;
+      const sliceDeg = 360 / Math.max(targetSlices, 1);
+      const targetCenterDeg = session.winningIndex * sliceDeg + sliceDeg / 2;
+      const stopAngle = (360 - (targetCenterDeg % 360)) % 360;
+      const extraSpins = 6 * 360;
+      const finalRot = extraSpins + stopAngle;
+
+      rotateAnim.setValue(0);
+
+      Animated.timing(rotateAnim, {
+        toValue: finalRot,
+        duration: duration,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start(() => {
+        setIsSpinning(false);
+        setIsSubmitting(false);
+        setLastSpinResult(session.winningOption.optionLabel);
+        try {
+          if (soundEnabled) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          }
+        } catch {}
+      });
     } catch (err: any) {
-      Alert.alert(t.common.error, err?.message || 'Không thể bắt đầu quay');
-    } finally {
+      setIsSpinning(false);
       setIsSubmitting(false);
+      Alert.alert(t.common.error, err?.message || 'Không thể bắt đầu quay');
     }
   };
+
+  // Render SVG Slices cho từng vòng tròn
+  const renderWheelSvg = (optionsText: string, discSize: number) => {
+    const options = parseOptions(optionsText);
+    const count = options.length;
+    if (count === 0) return null;
+
+    const radius = discSize / 2;
+    const centerX = discSize / 2;
+    const centerY = discSize / 2;
+    const arcAngle = (2 * Math.PI) / count;
+
+    return options.map((label, idx) => {
+      const angle1 = idx * arcAngle;
+      const angle2 = (idx + 1) * arcAngle;
+      const color = PASTEL_WHEEL_COLORS[idx % PASTEL_WHEEL_COLORS.length]!;
+
+      const x1 = centerX + radius * Math.cos(angle1);
+      const y1 = centerY + radius * Math.sin(angle1);
+      const x2 = centerX + radius * Math.cos(angle2);
+      const y2 = centerY + radius * Math.sin(angle2);
+
+      const largeArcFlag = angle2 - angle1 > Math.PI ? 1 : 0;
+      const pathD = `M ${centerX} ${centerY} L ${x1} ${y1} A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2} ${y2} Z`;
+
+      const midAngle = angle1 + arcAngle / 2;
+      const midAngleDeg = (midAngle * 180) / Math.PI;
+
+      const textRadius = radius * 0.62;
+      const tx = centerX + textRadius * Math.cos(midAngle);
+      const ty = centerY + textRadius * Math.sin(midAngle);
+
+      const maxLen = discSize > 200 ? 10 : 6;
+      const displayLabel = label.length > maxLen ? label.slice(0, maxLen - 1) + '…' : label;
+
+      return (
+        <G key={`slice-${idx}`}>
+          <Path d={pathD} fill={color} />
+          <SvgText
+            x={tx}
+            y={ty}
+            fill="#1E293B"
+            fontSize={discSize > 200 ? 11 : 9}
+            fontWeight="bold"
+            textAnchor="middle"
+            alignmentBaseline="middle"
+            transform={`rotate(${midAngleDeg}, ${tx}, ${ty})`}
+          >
+            {displayLabel}
+          </SvgText>
+        </G>
+      );
+    });
+  };
+
+  // Kích thước vòng quay phù hợp layout
+  const discSize = useMemo(() => {
+    if (wheels.length === 1) return Math.min(width - 80, 240);
+    return Math.min((width - 70) / 2, 135);
+  }, [wheels.length, width]);
+
+  const rotateInterpolate = rotateAnim.interpolate({
+    inputRange: [0, 360],
+    outputRange: ['0deg', '360deg'],
+  });
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
@@ -379,6 +463,16 @@ export const MobileLiveWheelPickerModal: React.FC<MobileLiveWheelPickerModalProp
           {/* Header */}
           <View style={[styles.header, { borderBottomColor: colors.hairline }]}>
             <View style={styles.headerLeft}>
+              {viewMode === 'arena' && (
+                <TouchableOpacity
+                  style={styles.backBtn}
+                  disabled={isSpinning}
+                  onPress={() => setViewMode('setup')}
+                >
+                  <ArrowLeft size={18} color={colors.text} />
+                </TouchableOpacity>
+              )}
+
               <View style={[styles.iconCircle, { backgroundColor: `${colors.primary}20` }]}>
                 <Compass size={18} color={colors.primary} />
               </View>
@@ -387,409 +481,469 @@ export const MobileLiveWheelPickerModal: React.FC<MobileLiveWheelPickerModalProp
                   {t.luckyWheel.title}
                 </Text>
                 <Text style={[styles.headerSubtitle, { color: colors.subtle }]}>
-                  {t.luckyWheel.liveWheelTitle}
+                  {viewMode === 'setup'
+                    ? 'Thiết lập danh sách lựa chọn'
+                    : t.luckyWheel.liveWheelTitle}
                 </Text>
               </View>
             </View>
 
-            <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
+            <TouchableOpacity style={styles.closeBtn} disabled={isSpinning} onPress={onClose}>
               <X size={20} color={colors.subtle} />
             </TouchableOpacity>
           </View>
 
-          {/* Dãy Tabs Header: Từng vòng + Tab Kết quả */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={[styles.tabsBar, { borderBottomColor: colors.hairline }]}
-            contentContainerStyle={styles.tabsBarContent}
-          >
-            {wheels.map((wheel) => {
-              const isSelected = activeTab === wheel.id;
-              return (
-                <TouchableOpacity
-                  key={wheel.id}
-                  activeOpacity={0.8}
-                  onPress={() => {
-                    setActiveTab(wheel.id);
-                    setActiveWheelId(wheel.id);
-                  }}
-                  style={[
-                    styles.tabItem,
-                    {
-                      backgroundColor: isSelected
-                        ? colors.primary
-                        : isDark
-                        ? colors.surface
-                        : '#F1F5F9',
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.tabItemText,
-                      { color: isSelected ? '#FFFFFF' : colors.text },
-                      isSelected && styles.tabItemTextBold,
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {wheel.title}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-
-            {/* Tab Kết Quả */}
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => setActiveTab('results')}
-              style={[
-                styles.tabItem,
-                styles.tabItemResults,
-                {
-                  backgroundColor:
-                    activeTab === 'results' ? '#F59E0B' : isDark ? colors.surface : '#F1F5F9',
-                },
-              ]}
-            >
-              <Trophy size={13} color={activeTab === 'results' ? '#FFFFFF' : '#D97706'} />
-              <Text
-                style={[
-                  styles.tabItemText,
-                  { color: activeTab === 'results' ? '#FFFFFF' : colors.text },
-                  activeTab === 'results' && styles.tabItemTextBold,
-                ]}
-                numberOfLines={1}
+          {/* ============================================================== */}
+          {/* VIEW MODE 1: SETUP (BẢNG THIẾT LẬP - BỎ KẾT QUẢ ĐI)            */}
+          {/* ============================================================== */}
+          {viewMode === 'setup' ? (
+            <>
+              {/* Dãy Tabs các vòng (KHÔNG CÒN TAB KẾT QUẢ) */}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={[styles.tabsBar, { borderBottomColor: colors.hairline }]}
+                contentContainerStyle={styles.tabsBarContent}
               >
-                {t.luckyWheel.resultsTab}
-              </Text>
-              {resultLinesCount > 0 && (
-                <View
-                  style={[
-                    styles.badgeCount,
-                    {
-                      backgroundColor:
-                        activeTab === 'results' ? 'rgba(255,255,255,0.25)' : 'rgba(245,158,11,0.2)',
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.badgeCountText,
-                      { color: activeTab === 'results' ? '#FFFFFF' : '#D97706' },
-                    ]}
-                  >
-                    {resultLinesCount}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          </ScrollView>
+                {wheels.map((wheel) => {
+                  const isSelected = activeWheelId === wheel.id;
+                  return (
+                    <TouchableOpacity
+                      key={wheel.id}
+                      activeOpacity={0.8}
+                      onPress={() => setActiveWheelId(wheel.id)}
+                      style={[
+                        styles.tabItem,
+                        {
+                          backgroundColor: isSelected
+                            ? colors.primary
+                            : isDark
+                            ? colors.surface
+                            : '#F1F5F9',
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.tabItemText,
+                          { color: isSelected ? '#FFFFFF' : colors.text },
+                          isSelected && styles.tabItemTextBold,
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {wheel.title}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
 
-          {/* Content Body */}
-          <ScrollView
-            ref={scrollViewRef}
-            style={styles.scrollBody}
-            contentContainerStyle={styles.scrollContent}
-            keyboardShouldPersistTaps="handled"
-          >
-            {isLoadingWheels ? (
-              <View style={styles.loadingBox}>
-                <ActivityIndicator size="small" color={colors.primary} />
-                <Text style={[styles.loadingText, { color: colors.subtle }]}>
-                  {locale === 'vi' ? 'Đang tải danh sách...' : 'Loading wheels...'}
-                </Text>
-              </View>
-            ) : activeTab === 'results' ? (
-              /* TAB KẾT QUẢ */
-              <View style={styles.resultsSection}>
-                <View style={styles.labelRow}>
-                  <Text style={[styles.inputLabel, { color: colors.text }]}>
-                    {t.luckyWheel.resultsHistoryTitle}
-                  </Text>
-                  <Text style={[styles.counterValue, { color: colors.subtle }]}>
-                    {resultLinesCount} {locale === 'vi' ? 'lần quay' : 'spins'}
-                  </Text>
-                </View>
-
-                <TextInput
-                  value={resultsText}
-                  editable={false}
-                  multiline
-                  placeholder={t.luckyWheel.resultsPlaceholder}
-                  placeholderTextColor={isDark ? '#64748B' : '#94A3B8'}
-                  style={[
-                    styles.resultsTextarea,
-                    {
-                      backgroundColor: isDark ? colors.surface : '#F8FAFC',
-                      borderColor: colors.hairline,
-                      color: colors.text,
-                    },
-                  ]}
-                />
-
-                <Text style={[styles.hintText, { color: colors.subtle }]}>
-                  {t.luckyWheel.resultsHint}
-                </Text>
-
-                <View style={styles.resultsActionsRow}>
-                  <TouchableOpacity
-                    style={[
-                      styles.resultsActionBtn,
-                      {
-                        backgroundColor: isDark ? colors.surface : '#F1F5F9',
-                        borderColor: colors.hairline,
-                      },
-                    ]}
-                    onPress={handleShareResults}
-                    disabled={resultLinesCount === 0}
-                  >
-                    {shareSuccess ? (
-                      <Check size={16} color="#10B981" />
-                    ) : (
-                      <Share2 size={16} color="#10B981" />
-                    )}
-                    <Text style={[styles.resultsActionBtnText, { color: colors.text }]}>
-                      {shareSuccess
-                        ? t.luckyWheel.shareResultsSuccess
-                        : t.luckyWheel.shareResultsToChat}
+              {/* Content Body Setup */}
+              <ScrollView
+                ref={scrollViewRef}
+                style={styles.scrollBody}
+                contentContainerStyle={styles.scrollContent}
+                keyboardShouldPersistTaps="handled"
+              >
+                {isLoadingWheels ? (
+                  <View style={styles.loadingBox}>
+                    <ActivityIndicator size="small" color={colors.primary} />
+                    <Text style={[styles.loadingText, { color: colors.subtle }]}>
+                      {locale === 'vi' ? 'Đang tải danh sách...' : 'Loading wheels...'}
                     </Text>
-                  </TouchableOpacity>
+                  </View>
+                ) : (
+                  activeWheel && (
+                    <View style={styles.wheelSetupSection}>
+                      {/* Wheel Title Row */}
+                      <View style={styles.titleRow}>
+                        {isEditingTitle ? (
+                          <View style={styles.titleEditBox}>
+                            <TextInput
+                              value={editingTitleText}
+                              onChangeText={setEditingTitleText}
+                              maxLength={50}
+                              autoFocus
+                              style={[
+                                styles.titleInput,
+                                {
+                                  backgroundColor: isDark ? colors.surface : '#F8FAFC',
+                                  borderColor: colors.primary,
+                                  color: colors.text,
+                                },
+                              ]}
+                            />
+                            <TouchableOpacity style={styles.titleConfirmBtn} onPress={saveEditTitle}>
+                              <Check size={16} color="#FFFFFF" />
+                            </TouchableOpacity>
+                          </View>
+                        ) : (
+                          <View style={styles.titleDisplayRow}>
+                            <Text
+                              style={[styles.activeWheelTitleText, { color: colors.text }]}
+                              numberOfLines={1}
+                            >
+                              {activeWheel.title}
+                            </Text>
+                            <TouchableOpacity
+                              style={styles.editTitleBtn}
+                              onPress={() => {
+                                setEditingTitleText(activeWheel.title);
+                                setIsEditingTitle(true);
+                              }}
+                            >
+                              <Edit2 size={14} color={colors.subtle} />
+                            </TouchableOpacity>
+                          </View>
+                        )}
 
-                  <TouchableOpacity
-                    style={[styles.resultsClearBtn, { borderColor: colors.hairline }]}
-                    onPress={handleClearResults}
-                    disabled={resultLinesCount === 0}
-                  >
-                    <Trash2 size={16} color="#EF4444" />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ) : (
-              /* TAB VÒNG ACTIVE */
-              activeWheel && (
-                <View style={styles.wheelSetupSection}>
-                  {/* Wheel Title Row */}
-                  <View style={styles.titleRow}>
-                    {isEditingTitle ? (
-                      <View style={styles.titleEditBox}>
-                        <TextInput
-                          value={editingTitleText}
-                          onChangeText={setEditingTitleText}
-                          maxLength={50}
-                          autoFocus
+                        {wheels.length > 1 && (
+                          <TouchableOpacity
+                            style={styles.delWheelBtn}
+                            onPress={handleDeleteCurrentWheel}
+                          >
+                            <Trash2 size={16} color="#EF4444" />
+                          </TouchableOpacity>
+                        )}
+                      </View>
+
+                      {/* Options Counter Row */}
+                      <View style={styles.labelRow}>
+                        <Text style={[styles.inputLabel, { color: colors.text }]}>
+                          {t.luckyWheel.optionsListTitle}
+                        </Text>
+                        <Text
                           style={[
-                            styles.titleInput,
+                            styles.counterValue,
                             {
-                              backgroundColor: isDark ? colors.surface : '#F8FAFC',
-                              borderColor: colors.primary,
-                              color: colors.text,
+                              color: activeParsed.length < 2 ? '#D97706' : colors.primary,
                             },
                           ]}
-                        />
-                        <TouchableOpacity style={styles.titleConfirmBtn} onPress={saveEditTitle}>
-                          <Check size={16} color="#FFFFFF" />
+                        >
+                          {t.luckyWheel.optionsCount.replace('{count}', String(activeParsed.length))}
+                        </Text>
+                      </View>
+
+                      {/* Options Textarea */}
+                      <TextInput
+                        value={activeLocalState?.optionsText || ''}
+                        onChangeText={handleOptionsChange}
+                        multiline
+                        numberOfLines={5}
+                        placeholder={t.luckyWheel.optionsPlaceholder}
+                        placeholderTextColor={isDark ? '#64748B' : '#94A3B8'}
+                        style={[
+                          styles.optionsTextarea,
+                          {
+                            backgroundColor: isDark ? colors.surface : '#F8FAFC',
+                            borderColor: colors.hairline,
+                            color: colors.text,
+                          },
+                        ]}
+                      />
+
+                      <Text style={[styles.hintText, { color: colors.subtle }]}>
+                        {t.luckyWheel.optionsHint}
+                      </Text>
+
+                      {/* 4 Action Buttons Row: Shuffle, Sort A-Z, BookmarkCheck, RotateCcw */}
+                      <View style={[styles.boardActionsRow, { borderTopColor: colors.hairline }]}>
+                        <TouchableOpacity
+                          style={[
+                            styles.boardActionBtnIconOnly,
+                            {
+                              backgroundColor: isDark ? colors.surface : '#F8FAFC',
+                              borderColor: colors.hairline,
+                            },
+                          ]}
+                          onPress={handleShuffle}
+                        >
+                          <Shuffle size={16} color={isDark ? colors.primary : '#0D9488'} />
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={[
+                            styles.boardActionBtnIconOnly,
+                            {
+                              backgroundColor: isDark ? colors.surface : '#F8FAFC',
+                              borderColor: colors.hairline,
+                            },
+                          ]}
+                          onPress={handleSortAZ}
+                        >
+                          <ArrowDownAZ size={16} color="#6366F1" />
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={[
+                            styles.boardActionBtnIconOnly,
+                            {
+                              backgroundColor: isDark ? colors.surface : '#F8FAFC',
+                              borderColor: colors.hairline,
+                            },
+                          ]}
+                          onPress={handleSaveAsInitial}
+                        >
+                          <BookmarkCheck size={16} color={isDark ? colors.primary : '#0D9488'} />
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={[
+                            styles.boardActionBtnIconOnly,
+                            {
+                              backgroundColor: isDark ? colors.surface : '#F8FAFC',
+                              borderColor: colors.hairline,
+                            },
+                          ]}
+                          onPress={handleReset}
+                        >
+                          <RotateCcw size={16} color="#D97706" />
                         </TouchableOpacity>
                       </View>
-                    ) : (
-                      <View style={styles.titleDisplayRow}>
+                    </View>
+                  )
+                )}
+              </ScrollView>
+
+              {/* Hàng thiết lập: Bật/Tắt âm thanh & Xóa tất cả */}
+              <View style={[styles.togglesRow, { borderTopColor: colors.hairline }]}>
+                <TouchableOpacity
+                  style={styles.toggleItem}
+                  onPress={() => setSoundEnabled((prev) => !prev)}
+                >
+                  {soundEnabled ? (
+                    <Volume2 size={16} color={isDark ? colors.primary : '#0D9488'} />
+                  ) : (
+                    <VolumeX size={16} color={colors.subtle} />
+                  )}
+                  <Text style={[styles.toggleItemText, { color: colors.text }]}>
+                    {t.luckyWheel.soundSetting}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.toggleItem}
+                  onPress={handleDeleteAllWheels}
+                  disabled={wheels.length === 0}
+                >
+                  <Trash2 size={15} color="#EF4444" />
+                  <Text style={[styles.toggleItemText, { color: '#EF4444', fontWeight: 'bold' }]}>
+                    {t.luckyWheel.deleteAllWheels}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* HÀNG NÚT DƯỚI BẬT TẮT ÂM THANH: [Thêm vòng xoay] & [Tạo] */}
+              <View style={[styles.actionButtonsRow, { borderTopColor: colors.hairline }]}>
+                {/* Nút Thêm vòng xoay */}
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  disabled={wheels.length >= 4 || isSubmitting}
+                  onPress={handleAddDefaultWheel}
+                  style={[
+                    styles.addWheelBtn,
+                    {
+                      backgroundColor: isDark ? colors.surface : '#F1F5F9',
+                      borderColor: colors.hairline,
+                    },
+                    wheels.length >= 4 && { opacity: 0.4 },
+                  ]}
+                >
+                  <Plus size={16} color={colors.primary} />
+                  <Text style={[styles.addWheelBtnText, { color: colors.text }]}>
+                    {t.luckyWheel.addWheel}
+                  </Text>
+                </TouchableOpacity>
+
+                {/* Nút TẠO (Thay thế nút Quay tất cả theo yêu cầu) */}
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  disabled={wheels.length === 0 || isSubmitting}
+                  onPress={handleCreateStage}
+                  style={[
+                    styles.spinAllBtn,
+                    { backgroundColor: colors.primary },
+                    (wheels.length === 0 || isSubmitting) && { opacity: 0.5 },
+                  ]}
+                >
+                  <Sparkles size={16} color="#FFFFFF" />
+                  <Text style={styles.spinAllBtnText}>{locale === 'vi' ? 'Tạo' : 'Create'}</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          ) : (
+            /* ============================================================== */
+            /* VIEW MODE 2: SÂN KHẤU CÁC VÒNG TRÒN (CÓ NÚT QUAY & KẾT QUẢ)   */
+            /* ============================================================== */
+            <View style={styles.arenaContainer}>
+              {/* VÙNG CÁC VÒNG TRÒN ĐƯỢC TẠO RA */}
+              <ScrollView
+                style={styles.arenaScroll}
+                contentContainerStyle={styles.arenaScrollContent}
+              >
+                <View
+                  style={[
+                    styles.arenaGrid,
+                    wheels.length >= 2 && styles.arenaGridTwoCols,
+                  ]}
+                >
+                  {wheels.map((wheel) => {
+                    const optionsText = wheelsState[wheel.id]?.optionsText || '';
+
+                    return (
+                      <View key={wheel.id} style={styles.arenaWheelBox}>
                         <Text
-                          style={[styles.activeWheelTitleText, { color: colors.text }]}
+                          style={[styles.arenaWheelTitle, { color: colors.text }]}
                           numberOfLines={1}
                         >
-                          {activeWheel.title}
+                          {wheel.title}
                         </Text>
-                        <TouchableOpacity
-                          style={styles.editTitleBtn}
-                          onPress={() => {
-                            setEditingTitleText(activeWheel.title);
-                            setIsEditingTitle(true);
-                          }}
-                        >
-                          <Edit2 size={14} color={colors.subtle} />
-                        </TouchableOpacity>
+                        <View style={[styles.discOuter, { width: discSize, height: discSize }]}>
+                          <Animated.View
+                            style={[
+                              styles.wheelRotateBox,
+                              {
+                                width: discSize,
+                                height: discSize,
+                                transform: [{ rotate: rotateInterpolate }],
+                              },
+                            ]}
+                          >
+                            <Svg width={discSize} height={discSize}>
+                              {renderWheelSvg(optionsText, discSize)}
+                              <Circle
+                                cx={discSize / 2}
+                                cy={discSize / 2}
+                                r={discSize > 200 ? 18 : 12}
+                                fill="#FFFFFF"
+                                stroke="#E2E8F0"
+                                strokeWidth={2}
+                              />
+                              <Circle
+                                cx={discSize / 2}
+                                cy={discSize / 2}
+                                r={discSize > 200 ? 7 : 5}
+                                fill={colors.primary}
+                              />
+                            </Svg>
+                          </Animated.View>
+
+                          {/* Kim chỉ bên phải */}
+                          <View
+                            style={[styles.pointerRight, { right: discSize > 200 ? -12 : -10 }]}
+                            pointerEvents="none"
+                          >
+                            <Svg width={24} height={16} viewBox="0 0 30 20">
+                              <Path
+                                d="M2 10L18 2C20 1 21 2 21 4V16C21 18 20 19 18 18L2 10Z"
+                                fill={colors.primary}
+                                stroke={isDark ? colors.elevated : '#FFFFFF'}
+                                strokeWidth={1.5}
+                                strokeLinejoin="round"
+                              />
+                              <Rect
+                                x={19}
+                                y={4}
+                                width={9}
+                                height={12}
+                                rx={3}
+                                fill={isDark ? colors.primaryDark : '#0F766E'}
+                                stroke={isDark ? colors.elevated : '#FFFFFF'}
+                                strokeWidth={1.5}
+                              />
+                              <Circle cx={23.5} cy={10} r={2.5} fill={isDark ? colors.elevated : '#FFFFFF'} />
+                              <Circle cx={23.5} cy={10} r={1.2} fill={colors.primary} />
+                            </Svg>
+                          </View>
+                        </View>
                       </View>
-                    )}
-
-                    {wheels.length > 1 && (
-                      <TouchableOpacity
-                        style={styles.delWheelBtn}
-                        onPress={handleDeleteCurrentWheel}
-                      >
-                        <Trash2 size={16} color="#EF4444" />
-                      </TouchableOpacity>
-                    )}
-                  </View>
-
-                  {/* Options Counter Row */}
-                  <View style={styles.labelRow}>
-                    <Text style={[styles.inputLabel, { color: colors.text }]}>
-                      {t.luckyWheel.optionsListTitle}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.counterValue,
-                        {
-                          color: activeParsed.length < 2 ? '#D97706' : colors.primary,
-                        },
-                      ]}
-                    >
-                      {t.luckyWheel.optionsCount.replace('{count}', String(activeParsed.length))}
-                    </Text>
-                  </View>
-
-                  {/* Options Textarea */}
-                  <TextInput
-                    value={activeLocalState?.optionsText || ''}
-                    onChangeText={handleOptionsChange}
-                    multiline
-                    numberOfLines={5}
-                    placeholder={t.luckyWheel.optionsPlaceholder}
-                    placeholderTextColor={isDark ? '#64748B' : '#94A3B8'}
-                    style={[
-                      styles.optionsTextarea,
-                      {
-                        backgroundColor: isDark ? colors.surface : '#F8FAFC',
-                        borderColor: colors.hairline,
-                        color: colors.text,
-                      },
-                    ]}
-                  />
-
-                  <Text style={[styles.hintText, { color: colors.subtle }]}>
-                    {t.luckyWheel.optionsHint}
-                  </Text>
-
-                  {/* 4 Action Buttons Row: Shuffle, Sort A-Z, BookmarkCheck, RotateCcw */}
-                  <View style={[styles.boardActionsRow, { borderTopColor: colors.hairline }]}>
-                    <TouchableOpacity
-                      style={[
-                        styles.boardActionBtnIconOnly,
-                        {
-                          backgroundColor: isDark ? colors.surface : '#F8FAFC',
-                          borderColor: colors.hairline,
-                        },
-                      ]}
-                      onPress={handleShuffle}
-                    >
-                      <Shuffle size={16} color={isDark ? colors.primary : '#0D9488'} />
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={[
-                        styles.boardActionBtnIconOnly,
-                        {
-                          backgroundColor: isDark ? colors.surface : '#F8FAFC',
-                          borderColor: colors.hairline,
-                        },
-                      ]}
-                      onPress={handleSortAZ}
-                    >
-                      <ArrowDownAZ size={16} color="#6366F1" />
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={[
-                        styles.boardActionBtnIconOnly,
-                        {
-                          backgroundColor: isDark ? colors.surface : '#F8FAFC',
-                          borderColor: colors.hairline,
-                        },
-                      ]}
-                      onPress={handleSaveAsInitial}
-                    >
-                      <BookmarkCheck size={16} color={isDark ? colors.primary : '#0D9488'} />
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={[
-                        styles.boardActionBtnIconOnly,
-                        {
-                          backgroundColor: isDark ? colors.surface : '#F8FAFC',
-                          borderColor: colors.hairline,
-                        },
-                      ]}
-                      onPress={handleReset}
-                    >
-                      <RotateCcw size={16} color="#D97706" />
-                    </TouchableOpacity>
-                  </View>
+                    );
+                  })}
                 </View>
-              )
-            )}
-          </ScrollView>
+              </ScrollView>
 
-          {/* Hàng thiết lập ở đáy: Bật/Tắt âm thanh & Xóa tất cả vòng quay */}
-          <View style={[styles.togglesRow, { borderTopColor: colors.hairline }]}>
-            <TouchableOpacity
-              style={styles.toggleItem}
-              onPress={() => setSoundEnabled((prev) => !prev)}
-            >
-              {soundEnabled ? (
-                <Volume2 size={16} color={isDark ? colors.primary : '#0D9488'} />
-              ) : (
-                <VolumeX size={16} color={colors.subtle} />
-              )}
-              <Text style={[styles.toggleItemText, { color: colors.text }]}>
-                {t.luckyWheel.soundSetting}
-              </Text>
-            </TouchableOpacity>
+              {/* PHẦN KẾT QUẢ VÒNG QUAY */}
+              <View style={styles.resultBoxWrapper}>
+                {isSpinning ? (
+                  <View style={[styles.spinningAlert, { backgroundColor: `${colors.primary}15` }]}>
+                    <ActivityIndicator size="small" color={colors.primary} />
+                    <Text style={[styles.spinningAlertText, { color: colors.primary }]}>
+                      {t.luckyWheel.spinningLive}
+                    </Text>
+                  </View>
+                ) : lastSpinResult ? (
+                  <View style={styles.winnerShowcaseCard}>
+                    <View style={styles.winnerHeader}>
+                      <Trophy size={14} color="#D97706" />
+                      <Text style={styles.winnerHeaderText}>{t.luckyWheel.winnerAnnounce}</Text>
+                    </View>
+                    <Text style={styles.winnerText} numberOfLines={2}>
+                      {lastSpinResult}
+                    </Text>
+                  </View>
+                ) : (
+                  <Text style={[styles.promptText, { color: colors.subtle }]}>
+                    {locale === 'vi'
+                      ? 'Nhấn nút "Quay" bên dưới để bắt đầu quay trực tiếp trong nhóm!'
+                      : 'Press "Spin" below to start live spinning for the group!'}
+                  </Text>
+                )}
+              </View>
 
-            <TouchableOpacity
-              style={styles.toggleItem}
-              onPress={handleDeleteAllWheels}
-              disabled={wheels.length === 0}
-            >
-              <Trash2 size={15} color="#EF4444" />
-              <Text style={[styles.toggleItemText, { color: '#EF4444', fontWeight: 'bold' }]}>
-                {t.luckyWheel.deleteAllWheels}
-              </Text>
-            </TouchableOpacity>
-          </View>
+              {/* NÚT QUAY VÀ THAO TÁC Ở SÂN KHẤU */}
+              <View style={[styles.arenaActionsRow, { borderTopColor: colors.hairline }]}>
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  disabled={isSpinning || wheels.length === 0}
+                  onPress={handleStartSpin}
+                  style={[
+                    styles.arenaSpinBtn,
+                    { backgroundColor: colors.primary },
+                    (isSpinning || wheels.length === 0) && { opacity: 0.5 },
+                  ]}
+                >
+                  {isSpinning ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Play size={18} color="#FFFFFF" fill="#FFFFFF" />
+                  )}
+                  <Text style={styles.arenaSpinBtnText}>
+                    {isSpinning
+                      ? t.luckyWheel.spinning
+                      : lastSpinResult
+                      ? t.luckyWheel.spinAgain
+                      : wheels.length > 1
+                      ? t.luckyWheel.spinAll
+                      : t.luckyWheel.spin}
+                  </Text>
+                </TouchableOpacity>
 
-          {/* HÀNG NÚT Ở DƯỚI CHỖ BẬT TẮT ÂM THANH: [Thêm vòng xoay] & [Quay tất cả] */}
-          <View style={[styles.actionButtonsRow, { borderTopColor: colors.hairline }]}>
-            {/* Nút Thêm vòng xoay */}
-            <TouchableOpacity
-              activeOpacity={0.8}
-              disabled={wheels.length >= 4 || isSubmitting}
-              onPress={handleAddDefaultWheel}
-              style={[
-                styles.addWheelBtn,
-                {
-                  backgroundColor: isDark ? colors.surface : '#F1F5F9',
-                  borderColor: colors.hairline,
-                },
-                wheels.length >= 4 && { opacity: 0.4 },
-              ]}
-            >
-              <Plus size={16} color={colors.primary} />
-              <Text style={[styles.addWheelBtnText, { color: colors.text }]}>
-                {t.luckyWheel.addWheel}
-              </Text>
-            </TouchableOpacity>
+                <View style={styles.arenaSecondaryRow}>
+                  <TouchableOpacity
+                    style={styles.arenaSecondaryBtn}
+                    disabled={isSpinning}
+                    onPress={() => setViewMode('setup')}
+                  >
+                    <ArrowLeft size={14} color={colors.subtle} />
+                    <Text style={[styles.arenaSecondaryText, { color: colors.text }]}>
+                      {locale === 'vi' ? 'Chỉnh sửa vòng quay' : 'Edit wheel'}
+                    </Text>
+                  </TouchableOpacity>
 
-            {/* Nút Quay tất cả */}
-            <TouchableOpacity
-              activeOpacity={0.85}
-              disabled={wheels.length === 0 || isSubmitting}
-              onPress={handleStartSpinAllLive}
-              style={[
-                styles.spinAllBtn,
-                { backgroundColor: colors.primary },
-                (wheels.length === 0 || isSubmitting) && { opacity: 0.5 },
-              ]}
-            >
-              {isSubmitting ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <>
-                  <RotateCw size={16} color="#FFFFFF" />
-                  <Text style={styles.spinAllBtnText}>{t.luckyWheel.spinAll}</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          </View>
+                  <TouchableOpacity
+                    style={styles.arenaSecondaryBtn}
+                    disabled={isSpinning}
+                    onPress={onClose}
+                  >
+                    <Text style={[styles.arenaSecondaryText, { color: colors.text }]}>
+                      {t.luckyWheel.backToChat}
+                    </Text>
+                    <ArrowRight size={14} color={colors.subtle} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          )}
         </View>
       </KeyboardAvoidingView>
     </Modal>
@@ -809,7 +963,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     borderTopWidth: 1,
-    maxHeight: '85%',
+    maxHeight: '88%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.15,
@@ -828,6 +982,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+  },
+  backBtn: {
+    padding: 4,
+    marginRight: 2,
   },
   iconCircle: {
     width: 36,
@@ -867,25 +1025,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  tabItemResults: {
-    flexDirection: 'row',
-    gap: 5,
-    width: 108,
-  },
   tabItemText: {
     fontSize: 12,
     fontWeight: '500',
   },
   tabItemTextBold: {
-    fontWeight: 'bold',
-  },
-  badgeCount: {
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-    borderRadius: 8,
-  },
-  badgeCountText: {
-    fontSize: 9.5,
     fontWeight: 'bold',
   },
   scrollBody: {
@@ -993,45 +1137,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  resultsSection: {
-    gap: 8,
-  },
-  resultsTextarea: {
-    minHeight: 110,
-    borderWidth: 1,
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 12.5,
-    textAlignVertical: 'top',
-  },
-  resultsActionsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  resultsActionBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    height: 38,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  resultsActionBtnText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  resultsClearBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   togglesRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1089,5 +1194,149 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 13.5,
     fontWeight: 'bold',
+  },
+  arenaContainer: {
+    flex: 1,
+    maxHeight: 440,
+    justifyContent: 'space-between',
+  },
+  arenaScroll: {
+    maxHeight: 250,
+  },
+  arenaScrollContent: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+  },
+  arenaGrid: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12,
+    flexWrap: 'wrap',
+    width: '100%',
+  },
+  arenaGridTwoCols: {
+    justifyContent: 'space-around',
+  },
+  arenaWheelBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginVertical: 4,
+  },
+  arenaWheelTitle: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    maxWidth: 120,
+  },
+  discOuter: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  wheelRotateBox: {
+    borderRadius: 999,
+    overflow: 'hidden',
+  },
+  pointerRight: {
+    position: 'absolute',
+    top: '50%',
+    marginTop: -8,
+    zIndex: 20,
+  },
+  resultBoxWrapper: {
+    minHeight: 56,
+    paddingHorizontal: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginVertical: 4,
+  },
+  spinningAlert: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 14,
+  },
+  spinningAlertText: {
+    fontSize: 12.5,
+    fontWeight: '600',
+  },
+  winnerShowcaseCard: {
+    width: '100%',
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(245, 158, 11, 0.35)',
+    borderRadius: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  winnerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginBottom: 2,
+  },
+  winnerHeaderText: {
+    fontSize: 10.5,
+    fontWeight: 'bold',
+    color: '#B45309',
+    textTransform: 'uppercase',
+  },
+  winnerText: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#D97706',
+    textAlign: 'center',
+  },
+  promptText: {
+    fontSize: 11.5,
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
+  arenaActionsRow: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    gap: 8,
+  },
+  arenaSpinBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    height: 44,
+    borderRadius: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  arenaSpinBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  arenaSecondaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 2,
+  },
+  arenaSecondaryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+  },
+  arenaSecondaryText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
 });

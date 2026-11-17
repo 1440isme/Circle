@@ -9002,3 +9002,42 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 - **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
 - **Commit:** b70a2dd
 - **PR:** #120
+
+
+## AI-0221: Bỏ Kết Quả Khỏi Bảng Setup Vòng Quay Trong Chat, Thay Bằng Nút Tạo Mở Sân Khấu Các Vòng Tròn Có Nút Quay Và Kết Quả (#120)
+
+- **Date:** 2026-11-18 03:07:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120
+- **Purpose:** 
+  1. **Bỏ tab kết quả khỏi bảng Setup vòng quay trong chat:**
+     - Loại bỏ Tab Kết quả và toàn bộ nội dung hiển thị lịch sử kết quả ra khỏi giao diện Setup của modal `LiveWheelPickerModal` (Web) và `MobileLiveWheelPickerModal` (Mobile).
+     - Bảng setup tập trung 100% vào việc cấu hình các vòng quay (Vòng 1, Vòng 2, ...) với các chức năng: sửa tên vòng, textarea danh sách phương án, 4 nút icon thao tác (xáo trộn, sắp xếp A-Z, lưu mặc định, đặt lại), bật/tắt âm thanh, xóa vòng, xóa tất cả.
+  2. **Thay nút Quay tất cả bằng nút Tạo ở dưới chỗ bật tắt âm thanh:**
+     - Dưới chỗ bật/tắt âm thanh gồm 2 nút:
+       + Nút **"Thêm vòng xoay"** (`+ Thêm vòng xoay`): Thêm vòng mới vào nhóm (tối đa 4 vòng).
+       + Nút **"Tạo"** (`Sparkles` - `Tạo`): Thay thế nút "Quay tất cả" cũ. Khi nhấn, tự động lưu các thay đổi và mở ra sân khấu các vòng tròn quay (`viewMode = 'arena'`).
+  3. **Hiển thị sân khấu các vòng tròn được tạo ra với nút Quay và phần Kết quả:**
+     - Các đĩa vòng tròn được tạo ra và hiển thị trực quan (1 vòng to nếu có 1 vòng, lưới 2 cột/2 hàng cân đối nếu có 2-4 vòng) với kim chỉ bên phải.
+     - **Tại đây mới có:**
+       + **Nút "Quay" / "Quay tất cả":** Kích hoạt quay trực tiếp trong nhóm (`liveSpinWheel`), phát tán sự kiện realtime qua WebSocket tới cả nhóm và chạy hoạt ảnh xoay đĩa đồng bộ với âm thanh tick / haptics. Sau khi quay đổi thành "Quay lại".
+       + **Phần Kết quả:** Trước khi quay hiển thị gợi ý, khi đang quay hiển thị trạng thái hồi hộp `Đang quay trực tiếp...`, khi quay xong hiển thị hộp Cúp vàng nổi bật với kết quả trúng thưởng (nếu nhiều vòng nối nhau bằng `" - "`).
+       + Nút "Chỉnh sửa vòng quay" (để quay lại bảng Setup) và nút "Quay lại đoạn chat".
+- **Files Affected:**
+  - `apps/web/src/components/chat/LiveWheelPickerModal.tsx`
+  - `apps/mobile/src/components/chat/MobileLiveWheelPickerModal.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% two-step workflow logic (Setup -> Arena Stage with generated wheels, Spin button, and dedicated Result display) on Web & Mobile.
+- **Human Modifications:** Người dùng yêu cầu ở phần quay may mắn trong chat bỏ kết quả ở setup đi, thay nút quay tất cả bằng nút tạo, khi nhấn nút tạo thì các vòng tròn sẽ được tạo ra và ở đây mới có nút quay và phần kết quả.
+- **Verification Method:**
+  - `npx tsc --noEmit -p apps/web/tsconfig.json`: Passed 0 errors.
+  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Passed 0 errors.
+  - `npx tsc --noEmit -p apps/backend/tsconfig.json`: Passed 0 errors.
+  - `npm test --prefix apps/backend -- circle-tools`: Passed 46/46 unit tests.
+  - `bash ./scripts/check-secrets.sh`: Passed (605 files checked, 0 leaks).
+- **Official Source Checked:** `PROJECT_GOD.md` §2.2, §11 (DoD), `agentic/playbooks/05-calendar-planning.md`, `agentic/playbooks/cross-cutting-gate.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+- **Commit:** 6ac5a02
+- **PR:** #120
