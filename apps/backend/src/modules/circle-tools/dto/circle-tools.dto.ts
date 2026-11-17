@@ -85,6 +85,7 @@ export class LiveSpinWheelDto implements LiveSpinWheelInput {
   title?: string;
   options?: string[];
   channelId?: string;
+  isAll?: boolean;
 }
 
 export class CreateAnonymousPostDto implements CreateAnonymousPostInput {

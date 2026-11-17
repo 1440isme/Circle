@@ -1,21 +1,35 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
-  X,
   Compass,
-  Sparkles,
-  Layers,
+  X,
   Plus,
+  Trash2,
+  Trophy,
   Loader2,
+  RotateCw,
+  Volume2,
+  VolumeX,
+  Shuffle,
+  RotateCcw,
+  Edit2,
   Check,
-  Utensils,
-  CreditCard,
-  Home,
-  HelpCircle,
+  ArrowDownAZ,
+  BookmarkCheck,
+  Share2,
 } from 'lucide-react';
+import { DecisionWheelEntity } from '@circle/types';
 import { useLanguageStore } from '../../stores/language.store';
-import { useWheelsQuery, useLiveSpinWheelMutation } from '../../hooks/use-circle-tools';
+import {
+  useWheelsQuery,
+  useCreateWheelMutation,
+  useUpdateWheelMutation,
+  useDeleteWheelMutation,
+  useDeleteAllWheelsMutation,
+  useShareWheelResultsToChatMutation,
+  useLiveSpinWheelMutation,
+} from '../../hooks/use-circle-tools';
 
 interface LiveWheelPickerModalProps {
   isOpen: boolean;
@@ -24,6 +38,21 @@ interface LiveWheelPickerModalProps {
   channelId?: string;
 }
 
+const PASTEL_WHEEL_COLORS = [
+  '#FFD6A5', // Pastel Warm Apricot
+  '#CAFFBF', // Pastel Mint Green
+  '#9BF6FF', // Pastel Sky Cyan
+  '#FFADAD', // Pastel Coral Pink
+  '#BDB2FF', // Pastel Soft Lavender
+  '#FDFFB6', // Pastel Cream Butter
+  '#A0C4FF', // Pastel Powder Blue
+  '#FFC6FF', // Pastel Light Orchid
+  '#B8E0D2', // Pastel Celadon Sage
+  '#FED1BA', // Pastel Peach
+  '#D7E3FC', // Pastel Periwinkle
+  '#FDE2E4', // Pastel Rose Blossom
+];
+
 export const LiveWheelPickerModal: React.FC<LiveWheelPickerModalProps> = ({
   isOpen,
   onClose,
@@ -31,365 +60,618 @@ export const LiveWheelPickerModal: React.FC<LiveWheelPickerModalProps> = ({
   channelId,
 }) => {
   const { t, locale } = useLanguageStore();
-  const { data: existingWheels = [], isLoading: isLoadingWheels } = useWheelsQuery(circleId);
+
+  const { data: rawWheels = [], isLoading: isLoadingWheels } = useWheelsQuery(circleId);
+
+  // Sắp xếp vòng 1, 2, 3, 4 theo thứ tự thời gian tạo tăng dần
+  const wheels = useMemo(() => {
+    return [...rawWheels].sort((a, b) => {
+      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      if (timeA !== timeB) return timeA - timeB;
+      return a.title.localeCompare(b.title, 'vi', { numeric: true });
+    });
+  }, [rawWheels]);
+
+  const createWheelMutation = useCreateWheelMutation(circleId);
+  const updateWheelMutation = useUpdateWheelMutation(circleId);
+  const deleteWheelMutation = useDeleteWheelMutation(circleId);
+  const deleteAllMutation = useDeleteAllWheelsMutation(circleId);
   const liveSpinMutation = useLiveSpinWheelMutation(circleId);
+  const shareResultsMutation = useShareWheelResultsToChatMutation(circleId);
 
-  const [activeTab, setActiveTab] = useState<'existing' | 'custom'>('existing');
-  const [selectedWheelId, setSelectedWheelId] = useState<string | null>(null);
+  // Active Tab: Selected Wheel ID or 'results'
+  const [activeTab, setActiveTab] = useState<string>('wheel');
+  const [activeWheelId, setActiveWheelId] = useState<string | null>(null);
 
-  // Custom options state
-  const [customTitle, setCustomTitle] = useState('');
-  const [customOptionsText, setCustomOptionsText] = useState('');
+  // Sound toggle state
+  const [soundEnabled, setSoundEnabled] = useState(true);
 
-  if (!isOpen) return null;
+  // Results Text
+  const [resultsText, setResultsText] = useState<string>('');
+  const resultLinesCount = useMemo(() => {
+    return resultsText
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0).length;
+  }, [resultsText]);
 
-  // Auto-select first wheel if none selected
-  const activeExistingWheelId = selectedWheelId || (existingWheels[0]?.id ?? null);
+  // Per-wheel local text states
+  const [wheelsState, setWheelsState] = useState<Record<string, { optionsText: string }>>({});
 
-  const parsedCustomOptions = customOptionsText
-    .split('\n')
-    .map((l) => l.trim())
-    .filter((l) => l.length > 0);
+  // Editing title inline
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editingTitleText, setEditingTitleText] = useState('');
+  const [saveInitialFeedback, setSaveInitialFeedback] = useState(false);
+  const [shareSuccess, setShareSuccess] = useState(false);
 
-  const handleApplyPreset = (title: string, options: string[]) => {
-    setCustomTitle(title);
-    setCustomOptionsText(options.join('\n'));
-    setActiveTab('custom');
+  // Parse options helper
+  const parseOptions = useCallback((text: string) => {
+    const lines = text
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0);
+    return lines.map((label, idx) => ({
+      label,
+      color: PASTEL_WHEEL_COLORS[idx % PASTEL_WHEEL_COLORS.length]!,
+    }));
+  }, []);
+
+  // Sync server wheels into local state
+  useEffect(() => {
+    if (wheels.length > 0) {
+      setWheelsState((prev) => {
+        const next = { ...prev };
+        wheels.forEach((w) => {
+          if (!next[w.id]) {
+            next[w.id] = {
+              optionsText: (w.options || []).map((o) => o.optionLabel).join('\n'),
+            };
+          }
+        });
+        return next;
+      });
+
+      if (!activeWheelId || !wheels.some((w) => w.id === activeWheelId)) {
+        setActiveWheelId(wheels[0]!.id);
+        setActiveTab(wheels[0]!.id);
+      }
+    }
+  }, [wheels, activeWheelId]);
+
+  const activeWheel = useMemo(() => {
+    return wheels.find((w) => w.id === activeWheelId) || wheels[0] || null;
+  }, [wheels, activeWheelId]);
+
+  const activeLocalState = activeWheel ? wheelsState[activeWheel.id] : null;
+
+  const activeParsedOptions = useMemo(() => {
+    return parseOptions(activeLocalState?.optionsText || '');
+  }, [activeLocalState, parseOptions]);
+
+  // Handle options text change
+  const handleOptionsChange = (newText: string) => {
+    if (!activeWheel) return;
+    setWheelsState((prev) => ({
+      ...prev,
+      [activeWheel.id]: {
+        ...(prev[activeWheel.id] || {}),
+        optionsText: newText,
+      },
+    }));
   };
 
-  const handleStartSpin = () => {
-    if (activeTab === 'existing') {
-      if (!activeExistingWheelId) return;
-      liveSpinMutation.mutate(
-        {
-          wheelId: activeExistingWheelId,
-          channelId,
+  // Add Wheel
+  const handleAddDefaultWheel = () => {
+    if (wheels.length >= 4 || createWheelMutation.isPending) return;
+    const nextNumber = wheels.length + 1;
+    const defaultTitle = t.luckyWheel.wheelNumber.replace('{number}', String(nextNumber));
+    const sampleOptions = [
+      { optionLabel: 'Phở bò' },
+      { optionLabel: 'Bún chả' },
+      { optionLabel: 'Cơm tấm' },
+      { optionLabel: 'Bánh mì' },
+    ];
+
+    createWheelMutation.mutate(
+      {
+        title: defaultTitle,
+        options: sampleOptions,
+        initialOptions: sampleOptions.map((o) => o.optionLabel),
+        soundEnabled: true,
+        confettiEnabled: true,
+      },
+      {
+        onSuccess: (newWheel) => {
+          if (newWheel?.id) {
+            setActiveWheelId(newWheel.id);
+            setActiveTab(newWheel.id);
+          }
         },
-        {
-          onSuccess: () => {
-            onClose();
-          },
-        }
-      );
-    } else {
-      if (parsedCustomOptions.length < 2) return;
-      liveSpinMutation.mutate(
-        {
-          title: customTitle.trim() || (locale === 'vi' ? 'Vòng quay may mắn' : 'Lucky Wheel'),
-          options: parsedCustomOptions,
-          channelId,
+      }
+    );
+  };
+
+  // Inline Title Edit
+  const startEditTitle = () => {
+    if (!activeWheel) return;
+    setEditingTitleText(activeWheel.title);
+    setIsEditingTitle(true);
+  };
+
+  const saveEditTitle = () => {
+    if (!activeWheel) return;
+    const trimmed = editingTitleText.trim();
+    if (trimmed && trimmed !== activeWheel.title) {
+      updateWheelMutation.mutate({
+        wheelId: activeWheel.id,
+        input: { title: trimmed.slice(0, 50) },
+      });
+    }
+    setIsEditingTitle(false);
+  };
+
+  // Delete current active wheel
+  const handleDeleteCurrentWheel = () => {
+    if (!activeWheel || wheels.length <= 1) return;
+    if (window.confirm(t.luckyWheel.confirmDeleteDesc)) {
+      deleteWheelMutation.mutate(activeWheel.id, {
+        onSuccess: () => {
+          const remaining = wheels.filter((w) => w.id !== activeWheel.id);
+          if (remaining.length > 0) {
+            setActiveWheelId(remaining[0]!.id);
+            setActiveTab(remaining[0]!.id);
+          }
         },
-        {
-          onSuccess: () => {
-            onClose();
-          },
-        }
-      );
+      });
     }
   };
 
-  const isSpinDisabled =
-    liveSpinMutation.isPending ||
-    (activeTab === 'existing' && (!activeExistingWheelId || existingWheels.length === 0)) ||
-    (activeTab === 'custom' && parsedCustomOptions.length < 2);
+  // Delete all wheels
+  const handleDeleteAllWheels = () => {
+    if (wheels.length === 0 || deleteAllMutation.isPending) return;
+    if (window.confirm(t.luckyWheel.confirmDeleteAllWheels)) {
+      const defaultTitle = t.luckyWheel.wheelNumber.replace('{number}', '1');
+      deleteAllMutation.mutate(defaultTitle, {
+        onSuccess: (res: any) => {
+          if (res?.defaultWheel?.id) {
+            setActiveWheelId(res.defaultWheel.id);
+            setActiveTab(res.defaultWheel.id);
+          }
+        },
+      });
+    }
+  };
+
+  // Shuffle
+  const handleShuffle = () => {
+    if (!activeWheel || activeParsedOptions.length < 2) return;
+    const arr = [...activeParsedOptions];
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j]!, arr[i]!];
+    }
+    handleOptionsChange(arr.map((o) => o.label).join('\n'));
+  };
+
+  // Sort A-Z
+  const handleSortAZ = () => {
+    if (!activeWheel || activeParsedOptions.length < 2) return;
+    const sorted = [...activeParsedOptions].sort((a, b) =>
+      a.label.localeCompare(b.label, 'vi', { numeric: true, sensitivity: 'base' })
+    );
+    handleOptionsChange(sorted.map((o) => o.label).join('\n'));
+  };
+
+  // Save as Initial
+  const handleSaveAsInitial = () => {
+    if (!activeWheel) return;
+    const lines = parseOptions(activeLocalState?.optionsText || '');
+    if (lines.length < 2) {
+      alert(t.luckyWheel.minOptionsWarning);
+      return;
+    }
+    updateWheelMutation.mutate(
+      {
+        wheelId: activeWheel.id,
+        input: {
+          initialOptions: lines.map((l) => l.label),
+          options: lines.map((l) => ({
+            optionLabel: l.label,
+            color: l.color,
+          })),
+        },
+      },
+      {
+        onSuccess: () => {
+          setSaveInitialFeedback(true);
+          setTimeout(() => setSaveInitialFeedback(false), 2000);
+        },
+      }
+    );
+  };
+
+  // Reset to initial options
+  const handleReset = () => {
+    if (!activeWheel) return;
+    const initial =
+      activeWheel.initialOptions && activeWheel.initialOptions.length > 0
+        ? activeWheel.initialOptions
+        : (activeWheel.options || []).map((o) => o.optionLabel);
+    handleOptionsChange(initial.join('\n'));
+  };
+
+  // Share results to chat
+  const handleShareResults = () => {
+    if (!resultsText.trim()) return;
+    shareResultsMutation.mutate(
+      [{ wheelTitle: t.luckyWheel.title, winner: resultsText.trim() }],
+      {
+        onSuccess: () => {
+          setShareSuccess(true);
+          setTimeout(() => setShareSuccess(false), 3000);
+        },
+      }
+    );
+  };
+
+  // Clear results
+  const handleClearResults = () => {
+    if (window.confirm(t.luckyWheel.confirmClearResultsDesc)) {
+      setResultsText('');
+    }
+  };
+
+  // KÍCH HOẠT QUAY TẤT CẢ TRỰC TIẾP TRONG NHÓM
+  const handleStartSpinAllLive = async () => {
+    if (wheels.length === 0 || liveSpinMutation.isPending) return;
+
+    // Tự động lưu các thay đổi của active wheel nếu có
+    if (activeWheel && activeLocalState?.optionsText) {
+      const lines = parseOptions(activeLocalState.optionsText);
+      if (lines.length >= 2) {
+        updateWheelMutation.mutate({
+          wheelId: activeWheel.id,
+          input: {
+            options: lines.map((l) => ({
+              optionLabel: l.label,
+              color: l.color,
+            })),
+          },
+        });
+      }
+    }
+
+    try {
+      await liveSpinMutation.mutateAsync({
+        isAll: true,
+        wheelId: activeWheel?.id,
+        channelId,
+      });
+      onClose();
+    } catch (err: any) {
+      console.error('Lỗi khi bắt đầu quay trực tiếp:', err);
+    }
+  };
+
+  if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="relative w-full max-w-lg bg-white dark:bg-circle-dark-surface rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline shadow-2xl overflow-hidden flex flex-col max-h-[88vh]">
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-circle-hairline dark:border-circle-dark-hairline">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
+      <div className="relative w-full max-w-lg rounded-3xl bg-white dark:bg-circle-dark-surface border border-circle-hairline dark:border-circle-dark-hairline shadow-2xl p-5 sm:p-6 flex flex-col max-h-[90vh] overflow-hidden">
+        {/* Top Header: Title & Close Button */}
+        <div className="flex items-center justify-between pb-3 border-b border-circle-hairline dark:border-circle-dark-hairline">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-amber-500/15 flex items-center justify-center text-amber-500">
+            <div className="w-8 h-8 rounded-full bg-circle-primary/15 text-circle-primary flex items-center justify-center">
               <Compass className="w-4.5 h-4.5" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-circle-charcoal dark:text-circle-dark-text">
-                {t.luckyWheel?.liveWheelTitle || 'Vòng quay trực tiếp trong nhóm'}
-              </h2>
+              <h3 className="text-base font-bold text-circle-charcoal dark:text-circle-dark-text leading-tight">
+                {t.luckyWheel.title}
+              </h3>
               <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted">
-                {locale === 'vi'
-                  ? 'Tất cả thành viên trong nhóm sẽ cùng xem vòng quay trực tiếp'
-                  : 'All group members will watch the live spin simultaneously'}
+                {t.luckyWheel.liveWheelTitle}
               </p>
             </div>
           </div>
+
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors"
+            className="p-1.5 rounded-full text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors"
           >
-            <X className="w-4 h-4" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Tab Toggle */}
-        <div className="px-5 pt-3">
-          <div className="grid grid-cols-2 p-1 bg-circle-canvas dark:bg-circle-dark-canvas rounded-xl border border-circle-hairline dark:border-circle-dark-hairline">
-            <button
-              type="button"
-              onClick={() => setActiveTab('existing')}
-              className={`flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                activeTab === 'existing'
-                  ? 'bg-white dark:bg-circle-dark-surface text-circle-charcoal dark:text-circle-dark-text shadow-xs'
-                  : 'text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text'
-              }`}
-            >
-              <Layers className="w-3.5 h-3.5" />
-              <span>
-                {(t.luckyWheel?.selectExistingWheel || 'Vòng quay có sẵn ({count})').replace(
-                  '{count}',
-                  String(existingWheels.length)
-                )}
+        {/* Tabs Header: Từng vòng + Tab Kết quả */}
+        <div className="flex items-center gap-1.5 overflow-x-auto py-3 border-b border-circle-hairline dark:border-circle-dark-hairline no-scrollbar shrink-0">
+          {wheels.map((wheel) => {
+            const isSelected = activeTab === wheel.id;
+            return (
+              <button
+                key={wheel.id}
+                onClick={() => {
+                  setActiveTab(wheel.id);
+                  setActiveWheelId(wheel.id);
+                }}
+                className={`flex items-center justify-center w-28 px-2.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+                  isSelected
+                    ? 'bg-circle-primary text-white shadow-xs font-bold'
+                    : 'bg-circle-wash/60 dark:bg-circle-dark-wash/40 text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash hover:text-circle-charcoal dark:hover:text-circle-dark-text'
+                }`}
+                title={wheel.title}
+              >
+                <span className="truncate">{wheel.title}</span>
+              </button>
+            );
+          })}
+
+          {/* Tab Kết Quả */}
+          <button
+            onClick={() => setActiveTab('results')}
+            className={`flex items-center justify-center gap-1.5 min-w-28 px-2.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+              activeTab === 'results'
+                ? 'bg-amber-500 text-white shadow-xs font-bold'
+                : 'bg-circle-wash/60 dark:bg-circle-dark-wash/40 text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash hover:text-circle-charcoal dark:hover:text-circle-dark-text'
+            }`}
+          >
+            <Trophy className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">{t.luckyWheel.resultsTab}</span>
+            {resultLinesCount > 0 && (
+              <span
+                className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                  activeTab === 'results'
+                    ? 'bg-white/20 text-white'
+                    : 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+                }`}
+              >
+                {resultLinesCount}
               </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('custom')}
-              className={`flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                activeTab === 'custom'
-                  ? 'bg-white dark:bg-circle-dark-surface text-circle-charcoal dark:text-circle-dark-text shadow-xs'
-                  : 'text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text'
-              }`}
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>{t.luckyWheel?.createCustomWheel || 'Thiết lập danh sách mới'}</span>
-            </button>
-          </div>
+            )}
+          </button>
         </div>
 
-        {/* Content Body */}
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-          {activeTab === 'existing' ? (
-            <div className="space-y-2.5">
-              {isLoadingWheels ? (
-                <div className="flex items-center justify-center py-10 gap-2 text-xs text-circle-slate dark:text-circle-dark-muted">
-                  <Loader2 className="w-4 h-4 animate-spin text-circle-primary" />
-                  <span>{locale === 'vi' ? 'Đang tải danh sách...' : 'Loading wheels...'}</span>
-                </div>
-              ) : existingWheels.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-8 text-center gap-2">
-                  <Compass className="w-10 h-10 text-circle-slate/40 dark:text-circle-dark-muted/40" />
-                  <p className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text">
-                    {locale === 'vi' ? 'Chưa có Vòng quay nào' : 'No wheels found'}
-                  </p>
-                  <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted max-w-xs">
-                    {locale === 'vi'
-                      ? 'Nhóm chưa có vòng quay nào được lưu. Bạn có thể tự thiết lập danh sách mới ở tab bên cạnh.'
-                      : 'No saved wheels yet. You can create custom options in the other tab.'}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('custom')}
-                    className="mt-2 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-circle-primary text-white text-xs font-bold shadow-xs hover:bg-circle-sage transition-all"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>{t.luckyWheel?.createCustomWheel || 'Thiết lập danh sách mới'}</span>
-                  </button>
-                </div>
-              ) : (
-                existingWheels.map((wheel) => {
-                  const isSelected = activeExistingWheelId === wheel.id;
-                  const opts = wheel.options || [];
-                  return (
-                    <div
-                      key={wheel.id}
-                      onClick={() => setSelectedWheelId(wheel.id)}
-                      className={`p-3 rounded-xl border cursor-pointer transition-all ${
-                        isSelected
-                          ? 'border-circle-primary bg-circle-primary/5 dark:bg-circle-primary/10 shadow-xs'
-                          : 'border-circle-hairline dark:border-circle-dark-hairline hover:bg-circle-wash/60 dark:hover:bg-circle-dark-wash/40'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-1.5">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <Compass
-                            className={`w-4 h-4 shrink-0 ${
-                              isSelected ? 'text-circle-primary' : 'text-circle-slate dark:text-circle-dark-muted'
-                            }`}
-                          />
-                          <span className="text-xs font-bold text-circle-charcoal dark:text-circle-dark-text truncate">
-                            {wheel.title}
-                          </span>
-                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-circle-wash dark:bg-circle-dark-wash text-circle-slate dark:text-circle-dark-muted font-medium shrink-0">
-                            {opts.length} {locale === 'vi' ? 'lựa chọn' : 'options'}
-                          </span>
-                        </div>
-                        <div
-                          className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
-                            isSelected
-                              ? 'border-circle-primary bg-circle-primary text-white'
-                              : 'border-circle-slate/40 dark:border-circle-dark-muted/40'
-                          }`}
-                        >
-                          {isSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
-                        </div>
-                      </div>
+        {/* Tab Body Content */}
+        <div className="flex-1 overflow-y-auto py-3 flex flex-col gap-3 min-h-0">
+          {isLoadingWheels ? (
+            <div className="flex items-center justify-center py-12 gap-2 text-xs text-circle-slate dark:text-circle-dark-muted">
+              <Loader2 className="w-4 h-4 animate-spin text-circle-primary" />
+              <span>{locale === 'vi' ? 'Đang tải danh sách...' : 'Loading wheels...'}</span>
+            </div>
+          ) : activeTab === 'results' ? (
+            /* TAB KẾT QUẢ */
+            <div className="flex-1 flex flex-col gap-3 min-h-[220px]">
+              <div className="flex items-center justify-between text-xs text-circle-slate dark:text-circle-dark-muted">
+                <span className="font-semibold text-circle-charcoal dark:text-circle-dark-text">
+                  {t.luckyWheel.resultsHistoryTitle}
+                </span>
+                <span className="text-[11px] opacity-75">
+                  {resultLinesCount} {locale === 'vi' ? 'lần quay' : 'spins'}
+                </span>
+              </div>
 
-                      {/* Options preview pills */}
-                      <div className="flex flex-wrap gap-1 mt-2">
-                        {opts.slice(0, 6).map((opt, i) => (
-                          <span
-                            key={i}
-                            className="inline-block px-2 py-0.5 rounded-md text-[10px] font-medium bg-circle-canvas dark:bg-circle-dark-canvas text-circle-slate dark:text-circle-dark-muted border border-circle-hairline/80 dark:border-circle-dark-hairline truncate max-w-[140px]"
-                          >
-                            {opt.optionLabel}
-                          </span>
-                        ))}
-                        {opts.length > 6 && (
-                          <span className="inline-block px-1.5 py-0.5 rounded-md text-[10px] font-medium text-circle-slate/70 dark:text-circle-dark-muted/70">
-                            +{opts.length - 6}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })
-              )}
+              <textarea
+                value={resultsText}
+                readOnly
+                placeholder={t.luckyWheel.resultsPlaceholder}
+                className="w-full flex-1 min-h-[140px] p-3 text-xs rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas text-circle-charcoal dark:text-circle-dark-text focus:outline-none resize-none leading-relaxed font-mono cursor-default select-text"
+              />
+
+              <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted">
+                {t.luckyWheel.resultsHint}
+              </p>
+
+              {/* Action Buttons for Results: Share and Clear */}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleShareResults}
+                  disabled={resultLinesCount === 0 || shareResultsMutation.isPending}
+                  className="flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-wash/60 dark:bg-circle-dark-wash/40 hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text disabled:opacity-40 transition-colors"
+                >
+                  {shareSuccess ? (
+                    <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  ) : (
+                    <Share2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  )}
+                  <span>{shareSuccess ? t.luckyWheel.shareResultsSuccess : t.luckyWheel.shareResultsToChat}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleClearResults}
+                  disabled={resultLinesCount === 0}
+                  className="p-2 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline hover:bg-rose-500/10 dark:hover:bg-rose-950/20 text-rose-600 dark:text-rose-400 disabled:opacity-40 transition-colors"
+                  title={t.luckyWheel.clearResults}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           ) : (
-            <div className="space-y-3.5">
-              {/* Presets Chips */}
-              <div>
-                <label className="block text-[11px] font-semibold text-circle-slate dark:text-circle-dark-muted mb-1.5">
-                  {locale === 'vi' ? 'Mẫu gợi ý nhanh:' : 'Quick presets:'}
-                </label>
-                <div className="flex flex-wrap gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleApplyPreset(
-                        locale === 'vi' ? 'Trưa nay ăn gì?' : 'What to eat today?',
-                        locale === 'vi'
-                          ? ['Phở bò', 'Bún chả', 'Cơm tấm', 'Bánh mì', 'Pizza', 'Gà rán']
-                          : ['Pizza', 'Burger', 'Sushi', 'Tacos', 'Salad', 'Pasta']
-                      )
-                    }
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-circle-wash dark:bg-circle-dark-wash hover:bg-circle-primary/10 hover:text-circle-primary transition-colors text-circle-charcoal dark:text-circle-dark-text border border-circle-hairline/60 dark:border-white/5"
-                  >
-                    <Utensils className="w-3 h-3 text-amber-500" />
-                    <span>{t.luckyWheel?.presetFood || 'Trưa nay ăn gì?'}</span>
-                  </button>
+            /* TAB VÒNG ACTIVE */
+            activeWheel && (
+              <div className="flex-1 flex flex-col gap-3 min-h-[220px]">
+                {/* Title Row */}
+                <div className="flex items-center justify-between gap-2">
+                  {isEditingTitle ? (
+                    <div className="flex items-center gap-1.5 flex-1">
+                      <input
+                        type="text"
+                        maxLength={50}
+                        value={editingTitleText}
+                        onChange={(e) => setEditingTitleText(e.target.value)}
+                        onBlur={saveEditTitle}
+                        onKeyDown={(e) => e.key === 'Enter' && saveEditTitle()}
+                        autoFocus
+                        className="flex-1 px-2.5 py-1 text-xs font-semibold rounded-lg border border-circle-primary bg-circle-canvas dark:bg-circle-dark-canvas text-circle-charcoal dark:text-circle-dark-text focus:outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={saveEditTitle}
+                        className="p-1 rounded-md bg-circle-primary text-white"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 flex-1 group">
+                      <span className="font-bold text-sm text-circle-charcoal dark:text-circle-dark-text truncate max-w-[240px]">
+                        {activeWheel.title}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={startEditTitle}
+                        className="opacity-70 hover:opacity-100 p-1 rounded hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate dark:text-circle-dark-muted transition-opacity"
+                        title={t.luckyWheel.renameWheel}
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
 
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleApplyPreset(
-                        locale === 'vi' ? 'Ai trả tiền hôm nay?' : 'Who pays the bill?',
-                        locale === 'vi'
-                          ? ['Tôi trả', 'Chia đều', 'Người nhỏ tuổi nhất', 'Người nhiều tiền nhất']
-                          : ['Me', 'Split equally', 'Youngest member', 'Lucky one']
-                      )
-                    }
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-circle-wash dark:bg-circle-dark-wash hover:bg-circle-primary/10 hover:text-circle-primary transition-colors text-circle-charcoal dark:text-circle-dark-text border border-circle-hairline/60 dark:border-white/5"
-                  >
-                    <CreditCard className="w-3 h-3 text-emerald-500" />
-                    <span>{t.luckyWheel?.presetPayer || 'Ai trả tiền hôm nay?'}</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleApplyPreset(
-                        locale === 'vi' ? 'Ai dọn dẹp nhà?' : 'Who does the chores?',
-                        locale === 'vi'
-                          ? ['Rửa bát', 'Quét nhà', 'Đổ rác', 'Nấu cơm', 'Lau bàn']
-                          : ['Wash dishes', 'Sweep floor', 'Take out trash', 'Cook dinner']
-                      )
-                    }
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-circle-wash dark:bg-circle-dark-wash hover:bg-circle-primary/10 hover:text-circle-primary transition-colors text-circle-charcoal dark:text-circle-dark-text border border-circle-hairline/60 dark:border-white/5"
-                  >
-                    <Home className="w-3 h-3 text-sky-500" />
-                    <span>{t.luckyWheel?.presetChores || 'Ai dọn dẹp nhà?'}</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleApplyPreset(
-                        locale === 'vi' ? 'Có hoặc Không?' : 'Yes or No?',
-                        locale === 'vi' ? ['Có (Yes)', 'Không (No)'] : ['Yes', 'No']
-                      )
-                    }
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-circle-wash dark:bg-circle-dark-wash hover:bg-circle-primary/10 hover:text-circle-primary transition-colors text-circle-charcoal dark:text-circle-dark-text border border-circle-hairline/60 dark:border-white/5"
-                  >
-                    <HelpCircle className="w-3 h-3 text-purple-500" />
-                    <span>{t.luckyWheel?.presetYesNo || 'Có hoặc Không?'}</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Title input */}
-              <div>
-                <label className="block text-[11px] font-bold text-circle-charcoal dark:text-circle-dark-text mb-1">
-                  {t.luckyWheel?.customWheelTitle || 'Tên vòng quay'}
-                </label>
-                <input
-                  type="text"
-                  maxLength={50}
-                  value={customTitle}
-                  onChange={(e) => setCustomTitle(e.target.value)}
-                  placeholder={
-                    locale === 'vi' ? 'Ví dụ: Trưa nay ăn gì? Đi chơi ở đâu?...' : 'E.g., What to eat for lunch?'
-                  }
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas text-circle-charcoal dark:text-circle-dark-text placeholder:text-circle-slate/50 dark:placeholder:text-circle-dark-muted/50 focus:outline-none focus:ring-1 focus:ring-circle-primary"
-                />
-              </div>
-
-              {/* Textarea options */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-[11px] font-bold text-circle-charcoal dark:text-circle-dark-text">
-                    {locale === 'vi'
-                      ? `Các phương án lựa chọn (${parsedCustomOptions.length})`
-                      : `Options (${parsedCustomOptions.length})`}
-                  </label>
-                  {parsedCustomOptions.length < 2 && (
-                    <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
-                      {t.luckyWheel?.minOptionsWarning || 'Tối thiểu 2 lựa chọn'}
-                    </span>
+                  {wheels.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={handleDeleteCurrentWheel}
+                      className="p-1.5 rounded-lg text-circle-slate dark:text-circle-dark-muted hover:text-rose-500 hover:bg-rose-500/10 dark:hover:bg-rose-950/20 transition-colors"
+                      title={t.luckyWheel.confirmDeleteTitle}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   )}
                 </div>
-                <textarea
-                  rows={5}
-                  value={customOptionsText}
-                  onChange={(e) => setCustomOptionsText(e.target.value)}
-                  placeholder={
-                    t.luckyWheel?.customOptionsPlaceholder ||
-                    'Nhập mỗi lựa chọn trên 1 dòng (tối thiểu 2)...'
-                  }
-                  className="w-full p-2.5 text-xs rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas text-circle-charcoal dark:text-circle-dark-text placeholder:text-circle-slate/50 dark:placeholder:text-circle-dark-muted/50 focus:outline-none focus:ring-1 focus:ring-circle-primary resize-none font-sans"
-                />
+
+                {/* Options Textarea */}
+                <div className="flex-1 flex flex-col gap-1">
+                  <div className="flex items-center justify-between text-xs text-circle-slate dark:text-circle-dark-muted">
+                    <span className="font-medium">{t.luckyWheel.optionsListTitle}</span>
+                    <span
+                      className={`font-semibold ${
+                        activeParsedOptions.length < 2 ? 'text-amber-500' : 'text-circle-primary'
+                      }`}
+                    >
+                      {t.luckyWheel.optionsCount.replace('{count}', String(activeParsedOptions.length))}
+                    </span>
+                  </div>
+
+                  <textarea
+                    value={activeLocalState?.optionsText || ''}
+                    onChange={(e) => handleOptionsChange(e.target.value)}
+                    placeholder={t.luckyWheel.optionsPlaceholder}
+                    rows={6}
+                    className="w-full flex-1 min-h-[120px] p-2.5 text-xs rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas text-circle-charcoal dark:text-circle-dark-text placeholder:text-circle-slate/50 dark:placeholder:text-circle-dark-muted/50 focus:outline-none focus:ring-1 focus:ring-circle-primary resize-none font-mono"
+                  />
+                  <p className="text-[10px] text-circle-slate dark:text-circle-dark-muted">
+                    {t.luckyWheel.optionsHint}
+                  </p>
+                </div>
+
+                {/* 4 Action Buttons Row: Shuffle, Sort A-Z, BookmarkCheck, RotateCcw */}
+                <div className="grid grid-cols-4 gap-2 pt-1 border-t border-circle-hairline dark:border-circle-dark-hairline">
+                  <button
+                    type="button"
+                    onClick={handleShuffle}
+                    className="flex items-center justify-center py-1.5 px-2 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text transition-all active:scale-95"
+                    title={t.luckyWheel.shuffleOptions}
+                  >
+                    <Shuffle className="w-4 h-4 text-circle-sage dark:text-circle-primary" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleSortAZ}
+                    className="flex items-center justify-center py-1.5 px-2 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text transition-all active:scale-95"
+                    title={t.luckyWheel.sortAZ}
+                  >
+                    <ArrowDownAZ className="w-4 h-4 text-indigo-500" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleSaveAsInitial}
+                    className={`flex items-center justify-center py-1.5 px-2 rounded-xl border transition-all active:scale-95 ${
+                      saveInitialFeedback
+                        ? 'border-circle-primary bg-circle-wash dark:bg-circle-dark-wash'
+                        : 'border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface hover:bg-circle-wash dark:hover:bg-circle-dark-wash'
+                    }`}
+                    title={t.luckyWheel.saveAsInitial}
+                  >
+                    <BookmarkCheck
+                      className={`w-4 h-4 ${
+                        saveInitialFeedback ? 'text-circle-primary' : 'text-circle-sage dark:text-circle-primary'
+                      }`}
+                    />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleReset}
+                    className="flex items-center justify-center py-1.5 px-2 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text transition-all active:scale-95"
+                    title={t.luckyWheel.resetOptions}
+                  >
+                    <RotateCcw className="w-4 h-4 text-amber-500" />
+                  </button>
+                </div>
               </div>
-            </div>
+            )
           )}
         </div>
 
-        {/* Footer Actions */}
-        <div className="px-5 py-3.5 border-t border-circle-hairline dark:border-circle-dark-hairline bg-circle-wash/30 dark:bg-circle-dark-wash/20 flex items-center justify-end gap-2.5">
+        {/* Hàng thiết lập ở đáy: Bật/Tắt âm thanh & Xóa tất cả */}
+        <div className="flex items-center justify-between pt-2.5 pb-2 border-t border-circle-hairline dark:border-circle-dark-hairline text-xs shrink-0">
           <button
             type="button"
-            onClick={onClose}
-            className="px-4 py-2 rounded-xl text-xs font-semibold text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors"
+            onClick={() => setSoundEnabled(!soundEnabled)}
+            className="flex items-center gap-1.5 text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text transition-colors"
           >
-            {t.common?.cancel || 'Hủy'}
+            {soundEnabled ? (
+              <Volume2 className="w-4 h-4 text-circle-primary" />
+            ) : (
+              <VolumeX className="w-4 h-4 text-circle-slate/60 dark:text-circle-dark-muted/60" />
+            )}
+            <span>{t.luckyWheel.soundSetting}</span>
           </button>
+
           <button
             type="button"
-            disabled={isSpinDisabled}
-            onClick={handleStartSpin}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-circle-primary hover:bg-circle-sage text-white text-xs font-bold shadow-sm transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            onClick={handleDeleteAllWheels}
+            disabled={wheels.length === 0 || deleteAllMutation.isPending}
+            className="flex items-center gap-1 text-rose-500 hover:text-rose-600 font-semibold disabled:opacity-40 transition-colors"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>{t.luckyWheel.deleteAllWheels}</span>
+          </button>
+        </div>
+
+        {/* HÀNG NÚT Ở DƯỚI CHỖ BẬT TẮT ÂM THANH: [Thêm vòng xoay] & [Quay tất cả] */}
+        <div className="flex items-center gap-2.5 pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline shrink-0">
+          {/* Nút Thêm vòng xoay */}
+          <button
+            type="button"
+            onClick={handleAddDefaultWheel}
+            disabled={wheels.length >= 4 || createWheelMutation.isPending}
+            className="flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-xs font-bold text-circle-charcoal dark:text-circle-dark-text disabled:opacity-40 transition-all active:scale-95"
+            title={wheels.length >= 4 ? t.luckyWheel.maxWheelsBadge : undefined}
+          >
+            <Plus className="w-4 h-4 text-circle-sage dark:text-circle-primary" />
+            <span>{t.luckyWheel.addWheel}</span>
+          </button>
+
+          {/* Nút Quay tất cả */}
+          <button
+            type="button"
+            onClick={handleStartSpinAllLive}
+            disabled={wheels.length === 0 || liveSpinMutation.isPending}
+            className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-circle-primary hover:bg-circle-primary/90 text-circle-charcoal dark:text-circle-dark-canvas font-bold text-xs sm:text-sm shadow-md transition-all active:scale-95"
           >
             {liveSpinMutation.isPending ? (
-              <>
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                <span>{locale === 'vi' ? 'Đang khởi tạo...' : 'Starting...'}</span>
-              </>
+              <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
-              <>
-                <Compass className="w-4 h-4" />
-                <span>{t.luckyWheel?.startLiveSpin || 'Bắt đầu quay trực tiếp'}</span>
-              </>
+              <RotateCw className="w-4 h-4" />
             )}
+            <span>{t.luckyWheel.spinAll}</span>
           </button>
         </div>
       </div>

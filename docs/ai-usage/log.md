@@ -8960,3 +8960,45 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 - **Security & License Check:** Kết quả sinh ngẫu nhiên bảo mật từ server, xác thực quyền thành viên Circle; không rò rỉ secret key.
 - **Commit:** b950e86
 - **PR:** #120
+
+
+## AI-0220: Tái Cấu Trúc Modal Vòng Quay May Mắn Trong Chat Thành Bảng Setup Đồng Bộ, Thêm Nút Thêm Vòng Và Quay Tất Cả Dưới Thiết Lập Âm Thanh (#120)
+
+- **Date:** 2026-11-18 02:40:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120
+- **Purpose:** 
+  1. **Tái cấu trúc Modal Vòng quay may mắn trong Chat nhóm (`LiveWheelPickerModal.tsx` & `MobileLiveWheelPickerModal.tsx`):**
+     - Chuyển đổi giao diện chọn vòng đơn giản thành **Bảng Setup** đầy đủ, đồng bộ 100% với chức năng Vòng quay may mắn chính:
+       + Dãy Tabs ngang: Chuyển đổi giữa các vòng (Vòng 1, Vòng 2, Vòng 3, Vòng 4) và Tab Kết quả (lịch sử các lần quay trước dạng readonly).
+       + Hàng tiêu đề vòng: Hiển thị tên vòng quay (hỗ trợ đổi tên tối đa 50 ký tự, icon bút chì) và nút Thùng rác xóa vòng nếu Circle đang có > 1 vòng.
+       + Textarea danh sách lựa chọn: Mỗi dòng 1 phương án, hiển thị bộ đếm số lượng lựa chọn và chú thích.
+       + Hàng 4 nút icon thao tác: Xáo trộn (`Shuffle`), Sắp xếp A-Z (`ArrowDownAZ`), Lưu làm mặc định (`BookmarkCheck`), Đặt lại ban đầu (`RotateCcw`).
+       + Tab Kết quả: Hiển thị lịch sử các lần quay (readOnly), nút Chia sẻ kết quả vào chat (`Share2`) và nút Xóa kết quả (`Trash2`).
+       + Hàng thiết lập: Bật/Tắt âm thanh (`Volume2` / `VolumeX`) và Xóa tất cả vòng quay (`Trash2`).
+  2. **Bổ sung Nút "Thêm vòng xoay" và "Quay tất cả" ở dưới chỗ bật tắt âm thanh:**
+     - Đặt ngay bên dưới hàng thiết lập âm thanh:
+       + **Nút "Thêm vòng xoay"** (`+ Thêm vòng xoay`): Cho phép tạo thêm vòng mới trong Circle (tối đa 4 vòng). Tự động chuyển tab sang vòng mới sau khi tạo. Disable khi đã đạt giới hạn 4 vòng.
+       + **Nút "Quay tất cả"** (`RotateCw` / `Play`): Tự động lưu các thay đổi của vòng đang chọn và kích hoạt quay trực tiếp trong nhóm (`liveSpinWheel` với `isAll: true`).
+     - Backend hỗ trợ `dto.isAll`: Khi quay tất cả, server chọn ngẫu nhiên độc lập kết quả cho từng vòng quay trong Circle, nối kết quả các vòng bằng dấu " - ", broadcast realtime sự kiện tới cả nhóm và lưu tin nhắn hoạt động vào chat.
+- **Files Affected:**
+  - `packages/types/src/index.ts`
+  - `apps/backend/src/modules/circle-tools/dto/circle-tools.dto.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
+  - `apps/web/src/components/chat/LiveWheelPickerModal.tsx`
+  - `apps/mobile/src/components/chat/MobileLiveWheelPickerModal.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% backend multi-wheel live spin logic, and comprehensive tabbed Setup Board Modal implementation on Web and Mobile.
+- **Human Modifications:** Người dùng yêu cầu khi ấn cộng vòng xoay may mắn sẽ ra phần giống như phần setup ở chức năng vòng xoay may mắn và có thêm nút thêm vòng xoay và quay tất cả ở dưới chỗ bật tắt âm thanh.
+- **Verification Method:**
+  - `npx tsc --noEmit -p apps/web/tsconfig.json`: Passed 0 errors.
+  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Passed 0 errors.
+  - `npx tsc --noEmit -p apps/backend/tsconfig.json`: Passed 0 errors.
+  - `npm test --prefix apps/backend -- circle-tools`: Passed 46/46 unit tests.
+  - `bash ./scripts/check-secrets.sh`: Passed (605 files checked, 0 leaks).
+- **Official Source Checked:** `PROJECT_GOD.md` §2.2, §11 (DoD), `agentic/playbooks/05-calendar-planning.md`, `agentic/playbooks/cross-cutting-gate.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+- **Commit:** b70a2dd
+- **PR:** #120

@@ -850,6 +850,7 @@ export interface LiveSpinWheelInput {
   title?: string;
   options?: string[];
   channelId?: string;
+  isAll?: boolean;
 }
 
 export interface SpinWheelResult {

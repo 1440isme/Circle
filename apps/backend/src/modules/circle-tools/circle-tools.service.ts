@@ -874,8 +874,43 @@ export class CircleToolsService {
     let wheelTitle = dto.title?.trim() || 'Vòng quay may mắn';
     let options: { optionLabel: string; color: string }[] = [];
     let wheelId: string | undefined = undefined;
+    let customWinnerAnnounce: string | undefined = undefined;
 
-    if (dto.wheelId) {
+    if (dto.isAll) {
+      const allWheels = await this.prisma.decisionWheel.findMany({
+        where: { circleId },
+        include: { options: true },
+        orderBy: { createdAt: 'asc' },
+      });
+
+      if (allWheels.length > 0) {
+        const allWinners = allWheels.map((w) => {
+          if (w.options.length < 1) return { title: w.title, winner: 'N/A' };
+          const randIdx = Math.floor(Math.random() * w.options.length);
+          return { title: w.title, winner: w.options[randIdx]!.optionLabel };
+        });
+
+        const targetWheel =
+          (dto.wheelId ? allWheels.find((w) => w.id === dto.wheelId) : null) || allWheels[0]!;
+        wheelId = targetWheel.id;
+        wheelTitle =
+          allWheels.length > 1 ? `Quay tất cả (${allWheels.length} vòng)` : targetWheel.title;
+        options =
+          targetWheel.options.length >= 2
+            ? targetWheel.options.map((o, idx) => ({
+                optionLabel: o.optionLabel,
+                color: o.color || PASTEL_WHEEL_COLORS[idx % PASTEL_WHEEL_COLORS.length]!,
+              }))
+            : ['Phương án 1', 'Phương án 2'].map((label, idx) => ({
+                optionLabel: label,
+                color: PASTEL_WHEEL_COLORS[idx]!,
+              }));
+
+        if (allWheels.length > 1) {
+          customWinnerAnnounce = allWinners.map((w) => w.winner).join(' - ');
+        }
+      }
+    } else if (dto.wheelId) {
       const wheel = await this.prisma.decisionWheel.findFirst({
         where: { id: dto.wheelId, circleId },
         include: { options: true },
@@ -924,7 +959,10 @@ export class CircleToolsService {
 
     // Server-side deterministic random selection
     const winningIndex = Math.floor(Math.random() * options.length);
-    const winningOption = options[winningIndex]!;
+    const winningOption = {
+      optionLabel: customWinnerAnnounce || options[winningIndex]!.optionLabel,
+      color: options[winningIndex]!.color,
+    };
 
     let channel = dto.channelId
       ? await this.prisma.channel.findFirst({ where: { id: dto.channelId, circleId } })
