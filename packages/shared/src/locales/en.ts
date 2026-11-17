@@ -1873,7 +1873,7 @@ export const en: TranslationDictionary = {
     confirmClearResultsTitle: 'Clear spin results',
     confirmClearResultsDesc: 'Are you sure you want to clear all spin results history?',
     resultsPlaceholder: 'No spin results yet. Each spin turn will be recorded as a line here...',
-    resultsHint: '* Each line corresponds to one spin turn, separated by " - ". You can edit or copy directly.',
+    resultsHint: '* Each line corresponds to one spin turn, separated by " - ".',
     luckyChoiceBadge: 'Your lucky choice!',
     turnNumber: 'Turn {number}',
   },

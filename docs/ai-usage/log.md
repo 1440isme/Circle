@@ -8795,3 +8795,47 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 - **Security & License Check:** An toàn tuyệt đối, zero secrets.
 - **Commit:** a7bc7bf
 - **PR:** #120
+
+
+## AI-0216: Đổi Tên Vòng Quay May Mắn, Giới Hạn Tên 50 Ký Tự, Truncate Button Đồng Đều, Khóa Chỉnh Sửa Kết Quả Và Chuẩn Hóa Setup Board (#120)
+
+- **Date:** 2026-11-18 00:45:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120
+- **Purpose:** 
+  1. **Đổi tên tính năng "Vòng xoay may mắn" thành "Vòng quay may mắn":**
+     - Cập nhật chuẩn hóa toàn bộ key trong localization (`packages/shared/src/locales/vi.ts` & `en.ts`) bao gồm `luckyWheel`, `wheelTitle`, `wheelEmptyTitle`, `wheelEmptyDesc`.
+     - Build lại `@circle/shared` phân phối bản dịch đồng bộ sang cả Web và Mobile.
+  2. **Giới hạn độ dài tên vòng quay & Truncate các nút bấm đồng đều:**
+     - Thiết lập thuộc tính `maxLength={50}` cho ô input sửa tên vòng quay trên cả Web (`CircleWheelView.tsx`) và Mobile (`MobileWheelView.tsx`).
+     - Chuẩn hóa kích thước các nút tab và huy hiệu tiêu đề đĩa quay:
+       - Web: Đặt kích thước cố định `w-28` cho các tab vòng quay, `min-w-28` cho tab kết quả, `w-36` cho huy hiệu trên đĩa quay kèm `truncate`.
+       - Mobile: Đặt kích thước `tabPill` chuẩn `width: 88, height: 32`, `tabPillResults` chuẩn `minWidth: 88, height: 32`, huy hiệu đĩa quay `mobileWheelTitleBadge` chuẩn `width: 124` kèm `numberOfLines={1}` và `ellipsizeMode="tail"`.
+  3. **Khóa chỉnh sửa kết quả vòng quay (Read-only):**
+     - Trên Web: Thêm `readOnly={true}` và `cursor-default` vào thẻ textarea kết quả quay.
+     - Trên Mobile: Thêm `editable={false}` vào TextInput kết quả quay, ngăn chặn hoàn toàn việc can thiệp chỉnh sửa kết quả thủ công.
+  4. **Tối ưu Mobile Floating Header Bar & Setup Board:**
+     - Bỏ khung text "Vòng xoay may mắn" ở Header, biến các Floating Pill Buttons thành dạng icon-only tròn đều 36x36 (`floatingPillIconBtn`, `floatingPillPrimaryIconBtn`).
+     - Bổ sung nút icon Cúp kết quả (`Trophy`) lên Floating Header để chuyển nhanh sang xem bảng kết quả.
+     - Đồng bộ kích thước các icon button ở bảng Setup: tất cả các nút hành động (`Shuffle`, `Sort A-Z`, `Save Initial`, `Reset`, `Share to Chat`, `Clear All`) và nút xóa vòng (`delWheelBtn`) đều có chiều cao chuẩn 38px (`height: 38`), cân đối và bằng nhau hoàn hảo.
+     - Khắc phục phần text kết quả bị tràn 2 dòng: rút gọn câu gợi ý `resultsHint`, gán `numberOfLines={1}` và `ellipsizeMode="tail"` cho toàn bộ text phụ trợ trong bảng setup.
+- **Files Affected:**
+  - `packages/shared/src/locales/vi.ts`
+  - `packages/shared/src/locales/en.ts`
+  - `apps/web/src/components/tools/CircleWheelView.tsx`
+  - `apps/mobile/src/components/tools/MobileWheelView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% localization update, layout redesign, styling parity, and button standardization.
+- **Human Modifications:** Người dùng yêu cầu thay tên thành vòng quay may mắn, giới hạn tên 50 ký tự, hiển thị nút ... bằng nhau, kết quả không thể sửa ở cả web và app, app bỏ khung text header, pill buttons chỉ cần icon, các icon btn ở setup bằng nhau, thêm icon kết quả lên floating pill, text kết quả ở setup chỉ 1 dòng.
+- **Verification Method:**
+  - `npm run build --prefix packages/shared`: Passed 100%.
+  - `npx tsc --noEmit -p apps/web/tsconfig.json`: Passed 0 errors.
+  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Passed 0 errors.
+  - `npm test --prefix apps/backend -- circle-tools.service.spec.ts`: Passed 45/45 tests.
+  - `bash ./scripts/check-secrets.sh`: Passed (601 files checked, 0 leaks).
+- **Official Source Checked:** `PROJECT_GOD.md` §2.2, `agentic/playbooks/05-calendar-planning.md`, `agentic/playbooks/cross-cutting-gate.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+- **Commit:** 35851b9
+- **PR:** #120

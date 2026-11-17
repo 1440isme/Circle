@@ -799,6 +799,7 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onBa
               isActive && styles.mobileWheelTitleTextActive,
             ]}
             numberOfLines={1}
+            ellipsizeMode="tail"
           >
             {wheel.title}
           </Text>
@@ -894,35 +895,44 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onBa
 
   return (
     <View style={styles.container}>
-      {/* Floating Header Bar: Unified single line with Back Icon, Wheel Title Label, and Actions */}
+      {/* Floating Header Bar: Icon-only Floating Pill Buttons */}
       <View style={[styles.floatingHeaderArea, { top: floatingToolbarTop }]} pointerEvents="box-none">
-        {/* Left: Back Button (icon only) + Wheel Title Label */}
-        <View style={styles.headerLeftGroup}>
-          {onBack && (
-            <TouchableOpacity
-              activeOpacity={0.7}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              onPress={onBack}
-              style={styles.headerBackBtn}
-              accessibilityLabel={t.common.back}
-            >
-              <ArrowLeft size={16} color={colors.text} />
-            </TouchableOpacity>
-          )}
+        {/* Left: Back Button (icon only) */}
+        {onBack ? (
+          <TouchableOpacity
+            activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            onPress={onBack}
+            style={styles.floatingPillIconBtn}
+            accessibilityLabel={t.common.back}
+          >
+            <ArrowLeft size={16} color={colors.text} />
+          </TouchableOpacity>
+        ) : (
+          <View />
+        )}
 
-          <View style={styles.headerTitleLabel}>
-            <Compass size={14} color={isDark ? colors.primary : '#0D9488'} />
-            <Text style={styles.headerTitleLabelText} numberOfLines={1}>
-              {t.nav?.luckyWheel || t.luckyWheel?.title || 'Vòng xoay may mắn'}
-            </Text>
-          </View>
-        </View>
-
-        {/* Right: Add Wheel & Spin All Pills */}
+        {/* Right: Results, Add Wheel & Spin All Buttons (Icon only) */}
         <View style={styles.floatingRightActions}>
+          {/* Nút Kết Quả Nhanh */}
           <TouchableOpacity
             style={[
-              styles.floatingPillBtn,
+              styles.floatingPillIconBtn,
+              activeTab === 'results' && styles.floatingPillIconBtnActiveResults,
+            ]}
+            onPress={() => {
+              setActiveTab((prev) => (prev === 'results' ? (activeWheelId || wheels[0]?.id || 'wheel') : 'results'));
+            }}
+            activeOpacity={0.8}
+            accessibilityLabel={t.luckyWheel.resultsTab}
+          >
+            <Trophy size={16} color={activeTab === 'results' ? '#FFFFFF' : '#F59E0B'} />
+          </TouchableOpacity>
+
+          {/* Nút Thêm Vòng Quay */}
+          <TouchableOpacity
+            style={[
+              styles.floatingPillIconBtn,
               (wheels.length >= 4 || isAnySpinning) && { opacity: 0.4 },
             ]}
             disabled={wheels.length >= 4 || isAnySpinning}
@@ -930,16 +940,14 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onBa
             activeOpacity={0.8}
             accessibilityLabel={t.luckyWheel.addWheel}
           >
-            <Plus size={14} color={isDark ? colors.primary : '#0D9488'} />
-            <Text style={styles.floatingPillText}>
-              {isCompactScreen ? (locale === 'vi' ? 'Thêm' : 'Add') : t.luckyWheel.addWheel}
-            </Text>
+            <Plus size={16} color={isDark ? colors.primary : '#0D9488'} />
           </TouchableOpacity>
 
+          {/* Nút Quay Tất Cả */}
           {wheels.length > 0 && (
             <TouchableOpacity
               style={[
-                styles.floatingPillPrimaryBtn,
+                styles.floatingPillPrimaryIconBtn,
                 isAnySpinning && { opacity: 0.5 },
               ]}
               disabled={isAnySpinning}
@@ -947,8 +955,7 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onBa
               activeOpacity={0.8}
               accessibilityLabel={t.luckyWheel.spinAll}
             >
-              <RotateCw size={13} color="#FFFFFF" />
-              <Text style={styles.floatingPillPrimaryText}>{t.luckyWheel.spinAll}</Text>
+              <RotateCw size={15} color="#FFFFFF" />
             </TouchableOpacity>
           )}
         </View>
@@ -1000,6 +1007,7 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onBa
                       activeWheelId === wheels[0]!.id && styles.mobileWheelTitleTextActive,
                     ]}
                     numberOfLines={1}
+                    ellipsizeMode="tail"
                   >
                     {wheels[0]!.title}
                   </Text>
@@ -1126,7 +1134,11 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onBa
                     }}
                     style={[styles.tabPill, isSelected && styles.tabPillActive]}
                   >
-                    <Text style={[styles.tabPillText, isSelected && styles.tabPillTextActive]}>
+                    <Text
+                      style={[styles.tabPillText, isSelected && styles.tabPillTextActive]}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
                       {wheel.title}
                     </Text>
                   </TouchableOpacity>
@@ -1138,6 +1150,7 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onBa
                 onPress={() => setActiveTab('results')}
                 style={[
                   styles.tabPill,
+                  styles.tabPillResults,
                   activeTab === 'results' && styles.tabPillActiveResults,
                 ]}
               >
@@ -1147,6 +1160,8 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onBa
                     styles.tabPillText,
                     activeTab === 'results' && styles.tabPillTextActive,
                   ]}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
                 >
                   {t.luckyWheel.resultsTab}
                 </Text>
@@ -1170,28 +1185,32 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onBa
               </TouchableOpacity>
             </ScrollView>
 
-          {/* TAB CONTENT: KẾT QUẢ (DẠNG TEXT NHƯ KHI NHẬP, GHI THEO LẦN) */}
+          {/* TAB CONTENT: KẾT QUẢ (DẠNG TEXT CHỈ ĐỌC, GHI THEO LẦN) */}
           {activeTab === 'results' ? (
             <View style={styles.activeContentCard}>
               <View style={styles.resultsHeaderRow}>
                 <View style={styles.resultsHeaderLeft}>
                   <Trophy size={16} color="#F59E0B" />
-                  <Text style={styles.resultsHeaderTitle}>{t.luckyWheel.resultsHistoryTitle}</Text>
+                  <Text style={styles.resultsHeaderTitle} numberOfLines={1}>
+                    {t.luckyWheel.resultsHistoryTitle}
+                  </Text>
                   <Text style={styles.resultsHeaderCount}>({resultLinesCount})</Text>
                 </View>
               </View>
 
-              {/* Textarea lớn hiển thị & cho phép sửa kết quả dạng text */}
+              {/* Textarea lớn chỉ đọc hiển thị kết quả */}
               <View style={{ flex: 1, minHeight: 180, marginBottom: 8 }}>
                 <TextInput
-                  style={[styles.boardTextarea, { minHeight: 180 }]}
+                  style={[styles.boardTextarea, { minHeight: 180, opacity: 0.95 }]}
                   multiline
+                  editable={false}
                   value={resultsText}
-                  onChangeText={setResultsText}
                   placeholder={t.luckyWheel.resultsPlaceholder}
                   placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
                 />
-                <Text style={styles.resultsHintText}>{t.luckyWheel.resultsHint}</Text>
+                <Text style={styles.resultsHintText} numberOfLines={1} ellipsizeMode="tail">
+                  {t.luckyWheel.resultsHint}
+                </Text>
               </View>
 
               {/* Action Buttons: Sort A-Z, Share to Chat, Clear All (Icons only) */}
@@ -1251,7 +1270,7 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onBa
                   ) : (
                     <VolumeX size={16} color={isDark ? '#6B7280' : '#9CA3AF'} />
                   )}
-                  <Text style={styles.toggleItemText}>{t.luckyWheel.soundSetting}</Text>
+                  <Text style={styles.toggleItemText} numberOfLines={1} ellipsizeMode="tail">{t.luckyWheel.soundSetting}</Text>
                 </TouchableOpacity>
 
                 {/* Delete All Wheels Button */}
@@ -1261,7 +1280,7 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onBa
                   onPress={handleDeleteAllWheels}
                 >
                   <Trash2 size={15} color="#EF4444" />
-                  <Text style={[styles.toggleItemText, { color: '#EF4444', fontWeight: '700' }]}>
+                  <Text style={[styles.toggleItemText, { color: '#EF4444', fontWeight: '700' }]} numberOfLines={1} ellipsizeMode="tail">
                     {t.luckyWheel.deleteAllWheels}
                   </Text>
                 </TouchableOpacity>
@@ -1276,6 +1295,7 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onBa
                   <TextInput
                     style={styles.inlineTitleInput}
                     value={activeWheel.title}
+                    maxLength={50}
                     editable={!isAnySpinning}
                     onChangeText={(val) => {
                       setWheels((prev) =>
@@ -1293,7 +1313,7 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onBa
                       style={[styles.delWheelBtn, isAnySpinning && { opacity: 0.3 }]}
                       accessibilityLabel={t.luckyWheel.confirmDeleteTitle}
                     >
-                      <Trash2 size={16} color="#EF4444" />
+                      <Trash2 size={18} color="#EF4444" />
                     </TouchableOpacity>
                   )}
                 </View>
@@ -1368,7 +1388,7 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onBa
                     ) : (
                       <VolumeX size={16} color={isDark ? '#6B7280' : '#9CA3AF'} />
                     )}
-                    <Text style={styles.toggleItemText}>{t.luckyWheel.soundSetting}</Text>
+                    <Text style={styles.toggleItemText} numberOfLines={1} ellipsizeMode="tail">{t.luckyWheel.soundSetting}</Text>
                   </TouchableOpacity>
 
                   {/* Delete All Wheels Button */}
@@ -1378,7 +1398,7 @@ export const MobileWheelView: React.FC<MobileWheelViewProps> = ({ circleId, onBa
                     onPress={handleDeleteAllWheels}
                   >
                     <Trash2 size={15} color="#EF4444" />
-                    <Text style={[styles.toggleItemText, { color: '#EF4444', fontWeight: '700' }]}>
+                    <Text style={[styles.toggleItemText, { color: '#EF4444', fontWeight: '700' }]} numberOfLines={1} ellipsizeMode="tail">
                       {t.luckyWheel.deleteAllWheels}
                     </Text>
                   </TouchableOpacity>
@@ -1635,6 +1655,38 @@ function createStyles(colors: any, isDark: boolean) {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  floatingPillIconBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: isDark ? colors.elevated : 'rgba(255, 255, 255, 0.94)',
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    shadowColor: '#000',
+    shadowOpacity: isDark ? 0.3 : 0.08,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 5,
+    elevation: 3,
+  },
+  floatingPillIconBtnActiveResults: {
+    backgroundColor: '#F59E0B',
+    borderColor: '#D97706',
+  },
+  floatingPillPrimaryIconBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+    shadowColor: colors.primary,
+    shadowOpacity: 0.25,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 5,
+    elevation: 3,
   },
   floatingPillBtn: {
     flexDirection: 'row',
@@ -1991,13 +2043,25 @@ function createStyles(colors: any, isDark: boolean) {
     gap: 6,
   },
   tabPill: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    width: 88,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
     borderRadius: 10,
     backgroundColor: isDark ? colors.elevated : '#F1F5F9',
   },
   tabPillActive: {
     backgroundColor: colors.primary,
+  },
+  tabPillResults: {
+    width: 'auto',
+    minWidth: 88,
+    height: 32,
+    paddingHorizontal: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
   },
   tabPillActiveResults: {
     backgroundColor: '#F59E0B',
@@ -2016,11 +2080,11 @@ function createStyles(colors: any, isDark: boolean) {
   },
   boardActionBtnIconOnly: {
     flex: 1,
+    height: 38,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: colors.hairline,
-    paddingVertical: 9,
     borderRadius: 10,
     backgroundColor: isDark ? colors.elevated : '#F9FAFB',
   },
@@ -2037,11 +2101,13 @@ function createStyles(colors: any, isDark: boolean) {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    flex: 1,
   },
   resultsHeaderTitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
     color: colors.text,
+    flexShrink: 1,
   },
   resultsHeaderCount: {
     fontSize: 12,
@@ -2124,6 +2190,7 @@ function createStyles(colors: any, isDark: boolean) {
     fontSize: 11,
     fontWeight: '600',
     color: colors.subtle,
+    textAlign: 'center',
   },
   tabPillTextActive: {
     color: '#FFFFFF',
@@ -2148,7 +2215,14 @@ function createStyles(colors: any, isDark: boolean) {
     paddingVertical: 2,
   },
   delWheelBtn: {
-    padding: 4,
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: isDark ? 'rgba(239, 68, 68, 0.3)' : '#FECDD3',
+    backgroundColor: isDark ? 'rgba(239, 68, 68, 0.15)' : '#FFF1F2',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   counterRow: {
     flexDirection: 'row',
@@ -2490,6 +2564,7 @@ function createStyles(colors: any, isDark: boolean) {
   mobileWheelTitleBadge: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 4,
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -2498,7 +2573,7 @@ function createStyles(colors: any, isDark: boolean) {
     borderWidth: 1,
     borderColor: colors.hairline,
     marginBottom: 6,
-    maxWidth: 140,
+    width: 124,
   },
   mobileWheelTitleBadgeActive: {
     borderColor: colors.primary,
