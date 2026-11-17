@@ -8839,3 +8839,33 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 - **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
 - **Commit:** 35851b9
 - **PR:** #120
+
+
+## AI-0217: Tinh Chỉnh Icon-Only Nút Dạng Xem Và Đẩy Nút Hôm Nay Lên Floating Header Khi Vào Xem Năm (#120)
+
+- **Date:** 2026-11-18 01:10:00 +07:00
+- **Developer:** Ninh Thị Mỹ Hạnh & Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120
+- **Purpose:** Tối ưu hóa nút "Dạng xem" và nút "Hôm nay" trên Floating Header Lịch nhóm (Mobile):
+  1. **Nút "Dạng xem" hiển thị Icon-only:**
+     - Loại bỏ text "Tháng" / "Lịch trình" và chevron down, chỉ giữ lại icon (`CalendarDays` khi ở tab tháng hoặc `Clock` khi ở tab lịch trình), kích thước 16px nằm trong nút tròn 36x36 (`headerIconBtn`), hài hòa và đồng nhất với các icon khác trên thanh Header nổi.
+  2. **Tự động ẩn nút "Dạng xem" và đẩy nút "Hôm nay" lên Floating Header khi vào Năm:**
+     - Khi người dùng bấm vào năm (`isYearView === true`), nút "Dạng xem" biến mất và nút "Hôm nay" (`headerTodayPillBtn`) được đẩy lên đúng vị trí đó trên Floating Header bar.
+     - Khi bấm "Hôm nay" ở chế độ xem năm, danh sách cuộn mượt về năm hiện tại (`scrollToYear(now.getFullYear(), true)`).
+     - Loại bỏ sub-header `appleYearHeader` thừa trùng lặp trong `renderYearView`, giúp danh sách năm cuộn thoáng và tự nhiên dưới thanh nổi.
+     - Nút Quay lại `<` ở chế độ năm cho phép quay trở lại dạng xem tháng ngay lập tức (`setIsYearView(false)`), khi đó nút icon "Dạng xem" tự động hiển thị trở lại.
+- **Files Affected:**
+  - `apps/mobile/src/components/tools/MobileCalendarView.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% component logic, floating header layout adjustment, and type checking.
+- **Human Modifications:** Người dùng yêu cầu ở app chỗ btn dạng xem thì để mỗi icon thôi, khi ấn vào năm thì nút đó mất mà đẩy btn hôm nay lên trên đó.
+- **Verification Method:**
+  - `npx tsc --noEmit --project apps/mobile/tsconfig.json`: Passed 0 errors.
+  - `bash ./scripts/check-agent-map.sh`: Passed (all 130 files resolve).
+  - `bash ./scripts/check-secrets.sh`: Passed (601 files checked, 0 leaks).
+- **Official Source Checked:** `PROJECT_GOD.md` §2.2, `agentic/playbooks/05-calendar-planning.md`, `agentic/playbooks/cross-cutting-gate.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secrets.
+- **Commit:** Pending
+- **PR:** #120

@@ -5171,7 +5171,14 @@ const handleOpenEditModal = (ev: CalendarEventEntity, occDate?: Date) => {
           <TouchableOpacity
             activeOpacity={0.7}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            onPress={() => onBack?.()}
+            onPress={() => {
+              if (isYearView) {
+                setIsYearView(false);
+                Haptics.selectionAsync();
+              } else {
+                onBack?.();
+              }
+            }}
             style={[
               styles.headerIconBtn,
               { backgroundColor: isDark ? 'rgba(29, 29, 33, 0.92)' : 'rgba(255, 255, 255, 0.94)' },
@@ -5188,29 +5195,46 @@ const handleOpenEditModal = (ev: CalendarEventEntity, occDate?: Date) => {
             </Text>
           </View>
 
-          {/* NÚT DẠNG XEM (THEO THÁNG / THEO LỊCH TRÌNH) */}
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => {
-              setIsViewModeModalOpen(true);
-              Haptics.selectionAsync();
-            }}
-            style={[
-              styles.headerViewModeBtn,
-              { backgroundColor: isDark ? 'rgba(29, 29, 33, 0.92)' : 'rgba(255, 255, 255, 0.94)' },
-            ]}
-            accessibilityLabel="Dạng xem"
-          >
-            {calendarTab === 'month' ? (
-              <CalendarDays size={14} color="#0D9488" />
-            ) : (
-              <Clock size={14} color="#0D9488" />
-            )}
-            <Text style={[styles.headerViewModeText, { color: colors.text }]}>
-              {calendarTab === 'month' ? 'Tháng' : 'Lịch trình'}
-            </Text>
-            <ChevronDown size={12} color={colors.subtle} style={{ marginLeft: 1 }} />
-          </TouchableOpacity>
+          {/* KHI ẤN VÀO NĂM: NÚT DẠNG XEM MẤT ĐI, THAY BẰNG NÚT HÔM NAY ĐẨY LÊN TRÊN ĐÓ */}
+          {isYearView ? (
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => {
+                const now = new Date();
+                setCurrentDate(new Date(now.getFullYear(), now.getMonth(), 1));
+                setSelectedDate(now);
+                scrollToYear(now.getFullYear(), true);
+                Haptics.selectionAsync();
+              }}
+              style={[
+                styles.headerTodayPillBtn,
+                { backgroundColor: isDark ? 'rgba(29, 29, 33, 0.92)' : 'rgba(255, 255, 255, 0.94)' },
+              ]}
+              accessibilityLabel="Hôm nay"
+            >
+              <Text style={styles.headerTodayPillText}>Hôm nay</Text>
+            </TouchableOpacity>
+          ) : (
+            /* NÚT DẠNG XEM: ĐỂ MỖI ICON THÔI (THEO THÁNG / THEO LỊCH TRÌNH) */
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => {
+                setIsViewModeModalOpen(true);
+                Haptics.selectionAsync();
+              }}
+              style={[
+                styles.headerIconBtn,
+                { backgroundColor: isDark ? 'rgba(29, 29, 33, 0.92)' : 'rgba(255, 255, 255, 0.94)' },
+              ]}
+              accessibilityLabel="Dạng xem"
+            >
+              {calendarTab === 'month' ? (
+                <CalendarDays size={16} color="#0D9488" />
+              ) : (
+                <Clock size={16} color="#0D9488" />
+              )}
+            </TouchableOpacity>
+          )}
 
           {/* NÚT TÌM KIẾM (FLOATING PILL BUTTON) */}
           <TouchableOpacity
@@ -5231,6 +5255,9 @@ const handleOpenEditModal = (ev: CalendarEventEntity, occDate?: Date) => {
           <TouchableOpacity
             activeOpacity={0.7}
             onPress={() => {
+              if (isYearView) {
+                setIsYearView(false);
+              }
               handleOpenCreateModal();
               Haptics.selectionAsync();
             }}
@@ -5578,48 +5605,14 @@ const handleOpenEditModal = (ev: CalendarEventEntity, occDate?: Date) => {
       <View style={styles.container}>
         {renderTopFloatingBar()}
 
-        {/* Year View Header */}
-        <View
-          style={[
-            styles.appleYearHeader,
-            { paddingTop: Math.max(insets.top + 54, Platform.OS === 'ios' ? 88 : 76) },
-          ]}
-        >
-          <View style={{ flex: 1 }} />
-
-          <View style={styles.appleHeaderActions}>
-            {/* Nút Hôm nay - lướt tới năm hiện tại */}
-            <TouchableOpacity
-              style={styles.appleMonthTodayBtn}
-              onPress={() => {
-                const now = new Date();
-                setCurrentDate(new Date(now.getFullYear(), now.getMonth(), 1));
-                setSelectedDate(now);
-                scrollToYear(now.getFullYear(), true);
-                Haptics.selectionAsync();
-              }}
-            >
-              <Text style={styles.appleMonthTodayBtnText}>Hôm nay</Text>
-            </TouchableOpacity>
-
-            {/* Nút Đóng Year View */}
-            <TouchableOpacity
-              style={styles.yearCloseBtn}
-              onPress={() => {
-                setIsYearView(false);
-                Haptics.selectionAsync();
-              }}
-            >
-              <X size={18} color="#64748B" />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Danh sách các năm cuộn dọc liên tục */}
+        {/* Danh sách các năm cuộn dọc liên tục (đã đẩy nút Hôm nay lên Floating Bar) */}
         <ScrollView
           ref={yearScrollRef}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.yearScrollContent}
+          contentContainerStyle={[
+            styles.yearScrollContent,
+            { paddingTop: Math.max(insets.top + 54, Platform.OS === 'ios' ? 88 : 76) },
+          ]}
         >
           {YEARS_RANGE.map((y) => (
             <View
@@ -9615,6 +9608,25 @@ appleYearBtn: {
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 3,
+  },
+  headerTodayPillBtn: {
+    height: 36,
+    paddingHorizontal: 12,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  headerTodayPillText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0D9488',
   },
   headerViewModeBtn: {
     height: 36,
