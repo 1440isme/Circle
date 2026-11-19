@@ -9570,3 +9570,33 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
   - **Resolution / Fix:** Giữ nguyên bản ghi vòng 1 (giữ ID cố định), đồng thời bổ sung fallback truy vấn và refetch cache phía client.
 - **Commit:** 589b184
 - **PR:** #120
+
+
+---
+
+## AI-0237: Tái thiết kế Sân khấu Vòng quay ngẫu nhiên Full-Screen Edge-to-Edge
+
+- **Date:** 2026-11-19 18:11:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120 (Event RSVP & Realtime Delights)
+- **Purpose:** 
+  1. Chuyển đổi toàn diện giao diện `LiveWheelOverlay.tsx` sang chuẩn Full-Screen (Edge-to-Edge), gỡ bỏ hoàn toàn các khung giới hạn đóng hộp cũ (`max-w-6xl`, fixed `h-[640px]`) để giao diện phủ trọn 100% viewport.
+  2. Nâng cấp Header trên cùng thành thanh điều hướng toàn màn hình (`w-full`), gắn liền cạnh trên với đầy đủ tiêu đề và cụm Floating Pill buttons.
+  3. Mở rộng kích thước đĩa quay cho trải nghiệm toàn màn hình:
+     - Khi thu gọn bảng: 1 vòng đạt **560px** (chiếm trọn tâm điểm sân khấu); 2 vòng đạt **380px**; 3–4 vòng đạt **280px**.
+     - Khi mở bảng: 1 vòng đạt **440px**; 2 vòng đạt **300px**; 3–4 vòng đạt **230px**.
+  4. Cái Bảng (Setup Panel) cập nhật gắn dọc sát mép phải màn hình (`w-[420px] xl:w-[460px] h-full border-l`), tự động kéo giãn toàn bộ chiều cao màn hình để hiển thị danh sách phương án, kết quả và người xem thoáng đãng, sắc nét.
+- **Prompt Summary:** Thiết kế giao diện vòng quay ngẫu nhiên theo chuẩn full màn hình do mở full màn.
+- **Files Affected:**
+  - `apps/web/src/components/chat/LiveWheelOverlay.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% CSS architecture, responsive layout migration và canvas auto-scaling logic.
+- **Human Modifications:** Người dùng trực tiếp yêu cầu thiết kế full màn hình tương xứng với trải nghiệm mở full màn.
+- **Verification Method:** `npx tsc --noEmit` pass 0 errors cả web và backend; `npm test circle-tools.service.spec.ts` pass 48/48 tests; `check-secrets.sh` pass 0 leaks.
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn, không chứa secret.
+- **AI Errors / Hallucinations Found:** Không có.
+- **Commit:** Pending
+- **PR:** Pending
