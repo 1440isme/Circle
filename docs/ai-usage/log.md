@@ -9319,3 +9319,30 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 - **Security & License Check:** An toàn tuyệt đối, zero secret leaks, tuân thủ RBAC Circle.
 - **Commit:** 16653fa
 - **PR:** Pending
+
+
+---
+
+## AI-0229: Bổ sung Bảng nhỏ Mặt Người đang xem (Góc dưới phải) & Nút Floating Kết quả (Trên cùng) cho Web Live Wheel
+
+- **Date:** 2026-11-19 15:05:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120 (Event RSVP and Realtime Delights - Live Lucky Wheel Floating Audience Dock & Results Trigger)
+- **Purpose:** Triển khai 2 thành phần giao diện theo yêu cầu trực tiếp của người dùng trên Web (`LiveWheelOverlay.tsx`):
+  1. **Bảng nhỏ ở góc dưới bên phải hiển thị mặt người đang xem (`Floating Audience Dock`):** Thiết kế bo góc kính mờ hiện đại, hiển thị số lượng người xem, nhãn `LIVE` nhấp nháy và dải avatar tròn viền xanh lá của các thành viên đang có mặt trong phòng.
+  2. **Nút Floating Kết quả ở trên cùng (`Top Floating Results Button`):** Nút pill nổi bật dạng gradient hổ phách, icon cúp vàng `Trophy`, huy hiệu đếm số lượt quay đã ghi nhận. Khi bấm sẽ kích hoạt xem kết quả và mở popup modal chi tiết cho phép xem lịch sử từng dòng, sắp xếp A-Z, chia sẻ vào chat và xóa lịch sử.
+- **Prompt Summary:** "ở web thêm 1 bảng nhỏ ở góc dưới phải có mặt người đang xem, và thêm btn floating ở trên cùng là btn kết quả".
+- **Files Affected:**
+  - `apps/web/src/components/chat/LiveWheelOverlay.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% component UI enhancement, floating controls and results modal integration.
+- **Human Modifications:** Người dùng yêu cầu bổ sung bảng nhỏ góc dưới phải và nút floating kết quả trên cùng.
+- **Verification Method:**
+  - `npx tsc --noEmit -p apps/web/tsconfig.json`: Passed 0 errors.
+  - `bash ./scripts/check-secrets.sh`: Passed (630 files checked, 0 leaks).
+- **Official Source Checked:** `PROJECT_GOD.md` §2.2, §11 (DoD), `agentic/playbooks/cross-cutting-gate.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+- **Commit:** Pending
+- **PR:** Pending
