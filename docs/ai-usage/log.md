@@ -9413,3 +9413,36 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 - **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
 - **Commit:** Pending
 - **PR:** Pending
+
+
+---
+
+## AI-0232: Tích hợp bước Thiết lập Modal trước khi bung mở Sân khấu Vòng quay ngẫu nhiên
+
+- **Date:** 2026-11-19 15:49:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120 (Event RSVP and Realtime Delights - 2-Step Random Wheel In-Chat Flow)
+- **Purpose:** Triển khai luồng trải nghiệm 2 bước theo yêu cầu của người dùng:
+  1. **Bước 1 - Thiết lập (`LiveWheelPickerModal.tsx`):** Khi bấm vào menu `(+)` -> "Vòng quay ngẫu nhiên" trong Chat, bung mở modal thiết lập độc lập. Cho phép người dùng chuyển qua lại giữa các vòng (Vòng 1, Vòng 2, ...), sửa tên vòng, sửa danh sách lựa chọn trong textarea (kèm counter), dùng 4 phím công cụ (`Shuffle`, `Sort A-Z`, `Save as Initial`, `Reset`), bật/tắt âm thanh, xóa tất cả, hoặc bấm `+ Thêm vòng` (tối đa 4 vòng).
+  2. **Bước 2 - Tạo & Bung mở Sân khấu (`LiveWheelOverlay.tsx`):** Khi người dùng hoàn tất cấu hình và bấm nút **"Tạo vòng quay"** trong modal thiết lập:
+     - Tự động lưu cấu hình lựa chọn mới nhất vào backend.
+     - Kích hoạt tạo phiên trực tiếp (`createStageMutation`), gửi thẻ tương tác vào nhóm chat.
+     - Lập tức đóng modal thiết lập và bung mở toàn màn hình Sân khấu Vòng quay ngẫu nhiên (`LiveWheelOverlay.tsx`) với đầy đủ các đĩa quay, Cái Bảng điều khiển, phím tắt âm thanh/xóa tất cả và modal vinh danh cúp vàng.
+- **Prompt Summary:** "oke rồi khi ấn tạo vòng quay ngẫu nhiên thì cho 1 bước thiết lập như nãy đã xong ấn tạo mới ra cái này".
+- **Files Affected:**
+  - `apps/web/src/components/chat/ChatComposer.tsx`
+  - `apps/web/src/components/chat/LiveWheelPickerModal.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% 2-step orchestration between ChatComposer, LiveWheelPickerModal, and LiveWheelOverlay.
+- **Human Modifications:** Người dùng chốt luồng: mở modal thiết lập trước, sau đó ấn Tạo mới kích hoạt Sân khấu trực tiếp.
+- **Verification Method:**
+  - `npx tsc --noEmit -p apps/web/tsconfig.json`: Passed 0 errors.
+  - `npx tsc --noEmit -p apps/backend/tsconfig.json`: Passed 0 errors.
+  - `npm test --prefix apps/backend -- circle-tools`: Passed 48/48 unit tests.
+  - `bash ./scripts/check-secrets.sh`: Passed (630 files checked, 0 leaks).
+- **Official Source Checked:** `PROJECT_GOD.md` §2.2, §11 (DoD).
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+- **Commit:** Pending
+- **PR:** Pending

@@ -27,7 +27,7 @@ import { createPreviewUrl, revokePreviewUrl } from '../../lib/image-optimizer';
 import { Emoji } from '../ui/Emoji';
 import { FullEmojiPickerModal } from '../ui/FullEmojiPickerModal';
 import { CreatePollChatModal } from './CreatePollChatModal';
-import { useCreateLiveWheelStageMutation } from '../../hooks/use-circle-tools';
+import { LiveWheelPickerModal } from './LiveWheelPickerModal';
 
 interface ChatComposerProps {
   circleId?: string;
@@ -82,24 +82,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
 }) => {
   const t = useLanguageStore((s) => s.t);
   const locale = useLanguageStore((s) => s.locale);
-  const createLiveWheelStageMutation = useCreateLiveWheelStageMutation(circleId || '');
-
-  const handleStartLiveWheel = async () => {
-    setIsPlusMenuOpen(false);
-    if (!circleId || !channelId) return;
-    try {
-      const created = await createLiveWheelStageMutation.mutateAsync({ channelId });
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(
-          new CustomEvent('circle:open-live-wheel', {
-            detail: { circleId, sessionId: created?.id, session: created },
-          })
-        );
-      }
-    } catch (err: any) {
-      alert(err?.response?.data?.message || err?.message || 'Không thể mở vòng quay');
-    }
-  };
+  const [isLiveWheelSetupOpen, setIsLiveWheelSetupOpen] = useState(false);
   const uiStyle = useThemeStore((s) => s.uiStyle);
   const isGlass = uiStyle === 'glass';
   const [content, setContent] = useState('');
@@ -731,15 +714,13 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
 
                     <button
                       type="button"
-                      disabled={createLiveWheelStageMutation.isPending}
-                      onClick={handleStartLiveWheel}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors text-left cursor-pointer disabled:opacity-50"
+                      onClick={() => {
+                        setIsPlusMenuOpen(false);
+                        setIsLiveWheelSetupOpen(true);
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors text-left cursor-pointer"
                     >
-                      {createLiveWheelStageMutation.isPending ? (
-                        <Loader2 className="w-4 h-4 text-amber-500 animate-spin shrink-0" />
-                      ) : (
-                        <Compass className="w-4 h-4 text-amber-500 shrink-0" />
-                      )}
+                      <Compass className="w-4 h-4 text-amber-500 shrink-0" />
                       <span>
                         {locale === 'vi' ? 'Vòng quay ngẫu nhiên' : 'Random Wheel'}
                       </span>
@@ -839,12 +820,20 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
       </div>
 
       {circleId && (
-        <CreatePollChatModal
-          isOpen={isCreatePollOpen}
-          onClose={() => setIsCreatePollOpen(false)}
-          circleId={circleId}
-          onPollCreated={handlePollCreated}
-        />
+        <>
+          <CreatePollChatModal
+            isOpen={isCreatePollOpen}
+            onClose={() => setIsCreatePollOpen(false)}
+            circleId={circleId}
+            onPollCreated={handlePollCreated}
+          />
+          <LiveWheelPickerModal
+            isOpen={isLiveWheelSetupOpen}
+            onClose={() => setIsLiveWheelSetupOpen(false)}
+            circleId={circleId}
+            channelId={channelId}
+          />
+        </>
       )}
       </div>
     </div>
