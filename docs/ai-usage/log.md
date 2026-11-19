@@ -9473,3 +9473,30 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
   - **Resolution / Fix:** Sửa thành `user.profile?.displayName` và `user.profile?.avatarUrl`, `tsc` pass 100%.
 - **Commit:** Pending
 - **PR:** Pending
+
+
+---
+
+## AI-0234: Khắc phục lỗi React Rules of Hooks trong LiveWheelOverlay
+
+- **Date:** 2026-11-19 16:16:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120 (Event RSVP & Realtime Delights)
+- **Purpose:** Khắc phục triệt để lỗi vi phạm nguyên tắc React Rules of Hooks ("Rendered more hooks than during the previous render") tại `LiveWheelOverlay.tsx:1005`.
+- **Prompt Summary:** Xử lý runtime error "Rendered more hooks than during the previous render" tại `src/components/chat/LiveWheelOverlay.tsx (1005:32)`.
+- **Files Affected:**
+  - `apps/web/src/components/chat/LiveWheelOverlay.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% việc xác định vị trí vi phạm thứ tự hooks và di chuyển `useMemo` lên trước early return `if (!isVisible) return null`.
+- **Human Modifications:** Người dùng báo cáo traceback runtime error từ trình duyệt.
+- **Verification Method:** `npx tsc --noEmit -p apps/web/tsconfig.json` pass 0 errors; `./scripts/check-secrets.sh` 0 leaks.
+- **Official Source Checked:** React Documentation (Rules of Hooks).
+- **Security & License Check:** An toàn, không chứa secret.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** Đặt `const participants = useMemo(...)` sau câu lệnh điều kiện `if (!isVisible) return null;` khiến số lượng hooks bị thay đổi khi modal đổi trạng thái hiển thị.
+  - **Root Cause:** Sơ suất đặt hook tính toán sau nhánh return sớm của component.
+  - **Resolution / Fix:** Đưa `participants = useMemo(...)` lên trước toàn bộ các câu lệnh early return.
+- **Commit:** Pending
+- **PR:** Pending

@@ -988,20 +988,6 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
     };
   }, [circleId, wheels, wheelsState, user?.id, animateWheelRotation, parseOptions]);
 
-  if (!isVisible) return null;
-
-  // Active wheel parsed options
-  const activeParsedOptions = parseOptions(activeLocalState?.optionsText || '');
-
-  // Fixed wheel sizes by count (invariant to panel collapse so layout never jumps/resizes)
-  const getWheelSize = (count: number) => {
-    if (count === 1) return 310;
-    if (count === 2) return 220;
-    return 190; // 3 or 4 wheels
-  };
-
-  const wheelSize = getWheelSize(wheels.length);
-
   const participants = useMemo(() => {
     const list = liveSession?.participants || [];
     if (user && !list.some((p) => p.userId === user.id)) {
@@ -1017,6 +1003,20 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
     }
     return list;
   }, [liveSession?.participants, user]);
+
+  if (!isVisible) return null;
+
+  // Active wheel parsed options
+  const activeParsedOptions = parseOptions(activeLocalState?.optionsText || '');
+
+  // Fixed wheel sizes by count (invariant to panel collapse so layout never jumps/resizes)
+  const getWheelSize = (count: number) => {
+    if (count === 1) return 310;
+    if (count === 2) return 220;
+    return 190; // 3 or 4 wheels
+  };
+
+  const wheelSize = getWheelSize(wheels.length);
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-circle-canvas dark:bg-circle-dark-surface overflow-hidden transition-colors animate-fadeIn">
