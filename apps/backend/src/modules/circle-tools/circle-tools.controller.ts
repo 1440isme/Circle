@@ -435,6 +435,22 @@ export class CircleToolsController {
     };
   }
 
+  @Post('wheels/live-close')
+  @HttpCode(HttpStatus.OK)
+  async closeLiveWheel(
+    @Param('circleId') circleId: string,
+    @CurrentUser('id') userId: string,
+    @Body() dto: { results?: { wheelTitle: string; winner: string }[] },
+  ): Promise<ApiResponse<{ success: boolean }>> {
+    const data = await this.toolsService.closeLiveWheelStage(circleId, userId, dto?.results);
+    return {
+      success: true,
+      statusCode: HttpStatus.OK,
+      data,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
   @Get('wheels/live-active')
   async getActiveLiveWheel(
     @Param('circleId') circleId: string,

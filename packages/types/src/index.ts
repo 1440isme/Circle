@@ -844,6 +844,7 @@ export interface LiveWheelItem {
 export interface LiveWheelSession {
   id: string;
   circleId: string;
+  creatorId?: string;
   channelId?: string;
   wheelId?: string;
   wheelTitle: string;
@@ -893,6 +894,10 @@ export interface LiveRemoveResultInput {
   wheelId?: string;
   optionLabel?: string;
   removeAll?: boolean;
+}
+
+export interface CloseLiveStageInput {
+  results?: { wheelTitle: string; winner: string }[];
 }
 
 export interface SpinWheelResult {

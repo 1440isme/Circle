@@ -510,6 +510,23 @@ export function useLiveRemoveResultMutation(circleId: string) {
   });
 }
 
+export function useCloseLiveWheelMutation(circleId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input?: { results?: { wheelTitle: string; winner: string }[] }) => {
+      const res = await apiRequest<{ success: boolean }>(`/circles/${circleId}/wheels/live-close`, {
+        method: 'POST',
+        body: JSON.stringify(input || {}),
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.setQueryData(['tools', 'wheels', 'live-active', circleId], null);
+      queryClient.invalidateQueries({ queryKey: ['tools', 'wheels', circleId] });
+    },
+  });
+}
+
 // =============================================================================
 // 3. ANONYMOUS POSTS / WORDS UNSAID HOOKS (UC21)
 // =============================================================================

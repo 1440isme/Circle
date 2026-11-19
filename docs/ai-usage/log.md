@@ -9280,3 +9280,42 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 - **Official Source Checked:** `PROJECT_GOD.md` §2.2, §11 (DoD), `agentic/playbooks/cross-cutting-gate.md`.
 - **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
 - **Commit:** 2541d4d
+
+
+---
+
+## AI-0228: Phân tách Thiết lập Vòng quay cho Người tạo & Tự động Gửi Kết quả vào Chat khi Đóng Phòng
+
+- **Date:** 2026-11-19 14:35:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120 (Event RSVP and Realtime Delights - Live Lucky Wheel Separation of Roles & Auto-Sharing Results)
+- **Purpose:** Hoàn thiện trải nghiệm Live Wheel trên Web theo phản hồi của người dùng:
+  1. Trang bị đầy đủ các nút thiết lập chuẩn như `CircleWheelView` cho từng vòng quay: Sửa tiêu đề vòng (`Edit2`/`Check`), Textarea nhập các lựa chọn, 4 nút tác vụ (`Shuffle`, `Sort A-Z`, `Reset`, `Clear`) và nút to nổi bật **"Lưu & Áp dụng lên vòng quay"** đồng bộ realtime tới tất cả người xem.
+  2. Phân quyền Người tạo (`isCreator`) và Người xem (`!isCreator`):
+     - Người xem chỉ thấy 2 tab độc lập: `[🏆 Kết quả]` và `[👥 Người xem ({count})]`. Người xem không thấy các tab thiết lập vòng và nhãn đĩa quay bên trái hiển thị tĩnh (không bấm chuyển tab sửa).
+     - Người tạo thấy toàn bộ các tab `[Vòng 1]...[Vòng 4]`, `[🏆 Kết quả]`, `[👥 Người xem]` và có quyền sửa, lưu, áp dụng.
+  3. Bảng kết quả ghi theo từng dòng cho từng lượt quay (ví dụ: `Lần 1: ... | ...`), ở chế độ chỉ đọc (`readOnly={true}`), không thể sửa tay, kèm các nút Sắp xếp A-Z, Gửi vào chat và Xóa lịch sử.
+  4. Khi Người tạo đóng phòng quay, hệ thống tự động tổng hợp kết quả và gửi tin nhắn chat vào channel nhóm, đồng thời phát socket `circle:live-wheel:closed` để toàn bộ người xem tự động đóng overlay và xem ngay kết quả trong đoạn chat.
+- **Prompt Summary:** "làm web trước nhá tôi thấy mấy cái nút ở bảng thiết lập chưa đúng và thiếu. người xem và bảng kết quả tách riêng ra phần thiết lập chỉ có người tạo mới thấy và sửa, kết quả cũng ghi theo từng dòng và ko được sửa. khi cái phòng này đóng kết quả tự động gửi vô tin nhắn chat".
+- **Files Affected:**
+  - `packages/types/src/index.ts`
+  - `apps/backend/src/modules/chat/chat.gateway.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
+  - `apps/backend/src/modules/circle-tools/circle-tools.controller.ts`
+  - `apps/web/src/hooks/use-circle-tools.ts`
+  - `apps/web/src/components/chat/LiveWheelOverlay.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% full-stack implementation across types, backend gateway & service, frontend React hooks, and Web UI components.
+- **Human Modifications:** Người dùng rà soát và định hướng phân tách quyền hạn, hoàn thiện bộ nút thiết lập và tự động gửi chat khi đóng phòng.
+- **Verification Method:**
+  - `npm run build --prefix packages/types`: Passed exit code 0.
+  - `npx tsc --noEmit -p apps/web/tsconfig.json`: Passed 0 errors.
+  - `npx tsc --noEmit -p apps/backend/tsconfig.json`: Passed 0 errors.
+  - `npm test --prefix apps/backend -- circle-tools`: Passed 48/48 unit tests.
+  - `bash ./scripts/check-secrets.sh`: Passed (630 files checked, 0 leaks).
+- **Official Source Checked:** `PROJECT_GOD.md` §2.2, §11 (DoD), `agentic/playbooks/05-calendar-planning.md`, `agentic/playbooks/cross-cutting-gate.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks, tuân thủ RBAC Circle.
+- **Commit:** 16653fa
+- **PR:** Pending

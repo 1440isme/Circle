@@ -18,14 +18,23 @@ import {
   Check,
   Maximize2,
   Minimize2,
+  Edit2,
+  Shuffle,
+  ArrowDownAZ,
+  RotateCcw,
+  Share2,
 } from 'lucide-react';
 import { LiveWheelSession, LiveWheelItem, LiveWheelParticipant } from '@circle/types';
+import { useAuth } from '../../context/AuthContext';
 import { useLanguageStore } from '../../stores/language.store';
 import { getSocket } from '../../lib/socket';
 import {
   useActiveLiveWheelQuery,
   useLiveSpinWheelMutation,
   useLiveRemoveResultMutation,
+  useCloseLiveWheelMutation,
+  useUpdateWheelMutation,
+  useShareWheelResultsToChatMutation,
 } from '../../hooks/use-circle-tools';
 
 interface LiveWheelOverlayProps {
@@ -231,6 +240,7 @@ const SingleLiveWheelCanvas: React.FC<{
 };
 
 export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) => {
+  const { user } = useAuth();
   const { t, locale } = useLanguageStore();
   const [session, setSession] = useState<LiveWheelSession | null>(null);
   const [isVisible, setIsVisible] = useState(false);
@@ -241,15 +251,36 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
   const [activeTab, setActiveTab] = useState<string>('results');
   const [isFullscreen, setIsFullscreen] = useState(true);
 
+  // Lịch sử kết quả ghi theo từng dòng (Read-only)
+  const [resultsText, setResultsText] = useState<string>('');
+  const resultLines = useMemo(() => (resultsText.trim() ? resultsText.trim().split('\n') : []), [resultsText]);
+
+  // State chỉnh sửa các lựa chọn của từng vòng (chỉ người tạo mới sửa được)
+  const [editingOptionsText, setEditingOptionsText] = useState<Record<string, string>>({});
+  const [editingTitleId, setEditingTitleId] = useState<string | null>(null);
+  const [editingTitleText, setEditingTitleText] = useState<string>('');
+  const [saveSuccessWheelId, setSaveSuccessWheelId] = useState<string | null>(null);
+  const [isSharingResults, setIsSharingResults] = useState(false);
+  const [shareSuccess, setShareSuccess] = useState(false);
+
+  // Xác định người tạo (chỉ người tạo mới thấy và sửa thiết lập)
+  const isCreator = Boolean(
+    user?.id && (user.id === session?.creatorId || user.id === session?.spunBy?.userId)
+  );
+
   const confettiCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const animFrameRef = useRef<number | null>(null);
   const confettiFrameRef = useRef<number | null>(null);
   const lastTickAngleRef = useRef<number>(0);
   const fanfarePlayedRef = useRef<boolean>(false);
+  const lastRecordedStartedAtRef = useRef<number>(0);
 
-  // Hook quay trực tiếp (bất kỳ ai ấn cũng được)
+  // Mutations
   const liveSpinMutation = useLiveSpinWheelMutation(circleId);
   const liveRemoveMutation = useLiveRemoveResultMutation(circleId);
+  const closeLiveMutation = useCloseLiveWheelMutation(circleId);
+  const updateWheelMutation = useUpdateWheelMutation(circleId);
+  const shareResultsMutation = useShareWheelResultsToChatMutation(circleId);
 
   // 1. Fetch active session on mount or circle switch
   const { data: initialActiveSession, refetch: refetchActiveSession } = useActiveLiveWheelQuery(circleId);
@@ -314,6 +345,14 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
       }
     };
 
+    // Khi người tạo đóng phòng quay -> tất cả người xem tự động đóng overlay
+    const handleStageClosed = (data: { circleId: string }) => {
+      if (data.circleId === circleId) {
+        setIsVisible(false);
+        setSession(null);
+      }
+    };
+
     // Lắng nghe sự kiện custom từ tin nhắn chat khi người dùng bấm "Tham gia vòng quay"
     const handleOpenFromChat = (e: any) => {
       if (e.detail?.circleId === circleId) {
@@ -331,6 +370,7 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
     socket.on('circle:live-wheel:started', handleLiveWheelStarted);
     socket.on('circle:live-wheel:participants-updated', handleParticipantsUpdated);
     socket.on('circle:live-wheel:updated', handleWheelUpdated);
+    socket.on('circle:live-wheel:closed', handleStageClosed);
     window.addEventListener('circle:open-live-wheel', handleOpenFromChat);
 
     return () => {
@@ -338,9 +378,17 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
       socket.off('circle:live-wheel:started', handleLiveWheelStarted);
       socket.off('circle:live-wheel:participants-updated', handleParticipantsUpdated);
       socket.off('circle:live-wheel:updated', handleWheelUpdated);
+      socket.off('circle:live-wheel:closed', handleStageClosed);
       window.removeEventListener('circle:open-live-wheel', handleOpenFromChat);
     };
   }, [circleId, refetchActiveSession]);
+
+  // Nếu là người xem, đảm bảo tab không bị kẹt ở tab thiết lập vòng (chỉ xem results hoặc participants)
+  useEffect(() => {
+    if (!isCreator && activeTab !== 'results' && activeTab !== 'participants') {
+      setActiveTab('results');
+    }
+  }, [isCreator, activeTab]);
 
   // Danh sách 4 vòng xoay trong session
   const wheelsList: LiveWheelItem[] = useMemo(() => {
@@ -446,7 +494,33 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
     confettiFrameRef.current = requestAnimationFrame(animateConfetti);
   }, []);
 
-  // 5. Đồng bộ Animation vòng quay theo startedAt & durationMs
+  // 5. Ghi nhận kết quả theo từng dòng khi hoàn tất lượt quay
+  const recordResultLine = useCallback(() => {
+    if (
+      session &&
+      session.stageStatus === 'spinning' &&
+      session.startedAt &&
+      lastRecordedStartedAtRef.current !== session.startedAt
+    ) {
+      lastRecordedStartedAtRef.current = session.startedAt;
+      setResultsText((prev) => {
+        const lines = prev.trim() ? prev.trim().split('\n') : [];
+        const roundNum = lines.length + 1;
+        let line = '';
+        if (wheelsList.length > 1) {
+          const parts = wheelsList
+            .map((w, i) => `${w.wheelTitle || `Vòng ${i + 1}`}: ${w.winningOption?.optionLabel || '--'}`)
+            .join(' | ');
+          line = `Lần ${roundNum}: ${parts}`;
+        } else {
+          line = `Lần ${roundNum}: ${session.winningOption?.optionLabel || '--'}`;
+        }
+        return prev.trim() ? `${prev}\n${line}` : line;
+      });
+    }
+  }, [session, wheelsList]);
+
+  // 6. Đồng bộ Animation vòng quay theo startedAt & durationMs
   useEffect(() => {
     if (!isVisible || !session || wheelsList.length === 0) return;
 
@@ -487,6 +561,7 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
           fanfarePlayedRef.current = true;
         }
         startConfetti();
+        recordResultLine();
       }
     };
 
@@ -495,6 +570,7 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
       setIsFinished(true);
       setActiveTab('results');
       setWheelRotations(finalRotations);
+      recordResultLine();
     } else {
       setIsFinished(false);
       animFrameRef.current = requestAnimationFrame(tick);
@@ -503,9 +579,9 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
     return () => {
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     };
-  }, [isVisible, session, finalRotations, wheelsList, soundEnabled, startConfetti]);
+  }, [isVisible, session, finalRotations, wheelsList, soundEnabled, startConfetti, recordResultLine]);
 
-  // 6. XỬ LÝ KHI BẤM NÚT "QUAY" / "QUAY TẤT CẢ" / "QUAY TIẾP" (AI BẤM CŨNG ĐƯỢC)
+  // 7. XỬ LÝ KHI BẤM NÚT "QUAY" / "QUAY TẤT CẢ" / "QUAY TIẾP" (AI BẤM CŨNG ĐƯỢC)
   const handleSpinClick = async () => {
     if (liveSpinMutation.isPending || (!isFinished && session?.stageStatus === 'spinning')) {
       return;
@@ -521,7 +597,7 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
     }
   };
 
-  // 7. XỬ LÝ LOẠI BỎ KẾT QUẢ TRÚNG THƯỞNG (ĐỒNG BỘ MỌI THÀNH VIÊN)
+  // 8. XỬ LÝ LOẠI BỎ KẾT QUẢ TRÚNG THƯỞNG (ĐỒNG BỘ MỌI THÀNH VIÊN)
   const handleRemoveLiveResult = async (wheelId?: string, optionLabel?: string, removeAll?: boolean) => {
     if (liveRemoveMutation.isPending) return;
     try {
@@ -538,11 +614,165 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
     }
   };
 
-  const handleClose = () => {
-    if (session) {
-      setDismissedSessionId(session.id);
+  // 9. CÁC TÁC VỤ THIẾT LẬP VÒNG DÀNH CHO NGƯỜI TẠO (CREATOR)
+  const handleShuffleCurrentWheel = (wheelId: string, currentText: string) => {
+    const lines = currentText.split('\n').map((l) => l.trim()).filter(Boolean);
+    if (lines.length < 2) return;
+    for (let i = lines.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [lines[i], lines[j]] = [lines[j]!, lines[i]!];
     }
-    setIsVisible(false);
+    setEditingOptionsText((prev) => ({ ...prev, [wheelId]: lines.join('\n') }));
+  };
+
+  const handleSortAZCurrentWheel = (wheelId: string, currentText: string) => {
+    const lines = currentText.split('\n').map((l) => l.trim()).filter(Boolean);
+    if (lines.length < 2) return;
+    lines.sort((a, b) => a.localeCompare(b, 'vi', { sensitivity: 'base' }));
+    setEditingOptionsText((prev) => ({ ...prev, [wheelId]: lines.join('\n') }));
+  };
+
+  const handleResetCurrentWheel = (wheelId: string) => {
+    if (window.confirm(locale === 'vi' ? 'Đặt lại các lựa chọn mặc định ban đầu?' : 'Reset options to default?')) {
+      const defaultOptions = ['Phở bò', 'Bún chả', 'Cơm tấm', 'Bánh mì', 'Bún bò Huế', 'Gà rán'];
+      setEditingOptionsText((prev) => ({ ...prev, [wheelId]: defaultOptions.join('\n') }));
+    }
+  };
+
+  const handleClearCurrentWheel = (wheelId: string) => {
+    setEditingOptionsText((prev) => ({ ...prev, [wheelId]: '' }));
+  };
+
+  const handleSaveWheelOptions = async (wheelId: string, currentTitle: string) => {
+    const raw = editingOptionsText[wheelId];
+    const wheel = wheelsList.find((w) => w.wheelId === wheelId);
+    const textToSave = raw !== undefined ? raw : (wheel?.options.map((o) => o.optionLabel).join('\n') || '');
+
+    const lines = textToSave
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean);
+
+    if (lines.length === 0) {
+      alert(locale === 'vi' ? 'Vòng quay phải có ít nhất 1 lựa chọn' : 'At least 1 option required');
+      return;
+    }
+
+    try {
+      await updateWheelMutation.mutateAsync({
+        wheelId,
+        input: {
+          title: currentTitle,
+          options: lines.map((label, idx) => ({
+            optionLabel: label,
+            color: PASTEL_WHEEL_COLORS[idx % PASTEL_WHEEL_COLORS.length],
+          })),
+        },
+      });
+      setSaveSuccessWheelId(wheelId);
+      setTimeout(() => setSaveSuccessWheelId(null), 2500);
+    } catch (err: any) {
+      alert(err?.response?.data?.message || err?.message || 'Không thể lưu vòng quay');
+    }
+  };
+
+  const handleStartEditTitle = (wheelId: string, currentTitle: string) => {
+    setEditingTitleId(wheelId);
+    setEditingTitleText(currentTitle);
+  };
+
+  const handleSaveTitle = async (wheelId: string) => {
+    const trimmed = editingTitleText.trim();
+    if (trimmed) {
+      try {
+        await updateWheelMutation.mutateAsync({
+          wheelId,
+          input: { title: trimmed },
+        });
+      } catch (err: any) {
+        alert(err?.response?.data?.message || err?.message || 'Không thể đổi tên vòng');
+      }
+    }
+    setEditingTitleId(null);
+  };
+
+  // 10. CÁC TÁC VỤ Ở BẢNG KẾT QUẢ
+  const handleSortResults = () => {
+    if (resultLines.length < 2) return;
+    const sorted = [...resultLines].sort((a, b) => a.localeCompare(b, 'vi', { sensitivity: 'base' }));
+    setResultsText(sorted.join('\n'));
+  };
+
+  const handleClearResults = () => {
+    if (window.confirm(locale === 'vi' ? 'Xoá tất cả lịch sử kết quả quay?' : 'Clear all result history?')) {
+      setResultsText('');
+    }
+  };
+
+  const handleShareResultsManually = async () => {
+    if (resultLines.length === 0 || shareResultsMutation.isPending) return;
+    setIsSharingResults(true);
+    try {
+      const resultsToShare = wheelsList
+        .filter((w) => w.winningOption?.optionLabel)
+        .map((w, idx) => ({
+          wheelTitle: w.wheelTitle || `Vòng ${idx + 1}`,
+          winner: w.winningOption!.optionLabel,
+        }));
+      await shareResultsMutation.mutateAsync(
+        resultsToShare.length > 0
+          ? resultsToShare
+          : [{ wheelTitle: session?.wheelTitle || 'Vòng quay', winner: session?.winningOption?.optionLabel || 'Kết quả' }]
+      );
+      setShareSuccess(true);
+      setTimeout(() => setShareSuccess(false), 2500);
+    } catch (err: any) {
+      alert(err?.response?.data?.message || err?.message || 'Không thể chia sẻ kết quả');
+    } finally {
+      setIsSharingResults(false);
+    }
+  };
+
+  // 11. XỬ LÝ ĐÓNG PHÒNG QUAY (NGƯỜI TẠO TỰ ĐỘNG GỬI KẾT QUẢ VÀO TIN NHẮN CHAT)
+  const handleClose = async () => {
+    if (isCreator) {
+      const confirmMsg =
+        resultLines.length > 0
+          ? (locale === 'vi'
+              ? 'Đóng phòng quay và tự động gửi toàn bộ kết quả vào tin nhắn nhóm?'
+              : 'Close live stage and auto-share results to group chat?')
+          : (locale === 'vi'
+              ? 'Bạn có chắc chắn muốn kết thúc phòng quay trực tiếp?'
+              : 'Are you sure you want to end this live wheel stage?');
+
+      if (!window.confirm(confirmMsg)) return;
+
+      try {
+        let formattedResults: { wheelTitle: string; winner: string }[] = [];
+        if (wheelsList.some((w) => w.winningOption?.optionLabel)) {
+          formattedResults = wheelsList
+            .filter((w) => w.winningOption?.optionLabel)
+            .map((w, idx) => ({
+              wheelTitle: w.wheelTitle || `Vòng ${idx + 1}`,
+              winner: w.winningOption!.optionLabel,
+            }));
+        }
+
+        await closeLiveMutation.mutateAsync({
+          results: formattedResults.length > 0 ? formattedResults : undefined,
+        });
+        setIsVisible(false);
+        setSession(null);
+      } catch (err: any) {
+        alert(err?.response?.data?.message || err?.message || 'Không thể đóng phòng');
+      }
+    } else {
+      // Người xem thông thường chỉ rời phòng quay cục bộ
+      if (session) {
+        setDismissedSessionId(session.id);
+      }
+      setIsVisible(false);
+    }
   };
 
   if (!isVisible) return null;
@@ -648,12 +878,13 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
               {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
             </button>
 
-            {/* Nút Đóng */}
+            {/* Nút Đóng / Rời phòng */}
             <button
               type="button"
               onClick={handleClose}
+              disabled={closeLiveMutation.isPending}
               className="p-1.5 rounded-full text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash transition-colors cursor-pointer"
-              title={t.luckyWheel.backToChat}
+              title={isCreator ? (locale === 'vi' ? 'Đóng phòng quay' : 'Close live stage') : t.luckyWheel.backToChat}
             >
               <X className="w-5 h-5" />
             </button>
@@ -661,10 +892,10 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
         </div>
 
         {/* ============================================================== */}
-        {/* BODY: 2 CỘT (BÊN TRÁI: 4 VÒNG XOAY | BÊN PHẢI: KẾT QUẢ & USERS)*/}
+        {/* BODY: 2 CỘT (BÊN TRÁI: 4 VÒNG XOAY | BÊN PHẢI: BẢNG KẾT QUẢ / THIẾT LẬP)*/}
         {/* ============================================================== */}
         <div className="w-full flex-1 flex flex-col lg:flex-row items-stretch gap-5 pt-4 overflow-y-auto min-h-0">
-          {/* CỘT BÊN TRÁI: HIỂN THỊ 4 VÒNG XOAY (LƯỚI 2x2 CÓ NHÃN NÚT TÊN VÒNG) */}
+          {/* CỘT BÊN TRÁI: HIỂN THỊ 4 VÒNG XOAY (LƯỚI 2x2 CÓ NHÃN TÊN VÒNG) */}
           <div className="flex-1 flex flex-col items-center justify-center p-2 min-h-0">
             <div
               className={`grid grid-cols-2 gap-4 ${
@@ -675,28 +906,39 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
                 const rot = wheelRotations[idx] || 0;
                 return (
                   <div key={wheel.wheelId || `wheel-${idx}`} className="flex flex-col items-center gap-2">
-                    {/* Nhãn nút tên vòng quay phía trên đĩa (Bấm vào mở tab vòng đó như CircleWheelView) */}
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab(wheel.wheelId || String(idx))}
-                      className={`flex items-center justify-center gap-1.5 px-3 py-1 rounded-xl border ${
-                        isFullscreen ? 'w-44 text-xs sm:text-sm font-bold' : 'w-36 text-xs font-bold'
-                      } shadow-2xs transition-all cursor-pointer ${
-                        activeTab === (wheel.wheelId || String(idx))
-                          ? 'bg-circle-primary border-circle-primary text-white shadow-xs'
-                          : 'bg-white/90 dark:bg-circle-dark-surface/90 border-circle-hairline dark:border-circle-dark-hairline text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash'
-                      }`}
-                      title={wheel.wheelTitle || `Vòng ${idx + 1}`}
-                    >
-                      <Compass
-                        className={`w-3.5 h-3.5 shrink-0 ${
+                    {/* Nhãn tên vòng quay: Chỉ Người tạo mới bấm vào để mở tab sửa, Người xem là nhãn tĩnh */}
+                    {isCreator ? (
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab(wheel.wheelId || String(idx))}
+                        className={`flex items-center justify-center gap-1.5 px-3 py-1 rounded-xl border ${
+                          isFullscreen ? 'w-44 text-xs sm:text-sm font-bold' : 'w-36 text-xs font-bold'
+                        } shadow-2xs transition-all cursor-pointer ${
                           activeTab === (wheel.wheelId || String(idx))
-                            ? 'text-white'
-                            : 'text-circle-primary'
+                            ? 'bg-circle-primary border-circle-primary text-white shadow-xs'
+                            : 'bg-white/90 dark:bg-circle-dark-surface/90 border-circle-hairline dark:border-circle-dark-hairline text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash'
                         }`}
-                      />
-                      <span className="truncate">{wheel.wheelTitle || `Vòng ${idx + 1}`}</span>
-                    </button>
+                        title={locale === 'vi' ? 'Bấm để sửa thiết lập vòng' : 'Click to edit wheel setup'}
+                      >
+                        <Compass
+                          className={`w-3.5 h-3.5 shrink-0 ${
+                            activeTab === (wheel.wheelId || String(idx)) ? 'text-white' : 'text-circle-primary'
+                          }`}
+                        />
+                        <span className="truncate">{wheel.wheelTitle || `Vòng ${idx + 1}`}</span>
+                        <Edit2 className="w-3 h-3 opacity-60 ml-0.5 shrink-0" />
+                      </button>
+                    ) : (
+                      <div
+                        className={`flex items-center justify-center gap-1.5 px-3 py-1 rounded-xl border ${
+                          isFullscreen ? 'w-44 text-xs sm:text-sm font-bold' : 'w-36 text-xs font-bold'
+                        } bg-white/90 dark:bg-circle-dark-surface/90 border-circle-hairline dark:border-circle-dark-hairline text-circle-charcoal dark:text-circle-dark-text shadow-2xs select-none`}
+                        title={wheel.wheelTitle || `Vòng ${idx + 1}`}
+                      >
+                        <Compass className="w-3.5 h-3.5 shrink-0 text-circle-primary" />
+                        <span className="truncate">{wheel.wheelTitle || `Vòng ${idx + 1}`}</span>
+                      </div>
+                    )}
 
                     <SingleLiveWheelCanvas
                       options={wheel.options}
@@ -709,35 +951,40 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
             </div>
           </div>
 
-          {/* CỘT BÊN PHẢI: "CÁI BẢNG" (TABBED OPTIONS BOARD, RESULTS & PARTICIPANTS) */}
+          {/* CỘT BÊN PHẢI: "CÁI BẢNG" (TABBED BOARD: RESULTS, PARTICIPANTS, SETUP) */}
           <div
             className={`w-full ${
               isFullscreen ? 'lg:w-96 xl:w-[420px]' : 'lg:w-84 xl:w-96'
             } flex flex-col justify-between bg-white dark:bg-circle-dark-surface rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline p-4 shrink-0 gap-3 shadow-sm`}
           >
-            {/* Thanh Tab: [Vòng 1] [Vòng 2] [Vòng 3] [Vòng 4] [🏆 Kết quả] [👥 Người tham gia (N)] */}
+            {/* Thanh Tab Bar: 
+                - Người xem (!isCreator): Chỉ có 2 tab: [🏆 Kết quả] và [👥 Người xem (N)]
+                - Người tạo (isCreator): [Vòng 1] [Vòng 2] [Vòng 3] [Vòng 4] [🏆 Kết quả] [👥 Người xem (N)] 
+            */}
             <div className="flex items-center gap-1.5 overflow-x-auto pb-2.5 border-b border-circle-hairline dark:border-circle-dark-hairline no-scrollbar shrink-0">
-              {wheelsList.map((wheel, idx) => {
-                const tabKey = wheel.wheelId || String(idx);
-                const isSelected = activeTab === tabKey;
-                return (
-                  <button
-                    key={tabKey}
-                    type="button"
-                    onClick={() => setActiveTab(tabKey)}
-                    className={`flex items-center justify-center px-2.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
-                      isSelected
-                        ? 'bg-circle-primary text-white shadow-xs font-bold'
-                        : 'bg-circle-wash/70 dark:bg-circle-dark-wash/50 text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash hover:text-circle-charcoal dark:hover:text-circle-dark-text'
-                    }`}
-                    title={wheel.wheelTitle || `Vòng ${idx + 1}`}
-                  >
-                    <span className="truncate max-w-[70px]">{wheel.wheelTitle || `Vòng ${idx + 1}`}</span>
-                  </button>
-                );
-              })}
+              {/* 1. Các tab vòng (CHỈ HIỂN THỊ NẾU LÀ CREATOR) */}
+              {isCreator &&
+                wheelsList.map((wheel, idx) => {
+                  const tabKey = wheel.wheelId || String(idx);
+                  const isSelected = activeTab === tabKey;
+                  return (
+                    <button
+                      key={tabKey}
+                      type="button"
+                      onClick={() => setActiveTab(tabKey)}
+                      className={`flex items-center justify-center px-2.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                        isSelected
+                          ? 'bg-circle-primary text-white shadow-xs font-bold'
+                          : 'bg-circle-wash/70 dark:bg-circle-dark-wash/50 text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash hover:text-circle-charcoal dark:hover:text-circle-dark-text'
+                      }`}
+                      title={wheel.wheelTitle || `Vòng ${idx + 1}`}
+                    >
+                      <span className="truncate max-w-[70px]">{wheel.wheelTitle || `Vòng ${idx + 1}`}</span>
+                    </button>
+                  );
+                })}
 
-              {/* Tab Kết Quả */}
+              {/* 2. Tab Kết Quả (Ai cũng thấy) */}
               <button
                 type="button"
                 onClick={() => setActiveTab('results')}
@@ -749,9 +996,14 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
               >
                 <Trophy className="w-3.5 h-3.5 shrink-0" />
                 <span>{t.luckyWheel.resultsTab}</span>
+                {resultLines.length > 0 && (
+                  <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-white/20 text-white">
+                    {resultLines.length}
+                  </span>
+                )}
               </button>
 
-              {/* Tab Người Tham Gia */}
+              {/* 3. Tab Người Tham Gia (Ai cũng thấy) */}
               <button
                 type="button"
                 onClick={() => setActiveTab('participants')}
@@ -768,14 +1020,17 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
 
             {/* PHẦN NỘI DUNG TƯƠNG ỨNG THEO TAB */}
             <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
-              {/* TAB 1: KẾT QUẢ */}
+              {/* TAB 1: KẾT QUẢ CÁC LƯỢT QUAY (GHI THEO TỪNG DÒNG, READ-ONLY, KHÔNG ĐƯỢC SỬA) */}
               {activeTab === 'results' ? (
                 <div className="flex-1 flex flex-col justify-between gap-3">
-                  <div className="flex flex-col gap-2.5">
+                  <div className="flex flex-col gap-2.5 flex-1 min-h-0">
                     <div className="flex items-center justify-between pb-1.5 border-b border-circle-hairline dark:border-circle-dark-hairline">
                       <div className="flex items-center gap-1.5 text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wide">
                         <Trophy className="w-3.5 h-3.5 text-amber-500" />
-                        <span>{t.luckyWheel.resultsTab}</span>
+                        <span>{t.luckyWheel.resultsHistoryTitle || 'Lịch sử kết quả'}</span>
+                        <span className="text-xs text-circle-slate dark:text-circle-dark-muted font-normal lowercase">
+                          ({resultLines.length} {locale === 'vi' ? 'lần quay' : 'spins'})
+                        </span>
                       </div>
                       {isSpinning && (
                         <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-teal-600 dark:text-teal-400 animate-pulse">
@@ -785,40 +1040,69 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
                       )}
                     </div>
 
-                    {/* Danh sách kết quả 4 vòng */}
-                    <div className="flex flex-col gap-1.5">
-                      {wheelsList.map((w, idx) => (
-                        <div
-                          key={w.wheelId || idx}
-                          className="flex items-center justify-between py-1.5 px-2.5 rounded-xl bg-circle-wash/60 dark:bg-circle-dark-wash/40 border border-circle-hairline/60 dark:border-circle-dark-hairline text-xs"
-                        >
-                          <span className="font-semibold text-circle-slate dark:text-circle-dark-muted truncate max-w-[105px]">
-                            {w.wheelTitle || `Vòng ${idx + 1}`}
-                          </span>
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            <span className="font-bold text-circle-charcoal dark:text-circle-dark-text truncate max-w-[95px] text-right">
-                              {isFinished && w.winningOption ? w.winningOption.optionLabel : '--'}
-                            </span>
-                            {isFinished && w.winningOption && (
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveLiveResult(w.wheelId, w.winningOption?.optionLabel)}
-                                disabled={liveRemoveMutation.isPending}
-                                className="p-1 rounded-md text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-all cursor-pointer"
-                                title={t.luckyWheel.removeResult}
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      ))}
+                    {/* Textarea hiển thị kết quả theo từng dòng (Read-only, không được sửa tay) */}
+                    <div className="flex-1 flex flex-col gap-1 min-h-0">
+                      <textarea
+                        value={resultsText}
+                        readOnly
+                        placeholder={
+                          locale === 'vi'
+                            ? 'Chưa có kết quả nào. Hãy bấm "Quay tất cả" để bắt đầu lượt quay đầu tiên!'
+                            : 'No results yet. Press "Spin All" to start the first spin!'
+                        }
+                        className="w-full flex-1 min-h-[140px] p-2.5 text-xs sm:text-sm rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas text-circle-charcoal dark:text-circle-dark-text focus:outline-none resize-none font-mono leading-relaxed select-text cursor-default"
+                      />
+                      <p className="text-[10px] text-circle-slate dark:text-circle-dark-muted truncate">
+                        {locale === 'vi'
+                          ? 'Kết quả tự động ghi theo từng dòng và không thể sửa.'
+                          : 'Results are recorded line-by-line and are read-only.'}
+                      </p>
+                    </div>
+
+                    {/* Dải nút tác vụ nhỏ của bảng kết quả: Sắp xếp A-Z, Gửi tin nhắn, Xoá tất cả */}
+                    <div className="grid grid-cols-3 gap-2 pt-1.5 border-t border-circle-hairline dark:border-circle-dark-hairline">
+                      {/* Sắp xếp A-Z */}
+                      <button
+                        type="button"
+                        onClick={handleSortResults}
+                        disabled={resultLines.length < 2}
+                        className="flex items-center justify-center py-1.5 px-2 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text disabled:opacity-40 transition-all active:scale-95 cursor-pointer"
+                        title={t.luckyWheel.sortResults || 'Sắp xếp A-Z'}
+                      >
+                        <ArrowDownAZ className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                      </button>
+
+                      {/* Gửi bảng kết quả vào tin nhắn chat */}
+                      <button
+                        type="button"
+                        onClick={handleShareResultsManually}
+                        disabled={resultLines.length === 0 || isSharingResults}
+                        className="flex items-center justify-center py-1.5 px-2 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text disabled:opacity-40 transition-all active:scale-95 cursor-pointer"
+                        title={shareSuccess ? 'Đã gửi vào chat!' : 'Gửi kết quả vào chat'}
+                      >
+                        {shareSuccess ? (
+                          <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                        ) : (
+                          <Share2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                        )}
+                      </button>
+
+                      {/* Xoá tất cả dòng kết quả */}
+                      <button
+                        type="button"
+                        onClick={handleClearResults}
+                        disabled={resultLines.length === 0}
+                        className="flex items-center justify-center py-1.5 px-2 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface hover:bg-rose-500/10 dark:hover:bg-rose-950/20 hover:border-rose-300 dark:hover:border-rose-900/40 text-circle-charcoal dark:text-circle-dark-text disabled:opacity-40 transition-all active:scale-95 cursor-pointer"
+                        title={t.luckyWheel.clearResults || 'Xoá lịch sử'}
+                      >
+                        <Trash2 className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                      </button>
                     </div>
                   </div>
 
-                  {/* Khung kết quả tổng hợp nổi bật Cúp vàng khi quay xong */}
+                  {/* Khung kết quả Cúp vàng của lượt quay gần nhất */}
                   {isFinished && session.winningOption ? (
-                    <div className="mt-2 p-3 rounded-xl bg-gradient-to-r from-amber-500/15 via-amber-400/25 to-amber-500/15 border-2 border-amber-500/40 text-center animate-in zoom-in-95 duration-200">
+                    <div className="p-2.5 rounded-xl bg-gradient-to-r from-amber-500/15 via-amber-400/25 to-amber-500/15 border border-amber-500/40 text-center animate-in zoom-in-95 duration-200 shrink-0">
                       <div className="flex items-center justify-center gap-1 text-[10px] font-extrabold uppercase text-amber-700 dark:text-amber-300 mb-0.5">
                         <Sparkles className="w-3 h-3 text-amber-500" />
                         <span>{t.luckyWheel.winnerAnnounce}</span>
@@ -826,13 +1110,13 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
                       <div className="text-base font-black text-amber-600 dark:text-amber-400 tracking-wide break-words">
                         {session.winningOption.optionLabel}
                       </div>
-                      <div className="flex items-center justify-center gap-1 text-[10px] text-circle-slate dark:text-circle-dark-muted mt-1">
+                      <div className="flex items-center justify-center gap-1 text-[10px] text-circle-slate dark:text-circle-dark-muted mt-0.5">
                         <User className="w-3 h-3 text-circle-primary" />
                         <span>{t.luckyWheel.spunBy.replace('{name}', spunByName)}</span>
                       </div>
 
                       {/* Nút Loại bỏ kết quả vừa quay */}
-                      <div className="mt-2 pt-2 border-t border-amber-500/20 flex items-center justify-center gap-2">
+                      <div className="mt-1.5 pt-1.5 border-t border-amber-500/20 flex items-center justify-center">
                         <button
                           type="button"
                           onClick={() => handleRemoveLiveResult(undefined, undefined, true)}
@@ -845,22 +1129,16 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
                         </button>
                       </div>
                     </div>
-                  ) : (
-                    <div className="py-6 text-center text-xs text-circle-slate dark:text-circle-dark-muted italic">
-                      {locale === 'vi'
-                        ? 'Bấm "Quay tất cả" để bắt đầu quay cùng nhóm!'
-                        : 'Press "Spin All" to spin together!'}
-                    </div>
-                  )}
+                  ) : null}
                 </div>
               ) : activeTab === 'participants' ? (
-                /* TAB 2: NGƯỜI THAM GIA */
+                /* TAB 2: NGƯỜI THAM GIA / NGƯỜI XEM PHÒNG */
                 <div className="flex-1 flex flex-col gap-2.5">
                   <div className="flex items-center justify-between pb-1.5 border-b border-circle-hairline dark:border-circle-dark-hairline">
                     <div className="flex items-center gap-1.5 text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
                       <Users className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
                       <span>
-                        {locale === 'vi' ? 'Người tham gia phòng' : 'Room Participants'} ({participants.length})
+                        {locale === 'vi' ? 'Người đang xem' : 'Watching'} ({participants.length})
                       </span>
                     </div>
                     <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
@@ -869,7 +1147,7 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
                     </span>
                   </div>
 
-                  <div className="flex flex-col gap-1.5 overflow-y-auto max-h-60 pr-1">
+                  <div className="flex flex-col gap-1.5 overflow-y-auto max-h-64 pr-1">
                     {participants.map((p) => (
                       <div
                         key={p.userId}
@@ -895,36 +1173,165 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
                   </div>
                 </div>
               ) : (
-                /* TAB 3: DANH SÁCH LỰA CHỌN CỦA VÒNG ĐANG CHỌN (Y HỆT CIRCLEWHEELVIEW) */
+                /* TAB 3: THIẾT LẬP VÒNG QUAY (CHỈ DÀNH CHO NGƯỜI TẠO CREATOR) */
                 (() => {
                   const currentWheel =
                     wheelsList.find((w, i) => (w.wheelId || String(i)) === activeTab) || wheelsList[0];
                   if (!currentWheel) return null;
-                  const optionsText = currentWheel.options.map((o) => o.optionLabel).join('\n');
+
+                  const wheelId = currentWheel.wheelId;
+                  const currentRawText =
+                    editingOptionsText[wheelId] !== undefined
+                      ? editingOptionsText[wheelId]!
+                      : currentWheel.options.map((o) => o.optionLabel).join('\n');
+
+                  const parsedLines = currentRawText
+                    .split('\n')
+                    .map((l) => l.trim())
+                    .filter(Boolean);
+
+                  const isEditingThisTitle = editingTitleId === wheelId;
+
                   return (
-                    <div className="flex-1 flex flex-col gap-2.5">
+                    <div className="flex-1 flex flex-col gap-2.5 min-h-0">
+                      {/* Tiêu đề vòng quay: Đổi tên inline */}
                       <div className="flex items-center justify-between pb-1.5 border-b border-circle-hairline dark:border-circle-dark-hairline">
-                        <div className="flex items-center gap-1.5 text-xs font-bold text-circle-charcoal dark:text-circle-dark-text truncate">
-                          <Compass className="w-3.5 h-3.5 text-circle-primary shrink-0" />
-                          <span className="truncate">{currentWheel.wheelTitle || 'Vòng quay'}</span>
-                        </div>
+                        {isEditingThisTitle ? (
+                          <div className="flex items-center gap-1.5 flex-1 mr-2">
+                            <input
+                              type="text"
+                              maxLength={50}
+                              value={editingTitleText}
+                              onChange={(e) => setEditingTitleText(e.target.value)}
+                              onKeyDown={(e) => e.key === 'Enter' && handleSaveTitle(wheelId)}
+                              autoFocus
+                              className="flex-1 px-2 py-0.5 text-xs font-bold rounded-lg border border-circle-primary bg-circle-canvas dark:bg-circle-dark-canvas text-circle-charcoal dark:text-circle-dark-text focus:outline-none"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleSaveTitle(wheelId)}
+                              className="p-1 rounded-md bg-circle-primary hover:bg-circle-sage text-white cursor-pointer"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5 flex-1 min-w-0 group">
+                            <Compass className="w-3.5 h-3.5 text-circle-primary shrink-0" />
+                            <span className="font-bold text-xs text-circle-charcoal dark:text-circle-dark-text truncate">
+                              {currentWheel.wheelTitle || 'Vòng quay'}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleStartEditTitle(wheelId, currentWheel.wheelTitle || '')}
+                              className="p-1 rounded opacity-70 group-hover:opacity-100 hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate dark:text-circle-dark-muted cursor-pointer"
+                              title="Đổi tên vòng quay"
+                            >
+                              <Edit2 className="w-3 h-3" />
+                            </button>
+                          </div>
+                        )}
+
                         <span className="text-xs text-circle-slate dark:text-circle-dark-muted font-semibold shrink-0">
-                          ({currentWheel.options.length} {locale === 'vi' ? 'lựa chọn' : 'options'})
+                          ({parsedLines.length} {locale === 'vi' ? 'lựa chọn' : 'options'})
                         </span>
                       </div>
 
-                      {/* Textarea hiển thị danh sách lựa chọn (mỗi dòng 1 lựa chọn như CircleWheelView) */}
-                      <div className="flex-1 flex flex-col gap-1.5 min-h-0">
+                      {/* Textarea chỉnh sửa các lựa chọn (mỗi dòng 1 lựa chọn) */}
+                      <div className="flex-1 flex flex-col gap-1 min-h-0">
                         <textarea
-                          value={optionsText}
-                          readOnly
-                          rows={6}
-                          className="w-full flex-1 min-h-[140px] p-2.5 text-xs sm:text-sm rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas text-circle-charcoal dark:text-circle-dark-text focus:outline-none resize-none leading-relaxed font-mono select-text cursor-default"
+                          value={currentRawText}
+                          onChange={(e) =>
+                            setEditingOptionsText((prev) => ({
+                              ...prev,
+                              [wheelId]: e.target.value,
+                            }))
+                          }
+                          placeholder={
+                            locale === 'vi'
+                              ? 'Nhập các lựa chọn, mỗi dòng một lựa chọn...'
+                              : 'Enter options, one per line...'
+                          }
+                          className="w-full flex-1 min-h-[140px] p-2.5 text-xs sm:text-sm rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas text-circle-charcoal dark:text-circle-dark-text focus:bg-white dark:focus:bg-circle-dark-surface focus:outline-none resize-none leading-relaxed font-mono"
                         />
                         <p className="text-[10px] text-circle-slate dark:text-circle-dark-muted truncate">
-                          {locale === 'vi' ? 'Mỗi dòng là một ô trên vòng xoay.' : 'Each line is a slice on the wheel.'}
+                          {locale === 'vi'
+                            ? 'Mỗi dòng là một ô trên vòng xoay.'
+                            : 'Each line is a slice on the wheel.'}
                         </p>
                       </div>
+
+                      {/* Dải 4 nút công cụ: Shuffle, Sort A-Z, Reset, Clear (y hệt CircleWheelView) */}
+                      <div className="grid grid-cols-4 gap-2 pt-1 border-t border-circle-hairline dark:border-circle-dark-hairline shrink-0">
+                        {/* Xáo trộn (Shuffle) */}
+                        <button
+                          type="button"
+                          onClick={() => handleShuffleCurrentWheel(wheelId, currentRawText)}
+                          className="flex items-center justify-center py-1.5 px-2 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text transition-all active:scale-95 cursor-pointer"
+                          title={t.luckyWheel.shuffleOptions || 'Xáo trộn'}
+                        >
+                          <Shuffle className="w-4 h-4 text-circle-sage dark:text-circle-dark-primary" />
+                        </button>
+
+                        {/* Sắp xếp A-Z (Sort A-Z) */}
+                        <button
+                          type="button"
+                          onClick={() => handleSortAZCurrentWheel(wheelId, currentRawText)}
+                          className="flex items-center justify-center py-1.5 px-2 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text transition-all active:scale-95 cursor-pointer"
+                          title={t.luckyWheel.sortAZ || 'Sắp xếp A-Z'}
+                        >
+                          <ArrowDownAZ className="w-4 h-4 text-indigo-500" />
+                        </button>
+
+                        {/* Đặt lại mặc định (Reset) */}
+                        <button
+                          type="button"
+                          onClick={() => handleResetCurrentWheel(wheelId)}
+                          className="flex items-center justify-center py-1.5 px-2 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text transition-all active:scale-95 cursor-pointer"
+                          title={t.luckyWheel.resetOptions || 'Đặt lại'}
+                        >
+                          <RotateCcw className="w-4 h-4 text-amber-500" />
+                        </button>
+
+                        {/* Xóa sạch (Clear) */}
+                        <button
+                          type="button"
+                          onClick={() => handleClearCurrentWheel(wheelId)}
+                          className="flex items-center justify-center py-1.5 px-2 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white dark:bg-circle-dark-surface hover:bg-rose-500/10 dark:hover:bg-rose-950/20 hover:border-rose-300 dark:hover:border-rose-900/40 text-circle-charcoal dark:text-circle-dark-text transition-all active:scale-95 cursor-pointer"
+                          title="Xóa tất cả các lựa chọn"
+                        >
+                          <Trash2 className="w-4 h-4 text-rose-500" />
+                        </button>
+                      </div>
+
+                      {/* Nút to nổi bật: Lưu & Áp dụng lên vòng quay */}
+                      <button
+                        type="button"
+                        onClick={() => handleSaveWheelOptions(wheelId, currentWheel.wheelTitle || 'Vòng quay')}
+                        disabled={updateWheelMutation.isPending}
+                        className={`w-full py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all active:scale-[0.98] cursor-pointer ${
+                          saveSuccessWheelId === wheelId
+                            ? 'bg-emerald-600 text-white'
+                            : 'bg-circle-primary hover:bg-circle-sage text-white'
+                        }`}
+                      >
+                        {updateWheelMutation.isPending ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : saveSuccessWheelId === wheelId ? (
+                          <Check className="w-3.5 h-3.5" />
+                        ) : (
+                          <Check className="w-3.5 h-3.5" />
+                        )}
+                        <span>
+                          {saveSuccessWheelId === wheelId
+                            ? locale === 'vi'
+                              ? 'Đã lưu & áp dụng thành công!'
+                              : 'Saved & applied!'
+                            : locale === 'vi'
+                            ? 'Lưu & Áp dụng lên vòng quay'
+                            : 'Save & Apply to Wheel'}
+                        </span>
+                      </button>
                     </div>
                   );
                 })()
@@ -954,15 +1361,31 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
                 </span>
               </button>
 
-              {/* Nút Quay lại đoạn chat */}
-              <button
-                type="button"
-                onClick={handleClose}
-                className="w-full py-2 px-3 rounded-xl bg-circle-wash/80 dark:bg-circle-dark-wash/80 hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text font-semibold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
-              >
-                <span>{t.luckyWheel.backToChat}</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
+              {/* Nút Đóng phòng quay (Nếu là Người tạo) hoặc Rời phòng (Nếu là Người xem) */}
+              {isCreator ? (
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  disabled={closeLiveMutation.isPending}
+                  className="w-full py-2 px-3 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 font-semibold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer border border-rose-500/20"
+                >
+                  <X className="w-3.5 h-3.5" />
+                  <span>
+                    {locale === 'vi'
+                      ? 'Đóng phòng & Gửi kết quả vào chat'
+                      : 'Close stage & share results to chat'}
+                  </span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  className="w-full py-2 px-3 rounded-xl bg-circle-wash/80 dark:bg-circle-dark-wash/80 hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text font-semibold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <span>{locale === 'vi' ? 'Rời phòng quay' : t.luckyWheel.backToChat}</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
           </div>
         </div>

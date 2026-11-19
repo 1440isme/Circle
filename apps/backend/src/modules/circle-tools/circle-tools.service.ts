@@ -539,7 +539,7 @@ export class CircleToolsService {
       throw new NotFoundException('Không tìm thấy vòng quay');
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const updatedWheel = await this.prisma.$transaction(async (tx) => {
       if (dto.options && Array.isArray(dto.options) && dto.options.length >= 1) {
         await tx.wheelOption.deleteMany({
           where: { wheelId },
@@ -575,6 +575,24 @@ export class CircleToolsService {
         },
       });
     });
+
+    // Đồng bộ tức thì lên Live Wheel Session nếu nhóm đang mở phòng quay
+    const liveSession = this.activeLiveWheelSessions.get(circleId);
+    if (liveSession && liveSession.wheels) {
+      const targetWheel = liveSession.wheels.find((w) => w.wheelId === wheelId);
+      if (targetWheel && updatedWheel.options) {
+        targetWheel.options = updatedWheel.options.map((o, idx) => ({
+          optionLabel: o.optionLabel,
+          color: o.color || PASTEL_WHEEL_COLORS[idx % PASTEL_WHEEL_COLORS.length]!,
+        }));
+        if (dto.title) targetWheel.wheelTitle = dto.title.trim();
+        if (this.chatGateway) {
+          this.chatGateway.broadcastLiveWheelUpdated(circleId, liveSession);
+        }
+      }
+    }
+
+    return updatedWheel;
   }
 
   async spinAllWheels(circleId: string, userId: string): Promise<SpinWheelResult[]> {
@@ -912,6 +930,7 @@ export class CircleToolsService {
             session = {
               id: payload.sessionId,
               circleId,
+              creatorId: payload.creatorId,
               channelId: payload.channelId,
               wheelTitle: payload.wheelTitle || 'Vòng quay may mắn',
               options: wheelsList[0]?.options || [],
@@ -1170,6 +1189,7 @@ export class CircleToolsService {
     const session: LiveWheelSession = {
       id: sessionId,
       circleId,
+      creatorId: userId,
       channelId: channel?.id,
       wheelTitle,
       options: wheelsList[0]?.options || [],
@@ -1559,6 +1579,7 @@ export class CircleToolsService {
     const session: LiveWheelSession = {
       id: previousSession?.id || `live-wheel-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       circleId,
+      creatorId: previousSession?.creatorId || userId,
       channelId: channel?.id,
       wheelId: wheelsList[0]?.wheelId,
       wheelTitle,
@@ -1580,20 +1601,53 @@ export class CircleToolsService {
 
     this.activeLiveWheelSessions.set(circleId, session);
 
-    // Auto cleanup after duration + 60s
-    setTimeout(() => {
-      const current = this.activeLiveWheelSessions.get(circleId);
-      if (current && current.id === session.id) {
-        this.activeLiveWheelSessions.delete(circleId);
-      }
-    }, session.durationMs + 60000);
-
     // Realtime broadcast to everyone in circle
     if (this.chatGateway) {
       this.chatGateway.broadcastLiveWheel(circleId, session);
     }
 
     return session;
+  }
+
+  async closeLiveWheelStage(
+    circleId: string,
+    userId: string,
+    results?: { wheelTitle: string; winner: string }[],
+  ): Promise<{ success: boolean }> {
+    await this.getMemberOrThrow(circleId, userId);
+    const session = await this.getActiveLiveWheel(circleId, userId);
+
+    // 1. Tự động gửi kết quả vào tin nhắn chat nếu có kết quả
+    if (results && results.length > 0) {
+      try {
+        await this.shareWheelResultsToChat(circleId, userId, results);
+      } catch (err) {}
+    }
+
+    // 2. Cập nhật tin nhắn interactive card thành finished nếu có
+    if (session?.messageId) {
+      try {
+        const msg = await this.prisma.message.findUnique({ where: { id: session.messageId } });
+        if (msg && msg.content && msg.content.startsWith('[LIVE_WHEEL]:')) {
+          const payload = JSON.parse(msg.content.replace('[LIVE_WHEEL]:', ''));
+          payload.stageStatus = 'finished';
+          await this.prisma.message.update({
+            where: { id: session.messageId },
+            data: { content: `[LIVE_WHEEL]:${JSON.stringify(payload)}` },
+          });
+        }
+      } catch {}
+    }
+
+    // 3. Xoá phiên khỏi active sessions
+    this.activeLiveWheelSessions.delete(circleId);
+
+    // 4. Broadcast thông báo đóng phòng quay cho toàn bộ thành viên
+    if (this.chatGateway) {
+      this.chatGateway.broadcastLiveWheelClosed(circleId);
+    }
+
+    return { success: true };
   }
 
   // --- Wheel Folders / Presets ---
