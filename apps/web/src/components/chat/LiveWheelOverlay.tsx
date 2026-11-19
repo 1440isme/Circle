@@ -16,6 +16,8 @@ import {
   RotateCw,
   Trash2,
   Check,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 import { LiveWheelSession, LiveWheelItem, LiveWheelParticipant } from '@circle/types';
 import { useLanguageStore } from '../../stores/language.store';
@@ -237,6 +239,7 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
   const [isFinished, setIsFinished] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [activeTab, setActiveTab] = useState<string>('results');
+  const [isFullscreen, setIsFullscreen] = useState(true);
 
   const confettiCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const animFrameRef = useRef<number | null>(null);
@@ -561,21 +564,33 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
   const spunByName = session.spunBy?.displayName || (locale === 'vi' ? 'Thành viên' : 'Member');
   const participants = session.participants || [];
 
+  const wheelCanvasSize = isFullscreen ? 205 : 175;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
+    <div
+      className={`fixed inset-0 z-50 flex items-center justify-center ${
+        isFullscreen ? 'p-0 bg-black/90' : 'p-3 sm:p-5 bg-black/75'
+      } backdrop-blur-md animate-in fade-in duration-200`}
+    >
       {/* Canvas Confetti Layer */}
       <canvas
         ref={confettiCanvasRef}
         className="absolute inset-0 pointer-events-none z-40 w-full h-full"
       />
 
-      <div className="relative w-full max-w-4xl rounded-3xl bg-white/95 dark:bg-circle-dark-card/95 border border-white/20 dark:border-circle-dark-hairline shadow-2xl p-5 sm:p-6 flex flex-col backdrop-blur-xl z-50 overflow-hidden max-h-[92vh]">
+      <div
+        className={`relative w-full ${
+          isFullscreen
+            ? 'h-full rounded-none border-0 p-5 sm:p-8 max-w-none max-h-none'
+            : 'max-w-5xl rounded-3xl border border-white/20 dark:border-circle-dark-hairline p-5 sm:p-6 max-h-[92vh]'
+        } bg-white/98 dark:bg-circle-dark-card/98 shadow-2xl flex flex-col backdrop-blur-xl z-50 overflow-hidden transition-all duration-300`}
+      >
         {/* Glow ambient background effect */}
         <div className="absolute -top-24 -left-24 w-48 h-48 bg-teal-500/15 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-amber-500/15 rounded-full blur-3xl pointer-events-none" />
 
         {/* ============================================================== */}
-        {/* HEADER: CHỈ ĐỂ "Vòng quay may mắn" + ÂM THANH + NÚT ĐÓNG       */}
+        {/* HEADER: "Vòng quay may mắn" + QUAY TẤT CẢ + ÂM THANH + PHÓNG TO + ĐÓNG */}
         {/* ============================================================== */}
         <div className="w-full flex items-center justify-between pb-3.5 border-b border-circle-hairline dark:border-circle-dark-hairline shrink-0">
           <div className="flex items-center gap-2.5">
@@ -605,6 +620,7 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
               </span>
             </button>
 
+            {/* Bật / Tắt âm thanh */}
             <button
               type="button"
               onClick={() => setSoundEnabled(!soundEnabled)}
@@ -614,6 +630,25 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
               {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
             </button>
 
+            {/* Nút Toàn màn hình / Thu nhỏ (Phương án B) */}
+            <button
+              type="button"
+              onClick={() => setIsFullscreen(!isFullscreen)}
+              className="p-2 rounded-full hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate dark:text-circle-dark-muted transition-colors cursor-pointer"
+              title={
+                isFullscreen
+                  ? locale === 'vi'
+                    ? 'Thu nhỏ cửa sổ'
+                    : 'Exit fullscreen'
+                  : locale === 'vi'
+                  ? 'Toàn màn hình'
+                  : 'Fullscreen'
+              }
+            >
+              {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+            </button>
+
+            {/* Nút Đóng */}
             <button
               type="button"
               onClick={handleClose}
@@ -631,7 +666,11 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
         <div className="w-full flex-1 flex flex-col lg:flex-row items-stretch gap-5 pt-4 overflow-y-auto min-h-0">
           {/* CỘT BÊN TRÁI: HIỂN THỊ 4 VÒNG XOAY (LƯỚI 2x2 CÓ NHÃN NÚT TÊN VÒNG) */}
           <div className="flex-1 flex flex-col items-center justify-center p-2 min-h-0">
-            <div className="grid grid-cols-2 gap-4 sm:gap-6 justify-items-center w-full max-w-lg mx-auto">
+            <div
+              className={`grid grid-cols-2 gap-4 ${
+                isFullscreen ? 'sm:gap-8 max-w-2xl' : 'sm:gap-6 max-w-lg'
+              } justify-items-center w-full mx-auto`}
+            >
               {wheelsList.map((wheel, idx) => {
                 const rot = wheelRotations[idx] || 0;
                 return (
@@ -640,7 +679,9 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
                     <button
                       type="button"
                       onClick={() => setActiveTab(wheel.wheelId || String(idx))}
-                      className={`flex items-center justify-center gap-1.5 px-3 py-1 rounded-xl border text-xs font-bold shadow-2xs w-36 transition-all cursor-pointer ${
+                      className={`flex items-center justify-center gap-1.5 px-3 py-1 rounded-xl border ${
+                        isFullscreen ? 'w-44 text-xs sm:text-sm font-bold' : 'w-36 text-xs font-bold'
+                      } shadow-2xs transition-all cursor-pointer ${
                         activeTab === (wheel.wheelId || String(idx))
                           ? 'bg-circle-primary border-circle-primary text-white shadow-xs'
                           : 'bg-white/90 dark:bg-circle-dark-surface/90 border-circle-hairline dark:border-circle-dark-hairline text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash'
@@ -660,7 +701,7 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
                     <SingleLiveWheelCanvas
                       options={wheel.options}
                       rotation={rot}
-                      size={175}
+                      size={wheelCanvasSize}
                     />
                   </div>
                 );
@@ -669,7 +710,11 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
           </div>
 
           {/* CỘT BÊN PHẢI: "CÁI BẢNG" (TABBED OPTIONS BOARD, RESULTS & PARTICIPANTS) */}
-          <div className="w-full lg:w-84 xl:w-96 flex flex-col justify-between bg-white dark:bg-circle-dark-surface rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline p-4 shrink-0 gap-3 shadow-sm">
+          <div
+            className={`w-full ${
+              isFullscreen ? 'lg:w-96 xl:w-[420px]' : 'lg:w-84 xl:w-96'
+            } flex flex-col justify-between bg-white dark:bg-circle-dark-surface rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline p-4 shrink-0 gap-3 shadow-sm`}
+          >
             {/* Thanh Tab: [Vòng 1] [Vòng 2] [Vòng 3] [Vòng 4] [🏆 Kết quả] [👥 Người tham gia (N)] */}
             <div className="flex items-center gap-1.5 overflow-x-auto pb-2.5 border-b border-circle-hairline dark:border-circle-dark-hairline no-scrollbar shrink-0">
               {wheelsList.map((wheel, idx) => {

@@ -9252,3 +9252,31 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 - **Official Source Checked:** `PROJECT_GOD.md` §2.2, §11 (DoD), `agentic/playbooks/05-calendar-planning.md`, `agentic/playbooks/cross-cutting-gate.md`.
 - **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
 - **Commit:** 52b2eaf
+
+---
+
+## AI-0227: Triển khai Chế độ Toàn màn hình Mặc định kèm Nút Co giãn Kích thước cho Live Wheel Web
+
+- **Date:** 2026-11-19 14:06:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120 (Event RSVP and Realtime Delights - Live Lucky Wheel In-Chat Drop-In Room)
+- **Purpose:** Triển khai Phương án B theo quyết định của người dùng: Mặc định mở Toàn màn hình (Fullscreen Theater Stage) cho Vòng quay trực tiếp trên Web (`LiveWheelOverlay.tsx`) và tích hợp nút chuyển đổi Phóng to / Thu nhỏ (`Maximize2` / `Minimize2`) trên Header để co giãn linh hoạt giữa Toàn màn hình (đĩa quay 205px, không gian rộng rãi) và Cửa sổ nổi Modal (đĩa quay 175px).
+- **Prompt Summary:** Người dùng chốt: "làm web trước ha. tôi đang suy nghĩ có nên full màn hình ko" -> "oke vậy phương án B đi".
+- **Key Enhancements:**
+  1. Thêm state `isFullscreen` với giá trị mặc định là `true`.
+  2. Bổ sung nút chuyển đổi icon `Maximize2` / `Minimize2` trên Header cạnh nút Bật/Tắt âm thanh.
+  3. Khi `isFullscreen === true`: Card container chiếm 100vw x 100vh, đĩa quay tăng kích thước lên 205px, nhãn nút vòng quay to rõ (w-44), "Cái Bảng" mở rộng chiều ngang (lg:w-96 xl:w-[420px]) giúp hiển thị trọn vẹn kết quả và danh sách người tham gia.
+  4. Khi `isFullscreen === false`: Thu gọn mượt mà về dạng Modal bo tròn (`max-w-5xl`, `max-h-[92vh]`, đĩa quay 175px).
+- **Files Affected:**
+  - `apps/web/src/components/chat/LiveWheelOverlay.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% full-screen adaptive viewport rendering and toggle control for web live wheel overlay.
+- **Human Modifications:** Người dùng chốt: "oke vậy phương án B đi".
+- **Verification Method:**
+  - `npx tsc --noEmit -p apps/web/tsconfig.json`: Passed 0 errors.
+  - `bash ./scripts/check-secrets.sh`: Passed (630 files checked, 0 leaks).
+- **Official Source Checked:** `PROJECT_GOD.md` §2.2, §11 (DoD), `agentic/playbooks/cross-cutting-gate.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+- **Commit:** 2541d4d
