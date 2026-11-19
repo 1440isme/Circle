@@ -236,6 +236,7 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
   const [wheelRotations, setWheelRotations] = useState<number[]>([0, 0, 0, 0]);
   const [isFinished, setIsFinished] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [activeTab, setActiveTab] = useState<string>('results');
 
   const confettiCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const animFrameRef = useRef<number | null>(null);
@@ -476,6 +477,7 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
         animFrameRef.current = requestAnimationFrame(tick);
       } else {
         setIsFinished(true);
+        setActiveTab('results');
         setWheelRotations(finalRotations);
         if (soundEnabled && !fanfarePlayedRef.current) {
           liveAudio.playFanfare();
@@ -488,6 +490,7 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
     const currentElapsed = Date.now() - startedAt;
     if (currentElapsed >= duration) {
       setIsFinished(true);
+      setActiveTab('results');
       setWheelRotations(finalRotations);
     } else {
       setIsFinished(false);
@@ -585,6 +588,23 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Nút Quay tất cả dạng Pill Button trên Header như CircleWheelView */}
+            <button
+              type="button"
+              onClick={handleSpinClick}
+              disabled={isSpinning || liveSpinMutation.isPending}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-circle-primary hover:bg-circle-sage text-white font-bold text-xs sm:text-sm shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer"
+            >
+              <RotateCw className={`w-3.5 h-3.5 ${isSpinning || liveSpinMutation.isPending ? 'animate-spin' : ''}`} />
+              <span>
+                {isSpinning || liveSpinMutation.isPending
+                  ? t.luckyWheel.spinning
+                  : isFinished
+                  ? t.luckyWheel.spinAgain
+                  : t.luckyWheel.spinAll}
+              </span>
+            </button>
+
             <button
               type="button"
               onClick={() => setSoundEnabled(!soundEnabled)}
@@ -616,11 +636,26 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
                 const rot = wheelRotations[idx] || 0;
                 return (
                   <div key={wheel.wheelId || `wheel-${idx}`} className="flex flex-col items-center gap-2">
-                    {/* Nhãn nút tên vòng quay phía trên đĩa (như CircleWheelView) */}
-                    <div className="flex items-center justify-center gap-1.5 px-3 py-1 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-white/90 dark:bg-circle-dark-surface/90 text-circle-charcoal dark:text-circle-dark-text text-xs font-bold shadow-2xs w-36">
-                      <Compass className="w-3.5 h-3.5 text-circle-primary shrink-0" />
+                    {/* Nhãn nút tên vòng quay phía trên đĩa (Bấm vào mở tab vòng đó như CircleWheelView) */}
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab(wheel.wheelId || String(idx))}
+                      className={`flex items-center justify-center gap-1.5 px-3 py-1 rounded-xl border text-xs font-bold shadow-2xs w-36 transition-all cursor-pointer ${
+                        activeTab === (wheel.wheelId || String(idx))
+                          ? 'bg-circle-primary border-circle-primary text-white shadow-xs'
+                          : 'bg-white/90 dark:bg-circle-dark-surface/90 border-circle-hairline dark:border-circle-dark-hairline text-circle-charcoal dark:text-circle-dark-text hover:bg-circle-wash dark:hover:bg-circle-dark-wash'
+                      }`}
+                      title={wheel.wheelTitle || `Vòng ${idx + 1}`}
+                    >
+                      <Compass
+                        className={`w-3.5 h-3.5 shrink-0 ${
+                          activeTab === (wheel.wheelId || String(idx))
+                            ? 'text-white'
+                            : 'text-circle-primary'
+                        }`}
+                      />
                       <span className="truncate">{wheel.wheelTitle || `Vòng ${idx + 1}`}</span>
-                    </div>
+                    </button>
 
                     <SingleLiveWheelCanvas
                       options={wheel.options}
@@ -633,133 +668,232 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
             </div>
           </div>
 
-          {/* CỘT BÊN PHẢI: "CÁI BẢNG" HIỂN THỊ KẾT QUẢ VÀ NGƯỜI THAM GIA (CALL-LIKE) */}
-          <div className="w-full lg:w-80 xl:w-88 flex flex-col justify-between bg-circle-canvas/60 dark:bg-circle-dark-surface/70 rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline p-4 sm:p-4.5 shrink-0 gap-3">
-            <div className="flex-1 flex flex-col gap-3 min-h-0 overflow-y-auto">
-              {/* 1. MỤC NGƯỜI THAM GIA (CALL-LIKE PARTICIPANTS LIST) */}
-              <div className="bg-white dark:bg-circle-dark-card rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline p-3 shadow-2xs">
-                <div className="flex items-center justify-between pb-2 border-b border-circle-hairline/80 dark:border-circle-dark-hairline mb-2">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
-                    <Users className="w-3.5 h-3.5 text-circle-primary" />
-                    <span>
-                      {locale === 'vi' ? 'Người tham gia' : 'Participants'} ({participants.length})
+          {/* CỘT BÊN PHẢI: "CÁI BẢNG" (TABBED OPTIONS BOARD, RESULTS & PARTICIPANTS) */}
+          <div className="w-full lg:w-84 xl:w-96 flex flex-col justify-between bg-white dark:bg-circle-dark-surface rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline p-4 shrink-0 gap-3 shadow-sm">
+            {/* Thanh Tab: [Vòng 1] [Vòng 2] [Vòng 3] [Vòng 4] [🏆 Kết quả] [👥 Người tham gia (N)] */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-2.5 border-b border-circle-hairline dark:border-circle-dark-hairline no-scrollbar shrink-0">
+              {wheelsList.map((wheel, idx) => {
+                const tabKey = wheel.wheelId || String(idx);
+                const isSelected = activeTab === tabKey;
+                return (
+                  <button
+                    key={tabKey}
+                    type="button"
+                    onClick={() => setActiveTab(tabKey)}
+                    className={`flex items-center justify-center px-2.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                      isSelected
+                        ? 'bg-circle-primary text-white shadow-xs font-bold'
+                        : 'bg-circle-wash/70 dark:bg-circle-dark-wash/50 text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash hover:text-circle-charcoal dark:hover:text-circle-dark-text'
+                    }`}
+                    title={wheel.wheelTitle || `Vòng ${idx + 1}`}
+                  >
+                    <span className="truncate max-w-[70px]">{wheel.wheelTitle || `Vòng ${idx + 1}`}</span>
+                  </button>
+                );
+              })}
+
+              {/* Tab Kết Quả */}
+              <button
+                type="button"
+                onClick={() => setActiveTab('results')}
+                className={`flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                  activeTab === 'results'
+                    ? 'bg-amber-500 text-white shadow-xs font-bold'
+                    : 'bg-circle-wash/70 dark:bg-circle-dark-wash/50 text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash hover:text-circle-charcoal dark:hover:text-circle-dark-text'
+                }`}
+              >
+                <Trophy className="w-3.5 h-3.5 shrink-0" />
+                <span>{t.luckyWheel.resultsTab}</span>
+              </button>
+
+              {/* Tab Người Tham Gia */}
+              <button
+                type="button"
+                onClick={() => setActiveTab('participants')}
+                className={`flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                  activeTab === 'participants'
+                    ? 'bg-teal-600 text-white shadow-xs font-bold'
+                    : 'bg-circle-wash/70 dark:bg-circle-dark-wash/50 text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash hover:text-circle-charcoal dark:hover:text-circle-dark-text'
+                }`}
+              >
+                <Users className="w-3.5 h-3.5 shrink-0" />
+                <span>{participants.length}</span>
+              </button>
+            </div>
+
+            {/* PHẦN NỘI DUNG TƯƠNG ỨNG THEO TAB */}
+            <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
+              {/* TAB 1: KẾT QUẢ */}
+              {activeTab === 'results' ? (
+                <div className="flex-1 flex flex-col justify-between gap-3">
+                  <div className="flex flex-col gap-2.5">
+                    <div className="flex items-center justify-between pb-1.5 border-b border-circle-hairline dark:border-circle-dark-hairline">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wide">
+                        <Trophy className="w-3.5 h-3.5 text-amber-500" />
+                        <span>{t.luckyWheel.resultsTab}</span>
+                      </div>
+                      {isSpinning && (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-teal-600 dark:text-teal-400 animate-pulse">
+                          <RotateCw className="w-3 h-3 animate-spin" />
+                          <span>{t.luckyWheel.spinningLive}</span>
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Danh sách kết quả 4 vòng */}
+                    <div className="flex flex-col gap-1.5">
+                      {wheelsList.map((w, idx) => (
+                        <div
+                          key={w.wheelId || idx}
+                          className="flex items-center justify-between py-1.5 px-2.5 rounded-xl bg-circle-wash/60 dark:bg-circle-dark-wash/40 border border-circle-hairline/60 dark:border-circle-dark-hairline text-xs"
+                        >
+                          <span className="font-semibold text-circle-slate dark:text-circle-dark-muted truncate max-w-[105px]">
+                            {w.wheelTitle || `Vòng ${idx + 1}`}
+                          </span>
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="font-bold text-circle-charcoal dark:text-circle-dark-text truncate max-w-[95px] text-right">
+                              {isFinished && w.winningOption ? w.winningOption.optionLabel : '--'}
+                            </span>
+                            {isFinished && w.winningOption && (
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveLiveResult(w.wheelId, w.winningOption?.optionLabel)}
+                                disabled={liveRemoveMutation.isPending}
+                                className="p-1 rounded-md text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-all cursor-pointer"
+                                title={t.luckyWheel.removeResult}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Khung kết quả tổng hợp nổi bật Cúp vàng khi quay xong */}
+                  {isFinished && session.winningOption ? (
+                    <div className="mt-2 p-3 rounded-xl bg-gradient-to-r from-amber-500/15 via-amber-400/25 to-amber-500/15 border-2 border-amber-500/40 text-center animate-in zoom-in-95 duration-200">
+                      <div className="flex items-center justify-center gap-1 text-[10px] font-extrabold uppercase text-amber-700 dark:text-amber-300 mb-0.5">
+                        <Sparkles className="w-3 h-3 text-amber-500" />
+                        <span>{t.luckyWheel.winnerAnnounce}</span>
+                      </div>
+                      <div className="text-base font-black text-amber-600 dark:text-amber-400 tracking-wide break-words">
+                        {session.winningOption.optionLabel}
+                      </div>
+                      <div className="flex items-center justify-center gap-1 text-[10px] text-circle-slate dark:text-circle-dark-muted mt-1">
+                        <User className="w-3 h-3 text-circle-primary" />
+                        <span>{t.luckyWheel.spunBy.replace('{name}', spunByName)}</span>
+                      </div>
+
+                      {/* Nút Loại bỏ kết quả vừa quay */}
+                      <div className="mt-2 pt-2 border-t border-amber-500/20 flex items-center justify-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveLiveResult(undefined, undefined, true)}
+                          disabled={liveRemoveMutation.isPending}
+                          className="py-1 px-3 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95 disabled:opacity-40"
+                          title={t.luckyWheel.removeResult}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>{t.luckyWheel.removeResult}</span>
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="py-6 text-center text-xs text-circle-slate dark:text-circle-dark-muted italic">
+                      {locale === 'vi'
+                        ? 'Bấm "Quay tất cả" để bắt đầu quay cùng nhóm!'
+                        : 'Press "Spin All" to spin together!'}
+                    </div>
+                  )}
+                </div>
+              ) : activeTab === 'participants' ? (
+                /* TAB 2: NGƯỜI THAM GIA */
+                <div className="flex-1 flex flex-col gap-2.5">
+                  <div className="flex items-center justify-between pb-1.5 border-b border-circle-hairline dark:border-circle-dark-hairline">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-circle-charcoal dark:text-circle-dark-text">
+                      <Users className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+                      <span>
+                        {locale === 'vi' ? 'Người tham gia phòng' : 'Room Participants'} ({participants.length})
+                      </span>
+                    </div>
+                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      {locale === 'vi' ? 'Trực tiếp' : 'Live'}
                     </span>
                   </div>
-                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    {locale === 'vi' ? 'Trực tiếp' : 'Live'}
-                  </span>
-                </div>
 
-                {/* Danh sách avatar & tên người tham gia */}
-                <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
-                  {participants.map((p) => (
-                    <div
-                      key={p.userId}
-                      className="inline-flex items-center gap-1.5 py-1 px-2 rounded-xl bg-circle-wash/80 dark:bg-circle-dark-wash/60 border border-circle-hairline/60 dark:border-circle-dark-hairline text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text"
-                      title={p.displayName}
-                    >
-                      {p.avatarUrl ? (
-                        <img src={p.avatarUrl} alt={p.displayName} className="w-4.5 h-4.5 rounded-full object-cover" />
-                      ) : (
-                        <div className="w-4.5 h-4.5 rounded-full bg-circle-primary/20 text-circle-primary flex items-center justify-center text-[10px] font-bold">
-                          {p.displayName?.charAt(0) || 'U'}
-                        </div>
-                      )}
-                      <span className="truncate max-w-[85px] text-[11px]">{p.displayName}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* 2. MỤC BẢNG KẾT QUẢ CÁC VÒNG (RESULTS PANEL) */}
-              <div className="flex-1 bg-white dark:bg-circle-dark-card rounded-2xl border border-circle-hairline dark:border-circle-dark-hairline p-3 shadow-2xs flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between pb-2 border-b border-circle-hairline/80 dark:border-circle-dark-hairline mb-2">
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wide">
-                      <Trophy className="w-3.5 h-3.5 text-amber-500" />
-                      <span>{t.luckyWheel.resultsTab}</span>
-                    </div>
-                    {isSpinning && (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-teal-600 dark:text-teal-400 animate-pulse">
-                        <RotateCw className="w-3 h-3 animate-spin" />
-                        <span>{t.luckyWheel.spinningLive}</span>
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Chi tiết kết quả của 4 vòng */}
-                  <div className="flex flex-col gap-1.5">
-                    {wheelsList.map((w, idx) => (
+                  <div className="flex flex-col gap-1.5 overflow-y-auto max-h-60 pr-1">
+                    {participants.map((p) => (
                       <div
-                        key={w.wheelId || idx}
-                        className="flex items-center justify-between py-1 px-2 rounded-lg bg-circle-wash/50 dark:bg-circle-dark-wash/40 text-xs"
+                        key={p.userId}
+                        className="flex items-center justify-between py-1.5 px-2.5 rounded-xl bg-circle-wash/60 dark:bg-circle-dark-wash/40 border border-circle-hairline/60 dark:border-circle-dark-hairline text-xs"
                       >
-                        <span className="font-semibold text-circle-slate dark:text-circle-dark-muted truncate max-w-[95px]">
-                          {w.wheelTitle || `Vòng ${idx + 1}`}
-                        </span>
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <span className="font-bold text-circle-charcoal dark:text-circle-dark-text truncate max-w-[85px] text-right">
-                            {isFinished && w.winningOption ? w.winningOption.optionLabel : '--'}
-                          </span>
-                          {isFinished && w.winningOption && (
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveLiveResult(w.wheelId, w.winningOption?.optionLabel)}
-                              disabled={liveRemoveMutation.isPending}
-                              className="p-1 rounded-md text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-all cursor-pointer"
-                              title={t.luckyWheel.removeResult}
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                        <div className="flex items-center gap-2 min-w-0">
+                          {p.avatarUrl ? (
+                            <img src={p.avatarUrl} alt={p.displayName} className="w-6 h-6 rounded-full object-cover shrink-0" />
+                          ) : (
+                            <div className="w-6 h-6 rounded-full bg-circle-primary/20 text-circle-primary flex items-center justify-center text-xs font-bold shrink-0">
+                              {p.displayName?.charAt(0) || 'U'}
+                            </div>
                           )}
+                          <span className="font-semibold text-circle-charcoal dark:text-circle-dark-text truncate">
+                            {p.displayName}
+                          </span>
                         </div>
+                        <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold shrink-0">
+                          {locale === 'vi' ? 'Đang xem' : 'Watching'}
+                        </span>
                       </div>
                     ))}
                   </div>
                 </div>
+              ) : (
+                /* TAB 3: DANH SÁCH LỰA CHỌN CỦA VÒNG ĐANG CHỌN (Y HỆT CIRCLEWHEELVIEW) */
+                (() => {
+                  const currentWheel =
+                    wheelsList.find((w, i) => (w.wheelId || String(i)) === activeTab) || wheelsList[0];
+                  if (!currentWheel) return null;
+                  const optionsText = currentWheel.options.map((o) => o.optionLabel).join('\n');
+                  return (
+                    <div className="flex-1 flex flex-col gap-2.5">
+                      <div className="flex items-center justify-between pb-1.5 border-b border-circle-hairline dark:border-circle-dark-hairline">
+                        <div className="flex items-center gap-1.5 text-xs font-bold text-circle-charcoal dark:text-circle-dark-text truncate">
+                          <Compass className="w-3.5 h-3.5 text-circle-primary shrink-0" />
+                          <span className="truncate">{currentWheel.wheelTitle || 'Vòng quay'}</span>
+                        </div>
+                        <span className="text-xs text-circle-slate dark:text-circle-dark-muted font-semibold shrink-0">
+                          ({currentWheel.options.length} {locale === 'vi' ? 'lựa chọn' : 'options'})
+                        </span>
+                      </div>
 
-                {/* Khung kết quả tổng hợp nổi bật Cúp vàng khi quay xong */}
-                {isFinished && session.winningOption && (
-                  <div className="mt-3 p-2.5 rounded-xl bg-gradient-to-r from-amber-500/15 via-amber-400/25 to-amber-500/15 border-2 border-amber-500/40 text-center animate-in zoom-in-95 duration-200">
-                    <div className="flex items-center justify-center gap-1 text-[10px] font-extrabold uppercase text-amber-700 dark:text-amber-300 mb-0.5">
-                      <Sparkles className="w-3 h-3 text-amber-500" />
-                      <span>{t.luckyWheel.winnerAnnounce}</span>
+                      {/* Textarea hiển thị danh sách lựa chọn (mỗi dòng 1 lựa chọn như CircleWheelView) */}
+                      <div className="flex-1 flex flex-col gap-1.5 min-h-0">
+                        <textarea
+                          value={optionsText}
+                          readOnly
+                          rows={6}
+                          className="w-full flex-1 min-h-[140px] p-2.5 text-xs sm:text-sm rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas text-circle-charcoal dark:text-circle-dark-text focus:outline-none resize-none leading-relaxed font-mono select-text cursor-default"
+                        />
+                        <p className="text-[10px] text-circle-slate dark:text-circle-dark-muted truncate">
+                          {locale === 'vi' ? 'Mỗi dòng là một ô trên vòng xoay.' : 'Each line is a slice on the wheel.'}
+                        </p>
+                      </div>
                     </div>
-                    <div className="text-sm font-black text-amber-600 dark:text-amber-400 tracking-wide break-words">
-                      {session.winningOption.optionLabel}
-                    </div>
-                    <div className="flex items-center justify-center gap-1 text-[10px] text-circle-slate dark:text-circle-dark-muted mt-1">
-                      <User className="w-3 h-3 text-circle-primary" />
-                      <span>{t.luckyWheel.spunBy.replace('{name}', spunByName)}</span>
-                    </div>
-
-                    {/* Nút Loại bỏ kết quả vừa quay */}
-                    <div className="mt-2.5 pt-2 border-t border-amber-500/20 flex items-center justify-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveLiveResult(undefined, undefined, true)}
-                        disabled={liveRemoveMutation.isPending}
-                        className="py-1 px-3 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95 disabled:opacity-40"
-                        title={t.luckyWheel.removeResult}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                        <span>{t.luckyWheel.removeResult}</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
+                  );
+                })()
+              )}
             </div>
 
-            {/* 3. CỤM NÚT ĐIỀU KHIỂN Ở GÓC DƯỚI BÊN PHẢI */}
+            {/* CỤM NÚT ĐIỀU KHIỂN DƯỚI ĐÁY CỦA CÁI BẢNG */}
             <div className="flex flex-col gap-2 pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline shrink-0">
-              {/* Nút Quay tất cả / Quay tiếp (Ai ấn quay cũng được) */}
+              {/* Nút Quay tất cả / Quay tiếp */}
               <button
                 type="button"
                 onClick={handleSpinClick}
                 disabled={isSpinning || liveSpinMutation.isPending}
-                className="w-full py-3 px-4 rounded-xl bg-circle-primary hover:bg-circle-primary/90 text-circle-charcoal dark:text-circle-dark-canvas font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-circle-primary/20 transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer"
+                className="w-full py-2.5 px-4 rounded-xl bg-circle-primary hover:bg-circle-primary/90 text-circle-charcoal dark:text-circle-dark-canvas font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md shadow-circle-primary/20 transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer"
               >
                 {isSpinning || liveSpinMutation.isPending ? (
                   <Loader2 className="w-4 h-4 animate-spin" />

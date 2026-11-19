@@ -9205,3 +9205,50 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 - **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
 - **Commit:** 8cf778d
 - **PR:** #120
+
+---
+
+## AI-0226: Đồng bộ hóa Giao diện Sân khấu Vòng quay Trực tiếp Y hệt Tiện ích Vòng xoay Nhóm
+
+- **Date:** 2026-11-19 14:02:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120 (Event RSVP and Realtime Delights - Live Lucky Wheel In-Chat Drop-In Room)
+- **Purpose:** Tái cấu trúc và đồng bộ hóa toàn diện giao diện Sân khấu/Overlay Vòng quay may mắn trực tiếp trong nhóm (`LiveWheelOverlay` trên Web và `MobileLiveWheelOverlay` trên Mobile) thành chuẩn Tabbed Board y hệt giao diện Tiện ích nhóm Vòng xoay (`CircleWheelView` và `MobileWheelView`).
+- **Prompt Summary:** Thảo luận và chốt phương án: Sau khi ấn "Tạo" hoặc "Tham gia", giao diện phòng quay trực tiếp (overlay) phải được xây dựng y hệt giao diện tiện ích nhóm chỗ vòng xoay (Tabbed Board, nhãn nút tên vòng trên đĩa chuyển tab, tab kết quả, tab người tham gia, loại bỏ kết quả).
+- **Key Enhancements:**
+  1. **Trên Web (`LiveWheelOverlay.tsx`):**
+     - **Header:** Bổ sung nút pill "Quay tất cả" (`RotateCw`), nút Bật/Tắt âm thanh (`Volume2`/`VolumeX`), nút Đóng (`X`).
+     - **Sân khấu 4 đĩa xoay (bên trái):** Nhãn tên từng vòng phía trên đĩa xoay trở thành nút bấm có hiệu ứng active, khi click sẽ lập tức chuyển sang Tab của vòng đó trên Cái Bảng.
+     - **"Cái Bảng" (bên phải):** Chuyển đổi thành Tabbed Board chuẩn:
+       + Thanh tab ngang: `[Vòng 1] [Vòng 2] [Vòng 3] [Vòng 4] [🏆 Kết quả] [👥 Người tham gia]`.
+       + Tab `[Vòng x]`: Tiêu đề vòng, số lượng lựa chọn, textarea danh sách lựa chọn dạng 1 dòng/lựa chọn (readonly) y hệt `CircleWheelView`.
+       + Tab `[🏆 Kết quả]`: Danh sách kết quả 4 vòng, thẻ cúp vàng rực rỡ chúc mừng người quay và kết quả trúng thưởng, nút "Loại bỏ kết quả".
+       + Tab `[👥 Người tham gia]`: Danh sách avatar và tên các thành viên đang có mặt trong phòng trực tiếp.
+       + Khi quay xong (`isFinished`): Tự động chuyển tab sang `[🏆 Kết quả]`.
+       + Dưới đáy: Nút to "Quay tất cả" / "Quay lại" + Nút "Quay lại đoạn chat".
+  2. **Trên Mobile (`MobileLiveWheelOverlay.tsx`):**
+     - **Header:** Bổ sung nút pill "Quay tất cả" (`RotateCw`) bên cạnh nút Đóng.
+     - **Sân khấu 4 đĩa xoay (bên trên):** Bấm vào pill tên vòng trên mỗi đĩa sẽ đồng bộ chuyển Tab đang mở ở Cái Bảng bên dưới.
+     - **"Cái Bảng" (bên dưới):** Tái cấu trúc thành `tabbedBoard` chuẩn theo `MobileWheelView`:
+       + Thanh tab cuộn ngang: `[Vòng 1] [Vòng 2] [Vòng 3] [Vòng 4] [🏆 Kết quả] [👥 Người tham gia]`.
+       + Tab `[Vòng x]`: Tiêu đề vòng, số lượng lựa chọn, `TextInput` readonly multiline hiển thị các phương án của vòng.
+       + Tab `[🏆 Kết quả]`: Thông báo trạng thái quay, thẻ cúp vàng vinh danh người quay và kết quả trúng thưởng, nút "Loại bỏ kết quả".
+       + Tab `[👥 Người tham gia]`: Danh sách người tham gia phòng quay với huy hiệu "Trực tiếp" (Live).
+       + Khi quay xong: Tự động chuyển tab sang `[🏆 Kết quả]`.
+       + Dưới đáy: Nút to "Quay tất cả" / "Quay tiếp" + Nút "Quay lại đoạn chat".
+- **Files Affected:**
+  - `apps/web/src/components/chat/LiveWheelOverlay.tsx`
+  - `apps/mobile/src/components/chat/MobileLiveWheelOverlay.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% synchronized tabbed board overlay component implementation for both Next.js Web and Expo Mobile.
+- **Human Modifications:** Người dùng chốt: "oke chốt nhé và xây y hệt tiện ích nhóm chỗ vòng xoay sau khi ấn tạo nhé".
+- **Verification Method:**
+  - `npx tsc --noEmit -p apps/web/tsconfig.json`: Passed 0 errors.
+  - `npx tsc --noEmit -p apps/mobile/tsconfig.json`: Passed 0 errors.
+  - `npm test --prefix apps/backend -- circle-tools`: Passed 48/48 unit tests.
+  - `bash ./scripts/check-secrets.sh`: Passed (630 files checked, 0 leaks).
+- **Official Source Checked:** `PROJECT_GOD.md` §2.2, §11 (DoD), `agentic/playbooks/05-calendar-planning.md`, `agentic/playbooks/cross-cutting-gate.md`.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+- **Commit:** 52b2eaf

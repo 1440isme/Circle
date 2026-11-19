@@ -13,6 +13,7 @@ import {
   ScrollView,
   Image,
   DeviceEventEmitter,
+  TextInput,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, G, Circle, Rect, Text as SvgText } from 'react-native-svg';
@@ -70,6 +71,7 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
   const [dismissedSessionId, setDismissedSessionId] = useState<string | null>(null);
   const [isFinished, setIsFinished] = useState(false);
   const [isSubmittingSpin, setIsSubmittingSpin] = useState(false);
+  const [activeTab, setActiveTab] = useState<string>('results');
 
   // 4 Animated values cho 4 bánh xe
   const rotAnim0 = useRef(new Animated.Value(0)).current;
@@ -252,6 +254,7 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
 
     if (elapsed >= duration) {
       setIsFinished(true);
+      setActiveTab('results');
       return;
     }
 
@@ -261,6 +264,7 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
     if (activeTimings.length > 0) {
       Animated.parallel(activeTimings).start(() => {
         setIsFinished(true);
+        setActiveTab('results');
         try {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         } catch {}
@@ -403,7 +407,7 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
           ]}
         >
           {/* ============================================================== */}
-          {/* HEADER: CHỈ ĐỂ "Vòng quay may mắn" (BỎ LIVE STAGE, BỎ 4 VÒNG) */}
+          {/* HEADER: "Vòng quay may mắn" + NÚT PILL QUAY TẤT CẢ + NÚT ĐÓNG  */}
           {/* ============================================================== */}
           <View style={[styles.topBar, { borderBottomColor: colors.hairline }]}>
             <View style={styles.headerLeft}>
@@ -415,9 +419,32 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
               </Text>
             </View>
 
-            <TouchableOpacity style={styles.closeBtn} onPress={handleClose}>
-              <X size={20} color={colors.subtle} />
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              {/* Nút Quay Tất Cả Pill trên Header */}
+              <TouchableOpacity
+                style={[
+                  styles.headerSpinAllBtn,
+                  { backgroundColor: colors.primary },
+                  (isSpinning || isSubmittingSpin) && { opacity: 0.5 },
+                ]}
+                disabled={isSpinning || isSubmittingSpin}
+                onPress={handleSpinClick}
+                activeOpacity={0.8}
+              >
+                <RotateCw size={12} color="#FFFFFF" />
+                <Text style={styles.headerSpinAllBtnText}>
+                  {isSpinning || isSubmittingSpin
+                    ? t.luckyWheel.spinning
+                    : isFinished
+                    ? t.luckyWheel.spinAgain
+                    : t.luckyWheel.spinAll}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.closeBtn} onPress={handleClose}>
+                <X size={20} color={colors.subtle} />
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* ============================================================== */}
@@ -434,27 +461,36 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
                 inputRange: [0, 360],
                 outputRange: ['0deg', '360deg'],
               });
+              const tabKey = wheel.wheelId || String(idx);
+              const isActive = activeTab === tabKey;
 
               return (
                 <View key={wheel.wheelId || `wheel-${idx}`} style={styles.wheelCell}>
-                  {/* Nhãn nút tên vòng phía trên (như MobileWheelView) */}
-                  <View
+                  {/* Nhãn nút tên vòng phía trên (bấm vào mở tab vòng đó như MobileWheelView) */}
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    onPress={() => setActiveTab(tabKey)}
                     style={[
                       styles.wheelCellLabel,
                       {
-                        backgroundColor: isDark ? colors.surface : '#F1F5F9',
-                        borderColor: colors.hairline,
+                        backgroundColor: isActive
+                          ? colors.primary
+                          : (isDark ? colors.surface : '#F1F5F9'),
+                        borderColor: isActive ? colors.primary : colors.hairline,
                       },
                     ]}
                   >
-                    <Compass size={11} color={colors.primary} />
+                    <Compass size={11} color={isActive ? '#FFFFFF' : colors.primary} />
                     <Text
-                      style={[styles.wheelCellLabelText, { color: colors.text }]}
+                      style={[
+                        styles.wheelCellLabelText,
+                        { color: isActive ? '#FFFFFF' : colors.text },
+                      ]}
                       numberOfLines={1}
                     >
                       {wheel.wheelTitle || `Vòng ${idx + 1}`}
                     </Text>
-                  </View>
+                  </TouchableOpacity>
 
                   <View style={[styles.discBox, { width: discSize, height: discSize }]}>
                     <Animated.View
@@ -542,84 +578,217 @@ export const MobileLiveWheelOverlay: React.FC<MobileLiveWheelOverlayProps> = ({ 
           </ScrollView>
 
           {/* ============================================================== */}
-          {/* MỤC NGƯỜI THAM GIA (GIỐNG CUỘC GỌI) VÀ BẢNG KẾT QUẢ BÊN PHẢI/DƯỚI*/}
+          {/* "CÁI BẢNG" (TABBED BOARD BÊN DƯỚI) - Y HỆT MOBILEWHEELVIEW     */}
           {/* ============================================================== */}
-          <View style={[styles.bottomInfoSection, { borderTopColor: colors.hairline }]}>
-            {/* Hàng người tham gia */}
-            <View style={styles.participantsSection}>
-              <View style={styles.participantsHeader}>
-                <View style={styles.participantsTitleRow}>
-                  <Users size={12} color={colors.primary} />
-                  <Text style={[styles.participantsTitle, { color: colors.text }]}>
-                    {locale === 'vi' ? 'Người tham gia' : 'Participants'} ({participants.length})
-                  </Text>
-                </View>
-                <View style={styles.liveDotRow}>
-                  <View style={styles.greenDot} />
-                  <Text style={styles.liveDotText}>{locale === 'vi' ? 'Trực tiếp' : 'Live'}</Text>
-                </View>
-              </View>
+          <View style={[styles.tabbedBoard, { borderTopColor: colors.hairline }]}>
+            {/* Horizontal Tabs: [Vòng 1] [Vòng 2] [Vòng 3] [Vòng 4] [🏆 Kết quả] [👥 Người tham gia] */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.tabsScroll}
+            >
+              {wheelsList.map((wheel, idx) => {
+                const tabKey = wheel.wheelId || String(idx);
+                const isSelected = activeTab === tabKey;
+                return (
+                  <TouchableOpacity
+                    key={tabKey}
+                    onPress={() => setActiveTab(tabKey)}
+                    style={[
+                      styles.tabPill,
+                      {
+                        backgroundColor: isSelected
+                          ? colors.primary
+                          : isDark
+                          ? colors.surface
+                          : '#F1F5F9',
+                        borderColor: isSelected ? colors.primary : colors.hairline,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.tabPillText,
+                        {
+                          color: isSelected ? '#FFFFFF' : colors.text,
+                          fontWeight: isSelected ? '700' : '600',
+                        },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {wheel.wheelTitle || `Vòng ${idx + 1}`}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
 
-              {/* Danh sách avatar người tham gia */}
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.avatarRow}>
-                {participants.map((p) => (
-                  <View key={p.userId} style={styles.participantChip}>
-                    {p.avatarUrl ? (
-                      <Image source={{ uri: p.avatarUrl }} style={styles.participantAvatar} />
-                    ) : (
-                      <View style={[styles.participantAvatarFallback, { backgroundColor: `${colors.primary}25` }]}>
-                        <Text style={[styles.participantAvatarFallbackText, { color: colors.primary }]}>
-                          {p.displayName?.charAt(0) || 'U'}
+              {/* Tab Kết Quả */}
+              <TouchableOpacity
+                onPress={() => setActiveTab('results')}
+                style={[
+                  styles.tabPill,
+                  {
+                    backgroundColor: activeTab === 'results' ? '#F59E0B' : isDark ? colors.surface : '#F1F5F9',
+                    borderColor: activeTab === 'results' ? '#F59E0B' : colors.hairline,
+                  },
+                ]}
+              >
+                <Trophy size={13} color={activeTab === 'results' ? '#FFFFFF' : '#F59E0B'} />
+                <Text
+                  style={[
+                    styles.tabPillText,
+                    {
+                      color: activeTab === 'results' ? '#FFFFFF' : colors.text,
+                      fontWeight: activeTab === 'results' ? '700' : '600',
+                    },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {t.luckyWheel.resultsTab}
+                </Text>
+              </TouchableOpacity>
+
+              {/* Tab Người tham gia */}
+              <TouchableOpacity
+                onPress={() => setActiveTab('participants')}
+                style={[
+                  styles.tabPill,
+                  {
+                    backgroundColor: activeTab === 'participants' ? '#0D9488' : isDark ? colors.surface : '#F1F5F9',
+                    borderColor: activeTab === 'participants' ? '#0D9488' : colors.hairline,
+                  },
+                ]}
+              >
+                <Users size={13} color={activeTab === 'participants' ? '#FFFFFF' : '#0D9488'} />
+                <Text
+                  style={[
+                    styles.tabPillText,
+                    {
+                      color: activeTab === 'participants' ? '#FFFFFF' : colors.text,
+                      fontWeight: activeTab === 'participants' ? '700' : '600',
+                    },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {locale === 'vi' ? 'Người tham gia' : 'Participants'} ({participants.length})
+                </Text>
+              </TouchableOpacity>
+            </ScrollView>
+
+            {/* TAB CONTENT */}
+            <View style={styles.tabContentContainer}>
+              {activeTab === 'results' ? (
+                /* TAB KẾT QUẢ */
+                <View style={styles.tabResultsWrapper}>
+                  {isSpinning ? (
+                    <View style={[styles.spinningAlert, { backgroundColor: `${colors.primary}15` }]}>
+                      <ActivityIndicator size="small" color={colors.primary} />
+                      <Text style={[styles.spinningAlertText, { color: colors.primary }]}>
+                        {t.luckyWheel.spinningLive}
+                      </Text>
+                    </View>
+                  ) : isFinished && session.winningOption ? (
+                    <View style={styles.winnerCard}>
+                      <View style={styles.winnerHeaderRow}>
+                        <Trophy size={13} color="#D97706" />
+                        <Sparkles size={12} color="#D97706" />
+                        <Text style={styles.winnerTitle}>{t.luckyWheel.winnerAnnounce}</Text>
+                      </View>
+                      <Text style={styles.winnerText} numberOfLines={2}>
+                        {session.winningOption.optionLabel}
+                      </Text>
+                      <Text style={[styles.spunBySub, { color: colors.subtle }]}>
+                        {t.luckyWheel.spunBy.replace('{name}', spunByName)}
+                      </Text>
+
+                      {/* Nút Loại bỏ kết quả vừa quay */}
+                      <TouchableOpacity
+                        style={styles.removeResultBtn}
+                        onPress={() => handleRemoveLiveResult(undefined, undefined, true)}
+                        activeOpacity={0.8}
+                      >
+                        <Trash2 size={12} color="#EF4444" />
+                        <Text style={styles.removeResultBtnText}>{t.luckyWheel.removeResult}</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <Text style={[styles.idleHintText, { color: colors.subtle }]}>
+                      {locale === 'vi'
+                        ? 'Bấm "Quay tất cả" để bắt đầu quay cùng nhau!'
+                        : 'Press "Spin All" to spin together!'}
+                    </Text>
+                  )}
+                </View>
+              ) : activeTab === 'participants' ? (
+                /* TAB NGƯỜI THAM GIA */
+                <View style={styles.tabParticipantsWrapper}>
+                  <View style={styles.participantsHeader}>
+                    <View style={styles.participantsTitleRow}>
+                      <Users size={12} color={colors.primary} />
+                      <Text style={[styles.participantsTitle, { color: colors.text }]}>
+                        {locale === 'vi' ? 'Đang trong phòng quay' : 'In Room'} ({participants.length})
+                      </Text>
+                    </View>
+                    <View style={styles.liveDotRow}>
+                      <View style={styles.greenDot} />
+                      <Text style={styles.liveDotText}>{locale === 'vi' ? 'Trực tiếp' : 'Live'}</Text>
+                    </View>
+                  </View>
+
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.avatarRow}>
+                    {participants.map((p) => (
+                      <View key={p.userId} style={styles.participantChip}>
+                        {p.avatarUrl ? (
+                          <Image source={{ uri: p.avatarUrl }} style={styles.participantAvatar} />
+                        ) : (
+                          <View style={[styles.participantAvatarFallback, { backgroundColor: `${colors.primary}25` }]}>
+                            <Text style={[styles.participantAvatarFallbackText, { color: colors.primary }]}>
+                              {p.displayName?.charAt(0) || 'U'}
+                            </Text>
+                          </View>
+                        )}
+                        <Text style={[styles.participantName, { color: colors.text }]} numberOfLines={1}>
+                          {p.displayName}
                         </Text>
                       </View>
-                    )}
-                    <Text style={[styles.participantName, { color: colors.text }]} numberOfLines={1}>
-                      {p.displayName}
-                    </Text>
-                  </View>
-                ))}
-              </ScrollView>
-            </View>
-
-            {/* Bảng kết quả */}
-            <View style={styles.resultContainer}>
-              {isSpinning ? (
-                <View style={[styles.spinningAlert, { backgroundColor: `${colors.primary}15` }]}>
-                  <ActivityIndicator size="small" color={colors.primary} />
-                  <Text style={[styles.spinningAlertText, { color: colors.primary }]}>
-                    {t.luckyWheel.spinningLive}
-                  </Text>
-                </View>
-              ) : isFinished && session.winningOption ? (
-                <View style={styles.winnerCard}>
-                  <View style={styles.winnerHeaderRow}>
-                    <Trophy size={13} color="#D97706" />
-                    <Sparkles size={12} color="#D97706" />
-                    <Text style={styles.winnerTitle}>{t.luckyWheel.winnerAnnounce}</Text>
-                  </View>
-                  <Text style={styles.winnerText} numberOfLines={2}>
-                    {session.winningOption.optionLabel}
-                  </Text>
-                  <Text style={[styles.spunBySub, { color: colors.subtle }]}>
-                    {t.luckyWheel.spunBy.replace('{name}', spunByName)}
-                  </Text>
-
-                  {/* Nút Loại bỏ kết quả vừa quay */}
-                  <TouchableOpacity
-                    style={styles.removeResultBtn}
-                    onPress={() => handleRemoveLiveResult(undefined, undefined, true)}
-                    activeOpacity={0.8}
-                  >
-                    <Trash2 size={12} color="#EF4444" />
-                    <Text style={styles.removeResultBtnText}>{t.luckyWheel.removeResult}</Text>
-                  </TouchableOpacity>
+                    ))}
+                  </ScrollView>
                 </View>
               ) : (
-                <Text style={[styles.idleHintText, { color: colors.subtle }]}>
-                  {locale === 'vi'
-                    ? 'Bấm "Quay tất cả" để bắt đầu quay cùng nhau!'
-                    : 'Press "Spin All" to spin together!'}
-                </Text>
+                /* TAB DANH SÁCH LỰA CHỌN CỦA VÒNG (Y HỆT MOBILEWHEELVIEW) */
+                (() => {
+                  const currentWheel =
+                    wheelsList.find((w, i) => (w.wheelId || String(i)) === activeTab) || wheelsList[0];
+                  if (!currentWheel) return null;
+                  const optionsText = currentWheel.options.map((o) => o.optionLabel).join('\n');
+                  return (
+                    <View style={styles.tabOptionsWrapper}>
+                      <View style={styles.tabOptionsHeader}>
+                        <Text style={[styles.tabOptionsTitle, { color: colors.text }]} numberOfLines={1}>
+                          {currentWheel.wheelTitle || 'Vòng quay'}
+                        </Text>
+                        <Text style={[styles.tabOptionsCount, { color: colors.subtle }]}>
+                          ({currentWheel.options.length} {locale === 'vi' ? 'lựa chọn' : 'options'})
+                        </Text>
+                      </View>
+
+                      <TextInput
+                        style={[
+                          styles.boardTextarea,
+                          {
+                            backgroundColor: isDark ? colors.surface : '#F8FAFC',
+                            borderColor: colors.hairline,
+                            color: colors.text,
+                          },
+                        ]}
+                        multiline
+                        editable={false}
+                        value={optionsText}
+                        numberOfLines={4}
+                      />
+                    </View>
+                  );
+                })()
               )}
             </View>
           </View>
@@ -705,6 +874,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
+  headerSpinAllBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
+  },
+  headerSpinAllBtnText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
   iconBox: {
     width: 30,
     height: 30,
@@ -776,10 +958,68 @@ const styles = StyleSheet.create({
     maxWidth: 130,
     textAlign: 'center',
   },
-  bottomInfoSection: {
+  tabbedBoard: {
     paddingTop: 8,
     borderTopWidth: 1,
     gap: 6,
+  },
+  tabsScroll: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 2,
+  },
+  tabPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  tabPillText: {
+    fontSize: 11,
+  },
+  tabContentContainer: {
+    minHeight: 100,
+    maxHeight: 140,
+    justifyContent: 'center',
+  },
+  tabResultsWrapper: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  tabParticipantsWrapper: {
+    flex: 1,
+    gap: 6,
+    paddingTop: 4,
+  },
+  tabOptionsWrapper: {
+    flex: 1,
+    gap: 4,
+  },
+  tabOptionsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  tabOptionsTitle: {
+    fontSize: 11.5,
+    fontWeight: 'bold',
+    maxWidth: 200,
+  },
+  tabOptionsCount: {
+    fontSize: 10.5,
+  },
+  boardTextarea: {
+    flex: 1,
+    minHeight: 75,
+    padding: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    fontSize: 12,
+    textAlignVertical: 'top',
   },
   participantsSection: {
     gap: 4,
