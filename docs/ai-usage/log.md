@@ -9353,3 +9353,36 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 - **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
 - **Commit:** 5ec846d
 - **PR:** Pending
+
+
+---
+
+## AI-0230: Tái tạo 100% Giao diện và Trải nghiệm CircleWheelView vào Sân khấu Vòng quay ngẫu nhiên
+
+- **Date:** 2026-11-19 15:26:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120 (Event RSVP and Realtime Delights - 100% CircleWheelView Parity in LiveWheelOverlay)
+- **Purpose:** Tái cấu trúc và đồng bộ hóa 100% cấu trúc UI/UX của `CircleWheelView` sang `LiveWheelOverlay` khi mở từ Chat theo yêu cầu chính xác của người dùng:
+  1. Thêm nút kéo mở / thu gọn setup: Nút `PanelRightClose` (ở mép trái bảng thiết lập) và `PanelRightOpen` (bám mép phải màn hình khi thu gọn).
+  2. Bổ sung thanh phím tắt ở đáy Cái Bảng thiết lập: Nút Bật/tắt âm thanh (`Volume2`/`VolumeX` + "Âm thanh") và Nút Xoá tất cả vòng quay (`Trash2` + "Xoá tất cả") kèm modal xác nhận an toàn.
+  3. Giữ nguyên dải nút công cụ tiện ích cho danh sách lựa chọn: `Shuffle`, `Sort A-Z`, `Save as initial` (`BookmarkCheck`), `Reset` (`RotateCcw`).
+  4. Bố cục 1 đến 4 vòng quay thích ứng: Tự động căn chỉnh kích thước động (`getWheelSize(count)`), nút tiêu đề từng đĩa quay ở trên có thể click để nhảy thẳng vào tab setup của vòng quay đó.
+  5. Modal Cúp vàng chúc mừng vinh danh kết quả với huy hiệu phát sáng, nút Đóng và nút "Loại bỏ kết quả" khỏi danh sách lựa chọn.
+  6. Tự động đóng phòng và tổng kết kết quả gửi vào tin nhắn channel khi bấm "Đóng phòng".
+- **Prompt Summary:** "chưa giống y hệt mà tôi kêu là thiết kế y trang ko khác gì, nút kéo mở setuo đâu, mấy phím tắt xoá tất cả hay mở âm thanh đâu, mọi thứ giống 100% ở tiện ích à".
+- **Files Affected:**
+  - `apps/web/src/components/chat/LiveWheelOverlay.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% porting complete visual hierarchy, collapse toggles, bottom shortcut bar, and sound synthesizer into LiveWheelOverlay.
+- **Human Modifications:** Người dùng kiểm tra trực quan và yêu cầu giữ nguyên 100% chi tiết thiết kế không được thiếu bất kỳ thành phần nào.
+- **Verification Method:**
+  - `npx tsc --noEmit -p apps/web/tsconfig.json`: Passed 0 errors.
+  - `npx tsc --noEmit -p apps/backend/tsconfig.json`: Passed 0 errors.
+  - `npm test --prefix apps/backend -- circle-tools`: Passed 48/48 unit tests.
+  - `bash ./scripts/check-secrets.sh`: Passed (630 files checked, 0 leaks).
+- **Official Source Checked:** `PROJECT_GOD.md` §2.2, §11 (DoD), `apps/web/src/components/circle-tools/CircleWheelView.tsx`.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+- **Commit:** Pending
+- **PR:** Pending
