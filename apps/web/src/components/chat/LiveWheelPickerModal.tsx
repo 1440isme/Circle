@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   Compass,
   X,
@@ -56,8 +57,16 @@ export const LiveWheelPickerModal: React.FC<LiveWheelPickerModalProps> = ({
   channelId,
 }) => {
   const { t, locale } = useLanguageStore();
+  const queryClient = useQueryClient();
 
-  const { data: rawWheels = [], isLoading: isLoadingWheels } = useWheelsQuery(circleId);
+  const { data: rawWheels = [], isLoading: isLoadingWheels, refetch: refetchWheels } = useWheelsQuery(circleId);
+
+  // Khi modal mở lên, luôn refetch để đồng bộ danh sách mới nhất từ server
+  useEffect(() => {
+    if (isOpen) {
+      refetchWheels();
+    }
+  }, [isOpen, refetchWheels]);
 
   // Sắp xếp vòng 1, 2, 3, 4 theo thứ tự thời gian tạo tăng dần
   const wheels = useMemo(() => {
@@ -74,6 +83,34 @@ export const LiveWheelPickerModal: React.FC<LiveWheelPickerModalProps> = ({
   const deleteWheelMutation = useDeleteWheelMutation(circleId);
   const deleteAllMutation = useDeleteAllWheelsMutation(circleId);
   const createStageMutation = useCreateLiveWheelStageMutation(circleId);
+
+  // Auto-seed: Khởi tạo 1 vòng mặc định nếu chưa có
+  const autoSeedRef = useRef(false);
+  useEffect(() => {
+    if (
+      isOpen &&
+      !isLoadingWheels &&
+      rawWheels.length === 0 &&
+      !autoSeedRef.current &&
+      !createWheelMutation.isPending
+    ) {
+      autoSeedRef.current = true;
+      const defaultTitle = t.luckyWheel.wheelNumber.replace('{number}', '1');
+      const sampleOptions = [
+        { optionLabel: 'Lựa chọn 1' },
+        { optionLabel: 'Lựa chọn 2' },
+        { optionLabel: 'Lựa chọn 3' },
+        { optionLabel: 'Lựa chọn 4' },
+      ];
+      createWheelMutation.mutate({
+        title: defaultTitle,
+        options: sampleOptions,
+        initialOptions: sampleOptions.map((o) => o.optionLabel),
+        soundEnabled: true,
+        confettiEnabled: true,
+      });
+    }
+  }, [isOpen, isLoadingWheels, rawWheels.length, createWheelMutation, t.luckyWheel.wheelNumber]);
 
   // Active Tab trong bảng Setup
   const [activeWheelId, setActiveWheelId] = useState<string | null>(null);
@@ -291,19 +328,25 @@ export const LiveWheelPickerModal: React.FC<LiveWheelPickerModalProps> = ({
       if (activeWheel && activeLocalState?.optionsText) {
         const lines = parseOptions(activeLocalState.optionsText);
         if (lines.length >= 2) {
-          await updateWheelMutation.mutateAsync({
-            wheelId: activeWheel.id,
-            input: {
-              options: lines.map((l) => ({
-                optionLabel: l.label,
-                color: l.color,
-              })),
-            },
-          });
+          try {
+            await updateWheelMutation.mutateAsync({
+              wheelId: activeWheel.id,
+              input: {
+                options: lines.map((l) => ({
+                  optionLabel: l.label,
+                  color: l.color,
+                })),
+              },
+            });
+          } catch (updateErr) {
+            console.warn('Could not update active wheel before creating stage, proceeding:', updateErr);
+          }
         }
       }
 
       const created = await createStageMutation.mutateAsync({ channelId });
+      queryClient.invalidateQueries({ queryKey: ['wheels', circleId] });
+
       if (typeof window !== 'undefined') {
         window.dispatchEvent(
           new CustomEvent('circle:open-live-wheel', {

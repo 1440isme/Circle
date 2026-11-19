@@ -9532,5 +9532,41 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
   - **Error Description:** Hàm `ensureFourWheels` trước đó tự động chèn thêm bản ghi vào database nếu số vòng nhỏ hơn 4, dẫn đến việc đổi cài đặt âm thanh kích hoạt re-fetch và hiện ra 4 vòng.
   - **Root Cause:** Logic mock cũ ép cứng layout 4 vòng quay.
   - **Resolution / Fix:** Sửa `ensureFourWheels` chỉ tạo 1 vòng nếu DB hoàn toàn rỗng, giữ nguyên đúng số lượng vòng người dùng thiết lập.
+- **Commit:** c319d6e
+- **PR:** #120
+
+
+---
+
+## AI-0236: Khôi phục Floating Pill Người xem & Tab Người xem, Phóng to vòng quay khi đóng bảng và Khắc phục lỗi Tạo vòng quay
+
+- **Date:** 2026-11-19 17:12:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120 (Event RSVP & Realtime Delights)
+- **Purpose:** 
+  1. Khôi phục Floating Pill Button "Người xem" trên Header và Tab "Người xem" trong Cái Bảng (Setup Panel), hiển thị danh sách thành viên đang theo dõi trực tiếp với avatar, tên và trạng thái mà không làm chiếm diện tích sân khấu Visual Arena.
+  2. Phóng to kích thước vòng quay khi người dùng đóng Cái Bảng thiết lập (Panel Collapsed): Tự động mở rộng đĩa quay từ 380px lên 480px (với 1 vòng) hoặc 320px (với 2 vòng), đĩa quay hiển thị hoành tráng và cân đối trên toàn bộ sân khấu.
+  3. Khắc phục triệt để lỗi "Không tìm thấy vòng quay" khi người dùng ấn nút "Tạo vòng quay":
+     - Bảo toàn ID vòng quay chính (vòng 1) trong `closeLiveWheelStage`, chỉ reset các lựa chọn về mẫu mặc định và xoá các vòng phụ tạm thời.
+     - Nâng cấp `getWheels` tự động khởi tạo và trả về ít nhất 1 vòng nếu database rỗng.
+     - Bổ sung cơ chế fallback trong `updateWheel` để tìm vòng quay hợp lệ của circle nếu ID gửi từ cache client bị lệch.
+     - Cập nhật `LiveWheelPickerModal` luôn gọi `refetchWheels` khi mở modal, auto-seed an toàn và tự động dọn cache React Query (`queryClient.invalidateQueries`).
+- **Prompt Summary:** Khôi phục người xem và Floating Pill Button người xem; đóng bảng setup thì vòng tròn phải to hơn; sửa lỗi ấn tạo vòng quay bị báo không tìm thấy vòng quay.
+- **Files Affected:**
+  - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
+  - `apps/web/src/components/chat/LiveWheelOverlay.tsx`
+  - `apps/web/src/components/chat/LiveWheelPickerModal.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% logic điều chỉnh dynamic wheel size, cấu hình Floating Pill & tab Người xem, và sửa lỗi đồng bộ ID / fallback vòng quay ở backend.
+- **Human Modifications:** Người dùng trực tiếp trải nghiệm và phản hồi các chi tiết giao diện/logic cần điều chỉnh.
+- **Verification Method:** `npx tsc --noEmit` pass 0 errors cả web và backend; `npm test circle-tools.service.spec.ts` pass 48/48 tests; `check-secrets.sh` pass 0 leaks.
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn, không chứa secret.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** Khi đóng phòng quay, backend trước đó xóa toàn bộ vòng quay (`deleteMany`) và tạo bản ghi mới với UUID mới, khiến client giữ cache ID cũ gọi `updateWheel` bị trả về 404 "Không tìm thấy vòng quay".
+  - **Root Cause:** Xóa sạch bản ghi vòng quay và tạo UUID mới thay vì giữ lại vòng 1 và cập nhật options.
+  - **Resolution / Fix:** Giữ nguyên bản ghi vòng 1 (giữ ID cố định), đồng thời bổ sung fallback truy vấn và refetch cache phía client.
 - **Commit:** Pending
 - **PR:** Pending

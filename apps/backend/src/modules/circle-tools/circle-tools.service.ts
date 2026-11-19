@@ -451,7 +451,7 @@ export class CircleToolsService {
   async getWheels(circleId: string, userId: string) {
     await this.getMemberOrThrow(circleId, userId);
 
-    return this.prisma.decisionWheel.findMany({
+    let wheels = await this.prisma.decisionWheel.findMany({
       where: { circleId },
       include: {
         options: true,
@@ -467,6 +467,28 @@ export class CircleToolsService {
       },
       orderBy: { createdAt: 'asc' },
     });
+
+    if (wheels.length === 0) {
+      await this.ensureFourWheels(circleId);
+      wheels = await this.prisma.decisionWheel.findMany({
+        where: { circleId },
+        include: {
+          options: true,
+          creator: {
+            include: {
+              user: {
+                include: {
+                  profile: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: 'asc' },
+      });
+    }
+
+    return wheels;
   }
 
   async createWheel(circleId: string, userId: string, dto: CreateWheelDto) {
@@ -530,23 +552,42 @@ export class CircleToolsService {
   ) {
     await this.getMemberOrThrow(circleId, userId);
 
-    const wheel = await this.prisma.decisionWheel.findFirst({
+    let wheel = await this.prisma.decisionWheel.findFirst({
       where: { id: wheelId, circleId },
       include: { options: true },
     });
 
     if (!wheel) {
+      wheel = await this.prisma.decisionWheel.findFirst({
+        where: { circleId },
+        include: { options: true },
+      });
+    }
+
+    if (!wheel) {
+      const ensured = await this.ensureFourWheels(circleId);
+      if (ensured.length > 0) {
+        wheel = await this.prisma.decisionWheel.findFirst({
+          where: { id: ensured[0]!.id },
+          include: { options: true },
+        });
+      }
+    }
+
+    if (!wheel) {
       throw new NotFoundException('Không tìm thấy vòng quay');
     }
+
+    const actualWheelId = wheel.id;
 
     const updatedWheel = await this.prisma.$transaction(async (tx) => {
       if (dto.options && Array.isArray(dto.options) && dto.options.length >= 1) {
         await tx.wheelOption.deleteMany({
-          where: { wheelId },
+          where: { wheelId: actualWheelId },
         });
         await tx.wheelOption.createMany({
           data: dto.options.map((opt, idx) => ({
-            wheelId,
+            wheelId: actualWheelId,
             optionLabel: opt.optionLabel.trim(),
             color: opt.color || PASTEL_WHEEL_COLORS[idx % PASTEL_WHEEL_COLORS.length],
           })),
@@ -554,7 +595,7 @@ export class CircleToolsService {
       }
 
       return tx.decisionWheel.update({
-        where: { id: wheelId },
+        where: { id: actualWheelId },
         data: {
           title: dto.title !== undefined ? dto.title.trim() : undefined,
           soundEnabled: dto.soundEnabled !== undefined ? dto.soundEnabled : undefined,
@@ -751,7 +792,7 @@ export class CircleToolsService {
     });
 
     if (!wheel) {
-      throw new NotFoundException('Không tìm thấy vòng quay');
+      return { success: true };
     }
 
     if (wheel.createdById && wheel.createdById !== member.id && member.role !== 'OWNER') {
@@ -1649,20 +1690,47 @@ export class CircleToolsService {
 
     // 5. Dọn dẹp các vòng quay tạm thời, hoàn nguyên về 1 vòng mặc định tinh gọn cho phiên tiếp theo
     try {
-      await this.prisma.decisionWheel.deleteMany({ where: { circleId } });
-      const template = DEFAULT_FOUR_WHEELS_DATA[0]!;
-      await this.prisma.decisionWheel.create({
-        data: {
-          circleId,
-          title: template.title,
-          options: {
-            create: template.options.map((optLabel, oIdx) => ({
-              optionLabel: optLabel,
-              color: PASTEL_WHEEL_COLORS[oIdx % PASTEL_WHEEL_COLORS.length]!,
-            })),
-          },
-        },
+      const existingWheels = await this.prisma.decisionWheel.findMany({
+        where: { circleId },
+        orderBy: { createdAt: 'asc' },
       });
+
+      if (existingWheels.length > 1) {
+        const extraIds = existingWheels.slice(1).map((w) => w.id);
+        await this.prisma.decisionWheel.deleteMany({
+          where: { id: { in: extraIds } },
+        });
+      }
+
+      const template = DEFAULT_FOUR_WHEELS_DATA[0]!;
+      if (existingWheels.length > 0) {
+        const firstWheel = existingWheels[0]!;
+        await this.prisma.wheelOption.deleteMany({ where: { wheelId: firstWheel.id } });
+        await this.prisma.wheelOption.createMany({
+          data: template.options.map((optLabel, oIdx) => ({
+            wheelId: firstWheel.id,
+            optionLabel: optLabel,
+            color: PASTEL_WHEEL_COLORS[oIdx % PASTEL_WHEEL_COLORS.length]!,
+          })),
+        });
+        await this.prisma.decisionWheel.update({
+          where: { id: firstWheel.id },
+          data: { title: template.title },
+        });
+      } else {
+        await this.prisma.decisionWheel.create({
+          data: {
+            circleId,
+            title: template.title,
+            options: {
+              create: template.options.map((optLabel, oIdx) => ({
+                optionLabel: optLabel,
+                color: PASTEL_WHEEL_COLORS[oIdx % PASTEL_WHEEL_COLORS.length]!,
+              })),
+            },
+          },
+        });
+      }
     } catch {}
 
     return { success: true };

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   Compass,
   Plus,
@@ -172,12 +173,12 @@ const WheelCanvas: React.FC<{
       ctx.textBaseline = 'middle';
       ctx.fillStyle = '#1E293B';
 
-      const hubRadius = size > 300 ? 22 : 18;
-      const outerMargin = size > 300 ? 20 : 14;
+      const hubRadius = size > 420 ? 28 : size > 300 ? 22 : 18;
+      const outerMargin = size > 420 ? 24 : size > 300 ? 20 : 14;
       const trackLength = radius - outerMargin - hubRadius;
       const textRadius = hubRadius + trackLength / 2;
 
-      const baseFontSize = size > 300 ? 13 : size > 250 ? 12 : 11;
+      const baseFontSize = size > 420 ? 15 : size > 300 ? 13 : size > 250 ? 12 : 11;
       ctx.font = `600 ${baseFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
       ctx.shadowColor = 'rgba(255, 255, 255, 0.7)';
       ctx.shadowBlur = 2;
@@ -202,7 +203,7 @@ const WheelCanvas: React.FC<{
     ctx.restore();
 
     // Center circular hub
-    const hubRadius = size > 300 ? 22 : 18;
+    const hubRadius = size > 420 ? 28 : size > 300 ? 22 : 18;
     ctx.beginPath();
     ctx.arc(center, center, hubRadius, 0, 2 * Math.PI);
     ctx.fillStyle = '#FFFFFF';
@@ -218,7 +219,7 @@ const WheelCanvas: React.FC<{
 
     // Center small circle (brand teal)
     ctx.beginPath();
-    ctx.arc(center, center, size > 300 ? 8 : 6, 0, 2 * Math.PI);
+    ctx.arc(center, center, size > 420 ? 10 : size > 300 ? 8 : 6, 0, 2 * Math.PI);
     ctx.fillStyle = '#0D9488';
     ctx.fill();
   }, [options, rotation, size]);
@@ -237,9 +238,15 @@ const WheelCanvas: React.FC<{
       {/* Sleek needle pointer anchored on the RIGHT OUTSIDE, pointing into the wheel */}
       <div
         className="absolute top-1/2 -translate-y-1/2 z-20 pointer-events-none drop-shadow-md flex items-center"
-        style={{ right: -26 }}
+        style={{ right: size > 420 ? -30 : -26 }}
       >
-        <svg width="34" height="24" viewBox="0 0 34 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <svg
+          width={size > 420 ? '40' : '34'}
+          height={size > 420 ? '28' : '24'}
+          viewBox="0 0 34 24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
           <path
             d="M 2 12 L 20 3 C 22 2 24 3 24 5.5 V 18.5 C 24 21 22 22 20 21 L 2 12 Z"
             fill="#0D9488"
@@ -259,6 +266,7 @@ const WheelCanvas: React.FC<{
 export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) => {
   const { user } = useAuth();
   const { t, locale } = useLanguageStore();
+  const queryClient = useQueryClient();
 
   const [isVisible, setIsVisible] = useState(false);
   const [liveSession, setLiveSession] = useState<LiveWheelSession | null>(null);
@@ -893,6 +901,7 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
       await closeLiveMutation.mutateAsync({
         results: formattedResults,
       });
+      queryClient.invalidateQueries({ queryKey: ['wheels', circleId] });
       setIsVisible(false);
       setLiveSession(null);
       setResultsText('');
@@ -931,6 +940,9 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
       if (data.circleId === circleId) {
         setIsVisible(false);
         setLiveSession(null);
+        setResultsText('');
+        setCombinedResultsModal(null);
+        queryClient.invalidateQueries({ queryKey: ['wheels', circleId] });
       }
     };
 
@@ -1030,14 +1042,20 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
   // Active wheel parsed options
   const activeParsedOptions = parseOptions(activeLocalState?.optionsText || '');
 
-  // Fixed wheel sizes by count (generous & spacious now that viewers bar is removed)
-  const getWheelSize = (count: number) => {
-    if (count === 1) return 380;
-    if (count === 2) return 260;
-    return 220; // 3 or 4 wheels
+  // Dynamic wheel sizes by count & panel collapsed state (grand & spacious when panel is closed)
+  const getWheelSize = (count: number, isCollapsed: boolean) => {
+    if (isCollapsed) {
+      if (count === 1) return 480;
+      if (count === 2) return 320;
+      return 250; // 3 or 4 wheels
+    } else {
+      if (count === 1) return 380;
+      if (count === 2) return 260;
+      return 220; // 3 or 4 wheels
+    }
   };
 
-  const wheelSize = getWheelSize(wheels.length);
+  const wheelSize = getWheelSize(wheels.length, isPanelCollapsed);
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-circle-canvas dark:bg-circle-dark-surface overflow-hidden transition-colors animate-fadeIn">
@@ -1084,6 +1102,33 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
               )}
             </button>
 
+            {/* Floating Pill: NGƯỜI XEM */}
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('viewers');
+                setIsPanelCollapsed(false);
+              }}
+              className={`pointer-events-auto inline-flex items-center gap-1.5 px-3.5 h-9 rounded-full backdrop-blur-xl border shadow-sm font-bold text-xs sm:text-sm transition-all active:scale-95 cursor-pointer shrink-0 ${
+                activeTab === 'viewers' && !isPanelCollapsed
+                  ? 'bg-circle-primary text-white border-circle-primary shadow-md'
+                  : 'bg-white/92 dark:bg-circle-dark-surface/90 border-circle-hairline/80 dark:border-white/12 hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text'
+              }`}
+              title={locale === 'vi' ? 'Người xem trực tiếp' : 'Live viewers'}
+            >
+              <Users className={`w-4 h-4 ${activeTab === 'viewers' && !isPanelCollapsed ? 'text-white' : 'text-circle-primary'}`} />
+              <span>{locale === 'vi' ? 'Người xem' : 'Viewers'}</span>
+              <span
+                className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                  activeTab === 'viewers' && !isPanelCollapsed
+                    ? 'bg-white/20 text-white'
+                    : 'bg-circle-primary/15 text-circle-primary'
+                }`}
+              >
+                {participants.length}
+              </span>
+            </button>
+
             {/* Add Wheel Pill Button */}
             <button
               type="button"
@@ -1128,7 +1173,7 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
       {/* SCROLL-UNDER CONTENT LAYER */}
       {/* ============================================================== */}
       <div className="flex-1 overflow-y-auto px-4 md:px-6 pt-16 md:pt-18 pb-6 flex flex-col items-center justify-center">
-        <div className="relative flex flex-col lg:flex-row gap-6 lg:gap-8 w-full flex-1 items-stretch justify-center max-w-6xl mx-auto h-[620px] max-h-[calc(100vh-120px)] min-h-[520px]">
+        <div className="relative flex flex-col lg:flex-row gap-6 lg:gap-8 w-full flex-1 items-stretch justify-center max-w-6xl mx-auto h-[640px] max-h-[calc(100vh-100px)] min-h-[540px]">
           {/* CỘT BÊN TRÁI: SÂN KHẤU VÒNG QUAY (VISUAL ARENA) */}
           <div className="flex-1 flex flex-col items-center justify-between p-2 sm:p-4 h-full min-w-0 overflow-hidden">
             {wheels.length === 0 ? (
@@ -1442,6 +1487,29 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
                     </span>
                   )}
                 </button>
+
+                {/* Tab: NGƯỜI XEM */}
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('viewers')}
+                  className={`flex items-center justify-center gap-1.5 min-w-24 px-2.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                    activeTab === 'viewers'
+                      ? 'bg-circle-primary text-white shadow-xs font-bold'
+                      : 'bg-circle-wash/60 dark:bg-circle-dark-wash/40 text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash hover:text-circle-charcoal dark:hover:text-circle-dark-text'
+                  }`}
+                >
+                  <Users className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate">{locale === 'vi' ? 'Người xem' : 'Viewers'}</span>
+                  <span
+                    className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                      activeTab === 'viewers'
+                        ? 'bg-white/20 text-white'
+                        : 'bg-circle-primary/15 text-circle-primary'
+                    }`}
+                  >
+                    {participants.length}
+                  </span>
+                </button>
               </div>
 
               {/* TAB CONTENT: KẾT QUẢ (DẠNG TEXT CHỈ ĐỌC, GHI THEO LẦN) */}
@@ -1533,6 +1601,107 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
                     </button>
 
                     {/* Delete All Wheels Button */}
+                    <button
+                      type="button"
+                      onClick={handleDeleteAllWheels}
+                      disabled={isAnySpinning || wheels.length === 0}
+                      className="flex items-center gap-1 text-rose-500 hover:text-rose-600 font-semibold disabled:opacity-30 transition-colors cursor-pointer"
+                      title={t.luckyWheel.deleteAllWheels}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>{t.luckyWheel.deleteAllWheels}</span>
+                    </button>
+                  </div>
+                </div>
+              ) : activeTab === 'viewers' ? (
+                /* TAB CONTENT: NGƯỜI XEM (VIEWERS LIST) */
+                <div className="flex-1 min-h-0 flex flex-col pt-4 gap-3">
+                  <div className="flex items-center justify-between pb-2 border-b border-circle-hairline dark:border-circle-dark-hairline shrink-0">
+                    <div className="flex items-center gap-2">
+                      <Users className="w-4 h-4 text-circle-primary" />
+                      <span className="font-bold text-sm text-circle-charcoal dark:text-circle-dark-text truncate">
+                        {locale === 'vi' ? 'Người đang xem trực tiếp' : 'Live Viewers'}
+                      </span>
+                      <span className="text-xs text-circle-slate dark:text-circle-dark-muted font-semibold">
+                        ({participants.length})
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                    {participants.length === 0 ? (
+                      <div className="h-full flex flex-col items-center justify-center text-center p-6 text-circle-slate dark:text-circle-dark-muted text-xs">
+                        <Users className="w-8 h-8 mb-2 opacity-30" />
+                        <p>{locale === 'vi' ? 'Chưa có người xem nào' : 'No viewers yet'}</p>
+                      </div>
+                    ) : (
+                      participants.map((p) => {
+                        const isCreator = p.userId === liveSession?.creatorId;
+                        const isMe = p.userId === user?.id;
+                        return (
+                          <div
+                            key={p.userId}
+                            className="flex items-center justify-between p-2.5 rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas/60 dark:bg-circle-dark-canvas/60 hover:bg-circle-wash/50 dark:hover:bg-circle-dark-wash/50 transition-colors"
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="relative shrink-0">
+                                {p.avatarUrl ? (
+                                  <img
+                                    src={p.avatarUrl}
+                                    alt={p.displayName}
+                                    className="w-8 h-8 rounded-full object-cover border border-circle-hairline dark:border-circle-dark-hairline"
+                                  />
+                                ) : (
+                                  <div className="w-8 h-8 rounded-full bg-circle-primary/10 text-circle-primary font-bold text-xs flex items-center justify-center border border-circle-primary/20">
+                                    {(p.displayName || 'U').charAt(0).toUpperCase()}
+                                  </div>
+                                )}
+                                <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white dark:border-circle-dark-surface" />
+                              </div>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <p className="text-xs font-semibold text-circle-charcoal dark:text-circle-dark-text truncate">
+                                    {p.displayName}
+                                  </p>
+                                  {isMe && (
+                                    <span className="text-[10px] text-circle-slate dark:text-circle-dark-muted font-normal">
+                                      ({locale === 'vi' ? 'Bạn' : 'You'})
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+                                  {locale === 'vi' ? 'Đang theo dõi' : 'Watching'}
+                                </p>
+                              </div>
+                            </div>
+
+                            {isCreator && (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 shrink-0">
+                                {locale === 'vi' ? 'Chủ phòng' : 'Host'}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  {/* Hàng thiết lập ở đáy: Bật/Tắt âm thanh & Xoá tất cả vòng quay */}
+                  <div className="flex items-center justify-between pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline text-xs shrink-0">
+                    <button
+                      type="button"
+                      onClick={handleToggleSound}
+                      disabled={isAnySpinning}
+                      className="flex items-center gap-1.5 text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text disabled:opacity-40 transition-colors cursor-pointer"
+                    >
+                      {currentSoundEnabled ? (
+                        <Volume2 className="w-4 h-4 text-circle-primary dark:text-circle-dark-primary" />
+                      ) : (
+                        <VolumeX className="w-4 h-4 text-circle-slate/60 dark:text-circle-dark-muted/60" />
+                      )}
+                      <span>{t.luckyWheel.soundSetting}</span>
+                    </button>
+
                     <button
                       type="button"
                       onClick={handleDeleteAllWheels}
