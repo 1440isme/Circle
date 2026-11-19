@@ -88,7 +88,14 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
     setIsPlusMenuOpen(false);
     if (!circleId || !channelId) return;
     try {
-      await createLiveWheelStageMutation.mutateAsync({ channelId });
+      const created = await createLiveWheelStageMutation.mutateAsync({ channelId });
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('circle:open-live-wheel', {
+            detail: { circleId, sessionId: created?.id, session: created },
+          })
+        );
+      }
     } catch (err: any) {
       alert(err?.response?.data?.message || err?.message || 'Không thể mở vòng quay');
     }

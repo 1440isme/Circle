@@ -890,6 +890,7 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
       const elapsed = Date.now() - initialActiveSession.startedAt;
       if (elapsed < 4 * 60 * 60 * 1000) {
         setLiveSession(initialActiveSession);
+        setIsVisible(true);
       }
     }
   }, [initialActiveSession]);

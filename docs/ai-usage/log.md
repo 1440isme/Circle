@@ -9386,3 +9386,30 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 - **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
 - **Commit:** Pending
 - **PR:** Pending
+
+
+---
+
+## AI-0231: Tối ưu kích hoạt tức thì Sân khấu Vòng quay ngẫu nhiên và đảm bảo trạng thái hiển thị
+
+- **Date:** 2026-11-19 15:37:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120 (Event RSVP and Realtime Delights - Instant LiveWheel Trigger & Visibility)
+- **Purpose:** 
+  1. Thêm dispatch sự kiện `circle:open-live-wheel` trực tiếp trong `ChatComposer.tsx` ngay khi bấm tạo phòng quay để người tạo lập tức bung mở Sân khấu `LiveWheelOverlay` mà không cần đợi socket round-trip.
+  2. Bổ sung `setIsVisible(true)` trong `LiveWheelOverlay.tsx` khi có `initialActiveSession` đang hoạt động, giúp reload trang vẫn giữ nguyên sân khấu đang diễn ra.
+  3. Xác nhận loại bỏ triệt để 100% cụm nút "Quay tất cả" và "Đóng phòng & Gửi kết quả vào chat" ở dưới đáy Cái Bảng (chuyển lên dải floating pill trên cùng), giữ nguyên vẹn hàng phím tắt Bật/tắt âm thanh (`Volume2`/`VolumeX`) và Xoá tất cả (`Trash2`) ở đáy bảng y hệt `CircleWheelView`.
+- **Files Affected:**
+  - `apps/web/src/components/chat/ChatComposer.tsx`
+  - `apps/web/src/components/chat/LiveWheelOverlay.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% reactive trigger optimization and state binding.
+- **Human Modifications:** Người dùng phản hồi về việc giao diện ở trình duyệt chưa cập nhật hàng phím tắt âm thanh và xoá tất cả.
+- **Verification Method:**
+  - `npx tsc --noEmit -p apps/web/tsconfig.json`: Passed 0 errors.
+  - `npm run build --prefix apps/web`: Compiled successfully.
+- **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
+- **Commit:** Pending
+- **PR:** Pending
