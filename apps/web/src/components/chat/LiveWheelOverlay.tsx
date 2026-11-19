@@ -21,6 +21,7 @@ import {
   BookmarkCheck,
   Share2,
   Sparkles,
+  Users,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguageStore } from '../../stores/language.store';
@@ -960,14 +961,28 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
       }
     };
 
+    const handleParticipantsUpdated = (data: { sessionId: string; participants: any[] }) => {
+      setLiveSession((prev) => {
+        if (prev && (prev.id === data.sessionId || !data.sessionId)) {
+          return {
+            ...prev,
+            participants: data.participants,
+          };
+        }
+        return prev;
+      });
+    };
+
     socket.on('circle:live-wheel:stage-created', handleStageCreated);
     socket.on('circle:live-wheel:closed', handleStageClosed);
+    socket.on('circle:live-wheel:participants-updated', handleParticipantsUpdated);
     socket.on('circle:wheel-spun', handleWheelSpun);
     window.addEventListener('circle:open-live-wheel', handleOpenFromChat);
 
     return () => {
       socket.off('circle:live-wheel:stage-created', handleStageCreated);
       socket.off('circle:live-wheel:closed', handleStageClosed);
+      socket.off('circle:live-wheel:participants-updated', handleParticipantsUpdated);
       socket.off('circle:wheel-spun', handleWheelSpun);
       window.removeEventListener('circle:open-live-wheel', handleOpenFromChat);
     };
@@ -978,49 +993,100 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
   // Active wheel parsed options
   const activeParsedOptions = parseOptions(activeLocalState?.optionsText || '');
 
-  // Calculate dynamic wheel size depending on panel collapsed state y hệt CircleWheelView
+  // Fixed wheel sizes by count (invariant to panel collapse so layout never jumps/resizes)
   const getWheelSize = (count: number) => {
-    if (isPanelCollapsed) {
-      if (count === 1) return 460;
-      if (count === 2) return 320;
-      if (count === 3) return 280;
-      return 260; // 4 wheels 2x2
-    } else {
-      if (count === 1) return 360;
-      if (count === 2) return 250;
-      if (count === 3) return 220;
-      return 210; // 4 wheels 2x2
-    }
+    if (count === 1) return 310;
+    if (count === 2) return 220;
+    return 190; // 3 or 4 wheels
   };
 
   const wheelSize = getWheelSize(wheels.length);
 
+  const participants = useMemo(() => {
+    const list = liveSession?.participants || [];
+    if (user && !list.some((p) => p.userId === user.id)) {
+      return [
+        ...list,
+        {
+          userId: user.id,
+          displayName: user.profile?.displayName || user.email?.split('@')[0] || 'Bạn',
+          avatarUrl: user.profile?.avatarUrl || null,
+          joinedAt: new Date().toISOString(),
+        },
+      ];
+    }
+    return list;
+  }, [liveSession?.participants, user]);
+
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-circle-canvas dark:bg-circle-dark-surface overflow-hidden transition-colors animate-fadeIn">
       {/* ============================================================== */}
-      {/* FLOATING PILL CONTROLS (TRÊN CÙNG: TIÊU ĐỀ + LIVE BADGE + THÊM VÒNG + QUAY TẤT CẢ + ĐÓNG) */}
+      {/* FLOATING PILL CONTROLS (TRÊN CÙNG: TIÊU ĐỀ + KẾT QUẢ + NGƯỜI XEM + THÊM VÒNG + QUAY TẤT CẢ + ĐÓNG) */}
       {/* ============================================================== */}
       <div className="pointer-events-none absolute top-4 left-0 right-0 z-20 flex flex-col items-center px-4 md:px-6">
         <div className="w-full max-w-6xl mx-auto flex items-center justify-between gap-2.5">
-          {/* Nhãn Tiêu đề Vòng quay ngẫu nhiên + Huy hiệu Live */}
-          <div className="pointer-events-auto flex items-center gap-2 px-3.5 h-9 rounded-full backdrop-blur-xl bg-white/92 dark:bg-circle-dark-surface/90 border border-circle-hairline/80 dark:border-white/12 shadow-sm">
+          {/* Nhãn Tiêu đề Vòng quay ngẫu nhiên (ĐÃ BỎ CHỮ LIVE) */}
+          <div className="pointer-events-auto flex items-center gap-2 px-3.5 h-9 rounded-full backdrop-blur-xl bg-white/92 dark:bg-circle-dark-surface/90 border border-circle-hairline/80 dark:border-white/12 shadow-sm shrink-0">
             <Compass className="w-4 h-4 text-circle-primary" />
             <span className="font-bold text-xs sm:text-sm text-circle-charcoal dark:text-circle-dark-text">
               {locale === 'vi' ? 'Vòng quay ngẫu nhiên' : 'Random Wheel'}
             </span>
-            <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              <span>LIVE</span>
-            </span>
           </div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
+            {/* Floating Pill: KẾT QUẢ */}
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('results');
+                setIsPanelCollapsed(false);
+              }}
+              className={`pointer-events-auto inline-flex items-center gap-1.5 px-3.5 h-9 rounded-full backdrop-blur-xl border shadow-sm font-bold text-xs sm:text-sm transition-all active:scale-95 cursor-pointer shrink-0 ${
+                activeTab === 'results' && !isPanelCollapsed
+                  ? 'bg-amber-500 text-white border-amber-600 shadow-md'
+                  : 'bg-white/92 dark:bg-circle-dark-surface/90 border-circle-hairline/80 dark:border-white/12 hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text'
+              }`}
+              title={t.luckyWheel.resultsTab}
+            >
+              <Trophy className={`w-4 h-4 ${activeTab === 'results' && !isPanelCollapsed ? 'text-white' : 'text-amber-500'}`} />
+              <span>{t.luckyWheel.resultsTab}</span>
+              {resultLinesCount > 0 && (
+                <span
+                  className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                    activeTab === 'results' && !isPanelCollapsed
+                      ? 'bg-white/20 text-white'
+                      : 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+                  }`}
+                >
+                  {resultLinesCount}
+                </span>
+              )}
+            </button>
+
+            {/* Floating Pill: NGƯỜI XEM */}
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('viewers');
+                setIsPanelCollapsed(false);
+              }}
+              className={`pointer-events-auto inline-flex items-center gap-1.5 px-3.5 h-9 rounded-full backdrop-blur-xl border shadow-sm font-bold text-xs sm:text-sm transition-all active:scale-95 cursor-pointer shrink-0 ${
+                activeTab === 'viewers' && !isPanelCollapsed
+                  ? 'bg-emerald-600 text-white border-emerald-700 shadow-md'
+                  : 'bg-white/92 dark:bg-circle-dark-surface/90 border-circle-hairline/80 dark:border-white/12 hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text'
+              }`}
+              title="Người xem trực tiếp"
+            >
+              <Users className={`w-4 h-4 ${activeTab === 'viewers' && !isPanelCollapsed ? 'text-white' : 'text-emerald-500'}`} />
+              <span>{participants.length} {locale === 'vi' ? 'người xem' : 'viewers'}</span>
+            </button>
+
             {/* Add Wheel Pill Button */}
             <button
               type="button"
               onClick={handleAddDefaultWheel}
               disabled={wheels.length >= 4 || isAnySpinning || createWheelMutation.isPending}
-              className="pointer-events-auto inline-flex items-center gap-1.5 px-4 h-9 rounded-full backdrop-blur-xl bg-white/92 dark:bg-circle-dark-surface/90 border border-circle-hairline/80 dark:border-white/12 shadow-sm hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text font-bold text-xs sm:text-sm transition-all active:scale-95 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+              className="pointer-events-auto inline-flex items-center gap-1.5 px-3.5 h-9 rounded-full backdrop-blur-xl bg-white/92 dark:bg-circle-dark-surface/90 border border-circle-hairline/80 dark:border-white/12 shadow-sm hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-charcoal dark:text-circle-dark-text font-bold text-xs sm:text-sm transition-all active:scale-95 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
               title={wheels.length >= 4 ? t.luckyWheel.maxWheelsBadge : undefined}
             >
               <Plus className="w-4 h-4 text-circle-sage dark:text-circle-dark-primary" />
@@ -1056,12 +1122,12 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
       </div>
 
       {/* ============================================================== */}
-      {/* SCROLL-UNDER CONTENT LAYER (Y HỆT CIRCLEWHEELVIEW) */}
+      {/* SCROLL-UNDER CONTENT LAYER */}
       {/* ============================================================== */}
-      <div className="flex-1 overflow-y-auto px-4 md:px-6 pt-16 md:pt-18 pb-12">
-        <div className="relative flex flex-col lg:flex-row gap-6 lg:gap-8 w-full flex-1 items-stretch max-w-6xl mx-auto">
+      <div className="flex-1 overflow-y-auto px-4 md:px-6 pt-16 md:pt-18 pb-6 flex flex-col items-center justify-center">
+        <div className="relative flex flex-col lg:flex-row gap-6 lg:gap-8 w-full flex-1 items-stretch justify-center max-w-6xl mx-auto h-[620px] max-h-[calc(100vh-120px)] min-h-[520px]">
           {/* CỘT BÊN TRÁI: SÂN KHẤU VÒNG QUAY (VISUAL ARENA) */}
-          <div className="flex-1 flex flex-col items-center justify-center p-2 sm:p-4 transition-all min-h-[460px]">
+          <div className="flex-1 flex flex-col items-center justify-between p-2 sm:p-4 h-full min-w-0 overflow-hidden">
             {wheels.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
                 <Compass className="w-16 h-16 text-circle-slate/30 dark:text-circle-dark-muted/30 mb-3" />
@@ -1081,7 +1147,7 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
                 </button>
               </div>
             ) : (
-              <div className="flex-1 flex flex-col items-center justify-center py-6 w-full">
+              <div className="flex-1 w-full flex flex-col items-center justify-center min-h-0 overflow-y-auto py-2">
                 {/* 1 VÒNG: Hiển thị 1 vòng to chính giữa */}
                 {wheels.length === 1 && (
                   <div className="flex flex-col items-center justify-center gap-3">
@@ -1307,13 +1373,77 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
                 )}
               </div>
             )}
+
+            {/* BẢNG NHỮNG NGƯỜI XEM LIVE */}
+            <div className="w-full max-w-2xl shrink-0 mt-3 p-3.5 rounded-2xl bg-white/90 dark:bg-circle-dark-surface/90 border border-circle-hairline/80 dark:border-white/10 shadow-xs backdrop-blur-md flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                    <Users className="w-3.5 h-3.5" />
+                  </div>
+                  <span className="font-bold text-xs text-circle-charcoal dark:text-circle-dark-text">
+                    {locale === 'vi' ? 'Người xem trực tiếp' : 'Live Viewers'}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
+                    {participants.length}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>{locale === 'vi' ? 'Đang xem' : 'Watching'}</span>
+                </div>
+              </div>
+
+              {/* Danh sách avatar + tên người xem */}
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+                {participants.map((p) => {
+                  const isCreator = p.userId === liveSession?.creatorId;
+                  const isMe = p.userId === user?.id;
+                  return (
+                    <div
+                      key={p.userId}
+                      className={`flex items-center gap-2 px-2.5 py-1.5 rounded-xl border transition-all shrink-0 ${
+                        isCreator
+                          ? 'bg-amber-500/10 border-amber-500/30 text-amber-900 dark:text-amber-200'
+                          : 'bg-circle-wash/70 dark:bg-circle-dark-wash/50 border-circle-hairline/60 dark:border-white/10 text-circle-charcoal dark:text-circle-dark-text'
+                      }`}
+                    >
+                      {p.avatarUrl ? (
+                        <img
+                          src={p.avatarUrl}
+                          alt={p.displayName}
+                          className="w-6 h-6 rounded-full object-cover border border-white/60 dark:border-white/10"
+                        />
+                      ) : (
+                        <div className="w-6 h-6 rounded-full bg-circle-primary/20 text-circle-primary flex items-center justify-center font-bold text-[10px]">
+                          {p.displayName?.charAt(0) || 'U'}
+                        </div>
+                      )}
+                      <div className="flex items-center gap-1 max-w-[110px]">
+                        <span className="text-xs font-semibold truncate">{p.displayName}</span>
+                        {isMe && (
+                          <span className="text-[10px] text-circle-slate dark:text-circle-dark-muted font-normal">
+                            (bạn)
+                          </span>
+                        )}
+                      </div>
+                      {isCreator && (
+                        <span className="px-1.5 py-0.2 rounded-md bg-amber-500 text-white text-[9px] font-bold uppercase tracking-wider">
+                          {locale === 'vi' ? 'Chủ phòng' : 'Host'}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
 
           {/* ============================================================== */}
           {/* CỘT BÊN PHẢI: "CÁI BẢNG" (TABBED OPTIONS BOARD & RESULTS) */}
           {/* ============================================================== */}
           {!isPanelCollapsed && (
-            <div className="relative w-full lg:w-[380px] xl:w-[420px] flex flex-col bg-white dark:bg-circle-dark-surface rounded-2xl border border-circle-hairline/80 dark:border-circle-dark-hairline shadow-sm p-4 sm:p-5 transition-all">
+            <div className="relative w-full lg:w-[380px] shrink-0 h-full flex flex-col bg-white dark:bg-circle-dark-surface rounded-2xl border border-circle-hairline/80 dark:border-circle-dark-hairline shadow-sm p-4 sm:p-5 overflow-hidden transition-all">
               {/* Nút thu gọn bảng: Nằm giữa cái viền luôn nửa trong nửa ngoài, to và thẳng hàng với nút mở bảng */}
               <button
                 type="button"
@@ -1325,8 +1455,8 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
                 <PanelRightClose className="w-4.5 h-4.5 group-hover:scale-110 transition-transform" />
               </button>
 
-              {/* Tabs Header: Tên của từng vòng + TAB KẾT QUẢ */}
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-3 border-b border-circle-hairline dark:border-circle-dark-hairline no-scrollbar">
+              {/* Tabs Header: Tên của từng vòng + TAB KẾT QUẢ + TAB NGƯỜI XEM */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-3 border-b border-circle-hairline dark:border-circle-dark-hairline no-scrollbar shrink-0">
                 {wheels.map((wheel) => {
                   const isSelected = activeTab === wheel.id;
                   return (
@@ -1353,7 +1483,7 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
                 <button
                   type="button"
                   onClick={() => setActiveTab('results')}
-                  className={`flex items-center justify-center gap-1.5 min-w-28 px-2.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                  className={`flex items-center justify-center gap-1.5 min-w-24 px-2.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
                     activeTab === 'results'
                       ? 'bg-amber-500 text-white shadow-xs font-bold'
                       : 'bg-circle-wash/60 dark:bg-circle-dark-wash/40 text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash hover:text-circle-charcoal dark:hover:text-circle-dark-text'
@@ -1373,12 +1503,35 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
                     </span>
                   )}
                 </button>
+
+                {/* Tab Người Xem */}
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('viewers')}
+                  className={`flex items-center justify-center gap-1.5 min-w-24 px-2.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                    activeTab === 'viewers'
+                      ? 'bg-emerald-600 text-white shadow-xs font-bold'
+                      : 'bg-circle-wash/60 dark:bg-circle-dark-wash/40 text-circle-slate dark:text-circle-dark-muted hover:bg-circle-wash dark:hover:bg-circle-dark-wash hover:text-circle-charcoal dark:hover:text-circle-dark-text'
+                  }`}
+                >
+                  <Users className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate">{locale === 'vi' ? 'Người xem' : 'Viewers'}</span>
+                  <span
+                    className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                      activeTab === 'viewers'
+                        ? 'bg-white/20 text-white'
+                        : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                    }`}
+                  >
+                    {participants.length}
+                  </span>
+                </button>
               </div>
 
               {/* TAB CONTENT: KẾT QUẢ (DẠNG TEXT CHỈ ĐỌC, GHI THEO LẦN) */}
               {activeTab === 'results' ? (
-                <div className="flex-1 flex flex-col pt-4 gap-3">
-                  <div className="flex items-center justify-between pb-2 border-b border-circle-hairline dark:border-circle-dark-hairline">
+                <div className="flex-1 min-h-0 flex flex-col pt-4 gap-3">
+                  <div className="flex items-center justify-between pb-2 border-b border-circle-hairline dark:border-circle-dark-hairline shrink-0">
                     <div className="flex items-center gap-2">
                       <Trophy className="w-4 h-4 text-amber-500" />
                       <span className="font-bold text-sm text-circle-charcoal dark:text-circle-dark-text truncate">
@@ -1391,20 +1544,20 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
                   </div>
 
                   {/* Textarea lớn chỉ đọc hiển thị kết quả */}
-                  <div className="flex-1 flex flex-col gap-1.5">
+                  <div className="flex-1 min-h-0 flex flex-col gap-1.5">
                     <textarea
                       value={resultsText}
                       readOnly
                       placeholder={t.luckyWheel.resultsPlaceholder}
-                      className="w-full flex-1 min-h-[220px] p-3 text-sm rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas text-circle-charcoal dark:text-circle-dark-text placeholder:text-circle-slate/60 dark:placeholder:text-circle-dark-muted/60 focus:outline-none resize-none leading-relaxed transition-all font-mono select-text cursor-default"
+                      className="w-full flex-1 min-h-0 p-3 text-sm rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas text-circle-charcoal dark:text-circle-dark-text placeholder:text-circle-slate/60 dark:placeholder:text-circle-dark-muted/60 focus:outline-none resize-none leading-relaxed transition-all font-mono select-text cursor-default"
                     />
-                    <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted truncate">
+                    <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted truncate shrink-0">
                       {t.luckyWheel.resultsHint}
                     </p>
                   </div>
 
                   {/* Thanh tác vụ dưới cùng: Sắp xếp, Gửi tin nhắn, Xoá tất cả (Icons only) */}
-                  <div className="grid grid-cols-3 gap-2 pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline">
+                  <div className="grid grid-cols-3 gap-2 pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline shrink-0">
                     {/* Nút Sắp xếp */}
                     <button
                       type="button"
@@ -1447,7 +1600,114 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
                   </div>
 
                   {/* Hàng thiết lập ở đáy: Bật/Tắt âm thanh & Xoá tất cả vòng quay (đồng bộ với Tab Setup) */}
-                  <div className="flex items-center justify-between pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline text-xs">
+                  <div className="flex items-center justify-between pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline text-xs shrink-0">
+                    {/* Sound Toggle */}
+                    <button
+                      type="button"
+                      onClick={handleToggleSound}
+                      disabled={isAnySpinning}
+                      className="flex items-center gap-1.5 text-circle-slate dark:text-circle-dark-muted hover:text-circle-charcoal dark:hover:text-circle-dark-text disabled:opacity-40 transition-colors cursor-pointer"
+                    >
+                      {currentSoundEnabled ? (
+                        <Volume2 className="w-4 h-4 text-circle-primary dark:text-circle-dark-primary" />
+                      ) : (
+                        <VolumeX className="w-4 h-4 text-circle-slate/60 dark:text-circle-dark-muted/60" />
+                      )}
+                      <span>{t.luckyWheel.soundSetting}</span>
+                    </button>
+
+                    {/* Delete All Wheels Button */}
+                    <button
+                      type="button"
+                      onClick={handleDeleteAllWheels}
+                      disabled={isAnySpinning || wheels.length === 0}
+                      className="flex items-center gap-1 text-rose-500 hover:text-rose-600 font-semibold disabled:opacity-30 transition-colors cursor-pointer"
+                      title={t.luckyWheel.deleteAllWheels}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>{t.luckyWheel.deleteAllWheels}</span>
+                    </button>
+                  </div>
+                </div>
+              ) : activeTab === 'viewers' ? (
+                /* TAB CONTENT: NGƯỜI XEM TRỰC TIẾP (DANH SÁCH KHÁN GIẢ & CHỦ PHÒNG) */
+                <div className="flex-1 min-h-0 flex flex-col pt-4 gap-3">
+                  <div className="flex items-center justify-between pb-2 border-b border-circle-hairline dark:border-circle-dark-hairline shrink-0">
+                    <div className="flex items-center gap-2">
+                      <Users className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                      <span className="font-bold text-sm text-circle-charcoal dark:text-circle-dark-text truncate">
+                        {locale === 'vi' ? 'Danh sách người xem' : 'Audience list'}
+                      </span>
+                      <span className="text-xs text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                        {participants.length}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                      <span>{locale === 'vi' ? 'Trực tiếp' : 'Live'}</span>
+                    </div>
+                  </div>
+
+                  {/* Danh sách người xem cuộn mượt mà */}
+                  <div className="flex-1 min-h-0 overflow-y-auto pr-1 flex flex-col gap-2">
+                    {participants.map((p) => {
+                      const isCreator = p.userId === liveSession?.creatorId;
+                      const isMe = p.userId === user?.id;
+                      return (
+                        <div
+                          key={p.userId}
+                          className={`flex items-center justify-between p-2.5 rounded-xl border transition-all ${
+                            isCreator
+                              ? 'bg-amber-500/10 border-amber-500/30 text-amber-900 dark:text-amber-200'
+                              : 'bg-circle-canvas/80 dark:bg-circle-dark-canvas/60 border-circle-hairline/80 dark:border-white/10 text-circle-charcoal dark:text-circle-dark-text'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            {p.avatarUrl ? (
+                              <img
+                                src={p.avatarUrl}
+                                alt={p.displayName}
+                                className="w-8 h-8 rounded-full object-cover border border-white/60 dark:border-white/10 shrink-0"
+                              />
+                            ) : (
+                              <div className="w-8 h-8 rounded-full bg-circle-primary/20 text-circle-primary flex items-center justify-center font-bold text-xs shrink-0">
+                                {p.displayName?.charAt(0) || 'U'}
+                              </div>
+                            )}
+                            <div className="flex flex-col min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs font-bold truncate max-w-[140px]">{p.displayName}</span>
+                                {isMe && (
+                                  <span className="text-[10px] text-circle-slate dark:text-circle-dark-muted font-medium">
+                                    ({locale === 'vi' ? 'bạn' : 'you'})
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-[10px] text-circle-slate dark:text-circle-dark-muted">
+                                {isCreator
+                                  ? (locale === 'vi' ? 'Chủ phòng quay' : 'Room Host')
+                                  : (locale === 'vi' ? 'Đang theo dõi' : 'Watching')}
+                              </span>
+                            </div>
+                          </div>
+
+                          {isCreator ? (
+                            <span className="px-2 py-0.5 rounded-md bg-amber-500 text-white text-[10px] font-bold uppercase tracking-wider shrink-0">
+                              {locale === 'vi' ? 'Chủ phòng' : 'Host'}
+                            </span>
+                          ) : (
+                            <span className="flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold shrink-0">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                              <span>Online</span>
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Hàng thiết lập ở đáy: Bật/Tắt âm thanh & Xoá tất cả vòng quay (đồng bộ với Tab Setup và Tab Results) */}
+                  <div className="flex items-center justify-between pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline text-xs shrink-0">
                     {/* Sound Toggle */}
                     <button
                       type="button"
@@ -1479,9 +1739,9 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
               ) : (
                 /* TAB CONTENT: ACTIVE WHEEL (OPTIONS & SETTINGS) */
                 activeWheel && (
-                  <div className="flex-1 flex flex-col pt-4 gap-4">
+                  <div className="flex-1 min-h-0 flex flex-col pt-4 gap-4">
                     {/* Wheel Title Row */}
-                    <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center justify-between gap-2 shrink-0">
                       {isEditingTitle ? (
                         <div className="flex items-center gap-1.5 flex-1">
                           <input
@@ -1499,7 +1759,7 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
                             type="button"
                             onClick={saveEditTitle}
                             disabled={isAnySpinning}
-                            className="p-1 rounded-md bg-circle-primary hover:bg-circle-sage text-white disabled:opacity-50 cursor-pointer"
+                            className="p-1 rounded-md bg-circle-primary hover:bg-circle-sage text-white disabled:opacity-50 cursor-pointer shrink-0"
                           >
                             <Check className="w-4 h-4" />
                           </button>
@@ -1513,7 +1773,7 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
                             <button
                               type="button"
                               onClick={startEditTitle}
-                              className="opacity-70 group-hover:opacity-100 p-1 rounded hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate dark:text-circle-dark-muted transition-opacity cursor-pointer"
+                              className="opacity-70 group-hover:opacity-100 p-1 rounded hover:bg-circle-wash dark:hover:bg-circle-dark-wash text-circle-slate dark:text-circle-dark-muted transition-opacity cursor-pointer shrink-0"
                               title={t.luckyWheel.renameWheel}
                             >
                               <Edit2 className="w-3.5 h-3.5" />
@@ -1533,7 +1793,7 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
                             }
                           }}
                           disabled={isAnySpinning}
-                          className="p-1.5 rounded-lg text-circle-slate dark:text-circle-dark-muted hover:text-rose-500 hover:bg-rose-500/10 dark:hover:bg-rose-950/20 disabled:opacity-30 transition-colors cursor-pointer"
+                          className="p-1.5 rounded-lg text-circle-slate dark:text-circle-dark-muted hover:text-rose-500 hover:bg-rose-500/10 dark:hover:bg-rose-950/20 disabled:opacity-30 transition-colors cursor-pointer shrink-0"
                           title={t.luckyWheel.confirmDeleteTitle}
                         >
                           <Trash2 className="w-4 h-4" />
@@ -1542,8 +1802,8 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
                     </div>
 
                     {/* Textarea: Large, 1 line = 1 option */}
-                    <div className="flex-1 flex flex-col gap-1.5">
-                      <div className="flex items-center justify-between text-xs text-circle-slate dark:text-circle-dark-muted">
+                    <div className="flex-1 min-h-0 flex flex-col gap-1.5">
+                      <div className="flex items-center justify-between text-xs text-circle-slate dark:text-circle-dark-muted shrink-0">
                         <span className="font-medium">{t.luckyWheel.optionsListTitle}</span>
                         <span
                           className={`font-semibold ${
@@ -1562,14 +1822,14 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
                         onChange={(e) => handleOptionsChange(e.target.value)}
                         readOnly={isAnySpinning}
                         placeholder={t.luckyWheel.optionsPlaceholder}
-                        className="w-full flex-1 min-h-[200px] p-3 text-sm rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas text-circle-charcoal dark:text-circle-dark-text placeholder:text-circle-slate/60 dark:placeholder:text-circle-dark-muted/60 focus:bg-white dark:focus:bg-circle-dark-canvas focus:ring-2 focus:ring-circle-primary/40 focus:outline-none resize-none leading-relaxed transition-all font-mono disabled:opacity-50"
+                        className="w-full flex-1 min-h-0 p-3 text-sm rounded-xl border border-circle-hairline dark:border-circle-dark-hairline bg-circle-canvas dark:bg-circle-dark-canvas text-circle-charcoal dark:text-circle-dark-text placeholder:text-circle-slate/60 dark:placeholder:text-circle-dark-muted/60 focus:bg-white dark:focus:bg-circle-dark-canvas focus:ring-2 focus:ring-circle-primary/40 focus:outline-none resize-none leading-relaxed transition-all font-mono disabled:opacity-50"
                       />
 
-                      <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted">{t.luckyWheel.optionsHint}</p>
+                      <p className="text-[11px] text-circle-slate dark:text-circle-dark-muted shrink-0">{t.luckyWheel.optionsHint}</p>
                     </div>
 
                     {/* Action Buttons: Shuffle, Sort A-Z, Save Initial & Reset (Icons only, no text) */}
-                    <div className="grid grid-cols-4 gap-2 pt-1 border-t border-circle-hairline dark:border-circle-dark-hairline">
+                    <div className="grid grid-cols-4 gap-2 pt-1 border-t border-circle-hairline dark:border-circle-dark-hairline shrink-0">
                       {/* Shuffle Button */}
                       <button
                         type="button"
@@ -1628,7 +1888,7 @@ export const LiveWheelOverlay: React.FC<LiveWheelOverlayProps> = ({ circleId }) 
                     </div>
 
                     {/* Wheel Settings: Sound and Delete All */}
-                    <div className="flex items-center justify-between pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline text-xs">
+                    <div className="flex items-center justify-between pt-2 border-t border-circle-hairline dark:border-circle-dark-hairline text-xs shrink-0">
                       {/* Sound Toggle */}
                       <button
                         type="button"

@@ -9446,3 +9446,30 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
 - **Security & License Check:** An toàn tuyệt đối, zero secret leaks.
 - **Commit:** Pending
 - **PR:** Pending
+
+
+---
+
+## AI-0233: Căn chỉnh Layout chống co giãn, Thêm Floating Pill Kết quả & Bảng Người xem Live
+
+- **Date:** 2026-11-19 16:10:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120 (Event RSVP & Realtime Delights)
+- **Purpose:** Căn chỉnh layout cố định chiều cao chống co giãn giữa sân khấu vòng quay (Visual Arena) và Cái Bảng (Options & Results Board); cố định kích thước các vòng quay bất biến khi đóng/mở panel; thêm Floating Pill Button "Kết quả" ở thanh trên cùng mở thẳng tab Kết quả; thêm bảng hiển thị người xem trực tiếp (cả ở đáy Visual Arena và tab Người xem trong Cái Bảng); gỡ bỏ chữ/badge LIVE khỏi tiêu đề "Vòng quay ngẫu nhiên".
+- **Prompt Summary:** Căn chỉnh lại sao cho bảng thiết lập và vòng quay không bị co giãn, thêm 1 Floating Pill Button là kết quả ở trên, thêm 1 bảng những người xem live nữa và bỏ chữ live ở text vòng quay ngẫu nhiên.
+- **Files Affected:**
+  - `apps/web/src/components/chat/LiveWheelOverlay.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% logic căn chỉnh layout flexbox `min-h-0`, `h-[620px] max-h-[calc(100vh-120px)] min-h-[520px]`, floating pill "Kết quả", bảng người xem trực tiếp, tab Người xem và dọn sạch chữ LIVE.
+- **Human Modifications:** Người dùng trực tiếp rà soát yêu cầu và phản hồi giao diện.
+- **Verification Method:** Chạy `npx tsc --noEmit` trên cả web và backend đạt 0 errors; chạy `npm test --prefix apps/backend -- circle-tools` pass 48/48 tests; chạy `npm run build --prefix apps/web` thành công; chạy `./scripts/check-secrets.sh` 0 secret leaks.
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn, không chứa secret, tuân thủ 10 Hard Gates.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** Truy cập sai thuộc tính `user.displayName` và `user.avatarUrl` thay vì `user.profile?.displayName` và `user.profile?.avatarUrl` từ `AuthUserData`.
+  - **Root Cause:** Nhầm lẫn giữa entity `UserProfileEntity` và interface gốc `AuthUserData`.
+  - **Resolution / Fix:** Sửa thành `user.profile?.displayName` và `user.profile?.avatarUrl`, `tsc` pass 100%.
+- **Commit:** Pending
+- **PR:** Pending
