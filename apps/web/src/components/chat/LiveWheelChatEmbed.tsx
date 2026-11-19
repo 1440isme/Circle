@@ -20,7 +20,10 @@ export const LiveWheelChatEmbed: React.FC<LiveWheelChatEmbedProps> = ({
   const { locale } = useLanguageStore();
   const joinMutation = useJoinLiveWheelMutation(circleId);
 
+  const isFinished = payload.stageStatus === 'finished';
+
   const handleJoin = async () => {
+    if (isFinished) return;
     let joinedSession: LiveWheelSession | null = null;
     try {
       joinedSession = await joinMutation.mutateAsync({ sessionId: payload.sessionId });
@@ -52,14 +55,24 @@ export const LiveWheelChatEmbed: React.FC<LiveWheelChatEmbedProps> = ({
               {payload.wheelTitle || (locale === 'vi' ? 'Vòng quay ngẫu nhiên' : 'Random Wheel')}
             </h4>
             <span className="text-[10px] text-teal-600 dark:text-teal-400 font-semibold uppercase tracking-wider">
-              {locale === 'vi' ? 'Tương tác trực tiếp' : 'Live Interactive'}
+              {isFinished
+                ? (locale === 'vi' ? 'Đã kết thúc' : 'Ended')
+                : (locale === 'vi' ? 'Tương tác trực tiếp' : 'Live Interactive')}
             </span>
           </div>
         </div>
 
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-teal-500/10 text-teal-700 dark:text-teal-300 text-[11px] font-bold border border-teal-500/20">
+        <span
+          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${
+            isFinished
+              ? 'bg-circle-wash dark:bg-circle-dark-wash text-circle-slate dark:text-circle-dark-muted border-circle-hairline/60'
+              : 'bg-teal-500/10 text-teal-700 dark:text-teal-300 border-teal-500/20'
+          }`}
+        >
           <Sparkles className="w-3 h-3 text-teal-500" />
-          {locale === 'vi' ? 'Hoạt động nhóm' : 'Group Fun'}
+          {isFinished
+            ? (locale === 'vi' ? 'Đã hoàn thành' : 'Finished')
+            : (locale === 'vi' ? 'Hoạt động nhóm' : 'Group Fun')}
         </span>
       </div>
 
@@ -125,16 +138,22 @@ export const LiveWheelChatEmbed: React.FC<LiveWheelChatEmbedProps> = ({
       )}
 
       {/* Action Button: Tham gia vòng quay */}
-      <button
-        type="button"
-        onClick={handleJoin}
-        disabled={joinMutation.isPending}
-        className="w-full py-2.5 px-4 rounded-2xl bg-circle-primary hover:bg-circle-primary/90 text-circle-charcoal dark:text-circle-dark-canvas font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md transition-all active:scale-[0.98] cursor-pointer"
-      >
-        <Compass className="w-4 h-4" />
-        <span>{locale === 'vi' ? 'Tham gia vòng quay' : 'Join Wheel'}</span>
-        <ArrowRight className="w-4 h-4 ml-0.5" />
-      </button>
+      {isFinished ? (
+        <div className="w-full py-2.5 px-4 rounded-2xl bg-circle-wash dark:bg-circle-dark-wash text-circle-slate dark:text-circle-dark-muted font-bold text-xs sm:text-sm flex items-center justify-center gap-2 cursor-default border border-circle-hairline/80 dark:border-circle-dark-hairline">
+          <span>{locale === 'vi' ? 'Phiên quay đã kết thúc' : 'Session ended'}</span>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={handleJoin}
+          disabled={joinMutation.isPending}
+          className="w-full py-2.5 px-4 rounded-2xl bg-circle-primary hover:bg-circle-primary/90 text-circle-charcoal dark:text-circle-dark-canvas font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md transition-all active:scale-[0.98] cursor-pointer"
+        >
+          <Compass className="w-4 h-4" />
+          <span>{locale === 'vi' ? 'Tham gia vòng quay' : 'Join Wheel'}</span>
+          <ArrowRight className="w-4 h-4 ml-0.5" />
+        </button>
+      )}
     </div>
   );
 };

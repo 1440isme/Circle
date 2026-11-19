@@ -934,8 +934,8 @@ export class CircleToolsService {
               channelId: payload.channelId,
               wheelTitle: payload.wheelTitle || 'Vòng quay ngẫu nhiên',
               options: wheelsList[0]?.options || [],
-              winningIndex: 0,
-              winningOption: wheelsList[0]?.options[0] || { optionLabel: '', color: '#0D9488' },
+              winningIndex: -1,
+              winningOption: null,
               startedAt: payload.startedAt || Date.now(),
               durationMs: 6000,
               stageStatus: payload.stageStatus || 'idle',
@@ -978,58 +978,58 @@ export class CircleToolsService {
       existing = [];
     }
 
-    if (existing.length < 4) {
-      const needed = 4 - existing.length;
-      const startIndex = existing.length;
-      for (let i = 0; i < needed; i++) {
-        const template =
-          DEFAULT_FOUR_WHEELS_DATA[(startIndex + i) % DEFAULT_FOUR_WHEELS_DATA.length]!;
-        try {
-          await this.prisma.decisionWheel.create({
-            data: {
-              circleId,
-              title: template.title,
-              options: {
-                create: template.options.map((optLabel, oIdx) => ({
-                  optionLabel: optLabel,
-                  color: PASTEL_WHEEL_COLORS[oIdx % PASTEL_WHEEL_COLORS.length]!,
-                })),
-              },
+    // Chỉ tạo đúng 1 vòng mặc định nếu Circle chưa có vòng nào, KHÔNG tự động ép sinh 4 vòng
+    if (existing.length === 0) {
+      const template = DEFAULT_FOUR_WHEELS_DATA[0]!;
+      try {
+        const created = await this.prisma.decisionWheel.create({
+          data: {
+            circleId,
+            title: template.title,
+            options: {
+              create: template.options.map((optLabel, oIdx) => ({
+                optionLabel: optLabel,
+                color: PASTEL_WHEEL_COLORS[oIdx % PASTEL_WHEEL_COLORS.length]!,
+              })),
             },
-          });
-        } catch {}
-      }
-
-      const refreshed = await this.prisma.decisionWheel.findMany({
-        where: { circleId },
-        include: { options: true },
-        orderBy: { createdAt: 'asc' },
-      });
-      if (Array.isArray(refreshed) && refreshed.length > 0) {
-        existing = refreshed;
-      }
+          },
+          include: { options: true },
+        });
+        if (created && created.id) {
+          existing = [created];
+        }
+      } catch {}
     }
 
-    // Nếu trong môi trường test DB chưa có dữ liệu, trả về danh sách 4 vòng giả lập an toàn
+    // Nếu trong môi trường test DB chưa có dữ liệu, trả về danh sách 1 vòng giả lập an toàn
     if (existing.length === 0) {
-      existing = DEFAULT_FOUR_WHEELS_DATA.map((t, idx) => ({
-        id: `mock-wheel-${idx + 1}`,
-        circleId,
-        title: t.title,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        options: t.options.map((optLabel, oIdx) => ({
-          id: `mock-opt-${idx}-${oIdx}`,
-          wheelId: `mock-wheel-${idx + 1}`,
-          optionLabel: optLabel,
-          color: PASTEL_WHEEL_COLORS[oIdx % PASTEL_WHEEL_COLORS.length]!,
+      existing = [
+        {
+          id: `mock-wheel-1`,
+          circleId,
+          title: DEFAULT_FOUR_WHEELS_DATA[0]!.title,
           createdAt: new Date(),
           updatedAt: new Date(),
-        })),
-      })) as any;
+          options: DEFAULT_FOUR_WHEELS_DATA[0]!.options.map((optLabel, oIdx) => ({
+            id: `mock-opt-0-${oIdx}`,
+            wheelId: `mock-wheel-1`,
+            optionLabel: optLabel,
+            color: PASTEL_WHEEL_COLORS[oIdx % PASTEL_WHEEL_COLORS.length]!,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          })),
+        } as any,
+      ];
     }
 
-    return existing;
+    return existing
+      .filter((w) => Boolean(w && typeof w === 'object'))
+      .map((w, idx) => ({
+        ...w,
+        id: w.id || `mock-wheel-${idx + 1}`,
+        title: w.title || `Vòng ${idx + 1}`,
+        options: Array.isArray(w.options) ? w.options : [],
+      }));
   }
 
   async createLiveWheelStage(
@@ -1045,7 +1045,7 @@ export class CircleToolsService {
       wheelId: w.id,
       wheelTitle: w.title || `Vòng ${idx + 1}`,
       options:
-        w.options.length >= 2
+        w.options && Array.isArray(w.options) && w.options.length >= 2
           ? w.options.map((o, oIdx) => ({
               optionLabel: o.optionLabel,
               color: o.color || PASTEL_WHEEL_COLORS[oIdx % PASTEL_WHEEL_COLORS.length]!,
@@ -1193,8 +1193,8 @@ export class CircleToolsService {
       channelId: channel?.id,
       wheelTitle,
       options: wheelsList[0]?.options || [],
-      winningIndex: 0,
-      winningOption: wheelsList[0]?.options[0] || { optionLabel: '', color: '#0D9488' },
+      winningIndex: -1,
+      winningOption: null,
       startedAt: Date.now(),
       durationMs: 6000,
       stageStatus: 'idle',
@@ -1234,7 +1234,7 @@ export class CircleToolsService {
         wheelId: w.id,
         wheelTitle: w.title || `Vòng ${idx + 1}`,
         options:
-          w.options.length >= 2
+          w.options && Array.isArray(w.options) && w.options.length >= 2
             ? w.options.map((o, oIdx) => ({
                 optionLabel: o.optionLabel,
                 color: o.color || PASTEL_WHEEL_COLORS[oIdx % PASTEL_WHEEL_COLORS.length]!,
@@ -1258,8 +1258,8 @@ export class CircleToolsService {
         circleId,
         wheelTitle: 'Vòng quay ngẫu nhiên',
         options: wheelsList[0]?.options || [],
-        winningIndex: 0,
-        winningOption: wheelsList[0]?.options[0] || { optionLabel: '', color: '#0D9488' },
+        winningIndex: -1,
+        winningOption: null,
         startedAt: Date.now(),
         durationMs: 6000,
         stageStatus: 'idle',
@@ -1414,7 +1414,7 @@ export class CircleToolsService {
 
     const wheelsList: LiveWheelItem[] = fourWheels.map((w, idx) => {
       const rawOptions =
-        w.options.length >= 2
+        w.options && Array.isArray(w.options) && w.options.length >= 2
           ? w.options
           : [
               { optionLabel: 'Phương án 1', color: PASTEL_WHEEL_COLORS[0]! },
@@ -1646,6 +1646,24 @@ export class CircleToolsService {
     if (this.chatGateway) {
       this.chatGateway.broadcastLiveWheelClosed(circleId);
     }
+
+    // 5. Dọn dẹp các vòng quay tạm thời, hoàn nguyên về 1 vòng mặc định tinh gọn cho phiên tiếp theo
+    try {
+      await this.prisma.decisionWheel.deleteMany({ where: { circleId } });
+      const template = DEFAULT_FOUR_WHEELS_DATA[0]!;
+      await this.prisma.decisionWheel.create({
+        data: {
+          circleId,
+          title: template.title,
+          options: {
+            create: template.options.map((optLabel, oIdx) => ({
+              optionLabel: optLabel,
+              color: PASTEL_WHEEL_COLORS[oIdx % PASTEL_WHEEL_COLORS.length]!,
+            })),
+          },
+        },
+      });
+    } catch {}
 
     return { success: true };
   }

@@ -9500,3 +9500,37 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
   - **Resolution / Fix:** Đưa `participants = useMemo(...)` lên trước toàn bộ các câu lệnh early return.
 - **Commit:** Pending
 - **PR:** Pending
+
+
+---
+
+## AI-0235: Tinh chỉnh Vòng quay ngẫu nhiên: Bỏ bảng người xem, Căn giữa chữ đĩa quay & Khắc phục lỗi sinh 4 vòng
+
+- **Date:** 2026-11-19 16:47:00 +07:00
+- **Developer:** Trương Công Bình
+- **Tool:** Antigravity IDE
+- **Model:** Gemini 3.8 Flash (High)
+- **Related Issue:** #120 (Event RSVP & Realtime Delights)
+- **Purpose:** 
+  1. Gỡ bỏ hoàn toàn bảng người xem trực tiếp (Live Viewers) ở đáy sân khấu theo yêu cầu người dùng, mở rộng không gian cho vòng quay.
+  2. Sửa lỗi nút thu gọn bảng bị cắt/đè mép do thuộc tính `overflow-hidden` của khung ngoài Cái Bảng, nâng `z-index: 40`.
+  3. Khắc phục lỗi chữ trên đĩa quay bị thụt hẳn vào tâm: Chuyển căn lề sang `textAlign = 'center'` tại trung điểm bán kính lát quay (`textRadius`), tự động co giãn kích thước font và cắt ngắn với dấu `…` để chữ luôn cân xứng hoàn hảo giữa tâm và vành.
+  4. Khắc phục triệt để lỗi tự động sinh 4 vòng khi bật/tắt âm thanh: Thay đổi logic `ensureFourWheels` ở backend để không tự động tạo thêm vòng khi đã có vòng trong Circle.
+  5. Hoàn nguyên vòng quay về 1 vòng mặc định tinh gọn khi đóng phòng quay và reset kết quả cho phiên mới; chặn nút tham gia trên các thẻ tin nhắn phòng quay đã kết thúc (`isFinished`).
+- **Prompt Summary:** Bỏ bảng những người xem trực tiếp, sửa nút thu gọn bảng bị đè, sửa text trên vòng bị thụt vào tâm, sửa lỗi ấn tắt âm thanh sinh ra 4 vòng và ấn vào vòng quay ngẫu nhiên ra các vòng quay trước đó đã đóng.
+- **Files Affected:**
+  - `apps/backend/src/modules/circle-tools/circle-tools.service.ts`
+  - `apps/web/src/components/chat/LiveWheelOverlay.tsx`
+  - `apps/web/src/components/chat/LiveWheelChatEmbed.tsx`
+  - `docs/ai-usage/log.md`
+- **AI-Generated Portion:** 100% logic căn giữa chữ canvas, sửa backend `ensureFourWheels`, giải phóng nút thu gọn bảng và xử lý trạng thái phiên quay đã đóng.
+- **Human Modifications:** Người dùng trực tiếp trải nghiệm và phản hồi các chi tiết giao diện/logic cần điều chỉnh.
+- **Verification Method:** `npx tsc --noEmit` pass 0 errors cả web và backend; `npm test --prefix apps/backend -- circle-tools` pass 48/48 tests; `npm run build --prefix apps/web` pass 100%; `check-secrets.sh` 0 leaks.
+- **Official Source Checked:** `PROJECT_GOD.md`, `agentic/RULES.md`.
+- **Security & License Check:** An toàn, không chứa secret.
+- **AI Errors / Hallucinations Found:**
+  - **Error Description:** Hàm `ensureFourWheels` trước đó tự động chèn thêm bản ghi vào database nếu số vòng nhỏ hơn 4, dẫn đến việc đổi cài đặt âm thanh kích hoạt re-fetch và hiện ra 4 vòng.
+  - **Root Cause:** Logic mock cũ ép cứng layout 4 vòng quay.
+  - **Resolution / Fix:** Sửa `ensureFourWheels` chỉ tạo 1 vòng nếu DB hoàn toàn rỗng, giữ nguyên đúng số lượng vòng người dùng thiết lập.
+- **Commit:** Pending
+- **PR:** Pending
