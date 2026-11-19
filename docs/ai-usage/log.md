@@ -9568,5 +9568,5 @@ pm test --prefix apps/backend -- src/modules/circle-tools/circle-tools.service.s
   - **Error Description:** Khi đóng phòng quay, backend trước đó xóa toàn bộ vòng quay (`deleteMany`) và tạo bản ghi mới với UUID mới, khiến client giữ cache ID cũ gọi `updateWheel` bị trả về 404 "Không tìm thấy vòng quay".
   - **Root Cause:** Xóa sạch bản ghi vòng quay và tạo UUID mới thay vì giữ lại vòng 1 và cập nhật options.
   - **Resolution / Fix:** Giữ nguyên bản ghi vòng 1 (giữ ID cố định), đồng thời bổ sung fallback truy vấn và refetch cache phía client.
-- **Commit:** Pending
-- **PR:** Pending
+- **Commit:** 589b184
+- **PR:** #120
